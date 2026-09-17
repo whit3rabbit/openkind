@@ -1,0 +1,100 @@
+// openpick/v1 — Phase 1 wire definition for openpick.
+//
+// Mirrors the HTTP API at POST /v1/systemone. The `state` and `instructions`
+// fields are intentionally `google.protobuf.Value` so the protobuf
+// representation matches the JSON `string | object | array` polymorphism.
+
+syntax = "proto3";
+package openpick;
+
+// Re-export google.protobuf.Value so generated code is self-contained.
+// (Tonic will pull the well-known types automatically.)
+
+service SystemOne {
+  // POST /v1/systemone
+  rpc Evaluate (SystemOneRequest) returns (SystemOneResponse);
+}
+
+message State {
+  // google.protobuf.Value
+  oneof value {
+    string text = 1;
+    Structured structured = 2;
+  }
+}
+
+message Structured {
+  // Forwards any JSON-shaped payload as raw JSON bytes.
+  bytes json = 1;
+}
+
+message SystemOneRequest {
+  State state = 1;
+  string model = 2;
+  map<string, Question> questions = 3;
+}
+
+message Question {
+  oneof kind {
+    NoulQuestion noul = 1;
+    ChoiceQuestion choice = 2;
+    ScoreQuestion score = 3;
+  }
+}
+
+message NoulQuestion {
+  // instructions: string | object | array
+  bytes instructions_json = 1;
+  NoulCriteria criteria = 2;  // nullable
+}
+
+message NoulCriteria {
+  string is_true = 1;
+  string is_false = 2;
+}
+
+message ChoiceQuestion {
+  bytes instructions_json = 1;
+  map<string, string> criteria = 2;  // values are nullable strings
+}
+
+message ScoreQuestion {
+  bytes instructions_json = 1;
+  repeated string criteria = 2;  // ordered, >= 2
+}
+
+message SystemOneResponse {
+  string model = 1;
+  map<string, Answer> answers = 2;
+  Usage usage = 3;
+}
+
+message Answer {
+  oneof kind {
+    NoulAnswer noul = 1;
+    ChoiceAnswer choice = 2;
+    ScoreAnswer score = 3;
+  }
+}
+
+message NoulAnswer {
+  double noul = 1;
+}
+
+message ChoiceAnswer {
+  string choice = 1;
+  map<string, double> probabilities = 2;
+  double confidence = 3;
+}
+
+message ScoreAnswer {
+  double score = 1;
+  map<string, string> legend = 2;
+  map<string, double> probabilities = 3;
+  double confidence = 4;
+}
+
+message Usage {
+  uint32 input_tokens = 1;
+  uint32 output_tokens = 2;
+}

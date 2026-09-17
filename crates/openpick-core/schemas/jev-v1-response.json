@@ -1,0 +1,149 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SystemResponse",
+  "type": "object",
+  "required": [
+    "answers",
+    "model",
+    "usage"
+  ],
+  "properties": {
+    "answers": {
+      "description": "One answer per question id. **Required.**",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/Answer"
+      }
+    },
+    "model": {
+      "description": "The model that performed the evaluation. **Required.**",
+      "type": "string"
+    },
+    "usage": {
+      "description": "Required token usage.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/Usage"
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "Answer": {
+      "oneOf": [
+        {
+          "description": "Spec: `noul` is a number 0..1. **No `confidence` field** \u2014 Noul answers don't get one per the spec.\n\n`f64` so wire-format precision matches the API spec exactly (a 0.92 going through f32 round-trips to 0.9200000166893005 \u2014 wrong).",
+          "type": "object",
+          "required": [
+            "noul",
+            "type"
+          ],
+          "properties": {
+            "noul": {
+              "type": "number",
+              "format": "double"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "noul"
+              ]
+            }
+          }
+        },
+        {
+          "description": "`probabilities` is a full distribution (sums to 1) over the criteria keys. `confidence` is required (per spec). `f64` for wire-format precision.",
+          "type": "object",
+          "required": [
+            "choice",
+            "confidence",
+            "probabilities",
+            "type"
+          ],
+          "properties": {
+            "choice": {
+              "type": "string"
+            },
+            "confidence": {
+              "type": "number",
+              "format": "double"
+            },
+            "probabilities": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number",
+                "format": "double"
+              }
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "choice"
+              ]
+            }
+          }
+        },
+        {
+          "description": "`legend` is level-index (string) \u2192 level description. `probabilities` is keyed by the same index strings. `confidence` required. `f64` for wire-format precision.",
+          "type": "object",
+          "required": [
+            "confidence",
+            "legend",
+            "probabilities",
+            "score",
+            "type"
+          ],
+          "properties": {
+            "confidence": {
+              "type": "number",
+              "format": "double"
+            },
+            "legend": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "probabilities": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number",
+                "format": "double"
+              }
+            },
+            "score": {
+              "type": "number",
+              "format": "double"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "score"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "Usage": {
+      "description": "Token usage. **Required** (per spec \u2014 ChatGPT plan said `Option<Usage>`, that's wrong).",
+      "type": "object",
+      "required": [
+        "input_tokens",
+        "output_tokens"
+      ],
+      "properties": {
+        "input_tokens": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "output_tokens": {
+          "type": "integer",
+          "format": "uint32",
+          "minimum": 0.0
+        }
+      }
+    }
+  }
+}

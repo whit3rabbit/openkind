@@ -1,0 +1,154 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SystemRequest",
+  "type": "object",
+  "required": [
+    "model",
+    "questions",
+    "state"
+  ],
+  "properties": {
+    "model": {
+      "description": "Required. `\"jev-latest\"` or a registered model alias. We keep this required even though Phase 0 doesn't dispatch \u2014 the engine layer in Phase 2 will use it to pick a backend.",
+      "type": "string"
+    },
+    "questions": {
+      "description": "Required. Map of user-chosen id \u2192 typed question. Keys are NOT sent to the model and are NOT used in inference (per spec).",
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/definitions/Question"
+      }
+    },
+    "state": {
+      "description": "Required. The content to evaluate.",
+      "allOf": [
+        {
+          "$ref": "#/definitions/State"
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "NoulCriteria": {
+      "description": "Reserved `true`/`false` keys. `r#true` / `r#false` because those are keywords in Rust (and in the JSON spec).",
+      "type": "object",
+      "required": [
+        "false",
+        "true"
+      ],
+      "properties": {
+        "false": {
+          "type": "string"
+        },
+        "true": {
+          "type": "string"
+        }
+      }
+    },
+    "Question": {
+      "description": "Tagged union of the three question kinds. The `type` field is the discriminant.",
+      "oneOf": [
+        {
+          "description": "Yes/no question. Returns the probability the answer is yes.\n\nSpec: <https://docs.typesafe.ai/api#noul>",
+          "type": "object",
+          "required": [
+            "instructions",
+            "type"
+          ],
+          "properties": {
+            "criteria": {
+              "description": "Optional descriptions of what a yes and a no mean. Reserved keys: `true`, `false`.",
+              "anyOf": [
+                {
+                  "$ref": "#/definitions/NoulCriteria"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "instructions": true,
+            "type": {
+              "type": "string",
+              "enum": [
+                "noul"
+              ]
+            }
+          }
+        },
+        {
+          "description": "Pick one option from a set. Spec: <https://docs.typesafe.ai/api#choice>",
+          "type": "object",
+          "required": [
+            "criteria",
+            "instructions",
+            "type"
+          ],
+          "properties": {
+            "criteria": {
+              "description": "Map of option key \u2192 rubric description. **Values may be `null`** (\"use null when an option needs no extra detail\").",
+              "type": "object",
+              "additionalProperties": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "instructions": true,
+            "type": {
+              "type": "string",
+              "enum": [
+                "choice"
+              ]
+            }
+          }
+        },
+        {
+          "description": "Rate along an ordered rubric. Spec: <https://docs.typesafe.ai/api#score>",
+          "type": "object",
+          "required": [
+            "criteria",
+            "instructions",
+            "type"
+          ],
+          "properties": {
+            "criteria": {
+              "description": "Ordered array of level descriptions. Must contain at least 2.",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "instructions": true,
+            "type": {
+              "type": "string",
+              "enum": [
+                "score"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "State": {
+      "description": "State to evaluate. Permissive JSON shape: any string, object, or array.",
+      "anyOf": [
+        {
+          "description": "Plain text.",
+          "type": "string"
+        },
+        {
+          "description": "Structured object (e.g. `{ \"user\": {...}, \"logs\": [...], \"diff\": \"...\" }`).",
+          "type": "object",
+          "additionalProperties": true
+        },
+        {
+          "description": "Ordered list (e.g. chat log entries).",
+          "type": "array",
+          "items": true
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,22 @@
+[package]
+name = "openpick-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Phase 1: DecisionEngine trait + mock engine. Phase 2 swaps the mock for candle/GGUF backends."
+
+[dependencies]
+openpick-core = { workspace = true }
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+metrics = { workspace = true }
+serde_json = { workspace = true }
+rand = "0.9"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }
+
+[lib]
+path = "src/lib.rs"

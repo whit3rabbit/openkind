@@ -1,0 +1,253 @@
+//! HTTP layer — axum 0.8.
+//!
+//! Routes:
+//! - `POST /v1/systemone`  → the Jev evaluation endpoint
+//! - `GET  /health`        → liveness
+//! - `GET  /v1/models`     → list available model aliases (Jev shape)
+//! - `GET  /metrics`       → Prometheus scrape
+//!
+//! Every response is stamped with `x-typesafe-request-id` (the SDK reads
+//! this to log per-request correlation), and `/v1/*` is gated by an
+//! optional bearer token when `OPENPICK_API_KEY` is set.
+
+use std::sync::Arc;
+
+use axum::{
+    extract::State,
+    response::IntoResponse,
+    routing::{get, post},
+    Json, Router,
+};
+use openpick_core::SystemRequest;
+use openpick_engine::{dispatch, EngineRegistry};
+use serde_json::json;
+use tower_http::trace::TraceLayer;
+
+use crate::error::ApiError;
+use crate::middleware::AuthConfig;
+use crate::models::ModelsResponse;
+use crate::AppState;
+
+/// Build the HTTP router with a pre-built state. Used by the daemon.
+pub fn router_with_state(state: AppState, auth: AuthConfig) -> Router {
+    Router::new()
+        .route("/v1/systemone", post(systemone))
+        .route("/v1/models", get(list_models))
+        .route("/health", get(health))
+        .route("/metrics", get(prometheus_metrics))
+        // Order matters: layers added LATER are OUTERMOST. We want
+        // request_id outermost so it stamps the response on every code
+        // path, including 401s from auth_layer (which short-circuit
+        // before any handler middleware fires).
+        .layer(axum::middleware::from_fn_with_state(
+            auth,
+            crate::middleware::auth_layer,
+        ))
+        .layer(axum::middleware::from_fn(crate::middleware::request_id_layer))
+        .layer(TraceLayer::new_for_http())
+        .with_state(Arc::new(state))
+}
+
+pub fn router(registry: EngineRegistry) -> Router {
+    router_with_state(AppState::new(registry), AuthConfig::default())
+}
+
+pub fn router_with_auth(registry: EngineRegistry, auth: AuthConfig) -> Router {
+    router_with_state(AppState::new(registry), auth)
+}
+
+// Re-exported at the crate root for tests.
+pub use router_with_state as build_router_with_state;
+
+async fn systemone(
+    State(state): State<Arc<AppState>>,
+    Json(req): Json<SystemRequest>,
+) -> Result<Json<openpick_core::SystemResponse>, ApiError> {
+    let resp = dispatch(req, &state.registry).await?;
+    Ok(Json(resp))
+}
+
+async fn list_models(State(state): State<Arc<AppState>>) -> Json<ModelsResponse> {
+    let models = state.registry.list_models();
+    Json(ModelsResponse::new(models))
+}
+
+async fn health() -> impl IntoResponse {
+    Json(json!({ "status": "ok" }))
+}
+
+static HANDLE: std::sync::OnceLock<metrics_exporter_prometheus::PrometheusHandle> =
+    std::sync::OnceLock::new();
+
+/// Prometheus text-format metrics exporter. Returns a valid empty body
+/// even when the recorder hasn't been installed — scrapers should
+/// always see 200. Real metrics fire once the server binary calls
+/// `install_metrics_recorder()` on startup.
+async fn prometheus_metrics() -> impl IntoResponse {
+    if let Some(h) = HANDLE.get() {
+        (
+            axum::http::StatusCode::OK,
+            [("content-type", "text/plain; version=0.0.4")],
+            h.render(),
+        )
+    } else {
+        (
+            axum::http::StatusCode::OK,
+            [("content-type", "text/plain; version=0.0.4")],
+            "# metrics recorder not installed\n".to_string(),
+        )
+    }
+}
+
+/// Install the Prometheus recorder. Called by the server binary on startup.
+/// Exposed here so the binary doesn't have to depend on
+/// metrics-exporter-prometheus directly.
+pub fn install_metrics_recorder() -> anyhow::Result<()> {
+    use metrics_exporter_prometheus::PrometheusBuilder;
+    let handle = PrometheusBuilder::new()
+        .install_recorder()
+        .map_err(|e| anyhow::anyhow!("install metrics recorder: {e}"))?;
+    HANDLE
+        .set(handle)
+        .map_err(|_| anyhow::anyhow!("metrics recorder already installed"))?;
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::Body;
+    use axum::http::{Request, StatusCode};
+    use http_body_util::BodyExt;
+    use openpick_engine::MockEngine;
+    use tower::ServiceExt;
+
+    fn app() -> Router {
+        let mut reg = EngineRegistry::new();
+        reg.register("mock", Arc::new(MockEngine::new()));
+        router(reg)
+    }
+
+    #[tokio::test]
+    async fn health_endpoint_returns_ok() {
+        let resp = app()
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn models_endpoint_returns_jev_shape() {
+        let resp = app()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/models")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = resp.into_body().collect().await.unwrap().to_bytes();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        // Jev shape: top-level `models` array with name/description/release_date.
+        assert!(v["models"].is_array(), "expected `models` array, got {v}");
+        assert!(v.get("data").is_none());
+        assert!(v.get("object").is_none());
+        let arr = v["models"].as_array().unwrap();
+        assert_eq!(arr.len(), 1);
+        assert_eq!(arr[0]["name"], "mock");
+        assert!(arr[0]["description"].is_string());
+        assert!(arr[0]["release_date"].is_string());
+    }
+
+    #[tokio::test]
+    async fn systemone_evaluates_request_and_returns_one_answer_per_question() {
+        let body = json!({
+            "state": "Help!",
+            "model": "mock",
+            "questions": {
+                "is_urgent": { "type": "noul", "instructions": "?" },
+                "dept": {
+                    "type": "choice",
+                    "instructions": "?",
+                    "criteria": { "billing": "pay", "tech": "bugs" }
+                },
+                "frust": {
+                    "type": "score",
+                    "instructions": "?",
+                    "criteria": ["Calm", "Angry"]
+                }
+            }
+        });
+        let req = Request::builder()
+            .method("POST")
+            .uri("/v1/systemone")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_vec(&body).unwrap()))
+            .unwrap();
+        let resp = app().oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let body = resp.into_body().collect().await.unwrap().to_bytes();
+        let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(v["model"].as_str(), Some("mock"));
+        let answers = v["answers"].as_object().unwrap();
+        assert!(answers.contains_key("is_urgent"));
+        assert!(answers.contains_key("dept"));
+        assert!(answers.contains_key("frust"));
+        let usage = &v["usage"];
+        assert!(usage["input_tokens"].as_u64().unwrap() > 0);
+        assert!(usage["output_tokens"].as_u64().unwrap() > 0);
+    }
+
+    #[tokio::test]
+    async fn unknown_model_returns_404() {
+        let body = json!({
+            "state": "x",
+            "model": "no-such-model",
+            "questions": { "q": { "type": "noul", "instructions": "?" } }
+        });
+        let req = Request::builder()
+            .method("POST")
+            .uri("/v1/systemone")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_vec(&body).unwrap()))
+            .unwrap();
+        let resp = app().oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn invalid_body_returns_422() {
+        let body = json!({
+            "state": "x",
+            "questions": { "q": { "type": "noul", "instructions": "?" } }
+        });
+        let req = Request::builder()
+            .method("POST")
+            .uri("/v1/systemone")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_vec(&body).unwrap()))
+            .unwrap();
+        let resp = app().oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[tokio::test]
+    async fn malformed_json_returns_400() {
+        let req = Request::builder()
+            .method("POST")
+            .uri("/v1/systemone")
+            .header("content-type", "application/json")
+            .body(Body::from("{not valid json"))
+            .unwrap();
+        let resp = app().oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    }
+}

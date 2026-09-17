@@ -1,0 +1,1 @@
+// Phase 1 placeholder. Will become `openpickd` — the long-running daemon.
