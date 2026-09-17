@@ -57,12 +57,18 @@ impl AuthConfig {
         }
     }
 
+    pub fn resolve_api_key_with<F>(get_env: F) -> Option<String>
+    where
+        F: Fn(&str) -> Result<String, std::env::VarError>,
+    {
+        get_env("OPENPICK_API_KEY")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .or_else(|| get_env("TYPESAFE_API_KEY").ok().filter(|s| !s.is_empty()))
+    }
+
     pub fn from_env() -> Self {
-        Self::new(
-            std::env::var("OPENPICK_API_KEY")
-                .ok()
-                .filter(|s| !s.is_empty()),
-        )
+        Self::new(Self::resolve_api_key_with(|k| std::env::var(k)))
     }
 
     pub fn is_required(&self) -> bool {
@@ -87,12 +93,13 @@ pub async fn auth_layer(
         .headers()
         .get(&AUTH_HEADER)
         .and_then(|v| v.to_str().ok())
-        .and_then(|s| s.strip_prefix("Bearer ").or_else(|| s.strip_prefix("bearer ")));
+        .and_then(|s| {
+            s.strip_prefix("Bearer ")
+                .or_else(|| s.strip_prefix("bearer "))
+        });
 
     let ok = match (supplied, auth.expected.as_ref()) {
-        (Some(given), Some(expected)) => {
-            constant_time_eq(given.as_bytes(), expected.as_bytes())
-        }
+        (Some(given), Some(expected)) => constant_time_eq(given.as_bytes(), expected.as_bytes()),
         _ => false,
     };
 
@@ -285,5 +292,40 @@ mod tests {
         assert!(!constant_time_eq(b"abc", b"abcd"));
         assert!(constant_time_eq(b"abc", b"abc"));
         assert!(!constant_time_eq(b"abc", b"abd"));
+    }
+
+    #[test]
+    fn resolve_api_key_preference() {
+        // 1. OPENPICK_API_KEY takes precedence
+        let key = AuthConfig::resolve_api_key_with(|k| match k {
+            "OPENPICK_API_KEY" => Ok("openpick-key".into()),
+            "TYPESAFE_API_KEY" => Ok("typesafe-key".into()),
+            _ => Err(std::env::VarError::NotPresent),
+        });
+        assert_eq!(key, Some("openpick-key".into()));
+
+        // 2. Fallback to TYPESAFE_API_KEY if OPENPICK_API_KEY is not present
+        let key2 = AuthConfig::resolve_api_key_with(|k| match k {
+            "OPENPICK_API_KEY" => Err(std::env::VarError::NotPresent),
+            "TYPESAFE_API_KEY" => Ok("typesafe-key".into()),
+            _ => Err(std::env::VarError::NotPresent),
+        });
+        assert_eq!(key2, Some("typesafe-key".into()));
+
+        // 3. Fallback to TYPESAFE_API_KEY if OPENPICK_API_KEY is empty
+        let key3 = AuthConfig::resolve_api_key_with(|k| match k {
+            "OPENPICK_API_KEY" => Ok("".into()),
+            "TYPESAFE_API_KEY" => Ok("typesafe-key".into()),
+            _ => Err(std::env::VarError::NotPresent),
+        });
+        assert_eq!(key3, Some("typesafe-key".into()));
+
+        // 4. None if both are absent or empty
+        let key4 = AuthConfig::resolve_api_key_with(|k| match k {
+            "OPENPICK_API_KEY" => Ok("".into()),
+            "TYPESAFE_API_KEY" => Ok("".into()),
+            _ => Err(std::env::VarError::NotPresent),
+        });
+        assert_eq!(key4, None);
     }
 }

@@ -107,7 +107,10 @@ each name in the registry on startup.
 
 Phase 1 ships `MockEngine` — deterministic + slightly jittered — to
 exercise the protocol. Phase 2 adds real candle / GGUF / native
-backends behind the same trait.
+backends behind the same trait, targeting the frozen Qwen3.5-4B +
+7,683-parameter linear classification head validated in Phase 2B
+(87.67% accuracy, ~80.75 ms median decision latency; reference weights
+in `research/opendecision_phase2b_20260917T205849Z/frozen_export/`).
 
 ### `openpick-api`
 
@@ -198,7 +201,7 @@ Conformance to the Jev examples (`examples/01..08`) is covered by
 - **`openpick-server`** — manual end-to-end: build, run, curl each
   endpoint with all 8 example fixtures.
 
-Current totals as of last test run: **82 tests passing, 0 failing.**
+Current totals as of last test run: **122 tests passing, 0 failing.**
 
 ## Operational notes
 
@@ -216,12 +219,22 @@ Current totals as of last test run: **82 tests passing, 0 failing.**
   version (`JevRequest::SCHEMA_VERSION`) and add a round-trip test
   before merging.
 
-## What's left (Phase 2)
+## What's left (Phase 2 & Phase 3)
 
+### Phase 2: Python Model Research (In Progress)
+- Multi-seed baseline stabilization and systematic 3-tier batching invariance diagnostic (resolving the ~1.27% padding shift).
+- Dynamic candidate scoring for Jev `Choice` ($K \le 255$), `Noul`, and ordinal `Score`.
+- Controlled LoRA fine-tuning comparison against the frozen baseline.
+- Model scaling (Qwen 2B / 0.8B) and quantization (GGUF / AWQ) to reduce the ~7.85 GiB memory footprint.
+- Shared-state prefill and KV-cache branching in Python.
+
+### Phase 3: Rust Engine Implementation (Planned)
 - Real model backends: candle for GGUF weights, ONNX runtime, optional
-  remote provider passthrough.
-- Scheduler: batch multiple `system_one` requests and run them through
-  a shared model instance to amortize weight loads.
+  remote provider passthrough, implementing the validated Qwen architecture.
+- Parity test harness: validate Rust engine execution against
+  `research/opendecision_phase2b_20260917T205849Z/frozen_export/golden_head_inputs.npz`.
+- Request scheduler: batch incoming `system_one` requests and evaluate branched
+  questions against a shared model instance and cached state.
 - VRAM/device accounting in `openpick-runtime`.
 - A Python `openpick` client that issues real RPCs against a
   self-hosted `openpickd` (the SDK compat tests are the contract).

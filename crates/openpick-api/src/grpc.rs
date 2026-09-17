@@ -54,9 +54,9 @@ impl pb::system_one_server::SystemOne for SystemOneService {
         let req_id = uuid::Uuid::new_v4().to_string();
         response.metadata_mut().append(
             "x-typesafe-request-id",
-            req_id.parse().unwrap_or_else(|_| {
-                tonic::metadata::MetadataValue::from_static("invalid")
-            }),
+            req_id
+                .parse()
+                .unwrap_or_else(|_| tonic::metadata::MetadataValue::from_static("invalid")),
         );
         Ok(response)
     }
@@ -71,8 +71,8 @@ fn pb_state_to_core(pb: Option<&pb::State>) -> Result<State, Status> {
         Some(pb::state::Value::Structured(s)) => {
             // `bytes json` carries a JSON document. We re-parse into Value
             // so we can normalize to Object/Array.
-            let v: serde_json::Value =
-                serde_json::from_slice(&s.json).map_err(|e| Status::invalid_argument(e.to_string()))?;
+            let v: serde_json::Value = serde_json::from_slice(&s.json)
+                .map_err(|e| Status::invalid_argument(e.to_string()))?;
             Ok(json_value_to_state(v))
         }
         None => Err(Status::invalid_argument("state must be set")),
@@ -92,16 +92,16 @@ fn pb_questions_to_core(
 ) -> Result<HashMap<String, Question>, Status> {
     let mut out = HashMap::with_capacity(pb.len());
     for (id, q) in pb {
-        let kind = q.kind.ok_or_else(|| Status::invalid_argument("question has no kind"))?;
+        let kind = q
+            .kind
+            .ok_or_else(|| Status::invalid_argument("question has no kind"))?;
         let core = match kind {
             pb::question::Kind::Noul(n) => {
                 let instr = parse_json(&n.instructions_json)?;
-                let criteria = n
-                    .criteria
-                    .map(|c| openpick_core::NoulCriteria {
-                        r#true: c.is_true,
-                        r#false: c.is_false,
-                    });
+                let criteria = n.criteria.map(|c| openpick_core::NoulCriteria {
+                    r#true: c.is_true,
+                    r#false: c.is_false,
+                });
                 Question::Noul(openpick_core::NoulQuestion {
                     instructions: instr,
                     criteria,

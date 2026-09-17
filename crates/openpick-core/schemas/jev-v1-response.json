@@ -1,18 +1,13 @@
 {
-  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "SystemResponse",
   "type": "object",
-  "required": [
-    "answers",
-    "model",
-    "usage"
-  ],
   "properties": {
     "answers": {
       "description": "One answer per question id. **Required.**",
       "type": "object",
       "additionalProperties": {
-        "$ref": "#/definitions/Answer"
+        "$ref": "#/$defs/Answer"
       }
     },
     "model": {
@@ -21,129 +16,148 @@
     },
     "usage": {
       "description": "Required token usage.",
-      "allOf": [
-        {
-          "$ref": "#/definitions/Usage"
-        }
-      ]
+      "$ref": "#/$defs/Usage"
     }
   },
-  "definitions": {
+  "required": [
+    "model",
+    "answers",
+    "usage"
+  ],
+  "$defs": {
     "Answer": {
       "oneOf": [
         {
-          "description": "Spec: `noul` is a number 0..1. **No `confidence` field** \u2014 Noul answers don't get one per the spec.\n\n`f64` so wire-format precision matches the API spec exactly (a 0.92 going through f32 round-trips to 0.9200000166893005 \u2014 wrong).",
           "type": "object",
-          "required": [
-            "noul",
-            "type"
-          ],
           "properties": {
-            "noul": {
-              "type": "number",
-              "format": "double"
-            },
             "type": {
               "type": "string",
-              "enum": [
-                "noul"
-              ]
+              "const": "noul"
             }
-          }
+          },
+          "$ref": "#/$defs/NoulAnswer",
+          "required": [
+            "type"
+          ]
         },
         {
-          "description": "`probabilities` is a full distribution (sums to 1) over the criteria keys. `confidence` is required (per spec). `f64` for wire-format precision.",
           "type": "object",
-          "required": [
-            "choice",
-            "confidence",
-            "probabilities",
-            "type"
-          ],
           "properties": {
-            "choice": {
-              "type": "string"
-            },
-            "confidence": {
-              "type": "number",
-              "format": "double"
-            },
-            "probabilities": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "number",
-                "format": "double"
-              }
-            },
             "type": {
               "type": "string",
-              "enum": [
-                "choice"
-              ]
+              "const": "choice"
             }
-          }
+          },
+          "$ref": "#/$defs/ChoiceAnswer",
+          "required": [
+            "type"
+          ]
         },
         {
-          "description": "`legend` is level-index (string) \u2192 level description. `probabilities` is keyed by the same index strings. `confidence` required. `f64` for wire-format precision.",
           "type": "object",
-          "required": [
-            "confidence",
-            "legend",
-            "probabilities",
-            "score",
-            "type"
-          ],
           "properties": {
-            "confidence": {
-              "type": "number",
-              "format": "double"
-            },
-            "legend": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "string"
-              }
-            },
-            "probabilities": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "number",
-                "format": "double"
-              }
-            },
-            "score": {
-              "type": "number",
-              "format": "double"
-            },
             "type": {
               "type": "string",
-              "enum": [
-                "score"
-              ]
+              "const": "score"
             }
-          }
+          },
+          "$ref": "#/$defs/ScoreAnswer",
+          "required": [
+            "type"
+          ]
         }
       ]
     },
-    "Usage": {
-      "description": "Token usage. **Required** (per spec \u2014 ChatGPT plan said `Option<Usage>`, that's wrong).",
+    "ChoiceAnswer": {
+      "description": "`probabilities` is a full distribution (sums to 1) over the criteria keys.\n`confidence` is required (per spec). `f64` for wire-format precision.",
       "type": "object",
+      "properties": {
+        "choice": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number",
+          "format": "double"
+        },
+        "probabilities": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
       "required": [
-        "input_tokens",
-        "output_tokens"
-      ],
+        "choice",
+        "probabilities",
+        "confidence"
+      ]
+    },
+    "NoulAnswer": {
+      "description": "Spec: `noul` is a number 0..1. **No `confidence` field** — Noul answers\ndon't get one per the spec.\n\n`f64` so wire-format precision matches the API spec exactly (a 0.92\ngoing through f32 round-trips to 0.9200000166893005 — wrong).",
+      "type": "object",
+      "properties": {
+        "noul": {
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "required": [
+        "noul"
+      ]
+    },
+    "ScoreAnswer": {
+      "description": "`legend` is level-index (string) → level description.\n`probabilities` is keyed by the same index strings. `confidence` required.\n`f64` for wire-format precision.",
+      "type": "object",
+      "properties": {
+        "confidence": {
+          "type": "number",
+          "format": "double"
+        },
+        "legend": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "probabilities": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "score": {
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "required": [
+        "score",
+        "legend",
+        "probabilities",
+        "confidence"
+      ]
+    },
+    "Usage": {
+      "description": "Token usage. **Required** (per spec — ChatGPT plan said `Option<Usage>`,\nthat's wrong).",
+      "type": "object",
       "properties": {
         "input_tokens": {
           "type": "integer",
           "format": "uint32",
-          "minimum": 0.0
+          "minimum": 0
         },
         "output_tokens": {
           "type": "integer",
           "format": "uint32",
-          "minimum": 0.0
+          "minimum": 0
         }
-      }
+      },
+      "required": [
+        "input_tokens",
+        "output_tokens"
+      ]
     }
   }
 }

@@ -8,7 +8,7 @@
 use std::collections::HashMap;
 
 use openpick_core::*;
-use serde_json::{json, Value};
+use serde_json::json;
 
 // ------------------------------------------------------------------
 // Spec section: request-body / example request
@@ -480,7 +480,10 @@ fn json_schema_generates_for_request_and_response() {
     assert!(resp_json.is_object());
 
     // Spot-check: SystemRequest has a "questions" property of type "object".
-    let props = req_json.get("properties").and_then(|p| p.get("questions")).unwrap();
+    let props = req_json
+        .get("properties")
+        .and_then(|p| p.get("questions"))
+        .unwrap();
     assert_eq!(props.get("type").and_then(|t| t.as_str()), Some("object"));
 }
 

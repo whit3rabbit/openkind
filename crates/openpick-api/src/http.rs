@@ -32,6 +32,7 @@ use crate::AppState;
 pub fn router_with_state(state: AppState, auth: AuthConfig) -> Router {
     Router::new()
         .route("/v1/systemone", post(systemone))
+        .route("/v1/system_one", post(systemone))
         .route("/v1/models", get(list_models))
         .route("/health", get(health))
         .route("/metrics", get(prometheus_metrics))
@@ -43,7 +44,9 @@ pub fn router_with_state(state: AppState, auth: AuthConfig) -> Router {
             auth,
             crate::middleware::auth_layer,
         ))
-        .layer(axum::middleware::from_fn(crate::middleware::request_id_layer))
+        .layer(axum::middleware::from_fn(
+            crate::middleware::request_id_layer,
+        ))
         .layer(TraceLayer::new_for_http())
         .with_state(Arc::new(state))
 }
@@ -61,8 +64,22 @@ pub use router_with_state as build_router_with_state;
 
 async fn systemone(
     State(state): State<Arc<AppState>>,
-    Json(req): Json<SystemRequest>,
+    req: Result<Json<SystemRequest>, axum::extract::rejection::JsonRejection>,
 ) -> Result<Json<openpick_core::SystemResponse>, ApiError> {
+    let Json(req) = match req {
+        Ok(j) => j,
+        Err(rejection) => match rejection {
+            axum::extract::rejection::JsonRejection::JsonSyntaxError(e) => {
+                return Err(ApiError::BadJson(e.to_string()));
+            }
+            axum::extract::rejection::JsonRejection::JsonDataError(e) => {
+                return Err(ApiError::InvalidBody(e.to_string()));
+            }
+            other => {
+                return Err(ApiError::InvalidBody(other.to_string()));
+            }
+        },
+    };
     let resp = dispatch(req, &state.registry).await?;
     Ok(Json(resp))
 }

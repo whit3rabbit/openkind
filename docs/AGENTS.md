@@ -50,6 +50,55 @@ round-trip test proves it; otherwise the docs win**. The
 `tests/sdk_compat.rs` file is the executable contract — every
 endpoint, header, and error code from the docs is pinned there.
 
+## Schema Information & Wire Contracts
+
+`openpick` maintains dual wire schemas that are strictly synchronized:
+
+### 1. Jev JSON Schema (Draft 2020-12)
+- **Canonical Schema Files**:
+  - Request: [`crates/openpick-core/schemas/jev-v1-request.json`](../crates/openpick-core/schemas/jev-v1-request.json)
+  - Response: [`crates/openpick-core/schemas/jev-v1-response.json`](../crates/openpick-core/schemas/jev-v1-response.json)
+- **Code Authority**: `openpick-core` (`SystemRequest`, `SystemResponse`, `Question`, `Answer`, `State`, `Usage`).
+- **Generation Tool**: `openpick-gen-schemas` (`cargo run -p openpick-gen-schemas -- --write`).
+- **Request Format**:
+  - `state`: Polymorphic `JSONContent` (plain text string, JSON object, or JSON array).
+  - `model`: Target backend model identifier (`"jev-latest"`, `"mock"`, etc.).
+  - `questions`: Map of string identifiers to typed questions.
+- **Question Kinds** (`"type"` discriminant):
+  - `noul`: Boolean probability question. `instructions` (`JSONContent`), optional `criteria` (`{"true": str, "false": str}`).
+  - `choice`: Categorical choice question. `instructions` (`JSONContent`), `criteria` (`map<str, str | null>`).
+  - `score`: Ordered rubric rating. `instructions` (`JSONContent`), `criteria` (`array<str>`, $\ge 2$ ordered rubric levels).
+- **Response Format**:
+  - `model`: Echoed evaluation model.
+  - `usage`: `UsageInfo` (`input_tokens: uint32`, `output_tokens: uint32`).
+  - `answers`: Map of question identifiers to typed answers.
+- **Answer Kinds** (`"type"` discriminant):
+  - `noul`: `noul: f64` $\in [0.0, 1.0]$. **No `confidence` field per specification**.
+  - `choice`: `choice: str`, `probabilities: map<str, f64>` (sums to $1.0$), `confidence: f64` $\in [0.0, 1.0]$.
+  - `score`: `score: f64`, `legend: map<str, str>` (indices `"0"`, `"1"`, ...), `probabilities: map<str, f64>`, `confidence: f64` $\in [0.0, 1.0]$.
+
+### 2. Protobuf Schema (`openpick.proto`)
+- **Canonical Schema File**: [`proto/proto/openpick.proto`](../proto/proto/openpick.proto)
+- **Package**: `openpick`
+- **Service**: `SystemOne`
+  - `rpc Evaluate (SystemOneRequest) returns (SystemOneResponse)`
+- **Wire Parity Rules**:
+  - Floating-point fields MUST be `double` (64-bit IEEE 754), matching `f64` in `openpick-core`.
+  - `state` uses `oneof value { string text = 1; Structured structured = 2; }` where `Structured.bytes json` forwards raw JSON bytes.
+  - `instructions_json` uses raw JSON bytes to preserve `string | object | array` polymorphism.
+  - `NoulCriteria` uses `string is_true = 1` and `string is_false = 2` to avoid keyword collision with Protobuf/Rust `true`/`false`.
+  - `NoulAnswer` contains only `double noul = 1` (no confidence).
+  - Code generation runs at build time via `proto/build.rs` using `tonic-prost-build`.
+
+### 3. OpenAPI 3.1 Specification (`openapi.yaml`)
+- **Canonical Schema File**: [`crates/openpick-api/openapi.yaml`](../crates/openpick-api/openapi.yaml) (also referenced at [`docs/openapi.yaml`](./openapi.yaml))
+- **Format**: OpenAPI 3.1.0 (YAML), natively aligned with JSON Schema Draft 2020-12.
+- **Coverage**:
+  - Routes: `POST /v1/systemone` (canonical), `POST /v1/system_one` (SDK alias), `GET /v1/models`, `GET /health`, `GET /metrics`.
+  - Security: `BearerAuth` scheme (token gate on `/v1/*`).
+  - Headers: `x-typesafe-request-id` (UUIDv4), `Retry-After` (integer seconds), `retry-after-ms` (integer milliseconds), `WWW-Authenticate: Bearer`.
+  - Status Codes: `200 OK`, `400 Bad Request` (`bad_json`), `401 Unauthorized` (`unauthorized`), `404 Not Found` (`unknown_model`), `422 Unprocessable Entity` (`invalid_body`), `429 Too Many Requests` (`rate_limited`), `529 Overloaded` (`overloaded`), `500 Internal Server Error` (`internal_error`).
+
 ## Phasing
 
 Tracked as git history. Each phase ships with passing tests at HEAD.
@@ -71,8 +120,8 @@ must round-trip through our types without any data loss.
 A self-hostable server that the future `typesafe_sdk` Python client
 can speak to without modification.
 
-- [x] HTTP (axum 0.8): `POST /v1/systemone`, `GET /v1/models`,
-      `GET /health`, `GET /metrics`.
+- [x] HTTP (axum 0.8): `POST /v1/systemone` (aliased to `/v1/system_one`),
+      `GET /v1/models`, `GET /health`, `GET /metrics`.
 - [x] gRPC (tonic 0.14): `openpick.system_one.SystemOne`.
 - [x] `openpickd` daemon + `openpick` CLI.
 - [x] `DecisionEngine` trait + `MockEngine` (deterministic, slightly
@@ -80,13 +129,13 @@ can speak to without modification.
 - [x] **SDK compatibility surface** (the bit the future client
       actually depends on):
   - `x-typesafe-request-id` on every response, including 401s.
-  - Bearer auth opt-in via `OPENPICK_API_KEY`.
+  - Bearer auth opt-in via `OPENPICK_API_KEY` with fallback to `TYPESAFE_API_KEY`.
   - `Retry-After` / `retry-after-ms` on 429 / 529.
   - Error envelope `{"error":{"code",message}}` mapped to the
     Python SDK's `TypeSafe{Authentication,RateLimit,BadRequest,...}Error`.
   - `/v1/models` returns `{"models":[{name,description,release_date}]}`.
-- [x] 37 SDK compat tests + 5 HTTP integration tests + 1 gRPC
-      roundtrip test = **82 tests passing** at HEAD.
+- [x] 56 SDK compat tests + 22 HTTP unit/integration tests + 8 gRPC
+      roundtrip tests + 33 core tests + 14 engine tests + 7 CLI tests + 2 server tests + 2 proto tests = **144 tests passing** at HEAD.
 
 ### Phase 2 — real model backends (NOT STARTED)
 
@@ -111,7 +160,7 @@ the wire format.
 
 1. Edit the Rust struct in `crates/openpick-core/src/`.
 2. Run `cargo test -p openpick-core` — fix any broken round-trip.
-3. Regenerate the JSON Schema: `cargo run -p openpick-gen-schemas`.
+3. Regenerate the JSON Schema: `cargo run -p openpick-gen-schemas -- --write`.
 4. Add a new fixture in `examples/` mirroring the Jev spec example.
 5. Add an `sdk_compat.rs` test pinning the new shape.
 6. Bump `JevRequest::SCHEMA_VERSION` (or whatever constants surface
@@ -122,7 +171,7 @@ the wire format.
 
 Any change to a JSON field in `core::request` or `core::response` is
 a breaking change for every future SDK caller. Bisect-friendly
-phrasing: the next non-trivial release must include a "Jev spec
+phasing: the next non-trivial release must include a "Jev spec
 delta" section in the changelog pointing at the diff between
 `jev-v1-{request,response}.json` versions.
 
@@ -151,11 +200,11 @@ new alias end-to-end via `/v1/systemone`.
 # Build everything
 cargo build --workspace
 
-# Run all tests (82+)
+# Run all tests (144 at HEAD)
 cargo test --workspace
 
 # Regenerate JSON Schema
-cargo run -p openpick-gen-schemas
+cargo run -p openpick-gen-schemas -- --write
 
 # Start the daemon (mock engine, dev mode)
 cargo run -p openpickd -- --http-addr 127.0.0.1:18080 \

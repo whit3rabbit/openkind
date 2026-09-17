@@ -57,7 +57,7 @@ impl ApiError {
             ApiError::BadJson(_) => (StatusCode::BAD_REQUEST, "bad_json"),
             ApiError::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized"),
             ApiError::RateLimited { .. } => (StatusCode::TOO_MANY_REQUESTS, "rate_limited"),
-            ApiError::Overloaded { .. } => (StatusCode::SERVICE_UNAVAILABLE, "overloaded"),
+            ApiError::Overloaded { .. } => (StatusCode::from_u16(529).unwrap(), "overloaded"),
             ApiError::Engine(EngineError::UnknownModel(_)) => {
                 (StatusCode::NOT_FOUND, "unknown_model")
             }
@@ -71,8 +71,9 @@ impl ApiError {
     /// Retry-After / retry-after-ms in milliseconds, if this error carries one.
     fn retry_after_ms(&self) -> Option<u64> {
         match self {
-            ApiError::RateLimited { retry_after_ms }
-            | ApiError::Overloaded { retry_after_ms } => Some(*retry_after_ms),
+            ApiError::RateLimited { retry_after_ms } | ApiError::Overloaded { retry_after_ms } => {
+                Some(*retry_after_ms)
+            }
             _ => None,
         }
     }
@@ -86,7 +87,7 @@ impl IntoResponse for ApiError {
         if let Some(ms) = self.retry_after_ms() {
             // Both: SDK reads either.
             headers.insert(RETRY_AFTER_MS, HeaderValue::from(ms));
-            let secs = (ms + 999) / 1000;
+            let secs = ms.div_ceil(1000);
             if let Ok(v) = HeaderValue::from_str(&secs.to_string()) {
                 headers.insert(RETRY_AFTER, v);
             }
@@ -121,6 +122,101 @@ impl From<Duration> for ApiError {
     fn from(d: Duration) -> Self {
         ApiError::RateLimited {
             retry_after_ms: d.as_millis() as u64,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::StatusCode;
+    use http_body_util::BodyExt;
+    use openpick_core::ValidationError;
+
+    async fn extract_body_json(resp: Response) -> (StatusCode, HeaderMap, serde_json::Value) {
+        let status = resp.status();
+        let headers = resp.headers().clone();
+        let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+        let val: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        (status, headers, val)
+    }
+
+    #[tokio::test]
+    async fn rate_limited_error_into_response() {
+        let err = ApiError::RateLimited {
+            retry_after_ms: 1500,
+        };
+        let (status, headers, body) = extract_body_json(err.into_response()).await;
+        assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(headers.get("retry-after-ms").unwrap(), "1500");
+        assert_eq!(headers.get("retry-after").unwrap(), "2"); // 1500.div_ceil(1000) = 2
+        assert_eq!(body["error"]["code"], "rate_limited");
+    }
+
+    #[tokio::test]
+    async fn overloaded_error_into_response() {
+        let err = ApiError::Overloaded {
+            retry_after_ms: 500,
+        };
+        let (status, headers, body) = extract_body_json(err.into_response()).await;
+        assert_eq!(status, StatusCode::from_u16(529).unwrap());
+        assert_eq!(headers.get("retry-after-ms").unwrap(), "500");
+        assert_eq!(headers.get("retry-after").unwrap(), "1");
+        assert_eq!(body["error"]["code"], "overloaded");
+    }
+
+    #[tokio::test]
+    async fn unauthorized_error_into_response() {
+        let err = ApiError::Unauthorized;
+        let (status, headers, body) = extract_body_json(err.into_response()).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        assert_eq!(headers.get("www-authenticate").unwrap(), "Bearer");
+        assert_eq!(body["error"]["code"], "unauthorized");
+    }
+
+    #[tokio::test]
+    async fn internal_error_into_response() {
+        let err = ApiError::Internal("db crashed".into());
+        let (status, _, body) = extract_body_json(err.into_response()).await;
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(body["error"]["code"], "internal_error");
+    }
+
+    #[tokio::test]
+    async fn bad_json_and_model_not_found_into_response() {
+        let err_json = ApiError::BadJson("syntax error".into());
+        let (status, _, body) = extract_body_json(err_json.into_response()).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(body["error"]["code"], "bad_json");
+
+        let err_model = ApiError::Engine(EngineError::UnknownModel("gpt-5".into()));
+        let (status, _, body) = extract_body_json(err_model.into_response()).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(body["error"]["code"], "unknown_model");
+    }
+
+    #[tokio::test]
+    async fn validation_and_backend_errors_into_response() {
+        let err_val = ApiError::Engine(EngineError::Invalid(ValidationError::NoQuestions));
+        let (status, _, body) = extract_body_json(err_val.into_response()).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(body["error"]["code"], "invalid_body");
+
+        let err_backend = ApiError::Engine(EngineError::Backend {
+            backend: "mock".into(),
+            message: "simulated failure".into(),
+        });
+        let (status, _, body) = extract_body_json(err_backend.into_response()).await;
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(body["error"]["code"], "backend_error");
+    }
+
+    #[test]
+    fn duration_conversion_to_rate_limited() {
+        let err: ApiError = Duration::from_millis(2500).into();
+        match err {
+            ApiError::RateLimited { retry_after_ms } => assert_eq!(retry_after_ms, 2500),
+            _ => panic!("expected RateLimited"),
         }
     }
 }

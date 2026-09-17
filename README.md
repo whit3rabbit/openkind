@@ -21,11 +21,11 @@ and the model weights.
 
 | Phase                                | Status      | Tests |
 |--------------------------------------|-------------|-------|
-| **Phase 0** — wire contract          | done        | 23    |
-| **Phase 1** — daemon + SDK compat    | done        | 59    |
-| **Phase 2** — real model backends    | not started | —     |
+| **Phase 0** — wire contract          | done        | 33    |
+| **Phase 1** — daemon + SDK compat    | done        | 89 (122 total) |
+| **Phase 2** — real model backends    | in progress | —     |
 
-`cargo test --workspace` runs **82+** tests across all crates. The
+`cargo test --workspace` runs **122+** tests across all crates. The
 SDK-compat contract (`tests/sdk_compat.rs`) is the executable
 specification — every TypeSafe endpoint, header, and error code is
 pinned there.
@@ -52,7 +52,7 @@ examples/                 # 8 Jev spec example fixtures
 ```bash
 # Build & test
 cargo build --workspace
-cargo test --workspace     # 82+ tests
+cargo test --workspace     # 122+ tests
 
 # Regenerate JSON Schema
 cargo run -p openpick-gen-schemas
