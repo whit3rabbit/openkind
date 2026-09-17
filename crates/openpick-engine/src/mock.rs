@@ -9,8 +9,7 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 use openpick_core::ModelInfo;
 use openpick_core::{
-    Answer, ChoiceAnswer, NoulAnswer, Question, ScoreAnswer, SystemRequest, SystemResponse,
-    Usage,
+    Answer, ChoiceAnswer, NoulAnswer, Question, ScoreAnswer, SystemRequest, SystemResponse, Usage,
 };
 use rand::{Rng, SeedableRng};
 
@@ -83,7 +82,9 @@ impl DecisionEngine for MockEngine {
                     let mut keys: Vec<&String> = cq.criteria.keys().collect();
                     keys.sort(); // HashMap iteration is non-deterministic
                     let n = keys.len() as f64;
-                    let raw: Vec<f64> = (0..keys.len()).map(|_| rng.random_range(0.0..1.0)).collect();
+                    let raw: Vec<f64> = (0..keys.len())
+                        .map(|_| rng.random_range(0.0..1.0))
+                        .collect();
                     let sum: f64 = raw.iter().sum();
                     let probs: HashMap<String, f64> = keys
                         .iter()
@@ -126,7 +127,11 @@ impl DecisionEngine for MockEngine {
                     }
                     let sum: f64 = probs.iter().sum();
                     let probs: Vec<f64> = probs.iter().map(|p| p / sum).collect();
-                    let score: f64 = probs.iter().enumerate().map(|(i, p)| i as f64 * p).sum::<f64>();
+                    let score: f64 = probs
+                        .iter()
+                        .enumerate()
+                        .map(|(i, p)| i as f64 * p)
+                        .sum::<f64>();
                     let legend: HashMap<String, String> = sq
                         .criteria
                         .iter()
@@ -139,8 +144,8 @@ impl DecisionEngine for MockEngine {
                         .map(|(k, v)| (k.clone(), *v))
                         .collect();
                     let max_p = probs.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-                    let confidence = (max_p - (1.0 - max_p) / (n as f64 - 1.0).max(1.0))
-                        .clamp(0.0, 1.0);
+                    let confidence =
+                        (max_p - (1.0 - max_p) / (n as f64 - 1.0).max(1.0)).clamp(0.0, 1.0);
                     Answer::Score(ScoreAnswer {
                         score,
                         legend,
@@ -247,5 +252,42 @@ mod tests {
         } else {
             panic!("expected choice");
         }
+    }
+
+    #[tokio::test]
+    async fn score_probabilities_sum_to_one_and_fields_valid() {
+        let engine = MockEngine::new();
+        let resp = engine.evaluate(req("mock")).await.unwrap();
+        if let Answer::Score(s) = &resp.answers["frust"] {
+            let sum: f64 = s.probabilities.values().sum();
+            assert!((sum - 1.0).abs() < 1e-4);
+            assert!((0.0..=1.0).contains(&s.confidence));
+            assert!(s.score >= 0.0 && s.score <= 1.0);
+            assert_eq!(s.legend.len(), 2);
+            assert_eq!(s.legend.get("0").unwrap(), "Calm");
+            assert_eq!(s.legend.get("1").unwrap(), "Angry");
+        } else {
+            panic!("expected score");
+        }
+    }
+
+    #[tokio::test]
+    async fn noul_in_range() {
+        let engine = MockEngine::new();
+        let resp = engine.evaluate(req("mock")).await.unwrap();
+        if let Answer::Noul(n) = &resp.answers["is_urgent"] {
+            assert!(n.noul >= 0.05 && n.noul <= 0.95);
+        } else {
+            panic!("expected noul");
+        }
+    }
+
+    #[test]
+    fn mock_backend_custom_id_and_metadata() {
+        let engine = MockEngine::with_backend("my-custom-engine");
+        assert_eq!(engine.backend_id(), "my-custom-engine");
+        let meta = engine.model_metadata();
+        assert_eq!(meta.release_date, "2026-01-01");
+        assert!(meta.description.contains("wire protocol"));
     }
 }

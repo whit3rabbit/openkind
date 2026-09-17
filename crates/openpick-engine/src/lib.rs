@@ -15,9 +15,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use openpick_core::ModelInfo;
-use openpick_core::{
-    validate_request, Answer, SystemRequest, SystemResponse, ValidationError,
-};
+use openpick_core::{validate_request, Answer, SystemRequest, SystemResponse, ValidationError};
 use thiserror::Error;
 use tracing::instrument;
 
@@ -64,26 +62,26 @@ pub trait DecisionEngine: Send + Sync {
     fn estimate_input_tokens(&self, req: &SystemRequest) -> u32 {
         let state_chars = match &req.state {
             openpick_core::State::Text(s) => s.len(),
-            openpick_core::State::Object(m) => serde_json::to_string(m)
-                .map(|s| s.len())
-                .unwrap_or(0),
-            openpick_core::State::Array(a) => serde_json::to_string(a)
-                .map(|s| s.len())
-                .unwrap_or(0),
+            openpick_core::State::Object(m) => {
+                serde_json::to_string(m).map(|s| s.len()).unwrap_or(0)
+            }
+            openpick_core::State::Array(a) => {
+                serde_json::to_string(a).map(|s| s.len()).unwrap_or(0)
+            }
         };
         let instr_chars: usize = req
             .questions
             .values()
             .map(|q| match q {
-                openpick_core::Question::Noul(n) => {
-                    serde_json::to_string(&n.instructions).map(|s| s.len()).unwrap_or(0)
-                }
-                openpick_core::Question::Choice(c) => {
-                    serde_json::to_string(&c.instructions).map(|s| s.len()).unwrap_or(0)
-                }
-                openpick_core::Question::Score(s) => {
-                    serde_json::to_string(&s.instructions).map(|s| s.len()).unwrap_or(0)
-                }
+                openpick_core::Question::Noul(n) => serde_json::to_string(&n.instructions)
+                    .map(|s| s.len())
+                    .unwrap_or(0),
+                openpick_core::Question::Choice(c) => serde_json::to_string(&c.instructions)
+                    .map(|s| s.len())
+                    .unwrap_or(0),
+                openpick_core::Question::Score(s) => serde_json::to_string(&s.instructions)
+                    .map(|s| s.len())
+                    .unwrap_or(0),
             })
             .sum();
         ((state_chars + instr_chars) / 4) as u32
@@ -191,4 +189,149 @@ fn estimate_output_tokens(resp: &SystemResponse) -> u32 {
             Answer::Score(_) => 4,
         })
         .sum()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use openpick_core::{NoulQuestion, Question, ScoreQuestion, State};
+
+    fn make_test_request(model: &str) -> SystemRequest {
+        let mut questions = HashMap::new();
+        questions.insert(
+            "urgent".into(),
+            Question::Noul(NoulQuestion {
+                instructions: serde_json::json!("Is this urgent?"),
+                criteria: None,
+            }),
+        );
+        SystemRequest {
+            state: State::Text("Please fix now!".into()),
+            model: model.into(),
+            questions,
+        }
+    }
+
+    #[test]
+    fn engine_registry_register_and_get() {
+        let mut registry = EngineRegistry::new();
+        let engine = Arc::new(MockEngine::new());
+        registry.register("mock-alias", engine.clone());
+
+        assert!(registry.get("mock-alias").is_some());
+        assert!(registry.get("non-existent").is_none());
+    }
+
+    #[test]
+    fn engine_registry_models_are_sorted() {
+        let mut registry = EngineRegistry::new();
+        let engine = Arc::new(MockEngine::new());
+        registry.register("zeta", engine.clone());
+        registry.register("alpha", engine.clone());
+        registry.register("mid", engine);
+
+        assert_eq!(registry.models(), vec!["alpha", "mid", "zeta"]);
+    }
+
+    #[test]
+    fn engine_registry_list_models_overrides_canonical_alias() {
+        let mut registry = EngineRegistry::new();
+        let engine = Arc::new(MockEngine::with_backend("internal-id"));
+        registry.register("public-model-name", engine);
+
+        let models = registry.list_models();
+        assert_eq!(models.len(), 1);
+        assert_eq!(models[0].name, "public-model-name");
+    }
+
+    #[test]
+    fn engine_registry_debug_format() {
+        let mut registry = EngineRegistry::new();
+        registry.register("m1", Arc::new(MockEngine::new()));
+        let debug_str = format!("{registry:?}");
+        assert!(debug_str.contains("EngineRegistry"));
+        assert!(debug_str.contains("m1"));
+    }
+
+    #[tokio::test]
+    async fn dispatch_successful_and_populates_token_usage() {
+        let mut registry = EngineRegistry::new();
+        registry.register("mock", Arc::new(MockEngine::new()));
+
+        let req = make_test_request("mock");
+        let resp = dispatch(req, &registry).await.unwrap();
+
+        assert_eq!(resp.model, "mock");
+        assert_eq!(resp.answers.len(), 1);
+        assert!(resp.usage.input_tokens > 0);
+        assert_eq!(resp.usage.output_tokens, 1); // 1 Noul question
+    }
+
+    #[tokio::test]
+    async fn dispatch_returns_unknown_model_error() {
+        let registry = EngineRegistry::new();
+        let req = make_test_request("unregistered");
+        let err = dispatch(req, &registry).await.unwrap_err();
+        assert!(matches!(err, EngineError::UnknownModel(m) if m == "unregistered"));
+    }
+
+    #[tokio::test]
+    async fn dispatch_returns_validation_error_on_invalid_request() {
+        let mut registry = EngineRegistry::new();
+        registry.register("mock", Arc::new(MockEngine::new()));
+
+        let req = SystemRequest {
+            state: State::Text("hello".into()),
+            model: "mock".into(),
+            questions: HashMap::new(), // Invalid: empty questions
+        };
+        let err = dispatch(req, &registry).await.unwrap_err();
+        assert!(matches!(
+            err,
+            EngineError::Invalid(ValidationError::NoQuestions)
+        ));
+    }
+
+    #[test]
+    fn token_estimation_handles_text_object_and_array_states() {
+        let engine = MockEngine::new();
+
+        let mut questions = HashMap::new();
+        questions.insert(
+            "s".into(),
+            Question::Score(ScoreQuestion {
+                instructions: serde_json::json!("Evaluate"),
+                criteria: vec!["L1".into(), "L2".into()],
+            }),
+        );
+
+        let req_text = SystemRequest {
+            state: State::Text("12345678".into()), // 8 chars
+            model: "mock".into(),
+            questions: questions.clone(),
+        };
+        let tokens_text = engine.estimate_input_tokens(&req_text);
+        assert!(tokens_text > 0);
+
+        let mut obj_map = serde_json::Map::new();
+        obj_map.insert("key".into(), serde_json::json!("value with some length"));
+        let req_obj = SystemRequest {
+            state: State::Object(obj_map),
+            model: "mock".into(),
+            questions: questions.clone(),
+        };
+        let tokens_obj = engine.estimate_input_tokens(&req_obj);
+        assert!(tokens_obj > 0);
+
+        let req_arr = SystemRequest {
+            state: State::Array(vec![
+                serde_json::json!("item 1"),
+                serde_json::json!("item 2"),
+            ]),
+            model: "mock".into(),
+            questions,
+        };
+        let tokens_arr = engine.estimate_input_tokens(&req_arr);
+        assert!(tokens_arr > 0);
+    }
 }

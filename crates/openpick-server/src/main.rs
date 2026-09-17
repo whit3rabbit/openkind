@@ -35,7 +35,12 @@ struct Args {
     /// Comma-separated model aliases to expose. For Phase 1, all point
     /// at the mock engine. Register `jev-latest` to accept the SDK's
     /// default alias.
-    #[arg(long, env = "OPENPICK_MODELS", value_delimiter = ',', default_value = "mock,jev-latest")]
+    #[arg(
+        long,
+        env = "OPENPICK_MODELS",
+        value_delimiter = ',',
+        default_value = "mock,jev-latest"
+    )]
     models: Vec<String>,
 
     /// Optional bearer token required for `/v1/*`. If unset, the env
@@ -55,15 +60,15 @@ async fn main() -> Result<()> {
 
     init_tracing(&args.log_filter)?;
 
-    let auth = AuthConfig::new(args.api_key.clone().or_else(|| {
-        std::env::var("OPENPICK_API_KEY")
-            .ok()
-            .filter(|s| !s.is_empty())
-    }));
+    let auth = args
+        .api_key
+        .filter(|s| !s.is_empty())
+        .map(|k| AuthConfig::new(Some(k)))
+        .unwrap_or_else(AuthConfig::from_env);
     if auth.is_required() {
         info!("api key auth: enabled (gate on /v1/*)");
     } else {
-        info!("api key auth: disabled (OPENPICK_API_KEY not set)");
+        info!("api key auth: disabled (neither OPENPICK_API_KEY nor TYPESAFE_API_KEY set)");
     }
 
     info!(
@@ -170,5 +175,44 @@ async fn shutdown_signal() {
     tokio::select! {
         _ = ctrl_c => info!("received SIGINT"),
         _ = terminate => info!("received SIGTERM"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn args_default_values() {
+        let args = Args::try_parse_from(["openpickd"]).unwrap();
+        assert_eq!(args.http_addr, "0.0.0.0:8080".parse().unwrap());
+        assert_eq!(args.grpc_addr, "0.0.0.0:9090".parse().unwrap());
+        assert_eq!(args.models, vec!["mock", "jev-latest"]);
+        assert_eq!(args.api_key, None);
+        assert_eq!(args.log_filter, "info");
+    }
+
+    #[test]
+    fn args_custom_values() {
+        let args = Args::try_parse_from([
+            "openpickd",
+            "--http-addr",
+            "127.0.0.1:18080",
+            "--grpc-addr",
+            "127.0.0.1:19090",
+            "--models",
+            "mock,candle,jev-latest",
+            "--api-key",
+            "secret-token",
+            "--log-filter",
+            "debug",
+        ])
+        .unwrap();
+
+        assert_eq!(args.http_addr, "127.0.0.1:18080".parse().unwrap());
+        assert_eq!(args.grpc_addr, "127.0.0.1:19090".parse().unwrap());
+        assert_eq!(args.models, vec!["mock", "candle", "jev-latest"]);
+        assert_eq!(args.api_key.as_deref(), Some("secret-token"));
+        assert_eq!(args.log_filter, "debug");
     }
 }
