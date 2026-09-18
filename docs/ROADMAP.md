@@ -116,7 +116,7 @@ The model alternates `Qwen3_5GatedDeltaNet` (recurrent-style state)
 and `Qwen3_5Attention` (standard Q/K/V) layers. This is *relevant*
 to OpenDecision because it suggests the backbone already produces a
 reusable state representation — which has direct implications for
-the shared-state cache design (Phase 2D below).
+the shared-state cache design in the Phase 2F reference-engine workstream below.
 
 **Key finding 3 — embeddings are tied**
 
@@ -173,77 +173,231 @@ Core question answered: **Yes, a frozen Qwen3.5-4B backbone + a 7,683-parameter 
 - `head.safetensors`: Weights for the 7,683-parameter head.
 - `golden_head_inputs.npz`: Reference input activations and expected logits for Rust unit testing.
 
-### Phase 2C — Qwen model research: dynamic schemas, batching invariance & model scaling (IN PROGRESS)
+### Phase 2C — Qwen model research: dynamic schemas, batching invariance & model scaling (MEASURED / NEEDS REVIEW)
 
 > **Principle**: Phase 2 is model research in Python/Colab. We do not jump into cutting the Rust inference engine before the model architecture handles arbitrary dynamic schemas, candidate scoring, and verified batching behavior.
 
-Phase 2B established that a frozen Qwen3.5-4B backbone + small linear head achieves 87.67% on fixed 3-class NLI. Phase 2C bridges the gap between fixed NLI classification and a true Jev-compatible decision engine:
+Run ID: `20260917T222948Z` (archived in `research/opendecision_phase2c_20260917T222948Z/`). The run used `Qwen/Qwen3.5-4B-Base` on an NVIDIA L4 with native BF16. The dynamic-choice stage completed, but the overall stability status is `needs_review`; LoRA was disabled.
 
-#### 1. Batching Invariance Diagnostic & Multi-Seed Stabilization
-- The Phase 2B audit found a **~1.27% probability shift** between standalone and padded batch execution.
-- Implement a systematic 3-tier diagnostic to isolate root causes across hundreds of examples:
-  1. *Duplicate in same-length batch*: isolate kernel summation order without padding.
-  2. *Identical sample with varied padding*: isolate attention mask and positional encoding handling.
-  3. *Heterogeneous production batches*: isolate real-world serving batch interactions.
-- Run multi-seed evaluations across `last_linear` and `last_mlp` to quantify training-seed variance (test accuracy intervals span 85.2%–90.2%).
+The run supports continuing with the frozen Qwen3.5-4B backbone and the development-selected last-token linear head. It does not yet support batch-invariant production serving, a general abstention detector, shared-state branching across different questions, ordinal `Score` training, or Rust/Metal execution.
 
-#### 2. Dynamic Candidate Scoring & Arbitrary Schemas (The True Jev Workload)
-- Fixed 3-class NLI (`entailment`, `neutral`, `contradiction`) does not support callers specifying arbitrary business categories.
-- Implement dynamic candidate encoding for all three Jev question types:
-  - **`Choice`**: dynamically encode caller-supplied alternatives ($K \le 255$) with natural language descriptions; produce normalized probability distribution.
-  - **`Noul`**: binary probability ($K=2$) with explicit True/False criteria.
-  - **`Score`**: ordinal rubric levels ($\ge 2$ ordered levels) with calibrated probability distributions.
-- Test candidate permutation invariance: verify that answer distributions do not depend on the order of presented choices.
-- Implement explicit handling of unanswerable / insufficient evidence / abstention cases.
+#### Replicated frozen-backbone baseline
 
-#### 3. Controlled LoRA Comparison
-- Phase 2B had LoRA disabled.
-- Execute an identical-split, controlled evaluation with LoRA adapters enabled on Q/K/V.
-- Quantify accuracy, NLL, Brier, and ECE deltas against the frozen baseline to definitively decide whether fine-tuning is required before committing to the serving architecture.
+On fresh 1,000-example MultiNLI test partitions, the selected linear head achieved **87.00% accuracy, 0.3400 NLL, and 0.0194 ECE** on matched data, and **88.80%, 0.3246, and 0.0247** on mismatched data. The calibration gate retained temperature **1.0**. Across three seeds, linear scored **86.87% ± 0.42 pp** matched and **88.70% ± 0.36 pp** mismatched; the MLP scored **87.90% ± 0.36 pp** and **87.77% ± 0.29 pp**. Keep `last_linear` as the reference implementation and retain the MLP as a comparison only.
 
-#### 4. Model Scaling & Memory Reduction (2B vs 4B vs 9B, Quantization)
-- The Phase 2B resident allocation was **~7.85 GiB in BF16**.
-- Evaluate smaller backbones: `Qwen/Qwen3.5-2B-Base` and `Qwen3.5-0.8B-Base`.
-- Answer the core research question: *Can a smaller 2B model or quantized model (GGUF / AWQ / INT8) match the decision accuracy while fitting within consumer VRAM (< 4 GiB)?*
-- Explore teacher-student distillation using Qwen 9B or frontier models as teachers.
+#### Batching stability is a serving gate
 
-#### 5. Synthetic Decision Benchmark Datasets
-- MultiNLI may be contaminated in Qwen pretraining; split separation does not guarantee out-of-domain generalization.
-- Generate domain-specific decision evaluation sets (security triage, customer routing, code review) with controlled ambiguity and adversarial cases using strong LLMs (Claude/GPT).
+The diagnostic used 200 examples per scenario and a predeclared probability tolerance of 0.5 percentage points. Probability differences are percentage points, not relative percentages:
+
+| Scenario | 95th percentile | Maximum | Selected-class changes |
+|---|---:|---:|---:|
+| Repeat the example alone | 0.00 pp | 0.00 pp | 0/200 |
+| Duplicate in same-length batch of two | 2.97 pp | 5.59 pp | **2/200** |
+| Add 32 right-padding tokens | 2.97 pp | 4.94 pp | 0/200 |
+| Add 128 right-padding tokens | 2.42 pp | 6.08 pp | 0/200 |
+| Mix shorter and longer examples | 3.42 pp | 5.86 pp | **2/200** |
+| Left-pad with explicit positions | 3.22 pp | 5.21 pp | **3/200** |
+
+The duplicate result shows that padding alone is not a sufficient explanation. The underlying execution-shape sensitivity is not isolated yet. A separate math-attention diagnostic changed probabilities by up to 2.48 pp across 12 examples, but covered only the full-attention path; the complete FP32 diagnostic was disabled. Treat single-example, unpadded inference as the reference path. Any optimized batch path needs an explicit comparison tolerance and decision-change test. This is an execution-consistency result, not evidence that questions semantically contaminate one another.
+
+#### Dynamic candidate scoring: useful transfer, weak missing-answer handling
+
+The dynamic scorer was trained on 600 message/choice episodes in the Banking77 domain. Each evaluation partition contains 480 episodes from 160 messages, with the listed real candidates plus a `none of these` option:
+
+| Real candidates | Seen-label accuracy | Held-out-label accuracy |
+|---:|---:|---:|
+| 2 + none | **96.88%** | **88.13%** |
+| 4 + none | **86.25%** | **83.13%** |
+| 8 + none | **82.50%** | **75.63%** |
+| Overall | **88.54%** | **82.29%** |
+
+When the correct candidate was present, accuracy was **95.16%** for seen labels and **93.01%** for held-out labels. When it was absent, `none` recall fell to **65.74%** and **45.37%**. In the eight-candidate held-out slice, the model selected `none` for only **8 of 36** omitted-answer episodes and selected a wrong offered candidate in the other **28**, accounting for approximately 72% of that slice's 39 errors.
+
+The exported design uses a shared message/instruction/candidate scorer plus one global learned `none` scalar. The next ablation should keep the scorer fixed and compare that scalar with a candidate-set-conditioned `none` head using candidate-count and permutation-invariant score summaries. False selection when the correct answer is absent is a primary metric, not an optimization detail. The current `none` target means an omitted Banking77 intent, not insufficient evidence or a general safety abstention.
+
+Candidate order handling passed the narrow reference test: unbatched probability change was 0, batched reordering changed probabilities by at most 1.87 pp, there were no selected-choice changes in 24 episodes, and arbitrary candidate keys did not change tokenization. This does not clear the general batching gate or establish instruction robustness.
+
+#### Calibration and throughput findings
+
+For the selected NLI linear head, a fitted temperature of approximately 0.9816 failed the separate calibration gate, so temperature 1.0 remains selected. The dynamic-choice gate selected **1.0749**, but only on a narrow NLL improvement of approximately **0.00222** against a required **0.002** on 150 validation episodes. Aggregate held-out ECE around 0.0273 did not prevent eight-candidate `none` recall from falling to 22.22%; the corresponding ECE was around 0.0709.
+
+At fixed 128-token inputs, excluding tokenization and server overhead, L4/BF16 throughput was:
+
+| Batch size | Median batch latency | Decisions/second |
+|---:|---:|---:|
+| 1 | **77.69 ms** | **12.87** |
+| 2 | **91.81 ms** | **21.79** |
+| 4 | **166.84 ms** | **23.97** |
+| 8 | **333.15 ms** | **24.01** |
+
+For this workload, batch eight roughly doubles batch-four latency without improving throughput. Benchmark small, length-aware batches, and validate them against the single-example reference. These are fixed-shape NLI timings, not complete dynamic-choice request timings; the current candidate scorer re-encodes the message for each candidate. Optional flash-linear-attention, FLA, causal-conv1d, and flash-attn packages were absent, so their performance and numerical effects remain unmeasured.
+
+#### Reference artifacts and remaining limits
+
+The archive includes fresh NLI heads and predictions, a dynamic candidate head with golden inputs, and a folded linear projection. The supplied head-parity fixtures show a maximum logit error of approximately **1.8e-6**. This validates the exported head only, not a Rust implementation of the Qwen backbone. Qwen pretraining decontamination, LoRA, Score training, shared-prefix branching, and Rust/Metal execution remain untested.
 
 ---
 
-### Phase 2D — Shared-State Prefill & KV-Cache Branching (Python/PyTorch)
+### Phase 2D — numerical reference, rejection policy & complete requests (MEASURED / NEEDS REVIEW)
 
-Followup from Phase 2A finding 2 (GatedDeltaNet + Attention hybrid):
+Run ID: `20260917T234417Z` (archived in `research/opendecision_phase2d_20260917T234417Z/`), built from the Phase 2C archive. Qwen3.5, the NLI head, and the real-candidate scorer remained frozen. Only small `none` heads and the temperature option were fitted. The run does not include KV branching, LoRA, quantization, Rust/Metal, or HTTP validation.
 
-> Qwen3.5 may already produce a state representation that is reusable
-> across many questions for the same state.
+#### FP32 is a numerical reference, not yet a production default
 
-Before writing a complex scheduler in Rust, validate the core Jev execution model in Python:
+The same shape diagnostics were run under four numerical modes:
+
+| Numerical mode | Largest probability difference | Selected-class changes |
+|---|---:|---:|
+| BF16, default attention | 6.75 pp | Yes |
+| BF16, math attention | 6.99 pp | Yes |
+| BF16, strict math settings | 6.91 pp | Yes |
+| **FP32, strict math settings** | **0.000727 pp** | **No** |
+
+The FP32 result stayed within the declared tolerance across this diagnostic. Layer traces showed the target embedding unchanged, with differences already visible at the first decoder block in all 20 traced changed-shape comparisons. The trace does not isolate linear attention, projections, normalization, feed-forward, or residual operations. FP32 single-example predictions still differed from BF16 by up to 2.66 pp, including one selected-class change, so FP32 has not been shown to improve task accuracy.
+
+Use the tested FP32 configuration as the numerical reference for follow-up experiments. It roughly doubles weight-only storage from 7.83 GiB in BF16 to 15.67 GiB in FP32 before activations and runtime overhead, and its complete-request latency was not measured. The next goal is selective higher-precision computation that approaches the FP32 agreement without paying the full FP32 resource cost.
+
+#### Set-conditioned `none` handling is promising but policy-dependent
+
+The development-selected model is `set_linear`, a seven-coefficient head over frozen candidate scores. On paired 1,600-episode tests, with 100 distinct messages per partition and a 50% absent-answer stress construction:
+
+| Metric | Seen labels: original → set-conditioned | Held-out labels: original → set-conditioned |
+|---|---:|---:|
+| Overall accuracy | **64.44% → 83.94%** | **54.56% → 74.56%** |
+| False answers when absent | **64.38% → 20.63%** | **74.00% → 26.88%** |
+| False abstentions when present | 1.25% → 7.50% | 3.50% → 18.00% |
+| Correct answer when present | 93.25% → 88.50% | 83.13% → 76.00% |
+
+On held-out labels, incorrect offered answers fell from 592 to 215, about a 64% relative reduction, while false abstentions rose from 28 to 144. The real-candidate logits did not change. Refitting only the original global scalar captured most of the gain, reaching 83.19% seen-label and 72.56% held-out-label accuracy versus 83.94% and 74.56% for `set_linear`. Candidate-set features add a smaller improvement beyond moving the rejection operating point.
+
+The new head is therefore a candidate for missing-answer-heavy workloads, not a universal default. The 5% versus 25% absent-answer reweightings reversed the preferred NLL model, and these are scenario reweightings of recorded cases, not separate deployment populations:
+
+| Evaluation scenario | Original NLL | Set-conditioned NLL |
+|---|---:|---:|
+| Seen labels, 5% absent | **0.3477** | 0.3815 |
+| Seen labels, 25% absent | 0.7420 | **0.4551** |
+| Held-out labels, 5% absent | **0.5684** | 0.6743 |
+| Held-out labels, 25% absent | 0.9214 | **0.6836** |
+
+Keep model output and application policy separate. `none` still means that the annotated Banking77 intent was omitted, not that evidence is insufficient or that the domain is unfamiliar. The temperature gate rejected its fitted value and retained 1.0.
+
+#### Candidate batching improves latency but repeats state computation
+
+The complete-request benchmark measured the median of four message-specific medians, without server or network overhead:
+
+| Real candidates | Sequential, batch 1 | Candidate batch 2 | Candidate batch 4 |
+|---:|---:|---:|---:|
+| 2 | 156 ms | 81 ms | 81 ms |
+| 4 | 308 ms | 159 ms | 92 ms |
+| 8 | 618 ms | 319 ms | 184 ms |
+| 16 | 1,229 ms | 631 ms | 365 ms |
+
+For 4, 8, and 16 candidates, batch four was approximately 3.3 to 3.4 times faster than sequential evaluation. The path still performs K full state encodings, and batching changed probabilities by up to approximately 3.86 pp relative to sequential, unpadded inference. No selected choices changed in this small four-message benchmark, which used the correct intent as present and did not broadly test rejection-boundary cases. Shared-prefix reuse was not implemented or measured.
+
+The Phase 2D result is therefore: preserve two references, a numerical FP32 reference and a decision reference containing the frozen scorer, original global `none`, selected set-conditioned `none`, fixtures, and calibration assumptions. Do not promise universal BF16 use or batch-invariant answers.
+
+### Phase 2E: selective precision, shared-prefix parity & rejection policy (MEASURED / DONE)
+
+Run `20260918T114914072764Z` completed on an NVIDIA L4 with fresh FP32 and
+BF16 workers. The [expanded result archive](../research/opendecision_phase2e_expanded_20260918T114914072764Z/)
+and its [results README](../research/opendecision_phase2e_expanded_20260918T114914072764Z/README_results.md)
+contain the saved raw rows and detailed evidence. An independent reconstruction of 3,072 probability
+distributions, policy actions, parity counts, and timing aggregates agreed
+with the report. This validates the saved calculations; Qwen was not rerun
+for that reconstruction.
+
+- [x] **FP32 cached execution is the numerical reference.** Full-prompt
+      batch-four, shared-prefix sequential suffixes, and shared-prefix
+      equal-length suffix batches all stayed within the 0.005 probability
+      tolerance across 128 episodes. Their largest absolute differences were
+      0.00000928, 0.00000776, and 0.00001072, respectively, with 0/128
+      tolerance failures, selected-outcome changes, and answer/review changes.
+- [x] **Complete hybrid cache isolation passed.** Reusable caches stayed
+      unchanged, repeated branches reproduced probabilities, and reversed
+      candidate order stayed within the stricter order tolerance. These were
+      eight isolation checks per cached strategy, separate from the 128
+      numerical comparisons.
+- [x] **BF16 is not behavior-preserving for this reference.** Depending on
+      the strategy, 78/128 to 80/128 episodes exceeded tolerance, selected
+      outcomes changed in 10/128 to 14/128 episodes, and answer/review
+      decisions changed in 7/128 to 11/128 episodes. FP32 full-sequential
+      versus BF16 full-sequential also changed a selected outcome in 18/128
+      episodes and a saved policy in 8/128.
+- [x] **FP32 suffix batching provides a useful cached-request speedup.** For
+      real candidate counts 2, 4, 8, and 16, shared-prefix batched suffixes
+      measured 195, 378, 493, and 764 ms. At 16 candidates this was 2.08x
+      faster than sequential full prompts and 1.46x faster than full-prompt
+      batch four. Full-prompt batching remained faster at two and four
+      candidates, so the scheduler must measure request shape rather than use
+      a fixed candidate-count cutoff.
+- [x] **Long shared prefixes amplify the benefit.** At 1,024 common-prefix
+      tokens and eight synthetic candidates, FP32 cached suffix batching took
+      1,270 ms versus 8,855 ms for full sequential and 8,908 ms for
+      full-prompt batch four, approximately a 7x speedup. The largest
+      probability difference was approximately 0.00000185 with no policy
+      output change.
+- [x] **Profiling identifies model execution as the main cost.** FP32 cached
+      configurations spent approximately 92–94% of instrumented request time
+      in prefix and suffix model execution, versus 4.6–6.6% in cache cloning
+      and expansion. Sixteen-candidate cached requests still used seven or
+      eight model calls because suffixes were grouped by exact length.
+- [x] **Direct FP32 loading was reproduced in process isolation.** The fresh
+      worker loaded FP32 directly rather than converting a resident BF16 model
+      or offloading to CPU. Post-load PyTorch allocation was 15.67 GiB in
+      FP32 versus 7.83 GiB in BF16, with 6.13 GiB versus 13.97 GiB of driver-
+      reported free memory. These are snapshots, not a memory-soak result.
+
+The panel contains eight distinct messages expanded into 128 factorial
+episodes and reuses archived examples for execution regression. It supports
+the cache implementation in the tested FP32 configuration, not exact
+equivalence for every input or task-quality superiority over BF16. Preserve
+the pinned checkpoint, tokenizer and exact token sequences, frozen heads,
+policies, FP32 arithmetic configuration, and full-sequential outputs as
+reference artifacts. Keep BF16 outputs as a separate execution reference.
+
+The validated execution structure is:
 
 ```text
-State string (e.g. 50k character document)
-   │
-tokenize
-   │
-Qwen3.5 backbone (prefill once, cache hidden/KV state)
-   │
-cached state representation (2560-dim / recurrent state)
-   │
-   ├─────────── branch 1: Question A + candidates A ──────────► answer A
-   ├─────────── branch 2: Question B + candidates B ──────────► answer B
-   └─────────── branch 3: Question C + candidates C ──────────► answer C
+Finalize exact candidate token sequences
+  -> find the common token prefix
+  -> prefill once
+  -> create isolated hybrid cache branches
+  -> group and evaluate candidate suffixes
+  -> restore original candidate order
+  -> frozen scorer -> none head -> probabilities -> application policy
 ```
 
-- Measure memory and latency savings of prefilling shared state once vs re-evaluating per question.
-- Empirically verify zero-interference isolation: ensure Question A and Question B do not attend to each other.
+Complete hybrid state isolation includes recurrent and convolution state, not
+only attention keys and values. Shared-prefix reuse across different
+questions, padded or packed suffix schemes, Rust, Metal, HTTP, concurrent
+requests, and long-document decision quality remain unvalidated.
+
+### Phase 2F: reference engine and execution optimization (NEXT)
+
+1. **Reproduce the FP32 reference in Rust.** Port the validated execution
+   structure and compare full-prompt, cached sequential, and cached batched
+   paths using the pinned token sequences, frozen heads, policies, and saved
+   outputs.
+2. **Optimize measured bottlenecks.** Prioritize suffix-batch utilization,
+   exact-length grouping, and model-forward efficiency before investing in a
+   more elaborate cache allocator. Cache-copy elimination alone is not
+   expected to provide a large gain from the current profile.
+3. **Keep behavior gates attached to every optimization.** Retain probability
+   tolerance, selected-outcome, answer/review, branch-isolation, and candidate
+   order checks. Any padded or packed suffix strategy needs its own equivalence
+   evidence.
+4. **Evaluate cheaper precision separately.** Treat lower-precision serving
+   as a distinct execution configuration. Matching only the top candidate is
+   insufficient; the saved probability and policy behavior must be checked.
+
+The Rust work should reproduce the reference before optimizing it. Phase 2E
+did not benchmark Rust, Metal, an HTTP server, or concurrent requests.
 
 ---
 
 ## Phase 3 — Rust Engine & Production Backends (PLANNED)
 
-Once the Qwen decision architecture, dynamic candidate scoring, quantization, and KV-cache branching are validated in Python (Phases 2A–2D), port the complete inference pipeline to Rust:
+Once the Qwen decision architecture, dynamic candidate scoring, precision policy, rejection behavior, and the Phase 2F reference path are validated, port the complete inference pipeline to production Rust:
 
 - [ ] `openpick-runtime` — device discovery, VRAM accounting, worker pools, shared state cache.
 - [ ] `openpick-backends` — candle (GGUF), ONNX runtime, optional remote-provider passthrough, all behind `DecisionEngine`.
@@ -263,9 +417,11 @@ Once the Qwen decision architecture, dynamic candidate scoring, quantization, an
 | **Phase 1** | Daemon, HTTP/gRPC transports & SDK compat | done | 91 tests (124 total) |
 | **Phase 2A** | Python Qwen3.5-4B exploration & parameter audit | done | Colab probe |
 | **Phase 2B** | Fixed NLI head benchmark & baseline readout | done | Run 20260917T205849Z (87.67% acc) |
-| **Phase 2C** | Qwen model research: dynamic schemas, batching & scaling | in progress / planned | Python / Colab |
-| **Phase 2D** | Shared-state prefill & KV-cache branching | planned | Python / Colab |
-| **Phase 3** | Rust engine, runtime & production backends | planned | Gated on Phase 2 |
+| **Phase 2C** | Qwen model research: dynamic schemas, batching & scaling | measured, needs review | Run 20260917T222948Z |
+| **Phase 2D** | Numerical reference, rejection policy & complete requests | measured, needs review | Run 20260917T234417Z |
+| **Phase 2E** | Selective precision, shared-prefix parity & rejection policy | measured, done | Drive run 20260918T114914072764Z |
+| **Phase 2F** | Rust reference engine & execution optimization | next | Gated by Phase 2E evidence |
+| **Phase 3** | Rust engine, runtime & production backends | planned | Gated on Phase 2F |
 
 `cargo test --workspace`: **124 tests passing, 0 failing.**
 
@@ -286,9 +442,10 @@ self-contained for a roadmap reader.)
   `openpick-server/src/main.rs` behind a CLI flag. Add at least
   one round-trip test in `openpick-engine`. Add a `sdk_compat.rs`
   case that exercises the alias end-to-end via `/v1/systemone`.
-- **Phase 2 owns model research in Python; Phase 3 owns Rust engine code.**
-  Do not start cutting the runtime/backends crates until Phase 2
-  validates dynamic schemas, LoRA, and cache branching in Python.
+- **Phase 2 owns model research in Python; Phase 2F owns the Rust reference
+  engine; Phase 3 owns production runtime and backend integration.** Do not
+  start production runtime/backends work until the Phase 2F reference path
+  reproduces the declared FP32 and policy checks.
 
 ## Quick reference
 

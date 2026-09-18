@@ -23,10 +23,12 @@ pub struct ModelInfo {
 /// Top-level `GET /v1/models` response.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ModelsResponse {
+    /// List of available model descriptors and aliases.
     pub models: Vec<ModelInfo>,
 }
 
 impl ModelsResponse {
+    /// Construct a new `ModelsResponse` from a list of model infos.
     pub fn new(models: Vec<ModelInfo>) -> Self {
         Self { models }
     }

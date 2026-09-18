@@ -344,3 +344,131 @@ async fn grpc_malformed_instructions_json_returns_invalid_argument() {
     let _ = shutdown.send(());
     let _ = server.await;
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn grpc_structured_array_state_roundtrip() {
+    let mut registry = openpick_engine::EngineRegistry::new();
+    registry.register("mock", std::sync::Arc::new(MockEngine::new()));
+    let state = AppState::new(registry);
+
+    let (addr, shutdown, server) = run_server(state).await;
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+    let url = format!("http://{addr}");
+    let mut client = SystemOneClient::connect(url).await.unwrap();
+
+    let mut questions = HashMap::new();
+    questions.insert("q".to_string(), noul_q());
+    let array_json = serde_json::to_vec(&serde_json::json!([
+        {"speaker": "user", "text": "Hello"},
+        {"speaker": "assistant", "text": "Hi there"}
+    ]))
+    .unwrap();
+
+    let pb_req = PbRequest {
+        state: Some(PbState {
+            value: Some(PbStateValue::Structured(
+                openpick_proto::openpick::Structured {
+                    json: array_json.into(),
+                },
+            )),
+        }),
+        model: "mock".into(),
+        questions,
+    };
+
+    let resp = client.evaluate(pb_req).await.unwrap().into_inner();
+    assert_eq!(resp.model, "mock");
+    assert!(resp.answers.contains_key("q"));
+
+    let _ = shutdown.send(());
+    let _ = server.await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn grpc_error_carries_request_id_metadata() {
+    let mut registry = openpick_engine::EngineRegistry::new();
+    registry.register("mock", std::sync::Arc::new(MockEngine::new()));
+    let state = AppState::new(registry);
+
+    let (addr, shutdown, server) = run_server(state).await;
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+    let url = format!("http://{addr}");
+    let mut client = SystemOneClient::connect(url).await.unwrap();
+
+    let pb_req = req("unknown-model", HashMap::new());
+    let resp = client.evaluate(pb_req).await;
+    let status = resp.unwrap_err();
+    let req_id_header = status.metadata().get("x-typesafe-request-id");
+    assert!(
+        req_id_header.is_some(),
+        "gRPC error response must contain x-typesafe-request-id metadata"
+    );
+
+    let _ = shutdown.send(());
+    let _ = server.await;
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn grpc_auth_enforces_bearer_token() {
+    use openpick_api::AuthConfig;
+
+    let mut registry = openpick_engine::EngineRegistry::new();
+    registry.register("mock", std::sync::Arc::new(MockEngine::new()));
+    let auth = AuthConfig::new(Some("secret-grpc-token".into()));
+
+    let svc = grpc::service_with_auth(registry, auth);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let (tx, rx) = oneshot::channel::<()>();
+    let incoming = tokio_stream::wrappers::TcpListenerStream::new(listener);
+
+    let handle = tokio::spawn(async move {
+        let _ = Server::builder()
+            .add_service(svc)
+            .serve_with_incoming_shutdown(incoming, async move {
+                let _ = rx.await;
+            })
+            .await;
+    });
+
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    let url = format!("http://{addr}");
+    let mut client = SystemOneClient::connect(url).await.unwrap();
+
+    let mut questions = HashMap::new();
+    questions.insert("q".to_string(), noul_q());
+    let pb_req = PbRequest {
+        state: Some(PbState {
+            value: Some(PbStateValue::Text("test".into())),
+        }),
+        model: "mock".into(),
+        questions,
+    };
+
+    // 1. Request without auth fails with Unauthenticated
+    let unauth_err = client.evaluate(pb_req.clone()).await.unwrap_err();
+    assert_eq!(unauth_err.code(), tonic::Code::Unauthenticated);
+    assert!(unauth_err.metadata().get("x-typesafe-request-id").is_some());
+
+    // 2. Request with invalid auth fails with Unauthenticated
+    let mut bad_req = tonic::Request::new(pb_req.clone());
+    bad_req
+        .metadata_mut()
+        .insert("authorization", "Bearer wrong-token".parse().unwrap());
+    let bad_err = client.evaluate(bad_req).await.unwrap_err();
+    assert_eq!(bad_err.code(), tonic::Code::Unauthenticated);
+
+    // 3. Request with valid auth succeeds
+    let mut good_req = tonic::Request::new(pb_req);
+    good_req
+        .metadata_mut()
+        .insert("authorization", "Bearer secret-grpc-token".parse().unwrap());
+    let good_resp = client.evaluate(good_req).await.unwrap().into_inner();
+    assert_eq!(good_resp.model, "mock");
+    assert!(good_resp.answers.contains_key("q"));
+
+    let _ = tx.send(());
+    let _ = handle.await;
+}

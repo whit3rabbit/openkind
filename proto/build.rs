@@ -1,3 +1,8 @@
+//! Build script for `openpick-proto`.
+//!
+//! Invokes `tonic-prost-build` to compile `proto/openpick.proto` into Rust structs
+//! and gRPC client/server stubs with byte field mappings.
+
 use std::io::Result;
 
 fn main() -> Result<()> {

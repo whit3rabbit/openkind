@@ -10,11 +10,15 @@ use std::collections::HashMap;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+/// Tagged union of answer models matching the evaluated question types.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum Answer {
+    /// Boolean probability answer containing a single probability value.
     Noul(NoulAnswer),
+    /// Categorical choice answer containing selected label, probability distribution, and confidence.
     Choice(ChoiceAnswer),
+    /// Ordinal rating answer containing the evaluated score, rubric legend, probabilities, and confidence.
     Score(ScoreAnswer),
 }
 
@@ -25,6 +29,7 @@ pub enum Answer {
 /// going through f32 round-trips to 0.9200000166893005 — wrong).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct NoulAnswer {
+    /// Probability value in `[0.0, 1.0]` representing the likelihood that the answer is true/yes.
     pub noul: f64,
 }
 
@@ -32,8 +37,11 @@ pub struct NoulAnswer {
 /// `confidence` is required (per spec). `f64` for wire-format precision.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct ChoiceAnswer {
+    /// Selected option identifier matching one of the keys in question criteria.
     pub choice: String,
+    /// Normalized probability distribution over all criteria options summing to 1.0.
     pub probabilities: HashMap<String, f64>,
+    /// Model confidence score in `[0.0, 1.0]` derived from the probability distribution.
     pub confidence: f64,
 }
 
@@ -42,8 +50,12 @@ pub struct ChoiceAnswer {
 /// `f64` for wire-format precision.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct ScoreAnswer {
+    /// Inferred expected score value along the ordinal rubric.
     pub score: f64,
+    /// Mapping of numeric level index strings (`"0"`, `"1"`, ...) to rubric descriptions.
     pub legend: HashMap<String, String>,
+    /// Normalized probability distribution over the level indices summing to 1.0.
     pub probabilities: HashMap<String, f64>,
+    /// Model confidence score in `[0.0, 1.0]` derived from the probability distribution.
     pub confidence: f64,
 }

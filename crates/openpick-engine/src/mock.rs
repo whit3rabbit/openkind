@@ -35,12 +35,14 @@ pub struct MockEngine {
 }
 
 impl MockEngine {
+    /// Create a new `MockEngine` with the default backend identifier (`"mock"`).
     pub fn new() -> Self {
         Self {
             backend: "mock".into(),
         }
     }
 
+    /// Create a new `MockEngine` with a custom backend identifier string.
     pub fn with_backend(backend: impl Into<String>) -> Self {
         Self {
             backend: backend.into(),
@@ -86,11 +88,15 @@ impl DecisionEngine for MockEngine {
                         .map(|_| rng.random_range(0.0..1.0))
                         .collect();
                     let sum: f64 = raw.iter().sum();
-                    let probs: HashMap<String, f64> = keys
-                        .iter()
-                        .zip(raw.iter())
-                        .map(|(k, v)| ((*k).clone(), v / sum))
-                        .collect();
+                    let probs: HashMap<String, f64> = if sum <= 0.0 || !sum.is_finite() {
+                        let uniform = 1.0 / n;
+                        keys.iter().map(|k| ((*k).clone(), uniform)).collect()
+                    } else {
+                        keys.iter()
+                            .zip(raw.iter())
+                            .map(|(k, v)| ((*k).clone(), v / sum))
+                            .collect()
+                    };
                     let max_p = probs.values().cloned().fold(f64::NEG_INFINITY, f64::max);
                     // Tie-break on the keys' sorted order so we always
                     // pick the same option for the same (id, instructions)
@@ -108,7 +114,12 @@ impl DecisionEngine for MockEngine {
                         }
                     }
                     let choice = best_key.unwrap_or_else(|| keys[0].clone());
-                    let confidence = (max_p - (1.0 - max_p) / (n - 1.0).max(1.0)).clamp(0.0, 1.0);
+                    let raw_conf = max_p - (1.0 - max_p) / (n - 1.0).max(1.0);
+                    let confidence = if raw_conf.is_nan() {
+                        0.0
+                    } else {
+                        raw_conf.clamp(0.0, 1.0)
+                    };
                     Answer::Choice(ChoiceAnswer {
                         choice,
                         probabilities: probs,
@@ -126,7 +137,12 @@ impl DecisionEngine for MockEngine {
                         *p = (-d * 1.5).exp();
                     }
                     let sum: f64 = probs.iter().sum();
-                    let probs: Vec<f64> = probs.iter().map(|p| p / sum).collect();
+                    let probs: Vec<f64> = if sum <= 0.0 || !sum.is_finite() {
+                        let uniform = 1.0 / (n as f64);
+                        vec![uniform; n]
+                    } else {
+                        probs.iter().map(|p| p / sum).collect()
+                    };
                     let score: f64 = probs
                         .iter()
                         .enumerate()
@@ -138,14 +154,18 @@ impl DecisionEngine for MockEngine {
                         .enumerate()
                         .map(|(i, l)| (i.to_string(), l.clone()))
                         .collect();
-                    let probs_map: HashMap<String, f64> = legend
-                        .keys()
-                        .zip(probs.iter())
-                        .map(|(k, v)| (k.clone(), *v))
+                    let probs_map: HashMap<String, f64> = probs
+                        .iter()
+                        .enumerate()
+                        .map(|(i, &p)| (i.to_string(), p))
                         .collect();
                     let max_p = probs.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-                    let confidence =
-                        (max_p - (1.0 - max_p) / (n as f64 - 1.0).max(1.0)).clamp(0.0, 1.0);
+                    let raw_conf = max_p - (1.0 - max_p) / (n as f64 - 1.0).max(1.0);
+                    let confidence = if raw_conf.is_nan() {
+                        0.0
+                    } else {
+                        raw_conf.clamp(0.0, 1.0)
+                    };
                     Answer::Score(ScoreAnswer {
                         score,
                         legend,
@@ -263,6 +283,12 @@ mod tests {
             assert!((sum - 1.0).abs() < 1e-4);
             assert!((0.0..=1.0).contains(&s.confidence));
             assert!(s.score >= 0.0 && s.score <= 1.0);
+            let expected_score: f64 = s
+                .probabilities
+                .iter()
+                .map(|(k, &p)| k.parse::<f64>().unwrap() * p)
+                .sum();
+            assert!((expected_score - s.score).abs() < 1e-6);
             assert_eq!(s.legend.len(), 2);
             assert_eq!(s.legend.get("0").unwrap(), "Calm");
             assert_eq!(s.legend.get("1").unwrap(), "Angry");

@@ -1,10 +1,10 @@
-//! `openpick` — command-line client.
+//! `openpick`: Operator command-line utility for Jev-compatible decision inference.
 //!
-//! Phase 1 subcommands:
-//! - `openpick serve`     — short-hand to launch openpickd
-//! - `openpick evaluate`  — POST a request file to a running server
-//! - `openpick inspect`   — validate a request file against the schema
-//! - `openpick version`   — print the API version
+//! # Subcommands
+//! - `openpick inspect <file>`: Local schema and semantics validator for Jev request JSON files.
+//! - `openpick evaluate <file>`: Submits a request payload (or stdin via `-`) to a running `openpickd` daemon.
+//! - `openpick serve`: Launches the `openpickd` daemon process with configured flags.
+//! - `openpick version`: Outputs the current wire API version constant.
 
 use std::path::PathBuf;
 
@@ -32,14 +32,33 @@ enum Commands {
 
     /// Send a request to a running openpick server.
     Evaluate {
-        /// Path to the request JSON file.
+        /// Path to the request JSON file (use '-' for stdin).
         file: PathBuf,
         /// Server URL (e.g. http://127.0.0.1:8080).
         #[arg(long, default_value = "http://127.0.0.1:8080")]
         server: String,
+        /// Optional API key for bearer authentication.
+        #[arg(long, env = "OPENPICK_API_KEY")]
+        api_key: Option<String>,
         /// Print the response as pretty JSON.
         #[arg(long)]
         pretty: bool,
+    },
+
+    /// Launch the openpick inference daemon (executes openpickd).
+    Serve {
+        /// Address to bind the HTTP server on.
+        #[arg(long, env = "OPENPICK_HTTP_ADDR", default_value = "0.0.0.0:8080")]
+        http_addr: String,
+        /// Address to bind the gRPC server on.
+        #[arg(long, env = "OPENPICK_GRPC_ADDR", default_value = "0.0.0.0:9090")]
+        grpc_addr: String,
+        /// Comma-separated model aliases to expose.
+        #[arg(long, env = "OPENPICK_MODELS", default_value = "mock,jev-latest")]
+        models: String,
+        /// Optional bearer token required for /v1/*.
+        #[arg(long, env = "OPENPICK_API_KEY")]
+        api_key: Option<String>,
     },
 
     /// Print the openpick wire API version.
@@ -54,8 +73,15 @@ fn main() -> Result<()> {
         Commands::Evaluate {
             file,
             server,
+            api_key,
             pretty,
-        } => cmd_evaluate(file, server, pretty),
+        } => cmd_evaluate(file, server, api_key, pretty),
+        Commands::Serve {
+            http_addr,
+            grpc_addr,
+            models,
+            api_key,
+        } => cmd_serve(http_addr, grpc_addr, models, api_key),
         Commands::Version => {
             println!("openpick {}", openpick_core::api_version());
             Ok(())
@@ -63,7 +89,19 @@ fn main() -> Result<()> {
     }
 }
 
+/// Maximum allowed input file size (32 MB) to prevent local memory exhaustion.
+pub const MAX_CLI_INPUT_BYTES: u64 = 32 * 1024 * 1024;
+
 fn cmd_inspect(file: PathBuf) -> Result<()> {
+    let meta = std::fs::metadata(&file).with_context(|| format!("stat {}", file.display()))?;
+    if meta.len() > MAX_CLI_INPUT_BYTES {
+        anyhow::bail!(
+            "file {} exceeds maximum allowed size ({} bytes, limit {} bytes)",
+            file.display(),
+            meta.len(),
+            MAX_CLI_INPUT_BYTES
+        );
+    }
     let raw = std::fs::read_to_string(&file).with_context(|| format!("read {}", file.display()))?;
     let req: SystemRequest =
         serde_json::from_str(&raw).with_context(|| format!("parse {}", file.display()))?;
@@ -77,16 +115,84 @@ fn cmd_inspect(file: PathBuf) -> Result<()> {
     Ok(())
 }
 
-async fn cmd_evaluate_async(file: PathBuf, server: String, pretty: bool) -> Result<()> {
-    let raw = tokio::fs::read_to_string(&file)
+fn cmd_serve(
+    http_addr: String,
+    grpc_addr: String,
+    models: String,
+    api_key: Option<String>,
+) -> Result<()> {
+    let mut cmd = std::process::Command::new("openpickd");
+    cmd.arg("--http-addr").arg(http_addr);
+    cmd.arg("--grpc-addr").arg(grpc_addr);
+    cmd.arg("--models").arg(models);
+    if let Some(key) = api_key {
+        // Pass via environment variable to avoid leaking the secret in
+        // process table listings (e.g. ps aux / /proc/*/cmdline).
+        cmd.env("OPENPICK_API_KEY", key);
+    }
+    let status = cmd
+        .status()
+        .context("execute openpickd (is openpickd built and on PATH?)")?;
+    if !status.success() {
+        std::process::exit(status.code().unwrap_or(1));
+    }
+    Ok(())
+}
+
+async fn cmd_evaluate_async(
+    file: PathBuf,
+    server: String,
+    api_key: Option<String>,
+    pretty: bool,
+) -> Result<()> {
+    let raw = if file.as_os_str() == "-" {
+        tokio::task::spawn_blocking(|| {
+            use std::io::Read;
+            let mut buffer = String::new();
+            std::io::stdin()
+                .take(MAX_CLI_INPUT_BYTES)
+                .read_to_string(&mut buffer)
+                .context("read request from stdin")?;
+            Ok::<_, anyhow::Error>(buffer)
+        })
         .await
-        .with_context(|| format!("read {}", file.display()))?;
+        .context("stdin read task")??
+    } else {
+        let meta = tokio::fs::metadata(&file)
+            .await
+            .with_context(|| format!("stat {}", file.display()))?;
+        if meta.len() > MAX_CLI_INPUT_BYTES {
+            anyhow::bail!(
+                "file {} exceeds maximum allowed size ({} bytes, limit {} bytes)",
+                file.display(),
+                meta.len(),
+                MAX_CLI_INPUT_BYTES
+            );
+        }
+        tokio::fs::read_to_string(&file)
+            .await
+            .with_context(|| format!("read {}", file.display()))?
+    };
+
     let url = format!("{}/v1/systemone", server.trim_end_matches('/'));
-    let client = reqwest::Client::new();
-    let resp = client
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .redirect(reqwest::redirect::Policy::none()) // Prevent leaking Authorization header across redirects
+        .build()?;
+    let mut req_builder = client
         .post(&url)
         .header("content-type", "application/json")
-        .body(raw)
+        .body(raw);
+
+    let resolved_key = api_key
+        .or_else(|| std::env::var("OPENPICK_API_KEY").ok())
+        .or_else(|| std::env::var("TYPESAFE_API_KEY").ok())
+        .filter(|s| !s.is_empty());
+    if let Some(key) = resolved_key {
+        req_builder = req_builder.header("authorization", format!("Bearer {key}"));
+    }
+
+    let resp = req_builder
         .send()
         .await
         .with_context(|| format!("POST {url}"))?;
@@ -108,11 +214,16 @@ async fn cmd_evaluate_async(file: PathBuf, server: String, pretty: bool) -> Resu
     Ok(())
 }
 
-fn cmd_evaluate(file: PathBuf, server: String, pretty: bool) -> Result<()> {
+fn cmd_evaluate(
+    file: PathBuf,
+    server: String,
+    api_key: Option<String>,
+    pretty: bool,
+) -> Result<()> {
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
-    rt.block_on(cmd_evaluate_async(file, server, pretty))
+    rt.block_on(cmd_evaluate_async(file, server, api_key, pretty))
 }
 
 #[cfg(test)]
@@ -141,10 +252,12 @@ mod tests {
             Commands::Evaluate {
                 file,
                 server,
+                api_key,
                 pretty,
             } => {
                 assert_eq!(file, PathBuf::from("my_request.json"));
                 assert_eq!(server, "http://127.0.0.1:8080");
+                assert_eq!(api_key, None);
                 assert!(!pretty);
             }
             _ => panic!("expected Evaluate"),
@@ -163,10 +276,12 @@ mod tests {
             Commands::Evaluate {
                 file,
                 server,
+                api_key,
                 pretty,
             } => {
                 assert_eq!(file, PathBuf::from("req.json"));
                 assert_eq!(server, "http://10.0.0.1:9090");
+                assert_eq!(api_key, None);
                 assert!(pretty);
             }
             _ => panic!("expected Evaluate"),
@@ -228,5 +343,72 @@ mod tests {
         let res = cmd_inspect(file.clone());
         let _ = std::fs::remove_file(file);
         assert!(res.is_err());
+    }
+
+    #[test]
+    fn cli_parse_serve_defaults_and_custom() {
+        let cli = Cli::try_parse_from(["openpick", "serve"]).unwrap();
+        match cli.command {
+            Commands::Serve {
+                http_addr,
+                grpc_addr,
+                models,
+                api_key,
+            } => {
+                assert_eq!(http_addr, "0.0.0.0:8080");
+                assert_eq!(grpc_addr, "0.0.0.0:9090");
+                assert_eq!(models, "mock,jev-latest");
+                assert_eq!(api_key, None);
+            }
+            _ => panic!("expected Serve"),
+        }
+
+        let cli_custom = Cli::try_parse_from([
+            "openpick",
+            "serve",
+            "--http-addr",
+            "127.0.0.1:18080",
+            "--grpc-addr",
+            "127.0.0.1:19090",
+            "--models",
+            "mock",
+            "--api-key",
+            "secret123",
+        ])
+        .unwrap();
+        match cli_custom.command {
+            Commands::Serve {
+                http_addr,
+                grpc_addr,
+                models,
+                api_key,
+            } => {
+                assert_eq!(http_addr, "127.0.0.1:18080");
+                assert_eq!(grpc_addr, "127.0.0.1:19090");
+                assert_eq!(models, "mock");
+                assert_eq!(api_key, Some("secret123".into()));
+            }
+            _ => panic!("expected Serve"),
+        }
+    }
+
+    #[test]
+    fn cli_parse_evaluate_with_api_key() {
+        let cli = Cli::try_parse_from(["openpick", "evaluate", "req.json", "--api-key", "my-key"])
+            .unwrap();
+        match cli.command {
+            Commands::Evaluate {
+                file,
+                server,
+                api_key,
+                pretty,
+            } => {
+                assert_eq!(file, PathBuf::from("req.json"));
+                assert_eq!(server, "http://127.0.0.1:8080");
+                assert_eq!(api_key, Some("my-key".into()));
+                assert!(!pretty);
+            }
+            _ => panic!("expected Evaluate"),
+        }
     }
 }

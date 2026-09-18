@@ -18,7 +18,7 @@ Project documentation and architectural references for `openpick`.
 3. **[`ROADMAP.md`](./ROADMAP.md)** — Implementation roadmap and phase tracking:
    - Phase 0 (Wire contract) ✅
    - Phase 1 (Daemon, CLI, & Python SDK compatibility suite) ✅
-   - Phase 2 (Real model backends: Candle, llama.cpp/GGUF, ONNX) ⏳
+   - Phase 2 (Qwen research complete through Phase 2E, Phase 2F reference engine next) in progress
    - Test totals and verification matrices across the workspace.
 4. **[`RESEARCH.md`](./RESEARCH.md)** — Research dossier & technical background:
    - System 1 inference paradigm and judgment-envelope protocol origins.
@@ -38,4 +38,3 @@ Project documentation and architectural references for `openpick`.
 | **gRPC Service** | Protocol Buffers (proto3) | [`proto/proto/openpick.proto`](../proto/proto/openpick.proto) | `openpick.SystemOne` service definition with binary wire parity. |
 | **Schema Tool** | Rust CLI | [`crates/openpick-gen-schemas`](../crates/openpick-gen-schemas) | Schema generator: `cargo run -p openpick-gen-schemas -- --write`. |
 | **Spec Fixtures** | JSON | [`examples/`](../examples/) | Spec example payloads (`01_noul.json` ... `08_response_score.json`). |
-

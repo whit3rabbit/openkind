@@ -1,10 +1,21 @@
-//! openpick-engine: runtime-agnostic decision engine trait.
+//! `openpick-engine`: Runtime-agnostic decision engine abstractions and dispatch.
 //!
-//! Phase 1 ships one implementation: `MockEngine`, which returns
-//! deterministic-but-jittered fake answers. Phase 2 will replace it with
-//! `candle`, GGUF, and native backends — the trait surface is what the
-//! HTTP/gRPC layers talk to, so the server doesn't change when we swap
-//! implementations.
+//! # Architecture & Responsibilities
+//! `openpick-engine` defines the central execution abstractions for Jev-compatible decision inference.
+//! Per `docs/ARCHITECTURE.md`, the engine layer sits between `openpick-core` and the transport
+//! layers (`openpick-api`):
+//!
+//! `core` ⇐ `engine` ⇐ `api` ⇐ `server/cli`.
+//!
+//! The engine abstraction is completely transport-agnostic: it accepts a [`SystemRequest`] and returns
+//! a [`SystemResponse`], remaining oblivious to whether evaluation was triggered over HTTP/REST or gRPC.
+//!
+//! # Core Components
+//! - [`DecisionEngine`]: Trait implemented by inference backends (e.g. [`MockEngine`], Candle, GGUF/llama.cpp, ONNX).
+//! - [`EngineRegistry`]: Thread-safe mapping of public model aliases (e.g. `"jev-latest"`, `"mock"`) to engine instances.
+//! - [`dispatch`]: Unified entrypoint that orchestrates validation, metrics recording, token estimation, and backend evaluation.
+
+#![warn(missing_docs)]
 
 pub mod mock;
 
@@ -19,20 +30,30 @@ use openpick_core::{validate_request, Answer, SystemRequest, SystemResponse, Val
 use thiserror::Error;
 use tracing::instrument;
 
-/// Things that can go wrong inside the engine. Validation failures are
-/// surfaced as their own variant so the HTTP layer can map to 422.
+/// Errors that can occur during engine execution or model dispatch.
+///
+/// These errors are translated into corresponding HTTP/gRPC status codes by the API layer.
 #[derive(Debug, Error)]
 pub enum EngineError {
+    /// Request body failed schema validation. Mapped to HTTP 422 Unprocessable Entity.
     #[error("invalid request: {0}")]
     Invalid(#[from] ValidationError),
 
+    /// Requested model alias is not registered. Mapped to HTTP 404 Not Found.
     #[error("no backend registered for model `{0}`")]
     UnknownModel(String),
 
+    /// Underlying backend driver encountered an internal execution failure. Mapped to HTTP 500.
     #[error("backend `{backend}` failed: {message}")]
-    Backend { backend: String, message: String },
+    Backend {
+        /// Identifier of the failing backend.
+        backend: String,
+        /// Descriptive failure message.
+        message: String,
+    },
 }
 
+/// Specialized Result alias for engine operations returning an [`EngineError`].
 pub type EngineResult<T> = Result<T, EngineError>;
 
 /// The trait every backend implements. The engine is **runtime-agnostic**:
@@ -62,30 +83,46 @@ pub trait DecisionEngine: Send + Sync {
     fn estimate_input_tokens(&self, req: &SystemRequest) -> u32 {
         let state_chars = match &req.state {
             openpick_core::State::Text(s) => s.len(),
-            openpick_core::State::Object(m) => {
-                serde_json::to_string(m).map(|s| s.len()).unwrap_or(0)
-            }
-            openpick_core::State::Array(a) => {
-                serde_json::to_string(a).map(|s| s.len()).unwrap_or(0)
-            }
+            openpick_core::State::Object(m) => count_json_bytes(m),
+            openpick_core::State::Array(a) => count_json_bytes(a),
         };
         let instr_chars: usize = req
             .questions
             .values()
             .map(|q| match q {
-                openpick_core::Question::Noul(n) => serde_json::to_string(&n.instructions)
-                    .map(|s| s.len())
-                    .unwrap_or(0),
-                openpick_core::Question::Choice(c) => serde_json::to_string(&c.instructions)
-                    .map(|s| s.len())
-                    .unwrap_or(0),
-                openpick_core::Question::Score(s) => serde_json::to_string(&s.instructions)
-                    .map(|s| s.len())
-                    .unwrap_or(0),
+                openpick_core::Question::Noul(n) => count_json_bytes(&n.instructions),
+                openpick_core::Question::Choice(c) => count_json_bytes(&c.instructions),
+                openpick_core::Question::Score(s) => count_json_bytes(&s.instructions),
             })
             .sum();
-        ((state_chars + instr_chars) / 4) as u32
+        let total_chars = state_chars.saturating_add(instr_chars);
+        if total_chars == 0 {
+            0
+        } else {
+            u32::try_from(total_chars.div_ceil(4)).unwrap_or(u32::MAX)
+        }
     }
+}
+
+/// Zero-allocation byte counter implementing std::io::Write.
+struct ByteCounter(usize);
+
+impl std::io::Write for ByteCounter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0 = self.0.saturating_add(buf.len());
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+fn count_json_bytes<T: serde::Serialize + ?Sized>(val: &T) -> usize {
+    let mut counter = ByteCounter(0);
+    serde_json::to_writer(&mut counter, val)
+        .map(|()| counter.0)
+        .unwrap_or(0)
 }
 
 /// A registry mapping model alias → engine. Lets the server dispatch by
@@ -104,14 +141,17 @@ impl std::fmt::Debug for EngineRegistry {
 }
 
 impl EngineRegistry {
+    /// Construct an empty `EngineRegistry`.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Register a decision engine under the specified model alias (e.g. `"jev-latest"`).
     pub fn register(&mut self, alias: impl Into<String>, engine: Arc<dyn DecisionEngine>) {
         self.engines.insert(alias.into(), engine);
     }
 
+    /// Look up a decision engine by its registered model alias.
     pub fn get(&self, model: &str) -> Option<Arc<dyn DecisionEngine>> {
         self.engines.get(model).cloned()
     }
@@ -169,7 +209,9 @@ pub async fn dispatch(
     if resp.usage.input_tokens == 0 {
         resp.usage.input_tokens = input_tokens;
     }
-    resp.usage.output_tokens = estimate_output_tokens(&resp);
+    if resp.usage.output_tokens == 0 {
+        resp.usage.output_tokens = estimate_output_tokens(&resp);
+    }
 
     let elapsed_ms = start.elapsed().as_millis() as f64;
     metrics::histogram!("openpick_request_duration_ms").record(elapsed_ms);
@@ -181,14 +223,16 @@ pub async fn dispatch(
 fn estimate_output_tokens(resp: &SystemResponse) -> u32 {
     // Noul = 1 token. Choice = 1 (just the picked label).
     // Score = ~ level descriptions worth of tokens.
-    resp.answers
+    let sum: usize = resp
+        .answers
         .values()
         .map(|a| match a {
             Answer::Noul(_) => 1,
             Answer::Choice(_) => 1,
             Answer::Score(_) => 4,
         })
-        .sum()
+        .sum();
+    u32::try_from(sum).unwrap_or(u32::MAX)
 }
 
 #[cfg(test)]
@@ -333,5 +377,41 @@ mod tests {
         };
         let tokens_arr = engine.estimate_input_tokens(&req_arr);
         assert!(tokens_arr > 0);
+    }
+
+    struct CustomUsageEngine;
+    #[async_trait]
+    impl DecisionEngine for CustomUsageEngine {
+        fn backend_id(&self) -> &str {
+            "custom"
+        }
+        async fn evaluate(&self, req: SystemRequest) -> EngineResult<SystemResponse> {
+            let mut answers = HashMap::new();
+            for id in req.questions.keys() {
+                answers.insert(
+                    id.clone(),
+                    Answer::Noul(openpick_core::NoulAnswer { noul: 0.5 }),
+                );
+            }
+            Ok(SystemResponse {
+                model: req.model,
+                answers,
+                usage: openpick_core::Usage {
+                    input_tokens: 42,
+                    output_tokens: 99,
+                },
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn dispatch_preserves_engine_reported_tokens() {
+        let mut registry = EngineRegistry::new();
+        registry.register("custom", Arc::new(CustomUsageEngine));
+
+        let req = make_test_request("custom");
+        let resp = dispatch(req, &registry).await.unwrap();
+        assert_eq!(resp.usage.input_tokens, 42);
+        assert_eq!(resp.usage.output_tokens, 99);
     }
 }
