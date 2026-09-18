@@ -11,6 +11,9 @@ use crate::state::State;
 /// Wire API version. Bumped on any breaking schema change.
 pub const API_VERSION: &str = "jev-compatible-0.1";
 
+/// Evaluation request payload representing a Jev-compatible System 1 judgment query.
+///
+/// See <https://docs.typesafe.ai/api#request-body> for the canonical wire specification.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 pub struct SystemRequest {
     /// Required. The content to evaluate.

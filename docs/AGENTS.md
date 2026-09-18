@@ -137,17 +137,56 @@ can speak to without modification.
 - [x] 56 SDK compat tests + 22 HTTP unit/integration tests + 8 gRPC
       roundtrip tests + 33 core tests + 14 engine tests + 7 CLI tests + 2 server tests + 2 proto tests = **144 tests passing** at HEAD.
 
-### Phase 2 — real model backends (NOT STARTED)
+### Phase 2 — model research and serving gates (Phase 2E MEASURED / DONE)
 
-Bring the engine from "mock" to "does useful work" without changing
-the wire format.
+Phase 2E keeps Qwen3.5, the NLI head, and the real-candidate scorer frozen.
+Run `20260918T114914072764Z` completed on an NVIDIA L4 with fresh FP32 and
+BF16 workers. The [expanded archive](../research/opendecision_phase2e_expanded_20260918T114914072764Z/)
+contains the [results README](../research/opendecision_phase2e_expanded_20260918T114914072764Z/README_results.md).
+An independent reconstruction of the saved probability
+distributions, policy actions, parity counts, and timing aggregates agreed
+with the report. The reconstruction validated saved calculations; it did not
+rerun Qwen.
+
+- [x] FP32 full-prompt and shared-prefix strategies: 0/128 tolerance
+      failures, selected-outcome changes, or answer/review changes at a
+      0.005 probability tolerance. Maximum differences were 0.00000928,
+      0.00000776, and 0.00001072.
+- [x] Hybrid cache isolation: reusable cache state, repeated branches, and
+      candidate-order reversal passed the saved checks, including recurrent
+      and convolution state isolation.
+- [x] FP32 cached suffix batching: 1.46x faster than full-prompt batch four
+      at 16 candidates, and approximately 7x faster on the synthetic
+      1,024-token shared-prefix benchmark, while preserving tested policy
+      behavior.
+- [x] BF16 behavior boundary: 10/128 to 14/128 selected-outcome changes and
+      7/128 to 11/128 answer/review changes depending on strategy. BF16 is
+      faster and smaller, but is not behavior-preserving for this reference.
+- [x] Component profile: 92–94% of FP32 cached request time was model
+      execution, versus 4.6–6.6% cache cloning and expansion.
+- [ ] Shared-state branching across different questions, Rust/Metal/HTTP,
+      concurrent requests, long-document decision quality, and a cheaper
+      behavior-preserving precision configuration.
+
+### Phase 2F: Rust reference engine and execution optimization (NEXT)
+
+- [ ] Reproduce the pinned FP32 full-prompt, cached sequential, and cached
+      batched paths in Rust before optimizing.
+- [ ] Optimize suffix-batch utilization, exact-length grouping, and
+      model-forward efficiency while retaining probability, selected-outcome,
+      answer/review, order, and branch-isolation gates.
+- [ ] Evaluate padded or packed suffix strategies with independent parity
+      evidence, then evaluate lower precision as a separate configuration.
+
+### Phase 3 — Rust engine and production backends (PLANNED / GATED ON PHASE 2F)
 
 - [ ] `openpick-runtime` — device discovery, VRAM accounting,
-      worker pools.
+      worker pools, and shared-state cache.
 - [ ] `openpick-backends` — candle (GGUF), ONNX runtime, optional
       remote-provider passthrough.
-- [ ] Request scheduler — batch incoming `system_one` calls, share
-      model instances across requests.
+- [ ] Request scheduler — batch incoming `system_one` calls only after
+      the numerical reference, rejection-policy, and cache-isolation checks
+      pass.
 - [ ] Cancel tokens / timeout propagation from gRPC deadline headers.
 - [ ] A real Python client (`openpick` or `typesafe_sdk`) that exercises
       a self-hosted `openpickd` end-to-end against a logged-in daemon.

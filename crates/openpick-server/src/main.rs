@@ -66,9 +66,17 @@ async fn main() -> Result<()> {
         .map(|k| AuthConfig::new(Some(k)))
         .unwrap_or_else(AuthConfig::from_env);
     if auth.is_required() {
-        info!("api key auth: enabled (gate on /v1/*)");
+        info!("api key auth: enabled (gate on /v1/* and gRPC)");
     } else {
-        info!("api key auth: disabled (neither OPENPICK_API_KEY nor TYPESAFE_API_KEY set)");
+        if args.http_addr.ip().is_unspecified()
+            || (args.grpc_addr.port() != 0 && args.grpc_addr.ip().is_unspecified())
+        {
+            tracing::warn!(
+                "SECURITY WARNING: Server is binding to a public interface without authentication! Anyone with network access can execute inference queries."
+            );
+        } else {
+            info!("api key auth: disabled (neither OPENPICK_API_KEY nor TYPESAFE_API_KEY set)");
+        }
     }
 
     info!(
@@ -91,37 +99,59 @@ async fn main() -> Result<()> {
 
     let state = AppState::new(registry);
 
-    // Build shutdown signal future.
-    let shutdown = shutdown_signal();
+    // Build shutdown coordination channels.
+    let (shutdown_tx, mut shutdown_rx_http) = tokio::sync::watch::channel(false);
+    let mut shutdown_rx_grpc = shutdown_tx.subscribe();
+
+    // Spawn signal watcher.
+    let sig_tx = shutdown_tx.clone();
+    tokio::spawn(async move {
+        shutdown_signal().await;
+        let _ = sig_tx.send(true);
+    });
 
     // Spawn HTTP server.
     let http_state = state.clone();
     let http_addr = args.http_addr;
     let http_auth = auth.clone();
+    let http_tx = shutdown_tx.clone();
     let http_handle = tokio::spawn(async move {
         let router = http::router_with_state(http_state, http_auth);
-        let listener = TcpListener::bind(http_addr)
-            .await
-            .with_context(|| format!("bind http {http_addr}"))?;
+        let listener = match TcpListener::bind(http_addr).await {
+            Ok(l) => l,
+            Err(e) => {
+                let _ = http_tx.send(true);
+                return Err(anyhow::anyhow!("bind http {http_addr}: {e}"));
+            }
+        };
         info!(%http_addr, "http listening");
-        axum::serve(listener, router)
-            .with_graceful_shutdown(shutdown)
+        let res = axum::serve(listener, router)
+            .with_graceful_shutdown(async move {
+                let _ = shutdown_rx_http.wait_for(|&v| v).await;
+            })
             .await
-            .context("http serve")
+            .context("http serve");
+        let _ = http_tx.send(true);
+        res
     });
 
     // Spawn gRPC server (if port is non-zero).
     let grpc_state = state.clone();
     let grpc_addr = args.grpc_addr;
+    let grpc_tx = shutdown_tx.clone();
     let grpc_handle = if grpc_addr.port() != 0 {
-        let svc = grpc::service((*grpc_state.registry).clone());
+        let svc = grpc::service_with_auth((*grpc_state.registry).clone(), auth.clone());
         Some(tokio::spawn(async move {
             info!(%grpc_addr, "grpc listening");
-            Server::builder()
+            let res = Server::builder()
                 .add_service(svc)
-                .serve_with_shutdown(grpc_addr, shutdown_signal())
+                .serve_with_shutdown(grpc_addr, async move {
+                    let _ = shutdown_rx_grpc.wait_for(|&v| v).await;
+                })
                 .await
-                .context("grpc serve")
+                .context("grpc serve");
+            let _ = grpc_tx.send(true);
+            res
         }))
     } else {
         info!("grpc disabled (port 0)");

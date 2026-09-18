@@ -1,0 +1,53 @@
+{
+  "previous_messages_excluded": 2720,
+  "split_counts": {
+    "dev": {
+      "messages": 64,
+      "episodes": 1024
+    },
+    "test_seen": {
+      "messages": 64,
+      "episodes": 1024
+    },
+    "test_unseen": {
+      "messages": 64,
+      "episodes": 1024
+    }
+  },
+  "test_none_rate": 0.5,
+  "candidate_counts": [
+    2,
+    4,
+    8,
+    16
+  ],
+  "samplers": [
+    "uniform",
+    "label_lexical_hard"
+  ],
+  "prior_scenarios": [
+    0.05,
+    0.25,
+    0.5
+  ],
+  "source_selection": "fresh relative to ALL C and D messages; repeat seed reuses E messages",
+  "holdout_scope": "57/20 head-training label split retained; one domain; Qwen pretraining contamination unknown",
+  "policy_fit_scope": "only model/acceptance-threshold selection on new dev; no neural/none weights refitted",
+  "sources": {
+    "hf_metadata_revision": "90d4e2ee5521c04fc1488f065b8b083658768c57",
+    "loader": "verified original CSVs; no dataset script",
+    "csv_sources": {
+      "train": {
+        "url": "https://raw.githubusercontent.com/PolyAI-LDN/task-specific-datasets/master/banking_data/train.csv",
+        "sha256": "b06e26ac675513959a63135f11b94ea7786ed02da65db93a5650d8838cbc664b",
+        "examples": 10003
+      },
+      "test": {
+        "url": "https://raw.githubusercontent.com/PolyAI-LDN/task-specific-datasets/master/banking_data/test.csv",
+        "sha256": "d12d6e3bc4c3103966ae786dc435913c0c563dfa328f5a3646d0e62cfeeb474d",
+        "examples": 3080
+      }
+    },
+    "license": "Creative Commons Attribution 4.0 International"
+  }
+}

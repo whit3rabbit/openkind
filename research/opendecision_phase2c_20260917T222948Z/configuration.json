@@ -1,0 +1,74 @@
+{
+  "preset": "standard",
+  "prior_archive": "/content/drive/MyDrive/Colab Notebooks/OpenDecision_Phase2B_results/20260917T205849Z/opendecision_phase2b_20260917T205849Z.zip",
+  "mount_drive": true,
+  "save_to_drive": true,
+  "output_root": "/content/opendecision_phase2c",
+  "model_id": "Qwen/Qwen3.5-4B-Base",
+  "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+  "nli_dataset": "nyu-mll/multi_nli",
+  "nli_revision": "da70db2af9d09693783c3320c4249840212ee221",
+  "banking_dataset": "PolyAI/banking77",
+  "banking_revision": "main",
+  "data_seed": 20260918,
+  "head_seeds": [
+    17,
+    29,
+    43
+  ],
+  "max_length": 256,
+  "feature_batch_size": 1,
+  "allow_fp16": false,
+  "head_batch_size": 64,
+  "head_epochs": 20,
+  "head_patience": 4,
+  "head_lr": 0.0003,
+  "head_weight_decay": 0.001,
+  "mlp_width": 256,
+  "calibration_min_gate_nll_improvement": 0.002,
+  "stability_probability_tolerance": 0.005,
+  "stability_thresholds": [
+    0.5,
+    0.8,
+    0.9,
+    0.95
+  ],
+  "math_sdpa_diagnostic": true,
+  "run_fp32_diagnostic": false,
+  "benchmark_lengths": [
+    64,
+    128,
+    256
+  ],
+  "benchmark_batches": [
+    1,
+    2,
+    4,
+    8
+  ],
+  "benchmark_repeats": 15,
+  "benchmark_warmups": 2,
+  "run_dynamic_choice": true,
+  "dynamic_train_classes": 57,
+  "dynamic_train_k": [
+    2,
+    4,
+    8
+  ],
+  "dynamic_eval_k": [
+    2,
+    4,
+    8
+  ],
+  "dynamic_missing_rate": 0.25,
+  "dynamic_seed": 17,
+  "custom_decisions_jsonl": "",
+  "run_lora": false,
+  "lora_seed": 17,
+  "lora_last_layers": 8,
+  "lora_rank": 8,
+  "lora_epochs": 2,
+  "lora_accumulation": 8,
+  "lora_lr": 0.0001,
+  "bootstrap_repeats": 500
+}

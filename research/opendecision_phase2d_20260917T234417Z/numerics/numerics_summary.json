@@ -1,0 +1,501 @@
+{
+  "modes": {
+    "bf16_default": {
+      "status": "completed",
+      "seconds": 22.577141872000084,
+      "configuration": {
+        "name": "bf16_default",
+        "parameter_dtypes": {
+          "torch.bfloat16": 426
+        },
+        "settings": {
+          "float32_matmul_precision": "highest",
+          "cuda.matmul.allow_tf32": false,
+          "cuda.matmul.allow_bf16_reduced_precision_reduction": true,
+          "cuda.matmul.allow_fp16_reduced_precision_reduction": true,
+          "cudnn.allow_tf32": true,
+          "cudnn.benchmark": false,
+          "cudnn.deterministic": false
+        },
+        "forced_sdpa_math": false,
+        "scope": "full model FP32 only in fp32_strict_math; math SDPA alone changes full-attention kernels, not DeltaNet kernels"
+      }
+    },
+    "bf16_math": {
+      "status": "completed",
+      "seconds": 22.96192816599978,
+      "configuration": {
+        "name": "bf16_math",
+        "parameter_dtypes": {
+          "torch.bfloat16": 426
+        },
+        "settings": {
+          "float32_matmul_precision": "highest",
+          "cuda.matmul.allow_tf32": false,
+          "cuda.matmul.allow_bf16_reduced_precision_reduction": true,
+          "cuda.matmul.allow_fp16_reduced_precision_reduction": true,
+          "cudnn.allow_tf32": true,
+          "cudnn.benchmark": false,
+          "cudnn.deterministic": false
+        },
+        "forced_sdpa_math": true,
+        "scope": "full model FP32 only in fp32_strict_math; math SDPA alone changes full-attention kernels, not DeltaNet kernels"
+      }
+    },
+    "bf16_strict_math": {
+      "status": "completed",
+      "seconds": 23.23093603799998,
+      "configuration": {
+        "name": "bf16_strict_math",
+        "parameter_dtypes": {
+          "torch.bfloat16": 426
+        },
+        "settings": {
+          "float32_matmul_precision": "highest",
+          "cuda.matmul.allow_tf32": false,
+          "cuda.matmul.allow_bf16_reduced_precision_reduction": false,
+          "cuda.matmul.allow_fp16_reduced_precision_reduction": false,
+          "cudnn.allow_tf32": false,
+          "cudnn.benchmark": false,
+          "cudnn.deterministic": true
+        },
+        "forced_sdpa_math": true,
+        "scope": "full model FP32 only in fp32_strict_math; math SDPA alone changes full-attention kernels, not DeltaNet kernels"
+      }
+    },
+    "fp32_strict_math": {
+      "status": "completed",
+      "seconds": 59.84699417799993,
+      "configuration": {
+        "name": "fp32_strict_math",
+        "parameter_dtypes": {
+          "torch.float32": 426
+        },
+        "settings": {
+          "float32_matmul_precision": "highest",
+          "cuda.matmul.allow_tf32": false,
+          "cuda.matmul.allow_bf16_reduced_precision_reduction": false,
+          "cuda.matmul.allow_fp16_reduced_precision_reduction": false,
+          "cudnn.allow_tf32": false,
+          "cudnn.benchmark": false,
+          "cudnn.deterministic": true
+        },
+        "forced_sdpa_math": true,
+        "scope": "full model FP32 only in fp32_strict_math; math SDPA alone changes full-attention kernels, not DeltaNet kernels"
+      }
+    }
+  },
+  "shape_summary": [
+    {
+      "mode": "bf16_default",
+      "scenario": "duplicate_batch2",
+      "n": 32,
+      "p50_delta": 0.006843693554401398,
+      "p95_delta": 0.04496248364448546,
+      "max_delta": 0.06750887632369995,
+      "class_flips": 1,
+      "examples_over_tolerance": 19,
+      "threshold_crossings": {
+        "0.5": 2,
+        "0.8": 1,
+        "0.9": 0,
+        "0.95": 1
+      }
+    },
+    {
+      "mode": "bf16_default",
+      "scenario": "left_pad32_explicit",
+      "n": 32,
+      "p50_delta": 0.016635209321975708,
+      "p95_delta": 0.05497561693191528,
+      "max_delta": 0.059140413999557495,
+      "class_flips": 2,
+      "examples_over_tolerance": 21,
+      "threshold_crossings": {
+        "0.5": 2,
+        "0.8": 0,
+        "0.9": 0,
+        "0.95": 1
+      }
+    },
+    {
+      "mode": "bf16_default",
+      "scenario": "mixed_batch3",
+      "n": 32,
+      "p50_delta": 0.006644323468208313,
+      "p95_delta": 0.03541535288095474,
+      "max_delta": 0.05445760488510132,
+      "class_flips": 1,
+      "examples_over_tolerance": 17,
+      "threshold_crossings": {
+        "0.5": 1,
+        "0.8": 0,
+        "0.9": 0,
+        "0.95": 0
+      }
+    },
+    {
+      "mode": "bf16_default",
+      "scenario": "repeat_alone",
+      "n": 32,
+      "p50_delta": 0.0,
+      "p95_delta": 0.0,
+      "max_delta": 0.0,
+      "class_flips": 0,
+      "examples_over_tolerance": 0,
+      "threshold_crossings": {
+        "0.5": 0,
+        "0.8": 0,
+        "0.9": 0,
+        "0.95": 0
+      }
+    },
+    {
+      "mode": "bf16_default",
+      "scenario": "right_pad128",
+      "n": 32,
+      "p50_delta": 0.005907133221626282,
+      "p95_delta": 0.04498080015182494,
+      "max_delta": 0.059705138206481934,
+      "class_flips": 2,
+      "examples_over_tolerance": 17,
+      "threshold_crossings": {
+        "0.5": 1,
+        "0.8": 0,
+        "0.9": 0,
+        "0.95": 0
+      }
+    },
+    {
+      "mode": "bf16_default",
+      "scenario": "right_pad32",
+      "n": 32,
+      "p50_delta": 0.007557660341262817,
+      "p95_delta": 0.03418708443641662,
+      "max_delta": 0.040459394454956055,
+      "class_flips": 0,
+      "examples_over_tolerance": 18,
+      "threshold_crossings": {
+        "0.5": 1,
+        "0.8": 0,
+        "0.9": 0,
+        "0.95": 0
+      }
+    },
+    {
+      "mode": "bf16_math",
+      "scenario": "duplicate_batch2",
+      "n": 32,
+      "p50_delta": 0.007597059011459351,
+      "p95_delta": 0.036732016503810874,
+      "max_delta": 0.046713992953300476,
+      "class_flips": 1,
+      "examples_over_tolerance": 22,
+      "threshold_crossings": {
+        "0.5": 1,
+        "0.8": 1,
+        "0.9": 0,
+        "0.95": 0
+      }
+    },
+    {
+      "mode": "bf16_math",
+      "scenario": "left_pad32_explicit",
+      "n": 32,
+      "p50_delta": 0.0073924921452999115,
+      "p95_delta": 0.04780889153480529,
+      "max_delta": 0.05373921990394592,
+      "class_flips": 2,
+      "examples_over_tolerance": 18,
+      "threshold_crossings": {
+        "0.5": 1,
+        "0.8": 0,
+        "0.9": 0,
+        "0.95": 1
+      }
+    },
+    {
+      "mode": "bf16_math",
+      "scenario": "mixed_batch3",
+      "n": 32,
+      "p50_delta": 0.008712321519851685,
+      "p95_delta": 0.036750021576881405,
+      "max_delta": 0.06988134980201721,
+      "class_flips": 2,
+      "examples_over_tolerance": 20,
+      "threshold_crossings": {
+        "0.5": 2,
+        "0.8": 0,
+        "0.9": 0,
+        "0.95": 0
+      }
+    },
+    {
+      "mode": "bf16_math",
+      "scenario": "repeat_alone",
+      "n": 32,
+      "p50_delta": 0.0,
+      "p95_delta": 0.0,
+      "max_delta": 0.0,
+      "class_flips": 0,
+      "examples_over_tolerance": 0,
+      "threshold_crossings": {
+        "0.5": 0,
+        "0.8": 0,
+        "0.9": 0,
+        "0.95": 0
+      }
+    },
+    {
+      "mode": "bf16_math",
+      "scenario": "right_pad128",
+      "n": 32,
+      "p50_delta": 0.006650298833847046,
+      "p95_delta": 0.029579870402812958,
+      "max_delta": 0.03365403413772583,
+      "class_flips": 1,
+      "examples_over_tolerance": 20,
+      "threshold_crossings": {
+        "0.5": 1,
+        "0.8": 0,
+        "0.9": 0,
+        "0.95": 0
+      }
+    },
+    {
+      "mode": "bf16_math",
+      "scenario": "right_pad32",
+      "n": 32,
+      "p50_delta": 0.008703373372554779,
+      "p95_delta": 0.035023611783981314,
+      "max_delta": 0.056076616048812866,
+      "class_flips": 1,
+      "examples_over_tolerance": 19,
+      "threshold_crossings": {
+        "0.5": 1,
+        "0.8": 1,
+        "0.9": 0,
+        "0.95": 1
+      }
+    },
+    {
+      "mode": "bf16_strict_math",
+      "scenario": "duplicate_batch2",
+      "n": 32,
+      "p50_delta": 0.007860273122787476,
+      "p95_delta": 0.037330940365791314,
+      "max_delta": 0.06909728050231934,
+      "class_flips": 1,
+      "examples_over_tolerance": 21,
+      "threshold_crossings": {
+        "0.5": 1,
+        "0.8": 0,
+        "0.9": 0,
+        "0.95": 1
+      }
+    },
+    {
+      "mode": "bf16_strict_math",
+      "scenario": "left_pad32_explicit",
+      "n": 32,
+      "p50_delta": 0.008247561752796173,
+      "p95_delta": 0.04327251017093658,
+      "max_delta": 0.04875439405441284,
+      "class_flips": 1,
+      "examples_over_tolerance": 17,
+      "threshold_crossings": {
+        "0.5": 1,
+        "0.8": 1,
+        "0.9": 0,
+        "0.95": 0
+      }
+    },
+    {
+      "mode": "bf16_strict_math",
+      "scenario": "mixed_batch3",
+      "n": 32,
+      "p50_delta": 0.005332931876182556,
+      "p95_delta": 0.03428657948970794,
+      "max_delta": 0.05014908313751221,
+      "class_flips": 0,
+      "examples_over_tolerance": 19,
+      "threshold_crossings": {
+        "0.5": 0,
+        "0.8": 1,
+        "0.9": 0,
+        "0.95": 0
+      }
+    },
+    {
+      "mode": "bf16_strict_math",
+      "scenario": "repeat_alone",
+      "n": 32,
+      "p50_delta": 0.0,
+      "p95_delta": 0.0,
+      "max_delta": 0.0,
+      "class_flips": 0,
+      "examples_over_tolerance": 0,
+      "threshold_crossings": {
+        "0.5": 0,
+        "0.8": 0,
+        "0.9": 0,
+        "0.95": 0
+      }
+    },
+    {
+      "mode": "bf16_strict_math",
+      "scenario": "right_pad128",
+      "n": 32,
+      "p50_delta": 0.005856223404407501,
+      "p95_delta": 0.045155397057533256,
+      "max_delta": 0.06909728050231934,
+      "class_flips": 1,
+      "examples_over_tolerance": 18,
+      "threshold_crossings": {
+        "0.5": 2,
+        "0.8": 1,
+        "0.9": 0,
+        "0.95": 0
+      }
+    },
+    {
+      "mode": "bf16_strict_math",
+      "scenario": "right_pad32",
+      "n": 32,
+      "p50_delta": 0.0012537180446088314,
+      "p95_delta": 0.019448107481002803,
+      "max_delta": 0.03514948487281799,
+      "class_flips": 0,
+      "examples_over_tolerance": 12,
+      "threshold_crossings": {
+        "0.5": 0,
+        "0.8": 0,
+        "0.9": 0,
+        "0.95": 1
+      }
+    },
+    {
+      "mode": "fp32_strict_math",
+      "scenario": "duplicate_batch2",
+      "n": 32,
+      "p50_delta": 1.043081283569336e-06,
+      "p95_delta": 4.1872262954711906e-06,
+      "max_delta": 6.198883056640625e-06,
+      "class_flips": 0,
+      "examples_over_tolerance": 0,
+      "threshold_crossings": {
+        "0.5": 0,
+        "0.8": 0,
+        "0.9": 0,
+        "0.95": 0
+      }
+    },
+    {
+      "mode": "fp32_strict_math",
+      "scenario": "left_pad32_explicit",
+      "n": 32,
+      "p50_delta": 9.5367431640625e-07,
+      "p95_delta": 4.334747791290283e-06,
+      "max_delta": 4.708766937255859e-06,
+      "class_flips": 0,
+      "examples_over_tolerance": 0,
+      "threshold_crossings": {
+        "0.5": 0,
+        "0.8": 0,
+        "0.9": 0,
+        "0.95": 0
+      }
+    },
+    {
+      "mode": "fp32_strict_math",
+      "scenario": "mixed_batch3",
+      "n": 32,
+      "p50_delta": 6.761401891708374e-07,
+      "p95_delta": 4.683434963226318e-06,
+      "max_delta": 7.271766662597656e-06,
+      "class_flips": 0,
+      "examples_over_tolerance": 0,
+      "threshold_crossings": {
+        "0.5": 0,
+        "0.8": 0,
+        "0.9": 0,
+        "0.95": 0
+      }
+    },
+    {
+      "mode": "fp32_strict_math",
+      "scenario": "repeat_alone",
+      "n": 32,
+      "p50_delta": 0.0,
+      "p95_delta": 0.0,
+      "max_delta": 0.0,
+      "class_flips": 0,
+      "examples_over_tolerance": 0,
+      "threshold_crossings": {
+        "0.5": 0,
+        "0.8": 0,
+        "0.9": 0,
+        "0.95": 0
+      }
+    },
+    {
+      "mode": "fp32_strict_math",
+      "scenario": "right_pad128",
+      "n": 32,
+      "p50_delta": 6.370246410369873e-07,
+      "p95_delta": 3.565847873687744e-06,
+      "max_delta": 5.0067901611328125e-06,
+      "class_flips": 0,
+      "examples_over_tolerance": 0,
+      "threshold_crossings": {
+        "0.5": 0,
+        "0.8": 0,
+        "0.9": 0,
+        "0.95": 0
+      }
+    },
+    {
+      "mode": "fp32_strict_math",
+      "scenario": "right_pad32",
+      "n": 32,
+      "p50_delta": 9.462237358093262e-07,
+      "p95_delta": 4.437565803527832e-06,
+      "max_delta": 4.5299530029296875e-06,
+      "class_flips": 0,
+      "examples_over_tolerance": 0,
+      "threshold_crossings": {
+        "0.5": 0,
+        "0.8": 0,
+        "0.9": 0,
+        "0.95": 0
+      }
+    }
+  ],
+  "verdict": {
+    "bf16_default": "needs_review",
+    "bf16_math": "needs_review",
+    "bf16_strict_math": "needs_review",
+    "fp32_strict_math": "within_sampled_tolerance"
+  },
+  "tolerance": 0.005,
+  "layer_trace_rows": 3264,
+  "traced_examples_per_mode": 4,
+  "trace_file": "numerics/layer_drift.csv",
+  "no_trained_parameters_changed": true,
+  "single_precision_shift": {
+    "bf16_math": {
+      "max_delta": 0.03553926944732666,
+      "class_flips": 0
+    },
+    "fp32_strict_math": {
+      "max_delta": 0.02658092975616455,
+      "class_flips": 1
+    },
+    "bf16_strict_math": {
+      "max_delta": 0.06610071659088135,
+      "class_flips": 1
+    }
+  },
+  "scope": "within-mode paired shape comparison plus between-mode single-call drift; not accuracy, not exact reproducibility across hardware",
+  "note": "No numerical mode is automatically selected for the subsequent scoring stage. BF16 default single-example execution is retained."
+}

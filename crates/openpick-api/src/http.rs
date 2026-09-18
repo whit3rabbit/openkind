@@ -28,8 +28,15 @@ use crate::middleware::AuthConfig;
 use crate::models::ModelsResponse;
 use crate::AppState;
 
-/// Build the HTTP router with a pre-built state. Used by the daemon.
-pub fn router_with_state(state: AppState, auth: AuthConfig) -> Router {
+/// Maximum allowed request payload size in bytes (16 MB) to protect against DoS memory exhaustion.
+pub const MAX_PAYLOAD_SIZE_BYTES: usize = 16 * 1024 * 1024;
+
+/// Build the HTTP router with explicit payload size limit.
+pub fn router_with_state_and_limit(
+    state: AppState,
+    auth: AuthConfig,
+    max_payload_bytes: usize,
+) -> Router {
     Router::new()
         .route("/v1/systemone", post(systemone))
         .route("/v1/system_one", post(systemone))
@@ -47,14 +54,22 @@ pub fn router_with_state(state: AppState, auth: AuthConfig) -> Router {
         .layer(axum::middleware::from_fn(
             crate::middleware::request_id_layer,
         ))
+        .layer(axum::extract::DefaultBodyLimit::max(max_payload_bytes))
         .layer(TraceLayer::new_for_http())
         .with_state(Arc::new(state))
 }
 
+/// Build the HTTP router with a pre-built state and default 16MB payload limit. Used by the daemon.
+pub fn router_with_state(state: AppState, auth: AuthConfig) -> Router {
+    router_with_state_and_limit(state, auth, MAX_PAYLOAD_SIZE_BYTES)
+}
+
+/// Build the HTTP router with default authentication configuration (no API key required).
 pub fn router(registry: EngineRegistry) -> Router {
     router_with_state(AppState::new(registry), AuthConfig::default())
 }
 
+/// Build the HTTP router with explicit authentication configuration.
 pub fn router_with_auth(registry: EngineRegistry, auth: AuthConfig) -> Router {
     router_with_state(AppState::new(registry), auth)
 }
@@ -69,6 +84,9 @@ async fn systemone(
     let Json(req) = match req {
         Ok(j) => j,
         Err(rejection) => match rejection {
+            axum::extract::rejection::JsonRejection::BytesRejection(e) => {
+                return Err(ApiError::PayloadTooLarge(e.to_string()));
+            }
             axum::extract::rejection::JsonRejection::JsonSyntaxError(e) => {
                 return Err(ApiError::BadJson(e.to_string()));
             }
@@ -120,13 +138,14 @@ async fn prometheus_metrics() -> impl IntoResponse {
 /// Exposed here so the binary doesn't have to depend on
 /// metrics-exporter-prometheus directly.
 pub fn install_metrics_recorder() -> anyhow::Result<()> {
+    if HANDLE.get().is_some() {
+        return Ok(());
+    }
     use metrics_exporter_prometheus::PrometheusBuilder;
     let handle = PrometheusBuilder::new()
         .install_recorder()
         .map_err(|e| anyhow::anyhow!("install metrics recorder: {e}"))?;
-    HANDLE
-        .set(handle)
-        .map_err(|_| anyhow::anyhow!("metrics recorder already installed"))?;
+    let _ = HANDLE.set(handle);
     Ok(())
 }
 
@@ -266,5 +285,27 @@ mod tests {
             .unwrap();
         let resp = app().oneshot(req).await.unwrap();
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    }
+
+    #[tokio::test]
+    async fn request_body_exceeding_custom_limit_is_rejected() {
+        let mut reg = EngineRegistry::new();
+        reg.register("mock", Arc::new(MockEngine::new()));
+        let custom_app =
+            router_with_state_and_limit(AppState::new(reg), AuthConfig::default(), 1024);
+        let big_body = serde_json::to_vec(&json!({
+            "state": "x",
+            "model": "mock",
+            "padding": "x".repeat(2048)
+        }))
+        .unwrap();
+        let req = Request::builder()
+            .method("POST")
+            .uri("/v1/systemone")
+            .header("content-type", "application/json")
+            .body(Body::from(big_body))
+            .unwrap();
+        let resp = custom_app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::PAYLOAD_TOO_LARGE);
     }
 }

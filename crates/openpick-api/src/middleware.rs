@@ -20,14 +20,26 @@ pub const REQUEST_ID_HEADER: HeaderName = HeaderName::from_static("x-typesafe-re
 /// Authorization header.
 pub const AUTH_HEADER: HeaderName = HeaderName::from_static("authorization");
 
+/// Maximum allowed length for an inbound client request ID.
+pub const MAX_REQUEST_ID_LEN: usize = 128;
+
+/// Validate whether a request ID string contains only safe identifier characters.
+pub fn is_safe_request_id(s: &str) -> bool {
+    !s.is_empty()
+        && s.len() <= MAX_REQUEST_ID_LEN
+        && s.chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+}
+
 /// Stackable middleware function: stamp every response with a request id.
 pub async fn request_id_layer(mut req: Request<Body>, next: Next) -> Response {
-    // Honor an inbound id if the client supplied one (lets a proxy
-    // thread the id through); otherwise mint a fresh UUIDv4.
+    // Honor an inbound id if the client supplied a valid and safe one
+    // (lets a proxy thread the id through); otherwise mint a fresh UUIDv4.
     let id = req
         .headers()
         .get(&REQUEST_ID_HEADER)
         .and_then(|v| v.to_str().ok())
+        .filter(|s| is_safe_request_id(s))
         .map(|s| s.to_string())
         .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
@@ -47,16 +59,19 @@ pub struct RequestId(pub String);
 /// Optional bearer-auth state. `None` ⇒ no auth required.
 #[derive(Clone, Default)]
 pub struct AuthConfig {
+    /// Expected Bearer API key token wrapped in an `Arc`. If `None`, authentication is disabled.
     pub expected: Arc<Option<String>>,
 }
 
 impl AuthConfig {
+    /// Construct a new `AuthConfig` with the specified optional expected API key token.
     pub fn new(expected: Option<String>) -> Self {
         Self {
             expected: Arc::new(expected),
         }
     }
 
+    /// Resolve an API key by consulting environment lookup closure, checking `OPENPICK_API_KEY` then `TYPESAFE_API_KEY`.
     pub fn resolve_api_key_with<F>(get_env: F) -> Option<String>
     where
         F: Fn(&str) -> Result<String, std::env::VarError>,
@@ -67,10 +82,12 @@ impl AuthConfig {
             .or_else(|| get_env("TYPESAFE_API_KEY").ok().filter(|s| !s.is_empty()))
     }
 
+    /// Construct `AuthConfig` by resolving from environment variables `OPENPICK_API_KEY` or `TYPESAFE_API_KEY`.
     pub fn from_env() -> Self {
         Self::new(Self::resolve_api_key_with(|k| std::env::var(k)))
     }
 
+    /// Returns `true` if authentication is required (an expected API key is configured).
     pub fn is_required(&self) -> bool {
         self.expected.is_some()
     }
@@ -85,7 +102,11 @@ pub async fn auth_layer(
     next: Next,
 ) -> Response {
     let path = req.uri().path().to_string();
-    if !auth.is_required() || path == "/health" || path == "/metrics" {
+    if !auth.is_required()
+        || path == "/health"
+        || path == "/metrics"
+        || req.method() == axum::http::Method::OPTIONS
+    {
         return next.run(req).await;
     }
 
@@ -98,8 +119,8 @@ pub async fn auth_layer(
                 .or_else(|| s.strip_prefix("bearer "))
         });
 
-    let ok = match (supplied, auth.expected.as_ref()) {
-        (Some(given), Some(expected)) => constant_time_eq(given.as_bytes(), expected.as_bytes()),
+    let ok = match (supplied, auth.expected.as_deref()) {
+        (Some(given), Some(expected)) => secure_token_eq(given, expected),
         _ => false,
     };
 
@@ -127,16 +148,16 @@ pub async fn auth_layer(
     next.run(req).await
 }
 
-/// Constant-time byte comparison. Returns false for mismatched lengths.
-fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
-    let mut diff: u8 = 0;
-    for (x, y) in a.iter().zip(b.iter()) {
-        diff |= x ^ y;
-    }
-    diff == 0
+/// Secure constant-time token comparison.
+///
+/// To completely eliminate timing side-channels (including length-leakage attacks),
+/// both inputs are hashed using SHA-256 into fixed 32-byte digests, and the digests
+/// are compared in constant time using `subtle::ConstantTimeEq`.
+pub fn secure_token_eq(a: &str, b: &str) -> bool {
+    use subtle::ConstantTimeEq;
+    let digest_a = ring::digest::digest(&ring::digest::SHA256, a.as_bytes());
+    let digest_b = ring::digest::digest(&ring::digest::SHA256, b.as_bytes());
+    digest_a.as_ref().ct_eq(digest_b.as_ref()).into()
 }
 
 /// Build the auth middleware as a Layer for use with `.layer()`.
@@ -288,10 +309,58 @@ mod tests {
     }
 
     #[test]
-    fn constant_time_eq_handles_mismatched_lengths() {
-        assert!(!constant_time_eq(b"abc", b"abcd"));
-        assert!(constant_time_eq(b"abc", b"abc"));
-        assert!(!constant_time_eq(b"abc", b"abd"));
+    fn secure_token_eq_handles_matching_and_mismatching_tokens() {
+        assert!(!secure_token_eq("abc", "abcd"));
+        assert!(secure_token_eq("abc", "abc"));
+        assert!(!secure_token_eq("abc", "abd"));
+        assert!(!secure_token_eq("", "abc"));
+        assert!(secure_token_eq(
+            "super-secret-key-12345",
+            "super-secret-key-12345"
+        ));
+    }
+
+    #[tokio::test]
+    async fn inbound_unsafe_request_id_is_sanitized() {
+        // Injection attempt with unsafe chars (spaces, brackets, semicolons)
+        let resp = app(AuthConfig::default())
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .header(&REQUEST_ID_HEADER, "<script>malicious;id</script>")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let id = resp
+            .headers()
+            .get(&REQUEST_ID_HEADER)
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert_ne!(id, "<script>malicious;id</script>");
+        assert_eq!(id.len(), 36, "should fall back to fresh UUIDv4");
+
+        // Oversized ID attempt (> 128 chars)
+        let long_id = "a".repeat(200);
+        let resp2 = app(AuthConfig::default())
+            .oneshot(
+                Request::builder()
+                    .uri("/health")
+                    .header(&REQUEST_ID_HEADER, long_id)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        let id2 = resp2
+            .headers()
+            .get(&REQUEST_ID_HEADER)
+            .unwrap()
+            .to_str()
+            .unwrap();
+        assert_eq!(id2.len(), 36, "should fall back to fresh UUIDv4");
     }
 
     #[test]

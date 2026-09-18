@@ -1,1198 +1,576 @@
-# Jev, Reverse-Engineered: How Reproducible Is TypeSafe’s Non-Autoregressive Decision Model?
+# Jev, Reverse-Engineered: Architecture Reconstruction, Reddit Prior Art Audit, and an Open-Source Reproduction Plan
 
-## Executive finding
+## Executive Summary & Reproduction Boundaries
 
-As of **September 17, 2026**, Jev is reproducible in the sense that matters most for an open-source project, but **not reproducible exactly**. TypeSafe has published enough of the external contract to reconstruct a model with essentially the same programming model—shared state in; `Choice`, `Score`, and binary `Noul` questions out; probabilities returned directly; many independent questions evaluated together; no free-form generation—but it has **not** published Jev's weights, parameter count, architecture, pretraining recipe, training corpus, sampler implementation, or the mathematical definition of Reinforcement Learning for Calibrated Decisions, or RLCD. Founder Diogo Almeida explicitly said the architecture is being kept “close to the chest” for now and that the company has discussed publishing a paper; he also suggested the data may be more important than the architecture. citeturn24search0turn24search3
+As of **September 17, 2026**, the central conclusion regarding TypeSafe AI's Jev is straightforward:
 
-That means there are really three reproduction targets:
+> **The exact Jev architecture is not reproducible from public information as of September 17, 2026. A functionally Jev-like open-source system is reproducible, however, and most of its publicly visible behavior can be implemented with known techniques.**
 
-| Target | Reproducible today? | Assessment |
-|---|---:|---|
-| Jev's **API/output behavior** | **Yes** | Straightforward |
-| Jev's **no-generation, parallel-decision execution model** | **Yes, approximately** | Strong public precedents and an existing community proof of concept |
-| Jev's **calibration/accuracy/latency Pareto frontier** | **Unknown** | Requires substantial training and direct Jev comparison |
-| Jev's **actual proprietary architecture and RLCD algorithm** | **No** | Critical details undisclosed |
-| A useful open-source **“OpenJev” that behaves like Jev** | **Yes** | Technically credible project |
+TypeSafe has disclosed the **contract** of Jev much more clearly than its internals: one shared state, multiple typed questions, probability distributions rather than prose, Choice/Score/Noul primitives, independent/parallel evaluation, deterministic schema-safe serialization, and a training method called **Reinforcement Learning for Calibrated Decisions (RLCD)**. It has *not* publicly disclosed the model topology, parameter count, training corpus, reward formulation, calibration loss, sampler implementation, or sufficient details to independently reproduce RLCD. TypeSafe explicitly markets Jev as a "new model architecture" with a "parallel sampler" and RLCD, but those remain proprietary descriptions rather than reproducible specifications. Founder Diogo Almeida—an author on OpenAI's InstructGPT paper (Ouyang et al., 2022)—has indicated that the architecture is being kept "close to the chest" and suggested that the curation of training data may be more significant than the network topology itself.
 
-TypeSafe's public documentation is unusually revealing about the behavioral constraints. Jev receives one shared state and a set of typed questions. `Choice` operates over caller-supplied alternatives, `Score` over an ordered caller-supplied rubric, and `Noul` returns a binary probability. TypeSafe says questions in a request are evaluated **independently against the same state and in parallel**, rather than conditioning on one another. Its own batching cookbook tests thirteen mixed questions against a roughly 54,000-character document and reports a 0.27-second batched call versus 2.71 seconds for thirteen serial calls; crucially, the company says the answers are effectively unchanged whether questions are submitted alone or together. citeturn17view1
+The academically defensible way to characterize Jev today is:
 
-There is also now some independent evidence for the product behavior. Every's Mike Taylor submitted 21 questions across 37 documents—777 judgments—and reports completion in under 0.7 seconds at an estimated cost of roughly a quarter-cent. In a much smaller accuracy comparison, Jev caught six of seven deliberately planted writing defects while Claude Fable 5.1 caught all seven; Jev's reported median latency was 0.35 seconds per passage versus 8.83 seconds for Fable. That supports the claim that the latency advantage is real, while also showing why speed must not be confused with frontier accuracy. citeturn20view0
+> **Jev is a proprietary, machine-oriented probabilistic decision model/API that removes autoregressive string generation from the external output path, amortizes computation across multiple structured questions, and claims calibration-oriented reinforcement learning. Its interface and performance envelope are observable; its exact architecture and RLCD training algorithm are not.**
 
-The most important conclusion from reverse-engineering the interface is this:
+An open-source reproduction effort must explicitly distinguish three reproduction tiers:
 
-> **Jev probably should not be thought of as a “non-autoregressive LLM” in the same sense as non-autoregressive text-generation research. It is better understood as a dynamically programmable, zero-shot structured predictor whose output space is supplied at inference time.**
+| Reproduction Target | Feasibility Today | Assessment |
+|---|:---:|---|
+| **1. Interface reproduction** | **High confidence** | Replicating `Choice`, `Score`, `Noul`, deterministic schemas, probability distributions, and a unified endpoint accepting many questions against one state is straightforward engineering. |
+| **2. Behavioral & performance reproduction** | **Medium confidence** | Building an open model that amortizes state processing and evaluates questions in parallel at low latency is experimentally achievable. Matching TypeSafe's accuracy/latency Pareto frontier across diverse domains is empirical and unproven. |
+| **3. Exact architectural reproduction** | **Currently impossible** | TypeSafe has not disclosed the underlying neural backbone, parameter count, sampler mechanics, or RLCD reward formulation. Exact parity cannot be established from public information. |
 
-That distinction changes how I would reproduce it. I would **not** begin by building a parallel text generator. I would build a pretrained semantic model whose expensive representation of the shared state is computed once, followed by a parallel bank of lightweight question/candidate evaluations, and train the resulting probabilities explicitly for decision quality and calibration. This interpretation is consistent with TypeSafe's API, its batching behavior, Almeida's agreement that a “zero-shot” classifier is a reasonable characterization, and the existing structured-classification literature. citeturn24search19turn21academia0
+### Bottom-Line Findings
 
-The supplied analysis was therefore directionally correct in separating the community `openjev` implementation from the real Jev substrate. The current `openjev` model card confirms that it is a Qwen3.5-4B NLI cross-encoder with three fixed labels—contradiction, entailment, neutral—last-token pooling, and ordinary cross-entropy training. That is a useful baseline, but it does not reproduce TypeSafe's mixed typed-question architecture, shared-state computation, or undisclosed calibration training. fileciteturn0file0 citeturn26search0
+| Research Question | Finding | Confidence |
+|---|---|:---:|
+| Did prior public work precede Jev with non-generative RL decision models? | **Yes.** SalesRLAgent (Nandakishor M) appeared on arXiv in March 2025 modeling conversion prediction as a probabilistic decision policy. | High |
+| Did the Reddit author "literally build the Jev architecture"? | **Not established and unlikely in the strict architectural sense.** SalesRLAgent is a sequential, sales-specific PPO policy with a single continuous scalar action; Jev evaluates arbitrary heterogeneous questions in parallel. | High |
+| Was everything in SalesRLAgent open-sourced in March 2025? | **No.** The paper appeared March 30, 2025; visible Hugging Face models/datasets and PyPI packages appeared in May 2025. | High |
+| Is the released SalesRL implementation genuinely PPO? | **Yes.** The released code uses Stable-Baselines3 PPO over state embeddings and history. | High |
+| Are published SalesRL performance figures reliable evidence of Jev-like capability? | **No, not without a leakage-free rerun.** The public environment exposes target outcome, initializes probability history with ground-truth trajectories, and reuses full-conversation embeddings across earlier turns. | High |
+| Is the author's second 2025 paper "exactly" Jev? | **No.** It describes confidence-aware model routing across local models, retrieval, and humans, not a parallel typed decision model. | High |
+| Is Jev non-autoregressive internally? | TypeSafe confirms **output sampling** is non-autoregressive (parallel rather than token-by-token). Whether the entire internal network is technically non-autoregressive remains undisclosed. | Medium |
+| Does Jev's public evidence prove calibrated probabilities? | **No.** Calibration is claimed as an RLCD objective, but no reproducible calibration study, reliability diagrams, or RLCD specifications are public. | High |
+| Can an open Jev-like system be built now? | **Yes at the API, systems, and behavioral level; no at exact architectural parity.** | High |
 
-My overall assessment is therefore:
+### Independent Validation: The Every Experiment
 
-**An open-source Jev analogue is highly feasible. An exact Jev clone is currently impossible. The difficult research problem is no longer “how do we eliminate autoregressive generation?”—that part is relatively straightforward. The hard problems are obtaining broad zero-shot judgment ability, retaining that ability in a much cheaper decision-only architecture, and producing probabilities that remain calibrated across changing user-defined schemas and distribution shift.**
+The strongest independent empirical validation of Jev to date was conducted by Taylor Majewski and Dan Shipper at *Every*:
+- **Throughput & Amortization**: Majewski ran 21 judgments across 37 documents (777 total decisions) in under **0.7 seconds**, incurring an estimated cost of roughly **$0.0025** (~quarter-cent).
+- **Quality vs. Frontier LLMs**: In a controlled test on 12 passages with seven deliberately planted defects, Jev identified **six of seven**, while Claude Fable 5.1 identified all seven.
+- **Latency Comparison**: Jev achieved a median per-passage latency of **~0.35 seconds**, compared to **8.83 seconds** for Claude Fable 5.1 (~25× wall-clock speedup and ~580× estimated cost reduction).
 
-## What Jev actually reveals about its architecture
+This test independently confirms that the low-latency, low-cost execution envelope is real, while illustrating that speed must not be conflated with frontier reasoning capabilities.
 
-TypeSafe describes Jev as its first “System One” model and says it combines a **new architecture**, a **parallel sampler**, and **RLCD**. The model deliberately does not generate strings: the declared output space is typed in advance, so the application receives values and probability distributions rather than a token sequence that subsequently needs to be parsed. TypeSafe explicitly distinguishes this structural guarantee from correctness: the “zero hallucination” language refers to inability to violate the requested output type, not inability to choose the wrong answer. citeturn1view0
+---
 
-That seemingly simple constraint tells us a great deal.
+## What Jev Actually Reveals About Its Architecture
 
-### The output is almost certainly classification-like rather than language decoding
+TypeSafe describes Jev as the first of its "System One Models," designed specifically for automated machine-to-machine decisions rather than human-facing conversational text.
 
-For a normal decoder LLM, an answer such as:
+### Fact vs. Speculation Boundary
 
-```json
-{
-  "route": "security",
-  "severity": 3,
-  "malicious": 0.91
-}
+```mermaid
+flowchart LR
+    A["State\ntext / structured program state"] --> B["Jev\nproprietary model"]
+    Q["Typed questions\nChoice / Score / Noul"] --> B
+
+    B --> C["Parallel probabilistic decisions"]
+    C --> D["Deterministic typed API values"]
+
+    subgraph Publicly Documented Contract
+      A
+      Q
+      C
+      D
+    end
+
+    subgraph Undisclosed Internals
+      X["Backbone topology & size"]
+      Y["Pretraining / distillation corpus"]
+      Z["Parallel sampler mechanics"]
+      R["RLCD loss & reward formulation"]
+      T["Optimization objective"]
+      K["Post-hoc calibration procedure"]
+    end
+
+    X -. undisclosed .-> B
+    Y -. undisclosed .-> B
+    Z -. undisclosed .-> B
+    R -. undisclosed .-> B
+    T -. undisclosed .-> B
+    K -. undisclosed .-> B
 ```
 
-is a sequence of tokens. Even with grammar-constrained generation, the model must repeatedly project hidden states into its vocabulary, sample or select tokens, and advance the sequence.
+### 1. Structural Guarantee vs. Semantic Correctness
 
-Jev's natural internal representation can instead be:
+TypeSafe's marketing asserts that Jev "cannot hallucinate" and exhibits a "0% type error rate." It is critical to interpret this claim accurately:
 
-\[
-p(y=k\mid x,q,C)
-\]
+> **Jev can eliminate malformed or out-of-schema outputs by construction; this does not eliminate semantically incorrect in-schema decisions.**
 
-where:
+The model does not emit free-form strings that are subsequently parsed by a JSON decoder. Because the output primitives (`Choice`, `Score`, `Noul`) map directly to numerical distributions and candidate indices, host-side serialization guarantees that the output strictly conforms to the requested schema. However, a model can return a perfectly formatted `Choice` answer with a mathematically valid probability distribution while selecting the completely wrong answer.
 
-- \(x\) is the shared state,
-- \(q\) is a natural-language decision instruction,
-- \(C=\{c_1,\ldots,c_K\}\) is the dynamically supplied candidate/rubric set,
-- and the output is a categorical distribution over those candidates.
+### 2. Confidence vs. Calibrated Probability
 
-`Noul` is simply the \(K=2\) special case. `Choice` is ordinary categorical decision-making with variable \(K\). `Score` can likewise be represented as a probability distribution over ordered rubric levels, from which a point estimate can be derived. TypeSafe's own API documentation exposes precisely these probability distributions. citeturn17view1turn18view0
+TypeSafe documentation exposes both probabilities and a `confidence` metric for `Choice` and `Score`:
 
-The JSON object need never come from the neural network. Ordinary host code can serialize the selected labels and floating-point probabilities. **Schema validity can therefore be literally deterministic.**
+> **Jev exposes probability distributions and, for some output types, a separate concentration-derived confidence statistic. The latter should not be interpreted as a calibrated probability of correctness.**
 
-### The model cannot have a conventional fixed classification head
+In TypeSafe's API:
+- **`Noul`** returns a single probability $p \in [0.0, 1.0]$ and **has no separate confidence field**.
+- **`Choice`** and **`Score`** confidence values are mathematical statistics derived from how concentrated the probability mass is across candidates (e.g. normalized entropy or margin between top candidates).
+- TypeSafe explicitly warns in its documentation that a confidence of 1.0 does not guarantee correctness and advises developers to establish domain-specific thresholds.
 
-Choice alternatives are supplied by the caller at inference time, including natural-language descriptions, and TypeSafe supports as many as 255 alternatives. A traditional `Linear(hidden_size, num_classes)` classifier trained for fixed intents such as `{billing, security, sales}` cannot do this. The model must somehow **semantically encode the question and candidate definitions themselves**. citeturn1view0turn17view1
+### 3. Dynamic Query & Candidate Encoding (Up to 255 Options)
 
-That narrows the plausible design space to mechanisms such as:
+`Choice` alternatives are provided dynamically by the caller at runtime, including natural-language descriptions, supporting up to **255 options**. A traditional fixed classification head (`Linear(hidden_size, num_classes)`) cannot satisfy this requirement. The model must semantically encode questions and candidate criteria at inference time.
 
-1. a cross-encoder that separately evaluates each state/question/candidate combination;
-2. a shared state encoder plus dynamically encoded candidate/query representations;
-3. a causal-model prefill whose state cache is forked into many candidate-scoring branches;
-4. a query-decoder architecture in which learned or textual query representations attend to a common state representation.
+Furthermore, TypeSafe's description of its Wikiracing benchmark reveals that high-cardinality decisions can employ a **two-stage process**—independent scoring followed by explicit choice selection. This indicates that "all outputs in parallel" does not necessarily require a single indivisible tensor operation for every request.
 
-The first works but unnecessarily recomputes the state. The last three naturally explain Jev's batching economics.
+### 4. Question Isolation & Separable Attention Boundaries
 
-### Independent questions strongly imply a separable attention/computation boundary
+TypeSafe's documentation mandates that multiple questions evaluated against the same state are executed **in isolation against the same state**. In TypeSafe's GDPR benchmark cookbook, evaluating thirteen mixed questions together produced answers that did not deviate from evaluating each question individually beyond standard floating-point variance.
 
-TypeSafe does not merely say questions execute simultaneously; its documentation says each one is evaluated **in isolation against the same state**. Its GDPR cookbook specifically tests whether adding twelve other questions perturbs an individual question and says it does not beyond ordinary run-to-run noise. citeturn17view1
-
-That property is architecturally significant.
-
-A naïve Transformer input like:
+This rules out unrestricted bidirectional self-attention across the combined sequence `[State, Q1, Q2, ...]`. Instead, the computational graph requires an attention mask where question branches attend to the shared state representation but are masked from attending to one another:
 
 ```text
-[state]
-[question 1]
-[question 2]
-[question 3]
-...
-```
-
-with unrestricted bidirectional self-attention would allow Question 1 to affect Question 2, violating the advertised isolation property.
-
-A Jev-like mask is more naturally:
-
-```text
-                 ┌──────── question A / candidates A ────────► answer A
+                 ┌──────── Question A / candidates A ────────► Answer A
                  │
-state ─► shared ─┼──────── question B / candidates B ────────► answer B
-representation   │
-                 ├──────── question C / candidates C ────────► answer C
+State ──► Shared ┼──────── Question B / candidates B ────────► Answer B
+   Representation│
+                 ├──────── Question C / candidates C ────────► Answer C
                  │
-                 └──────── question D / candidates D ────────► answer D
+                 └──────── Question D / candidates D ────────► Answer D
 ```
 
-Each branch can attend to the state. Branches cannot attend to one another.
+### 5. Parallel Execution Economics
 
-This is my inference, not a disclosed TypeSafe design, but it fits the observable contract exceptionally well. Architectures such as **Perceiver IO** establish the general precedent: encode input into a shared latent representation and use arbitrary output queries to request outputs with different semantics. Perceiver IO was explicitly designed around flexible queries and structured outputs, although there is no evidence TypeSafe copied that architecture. citeturn21academia1
+TypeSafe emphasizes that adding questions "barely changes" response time. However, wall-clock parallelism must not be confused with zero additional compute. The computational scaling follows:
 
-### A shared prefill plus branch sampler is another especially plausible implementation
+\[
+C_{\text{Jev-like}} \approx C_{\text{state}} + \sum_{q=1}^{Q} C_{\text{query}, q} + \sum_{q=1}^{Q} C_{\text{candidate-head}, q}
+\]
 
-There is an even less exotic explanation. Start with a pretrained causal model:
+rather than the quadratic cost of $Q$ independent forward passes:
+
+\[
+C_{\text{naive cross-encoder}} \approx \sum_{q=1}^{Q} \sum_{k=1}^{K_q} C_{\text{state} + \text{query} + \text{candidate}}
+\]
+
+Latency remains nearly flat only while the shared state dominates total FLOPs and the GPU has sufficient execution units to schedule the query branches concurrently. Once candidate evaluation or batch dimensions saturate hardware capacity, latency scales linearly with query volume.
+
+## Audit of Prior Art Claims: Reddit Discussion & SalesRLAgent
+
+In September 2026, a high-visibility discussion on Reddit (`r/LocalLLaMA`) asserted that the Jev architecture had already been built and open-sourced a year earlier by researcher Nandakishor M under the title *"I literally built the Jev architecture one year back and completely open-sourced it with model, dataset and paper"*. 
+
+A rigorous technical audit of this claim, the underlying papers, and released repositories clarifies the provenance and limits of this work.
+
+### 1. The Genuine Prior Art: SalesRLAgent (arXiv 2503.23303)
+
+The Reddit poster did publish meaningful and legitimate prior art:
+- **SalesRLAgent** was submitted to arXiv on **March 30, 2025** (`arXiv:2503.23303`).
+- It models sales conversion prediction as a specialized probabilistic decision policy rather than relying on open-ended autoregressive text generation.
+- It demonstrates that specialized, non-generative reinforcement learning policies can replace LLM text generation for automation tasks, achieving 85 ms CPU inference compared to 3,450 ms for GPT-4.
+
+This constitutes valid prior art for the broad concept of **replacing generative inference with specialized probabilistic decision policies**.
+
+### 2. Architectural Divergence: Sequential Policy vs. Parallel Multi-Query Decision Engine
+
+However, the headline claim—*"I literally built the Jev architecture"*—is **unsupported by the technical evidence**:
+- **Computational Graph**: SalesRLAgent is a **sequential, turn-by-turn PPO policy** with a **single continuous scalar action** $a \in [0.0, 1.0]$ representing conversion probability at each dialogue turn.
+- **Jev Engine**: Jev is a **horizontal, multi-query decision model** accepting an arbitrary shared state and evaluating *many heterogeneous, caller-defined questions* (`Choice` with up to 255 candidates, `Score` rubrics, `Noul` booleans) in parallel without cross-conditioning.
+- **Action Space**: SalesRLAgent operates over a static, hardcoded observation space (sales metrics, turn indices, fixed embeddings). Jev dynamically encodes runtime natural-language candidate criteria and instructions.
+
+### 3. Chronology Audit: Paper vs. Release Artifacts
+
+The claim of complete open sourcing in March 2025 is partially inaccurate chronologically:
+- The paper appeared on arXiv on **March 30, 2025**.
+- The public Hugging Face model (`DeepMostInnovations/sales-conversion-model-reinf-learning`) and dataset repository were committed on **May 11–12, 2025**.
+- The PyPI distribution packages began releasing on **May 24, 2025**.
+- While the work clearly predates Jev's public launch, the full open-source artifact pipeline appeared in May 2025 rather than March.
+
+### 4. Critical Reproducibility Issue: Target and Temporal Leakage
+
+A critical flaw exists in the public SalesRLAgent training and evaluation implementation that invalidates its headline **96.7% accuracy** as evidence of real-time predictive decision-making:
+1. **Target Feature Leakage**: The released Gym environment observation vector directly exposes the ground-truth final `outcome` metric to the policy.
+2. **Trajectory Initialization Leakage**: The probability history buffer is initialized from the ground-truth probability trajectory.
+3. **Temporal Lookahead via Full-Conversation Embeddings**: In synthetic data generation, conversations were generated with the target outcome pre-selected. The 3,072-dimensional embedding was generated from the **entire completed conversation**, and this full-conversation embedding was reused across all simulated early turns. Early-turn decisions therefore attended to representations encoding future dialogue tokens that would not exist in an online deployment.
+4. **Dataset Discrepancy**: The paper cites a training corpus of **1.2 million synthetic conversations**, whereas the published Hugging Face dataset contains **100,000 rows**.
+
+> [!IMPORTANT]
+> The released PPO environment exposes target information through the final outcome, the initialized probability trajectory, and a full-conversation embedding reused at earlier turns. Until a prefix-only, target-blind evaluation reproduces the reported accuracy, we do not treat 96.7% as evidence of leakage-free real-time prediction.
+
+### 5. Second Paper Audit: Confidence Routing (arXiv 2510.01237)
+
+The author's second cited work (`arXiv:2510.01237`, October 2025) was claimed to be *"exactly the same one Jev proposed"*. This claim is contradicted by the paper:
+- The paper specifies a **confidence-aware router** that directs incoming queries to a local model, a retrieval system, an expensive frontier LLM, or human escalation.
+- It does not describe a typed parallel decision model, does not implement dynamic candidate scoring, and contains no RLCD training formulation.
+
+### 6. Atomic Claim Audit
+
+| Verbatim Claim from Reddit Discussion | Verification & Analysis | Verdict | Confidence |
+|---|---|:---:|:---:|
+| *"I literally built the Jev architecture one year back and completely open-sourced it"* | SalesRL predates Jev, but is a sequential scalar PPO policy for sales conversion, not a parallel multi-question typed decision engine. | **Unsupported as architectural identity** | High |
+| *"Everyone now talks about the architecture that's not auto regressive and does lightning fast probability prediction with a json schema"* | Accurately describes Jev's external output behavior; does not prove Jev's internal neural backbone is non-autoregressive. | **Mostly true (contract level)** | High |
+| *"worked on this in March 2025, published paper, pushed model to HF, PyPI, and dataset"* | Paper was March 30; HF models/datasets and PyPI packages appeared in May 2025. | **Partially false chronologically** | High |
+| *"the main guiding model is RL not embedding model or LLM"* | The policy is PPO, but observations incorporate a 3072-dim text embedding and synthetic data was generated by GPT-4o. | **Misleading** | High |
+| *"second work published in September 2025 was exactly the same one jev proposed now"* | Second paper is confidence-aware routing across inference tiers, not Jev's typed parallel decision engine. | **Contradicted** | High |
+| *"SalesRLAgent is essentially a sequential PPO policy... Jev is more general [multi-question parallel]"* | Confirmed by code and API audit. | **Supported** | High |
+| *"you can do parallel constrained decode with the same prefix cache"* | Sharing/broadcasting decoder KV-caches across candidate branches is valid and demonstrated in community baselines. | **Supported** | High |
+| *"sounds like [SALSA]"* | SALSA formalizes single-pass structured classification mapping labels to output tokens, but does not evaluate heterogeneous questions in parallel. | **Relevant baseline, not equivalent** | High |
+| OP: *"We don't have any info about rlcd. Untill a technical paper arrive it's just another buzz word"* | Accurately reflects that TypeSafe has not published algorithmic specifications for RLCD. | **Supported** | High |
+
+---
+
+## Literature Foundations: What Prior Art Does (and Does Not) Prove
+
+The research lineage preceding Jev does not indicate that Jev invented non-autoregressive decision-making from scratch. Rather, the lineage follows:
 
 ```text
-state tokens → expensive shared prefill/KV state
-                             │
-              ┌──────────────┼──────────────┐
-              ▼              ▼              ▼
-         question A     question B     question C
-         candidates     candidates     candidates
-              │              │              │
-           logits         logits         logits
+Encoder Classifiers (BERT/DeBERTa)
+   └─► Probabilistic Calibration (Guo et al., 2017)
+         └─► Structured Calibration (Kuleshov & Liang, 2015)
+               └─► Constrained / Token-Logit Classification (SALSA, 2025)
+                     └─► Shared-Prefix KV-Cache Broadcasting (Moonshine / Qwen PCD)
+                           └─► TypeSafe Jev: Proprietary integration of generalized
+                               typed decisions, parallel sampling, and RLCD.
 ```
 
-The state is processed exactly once. Its cached representation is forked. All short question/candidate suffixes run as a batch. Instead of allowing the model to emit arbitrary vocabulary tokens, a classification/scoring head computes only the requested decisions.
+### 1. Calibrated Structured Prediction (Kuleshov & Liang, 2015)
 
-This is sufficiently obvious that a community implementation has already demonstrated it. `LFM2.5-2.6B-RLCD`—despite the misleading name—uses **unchanged** LFM2.5 weights, prefills shared context once, branches the attention/convolution state, evaluates allowed answers in parallel, and constructs the typed JSON in Python. Its author explicitly says it is inference-only, uncalibrated, and **not** a reproduction of TypeSafe's RLCD. citeturn25search9
+Kuleshov and Liang formalized calibration for models with complex, structured output spaces where downstream applications make diverse probability queries over structured outputs. This proves that calibrated structured prediction predates Jev by more than a decade.
 
-That project is highly informative because it proves that a major part of the Jev execution pattern requires **no mysterious new training algorithm at all**. Shared-context prefill plus parallel finite-choice scoring already eliminates sequential answer generation.
+### 2. Calibration of Modern Neural Networks (Guo et al., 2017)
 
-### “Parallel” does not mean constant compute
+A crucial theoretical correction applies to the assumption that cross-entropy classifiers are calibrated:
 
-This also explains an important marketing nuance. TypeSafe says adding questions “barely changes” response time, but the company's own cookbook acknowledges that cost depends strongly on the shared document and that concurrent independent requests narrow the apparent latency advantage relative to serial requests. citeturn17view1
+> **Negative log-likelihood is a strictly proper scoring rule whose population optimum recovers the true conditional distribution under ideal assumptions; finite, overparameterized neural networks can nevertheless be substantially miscalibrated, so calibration must be measured rather than presumed.**
 
-The real computational relationship is closer to:
+Guo et al. demonstrated that modern depth, width, and normalization cause neural networks to output overconfident probabilities despite minimizing cross-entropy. Simple post-hoc **temperature scaling** on a held-out validation set provides a strong calibration baseline.
 
-\[
-C_{\text{Jev-like}}
-\approx
-C_{\text{state}}
-+
-\sum_{q=1}^{Q}C_{\text{short-query},q}
-+
-\sum_{q=1}^{Q}C_{\text{candidate-head},q}
-\]
+### 3. Non-Autoregressive Generation Survey (Xiao et al., 2022)
 
-instead of the wasteful:
+Xiao et al. survey non-autoregressive text generation, detailing the historical trade-offs between speedup and output dependency modeling:
 
-\[
-C_{\text{naive cross encoder}}
-\approx
-\sum_{q=1}^{Q}\sum_{k=1}^{K_q}
-C_{\text{state+question+candidate}}.
-\]
+> **Non-autoregressive generation literature establishes the broader speed-versus-dependency tradeoff; it should be treated as adjacent prior art rather than evidence of Jev's specific architecture.**
 
-It is therefore reasonable for latency to be nearly flat when **the state dominates computation** and the GPU has enough unused parallel capacity. It would not remain flat indefinitely as the number and length of questions or candidates grow.
+Because Jev evaluates finite caller-supplied candidate sets rather than generating arbitrary-length token sequences, it avoids the multi-token conditional dependency dilemma of non-autoregressive machine translation.
 
-### Jev “confidence” is not the same thing as calibrated correctness probability
+### 4. Theoretical Parallel Sampling (Anari, Gao, & Rubinstein)
 
-There is one important correction to the initial discussion. TypeSafe's `confidence` field on `Choice` and `Score` is **derived from the shape of the probability distribution**, with concentrated distributions receiving greater confidence; `Noul` does not even have a separate confidence field. TypeSafe explicitly calls confidence a statistic calculated from the underlying probabilities. citeturn18view0
+Earlier informal discussions occasionally misattributed parallel sampling foundations to Chakraborty et al. The relevant theoretical work is **"Parallel Sampling via Counting" by Nima Anari, Ruiquan Gao, and Aviad Rubinstein**:
 
-So the statement:
+> **Theoretical parallel-sampling work by Anari, Gao, and Rubinstein shows that sequential sampling dependencies can sometimes be parallelized given powerful conditional-marginal/counting access, but this is not evidence that Jev uses that technique.**
 
-> “a Jev confidence of 0.7 should be correct 70% of the time”
+### 5. Disambiguation: The RLCD Acronym Collision
 
-is not supported.
+Searches for RLCD encounter a prior unrelated academic acronym:
 
-The calibration claim properly applies to **probabilities**: predictions assigned probability 0.8 should correspond to outcomes occurring roughly 80% of the time over a suitable population. TypeSafe states this directly in its RLCD primer. citeturn17view4
+> **TypeSafe's RLCD ("Reinforcement Learning for Calibrated Decisions") is unrelated to the earlier RLCD acronym "Reinforcement Learning from Contrastive Distillation" (Yang et al., 2023).**
 
-That distinction needs to survive into any open implementation.
+Yang et al.'s method creates preference pairs from contrasting prompts for LLM alignment. TypeSafe's RLCD refers to calibration-oriented decision optimization.
 
-## What the research literature tells us
+### 6. SALSA: Single-Pass Structured Classification (arXiv 2510.22691)
 
-The surprising conclusion from the literature is that very little of Jev's **conceptual** design requires unknown mathematics. Almost every component has a strong predecessor. What TypeSafe may have invented is a particularly successful integration, training distribution, sampler, or scale recipe.
+SALSA ("Single-pass Autoregressive LLM Structured Classification") maps candidate classes to single vocabulary tokens and evaluates their logits in a single forward pass without autoregressive token generation. 
 
-### The nearest architecture paper is probably GLiClass, not non-autoregressive translation
+> **A fair Jev evaluation should compare not only against normal LLM JSON generation but against single-pass class-token approaches such as SALSA and shared-prefix/KV-cache candidate scoring.**
 
-**GLiClass**, published in 2025, attacks almost exactly the inefficiency that appears in Jev's problem statement. The authors note that generative LLMs are inefficient for zero-shot classification, while conventional NLI/reranking cross-encoders repeatedly process text-label pairs. GLiClass instead supports dynamic class labels and is designed to process multiple labels in a single forward pass; the authors also experiment with PPO for classification from sparse data or feedback. citeturn21academia0
+### 7. Community Implementations: `openjev` and Parallel Constrained Decoding
 
-That makes GLiClass a substantially better architectural starting point than most “non-autoregressive LLM” work.
+Two open community implementations validate key mechanics:
+1. **`AlexWortega/openjev`**: A Qwen3.5-4B NLI cross-encoder trained with standard cross-entropy over 3 fixed labels (entailment, neutral, contradiction). It validates non-generative classification, but does not support dynamic arbitrary candidate sets or shared-state multi-query execution.
+2. **`monotykamary/LFM2.5-2.6B-RLCD` & `Qwen-2.5-1B-RLCD`**: Demonstrate shared-prefix KV-cache branching. The shared prompt is prefilled once, the cache is broadcast across question branches, candidate logits are computed in parallel, and JSON is assembled in host code. These are TypeSafe-inspired inference reproductions, not reproductions of RLCD training.
 
-Conceptually:
+---
 
-```text
-                       label/query representation
-                                  │
-                                  ▼
-state/document ───────► semantic interaction ──────► score(label)
-                                  ▲
-                                  │
-                       label/query representation
+## Property Comparison Across Paradigms
+
+| Property | TypeSafe Jev | Reddit / SalesRLAgent | Every Independent Test | Academic & Open Baselines |
+|---|---|---|---|---|
+| **Output Form** | `Choice`, `Score`, `Noul` typed probabilistic decisions; no generated text. | Single continuous conversion-probability action $a \in [0.0, 1.0]$ per sequential turn. | Tested Jev's structured editorial judgments. | BERT classifiers, SALSA class tokens, and Qwen PCD provide bounded decisions without prose generation. |
+| **Parallelism** | Multiple heterogeneous questions against one state evaluated in parallel. | Sequential trajectory; single action per environment step. | 777 judgments over 37 docs in <0.7 s, confirming batch amortization. | KV-cache broadcasting parallelizes branches; SALSA is single-pass for one classification. |
+| **Latency** | 70–500 ms; selected vendor benchmarks claim up to 193.6× speedup. | 85 ms on CPU vs. 3,450 ms for GPT-4 on sales task. | 777 judgments in <0.7 s; median 0.35 s/passage vs. 8.83 s for Fable. | Qwen PCD reports multi-fold speedups; SALSA eliminates multi-token decode latency. |
+| **Cost** | $0.042 / MTok input; no separate output charge; up to 444× cheaper. | Local CPU inference compute cost. | ~$0.0025 for 777 judgments; ~580× cheaper than Claude Fable in passage test. | Compute-bound by chosen backbone (0.5B–4B parameter models). |
+| **Accuracy** | Comparable "System One" intelligence claimed; references are model consensus. | Claims 96.7% conversion accuracy; target/temporal leakage invalidates figure. | Identified 6/7 planted defects; Fable identified 7/7. | Task-dependent; requires domain-specific benchmark evaluation. |
+| **Calibration** | Explicitly claimed via RLCD, but no public curves or methodology disclosed. | Predicts scalar probabilities; no ECE/Brier calibration curves provided. | Every did not evaluate calibration metrics. | Guo: neural nets miscalibrated, temperature scaling helps; Kuleshov: structured calibration. |
+| **Schema Validity** | Guaranteed by host contract; "0% type error" is structural, not semantic accuracy. | Scalar action inherently bounded by Gym continuous action space. | Output conformed strictly to requested schema. | Deterministic host serialization trivially achieves 100% schema validity. |
+| **Generalization** | Dynamic caller-supplied questions and options without task retraining. | Specialized to sales-conversation state and action dynamics. | Evaluated diverse editorial and styling judgments. | SALSA: fixed tokens; Dynamic-head models: generalized zero-shot scoring. |
+| **Evidence Quality** | High-utility commercial API; architecture, weights, and RLCD proprietary. | Public code and paper; evaluation code exhibits severe data leakage. | Independent empirical test on small sample; non-calibration focused. | Peer-reviewed foundations establish individual components, not proprietary integration. |
+
+---
+
+## Recommended Open-Source Architecture & Baseline Models
+
+An open-source reproduction must avoid two common pitfalls: attempting to train a massive generative foundation model from scratch, or simply wrapping a sequential sales policy like SalesRLAgent. 
+
+The primary open Jev-like candidate is a **shared-state encoder plus a parallel set of question and candidate decision heads**, paired with host-level deterministic serialization.
+
+### 1. Primary Architecture: Shared-State Set-Query Model
+
+```mermaid
+flowchart LR
+    S["State\ntext + structured fields"] --> SE["Shared state encoder"]
+    SE --> M["State memory (cached)"]
+
+    Q["Question set (Q questions)"] --> QE["Question / candidate encoder"]
+
+    M --> X["Parallel cross-attention\n(question isolation mask)"]
+    QE --> X
+
+    X --> C["Choice head\ncandidate logits"]
+    X --> N["Noul head\nbinary logit"]
+    X --> R["Score head\nordinal logits"]
+
+    C --> P["Probability calibration\n(temperature scaling)"]
+    N --> P
+    R --> P
+
+    P --> J["Deterministic serializer\n(schema-valid JSON)"]
 ```
 
-Scale that from “document + class labels” to:
+#### Mathematical Formulation of Heads
 
-```text
-state + question + arbitrary criteria → probability distribution
+1. **Choice Head (Dynamic Candidate Compatibility)**:
+   Unlike constrained autoregressive decoding which restricts generation to specific vocabulary tokens, candidates in Jev are arbitrary natural-language strings. We compute a compatibility score $z_i$ between the state-question representation and candidate representation $c_i$:
+   \[
+   p(c_i \mid s, q) = \frac{\exp(z_i / T)}{\sum_{j=1}^K \exp(z_j / T)}
+   \]
+   This supports arbitrary runtime strings up to the 255-candidate ceiling without requiring candidate strings to exist as single tokens in the vocabulary.
+
+2. **Noul Head (Binary Probability)**:
+   For binary judgments, the output is a single scalar logit mapped through the sigmoid function:
+   \[
+   p(\text{yes} \mid s, q) = \sigma(z)
+   \]
+   Per the TypeSafe specification, Noul returns only the calibrated probability without a separate confidence field.
+
+3. **Score Head (Ordinal Distribution & Expectation)**:
+   Rather than attempting to regress a scalar score directly, the model evaluates rubric levels as an ordered categorical distribution $p_1, \ldots, p_K$ over rubric criteria $v_1, \ldots, v_K$. The reported score is the mathematical expectation:
+   \[
+   \operatorname{score} = \sum_{k=1}^K p_k v_k
+   \]
+   This matches TypeSafe's documented behavior where scores are derived from level distributions.
+
+#### Parameter Scale Target
+We recommend targeting **0.3B to 1.5B parameters** for the initial model family (with a 4B variant for high-complexity tasks). Jev's practical value proposition depends heavily on latency amortization; scaling beyond 3B parameters should be justified by demonstrable accuracy and calibration gains rather than assumed by default.
+
+### 2. Five Essential Baseline Models
+
+To rigorously establish whether a custom architecture or training method provides genuine advantages, an open reproduction must benchmark against five distinct baselines:
+
+1. **Shared-Encoder Multi-Query Model (Primary Proposed System)**:
+   The primary architecture detailed above, encoding state once and executing isolated parallel query heads.
+2. **KV-Cache Branching Decoder (Shared-Prefix AR Model)**:
+   Prefill the shared state once using a standard decoder LLM (e.g. Qwen2.5 or LFM), broadcast the KV cache across parallel question branches, evaluate constrained candidate tokens in parallel, and assemble JSON in host code (as demonstrated by Moonshine and Qwen PCD).
+3. **SALSA-Style One-Token Classification**:
+   Single-pass autoregressive classification mapping candidate labels to output vocabulary tokens, reading next-token logits after one forward pass. This represents the fastest possible baseline on conventional LLM weights.
+4. **Standard Encoder / Cross-Encoder Classifier**:
+   A BERT/DeBERTa or Qwen-classification cross-encoder evaluating state-question-candidate tuples sequentially. This isolates how much speedup is attributable to shared computation vs. classification architecture.
+5. **Historical Baseline: SalesRLAgent (Leakage-Repaired)**:
+   A clean reimplementation of SalesRLAgent's PPO policy, evaluated only after completely removing target outcome leakage, ground-truth probability trajectory initialization, and full-conversation embeddings from early turns.
+
+---
+
+## Step-by-Step Reproduction Program
+
+### Phase 1: Zero-Training Logit Scoring & Schema Contract
+
+Before training any weights, establish the serving infrastructure and deterministic contract:
+1. **Host-Side Schema Validation**: Validate input requests and deterministically serialize output JSON. Ensure schema errors are structurally impossible.
+2. **KV-Cache Branching Prototype**: Fork the KV-cache of an off-the-shelf instruction model across candidate branches to establish the zero-training latency baseline.
+
+### Phase 2: Supervised Training with Strictly Proper Scoring Rules
+
+Do **not** attempt to optimize Expected Calibration Error (ECE) directly as a training loss. ECE is a non-smooth, binned evaluation metric that creates perverse optimization incentives. 
+
+Instead, train with **strictly proper scoring rules**:
+
+1. **Negative Log-Likelihood (NLL)**:
+   \[
+   \mathcal{L}_{\text{NLL}} = -\log p(y \mid x, q)
+   \]
+2. **Brier Score Regularization**:
+   \[
+   \mathcal{L}_{\text{Brier}} = \sum_{k=1}^K (p_k - y_k)^2
+   \]
+3. **Ordinal Rubric Penalty (for Score)**:
+   Add an earth-mover or distance-weighted penalty to ensure confusing adjacent rubric levels incurs less loss than confusing distant extremes:
+   \[
+   \mathcal{L}_{\text{ordinal}} = \sum_{j=1}^K \sum_{k=1}^K p_j y_k |j - k|
+   \]
+
+A robust composite supervised loss is:
+\[
+\mathcal{L} = \mathcal{L}_{\text{NLL}} + 0.1 \mathcal{L}_{\text{Brier}} + 0.2 \mathcal{L}_{\text{ordinal}}
+\]
+
+#### Post-Hoc Calibration Procedure
+Because finite, overparameterized neural networks can be miscalibrated despite proper scoring losses (Guo et al., 2017), reserve a held-out calibration split. Evaluate:
+- Standard temperature scaling $T$ per head type.
+- Cardinality-conditioned temperature scaling $T_K$ for Choice questions (e.g. separate temperatures fitted for $K \in \{2, 4, 16, 64, 255\}$).
+
+### Phase 3: Data Design & Task Mixture
+
+A general Jev-like model requires wide task diversity rather than millions of domain-specific examples:
+- **Diverse Judgment Types**: NLI, fact verification, topic routing, moderation, document policy compliance, and agent trace evaluation.
+- **Dynamic Permutations**: In multiclass data, systematically randomize candidate order, symbolic keys, and candidate wording to enforce zero-shot schema adherence rather than fixed intent classification.
+- **Explicit Abstention / "Unknown" Training**: In 15–20% of training instances, deliberately remove the correct alternative from the candidate list and train the model to select an explicit abstention option ("unknown", "insufficient information"). This prevents forced misallocation of probability mass under closed softmax.
+- **Candidate Cardinality Diversity**: Train across candidate set sizes ranging from $K=2$ to $K=255$.
+
+### Phase 4: What an Open "RLCD" Phase Means (Calibration-Aware Decision Optimization)
+
+Without access to TypeSafe's internal formulation, claiming to have "reproduced RLCD" is scientifically unsubstantiated. We designate this phase **Calibration-Aware Decision Optimization (CADO)**.
+
+Unlike SalesRLAgent's multi-step sequential sales trajectory ($\gamma = 0.99$), automated decision evaluation is naturally a **one-step contextual decision problem** ($\gamma = 1.0$). 
+
+The policy reward combines proper scoring with downstream decision utility:
+\[
+r = -\alpha\,\mathcal{L}_{\text{NLL}} - \beta\,\mathcal{L}_{\text{Brier}} + \gamma\,U(a, y) - \delta\,C(a)
+\]
+where $U(a, y)$ represents task-specific application utility (e.g., reward for correct automated action, severe penalty for incorrect automated action), and $C(a)$ represents the cost of human escalation or abstention.
+
+#### The 5-Step Falsifiable Ablation Protocol
+To determine whether reinforcement learning is necessary for calibrated decisions, execute a strict 5-step ablation:
+1. Supervised NLL only.
+2. NLL + Brier score regularization.
+3. NLL + post-hoc temperature scaling.
+4. Supervised loss + differentiable calibration regularizer.
+5. Supervised base + one-step decision-utility RL.
+
+Only if Step 5 delivers statistically significant improvements in out-of-domain decision utility or selective-risk performance should RL be considered a necessary component of the architecture.
+
+### Suggested Starting Hyperparameters
+
+These engineering hyperparameters provide a concrete starting baseline for open reproduction:
+
+| Parameter | Recommended Initial Setting | Rationale |
+|---|---|---|
+| **Backbone Model** | 0.3B–1.5B transformer (e.g. Qwen2.5 / SmolLM2) | Latency & amortization focus |
+| **Context Window** | 2,048–8,192 tokens | Accommodates documents & state |
+| **Questions per State** | 4–64 (randomized during training) | Exercises attention isolation |
+| **Candidates per Question** | 2–64 standard; staged sampling up to 255 | Enforces dynamic choice scaling |
+| **Optimizer** | AdamW ($\beta_1 = 0.9, \beta_2 = 0.98, \epsilon = 10^{-8}$) | Standard transformer training |
+| **Backbone Learning Rate** | $2 \times 10^{-5}$ (with cosine decay) | Preserves semantic features |
+| **Decision Heads LR** | $1 \times 10^{-4}$ | Accelerates query head fitting |
+| **Weight Decay** | 0.01 | Prevents head overfitting |
+| **Precision** | Native BF16 | Numerical stability and throughput |
+| **Effective Batch Size** | 128–512 state bundles | Robust gradient estimates |
+| **Gradient Clipping** | 1.0 | Prevents gradient explosion |
+| **Supervised Epochs** | 1–3 epochs with validation early stopping | Avoids memorization |
+| **Calibration Regularizer** | $\lambda_{\text{Brier}} = 0.1$, $\lambda_{\text{ordinal}} = 0.2$ | Proper scoring rule balance |
+| **Post-Hoc Calibration** | Vector / temperature scaling on held-out split | Corrects neural overconfidence |
+| **Optional RL Policy LR** | $10^{-6}$ to $10^{-5}$ | Conservative policy adjustment |
+| **Optional PPO Clip Ratio** | 0.2 | Standard PPO trust region |
+| **Optional KL Penalty** | 0.01–0.05 | Prevents drift from supervised base |
+| **RL Decision Horizon** | $\gamma = 1.0$ (one-step contextual bandit) | Matches single-state decision problem |
+
+---
+
+## Evaluation Framework & Benchmark Protocol
+
+The decisive Jev reproduction experiment is not merely verifying that the system returns valid JSON—that is trivially solved by host-level serialization. The critical empirical question is:
+
+> **At fixed accuracy and calibration, how does latency scale with state length, number of questions, number of candidates, and hardware?**
+
+```mermaid
+flowchart TD
+    D["Held-Out Evaluation Bundles"] --> V["Schema & Type Validity"]
+    D --> A["Accuracy / F1 / AUROC\n(Ordinal MAE for Score)"]
+    D --> C["Calibration\n(NLL / Brier / ECE / ATB)"]
+    D --> R["Reliability & Decision Utility\n(Risk-coverage / CDL)"]
+    D --> L["Systems Latency\n(p50 / p95 / p99)"]
+    D --> T["Throughput\n(states/s & judgments/s)"]
+    D --> M["Hardware Cost\n(GPU-sec per judgment)"]
+
+    C --> RD["Reliability Diagrams"]
+    R --> U["Production Action Utility"]
+
+    V --> COMP["Cross-System Comparison\n(OpenJev vs. Baselines vs. Jev)"]
+    A --> COMP
+    RD --> COMP
+    U --> COMP
+    L --> COMP
+    T --> COMP
+    M --> COMP
 ```
 
-and you are already remarkably close to Jev's external semantics.
-
-### Perceiver IO provides the cleanest model of arbitrary parallel output queries
-
-Perceiver IO is another valuable architectural ancestor because its output layer is explicitly driven by **queries specifying the semantics of requested outputs**. It scales input processing through a latent representation and supports output structures with very different sizes and meanings. citeturn21academia1
-
-A purpose-built OpenJev could reinterpret each `(question, candidate)` pair as an output query:
-
-\[
-z = E_{\text{state}}(x)
-\]
-
-\[
-r_{q,k} = E_{\text{query}}(q,c_k)
-\]
-
-\[
-h_{q,k} = \operatorname{CrossAttend}(r_{q,k}, z)
-\]
-
-\[
-s_{q,k}=w^\top h_{q,k}
-\]
-
-\[
-p_{q,k} =
-\frac{\exp(s_{q,k}/T)}
-{\sum_j \exp(s_{q,j}/T)}
-\]
-
-All candidates are scored simultaneously. Different questions are mask-isolated.
-
-That is the architecture I would eventually aim for.
-
-### Traditional non-autoregressive text generation is related, but less directly than the launch discussion suggests
-
-Gu et al.'s **Non-Autoregressive Neural Machine Translation** showed in 2017 that parallel output generation can produce order-of-magnitude inference latency improvements, albeit initially at a quality cost. Ghazvininejad et al.'s **Mask-Predict** later used parallel masked prediction followed by iterative refinement. citeturn21academia3turn21academia2
-
-Those papers prove that sequential token dependence is not inevitable.
-
-But Jev's easier problem is more fundamental: **it does not need to generate a target sequence at all**. There is no reason to solve the hard non-autoregressive-language-generation problem when the legitimate outputs form a finite set.
-
-That is why calling Jev a “parallel decoder” can obscure what is happening. A better open design is a **semantic structured-prediction network**.
-
-### Calibration is a mature field, not an RLCD invention
-
-Calibration predates modern LLMs by decades. Guo et al. famously showed in 2017 that high-performing neural classifiers can nevertheless be poorly calibrated and found simple temperature scaling surprisingly effective in many settings. citeturn22search1
-
-Kuleshov and Liang's 2015 **Calibrated Structured Prediction** is particularly relevant to Jev because it addresses systems with large structured output spaces where users may ask different probability queries over an output. Their work shows how structured predictions can be recalibrated rather than treating raw model scores as trustworthy probabilities. citeturn23search0
-
-So the statement that ordinary softmax plus cross-entropy makes calibration “automatic” needs qualification. Negative log likelihood is a **proper scoring rule** whose population optimum corresponds to the correct conditional distribution under ideal conditions; real finite, misspecified, overparameterized neural networks can still be badly calibrated. That empirical gap is exactly why temperature scaling and the calibration literature exist. citeturn22search1
-
-### Reinforcement learning for calibration is also established prior art
-
-The clearest pre-Jev example is **Rewarding Doubt**. Stangel and colleagues fine-tune LLMs using reinforcement learning with a reward based on the logarithmic scoring rule so that models are punished for both overconfidence and underconfidence. They report improved calibration and transfer to unseen tasks. citeturn22academia6
-
-Two 2026 papers make the case even stronger. **Balancing Classification and Calibration Performance in Decision-Making LLMs via Calibration Aware Reinforcement Learning** reports that conventional RL with verifiable rewards can make decision models overconfident and proposes an RL formulation that explicitly modifies decision-token probabilities, reducing reported ECE while retaining accuracy. citeturn23academia6
-
-**Decoupling Reasoning and Confidence** independently argues that RLVR can produce severe calibration degeneration and identifies gradient conflict between maximizing answer correctness and minimizing calibration error, motivating its DCPO method for separating the objectives. citeturn23academia7
-
-An additional recent study on sycophancy-inducing GRPO finds a directionally worse calibration result, although its reported ECE degradation was small and not statistically significant at the training budget studied. That is useful context because it shows that statements like “RLHF/RL always destroys calibration” are too strong; the effect depends on training regime and evidence. citeturn23academia5
-
-Therefore, **RLCD as a high-level idea is not by itself a research novelty**. The novelty, if any, would have to lie in TypeSafe's particular reward, training procedure, data mixture, architecture interaction, or empirical scale.
-
-### ECE should not be the main training target
-
-Expected Calibration Error is convenient, but modern work gives good reasons not to treat ordinary binned ECE as the gold standard.
-
-Hu and Wu's **Calibration Error for Decision Making** introduces Calibration Decision Loss, or CDL, which asks a more operational question: how much decision payoff could a downstream decision-maker gain by replacing the model's probabilities with calibrated ones? It separates CDL theoretically from standard ECE. citeturn22academia4
-
-Hartline, Hu, and Wu's 2026 COLT paper goes further. They show that standard finite-sample calibration measures can create incentives to misreport probabilities and introduce **Averaged Two-Bin Calibration Error**, a perfectly and strictly truthful batch calibration measure. citeturn22search0
-
-That matters immensely for an OpenJev. If the objective is trustworthy machine-to-machine probabilities, we should not optimize only a visually attractive ECE number.
-
-### Existing “open Jev” projects prove different pieces, not the entire product
-
-There are currently two especially useful community experiments.
-
-`AlexWortega/openjev` is a **Qwen3.5-4B NLI cross-encoder**. It is trained with plain three-way cross-entropy and returns probabilities for entailment, contradiction, and neutral. Its author demonstrates reranking, grading, guard-like applications, and game control. citeturn26search0
-
-`monotykamary/LFM2.5-2.6B-RLCD`, by contrast, leaves its LFM weights unchanged and explores the **inference architecture**: one shared prefill, branched model state, parallel finite-choice evaluation, Python-side typed serialization. The author explicitly labels calibration and RL training as missing. citeturn25search9
-
-They are complementary:
-
-| Capability | `openjev` | LFM PCD | TypeSafe Jev |
-|---|---:|---:|---:|
-| Semantic decision model | Yes | Existing LM | Yes |
-| Dynamic finite decisions | Via NLI reformulation | Yes | Yes |
-| Shared-state compute reuse | Not the central design | **Yes** | **Yes** |
-| Mixed `Choice` / `Score` / binary API | No native equivalent | Partial | **Yes** |
-| Host-side schema guarantee | Possible | **Yes** | **Yes** |
-| No free-form output generation | **Yes** | **Yes** | **Yes** |
-| Explicit calibration training | No | No | Claimed |
-| Reproduces RLCD | No | No | Proprietary |
-| Architecture published | Yes | Yes | **No** |
-
-The existing projects therefore already answer an important research question: **the interface and much of the speed story are reproducible without access to Jev's internals.**
-
-## A plausible open-source Jev architecture
-
-I would build the reproduction in two generations rather than attempting a novel foundation model immediately.
-
-### Start with a shared-prefill decision model
-
-The first serious prototype should use an existing pretrained base model but never ask it to produce prose.
-
-For each request:
-
-```text
-Request
-│
-├── state: shared arbitrary text / JSON / document
-│
-└── questions
-      ├── Choice(instruction, candidates[])
-      ├── Noul(instruction)
-      └── Score(instruction, ordered_levels[])
-```
-
-Internally:
-
-```text
-                      ┌──────────────────────────────┐
-state tokens ────────►│ shared pretrained backbone │
-                      └──────────────┬───────────────┘
-                                     │
-                                state cache H
-                                     │
-             ┌───────────────────────┼───────────────────────┐
-             │                       │                       │
-             ▼                       ▼                       ▼
-       Question A              Question B              Question C
-       + candidates            + candidates            + candidates
-             │                       │                       │
-             ▼                       ▼                       ▼
-       parallel scorer         parallel scorer         parallel scorer
-             │                       │                       │
-      categorical p(A)          Bernoulli p(B)         ordinal p(C)
-             │                       │                       │
-             └───────────────────────┼───────────────────────┘
-                                     ▼
-                              deterministic serializer
-                                     ▼
-                               typed response object
-```
-
-An implementation based on Qwen-class or LFM-class open weights could reuse a shared causal prefill cache almost immediately. Hugging Face already exposes Qwen3.5 sequence-classification support, and the existing `openjev` model confirms that a Qwen3.5 base can be converted into an NLI classifier rather than a text generator. citeturn25search1turn26search0
-
-The crucial optimization is to **avoid projecting every decision hidden state through a 200,000-plus-token language vocabulary** when the caller has supplied only two, five, or fifty-five legal decisions. The decision model should have a compact scalar/candidate scoring head.
-
-### Then move to a native dynamic-query architecture
-
-The more ambitious version should stop treating the pretrained causal model's generation machinery as fundamental.
-
-A good research architecture would contain:
-
-\[
-H_x = E_x(x)
-\]
-
-for one state representation, and:
-
-\[
-R_{q,k}=E_q(q,c_k)
-\]
-
-for every question/candidate description.
-
-Then:
-
-\[
-Z_{q,k}=D(R_{q,k},H_x)
-\]
-
-where \(D\) is a lightweight cross-attention/query stack.
-
-Finally:
-
-\[
-s_{q,k}=f(Z_{q,k})
-\]
-
-and:
-
-\[
-p_{q,k}=\operatorname{softmax}_k(s_{q,k}).
-\]
-
-For a Noul:
-
-\[
-p_{\text{yes}}=\sigma(s_q).
-\]
-
-For an ordered Score rubric, I would initially retain the full categorical distribution rather than collapse the problem prematurely:
-
-\[
-p(l_0),p(l_1),...,p(l_m)
-\]
-
-and compute the displayed score from the expected level or another explicitly documented transformation.
-
-This combines the most relevant features of Perceiver IO's query-driven output design and GLiClass's dynamic-label classification while preserving TypeSafe's stated question independence. citeturn21academia1turn21academia0
-
-### Use block masks to guarantee question isolation
-
-The attention graph should be explicit:
-
-```text
-STATE TOKENS
-   ▲ ▲ ▲ ▲
-   │ │ │ │
-   │ │ │ └──────────── Question D / candidates
-   │ │ └────────────── Question C / candidates
-   │ └──────────────── Question B / candidates
-   └────────────────── Question A / candidates
-
-A cannot attend B/C/D
-B cannot attend A/C/D
-C cannot attend A/B/D
-D cannot attend A/B/C
-```
-
-This would give the open implementation a meaningful semantic guarantee:
-
-\[
-P(y_A \mid x,q_A)
-\]
-
-must not become:
-
-\[
-P(y_A \mid x,q_A,q_B,q_C,q_D).
-\]
-
-That is much more valuable than merely saying the questions happened to run concurrently. It makes batching a serving optimization rather than a change in model semantics, matching the behavior TypeSafe demonstrates in its cookbook. citeturn17view1
-
-### Treat types as host-language objects, not model output tokens
-
-The core API might internally normalize everything into one structure:
-
-```python
-DecisionQuestion(
-    kind="categorical",
-    instruction="...",
-    candidates=[
-        Candidate(key="...", description="..."),
-        ...
-    ],
-    ordered=False,
-)
-```
-
-Then:
-
-- `Noul` becomes a two-outcome or single-logit binary decision.
-- `Choice` becomes an unordered categorical decision.
-- `Score` becomes an ordered categorical decision.
-
-The model returns tensors. Application code turns those tensors into the API structure.
-
-This makes the schema guarantee completely independent of model intelligence. It also means “zero malformed JSON” is not something the neural network needs to learn.
-
-### Do not make strings part of the answer space
-
-This is one of Jev's strongest ideas.
-
-For a classifier serving:
-
-```text
-["refund", "technical", "security"]
-```
-
-the actual network output should be:
-
-```text
-[0.08, 0.17, 0.75]
-```
-
-plus the selected integer:
-
-```text
-2
-```
-
-Host code maps `2 → "security"`.
-
-No tokenizer ever needs to generate the characters `s e c u r i t y`.
-
-The reduction in unnecessary work can be enormous when compared with long reasoning traces or verbose structured output, although TypeSafe's exact 40–200× claims are task-, comparison-, and serving-dependent rather than universal constants. The company's own launch material acknowledges that its comparisons are particularly favorable for System-One-shaped workloads. citeturn1view0turn20view1
-
-## A step-by-step reproduction program
-
-### Establish the contract before training anything
-
-The first artifact should be an open API-compatible decision schema, not a model.
-
-Implement:
-
-```text
-State
-Question[]
- ├── Noul
- ├── Choice
- └── Score
-
-→ Answer[]
-```
-
-with deterministic validation and serialization.
-
-TypeSafe itself publishes a **System One Adapter**, a drop-in version of its evaluation interface backed by ordinary LLM APIs. It supports the same conceptual primitives and can request either probability distributions or discrete answers. That repository is practically a ready-made evaluation harness for an open reproduction because it lets the same workload be run against LLMs and Jev-shaped systems. citeturn25search0
-
-The project's first invariant should be:
-
-```text
-valid input schema  →  valid output schema
-```
-
-with schema errors impossible after validation.
-
-### Build a no-training logit-scoring baseline
-
-Before fine-tuning, determine how much of Jev can be explained purely by changing inference.
-
-Take an open pretrained model and implement:
-
-1. tokenize/prefill state once;
-2. cache its hidden/KV representation;
-3. fork the cache for all questions;
-4. evaluate the question text in parallel;
-5. evaluate allowable outcomes rather than generate text;
-6. normalize scores into probabilities;
-7. serialize outside the model.
-
-For a binary question, a crude initial implementation could score textual hypotheses such as:
-
-```text
-YES: proposition is true
-NO: proposition is false
-```
-
-For `Choice`, score each candidate description.
-
-For `Score`, score each rubric description.
-
-This is essentially the experiment already being explored by the LFM parallel-constrained-decoding project, and it gives the project an essential baseline: **how much speed can we get before changing a single weight?** citeturn25search9
-
-### Establish a strong NLI cross-encoder baseline
-
-Then reproduce and extend what `openjev` does.
-
-Natural-language inference is an excellent transformation for arbitrary decisions because many queries can be rewritten as:
-
-```text
-premise:    state + question context
-hypothesis: candidate proposition
-```
-
-and evaluated as entailment/non-entailment.
-
-The existing `openjev` checkpoint demonstrates exactly this with Qwen3.5-4B, three NLI classes, and plain cross-entropy. citeturn26search0
-
-But benchmark it honestly. An ordinary cross-encoder evaluates:
-
-\[
-(x,q,c_1),
-(x,q,c_2),
-...
-(x,q,c_K)
-\]
-
-which repeatedly consumes \(x\).
-
-That should be your **quality baseline, not your final serving architecture**.
-
-### Train a general dynamic-label decision model
-
-The training representation should look approximately like:
-
-```json
-{
-  "state": "...",
-  "question": {
-    "type": "choice",
-    "instructions": "...",
-    "criteria": [
-      {"key": "A", "description": "..."},
-      {"key": "B", "description": "..."},
-      {"key": "C", "description": "..."}
-    ]
-  },
-  "target": "B"
-}
-```
-
-The same semantic task should be rendered many different ways.
-
-For multiclass source data:
-
-```text
-class 0 = sports
-class 1 = finance
-class 2 = politics
-```
-
-randomize:
-
-- order;
-- symbolic keys;
-- label descriptions;
-- wording of the instructions;
-- number and composition of distractors.
-
-Otherwise the model learns a conventional fixed classification problem rather than **zero-shot schema following**.
-
-This zero-shot dynamic-class behavior is important enough that Almeida specifically preferred “zero-shot” over “instruction-tuned” when discussing how to characterize Jev. citeturn24search6turn24search19
-
-### Build the training mixture around judgments, not chatbot conversations
-
-A realistic corpus should contain a broad range of bounded decisions:
-
-| Family | Training transformation |
-|---|---|
-| NLI / factual entailment | `Noul` and `Choice` |
-| sentiment / toxicity / moderation | `Choice`, `Noul`, ordinal `Score` |
-| intent and ticket routing | dynamic `Choice` |
-| topic classification | dynamic `Choice` |
-| retrieval / reranking | candidate `Choice` |
-| factual verification | `Noul` |
-| document-policy matching | `Noul` / `Choice` |
-| quality grading | ordinal `Score` |
-| risk / urgency | ordinal `Score` |
-| preference data | pairwise or multiway `Choice` |
-| tool/action selection | dynamic `Choice` |
-| agent trace checking | multiple independent `Noul`s |
-| anomaly / compliance checks | `Noul` plus rubric `Score` |
-
-The important training trick is **task diversity under one common decision language**. GLiClass follows a similar generalist direction rather than training one classifier per task, which is one reason it is such relevant prior work. citeturn21academia0
-
-Every training batch should also contain cases where many questions share one state. Apply the same isolation mask at training and inference time.
-
-### Explicitly train “none,” “unknown,” and insufficient-evidence behavior
-
-A closed candidate set creates a nasty failure mode:
-
-```text
-Which country is the user in?
-A: France
-B: Germany
-C: Italy
-```
-
-when the evidence actually indicates Canada.
-
-Softmax still satisfies:
-
-\[
-p_A+p_B+p_C=1.
-\]
-
-The model is mathematically forced to allocate all probability to wrong alternatives.
-
-Anthony Maio correctly identifies this as an important Jev deployment problem: bounded output schemas need explicit paths such as “unknown,” “none of the above,” or “insufficient evidence” when those states are possible. citeturn20view1
-
-During training, deliberately remove the correct candidate from a fraction of examples and require selection of an abstention candidate.
-
-This is essential for meaningful calibration.
-
-### Distill semantic ability from stronger models, but do not confuse teacher probabilities with ground truth
-
-This is likely where the real cost of a competitive OpenJev lies.
-
-A compact decision model can be trained from:
-
-- objective labeled datasets;
-- human-labeled judgments;
-- multiple independent human annotators;
-- consensus labels;
-- synthetic schemas generated from existing classification data;
-- larger teacher models.
-
-Teacher distillation is particularly attractive because an expensive frontier model can generate millions of varied state/question/schema examples offline.
-
-However, teacher probability labels do **not** automatically give the student true calibration. A student matching:
-
-\[
-p_{\text{student}} \approx p_{\text{teacher}}
-\]
-
-inherits the teacher's probability errors as well as its semantic competence.
-
-For calibration-sensitive examples, true observed outcomes, repeated annotation, or carefully curated objective labels are considerably more valuable.
-
-Almeida's comment that the **data may be more interesting than the architecture** is therefore credible: the difficult asset may be the giant collection of heterogeneous decisions and outcome labels on which the model learned what 0.2, 0.5, and 0.9 should mean across domains. citeturn24search0
-
-### Begin calibration with proper supervised scoring rules
-
-I would **not** begin by inventing RLCD.
-
-Start with ordinary probabilistic training.
-
-For Choice:
-
-\[
-L_{\text{NLL}}=-\log p(y).
-\]
-
-For binary Noul:
-
-\[
-L_{\text{BCE}}
-=
--y\log p
--(1-y)\log(1-p).
-\]
-
-Add Brier loss:
-
-\[
-L_{\text{Brier}}
-=
-\sum_k(p_k-y_k)^2.
-\]
-
-For ordered Score tasks, add an ordinal component that penalizes predictions more severely as they move farther from the true rubric level.
-
-A practical initial mixture might be conceptually:
-
-\[
-L =
-L_{\text{NLL}}
-+
-\lambda_B L_{\text{Brier}}
-+
-\lambda_O L_{\text{ordinal}}.
-\]
-
-NLL and Brier-style losses are proper scoring approaches to probabilistic prediction; after training, held-out temperature scaling is an extremely strong baseline for calibration. Guo et al.'s classic experiments are the obvious reference point. citeturn22search1
-
-### Add RL only after establishing that supervised calibration is insufficient
-
-There is a key conceptual point here:
-
-**A native classifier does not need reinforcement learning merely to learn calibrated probabilities.**
-
-Unlike a generative LLM that has to learn to *express* “I am 70% confident” through language tokens, our architecture directly exposes \(p(y\mid x)\). The gradient of the proper scoring objective is available directly.
-
-RL becomes interesting when the training signal is instead:
-
-- delayed task success;
-- human feedback;
-- downstream payoff;
-- abstention utility;
-- workflow outcomes;
-- bandit feedback;
-- or another non-differentiable decision criterion.
-
-That means an open project can test a very revealing ablation:
-
-```text
-CE/NLL
-vs.
-CE + Brier
-vs.
-CE + post-hoc calibration
-vs.
-calibration-aware RL
-vs.
-decision-utility RL
-```
-
-If calibration-aware RL adds nothing after strong supervised probabilistic training, TypeSafe's RLCD may be primarily a useful training/product framing. If it materially improves zero-shot calibration under domain shift without sacrificing accuracy, then it becomes genuinely interesting.
-
-**Rewarding Doubt** gives a published blueprint for a log-scoring-rule reward, while the 2026 calibration-aware RL and DCPO papers provide more recent approaches and warnings concerning conflict between accuracy-oriented RL and calibration. citeturn22academia6turn23academia6turn23academia7
-
-### Add a decision-theoretic RLCD-like objective
-
-For the more experimental version, I would go beyond “minimize ECE.”
-
-Suppose the model predicts a probability \(p\), and an application chooses action \(a\) based on an action-dependent utility:
-
-\[
-U(a,y).
-\]
-
-Train on random downstream decision problems where the rational action changes with \(p\).
-
-For example:
-
-```text
-correct approval      +1
-incorrect approval   -10
-manual review         -0.1
-```
-
-versus:
-
-```text
-correct routing       +1
-incorrect routing     -0.2
-manual review         -1
-```
-
-The same probability distribution must support different rational decisions under different loss matrices.
-
-An RLCD-like reward could combine:
-
-\[
-R =
-R_{\text{proper-score}}
-+
-\alpha R_{\text{decision-utility}}
--
-\beta R_{\text{overconfidence}}
-\]
-
-rather than directly rewarding a low binned ECE estimate.
-
-That direction has strong intellectual support from Calibration Decision Loss, whose entire motivation is that calibration matters because downstream actors consume predicted probabilities to make decisions. citeturn22academia4
-
-I would call this something neutral such as **Decision-Calibrated Post-Training** rather than copying TypeSafe's RLCD name until the actual Jev algorithm is published.
-
-### Build the native parallel query network
-
-Once the training pipeline works with a standard backbone, replace repeated candidate evaluation with the native architecture discussed above.
-
-The key computational objective should be:
-
-\[
-O(\text{state encoding})
-+
-O(\text{all query tokens})
-+
-O(\text{all candidate interactions}),
-\]
-
-not:
-
-\[
-O(\text{state length}
-\times
-\text{question count}
-\times
-\text{candidate count}).
-\]
-
-Candidate representations and question representations can be ragged tensors. A block-diagonal attention mask gives isolation. A fused kernel or FlashAttention-style implementation can process many independent branches efficiently in the same launch.
-
-At this stage, GLiClass is particularly worth studying in source because it is explicitly designed to avoid the traditional cross-encoder's label-by-label inference penalty. citeturn21academia0
-
-### Remove the language-model vocabulary head from production inference
-
-A causal LLM may carry a huge language head because it must answer:
-
-\[
-P(\text{next token}\mid h)
-\]
-
-across its vocabulary.
-
-OpenJev does not need that production objective.
-
-Once distillation/training is complete, the serving path should terminate at compact decision projections. This provides another large opportunity for lower memory bandwidth and inference cost, especially if the base architecture otherwise contains a very large vocabulary.
-
-### Quantize and optimize the serving runtime only after correctness
-
-The final runtime should support:
-
-- shared-state prefill caching;
-- ragged dynamic candidate sets;
-- batched independent question branches;
-- block-sparse or block-diagonal attention;
-- low-precision weights/activations where accuracy permits;
-- compile-time/fused decision heads;
-- no textual decoder loop;
-- no output-token KV-cache growth;
-- deterministic host-side response assembly.
-
-This is where the difference between “an NLI model that resembles Jev” and “a Jev-like serving system” becomes substantial.
-
-## How to determine whether we actually reproduced Jev
-
-An open implementation should not declare success because it can play Doom or return valid JSON. The benchmark must independently test **quality, calibration, scaling, and software behavior**.
-
-### Quality must be measured separately from calibration
-
-Report ordinary task performance:
-
-\[
-\text{accuracy},\quad
-\text{macro-F1},\quad
-\text{AUROC},
-\]
-
-as appropriate.
-
-For ranking:
-
-\[
-\text{MRR},\quad
-\text{NDCG},\quad
-\text{Recall@K}.
-\]
-
-For ordered Score tasks, include ordinal error.
-
-A perfectly calibrated useless predictor can simply output class base rates. Calibration therefore never replaces discrimination or accuracy, a point also emphasized in independent analysis of Jev. citeturn20view1
-
-### Calibration requires several metrics, not one ECE number
-
-I would report at least:
-
-\[
-\text{NLL}
-\]
-
-\[
-\text{Brier Score}
-\]
-
-\[
-\text{ECE}
-\]
-
-plus reliability diagrams, classwise calibration, and a modern truthful calibration metric such as ATB where applicable. For workflows in which probabilities actually drive consequential actions, add a decision-theoretic evaluation inspired by CDL. citeturn22search0turn22academia4
-
-The most convincing plot is still simple:
-
-```text
-Predicted probability      Actual frequency
-0.1                        ≈ 0.1
-0.2                        ≈ 0.2
-0.3                        ≈ 0.3
-...
-0.9                        ≈ 0.9
-```
-
-but it needs adequate sample sizes and uncertainty intervals.
-
-### Measure calibration under distribution shift
-
-This is where the strongest Jev claim should be tested.
-
-Train on one set of domains and measure:
-
-- unseen topics;
-- unseen task formulations;
-- unseen candidate vocabularies;
-- longer documents;
-- domain terminology;
-- adversarially misleading evidence;
-- shifted class frequencies;
-- schema paraphrases.
-
-A model that is beautifully calibrated in-distribution but turns every OOD example into `0.99` is unsuitable as an automated control primitive.
-
-TypeSafe's own docs sensibly advise users to choose thresholds based on performance on their use case rather than treating the returned confidence as a universal guarantee. citeturn18view0
-
-### Test the Jev-specific batching invariants
-
-For every test question, evaluate:
-
-```text
-A alone
-A + B
-A + B + C + ...
-same questions shuffled
-same questions in different request positions
-```
-
-Then compare probability vectors.
-
-For a correctly isolated architecture:
-
-\[
-P_A^{\text{alone}}
-\approx
-P_A^{\text{batch}}.
-\]
-
-The stricter goal for deterministic inference is equality up to floating-point/kernel nondeterminism.
-
-This directly reproduces TypeSafe's own batching experiment rather than merely measuring throughput. citeturn17view1
-
-### Test label-order invariance
-
-Given:
-
-```text
-A = phishing
-B = malware
-C = benign
-```
-
-then reorder:
-
-```text
-C = benign
-A = phishing
-B = malware
-```
-
-The semantic probabilities should reorder correspondingly.
-
-The model should not develop “first option” or “last option” biases.
-
-### Test high cardinality directly
-
-Sweep:
-
-\[
-K=\{2,4,8,16,32,64,128,255\}.
-\]
-
-Measure both:
-
-\[
-\text{latency}(K)
-\]
-
-and:
-
-\[
-\text{accuracy}(K).
-\]
-
-A genuinely useful architecture should show graceful scaling rather than requiring a full state recomputation per option.
-
-TypeSafe's 255-choice ceiling provides a concrete target for parity. citeturn1view0
-
-### Measure latency against number of questions, not merely token throughput
-
-Run fixed state lengths such as:
-
-```text
-short state
-medium state
-long document
-```
-
-and sweep:
-
-\[
-Q=\{1,2,4,8,16,32,64,128\}.
-\]
-
-Report:
-
-- p50;
-- p95;
-- p99;
-- requests/second;
-- decisions/second;
-- GPU memory;
-- GPU milliseconds per request;
-- cost per million decisions.
-
-The critical graph is:
-
-```text
-latency
-  │
-  │                        normal repeated cross-encoder
-  │                    /
-  │                /
-  │            /
-  │        /
-  │   ____ OpenJev shared-state architecture
-  │__/
-  └──────────────────────────────────
-            number of questions
-```
-
-That is the experiment that establishes whether the parallel architecture really captures Jev's central economic advantage.
-
-### Compare against four baselines, not one
-
-A serious benchmark should compare:
-
-| System | Why it matters |
-|---|---|
-| Frontier LLM + JSON/structured output | conventional solution |
-| Same LLM + constrained/logit decision scoring | isolates generation overhead |
-| `openjev`-style NLI cross-encoder | strong ordinary classifier |
-| OpenJev shared-state decision model | proposed architecture |
-| TypeSafe Jev | target, when API access is available |
-
-TypeSafe's own System One Adapter was explicitly built to run LLMs behind its decision API, so it can provide much of the common benchmarking harness. citeturn25search0
-
-### Use TypeSafe's public Jev result as a target, not as ground truth
-
-TypeSafe's internal workflows compare security incident response, agent-trace observability, invoice processing, and customer-service workflows. Independent analysis of the published dashboard notes aggregate Jev agreement around 67.8%, while some stronger comparator configurations reached roughly 73–74%; importantly, TypeSafe's references were themselves generated from frontier-model consensus rather than independent real-world ground truth. citeturn20view1
-
-That benchmark therefore demonstrates an interesting cost/latency/quality trade-off, but it should **not** be the ultimate OpenJev objective.
-
-Every's independent mini-test reaches a similarly useful conclusion: the speed benefit is tangible, while a frontier model caught one defect Jev missed. citeturn20view0
-
-The reproduction should aim for an entire **Pareto frontier**, not one leaderboard number:
-
-```text
-                         higher accuracy
-                               ▲
-                               │        frontier LLM
-                               │           ●
-                               │
-                               │     ● Jev?
-                               │
-                               │   ● OpenJev-native
-                               │
-                               │ ● NLI baseline
-                               │
-                               └────────────────────► lower latency / cost
-```
-
-### The decisive experiments can reveal what TypeSafe's secret sauce actually is
-
-Several outcomes would be especially informative.
-
-**If shared-prefill constrained scoring with unchanged open weights approaches Jev's accuracy, speed, and calibration**, then much of Jev is an inference-system insight: stop generating strings, reuse state computation, and expose distributions directly.
-
-**If `openjev`-style NLI training matches Jev's judgment quality but is much slower**, then the major contribution is likely the sampler/architecture.
-
-**If a native GLiClass/Perceiver-like decision model matches the latency but remains materially less capable**, then TypeSafe's data, scale, or teacher-distillation process is likely crucial.
-
-**If NLL/Brier plus temperature calibration matches Jev's probability quality**, then RLCD may contribute less than the branding suggests.
-
-**If an RLCD-like stage produces dramatically better out-of-domain ATB/CDL and risk-coverage behavior without harming accuracy**, then TypeSafe's focus on calibration-aware post-training points toward a genuine important advance, even if the exact proprietary algorithm differs.
-
-That is the research program I would use to reverse-engineer the product empirically rather than trying to guess one hidden architecture from marketing terminology.
-
-## Bottom line on reproducibility
-
-The evidence now supports a much sharper conclusion than “Jev is a mysterious new non-autoregressive LLM.”
-
-**Jev appears to combine four ideas:**
-
-| Layer | Novelty assessment |
-|---|---|
-| Typed finite decision interface | Known idea, unusually well productized |
-| No autoregressive output generation | Straightforward for finite-output tasks |
-| Shared-state parallel dynamic classification | Established ingredients; integration may be novel |
-| Calibration-focused post-training | Strong prior art; Jev's actual recipe unknown |
-
-The public literature already gives us almost every ingredient required for an open reconstruction. Non-autoregressive generation shows why sequential decoding is avoidable, although Jev need not generate a sequence at all. Perceiver IO gives a blueprint for shared representations queried by arbitrary outputs. GLiClass gives a particularly close blueprint for generalist dynamic-label classification in one forward pass. Classical calibration work gives NLL/Brier/recalibration foundations. Rewarding Doubt and 2026 calibration-aware RL work demonstrate that reinforcement-learning objectives can explicitly shape probability calibration. CDL and ATB provide stronger ways to evaluate that calibration than merely reporting ordinary ECE. citeturn21academia3turn21academia1turn21academia0turn22search1turn22academia6turn22academia4turn22search0
-
-Meanwhile, community experiments have already covered two major halves of the engineering problem: `openjev` shows that a modern pretrained model can be converted into a non-generative NLI decision engine with a standard classification head, while the LFM parallel-constrained-decoding project shows that shared context can be prefetched once and branched into parallel finite-choice evaluations without retraining the model at all. citeturn26search0turn25search9
-
-What is **not** public is precisely what one would need to claim an exact reproduction: TypeSafe's architecture, scale, weights, training mixture, RLCD reward/objective, calibration methodology, and serving implementation. Almeida's statement that the architecture is still being held back and that a paper is only being discussed is the strongest primary-source reason not to overstate what can presently be reverse-engineered. citeturn24search0
-
-I would therefore define an open-source reproduction project around this architecture:
-
-```text
-                         OPENJEV
-
-       ┌──────────────────────────────────────┐
-       │        Pretrained semantic trunk     │
-       │  decoder-prefill or native encoder  │
-       └──────────────────┬───────────────────┘
-                          │
-                    shared state
-                    representation
-                          │
-          ┌───────────────┼────────────────┐
-          │               │                │
-          ▼               ▼                ▼
-      query bank      query bank       query bank
-       Choice           Noul             Score
-          │               │                │
-    candidates[]       true/false       levels[]
-          │               │                │
-          └───── parallel cross-attention ─┘
-                          │
-                    scalar logits
-                          │
-              calibrated distributions
-                          │
-           deterministic typed serializer
-                          │
-       ┌──────────────────┼─────────────────┐
-       ▼                  ▼                 ▼
-    Choice             Noul              Score
- + probabilities    probability       distribution
- + concentration                       + value
-```
-
-Train it first with **proper supervised probabilistic losses**, broad zero-shot dynamic-schema data, label permutation, explicit abstention examples, and teacher distillation. Add calibration-aware RL only after a supervised baseline exists. Optimize inference around **one state computation plus many isolated query branches**, not parallel text generation. Evaluate calibration with NLL, Brier, reliability curves, ATB, distribution-shift tests, selective risk, and decision utility—not ECE alone. Use TypeSafe's adapter to run identical workloads against conventional LLMs, the open NLI baseline, the new architecture, and Jev itself. citeturn25search0turn22search0turn22academia4
-
-The most technically interesting result may ultimately be that **“Jev architecture” is less exotic than it sounds**. For bounded software decisions, autoregressive language generation is unnecessary in the first place. The genuinely difficult part is building a broad semantic model that can understand arbitrary caller-defined decisions, produce useful probability distributions in one inexpensive pass, and remain calibrated well enough that software can safely act on those probabilities. TypeSafe has demonstrated a compelling product built around that premise; it has **not yet published enough evidence to establish that its particular architecture or RLCD algorithm is indispensable to achieving it**. citeturn17view4turn20view0turn20view1turn24search0
+### 1. Multi-Metric Evaluation Protocol
+
+1. **Task Accuracy & Discrimination**: Report standard accuracy, macro-F1, AUROC, and ranking metrics (MRR, NDCG@K). For `Score`, compute Mean Absolute Error (MAE) and ordinal distance.
+2. **Comprehensive Calibration**: Evaluate across multiple metrics rather than ECE alone:
+   - Negative Log-Likelihood (NLL) and Brier Score.
+   - Binned ECE and adaptive ECE.
+   - **Averaged Two-Bin (ATB) Calibration Error** (Hartline et al., 2026), providing a strictly truthful batch calibration metric.
+   - Reliability diagrams and classwise calibration curves.
+3. **Decision Utility & Reliability**:
+   - **Calibration Decision Loss (CDL)** (Hu & Wu, 2025), quantifying the expected loss in decision payoff caused by probability miscalibration under real-world loss matrices.
+   - **Risk-Coverage Curves**: In automated systems operating with confidence thresholds (e.g. automate when confidence $> 0.95$, escalate otherwise), measure the empirical error rate as coverage varies.
+
+### 2. Mandatory Invariance Diagnostics
+
+1. **Question Isolation Invariance**:
+   Evaluate questions individually versus within batched multi-question requests:
+   \[
+   P(y_A \mid x, q_A) \stackrel{?}{=} P(y_A \mid x, q_A, q_B, \ldots, q_N)
+   \]
+   In an isolated architecture with block masking, the probabilities must be identical up to kernel floating-point summation order.
+2. **Label-Order Permutation Invariance**:
+   Permute the ordering of candidate options. The output probabilities must permute identically without "first-option" or "last-option" position bias.
+3. **Cardinality Sweep**:
+   Sweep candidate counts $K \in \{2, 4, 8, 16, 32, 64, 128, 255\}$ and measure both inference latency and classification accuracy.
+4. **Question Volume Scaling**:
+   Keep state length fixed and sweep question counts $Q \in \{1, 2, 4, 8, 16, 32, 64, 128\}$, plotting wall-clock latency to verify sub-linear scaling against naive cross-encoders.
+
+### 3. Latency and Cost Trade-Offs
+
+- **Shared Encoder Architecture**: State encoding is performed once. Query and candidate heads scale linearly with question volume, maintaining flat latency until GPU execution units saturate.
+- **Decoder + KV-Cache Branching**: Amortizes prompt prefill, making it the fastest baseline to prototype with existing pretrained models. However, evaluating candidate logits across $Q$ branches on large vocabularies increases memory bandwidth demands.
+- **SALSA & 1-Token Baselines**: Demonstrates that conventional decoder LLMs can achieve fast single-pass classification for single-token labels, proving that not all speedup requires a non-autoregressive architecture.
+- **Deterministic Serialization**: Eliminates string token generation overhead entirely with zero computational penalty.
+
+### 4. The Central Research Question
+
+> **The key research question is not whether an open model can emit probabilities quickly, but whether TypeSafe's undisclosed RLCD produces materially better out-of-domain calibration, selective-risk behavior, or downstream decision utility than NLL/Brier training plus ordinary post-hoc calibration.**
+
+---
+
+## Primary and High-Value Sources Register
+
+### Canonical Citations Register (1–26)
+
+| # | Reference / Canonical Resource | Focus / Description |
+|:---:|---|---|
+| **[1]** | [TypeSafe — "Introducing System One Models and Jev"](https://typesafe.ai/blog/introducing-system-one-models-and-jev) | Primary launch post: architecture claims, parallel sampler, RLCD, $0.042/MTok pricing, and zero type error guarantee. |
+| **[2]** | [SalesRLAgent Paper (arXiv:2503.23303)](https://arxiv.org/abs/2503.23303) | Nandakishor M (March 2025): Reinforcement learning policy for real-time sales conversion; foundational pre-Jev non-generative RL prior art. |
+| **[3]** | [SalesRLAgent `train.py`](https://huggingface.co/DeepMostInnovations/sales-conversion-model-reinf-learning/blob/main/train.py) | Released Stable-Baselines3 PPO training script: confirms observation vector structure and action space. |
+| **[4]** | [Confidence-Aware Routing for LLM Reliability (arXiv:2510.01237)](https://arxiv.org/abs/2510.01237) | Nandakishor M (October 2025): Multi-signal routing across local models, retrieval, and humans; distinct from Jev's parallel decision engine. |
+| **[5]** | [Every — "Mini Vibe Check: TypeSafe's Jev"](https://every.to/also-true-for-humans/mini-vibe-check-typesafe-s-jev-judged-everything-i-ve-written-in-0-7-seconds) | Majewski & Shipper: Independent benchmark of 777 judgments across 37 documents in <0.7 s; detected 6/7 planted defects vs. 7/7 for Claude Fable 5.1. |
+| **[6]** | [SALSA — "Single-pass Autoregressive LLM Structured Classification" (arXiv:2510.22691)](https://arxiv.org/abs/2510.22691) | Foundational baseline: single forward-pass structured classification mapping candidate labels to output vocabulary tokens. |
+| **[7]** | [SalesRLAgent Paper Page on Hugging Face](https://huggingface.co/papers/2503.23303) | Community discussion and artifact metadata for the SalesRLAgent paper. |
+| **[8]** | [Confidence-Aware Routing Full Text (arXiv:2510.01237v1)](https://arxiv.org/html/2510.01237v1) | Full HTML rendering of the confidence-aware model routing paper. |
+| **[9]** | [Anthony Maio — "Jev: The Language Model That Won't Hallucinate"](https://anthonymaio.substack.com/p/jev-the-language-model-that-wont) | Technical analysis detailing calibration vs. discrimination, need for explicit abstention classes, and undisclosed RLCD internals. |
+| **[10]** | Internal Research Synthesis & Audit | Architecture reconstruction, Reddit claim audit, and open-source reproduction plan. |
+| **[11]** | [TypeSafe Documentation — Overview & Introduction](https://docs.typesafe.ai/) | Official specification of Jev's input/output contracts, dual transports (HTTP/gRPC), and batching economics. |
+| **[12]** | [TypeSafe Documentation — `Choice` Primitive](https://docs.typesafe.ai/primitives/choice) | Canonical rules for categorical decisions up to 255 candidates, label formats, and concentration-derived confidence. |
+| **[13]** | [TypeSafe Workflow Evaluations Dashboard](https://evals.typesafe.ai/) | TypeSafe's workflow evals comparing Jev to frontier LLMs on incident triage, trace evaluation, and customer service. |
+| **[14]** | [SalesRLAgent Model Repository](https://huggingface.co/DeepMostInnovations/sales-conversion-model-reinf-learning) | Public model checkpoint repository by DeepMostInnovations. |
+| **[15]** | [`harshatheg/Qwen-2.5-1B-RLCD`](https://huggingface.co/harshatheg/Qwen-2.5-1B-RLCD) | Open Qwen-based parallel constrained-decoding community proof-of-concept. |
+| **[16]** | [Moonshine Parallel Constrained Decoding Space](https://huggingface.co/spaces/drinkmoonshine/parallel-constrained-decoding) | Interactive Hugging Face Space demonstrating shared-prefix parallel candidate evaluation. |
+| **[17]** | [Xiao et al. — Non-Autoregressive Generation Survey (arXiv:2204.09269)](https://arxiv.org/abs/2204.09269) | Comprehensive literature survey on non-autoregressive generation, parallel decoding, and latency/dependency trade-offs. |
+| **[18]** | [Guo et al. — "On Calibration of Modern Neural Networks" (ICML 2017)](https://proceedings.mlr.press/v70/guo17a) | Demonstrates that modern deep neural networks are poorly calibrated under cross-entropy; establishes temperature scaling. |
+| **[19]** | [`harshatheg/Qwen-2.5-1B-RLCD` Commit Log](https://huggingface.co/harshatheg/Qwen-2.5-1B-RLCD/commit/2af86848be75847ccb3553b0941cc51d6ef7e4e9) | Confirms release timeline contemporaneous with Jev launch and linkage to Moonshine demo. |
+| **[20]** | [SalesRLAgent Dataset Generator (`generate_dataset.py`)](https://huggingface.co/DeepMostInnovations/sales-conversion-model-reinf-learning/blob/4d109dc2f205dd7eee705ce60ece1b313068ca1a/generate_dataset.py) | Demonstrates data leakage: pre-selects target outcome and creates full-dialogue embeddings reused across early simulated turns. |
+| **[21]** | [Kuleshov & Liang — "Calibrated Structured Prediction" (NeurIPS 2015)](https://proceedings.neurips.cc/paper/2015/hash/52d2752b150f9c35ccb6869cbf074e48-Abstract.html) | Foundational theory for probability calibration in structured, multi-query prediction spaces. |
+| **[22]** | [Anari, Gao, & Rubinstein — "Parallel Sampling via Counting" (arXiv:2408.09442)](https://arxiv.org/abs/2408.09442) | Theoretical analysis demonstrating how sequential sampling dependencies can be parallelized given counting/marginal access. |
+| **[23]** | [Ouyang et al. — InstructGPT (arXiv:2203.02155)](https://arxiv.org/abs/2203.02155) | Foundational RLHF / instruction-following research; primary source for Diogo Almeida's research lineage. |
+| **[24]** | [Yang et al. — "RLCD: Reinforcement Learning from Contrastive Distillation" (arXiv:2307.12950)](https://arxiv.org/abs/2307.12950) | Establishes the distinct earlier RLCD acronym for contrastive preference distillation (unrelated to TypeSafe RLCD). |
+| **[25]** | [TypeSafe Documentation — `Score` Primitive](https://docs.typesafe.ai/primitives/score) | Canonical rules for ordered rubric levels, score calculation from categorical distributions, and confidence statistics. |
+| **[26]** | [TypeSafe AI Homepage](https://typesafe.ai/) | Current product claims: $0.042/MTok, 70–500 ms latency, and zero output token pricing. |
+
+### Additional Foundational & Ecosystem References
+- **TypeSafe Python Adapter**: [GitHub `typesafe-ai/system-one-adapter-python`](https://github.com/typesafe-ai/system-one-adapter-python) — Drop-in client backed by LLM APIs for reproducible benchmarking.
+- **SalesRL PyPI Distribution**: [PyPI `deepmost`](https://pypi.org/project/deepmost/) — Released May 24, 2025.
+- **Calibration Decision Loss (CDL)**: [Hu & Wu (arXiv:2402.04260)](https://arxiv.org/abs/2402.04260) — Metric quantifying the economic cost of miscalibration in decision-making workflows.
+- **Averaged Two-Bin Calibration (ATB)**: [Hartline, Hu, & Wu (COLT 2026)](https://arxiv.org/abs/2602.02345) — Truthful finite-sample calibration measure avoiding standard ECE gaming.
+- **Dynamic Zero-Shot Classification**: [GLiClass (arXiv:2501.12345)](https://arxiv.org/abs/2501.12345) — Single-pass dynamic multi-label classification architecture.
+- **Query-Driven Outputs**: [Perceiver IO (Jaegle et al., ICML 2022)](https://arxiv.org/abs/2107.14795) — Architecture scaling to flexible output query structures via shared latent spaces.
+- **Community NLI Model**: [`AlexWortega/openjev`](https://huggingface.co/AlexWortega/openjev) — Qwen3.5-4B cross-encoder baseline.
+- **Community LFM Branching**: [`monotykamary/LFM2.5-2.6B-RLCD`](https://huggingface.co/monotykamary/LFM2.5-2.6B-RLCD) — Zero-training shared-prefill KV-cache branching.
+
+- **Reddit Discussion**: https://www.reddit.com/r/LocalLLaMA/s/Jhw7IRVOtK
+
+---
+
+## Conclusion & Strategic Reproduction Takeaways
+
+The evidence now supports a clear, grounded consensus:
+
+1. **Jev is Not an Autoregressive Language Generator**: For bounded software evaluations, generating prose tokens is completely unnecessary. The model exposes categorical, ordinal, and binary distributions directly, serialized into deterministic JSON schemas by host runtime code.
+2. **Prior Art Precedes Jev, but Exact Claims Must Be Checked**: SalesRLAgent (Nandakishor M, March 2025) demonstrates prior art for replacing LLMs with non-generative RL probability policies, but is a sequential turn-level sales policy with target/temporal leakage, not Jev's multi-question parallel architecture.
+3. **The Core Engineering Challenge is Amortization and Calibration**: Evaluating questions in parallel using shared-state prefill and isolated query attention is well understood. The true research frontier is achieving robust zero-shot calibration under domain shift without sacrificing accuracy.
+4. **An Open Reproduction Roadmap is Actionable**: By combining a shared-state encoder (or KV-cache branching decoder) with proper scoring rule training ($\mathcal{L}_{\text{NLL}} + \text{Brier} + \text{ordinal}$), held-out post-hoc calibration, and one-step decision-utility RL, open source can replicate Jev's capabilities and verify its claims against a rigorous, falsifiable benchmark.
 
 ---
 
@@ -1336,21 +714,522 @@ Exported reference artifacts in `research/opendecision_phase2b_20260917T205849Z/
 2. **LoRA Disabled**: This run does not determine whether LoRA fine-tuning provides material gains.
 3. **No KV-Cache Branching**: Prefill cache sharing across questions was not exercised in this run.
 
-### 7. Strategic Next Steps
+## Phase 2C Empirical Readout: Stability, Dynamic Choice, and Serving Gates
 
-The next work is organized into bounded phases:
+Run `20260917T222948Z` was archived in
+`research/opendecision_phase2c_20260917T222948Z/`. It used
+`Qwen/Qwen3.5-4B-Base` on an NVIDIA L4 with native BF16. The report
+metrics were independently recomputed from the saved NLI predictions,
+dynamic predictions, and benchmark records. The dynamic stage completed;
+the overall stability status remains `needs_review`; LoRA was disabled.
 
-#### Phase 2C: Advanced Qwen Model Research (Python / Colab)
-1. **Stabilize & Validate Baseline**: Run multi-seed evaluations of last-token linear and MLP heads; execute the 3-tier batching invariance diagnostic (same-length duplicates vs variable padding vs heterogeneous batches).
-2. **Dynamic Choice & Candidate Scoring**: Extend beyond 3-class NLI to arbitrary caller-defined decision schemas ($K \le 255$ candidates with descriptions, label permutation invariance, explicit unanswerable/abstention cases, and ordinal `Score`).
-3. **Controlled LoRA Comparison**: Execute an identical-split comparison with LoRA adapters enabled on Q/K/V to quantify accuracy and calibration deltas against this frozen baseline.
-4. **Model Scaling & Memory Optimization**: Evaluate `Qwen3.5-2B-Base` and `0.8B-Base` along with quantization (AWQ / INT8 / GGUF) to compress the ~7.85 GiB VRAM footprint below 4 GiB while preserving decision competence.
-5. **Synthetic Domain Benchmarks**: Generate domain-specific evaluation sets (security triage, routing, code review) with controlled ambiguity using teacher LLMs.
+### 1. Replicated frozen-backbone baseline
 
-#### Phase 2D: Shared-State Prefill & KV-Cache Branching (Python / PyTorch)
-- Validate prefilling shared `state` once into the KV / GatedDeltaNet cache and branching across $N$ parallel independent question evaluations.
-- Measure latency/throughput scaling and verify inter-question zero-interference isolation.
+The development-selected architecture remains last-token pooling plus a
+linear head. On fresh 1,000-example MultiNLI partitions it achieved:
 
-#### Phase 3: Production Rust Engine & Backends (Rust)
-- Port the validated Qwen architecture, dynamic candidate head, and shared-state branching to Rust (`openpick-engine`, `openpick-backends` with Candle/GGUF, `openpick-runtime`).
-- Execute parity verification against exported golden vectors (`golden_head_inputs.npz`).
+| Partition | Accuracy | NLL | ECE | Selected temperature |
+|---|---:|---:|---:|---:|
+| Matched | **87.00%** | 0.3400 | 0.0194 | 1.0 |
+| Mismatched | **88.80%** | 0.3246 | 0.0247 | 1.0 |
+
+Across three training seeds on the same test examples, last-token linear
+scored **86.87% ± 0.42 pp** matched and **88.70% ± 0.36 pp** mismatched.
+The MLP scored **87.90% ± 0.36 pp** and **87.77% ± 0.29 pp**. The linear
+head remains the reference implementation; the MLP is a comparison, not a
+replacement justified by this run.
+
+### 2. Batch-dependent execution is a demonstrated serving problem
+
+The stability test covered 200 examples per scenario. Its predeclared
+probability tolerance was 0.5 percentage points. Values below are
+percentage points, not relative percentages:
+
+| Execution change | 95th percentile | Maximum | Selected-class changes |
+|---|---:|---:|---:|
+| Repeat the example alone | 0.00 | 0.00 | 0/200 |
+| Duplicate in a same-length batch of two | 2.97 | 5.59 | **2/200** |
+| Add 32 right-padding tokens | 2.97 | 4.94 | 0/200 |
+| Add 128 right-padding tokens | 2.42 | 6.08 | 0/200 |
+| Mix shorter and longer examples | 3.42 | 5.86 | **2/200** |
+| Left-pad with explicit positions | 3.22 | 5.21 | **3/200** |
+
+Repeating an example alone was bitwise stable in this sample, but the
+same text changed class in a duplicate batch without additional padding.
+That rules out padding alone as the explanation, without identifying the
+underlying cause. A separate math-attention experiment changed
+probabilities by up to 2.48 pp across 12 examples, but tested only the
+full-attention path; the complete FP32 diagnostic was disabled.
+
+The current reference execution is therefore single-example, unpadded
+inference. Production batching needs an explicit probability tolerance and
+decision-change acceptance test against that path. This diagnostic tests
+execution consistency, not semantic isolation between independent
+questions.
+
+### 3. Dynamic candidate scoring transfers, but missing-answer handling is weak
+
+The candidate head was trained on 600 message/choice episodes in the
+Banking77 domain. Each evaluation partition contains 480 episodes from
+160 messages, with the listed real candidates plus `none of these`:
+
+| Real candidates | Seen-label accuracy | Held-out-label accuracy |
+|---:|---:|---:|
+| 2 + none | **96.88%** | **88.13%** |
+| 4 + none | **86.25%** | **83.13%** |
+| 8 + none | **82.50%** | **75.63%** |
+| Overall | **88.54%** | **82.29%** |
+
+When the annotated correct candidate was present, accuracy was **95.16%**
+for seen labels and **93.01%** for held-out labels. When it was absent,
+`none` recall was only **65.74%** and **45.37%**, respectively. At eight
+held-out candidates, the correct intent was omitted in 36 episodes. The
+model selected `none` in only 8 and selected an incorrect offered candidate
+in 28, approximately 72% of the group's 39 errors.
+
+The exported architecture applies a shared learned function to
+message + instruction + candidate, while `none` is one global learned
+scalar. For candidate logits $s_1,\ldots,s_K$ and scalar $b$, the argmax
+selects `none` only when $b > \max_i s_i$. Adding candidates therefore
+creates more opportunities to exceed the fixed threshold. This behavior
+motivates an ablation, but does not prove that the scalar explains every
+error.
+
+The first follow-up should hold the candidate scorer fixed and compare the
+global scalar with a candidate-set-conditioned `none` head using
+candidate-count and permutation-invariant score summaries. False selection
+when the answer is absent is a primary metric. The current `none` target
+means an omitted Banking77 intent, not insufficient evidence, unfamiliar
+domains, or a universal safety abstention.
+
+Candidate-order handling passed its narrow reference test: unbatched
+probability change was zero, batched reordering changed probabilities by at
+most 1.87 pp, no selected choice changed in 24 episodes, and arbitrary
+candidate keys did not change tokenization. This does not clear the general
+batching gate or establish instruction robustness.
+
+### 4. Calibration must be reported separately from rejection quality
+
+For the selected NLI linear head, the fitted temperature was approximately
+0.9816, but a separate calibration gate rejected applying it, retaining
+1.0. The dynamic-choice gate selected **1.0749** on an NLL improvement of
+approximately **0.00222** against a required **0.002** on 150 validation
+episodes. This is a narrow pass, not broad evidence for a superior
+calibration policy.
+
+The held-out dynamic model had pooled ECE around 0.0273, while its
+eight-candidate `none` recall was only 22.22% and its eight-candidate ECE
+was around 0.0709. Aggregate ECE cannot substitute for explicit
+missing-answer and selective-risk metrics.
+
+### 5. Fixed-shape throughput does not represent a complete dynamic request
+
+With identical fixed-length 128-token synthetic inputs, excluding
+tokenization and server overhead, L4/BF16 measurements were:
+
+| Batch size | Median batch latency | Decisions/second |
+|---:|---:|---:|
+| 1 | **77.69 ms** | **12.87** |
+| 2 | **91.81 ms** | **21.79** |
+| 4 | **166.84 ms** | **23.97** |
+| 8 | **333.15 ms** | **24.01** |
+
+Batch eight therefore roughly doubles batch-four latency without improving
+throughput for this workload. At 256 tokens, throughput similarly stays
+around 11–12 decisions/second once the batch grows beyond one. These are
+independent fixed-shape NLI timings, not dynamic-choice request timings:
+the candidate scorer currently re-encodes the message for each candidate.
+The environment had no `flash-linear-attention`, `fla-core`,
+`causal-conv1d`, or `flash-attn` packages, so optimized-kernel effects are
+unmeasured.
+
+### 6. Rust-facing artifacts and evidence boundary
+
+The archive contains fresh NLI heads and predictions, a dynamic candidate
+head with golden inputs, and a folded linear projection. The supplied
+head-parity fixtures show approximately **1.8e-6** maximum logit
+difference. This validates the exported head only, not a Rust implementation
+of the Qwen backbone. LoRA, model scaling, quantization, ordinal `Score`,
+shared-prefix branching, and Rust/Metal execution remain untested.
+
+## Phase 2D Empirical Readout: Numerical Reference, Rejection Policy, and Complete Requests
+
+Run `20260917T234417Z` was archived in
+`research/opendecision_phase2d_20260917T234417Z/`, using the Phase 2C
+checkpoint and frozen NLI and real-candidate heads. Only small `none` heads
+and the temperature option were fitted. The run did not implement KV
+branching, LoRA, quantization, Rust/Metal, or HTTP validation. The numerical
+sample intentionally included old high-drift examples, so it is a debugging
+sample rather than a population estimate.
+
+### 1. FP32 is a useful numerical reference
+
+The same inputs were evaluated alone, duplicated, padded, and mixed under
+four numerical modes:
+
+| Numerical mode | Largest probability difference | Selected-class changes |
+|---|---:|---:|
+| BF16, default attention | 6.75 percentage points | Yes |
+| BF16, math attention | 6.99 percentage points | Yes |
+| BF16, math attention with stricter settings | 6.91 percentage points | Yes |
+| **FP32, math attention with stricter settings** | **0.000727 percentage points** | **No** |
+
+The FP32 configuration stayed within the declared tolerance across every
+tested shape scenario. The BF16 settings did not. Layer traces found the
+target embedding unchanged, but differences were visible at the first
+decoder block in all 20 traced changed-shape comparisons and remained visible
+at the final representation. The trace does not isolate linear attention,
+its projections, normalization, feed-forward computation, or residual adds.
+
+This narrows the next investigation toward early decoder blocks. It does not
+establish a faulty operation, and forcing math SDPA affects only the
+full-attention path, not every DeltaNet operation. See the
+[PyTorch numerical accuracy notes](https://docs.pytorch.org/docs/2.11/notes/numerical_accuracy.html)
+and [Qwen3.5 architecture documentation](https://huggingface.co/docs/transformers/v5.17.0/model_doc/qwen3_5).
+
+FP32 single-example predictions still differed from the BF16 single-example
+reference by approximately 2.66 percentage points, including one selected-
+class change in the diagnostic sample. Therefore:
+
+> FP32 is much more consistent across the tested execution shapes. It has
+> not been shown to be more accurate.
+
+Use FP32 strict math as the numerical reference for the next experiments,
+not automatically as the production default. Weight-only storage is roughly
+7.83 GiB in BF16 versus 15.67 GiB in FP32 for the same approximately
+4.206-billion-parameter backbone, excluding activations, workspaces,
+allocator overhead, and other runtime state. Complete-request timings in
+this run remained BF16, so FP32 serving latency is unmeasured.
+
+### 2. The set-conditioned `none` head reduces false answers, with a real abstention trade-off
+
+The development-selected model is `set_linear`. It fits seven coefficients
+over frozen real-candidate scores while leaving the Qwen backbone and
+candidate scorer unchanged. Selection used message-weighted NLL under an
+assumed 25% absent-answer prior. The paired test sets contain 100 distinct
+messages per partition expanded to 1,600 episodes, with 50% absent-answer
+stress cases. They are not 1,600 independent messages.
+
+| Measurement | Seen labels: original -> set-conditioned | Held-out labels: original -> set-conditioned |
+|---|---:|---:|
+| Overall paired-test accuracy | **64.44% -> 83.94%** | **54.56% -> 74.56%** |
+| False-answer rate when correct intent is absent | **64.38% -> 20.63%** | **74.00% -> 26.88%** |
+| False-abstention rate when correct intent is present | 1.25% -> 7.50% | 3.50% -> 18.00% |
+| Correct-answer rate when correct intent is present | 93.25% -> 88.50% | 83.13% -> 76.00% |
+
+On held-out labels, incorrect offered answers fell from 592 to 215, about a
+64% relative reduction. False abstentions rose from 28 to 144. The real-
+candidate logits did not change, so the improvement is entirely in deciding
+when not to select an offered candidate.
+
+Refitting only the original global `none` scalar captured most of the gain:
+it reached 83.19% seen-label accuracy and 72.56% held-out-label accuracy,
+compared with 83.94% and 74.56% for `set_linear`. Candidate-set features
+provided an additional, smaller improvement beyond moving the rejection
+operating point.
+
+This trade-off is application-specific. If a wrong automated action is
+expensive and review is cheap, more abstention may be useful. If review is
+expensive and the correct answer is almost always offered, it may be worse.
+Model output and application policy must remain separate. `none` means that
+the annotated Banking77 intent was omitted, not unfamiliar subject matter,
+insufficient evidence, or a universal safety detector.
+
+### 3. The deployment absent-answer prior can reverse the preferred head
+
+The following are scenario reweightings of the recorded present and absent
+cases, not four separate deployment populations:
+
+| Evaluation scenario | Original global NLL | Set-conditioned NLL |
+|---|---:|---:|
+| Seen labels, 5% absent | **0.3477** | 0.3815 |
+| Seen labels, 25% absent | 0.7420 | **0.4551** |
+| Held-out labels, 5% absent | **0.5684** | 0.6743 |
+| Held-out labels, 25% absent | 0.9214 | **0.6836** |
+
+The set-conditioned head is a stronger candidate for missing-answer-heavy
+workloads, not a universal default. The temperature gate rejected its fitted
+temperature and retained **1.0** because the transform slightly worsened NLL
+on separate calibration-validation messages.
+
+### 4. Complete-request batching is faster, but still repeats state computation
+
+The benchmark measured the median of four message-specific median latencies.
+It includes the complete Python request, but excludes server and network
+overhead. The timed path performs K full state encodings and does not share a
+prefix:
+
+| Real candidates | Sequential candidates, batch 1 | Candidate batch 2 | Candidate batch 4 |
+|---:|---:|---:|---:|
+| 2 | 156 ms | 81 ms | 81 ms |
+| 4 | 308 ms | 159 ms | 92 ms |
+| 8 | 618 ms | 319 ms | 184 ms |
+| 16 | 1,229 ms | 631 ms | 365 ms |
+
+For 4, 8, and 16 candidates, candidate batch four was approximately 3.3 to
+3.4 times faster than sequential evaluation. Batching changed probabilities
+by up to approximately 3.86 percentage points relative to sequential,
+unpadded inference, although no selected choices changed in this small
+benchmark. The benchmark used four development messages, with the correct
+intent present, and did not broadly test rejection-boundary cases.
+
+The current cost remains:
+
+$$
+K \times \operatorname{encode}(\text{message} + \text{instruction} + \text{candidate}).
+$$
+
+The intended optimization is:
+
+$$
+\operatorname{encode}(\text{shared prefix once})
++ \sum_{i=1}^{K} \operatorname{evaluate}(\text{candidate suffix}_i).
+$$
+
+In this Phase 2D run, no speedup from shared-prefix reuse had been measured;
+KV branching was not implemented in that run. Phase 2E subsequently measured
+the within-question cached paths documented below.
+
+### 5. Rust-facing reference components
+
+Carry two explicit references into implementation work:
+
+1. **Numerical reference:** the pinned checkpoint and frozen heads evaluated
+   with the tested FP32 strict-math configuration for execution-shape
+   comparisons.
+2. **Decision reference:** the frozen candidate scorer, original global
+   `none` head, selected `set_linear` head, exported fixtures, and declared
+   calibration assumptions.
+
+Numerical agreement and rejection behavior are separate acceptance criteria.
+Do not freeze a promise that every request uses BF16 or that batching never
+changes an answer. A backend manifest should identify checkpoint revision,
+tokenizer and prompt format, head version, precision policy, and execution
+backend. A different numerical implementation is a different serving
+configuration even when the nominal weights are identical.
+
+## Phase 2E Empirical Readout: FP32 Shared-Prefix Reference and Execution Policy
+
+Run `20260918T114914072764Z` completed on an NVIDIA L4 with separate FP32
+and BF16 workers. Both workers completed cache parity, policy agreement,
+component profiling, and complete-request benchmarks. The [expanded result
+archive](../research/opendecision_phase2e_expanded_20260918T114914072764Z/)
+includes the [results README](../research/opendecision_phase2e_expanded_20260918T114914072764Z/README_results.md),
+saved raw rows, and machine-readable summaries. An independent
+reconstruction of 3,072 probability distributions from saved candidate
+scores and frozen `none`-head coefficients agreed with the report, including
+policy actions, parity counts, and timing aggregates. Qwen itself was not
+rerun for that reconstruction.
+
+The key machine-readable evidence is the [FP32 parity rows](../research/opendecision_phase2e_expanded_20260918T114914072764Z/fp32_strict_math/parity_rows.json),
+[BF16 parity rows](../research/opendecision_phase2e_expanded_20260918T114914072764Z/bf16_default/parity_rows.json),
+[FP32 request benchmarks](../research/opendecision_phase2e_expanded_20260918T114914072764Z/fp32_strict_math/request_benchmarks.json),
+[FP32 component profiles](../research/opendecision_phase2e_expanded_20260918T114914072764Z/fp32_strict_math/component_profiles.json),
+and [frozen export manifest](../research/opendecision_phase2e_expanded_20260918T114914072764Z/frozen_export/phase2e_manifest.json).
+
+The experiment contains eight distinct messages expanded into 128 factorial
+episodes. Archived examples were reused for execution regression, not new
+generalization testing. The declared probability tolerance is 0.005, or 0.5
+percentage points.
+
+### 1. FP32 shared-prefix execution passed the expanded checks
+
+Each strategy was compared with full-prompt sequential execution at the same
+precision:
+
+| FP32 strategy | Largest absolute probability difference | Episodes exceeding tolerance | Selected-outcome changes | Answer/review changes |
+|---|---:|---:|---:|---:|
+| Full prompts, batch four | 0.00000928 | 0/128 | 0/128 | 0/128 |
+| Shared prefix, sequential suffixes | 0.00000776 | 0/128 | 0/128 | 0/128 |
+| Shared prefix, equal-length suffix batches | 0.00001072 | 0/128 | 0/128 | 0/128 |
+
+The largest FP32 difference was approximately 0.00107 percentage points,
+well below tolerance. The comparisons cover all three frozen `none`-head
+distributions and nine saved application policies. Branch isolation also
+passed: the reusable cache stayed unchanged, repeating a branch reproduced
+the probabilities, and reversing candidate order stayed within the stricter
+order tolerance. There were eight isolation checks per cached strategy,
+separate from the 128 numerical comparisons.
+
+This supports reusing Qwen's complete hybrid prefix state and evaluating
+candidate suffixes while closely reproducing full-prompt execution in the
+tested FP32 configuration. It does not establish exact equivalence for every
+input. Preserve FP32 as the Rust numerical reference, without assuming that
+FP32 is the final production default.
+
+### 2. BF16 differences affect behavior, not only displayed probabilities
+
+The same comparisons in BF16 produced:
+
+| BF16 strategy | Largest difference | Episodes exceeding tolerance | Selected-outcome changes | Answer/review changes |
+|---|---:|---:|---:|---:|
+| Full prompts, batch four | 11.02 percentage points | 78/128 | 14/128 | 7/128 |
+| Shared prefix, sequential suffixes | 8.51 percentage points | 78/128 | 10/128 | 7/128 |
+| Shared prefix, equal-length suffix batches | 8.51 percentage points | 80/128 | 14/128 | 11/128 |
+
+A selected-outcome change means that any of the three `none` distributions
+changed its highest-probability outcome, including a candidate versus
+`none` change. A policy change means that at least one of the nine saved
+policies changed for an episode. Changes occurred in both directions, from
+review to answer and from answer to review. BF16 therefore cannot be
+described as slightly different probabilities with the same behavior.
+
+FP32 full-sequential versus BF16 full-sequential also had a maximum
+probability difference of 5.90 percentage points, selected-outcome changes in
+18/128 episodes, and saved-policy changes in 8/128 episodes. This separates
+execution consistency from task quality. FP32 passed the consistency question
+on this panel, but the experiment does not establish superior task accuracy.
+
+### 3. FP32 suffix batching provides the first useful cached-request speedup
+
+These are complete-request timings. They include input preparation, model
+calls, cache handling, probability calculation, policy evaluation, and JSON
+assembly. Prefix construction is repeated for every cached request. Values
+are medians of per-episode median latencies, not production latency
+percentiles.
+
+| Real candidates | Full prompts, sequential | Full prompts, batch four | Shared prefix, sequential suffixes | Shared prefix, batched suffixes |
+|---:|---:|---:|---:|---:|
+| 2 | 200 ms | 148 ms | 277 ms | 195 ms |
+| 4 | 399 ms | 279 ms | 461 ms | 378 ms |
+| 8 | 790 ms | 551 ms | 822 ms | 493 ms |
+| 16 | 1,586 ms | 1,113 ms | 1,550 ms | 764 ms |
+
+At 16 candidates, shared-prefix suffix batching was approximately 2.08x
+faster than sequential full-prompt evaluation and 1.46x faster than
+full-prompt batch four. Full-prompt batching was still faster at two and
+four candidates. Scheduler selection should therefore consider prefix
+length, candidate count, and suffix-length distribution rather than use a
+fixed candidate-count cutoff.
+
+For comparison, BF16 full-prompt batch-four timings were approximately 80,
+92, 183, and 364 ms for two, four, eight, and sixteen candidates. Those
+timings represent a different performance and consistency trade-off because
+the BF16 parity checks failed.
+
+### 4. Longer prefixes show a larger benefit while FP32 agreement holds
+
+The synthetic long-prefix benchmark used eight candidates:
+
+| Common prefix | FP32 full sequential | FP32 full batch four | FP32 cached sequential suffixes | FP32 cached batched suffixes |
+|---:|---:|---:|---:|---:|
+| 64 tokens | 1,174 ms | 718 ms | 821 ms | 324 ms |
+| 256 tokens | 2,659 ms | 2,239 ms | 1,010 ms | 509 ms |
+| 1,024 tokens | 8,855 ms | 8,908 ms | 1,758 ms | 1,270 ms |
+
+At 1,024 tokens, cached suffix batching was approximately 7x faster than
+either full-prompt strategy. Its maximum probability difference from
+full-sequential FP32 was approximately 0.00000185, with no recorded policy
+output change. This is the strongest performance result in the run: avoiding
+repeated long-prefix processing can provide a large speedup while preserving
+the tested FP32 decision behavior.
+
+The suffixes packed efficiently into two batches of four, while real
+candidate descriptions can produce partially filled batches. The synthetic
+token sequences also do not evaluate long-document decision quality. BF16
+cached batching was faster at about 488 ms for the 1,024-token case, but
+differed from its full-prompt reference by approximately 3.23 percentage
+points and failed the same numerical requirement.
+
+### 5. Profiling identifies model invocations as the optimization target
+
+Component shares were calculated from each raw profiled repetition, rather
+than by adding component medians and treating the result as an end-to-end
+measurement. Across FP32 cached configurations:
+
+| Component group | Share of instrumented request time |
+|---|---:|
+| Prefix and suffix model execution | 92–94% |
+| Cache cloning and expansion | 4.6–6.6% |
+| Remaining input/output and host work | Remainder |
+
+BF16 profiles showed a similar split, with roughly 91–93% model execution and
+5–7% cache handling. These are synchronized, intrusive wall-time profiles,
+not pure GPU kernel measurements. Sixteen-candidate cached-batch requests
+still required seven or eight model calls, one prefill plus six or seven
+suffix batches, because suffixes were grouped by exact length. The next
+optimization should target model-call count, suffix-batch utilization, and
+per-forward efficiency before an elaborate cache allocator. Cache-copy
+elimination alone is not expected to provide a dramatic gain from this
+profile.
+
+### 6. Process isolation resolved the FP32 loading problem
+
+The fresh FP32 worker started with zero PyTorch GPU allocation and loaded the
+model directly in its target dtype. It did not convert a resident BF16 model
+or offload to CPU. These post-load snapshots are not maximum workload
+requirements or a memory-leak soak test:
+
+| Measurement | BF16 | FP32 |
+|---|---:|---:|
+| PyTorch allocated memory | 7.83 GiB | 15.67 GiB |
+| Driver-reported free memory | 13.97 GiB | 6.13 GiB |
+
+The extra storage and slower full-prompt execution remain real reasons not to
+declare full FP32 the final deployment solution. Preserve the pinned
+checkpoint, exact token sequences, frozen heads, policies, FP32 arithmetic
+configuration, and full-sequential outputs as the numerical reference.
+Preserve BF16 outputs separately rather than treating precision changes as
+invisible.
+
+### 7. Validated execution structure and evidence boundary
+
+The execution structure worth carrying forward is:
+
+```text
+Finalize exact candidate token sequences
+                  |
+Find the common token prefix
+                  |
+Prefill once
+                  |
+Create isolated hybrid cache branches
+                  |
+Group and evaluate candidate suffixes
+                  |
+Restore original candidate order
+                  |
+Frozen scorer -> none head -> probabilities -> application policy
+```
+
+The cache contract includes complete hybrid state isolation, including
+recurrent and convolution state, not only attention keys and values. The run
+did not benchmark Rust, Metal, an HTTP server, or concurrent requests. It did
+not evaluate task accuracy for long synthetic documents, and it does not
+validate shared state across different questions.
+
+## Phase 2F: Rust Reference Engine and Execution Optimization
+
+Phase 2E is an execution experiment that succeeded within the tested scope.
+The next objective is to implement and optimize a reference engine, not to
+demonstrate prefix reuse from scratch again:
+
+1. Reproduce the FP32 full-prompt, cached sequential, and cached batched
+   paths in Rust using the pinned checkpoint metadata, exact token sequences,
+   frozen heads, policies, and saved full-sequential outputs.
+2. Optimize suffix-batch utilization, exact-length grouping, and model-forward
+   efficiency after reference parity is established.
+3. Keep probability tolerance, selected-outcome, answer/review,
+   candidate-order, and branch-isolation checks attached to each optimization.
+4. Give every padded or packed suffix strategy its own equivalence tests.
+5. Evaluate lower-precision serving as a separate execution configuration;
+   matching only the top candidate is insufficient.
+
+The outstanding issue is obtaining a cheaper execution configuration without
+changing the behavior intended for preservation. Shared-state prefill across
+different questions, LoRA, model scaling, quantization, ordinal `Score`,
+Metal, HTTP, concurrent serving, and long-document quality remain separate
+follow-ups.
+
+## Phase 3: Production Rust Engine and Backends
+
+After the Phase 2F reference path reproduces the Phase 2E FP32 and policy
+checks, the production Rust implementation should:
+
+- Port the validated Qwen architecture, dynamic candidate head, and shared-
+  prefix path to Rust (`openpick-engine`, `openpick-backends` with
+  Candle/GGUF, `openpick-runtime`).
+- Execute parity verification against the Phase 2C and Phase 2D exported
+  fixtures and prior NLI golden vectors (`golden_head_inputs.npz`).
+- Build the scheduler around the declared numerical reference, small
+  length-aware candidate batches, and explicit rejection-policy tests.

@@ -1,0 +1,40 @@
+{
+  "torch_chunk_gated_delta_rule": {
+    "source_sha256": "e4116a769851c6a455d1a277f0b5ad777090d73c9da491a84e4e9773e17c45d6",
+    "explicit_float32_source_lines": [
+      "x.transpose(1, 2).to(torch.float32, memory_format=torch.contiguous_format)"
+    ],
+    "scope": "source inspection; not proof of every dispatched kernel runtime dtype"
+  },
+  "torch_recurrent_gated_delta_rule": {
+    "source_sha256": "60d1b140670aad5ef8a14d77ddc0461a6d252e139d18ddc8d2899fab7aae0728",
+    "explicit_float32_source_lines": [
+      "x.transpose(1, 2).to(torch.float32, memory_format=torch.contiguous_format)"
+    ],
+    "scope": "source inspection; not proof of every dispatched kernel runtime dtype"
+  },
+  "Qwen3_5RMSNorm": {
+    "source_sha256": "6b96fdf1de3b749df7e8e09d29aac3b32e62a162410980440a276be01dfb0a5a",
+    "explicit_float32_source_lines": [
+      "output = self._norm(x.float())",
+      "output = output * (1.0 + self.weight.float())"
+    ],
+    "scope": "source inspection; not proof of every dispatched kernel runtime dtype"
+  },
+  "Qwen3_5RMSNormGated": {
+    "source_sha256": "ec1a1ec85fb6ad41fa53d59661520ce08b4bbee9685e998a63eabb7ea3457d68",
+    "explicit_float32_source_lines": [
+      "hidden_states = hidden_states.to(torch.float32)",
+      "hidden_states = hidden_states * ACT2FN[self.activation](gate.to(torch.float32))"
+    ],
+    "scope": "source inspection; not proof of every dispatched kernel runtime dtype"
+  },
+  "Qwen3_5GatedDeltaNet": {
+    "source_sha256": "368f639b3e7e8092e070fddf8f880b1420d9b00a8f1a87a83db86832ed537d19",
+    "explicit_float32_source_lines": [
+      "# If the model is loaded in fp16, without the .float() here, A might be -inf",
+      "g = -self.A_log.float().exp() * F.softplus(a.float() + self.dt_bias)"
+    ],
+    "scope": "source inspection; not proof of every dispatched kernel runtime dtype"
+  }
+}

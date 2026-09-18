@@ -1,3 +1,16 @@
+//! `openpick-gen-schemas`: One-shot generator for Jev JSON Schemas (Draft 2020-12).
+//!
+//! # Overview
+//! Extracts schemars schema definitions from `openpick_core::SystemRequest` and
+//! `openpick_core::SystemResponse` and serializes them into canonical schema files:
+//! - `crates/openpick-core/schemas/jev-v1-request.json`
+//! - `crates/openpick-core/schemas/jev-v1-response.json`
+//!
+//! Run with `--write` to overwrite schema files in-place:
+//! ```bash
+//! cargo run -p openpick-gen-schemas -- --write
+//! ```
+
 use openpick_core::{SystemRequest, SystemResponse};
 use std::path::Path;
 
@@ -10,7 +23,13 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|a| a == "--write" || a == "-w") {
         let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".into());
-        let schema_dir = Path::new(&manifest_dir).join("../openpick-core/schemas");
+        let mut schema_dir = Path::new(&manifest_dir).join("../openpick-core/schemas");
+        if !schema_dir.exists() {
+            let fallback = Path::new(&manifest_dir).join("crates/openpick-core/schemas");
+            if fallback.exists() {
+                schema_dir = fallback;
+            }
+        }
         if schema_dir.exists() {
             let req_path = schema_dir.join("jev-v1-request.json");
             let resp_path = schema_dir.join("jev-v1-response.json");

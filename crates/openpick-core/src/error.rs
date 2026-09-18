@@ -3,57 +3,151 @@
 
 use thiserror::Error;
 
+/// Validation errors representing violations of the Jev protocol specification.
+///
+/// When encountered in the API layer, these errors are translated directly into
+/// HTTP 422 Unprocessable Entity responses (`invalid_body` code) with detailed diagnostic messages.
 #[derive(Debug, Error)]
 pub enum ValidationError {
+    /// Emitted when a request contains an empty `questions` map.
+    /// The Jev specification requires at least one question per evaluation request.
     #[error("`questions` must contain at least one entry")]
     NoQuestions,
 
+    /// Emitted when a question does not provide non-empty `instructions`.
+    /// Instructions must be a non-empty string, object, or array.
     #[error("question `{0}`: `instructions` is required")]
     MissingInstructions(String),
 
+    /// Emitted when a `choice` question provides an empty `criteria` map.
+    /// A choice question must have at least one selectable option.
     #[error("question `{0}` (choice): `criteria` must contain at least one option")]
     ChoiceCriteriaEmpty(String),
 
+    /// Emitted when a `score` question provides fewer than 2 rubric levels in `criteria`.
+    /// An ordinal rating rubric requires at least 2 distinct levels.
     #[error("question `{0}` (score): `criteria` must contain at least 2 levels")]
     ScoreCriteriaTooFew(String),
 
+    /// Emitted when any rubric level description in a `score` question is empty.
     #[error("question `{id}` (score): level descriptions must be non-empty")]
-    ScoreLevelEmpty { id: String, index: usize },
+    ScoreLevelEmpty {
+        /// Identifier of the question with the empty level description.
+        id: String,
+        /// Zero-based index of the invalid empty level.
+        index: usize,
+    },
 
+    /// Emitted when a `noul` question's criteria specifies an empty `true` description.
     #[error("question `{0}` (noul): `criteria.true` is empty")]
     NoulTrueEmpty(String),
 
+    /// Emitted when a `noul` question's criteria specifies an empty `false` description.
     #[error("question `{0}` (noul): `criteria.false` is empty")]
     NoulFalseEmpty(String),
 
+    /// Emitted when a choice answer's selected `choice` string does not match any key in the question's criteria.
     #[error("question `{0}`: choice answer `choice` not in criteria keys")]
     ChoiceNotInCriteria(String),
 
+    /// Emitted when the keys in a choice answer's `probabilities` map do not exactly match the question's criteria keys.
     #[error("question `{0}`: choice answer `probabilities` keys must match criteria")]
     ProbabilityKeysMismatch(String),
 
+    /// Emitted when probabilities in an answer distribution do not sum to 1.0 (within epsilon tolerance).
     #[error("question `{id}`: probabilities do not sum to 1 (got {sum})")]
-    ProbabilitiesDontSum { id: String, sum: f64 },
+    ProbabilitiesDontSum {
+        /// Question identifier.
+        id: String,
+        /// Calculated sum of the probability distribution.
+        sum: f64,
+    },
 
+    /// Emitted when any probability value in an answer distribution is outside the valid range [0.0, 1.0] or NaN.
+    #[error("answer `{id}`: probability must be in 0..=1 (got {value})")]
+    ProbabilityOutOfRange {
+        /// Question identifier.
+        id: String,
+        /// Invalid probability value.
+        value: f64,
+    },
+
+    /// Emitted when an answer's `confidence` score is outside [0.0, 1.0] or NaN.
     #[error("answer `{id}`: confidence must be in 0..=1 (got {value})")]
-    ConfidenceOutOfRange { id: String, value: f64 },
+    ConfidenceOutOfRange {
+        /// Question identifier.
+        id: String,
+        /// Invalid confidence value.
+        value: f64,
+    },
 
+    /// Emitted when a `noul` answer value is outside [0.0, 1.0] or NaN.
     #[error("answer `{id}`: noul must be in 0..=1 (got {value})")]
-    NoulOutOfRange { id: String, value: f64 },
+    NoulOutOfRange {
+        /// Question identifier.
+        id: String,
+        /// Invalid noul probability value.
+        value: f64,
+    },
 
+    /// Emitted when the keys in a score answer's `legend` do not match the keys in its `probabilities` map.
     #[error("score answer `{0}`: legend keys must match probabilities keys")]
     ScoreLegendMismatch(String),
 
+    /// Emitted when a score answer's legend or probability key cannot be parsed as a numeric index string (e.g. "0", "1").
     #[error("score answer `{id}`: legend/probability indices must be numeric, got `{key}`")]
-    ScoreIndexNotNumeric { id: String, key: String },
+    ScoreIndexNotNumeric {
+        /// Question identifier.
+        id: String,
+        /// Non-numeric key string encountered.
+        key: String,
+    },
+
+    /// Emitted when a score answer's `score` is outside [0.0, max_level], NaN, or infinite.
+    #[error("score answer `{id}`: score must be finite in 0..={max} (got {value})")]
+    ScoreOutOfRange {
+        /// Question identifier.
+        id: String,
+        /// Maximum allowed score index.
+        max: f64,
+        /// Invalid score value.
+        value: f64,
+    },
+
+    /// Emitted when a request contains more questions than the maximum allowed limit.
+    #[error("request exceeds maximum question count limit (got {count}, max {max})")]
+    TooManyQuestions {
+        /// Number of questions in the request.
+        count: usize,
+        /// Maximum allowed questions.
+        max: usize,
+    },
+
+    /// Emitted when a question's criteria options exceed the maximum allowed limit.
+    #[error("question `{id}` exceeds maximum criteria options limit (got {count}, max {max})")]
+    TooManyCriteriaOptions {
+        /// Question identifier.
+        id: String,
+        /// Number of criteria options.
+        count: usize,
+        /// Maximum allowed criteria options.
+        max: usize,
+    },
 }
 
+/// Specialized Result alias for operations returning a [`ValidationError`].
 pub type ValidationResult<T> = Result<T, ValidationError>;
 
 use crate::answer::Answer;
 use crate::question::Question;
 use crate::request::SystemRequest;
 use crate::response::SystemResponse;
+
+/// Maximum number of questions allowed in a single evaluation request to prevent DoS.
+pub const MAX_QUESTIONS_PER_REQUEST: usize = 10_000;
+
+/// Maximum number of criteria options allowed per question to prevent DoS.
+pub const MAX_CRITERIA_OPTIONS: usize = 10_000;
 
 /// Validate a request. Pure — does no I/O.
 ///
@@ -65,6 +159,12 @@ use crate::response::SystemResponse;
 pub fn validate_request(req: &SystemRequest) -> ValidationResult<()> {
     if req.questions.is_empty() {
         return Err(ValidationError::NoQuestions);
+    }
+    if req.questions.len() > MAX_QUESTIONS_PER_REQUEST {
+        return Err(ValidationError::TooManyQuestions {
+            count: req.questions.len(),
+            max: MAX_QUESTIONS_PER_REQUEST,
+        });
     }
     for (id, q) in &req.questions {
         validate_question(id, q)?;
@@ -94,6 +194,13 @@ fn validate_question(id: &str, q: &Question) -> ValidationResult<()> {
             if c.criteria.is_empty() {
                 return Err(ValidationError::ChoiceCriteriaEmpty(id.to_string()));
             }
+            if c.criteria.len() > MAX_CRITERIA_OPTIONS {
+                return Err(ValidationError::TooManyCriteriaOptions {
+                    id: id.to_string(),
+                    count: c.criteria.len(),
+                    max: MAX_CRITERIA_OPTIONS,
+                });
+            }
         }
         Question::Score(s) => {
             if instructions_missing(&s.instructions) {
@@ -101,6 +208,13 @@ fn validate_question(id: &str, q: &Question) -> ValidationResult<()> {
             }
             if s.criteria.len() < 2 {
                 return Err(ValidationError::ScoreCriteriaTooFew(id.to_string()));
+            }
+            if s.criteria.len() > MAX_CRITERIA_OPTIONS {
+                return Err(ValidationError::TooManyCriteriaOptions {
+                    id: id.to_string(),
+                    count: s.criteria.len(),
+                    max: MAX_CRITERIA_OPTIONS,
+                });
             }
             for (i, level) in s.criteria.iter().enumerate() {
                 if level.is_empty() {
@@ -139,7 +253,7 @@ pub fn validate_response(
     for (id, ans) in &resp.answers {
         match ans {
             Answer::Noul(n) => {
-                if !(0.0..=1.0).contains(&n.noul) {
+                if n.noul.is_nan() || !n.noul.is_finite() || !(0.0..=1.0).contains(&n.noul) {
                     return Err(ValidationError::NoulOutOfRange {
                         id: id.clone(),
                         value: n.noul,
@@ -160,7 +274,7 @@ pub fn validate_response(
                     return Err(ValidationError::ProbabilityKeysMismatch(id.clone()));
                 }
                 check_confidence(id, c.confidence)?;
-                check_sums_to_one(id, c.probabilities.values().copied().sum())?;
+                check_probabilities(id, &c.probabilities)?;
             }
             Answer::Score(s) => {
                 let prob_keys: std::collections::HashSet<&str> =
@@ -170,15 +284,27 @@ pub fn validate_response(
                 if prob_keys != legend_keys {
                     return Err(ValidationError::ScoreLegendMismatch(id.clone()));
                 }
-                for k in prob_keys {
-                    k.parse::<u32>()
-                        .map_err(|_| ValidationError::ScoreIndexNotNumeric {
-                            id: id.clone(),
-                            key: k.to_string(),
-                        })?;
+                let mut max_idx: u32 = 0;
+                for k in &prob_keys {
+                    let idx =
+                        k.parse::<u32>()
+                            .map_err(|_| ValidationError::ScoreIndexNotNumeric {
+                                id: id.clone(),
+                                key: k.to_string(),
+                            })?;
+                    max_idx = max_idx.max(idx);
+                }
+                let max_score = max_idx as f64;
+                if s.score.is_nan() || !s.score.is_finite() || s.score < 0.0 || s.score > max_score
+                {
+                    return Err(ValidationError::ScoreOutOfRange {
+                        id: id.clone(),
+                        max: max_score,
+                        value: s.score,
+                    });
                 }
                 check_confidence(id, s.confidence)?;
-                check_sums_to_one(id, s.probabilities.values().copied().sum())?;
+                check_probabilities(id, &s.probabilities)?;
             }
         }
     }
@@ -186,7 +312,7 @@ pub fn validate_response(
 }
 
 fn check_confidence(id: &str, value: f64) -> ValidationResult<()> {
-    if !(0.0..=1.0).contains(&value) {
+    if value.is_nan() || !(0.0..=1.0).contains(&value) {
         return Err(ValidationError::ConfidenceOutOfRange {
             id: id.to_string(),
             value,
@@ -195,8 +321,24 @@ fn check_confidence(id: &str, value: f64) -> ValidationResult<()> {
     Ok(())
 }
 
+fn check_probabilities(
+    id: &str,
+    probabilities: &std::collections::HashMap<String, f64>,
+) -> ValidationResult<()> {
+    for &p in probabilities.values() {
+        if p.is_nan() || !(0.0..=1.0).contains(&p) {
+            return Err(ValidationError::ProbabilityOutOfRange {
+                id: id.to_string(),
+                value: p,
+            });
+        }
+    }
+    let sum: f64 = probabilities.values().copied().sum();
+    check_sums_to_one(id, sum)
+}
+
 fn check_sums_to_one(id: &str, sum: f64) -> ValidationResult<()> {
-    if (sum - 1.0).abs() > 1e-3 {
+    if sum.is_nan() || (sum - 1.0).abs() > 1e-3 {
         return Err(ValidationError::ProbabilitiesDontSum {
             id: id.to_string(),
             sum,
@@ -491,5 +633,165 @@ mod tests {
         let mut criteria = HashMap::new();
         criteria.insert("choice".into(), vec!["a".into(), "b".into()]);
         assert!(validate_response(&resp, &criteria).is_ok());
+    }
+
+    #[test]
+    fn validate_response_rejects_nan_probabilities() {
+        let mut answers = HashMap::new();
+        let mut c_probs = HashMap::new();
+        c_probs.insert("a".into(), f64::NAN);
+        c_probs.insert("b".into(), 0.5);
+        answers.insert(
+            "choice".into(),
+            Answer::Choice(ChoiceAnswer {
+                choice: "a".into(),
+                probabilities: c_probs,
+                confidence: 0.5,
+            }),
+        );
+        let resp = SystemResponse {
+            model: "mock".into(),
+            answers,
+            usage: Usage {
+                input_tokens: 10,
+                output_tokens: 2,
+            },
+        };
+        let mut criteria = HashMap::new();
+        criteria.insert("choice".into(), vec!["a".into(), "b".into()]);
+        assert!(matches!(
+            validate_response(&resp, &criteria).unwrap_err(),
+            ValidationError::ProbabilityOutOfRange { .. }
+        ));
+    }
+
+    #[test]
+    fn validate_response_rejects_negative_probabilities() {
+        let mut answers = HashMap::new();
+        let mut c_probs = HashMap::new();
+        c_probs.insert("a".into(), -0.2);
+        c_probs.insert("b".into(), 1.2);
+        answers.insert(
+            "choice".into(),
+            Answer::Choice(ChoiceAnswer {
+                choice: "b".into(),
+                probabilities: c_probs,
+                confidence: 0.5,
+            }),
+        );
+        let resp = SystemResponse {
+            model: "mock".into(),
+            answers,
+            usage: Usage {
+                input_tokens: 10,
+                output_tokens: 2,
+            },
+        };
+        let mut criteria = HashMap::new();
+        criteria.insert("choice".into(), vec!["a".into(), "b".into()]);
+        assert!(matches!(
+            validate_response(&resp, &criteria).unwrap_err(),
+            ValidationError::ProbabilityOutOfRange { .. }
+        ));
+    }
+
+    #[test]
+    fn validate_response_rejects_nan_and_out_of_range_score() {
+        let mut legend = HashMap::new();
+        legend.insert("0".into(), "Low".into());
+        legend.insert("1".into(), "High".into());
+
+        let mut score_probs = HashMap::new();
+        score_probs.insert("0".into(), 0.5);
+        score_probs.insert("1".into(), 0.5);
+
+        // Test NaN score
+        let mut answers_nan = HashMap::new();
+        answers_nan.insert(
+            "score_q".into(),
+            Answer::Score(ScoreAnswer {
+                score: f64::NAN,
+                legend: legend.clone(),
+                probabilities: score_probs.clone(),
+                confidence: 0.8,
+            }),
+        );
+        let resp_nan = SystemResponse {
+            model: "mock".into(),
+            answers: answers_nan,
+            usage: Usage {
+                input_tokens: 10,
+                output_tokens: 4,
+            },
+        };
+        assert!(matches!(
+            validate_response(&resp_nan, &HashMap::new()).unwrap_err(),
+            ValidationError::ScoreOutOfRange { .. }
+        ));
+
+        // Test out of range score (score 2.5 when max index is 1)
+        let mut answers_oor = HashMap::new();
+        answers_oor.insert(
+            "score_q".into(),
+            Answer::Score(ScoreAnswer {
+                score: 2.5,
+                legend,
+                probabilities: score_probs,
+                confidence: 0.8,
+            }),
+        );
+        let resp_oor = SystemResponse {
+            model: "mock".into(),
+            answers: answers_oor,
+            usage: Usage {
+                input_tokens: 10,
+                output_tokens: 4,
+            },
+        };
+        assert!(matches!(
+            validate_response(&resp_oor, &HashMap::new()).unwrap_err(),
+            ValidationError::ScoreOutOfRange { .. }
+        ));
+    }
+
+    #[test]
+    fn validate_response_rejects_nan_noul() {
+        let mut answers = HashMap::new();
+        answers.insert("noul_q".into(), Answer::Noul(NoulAnswer { noul: f64::NAN }));
+        let resp = SystemResponse {
+            model: "mock".into(),
+            answers,
+            usage: Usage {
+                input_tokens: 10,
+                output_tokens: 1,
+            },
+        };
+        assert!(matches!(
+            validate_response(&resp, &HashMap::new()).unwrap_err(),
+            ValidationError::NoulOutOfRange { .. }
+        ));
+    }
+
+    #[test]
+    fn validate_request_rejects_excessive_questions_and_criteria() {
+        let mut questions = HashMap::new();
+        for i in 0..=MAX_QUESTIONS_PER_REQUEST {
+            questions.insert(
+                format!("q_{i}"),
+                Question::Noul(NoulQuestion {
+                    instructions: serde_json::json!("Test"),
+                    criteria: None,
+                }),
+            );
+        }
+        let req = SystemRequest {
+            state: State::Text("state".into()),
+            model: "mock".into(),
+            questions,
+        };
+        assert!(matches!(
+            validate_request(&req).unwrap_err(),
+            ValidationError::TooManyQuestions { .. }
+        ));
     }
 }

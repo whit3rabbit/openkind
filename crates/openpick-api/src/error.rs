@@ -24,26 +24,46 @@ use std::time::Duration;
 const RETRY_AFTER_MS: HeaderName = HeaderName::from_static("retry-after-ms");
 const RETRY_AFTER: HeaderName = HeaderName::from_static("retry-after");
 
+/// API transport and protocol errors.
+///
+/// Mapped to canonical HTTP status codes and JSON error envelopes matching the Python SDK taxonomy.
 #[derive(Debug, thiserror::Error)]
 pub enum ApiError {
+    /// Request failed validation or syntactic constraints (HTTP 422 Unprocessable Entity, `invalid_body`).
     #[error("invalid request body: {0}")]
     InvalidBody(String),
 
+    /// Payload contains malformed JSON syntax (HTTP 400 Bad Request, `bad_json`).
     #[error("invalid JSON: {0}")]
     BadJson(String),
 
+    /// Request payload exceeds maximum allowed size (HTTP 413 Payload Too Large, `payload_too_large`).
+    #[error("payload too large: {0}")]
+    PayloadTooLarge(String),
+
+    /// Missing or invalid Bearer authentication token (HTTP 401 Unauthorized, `unauthorized`).
     #[error("missing or invalid API key")]
     Unauthorized,
 
+    /// Request exceeded rate limits (HTTP 429 Too Many Requests, `rate_limited`).
     #[error("rate limited; retry after {retry_after_ms} ms")]
-    RateLimited { retry_after_ms: u64 },
+    RateLimited {
+        /// Suggested backoff period in milliseconds before retrying.
+        retry_after_ms: u64,
+    },
 
+    /// Server is temporarily overloaded (HTTP 529 API Overloaded, `overloaded`).
     #[error("server overloaded; retry after {retry_after_ms} ms")]
-    Overloaded { retry_after_ms: u64 },
+    Overloaded {
+        /// Suggested backoff period in milliseconds before retrying.
+        retry_after_ms: u64,
+    },
 
+    /// Error propagated from underlying decision engine dispatch.
     #[error("engine error: {0}")]
     Engine(#[from] EngineError),
 
+    /// Unexpected internal server error (HTTP 500 Internal Server Error, `internal_error`).
     #[error("internal error: {0}")]
     Internal(String),
 }
@@ -55,6 +75,7 @@ impl ApiError {
                 (StatusCode::UNPROCESSABLE_ENTITY, "invalid_body")
             }
             ApiError::BadJson(_) => (StatusCode::BAD_REQUEST, "bad_json"),
+            ApiError::PayloadTooLarge(_) => (StatusCode::PAYLOAD_TOO_LARGE, "payload_too_large"),
             ApiError::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized"),
             ApiError::RateLimited { .. } => (StatusCode::TOO_MANY_REQUESTS, "rate_limited"),
             ApiError::Overloaded { .. } => (StatusCode::from_u16(529).unwrap(), "overloaded"),

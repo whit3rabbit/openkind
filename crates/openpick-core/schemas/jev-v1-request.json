@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "SystemRequest",
+  "description": "Evaluation request payload representing a Jev-compatible System 1 judgment query.\n\nSee <https://docs.typesafe.ai/api#request-body> for the canonical wire specification.",
   "type": "object",
   "properties": {
     "model": {
@@ -39,7 +40,9 @@
             ]
           }
         },
-        "instructions": true
+        "instructions": {
+          "description": "Instructions describing what categorical decision is requested."
+        }
       },
       "required": [
         "instructions",
@@ -51,9 +54,11 @@
       "type": "object",
       "properties": {
         "false": {
+          "description": "Meaning of a false/no decision.",
           "type": "string"
         },
         "true": {
+          "description": "Meaning of a true/yes decision.",
           "type": "string"
         }
       },
@@ -77,7 +82,9 @@
             }
           ]
         },
-        "instructions": true
+        "instructions": {
+          "description": "Instructions describing what judgment is requested.\nCan be a string, object, or array."
+        }
       },
       "required": [
         "instructions"
@@ -87,6 +94,7 @@
       "description": "Tagged union of the three question kinds. The `type` field is the discriminant.",
       "oneOf": [
         {
+          "description": "Boolean probability evaluation (yes/no), returning a single probability value.",
           "type": "object",
           "properties": {
             "type": {
@@ -100,6 +108,7 @@
           ]
         },
         {
+          "description": "Categorical choice evaluation across discrete options.",
           "type": "object",
           "properties": {
             "type": {
@@ -113,6 +122,7 @@
           ]
         },
         {
+          "description": "Ordinal rating evaluation rated along an ordered rubric of at least 2 levels.",
           "type": "object",
           "properties": {
             "type": {
@@ -138,7 +148,9 @@
             "type": "string"
           }
         },
-        "instructions": true
+        "instructions": {
+          "description": "Instructions describing what ordinal score is requested."
+        }
       },
       "required": [
         "instructions",

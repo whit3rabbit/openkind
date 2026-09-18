@@ -1,0 +1,215 @@
+{
+  "prior_messages_excluded": 1520,
+  "overlaps": {
+    "train__dev": 0,
+    "train__cal_fit": 0,
+    "train__cal_gate": 0,
+    "train__test_seen": 0,
+    "train__test_unseen": 0,
+    "dev__cal_fit": 0,
+    "dev__cal_gate": 0,
+    "dev__test_seen": 0,
+    "dev__test_unseen": 0,
+    "cal_fit__cal_gate": 0,
+    "cal_fit__test_seen": 0,
+    "cal_fit__test_unseen": 0,
+    "cal_gate__test_seen": 0,
+    "cal_gate__test_unseen": 0,
+    "test_seen__test_unseen": 0
+  },
+  "label_holdout_scope": "same 20 labels excluded from Phase 2C scorer training and Phase 2D rejection fitting/calibration, not Qwen pretraining",
+  "label_ids_seen": [
+    49,
+    20,
+    8,
+    45,
+    76,
+    22,
+    75,
+    54,
+    14,
+    0,
+    53,
+    72,
+    67,
+    47,
+    33,
+    29,
+    70,
+    21,
+    1,
+    17,
+    12,
+    3,
+    39,
+    27,
+    52,
+    41,
+    64,
+    38,
+    65,
+    43,
+    35,
+    26,
+    63,
+    55,
+    4,
+    30,
+    50,
+    11,
+    9,
+    7,
+    68,
+    40,
+    69,
+    73,
+    61,
+    58,
+    42,
+    25,
+    46,
+    19,
+    57,
+    13,
+    60,
+    66,
+    32,
+    2,
+    16
+  ],
+  "label_ids_unseen": [
+    48,
+    23,
+    24,
+    44,
+    28,
+    34,
+    37,
+    59,
+    15,
+    5,
+    56,
+    6,
+    51,
+    71,
+    36,
+    31,
+    10,
+    74,
+    62,
+    18
+  ],
+  "splits": {
+    "train": {
+      "messages": 500,
+      "episodes": 1000,
+      "true_answer_absent_fraction": 0.5,
+      "candidate_counts": {
+        "2": 220,
+        "8": 264,
+        "16": 272,
+        "4": 244
+      },
+      "samplers": {
+        "label_lexical_hard": 526,
+        "uniform": 474
+      }
+    },
+    "dev": {
+      "messages": 150,
+      "episodes": 300,
+      "true_answer_absent_fraction": 0.5,
+      "candidate_counts": {
+        "2": 74,
+        "4": 80,
+        "16": 64,
+        "8": 82
+      },
+      "samplers": {
+        "label_lexical_hard": 174,
+        "uniform": 126
+      }
+    },
+    "cal_fit": {
+      "messages": 200,
+      "episodes": 400,
+      "true_answer_absent_fraction": 0.5,
+      "candidate_counts": {
+        "2": 94,
+        "16": 122,
+        "8": 94,
+        "4": 90
+      },
+      "samplers": {
+        "uniform": 176,
+        "label_lexical_hard": 224
+      }
+    },
+    "cal_gate": {
+      "messages": 150,
+      "episodes": 300,
+      "true_answer_absent_fraction": 0.5,
+      "candidate_counts": {
+        "16": 68,
+        "4": 66,
+        "8": 94,
+        "2": 72
+      },
+      "samplers": {
+        "uniform": 156,
+        "label_lexical_hard": 144
+      }
+    },
+    "test_seen": {
+      "messages": 100,
+      "episodes": 1600,
+      "true_answer_absent_fraction": 0.5,
+      "candidate_counts": {
+        "2": 400,
+        "4": 400,
+        "8": 400,
+        "16": 400
+      },
+      "samplers": {
+        "uniform": 800,
+        "label_lexical_hard": 800
+      }
+    },
+    "test_unseen": {
+      "messages": 100,
+      "episodes": 1600,
+      "true_answer_absent_fraction": 0.5,
+      "candidate_counts": {
+        "2": 400,
+        "4": 400,
+        "8": 400,
+        "16": 400
+      },
+      "samplers": {
+        "uniform": 800,
+        "label_lexical_hard": 800
+      }
+    }
+  },
+  "construction": "paired present/absent episodes; nested negative lists across K within message and sampler",
+  "fit_dev_calibration_absent_prior": 0.25,
+  "hard_negative_definition": "character 3..5 gram TF-IDF similarity between true-label and negative-label descriptions; random tie-break. Not model-mined hard negatives.",
+  "scope": "one domain and sampled candidates; evaluation labels are unseen only to head stages; not a 77-way benchmark or universal OOD detection",
+  "sources": {
+    "hf_metadata_revision": "90d4e2ee5521c04fc1488f065b8b083658768c57",
+    "loader": "verified original CSVs; no dataset script",
+    "csv_sources": {
+      "train": {
+        "url": "https://raw.githubusercontent.com/PolyAI-LDN/task-specific-datasets/master/banking_data/train.csv",
+        "sha256": "b06e26ac675513959a63135f11b94ea7786ed02da65db93a5650d8838cbc664b",
+        "examples": 10003
+      },
+      "test": {
+        "url": "https://raw.githubusercontent.com/PolyAI-LDN/task-specific-datasets/master/banking_data/test.csv",
+        "sha256": "d12d6e3bc4c3103966ae786dc435913c0c563dfa328f5a3646d0e62cfeeb474d",
+        "examples": 3080
+      }
+    },
+    "license": "Creative Commons Attribution 4.0 International"
+  }
+}
