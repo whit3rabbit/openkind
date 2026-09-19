@@ -346,6 +346,24 @@ mod tests {
     }
 
     #[test]
+    fn cmd_inspect_rejects_oversized_file() {
+        // Sparse file: reserves MAX + 1 bytes on disk metadata without
+        // actually writing that much data.
+        let dir = std::env::temp_dir();
+        let file = dir.join("openpick_test_oversized.json");
+        let f = std::fs::File::create(&file).unwrap();
+        f.set_len(MAX_CLI_INPUT_BYTES + 1).unwrap();
+
+        let res = cmd_inspect(file.clone());
+        let _ = std::fs::remove_file(file);
+        let err = res.expect_err("oversized input must be rejected");
+        assert!(
+            err.to_string().contains("exceeds maximum allowed size"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
     fn cli_parse_serve_defaults_and_custom() {
         let cli = Cli::try_parse_from(["openpick", "serve"]).unwrap();
         match cli.command {
