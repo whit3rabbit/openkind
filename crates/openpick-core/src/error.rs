@@ -133,6 +133,14 @@ pub enum ValidationError {
         /// Maximum allowed criteria options.
         max: usize,
     },
+
+    /// Emitted when a response lacks an answer for a question id the caller supplied.
+    #[error("response is missing an answer for question `{0}`")]
+    MissingAnswer(String),
+
+    /// Emitted when a response contains an answer for a question id that was not requested.
+    #[error("response contains an answer for unknown question `{0}`")]
+    UnexpectedAnswer(String),
 }
 
 /// Specialized Result alias for operations returning a [`ValidationError`].
@@ -240,14 +248,33 @@ fn instructions_missing(v: &serde_json::Value) -> bool {
 }
 
 /// Validate a response. Catches the common engine-side bugs:
+/// - missing or unexpected answers (when `criteria` covers the request's question ids)
 /// - probabilities don't sum to 1
 /// - confidence out of range
 /// - choice answer's keys don't match criteria
 /// - score answer legend doesn't match probabilities
+///
+/// `criteria` maps question id → the question's choice-criteria keys (empty for
+/// noul/score questions). When the map is non-empty it is treated as the full
+/// question-id set of the originating request, and answer coverage is enforced
+/// both ways: every requested id must be answered, and no extra answers may
+/// appear. An empty map skips coverage checks (per-answer checks still run).
 pub fn validate_response(
     resp: &SystemResponse,
     criteria: &std::collections::HashMap<String, Vec<String>>,
 ) -> ValidationResult<()> {
+    if !criteria.is_empty() {
+        for id in criteria.keys() {
+            if !resp.answers.contains_key(id) {
+                return Err(ValidationError::MissingAnswer(id.clone()));
+            }
+        }
+        for id in resp.answers.keys() {
+            if !criteria.contains_key(id) {
+                return Err(ValidationError::UnexpectedAnswer(id.clone()));
+            }
+        }
+    }
     // Every question id in the request must have a matching answer.
     // (Caller passes criteria so we can validate cross-references.)
     for (id, ans) in &resp.answers {
@@ -632,7 +659,66 @@ mod tests {
         };
         let mut criteria = HashMap::new();
         criteria.insert("choice".into(), vec!["a".into(), "b".into()]);
+        criteria.insert("noul".into(), Vec::new());
+        criteria.insert("score".into(), Vec::new());
         assert!(validate_response(&resp, &criteria).is_ok());
+    }
+
+    #[test]
+    fn validate_response_rejects_missing_answer() {
+        let mut answers = HashMap::new();
+        answers.insert("noul".into(), Answer::Noul(NoulAnswer { noul: 0.5 }));
+        let resp = SystemResponse {
+            model: "mock".into(),
+            answers,
+            usage: Usage {
+                input_tokens: 1,
+                output_tokens: 1,
+            },
+        };
+        let mut criteria = HashMap::new();
+        criteria.insert("noul".into(), Vec::new());
+        criteria.insert("dropped".into(), Vec::new());
+        assert!(matches!(
+            validate_response(&resp, &criteria).unwrap_err(),
+            ValidationError::MissingAnswer(ref id) if id == "dropped"
+        ));
+    }
+
+    #[test]
+    fn validate_response_rejects_unexpected_answer() {
+        let mut answers = HashMap::new();
+        answers.insert("noul".into(), Answer::Noul(NoulAnswer { noul: 0.5 }));
+        answers.insert("ghost".into(), Answer::Noul(NoulAnswer { noul: 0.5 }));
+        let resp = SystemResponse {
+            model: "mock".into(),
+            answers,
+            usage: Usage {
+                input_tokens: 1,
+                output_tokens: 1,
+            },
+        };
+        let mut criteria = HashMap::new();
+        criteria.insert("noul".into(), Vec::new());
+        assert!(matches!(
+            validate_response(&resp, &criteria).unwrap_err(),
+            ValidationError::UnexpectedAnswer(ref id) if id == "ghost"
+        ));
+    }
+
+    #[test]
+    fn validate_response_empty_criteria_skips_coverage_checks() {
+        let mut answers = HashMap::new();
+        answers.insert("anything".into(), Answer::Noul(NoulAnswer { noul: 0.5 }));
+        let resp = SystemResponse {
+            model: "mock".into(),
+            answers,
+            usage: Usage {
+                input_tokens: 1,
+                output_tokens: 1,
+            },
+        };
+        assert!(validate_response(&resp, &HashMap::new()).is_ok());
     }
 
     #[test]
