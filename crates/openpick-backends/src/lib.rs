@@ -176,5 +176,63 @@ mod tests {
         }
         .validate()
         .is_err());
+
+        // Gguf and Onnx enforce the same path rules as Candle.
+        for path in ["model.gguf", "graph.onnx"] {
+            let backend = if path.ends_with(".gguf") {
+                BackendType::Gguf {
+                    model_path: path.into(),
+                }
+            } else {
+                BackendType::Onnx {
+                    model_path: path.into(),
+                }
+            };
+            assert!(backend.validate().is_ok(), "{path} should be valid");
+        }
+        for backend in [
+            BackendType::Gguf {
+                model_path: "".into(),
+            },
+            BackendType::Gguf {
+                model_path: "bad\0path".into(),
+            },
+            BackendType::Onnx {
+                model_path: "".into(),
+            },
+            BackendType::Onnx {
+                model_path: "bad\0path".into(),
+            },
+        ] {
+            assert!(
+                backend.validate().is_err(),
+                "{backend:?} should be rejected"
+            );
+        }
+    }
+
+    #[test]
+    fn backend_type_display_covers_all_variants() {
+        assert_eq!(
+            BackendType::Gguf {
+                model_path: "qwen.q4_k_m.gguf".into()
+            }
+            .to_string(),
+            "gguf(qwen.q4_k_m.gguf)"
+        );
+        assert_eq!(
+            BackendType::Onnx {
+                model_path: "decision-head.onnx".into()
+            }
+            .to_string(),
+            "onnx(decision-head.onnx)"
+        );
+    }
+
+    #[test]
+    fn backend_config_defaults_to_unbounded_batch() {
+        let config = BackendConfig::new("jev-latest", BackendType::Mock);
+        assert_eq!(config.alias, "jev-latest");
+        assert_eq!(config.max_batch_size, None);
     }
 }
