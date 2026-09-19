@@ -880,4 +880,58 @@ mod tests {
             ValidationError::TooManyQuestions { .. }
         ));
     }
+
+    #[test]
+    fn validate_request_rejects_excessive_choice_criteria() {
+        let mut questions = HashMap::new();
+        questions.insert(
+            "big_choice".to_string(),
+            Question::Choice(ChoiceQuestion {
+                instructions: serde_json::json!("Pick one"),
+                criteria: (0..=MAX_CRITERIA_OPTIONS)
+                    .map(|i| (format!("opt_{i}"), None))
+                    .collect(),
+            }),
+        );
+        let req = SystemRequest {
+            state: State::Text("state".into()),
+            model: "mock".into(),
+            questions,
+        };
+        let err = validate_request(&req).unwrap_err();
+        assert!(matches!(
+            err,
+            ValidationError::TooManyCriteriaOptions {
+                max: MAX_CRITERIA_OPTIONS,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn validate_request_rejects_excessive_score_criteria() {
+        let mut questions = HashMap::new();
+        questions.insert(
+            "big_score".to_string(),
+            Question::Score(ScoreQuestion {
+                instructions: serde_json::json!("Rate it"),
+                criteria: (0..=MAX_CRITERIA_OPTIONS)
+                    .map(|i| format!("level_{i}"))
+                    .collect(),
+            }),
+        );
+        let req = SystemRequest {
+            state: State::Text("state".into()),
+            model: "mock".into(),
+            questions,
+        };
+        let err = validate_request(&req).unwrap_err();
+        assert!(matches!(
+            err,
+            ValidationError::TooManyCriteriaOptions {
+                max: MAX_CRITERIA_OPTIONS,
+                ..
+            }
+        ));
+    }
 }
