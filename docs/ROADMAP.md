@@ -1,11 +1,20 @@
 # opendecision — Roadmap
 
-> Jev-compatible, open-source decision-inference engine in Rust.
-> Wire spec: <https://docs.typesafe.ai/api>
+> Qwen-led, open-source typed decision inference, with a Rust service and an explicitly pinned Jev-compatible interface target.
+> **Revision 0.6.1 · 19 September 2026 · Review-gated 2I/2J checkpoint; synchronized with whitepaper v0.6.1.**
+> Contract reference: <https://docs.typesafe.ai/api>. A live documentation URL does not replace pinned schemas and conformance fixtures.
 
-This is the single source of truth for what's done, what's next, and
-what the open questions are. Each phase ships with passing tests at
-HEAD.
+**Current evidence:** B–G remain historical research. **Phase 2H is completed through the `2h.1.2` continuation**: saved fits were validated/reused without retraining, and both required strict/TF32 evaluation workers finished. The original failed attempt remains unchanged. **Current direction:** reviewed multi-question data and transfer-aware selection (2I.1–2I.2), early matched adaptation/smaller/compact-model comparisons (2J), genuine Q-level sharing, and the real-service bridge in parallel. The 4B strict-FP32 scorer is a reference, not a required shipping model. [H; HF; WP §§13.1.8–13.1.16, 13.3]
+
+**Latest workbench:** `2ij_reviewed_multiquestion_v1` is **blocked at the independent-review/selection gate**. Preparation and a small Qwen4B/L4 synthetic cache probe completed; no new semantic study was registered, trained or finally evaluated. H remains closed. Resolve unsigned review, explicit device/quality limits and the stale review-protocol hash; retain the source-coverage correction for the duplicate/unrelated-question fixture. Technical detail and source links are in [WP §14](OpenDecision_Whitepaper_v0.6.1.md#14-phase-2i2j-workbench-preparation-mechanical-evidence-and-the-review-gate). [IJ; I0]
+
+This file is the task/status authority; the companion [whitepaper](OpenDecision_Whitepaper_v0.6.1.md) is the evidence and interpretation authority. Neither updates the underlying repository or notebook by itself. Checkbox completion below is source-reported historical work or an explicitly stated saved-artifact result; open work remains unchecked. Execution completion, statistical quality, numerical equivalence and deployment readiness are separate gates.
+
+**Review capture (v0.5.2):** the [review-to-work/test matrix](OpenDecision_Review_Followup_Traceability.md) maps the recovered architecture discussion and Laya/R4T follow-ups to the tasks below. ModernBERT-style joint-candidate scoring and a separate released-Laya baseline are explicit early comparisons; conditional **P2.1–P2.3** checkboxes are restored from the earlier roadmap. This is source-based documentation, not a claim of a complete shared-chat transcript or completed future experiments. [RC; WP §11.7]
+
+**Execution snapshot boundary:** H now has a completed `2h.1.2` continuation with final outputs, as recorded in HF. The original `2h.1.1` failed attempt remains unchanged under H. Recovery-notebook availability and completed evaluation are distinct events; both are now documented. [H; HF; HR]
+
+**Reading order:** [2I/2J checkpoint and blockers](#phase-2ij-workbench-checkpoint-preparation-recorded--review-gated) → [Phase 2H status](#phase-2h--criteria-and-rejection-transfer-completed--required-scope-closed) → [current priorities](#strategic-assessment--project-rebalancing) → [status snapshot](#status-snapshot). The source register records scope and verification limits. Historical “next” language in 2A–2G is not the current queue.
 
 ---
 
@@ -54,7 +63,7 @@ client can speak to without modification.
     SDK's `TypeSafe{Authentication,RateLimit,BadRequest,…}Error`.
   - `/v1/models` returns `{"models":[{name,description,release_date}]}`.
 
-### Test totals at HEAD
+### Reported test snapshot — current HEAD not verified
 
 | Suite                                              | Tests |
 |----------------------------------------------------|-------|
@@ -66,23 +75,21 @@ client can speak to without modification.
 | `opendecision-proto` unit                          | 2     |
 | `opendecision-runtime` unit                        | 6     |
 | `opendecision-gen-schemas` schema sync             | 3     |
-| **Total at HEAD**                                  | **195** |
+| **Reported total**                                  | **195** |
 
-(SDK-compat and conformance are the pinned wire contract; unit tests track internal subsystem additions.)
+The supplied roadmap reports this **195-test snapshot**, but does not identify an exact commit. No Rust source, build or test was inspected or executed for this revision. Treat the counts as supplied historical implementation evidence—not a fresh `cargo test` result or proof of semantic model quality. Track S.1 requires a commit-stamped replacement. (SDK-compat and conformance fixtures describe the pinned wire surface; unit tests cover internal subsystems.) [R0]
 
 ---
 
 ## Phase 2 — real model backends 🚧 STARTED
 
-**Goal:** go from "mock" to "does useful work" without changing the
-wire format. The hypothesis: Jev decisions are a single forward pass
-on a 2560-dim hidden vector + a small classifier head, *not* a
-generation loop.
+**Goal:** go from mock responses to useful, versioned decision inference while preserving the declared wire contract. The measured OpenDecision hypothesis is that Qwen's 2,560-dimensional features can support small decision heads without an answer-generation loop. This does not reconstruct Jev's proprietary neural architecture, establish one pass per complete dynamic request, or remove work that scales with input length, Q or K. [WP §§2, 4–5]
+
+Phases 2A–2G below retain historical measurements. Their experiment-local “next” recommendations are historical; the current status, closeout tasks and refocused program later in this document control new work.
 
 ### Phase 2A — Python exploration (DONE)
 
-A PyTorch notebook on Colab validated the architecture hypothesis
-before we burn time on the Rust implementation.
+A PyTorch notebook on Colab established exploratory hidden-state/head plumbing. It did not validate a proprietary architecture or general decision quality; the initial head used two fitted examples. [WP §4.1]
 
 **Model probed:** `Qwen/Qwen3.5-4B-Base` (via
 `Qwen3_5ForConditionalGeneration`).
@@ -104,10 +111,7 @@ before we burn time on the Rust implementation.
 | Decision (1 forward pass)     | 0.26 s    |
 | Speedup                       | **~28.6×** |
 
-Note this is a generous bound for the decision path (1 forward, no
-KV-cache walk-off, no token-by-token I/O). Real-world speedup will
-depend on sequence length and batch composition — but the scaling
-regime changes fundamentally: linear-in-tokens → constant per query.
+**Corrected interpretation:** this is an exploratory comparison with a long generated answer, not an equal-quality benchmark or proof of constant-time decisions. Avoiding output-token decoding removes that loop; prefill, candidate evaluation and independent-question work still depend on the actual input and execution graph. The multimodal `AutoModel` and text-only causal-LM parameter rows also count different module sets, not removable output-head weights. [WP §§4.1–4.2, 8.3]
 
 **Key finding 2 — Qwen3.5 layer mix**
 
@@ -115,13 +119,11 @@ The model alternates `Qwen3_5GatedDeltaNet` (recurrent-style state)
 and `Qwen3_5Attention` (standard Q/K/V) layers. This is *relevant*
 to OpenDecision because it suggests the backbone already produces a
 reusable state representation — which has direct implications for
-the shared-state cache design in the Phase 2F reference-engine workstream below.
+the candidate-prefix cache studies in Phases 2E–2G and proposed question-level sharing in Phase 2I. It does not by itself establish an instruction-independent state representation.
 
 **Key finding 3 — embeddings are tied**
 
-`embed_tokens` lives inside the backbone. Stripping `AutoModelForCausalLM`
-does *not* remove billions of params — it removes the generation
-loop, not the LM head. The win is in compute, not in disk.
+`embed_tokens` lives inside the backbone and shares weight storage with the vocabulary projection. Bypassing the LM output projection and generation loop saves computation, but retaining the input embedding leaves **zero marginal removable tied weights** in the measured text model. The later text-only audit, not the wrapper comparison, is the memory authority. [WP §4.2]
 
 ### Phase 2B — decision head + benchmarks (DONE / MEASURED)
 
@@ -160,7 +162,7 @@ Core question answered: **Yes, a frozen Qwen3.5-4B backbone + a 7,683-parameter 
   - Generate 1 token: 91.32 ms (**1.13×** decision latency, ~10.5 ms difference).
   - Generate 8 tokens: 533.54 ms (**6.61×** decision latency).
   - Generate 32 tokens: 2,035.35 ms (**25.21×** decision latency).
-- Takeaway: speedup scales with tokens avoided. Avoiding a paragraph is a ~25× win; avoiding 1 token is a modest ~13% win. The primary win over 1-token generation is accuracy (+8.83 pp).
+- Interpretation: the reported latency ratios depend on the output tokens avoided, not an equal-quality end-to-end workload. The +8.83 pp matched accuracy comparison is a trained head versus an **untuned** finite-code baseline, not an isolated effect of removing generation. A trained finite-token control remains necessary. [WP §§4.4, 8.3]
 - Independent batching throughput: 12.38 qps ($B=1$), 25.79 qps ($B=4$), 24.24 qps ($B=8$), with varying sequence lengths (94, 104, 128 tokens).
 
 **4. Calibration & Batching Findings:**
@@ -174,7 +176,7 @@ Core question answered: **Yes, a frozen Qwen3.5-4B backbone + a 7,683-parameter 
 
 ### Phase 2C — Qwen model research: dynamic schemas, batching invariance & model scaling (MEASURED / NEEDS REVIEW)
 
-> **Principle**: Phase 2 is model research in Python/Colab. We do not jump into cutting the Rust inference engine before the model architecture handles arbitrary dynamic schemas, candidate scoring, and verified batching behavior.
+> **Historical scope, updated gate:** Phase 2 researches models in Python/Colab. A complete native backend needs a chosen supported profile and a parity ladder, not a claim of arbitrary-schema competence. The thin resident-worker service in Track S can proceed earlier with explicit task limits; do not block all real integration on the full modeling program. [WP §§11.3, 11.8, 13.3]
 
 Run ID: `20260917T222948Z` (archived in `research/opendecision_phase2c_20260917T222948Z/`). The run used `Qwen/Qwen3.5-4B-Base` on an NVIDIA L4 with native BF16. The dynamic-choice stage completed, but the overall stability status is `needs_review`; LoRA was disabled.
 
@@ -297,13 +299,7 @@ The Phase 2D result is therefore: preserve two references, a numerical FP32 refe
 
 ### Phase 2E: selective precision, shared-prefix parity & rejection policy (MEASURED / DONE)
 
-Run `20260918T114914072764Z` completed on an NVIDIA L4 with fresh FP32 and
-BF16 workers. The [expanded result archive](../research/opendecision_phase2e_expanded_20260918T114914072764Z/)
-and its [results README](../research/opendecision_phase2e_expanded_20260918T114914072764Z/README_results.md)
-contain the saved raw rows and detailed evidence. An independent reconstruction of 3,072 probability
-distributions, policy actions, parity counts, and timing aggregates agreed
-with the report. This validates the saved calculations; Qwen was not rerun
-for that reconstruction.
+Run `20260918T114914072764Z` completed on an NVIDIA L4 with fresh FP32 and BF16 workers. The [saved expanded-run summary](https://drive.google.com/file/d/1SxOG4VY4TlqK0e4eqBgZ_KwfDYjbXeFX/view) and [whitepaper discussion](OpenDecision_Whitepaper_v0.6.1.md#8-shared-prefix-execution-what-works-and-when) provide the source result and detailed interpretation. The historical review reconstructed 3,072 probability distributions, policy actions, parity counts and timing aggregates with agreement to the report; it did not rerun Qwen. That earlier saved-calculation audit is retained as historical evidence, not repeated by this v0.6 documentation update. [WP §§7–8; E5]
 
 - [x] **FP32 cached execution is the numerical reference.** Full-prompt
       batch-four, shared-prefix sequential suffixes, and shared-prefix
@@ -461,7 +457,7 @@ The evaluation introduced 416 fresh sampled-choice episodes across 112 messages 
 - Implication: Terse, overlapping descriptions cause confident failure. Candidate criteria must be documented, versioned semantic descriptions rather than raw class labels. That is a warning about the combination of ambiguous criteria, ranking, and policy transfer—not four independent demonstrations of failure, and not grounds to silently alter gold labels.
 
 **5. Context Length & Evidence Position Degradation:**
-- Wrapping 6 requests in administrative background showed significant semantic sensitivity:
+- Wrapping 6 requests in administrative background showed observed semantic sensitivity (not a reported significance test):
   - Minimal wrapper: **91.67% accuracy**, 0.28–0.34 NLL.
   - 1,024 state tokens, request first: **66.67% accuracy**, 0.5932 NLL.
   - 1,024 state tokens, request last: **83.33% accuracy**, 0.3342 NLL.
@@ -473,182 +469,328 @@ The evaluation introduced 416 fresh sampled-choice episodes across 112 messages 
 
 ---
 
+## Phase 2H — Criteria and Rejection Transfer (COMPLETED / REQUIRED SCOPE CLOSED)
+
+**Result authority:** continuation `20260919T040612625670Z__finish_2h_1_2`, version `2h.1.2`, saved around 14:45 UTC on 19 September 2026. **Both `eval_qwen4b_strict` and `eval_qwen4b_tf32` completed.** The original `20260919T040612625670Z` failed attempt is preserved unchanged; its fitted artifacts, selection, criteria and original reserved final data were validated and reused without retraining. Execution completion, numerical acceptance and model/deployment quality remain separate decisions. [H; HF]
+
+**Detailed evidence belongs in the [whitepaper §13.1](OpenDecision_Whitepaper_v0.6.1.md#131-phase-2h-completed-continuation-and-retained-development-history).** It retains the development tables, full final comparisons, conditional rejection, calibration/policies, TF32 and cache gates, robustness, primitive scores, complete-request timing, memory limitations and the audit scope. Original H development details are no longer duplicated here.
+
+[Completed summary](https://drive.google.com/file/d/1rhO2B5ro3rQxEGJ3ZSt6JhflluV7-NPz/view) · [Compact summary](https://drive.google.com/file/d/1072Mee3vu6JFjMXADPBe-GWm_BhCbGGE/view) · [Continuation archive](https://drive.google.com/file/d/1kSnKjnOinF6fvyc-ZO9UF3rbfNT5eMCR/view) · [Recovery validation](https://drive.google.com/file/d/139rnY0E9EK6lIXrXDE0PhmSESZrPNiIu/view) · [Final lock](https://drive.google.com/file/d/15nnlgaO__RDAzVQOKh96LzF9XvIBWkeG/view).
+
+### Closeout summary and implications
+
+| Finding | Roadmap consequence |
+|---|---|
+| All 14 saved profiles and both required arithmetic workers have final results over 320 messages / 1,152 episodes; controlled robustness, bounded primitives and request benchmarks completed | Close original-study recovery/evaluation, not the unrelated service or new-model tasks |
+| Preselected support/seed43 reaches **78.91% raw pooled accuracy**, but held-out Banking/CLINC accuracy is **63.67% / 66.02%**; a retained original-criteria joint control has stronger pooled transfer | Carry the original-criteria control and support ablations into fresh 2I/2J work; do not choose a new default retrospectively on H final results |
+| All sampled author-OOS episodes are correctly rejected, while omitted-intent, context and frozen-policy errors remain | Keep independent criteria review, missing-evidence labels and richer applicability/rejection open |
+| Same-mode selected-profile batching/lossless/FP16-KV subset gates pass; full-panel TF32 still has numeric failures and controlled contexts show additional drift | Close the measurement; do not promote TF32 as an interchangeable implementation |
+| BoolQ/SST-5 bounded final probes are available; natural documents, state-first, smaller Qwen, LoRA and real service/native execution are absent or disabled | Use H as a bounded baseline; keep broader 2I/2J/Track S/P2 and Phase 3 scope open |
+
+Source and full interpretation: HF / WP §§13.1.8–13.1.16. The pooled headline is a raw episode average; the separately weighted NLL and policy scenarios are explained in the whitepaper. Source-message counts, repeated variants and independent task evidence are not interchangeable.
+
+### Closed original-study tasks
+
+- [x] **2H-C1 — Preserve and verify recovery inputs.** Completed: original ZIP/failure record retained; saved fit files, criteria, split/final-input identities and selection verified against the original attempt. [HF; WP §13.1.8]
+- [x] **2H-C2 — Repair worker finalization and validate recovery.** Completed through the versioned `2h.1.2` repair/recovery path, with separately recorded artifact validation and successful final-worker completion; no manual rewriting of the original failed worker. [HF; HR]
+- [x] **2H-C3 — Lock artifacts and complete original final evaluation.** Completed: locked original reserved final inputs, unchanged fitted artifacts/policies, both required final workers and retained prediction outputs. [HF]
+- [x] **2H-C4 — Publish original readout and unresolved scope.** Completed: all retained final comparisons, rejection/policy/probability metrics, bounded primitives, controlled robustness, arithmetic and request/resource records saved; disabled or absent arms identified. [HF; WP §§13.1.9–13.1.15]
+- [x] **2H-C5 — Close the evidence handoff.** Completed by the version 0.6 source-linked whitepaper and roadmap with saved-output/lineage checks. Final outcomes become historical/regression evidence after they inform the next study. [HF; V06]
+
+**Closed means the required experiment and handoff are complete—not that every hypothesis passed.** Preserve all failures, pre-final model selection and historical labels. No new low-bit cache, LoRA, state-first, compact-model, independent-review or HTTP result is inferred. Continue with the reviewed-data/selection protocol below; do not rerun H merely to get a more favorable final result.
+
+---
+
 ## Strategic Assessment & Project Rebalancing
 
-### Overall Assessment & Pivot
-Qwen remains a credible foundation for an open Jev-style decision engine. However, the project is now rebalanced: **we have stronger evidence for a reproducible decision scorer than for the small, broadly useful, multi-question model we ultimately want**.
+### Destination and evidence boundary
 
-The numerical and cache work in Phases 2C–2G uncovered real implementation hazards. Further polishing of that same execution path now risks diminishing returns while the central modeling questions remain unanswered.
-The project roadmap therefore shifts:
-1. **Reference Stability**: Keep the existing frozen FP32 implementation as a reference.
-2. **Task Adaptation & Multi-Question Focus**: Shift immediate research effort toward task adaptation, genuine multi-question execution ($1\text{ state} \to Q\text{ questions} \to K\text{ candidates}$), and feature-conditioned rejection.
-3. **Model Sizing**: Bring a smaller Qwen (`Qwen/Qwen3.5-2B-Base`) into the comparison earlier.
+**Keep the existing 4B strict-FP32 system as a reference, not a mandatory shipping model.** The destination is a compact, useful engine answering several independent, well-scoped questions over one state, with measured uncertainty, automation coverage, latency and memory. The project is Qwen-led but model-comparative. [WP §§1, 11–13]
 
-### 1. What the Empirical Results Actually Establish
-The experimental runs (2A through 2G) establish meaningful successes alongside specific unresolved bottlenecks:
-- **Decisions without generated text**: Frozen Qwen backbone + small NLI head replicated ~87–89% accuracy on sampled tests. This is a sound foundation for decision-only inference, though not yet evidence of arbitrary-question competence.
-- **Dynamic candidate descriptions**: The candidate scorer transferred beyond its head-training labels and identified offered CLINC intents correctly in 60/64 answerable episodes. Useful transferable representations exist; it is not merely memorizing a fixed output vocabulary.
-- **Rejecting unsuitable alternatives**: On the CLINC construction, omitted-intent recall was 25/64; author-OOS recall was 15/32. Rejection transfer is a substantial unresolved weakness.
-- **Reusing computation**: Strict-FP32 cached execution passed the fresh and controlled-context parity panels. A credible systems reference exists, but currently for candidates sharing a question—not arbitrary questions sharing a state.
-- **Criteria ambiguity warning**: The physical-card example produced 4 incorrect accepted episodes from one underlying message, with candidate probabilities around 0.989–0.999. Ambiguous criteria, ranking, and policy transfer interact poorly; gold labels must not be silently altered to mask description flaws.
+Completed B–G results establish the original reference and its limits. H now adds **completed paired final readout-learning evidence**, including a support-conditioned development/final transfer reversal, persistent omission/context/policy limits and incomplete TF32 equivalence. It does not establish backbone adaptation, general question following, a smaller-model winner or a real service. Keep these evidence levels distinct. [HF; WP §§13.1.8–13.1.16]
 
-### 2. Avoiding the Narrow-Benchmark Trap & Defining Two Acceptance Tracks
-- **Broadening beyond single-intent routing**: TypeSafe describes Jev as evaluating multiple typed questions independently against the same state ($1\text{ state} \to Q\text{ questions} \to K\text{ candidates}$). Current measured paths evaluated one instruction + message over $K$ candidates. Increasing candidate count $K$ is not the same experiment as increasing question count $Q$. Multi-question execution must move to the center of research.
-- **Adapting the backbone vs. narrow frozen features**: The candidate scorer was fitted on 600 Banking77 episodes; the set-aware head added 7 fitted coefficients; Phase 2G kept everything frozen. We have measured limitations of a narrowly fitted, frozen-feature system—not the limit of an adapted Qwen model.
-- **Two Separate Acceptance Tracks**:
-  1. **Implementation-Equivalence Track**: Does a cache, batching strategy, or backend reproduce the specified model within its declared tolerances?
-  2. **New-Model Track**: Does a separately versioned model improve correctness, calibration, useful automation coverage, latency, and memory on fresh data? A smaller or adapted model belongs here and should not fail simply because it disagrees with an old, sometimes incorrect reference.
+The near-term sequence is **freeze reviewed multi-question data and transfer-aware selection; run early matched adaptation/model/rejection comparisons; validate actual Q-level sharing; and exercise a bounded real-service bridge alongside that work**. Original H recovery/evaluation is closed. Do not tune new choices on its exposed final set or delay real API integration until a complete native port exists. [HF; WP §13.3; proposed sequence]
 
-### 3. Core Principles for Speed, Low Resource Use & Architecture
-- **Bring Qwen3.5-2B forward**: The 4B model occupies ~15.67 GiB in FP32 or 7.83 GiB in BF16 before activations. Testing `Qwen/Qwen3.5-2B-Base` (official 24-layer checkpoint) provides a cleaner size and latency comparison within the same architecture family. The 4B model can serve as reference or teacher.
-- **Test optimized execution before rewriting inference**: Benchmark against environments with verified fast causal-convolution and linear-attention kernels before concluding hardware limits.
-- **Optimize model work before host-language overhead**: Profiles show 92–94% of request time in model forward passes versus 4.6–6.6% in cache cloning/expansion. Focus on fewer forward invocations, better suffix packing, and smaller backbones rather than host serialization rewrites.
-- **Pause low-bit cache snapshot codecs**: At short prefixes, attention KV is only 2.625 MiB of the 53.625 MiB root (recurrent state dominates at 48.0 MiB). Retain lossless caching and FP16-KV for long prefixes; evaluate weight quantization later on the selected deployment model.
-- **Fair competitors**: Benchmark against parameter-efficient classifiers (SALSA) and dynamic-label models (GLiClass). Winning metric: correct automated decisions per second at a specified accepted-error rate and memory budget, reporting coverage.
-- **Refine internal contracts**: Make four concepts explicit inside the engine:
-  - *Decision specification*: State, question semantics, candidate criteria, missing-option semantics, truncation rules.
-  - *Model/execution profile*: Checkpoint, adapter, tokenizer/rendering, normalization, heads, arithmetic, supported execution strategies.
-  - *Backend capabilities*: Supported primitives, tested candidate/context limits, cache operations, resource requirements.
-  - *Evaluation context*: Tenant, deadline, cancellation, admission budget, tracing identity.
-- **Nested hybrid cache sharing**: Isolated state root $\to$ isolated question suffixes $\to$ isolated candidate suffixes. Hybrid architectures require recurrent and convolution state isolation across branches, not just attention masks.
-- **Resolve API contract gaps**:
-  - *Internal none probability*: Wire response expects distribution over caller options. Establish explicit contracts (caller-supplied `none`, separately versioned native format, or application review mechanism) rather than silently appending or renormalizing probabilities.
-  - *Candidate keys*: Separate machine IDs from semantic labels/descriptions internally. Support both names and descriptions, handling null descriptions properly.
-- **Build the Prototype Bridge sooner**: Deploy an end-to-end prototype: Rust HTTP service (`opendecision-api`) $\to$ persistent resident Python reference worker $\to$ real Qwen decision probabilities $\to$ validated response. Tests real requests, auth, token accounting, deadlines, and response semantics before native backbone completion.
+### Two acceptance tracks
+
+| Track | Required question | Gate | Not a substitute |
+|---|---|---|---|
+| **Implementation equivalence** | Does a cache, batching strategy or backend preserve one specified model/execution profile? | Same finalized tokens, weights, heads, criteria, normalization, calibration and fixed policies; declared probability, argmax and directed-action tolerances | More speed, unchanged pooled accuracy, or a new model name |
+| **New-model quality** | Does a separately trained/model-sized/rendered profile improve useful decisions? | Fresh labeled state/question/rubric families; predeclared accepted-risk, coverage and resource requirements; its own versioned execution reference | Agreement with every old answer, improvements only on inspected regression cases, or rejecting everything |
+
+The historical E/F/G tolerance of **0.005** and their no-outcome/no-policy-change requirements are not relaxed retrospectively. A new model can legitimately correct old errors, but must subsequently have its own tested implementation contract. Failed BF16/TF32/codec equivalence results are not universal claims about model quality and are not automatically accepted under a new label. [WP §§7, 9–10, 13.2]
+
+### Priorities and dependencies
+
+| Priority | Work package | Start condition | Evidence needed before the next decision |
+|---|---|---|---|
+| **Closed** | **2H-C1–C5:** original-study recovery and closeout | Completed continuation and evidence handoff | Preserved E8 failure plus HF final outputs; model/numerical promotion remains separate |
+| **P0 — now** | **S.1–S.2:** one contract/status authority and probability semantics | Existing wire types and documented reference behavior | Versioned supported contract and capabilities; source-backed status |
+| **P0 — next study foundation** | **2I.1–2I.2:** approve prepared multi-task/multi-question protocol and data | Draft exists; current reviewed-study gate is blocked | Actual distinct-reviewer sign-off, explicit target and quality/resource limits, refreshed matching manifest, protected new holdouts; no automatic approval [IJ; I0] |
+| **P1 — early matched round** | **2J.1–2J.6:** frozen heads, LoRA, smaller Qwen, compact encoder and rejection/baselines | Common 2I.1–2I.2 contract | Comparable quality/resource results; supported task scope; no assumed winner |
+| **P1 — alongside modeling** | **2I.3–2I.6:** matched rendering and genuine question-level sharing | Common task contract; trained/reference profile for each rendering | Same-state question semantics, isolation, separate Q/K scaling and within-profile parity |
+| **P1 — alongside research** | **S.3–S.5:** thin Rust service with resident reference worker | S.1–S.2 and one supported loadable profile | Real probabilities, bounded work, honest errors and queue-inclusive measurements |
+| **P2 — after a promising profile** | **P2.1–P2.3:** controlled optimized-kernel/weight-precision or teacher/distillation experiments | Known-quality baseline and explicit unmet target | Verified capabilities, fresh quality or same-model equivalence gates as appropriate |
+| **P2 — deployment maturation** | **Phase 3:** selected native backend and production lifecycle | Profile/contract selected; reference fixtures available | Target-machine parity ladder and service/load evidence |
+
+H closeout no longer blocks the work queue. The common reviewed-data and selection contract precedes 2J; independent contract/service work can proceed alongside it. H provides measured controls and failure cases, not an untouched final set for the next intervention. [HF; WP §13.3]
+
+### Work to pause or keep conditional
+
+Pause additional low-bit KV snapshot sweeps on the same short-prefix workload. Keep lossless caching and bounded FP16-KV storage as reference infrastructure; require a changed workload, codec or memory hypothesis before reopening that branch. A failed KV-snapshot codec does not reject model-weight quantization, which targets different tensors. No universal prefix-length cutoff for FP16-KV promotion is established. [WP §§9, 13.5]
+
+Optimize model work before host serialization: the historical cached profiles place approximately **92–94%** of instrumented time in model execution and **4.6–6.6%** in cloning/expansion. Fewer forward invocations, more useful suffix packing, smaller backbones and verified faster kernels are the relevant hypotheses—not claims of measured gains in this revision. No CUDA timing is a Mac prediction. [WP §§8, 11, 13]
+
+Do not prioritize MTP in the no-output-decoding graph, a large RLCD/RL effort before supervised baselines, or a diffusion rewrite based on R4T. Keep the later teacher-to-student hypothesis separate from the early compact bidirectional comparison. A purpose-built shared-encoder/query redesign is conditional on simpler measured approaches missing the target. Laya is motivation for a comparator, not proof of broad question competence or an accepted replacement. [WP §§11.7, 13.5]
 
 ---
 
 ## Next Milestone Target
 
-> **"Demonstrate a real, versioned OpenDecision model answering several independent questions over one state, with measured rejection behavior, complete-request latency, and peak memory on a named deployment machine."**
+> **Demonstrate a real, versioned OpenDecision model answering several independent questions over one state, with measured rejection, calibration, useful automation coverage, complete-request latency and peak memory on a named deployment machine.**
+
+A request with Q independently answered questions is not evidence of one shared state encoding. A single framework forward call is not proof of shared computation. Both semantic usefulness and amortized computation must be measured, with **Q independent questions** separated from **K candidate alternatives within each Choice question**. [WP §§2.4, 13.4]
+
+The selection objective is **correct automated decisions per second subject to predeclared accepted-error, minimum-coverage, latency and memory requirements**. Exact bounds and target hardware must be recorded before final model selection; this roadmap does not invent an unsupported safety threshold or resource budget. Report source-state counts and clustered uncertainty. Conditional accepted-error is undefined when nothing is accepted. [WP §13.4]
 
 ---
 
-### Phase 2H: Contract Hardening, Criteria Review, Feature Rejection & Prototype Bridge (NEXT)
+## Phase 2IJ workbench checkpoint (PREPARATION RECORDED / REVIEW GATED)
 
-Shift model research from cache micro-benchmarks to criteria fidelity, rejection architecture, and a working end-to-end service bridge:
+**Recorded invocation:** `2ij_reviewed_multiquestion_v1`, workbench `2ij.1.0`, exported around 16:10 UTC on 19 September 2026. The overall **`blocked`** status is a review/protocol gate, not a training crash. Full technical evidence and the coverage audit live in [whitepaper §14](OpenDecision_Whitepaper_v0.6.1.md#14-phase-2i2j-workbench-preparation-mechanical-evidence-and-the-review-gate). [IJ]
 
-- [ ] **2H.1: Consolidated Contract Document & Frozen Regression Suite**: Consolidate current status, pin Phase 2G as a permanent regression suite, and establish the two-track acceptance framework.
-- [ ] **2H.2: Criteria & Annotation Audit**: Audit confusing candidate pairs (e.g., `order_physical_card` vs. `get_physical_card`). Decouple stable machine IDs from rich semantic descriptions. Version candidate criteria with explicit inclusion/exclusion boundaries before test evaluation.
-- [ ] **2H.3: Feature-Conditioned Rejection Head**: Replace the 7-parameter score-summary head with a small rejection/applicability head that inspects candidate-conditioned hidden features ($a = P(\text{at least one valid} \mid s, q, C)$, $P(\text{none})=1-a$, $P(c_j)=a P(c_j \mid \text{valid}, s, q, C)$). Train with separate labels for candidate applicability, omitted options, and out-of-scope/insufficient evidence.
-- [ ] **2H.4: Python Reference Worker Bridge**: Wire a resident Python worker behind `opendecision-engine` / `opendecision-api`. Deliver real Qwen decision probabilities over HTTP (`POST /v1/systemone`) with auth, request ID tracing, token accounting, and deadline cancellation.
-- [ ] **2H.5: API & Probability Contract Pinning**: Pin explicit wire contracts for `none` handling and candidate identification (machine IDs vs. semantic text).
+| Recorded contribution | Status | Roadmap boundary |
+|---|---|---|
+| Historical H identity/head checks and exclusions | Completed for this invocation | H stays closed; no retraining or new test-set selection |
+| Review package and model revision entries | Draft prepared; unsigned | Partial preparation for 2I.1–2I.2 and 2J.1, not approved data or model comparison |
+| Native probability contract and worker handoff | Draft exported | Partial S.1–S.2; no Jev/Rust/HTTP conformance result |
+| Qwen4B/L4 synthetic nested-feature and root checks | Small mechanics probe completed | Partial 2I.4/2I.6 only; no trained question quality, probability/policy gate or resource grid |
+| New semantic training, final selection, smaller/LoRA/ModernBERT results | Not run | Full 2I/2J tasks remain unchecked |
 
----
+**Source-coverage finding:** the reported `unrelated_question_addition` fixture appends the first synthetic question again. Preserve the zero-drift duplicate-append observation, but add a unique, genuinely different question and rerun that separately named test under **2I.6**. This documentation revision does not repair the notebook or claim that new test passed. [IJ; WP §14.3]
 
-### Phase 2I: Genuine Multi-Question Execution & State-First Prompting (PLANNED)
+### Immediate unblock work
 
-Expand inference beyond single-intent routing to Jev's core capability: independent multi-question evaluation against a shared state:
+In `Colab Notebooks / OpenDecision_Phase2IJ_review`, finalize the case/protocol definitions and **specify `target_device` plus all five bounds**: `max_family_macro_nll`, `max_panel_accepted_error`, `min_policy_coverage`, `max_request_p95_ms`, `max_peak_allocated_gib`. These values remain null in the inspected intake; do not infer them from the smoke-test hardware. [I0]
 
-- [ ] **2I.1: State-First Prompt Rendering**: Implement and evaluate `[State] -> [Question_q] -> [Candidate_k]` layout compared against instruction-first rendering under matched training.
-- [ ] **2I.2: Nested Hybrid Cache Branching**: Implement nested state isolation: prefill shared state root once $\to$ branch into $Q$ independent question states $\to$ branch into $K$ candidate suffixes. Isolate recurrent DeltaNet, convolution, and attention-KV states across all branch points.
-- [ ] **2I.3: Multi-Question Scaling Benchmark Grid**: Measure quality, latency, and memory across grid:
-  - State lengths: short (64 tokens), medium (256 tokens), long (1,024 tokens).
-  - Question counts: $Q \in \{1, 4, 16\}$.
-  - Candidate counts: $K \in \{2, 4, 8, 16\}$.
-  - Compare cold prefill vs. warm cache hits, reporting peak memory and decisions/sec.
+Run the revision-resolution/review-template refresh step after finalizing those choices. Have a **distinct independent reviewer** actually inspect and sign the matching `review.json` and protocol attestations. The existing `review.json` points to an old protocol hash; `review_template.refreshed.json` matches the inspected current protocol but is also unsigned and must be refreshed again after further changes. Changing approval booleans without review is not completion. [I0; WP §14.4]
+
+Rerun the same study ID only while it remains unregistered and under the intended finalized design; registered inputs are immutable. Resume from complete Drive snapshots rather than this compact report ZIP. Preserve the blocked snapshot, historical H sources and protected final annotations. No parent 2I/2J/S task is closed by this checkpoint, and no new human review is supplied by this update. [IJ; WP §14.5]
 
 ---
 
-### Phase 2J: Matched Adaptation & Model Sizing: Qwen3.5-2B vs. 4B (PLANNED)
+## Phase 2I — Genuine Multi-Question Evaluation & State-First Execution (IN PROGRESS / REVIEW GATED)
 
-Evaluate model adaptation and smaller backbones to achieve low-latency, low-memory deployment:
+This workstream owns the **common evaluation foundation** before model comparison, then tests question semantics and state sharing. It must not reduce to another intent-label benchmark. H’s selection/transfer and evidence-position findings are inputs to protocol design; new interventions require fresh final data. [HF; WP §§11.6, 13.3–13.4]
 
-- [ ] **2J.1: Qwen3.5-2B-Base Evaluation**: Benchmark official `Qwen/Qwen3.5-2B-Base` (24-layer text architecture) under identical criteria, tokenization, and FP32/BF16 modes to establish baseline quality and VRAM reduction (~7.83 GiB FP32 / 3.9 GiB BF16).
-- [ ] **2J.2: Matched Adaptation Comparison**: Under identical data splits and criteria, evaluate:
-  1. Frozen backbone + newly fitted multi-domain heads.
-  2. Same backbone with limited LoRA adaptation.
-  3. Qwen3.5-2B-Base with the same supervised recipe (multiple seeds, supervised training first before any RL/RLCD).
-- [ ] **2J.3: Multi-Task & Multi-Question Supervision**: Assemble a reviewed multi-task corpus featuring identical states with multiple distinct questions, conflicting evidence, negation, and held-out rubric families.
-- [ ] **2J.4: Honest Noul & Score Calibration**:
-  - `Noul`: Dedicated binary calibration and evidence evaluation (not just borrowing 3-class NLI entailment).
-  - `Score`: Train with proper scoring rules (NLL or cumulative-probability Brier loss for ordinal distributions, removing the invalid expected-distance penalty that distorts probabilities toward the median). Assess ordinal action costs separately.
-- [ ] **2J.5: Competitive Baselines**: Benchmark against SALSA (finite-token parameter-efficient classifier) and GLiClass. Report correct automated decisions/sec at specified accepted-error rate and memory budget.
+- [ ] **2I.1 — Freeze the evaluation and selection contract.** Name supported task/rubric families, criteria/none semantics, truncation, target machine and quality/resource requirements. Separate training, development, calibration, policy selection and untouched final data; group related states/documents. Include development diagnostics for the intended transfer conditions without consuming final holdouts. H’s development-selected support arm did not have the strongest final transfer, so fitting-family development loss alone must not stand in for the new deployment objective. Keep H final as historical/regression evidence, not reusable fresh selection data. [HF; WP §§13.1.10, 13.1.16] **Checkpoint:** a draft exists, but device/limits and approval remain unset; follow the unblock steps above. [IJ; I0]
+- [ ] **2I.2 — Build reviewed multi-task, multi-question cases.** Include the same state under instructions requiring different judgments; explicit inclusion/exclusion boundaries; negation, contradictions, irrelevant context and insufficient evidence. Keep omitted valid options, author-OOS, evidence insufficiency and application review separately labeled. Add independently labeled natural documents; report them separately from constructed wrappers. Review confusing criteria without retroactively changing G's labels or H's frozen criteria. **Checkpoint:** the review manifest lists 92 draft cases; independent review and operational natural-document evidence are not established. [I0]
+- [ ] **2I.3 — Compare trained instruction-first and state-first profiles.** Fit compatible heads/normalization/calibration under each rendering using the same semantic comparison contract. State-first is a new causal input/model contract, not a cache-only patch expected to preserve the old head's behavior. Compare each optimized implementation to its own full-prompt reference.
+- [ ] **2I.4 — Implement and verify nested sharing.** On the Qwen path, prefill stable format + state once, fork isolated question states, then fork isolated candidate suffixes. Isolate recurrent DeltaNet, convolution and attention-KV state at both branch points. Attention masks alone do not isolate recurrent streams. For a different architecture, document and test its actual sharing mechanism rather than claiming Qwen cache semantics. **Checkpoint:** one Q = 2, K = 2 synthetic GPU feature probe and root check completed. Retain this partial evidence without closing semantic/probability or broader scaling requirements. [IJ; WP §14.2]
+- [ ] **2I.5 — Measure Q/K scaling and resource cost.** Start with proposed state-length targets **64, 256 and 1,024 tokens**, **Q ∈ {1,4,16}**, and **K ∈ {2,4,8,16}** where applicable. These are protocol targets, not demonstrated limits; actual finalized token counts include formatting, question and criteria text. Use a staged representative screen before a full grid. Separate startup, warm-model cold-state, warm-state reuse and queueing; report total/marginal latency, peak/resident memory, forward calls, state-prefill work, accepted-error and coverage.
+- [ ] **2I.6 — Test semantic and execution isolation.** Test question-order changes, adding/removing unrelated questions, opaque-ID renaming, candidate permutation, evidence placement and declared truncation. Expected changes from altering the candidate set are not equivalent to unwanted cross-question influence. Test root immutability and independent branches, not only output shape. **Required fixture correction:** use a unique, genuinely different added question and assert non-duplication; keep the old duplicate-append result as separate regression evidence. [IJ; WP §14.3]
+
+**Exit evidence:** versioned data and rendering manifests; clearly bounded question-family quality; full-request Q/K measurements; per-profile numerical/action comparisons; and an honest result when sharing costs more or reduces semantic quality. Report both batched repeated-state and genuinely shared-state baselines. Qwen's nested path and a compact model need not have the same optimal execution graph. [WP §§11.2, 13.4; proposed gate]
 
 ---
 
-## Phase 3 — Production Rust Engine & Native Backends (PLANNED / GATED ON 2H/2I/2J)
+## Phase 2J — Early Matched Adaptation, Rejection & Model Sizing (PREPARED / TRAINING GATED)
 
-Once the model architecture, prompt contracts, multi-question branching, and adaptation operating point are locked, implement the production Rust engine following the **Parity Ladder**:
+H supplies completed frozen-backbone readout evidence, not the missing backbone-adaptation, smaller-model or compact-encoder comparison. Begin after **2I.1–2I.2** is frozen, alongside rendering/sharing work rather than after a native port. Retain the original-criteria joint control and support-example ablations; the stronger final arm is not automatically a newly validated default. [HF; WP §§13.1.10, 13.3]
 
-### The Rust Parity Ladder
+- [ ] **2J.1 — Pin the comparison matrix.** Compare frozen 4B + newly fitted multi-task heads; limited 4B LoRA; `Qwen/Qwen3.5-2B-Base` under an appropriate matched supervised recipe; and a compact bidirectional joint-candidate scorer, with a **ModernBERT-style arm motivated by Laya**. Resolve immutable revisions before fitting, including tokenizer/renderer/head versions and inference dependencies. Do not assume equal token IDs across model families, or infer actual 2B memory by halving 4B measurements. **Checkpoint:** three revisions and nine planned arms are present in the unsigned intake; no approved comparison or new model profile exists yet. [I0]
+- [ ] **2J.2 — Run attributable supervised adaptation.** Hold criteria, split semantics and loss/update budgets fixed within each intended ablation; disclose unavoidable cross-family training differences. Refit normalization and calibration when representations change. For the optional H-style online LoRA recipe, compare against its matched online-head-only BCE control—not directly against joint-CE results as an equal-training comparison. No RL/RLCD reproduction is claimed.
+- [ ] **2J.3 — Compare feature-aware applicability/rejection.** Retain constant-none and score-summary set-linear controls. Add a small head that can use already-computed candidate-conditioned semantic features, with explicit applicability and absent-answer supervision. Test whether it improves rejection without unacceptable false-none or ranking losses; do not preselect it as a replacement. Separate omitted options, OOS and insufficient evidence in evaluation, and measure any additional feature/cache cost.
+- [ ] **2J.4 — Extend bounded Noul/Score evidence.** H’s BoolQ/SST-5 final evaluation is closed and supplies a bounded baseline. This task remains open for new binary questions, explicit insufficient-evidence cases and described ordinal rubrics on held-out families. Start from a proper distribution loss such as NLL and assess ordinal action costs separately; an expected-distance penalty is not itself a proper probability score or calibration guarantee. Treat cumulative-probability Brier training as a separate experiment. [HF; WP §13.1.14]
+- [ ] **2J.5 — Use fair efficient baselines.** Retain H's inexpensive lexical and unadapted finite-code controls, clearly labeled. Add a trained finite-token/SALSA-style control and a dynamic-label/GLiClass-style comparator where task-compatible. Avoid long JSON generation as the only baseline; disclose input budgets, supervision, trainable parameters and complete request costs. External benchmark numbers are not OpenDecision results.
+- [ ] **2J.6 — Select a scoped quality/resource operating point.** Use untouched final data, held-out state/question/rubric families, rejection strata, calibrated-distribution diagnostics, accepted-error/coverage and scenario costs. Measure actual resident/peak memory and latency on the named device. Promote a model only within its supported scope; close an unsuccessful arm without changing selection rules after seeing its final outcome.
 
-1. **Deterministic Head Algebra**:
-   - Folded linear projection: $W' = W / \sigma$ and $b' = b - W(\mu / \sigma)$.
-   - Numerically stable softmax with temperature scaling.
-   - Feature-conditioned rejection head feature extraction and scoring.
-   - Verify against exported fixtures (`golden_head_inputs.npz`, max logit error $\le 1.8 \times 10^{-6}$).
-2. **Tokenization & Mask Conventions**:
-   - Segmented encoding (`state`, `question`, delimiters, `candidate`) with `add_special_tokens=False`.
-   - Longest common token-prefix calculation for nested state-first trees.
-   - Attention masks, position offset tracking, and explicit truncation handling.
-3. **Full-Backbone Hidden Vector Parity**:
-   - Qwen hybrid architecture (e.g. 2B: 24 layers; 4B: 24 DeltaNet + 8 attention blocks).
-   - Hidden state verification at the last non-padding token against Python reference.
-4. **Nested Hybrid Cache Branching & Snapshot Isolation**:
-   - Immutable root snapshot: recurrent state ($24 \text{ layers} \times 32 \times 128 \times 128 \times 4 \text{ bytes} = 48 \text{ MiB}$ for 4B; scaled for 2B), convolution state, and attention KV.
-   - Nested branch isolation: State $\to$ Question $\to$ Candidate branches without cross-contamination.
-   - FP16 attention-KV snapshot storage for long prefixes ($L \ge 256$).
-5. **Suffix Batching & Cache Lifecycle**:
-   - Group candidate suffixes by exact token length for unpadded execution.
-   - Byte-bounded persistent LRU cache with tenant namespace isolation and TTL expiry.
-6. **Daemon Integration & Production Backends**:
-   - `opendecision-runtime`: Device discovery, worker pools, VRAM budgeting, admission control.
-   - `opendecision-backends`: Candle, GGUF/llama.cpp, and ONNX backends behind `DecisionEngine`.
-   - Axum HTTP & Tonic gRPC request scheduler with deadline cancellation and load shedding.
-   - Hardened deployment defaults: explicit opt-in to non-loopback serving, protected metrics, bounded request payload size, sensitive input redaction.
+**Compact-arm specification (2J.1–2J.2).** Retain a full-fine-tuning ModernBERT-style joint-candidate treatment in the early comparison, disclosing its trainable parameters and training budget rather than claiming identical adaptation cost to LoRA. Evaluate the **released Laya checkpoint separately** as an external baseline under 2J.5; its prior supervision is not a matched training treatment. Test held-out question/criteria families, omission/OOS/insufficient-evidence behavior, calibration, accepted-error/coverage and complete latency/memory. Do not silently truncate decisive evidence, substitute maximum probability for the defined confidence statistic, or treat question batching as proof of one shared state encoding. Architecture and marker scoring are test candidates, not adopted superiority claims. [WP §§11.2, 11.7; RC RQ-06]
+
+One **proposed**, not yet fitted, applicability formulation is:
+
+```text
+a = P(at least one offered candidate is valid | state, question, candidates)
+P(none) = 1 - a
+P(candidate_j) = a × P(candidate_j | an offered candidate is valid, state, question, candidates)
+```
+
+The possible benefit is richer evidence and supervision, not the reparameterization alone. Rejection cannot repair the relative ranking of two candidates unless the ranking model also changes. Test both. Keep semantic none separate from an external review action and from the vendor's Noul primitive. [WP §§5.4, 11.6; proposed experiment]
+
+**Exit evidence:** matched comparison manifests, learning/selection histories, independent final results, calibrated/rejection behavior and measured resource trade-offs. A smaller Qwen or compact encoder is an early candidate, not an assumed winner; the 4B reference may remain useful as an evaluator or later teacher without being the deployment choice. [WP §13.3]
+
+---
+
+## Integration Track S — Contract Hardening & Thin Real-Service Bridge (PLANNED / PARALLEL)
+
+The supplied roadmap describes implemented mock transports and wire fixtures. It does **not** establish a resident real-model service. Keep that distinction visible in `/v1/models`, documentation and tests. Track S is separate from the numbered H experiment so notebook completion cannot accidentally mark HTTP/security work done. [R0; WP §§11.8–11.9]
+
+- [ ] **S.1 — Consolidate contracts and current status.** Define the decision specification; model/execution profile; backend capabilities; and evaluation context (tenant, budget, deadline, cancellation and tracing). Keep this roadmap as task/status authority and the whitepaper as evidence/interpretation authority. Pin compatibility fixtures/schema revision; record code test totals only with commit and environment. Synchronize `AGENTS.md`, architecture docs and research instructions without inventing a current-HEAD test claim.
+- [ ] **S.2 — Resolve probability and candidate semantics before integration.** Choose an explicit supported mapping for internal none: caller-supplied semantic option, separately versioned native representation, or a review mechanism outside the probability vector. Do not silently append an unrequested class or drop none and renormalize while calling the probabilities unconditional. Separate stable machine IDs from semantic labels/descriptions; define null-description behavior and adapter semantics. Preserve the separate definition of `confidence` rather than replacing it with maximum candidate probability. **Checkpoint:** a native draft was exported with an explicit non-conformance flag; approval and real wire integration remain open. [IJ]
+- [ ] **S.3 — Wire a resident reference worker to the existing Rust service.** Start with one persistent Python worker and one bounded queue behind `DecisionEngine` / `POST /v1/systemone`; load a supported, pinned reference profile once and return actual probabilities in validated responses. Reference operation is not a deployment-quality endorsement. An H profile remains non-production despite completed offline evaluation; advertise only its actually validated scope. Unsupported primitives or shapes must fail explicitly, never return mock answers disguised as model output.
+- [ ] **S.4 — Test admission, lifecycle and deployment safeguards.** Bound request bytes, state length, Q, K, work and memory; define cancellation before/after dispatch, deadlines, queue rejection and worker-failure recovery. Require explicit opt-in for unauthenticated non-loopback serving, protect metrics and redact sensitive inputs. Test tenant separation and active-reader state lifetime. These are requirements, not confirmed vulnerabilities or already-implemented protections.
+- [ ] **S.5 — Measure the real service.** Record queue-inclusive end-to-end latency distributions, throughput, accepted-error/coverage where labels exist, startup versus resident requests, peak/process memory and model-profile identifiers. Test concurrency, request IDs, validation, cancellation and leak/soak behavior. Do not substitute offline Colab medians for these measurements or extrapolate L4 latency to Apple Silicon.
+
+**Exit evidence:** real non-mock request/response fixtures, supported-capability declarations, bounded-work and failure tests, and a named-machine service report. This milestone does not require a native Qwen port, all primitive semantics, or arbitrary-domain generalization. [WP §11.8; proposed integration gate]
+
+---
+
+## P2 — conditional efficiency and teacher-to-student studies (PLANNED / AFTER A PROMISING PROFILE)
+
+Retain these experiments, but do not put them ahead of the reviewed-data and early
+model-selection round. A small verified-backend experiment may proceed earlier
+when it answers a specific bottleneck question. [WP §§11.7, 13.3, 13.5]
+
+- [ ] **P2.1 — Verify optimized execution.** Pin an environment and establish
+      actual causal-convolution/linear-attention kernel dispatch, supported
+      arithmetic, and access to required hidden states/cache operations. Package
+      installation is not evidence of a fast path. Compare complete costs and
+      same-model equivalence when claimed; use new-profile quality gates when
+      behavior changes.
+- [ ] **P2.2 — Weight-precision/quantization candidate.** After selecting a
+      promising model and backend, test its own calibration, rejection, policy
+      behavior, latency and total memory. Weight quantization is not the failed
+      attention-KV snapshot experiment; neither result establishes the other.
+- [ ] **P2.3 — Bounded teacher/student comparison.** For the same student,
+      compare reviewed labels alone, labels plus reviewed teacher-generated
+      examples, then an additional distribution-distillation treatment. Keep
+      final labels independent of the teacher, preserve candidate/none semantics,
+      and report teacher-generation cost as well as student serving cost. The 4B
+      reference is a possible teacher, not automatically a better one. R4T is
+      motivation for offline supervision in the whitepaper, not evidence for a
+      diffusion-based OpenDecision architecture.
+
+**Paused or conditional:** no further low-bit KV snapshot sweep on the same
+short-prefix workload without a new hypothesis; no MTP work for the current
+no-output-decoding graph; no large RLCD-inspired program before strong supervised
+baselines; no diffusion rewrite from a retrieval analogy. A purpose-built shared
+encoder/query network remains a later fork only if simpler paths miss the target.
+Retain lossless and bounded FP16-KV infrastructure and all failed configurations
+as historical evidence. There is no universal prefix-length cutoff at which
+FP16-KV must be selected. [WP §§11.2, 13.5]
+
+---
+
+## Phase 3 — Production Rust Engine & Selected Native Backend (PLANNED / PROFILE-GATED)
+
+Choose a supported model/renderer/probability contract using the relevant new-model evidence, then promote a native backend through the **per-profile parity ladder**. Small head/tokenizer fixture work may proceed earlier; committing to a complete native backbone is not a prerequisite for Track S. Phase 3 is not a requirement to implement every backend or to force a compact-encoder winner into a Qwen cache design. [WP §§11.3, 13.3; proposed sequence]
+
+### The per-profile parity ladder
+
+1. **Head and probability algebra.** Reproduce normalization, candidate/primitive projections, none/applicability features, stable softmax, calibration and policy semantics. Fold a compatible linear head as `W′ = W / σ` and `b′ = b − W(μ / σ)` only with fixture verification. Historical head residuals are fixture-specific results, not universal tolerances for newly trained heads.
+2. **Exact input contract.** Match token IDs, label/criteria ordering, segmented rendering, masks, positions and truncation for the selected tokenizer. Preserve finalized-token identity; visually identical strings do not guarantee the same segmented encoding. Pin any new state-first rendering separately.
+3. **Full backbone and decisions.** Compare hidden features, full distributions, argmax and directed policy outputs against the selected profile's reference. A Qwen profile requires its actual hybrid architecture; another model requires its own architecture and pooling semantics. Use local target-device evidence, not assumed CUDA/Metal equivalence.
+4. **Sharing and isolation, where supported.** Test immutable roots and nested state/question/candidate branches, including all mutable state. For the measured 4B root, recurrent storage is `24 × 32 × 128 × 128 × 4 bytes = 48 MiB`; that is a model-specific tensor calculation, not a universal branch budget. Promote FP16 attention-KV storage only for tested workload/profile combinations; no universal `L ≥ 256` acceptance rule is established.
+5. **Batching, persistence and resource bounds.** Test approved suffix grouping/packing, byte-bounded LRU, TTL, tenant separation, restoration buffers, active-reader lifetime, cancellation and memory pressure. Total process/admission budgets must include model weights, recurrent/convolution/KV state, transient branches and allocator overhead—not only retained entries.
+6. **Production backend and service lifecycle.** Evaluate the proposed Candle, GGUF/llama.cpp or ONNX paths only against required architecture, hidden-state, precision and cache capabilities. Select supported implementations rather than promising all of them. Integrate device discovery, scheduling, load shedding, worker recovery, protected telemetry and tested operational defaults. Retain precise unsupported-path errors rather than silent semantic fallback.
+
+**Release gate:** commit-stamped fixtures/tests; named-machine parity and load/soak results; explicit task/capability limits; a memory and latency envelope; no unreviewed probability/API changes. Kernel, precision, model, adapter, renderer, head, policy or cache changes trigger the appropriate equivalence or new-model review. No native/Rust/Metal result is asserted by this roadmap revision. [WP §§11.3–11.4, 13.2]
 
 ---
 
 ## Status snapshot
 
-| Phase | Description | Status | Tests / Milestone |
-|---|---|---|---|
-| **Phase 0** | Wire contract & core types | done | 43 tests |
-| **Phase 1** | Daemon, HTTP/gRPC transports & SDK compat | done | 152 tests (195 workspace total) |
-| **Phase 2A** | Python Qwen3.5-4B exploration & parameter audit | done | Colab probe |
-| **Phase 2B** | Fixed NLI head benchmark & baseline readout | done | Run 20260917T205849Z (87.67% acc) |
-| **Phase 2C** | Qwen model research: dynamic schemas, batching & scaling | measured, needs review | Run 20260917T222948Z |
-| **Phase 2D** | Numerical reference, rejection policy & complete requests | measured, needs review | Run 20260917T234417Z |
-| **Phase 2E** | Selective precision, shared-prefix parity & rejection policy | measured, done | Drive run 20260918T114914072764Z |
-| **Phase 2F** | Cache compression, prefix reuse & persistent LRU caching | measured, done | Run 20260918T224427722898Z |
-| **Phase 2G** | Fresh decisions, TF32 arithmetic & cache lifecycle | measured, done | Run 20260919T005142584348Z |
-| **Phase 2H** | Contract hardening, criteria review, rejection head & Python bridge | next | Gated on Phase 2G evidence |
-| **Phase 2I** | Genuine multi-question execution & state-first prompting | planned | Gated on Phase 2H |
-| **Phase 2J** | Matched adaptation & model sizing (Qwen3.5-2B vs 4B) | planned | Gated on Phase 2H |
-| **Phase 3** | Rust engine, production backends & Parity Ladder | planned | Gated on Phase 2H/2I/2J |
+| Phase / track | Current description | Status / authority |
+|---|---|---|
+| Phase 0 | Wire contract and core types | Reported done in supplied roadmap; 43 historical tests, not rerun here |
+| Phase 1 | Mock daemon, HTTP/gRPC transports and SDK compatibility fixtures | Reported done; 152 other workspace tests, 195 reported total; current HEAD unverified |
+| Phase 2A | Initial Qwen probe | Historical exploratory result; not an equal-quality benchmark |
+| Phase 2B | Fixed NLI heads and architectural audit | Measured, done — `20260917T205849Z` |
+| Phase 2C | Dynamic schemas and batching diagnostics | Measured, needs review — `20260917T222948Z`; no completed LoRA/scaling evidence |
+| Phase 2D | Precision, rejection and full requests | Measured, needs review — `20260917T234417Z` |
+| Expanded Phase 2E | Shared-prefix agreement and request cost | Measured, done — `20260918T114914072764Z`; acceptance differs by precision |
+| Phase 2F | Snapshot compression and prefix persistence | Measured, done — `20260918T224427722898Z`; four low-bit codec gates failed |
+| Phase 2G | Fresh decisions, TF32 and lifecycle | Measured, done — `20260919T005142584348Z`; semantic and arithmetic limits remain |
+| **Phase 2H** | **Criteria/rejection transfer and bounded primitive readouts** | **Completed required scope — `20260919T040612625670Z__finish_2h_1_2`; both workers complete; original failed attempt preserved** |
+| **2H-C1–C5** | Preserve/recover/close the original H study | **Closed** — continuation, original artifact/selection lock, final readout and v0.6 handoff; acceptance remains bounded |
+| **Phase 2I** | Reviewed multi-question evaluation, rendering and sharing | In progress: draft and small GPU mechanics recorded; actual reviewed-study gate blocked; full quality/isolation/scaling remains open [IJ] |
+| **Phase 2J** | Matched adaptation, smaller/compact models and feature-aware rejection | Prepared in workbench; training/final selection not run, gated on approved 2I.1–2I.2 [IJ; I0] |
+| **Track S** | Contracts and resident-reference-worker service bridge | Planned, parallel; not part of H's measured completion |
+| **P2.1–P2.3** | Verified optimized execution, weight precision and teacher/student tests | Conditional after a promising profile; restored tracked work, not completed experiments |
+| **Phase 3** | Selected native backend and production lifecycle | Planned, selected-profile and per-stage parity gates |
 
-`cargo test --workspace`: **195 tests passing, 0 failing** at commit HEAD.
+### Superseded task mapping
+
+The uploaded roadmap assigned “Phase 2H” to proposed engineering work, while the notebook had already used that phase name for criteria/rejection transfer. This revision restores the experiment's name and explicitly relocates the uncompleted proposals. Existing issue links should retain this mapping rather than implying that a newly reused number means old work shipped. [R0; H]
+
+| Old roadmap task | Current location | Disposition |
+|---|---|---|
+| Old 2H.1 — contract/status and regression suite | S.1 and 2H-C1 | Still open operational work; historical evidence retained |
+| Old 2H.2 — independent criteria/annotation audit | 2I.2; H closeout preserves H's frozen criteria | Still open; H's completed support-example study does not satisfy independent review |
+| Old 2H.3 — feature-conditioned rejection replacement | 2J.3 | Planned comparison, not predetermined replacement or completed H result |
+| Old 2H.4 — Python worker/HTTP bridge | S.3–S.5 | Planned integration, not a Colab experiment outcome |
+| Old 2H.5 — probability/API pinning | S.2 | Still open |
+| Old 2I.1 / 2I.2 / 2I.3 | 2I.3 / 2I.4 / 2I.5–2I.6 | Preserved scope, now preceded by shared evaluation/data tasks |
+| Old 2J.1–2J.2 — 2B and adaptation | 2J.1–2J.2 | Brought forward; compact bidirectional comparator added |
+| Old 2J.3 — multi-task supervision | 2I.1–2I.2 | Moved before matched training so data is not built after comparison starts |
+| Old 2J.4 / 2J.5 — primitives / competitors | 2J.4 / 2J.5 | Retained; H fitting distinguished from final validation |
 
 ---
 
 ## Conventions for agents
 
-(Same as `docs/AGENTS.md` — duplicated here so this file is self-contained for a roadmap reader.)
+Read the **current status**, **two acceptance tracks**, and **task crosswalk** before treating historical “next” paragraphs as current assignments. Historical result sections retain their original experiment-specific conclusions; the current program above controls new work.
 
-- **Wire types live in `opendecision-core`.** Any change there is a breaking change for every future SDK caller. Bump `JevRequest::SCHEMA_VERSION`, add a round-trip test, regenerate schemas, update `docs/ARCHITECTURE.md`.
-- **`sdk_compat.rs` is the contract.** If your change would break one of those 56 tests, you are touching the wire contract.
-- **New backend = new `DecisionEngine`.** Wire it in `opendecision-server/src/main.rs` behind a CLI flag. Add at least one round-trip test in `opendecision-engine`. Add a `sdk_compat.rs` case that exercises the alias end-to-end via `/v1/systemone`.
-- **Phase 2 owns model research and Python prototype bridge; Phase 3 owns production Rust engine.** Do not start production runtime/backends work until the Phase 3 Parity Ladder reproduces the declared FP32, rejection, and cache-isolation contracts.
+- **Wire types live in `opendecision-core`.** Treat the pinned schema and compatibility fixtures as contracts. A wire change needs explicit versioning, round-trip tests, regenerated schemas and architecture-document updates. Confirm actual type/constant names in the repository rather than copying an unverified identifier from prose.
+- **Evidence and implementation status are separate.** A passed CPU/head fixture is not backbone parity; a source-reported test total is not a current CI result; a saved fit is not a completed final evaluation. Record commit, command, environment and result for any new code/test claim.
+- **A new backend implements the declared engine contract.** Wire it through the existing registry/service boundary with fixture and end-to-end tests. Advertise only supported tasks, shapes and precision modes; never mask missing capabilities with mock or semantically different fallback output.
+- **Phase 2 owns modeling; Track S owns the thin bridge; Phase 3 owns native production promotion.** Preserve the reference while comparing new models on fresh quality gates. Do not block independent data/service work on every H stage, or bypass a selected profile's required quality/parity validation.
+- **Preserve evaluation lineage.** Do not open protected final stimuli for exploratory tuning, change old gold labels, overwrite a failed attempt, delete reservations, or turn generic “requested” status text into completed checkboxes. Update the roadmap and whitepaper together when result authority changes.
 
 ## Quick reference
 
 ```bash
-# Build & test
+# Build and test the checked-out repository; record the exact commit and result.
+git rev-parse HEAD
 cargo build --workspace
-cargo test --workspace          # 195 tests at HEAD
+cargo test --workspace          # Prior supplied snapshot: 195; current count must be measured.
 
-# Regenerate JSON Schema
+# Regenerate JSON Schema using the existing project command.
 cargo run -p opendecision-gen-schemas -- --write
 
-# Run the daemon (mock engine, dev mode, no auth)
+# Existing mock daemon example, loopback development only; not a real Qwen backend.
 cargo run -p opendecisiond -- \
     --http-addr 127.0.0.1:18080 \
     --grpc-addr 127.0.0.1:19090 \
     --models mock,jev-latest
 
-# Verify a request against a running daemon
+# Exercise the existing request surface; a valid response does not prove model quality.
 curl -sS -H 'content-type: application/json' \
      -X POST http://127.0.0.1:18080/v1/systemone \
      -d @examples/04_mixed.json | jq
 ```
+
+The commands are retained as project usage examples, not commands run during this documentation revision. The `jev-latest` mock alias does not identify TypeSafe's proprietary model or a validated OpenDecision model.
+
+## Source and revision register
+
+**R0 — Uploaded roadmap.** `ROADMAP(20260919-123538).md`. Authority for supplied code milestones and historical test counts, not independent current-repository verification. Its numerical tables in the 2A–2G history are retained unchanged. Corrections to the exploratory interpretation and current scope are explicitly recorded in the companion change log.
+
+**WP — Latest whitepaper lineage.** This revision edits the delivered v0.6 paper/roadmap into [whitepaper v0.6.1](OpenDecision_Whitepaper_v0.6.1.md). Older v0.3 and pre-H files surfaced in the conversation remain historical, not replacement bases. E1–E8 preserve earlier evidence, E9 the completed H continuation, and E10/I0 the blocked workbench and unsigned intake. The v0.4 refocus, 16-group review mapping and all prior results remain intact; B–H experiments were not rerun here.
+
+**H — Saved Phase 2H attempt.** `Google Drive / Colab Notebooks / OpenDecision_Phase2H_results / 20260919T040612625670Z`. [Full summary](https://drive.google.com/file/d/1IT4cJN74vgOW0td7haE_bl2KfviHiaP1/view), [compact summary](https://drive.google.com/file/d/1525L3h-0hVKtgm50c_IAX1dCAKHNZNUe/view), [attempt archive](https://drive.google.com/file/d/1X8JP-8hhb3lu_PmMCWNLovMMdXPK6eDO/view), and [saved Colab notebook](https://colab.research.google.com/drive/1fhRJTek7Ura3aSdItwBjJTJubXUIee4a). The notebook and exported result snapshots, saved around 05:03–05:04 UTC on 19 September 2026, describe a partial attempt. No inaccessible live runtime or later unsaved continuation is inferred.
+
+**V — Version 0.5.1 documentation checks.** The companion source reconciliation checks the saved notebook's `finish()` output against the archive; the standalone summary against its archive copy; profile/development/selection metadata; fitted-file presence; all 37 source hashes; and the absence of a final lock/evaluation worker in the retained inventory. It does not run Qwen, recompute development losses from absent feature/logit caches, inspect reserved final stimuli, repair Colab, test Rust, or modify persistent files. Hashes, exact diffs and the limited audit scope are included in the revision package.
+
+**Revision 0.6 outcome:** required H recovery/evaluation and 2H-C1–C5 closed; technical H detail consolidated in WP §13.1; original failed attempt and historical results preserved; current priorities move to reviewed multi-question data, transfer-aware selection, early 2J comparisons, genuine Q sharing and Track S. All 16 review groups and P2.1–P2.3 remain captured. No repository, notebook or source result was changed by this documentation revision.
+
+
+### Historical revision 0.5.2 — recovered-review coverage and restored conditional tasks
+
+**RC — Review capture.** [OpenDecision_Review_Followup_Traceability.md](OpenDecision_Review_Followup_Traceability.md) maps sixteen recovered recommendation groups to existing tasks and test evidence. It uses the preserved R3 review and WP §11.7’s retained Laya/R4T interpretation. The shared page exposes no readable full transcript; follow-up coverage is recommendation-level, not a verbatim complete archive. The source snapshot and hashes are in the companion package.
+
+**RP2 — Earlier roadmap task detail.** The v0.4 roadmap revision package contains explicit P2.1 verified-execution, P2.2 weight-precision and P2.3 teacher/student checkboxes. Their full conditional section is restored unchanged here after v0.5.1 retained only its summarized priorities. This restores tracking, not a new research priority or a promotion to completed work.
+
+**HR — Historical recovery deliverable.** `OpenDecision_Phase2H_Recovery_Notes.md`, version `2h.1.2`, records the delivered Finish notebook, original-notebook repair and bounded local validation before the final run. Those notes alone did not establish GPU completion; HF now supplies the completed continuation. No notebook was changed during this documentation update.
+
+The v0.5.2 review-capture revision left historical metrics and H-development tables unchanged while restoring explicit compact-comparator/P2 tasks. Version 0.6 now summarizes the closed H study here and retains its full development/final detail in the whitepaper. Neither documentation revision edits source notebooks, results or repository code.
+
+**HF — Completed H Finish authority.** `OpenDecision_Phase2H_Finish_results / 20260919T040612625670Z__finish_2h_1_2`, version `2h.1.2`, both required workers completed. Use the linked summary/archive/recovery/lock in the H section and whitepaper E9; H remains the preserved original-attempt source. No retraining, criteria reset or post-final model reselection is reported.
+
+**V06 — Version 0.6 checks.** Read-only saved-output and lineage checks (`audit_phase2h_finish.py`, `completed_h_audit.json`, `check_additional_lineage.py`, `additional_lineage.json`) plus document checks, source hashes and exact diffs in the companion package. This checks retained distributions/metrics, policies, parity, timings and artifact identities; it does not run Qwen, repair Colab, test the Rust repository or validate deployment. Policy intervals remain source-reported. See WP §3.2 and V2 for the exact scope.
+
+**IJ — First 2I/2J workbench checkpoint.** `OpenDecision_Phase2IJ_results / 2ij_reviewed_multiquestion_v1`, version `2ij.1.0`; overall blocked. [Summary](https://drive.google.com/file/d/11X6HKs18bjjgGTDKbQwTe8PWK4nLXwfh/view), [report archive](https://drive.google.com/file/d/1bIyJfim0n-XsphCIEZu11cs8NEb90kO8/view), [mechanics output](https://drive.google.com/file/d/178mr-qS7CARw6qgfxGqZpghOvfjohmf_/view). WP E10/V3 records hashes, exact source scope and the duplicate/unrelated fixture finding. The source's 48 CPU tests are recorded, not rerun by this revision.
+
+**I0 — Unsigned review intake.** [Protocol](https://drive.google.com/file/d/1zDdBv1JtGFTzMKYZshx-T8olFj5dVM9c/view), [review](https://drive.google.com/file/d/1_eIzpj9722xYDLBOmBb5lG1j0fng-rqO/view), [refreshed template](https://drive.google.com/file/d/1rk2jLwBnI_nsgJ9xXwqylOfTmC5GJsvk/view). Device/limits, actual review and matching signed manifests remain required. Cases/final annotations were not opened or approved during this documentation update.
+
+**Revision 0.6.1 outcome:** preparation and narrow mechanics are credited without closing 2I/2J/S; H remains closed. The exact blockers and a source-coverage correction are summarized here, with detailed measurements and reasoning in WP §14. All existing task checkboxes retain their state. The companion contains 34 saved-artifact checks, document integrity, diffs and hashes; no model inference, notebook repair, signed review, repository test or persistent Drive modification is claimed.
