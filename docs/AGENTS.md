@@ -5,31 +5,14 @@
 
 ## Project goal
 
-Build an **open-source inference engine that speaks the Jev protocol**
-— *Jev is a judgment-envelope format* co-developed by TypeSafe for
-interfacing with decision-making models. Jev's premise (paraphrased
-from [Introducing System One Models and Jev][jev-blog]):
+Build an **independent, open-source decision inference engine that speaks the Jev protocol**.
 
-> Most AI today is generative and tries to maximize helpfulness. But
-> products increasingly need a different signal: a structured
-> **judgment** about the user's state, intent, or preferences, returned
-> in a strictly-typed envelope the application can act on. Jev is the
-> schema. [TypeSafe's `system_one` models][typesafe-api] are the
-> implementation.
+- **Protocol Compatibility**: Wire- and SDK-compatible with TypeSafe's hosted API at `https://api.typesafe.ai`. Clients targeting TypeSafe's System One models (`typesafe_sdk`) can target a self-hosted `opendecisiond` daemon with **no code change**.
+- **Independent Architecture**: TypeSafe identifies Jev as its proprietary System One model family. `opendecision` is an independent open-source engine providing a compatible judgment-envelope interface—not an implementation of an unpublished proprietary neural architecture.
+- **Dual Transports**: Native HTTP/REST (`/v1/systemone`, aliased to `/v1/system_one`) and gRPC (`opendecision.SystemOne/Evaluate`).
+- **Extensible Inference**: Multi-backend runtime supporting mock engines, a Python reference bridge, and future native backends (Candle, GGUF/llama.cpp, ONNX).
 
-`opendecision` is the open implementation of that idea. It is wire- and
-SDK-compatible with TypeSafe's hosted API at https://api.typesafe.ai so
-that:
-
-- A future Python or Rust client built against `typesafe_sdk` / Jev
-  can target either the hosted service or a self-hosted `opendecisiond`
-  with **no code change**.
-- Operators can run inference on their own hardware, swap in custom
-  model backends (candle, GGUF, ONNX, a remote provider), and own the
-> data flow end-to-end.
-
-The end state is: drop in `opendecisiond`, point `typesafe_sdk` at it,
-keep the app layer untouched.
+The end state is: drop in `opendecisiond`, point `typesafe_sdk` at it, keep the app layer untouched.
 
 ## Source of truth
 
@@ -39,6 +22,7 @@ keep the app layer untouched.
 | Wire-format spec (Python SDK surface)  | https://docs.typesafe.ai/sdk/python/api                |
 | Schema blog post (goal & framing)     | https://typesafe.ai/blog/introducing-system-one-models-and-jev |
 | Architecture diagram & phasing        | [docs/ARCHITECTURE.md](./ARCHITECTURE.md)              |
+| Implementation roadmap                | [docs/ROADMAP.md](./ROADMAP.md)                        |
 | Generated JSON Schema (request)       | [crates/opendecision-core/schemas/jev-v1-request.json](../crates/opendecision-core/schemas/jev-v1-request.json) |
 | Generated JSON Schema (response)      | [crates/opendecision-core/schemas/jev-v1-response.json](../crates/opendecision-core/schemas/jev-v1-response.json) |
 | Service `.proto`                       | [proto/proto/opendecision.proto](../proto/proto/opendecision.proto) |
@@ -99,17 +83,16 @@ endpoint, header, and error code from the docs is pinned there.
   - Headers: `x-typesafe-request-id` (UUIDv4), `Retry-After` (integer seconds), `retry-after-ms` (integer milliseconds), `WWW-Authenticate: Bearer`.
   - Status Codes: `200 OK`, `400 Bad Request` (`bad_json`), `401 Unauthorized` (`unauthorized`), `404 Not Found` (`unknown_model`), `422 Unprocessable Entity` (`invalid_body`), `429 Too Many Requests` (`rate_limited`), `529 Overloaded` (`overloaded`), `500 Internal Server Error` (`internal_error`).
 
-## Phasing
+## Phasing & Status
 
-Tracked as git history. Each phase ships with passing tests at HEAD.
+Phasing status is governed by [`docs/ROADMAP.md`](./ROADMAP.md). Each phase ships with passing tests at HEAD.
 
 ### Phase 0 — wire contract (DONE)
 
 Lock the schema before the server. Goal: TypeSafe's spec examples
 must round-trip through our types without any data loss.
 
-- [x] `opendecision-core` crate — `SystemRequest`/`SystemResponse`/`Answer`
-      with `f64` (not `f32`) precision on wire values.
+- [x] `opendecision-core` crate — `SystemRequest`/`SystemResponse`/`Answer` with `f64` precision on wire values.
 - [x] `validate_request()` covering every documented validation rule.
 - [x] 23 conformance tests against every Jev spec example.
 - [x] `gen-schemas` binary → JSON Schema files for publishing.
@@ -117,81 +100,39 @@ must round-trip through our types without any data loss.
 
 ### Phase 1 — daemon + SDK compatibility (DONE)
 
-A self-hostable server that the future `typesafe_sdk` Python client
-can speak to without modification.
+A self-hostable server that the future `typesafe_sdk` Python client can speak to without modification.
 
-- [x] HTTP (axum 0.8): `POST /v1/systemone` (aliased to `/v1/system_one`),
-      `GET /v1/models`, `GET /health`, `GET /metrics`.
+- [x] HTTP (axum 0.8): `POST /v1/systemone` (aliased to `/v1/system_one`), `GET /v1/models`, `GET /health`, `GET /metrics`.
 - [x] gRPC (tonic 0.14): `opendecision.system_one.SystemOne`.
 - [x] `opendecisiond` daemon + `opendecision` CLI.
-- [x] `DecisionEngine` trait + `MockEngine` (deterministic, slightly
-      jittered answers for testing).
-- [x] **SDK compatibility surface** (the bit the future client
-      actually depends on):
+- [x] `DecisionEngine` trait + `MockEngine` (deterministic, slightly jittered answers for testing).
+- [x] **SDK compatibility surface**:
   - `x-typesafe-request-id` on every response, including 401s.
   - Bearer auth opt-in via `OPENDECISION_API_KEY` with fallback to `TYPESAFE_API_KEY`.
   - `Retry-After` / `retry-after-ms` on 429 / 529.
-  - Error envelope `{"error":{"code",message}}` mapped to the
-    Python SDK's `TypeSafe{Authentication,RateLimit,BadRequest,...}Error`.
+  - Error envelope `{"error":{"code",message}}` mapped to the Python SDK's error taxonomy.
   - `/v1/models` returns `{"models":[{name,description,release_date}]}`.
-- [x] 56 SDK compat tests + 22 HTTP unit/integration tests + 8 gRPC
-      roundtrip tests + 33 core tests + 14 engine tests + 7 CLI tests + 2 server tests + 2 proto tests = **144 tests passing** at HEAD.
+- [x] **195 tests passing at HEAD** across workspace crates (43 core, 20 engine, 108 api, 10 cli, 3 server, 2 proto, 6 runtime, 3 gen-schemas).
 
-### Phase 2 — model research and serving gates (Phase 2E MEASURED / DONE)
+### Phase 2 — empirical model research (Phase 2A–2G MEASURED / DONE)
 
-Phase 2E keeps Qwen3.5, the NLI head, and the real-candidate scorer frozen.
-Run `20260918T114914072764Z` completed on an NVIDIA L4 with fresh FP32 and
-BF16 workers. The [expanded archive](../research/opendecision_phase2e_expanded_20260918T114914072764Z/)
-contains the [results README](../research/opendecision_phase2e_expanded_20260918T114914072764Z/README_results.md).
-An independent reconstruction of the saved probability
-distributions, policy actions, parity counts, and timing aggregates agreed
-with the report. The reconstruction validated saved calculations; it did not
-rerun Qwen.
+Phases 2A–2G established that a frozen Qwen backbone + linear heads achieves ~87–89% NLI accuracy, transfers dynamic candidate descriptions, and reproduces FP32 cached execution parity. They also revealed key bottlenecks: low out-of-scope rejection recall (Phase 2G: 46.88%), ambiguous criteria failures, and instruction-first reuse limitations.
 
-- [x] FP32 full-prompt and shared-prefix strategies: 0/128 tolerance
-      failures, selected-outcome changes, or answer/review changes at a
-      0.005 probability tolerance. Maximum differences were 0.00000928,
-      0.00000776, and 0.00001072.
-- [x] Hybrid cache isolation: reusable cache state, repeated branches, and
-      candidate-order reversal passed the saved checks, including recurrent
-      and convolution state isolation.
-- [x] FP32 cached suffix batching: 1.46x faster than full-prompt batch four
-      at 16 candidates, and approximately 7x faster on the synthetic
-      1,024-token shared-prefix benchmark, while preserving tested policy
-      behavior.
-- [x] BF16 behavior boundary: 10/128 to 14/128 selected-outcome changes and
-      7/128 to 11/128 answer/review changes depending on strategy. BF16 is
-      faster and smaller, but is not behavior-preserving for this reference.
-- [x] Component profile: 92–94% of FP32 cached request time was model
-      execution, versus 4.6–6.6% cache cloning and expansion.
-- [ ] Shared-state branching across different questions, Rust/Metal/HTTP,
-      concurrent requests, long-document decision quality, and a cheaper
-      behavior-preserving precision configuration.
+- [x] **Phase 2A–2D**: Parameter audit, NLI head benchmarking, dynamic candidate scoring, and FP32 numerical reference establishment.
+- [x] **Phase 2E**: Shared-prefix parity and hybrid cache state isolation (attention KV + recurrent DeltaNet + convolution).
+- [x] **Phase 2F**: Cache compression limits (lossless & FP16-KV passed; low-bit TurboQuant failed) and persistent LRU caching.
+- [x] **Phase 2G**: Fresh decision evaluation (416 episodes), TF32 speedup vs. parity failure, and semantic context sensitivity.
 
-### Phase 2F: Rust reference engine and execution optimization (NEXT)
+*(Historical note: Early planning described Phase 2F as a Rust reference engine; in execution, Phases 2E–2G were dedicated Python/Colab cache, precision, and empirical rejection research. Current status is consolidated in [docs/ROADMAP.md](./ROADMAP.md).)*
 
-- [ ] Reproduce the pinned FP32 full-prompt, cached sequential, and cached
-      batched paths in Rust before optimizing.
-- [ ] Optimize suffix-batch utilization, exact-length grouping, and
-      model-forward efficiency while retaining probability, selected-outcome,
-      answer/review, order, and branch-isolation gates.
-- [ ] Evaluate padded or packed suffix strategies with independent parity
-      evidence, then evaluate lower precision as a separate configuration.
+### Active Milestone Target: Genuine Multi-Question Decision Model
 
-### Phase 3 — Rust engine and production backends (PLANNED / GATED ON PHASE 2F)
+The project is rebalanced from further cache micro-benchmarks toward multi-question modeling, task adaptation, and end-to-end service integration:
 
-- [ ] `opendecision-runtime` — device discovery, VRAM accounting,
-      worker pools, and shared-state cache.
-- [ ] `opendecision-backends` — candle (GGUF), ONNX runtime, optional
-      remote-provider passthrough.
-- [ ] Request scheduler — batch incoming `system_one` calls only after
-      the numerical reference, rejection-policy, and cache-isolation checks
-      pass.
-- [ ] Cancel tokens / timeout propagation from gRPC deadline headers.
-- [ ] A real Python client (`opendecision` or `typesafe_sdk`) that exercises
-      a self-hosted `opendecisiond` end-to-end against a logged-in daemon.
-- [ ] Eval harness: feed a labeled dataset through a model, capture
-      the side-by-side comparison with the hosted API.
+- **Phase 2H (NEXT)**: Contract hardening, criteria & annotation audit, feature-conditioned rejection head ($P(\text{none})=1-a$), and resident Python reference worker bridge.
+- **Phase 2I (PLANNED)**: Genuine multi-question execution ($1\text{ state} \to Q\text{ questions} \to K\text{ candidates}$), state-first prompt rendering, and nested hybrid cache branching.
+- **Phase 2J (PLANNED)**: Matched adaptation comparison (frozen heads vs. LoRA vs. `Qwen/Qwen3.5-2B-Base`), multi-task supervision, and proper scoring rule calibration (NLL / cumulative Brier for Score).
+- **Phase 3 (PLANNED / GATED ON 2H/2I/2J)**: Production Rust engine implementing the Parity Ladder, native backends (Candle, GGUF, ONNX), and deployment hardening.
 
 ## Conventions for agents
 
@@ -202,36 +143,22 @@ rerun Qwen.
 3. Regenerate the JSON Schema: `cargo run -p opendecision-gen-schemas -- --write`.
 4. Add a new fixture in `examples/` mirroring the Jev spec example.
 5. Add an `sdk_compat.rs` test pinning the new shape.
-6. Bump `JevRequest::SCHEMA_VERSION` (or whatever constants surface
-   in `core::request`).
+6. Bump `JevRequest::SCHEMA_VERSION` (or whatever constants surface in `core::request`).
 7. Update `docs/ARCHITECTURE.md` if the layering changed.
 
 ### When you touch the wire format
 
-Any change to a JSON field in `core::request` or `core::response` is
-a breaking change for every future SDK caller. Bisect-friendly
-phasing: the next non-trivial release must include a "Jev spec
-delta" section in the changelog pointing at the diff between
-`jev-v1-{request,response}.json` versions.
+Any change to a JSON field in `core::request` or `core::response` is a breaking change for every future SDK caller. Bisect-friendly phasing: the next non-trivial release must include a "Jev spec delta" section in the changelog pointing at the diff between `jev-v1-{request,response}.json` versions.
 
 ### When you add a backend
 
-Implement `opendecision_engine::DecisionEngine` for your model loader.
-Wire it in `opendecision-server/src/main.rs` behind a CLI flag. Add at
-least one `cargo test -p opendecision-engine` round-trip test. Add a
-`crates/opendecision-api/tests/sdk_compat.rs` case that exercises the
-new alias end-to-end via `/v1/systemone`.
+Implement `opendecision_engine::DecisionEngine` for your model loader. Wire it in `opendecision-server/src/main.rs` behind a CLI flag. Add at least one `cargo test -p opendecision-engine` round-trip test. Add a `crates/opendecision-api/tests/sdk_compat.rs` case that exercises the new alias end-to-end via `/v1/systemone`.
 
 ### When you don't know what's right
 
 - Read `docs/ARCHITECTURE.md` first.
-- Look at `tests/sdk_compat.rs` second — if your change would break
-  one of those tests, you are touching the wire contract and you
-  must add a new pinned test alongside the fix.
-- The TypeSafe HTTP spec (https://docs.typesafe.ai/api) is
-  authoritative for HTTP shapes. The Python SDK doc
-  (https://docs.typesafe.ai/sdk/python/api) is authoritative for
-  client surface conventions (headers, exceptions, retry policy).
+- Look at `tests/sdk_compat.rs` second — if your change would break one of those tests, you are touching the wire contract and you must add a new pinned test alongside the fix.
+- The TypeSafe HTTP spec (https://docs.typesafe.ai/api) is authoritative for HTTP shapes. The Python SDK doc (https://docs.typesafe.ai/sdk/python/api) is authoritative for client surface conventions (headers, exceptions, retry policy).
 
 ## Quick reference
 
@@ -239,7 +166,7 @@ new alias end-to-end via `/v1/systemone`.
 # Build everything
 cargo build --workspace
 
-# Run all tests (144 at HEAD)
+# Run all tests (195 passing at HEAD)
 cargo test --workspace
 
 # Regenerate JSON Schema

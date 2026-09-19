@@ -375,15 +375,22 @@ Instead, train with **strictly proper scoring rules**:
    \[
    \mathcal{L}_{\text{Brier}} = \sum_{k=1}^K (p_k - y_k)^2
    \]
-3. **Ordinal Rubric Penalty (for Score)**:
-   Add an earth-mover or distance-weighted penalty to ensure confusing adjacent rubric levels incurs less loss than confusing distant extremes:
-   \[
-   \mathcal{L}_{\text{ordinal}} = \sum_{j=1}^K \sum_{k=1}^K p_j y_k |j - k|
-   \]
+3. **Ordinal Distribution Training (for Score)**:
+   > [!WARNING]
+   > **Proper Scoring Rule Correction**: While an expected absolute distance penalty $\sum_{j} \sum_{k} p_j y_k |j - k|$ penalizes distant misclassifications, it is **not** a proper probability scoring rule. Minimizing expected absolute distance encourages the model to collapse toward a conditional median decision rather than recovering the true posterior outcome distribution.
+   
+   To preserve calibrated probabilities on ordinal rubrics, supervised training should:
+   - Start with standard **Negative Log-Likelihood (NLL)** or multi-class cross-entropy to guarantee proper probability scoring.
+   - Alternatively, employ a **cumulative-probability Brier score** (or Ranked Probability Score, RPS) over cumulative thresholds $C_m = \sum_{j=1}^m p_j$:
+     \[
+     \mathcal{L}_{\text{RPS}} = \frac{1}{K-1} \sum_{m=1}^{K-1} \left( \sum_{j=1}^m p_j - \sum_{j=1}^m y_j \right)^2
+     \]
+     RPS is strictly proper for ordinal distributions and respects rubric order without distorting probability mass.
+   - Assess ordinal distance penalties ($|j - k|$) and Mean Absolute Error (MAE) strictly as downstream decision/action cost evaluations, rather than treating an expected-distance penalty as a probability calibration loss.
 
 A robust composite supervised loss is:
 \[
-\mathcal{L} = \mathcal{L}_{\text{NLL}} + 0.1 \mathcal{L}_{\text{Brier}} + 0.2 \mathcal{L}_{\text{ordinal}}
+\mathcal{L} = \mathcal{L}_{\text{NLL}} + 0.1 \mathcal{L}_{\text{Brier}} \quad (\text{or } \mathcal{L}_{\text{NLL}} + 0.1 \mathcal{L}_{\text{RPS}} \text{ for ordinal Score})
 \]
 
 #### Post-Hoc Calibration Procedure
@@ -439,7 +446,7 @@ These engineering hyperparameters provide a concrete starting baseline for open 
 | **Effective Batch Size** | 128–512 state bundles | Robust gradient estimates |
 | **Gradient Clipping** | 1.0 | Prevents gradient explosion |
 | **Supervised Epochs** | 1–3 epochs with validation early stopping | Avoids memorization |
-| **Calibration Regularizer** | $\lambda_{\text{Brier}} = 0.1$, $\lambda_{\text{ordinal}} = 0.2$ | Proper scoring rule balance |
+| **Calibration Regularizer** | $\lambda_{\text{Brier}} = 0.1$, $\lambda_{\text{RPS}} = 0.1$ | Strictly proper scoring rule balance |
 | **Post-Hoc Calibration** | Vector / temperature scaling on held-out split | Corrects neural overconfidence |
 | **Optional RL Policy LR** | $10^{-6}$ to $10^{-5}$ | Conservative policy adjustment |
 | **Optional PPO Clip Ratio** | 0.2 | Standard PPO trust region |
@@ -570,7 +577,7 @@ The evidence now supports a clear, grounded consensus:
 1. **Jev is Not an Autoregressive Language Generator**: For bounded software evaluations, generating prose tokens is completely unnecessary. The model exposes categorical, ordinal, and binary distributions directly, serialized into deterministic JSON schemas by host runtime code.
 2. **Prior Art Precedes Jev, but Exact Claims Must Be Checked**: SalesRLAgent (Nandakishor M, March 2025) demonstrates prior art for replacing LLMs with non-generative RL probability policies, but is a sequential turn-level sales policy with target/temporal leakage, not Jev's multi-question parallel architecture.
 3. **The Core Engineering Challenge is Amortization and Calibration**: Evaluating questions in parallel using shared-state prefill and isolated query attention is well understood. The true research frontier is achieving robust zero-shot calibration under domain shift without sacrificing accuracy.
-4. **An Open Reproduction Roadmap is Actionable**: By combining a shared-state encoder (or KV-cache branching decoder) with proper scoring rule training ($\mathcal{L}_{\text{NLL}} + \text{Brier} + \text{ordinal}$), held-out post-hoc calibration, and one-step decision-utility RL, open source can replicate Jev's capabilities and verify its claims against a rigorous, falsifiable benchmark.
+4. **An Open Reproduction Roadmap is Actionable**: By combining a shared-state encoder (or KV-cache branching decoder) with proper scoring rule training ($\mathcal{L}_{\text{NLL}} + \text{Brier} + \text{RPS}$ for ordinal distributions), held-out post-hoc calibration, and one-step decision-utility RL, open source can replicate Jev's capabilities and verify its claims against a rigorous, falsifiable benchmark.
 
 ---
 

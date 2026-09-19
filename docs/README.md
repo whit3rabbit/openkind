@@ -18,8 +18,9 @@ Project documentation and architectural references for `opendecision`.
 3. **[`ROADMAP.md`](./ROADMAP.md)** — Implementation roadmap and phase tracking:
    - Phase 0 (Wire contract) ✅
    - Phase 1 (Daemon, CLI, & Python SDK compatibility suite) ✅
-   - Phase 2 (Qwen research complete through Phase 2E, Phase 2F reference engine next) in progress
-   - Test totals and verification matrices across the workspace.
+   - Phase 2 (Qwen empirical research complete through 2G; Phase 2H criteria/rejection/bridge next; 2I multi-question, 2J adaptation & 2B) 🚧
+   - Phase 3 (Production Rust engine & native backends) 📋
+   - Test totals (195 passing at HEAD) and verification matrices across the workspace.
 4. **[`RESEARCH.md`](./RESEARCH.md)** — Research dossier & technical background:
    - System 1 inference paradigm and judgment-envelope protocol origins.
    - Hardware requirements, quantization, and model sizing.

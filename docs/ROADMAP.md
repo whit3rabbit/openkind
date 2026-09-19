@@ -58,18 +58,17 @@ client can speak to without modification.
 
 | Suite                                              | Tests |
 |----------------------------------------------------|-------|
-| `opendecision-core` unit + conformance                 | 33    |
-| `opendecision-engine` unit (MockEngine, dispatch)      | 14    |
-| `opendecision-api` unit (middleware, error mapping)    | 22    |
-| `opendecision-api/tests/sdk_compat.rs`                 | 56    |
-| `opendecision-api/tests/grpc_roundtrip.rs`             | 8     |
-| `opendecision-cli` unit                                | 7     |
-| `opendecision-server` unit                             | 2     |
-| `opendecision-proto` unit                              | 2     |
-| **Total at HEAD**                                  | **144** |
+| `opendecision-core` unit + conformance             | 43    |
+| `opendecision-engine` unit (MockEngine, dispatch)  | 20    |
+| `opendecision-api` unit, integration & sdk_compat  | 108   |
+| `opendecision-cli` unit                            | 10    |
+| `opendecision-server` unit                         | 3     |
+| `opendecision-proto` unit                          | 2     |
+| `opendecision-runtime` unit                        | 6     |
+| `opendecision-gen-schemas` schema sync             | 3     |
+| **Total at HEAD**                                  | **195** |
 
-(Exact unit-test count drifts with engine/HTTP additions; SDK-compat
-and conformance are the pinned contract.)
+(SDK-compat and conformance are the pinned wire contract; unit tests track internal subsystem additions.)
 
 ---
 
@@ -456,10 +455,10 @@ The evaluation introduced 416 fresh sampled-choice episodes across 112 messages 
 
 - **Rejection Transfer Bottleneck**: In CLINC, answerable accuracy was 93.75% (60/64), but omitted-intent recall dropped to **39.06%** (25/64), and author-labeled OOS recall was only **46.88%** (15/32). Matching offered candidates transfers well; detecting absent or out-of-domain intents remains weak.
 
-**4. Criteria Ambiguity & High-Confidence Error Case:**
+**4. Criteria Ambiguity & High-Probability Error Case:**
 - Message: `"How can I get a physical card"` (gold label: `order_physical_card`, "order physical card").
-- Model behavior: When presented with `get_physical_card` ("get physical card"), the model selected it with **>98.8% to >99.8% confidence** across all 4 episodes.
-- Implication: Terse, overlapping descriptions cause confident failure. Candidate criteria must be documented, versioned semantic descriptions rather than raw class labels.
+- Model behavior: When presented with `get_physical_card` ("get physical card"), the model selected it with **candidate probability >0.988 to >0.998** across all 4 episodes (distinguishing candidate probability from the separate confidence statistic).
+- Implication: Terse, overlapping descriptions cause confident failure. Candidate criteria must be documented, versioned semantic descriptions rather than raw class labels. That is a warning about the combination of ambiguous criteria, ranking, and policy transfer—not four independent demonstrations of failure, and not grounds to silently alter gold labels.
 
 **5. Context Length & Evidence Position Degradation:**
 - Wrapping 6 requests in administrative background showed significant semantic sensitivity:
@@ -474,50 +473,130 @@ The evaluation introduced 416 fresh sampled-choice episodes across 112 messages 
 
 ---
 
-### Phase 2H: decision criteria, rejection transfer & prompt architecture (NEXT)
+## Strategic Assessment & Project Rebalancing
 
-Shift immediate model research from repetitive cache testing to decision criteria, rejection transfer, and prompt structure under the frozen strict-FP32 reference:
+### Overall Assessment & Pivot
+Qwen remains a credible foundation for an open Jev-style decision engine. However, the project is now rebalanced: **we have stronger evidence for a reproducible decision scorer than for the small, broadly useful, multi-question model we ultimately want**.
 
-- [ ] **P0: Criteria and annotation review**: Audit confusing candidate pairs (e.g. `order_physical_card` vs. `get_physical_card`). Decouple stable machine IDs from rich semantic descriptions. Establish versioned description contracts.
-- [ ] **P0: Rejection and calibration transfer**: Compare fixed scorer with refitted set-aware `none` models and multi-domain candidate heads across both omitted in-scope intents and author-OOS distributions.
-- [ ] **P0: Irrelevant-context and instruction robustness**: Train/evaluate under realistic background text and variable evidence positions to prevent attention dilution.
-- [ ] **P1: TF32 serving path validation**: Measure TF32 under explicit application quality and behavioral contracts to determine if the $2\times$ batching speedup can be safely captured.
-- [ ] **P1: State-first prompt contract**: Explore `[State, Instruction, Candidates]` prompt layout to evaluate whether prefill can be amortized across *different* questions, rather than only across candidates of the same question.
-- [ ] **P1: Matched baselines**: Benchmark against finite-token classification baselines (SALSA, GLiClass).
-- [ ] **P1: Dedicated Noul & Score evaluation**: Train and validate binary truth/yes (`Noul`) calibration and ordinal rubric levels (`Score`).
-- [ ] **P1: Model scaling and adaptation**: Compare frozen 4B backbone against LoRA adaptation and smaller backbones (e.g. Qwen2.5-1.5B/3B).
+The numerical and cache work in Phases 2C–2G uncovered real implementation hazards. Further polishing of that same execution path now risks diminishing returns while the central modeling questions remain unanswered.
+The project roadmap therefore shifts:
+1. **Reference Stability**: Keep the existing frozen FP32 implementation as a reference.
+2. **Task Adaptation & Multi-Question Focus**: Shift immediate research effort toward task adaptation, genuine multi-question execution ($1\text{ state} \to Q\text{ questions} \to K\text{ candidates}$), and feature-conditioned rejection.
+3. **Model Sizing**: Bring a smaller Qwen (`Qwen/Qwen3.5-2B-Base`) into the comparison earlier.
+
+### 1. What the Empirical Results Actually Establish
+The experimental runs (2A through 2G) establish meaningful successes alongside specific unresolved bottlenecks:
+- **Decisions without generated text**: Frozen Qwen backbone + small NLI head replicated ~87–89% accuracy on sampled tests. This is a sound foundation for decision-only inference, though not yet evidence of arbitrary-question competence.
+- **Dynamic candidate descriptions**: The candidate scorer transferred beyond its head-training labels and identified offered CLINC intents correctly in 60/64 answerable episodes. Useful transferable representations exist; it is not merely memorizing a fixed output vocabulary.
+- **Rejecting unsuitable alternatives**: On the CLINC construction, omitted-intent recall was 25/64; author-OOS recall was 15/32. Rejection transfer is a substantial unresolved weakness.
+- **Reusing computation**: Strict-FP32 cached execution passed the fresh and controlled-context parity panels. A credible systems reference exists, but currently for candidates sharing a question—not arbitrary questions sharing a state.
+- **Criteria ambiguity warning**: The physical-card example produced 4 incorrect accepted episodes from one underlying message, with candidate probabilities around 0.989–0.999. Ambiguous criteria, ranking, and policy transfer interact poorly; gold labels must not be silently altered to mask description flaws.
+
+### 2. Avoiding the Narrow-Benchmark Trap & Defining Two Acceptance Tracks
+- **Broadening beyond single-intent routing**: TypeSafe describes Jev as evaluating multiple typed questions independently against the same state ($1\text{ state} \to Q\text{ questions} \to K\text{ candidates}$). Current measured paths evaluated one instruction + message over $K$ candidates. Increasing candidate count $K$ is not the same experiment as increasing question count $Q$. Multi-question execution must move to the center of research.
+- **Adapting the backbone vs. narrow frozen features**: The candidate scorer was fitted on 600 Banking77 episodes; the set-aware head added 7 fitted coefficients; Phase 2G kept everything frozen. We have measured limitations of a narrowly fitted, frozen-feature system—not the limit of an adapted Qwen model.
+- **Two Separate Acceptance Tracks**:
+  1. **Implementation-Equivalence Track**: Does a cache, batching strategy, or backend reproduce the specified model within its declared tolerances?
+  2. **New-Model Track**: Does a separately versioned model improve correctness, calibration, useful automation coverage, latency, and memory on fresh data? A smaller or adapted model belongs here and should not fail simply because it disagrees with an old, sometimes incorrect reference.
+
+### 3. Core Principles for Speed, Low Resource Use & Architecture
+- **Bring Qwen3.5-2B forward**: The 4B model occupies ~15.67 GiB in FP32 or 7.83 GiB in BF16 before activations. Testing `Qwen/Qwen3.5-2B-Base` (official 24-layer checkpoint) provides a cleaner size and latency comparison within the same architecture family. The 4B model can serve as reference or teacher.
+- **Test optimized execution before rewriting inference**: Benchmark against environments with verified fast causal-convolution and linear-attention kernels before concluding hardware limits.
+- **Optimize model work before host-language overhead**: Profiles show 92–94% of request time in model forward passes versus 4.6–6.6% in cache cloning/expansion. Focus on fewer forward invocations, better suffix packing, and smaller backbones rather than host serialization rewrites.
+- **Pause low-bit cache snapshot codecs**: At short prefixes, attention KV is only 2.625 MiB of the 53.625 MiB root (recurrent state dominates at 48.0 MiB). Retain lossless caching and FP16-KV for long prefixes; evaluate weight quantization later on the selected deployment model.
+- **Fair competitors**: Benchmark against parameter-efficient classifiers (SALSA) and dynamic-label models (GLiClass). Winning metric: correct automated decisions per second at a specified accepted-error rate and memory budget, reporting coverage.
+- **Refine internal contracts**: Make four concepts explicit inside the engine:
+  - *Decision specification*: State, question semantics, candidate criteria, missing-option semantics, truncation rules.
+  - *Model/execution profile*: Checkpoint, adapter, tokenizer/rendering, normalization, heads, arithmetic, supported execution strategies.
+  - *Backend capabilities*: Supported primitives, tested candidate/context limits, cache operations, resource requirements.
+  - *Evaluation context*: Tenant, deadline, cancellation, admission budget, tracing identity.
+- **Nested hybrid cache sharing**: Isolated state root $\to$ isolated question suffixes $\to$ isolated candidate suffixes. Hybrid architectures require recurrent and convolution state isolation across branches, not just attention masks.
+- **Resolve API contract gaps**:
+  - *Internal none probability*: Wire response expects distribution over caller options. Establish explicit contracts (caller-supplied `none`, separately versioned native format, or application review mechanism) rather than silently appending or renormalizing probabilities.
+  - *Candidate keys*: Separate machine IDs from semantic labels/descriptions internally. Support both names and descriptions, handling null descriptions properly.
+- **Build the Prototype Bridge sooner**: Deploy an end-to-end prototype: Rust HTTP service (`opendecision-api`) $\to$ persistent resident Python reference worker $\to$ real Qwen decision probabilities $\to$ validated response. Tests real requests, auth, token accounting, deadlines, and response semantics before native backbone completion.
 
 ---
 
-## Phase 3 — Rust Engine & Production Backends (PLANNED / GATED ON 2H)
+## Next Milestone Target
 
-Once the Phase 2H criteria, rejection transfer, and prompt contracts are pinned, implement the production Rust engine following the **five-stage Parity Ladder** from Section 11.3 of the research whitepaper:
+> **"Demonstrate a real, versioned OpenDecision model answering several independent questions over one state, with measured rejection behavior, complete-request latency, and peak memory on a named deployment machine."**
+
+---
+
+### Phase 2H: Contract Hardening, Criteria Review, Feature Rejection & Prototype Bridge (NEXT)
+
+Shift model research from cache micro-benchmarks to criteria fidelity, rejection architecture, and a working end-to-end service bridge:
+
+- [ ] **2H.1: Consolidated Contract Document & Frozen Regression Suite**: Consolidate current status, pin Phase 2G as a permanent regression suite, and establish the two-track acceptance framework.
+- [ ] **2H.2: Criteria & Annotation Audit**: Audit confusing candidate pairs (e.g., `order_physical_card` vs. `get_physical_card`). Decouple stable machine IDs from rich semantic descriptions. Version candidate criteria with explicit inclusion/exclusion boundaries before test evaluation.
+- [ ] **2H.3: Feature-Conditioned Rejection Head**: Replace the 7-parameter score-summary head with a small rejection/applicability head that inspects candidate-conditioned hidden features ($a = P(\text{at least one valid} \mid s, q, C)$, $P(\text{none})=1-a$, $P(c_j)=a P(c_j \mid \text{valid}, s, q, C)$). Train with separate labels for candidate applicability, omitted options, and out-of-scope/insufficient evidence.
+- [ ] **2H.4: Python Reference Worker Bridge**: Wire a resident Python worker behind `opendecision-engine` / `opendecision-api`. Deliver real Qwen decision probabilities over HTTP (`POST /v1/systemone`) with auth, request ID tracing, token accounting, and deadline cancellation.
+- [ ] **2H.5: API & Probability Contract Pinning**: Pin explicit wire contracts for `none` handling and candidate identification (machine IDs vs. semantic text).
+
+---
+
+### Phase 2I: Genuine Multi-Question Execution & State-First Prompting (PLANNED)
+
+Expand inference beyond single-intent routing to Jev's core capability: independent multi-question evaluation against a shared state:
+
+- [ ] **2I.1: State-First Prompt Rendering**: Implement and evaluate `[State] -> [Question_q] -> [Candidate_k]` layout compared against instruction-first rendering under matched training.
+- [ ] **2I.2: Nested Hybrid Cache Branching**: Implement nested state isolation: prefill shared state root once $\to$ branch into $Q$ independent question states $\to$ branch into $K$ candidate suffixes. Isolate recurrent DeltaNet, convolution, and attention-KV states across all branch points.
+- [ ] **2I.3: Multi-Question Scaling Benchmark Grid**: Measure quality, latency, and memory across grid:
+  - State lengths: short (64 tokens), medium (256 tokens), long (1,024 tokens).
+  - Question counts: $Q \in \{1, 4, 16\}$.
+  - Candidate counts: $K \in \{2, 4, 8, 16\}$.
+  - Compare cold prefill vs. warm cache hits, reporting peak memory and decisions/sec.
+
+---
+
+### Phase 2J: Matched Adaptation & Model Sizing: Qwen3.5-2B vs. 4B (PLANNED)
+
+Evaluate model adaptation and smaller backbones to achieve low-latency, low-memory deployment:
+
+- [ ] **2J.1: Qwen3.5-2B-Base Evaluation**: Benchmark official `Qwen/Qwen3.5-2B-Base` (24-layer text architecture) under identical criteria, tokenization, and FP32/BF16 modes to establish baseline quality and VRAM reduction (~7.83 GiB FP32 / 3.9 GiB BF16).
+- [ ] **2J.2: Matched Adaptation Comparison**: Under identical data splits and criteria, evaluate:
+  1. Frozen backbone + newly fitted multi-domain heads.
+  2. Same backbone with limited LoRA adaptation.
+  3. Qwen3.5-2B-Base with the same supervised recipe (multiple seeds, supervised training first before any RL/RLCD).
+- [ ] **2J.3: Multi-Task & Multi-Question Supervision**: Assemble a reviewed multi-task corpus featuring identical states with multiple distinct questions, conflicting evidence, negation, and held-out rubric families.
+- [ ] **2J.4: Honest Noul & Score Calibration**:
+  - `Noul`: Dedicated binary calibration and evidence evaluation (not just borrowing 3-class NLI entailment).
+  - `Score`: Train with proper scoring rules (NLL or cumulative-probability Brier loss for ordinal distributions, removing the invalid expected-distance penalty that distorts probabilities toward the median). Assess ordinal action costs separately.
+- [ ] **2J.5: Competitive Baselines**: Benchmark against SALSA (finite-token parameter-efficient classifier) and GLiClass. Report correct automated decisions/sec at specified accepted-error rate and memory budget.
+
+---
+
+## Phase 3 — Production Rust Engine & Native Backends (PLANNED / GATED ON 2H/2I/2J)
+
+Once the model architecture, prompt contracts, multi-question branching, and adaptation operating point are locked, implement the production Rust engine following the **Parity Ladder**:
 
 ### The Rust Parity Ladder
 
 1. **Deterministic Head Algebra**:
    - Folded linear projection: $W' = W / \sigma$ and $b' = b - W(\mu / \sigma)$.
    - Numerically stable softmax with temperature scaling.
-   - Seven-parameter set-linear `none` feature extraction (max score, top-two gap, mean, std, log-mean-exp, $\log K$).
+   - Feature-conditioned rejection head feature extraction and scoring.
    - Verify against exported fixtures (`golden_head_inputs.npz`, max logit error $\le 1.8 \times 10^{-6}$).
 2. **Tokenization & Mask Conventions**:
-   - Segmented encoding (`instruction`, `state`, delimiters, `candidate`) with `add_special_tokens=False`.
-   - Longest common token-prefix calculation.
+   - Segmented encoding (`state`, `question`, delimiters, `candidate`) with `add_special_tokens=False`.
+   - Longest common token-prefix calculation for nested state-first trees.
    - Attention masks, position offset tracking, and explicit truncation handling.
 3. **Full-Backbone Hidden Vector Parity**:
-   - Qwen3.5 hybrid architecture: 24 recurrent DeltaNet blocks + 8 full-attention blocks.
-   - Hidden state verification at the last non-padding token against Python FP32 reference.
-4. **Hybrid Cache Branching & Snapshot Isolation**:
-   - Immutable root snapshot: recurrent state ($32 \times 128 \times 128 \times 4$ bytes $= 48$ MiB), convolution state (3 MiB), and attention KV.
-   - Independent branch isolation for candidate suffixes (prevent mutable cross-branch contamination).
+   - Qwen hybrid architecture (e.g. 2B: 24 layers; 4B: 24 DeltaNet + 8 attention blocks).
+   - Hidden state verification at the last non-padding token against Python reference.
+4. **Nested Hybrid Cache Branching & Snapshot Isolation**:
+   - Immutable root snapshot: recurrent state ($24 \text{ layers} \times 32 \times 128 \times 128 \times 4 \text{ bytes} = 48 \text{ MiB}$ for 4B; scaled for 2B), convolution state, and attention KV.
+   - Nested branch isolation: State $\to$ Question $\to$ Candidate branches without cross-contamination.
    - FP16 attention-KV snapshot storage for long prefixes ($L \ge 256$).
 5. **Suffix Batching & Cache Lifecycle**:
    - Group candidate suffixes by exact token length for unpadded execution.
    - Byte-bounded persistent LRU cache with tenant namespace isolation and TTL expiry.
 6. **Daemon Integration & Production Backends**:
-   - `opendecision-runtime`: Device discovery, worker pools, VRAM budgeting.
+   - `opendecision-runtime`: Device discovery, worker pools, VRAM budgeting, admission control.
    - `opendecision-backends`: Candle, GGUF/llama.cpp, and ONNX backends behind `DecisionEngine`.
-   - Axum HTTP & Tonic gRPC request scheduler with deadline cancellation.
+   - Axum HTTP & Tonic gRPC request scheduler with deadline cancellation and load shedding.
+   - Hardened deployment defaults: explicit opt-in to non-loopback serving, protected metrics, bounded request payload size, sensitive input redaction.
 
 ---
 
@@ -525,8 +604,8 @@ Once the Phase 2H criteria, rejection transfer, and prompt contracts are pinned,
 
 | Phase | Description | Status | Tests / Milestone |
 |---|---|---|---|
-| **Phase 0** | Wire contract & core types | done | 33 tests |
-| **Phase 1** | Daemon, HTTP/gRPC transports & SDK compat | done | 91 tests |
+| **Phase 0** | Wire contract & core types | done | 43 tests |
+| **Phase 1** | Daemon, HTTP/gRPC transports & SDK compat | done | 152 tests (195 workspace total) |
 | **Phase 2A** | Python Qwen3.5-4B exploration & parameter audit | done | Colab probe |
 | **Phase 2B** | Fixed NLI head benchmark & baseline readout | done | Run 20260917T205849Z (87.67% acc) |
 | **Phase 2C** | Qwen model research: dynamic schemas, batching & scaling | measured, needs review | Run 20260917T222948Z |
@@ -534,39 +613,33 @@ Once the Phase 2H criteria, rejection transfer, and prompt contracts are pinned,
 | **Phase 2E** | Selective precision, shared-prefix parity & rejection policy | measured, done | Drive run 20260918T114914072764Z |
 | **Phase 2F** | Cache compression, prefix reuse & persistent LRU caching | measured, done | Run 20260918T224427722898Z |
 | **Phase 2G** | Fresh decisions, TF32 arithmetic & cache lifecycle | measured, done | Run 20260919T005142584348Z |
-| **Phase 2H** | Decision criteria, rejection transfer & prompt architecture | next | Gated on Phase 2G evidence |
-| **Phase 3** | Rust engine, production backends & Parity Ladder | planned | Gated on Phase 2H |
+| **Phase 2H** | Contract hardening, criteria review, rejection head & Python bridge | next | Gated on Phase 2G evidence |
+| **Phase 2I** | Genuine multi-question execution & state-first prompting | planned | Gated on Phase 2H |
+| **Phase 2J** | Matched adaptation & model sizing (Qwen3.5-2B vs 4B) | planned | Gated on Phase 2H |
+| **Phase 3** | Rust engine, production backends & Parity Ladder | planned | Gated on Phase 2H/2I/2J |
 
-`cargo test --workspace`: **173 tests passing, 0 failing.**
+`cargo test --workspace`: **195 tests passing, 0 failing** at commit HEAD.
 
 ---
 
 ## Conventions for agents
 
-(Same as `docs/AGENTS.md` — duplicated here so this file is
-self-contained for a roadmap reader.)
+(Same as `docs/AGENTS.md` — duplicated here so this file is self-contained for a roadmap reader.)
 
-- **Wire types live in `opendecision-core`.** Any change there is a
-  breaking change for every future SDK caller. Bump
-  `JevRequest::SCHEMA_VERSION`, add a round-trip test, regenerate
-  schemas, update `docs/ARCHITECTURE.md`.
-- **`sdk_compat.rs` is the contract.** If your change would break
-  one of those 56 tests, you are touching the wire contract.
-- **New backend = new `DecisionEngine`.** Wire it in
-  `opendecision-server/src/main.rs` behind a CLI flag. Add at least
-  one round-trip test in `opendecision-engine`. Add a `sdk_compat.rs`
-  case that exercises the alias end-to-end via `/v1/systemone`.
-- **Phase 2 owns model research in Python; Phase 2H owns criteria & rejection transfer; Phase 3 owns production Rust engine.** Do not start production runtime/backends work until the Phase 3 Parity Ladder reproduces the declared FP32, rejection, and cache-isolation contracts.
+- **Wire types live in `opendecision-core`.** Any change there is a breaking change for every future SDK caller. Bump `JevRequest::SCHEMA_VERSION`, add a round-trip test, regenerate schemas, update `docs/ARCHITECTURE.md`.
+- **`sdk_compat.rs` is the contract.** If your change would break one of those 56 tests, you are touching the wire contract.
+- **New backend = new `DecisionEngine`.** Wire it in `opendecision-server/src/main.rs` behind a CLI flag. Add at least one round-trip test in `opendecision-engine`. Add a `sdk_compat.rs` case that exercises the alias end-to-end via `/v1/systemone`.
+- **Phase 2 owns model research and Python prototype bridge; Phase 3 owns production Rust engine.** Do not start production runtime/backends work until the Phase 3 Parity Ladder reproduces the declared FP32, rejection, and cache-isolation contracts.
 
 ## Quick reference
 
 ```bash
 # Build & test
 cargo build --workspace
-cargo test --workspace          # 82 tests
+cargo test --workspace          # 195 tests at HEAD
 
 # Regenerate JSON Schema
-cargo run -p opendecision-gen-schemas
+cargo run -p opendecision-gen-schemas -- --write
 
 # Run the daemon (mock engine, dev mode, no auth)
 cargo run -p opendecisiond -- \
