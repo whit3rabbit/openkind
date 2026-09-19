@@ -25,7 +25,7 @@ pub mod models;
 
 pub use error::ApiError;
 pub use http::{router, router_with_auth, router_with_state};
-pub use middleware::{AuthConfig, REQUEST_ID_HEADER};
+pub use middleware::{AuthConfig, RateLimitConfig, RateLimiter, REQUEST_ID_HEADER};
 pub use models::{ModelInfo, ModelsResponse};
 
 use std::sync::Arc;

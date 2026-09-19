@@ -168,6 +168,127 @@ pub fn auth_layer_for(auth: AuthConfig) -> axum::Router {
         .layer(middleware::from_fn_with_state(auth, auth_layer))
 }
 
+// ---------- Rate limiting ----------
+
+/// Fixed-window per-client-IP rate limit configuration.
+///
+/// `max_requests` of `0` disables limiting. The window is a plain fixed
+/// window (not sliding): counters reset every `window` interval per IP.
+#[derive(Debug, Clone)]
+pub struct RateLimitConfig {
+    /// Maximum requests allowed per client IP within `window`. `0` disables rate limiting.
+    pub max_requests: u32,
+    /// Length of the counting window.
+    pub window: std::time::Duration,
+}
+
+impl Default for RateLimitConfig {
+    fn default() -> Self {
+        // Generous for SDK clients, but caps runaway loops and brute force.
+        Self {
+            max_requests: 120,
+            window: std::time::Duration::from_secs(60),
+        }
+    }
+}
+
+/// Sweep the bucket map once it grows past this many entries so a large,
+/// rotating client population cannot grow state without bound.
+const RATE_LIMIT_SWEEP_THRESHOLD: usize = 4096;
+
+/// Shared fixed-window counter state for [`rate_limit_layer`].
+#[derive(Debug, Clone)]
+pub struct RateLimiter {
+    config: RateLimitConfig,
+    buckets: Arc<
+        std::sync::Mutex<std::collections::HashMap<std::net::IpAddr, (u32, std::time::Instant)>>,
+    >,
+}
+
+impl RateLimiter {
+    /// Construct a `RateLimiter` with the given configuration.
+    pub fn new(config: RateLimitConfig) -> Self {
+        Self {
+            config,
+            buckets: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+        }
+    }
+
+    /// Construct a disabled `RateLimiter` (all requests pass).
+    pub fn disabled() -> Self {
+        Self::new(RateLimitConfig {
+            max_requests: 0,
+            window: std::time::Duration::from_secs(60),
+        })
+    }
+
+    /// Whether this limiter enforces anything.
+    pub fn is_enabled(&self) -> bool {
+        self.config.max_requests > 0
+    }
+
+    /// Record one request for `ip`. Returns `Ok(())` when under the limit,
+    /// or `Err(retry_after_ms)` when the client has exhausted its window.
+    fn check(&self, ip: std::net::IpAddr) -> Result<(), u64> {
+        if !self.is_enabled() {
+            return Ok(());
+        }
+        let mut buckets = self
+            .buckets
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let now = std::time::Instant::now();
+        if buckets.len() >= RATE_LIMIT_SWEEP_THRESHOLD {
+            buckets.retain(|_, (_, start)| now.duration_since(*start) < self.config.window);
+        }
+        let window = self.config.window;
+        let entry = buckets.entry(ip).or_insert((0, now));
+        if now.duration_since(entry.1) >= window {
+            *entry = (0, now);
+        }
+        if entry.0 >= self.config.max_requests {
+            let elapsed = now.duration_since(entry.1);
+            let remaining_ms = window
+                .saturating_sub(elapsed)
+                .as_millis()
+                .min(u64::MAX as u128) as u64;
+            return Err(remaining_ms.max(1));
+        }
+        entry.0 += 1;
+        Ok(())
+    }
+}
+
+/// Stackable middleware function: fixed-window rate limit on `/v1/*` per
+/// client IP (taken from the `ConnectInfo` extension, which `axum::serve`
+/// provides when the router is served via
+/// `into_make_service_with_connect_info`). Requests without connect info
+/// (unit tests, unix-socket setups) are passed through — limit per-IP is
+/// only enforceable when the peer address is known.
+pub async fn rate_limit_layer(
+    State(limiter): State<RateLimiter>,
+    req: Request<Body>,
+    next: Next,
+) -> Response {
+    if !limiter.is_enabled() || !req.uri().path().starts_with("/v1/") {
+        return next.run(req).await;
+    }
+    let peer_ip = req
+        .extensions()
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .map(|c| c.0.ip());
+    match peer_ip {
+        Some(ip) => match limiter.check(ip) {
+            Ok(()) => next.run(req).await,
+            Err(retry_after_ms) => {
+                tracing::debug!(%ip, retry_after_ms, "rate limited");
+                crate::error::ApiError::RateLimited { retry_after_ms }.into_response()
+            }
+        },
+        None => next.run(req).await,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -396,5 +517,186 @@ mod tests {
             _ => Err(std::env::VarError::NotPresent),
         });
         assert_eq!(key4, None);
+    }
+
+    // ---------- Rate limit tests ----------
+
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
+    fn connect_info(ip: u8) -> axum::extract::ConnectInfo<SocketAddr> {
+        axum::extract::ConnectInfo(SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, ip)),
+            40_000,
+        ))
+    }
+
+    async fn limited_app_requests(
+        limiter: RateLimiter,
+        ip: u8,
+        n: usize,
+    ) -> Vec<axum::http::StatusCode> {
+        let app = axum::Router::new()
+            .route("/v1/ping", get(echo))
+            .route("/health", get(echo))
+            .layer(middleware::from_fn_with_state(
+                limiter.clone(),
+                rate_limit_layer,
+            ))
+            .with_state(());
+        let mut statuses = Vec::with_capacity(n);
+        for _ in 0..n {
+            let resp = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri("/v1/ping")
+                        .extension(connect_info(ip))
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            statuses.push(resp.status());
+        }
+        statuses
+    }
+
+    #[tokio::test]
+    async fn rate_limiter_blocks_after_limit_with_429_and_retry_headers() {
+        let limiter = RateLimiter::new(RateLimitConfig {
+            max_requests: 2,
+            window: std::time::Duration::from_secs(60),
+        });
+        let statuses = limited_app_requests(limiter.clone(), 1, 3).await;
+        assert_eq!(statuses[0], StatusCode::OK);
+        assert_eq!(statuses[1], StatusCode::OK);
+        assert_eq!(statuses[2], StatusCode::TOO_MANY_REQUESTS);
+
+        // The 429 body/headers follow the SDK retry contract: error envelope
+        // plus `retry-after-ms` / `Retry-After`.
+        let app = axum::Router::new()
+            .route("/v1/ping", get(echo))
+            .layer(middleware::from_fn_with_state(limiter, rate_limit_layer))
+            .with_state(());
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/ping")
+                    .extension(connect_info(1))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::TOO_MANY_REQUESTS);
+        let retry_ms = resp
+            .headers()
+            .get("retry-after-ms")
+            .expect("429 must carry retry-after-ms")
+            .to_str()
+            .unwrap()
+            .parse::<u64>()
+            .unwrap();
+        assert!(retry_ms > 0 && retry_ms <= 60_000);
+        assert_eq!(resp.headers().get("retry-after").unwrap(), "60");
+        let bytes = http_body_util::BodyExt::collect(resp.into_body())
+            .await
+            .unwrap()
+            .to_bytes();
+        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(v["error"]["code"], "rate_limited");
+    }
+
+    #[tokio::test]
+    async fn rate_limiter_is_per_ip() {
+        let limiter = RateLimiter::new(RateLimitConfig {
+            max_requests: 1,
+            window: std::time::Duration::from_secs(60),
+        });
+        // IP .1 exhausts its budget...
+        let first = limited_app_requests(limiter.clone(), 1, 2).await;
+        assert_eq!(first[0], StatusCode::OK);
+        assert_eq!(first[1], StatusCode::TOO_MANY_REQUESTS);
+        // ...IP .2 is unaffected.
+        let second = limited_app_requests(limiter, 2, 1).await;
+        assert_eq!(second[0], StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn rate_limiter_skips_non_v1_paths() {
+        let limiter = RateLimiter::new(RateLimitConfig {
+            max_requests: 1,
+            window: std::time::Duration::from_secs(60),
+        });
+        let statuses = limited_app_requests(limiter.clone(), 3, 2).await;
+        assert_eq!(statuses[0], StatusCode::OK);
+        assert_eq!(statuses[1], StatusCode::TOO_MANY_REQUESTS);
+
+        // /health is exempt: never limited regardless of exhaustion elsewhere.
+        let app = axum::Router::new()
+            .route("/health", get(echo))
+            .layer(middleware::from_fn_with_state(limiter, rate_limit_layer))
+            .with_state(());
+        for _ in 0..5 {
+            let resp = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri("/health")
+                        .extension(connect_info(3))
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), StatusCode::OK);
+        }
+    }
+
+    #[tokio::test]
+    async fn rate_limiter_window_resets() {
+        let limiter = RateLimiter::new(RateLimitConfig {
+            max_requests: 1,
+            window: std::time::Duration::from_millis(50),
+        });
+        let statuses = limited_app_requests(limiter.clone(), 4, 2).await;
+        assert_eq!(statuses[0], StatusCode::OK);
+        assert_eq!(statuses[1], StatusCode::TOO_MANY_REQUESTS);
+        tokio::time::sleep(std::time::Duration::from_millis(80)).await;
+        let after = limited_app_requests(limiter, 4, 1).await;
+        assert_eq!(after[0], StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn rate_limiter_disabled_passes_everything() {
+        let limiter = RateLimiter::disabled();
+        let statuses = limited_app_requests(limiter, 5, 10).await;
+        assert!(statuses.iter().all(|s| *s == StatusCode::OK));
+    }
+
+    #[tokio::test]
+    async fn rate_limiter_passes_through_without_connect_info() {
+        // No ConnectInfo extension (oneshot without into_make_service): fail-open.
+        let limiter = RateLimiter::new(RateLimitConfig {
+            max_requests: 1,
+            window: std::time::Duration::from_secs(60),
+        });
+        let app = axum::Router::new()
+            .route("/v1/ping", get(echo))
+            .layer(middleware::from_fn_with_state(limiter, rate_limit_layer))
+            .with_state(());
+        for _ in 0..5 {
+            let resp = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri("/v1/ping")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), StatusCode::OK);
+        }
     }
 }
