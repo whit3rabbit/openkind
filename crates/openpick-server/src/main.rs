@@ -290,10 +290,13 @@ mod tests {
         assert_eq!(parse_grpc_addr("0").unwrap(), None);
         assert_eq!(parse_grpc_addr(" off ").unwrap(), None);
         assert_eq!(parse_grpc_addr("None").unwrap(), None);
+        assert_eq!(parse_grpc_addr("disabled").unwrap(), None);
+        assert_eq!(parse_grpc_addr("  DISABLED  ").unwrap(), None);
         assert_eq!(
             parse_grpc_addr("127.0.0.1:19090").unwrap(),
             Some("127.0.0.1:19090".parse().unwrap())
         );
         assert!(parse_grpc_addr("not-an-addr").is_err());
+        assert!(parse_grpc_addr("").is_err());
     }
 }
