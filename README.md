@@ -21,12 +21,13 @@ and the model weights.
 
 | Phase                                | Status      | Tests |
 |--------------------------------------|-------------|-------|
-| **Phase 0** — wire contract          | done        | 33    |
-| **Phase 1** — daemon + SDK compat    | done        | 89 (122 total) |
-| **Phase 2** — real model backends    | in progress | —     |
+| **Phase 0** — wire contract          | done        | 43    |
+| **Phase 1** — daemon + SDK compat    | done        | 152 (195 workspace total) |
+| **Phase 2** — empirical model research (2A–2G done; 2H bridge next) | in progress | — |
+| **Phase 3** — production Rust engine & native backends | planned | — |
 
-`cargo test --workspace` runs **122+** tests across all crates. The
-SDK-compat contract (`tests/sdk_compat.rs`) is the executable
+`cargo test --workspace` runs **195** tests across all crates at commit HEAD. The
+SDK-compat contract (`crates/opendecision-api/tests/sdk_compat.rs`) is the executable
 specification — every TypeSafe endpoint, header, and error code is
 pinned there.
 
@@ -39,11 +40,12 @@ crates/
 ├── opendecision-api/         # HTTP (axum 0.8) + gRPC (tonic 0.14)
 ├── opendecision-server/      # opendecisiond daemon
 ├── opendecision-cli/         # opendecision CLI
-├── opendecision-runtime/     # (Phase 2) device/VRAM accounting
-├── opendecision-backends/    # (Phase 2) candle / GGUF / onnx
+├── opendecision-client/      # async Rust client SDK (typesafe_sdk counterpart)
+├── opendecision-runtime/     # device discovery & VRAM accounting
+├── opendecision-backends/    # native drivers (candle / GGUF / onnx)
 └── opendecision-gen-schemas/ # JSON Schema codegen
 proto/                    # opendecision.proto
-docs/                     # AGENTS.md, ARCHITECTURE.md
+docs/                     # AGENTS.md, ARCHITECTURE.md, ROADMAP.md, RESEARCH.md
 examples/                 # 8 Jev spec example fixtures
 ```
 
@@ -52,10 +54,10 @@ examples/                 # 8 Jev spec example fixtures
 ```bash
 # Build & test
 cargo build --workspace
-cargo test --workspace     # 122+ tests
+cargo test --workspace     # 195 tests at HEAD
 
 # Regenerate JSON Schema
-cargo run -p opendecision-gen-schemas
+cargo run -p opendecision-gen-schemas -- --write
 
 # Run the daemon (mock engine, dev mode, no auth)
 cargo run -p opendecisiond -- \

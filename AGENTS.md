@@ -7,11 +7,12 @@
 
 ## 🧭 System Orientation & Project Vision
 
-`opendecision` is an **open-source, high-throughput inference engine that speaks the Jev protocol** — the judgment-envelope protocol co-developed by TypeSafe for interfacing with decision-making / System 1 models.
+`opendecision` is an **independent, open-source, high-throughput decision inference engine that speaks the Jev protocol** — providing wire- and SDK-compatible judgment-envelope interfaces matching TypeSafe's System One models.
 
 - **Wire & SDK Compatible**: Wire-compatible with TypeSafe's hosted API (`https://api.typesafe.ai`), allowing clients built with `typesafe_sdk` to target either the hosted service or a local `opendecisiond` daemon without code changes.
+- **Independent Architecture**: TypeSafe identifies Jev as its proprietary System One model family; `opendecision` is an independent open-source engine providing a compatible judgment-envelope interface.
 - **Dual Transports**: Native HTTP/REST (`/v1/systemone`, aliased to `/v1/system_one`) and gRPC (`opendecision.SystemOne/Evaluate`).
-- **Extensible Inference**: Multi-backend runtime supporting mock engines, remote fallback providers, GGUF/llama.cpp, ONNX, and Candle.
+- **Extensible Inference**: Multi-backend runtime supporting mock engines, a Python reference bridge, GGUF/llama.cpp, ONNX, and Candle.
 
 ---
 
@@ -38,6 +39,7 @@ Each crate in `opendecision` maintains its own dedicated `AGENTS.md` specifying 
 | [`opendecision-api`](crates/opendecision-api) | Transports & Routing | HTTP router (Axum), gRPC service, auth layer, rate limiting, and SDK compatibility suite | [crates/opendecision-api/AGENTS.md](crates/opendecision-api/AGENTS.md) | [crates/opendecision-api/README.md](crates/opendecision-api/README.md) |
 | [`opendecision-server`](crates/opendecision-server) | Daemon Binary | `opendecisiond` server binary, configuration parsing (`OpenDecisionConfig`), and dual HTTP/gRPC lifecycle | [crates/opendecision-server/AGENTS.md](crates/opendecision-server/AGENTS.md) | [crates/opendecision-server/README.md](crates/opendecision-server/README.md) |
 | [`opendecision-cli`](crates/opendecision-cli) | Operator Tooling | `opendecision` command-line utility (`eval`, `serve`, `validate`, `bench`, `routes`) | [crates/opendecision-cli/AGENTS.md](crates/opendecision-cli/AGENTS.md) | [crates/opendecision-cli/README.md](crates/opendecision-cli/README.md) |
+| [`opendecision-client`](crates/opendecision-client) | Client SDK | Async Rust client for the SystemOne HTTP API: retries, rate-limit backoff, typed errors; Rust counterpart of `typesafe_sdk` | [crates/opendecision-client/AGENTS.md](crates/opendecision-client/AGENTS.md) | [crates/opendecision-client/README.md](crates/opendecision-client/README.md) |
 | [`opendecision-runtime`](crates/opendecision-runtime) | Engine Runtime | Runtime abstraction, engine factory, dynamic engine registry, and backend dispatch | [crates/opendecision-runtime/AGENTS.md](crates/opendecision-runtime/AGENTS.md) | [crates/opendecision-runtime/README.md](crates/opendecision-runtime/README.md) |
 | [`opendecision-backends`](crates/opendecision-backends) | Backend Drivers | Driver implementations for remote providers, GGUF/llama.cpp, ONNX, and Candle | [crates/opendecision-backends/AGENTS.md](crates/opendecision-backends/AGENTS.md) | [crates/opendecision-backends/README.md](crates/opendecision-backends/README.md) |
 | [`opendecision-gen-schemas`](crates/opendecision-gen-schemas) | Schema Generator | Tooling binary for generating JSON Schemas (`jev-v1-request.json`, `jev-v1-response.json`) from Rust structs | [crates/opendecision-gen-schemas/AGENTS.md](crates/opendecision-gen-schemas/AGENTS.md) | [crates/opendecision-gen-schemas/README.md](crates/opendecision-gen-schemas/README.md) |
