@@ -1,4 +1,4 @@
-# openpick — Architecture
+# opendecision — Architecture
 
 > A Jev-compatible, open-source decision-inference engine in Rust.
 >
@@ -7,55 +7,55 @@
 
 ## Overview
 
-`openpick` is a server that takes structured decision questions (Noul,
+`opendecision` is a server that takes structured decision questions (Noul,
 Choice, Score) and returns inferred answers, plus the surrounding
 tracing/metrics/auth surface a public SDK needs. It is wire-compatible
 with the proposed `typesafe_sdk` Python client, so any future consumer
-can speak to a self-hosted `openpickd` daemon the same way it speaks to
+can speak to a self-hosted `opendecisiond` daemon the same way it speaks to
 the hosted TypeSafe API.
 
 The repo is split so that the **wire contract** lives in a tiny crate
-(`openpick-core`), the **model logic** lives behind a trait
-(`openpick-engine`), and the **transport layers** (HTTP, gRPC) live in
-`openpick-api`. Anyone can drop in a new model backend (candle, GGUF,
+(`opendecision-core`), the **model logic** lives behind a trait
+(`opendecision-engine`), and the **transport layers** (HTTP, gRPC) live in
+`opendecision-api`. Anyone can drop in a new model backend (candle, GGUF,
 ONNX, a remote provider) by implementing `DecisionEngine`.
 
 ## Workspace layout
 
 ```
-openpick/
+opendecision/
 ├── Cargo.toml                # workspace manifest + shared deps
 ├── crates/
-│   ├── openpick-core/        # Jev wire types (request, response, error)
-│   ├── openpick-engine/      # DecisionEngine trait + EngineRegistry
-│   ├── openpick-api/         # HTTP (axum) + gRPC (tonic) transport
-│   ├── openpick-server/      # openpickd binary
-│   ├── openpick-cli/         # openpick binary
-│   ├── openpick-runtime/     # hardware / OS abstraction (Phase 2+)
-│   ├── openpick-backends/    # candle / GGUF / onnx (Phase 2+)
-│   └── openpick-gen-schemas/ # one-shot JSON Schema codegen
-├── proto/openpick.proto      # gRPC service definition
+│   ├── opendecision-core/        # Jev wire types (request, response, error)
+│   ├── opendecision-engine/      # DecisionEngine trait + EngineRegistry
+│   ├── opendecision-api/         # HTTP (axum) + gRPC (tonic) transport
+│   ├── opendecision-server/      # opendecisiond binary
+│   ├── opendecision-cli/         # opendecision binary
+│   ├── opendecision-runtime/     # hardware / OS abstraction (Phase 2+)
+│   ├── opendecision-backends/    # candle / GGUF / onnx (Phase 2+)
+│   └── opendecision-gen-schemas/ # one-shot JSON Schema codegen
+├── proto/opendecision.proto      # gRPC service definition
 ├── examples/                 # 8 JSON fixtures from the Jev spec
 ├── docs/ARCHITECTURE.md      # this file
-└── crates/openpick-core/schemas/   # generated JSON Schema docs
+└── crates/opendecision-core/schemas/   # generated JSON Schema docs
 ```
 
 ### Layering
 
 ```
 ┌─────────────────────────────────────────────────────┐
-│ openpickd  / openpick cli (binaries)                │
+│ opendecisiond  / opendecision cli (binaries)                │
 ├─────────────────────────────────────────────────────┤
-│ openpick-api      (HTTP axum 0.8 + gRPC tonic 0.14) │
+│ opendecision-api      (HTTP axum 0.8 + gRPC tonic 0.14) │
 │   ├── middleware: request_id, auth, tracing         │
 │   ├── error mapping → 400/401/404/422/429/5xx       │
 │   └── models: ModelInfo, ModelsResponse (Jev shape) │
 ├─────────────────────────────────────────────────────┤
-│ openpick-engine    (DecisionEngine trait)           │
+│ opendecision-engine    (DecisionEngine trait)           │
 │   └── MockEngine (Phase 1) — deterministic fake     │
 │   └── validated native backends (Phase 3) — gated    │
 ├─────────────────────────────────────────────────────┤
-│ openpick-core      (wire types only)                │
+│ opendecision-core      (wire types only)                │
 │   ├── SystemRequest, SystemResponse, Answer         │
 │   ├── validate_request() → ValidationError          │
 │   └── JSON Schema (jev-v1-request.json, ...)        │
@@ -68,7 +68,7 @@ behaviors land in `engine`; transport lives in `api`.
 
 ## Crate responsibilities
 
-### `openpick-core`
+### `opendecision-core`
 
 Jev wire-format types. This crate is the single source of truth for
 what a request and response look like on the wire, across both HTTP
@@ -84,7 +84,7 @@ Float widths matter on the wire: `probabilities`, `score`, `noul`,
 `confidence` are all `f64`. `0.92f32` round-trips to
 `0.9200000166893005` which is a wire-format regression.
 
-### `openpick-engine`
+### `opendecision-engine`
 
 The trait that anything callable from `/v1/systemone` implements:
 
@@ -92,7 +92,7 @@ The trait that anything callable from `/v1/systemone` implements:
 #[async_trait]
 pub trait DecisionEngine: Send + Sync + 'static {
     fn backend_id(&self) -> &str;
-    fn model_metadata(&self) -> openpick_core::ModelInfo;
+    fn model_metadata(&self) -> opendecision_core::ModelInfo;
 
     async fn evaluate(
         &self,
@@ -114,7 +114,7 @@ batch-dependent probability and class changes. Real candle / GGUF /
 native backends remain a Phase 3 implementation target behind this
 same trait, gated on the Phase 2F reference-engine checks.
 
-### `openpick-api`
+### `opendecision-api`
 
 Two transports, one business logic:
 
@@ -133,7 +133,7 @@ Middleware (`src/middleware.rs`):
   present, else mints a UUIDv4 and stamps on response. Runs **outermost**
   so it's stamped even on 401s.
 - `auth_layer` — Bearer-token gate on `/v1/*`, env-driven via
-  `OPENPICK_API_KEY`. `/health` and `/metrics` are open.
+  `OPENDECISION_API_KEY`. `/health` and `/metrics` are open.
 - `TraceLayer` — structured tracing per request.
 
 Error model (`src/error.rs`) maps `ApiError` → `(status, error-envelope, headers)`:
@@ -151,26 +151,26 @@ Error model (`src/error.rs`) maps `ApiError` → `(status, error-envelope, heade
 Every error response includes `x-typesafe-request-id`, including 4xx
 and 5xx.
 
-### `openpick-server`
+### `opendecision-server`
 
-The `openpickd` daemon binary. Entry point for production. Parses CLI
+The `opendecisiond` daemon binary. Entry point for production. Parses CLI
 flags via clap, builds the registry, mounts the HTTP router from
-`openpick-api::http`, mounts the gRPC service from
-`openpick-api::grpc`, listens on both ports concurrently, and shuts
+`opendecision-api::http`, mounts the gRPC service from
+`opendecision-api::grpc`, listens on both ports concurrently, and shuts
 down cleanly on SIGTERM.
 
-### `openpick-cli`
+### `opendecision-cli`
 
-The `openpick` binary. Subcommands:
+The `opendecision` binary. Subcommands:
 
-- `openpick serve`  — same as `openpickd` (left for symmetry)
-- `openpick evaluate` — read a JSON request from a file or stdin, hit a
+- `opendecision serve`  — same as `opendecisiond` (left for symmetry)
+- `opendecision evaluate` — read a JSON request from a file or stdin, hit a
   running daemon, write the response to stdout
-- `openpick inspect` — pretty-print a JSON file, validating it against
+- `opendecision inspect` — pretty-print a JSON file, validating it against
   the Jev request schema
-- `openpick version` — print build metadata
+- `opendecision version` — print build metadata
 
-### `openpick-runtime`, `openpick-backends`
+### `opendecision-runtime`, `opendecision-backends`
 
 Placeholders for Phase 3. `runtime` will own device discovery, VRAM
 accounting, worker pools, and the shared-state cache. `backends` will
@@ -227,33 +227,33 @@ production runtime and backend integration begins.
 The server matches the Jev HTTP API at https://docs.typesafe.ai/api
 **and** the proposed `typesafe_sdk` Python client at
 https://docs.typesafe.ai/sdk/python/api. Every endpoint, header,
-and error code is covered by `crates/openpick-api/tests/sdk_compat.rs`
+and error code is covered by `crates/opendecision-api/tests/sdk_compat.rs`
 (37 tests).
 
 Conformance to the Jev examples (`examples/01..08`) is covered by
-`crates/openpick-core/tests/conformance.rs` (23 tests).
+`crates/opendecision-core/tests/conformance.rs` (23 tests).
 
 ## Testing strategy
 
-- **`openpick-core`** — `cargo test` validates every spec example
+- **`opendecision-core`** — `cargo test` validates every spec example
   round-trips through serde (request → response).
-- **`openpick-core`** — `cargo run -p openpick-gen-schemas` regenerates
+- **`opendecision-core`** — `cargo run -p opendecision-gen-schemas` regenerates
   `schemas/jev-v1-{request,response}.json` from the Rust types.
-- **`openpick-engine`** — `MockEngine` is deterministic with a seeded
+- **`opendecision-engine`** — `MockEngine` is deterministic with a seeded
   RNG and sorted key iteration.
-- **`openpick-api`** — middleware unit tests + `sdk_compat.rs` end-to-end
+- **`opendecision-api`** — middleware unit tests + `sdk_compat.rs` end-to-end
   tests (axum's `tower::ServiceExt::oneshot` against the real router).
-- **`openpick-api`** — `grpc_roundtrip.rs` spins up a real
+- **`opendecision-api`** — `grpc_roundtrip.rs` spins up a real
   `tonic::transport::Server` on a random port and exercises the
   evaluate RPC.
-- **`openpick-server`** — manual end-to-end: build, run, curl each
+- **`opendecision-server`** — manual end-to-end: build, run, curl each
   endpoint with all 8 example fixtures.
 
 Current totals as of last test run: **122 tests passing, 0 failing.**
 
 ## Operational notes
 
-- **Auth is opt-in.** Without `OPENPICK_API_KEY` set, `/v1/*` is open
+- **Auth is opt-in.** Without `OPENDECISION_API_KEY` set, `/v1/*` is open
   (useful for local dev). Setting the env var gates the API surface
   with constant-time token comparison.
 - **Metrics are optional.** `/metrics` returns 200 with `# not
@@ -292,6 +292,6 @@ Current totals as of last test run: **122 tests passing, 0 failing.**
   batch incoming `system_one` requests with small, length-aware policies
   and evaluate branched questions against a shared model instance only
   after cache isolation is validated.
-- VRAM/device accounting in `openpick-runtime`.
-- A Python `openpick` client that issues real RPCs against a
-  self-hosted `openpickd` (the SDK compat tests are the contract).
+- VRAM/device accounting in `opendecision-runtime`.
+- A Python `opendecision` client that issues real RPCs against a
+  self-hosted `opendecisiond` (the SDK compat tests are the contract).

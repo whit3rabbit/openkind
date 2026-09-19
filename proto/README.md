@@ -1,16 +1,16 @@
-# openpick-proto
+# opendecision-proto
 
-> Protocol Buffers schema and generated Rust client/server types for `openpick`.
+> Protocol Buffers schema and generated Rust client/server types for `opendecision`.
 
-`openpick-proto` contains the canonical gRPC service definitions and protobuf messages for the `openpick.system_one.SystemOne` service.
+`opendecision-proto` contains the canonical gRPC service definitions and protobuf messages for the `opendecision.system_one.SystemOne` service.
 
-## Schema: `proto/openpick.proto`
+## Schema: `proto/opendecision.proto`
 
 Defines the binary service equivalent of the HTTP `POST /v1/systemone` endpoint:
 
 ```protobuf
 syntax = "proto3";
-package openpick;
+package opendecision;
 
 service SystemOne {
   rpc Evaluate (SystemOneRequest) returns (SystemOneResponse);
@@ -25,9 +25,9 @@ Key protobuf messages:
 
 ## Compilation & Codegen
 
-`build.rs` compiles `proto/openpick.proto` via `tonic-prost-build` during `cargo build`, exposing generated types inside the `openpick` module:
+`build.rs` compiles `proto/opendecision.proto` via `tonic-prost-build` during `cargo build`, exposing generated types inside the `opendecision` module:
 
 ```rust
-use openpick_proto::openpick::system_one_client::SystemOneClient;
-use openpick_proto::openpick::system_one_server::{SystemOne, SystemOneServer};
+use opendecision_proto::opendecision::system_one_client::SystemOneClient;
+use opendecision_proto::opendecision::system_one_server::{SystemOne, SystemOneServer};
 ```

@@ -1,4 +1,4 @@
-# openpick — Roadmap
+# opendecision — Roadmap
 
 > Jev-compatible, open-source decision-inference engine in Rust.
 > Wire spec: <https://docs.typesafe.ai/api>
@@ -14,16 +14,16 @@ HEAD.
 **Goal:** lock the Jev schema before any server exists. Every TypeSafe
 spec example must round-trip through our types without data loss.
 
-- [x] `openpick-core` crate: `SystemRequest` / `SystemResponse` /
+- [x] `opendecision-core` crate: `SystemRequest` / `SystemResponse` /
       `Answer` with `f64` (not `f32`) precision on `probabilities`,
       `score`, `noul`, `confidence`. `0.92f32` round-trips to
       `0.9200000166893005` — that was the trap.
 - [x] `validate_request()` covering every documented validation rule.
 - [x] **23** conformance tests in
-      `crates/openpick-core/tests/conformance.rs` — one per Jev spec
+      `crates/opendecision-core/tests/conformance.rs` — one per Jev spec
       example fixture.
 - [x] `gen-schemas` binary regenerates
-      `crates/openpick-core/schemas/jev-v1-{request,response}.json`
+      `crates/opendecision-core/schemas/jev-v1-{request,response}.json`
       from the Rust types via `schemars`.
 - [x] **8** example JSON fixtures committed in `examples/`
       (`01_noul.json` … `08_response_score.json`).
@@ -37,9 +37,9 @@ client can speak to without modification.
 
 - [x] **HTTP** (axum 0.8): `POST /v1/systemone`, `GET /v1/models`,
       `GET /health`, `GET /metrics`.
-- [x] **gRPC** (tonic 0.14): `openpick.system_one.SystemOne` with one
+- [x] **gRPC** (tonic 0.14): `opendecision.system_one.SystemOne` with one
       `evaluate` RPC, request_id propagated via tonic interceptor.
-- [x] `openpickd` daemon + `openpick` CLI (`serve`, `evaluate`,
+- [x] `opendecisiond` daemon + `opendecision` CLI (`serve`, `evaluate`,
       `inspect`, `version`).
 - [x] `DecisionEngine` trait (`backend_id`, `model_metadata`,
       `evaluate`) + `EngineRegistry` alias → `Arc<dyn …>`.
@@ -48,7 +48,7 @@ client can speak to without modification.
       actually depends on):
   - `x-typesafe-request-id` stamped on **every** response, including
     401s (middleware runs outermost).
-  - Bearer auth opt-in via `OPENPICK_API_KEY`, constant-time compare.
+  - Bearer auth opt-in via `OPENDECISION_API_KEY`, constant-time compare.
   - `Retry-After` / `retry-after-ms` headers on 429 + 529.
   - Error envelope `{"error":{"code",message}}` mapped to the Python
     SDK's `TypeSafe{Authentication,RateLimit,BadRequest,…}Error`.
@@ -58,14 +58,14 @@ client can speak to without modification.
 
 | Suite                                              | Tests |
 |----------------------------------------------------|-------|
-| `openpick-core` unit + conformance                 | 33    |
-| `openpick-engine` unit (MockEngine, dispatch)      | 14    |
-| `openpick-api` unit (middleware, error mapping)    | 22    |
-| `openpick-api/tests/sdk_compat.rs`                 | 56    |
-| `openpick-api/tests/grpc_roundtrip.rs`             | 8     |
-| `openpick-cli` unit                                | 7     |
-| `openpick-server` unit                             | 2     |
-| `openpick-proto` unit                              | 2     |
+| `opendecision-core` unit + conformance                 | 33    |
+| `opendecision-engine` unit (MockEngine, dispatch)      | 14    |
+| `opendecision-api` unit (middleware, error mapping)    | 22    |
+| `opendecision-api/tests/sdk_compat.rs`                 | 56    |
+| `opendecision-api/tests/grpc_roundtrip.rs`             | 8     |
+| `opendecision-cli` unit                                | 7     |
+| `opendecision-server` unit                             | 2     |
+| `opendecision-proto` unit                              | 2     |
 | **Total at HEAD**                                  | **144** |
 
 (Exact unit-test count drifts with engine/HTTP additions; SDK-compat
@@ -372,40 +372,152 @@ only attention keys and values. Shared-prefix reuse across different
 questions, padded or packed suffix schemes, Rust, Metal, HTTP, concurrent
 requests, and long-document decision quality remain unvalidated.
 
-### Phase 2F: reference engine and execution optimization (NEXT)
+### Phase 2F: cache compression, prefix reuse & persistent LRU caching (MEASURED / DONE)
 
-1. **Reproduce the FP32 reference in Rust.** Port the validated execution
-   structure and compare full-prompt, cached sequential, and cached batched
-   paths using the pinned token sequences, frozen heads, policies, and saved
-   outputs.
-2. **Optimize measured bottlenecks.** Prioritize suffix-batch utilization,
-   exact-length grouping, and model-forward efficiency before investing in a
-   more elaborate cache allocator. Cache-copy elimination alone is not
-   expected to provide a large gain from the current profile.
-3. **Keep behavior gates attached to every optimization.** Retain probability
-   tolerance, selected-outcome, answer/review, branch-isolation, and candidate
-   order checks. Any padded or packed suffix strategy needs its own equivalence
-   evidence.
-4. **Evaluate cheaper precision separately.** Treat lower-precision serving
-   as a distinct execution configuration. Matching only the top candidate is
-   insufficient; the saved probability and policy behavior must be checked.
+Run ID: `20260918T224427722898Z` (version `2f.1.0`, archived in `research/opendecision_phase2f_20260918T224427722898Z/`).
+Evaluated on **NVIDIA L4 GPU** comparing `fp32_strict_math` and `bf16_default` workers in process isolation. Backbone weights, candidate scorer, set-linear `none` head, and 9 application policies remained frozen; no retraining or threshold fitting occurred.
 
-The Rust work should reproduce the reference before optimizing it. Phase 2E
-did not benchmark Rust, Metal, an HTTP server, or concurrent requests.
+The evaluation covered 128 episodes from 8 archived messages (32 episodes for compression regression, 16 for complete cold requests across $K \in \{2, 4, 8, 16\}$, two 32-request traces for cache locality, and synthetic prefixes of 64, 256, and 1,024 tokens).
+
+**1. Snapshot Codec Equivalence vs. Gate Failure:**
+
+| FP32 Snapshot Codec | Max Delta vs. Full | Outcome Changes | Policy Changes | Accepted / 32 | Status |
+|---|---:|---:|---:|---:|---|
+| **Lossless** | **0.00000880** | **0** | **0** | **32 / 32** | Passed all gates |
+| **FP16 Attention KV** (`kv_fp16`) | **0.00042450** | **0** | **0** | **32 / 32** | Passed all gates |
+| TurboQuant $k=3, v=4, r=0$ | 0.21882282 | 8 | 2 | 5 / 32 | Failed |
+| TurboQuant $k=3, v=4, r=32$ | 0.18655649 | 8 | 5 | 6 / 32 | Failed |
+| TurboQuant $k=4, v=4, r=32$ | 0.12008530 | 2 | 1 | 12 / 32 | Failed |
+| TurboQuant $k=3, v=2, r=32$ | 0.47489768 | 13 | 6 | 5 / 32 | Failed |
+
+- **Lossless & FP16 KV Storage Passed**: In FP32, lossless snapshots reproduced identical outputs under the same chunking; FP16 attention-KV storage had maximum codec-only delta of 0.00042351 with 0 outcome changes and 0 policy changes.
+- **TurboQuant Low-Bit Codecs Failed**: All four tested TurboQuant snapshot configurations failed the 0.005 probability gate and altered decisions (changing argmax in 2–13 episodes and policies in 1–6 episodes). Retaining a 32-token exact tail ($r=32$) or increasing nominal key bits did not restore parity.
+- **BF16 Round-Trip Divergence**: Under BF16, even lossless snapshot restoration failed comparison against BF16 full sequential (max delta 0.074689, 13/32 accepted, 1 policy change), confirming that snapshot fidelity cannot fix underlying execution-shape divergence.
+
+**2. Memory Accounting & Recurrent State Dominance:**
+- **Hybrid Cache Composition**: For a representative 42-token prefix, the FP32 root contains **48.0 MiB recurrent state** (24 DeltaNet blocks $\times 32 \times 128 \times 128$ floats), **3.0 MiB convolution state**, and only **2.625 MiB attention KV** (53.625 MiB total).
+- **Short-Prefix Compression Overhead**: Attention KV accounts for only 4.9% of a 42-token root. Compressing KV saves negligible bytes while TurboQuant codebook tables add ~4 MiB overhead, resulting in snapshot entries that are *larger* than uncompressed roots.
+- **Long-Prefix Amortization**: At 1,024 tokens, attention KV grows to 64 MiB (FP32). FP16-KV storage reduces root storage from 115 MiB to 83 MiB (**27.8% root reduction**), passing all numerical and policy checks.
+
+**3. Cold Request Latency & Suffix Batching:**
+
+| Candidates ($K$) | Full Sequential | Full Batch 4 | Shared Batch 4 | Shared Batch 8 | Lossless Snapshot | FP16-KV Snapshot |
+|---:|---:|---:|---:|---:|---:|---:|
+| 2 | 195.4 ms | **147.2 ms** | 271.5 ms | 271.7 ms | 274.6 ms | 287.3 ms |
+| 4 | 392.1 ms | **281.4 ms** | 373.7 ms | 373.3 ms | 376.7 ms | 389.2 ms |
+| 8 | 793.2 ms | 582.5 ms | **576.6 ms** | 576.9 ms | 578.8 ms | 590.8 ms |
+| 16 | 1,595.3 ms | 1,180.4 ms | 724.5 ms | **686.4 ms** | 727.3 ms | 738.8 ms |
+
+- Full batching is faster on short requests ($K=2, 4$). Shared-prefix suffix batching becomes faster at $K=8$ and decisive at $K=16$ (**$2.32\times$ faster** than full sequential, **$1.72\times$ faster** than full batch 4).
+
+**4. Persistent LRU Cache Traces:**
+- On 32-request traces across 8 messages with a 384 MiB budget, GPU lossless LRU reduced total service time by **13.91%** (grouped locality) and **11.88%** (shuffled locality) with 0 policy changes.
+- **Cold vs. Warm Mechanics**: At 1,024 synthetic tokens, cold shared-prefix execution took 1,295.9 ms (vs. 9,217.4 ms full sequential), while warm lossless reuse took **272.9 ms** (a **$33.8\times$ latency reduction** over full sequential after cache population).
+- **Multi-Token Prediction (MTP)** is not applicable: no output tokens are generated, and all candidate suffix tokens are supplied upfront.
 
 ---
 
-## Phase 3 — Rust Engine & Production Backends (PLANNED)
+### Phase 2G: fresh decisions, TF32 arithmetic & cache lifecycle (MEASURED / DONE)
 
-Once the Qwen decision architecture, dynamic candidate scoring, precision policy, rejection behavior, and the Phase 2F reference path are validated, port the complete inference pipeline to production Rust:
+Run ID: `20260919T005142584348Z` (version `2g.1.0`, archived in `research/opendecision_phase2g_20260919T005142584348Z/`).
+Evaluated on **NVIDIA L4 GPU** comparing `fp32_strict_math` and `fp32_tf32_allowed` workers in process isolation. Backbone, heads, and policies remained frozen.
 
-- [ ] `openpick-runtime` — device discovery, VRAM accounting, worker pools, shared state cache.
-- [ ] `openpick-backends` — candle (GGUF), ONNX runtime, optional remote-provider passthrough, all behind `DecisionEngine`.
-- [ ] Parity test suite against Python reference vectors (`golden_head_inputs.npz`).
-- [ ] Request scheduler — batch incoming `system_one` calls, execute branched question evaluations against cached state.
-- [ ] Cancel tokens / timeout propagation from gRPC deadline headers.
-- [ ] A real Python client (`openpick` or `typesafe_sdk`) exercising a self-hosted `openpickd` daemon end-to-end.
-- [ ] Eval harness: feed labeled datasets through `openpickd`, capture side-by-side comparison with the hosted TypeSafe API.
+The evaluation introduced 416 fresh sampled-choice episodes across 112 messages (excluding 2,912 prior Banking message hashes), spanning Banking77 head-training labels, Banking77 held-out labels, CLINC non-financial domains, and CLINC author-labeled out-of-scope (OOS) requests.
+
+**1. Strict-FP32 Parity Survives Fresh Inputs & Controlled Context:**
+
+| Panel | Strategy | Episodes / Messages | Max Prob Delta | Outcome Changes | Policy Changes | Accepted |
+|---|---|---:|---:|---:|---:|---:|
+| **Fresh Inputs** | Full batch 4 | 56 / 16 | 0.00000731 | 0 | 0 | 56 / 56 |
+| **Fresh Inputs** | Shared lossless | 56 / 16 | 0.00000774 | 0 | 0 | 56 / 56 |
+| **Fresh Inputs** | Shared FP16-KV | 56 / 16 | 0.00045509 | 0 | 0 | 56 / 56 |
+| **Controlled Context** | Full batch 4 | 72 / 6 | 0.00003582 | 0 | 0 | 72 / 72 |
+| **Controlled Context** | Shared lossless | 72 / 6 | 0.00001442 | 0 | 0 | 72 / 72 |
+| **Controlled Context** | Shared FP16-KV | 72 / 6 | 0.00054408 | 0 | 0 | 72 / 72 |
+
+- Strict-FP32 execution fidelity reproduced its full-prompt reference across all fresh and context-expanded tests. FP16-KV storage remained bounded within 0.00055 max delta with 0 policy drift.
+
+**2. TF32 Speedup vs. Equivalence Gate Failures:**
+- **Performance Win**: TF32 permission (`float32_matmul_precision = high`, `matmul.allow_tf32 = true`) roughly doubled full batching speed on short requests:
+  - $K=4$: 265.1 ms $\rightarrow$ **131.7 ms** ($2.01\times$).
+  - $K=16$: 1,118.3 ms $\rightarrow$ **518.5 ms** ($2.16\times$).
+- **Memory Invariance**: Post-load parameter allocation was identical (16,043.7 MiB). TF32 does not save weight storage.
+- **Equivalence Failures**: Across 416 fresh full-sequential episodes, TF32 changed head argmax in **3 episodes** (2 moving from correct `none` to wrong candidate in refitted global; set-linear head had 0 argmax changes). In controlled context (72 episodes), 2 episodes exceeded the 0.005 tolerance.
+- **Conclusion**: TF32 is a separately versioned performance configuration, not an exact equivalent drop-in replacement.
+
+**3. Fresh Semantic Quality & Rejection Transfer Limits:**
+
+| Family | Frozen None Head | Accuracy | NLL | Answerable Acc | None Recall |
+|---|---|---:|---:|---:|---:|
+| Banking, training labels | Set-linear | 69.53% | 0.8821 | 70.31% | 68.75% |
+| Banking, held-out labels | Set-linear | 75.78% | 0.6471 | 82.81% | 68.75% |
+| CLINC, non-financial | Set-linear | 66.41% | 1.0366 | **93.75%** | **39.06%** |
+| CLINC, author OOS | Set-linear | 46.88% | 1.3385 | N/A | **46.88%** |
+
+- **Rejection Transfer Bottleneck**: In CLINC, answerable accuracy was 93.75% (60/64), but omitted-intent recall dropped to **39.06%** (25/64), and author-labeled OOS recall was only **46.88%** (15/32). Matching offered candidates transfers well; detecting absent or out-of-domain intents remains weak.
+
+**4. Criteria Ambiguity & High-Confidence Error Case:**
+- Message: `"How can I get a physical card"` (gold label: `order_physical_card`, "order physical card").
+- Model behavior: When presented with `get_physical_card` ("get physical card"), the model selected it with **>98.8% to >99.8% confidence** across all 4 episodes.
+- Implication: Terse, overlapping descriptions cause confident failure. Candidate criteria must be documented, versioned semantic descriptions rather than raw class labels.
+
+**5. Context Length & Evidence Position Degradation:**
+- Wrapping 6 requests in administrative background showed significant semantic sensitivity:
+  - Minimal wrapper: **91.67% accuracy**, 0.28–0.34 NLL.
+  - 1,024 state tokens, request first: **66.67% accuracy**, 0.5932 NLL.
+  - 1,024 state tokens, request last: **83.33% accuracy**, 0.3342 NLL.
+- Execution fidelity and semantic validity diverge: cached paths faithfully reproduce the full-sequential decision, but the decision itself degrades under distracting background context.
+
+**6. Cache Lifecycle with Real TTL Expiry:**
+- 192 MiB budget with 20s TTL on a 48-request trace achieved **6.19% service time reduction** in strict FP32, recording 15 hits, 33 misses, 21 capacity evictions, and 9 TTL expiry events.
+- 7 CPU tests verified exact-boundary expiry, byte-bounded eviction, oversized-entry bypass, tenant namespace separation, and branch isolation without root mutation.
+
+---
+
+### Phase 2H: decision criteria, rejection transfer & prompt architecture (NEXT)
+
+Shift immediate model research from repetitive cache testing to decision criteria, rejection transfer, and prompt structure under the frozen strict-FP32 reference:
+
+- [ ] **P0: Criteria and annotation review**: Audit confusing candidate pairs (e.g. `order_physical_card` vs. `get_physical_card`). Decouple stable machine IDs from rich semantic descriptions. Establish versioned description contracts.
+- [ ] **P0: Rejection and calibration transfer**: Compare fixed scorer with refitted set-aware `none` models and multi-domain candidate heads across both omitted in-scope intents and author-OOS distributions.
+- [ ] **P0: Irrelevant-context and instruction robustness**: Train/evaluate under realistic background text and variable evidence positions to prevent attention dilution.
+- [ ] **P1: TF32 serving path validation**: Measure TF32 under explicit application quality and behavioral contracts to determine if the $2\times$ batching speedup can be safely captured.
+- [ ] **P1: State-first prompt contract**: Explore `[State, Instruction, Candidates]` prompt layout to evaluate whether prefill can be amortized across *different* questions, rather than only across candidates of the same question.
+- [ ] **P1: Matched baselines**: Benchmark against finite-token classification baselines (SALSA, GLiClass).
+- [ ] **P1: Dedicated Noul & Score evaluation**: Train and validate binary truth/yes (`Noul`) calibration and ordinal rubric levels (`Score`).
+- [ ] **P1: Model scaling and adaptation**: Compare frozen 4B backbone against LoRA adaptation and smaller backbones (e.g. Qwen2.5-1.5B/3B).
+
+---
+
+## Phase 3 — Rust Engine & Production Backends (PLANNED / GATED ON 2H)
+
+Once the Phase 2H criteria, rejection transfer, and prompt contracts are pinned, implement the production Rust engine following the **five-stage Parity Ladder** from Section 11.3 of the research whitepaper:
+
+### The Rust Parity Ladder
+
+1. **Deterministic Head Algebra**:
+   - Folded linear projection: $W' = W / \sigma$ and $b' = b - W(\mu / \sigma)$.
+   - Numerically stable softmax with temperature scaling.
+   - Seven-parameter set-linear `none` feature extraction (max score, top-two gap, mean, std, log-mean-exp, $\log K$).
+   - Verify against exported fixtures (`golden_head_inputs.npz`, max logit error $\le 1.8 \times 10^{-6}$).
+2. **Tokenization & Mask Conventions**:
+   - Segmented encoding (`instruction`, `state`, delimiters, `candidate`) with `add_special_tokens=False`.
+   - Longest common token-prefix calculation.
+   - Attention masks, position offset tracking, and explicit truncation handling.
+3. **Full-Backbone Hidden Vector Parity**:
+   - Qwen3.5 hybrid architecture: 24 recurrent DeltaNet blocks + 8 full-attention blocks.
+   - Hidden state verification at the last non-padding token against Python FP32 reference.
+4. **Hybrid Cache Branching & Snapshot Isolation**:
+   - Immutable root snapshot: recurrent state ($32 \times 128 \times 128 \times 4$ bytes $= 48$ MiB), convolution state (3 MiB), and attention KV.
+   - Independent branch isolation for candidate suffixes (prevent mutable cross-branch contamination).
+   - FP16 attention-KV snapshot storage for long prefixes ($L \ge 256$).
+5. **Suffix Batching & Cache Lifecycle**:
+   - Group candidate suffixes by exact token length for unpadded execution.
+   - Byte-bounded persistent LRU cache with tenant namespace isolation and TTL expiry.
+6. **Daemon Integration & Production Backends**:
+   - `opendecision-runtime`: Device discovery, worker pools, VRAM budgeting.
+   - `opendecision-backends`: Candle, GGUF/llama.cpp, and ONNX backends behind `DecisionEngine`.
+   - Axum HTTP & Tonic gRPC request scheduler with deadline cancellation.
 
 ---
 
@@ -414,16 +526,18 @@ Once the Qwen decision architecture, dynamic candidate scoring, precision policy
 | Phase | Description | Status | Tests / Milestone |
 |---|---|---|---|
 | **Phase 0** | Wire contract & core types | done | 33 tests |
-| **Phase 1** | Daemon, HTTP/gRPC transports & SDK compat | done | 91 tests (124 total) |
+| **Phase 1** | Daemon, HTTP/gRPC transports & SDK compat | done | 91 tests |
 | **Phase 2A** | Python Qwen3.5-4B exploration & parameter audit | done | Colab probe |
 | **Phase 2B** | Fixed NLI head benchmark & baseline readout | done | Run 20260917T205849Z (87.67% acc) |
 | **Phase 2C** | Qwen model research: dynamic schemas, batching & scaling | measured, needs review | Run 20260917T222948Z |
 | **Phase 2D** | Numerical reference, rejection policy & complete requests | measured, needs review | Run 20260917T234417Z |
 | **Phase 2E** | Selective precision, shared-prefix parity & rejection policy | measured, done | Drive run 20260918T114914072764Z |
-| **Phase 2F** | Rust reference engine & execution optimization | next | Gated by Phase 2E evidence |
-| **Phase 3** | Rust engine, runtime & production backends | planned | Gated on Phase 2F |
+| **Phase 2F** | Cache compression, prefix reuse & persistent LRU caching | measured, done | Run 20260918T224427722898Z |
+| **Phase 2G** | Fresh decisions, TF32 arithmetic & cache lifecycle | measured, done | Run 20260919T005142584348Z |
+| **Phase 2H** | Decision criteria, rejection transfer & prompt architecture | next | Gated on Phase 2G evidence |
+| **Phase 3** | Rust engine, production backends & Parity Ladder | planned | Gated on Phase 2H |
 
-`cargo test --workspace`: **124 tests passing, 0 failing.**
+`cargo test --workspace`: **173 tests passing, 0 failing.**
 
 ---
 
@@ -432,20 +546,17 @@ Once the Qwen decision architecture, dynamic candidate scoring, precision policy
 (Same as `docs/AGENTS.md` — duplicated here so this file is
 self-contained for a roadmap reader.)
 
-- **Wire types live in `openpick-core`.** Any change there is a
+- **Wire types live in `opendecision-core`.** Any change there is a
   breaking change for every future SDK caller. Bump
   `JevRequest::SCHEMA_VERSION`, add a round-trip test, regenerate
   schemas, update `docs/ARCHITECTURE.md`.
 - **`sdk_compat.rs` is the contract.** If your change would break
-  one of those 37 tests, you are touching the wire contract.
+  one of those 56 tests, you are touching the wire contract.
 - **New backend = new `DecisionEngine`.** Wire it in
-  `openpick-server/src/main.rs` behind a CLI flag. Add at least
-  one round-trip test in `openpick-engine`. Add a `sdk_compat.rs`
+  `opendecision-server/src/main.rs` behind a CLI flag. Add at least
+  one round-trip test in `opendecision-engine`. Add a `sdk_compat.rs`
   case that exercises the alias end-to-end via `/v1/systemone`.
-- **Phase 2 owns model research in Python; Phase 2F owns the Rust reference
-  engine; Phase 3 owns production runtime and backend integration.** Do not
-  start production runtime/backends work until the Phase 2F reference path
-  reproduces the declared FP32 and policy checks.
+- **Phase 2 owns model research in Python; Phase 2H owns criteria & rejection transfer; Phase 3 owns production Rust engine.** Do not start production runtime/backends work until the Phase 3 Parity Ladder reproduces the declared FP32, rejection, and cache-isolation contracts.
 
 ## Quick reference
 
@@ -455,10 +566,10 @@ cargo build --workspace
 cargo test --workspace          # 82 tests
 
 # Regenerate JSON Schema
-cargo run -p openpick-gen-schemas
+cargo run -p opendecision-gen-schemas
 
 # Run the daemon (mock engine, dev mode, no auth)
-cargo run -p openpickd -- \
+cargo run -p opendecisiond -- \
     --http-addr 127.0.0.1:18080 \
     --grpc-addr 127.0.0.1:19090 \
     --models mock,jev-latest

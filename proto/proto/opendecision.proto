@@ -1,0 +1,145 @@
+// opendecision/v1 — Protobuf wire definition for opendecision.
+//
+// Wire-compatible gRPC service mirroring the HTTP API at POST /v1/systemone
+// (aliased to /v1/system_one).
+//
+// Invariants:
+// - All floating-point values are 64-bit `double` (IEEE 754), matching `f64` in `opendecision-core`.
+// - The `state` field is polymorphic (`string | object | array`), represented via `oneof value`.
+// - `instructions_json` contains raw UTF-8 JSON bytes to support string, object, or array instructions.
+// - Noul answers strictly do NOT have a `confidence` field per Jev specification.
+
+syntax = "proto3";
+package opendecision;
+
+// SystemOne service provides low-latency decision-inference evaluations.
+service SystemOne {
+  // Evaluates a decision-making / System 1 request against a registered model backend.
+  // Wire equivalent of HTTP POST /v1/systemone and /v1/system_one.
+  rpc Evaluate (SystemOneRequest) returns (SystemOneResponse);
+}
+
+// State represents the context or input document to evaluate.
+message State {
+  // Value variant representing the input document.
+  oneof value {
+    // Plain text state (e.g. customer message, error log, prompt).
+    string text = 1;
+    // Structured JSON document (object or array) encoded as raw bytes.
+    Structured structured = 2;
+  }
+}
+
+// Structured forwards any JSON-shaped payload (object or array) as raw UTF-8 bytes.
+message Structured {
+  bytes json = 1;
+}
+
+// SystemOneRequest represents a complete evaluation request.
+message SystemOneRequest {
+  // Input state/document to evaluate. Required.
+  State state = 1;
+  // Identifier or alias of the model backend to execute (e.g. "jev-latest", "mock"). Required.
+  string model = 2;
+  // Map of client-chosen question identifiers to question specifications. Required.
+  map<string, Question> questions = 3;
+}
+
+// Question is a tagged union of the three supported Jev question types.
+message Question {
+  oneof kind {
+    NoulQuestion noul = 1;
+    ChoiceQuestion choice = 2;
+    ScoreQuestion score = 3;
+  }
+}
+
+// NoulQuestion represents a boolean probability evaluation (yes/no).
+// Returns the probability that the answer is true.
+message NoulQuestion {
+  // Instruction string or structured JSON instructions encoded as raw UTF-8 bytes. Required.
+  bytes instructions_json = 1;
+  // Optional explicit rubric definitions for true and false outcomes.
+  NoulCriteria criteria = 2;
+}
+
+// NoulCriteria specifies explicit criteria for true and false answers.
+message NoulCriteria {
+  // Description of what a true/yes answer represents.
+  string is_true = 1;
+  // Description of what a false/no answer represents.
+  string is_false = 2;
+}
+
+// ChoiceQuestion represents a categorical choice evaluation over discrete options.
+message ChoiceQuestion {
+  // Instruction string or structured JSON instructions encoded as raw UTF-8 bytes. Required.
+  bytes instructions_json = 1;
+  // Map of option identifier to rubric description. Empty string indicates no extra description (null).
+  map<string, string> criteria = 2;
+}
+
+// ScoreQuestion represents an ordered rubric rating evaluation.
+message ScoreQuestion {
+  // Instruction string or structured JSON instructions encoded as raw UTF-8 bytes. Required.
+  bytes instructions_json = 1;
+  // Ordered array of level descriptions. Must contain at least 2 levels.
+  repeated string criteria = 2;
+}
+
+// SystemOneResponse contains evaluation results for all requested questions.
+message SystemOneResponse {
+  // The model backend that performed the evaluation.
+  string model = 1;
+  // Map of question identifiers to their corresponding evaluated answers.
+  map<string, Answer> answers = 2;
+  // Token accounting for the evaluation request.
+  Usage usage = 3;
+}
+
+// Answer is a tagged union of the answer models matching the question types.
+message Answer {
+  oneof kind {
+    NoulAnswer noul = 1;
+    ChoiceAnswer choice = 2;
+    ScoreAnswer score = 3;
+  }
+}
+
+// NoulAnswer contains the calibrated probability of a true/yes answer.
+// Note: Per the Jev specification, NoulAnswer does NOT carry a confidence score.
+message NoulAnswer {
+  // Probability in the range [0.0, 1.0].
+  double noul = 1;
+}
+
+// ChoiceAnswer contains the selected discrete choice and its probability distribution.
+message ChoiceAnswer {
+  // Selected option identifier corresponding to one of the criteria keys.
+  string choice = 1;
+  // Calibrated probability distribution over all criteria options, summing to 1.0.
+  map<string, double> probabilities = 2;
+  // Confidence score for the selection in the range [0.0, 1.0].
+  double confidence = 3;
+}
+
+// ScoreAnswer contains the continuous score rating along an ordered rubric.
+message ScoreAnswer {
+  // Continuous rating value calculated as sum(level_index * probability[level_index]).
+  double score = 1;
+  // Map of level indices ("0", "1", ...) to level descriptions.
+  map<string, string> legend = 2;
+  // Probability distribution across rubric levels, summing to 1.0.
+  map<string, double> probabilities = 3;
+  // Confidence score for the score rating in the range [0.0, 1.0].
+  double confidence = 4;
+}
+
+// Usage accounts for token consumption during evaluation.
+message Usage {
+  // Number of input tokens consumed by state and question instructions.
+  uint32 input_tokens = 1;
+  // Number of output tokens generated during inference.
+  uint32 output_tokens = 2;
+}
+

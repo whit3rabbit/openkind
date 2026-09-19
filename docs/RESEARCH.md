@@ -1227,8 +1227,8 @@ After the Phase 2F reference path reproduces the Phase 2E FP32 and policy
 checks, the production Rust implementation should:
 
 - Port the validated Qwen architecture, dynamic candidate head, and shared-
-  prefix path to Rust (`openpick-engine`, `openpick-backends` with
-  Candle/GGUF, `openpick-runtime`).
+  prefix path to Rust (`opendecision-engine`, `opendecision-backends` with
+  Candle/GGUF, `opendecision-runtime`).
 - Execute parity verification against the Phase 2C and Phase 2D exported
   fixtures and prior NLI golden vectors (`golden_head_inputs.npz`).
 - Build the scheduler around the declared numerical reference, small

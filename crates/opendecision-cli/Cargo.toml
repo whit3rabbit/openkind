@@ -1,0 +1,21 @@
+[package]
+name = "opendecision-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Phase 1: `opendecision` command-line tool — serve, evaluate, inspect, version."
+
+[dependencies]
+opendecision-core = { workspace = true }
+opendecision-engine = { workspace = true }
+clap = { workspace = true }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "fs"] }
+tracing = { workspace = true }
+
+[[bin]]
+name = "opendecision"
+path = "src/main.rs"
