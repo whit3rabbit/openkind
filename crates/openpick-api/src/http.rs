@@ -210,6 +210,32 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn metrics_endpoint_returns_prometheus_text() {
+        // Must be 200 with a text body even when no recorder is installed,
+        // so scrapers never see errors.
+        let resp = app()
+            .oneshot(
+                Request::builder()
+                    .uri("/metrics")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(
+            resp.headers()
+                .get("content-type")
+                .and_then(|v| v.to_str().ok()),
+            Some("text/plain; version=0.0.4")
+        );
+        let body = resp.into_body().collect().await.unwrap().to_bytes();
+        assert!(!body.is_empty());
+        let text = String::from_utf8(body.to_vec()).unwrap();
+        assert!(text.starts_with('#') || text.contains("openpick"));
+    }
+
+    #[tokio::test]
     async fn models_endpoint_returns_jev_shape() {
         let resp = app()
             .oneshot(
