@@ -441,6 +441,56 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn is_safe_request_id_accepts_safe_shapes() {
+        assert!(is_safe_request_id("a"));
+        assert!(is_safe_request_id("550e8400-e29b-41d4-a716-446655440000"));
+        assert!(is_safe_request_id("allowed-chars_A.b0"));
+        assert!(is_safe_request_id(&"a".repeat(MAX_REQUEST_ID_LEN)));
+    }
+
+    #[test]
+    fn is_safe_request_id_rejects_unsafe_shapes() {
+        assert!(!is_safe_request_id(""));
+        assert!(!is_safe_request_id(&"a".repeat(MAX_REQUEST_ID_LEN + 1)));
+        assert!(!is_safe_request_id("has space"));
+        assert!(!is_safe_request_id("semi;colon"));
+        assert!(!is_safe_request_id("new\nline"));
+        assert!(!is_safe_request_id("tab\tchar"));
+        assert!(!is_safe_request_id("sl/ash"));
+        assert!(!is_safe_request_id("quer?y"));
+        assert!(!is_safe_request_id("ang<l>e"));
+        assert!(!is_safe_request_id("émoji"));
+    }
+
+    #[tokio::test]
+    async fn options_requests_bypass_auth() {
+        // `any` routing so OPTIONS reaches the auth layer instead of
+        // dying with 405 at the router.
+        let app = Router::new()
+            .route("/v1/ping", axum::routing::any(echo))
+            .layer(middleware::from_fn_with_state(
+                AuthConfig::new(Some("topsecret".into())),
+                auth_layer,
+            ))
+            .with_state(());
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method(axum::http::Method::OPTIONS)
+                    .uri("/v1/ping")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            resp.status(),
+            StatusCode::OK,
+            "CORS preflight must not require a bearer token"
+        );
+    }
+
     #[tokio::test]
     async fn inbound_unsafe_request_id_is_sanitized() {
         // Injection attempt with unsafe chars (spaces, brackets, semicolons)
