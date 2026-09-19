@@ -83,6 +83,14 @@ impl DecisionEngine for MockEngine {
                 Question::Choice(cq) => {
                     let mut keys: Vec<&String> = cq.criteria.keys().collect();
                     keys.sort(); // HashMap iteration is non-deterministic
+                    if keys.is_empty() {
+                        // `dispatch` validates requests first, but the engine is
+                        // also a public library API — refuse instead of panicking.
+                        return Err(crate::EngineError::Backend {
+                            backend: self.backend.clone(),
+                            message: format!("choice question `{id}` has empty criteria"),
+                        });
+                    }
                     let n = keys.len() as f64;
                     let raw: Vec<f64> = (0..keys.len())
                         .map(|_| rng.random_range(0.0..1.0))
@@ -128,6 +136,12 @@ impl DecisionEngine for MockEngine {
                 }
                 Question::Score(sq) => {
                     let n = sq.criteria.len();
+                    if n == 0 {
+                        return Err(crate::EngineError::Backend {
+                            backend: self.backend.clone(),
+                            message: format!("score question `{id}` has empty criteria"),
+                        });
+                    }
                     let mut probs = vec![0.0f64; n];
                     // Bias the peak toward the middle of the range — feels
                     // more realistic than uniform for a mock.
@@ -306,6 +320,36 @@ mod tests {
         } else {
             panic!("expected noul");
         }
+    }
+
+    #[tokio::test]
+    async fn empty_criteria_returns_error_not_panic() {
+        let engine = MockEngine::new();
+        let mut questions = HashMap::new();
+        questions.insert(
+            "bad_choice".into(),
+            Question::Choice(openpick_core::ChoiceQuestion {
+                instructions: serde_json::json!("pick"),
+                criteria: HashMap::new(),
+            }),
+        );
+        questions.insert(
+            "bad_score".into(),
+            Question::Score(openpick_core::ScoreQuestion {
+                instructions: serde_json::json!("rate"),
+                criteria: Vec::new(),
+            }),
+        );
+        let request = SystemRequest {
+            state: openpick_core::State::Text("x".into()),
+            model: "mock".into(),
+            questions,
+        };
+        let err = engine.evaluate(request).await.unwrap_err();
+        assert!(
+            matches!(err, crate::EngineError::Backend { .. }),
+            "expected Backend error, got {err:?}"
+        );
     }
 
     #[test]

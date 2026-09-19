@@ -26,7 +26,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use openpick_core::ModelInfo;
-use openpick_core::{validate_request, Answer, SystemRequest, SystemResponse, ValidationError};
+use openpick_core::{
+    validate_request, validate_response, Answer, Question, SystemRequest, SystemResponse,
+    ValidationError,
+};
 use thiserror::Error;
 use tracing::instrument;
 
@@ -185,6 +188,28 @@ impl EngineRegistry {
     }
 }
 
+/// Per-question reference data for response validation: question id → the
+/// choice-criteria keys a choice answer must respect (empty for noul/score).
+/// Passing the full id set lets `validate_response` also enforce that the
+/// engine answered exactly the requested questions, no more and no less.
+fn response_criteria(req: &SystemRequest) -> HashMap<String, Vec<String>> {
+    req.questions
+        .iter()
+        .map(|(id, q)| {
+            let keys = match q {
+                Question::Noul(_) => Vec::new(),
+                Question::Choice(c) => {
+                    let mut keys: Vec<String> = c.criteria.keys().cloned().collect();
+                    keys.sort();
+                    keys
+                }
+                Question::Score(s) => (0..s.criteria.len()).map(|i| i.to_string()).collect(),
+            };
+            (id.clone(), keys)
+        })
+        .collect()
+}
+
 /// Validate + dispatch. The HTTP and gRPC layers both call this — it
 /// contains the cross-cutting logic (validation, telemetry, routing).
 #[instrument(skip(req, registry), fields(model = %req.model, n_questions = req.questions.len()))]
@@ -200,9 +225,20 @@ pub async fn dispatch(
         .ok_or_else(|| EngineError::UnknownModel(req.model.clone()))?;
 
     validate_request(&req)?;
+    let criteria = response_criteria(&req);
     let input_tokens = engine.estimate_input_tokens(&req);
 
     let mut resp = engine.evaluate(req).await?;
+
+    // Never forward a contract-violating engine response to the client:
+    // a bad answer shape is a backend fault, so it maps to Backend (500),
+    // not to a client-facing 422.
+    if let Err(validation) = validate_response(&resp, &criteria) {
+        return Err(EngineError::Backend {
+            backend: engine.backend_id().to_string(),
+            message: format!("backend returned an invalid response: {validation}"),
+        });
+    }
 
     // If the backend didn't fill in usage, do it from the estimator.
     // Real backends will fill it precisely.
@@ -413,5 +449,116 @@ mod tests {
         let resp = dispatch(req, &registry).await.unwrap();
         assert_eq!(resp.usage.input_tokens, 42);
         assert_eq!(resp.usage.output_tokens, 99);
+    }
+
+    /// Backend that drops one of the requested answers.
+    struct MissingAnswerEngine;
+    #[async_trait]
+    impl DecisionEngine for MissingAnswerEngine {
+        fn backend_id(&self) -> &str {
+            "dropper"
+        }
+        async fn evaluate(&self, req: SystemRequest) -> EngineResult<SystemResponse> {
+            let mut answers = HashMap::new();
+            if let Some(first) = req.questions.keys().next() {
+                answers.insert(
+                    first.clone(),
+                    Answer::Noul(openpick_core::NoulAnswer { noul: 0.5 }),
+                );
+            }
+            Ok(SystemResponse {
+                model: req.model,
+                answers,
+                usage: openpick_core::Usage {
+                    input_tokens: 1,
+                    output_tokens: 1,
+                },
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn dispatch_rejects_backend_that_skips_answers() {
+        let mut registry = EngineRegistry::new();
+        registry.register("dropper", Arc::new(MissingAnswerEngine));
+
+        let mut questions = HashMap::new();
+        for id in ["q1", "q2"] {
+            questions.insert(
+                id.into(),
+                Question::Noul(openpick_core::NoulQuestion {
+                    instructions: serde_json::json!("?"),
+                    criteria: None,
+                }),
+            );
+        }
+        let req = SystemRequest {
+            state: openpick_core::State::Text("x".into()),
+            model: "dropper".into(),
+            questions,
+        };
+        let err = dispatch(req, &registry).await.unwrap_err();
+        assert!(
+            matches!(err, EngineError::Backend { ref backend, .. } if backend == "dropper"),
+            "expected Backend error, got {err:?}"
+        );
+    }
+
+    /// Backend that returns NaN probabilities (a classic inference bug).
+    struct NanProbabilityEngine;
+    #[async_trait]
+    impl DecisionEngine for NanProbabilityEngine {
+        fn backend_id(&self) -> &str {
+            "nan-backend"
+        }
+        async fn evaluate(&self, req: SystemRequest) -> EngineResult<SystemResponse> {
+            let mut answers = HashMap::new();
+            for id in req.questions.keys() {
+                let mut probs = HashMap::new();
+                probs.insert("a".into(), f64::NAN);
+                probs.insert("b".into(), 0.5);
+                answers.insert(
+                    id.clone(),
+                    Answer::Choice(openpick_core::ChoiceAnswer {
+                        choice: "a".into(),
+                        probabilities: probs,
+                        confidence: 0.5,
+                    }),
+                );
+            }
+            Ok(SystemResponse {
+                model: req.model,
+                answers,
+                usage: openpick_core::Usage {
+                    input_tokens: 1,
+                    output_tokens: 1,
+                },
+            })
+        }
+    }
+
+    #[tokio::test]
+    async fn dispatch_rejects_backend_with_nan_probabilities() {
+        let mut registry = EngineRegistry::new();
+        registry.register("nan-backend", Arc::new(NanProbabilityEngine));
+
+        let mut questions = HashMap::new();
+        let mut criteria = HashMap::new();
+        criteria.insert("a".into(), Some("first".into()));
+        criteria.insert("b".into(), None);
+        questions.insert(
+            "pick".into(),
+            Question::Choice(openpick_core::ChoiceQuestion {
+                instructions: serde_json::json!("pick"),
+                criteria,
+            }),
+        );
+        let req = SystemRequest {
+            state: openpick_core::State::Text("x".into()),
+            model: "nan-backend".into(),
+            questions,
+        };
+        let err = dispatch(req, &registry).await.unwrap_err();
+        assert!(matches!(err, EngineError::Backend { .. }), "got {err:?}");
     }
 }
