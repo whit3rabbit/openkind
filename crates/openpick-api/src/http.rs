@@ -31,11 +31,36 @@ use crate::AppState;
 /// Maximum allowed request payload size in bytes (16 MB) to protect against DoS memory exhaustion.
 pub const MAX_PAYLOAD_SIZE_BYTES: usize = 16 * 1024 * 1024;
 
-/// Build the HTTP router with explicit payload size limit.
+/// Build the HTTP router with explicit payload size limit and the default
+/// per-IP rate limit (see [`crate::middleware::RateLimitConfig::default`]).
 pub fn router_with_state_and_limit(
     state: AppState,
     auth: AuthConfig,
     max_payload_bytes: usize,
+) -> Router {
+    router_full(
+        state,
+        auth,
+        max_payload_bytes,
+        crate::middleware::RateLimiter::new(crate::middleware::RateLimitConfig::default()),
+    )
+}
+
+/// Build the HTTP router with explicit payload size limit and rate limiting.
+pub fn router_with_state_auth_rate_limit(
+    state: AppState,
+    auth: AuthConfig,
+    max_payload_bytes: usize,
+    rate_limiter: crate::middleware::RateLimiter,
+) -> Router {
+    router_full(state, auth, max_payload_bytes, rate_limiter)
+}
+
+fn router_full(
+    state: AppState,
+    auth: AuthConfig,
+    max_payload_bytes: usize,
+    rate_limiter: crate::middleware::RateLimiter,
 ) -> Router {
     Router::new()
         .route("/v1/systemone", post(systemone))
@@ -45,11 +70,17 @@ pub fn router_with_state_and_limit(
         .route("/metrics", get(prometheus_metrics))
         // Order matters: layers added LATER are OUTERMOST. We want
         // request_id outermost so it stamps the response on every code
-        // path, including 401s from auth_layer (which short-circuit
-        // before any handler middleware fires).
+        // path, including 401s from auth_layer and 429s from the rate
+        // limiter (both short-circuit before any handler middleware
+        // fires). Rate limiting sits between request-id and auth so
+        // unauthenticated traffic is throttled before token comparison.
         .layer(axum::middleware::from_fn_with_state(
             auth,
             crate::middleware::auth_layer,
+        ))
+        .layer(axum::middleware::from_fn_with_state(
+            rate_limiter,
+            crate::middleware::rate_limit_layer,
         ))
         .layer(axum::middleware::from_fn(
             crate::middleware::request_id_layer,

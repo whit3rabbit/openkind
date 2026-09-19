@@ -4,7 +4,7 @@
 //! `openpick-server` packages the `openpickd` daemon binary.
 //! Per `docs/ARCHITECTURE.md`, it composes:
 //! - Configuration parsing via `clap`
-//! - Structured tracing via `tracing-subscriber` (JSON or pretty formats)
+//! - Structured tracing via `tracing-subscriber` (env-filtered)
 //! - Shared [`openpick_engine::EngineRegistry`] instance
 //! - Concurrent HTTP server ([`openpick_api::http`]) on `--http-addr`
 //! - Concurrent gRPC server ([`openpick_api::grpc`]) on `--grpc-addr`
