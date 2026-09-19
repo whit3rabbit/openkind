@@ -372,6 +372,63 @@ mod tests {
         ));
     }
 
+    #[tokio::test]
+    async fn dispatch_estimates_output_tokens_per_answer_kind() {
+        let mut registry = EngineRegistry::new();
+        registry.register("mock", Arc::new(MockEngine::new()));
+
+        let mut questions = HashMap::new();
+        questions.insert(
+            "n".into(),
+            Question::Noul(NoulQuestion {
+                instructions: serde_json::json!("?"),
+                criteria: None,
+            }),
+        );
+        questions.insert(
+            "c".into(),
+            Question::Choice(openpick_core::ChoiceQuestion {
+                instructions: serde_json::json!("?"),
+                criteria: [("a".to_string(), Some("first".into()))]
+                    .into_iter()
+                    .collect(),
+            }),
+        );
+        questions.insert(
+            "s".into(),
+            Question::Score(ScoreQuestion {
+                instructions: serde_json::json!("?"),
+                criteria: vec!["low".into(), "high".into()],
+            }),
+        );
+        let req = SystemRequest {
+            state: State::Text("state".into()),
+            model: "mock".into(),
+            questions,
+        };
+        // Noul = 1, Choice = 1, Score = 4 → 6 total.
+        let resp = dispatch(req, &registry).await.unwrap();
+        assert_eq!(resp.usage.output_tokens, 6);
+    }
+
+    #[test]
+    fn default_model_metadata_names_backend() {
+        struct BareEngine;
+        #[async_trait]
+        impl DecisionEngine for BareEngine {
+            fn backend_id(&self) -> &str {
+                "bare"
+            }
+            async fn evaluate(&self, _req: SystemRequest) -> EngineResult<SystemResponse> {
+                unimplemented!("metadata-only test")
+            }
+        }
+        let meta = BareEngine.model_metadata();
+        assert_eq!(meta.name, "bare");
+        assert!(meta.description.contains("bare"));
+        assert!(!meta.release_date.is_empty());
+    }
+
     #[test]
     fn token_estimation_handles_text_object_and_array_states() {
         let engine = MockEngine::new();
