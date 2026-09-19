@@ -107,6 +107,30 @@ mod tests {
     }
 
     #[test]
+    fn runtime_config_clamps_zero_worker_threads_to_one() {
+        let config = RuntimeConfig::new(DeviceType::Cpu, 0, None);
+        assert_eq!(
+            config.worker_threads, 1,
+            "zero threads would panic the pool"
+        );
+    }
+
+    #[test]
+    fn runtime_config_treats_zero_memory_limit_as_unbounded() {
+        let config = RuntimeConfig::new(DeviceType::Cpu, 4, Some(0));
+        assert_eq!(config.memory_limit_bytes, None);
+        let bounded = RuntimeConfig::new(DeviceType::Cpu, 4, Some(1024));
+        assert_eq!(bounded.memory_limit_bytes, Some(1024));
+    }
+
+    #[test]
+    fn runtime_config_preserves_explicit_device() {
+        let config = RuntimeConfig::new(DeviceType::Cuda { device_id: 2 }, 8, None);
+        assert_eq!(config.device, DeviceType::Cuda { device_id: 2 });
+        assert_eq!(config.worker_threads, 8);
+    }
+
+    #[test]
     fn device_type_display_formatting() {
         assert_eq!(DeviceType::Cpu.to_string(), "cpu");
         assert_eq!(DeviceType::Metal { device_id: 0 }.to_string(), "metal:0");
