@@ -1,11 +1,11 @@
-# openpick
+# opendecision
 
 > Open-source, **Jev-compatible decision inference engine** in Rust.
 > Drop-in alternative to the hosted TypeSafe API —
 > [what is Jev?](https://typesafe.ai/blog/introducing-system-one-models-and-jev)
 
 Jev is a schema and a model class for *fast, structured, type-safe
-decisions* instead of *slow, generative chat*. `openpick` is the
+decisions* instead of *slow, generative chat*. `opendecision` is the
 open-source server that speaks that protocol end-to-end: same wire
 format, same Python `typesafe_sdk` surface, but you own the hardware
 and the model weights.
@@ -34,15 +34,15 @@ pinned there.
 
 ```
 crates/
-├── openpick-core/        # Jev wire types + validation
-├── openpick-engine/      # DecisionEngine trait + MockEngine
-├── openpick-api/         # HTTP (axum 0.8) + gRPC (tonic 0.14)
-├── openpick-server/      # openpickd daemon
-├── openpick-cli/         # openpick CLI
-├── openpick-runtime/     # (Phase 2) device/VRAM accounting
-├── openpick-backends/    # (Phase 2) candle / GGUF / onnx
-└── openpick-gen-schemas/ # JSON Schema codegen
-proto/                    # openpick.proto
+├── opendecision-core/        # Jev wire types + validation
+├── opendecision-engine/      # DecisionEngine trait + MockEngine
+├── opendecision-api/         # HTTP (axum 0.8) + gRPC (tonic 0.14)
+├── opendecision-server/      # opendecisiond daemon
+├── opendecision-cli/         # opendecision CLI
+├── opendecision-runtime/     # (Phase 2) device/VRAM accounting
+├── opendecision-backends/    # (Phase 2) candle / GGUF / onnx
+└── opendecision-gen-schemas/ # JSON Schema codegen
+proto/                    # opendecision.proto
 docs/                     # AGENTS.md, ARCHITECTURE.md
 examples/                 # 8 Jev spec example fixtures
 ```
@@ -55,10 +55,10 @@ cargo build --workspace
 cargo test --workspace     # 122+ tests
 
 # Regenerate JSON Schema
-cargo run -p openpick-gen-schemas
+cargo run -p opendecision-gen-schemas
 
 # Run the daemon (mock engine, dev mode, no auth)
-cargo run -p openpickd -- \
+cargo run -p opendecisiond -- \
     --http-addr 127.0.0.1:18080 \
     --grpc-addr 127.0.0.1:19090 \
     --models mock,jev-latest
@@ -69,6 +69,6 @@ curl -sS -H 'content-type: application/json' \
      -d @examples/04_mixed.json | jq
 ```
 
-Enable auth by setting `OPENPICK_API_KEY=***` and passing
+Enable auth by setting `OPENDECISION_API_KEY=***` and passing
 `Authorization: Bearer ***`. See `docs/AGENTS.md` for the full
 SDK-compat surface and the wire-format conventions.

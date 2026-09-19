@@ -1,6 +1,6 @@
 # docs/
 
-Project documentation and architectural references for `openpick`.
+Project documentation and architectural references for `opendecision`.
 
 ## Reading Order
 
@@ -12,7 +12,7 @@ Project documentation and architectural references for `openpick`.
    - Critical invariant checklists and conventions.
 2. **[`ARCHITECTURE.md`](./ARCHITECTURE.md)** — System design and topology:
    - Layered crate topology and dependency graph.
-   - Dual transport design: HTTP/REST (`/v1/systemone`, `/v1/system_one`) & gRPC (`openpick.SystemOne/Evaluate`).
+   - Dual transport design: HTTP/REST (`/v1/systemone`, `/v1/system_one`) & gRPC (`opendecision.SystemOne/Evaluate`).
    - Token accounting and execution dispatch.
    - Error mapping and status code conventions (including HTTP 529 for server overload).
 3. **[`ROADMAP.md`](./ROADMAP.md)** — Implementation roadmap and phase tracking:
@@ -32,9 +32,9 @@ Project documentation and architectural references for `openpick`.
 
 | Schema | Format | Specification File | Description |
 |---|---|---|---|
-| **Jev Request** | JSON Schema (Draft 2020-12) | [`crates/openpick-core/schemas/jev-v1-request.json`](../crates/openpick-core/schemas/jev-v1-request.json) | Request schema: `state`, `model`, `questions` (`noul`, `choice`, `score`). |
-| **Jev Response** | JSON Schema (Draft 2020-12) | [`crates/openpick-core/schemas/jev-v1-response.json`](../crates/openpick-core/schemas/jev-v1-response.json) | Response schema: `model`, `answers`, `usage` (`input_tokens`, `output_tokens`). |
-| **OpenAPI 3.1** | OpenAPI 3.1.0 (YAML) | [`crates/openpick-api/openapi.yaml`](../crates/openpick-api/openapi.yaml) (also [`docs/openapi.yaml`](./openapi.yaml)) | Complete HTTP surface, status codes, headers, and Jev data schemas. |
-| **gRPC Service** | Protocol Buffers (proto3) | [`proto/proto/openpick.proto`](../proto/proto/openpick.proto) | `openpick.SystemOne` service definition with binary wire parity. |
-| **Schema Tool** | Rust CLI | [`crates/openpick-gen-schemas`](../crates/openpick-gen-schemas) | Schema generator: `cargo run -p openpick-gen-schemas -- --write`. |
+| **Jev Request** | JSON Schema (Draft 2020-12) | [`crates/opendecision-core/schemas/jev-v1-request.json`](../crates/opendecision-core/schemas/jev-v1-request.json) | Request schema: `state`, `model`, `questions` (`noul`, `choice`, `score`). |
+| **Jev Response** | JSON Schema (Draft 2020-12) | [`crates/opendecision-core/schemas/jev-v1-response.json`](../crates/opendecision-core/schemas/jev-v1-response.json) | Response schema: `model`, `answers`, `usage` (`input_tokens`, `output_tokens`). |
+| **OpenAPI 3.1** | OpenAPI 3.1.0 (YAML) | [`crates/opendecision-api/openapi.yaml`](../crates/opendecision-api/openapi.yaml) (also [`docs/openapi.yaml`](./openapi.yaml)) | Complete HTTP surface, status codes, headers, and Jev data schemas. |
+| **gRPC Service** | Protocol Buffers (proto3) | [`proto/proto/opendecision.proto`](../proto/proto/opendecision.proto) | `opendecision.SystemOne` service definition with binary wire parity. |
+| **Schema Tool** | Rust CLI | [`crates/opendecision-gen-schemas`](../crates/opendecision-gen-schemas) | Schema generator: `cargo run -p opendecision-gen-schemas -- --write`. |
 | **Spec Fixtures** | JSON | [`examples/`](../examples/) | Spec example payloads (`01_noul.json` ... `08_response_score.json`). |

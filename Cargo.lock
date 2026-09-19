@@ -1124,7 +1124,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "384b8ab6d37215f3c5301a95a4accb5d64aa607f1fcb26a11b5303878451b4fe"
 
 [[package]]
-name = "openpick-api"
+name = "opendecision-api"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -1133,9 +1133,9 @@ dependencies = [
  "http-body-util",
  "hyper",
  "metrics-exporter-prometheus",
- "openpick-core",
- "openpick-engine",
- "openpick-proto",
+ "opendecision-core",
+ "opendecision-engine",
+ "opendecision-proto",
  "prost",
  "reqwest",
  "ring",
@@ -1154,21 +1154,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "openpick-backends"
+name = "opendecision-backends"
 version = "0.1.0"
 dependencies = [
- "openpick-core",
- "openpick-engine",
+ "opendecision-core",
+ "opendecision-engine",
 ]
 
 [[package]]
-name = "openpick-cli"
+name = "opendecision-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "clap",
- "openpick-core",
- "openpick-engine",
+ "opendecision-core",
+ "opendecision-engine",
  "reqwest",
  "serde_json",
  "tokio",
@@ -1176,7 +1176,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "openpick-core"
+name = "opendecision-core"
 version = "0.1.0"
 dependencies = [
  "schemars",
@@ -1186,12 +1186,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "openpick-engine"
+name = "opendecision-engine"
 version = "0.1.0"
 dependencies = [
  "async-trait",
  "metrics",
- "openpick-core",
+ "opendecision-core",
  "rand 0.9.5",
  "serde",
  "serde_json",
@@ -1201,16 +1201,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "openpick-gen-schemas"
+name = "opendecision-gen-schemas"
 version = "0.1.0"
 dependencies = [
- "openpick-core",
+ "opendecision-core",
  "schemars",
  "serde_json",
 ]
 
 [[package]]
-name = "openpick-proto"
+name = "opendecision-proto"
 version = "0.1.0"
 dependencies = [
  "bytes",
@@ -1224,23 +1224,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "openpick-runtime"
+name = "opendecision-runtime"
 version = "0.1.0"
 dependencies = [
- "openpick-core",
+ "opendecision-core",
 ]
 
 [[package]]
-name = "openpick-server"
+name = "opendecision-server"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum",
  "clap",
  "humantime-serde",
- "openpick-api",
- "openpick-core",
- "openpick-engine",
+ "opendecision-api",
+ "opendecision-core",
+ "opendecision-engine",
  "serde",
  "serde_json",
  "thiserror",
