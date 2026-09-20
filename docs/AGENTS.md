@@ -59,6 +59,14 @@ superseded "next" or "not implemented" claim before finishing.
   replay determinism, and exact `repeated_full` agreement. It does not
   establish Metal, batched Q/K execution, service integration, or release
   promotion. CPU native parity does not imply Metal or accelerated parity.
+- Phase 3.6/3.7 reproduce breadth-first batched Q/K execution on the CPU
+  path: `fork_batch` question lanes from one immutable root and per-question
+  candidate fan-outs, with exact sequential-baseline parity, root
+  immutability, exact fan-out byte accounting, and unchanged head
+  probability/argmax/policy behavior. Per-lane executor calls remain the
+  primitive; vectorized suffix kernels, the adaptive scheduler, Metal,
+  service integration, and release promotion stay open. CPU native parity
+  does not imply Metal or accelerated parity.
 - Hidden-vector max-absolute/RMS/cosine values remain localization diagnostics,
   not newly invented acceptance tolerances.
 - Native semantic none remains internal until the wire mapping is specified.
