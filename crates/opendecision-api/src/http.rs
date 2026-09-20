@@ -77,15 +77,16 @@ fn router_full(
         // request_id outermost so it stamps the response on every code
         // path, including 401s from auth_layer and 429s from the rate
         // limiter (both short-circuit before any handler middleware
-        // fires). Rate limiting sits between request-id and auth so
-        // unauthenticated traffic is throttled before token comparison.
-        .layer(axum::middleware::from_fn_with_state(
-            auth,
-            crate::middleware::auth_layer,
-        ))
+        // fires). Authentication sits outside rate limiting so rejected
+        // credentials cannot exhaust the budget shared by requests from
+        // the same TCP peer (for example, a reverse proxy).
         .layer(axum::middleware::from_fn_with_state(
             rate_limiter,
             crate::middleware::rate_limit_layer,
+        ))
+        .layer(axum::middleware::from_fn_with_state(
+            auth,
+            crate::middleware::auth_layer,
         ))
         .layer(axum::middleware::from_fn(
             crate::middleware::request_id_layer,
@@ -372,5 +373,48 @@ mod tests {
             .unwrap();
         let resp = custom_app.oneshot(req).await.unwrap();
         assert_eq!(resp.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    }
+
+    #[tokio::test]
+    async fn rejected_auth_does_not_consume_rate_limit_budget() {
+        let peer: axum::extract::ConnectInfo<std::net::SocketAddr> =
+            axum::extract::ConnectInfo("127.0.0.1:40000".parse().unwrap());
+        let limited_app = router_with_state_auth_rate_limit(
+            AppState::new(EngineRegistry::new()),
+            AuthConfig::new(Some("topsecret".into())),
+            MAX_PAYLOAD_SIZE_BYTES,
+            crate::middleware::RateLimiter::new(crate::middleware::RateLimitConfig {
+                max_requests: 1,
+                window: std::time::Duration::from_secs(60),
+            }),
+        );
+
+        for _ in 0..2 {
+            let resp = limited_app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri("/v1/models")
+                        .extension(peer)
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+        }
+
+        let resp = limited_app
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/models")
+                    .header("authorization", "Bearer topsecret")
+                    .extension(peer)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
     }
 }

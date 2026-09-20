@@ -192,3 +192,43 @@ async fn rate_limiter_passes_through_without_connect_info() {
         assert_eq!(resp.status(), StatusCode::OK);
     }
 }
+
+#[tokio::test]
+async fn rate_limiter_skips_options_requests() {
+    let limiter = RateLimiter::new(RateLimitConfig {
+        max_requests: 1,
+        window: std::time::Duration::from_secs(60),
+    });
+    let app = axum::Router::new()
+        .route("/v1/ping", axum::routing::any(echo))
+        .layer(middleware::from_fn_with_state(limiter, rate_limit_layer))
+        .with_state(());
+
+    for _ in 0..2 {
+        let resp = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(axum::http::Method::OPTIONS)
+                    .uri("/v1/ping")
+                    .extension(connect_info(6))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+    }
+
+    let resp = app
+        .oneshot(
+            Request::builder()
+                .uri("/v1/ping")
+                .extension(connect_info(6))
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+}
