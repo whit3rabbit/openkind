@@ -22,3 +22,4 @@ pub use core::Client;
 pub use options::{
     Health, IntoState, RequestOptions, DEFAULT_BASE_URL, DEFAULT_MODEL, DEFAULT_TIMEOUT,
 };
+pub use transport::MAX_RESPONSE_BODY_SIZE;

@@ -9,6 +9,12 @@ use super::core::Client;
 use super::options::{RequestOptions, RETRY_COUNT_HEADER};
 use crate::error::{parse_retry_after, ApiError, Error, REQUEST_ID_HEADER};
 
+/// Maximum number of response-body bytes buffered by the client (8 MiB).
+///
+/// The limit applies to successful and error responses, including chunked
+/// responses without a `Content-Length` header.
+pub const MAX_RESPONSE_BODY_SIZE: usize = 8 * 1024 * 1024;
+
 /// Immutable description of one logical request, shared by every retry
 /// attempt (only the retry count and headers differ between attempts).
 pub(crate) struct RequestDesc<'a> {
@@ -103,7 +109,7 @@ impl Client {
             request = request.json(body);
         }
 
-        let response = request
+        let mut response = request
             .send()
             .await
             .map_err(|e| classify_transport_error(e, desc.timeout))?;
@@ -118,10 +124,31 @@ impl Client {
         } else {
             parse_retry_after(response.headers())
         };
-        let bytes = response
-            .bytes()
+        if response
+            .content_length()
+            .is_some_and(|length| length > MAX_RESPONSE_BODY_SIZE as u64)
+        {
+            return Err(Error::ResponseTooLarge {
+                limit: MAX_RESPONSE_BODY_SIZE,
+            });
+        }
+
+        // Do not trust Content-Length as the enforcement mechanism: it may be
+        // absent (for example, for chunked bodies) or incorrect. Count bytes
+        // while consuming the stream and reject before extending the buffer.
+        let mut bytes = Vec::new();
+        while let Some(chunk) = response
+            .chunk()
             .await
-            .map_err(|e| classify_transport_error(e, desc.timeout))?;
+            .map_err(|e| classify_transport_error(e, desc.timeout))?
+        {
+            if chunk.len() > MAX_RESPONSE_BODY_SIZE - bytes.len() {
+                return Err(Error::ResponseTooLarge {
+                    limit: MAX_RESPONSE_BODY_SIZE,
+                });
+            }
+            bytes.extend_from_slice(&chunk);
+        }
 
         if !status.is_success() {
             return Err(Error::Api(Box::new(ApiError::from_response(

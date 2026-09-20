@@ -54,6 +54,13 @@ pub enum Error {
         timeout: Duration,
     },
 
+    /// A response body exceeded the client's fixed memory-safety limit.
+    #[error("response body exceeded the {limit}-byte limit")]
+    ResponseTooLarge {
+        /// Maximum response-body size accepted by the client.
+        limit: usize,
+    },
+
     /// A 2xx response body could not be decoded as the expected type.
     #[error("failed to decode response body (status {status}): {source}")]
     Decode {
