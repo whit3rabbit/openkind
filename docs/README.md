@@ -22,9 +22,10 @@ Project documentation and architectural references for `opendecision`.
      cache/snapshot persistence contracts are implemented. Model-backed high-K
      and the named-machine fresh-process replay remain open. CPU native parity
      does not imply Metal or accelerated parity.
-   - The latest offline evidence is the
-     [`v0.8.0 working-tree verification`](./verification/2026-09-20-v0.8.0-working-tree.md).
-     It is explicitly not a commit-stamped release record.
+   - The latest offline and checkpoint-backed evidence is the
+     [`v0.8.0 commit verification`](./verification/2026-09-20-v0.8.0-35c481a.md).
+     It verifies clean subject commit `35c481a6e95a` on the named Mac without
+     claiming release promotion.
 4. **[`RESEARCH.md`](./RESEARCH.md)** — Research dossier & technical background:
    - System 1 inference paradigm and judgment-envelope protocol origins.
    - Hardware requirements, quantization, and model sizing.
