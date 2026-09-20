@@ -1,11 +1,16 @@
 //! `opendecision-backends`: Model loaders, parity readouts, and backend providers.
 //!
 //! # Architecture & Responsibilities
-//! The [`qwen35`] module implements the selected profile's deterministic
-//! feature-to-probability readout. It intentionally does not implement Qwen
-//! execution or register a native [`opendecision_engine::DecisionEngine`].
+//! The [`branch`] module defines the backend-neutral branchable
+//! continuation-state contract. The [`qwen35`] module implements the selected
+//! profile's deterministic feature-to-probability readout and the FP32 CPU
+//! backbone/continuation path. Neither module registers a native
+//! [`opendecision_engine::DecisionEngine`] today.
 
 #![warn(missing_docs)]
+
+/// Backend-neutral branchable continuation-state contract.
+pub mod branch;
 
 /// Qwen 3.5 profile execution contracts, safetensors readout, and parity fixtures.
 pub mod qwen35;

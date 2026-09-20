@@ -56,8 +56,9 @@ The fitted head/probability algebra, exact tokenizer/state-first rendering, and
 correctness-first CPU backbone/continuation gates are complete for profile
 `a047d6802c3f06f085b8`.
 
-1. Lift the Qwen-specific cached state into the backend-neutral
-   `BranchableState` contract and prove fork/gather isolation.
+1. ~~Lift the Qwen-specific cached state into the backend-neutral
+   `BranchableState` contract and prove fork/gather isolation.~~ Complete for
+   the CPU path (Phase 3.4).
 2. Prove sequential and batched Q/K execution.
 3. Only then implement `DecisionEngine`, register the backend, and add
    wire-level mappings.

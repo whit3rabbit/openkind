@@ -4,9 +4,9 @@
 
 `opendecision-backends` houses model-facing loaders and forward-pass components that will eventually sit behind the `DecisionEngine` trait defined in `opendecision-engine`.
 
-## Current status: Phase 3.1 through 3.3 CPU parity complete
+## Current status: Phase 3.1 through 3.4 CPU parity and branch-state contract complete
 
-The `qwen35` module implements the deterministic feature-to-probability slice for selected profile `a047d6802c3f06f085b8`:
+The `branch` module defines the backend-neutral continuation-state contract, and the `qwen35` module implements the deterministic feature-to-probability slice for selected profile `a047d6802c3f06f085b8`:
 
 - fail-closed reference metadata and safetensors validation.
 - f64 normalization, linear projection, score-summary rejection, temperature calibration, and stable softmax.
@@ -25,13 +25,18 @@ The `qwen35` module implements the deterministic feature-to-probability slice fo
 - all four Phase 3B probability/argmax/policy gates.
 - immutable Qwen continuation state containing attention KV, DeltaNet
   recurrent state, convolution state, and absolute position.
+- profile/model/tokenizer/renderer/arithmetic state identity, structural and
+  strict content fingerprints, exact hybrid byte accounting, immutable-root
+  fork, batched fork, and gather/select through `BranchableState`.
 
-This establishes the frozen Phase 3.3 CPU backbone fixtures. Metal, the
-backend-neutral `BranchableState` API, batched Q/K execution, backend
-registration, and Jev wire mapping remain later gates. It is not a claim of
-full Rust parity or release promotion.
+This establishes the frozen Phase 3.3 CPU backbone fixtures and the Phase 3.4
+backend-neutral branch-state contract for the CPU path. Metal, sequential and
+batched nested Q/K execution, backend registration, and Jev wire mapping
+remain later gates. It is not a claim of full Rust parity or release
+promotion. CPU native parity does not imply Metal or accelerated parity.
 
-The future branchable Qwen state must include attention KV, DeltaNet recurrent state, and convolution state. A KV-only abstraction is incomplete.
+The branchable Qwen state includes attention KV, DeltaNet recurrent state,
+and convolution state. A KV-only abstraction is incomplete.
 
 ## Verification
 
@@ -49,12 +54,17 @@ cargo run --release -p opendecision-backends --example qwen35_parity_probe -- \
   research/OpenDecision_Phase3B_BackboneParity_20260920T152206Z \
   continuation
 
+cargo run --release -p opendecision-backends --example qwen35_parity_probe -- \
+  path/to/checkpoint \
+  research/OpenDecision_Phase3B_BackboneParity_20260920T152206Z \
+  branch
+
 cargo run --release -p opendecision-backends --example qwen35_full_parity -- \
   path/to/checkpoint \
   research/OpenDecision_Phase3B_BackboneParity_20260920T152206Z \
   crates/opendecision-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8
 ```
 
-The embedding-only probe hashes the complete 5.3 GB first shard. Decoder and
-continuation modes verify both immutable shards, about 9.3 GB total, before
-execution. None of these commands download model assets.
+The embedding-only probe hashes the complete 5.3 GB first shard. Decoder,
+continuation, and branch modes verify both immutable shards, about 9.3 GB
+total, before execution. None of these commands download model assets.

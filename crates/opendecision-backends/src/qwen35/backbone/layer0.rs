@@ -9,18 +9,20 @@ use super::embedding::{verify_decoder_shard, Qwen35Embedding};
 const HIDDEN_SIZE: usize = 2_560;
 const INTERMEDIATE_SIZE: usize = 9_216;
 const KEY_HEADS: usize = 16;
-const VALUE_HEADS: usize = 32;
-const HEAD_DIM: usize = 128;
+// State-shape constants are shared with the branch-state implementation so
+// storage accounting and fixtures stay tied to the executing architecture.
+pub(super) const VALUE_HEADS: usize = 32;
+pub(super) const HEAD_DIM: usize = 128;
 const KEY_SIZE: usize = KEY_HEADS * HEAD_DIM;
 const VALUE_SIZE: usize = VALUE_HEADS * HEAD_DIM;
-const QKV_SIZE: usize = KEY_SIZE * 2 + VALUE_SIZE;
-const CONV_KERNEL: usize = 4;
+pub(super) const QKV_SIZE: usize = KEY_SIZE * 2 + VALUE_SIZE;
+pub(super) const CONV_KERNEL: usize = 4;
 const RMS_EPSILON: f32 = 1e-6;
 const ATTENTION_HEADS: usize = 16;
 const KV_HEADS: usize = 4;
 const ATTENTION_HEAD_DIM: usize = 256;
 const ATTENTION_SIZE: usize = ATTENTION_HEADS * ATTENTION_HEAD_DIM;
-const KV_SIZE: usize = KV_HEADS * ATTENTION_HEAD_DIM;
+pub(super) const KV_SIZE: usize = KV_HEADS * ATTENTION_HEAD_DIM;
 const ROTARY_DIM: usize = 64;
 const ROPE_THETA: f32 = 10_000_000.0;
 

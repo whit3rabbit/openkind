@@ -86,7 +86,7 @@ These values define the parity target. They do not promote the profile to releas
 | Phase 3B architecture and reference-vector loader | Validation gate passed |
 | Native Qwen CPU embedding and decoder execution | Frozen Phase 3B parity gate passed |
 | Qwen-specific full-hybrid continuation state | Cached continuation gate passed |
-| Backend-neutral `BranchableState` | In progress |
+| Backend-neutral `BranchableState` (CPU) | Contract gate passed; Metal open |
 | Batched question and candidate execution | Python reference complete, Rust implementation open |
 | Metal and production service validation | Open |
 

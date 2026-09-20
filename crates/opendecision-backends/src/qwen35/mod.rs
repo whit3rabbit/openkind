@@ -12,8 +12,8 @@ mod tokenizer;
 
 pub use backbone::{
     BackboneOutput, BackboneReference, BackboneState, EmbeddingOutput, FullSequenceRecord,
-    Layer0Output, LayerKind, Qwen35Backbone, Qwen35Embedding, Qwen35Layer0, StageComparison,
-    TraceStage,
+    Layer0Output, LayerKind, Qwen35Backbone, Qwen35BranchBatch, Qwen35Embedding, Qwen35Layer0,
+    StageComparison, TraceStage,
 };
 pub use head::{HeadEvaluation, PolicyAction, PrimitiveKind, ScoreSummaryHead, FEATURE_WIDTH};
 pub use profile::ReferenceBundle;
@@ -24,6 +24,7 @@ pub use tokenizer::{
 
 use std::path::PathBuf;
 
+use crate::branch::{StateError, StateIdentity};
 use opendecision_engine::ProfileValidationError;
 use sha2::{Digest, Sha256};
 use thiserror::Error;
@@ -50,6 +51,12 @@ pub const POLICY_THRESHOLD: f64 = 0.98;
 pub const PROBABILITY_TOLERANCE: f64 = 0.005;
 /// Exported ordering/logit comparison tolerance.
 pub const ORDERING_TOLERANCE: f64 = 0.000_01;
+/// Arithmetic/device identity of the native CPU continuation execution path.
+///
+/// A changed device (for example Metal), precision, or kernel path is a new
+/// arithmetic identity: states produced under a different value are rejected
+/// instead of silently mixed.
+pub const EXECUTION_ARITHMETIC_ID: &str = "candle-cpu-fp32";
 
 const MANIFEST_SHA256: &str = "dd42289e525d82a1ab8d55efd3843970e6c31a23059512a2c7e4ee7ca6459f78";
 
@@ -138,9 +145,30 @@ pub enum Qwen35Error {
     #[error("invalid head input: {0}")]
     InvalidInput(String),
 
+    /// A branch-state contract operation failed.
+    #[error("branch state contract violated: {0}")]
+    State(#[from] StateError),
+
     /// Numerical evaluation failed instead of returning a finite distribution.
     #[error("head evaluation produced invalid arithmetic: {0}")]
     Numerical(String),
+}
+
+/// Pinned branch-state identity of the selected profile's native CPU path.
+///
+/// Every `BackboneState` produced by `Qwen35Backbone` carries this identity,
+/// and continuation rejects states carrying any other value.
+#[must_use]
+pub fn pinned_state_identity() -> StateIdentity {
+    StateIdentity::new(
+        PROFILE_ID,
+        BACKBONE_ID,
+        BACKBONE_REVISION,
+        STATE_FIRST_RENDERER_ID,
+        TOKENIZER_JSON_SHA256,
+        EXECUTION_ARITHMETIC_ID,
+    )
+    .expect("pinned identity constants are non-empty")
 }
 
 pub(crate) fn sha256_hex(bytes: &[u8]) -> String {

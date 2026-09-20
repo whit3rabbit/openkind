@@ -6,6 +6,7 @@ use candle_nn::VarBuilder;
 use super::super::Qwen35Error;
 use super::embedding::{verify_decoder_shard, Qwen35Embedding};
 use super::layer0::{rms_norm_zero_centered, DecoderLayer, LayerState};
+use crate::branch::{StateError, StateIdentity, StateLineage};
 
 const HIDDEN_SIZE: usize = 2_560;
 const LAYER_COUNT: usize = 32;
@@ -57,19 +58,37 @@ impl BackboneOutput {
 pub struct Qwen35Backbone {
     embedding: Qwen35Embedding,
     decoder_shard: PathBuf,
+    identity: StateIdentity,
 }
 
 /// Complete Qwen3.5 continuation state after a native prefix evaluation.
 ///
-/// Every clone owns independent attention KV, DeltaNet recurrent, and
-/// convolution state, so continuing a branch cannot mutate its source root.
+/// The state carries the pinned profile/model/tokenizer/renderer/arithmetic
+/// identity, branch lineage, logical position, and every mutable tensor a
+/// continuation reads: attention KV, DeltaNet recurrent, and convolution
+/// state. Every clone owns independent tensors, so continuing a branch cannot
+/// mutate its source root.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BackboneState {
-    position: usize,
-    layers: Vec<LayerState>,
+    pub(super) identity: StateIdentity,
+    pub(super) lineage: StateLineage,
+    pub(super) position: usize,
+    pub(super) layers: Vec<LayerState>,
 }
 
 impl BackboneState {
+    /// Pinned profile/model/tokenizer/renderer/arithmetic identity.
+    #[must_use]
+    pub fn identity(&self) -> &StateIdentity {
+        &self.identity
+    }
+
+    /// Branch lineage shared with the prefill root this state derives from.
+    #[must_use]
+    pub const fn lineage(&self) -> StateLineage {
+        self.lineage
+    }
+
     /// Next absolute token position for a continuation suffix.
     #[must_use]
     pub const fn position(&self) -> usize {
@@ -98,7 +117,14 @@ impl Qwen35Backbone {
         Ok(Self {
             embedding,
             decoder_shard,
+            identity: super::super::pinned_state_identity(),
         })
+    }
+
+    /// Pinned state identity every state produced by this backbone carries.
+    #[must_use]
+    pub fn identity(&self) -> &StateIdentity {
+        &self.identity
     }
 
     /// Execute embedding, all 32 decoder layers, and final RMSNorm in FP32.
@@ -115,11 +141,22 @@ impl Qwen35Backbone {
     }
 
     /// Continue from complete prefix state without mutating the source.
+    ///
+    /// The source state must carry this backbone's pinned identity; a state
+    /// produced under a different profile, model revision, renderer,
+    /// tokenizer, or arithmetic path is rejected instead of silently mixed.
     pub fn continue_from(
         &self,
         state: &BackboneState,
         suffix_ids: &[u32],
     ) -> Result<(BackboneOutput, BackboneState), Qwen35Error> {
+        if state.identity != self.identity {
+            return Err(StateError::IdentityMismatch {
+                expected: self.identity.to_string(),
+                actual: state.identity.to_string(),
+            }
+            .into());
+        }
         if state.layers.len() != LAYER_COUNT {
             return Err(Qwen35Error::InvalidInput(format!(
                 "continuation state has {} layers, expected {LAYER_COUNT}",
@@ -137,6 +174,9 @@ impl Qwen35Backbone {
         let embedding = self.embedding.embed(input_ids)?;
         let token_count = embedding.token_count();
         let position_start = previous_state.map_or(0, |state| state.position);
+        // Continuation extends the source state's own timeline and keeps its
+        // lineage; a fresh prefill starts a new root.
+        let lineage = previous_state.map_or_else(StateLineage::new_root, |state| state.lineage);
         let embedding_last_token = embedding.last_token().to_vec();
         let mut hidden = embedding.values().to_vec();
         let device = Device::Cpu;
@@ -195,6 +235,8 @@ impl Qwen35Backbone {
                 final_values,
             },
             BackboneState {
+                identity: self.identity.clone(),
+                lineage,
                 position: position_start + token_count,
                 layers: next_layers,
             },
