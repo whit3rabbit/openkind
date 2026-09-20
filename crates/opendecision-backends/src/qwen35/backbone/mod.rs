@@ -1,5 +1,6 @@
 //! Phase 3B reference contracts, native CPU backbone, and continuation state.
 
+mod batched;
 mod branch;
 mod contract;
 mod embedding;
@@ -10,10 +11,18 @@ mod reference;
 mod types;
 
 #[cfg(test)]
+mod batched_tests;
+#[cfg(test)]
 mod branch_tests;
 #[cfg(test)]
 mod nested_tests;
+#[cfg(test)]
+mod test_support;
 
+pub use batched::{
+    run_batched_candidates, run_batched_nested, run_batched_questions, BatchedCandidateResult,
+    BatchedCandidates, BatchedNestedRun, BatchedQuestionResult, BatchedQuestions,
+};
 pub use branch::Qwen35BranchBatch;
 pub use contract::LayerKind;
 pub use embedding::{EmbeddingOutput, Qwen35Embedding};
