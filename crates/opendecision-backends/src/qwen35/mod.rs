@@ -12,10 +12,12 @@ mod profile;
 mod tokenizer;
 
 pub use backbone::{
-    run_sequential_nested, BackboneOutput, BackboneReference, BackboneState, EmbeddingOutput,
-    FullSequenceRecord, Layer0Output, LayerKind, NestedCandidateResult, NestedQuestion,
-    NestedQuestionResult, NestedRun, Qwen35Backbone, Qwen35BranchBatch, Qwen35Embedding,
-    Qwen35Layer0, SequentialNestedExecutor, StageComparison, TraceStage,
+    run_batched_candidates, run_batched_nested, run_batched_questions, run_sequential_nested,
+    BackboneOutput, BackboneReference, BackboneState, BatchedCandidateResult, BatchedCandidates,
+    BatchedNestedRun, BatchedQuestionResult, BatchedQuestions, EmbeddingOutput, FullSequenceRecord,
+    Layer0Output, LayerKind, NestedCandidateResult, NestedQuestion, NestedQuestionResult,
+    NestedRun, Qwen35Backbone, Qwen35BranchBatch, Qwen35Embedding, Qwen35Layer0,
+    SequentialNestedExecutor, StageComparison, TraceStage,
 };
 pub use head::{HeadEvaluation, PolicyAction, PrimitiveKind, ScoreSummaryHead, FEATURE_WIDTH};
 pub use profile::ReferenceBundle;
