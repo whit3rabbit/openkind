@@ -3,13 +3,24 @@
 //! # Purpose & Integration
 //! As documented in `docs/ARCHITECTURE.md` and `docs/ROADMAP.md`, `opendecision-runtime`
 //! provides hardware device detection (CPU, Apple Silicon Metal Performance Shaders, NVIDIA CUDA),
-//! memory limit accounting, and worker pool sizing. Future branchable state must capture attention
-//! KV, DeltaNet recurrent state, and convolution state together.
+//! memory limit accounting, worker pool sizing, backend-neutral execution capabilities, and the
+//! complete branchable-state contract. Qwen3.5 state captures attention KV, DeltaNet recurrent
+//! state, and convolution state together.
 //!
 //! Real model backends defined in `opendecision-backends` query this crate to discover available compute
 //! targets and configure thread parallelism.
 
 #![warn(missing_docs)]
+
+/// Backend-neutral branchable continuation-state contracts.
+pub mod branch;
+/// Backend capabilities and generic execution-plan vocabulary.
+pub mod execution;
+/// Process-memory observations for admission calibration.
+pub mod memory;
+
+pub use execution::{BackendCapabilities, ExecutionPlan};
+pub use memory::peak_resident_bytes;
 
 use std::fmt;
 

@@ -2,7 +2,7 @@
 
 > An open-source decision-inference engine in Rust targeting the Jev wire contract, with independently designed model and runtime internals.
 >
-> **Revision 0.7.2 · 20 September 2026 · Rust Phases 3.3-3.8 gates pass: CPU backbone, branch-state, sequential nested, batched Q/K, and the measured adaptive scheduler; high-cardinality stress and repeatability are next.**
+> **Revision 0.8.0 · 20 September 2026 · Native CPU reference engine through safe adaptive scheduling, state/scheduler high-K stress, and direct service registration. Model-backed high-K, fresh-process repeatability, Metal, and load/soak remain open.**
 >
 > Wire spec: https://docs.typesafe.ai/api
 > Reference client SDK target: https://docs.typesafe.ai/sdk/python/api
@@ -13,7 +13,7 @@
 
 The repository separates the **wire contract**, **decision/model execution**, and **transport/runtime** layers so that a model backend can change without changing the public request/response schema. The project targets Jev-compatible wire behavior where explicitly supported; it does **not** claim to reproduce Jev's private neural architecture or RLCD training procedure.
 
-The current model-integration reference is profile `a047d6802c3f06f085b8`: `Qwen/Qwen3.5-4B-Base`, frozen backbone, **state-first rendering**, and **score-summary rejection**. The exploratory `2ij.2.0` study selected and exported this profile before final evaluation, and the exported bundle passed a clean Python reload/head-algebra parity check. Phase 3A kept that profile immutable and validated the Python reference mechanics for full-hybrid-state branching, batched question/candidate execution, high-K systems stress, and same-process repeatability. Phase 3B kept the same profile, bundle, and base revision and exported exact segmented tokens, a 34-stage embedding-to-final-norm trace, 10 candidate features, and 3 continuation vectors. Rust Phase 3.3 now reproduces the correctness-first CPU backbone and Qwen-specific cached continuation on the named M4 Max. That makes the profile the fixed Phase 3 implementation target. It remains a **provisional integration profile**, not a release-quality model: independent review, natural-data confirmation, explicit promotion limits, backend-neutral branching, optimized execution, and Metal evidence remain open.
+The current model-integration reference is profile `a047d6802c3f06f085b8`: `Qwen/Qwen3.5-4B-Base`, frozen backbone, **state-first rendering**, and **score-summary rejection**. The exploratory `2ij.2.0` study selected and exported this profile before final evaluation, and the exported bundle passed a clean Python reload/head-algebra parity check. Phase 3A kept that profile immutable and validated the Python reference mechanics for full-hybrid-state branching, batched question/candidate execution, high-K systems stress, and same-process repeatability. Phase 3B kept the same profile, bundle, and base revision and exported exact segmented tokens, a 34-stage embedding-to-final-norm trace, 10 candidate features, and 3 continuation vectors. Rust Phase 3.3 now reproduces the correctness-first CPU backbone and Qwen-specific cached continuation on the named M4 Max. That makes the profile the fixed Phase 3 implementation target. It remains a **provisional integration profile**, not a release-quality model: independent review, natural-data confirmation, explicit promotion limits, optimized execution, and Metal evidence remain open.
 
 Rust now reproduces the selected head/probability algebra and all four exported token records. It loads and validates the Phase 3B architecture and 47-vector reference bundle, verifies both immutable checkpoint shards, and executes the complete 32-layer Qwen text backbone plus final RMSNorm through Candle's CPU backend in FP32. All 34 stage diagnostics are localized, all 10 candidate sequences pass the declared probability/argmax/policy gate, and Qwen-specific cached continuation carries attention KV, DeltaNet recurrent state, convolution state, and absolute position without mutating its root. This is correctness-first CPU evidence, not Metal, production-service, or release-quality evidence.
 
@@ -29,8 +29,10 @@ completed Python Phase 3A branch/batch reference + Phase 3B backbone reference
   → completed sequential state→question→candidate parity
   → completed batched question and candidate execution
   → completed adaptive workload scheduler measured on the named Mac
-  → high-K / repeatability / persistence
-  → production service lifecycle
+  → completed state/scheduler high-K admission stress + cache/snapshot persistence contracts
+  → completed direct native DecisionEngine registration + explicit none mapping
+  → model-backed high-K / fresh-process repeatability
+  → production load/soak lifecycle
 ```
 
 Model promotion and implementation equivalence remain separate decisions.
@@ -45,10 +47,10 @@ The architecture document distinguishes implemented/reported repository behavior
 - **Phase 2H:** required criteria/rejection-transfer study is complete through the preserved `2h.1.2` continuation. The old failed attempt remains historical evidence.
 - **Phase 2I:** bounded state-first multi-question mechanics and Q=1/Q=4 semantic sharing are measured; independently reviewed/natural-data confirmation remains open.
 - **Phase 2J:** the exploratory model-selection screen is complete; the Qwen4B state-first/score-summary profile is the provisional integration target. Release promotion remains open.
-- **Track S:** the thin Rust → resident Python reference-worker bridge is a planned parallel integration track, not a completed Phase 2H component.
+- **Track S:** the service path now supports direct `Qwen35DecisionEngine` registration through `EngineRegistry`; the Python implementation remains a differential-test oracle, not a deployment bridge.
 - **Phase 3A (Python reference):** run `20260920T024056Z` completed notebook scope with the selected profile unchanged; semantic batched parity passed, high-K parity passed, and the recorded same-process repeatability delta was zero. The run is systems/reference evidence, not Rust/Metal parity or release certification.
 - **Phase 3B (Python reference):** run `20260920T152206Z` completed notebook scope with no training, model selection, model modification, or bundle change. It exports 4 token records and 47 FP32 vectors for layer, candidate, and continuation localization. Its hidden-vector deltas are diagnostics, not Rust acceptance tolerances.
-- **Phase 3 (Rust/native):** head/probability, exact tokenizer/state-first token, full CPU decoder/final-normalization, Qwen-specific cached-continuation, backend-neutral branch-state, sequential nested execution, batched Q/K, and the measured adaptive scheduler pass against the frozen fixtures. High-cardinality stress, repeatability, Metal, service registration, and release promotion remain open.
+- **Phase 3 (Rust/native):** head/probability, exact tokenizer/state-first token, full CPU decoder/final-normalization, Qwen-specific cached-continuation, backend-neutral branch-state, sequential nested execution, batched Q/K, and the measured adaptive scheduler pass against the frozen fixtures. State/scheduler high-K stress, process-peak admission, tenant-isolated cache semantics, direct service registration, and explicit semantic-none mapping are implemented. Model-backed high-K execution, fresh-process replay, Metal, load/soak, and release promotion remain open.
 
 The roadmap is the task/status authority; the whitepaper is the evidence/interpretation authority. This file defines the intended software and execution architecture.
 
@@ -207,21 +209,27 @@ complete correctness-first CPU backbone and Qwen-specific continuation stage:
 - 10-candidate probability/argmax/policy replay;
 - immutable Qwen-specific continuation state with attention KV, recurrent,
   convolution, position, and byte-accounting components;
-- profile/model/tokenizer/renderer/arithmetic state identity, structural and
-  strict content fingerprints, exact hybrid byte accounting, immutable-root
-  fork, batched fork, and gather/select through the backend-neutral
-  `BranchableState` and `BranchBatch` traits (`src/branch`, and
-  `src/qwen35/backbone/branch.rs`).
+- profile/model/tokenizer/renderer/arithmetic state identity, distinct scheduling
+  and strict content fingerprint types, exact tensor-payload accounting,
+  immutable-root fork, batched fork, and gather/select through the
+  backend-neutral `opendecision-runtime::branch` contracts;
+- sequential nested and breadth-first Q/K execution, with the current CPU
+  backend explicitly advertising per-lane rather than vectorized forward;
+- scheduler admission over tensor payload plus observed process peak, scratch,
+  allocator headroom, and backend lane limits;
+- `Qwen35DecisionEngine` with bounded execution/queue admission and direct
+  `EngineRegistry` registration;
+- explicit Choice semantic-none mapping through caller-supplied `__none__`,
+  with none mass preserved and confidence derived from normalized entropy.
 
-It does not yet implement sequential or batched nested Q/K execution, batch
-forward execution, Metal execution, a registered native service backend, or
-the Jev wire mapping for semantic none.
+It does not yet implement vectorized batch-forward kernels, Metal execution,
+fresh-process replay proof, or production load/soak validation.
 
 ---
 
-## Track S — thin real-service bridge (planned / parallel)
+## Track S — direct native service integration
 
-Before a complete native backend is production-ready, Track S may connect the existing Rust service boundary to a persistent reference worker:
+The service now connects the existing Rust boundary directly to the native backend:
 
 ```text
 HTTP / gRPC client
@@ -230,20 +238,17 @@ HTTP / gRPC client
 opendecisiond
   │  request ID · auth · validation · admission · deadline
   ▼
-BridgeEngine : DecisionEngine
-  │  versioned request/profile serialization
+Qwen35DecisionEngine : DecisionEngine
+  │  bounded queue · explicit offline profile paths
   ▼
-Persistent reference worker
+Native tokenizer + Qwen backbone + fitted head
   │  selected pinned model profile
   │  real probability/rejection computation
-  │  bounded execution
   ▼
 validated typed SystemResponse
 ```
 
-This bridge is useful for exercising real probabilities, unsupported-input errors, queueing, cancellation, token/work accounting, and SDK behavior before the native port is complete.
-
-It is **not** a substitute for native parity, and this document does not claim that the real worker-backed bridge is already implemented. Track S.3–S.5 in the roadmap own that evidence.
+The daemon still defaults to mock aliases. Native aliases require explicit bundle, checkpoint, and tokenizer paths and never download artifacts. Queue admission, unsupported-input errors, and direct typed responses are implemented. Cancellation after a blocking model call starts, recovery, service load/soak, and deployment promotion remain open. The Python reference worker is retained only as an optional differential oracle.
 
 ---
 
@@ -292,7 +297,7 @@ Phase 3A supplies the working Python reference for the required semantics. The f
 
 The Python contract validates immutable-root fan-out/select before the semantic benchmark. Rust does not copy the Python object model, but it reproduces the **same complete-state semantics** and fixture outputs.
 
-The Phase 3.4 Rust contract is implemented in `crates/opendecision-backends/src/branch` and bound to `BackboneState` in `crates/opendecision-backends/src/qwen35/backbone/branch.rs`:
+The Phase 3.4 Rust contract is owned by `crates/opendecision-runtime/src/branch` and bound to `BackboneState` in `crates/opendecision-backends/src/qwen35/backbone/branch.rs`:
 
 ```rust
 pub trait BranchableState: Send + Sync {
@@ -300,8 +305,8 @@ pub trait BranchableState: Send + Sync {
 
     fn profile_id(&self) -> &ProfileId;
     fn position(&self) -> usize;
-    fn storage_bytes(&self) -> usize;
-    fn fingerprint(&self) -> StateFingerprint;
+    fn tensor_storage_bytes(&self) -> usize;
+    fn scheduling_fingerprint(&self) -> SchedulingFingerprint;
 
     fn fork_one(&self) -> Result<Self, StateError>
     where
@@ -316,7 +321,7 @@ pub trait BranchBatch {
     type State: BranchableState<Batch = Self>;
 
     fn lanes(&self) -> usize;
-    fn storage_bytes(&self) -> usize;
+    fn tensor_storage_bytes(&self) -> usize;
     fn select(&self, index: usize) -> Result<Self::State, StateError>;
     fn gather(&self, indices: &[usize]) -> Result<Self, StateError>
     where
@@ -330,24 +335,23 @@ The semantic requirements are more important than the exact trait syntax:
 2. **Complete-state isolation** — all mutable continuation components are isolated.
 3. **Single and batched fork** — a backend can create one continuation or a vectorized set of lanes.
 4. **Split/gather/rebatch support where valid** — batching is an execution optimization, not a semantic merge.
-5. **Byte accounting** — scheduler/admission decisions use real branch-state storage, not only attention KV.
+5. **Qualified memory accounting** — `tensor_storage_bytes()` covers attention KV, recurrent, and convolution payload exactly. Admission separately adds observed process memory, forward scratch, allocator headroom, and fan-out peaks. The direct engine refreshes peak RSS after model load and before each evaluation, then apportions remaining headroom across the configured concurrency limit.
 6. **Stable identity** — state cannot be reused across incompatible model, renderer, adapter, arithmetic, tokenizer, or position contracts.
 7. **Backend neutrality** — future encoders/query models can implement a different reusable-state representation without pretending to be a Transformer KV cache.
 
-The Rust implementation adds two deliberate fingerprint levels. The structural
-`fingerprint()` hashes identity, lineage root, position, and tensor layout
-only, so scheduling can call it without reading tens of MiB of tensor bytes;
-it is process-local and makes a forked child scheduling-equivalent to its
-parent until the child advances. The strict `strict_fingerprint()` hashes
-exact little-endian tensor bytes, identity, and position; it is the
-cross-process replay/integrity identity and is intended for fixture gates,
-not per-fork scheduling.
+The Rust implementation uses two compile-time-distinct fingerprint types.
+`SchedulingFingerprint` hashes identity, lineage root, position, and tensor
+layout only, so scheduling can call it without reading tens of MiB of tensor
+bytes. It is process-local and cannot be passed where a persistent content key
+is required. `ContentFingerprint` hashes exact little-endian tensor bytes,
+identity, and position; it is the cross-process replay/integrity identity used
+by fixture gates and tenant-scoped persistent-state keys, not per-fork scheduling.
 
 ---
 
 ## Breadth-first Q/K execution
 
-The correctness reference is **sequential nested execution**, now implemented natively in `crates/opendecision-backends/src/qwen35/backbone/nested.rs` (`run_sequential_nested` / `Qwen35Backbone::evaluate_nested`, Phase 3.5): one immutable state prefill, then `fork question → advance question → fork candidate → advance candidate` through `BranchableState`, with fail-closed position and immutability verification and exact `repeated_full` agreement. The breadth-first batched path is also native (`crates/opendecision-backends/src/qwen35/backbone/batched.rs`, `run_batched_nested`, Phases 3.6/3.7): `fork_batch` question lanes from the same root, then a `fork_batch` candidate fan-out per question state, proven exactly equal to the sequential baseline. Vectorized suffix kernels and the adaptive scheduler that chooses between the two proven strategies are the remaining work.
+The correctness reference is **sequential nested execution**, now implemented natively in `crates/opendecision-backends/src/qwen35/backbone/nested.rs` (`run_sequential_nested` / `Qwen35Backbone::evaluate_nested`, Phase 3.5): one immutable state prefill, then `fork question → advance question → fork candidate → advance candidate` through `BranchableState`, with fail-closed position and immutability verification and exact `repeated_full` agreement. The breadth-first lane topology is also native (`crates/opendecision-backends/src/qwen35/backbone/batched.rs`, `run_batched_nested`, Phases 3.6/3.7): `fork_batch` question lanes from the same root, then a `fork_batch` candidate fan-out per question state, proven exactly equal to the sequential baseline. This is state-semantic batching, not compute-vectorized forward. `BackendCapabilities` keeps those claims separate, and the current CPU scheduler defaults to `NestedSequential`. `NestedBatched` is eligible only when a backend advertises vectorized question and candidate forward support within explicit lane limits.
 
 ### Reference graph
 
@@ -544,13 +548,14 @@ The exported selected bundle is the model/probability reference contract. Phase 
 1. **Head/probability algebra, complete:** Rust matches the exported fixtures. It reproduces normalization, projection, rejection, calibration, stable softmax, and policy semantics.
 2. **Exact tokenizer + state-first token rendering, complete:** all four exported root, question, candidate-suffix, and full-sequence ID records match exactly. The implementation rejects overlength inputs rather than silently truncating them.
 3. **Full Qwen3.5 CPU backbone parity, complete for frozen fixtures:** exact embedding, all 32 decoder blocks, final RMSNorm, 34-stage diagnostics, 10 candidate features, and probability/decision replay pass. Qwen-specific cached continuation also matches native full-sequence output exactly for the exported branch.
-4. **`BranchableState`, complete for the CPU path:** Qwen state carries profile/model/tokenizer/renderer/arithmetic identity, lineage, explicit position, attention KV, recurrent and convolution tensors, clone isolation, exact byte accounting, structural and strict fingerprints, single and batched fork, and gather/select. Metal remains open.
+4. **`BranchableState`, complete for the CPU path:** the backend-neutral contract lives in `opendecision-runtime`; Qwen state carries profile/model/tokenizer/renderer/arithmetic identity, lineage, explicit position, attention KV, recurrent and convolution tensors, clone isolation, exact tensor-payload accounting, distinct scheduling/content fingerprints, single and batched fork, and gather/select. Metal remains open.
 5. **Sequential nested parity, complete for the CPU path:** `state → question → candidate` against the Python reference with exact `repeated_full` agreement, root immutability, and replay determinism.
 6. **Batched question layer, complete for the CPU path:** Q breadth-first `fork_batch` execution with lane isolation and exact sequential-baseline parity.
 7. **Batched candidate layer, complete for the CPU path:** K breadth-first fan-out per question state with permutation/rejection parity; vectorized suffix kernels remain open.
-8. **Adaptive scheduler / Q-amortization, measured for the warm CPU path:** `run_strategy` accounts forward calls and staged tokens across all three strategies; `choose_strategy` applies the measured crossover ratio (2.0) plus a state-byte ceiling. Sharing beat repeated-full in every measured cell (1.25x-1.98x); the two shared paths are equal within noise. Cold-start/cache-warmth and memory-pressure cells remain.
-9. **High-K / repeatability / persistence** — K=32/64/128/255 systems stress, pinned-runtime replay, cache lifecycle, profile/version telemetry.
-10. **Production lifecycle** — queueing, admission, cancellation, recovery, load shedding, telemetry, soak/load tests.
+8. **Adaptive scheduler / Q-amortization, measured for the warm CPU path:** `run_strategy` accounts forward calls and staged tokens across all three strategies; `choose_strategy` uses `2.52`, the lowest token-work ratio actually measured, rather than claiming evidence below it. Sharing beat repeated-full in every measured cell (1.25x-1.98x). The current CPU backend advertises per-lane forward and therefore defaults to `NestedSequential`; `NestedBatched` requires real vectorized capability.
+9. **High-K state/scheduler stress, implemented without full decoder fan-out:** estimator/admission gates cover K=32/64/128/255, mixed Q/K, tensor-payload ceilings, process-peak envelopes, vectorized lane limits, and fallback. `qwen35_model_stress` defines the explicit checkpoint-gated representative model run, which remains unverified on this checkout.
+10. **Repeatability/persistence contract, implementation complete but checkpoint evidence open:** exact same-process state replay is pinned by parity tests. `BranchStateCache` adds tenant isolation, TTL, tensor-byte LRU eviction, and strict `ContentFingerprint` keys. `BackboneState::persist_pinned`/`restore_pinned` add an atomic, versioned, envelope-digested snapshot with pinned execution identity, exact layout validation, fresh process-local lineage, and strict restored-content verification. The two-invocation `persist-save`/`persist-replay` probe defines the fresh-process model gate; its named-machine run remains open.
+11. **Direct service adapter, implemented but not production-promoted:** `Qwen35DecisionEngine` loads artifacts offline, registers through `EngineRegistry`, preserves explicit semantic-none mass, and bounds concurrent/queued requests. Cancellation after blocking execution begins, recovery, load shedding telemetry, and soak/load tests remain open.
 
 A change to model, tokenizer, renderer, adapter, head, rejection, calibration, precision, kernels, batching, cache/state representation, or policy triggers the relevant equivalence or new-model review. “Same checkpoint” alone is not sufficient identity.
 
@@ -613,10 +618,10 @@ Extend the current fixtures with:
 - nested-sequential versus nested-batched Q parity;
 - candidate-batch K parity;
 - precision/kernel/profile identity changes;
-- persistent state restore, TTL, byte eviction, tenant separation;
+- persistent state restore across processes (in-process TTL, byte eviction, and tenant separation are implemented);
 - cancellation and abandoned-reader safety;
 - exact/bounded replay repeatability;
-- Q=1/4/16 scaling and high-K scheduler stress;
+- Q=1/4/16 scaling and model-backed high-K stress (state/scheduler K=32/64/128/255 is implemented);
 - queue-inclusive load and memory-soak behavior.
 
 Probability delta, argmax changes, and directed application-policy changes must remain separate assertions. Aggregate accuracy is not an implementation-equivalence test.
@@ -674,11 +679,11 @@ Reference: https://morethanamachine.com/posts/jev-style-decisions-dgx-spark/
 - **Phase 2H — COMPLETED REQUIRED SCOPE.** Criteria/rejection transfer, bounded primitive probes, locked continuation and evidence handoff are complete. Historical failures/limits remain preserved.
 - **Phase 2I — BOUNDED PILOT COMPLETE / REVIEWED CONFIRMATION OPEN.** State-first rendering and nested Q sharing have exploratory semantic/mechanical evidence; independent review, natural documents, broader isolation/evidence-sufficiency and semantic high-K confirmation remain open.
 - **Phase 2J — EXPLORATORY SCREEN COMPLETE / RELEASE CONFIRMATION OPEN.** Thirteen fit jobs and 31 final profiles completed; Qwen4B/state-first/score-summary is the provisional integration target. Released external baselines and release promotion remain open.
-- **Track S — PLANNED / PARALLEL.** Resolve final wire probability semantics and connect a real resident reference worker to the Rust service before claiming a real model-backed service.
+- **Track S — DIRECT NATIVE ADAPTER IMPLEMENTED / SERVICE EVIDENCE OPEN.** `Qwen35DecisionEngine` registers directly, and Choice semantic none is explicit through `__none__`; the Python worker is only a differential oracle. Load/soak, cancellation during active model work, recovery, and deployment promotion remain open.
 - **Phase 3A — COMPLETED PYTHON SYSTEMS/REFERENCE SCOPE.** Run `20260920T024056Z` validated full-hybrid-state branch fan-out/select, semantic batched parity, high-K systems parity and exact recorded same-process replay for the frozen selected profile. Its short semantic benchmark also establishes that sharing is workload-dependent rather than universally faster.
 - **Phase 3B: COMPLETED PYTHON BACKBONE-REFERENCE SCOPE.** Run `20260920T152206Z` keeps the selected profile unchanged. It exports exact tokens, 34 trace stages, 10 candidate features, and 3 continuation vectors.
-- **Phase 3: IN PROGRESS / CPU BACKBONE, BRANCH-STATE, SEQUENTIAL NESTED, AND BATCHED Q/K PARITY PASSED.** Rust head/probability, exact-token, full-sequence CPU backbone, Qwen-specific cached-continuation, backend-neutral `BranchableState` contract, sequential nested execution, and batched Q/K execution gates pass. Adaptive scheduler measurement is next, followed by high-K/repeatability, Metal validation, and service integration. CPU native parity does not imply Metal or accelerated parity.
+- **Phase 3: IN PROGRESS / CPU REFERENCE, SAFE SCHEDULER, AND DIRECT ADAPTER IMPLEMENTED.** Rust head/probability, exact-token, full-sequence CPU backbone, Qwen-specific cached continuation, backend-neutral `BranchableState`, sequential nested execution, lane-topology Q/K parity, measured scheduling, state/scheduler high-K admission, cache lifecycle, and direct engine registration are implemented. Model-backed high-K, fresh-process replay, real vectorized forward, Metal, and service load/soak remain open. CPU native parity does not imply Metal or accelerated parity.
 - **Phase 3A.1 — CONDITIONAL SCHEDULER/CROSSOVER STUDY.** Create the additional Colab only if early Rust profiling does not provide enough component timing to derive stable strategy crossover rules. It does not block 3.1–3.5.
 - **P2.1–P2.3 — CONDITIONAL.** Optimized kernels, model-weight precision/quantization, and teacher/student work require a specific unmet target and their own parity/quality evidence.
 
-The current architecture decision is conservative. **Keep the selected state-first Qwen profile fixed while building the native engine.** The Phase 3B trace has already localized and closed the correctness-first CPU full-sequence and cached-continuation gates, the Phase 3.4 contract lifts the complete Qwen state into the backend-neutral branch abstractions, Phase 3.5 reproduces sequential nested `state → question → candidate` execution natively with exact `repeated_full` agreement, and Phases 3.6/3.7 prove the breadth-first batched path exactly equal to that sequential baseline. The adaptive scheduler that measures which strategy wins where comes next, before kernel optimization or Metal. CPU native parity does not imply Metal or accelerated parity. Let reviewed release-quality evidence decide whether the provisional profile ships.
+The current architecture decision is conservative. **Keep the selected state-first Qwen profile fixed while validating the native service.** The Phase 3B trace localized and closed the correctness-first CPU full-sequence and cached-continuation gates. The runtime-owned branch contract, sequential nested path, breadth-first lane topology, measured scheduler, safe CPU default, high-K admission model, strict-content cache keys, and direct adapter are now implemented. The next evidence is model-backed high-K, fresh-process replay, and queue-inclusive service load/soak before kernel optimization or Metal. CPU native parity does not imply Metal or accelerated parity. Let reviewed release-quality evidence decide whether the provisional profile ships.

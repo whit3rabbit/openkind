@@ -4,9 +4,16 @@
 
 ## Crate Purpose & Boundaries
 
-`opendecision-gen-schemas` is a dedicated utility binary that generates official draft-2020-12 JSON Schemas for `opendecision_core::SystemRequest` and `opendecision_core::SystemResponse`.
+`opendecision-gen-schemas` is a dedicated utility binary that generates official Draft 2020-12 JSON Schemas for `opendecision_core::SystemRequest` and `opendecision_core::SystemResponse`.
 
-It uses `schemars` to inspect the canonical Rust structs in `opendecision-core` and writes JSON to stdout.
+It uses `schemars` to inspect canonical Rust structs in `opendecision-core` and writes JSON to stdout or updates committed schema files in place.
+
+## Critical Invariants
+
+1. **Schema Synchronization**:
+   The committed JSON Schemas in `crates/opendecision-core/schemas/` must exactly match the output derived from the Rust types.
+2. **Never Hand-Edit Schemas**:
+   Always modify the Rust struct definitions or docstrings in `opendecision-core`, then run the generator with `--write`. Hand-edits will be overwritten or cause CI test failures in `tests/schema_sync.rs`.
 
 ## When to Run This Tool
 
@@ -36,5 +43,9 @@ The committed schema files are:
 ## Verification Commands
 
 ```bash
+# Run the schema synchronization test
+cargo test -p opendecision-gen-schemas
+
+# Run core schema conformance tests
 cargo test -p opendecision-core --test conformance json_schema_generates_for_request_and_response
 ```

@@ -10,21 +10,21 @@
 use super::batched::{run_batched_candidates, run_batched_nested, run_batched_questions};
 use super::nested::{run_sequential_nested, SequentialNestedExecutor};
 use super::test_support::{advance, plan, DriftingExecutor, SyntheticExecutor, ROOT_IDS};
-use crate::branch::{BranchBatch, BranchableState};
 use crate::qwen35::Qwen35Error;
+use opendecision_runtime::branch::{BranchBatch, BranchableState};
 
 #[test]
 fn batched_questions_match_direct_forks_and_keep_sources_immutable() {
     let executor = SyntheticExecutor;
     let (_, root) = executor.prefill(ROOT_IDS).expect("prefill");
-    let root_fingerprint = root.fingerprint();
+    let root_fingerprint = root.scheduling_fingerprint();
     let root_strict = root.strict_fingerprint();
 
     let batched = run_batched_questions(&executor, &root, &plan()).expect("batched questions");
 
-    assert_eq!(batched.batch_bytes(), 2 * root.storage_bytes());
+    assert_eq!(batched.batch_bytes(), 2 * root.tensor_storage_bytes());
     assert_eq!(
-        root.fingerprint(),
+        root.scheduling_fingerprint(),
         root_fingerprint,
         "root unchanged by fan-out"
     );
@@ -47,8 +47,8 @@ fn batched_questions_match_direct_forks_and_keep_sources_immutable() {
         // batch lane is scheduling-equivalent to a single fork of the same
         // root at the same position.
         assert_eq!(
-            batched.question_states()[index].fingerprint(),
-            expected_state.fingerprint()
+            batched.question_states()[index].scheduling_fingerprint(),
+            expected_state.scheduling_fingerprint()
         );
         assert_eq!(
             batched.question_states()[index].strict_fingerprint(),
@@ -56,7 +56,7 @@ fn batched_questions_match_direct_forks_and_keep_sources_immutable() {
         );
     }
     assert_eq!(
-        root.fingerprint(),
+        root.scheduling_fingerprint(),
         root_fingerprint,
         "root unchanged after all lanes"
     );
@@ -71,7 +71,7 @@ fn batched_nested_run_matches_the_sequential_baseline_exactly() {
     assert_eq!(batched.root_feature(), sequential.root_feature());
     assert_eq!(
         batched.question_batch_bytes(),
-        2 * sequential.root_state().storage_bytes()
+        2 * sequential.root_state().tensor_storage_bytes()
     );
 
     for (sequential_question, batched_question) in
@@ -88,8 +88,10 @@ fn batched_nested_run_matches_the_sequential_baseline_exactly() {
         // The runs prefill separate roots, so process-local lineage differs
         // while content and position stay identical.
         assert_ne!(
-            batched_question.question_state().fingerprint(),
-            sequential_question.question_state().fingerprint()
+            batched_question.question_state().scheduling_fingerprint(),
+            sequential_question
+                .question_state()
+                .scheduling_fingerprint()
         );
         assert_eq!(
             batched_question.question_state().strict_fingerprint(),
@@ -122,8 +124,10 @@ fn batched_questions_compose_from_a_foreign_sequential_root() {
         sequential.questions().iter().zip(batched.question_states())
     {
         assert_eq!(
-            batched_state.fingerprint(),
-            sequential_question.question_state().fingerprint()
+            batched_state.scheduling_fingerprint(),
+            sequential_question
+                .question_state()
+                .scheduling_fingerprint()
         );
         assert_eq!(
             batched_state.strict_fingerprint(),
@@ -137,7 +141,7 @@ fn batched_candidates_follow_suffix_order_and_support_gather_reordering() {
     let executor = SyntheticExecutor;
     let (_, root) = executor.prefill(ROOT_IDS).expect("prefill");
     let (_, question_state) = executor.continue_from(&root, &[20, 21]).expect("question");
-    let question_fingerprint = question_state.fingerprint();
+    let question_fingerprint = question_state.scheduling_fingerprint();
 
     let suffix_a: &[u32] = &[30];
     let suffix_b: &[u32] = &[31, 32];
@@ -150,7 +154,10 @@ fn batched_candidates_follow_suffix_order_and_support_gather_reordering() {
     let reversed = run_batched_candidates(&executor, &question_state, reversed_suffixes)
         .expect("reversed candidate fan-out");
 
-    assert_eq!(forward.batch_bytes(), 3 * question_state.storage_bytes());
+    assert_eq!(
+        forward.batch_bytes(),
+        3 * question_state.tensor_storage_bytes()
+    );
     assert_eq!(
         forward.candidate_features()[0],
         reversed.candidate_features()[2]
@@ -168,7 +175,7 @@ fn batched_candidates_follow_suffix_order_and_support_gather_reordering() {
         reversed.candidate_states()[2].strict_fingerprint()
     );
     assert_eq!(
-        question_state.fingerprint(),
+        question_state.scheduling_fingerprint(),
         question_fingerprint,
         "question state unchanged by both fan-outs"
     );
@@ -185,8 +192,8 @@ fn batched_candidates_follow_suffix_order_and_support_gather_reordering() {
         .expect("advance gathered lane");
     assert_eq!(feature_from_gathered, feature_after_advance);
     assert_eq!(
-        state_from_gathered.fingerprint(),
-        state_after_advance.fingerprint()
+        state_from_gathered.scheduling_fingerprint(),
+        state_after_advance.scheduling_fingerprint()
     );
     assert_eq!(
         state_from_gathered.strict_fingerprint(),
@@ -207,7 +214,9 @@ fn batched_run_positions_and_candidate_batches_track_plan_shape() {
     assert_eq!(batched.questions()[1].candidates()[0].state().position(), 6);
     assert_eq!(
         batched.questions()[0].candidate_batch_bytes(),
-        2 * batched.questions()[0].question_state().storage_bytes()
+        2 * batched.questions()[0]
+            .question_state()
+            .tensor_storage_bytes()
     );
 }
 

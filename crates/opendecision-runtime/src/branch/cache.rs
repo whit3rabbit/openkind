@@ -1,0 +1,294 @@
+//! Tenant-isolated, byte-bounded in-process branch-state reuse.
+
+use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+
+use thiserror::Error;
+
+use super::{BranchableState, ContentFingerprint};
+
+/// Persistent-reuse key that can only be built from a strict content fingerprint.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StateCacheKey {
+    tenant: String,
+    content: ContentFingerprint,
+}
+
+impl StateCacheKey {
+    /// Build a tenant-scoped key. Empty tenant identifiers are rejected.
+    pub fn new(tenant: impl Into<String>, content: ContentFingerprint) -> Result<Self, CacheError> {
+        let tenant = tenant.into();
+        if tenant.trim().is_empty() {
+            return Err(CacheError::EmptyTenant);
+        }
+        Ok(Self { tenant, content })
+    }
+
+    /// Tenant namespace owning this entry.
+    #[must_use]
+    pub fn tenant(&self) -> &str {
+        &self.tenant
+    }
+
+    /// Strict content identity of the cached state.
+    #[must_use]
+    pub const fn content_fingerprint(&self) -> ContentFingerprint {
+        self.content
+    }
+}
+
+impl Hash for StateCacheKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.tenant.hash(state);
+        self.content.hash(state);
+    }
+}
+
+/// Cache admission failures.
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum CacheError {
+    /// Tenant namespaces must be explicit.
+    #[error("state cache tenant must not be empty")]
+    EmptyTenant,
+    /// One state exceeds the entire tensor-payload budget.
+    #[error("state tensor payload {state_bytes} exceeds cache budget {max_bytes}")]
+    StateTooLarge {
+        /// State tensor payload bytes.
+        state_bytes: usize,
+        /// Configured cache budget.
+        max_bytes: usize,
+    },
+    /// A previous thread poisoned the cache lock.
+    #[error("state cache lock poisoned")]
+    Poisoned,
+}
+
+struct Entry<S> {
+    state: S,
+    tensor_bytes: usize,
+    expires_at: Instant,
+    last_used: u64,
+}
+
+struct CacheInner<S> {
+    entries: HashMap<StateCacheKey, Entry<S>>,
+    tensor_bytes: usize,
+    clock: u64,
+}
+
+/// In-process branch-state cache with strict tenant isolation, TTL, and LRU eviction.
+///
+/// The byte budget covers continuation tensor payload only. Process-level admission
+/// must separately account for model weights, scratch, allocator overhead, and RSS.
+pub struct BranchStateCache<S> {
+    inner: Mutex<CacheInner<S>>,
+    max_tensor_bytes: usize,
+    ttl: Duration,
+}
+
+impl<S: BranchableState + Clone> BranchStateCache<S> {
+    /// Create a cache. A zero byte budget admits no states; a zero TTL expires immediately.
+    #[must_use]
+    pub fn new(max_tensor_bytes: usize, ttl: Duration) -> Self {
+        Self {
+            inner: Mutex::new(CacheInner {
+                entries: HashMap::new(),
+                tensor_bytes: 0,
+                clock: 0,
+            }),
+            max_tensor_bytes,
+            ttl,
+        }
+    }
+
+    /// Insert or replace one tenant-scoped state, evicting least-recently-used entries.
+    pub fn insert(&self, key: StateCacheKey, state: S) -> Result<(), CacheError> {
+        let state_bytes = state.tensor_storage_bytes();
+        if state_bytes > self.max_tensor_bytes {
+            return Err(CacheError::StateTooLarge {
+                state_bytes,
+                max_bytes: self.max_tensor_bytes,
+            });
+        }
+        let mut inner = self.inner.lock().map_err(|_| CacheError::Poisoned)?;
+        purge_expired(&mut inner, Instant::now());
+        if let Some(previous) = inner.entries.remove(&key) {
+            inner.tensor_bytes = inner.tensor_bytes.saturating_sub(previous.tensor_bytes);
+        }
+        inner.clock = inner.clock.wrapping_add(1);
+        let entry = Entry {
+            state,
+            tensor_bytes: state_bytes,
+            expires_at: Instant::now() + self.ttl,
+            last_used: inner.clock,
+        };
+        inner.tensor_bytes = inner.tensor_bytes.saturating_add(state_bytes);
+        inner.entries.insert(key, entry);
+        while inner.tensor_bytes > self.max_tensor_bytes {
+            let Some(eviction_key) = inner
+                .entries
+                .iter()
+                .min_by_key(|(_, entry)| entry.last_used)
+                .map(|(key, _)| key.clone())
+            else {
+                break;
+            };
+            if let Some(evicted) = inner.entries.remove(&eviction_key) {
+                inner.tensor_bytes = inner.tensor_bytes.saturating_sub(evicted.tensor_bytes);
+            }
+        }
+        Ok(())
+    }
+
+    /// Clone one unexpired state from its tenant namespace.
+    pub fn get(&self, key: &StateCacheKey) -> Result<Option<S>, CacheError> {
+        let mut inner = self.inner.lock().map_err(|_| CacheError::Poisoned)?;
+        purge_expired(&mut inner, Instant::now());
+        inner.clock = inner.clock.wrapping_add(1);
+        let clock = inner.clock;
+        Ok(inner.entries.get_mut(key).map(|entry| {
+            entry.last_used = clock;
+            entry.state.clone()
+        }))
+    }
+
+    /// Current entry count and exact cached tensor payload bytes.
+    pub fn usage(&self) -> Result<(usize, usize), CacheError> {
+        let mut inner = self.inner.lock().map_err(|_| CacheError::Poisoned)?;
+        purge_expired(&mut inner, Instant::now());
+        Ok((inner.entries.len(), inner.tensor_bytes))
+    }
+}
+
+fn purge_expired<S>(inner: &mut CacheInner<S>, now: Instant) {
+    inner.entries.retain(|_, entry| {
+        let retain = entry.expires_at > now;
+        if !retain {
+            inner.tensor_bytes = inner.tensor_bytes.saturating_sub(entry.tensor_bytes);
+        }
+        retain
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::branch::{BranchBatch, ProfileId, SchedulingFingerprint, StateError};
+
+    #[derive(Clone)]
+    struct DummyState {
+        profile: ProfileId,
+        bytes: usize,
+    }
+
+    #[derive(Clone)]
+    struct DummyBatch(Vec<DummyState>);
+
+    impl BranchableState for DummyState {
+        type Batch = DummyBatch;
+
+        fn profile_id(&self) -> &ProfileId {
+            &self.profile
+        }
+
+        fn position(&self) -> usize {
+            0
+        }
+
+        fn tensor_storage_bytes(&self) -> usize {
+            self.bytes
+        }
+
+        fn scheduling_fingerprint(&self) -> SchedulingFingerprint {
+            SchedulingFingerprint::builder("dummy").finish()
+        }
+
+        fn fork_one(&self) -> Result<Self, StateError> {
+            Ok(self.clone())
+        }
+
+        fn fork_batch(&self, lanes: usize) -> Result<Self::Batch, StateError> {
+            Ok(DummyBatch(vec![self.clone(); lanes]))
+        }
+    }
+
+    impl BranchBatch for DummyBatch {
+        type State = DummyState;
+
+        fn lanes(&self) -> usize {
+            self.0.len()
+        }
+
+        fn tensor_storage_bytes(&self) -> usize {
+            self.0.iter().map(|state| state.bytes).sum()
+        }
+
+        fn select(&self, index: usize) -> Result<Self::State, StateError> {
+            self.0
+                .get(index)
+                .cloned()
+                .ok_or(StateError::LaneIndexOutOfBounds {
+                    lanes: self.0.len(),
+                    index,
+                })
+        }
+
+        fn gather(&self, indices: &[usize]) -> Result<Self, StateError> {
+            indices
+                .iter()
+                .map(|&index| self.select(index))
+                .collect::<Result<Vec<_>, _>>()
+                .map(Self)
+        }
+    }
+
+    fn state(bytes: usize) -> DummyState {
+        DummyState {
+            profile: ProfileId::new("profile").expect("profile"),
+            bytes,
+        }
+    }
+
+    fn key(tenant: &str, value: u64) -> StateCacheKey {
+        StateCacheKey::new(
+            tenant,
+            ContentFingerprint::builder("cache-test")
+                .value(value)
+                .finish(),
+        )
+        .expect("key")
+    }
+
+    #[test]
+    fn tenant_keys_are_isolated_and_lru_is_byte_bounded() {
+        let cache = BranchStateCache::new(20, Duration::from_secs(60));
+        cache.insert(key("alpha", 1), state(10)).expect("insert");
+        cache.insert(key("beta", 1), state(10)).expect("insert");
+        assert!(cache.get(&key("alpha", 1)).expect("get").is_some());
+        cache.insert(key("alpha", 2), state(10)).expect("insert");
+
+        assert!(cache.get(&key("alpha", 1)).expect("get").is_some());
+        assert!(cache.get(&key("beta", 1)).expect("get").is_none());
+        assert_eq!(cache.usage().expect("usage"), (2, 20));
+    }
+
+    #[test]
+    fn ttl_and_single_state_admission_fail_closed() {
+        let cache = BranchStateCache::new(8, Duration::ZERO);
+        cache.insert(key("alpha", 1), state(8)).expect("insert");
+        assert!(cache.get(&key("alpha", 1)).expect("get").is_none());
+        assert_eq!(
+            cache.insert(key("alpha", 2), state(9)),
+            Err(CacheError::StateTooLarge {
+                state_bytes: 9,
+                max_bytes: 8,
+            })
+        );
+        assert_eq!(
+            StateCacheKey::new("", ContentFingerprint::builder("x").finish()),
+            Err(CacheError::EmptyTenant)
+        );
+    }
+}

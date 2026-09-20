@@ -7,6 +7,7 @@ mod embedding;
 mod layer0;
 mod model;
 mod nested;
+mod persistence;
 mod reference;
 mod strategy;
 mod types;
@@ -15,6 +16,10 @@ mod types;
 mod batched_tests;
 #[cfg(test)]
 mod branch_tests;
+#[cfg(test)]
+mod embedding_tests;
+#[cfg(test)]
+mod layer0_tests;
 #[cfg(test)]
 mod nested_tests;
 #[cfg(test)]
@@ -38,7 +43,7 @@ pub use nested::{
 pub use reference::BackboneReference;
 pub use strategy::{
     choose_strategy, run_repeated_full, run_strategy, run_with_scheduler, CountingExecutor,
-    ExecutionStrategy, RetentionEstimates, SchedulerConfig, StrategyDecision, StrategyEstimates,
-    StrategyOutput, StrategyRequest,
+    ExecutionStrategy, ProcessMemoryEnvelope, RetentionEstimates, SchedulerConfig,
+    StrategyDecision, StrategyEstimates, StrategyOutput, StrategyRequest,
 };
 pub use types::{FullSequenceRecord, StageComparison, TraceStage};

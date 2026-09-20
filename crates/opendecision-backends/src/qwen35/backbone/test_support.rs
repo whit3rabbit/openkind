@@ -5,8 +5,8 @@
 use super::layer0::{LayerState, CONV_KERNEL, HEAD_DIM, KV_SIZE, QKV_SIZE, VALUE_HEADS};
 use super::model::BackboneState;
 use super::nested::{NestedQuestion, SequentialNestedExecutor};
-use crate::branch::{StateIdentity, StateLineage};
 use crate::qwen35::Qwen35Error;
+use opendecision_runtime::branch::{StateIdentity, StateLineage};
 
 pub(super) const LAYER_COUNT: usize = 32;
 

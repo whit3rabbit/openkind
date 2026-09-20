@@ -2,11 +2,13 @@
 //!
 //! This module implements the exported tokenizer/renderer contract, verified
 //! FP32 CPU backbone and continuation path, sequential nested execution over
-//! the backend-neutral branch contract, and feature-to-probability readout.
-//! It does not expose a wire adapter, Metal path, or production backend
-//! registration.
+//! the backend-neutral branch contract, feature-to-probability readout, and a
+//! direct [`DecisionEngine`](opendecision_engine::DecisionEngine) adapter for
+//! explicit offline service registration. It does not expose a Metal path or
+//! claim release promotion.
 
 mod backbone;
+mod engine;
 mod head;
 mod profile;
 mod tokenizer;
@@ -17,10 +19,12 @@ pub use backbone::{
     BackboneReference, BackboneState, BatchedCandidateResult, BatchedCandidates, BatchedNestedRun,
     BatchedQuestionResult, BatchedQuestions, CountingExecutor, EmbeddingOutput, ExecutionStrategy,
     FullSequenceRecord, Layer0Output, LayerKind, NestedCandidateResult, NestedQuestion,
-    NestedQuestionResult, NestedRun, Qwen35Backbone, Qwen35BranchBatch, Qwen35Embedding,
-    Qwen35Layer0, RetentionEstimates, SchedulerConfig, SequentialNestedExecutor, StageComparison,
-    StrategyDecision, StrategyEstimates, StrategyOutput, StrategyRequest, TraceStage,
+    NestedQuestionResult, NestedRun, ProcessMemoryEnvelope, Qwen35Backbone, Qwen35BranchBatch,
+    Qwen35Embedding, Qwen35Layer0, RetentionEstimates, SchedulerConfig, SequentialNestedExecutor,
+    StageComparison, StrategyDecision, StrategyEstimates, StrategyOutput, StrategyRequest,
+    TraceStage,
 };
+pub use engine::{Qwen35DecisionEngine, Qwen35EngineConfig, SEMANTIC_NONE_OPTION};
 pub use head::{HeadEvaluation, PolicyAction, PrimitiveKind, ScoreSummaryHead, FEATURE_WIDTH};
 pub use profile::ReferenceBundle;
 pub use tokenizer::{
@@ -30,8 +34,8 @@ pub use tokenizer::{
 
 use std::path::PathBuf;
 
-use crate::branch::{StateError, StateIdentity};
 use opendecision_engine::ProfileValidationError;
+use opendecision_runtime::branch::{StateError, StateIdentity};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 
@@ -99,6 +103,10 @@ pub enum Qwen35Error {
     #[error("native Qwen tensor execution failed: {0}")]
     Candle(#[from] candle_core::Error),
 
+    /// The operating system could not provide process-memory evidence.
+    #[error("failed to observe native process memory: {0}")]
+    MemoryObservation(#[from] std::io::Error),
+
     /// Engine-level profile validation failed.
     #[error("invalid model execution profile: {0}")]
     Profile(#[from] ProfileValidationError),
@@ -154,6 +162,10 @@ pub enum Qwen35Error {
     /// A branch-state contract operation failed.
     #[error("branch state contract violated: {0}")]
     State(#[from] StateError),
+
+    /// A persisted continuation-state snapshot was malformed or incompatible.
+    #[error("invalid persisted Qwen state: {0}")]
+    StatePersistence(String),
 
     /// Numerical evaluation failed instead of returning a finite distribution.
     #[error("head evaluation produced invalid arithmetic: {0}")]

@@ -1,4 +1,4 @@
-//! Profile-bound state identity, fork lineage, and storage accounting.
+//! Profile-bound state identity, fork lineage, and tensor accounting.
 
 use std::fmt;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -35,12 +35,6 @@ impl fmt::Display for ProfileId {
 }
 
 /// Complete execution identity carried by every continuation state.
-///
-/// The identity records the profile, model, tokenizer, renderer, and
-/// arithmetic execution contract that produced the state. A state may only be
-/// continued, forked, or batched together with states of an equal identity.
-/// A changed device, precision, or kernel path is a new arithmetic identity
-/// rather than an in-place upgrade.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StateIdentity {
     profile: ProfileId,
@@ -88,31 +82,26 @@ impl StateIdentity {
     pub fn profile(&self) -> &ProfileId {
         &self.profile
     }
-
     /// Pinned base-model identifier.
     #[must_use]
     pub fn backbone_id(&self) -> &str {
         &self.backbone_id
     }
-
     /// Immutable base-model revision.
     #[must_use]
     pub fn backbone_revision(&self) -> &str {
         &self.backbone_revision
     }
-
     /// Renderer identity, including ordering semantics.
     #[must_use]
     pub fn renderer_id(&self) -> &str {
         &self.renderer_id
     }
-
     /// Digest of the pinned offline tokenizer artifact.
     #[must_use]
     pub fn tokenizer_digest(&self) -> &str {
         &self.tokenizer_digest
     }
-
     /// Arithmetic/device execution identity of the producing backend.
     #[must_use]
     pub fn arithmetic_id(&self) -> &str {
@@ -124,26 +113,20 @@ impl fmt::Display for StateIdentity {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             formatter,
-            "profile `{profile}` backbone `{backbone}`@`{revision}` renderer `{renderer}` \
-             tokenizer `{tokenizer}` arithmetic `{arithmetic}`",
-            profile = self.profile,
-            backbone = self.backbone_id,
-            revision = self.backbone_revision,
-            renderer = self.renderer_id,
-            tokenizer = self.tokenizer_digest,
-            arithmetic = self.arithmetic_id,
+            "profile `{}` backbone `{}`@`{}` renderer `{}` tokenizer `{}` arithmetic `{}`",
+            self.profile,
+            self.backbone_id,
+            self.backbone_revision,
+            self.renderer_id,
+            self.tokenizer_digest,
+            self.arithmetic_id
         )
     }
 }
 
 static NEXT_ROOT_ID: AtomicU64 = AtomicU64::new(1);
 
-/// Branch lineage shared by a prefill root and every state forked from it.
-///
-/// The root ID is assigned once per prefill from a process-local counter and
-/// is not stable across processes; the strict content fingerprint is the
-/// cross-process identity. Continuation advances extend a state's own
-/// timeline and do not change its lineage.
+/// Branch lineage shared by a prefill root and states forked from it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct StateLineage {
     root_id: u64,
@@ -151,7 +134,7 @@ pub struct StateLineage {
 }
 
 impl StateLineage {
-    /// Assign a fresh root lineage from the process-local counter.
+    /// Assign a fresh process-local root lineage.
     #[must_use]
     pub fn new_root() -> Self {
         Self {
@@ -159,8 +142,7 @@ impl StateLineage {
             fork_depth: 0,
         }
     }
-
-    /// Lineage of one further fork from this state; the source is unchanged.
+    /// Lineage of one further fork from this state.
     #[must_use]
     pub fn forked(&self) -> Self {
         Self {
@@ -168,48 +150,38 @@ impl StateLineage {
             fork_depth: self.fork_depth + 1,
         }
     }
-
     /// Process-local identifier of the prefill root.
     #[must_use]
-    pub fn root_id(self) -> u64 {
+    pub const fn root_id(self) -> u64 {
         self.root_id
     }
-
-    /// Number of fork operations between the root and this state.
+    /// Number of fork operations between root and state.
     #[must_use]
-    pub fn fork_depth(self) -> u32 {
+    pub const fn fork_depth(self) -> u32 {
         self.fork_depth
     }
 }
 
-/// Exact byte accounting for one hybrid continuation state.
+/// Exact tensor-payload accounting for one hybrid continuation state.
 ///
-/// The field names are the three tensor families of the selected Qwen3.5
-/// hybrid profile. `tensor_bytes` and [`StorageBreakdown::total_bytes`] are
-/// exact sums; `metadata_bytes` reports the fixed-size identity, lineage, and
-/// position bookkeeping and is excluded from the comparable tensor total.
+/// This deliberately excludes allocator overhead, `Vec`/`Arc` headers,
+/// identity strings, Candle objects, mapped model weights, and forward
+/// scratch. Admission adds those separately through a measured process-memory
+/// envelope.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct StorageBreakdown {
+pub struct TensorStorageBreakdown {
     /// Full-attention key/value tensor bytes.
     pub attention_kv_bytes: usize,
-    /// DeltaNet recurrent state tensor bytes.
+    /// DeltaNet recurrent-state tensor bytes.
     pub recurrent_bytes: usize,
-    /// Causal-convolution state tensor bytes.
+    /// Causal-convolution-state tensor bytes.
     pub convolution_bytes: usize,
-    /// Fixed-size identity, lineage, and position bookkeeping bytes.
-    pub metadata_bytes: usize,
 }
 
-impl StorageBreakdown {
-    /// Exact continuation tensor bytes, excluding metadata bookkeeping.
+impl TensorStorageBreakdown {
+    /// Exact total tensor payload bytes.
     #[must_use]
-    pub fn tensor_bytes(&self) -> usize {
+    pub const fn tensor_storage_bytes(&self) -> usize {
         self.attention_kv_bytes + self.recurrent_bytes + self.convolution_bytes
-    }
-
-    /// Exact total bytes including metadata bookkeeping.
-    #[must_use]
-    pub fn total_bytes(&self) -> usize {
-        self.tensor_bytes() + self.metadata_bytes
     }
 }

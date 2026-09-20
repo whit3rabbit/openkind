@@ -31,6 +31,7 @@ use std::time::{Duration, Instant};
 use opendecision_backends::qwen35::{
     run_strategy, BackboneReference, ExecutionStrategy, NestedQuestion, Qwen35Backbone,
 };
+use opendecision_runtime::peak_resident_bytes;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -71,6 +72,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         );
     }
 
+    let peak_resident_before_load = peak_resident_bytes()?;
     let backbone = Qwen35Backbone::load(&checkpoint_root)?;
     let _ = BackboneReference::load(&reference_root)?;
     let token_fixtures: TokenFixtures = read_json(&reference_root.join("TOKEN_FIXTURES.json"))?;
@@ -151,6 +153,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 &samples,
                 &output,
                 workload.root_ids.len(),
+                peak_resident_bytes()?,
             ));
         }
         eprintln!("[bench] workload {} complete", workload.name);
@@ -202,6 +205,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             "schema": "opendecision-qwen35-scheduler-bench/v1",
             "profile_id": opendecision_backends::qwen35::PROFILE_ID,
             "host": "Mac16,5 Apple M4 Max 36 GiB (named Mac), candle-cpu-fp32, warm process",
+            "peak_resident_before_model_load_bytes": peak_resident_before_load,
+            "peak_resident_after_bench_bytes": peak_resident_bytes()?,
             "workloads": workload_results,
             "q_amortization_case0_q3_vs_q1": amortization,
             "notes": {
@@ -303,6 +308,7 @@ fn strategy_metrics(
         opendecision_backends::qwen35::BackboneState,
     >,
     root_tokens: usize,
+    peak_resident_bytes: usize,
 ) -> serde_json::Value {
     let mut seconds: Vec<f64> = samples.iter().map(|sample| sample.as_secs_f64()).collect();
     seconds.sort_by(|left, right| left.total_cmp(right));
@@ -326,7 +332,8 @@ fn strategy_metrics(
         "staged_tokens": total_tokens,
         "prefill_tokens": prefill_tokens,
         "state_prefill_fraction": prefill_tokens as f64 / processed_tokens as f64,
-        "retained_state_bytes": output.retained_state_bytes(),
+        "retained_tensor_bytes": output.retained_tensor_bytes(),
+        "observed_process_peak_resident_bytes": peak_resident_bytes,
         "tokens_per_second_p50": total_tokens as f64 / p50,
     })
 }

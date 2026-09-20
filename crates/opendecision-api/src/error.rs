@@ -71,7 +71,9 @@ pub enum ApiError {
 impl ApiError {
     fn status_and_code(&self) -> (StatusCode, &'static str) {
         match self {
-            ApiError::InvalidBody(_) | ApiError::Engine(EngineError::Invalid(_)) => {
+            ApiError::InvalidBody(_)
+            | ApiError::Engine(EngineError::Invalid(_))
+            | ApiError::Engine(EngineError::Unsupported { .. }) => {
                 (StatusCode::UNPROCESSABLE_ENTITY, "invalid_body")
             }
             ApiError::BadJson(_) => (StatusCode::BAD_REQUEST, "bad_json"),
@@ -81,6 +83,9 @@ impl ApiError {
             ApiError::Overloaded { .. } => (StatusCode::from_u16(529).unwrap(), "overloaded"),
             ApiError::Engine(EngineError::UnknownModel(_)) => {
                 (StatusCode::NOT_FOUND, "unknown_model")
+            }
+            ApiError::Engine(EngineError::Overloaded { .. }) => {
+                (StatusCode::from_u16(529).unwrap(), "overloaded")
             }
             ApiError::Engine(EngineError::Backend { .. }) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "backend_error")
@@ -93,6 +98,9 @@ impl ApiError {
     fn retry_after_ms(&self) -> Option<u64> {
         match self {
             ApiError::RateLimited { retry_after_ms } | ApiError::Overloaded { retry_after_ms } => {
+                Some(*retry_after_ms)
+            }
+            ApiError::Engine(EngineError::Overloaded { retry_after_ms, .. }) => {
                 Some(*retry_after_ms)
             }
             _ => None,
@@ -230,6 +238,26 @@ mod tests {
         let (status, _, body) = extract_body_json(err_backend.into_response()).await;
         assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
         assert_eq!(body["error"]["code"], "backend_error");
+    }
+
+    #[tokio::test]
+    async fn unsupported_and_engine_overload_keep_transport_semantics() {
+        let unsupported = ApiError::Engine(EngineError::Unsupported {
+            backend: "native".into(),
+            message: "explicit semantic none required".into(),
+        });
+        let (status, _, body) = extract_body_json(unsupported.into_response()).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(body["error"]["code"], "invalid_body");
+
+        let overloaded = ApiError::Engine(EngineError::Overloaded {
+            backend: "native".into(),
+            retry_after_ms: 750,
+        });
+        let (status, headers, body) = extract_body_json(overloaded.into_response()).await;
+        assert_eq!(status, StatusCode::from_u16(529).unwrap());
+        assert_eq!(headers["retry-after-ms"], "750");
+        assert_eq!(body["error"]["code"], "overloaded");
     }
 
     #[test]

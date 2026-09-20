@@ -7,23 +7,23 @@
 `opendecision-api` is the protocol presentation layer for `opendecision`. It adapts inbound network traffic into `SystemRequest` calls to `opendecision_engine::dispatch`, and formats the returned `SystemResponse` into HTTP and gRPC envelopes.
 
 It defines:
-- Axum 0.8 HTTP router and handlers (`systemone`, `list_models`, `health`, `prometheus_metrics`).
-- Tonic 0.14 gRPC `SystemOne` service implementation.
-- Outermost middleware (`request_id_layer`, `auth_layer`, `TraceLayer`).
-- Error mapping into TypeSafe JSON envelopes and HTTP status codes.
+- Axum HTTP router and handlers (`systemone`, `list_models`, `health`, `prometheus_metrics`).
+- Tonic gRPC `SystemOne` service implementation.
+- Outermost middleware stack (`request_id_layer`, `auth_layer`, `rate_limit_layer`, `TraceLayer`).
+- Error mapping into TypeSafe JSON envelopes and standard HTTP status codes.
 
 ### Critical Invariants
 
 1. **Middleware Ordering Matters**:
    In Axum, middleware added *later* wraps *earlier* layers (outermost execution).
-   - `request_id_layer` MUST be outermost so that `x-typesafe-request-id` is stamped on **every single response**, including 401s from `auth_layer`, 422s from validation, and 5xx crashes.
+   - `request_id_layer` MUST be outermost so that `x-typesafe-request-id` is stamped on **every single response**, including 401s from `auth_layer`, 422s from validation, 429s from rate limiting, and 5xx crashes.
    - `auth_layer` gates `/v1/*`, but MUST NEVER gate `/health` or `/metrics`.
 2. **SDK Contract (`tests/sdk_compat.rs`)**:
    - `crates/opendecision-api/tests/sdk_compat.rs` is the pinned executable specification matching TypeSafe's Python SDK.
    - If a code change breaks any test in `tests/sdk_compat.rs`, you are introducing a client-facing regression.
 3. **HTTP / gRPC Parity**:
    - Both transports call `opendecision_engine::dispatch`.
-   - Error categories in gRPC (`Status::invalid_argument`, `Status::not_found`, `Status::internal`) must map symmetrically to HTTP statuses (`422`, `404`, `500`).
+   - Error categories in gRPC (`Status::invalid_argument`, `Status::not_found`, `Status::unavailable`, `Status::internal`) must map symmetrically to HTTP statuses (`422`, `404`, `529`, `500`).
    - gRPC responses also stamp metadata key `x-typesafe-request-id`.
 
 ## Key Files & Types
@@ -38,6 +38,10 @@ It defines:
     - `GET  /health`
     - `GET  /metrics`
   - Metrics initialization via `install_metrics_recorder()`.
+- [`src/http_tests.rs`](./src/http_tests.rs):
+  - Unit tests for HTTP routes, handler dispatch, model listing, and error response formatting.
+- [`src/models.rs`](./src/models.rs):
+  - Model response construction and metadata projection helpers.
 - [`src/grpc.rs`](./src/grpc.rs):
   - `SystemOneService`: Implements `opendecision::system_one_server::SystemOne`.
   - Converts Protobuf types $\leftrightarrow$ `opendecision_core` types (`pb_state_to_core`, `pb_questions_to_core`, `core_to_pb_response`).
@@ -52,23 +56,32 @@ It defines:
     - Formats body as `{"error":{"code": ..., "message": ...}}`.
     - Handles `Retry-After` (seconds, via `ms.div_ceil(1000)`) and `retry-after-ms` (milliseconds) headers for rate-limiting (429) and overload (529).
 - [`tests/sdk_compat.rs`](./tests/sdk_compat.rs) & [`tests/sdk_compat/`](./tests/sdk_compat/):
-  - Executable compatibility contract with the TypeSafe Python SDK (56 tests) modularized into:
+  - Executable compatibility contract with the TypeSafe Python SDK modularized into:
     - [`helpers.rs`](./tests/sdk_compat/helpers.rs): Test server routing and HTTP helper functions.
-    - [`system_one.rs`](./tests/sdk_compat/system_one.rs): `/v1/systemone` and `/v1/system_one` endpoint contracts, request/response formats, usage reporting.
-    - [`models.rs`](./tests/sdk_compat/models.rs): `/v1/models` listing, required attributes, and sort invariants.
+    - [`system_one.rs`](./tests/sdk_compat/system_one.rs): `/v1/systemone` and `/v1/system_one` contracts.
+    - [`models.rs`](./tests/sdk_compat/models.rs): `/v1/models` listing and sort invariants.
     - [`errors.rs`](./tests/sdk_compat/errors.rs): HTTP 400/401/404/422/529 error envelopes and codes.
     - [`headers.rs`](./tests/sdk_compat/headers.rs): `x-typesafe-request-id` UUID generation and preservation across endpoints.
     - [`auth.rs`](./tests/sdk_compat/auth.rs): Bearer token protection on `/v1/*` while keeping `/health` and `/metrics` public.
     - [`flows.rs`](./tests/sdk_compat/flows.rs): End-to-end Python SDK usage patterns.
     - [`contract_client.rs`](./tests/sdk_compat/contract_client.rs): Per-call headers, metadata merging, model overrides.
-    - [`contract_types.rs`](./tests/sdk_compat/contract_types.rs): Jev questions (Noul, Choice, Score) and typed answer deserialization.
-    - [`contract_errors.rs`](./tests/sdk_compat/contract_errors.rs): Retry header emission, error taxonomy, and SDK constants.
+    - [`contract_types.rs`](./tests/sdk_compat/contract_types.rs): Jev questions and typed answer deserialization.
+    - [`contract_errors.rs`](./tests/sdk_compat/contract_errors.rs): Retry header emission and error taxonomy.
 - [`tests/grpc_roundtrip.rs`](./tests/grpc_roundtrip.rs) & [`tests/grpc_roundtrip/`](./tests/grpc_roundtrip/):
-  - End-to-end gRPC protocol tests (13 tests) modularized into:
-    - [`helpers.rs`](./tests/grpc_roundtrip/helpers.rs): Ephemeral gRPC server and Protobuf message fixtures.
-    - [`evaluate.rs`](./tests/grpc_roundtrip/evaluate.rs): All-question-type evaluation and structured state roundtripping.
+  - End-to-end gRPC protocol tests modularized into:
+    - [`helpers.rs`](./tests/grpc_roundtrip/helpers.rs): Ephemeral gRPC server and Protobuf fixtures.
+    - [`evaluate.rs`](./tests/grpc_roundtrip/evaluate.rs): All-question-type evaluation and state roundtripping.
     - [`errors.rs`](./tests/grpc_roundtrip/errors.rs): Malformed requests, empty questions, unknown models, and request ID metadata.
     - [`auth.rs`](./tests/grpc_roundtrip/auth.rs): gRPC metadata bearer token validation, `x-api-key`, and request ID sanitization.
+
+## Gotchas & Wire Subtleties
+
+1. **Dual SystemOne Endpoints**:
+   Both `/v1/systemone` and `/v1/system_one` must be routed to the same handler for SDK compatibility.
+2. **Overload Header Symmetry (529)**:
+   When `EngineError::Overloaded` occurs, the API layer emits status 529 and both `Retry-After` (seconds) and `retry-after-ms` (milliseconds) headers.
+3. **Public Endpoints**:
+   `/health` and `/metrics` must never be wrapped with `auth_layer`. Automated health probes and Prometheus scrapers must access them unauthenticated.
 
 ## Verification Commands
 

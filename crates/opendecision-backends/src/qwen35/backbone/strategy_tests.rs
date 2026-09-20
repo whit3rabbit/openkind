@@ -8,13 +8,19 @@
 use super::nested::{NestedQuestion, SequentialNestedExecutor};
 use super::strategy::{
     choose_strategy, run_repeated_full, run_strategy, run_with_scheduler, ExecutionStrategy,
-    SchedulerConfig, StrategyRequest,
+    ProcessMemoryEnvelope, SchedulerConfig, StrategyRequest,
 };
 use super::test_support::{plan, SyntheticExecutor, ROOT_IDS};
 use crate::qwen35::Qwen35Error;
+use opendecision_runtime::BackendCapabilities;
 
 fn scheduler_config(min_shared_savings_ratio: f64) -> SchedulerConfig {
     SchedulerConfig::for_pinned_profile(min_shared_savings_ratio, None)
+}
+
+fn vectorized_scheduler_config(min_shared_savings_ratio: f64) -> SchedulerConfig {
+    scheduler_config(min_shared_savings_ratio)
+        .with_backend_capabilities(BackendCapabilities::fully_vectorized())
 }
 
 #[test]
@@ -98,7 +104,7 @@ fn strategy_outputs_account_calls_and_staged_tokens() {
         })
         .sum();
     assert_eq!(repeated.staged_tokens(), repeated_tokens);
-    assert!(repeated.retained_state_bytes() > 0);
+    assert!(repeated.retained_tensor_bytes() > 0);
 
     let batched = run_strategy(
         &executor,
@@ -124,7 +130,7 @@ fn strategy_outputs_account_calls_and_staged_tokens() {
 }
 
 #[test]
-fn choose_strategy_prefers_batched_when_sharing_clearly_wins() {
+fn cpu_backend_prefers_sequential_when_sharing_clearly_wins() {
     let config = scheduler_config(1.5);
     let request = StrategyRequest {
         root_tokens: 512,
@@ -133,9 +139,26 @@ fn choose_strategy_prefers_batched_when_sharing_clearly_wins() {
     };
 
     let decision = choose_strategy(&config, &request);
-    assert_eq!(decision.strategy, ExecutionStrategy::NestedBatched);
+    assert_eq!(decision.strategy, ExecutionStrategy::NestedSequential);
     assert!(decision.estimates.savings_ratio > 1.5);
-    assert!(decision.retention.nested_batched_bytes > decision.retention.repeated_full_bytes);
+    assert!(
+        decision.retention.nested_batched_tensor_bytes
+            > decision.retention.repeated_full_tensor_bytes
+    );
+}
+
+#[test]
+fn vectorized_backend_can_select_batched() {
+    let config = vectorized_scheduler_config(1.5);
+    let request = StrategyRequest {
+        root_tokens: 512,
+        question_tokens: vec![10, 10],
+        suffix_tokens: vec![vec![16, 16], vec![16, 16]],
+    };
+
+    let decision = choose_strategy(&config, &request);
+    assert_eq!(decision.strategy, ExecutionStrategy::NestedBatched);
+    assert!(decision.admitted);
 }
 
 #[test]
@@ -154,7 +177,7 @@ fn choose_strategy_repeated_full_when_sharing_does_not_pay() {
 
 #[test]
 fn choose_strategy_falls_back_through_the_memory_ceiling() {
-    let config = scheduler_config(1.5);
+    let config = vectorized_scheduler_config(1.5);
     let request = StrategyRequest {
         root_tokens: 512,
         question_tokens: vec![10, 10],
@@ -165,11 +188,12 @@ fn choose_strategy_falls_back_through_the_memory_ceiling() {
 
     // A ceiling between the sequential and batched estimates selects the
     // sequential shared path.
-    let between = (unconstrained.retention.nested_sequential_bytes
-        + unconstrained.retention.nested_batched_bytes)
+    let between = (unconstrained.retention.nested_sequential_tensor_bytes
+        + unconstrained.retention.nested_batched_tensor_bytes)
         / 2;
     let constrained = choose_strategy(
-        &SchedulerConfig::for_pinned_profile(1.5, Some(between)),
+        &SchedulerConfig::for_pinned_profile(1.5, Some(between))
+            .with_backend_capabilities(BackendCapabilities::fully_vectorized()),
         &request,
     );
     assert_eq!(constrained.strategy, ExecutionStrategy::NestedSequential);
@@ -184,6 +208,30 @@ fn choose_strategy_falls_back_through_the_memory_ceiling() {
 }
 
 #[test]
+fn process_envelope_refreshes_loaded_baseline_and_splits_concurrent_headroom() {
+    let envelope = ProcessMemoryEnvelope {
+        observed_resident_bytes: 100,
+        forward_scratch_bytes: 10,
+        allocator_headroom_bytes: 20,
+        max_process_bytes: 1_000,
+    }
+    .for_concurrent_requests(400, 3);
+
+    assert_eq!(envelope.observed_resident_bytes, 400);
+    assert_eq!(envelope.max_process_bytes, 600);
+
+    let already_over = ProcessMemoryEnvelope {
+        observed_resident_bytes: 100,
+        forward_scratch_bytes: 10,
+        allocator_headroom_bytes: 20,
+        max_process_bytes: 300,
+    }
+    .for_concurrent_requests(400, 0);
+    assert_eq!(already_over.observed_resident_bytes, 400);
+    assert_eq!(already_over.max_process_bytes, 400);
+}
+
+#[test]
 fn run_with_scheduler_executes_the_chosen_strategy() {
     let executor = SyntheticExecutor;
     let config = scheduler_config(1.5);
@@ -191,15 +239,78 @@ fn run_with_scheduler_executes_the_chosen_strategy() {
         run_with_scheduler(&executor, &config, ROOT_IDS, &plan()).expect("adaptive run");
 
     assert_eq!(decision.strategy, output.strategy());
-    assert_eq!(output.strategy(), ExecutionStrategy::NestedBatched);
+    assert_eq!(output.strategy(), ExecutionStrategy::NestedSequential);
     let direct = run_strategy(
         &executor,
-        ExecutionStrategy::NestedBatched,
+        ExecutionStrategy::NestedSequential,
         ROOT_IDS,
         &plan(),
     )
     .expect("direct batched");
     assert_eq!(output.question_features(), direct.question_features());
+}
+
+#[test]
+fn process_peak_admission_uses_resident_scratch_and_allocator_headroom() {
+    let request = StrategyRequest {
+        root_tokens: 512,
+        question_tokens: vec![10, 10],
+        suffix_tokens: vec![vec![16, 16], vec![16, 16]],
+    };
+    let baseline = choose_strategy(&scheduler_config(1.5), &request);
+    let repeated_peak = baseline.retention.repeated_full_tensor_bytes + 300_000_000;
+    let config = scheduler_config(1.5).with_process_memory(ProcessMemoryEnvelope {
+        observed_resident_bytes: 200_000_000,
+        forward_scratch_bytes: 75_000_000,
+        allocator_headroom_bytes: 25_000_000,
+        max_process_bytes: repeated_peak,
+    });
+    let decision = choose_strategy(&config, &request);
+
+    assert_eq!(decision.strategy, ExecutionStrategy::RepeatedFull);
+    assert!(decision.admitted);
+    assert_eq!(
+        decision.retention.repeated_full_process_peak_bytes,
+        Some(repeated_peak)
+    );
+}
+
+#[test]
+fn scheduler_state_stress_covers_high_cardinality_without_allocating_model_state() {
+    for candidates in [32, 64, 128, 255] {
+        let request = StrategyRequest {
+            root_tokens: 256,
+            question_tokens: vec![8, 13, 21],
+            suffix_tokens: vec![
+                vec![7; candidates],
+                vec![11; candidates],
+                vec![17; candidates],
+            ],
+        };
+        let decision = choose_strategy(&scheduler_config(1.5), &request);
+        assert_eq!(decision.strategy, ExecutionStrategy::NestedSequential);
+        assert!(decision.admitted);
+        assert!(
+            decision.retention.nested_batched_tensor_bytes
+                > decision.retention.nested_sequential_tensor_bytes
+        );
+    }
+}
+
+#[test]
+fn vectorized_lane_limit_falls_back_before_high_k_fanout() {
+    let request = StrategyRequest {
+        root_tokens: 256,
+        question_tokens: vec![8, 13],
+        suffix_tokens: vec![vec![7; 64], vec![11; 255]],
+    };
+    let config = scheduler_config(1.5).with_backend_capabilities(
+        BackendCapabilities::fully_vectorized().with_lane_limits(8, 128),
+    );
+    let decision = choose_strategy(&config, &request);
+
+    assert_eq!(decision.strategy, ExecutionStrategy::NestedSequential);
+    assert!(decision.admitted);
 }
 
 #[test]

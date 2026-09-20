@@ -1787,16 +1787,19 @@ dependencies = [
 name = "opendecision-backends"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "candle-core",
  "candle-nn",
  "opendecision-core",
  "opendecision-engine",
+ "opendecision-runtime",
  "safetensors 0.5.3",
  "serde",
  "serde_json",
  "sha2",
  "thiserror 2.0.20",
  "tokenizers",
+ "tokio",
 ]
 
 [[package]]
@@ -1882,7 +1885,10 @@ dependencies = [
 name = "opendecision-runtime"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "opendecision-core",
+ "sha2",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -1894,8 +1900,10 @@ dependencies = [
  "clap",
  "humantime-serde",
  "opendecision-api",
+ "opendecision-backends",
  "opendecision-core",
  "opendecision-engine",
+ "opendecision-runtime",
  "serde",
  "serde_json",
  "thiserror 2.0.20",

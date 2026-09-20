@@ -5,13 +5,14 @@
 //! Fork operations deep-copy every tensor family so a branch can never
 //! mutate its source root through attention masks or partial cache reuse.
 
-use std::mem::{size_of, size_of_val};
+use std::mem::size_of_val;
 
 use super::layer0::LayerState;
 use super::model::BackboneState;
-use crate::branch::{
-    BranchBatch, BranchableState, FingerprintMaterial, ProfileId, StateError, StateFingerprint,
-    StateIdentity, StateLineage, StorageBreakdown,
+use opendecision_runtime::branch::{
+    BranchBatch, BranchableState, ContentFingerprint, ContentFingerprintBuilder, ProfileId,
+    SchedulingFingerprint, SchedulingFingerprintBuilder, StateError, StateIdentity,
+    TensorStorageBreakdown,
 };
 
 const STRUCTURAL_DOMAIN: &str = "opendecision-qwen35-branch-state-v1";
@@ -28,13 +29,13 @@ impl BranchableState for BackboneState {
         self.position
     }
 
-    fn storage_bytes(&self) -> usize {
-        self.storage_breakdown().tensor_bytes()
+    fn tensor_storage_bytes(&self) -> usize {
+        self.tensor_storage_breakdown().tensor_storage_bytes()
     }
 
-    fn fingerprint(&self) -> StateFingerprint {
-        let mut material = FingerprintMaterial::new(STRUCTURAL_DOMAIN);
-        mix_identity(&mut material, &self.identity);
+    fn scheduling_fingerprint(&self) -> SchedulingFingerprint {
+        let mut material = SchedulingFingerprint::builder(STRUCTURAL_DOMAIN);
+        mix_scheduling_identity(&mut material, &self.identity);
         // Lineage participates through the process-local root only; fork
         // depth is excluded so a forked child stays scheduling-equivalent to
         // its parent until it advances.
@@ -99,8 +100,11 @@ impl BranchBatch for Qwen35BranchBatch {
         self.lanes.len()
     }
 
-    fn storage_bytes(&self) -> usize {
-        self.lanes.iter().map(BranchableState::storage_bytes).sum()
+    fn tensor_storage_bytes(&self) -> usize {
+        self.lanes
+            .iter()
+            .map(BranchableState::tensor_storage_bytes)
+            .sum()
     }
 
     fn select(&self, index: usize) -> Result<Self::State, StateError> {
@@ -126,19 +130,18 @@ impl BranchBatch for Qwen35BranchBatch {
 }
 
 impl BackboneState {
-    /// Exact byte accounting over the three hybrid tensor families plus the
-    /// fixed-size metadata bookkeeping.
+    /// Exact byte accounting over the three hybrid tensor families.
     ///
-    /// [`StorageBreakdown::tensor_bytes`] equals [`BackboneState::byte_len`]
+    /// [`TensorStorageBreakdown::tensor_storage_bytes`] equals
+    /// [`BackboneState::byte_len`]
     /// and the exported Phase 3B `root_cache_bytes` contract.
     #[must_use]
-    pub fn storage_breakdown(&self) -> StorageBreakdown {
-        let float_bytes = size_of::<f32>();
-        let mut breakdown = StorageBreakdown {
+    pub fn tensor_storage_breakdown(&self) -> TensorStorageBreakdown {
+        let float_bytes = size_of_val(&0_f32);
+        let mut breakdown = TensorStorageBreakdown {
             attention_kv_bytes: 0,
             recurrent_bytes: 0,
             convolution_bytes: 0,
-            metadata_bytes: 0,
         };
         for layer in &self.layers {
             match layer {
@@ -151,7 +154,6 @@ impl BackboneState {
                 }
             }
         }
-        breakdown.metadata_bytes = metadata_bytes();
         breakdown
     }
 
@@ -164,9 +166,9 @@ impl BackboneState {
     /// cost is linear in state bytes, so it is a fixture/replay gate rather
     /// than a scheduling operation.
     #[must_use]
-    pub fn strict_fingerprint(&self) -> StateFingerprint {
-        let mut material = FingerprintMaterial::new(CONTENT_DOMAIN);
-        mix_identity(&mut material, &self.identity);
+    pub fn strict_fingerprint(&self) -> ContentFingerprint {
+        let mut material = ContentFingerprint::builder(CONTENT_DOMAIN);
+        mix_content_identity(&mut material, &self.identity);
         material.value(self.position as u64);
         material.value(self.layers.len() as u64);
         for layer in &self.layers {
@@ -187,12 +189,31 @@ impl BackboneState {
     }
 }
 
-/// Fixed-size identity, lineage, and position bookkeeping bytes.
-fn metadata_bytes() -> usize {
-    size_of::<StateIdentity>() + size_of::<StateLineage>() + size_of::<usize>()
+fn mix_scheduling_identity(material: &mut SchedulingFingerprintBuilder, identity: &StateIdentity) {
+    mix_identity_fields(material, identity);
 }
 
-fn mix_identity(material: &mut FingerprintMaterial, identity: &StateIdentity) {
+fn mix_content_identity(material: &mut ContentFingerprintBuilder, identity: &StateIdentity) {
+    mix_identity_fields(material, identity);
+}
+
+trait IdentityFingerprintBuilder {
+    fn field(&mut self, bytes: &[u8]) -> &mut Self;
+}
+
+impl IdentityFingerprintBuilder for SchedulingFingerprintBuilder {
+    fn field(&mut self, bytes: &[u8]) -> &mut Self {
+        SchedulingFingerprintBuilder::field(self, bytes)
+    }
+}
+
+impl IdentityFingerprintBuilder for ContentFingerprintBuilder {
+    fn field(&mut self, bytes: &[u8]) -> &mut Self {
+        ContentFingerprintBuilder::field(self, bytes)
+    }
+}
+
+fn mix_identity_fields<B: IdentityFingerprintBuilder>(material: &mut B, identity: &StateIdentity) {
     material
         .field(identity.profile().as_str().as_bytes())
         .field(identity.backbone_id().as_bytes())
@@ -202,7 +223,7 @@ fn mix_identity(material: &mut FingerprintMaterial, identity: &StateIdentity) {
         .field(identity.arithmetic_id().as_bytes());
 }
 
-fn mix_tensor(material: &mut FingerprintMaterial, values: &[f32]) {
+fn mix_tensor(material: &mut ContentFingerprintBuilder, values: &[f32]) {
     material.value(values.len() as u64);
     let mut bytes = Vec::with_capacity(size_of_val(values));
     for value in values {

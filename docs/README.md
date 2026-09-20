@@ -18,19 +18,21 @@ Project documentation and architectural references for `opendecision`.
    - Phase 3A and 3B Python reference scopes are complete.
    - Rust Phase 3.1 through 3.8 CPU parity, backend-neutral `BranchableState`,
      sequential nested execution, batched Q/K execution, and the measured
-     adaptive scheduler pass. High-cardinality stress and repeatability are
-     the next gates. CPU native parity does not imply Metal or accelerated
-     parity.
-   - Current verification comes from the commands in the root
-     [`AGENTS.md`](../AGENTS.md), not a manually maintained test total.
+     adaptive scheduler pass. State/scheduler high-cardinality stress and
+     cache/snapshot persistence contracts are implemented. Model-backed high-K
+     and the named-machine fresh-process replay remain open. CPU native parity
+     does not imply Metal or accelerated parity.
+   - The latest offline evidence is the
+     [`v0.8.0 working-tree verification`](./verification/2026-09-20-v0.8.0-working-tree.md).
+     It is explicitly not a commit-stamped release record.
 4. **[`RESEARCH.md`](./RESEARCH.md)** — Research dossier & technical background:
    - System 1 inference paradigm and judgment-envelope protocol origins.
    - Hardware requirements, quantization, and model sizing.
    - Backend runtime evaluation (Candle vs llama.cpp vs ONNX).
    - Zero-copy tensor evaluation strategies.
-5. **[`whitepaper/OpenDecision_Whitepaper_v0.7.2.md`](./whitepaper/OpenDecision_Whitepaper_v0.7.2.md)**:
+5. **[`whitepaper/OpenDecision_Whitepaper_v0.8.0.md`](./whitepaper/OpenDecision_Whitepaper_v0.8.0.md)**:
    Canonical scientific interpretation, evidence register, and measured Phase
-   3A, Phase 3B, and Rust parity results.
+   3 native CPU reference engine results through adaptive scheduling.
 
 ---
 

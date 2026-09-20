@@ -323,7 +323,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             "root_tokens": root_ids.len(),
             "question_fanout_lanes": plans.len(),
             "question_batch_bytes": batched.question_batch_bytes(),
-            "root_bytes": batched.root_state().storage_bytes(),
+            "root_bytes": batched.root_state().tensor_storage_bytes(),
             "root_feature_vs_fresh_prefill_max_abs": root_feature_delta,
             "root_content_identical": root_content_identical,
             "questions": record_results,
