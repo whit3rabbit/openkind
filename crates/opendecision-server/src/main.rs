@@ -3,19 +3,23 @@
 //! Wires together:
 //! - config (clap + serde)
 //! - tracing (env-filtered JSON or pretty)
-//! - the engine registry (Phase 1: just the mock)
+//! - the engine registry (mock by default, direct native Qwen3.5 when explicit
+//!   offline artifact paths are configured)
 //! - HTTP (axum) on one port
 //! - gRPC (tonic) on another port (or the same port via SO_REUSEPORT —
 //!   not done here; we use separate ports and document it)
 //! - graceful shutdown on SIGINT/SIGTERM
 
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use clap::Parser;
 use opendecision_api::{grpc, http, AppState, AuthConfig};
+use opendecision_backends::qwen35::{Qwen35DecisionEngine, Qwen35EngineConfig, SchedulerConfig};
 use opendecision_engine::{DecisionEngine, EngineRegistry, MockEngine};
+use opendecision_runtime::{peak_resident_bytes, BackendCapabilities};
 use tokio::net::TcpListener;
 use tonic::transport::Server;
 use tracing::info;
@@ -40,9 +44,9 @@ struct Args {
     #[arg(long, env = "OPENPICK_GRPC_ADDR", hide = true)]
     legacy_grpc_addr: Option<String>,
 
-    /// Comma-separated model aliases to expose. For Phase 1, all point
-    /// at the mock engine. Register `jev-latest` to accept the SDK's
-    /// default alias.
+    /// Comma-separated model aliases to expose. Aliases also listed in
+    /// `--qwen35-aliases` use the native engine; all others use the mock.
+    /// Register `jev-latest` to accept the SDK's default alias.
     #[arg(
         long,
         env = "OPENDECISION_MODELS",
@@ -50,6 +54,59 @@ struct Args {
         default_value = "mock,jev-latest"
     )]
     models: Vec<String>,
+
+    /// Aliases in `--models` that should use the native Qwen3.5 engine.
+    #[arg(
+        long,
+        env = "OPENDECISION_QWEN35_ALIASES",
+        value_delimiter = ',',
+        default_value = "qwen35-native"
+    )]
+    qwen35_aliases: Vec<String>,
+
+    /// Offline selected-profile bundle root required by native aliases.
+    #[arg(long, env = "OPENDECISION_QWEN35_BUNDLE_ROOT")]
+    qwen35_bundle_root: Option<PathBuf>,
+
+    /// Offline pinned Qwen checkpoint root required by native aliases.
+    #[arg(long, env = "OPENDECISION_QWEN35_CHECKPOINT_ROOT")]
+    qwen35_checkpoint_root: Option<PathBuf>,
+
+    /// Digest-locked tokenizer JSON required by native aliases.
+    #[arg(long, env = "OPENDECISION_QWEN35_TOKENIZER")]
+    qwen35_tokenizer: Option<PathBuf>,
+
+    /// Maximum concurrent native model evaluations.
+    #[arg(long, env = "OPENDECISION_QWEN35_CONCURRENCY", default_value_t = 1)]
+    qwen35_concurrency: usize,
+
+    /// Additional native requests allowed to wait for execution.
+    #[arg(long, env = "OPENDECISION_QWEN35_QUEUE", default_value_t = 2)]
+    qwen35_queue: usize,
+
+    /// Optional continuation tensor-payload ceiling per request.
+    #[arg(long, env = "OPENDECISION_QWEN35_MAX_TENSOR_BYTES")]
+    qwen35_max_tensor_bytes: Option<usize>,
+
+    /// Optional process-memory ceiling for native admission.
+    #[arg(long, env = "OPENDECISION_QWEN35_MAX_PROCESS_BYTES")]
+    qwen35_max_process_bytes: Option<usize>,
+
+    /// Forward scratch budget added to observed process memory.
+    #[arg(
+        long,
+        env = "OPENDECISION_QWEN35_SCRATCH_BYTES",
+        default_value_t = 1_073_741_824
+    )]
+    qwen35_scratch_bytes: usize,
+
+    /// Allocator and runtime headroom added to observed process memory.
+    #[arg(
+        long,
+        env = "OPENDECISION_QWEN35_ALLOCATOR_HEADROOM_BYTES",
+        default_value_t = 536_870_912
+    )]
+    qwen35_allocator_headroom_bytes: usize,
 
     /// Optional bearer token required for `/v1/*`. If unset, the env
     /// `OPENDECISION_API_KEY` is consulted; if both are unset, auth is off
@@ -126,9 +183,65 @@ async fn main() -> Result<()> {
     // Engine registry.
     let mut registry = EngineRegistry::new();
     let mock = Arc::new(MockEngine::new());
+    let native_requested = args
+        .models
+        .iter()
+        .any(|alias| args.qwen35_aliases.contains(alias));
+    let native: Option<Arc<dyn DecisionEngine>> = if native_requested {
+        let bundle_root = args
+            .qwen35_bundle_root
+            .clone()
+            .context("native alias requested but --qwen35-bundle-root is missing")?;
+        let checkpoint_root = args
+            .qwen35_checkpoint_root
+            .clone()
+            .context("native alias requested but --qwen35-checkpoint-root is missing")?;
+        let tokenizer_path = args
+            .qwen35_tokenizer
+            .clone()
+            .context("native alias requested but --qwen35-tokenizer is missing")?;
+        let mut scheduler = SchedulerConfig::for_pinned_profile(
+            SchedulerConfig::LOWEST_MEASURED_SHARED_SAVINGS_RATIO,
+            args.qwen35_max_tensor_bytes,
+        )
+        .with_backend_capabilities(BackendCapabilities::per_lane());
+        if let Some(max_process_bytes) = args.qwen35_max_process_bytes {
+            scheduler = scheduler.with_process_memory(
+                opendecision_backends::qwen35::ProcessMemoryEnvelope {
+                    observed_resident_bytes: peak_resident_bytes()
+                        .context("read process peak RSS for native admission")?,
+                    forward_scratch_bytes: args.qwen35_scratch_bytes,
+                    allocator_headroom_bytes: args.qwen35_allocator_headroom_bytes,
+                    max_process_bytes,
+                },
+            );
+        }
+        Some(Arc::new(
+            Qwen35DecisionEngine::load(Qwen35EngineConfig {
+                bundle_root,
+                checkpoint_root,
+                tokenizer_path,
+                scheduler,
+                max_concurrent_requests: args.qwen35_concurrency,
+                max_queued_requests: args.qwen35_queue,
+                retry_after_ms: 1_000,
+            })
+            .context("load native Qwen3.5 engine")?,
+        ))
+    } else {
+        None
+    };
     for alias in &args.models {
-        registry.register(alias.clone(), mock.clone());
-        info!(alias, backend = mock.backend_id(), "registered model");
+        let engine: Arc<dyn DecisionEngine> = if args.qwen35_aliases.contains(alias) {
+            native
+                .as_ref()
+                .expect("native engine loaded when a native alias is requested")
+                .clone()
+        } else {
+            mock.clone()
+        };
+        info!(alias, backend = engine.backend_id(), "registered model");
+        registry.register(alias.clone(), engine);
     }
 
     // Install metrics recorder once, shared across HTTP/gRPC.

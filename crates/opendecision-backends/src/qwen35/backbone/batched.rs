@@ -17,67 +17,15 @@
 //! replaces that loop later without changing the state-level semantics
 //! proven here.
 
-use crate::branch::{BranchBatch, BranchableState};
 use crate::qwen35::Qwen35Error;
+use opendecision_runtime::branch::{BranchBatch, BranchableState};
 
 use super::model::{BackboneState, Qwen35Backbone};
 use super::nested::{NestedQuestion, SequentialNestedExecutor};
 
-/// Question fan-out (Phase 3.6): `Q` isolated lanes advanced breadth-first.
-#[derive(Debug)]
-pub struct BatchedQuestions<S: BranchableState> {
-    question_features: Vec<Vec<f32>>,
-    question_states: Vec<S>,
-    batch_bytes: usize,
-}
+mod types;
 
-impl<S: BranchableState> BatchedQuestions<S> {
-    /// Per-lane question features in plan order.
-    #[must_use]
-    pub fn question_features(&self) -> &[Vec<f32>] {
-        &self.question_features
-    }
-
-    /// Advanced question states in plan order.
-    #[must_use]
-    pub fn question_states(&self) -> &[S] {
-        &self.question_states
-    }
-
-    /// Continuation tensor bytes held by the fan-out lanes before advancing.
-    #[must_use]
-    pub const fn batch_bytes(&self) -> usize {
-        self.batch_bytes
-    }
-}
-
-/// Candidate fan-out (Phase 3.7): `K` isolated lanes advanced breadth-first.
-#[derive(Debug)]
-pub struct BatchedCandidates<S: BranchableState> {
-    candidate_features: Vec<Vec<f32>>,
-    candidate_states: Vec<S>,
-    batch_bytes: usize,
-}
-
-impl<S: BranchableState> BatchedCandidates<S> {
-    /// Per-lane candidate features in suffix order.
-    #[must_use]
-    pub fn candidate_features(&self) -> &[Vec<f32>] {
-        &self.candidate_features
-    }
-
-    /// Advanced candidate states in suffix order.
-    #[must_use]
-    pub fn candidate_states(&self) -> &[S] {
-        &self.candidate_states
-    }
-
-    /// Continuation tensor bytes held by the fan-out lanes before advancing.
-    #[must_use]
-    pub const fn batch_bytes(&self) -> usize {
-        self.batch_bytes
-    }
-}
+pub use types::*;
 
 /// Fan one prefilled root into `plans.len()` isolated lanes and evaluate the
 /// question suffixes breadth-first (Phase 3.6).
@@ -98,7 +46,7 @@ pub fn run_batched_questions<E: SequentialNestedExecutor>(
             "batched question execution requires at least one question".into(),
         ));
     }
-    let root_fingerprint = root.fingerprint();
+    let root_fingerprint = root.scheduling_fingerprint();
     let root_position = root.position();
 
     let batch = root.fork_batch(plans.len())?;
@@ -109,10 +57,10 @@ pub fn run_batched_questions<E: SequentialNestedExecutor>(
             plans.len()
         )));
     }
-    let batch_bytes = batch.storage_bytes();
+    let batch_bytes = batch.tensor_storage_bytes();
     let mut lane_fingerprints = Vec::with_capacity(plans.len());
     for lane_index in 0..plans.len() {
-        lane_fingerprints.push(batch.select(lane_index)?.fingerprint());
+        lane_fingerprints.push(batch.select(lane_index)?.scheduling_fingerprint());
     }
 
     let mut question_features = Vec::with_capacity(plans.len());
@@ -132,13 +80,13 @@ pub fn run_batched_questions<E: SequentialNestedExecutor>(
                 state.position()
             )));
         }
-        if root.fingerprint() != root_fingerprint {
+        if root.scheduling_fingerprint() != root_fingerprint {
             return Err(Qwen35Error::InvalidInput(format!(
                 "shared root changed while advancing question {index}"
             )));
         }
         for (lane_index, expected_fingerprint) in lane_fingerprints.iter().enumerate() {
-            if batch.select(lane_index)?.fingerprint() != *expected_fingerprint {
+            if batch.select(lane_index)?.scheduling_fingerprint() != *expected_fingerprint {
                 return Err(Qwen35Error::InvalidInput(format!(
                     "fan-out lane {lane_index} changed while advancing question {index}"
                 )));
@@ -174,7 +122,7 @@ pub fn run_batched_candidates<E: SequentialNestedExecutor>(
             "batched candidate execution requires at least one candidate suffix".into(),
         ));
     }
-    let source_fingerprint = question_state.fingerprint();
+    let source_fingerprint = question_state.scheduling_fingerprint();
 
     let batch = question_state.fork_batch(suffixes.len())?;
     if batch.lanes() != suffixes.len() {
@@ -184,10 +132,10 @@ pub fn run_batched_candidates<E: SequentialNestedExecutor>(
             suffixes.len()
         )));
     }
-    let batch_bytes = batch.storage_bytes();
+    let batch_bytes = batch.tensor_storage_bytes();
     let mut lane_fingerprints = Vec::with_capacity(suffixes.len());
     for lane_index in 0..suffixes.len() {
-        lane_fingerprints.push(batch.select(lane_index)?.fingerprint());
+        lane_fingerprints.push(batch.select(lane_index)?.scheduling_fingerprint());
     }
 
     let mut candidate_features = Vec::with_capacity(suffixes.len());
@@ -207,13 +155,13 @@ pub fn run_batched_candidates<E: SequentialNestedExecutor>(
                 state.position()
             )));
         }
-        if question_state.fingerprint() != source_fingerprint {
+        if question_state.scheduling_fingerprint() != source_fingerprint {
             return Err(Qwen35Error::InvalidInput(format!(
                 "question state changed while advancing candidate {index}"
             )));
         }
         for (lane_index, expected_fingerprint) in lane_fingerprints.iter().enumerate() {
-            if batch.select(lane_index)?.fingerprint() != *expected_fingerprint {
+            if batch.select(lane_index)?.scheduling_fingerprint() != *expected_fingerprint {
                 return Err(Qwen35Error::InvalidInput(format!(
                     "fan-out lane {lane_index} changed while advancing candidate {index}"
                 )));
@@ -228,98 +176,6 @@ pub fn run_batched_candidates<E: SequentialNestedExecutor>(
         candidate_states,
         batch_bytes,
     })
-}
-
-/// One question lane of a complete batched nested run.
-#[derive(Debug)]
-pub struct BatchedQuestionResult<S: BranchableState> {
-    question_feature: Vec<f32>,
-    question_state: S,
-    candidate_batch_bytes: usize,
-    candidates: Vec<BatchedCandidateResult<S>>,
-}
-
-impl<S: BranchableState> BatchedQuestionResult<S> {
-    /// Final-token feature after the question suffix.
-    #[must_use]
-    pub fn question_feature(&self) -> &[f32] {
-        &self.question_feature
-    }
-
-    /// Question continuation state; the candidate fan-out derives from it.
-    #[must_use]
-    pub fn question_state(&self) -> &S {
-        &self.question_state
-    }
-
-    /// Continuation tensor bytes the candidate fan-out held before advancing.
-    #[must_use]
-    pub const fn candidate_batch_bytes(&self) -> usize {
-        self.candidate_batch_bytes
-    }
-
-    /// Per-candidate results in suffix order.
-    #[must_use]
-    pub fn candidates(&self) -> &[BatchedCandidateResult<S>] {
-        &self.candidates
-    }
-}
-
-/// One candidate lane advanced from a batched question state.
-#[derive(Debug)]
-pub struct BatchedCandidateResult<S: BranchableState> {
-    feature: Vec<f32>,
-    state: S,
-}
-
-impl<S: BranchableState> BatchedCandidateResult<S> {
-    /// Final-token candidate feature feeding the score-summary readout.
-    #[must_use]
-    pub fn feature(&self) -> &[f32] {
-        &self.feature
-    }
-
-    /// Candidate continuation state.
-    #[must_use]
-    pub fn state(&self) -> &S {
-        &self.state
-    }
-}
-
-/// Complete batched nested run: one prefill, `Q` question lanes, and a `K`
-/// candidate fan-out per question lane.
-#[derive(Debug)]
-pub struct BatchedNestedRun<S: BranchableState> {
-    root_feature: Vec<f32>,
-    root_state: S,
-    question_batch_bytes: usize,
-    questions: Vec<BatchedQuestionResult<S>>,
-}
-
-impl<S: BranchableState> BatchedNestedRun<S> {
-    /// Final-token feature of the shared prefilled root.
-    #[must_use]
-    pub fn root_feature(&self) -> &[f32] {
-        &self.root_feature
-    }
-
-    /// Immutable shared root state every fan-out derives from.
-    #[must_use]
-    pub fn root_state(&self) -> &S {
-        &self.root_state
-    }
-
-    /// Continuation tensor bytes the question fan-out held before advancing.
-    #[must_use]
-    pub const fn question_batch_bytes(&self) -> usize {
-        self.question_batch_bytes
-    }
-
-    /// Per-question results in plan order.
-    #[must_use]
-    pub fn questions(&self) -> &[BatchedQuestionResult<S>] {
-        &self.questions
-    }
 }
 
 /// Execute the Phase 3.6/3.7 breadth-first graph: prefill the shared state
@@ -340,7 +196,7 @@ pub fn run_batched_nested<E: SequentialNestedExecutor>(
         ));
     }
     let (root_feature, root_state) = executor.prefill(root_ids)?;
-    let root_fingerprint = root_state.fingerprint();
+    let root_fingerprint = root_state.scheduling_fingerprint();
     let questions = run_batched_questions(executor, &root_state, plans)?;
 
     let BatchedQuestions {
@@ -374,7 +230,7 @@ pub fn run_batched_nested<E: SequentialNestedExecutor>(
         });
     }
 
-    if root_state.fingerprint() != root_fingerprint {
+    if root_state.scheduling_fingerprint() != root_fingerprint {
         return Err(Qwen35Error::InvalidInput(
             "shared root changed while executing the batched nested run".into(),
         ));

@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 
 use opendecision_backends::branch::{BranchBatch, BranchableState};
 use opendecision_backends::qwen35::{
-    BackboneReference, Qwen35Backbone, Qwen35Embedding, Qwen35Layer0, EXECUTION_ARITHMETIC_ID,
-    PROFILE_ID,
+    BackboneReference, BackboneState, Qwen35Backbone, Qwen35Embedding, Qwen35Layer0,
+    EXECUTION_ARITHMETIC_ID, PROFILE_ID,
 };
 use serde::Deserialize;
 
@@ -35,11 +35,81 @@ fn main() -> Result<(), Box<dyn Error>> {
         .next()
         .map(|value| value.to_string_lossy().into_owned())
         .unwrap_or_else(|| "embedding".to_owned());
+    let snapshot_path = arguments.next().map(PathBuf::from);
     if arguments.next().is_some() {
-        return Err("qwen35_parity_probe accepts two paths and one optional stage".into());
+        return Err(
+            "qwen35_parity_probe accepts two roots, one optional stage, and one optional snapshot path"
+                .into(),
+        );
     }
 
     let reference = BackboneReference::load(&reference_root)?;
+    if stop_after == "persist-save" {
+        let snapshot_path = snapshot_path.ok_or("persist-save requires a snapshot path")?;
+        let trace: ContinuationTrace =
+            serde_json::from_slice(&fs::read(reference_root.join("CONTINUATION_TRACE.json"))?)?;
+        let backbone = Qwen35Backbone::load(checkpoint_root)?;
+        let (_, root_state) = backbone.prefill(&trace.root_ids)?;
+        root_state.persist_pinned(&snapshot_path)?;
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "schema": "opendecision-qwen35-persist-save/v1",
+                "snapshot": snapshot_path,
+                "position": root_state.position(),
+                "tensor_storage_bytes": root_state.tensor_storage_bytes(),
+                "content_fingerprint": root_state.strict_fingerprint().hex(),
+            }))?
+        );
+        return Ok(());
+    }
+    if stop_after == "persist-replay" {
+        let snapshot_path = snapshot_path.ok_or("persist-replay requires a snapshot path")?;
+        let trace: ContinuationTrace =
+            serde_json::from_slice(&fs::read(reference_root.join("CONTINUATION_TRACE.json"))?)?;
+        let backbone = Qwen35Backbone::load(checkpoint_root)?;
+        let root_state = BackboneState::restore_pinned(&snapshot_path)?;
+        let before = root_state.strict_fingerprint();
+        let (question_output, question_state) =
+            backbone.continue_from(&root_state, &trace.question_ids)?;
+        let (candidate_output, candidate_state) =
+            backbone.continue_from(&question_state, &trace.candidate_suffix_ids)?;
+        let mut full_ids = trace.root_ids.clone();
+        full_ids.extend_from_slice(&trace.question_ids);
+        full_ids.extend_from_slice(&trace.candidate_suffix_ids);
+        let full_output = backbone.forward(&full_ids)?;
+        let cached_vs_full = maximum_abs(candidate_output.final_token(), full_output.final_token());
+        let root_immutable = before == root_state.strict_fingerprint();
+        let passed = root_state.position() == trace.root_position
+            && root_state.tensor_storage_bytes() == trace.root_cache_bytes
+            && question_state.position() == trace.question_position
+            && candidate_state.position() == trace.candidate_position
+            && root_immutable
+            && cached_vs_full == 0.0;
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "schema": "opendecision-qwen35-persist-replay/v1",
+                "passed": passed,
+                "snapshot": snapshot_path,
+                "root_content_fingerprint": before.hex(),
+                "root_immutable": root_immutable,
+                "question_position": question_state.position(),
+                "candidate_position": candidate_state.position(),
+                "cached_vs_native_full_max_abs": cached_vs_full,
+                "question_reference_max_abs": reference
+                    .compare("continuation.question_last_hidden", question_output.final_token())?
+                    .max_abs(),
+            }))?
+        );
+        if !passed {
+            return Err("fresh-process persisted-state replay gate failed".into());
+        }
+        return Ok(());
+    }
+    if snapshot_path.is_some() {
+        return Err("snapshot path is only valid for persist-save or persist-replay".into());
+    }
     if stop_after == "branch" {
         return branch_parity_stage(checkpoint_root, &reference_root, &reference);
     }
@@ -239,16 +309,16 @@ fn branch_parity_stage(
     let identity_matches_pinned_profile = root_state.profile_id().as_str() == PROFILE_ID
         && root_state.identity().arithmetic_id() == EXECUTION_ARITHMETIC_ID
         && root_state.lineage().fork_depth() == 0;
-    let root_fingerprint = root_state.fingerprint();
+    let root_fingerprint = root_state.scheduling_fingerprint();
     let root_strict = root_state.strict_fingerprint();
     let untouched_root = root_state.clone();
 
     // 3.4b: exact byte accounting over the three tensor families.
-    let breakdown = root_state.storage_breakdown();
+    let breakdown = root_state.tensor_storage_breakdown();
 
     // 3.4c: single fork root -> question -> candidate.
     let branch = root_state.fork_one()?;
-    let fork_preserved_fingerprint = branch.fingerprint() == root_fingerprint;
+    let fork_preserved_fingerprint = branch.scheduling_fingerprint() == root_fingerprint;
     let (question_output, question_state) = backbone.continue_from(&branch, &trace.question_ids)?;
     let question_comparison = reference.compare(
         "continuation.question_last_hidden",
@@ -273,7 +343,7 @@ fn branch_parity_stage(
 
     // 3.4d: batched fan-out with independently advanced lanes.
     let batch = root_state.fork_batch(2)?;
-    let batch_bytes = batch.storage_bytes();
+    let batch_bytes = batch.tensor_storage_bytes();
     let lane_root = batch.select(0)?;
     let (lane_question_output, lane_question_state) =
         backbone.continue_from(&lane_root, &trace.question_ids)?;
@@ -283,11 +353,12 @@ fn branch_parity_stage(
     let lanes_advanced_independently = lane_question_state.position() == trace.question_position
         && lane_candidate_state.position()
             == trace.root_position + trace.candidate_suffix_ids.len()
-        && lane_question_state.fingerprint() != lane_candidate_state.fingerprint()
-        && lane_question_state.fingerprint() != root_fingerprint
-        && lane_candidate_state.fingerprint() != root_fingerprint
+        && lane_question_state.scheduling_fingerprint()
+            != lane_candidate_state.scheduling_fingerprint()
+        && lane_question_state.scheduling_fingerprint() != root_fingerprint
+        && lane_candidate_state.scheduling_fingerprint() != root_fingerprint
         && batch.select(0)?.position() == trace.root_position
-        && batch.select(1)?.fingerprint() == root_fingerprint;
+        && batch.select(1)?.scheduling_fingerprint() == root_fingerprint;
     let lane_replay_matches_single_fork = lane_question_state == question_state;
     let lane_feature_matches_single_fork = maximum_abs(
         lane_question_output.final_token(),
@@ -301,7 +372,7 @@ fn branch_parity_stage(
         && gathered.select(2)? == batch.select(1)?;
 
     let root_immutable = root_state == untouched_root
-        && root_state.fingerprint() == root_fingerprint
+        && root_state.scheduling_fingerprint() == root_fingerprint
         && root_state.strict_fingerprint() == root_strict;
 
     let structural_gates_passed = identity_matches_pinned_profile
@@ -310,9 +381,8 @@ fn branch_parity_stage(
         && root_state.position() == trace.root_position
         && question_state.position() == trace.question_position
         && candidate_state.position() == trace.candidate_position
-        && root_state.storage_bytes() == trace.root_cache_bytes
-        && breakdown.tensor_bytes() == trace.root_cache_bytes
-        && breakdown.metadata_bytes > 0
+        && root_state.tensor_storage_bytes() == trace.root_cache_bytes
+        && breakdown.tensor_storage_bytes() == trace.root_cache_bytes
         && root_state.layer_count() == 32
         && batch_bytes == 2 * trace.root_cache_bytes
         && lanes_advanced_independently
@@ -327,12 +397,11 @@ fn branch_parity_stage(
             "identity_matches_pinned_profile": identity_matches_pinned_profile,
             "root": {
                 "position": root_state.position(),
-                "storage_bytes": root_state.storage_bytes(),
+                "tensor_storage_bytes": root_state.tensor_storage_bytes(),
                 "attention_kv_bytes": breakdown.attention_kv_bytes,
                 "recurrent_bytes": breakdown.recurrent_bytes,
                 "convolution_bytes": breakdown.convolution_bytes,
-                "metadata_bytes": breakdown.metadata_bytes,
-                "structural_fingerprint": root_fingerprint.hex(),
+                "scheduling_fingerprint": root_fingerprint.hex(),
                 "max_abs": root_comparison.max_abs(),
                 "rms": root_comparison.rms(),
                 "cosine": root_comparison.cosine(),

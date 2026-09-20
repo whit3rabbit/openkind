@@ -16,6 +16,24 @@ pub enum EngineError {
     #[error("no backend registered for model `{0}`")]
     UnknownModel(String),
 
+    /// Request is valid Jev but unsupported by the selected backend profile. Mapped to HTTP 422.
+    #[error("backend `{backend}` does not support this request: {message}")]
+    Unsupported {
+        /// Identifier of the selected backend.
+        backend: String,
+        /// Contract limitation that rejected the request.
+        message: String,
+    },
+
+    /// Backend admission queue is full. Mapped to HTTP 529 / gRPC unavailable.
+    #[error("backend `{backend}` is overloaded; retry after {retry_after_ms} ms")]
+    Overloaded {
+        /// Identifier of the selected backend.
+        backend: String,
+        /// Suggested caller backoff.
+        retry_after_ms: u64,
+    },
+
     /// Underlying backend driver encountered an internal execution failure. Mapped to HTTP 500.
     #[error("backend `{backend}` failed: {message}")]
     Backend {

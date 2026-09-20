@@ -2,12 +2,12 @@
 
 `opendecision` is an independent Rust decision-inference engine for typed `Noul`, `Choice`, and `Score` answers over Jev-compatible public interfaces. It is built to answer structured questions without depending on an autoregressive text-generation loop.
 
-The wire, service, and SDK layers are implemented. The selected Qwen 3.5 native path has passed Rust head, tokenizer, correctness-first CPU backbone, cached-continuation, backend-neutral branch-state, sequential nested execution, batched Q/K, and measured adaptive-scheduler gates. High-cardinality stress, repeatability, Metal validation, and production model serving remain open.
+The wire, service, and SDK layers are implemented. The selected Qwen 3.5 native path has passed Rust head, tokenizer, correctness-first CPU backbone, cached-continuation, backend-neutral branch-state, sequential nested execution, batched Q/K, and measured adaptive-scheduler gates. State/scheduler high-K stress, process-peak admission, tenant-isolated state reuse, versioned/digest-checked state snapshots, cancellation-safe permit ownership, and a direct native `DecisionEngine` adapter are implemented. Model-backed high-K runs, the checkpoint-gated fresh-process replay, Metal validation, and production load/soak remain open.
 
-[Quickstart](#quickstart) | [Research dossier](docs/RESEARCH.md) | [Whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.7.2.md) | [Roadmap](docs/ROADMAP.md) | [Architecture](docs/ARCHITECTURE.md) | [Jev wire reference](https://docs.typesafe.ai/api)
+[Quickstart](#quickstart) | [Research dossier](docs/RESEARCH.md) | [Whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.8.0.md) | [Roadmap](docs/ROADMAP.md) | [Architecture](docs/ARCHITECTURE.md) | [Jev wire reference](https://docs.typesafe.ai/api)
 
 > [!IMPORTANT]
-> The daemon currently maps configured model aliases to `MockEngine`. The native Qwen backend is not registered yet. The quickstart below verifies the wire and service path, not model quality or native Qwen execution.
+> The daemon defaults to `MockEngine`. A native alias can be registered directly with explicit offline bundle, checkpoint, and tokenizer paths. The quickstart below still verifies the mock wire/service path, not model quality or native Qwen execution.
 
 ## Quickstart
 
@@ -57,7 +57,7 @@ This repository carries the research behind the implementation, not only the imp
 | Phase 3B | Four exact token records and 47 FP32 vectors across 34 trace stages, candidates, and continuations | Backbone localization fixtures, not native execution |
 | Rust Phase 3.1 through 3.8 | Head, probability, tokenizer, state-first rendering, CPU backbone, cached continuation, branch-state contract, sequential nested execution, batched Q/K, and the measured adaptive scheduler | Frozen-fixture parity and warm-host measurements, not Metal or production service proof |
 
-Start with the [research dossier](docs/RESEARCH.md) for the study sequence and the [whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.7.2.md) for methods, results, and interpretation. The [roadmap](docs/ROADMAP.md) is the current status authority. The public [Qwen 3.5 reference repository](https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst) exposes the selected integration line.
+Start with the [research dossier](docs/RESEARCH.md) for the study sequence and the [whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.8.0.md) for methods, results, and interpretation. The [roadmap](docs/ROADMAP.md) is the current status authority. The public [Qwen 3.5 reference repository](https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst) exposes the selected integration line.
 
 ### Locked native integration target
 
@@ -89,7 +89,9 @@ These values define the parity target. They do not promote the profile to releas
 | Backend-neutral `BranchableState` (CPU) | Contract gate passed; Metal open |
 | Sequential nested execution (CPU) | Phase 3.5 gate passed |
 | Breadth-first batched Q/K execution (CPU) | Phase 3.6/3.7 gate passed; vectorized kernels open |
-| Adaptive scheduler (CPU, named Mac) | Phase 3.8 measured gate passed; stress/persistence open |
+| Adaptive scheduler (CPU, named Mac) | Phase 3.8 measured gate passed; 2.52 is the lowest measured boundary |
+| High-K state/scheduler stress and state reuse | K=32/64/128/255 estimator/admission gates and tenant/TTL/byte-bounded cache implemented; model-backed runs open |
+| Direct native service adapter | Implemented behind explicit artifact paths; load/soak and promotion open |
 | Metal and production service validation | Open |
 
 Implementation equivalence and release promotion are different decisions. Passing a parity fixture does not establish model quality, hardware support, or production readiness.
@@ -107,9 +109,9 @@ Jev validation and typed requests
           v
 EngineRegistry and DecisionEngine
           |
-          +---- MockEngine                     current service path
+          +---- MockEngine                     default service path
           |
-          +---- native Qwen 3.5 backend        integration path
+          +---- Qwen35DecisionEngine           explicit native alias
                          |
                          v
              typed answers and probabilities
@@ -122,6 +124,8 @@ state -> question -> candidate -> backbone -> readout -> policy
 ```
 
 Qwen 3.5 branch state is more than attention KV. Correct isolation also requires DeltaNet recurrent state, convolution state, logical position, and profile identity. The [architecture document](docs/ARCHITECTURE.md) covers the crate boundaries and full execution plan.
+
+Native Choice requests must include an explicit `__none__` criteria key. The adapter returns the model's semantic-none mass under that key without appending a hidden class, discarding mass, or renormalizing. Choice and Score confidence use normalized distribution entropy, not maximum probability.
 
 ### Workspace map
 
@@ -188,7 +192,7 @@ For module-specific invariants and focused checks, start with [`AGENTS.md`](AGEN
 - [Roadmap](docs/ROADMAP.md): current phase status, gates, and remaining work.
 - [Architecture](docs/ARCHITECTURE.md): crate boundaries, data flow, and runtime state.
 - [Research dossier](docs/RESEARCH.md): experiment sequence, evidence, and prior art.
-- [Whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.7.2.md): scientific rationale and measured results.
+- [Whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.8.0.md): scientific rationale and measured results.
 
 ## License
 

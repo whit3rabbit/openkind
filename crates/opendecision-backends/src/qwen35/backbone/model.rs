@@ -6,7 +6,7 @@ use candle_nn::VarBuilder;
 use super::super::Qwen35Error;
 use super::embedding::{verify_decoder_shard, Qwen35Embedding};
 use super::layer0::{rms_norm_zero_centered, DecoderLayer, LayerState};
-use crate::branch::{StateError, StateIdentity, StateLineage};
+use opendecision_runtime::branch::{StateError, StateIdentity, StateLineage};
 
 const HIDDEN_SIZE: usize = 2_560;
 const LAYER_COUNT: usize = 32;

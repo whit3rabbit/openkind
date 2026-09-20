@@ -268,6 +268,8 @@ fn status_from_engine(e: opendecision_engine::EngineError) -> Status {
     match e {
         Invalid(_) => Status::invalid_argument(e.to_string()),
         UnknownModel(_) => Status::not_found(e.to_string()),
+        Unsupported { .. } => Status::invalid_argument(e.to_string()),
+        Overloaded { .. } => Status::unavailable(e.to_string()),
         Backend { .. } => Status::internal(e.to_string()),
     }
 }

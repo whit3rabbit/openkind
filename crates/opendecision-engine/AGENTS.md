@@ -4,70 +4,65 @@
 
 ## Crate Purpose & Boundaries
 
-`opendecision-engine` sits between transport layers (`opendecision-api`) and model execution. It defines:
-- The `DecisionEngine` trait that all current and future model backends implement.
-- The immutable `ModelExecutionProfile` contract for pinned model, renderer, readout, calibration, policy, and parity identities.
-- `EngineRegistry`: Model alias mapping and dispatch router.
-- `dispatch()`: The unified orchestration pipeline (validation, token usage calculation, telemetry).
-- `MockEngine`: Deterministic fake engine for testing without loading neural weights.
+`opendecision-engine` sits between transport layers (`opendecision-api`) and concrete model backends (`opendecision-backends`). It defines:
+- The `DecisionEngine` trait that all model backends implement.
+- `EngineRegistry`: Thread-safe model alias routing and deterministic listing.
+- `dispatch()`: Unified evaluation orchestration (request validation, telemetry, and token usage calculation).
+- `EngineError`: Transport-neutral error taxonomy.
+- `MockEngine`: Deterministic pseudo-random engine for testing without loading model weights.
+- `ModelExecutionProfile`: Immutable contract for model provenance, execution semantics, and numerical tolerances.
 
 ### Critical Invariants
 
-1. **Runtime Agnostic**:
-   - `DecisionEngine` does not know whether requests arrived via HTTP or gRPC. It strictly accepts `opendecision_core::SystemRequest` and returns `opendecision_core::SystemResponse`.
-   - Never import HTTP or gRPC transport types (`axum`, `tonic`, headers, status codes) into `opendecision-engine`.
+1. **Runtime & Transport Agnostic**:
+   - `DecisionEngine` operates purely on `opendecision_core::SystemRequest` and `opendecision_core::SystemResponse`.
+   - **Never import transport types** (`axum`, `tonic`, HTTP status codes, headers) into `opendecision-engine`. Transport mapping belongs in `opendecision-api`.
 2. **Deterministic Registry Resolution**:
-   - `EngineRegistry::models()` must always return model alias keys in **sorted order**.
-   - `EngineRegistry::list_models()` must override the internal backend's `ModelInfo.name` with the **registered alias** (the client-facing identifier).
+   - `EngineRegistry::models()` must return registered model aliases in **lexicographically sorted order**.
+   - `EngineRegistry::list_models()` must override the internal backend's `ModelInfo.name` with the **registered alias** (the client-facing identifier requested by operators).
 3. **Usage Accounting Guarantee**:
-   - `dispatch()` guarantees that `resp.usage.input_tokens` is populated (fallback to `engine.estimate_input_tokens`) and `resp.usage.output_tokens` is computed via `estimate_output_tokens`.
+   - `dispatch()` guarantees that `resp.usage.input_tokens` is populated (falling back to `engine.estimate_input_tokens(req)`) and `resp.usage.output_tokens` is calculated via `estimate_output_tokens(&resp.answers)`.
 
 ## Key Files & Types
 
-- [`src/lib.rs`](./src/lib.rs): Public API facade and module re-exports.
+- [`src/lib.rs`](./src/lib.rs): Crate facade, error re-exports, and public interfaces.
 - [`src/engine.rs`](./src/engine.rs):
   - `pub trait DecisionEngine: Send + Sync`:
-    - `backend_id(&self) -> &str`
-    - `model_metadata(&self) -> ModelInfo`
-    - `async fn evaluate(&self, req: SystemRequest) -> EngineResult<SystemResponse>`
-    - `fn estimate_input_tokens(&self, req: &SystemRequest) -> u32`
-  - `estimate_output_tokens(answers)` calculation helper.
+    - `fn backend_id(&self) -> &str`: Unique internal engine identity (e.g. `"mock"`, `"qwen35-native-cpu"`).
+    - `fn model_metadata(&self) -> ModelInfo`: Descriptive metadata returned by `/v1/models`.
+    - `async fn evaluate(&self, req: SystemRequest) -> EngineResult<SystemResponse>`: Async execution entry point.
+    - `fn estimate_input_tokens(&self, req: &SystemRequest) -> u32`: Heuristic or tokenizer-based input token estimate.
 - [`src/registry.rs`](./src/registry.rs):
-  - `pub struct EngineRegistry`: Thread-safe registry storing `HashMap<String, Arc<dyn DecisionEngine>>` with deterministic sorted model listing.
+  - `pub struct EngineRegistry`: Stores `HashMap<String, Arc<dyn DecisionEngine>>`; registry construction/mutation happens before it is wrapped in shared app state, and query results are sorted deterministically.
 - [`src/dispatch.rs`](./src/dispatch.rs):
-  - `pub async fn dispatch(req, registry) -> EngineResult<SystemResponse>`: Emits telemetry metrics `opendecision_requests_total`, `opendecision_responses_total`, and `opendecision_request_duration_ms`.
+  - `pub async fn dispatch(req, registry) -> EngineResult<SystemResponse>`:
+    - Validates request using `opendecision_core::validate_request`.
+    - Looks up model alias in `registry`.
+    - Records metrics: `opendecision_requests_total`, `opendecision_responses_total`, and `opendecision_request_duration_ms`.
+    - Executes `engine.evaluate()` and ensures token usage is populated.
+    - `estimate_output_tokens(resp)`: Calculates fallback output token counts across answer types.
 - [`src/error.rs`](./src/error.rs):
   - `enum EngineError`:
-    - `Invalid(ValidationError)` (mapped to HTTP 422 by API layer)
-    - `UnknownModel(String)` (mapped to HTTP 404)
-    - `Backend { backend, message }` (mapped to HTTP 500)
+    - `Invalid(ValidationError)`: Input validation failure (mapped to HTTP 422).
+    - `UnknownModel(String)`: Unregistered model alias (mapped to HTTP 404).
+    - `Overloaded { backend, retry_after_ms }`: Concurrency/admission limit exceeded (mapped to HTTP 529 / retry headers).
+    - `Unsupported { backend, message }`: Unsupported feature for backend (mapped to HTTP 422).
+    - `Backend { backend, message }`: Internal execution failure (mapped to HTTP 500).
   - `EngineResult<T>` type alias.
 - [`src/mock.rs`](./src/mock.rs):
-  - `MockEngine`: Seeds RNG using `(question_id, instructions)` hash to guarantee determinism across requests.
-  - Generates valid distributions over choices and rubrics.
+  - `MockEngine`: Deterministic fake engine. Seeds PRNG with `(question_id, instructions)` hash to return reproducible distributions over choices and rubrics.
 - [`src/profile.rs`](./src/profile.rs):
-  - `ModelExecutionProfile`: Immutable provenance, execution semantics, and numerical parity contract.
-  - This metadata does not alter `DecisionEngine` or expose a native model through the wire API.
-- [`src/tests.rs`](./src/tests.rs): Comprehensive unit tests covering registry lookups, dispatch pipeline, and token usage accounting.
+  - `ModelExecutionProfile`: Profile identity, bundle SHA-256, calibration temperature, and numerical parity tolerances.
+- [`src/tests.rs`](./src/tests.rs): Unit tests for registry operations, dispatch pipeline, and token usage accounting.
 
-## Native Backend Integration Order
+## Gotchas & Architectural Rules
 
-The fitted head/probability algebra, exact tokenizer/state-first rendering, and
-correctness-first CPU backbone/continuation gates are complete for profile
-`a047d6802c3f06f085b8`.
-
-1. ~~Lift the Qwen-specific cached state into the backend-neutral
-   `BranchableState` contract and prove fork/gather isolation.~~ Complete for
-   the CPU path (Phase 3.4).
-2. ~~Prove sequential nested `state → question → candidate` execution.~~
-   Complete for the CPU path (Phase 3.5).
-3. ~~Prove batched Q/K execution against the sequential baseline.~~ Complete
-   for the CPU path (Phases 3.6/3.7).
-4. ~~Measure the adaptive scheduler crossover on the named Mac.~~ Complete
-   for the warm-process CPU path (Phase 3.8). High-cardinality stress and
-   repeatability precede production promotion.
-5. Only then implement `DecisionEngine`, register the backend, and add
-   wire-level mappings.
+1. **Alias vs Internal Backend ID**:
+   Operators register engines under user-facing aliases (e.g. `qwen35-native`, `default`, `fast`). An engine's internal `backend_id()` is diagnostic (e.g. `qwen35-native-cpu`), but client requests and `/v1/models` must reflect the registered alias name.
+2. **Error Category Symmetries**:
+   When adding or modifying `EngineError` variants, ensure symmetric mapping exists in both `opendecision-api::http` (`ApiError`) and `opendecision-api::grpc` (`tonic::Status`).
+3. **Deterministic Mocking**:
+   Tests that need predictable answer distributions should use `MockEngine`. Because it hashes question identifiers, identical questions receive identical answers across runs.
 
 ## Verification Commands
 

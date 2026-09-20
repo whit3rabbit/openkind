@@ -14,8 +14,8 @@
 //! checkpoint-gated implementation validated by the `qwen35_nested_parity`
 //! example.
 
-use crate::branch::BranchableState;
 use crate::qwen35::Qwen35Error;
+use opendecision_runtime::branch::BranchableState;
 
 use super::model::{BackboneState, Qwen35Backbone};
 
@@ -162,7 +162,7 @@ pub fn run_sequential_nested<E: SequentialNestedExecutor>(
     }
 
     let (root_feature, root_state) = executor.prefill(root_ids)?;
-    let root_fingerprint = root_state.fingerprint();
+    let root_fingerprint = root_state.scheduling_fingerprint();
     let root_position = root_state.position();
 
     let mut results = Vec::with_capacity(questions.len());
@@ -188,7 +188,7 @@ pub fn run_sequential_nested<E: SequentialNestedExecutor>(
                 question_state.position()
             )));
         }
-        let question_fingerprint = question_state.fingerprint();
+        let question_fingerprint = question_state.scheduling_fingerprint();
 
         let mut candidates = Vec::with_capacity(question.candidate_suffix_ids.len());
         for (candidate_index, &suffix_ids) in question.candidate_suffix_ids.iter().enumerate() {
@@ -206,7 +206,7 @@ pub fn run_sequential_nested<E: SequentialNestedExecutor>(
                     state.position()
                 )));
             }
-            if question_state.fingerprint() != question_fingerprint {
+            if question_state.scheduling_fingerprint() != question_fingerprint {
                 return Err(Qwen35Error::InvalidInput(format!(
                     "question {question_index} state changed while executing candidate \
                      {candidate_index}"
@@ -215,7 +215,7 @@ pub fn run_sequential_nested<E: SequentialNestedExecutor>(
             candidates.push(NestedCandidateResult { feature, state });
         }
 
-        if root_state.fingerprint() != root_fingerprint {
+        if root_state.scheduling_fingerprint() != root_fingerprint {
             return Err(Qwen35Error::InvalidInput(format!(
                 "shared root changed while executing question {question_index}"
             )));

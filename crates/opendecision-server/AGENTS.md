@@ -4,46 +4,62 @@
 
 ## Crate Purpose & Boundaries
 
-`opendecision-server` is the binary crate that produces `opendecisiond`, the standalone daemon. It brings together:
-- Configuration parsing (`clap` with environment variable fallbacks).
-- Observability (`tracing_subscriber::fmt` with `EnvFilter`).
-- Model initialization and registry population (`opendecision_engine::EngineRegistry`).
-- Concurrently binding HTTP (`axum::serve`) and gRPC (`tonic::transport::Server`) listeners.
-- Graceful shutdown orchestration on `SIGINT` (Ctrl-C) or `SIGTERM`.
+`opendecision-server` is the binary crate that produces `opendecisiond`, the standalone inference daemon. It brings together:
+- Configuration parsing (`clap` with environment variable fallbacks for all flags).
+- Observability initialization (`tracing_subscriber::fmt` with `EnvFilter`).
+- Prometheus metrics recorder installation (`opendecision_api::http::install_metrics_recorder`).
+- Model engine instantiation and registration into `EngineRegistry` (supporting both `MockEngine` and `Qwen35DecisionEngine`).
+- Concurrent HTTP (`axum::serve`) and gRPC (`tonic::transport::Server`) listeners.
+- Graceful shutdown orchestration on Unix `SIGINT` (Ctrl-C) or `SIGTERM`.
 
 ### Critical Invariants
 
 1. **Dual Protocol Listener Support**:
    - HTTP and gRPC bind to separate sockets (`--http-addr` default `0.0.0.0:8080`, `--grpc-addr` default `0.0.0.0:9090`).
-   - If `--grpc-addr` has port 0, gRPC is cleanly disabled.
+   - The literal `--grpc-addr 0` (also `off`, `none`, or `disabled`) disables gRPC. A normal `host:0` address requests an ephemeral port and is not the disable sentinel.
 2. **Graceful Shutdown**:
-   - Both HTTP and gRPC tasks MUST share a graceful shutdown signal future that catches both Unix `SIGTERM` and `SIGINT`.
-   - On shutdown signal, in-flight inference requests complete before the process terminates.
+   - Both HTTP and gRPC listener tasks share a shutdown signal future that listens for Unix `SIGTERM` and `SIGINT`.
+   - On signal receipt, active in-flight inference requests complete before the process exits.
 3. **Environment Variable Parity**:
-   - Every CLI flag has an environment variable fallback (`OPENDECISION_HTTP_ADDR`, `OPENDECISION_GRPC_ADDR`, `OPENDECISION_MODELS`, `OPENDECISION_API_KEY`, `RUST_LOG`).
+   - Every CLI flag has an identical environment variable fallback (e.g. `--http-addr` / `OPENDECISION_HTTP_ADDR`, `--models` / `OPENDECISION_MODELS`, `--qwen35-bundle-root` / `OPENDECISION_QWEN35_BUNDLE_ROOT`).
 4. **Metrics Recorder Initialization**:
-   - The daemon MUST call `opendecision_api::http::install_metrics_recorder()` on startup before starting the server so that `/metrics` serves live counters.
+   - The daemon MUST call `opendecision_api::http::install_metrics_recorder()` once on startup before binding HTTP routes so that `/metrics` serves live counters.
 
 ## Key Files & Types
 
 - [`src/main.rs`](./src/main.rs):
-  - `Args`: Clap argument parser defining `--http-addr`, `--grpc-addr`, `--models`, `--api-key`, and `--log-filter`.
-  - `main()`: Orchestrates tracing, auth configuration, registry creation, Prometheus registration, and concurrent task spawning (`tokio::join!`).
-  - `shutdown_signal()`: Future selecting on `ctrl_c()` and Unix `terminate()`.
+  - `Args`: Clap argument parser defining:
+    - Server endpoints: `--http-addr`, `--grpc-addr`, `--api-key`, `--log-filter`.
+    - Model aliases: `--models`, `--qwen35-aliases`.
+    - Native Qwen3.5 parameters: `--qwen35-bundle-root`, `--qwen35-checkpoint-root`, `--qwen35-tokenizer`, `--qwen35-concurrency`, `--qwen35-queue`, `--qwen35-max-tensor-bytes`, `--qwen35-max-process-bytes`, `--qwen35-scratch-bytes`, `--qwen35-allocator-headroom-bytes`.
+  - `main()`: Orchestrates logging, auth, Prometheus recorder, engine registration, and concurrent listener tasks via `tokio::join!`.
+  - `shutdown_signal()`: Future selecting on `tokio::signal::ctrl_c()` and Unix `SIGTERM`.
 
-## Common Tasks
+## Engine Registration Architecture
 
-### Registering New Model Backends on Startup
-The selected Qwen profile now passes tokenizer, renderer, CPU backbone, and
-policy parity, but it is not ready for daemon registration. Wait for the
-backend-neutral `BranchableState`, sequential/batched Q/K parity, explicit
-capability limits, and native semantic-none wire decision before registration:
-1. In `main.rs`, inspect `--models` aliases.
-2. Instantiate the appropriate backend struct (or mock) depending on the configuration.
-3. Register the engine into `EngineRegistry` under the designated alias before passing to `AppState`.
+`opendecisiond` populates `EngineRegistry` dynamically based on `--models`:
+1. **Native Engine Path**: If any alias in `--models` is listed in `--qwen35-aliases` (default `qwen35-native`):
+   - Validates that `--qwen35-bundle-root`, `--qwen35-checkpoint-root`, and `--qwen35-tokenizer` are provided.
+   - Instantiates `SchedulerConfig::for_pinned_profile` with `BackendCapabilities::per_lane()`.
+   - Optionally attaches a process-memory envelope if `--qwen35-max-process-bytes` is configured. The engine refreshes peak RSS after model load and immediately before each request, then divides remaining headroom across the concurrency limit.
+   - Loads `Qwen35DecisionEngine` with configured concurrency and queue semaphores.
+   - Registers the shared engine under each matching alias.
+2. **Mock Engine Path**: Any alias not matching `--qwen35-aliases` registers an instance of `MockEngine`.
+
+## Critical Gotchas & Rules
+
+1. **Native Path Fail-Closed**:
+   If a user requests a native alias in `--models` but omits any of the required path flags (`bundle-root`, `checkpoint-root`, `tokenizer`), the daemon fails fast on startup with a contextual error.
+2. **Metrics Recorder Single-Init**:
+   `install_metrics_recorder()` panics if called more than once in the same process. It must be called strictly once during initialization.
+3. **Graceful Drain**:
+   When orchestrating shutdown, drop guards ensure server tasks drain in-flight evaluations. Do not call `std::process::exit(0)` abruptly from signal handlers.
+4. **Cancellation Does Not Free Native Capacity Early**:
+   `Qwen35DecisionEngine` moves queue and execution permits into the blocking model task. If an HTTP or gRPC caller disconnects, replacement work remains blocked until the native task actually finishes.
 
 ## Verification Commands
 
 ```bash
+cargo check -p opendecision-server
 cargo test -p opendecision-server
 ```

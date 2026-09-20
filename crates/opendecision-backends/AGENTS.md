@@ -1,92 +1,89 @@
 # AGENTS.md — opendecision-backends
 
-> LLM developer guide for `opendecision-backends`. Read this before implementing model loaders and execution engines.
+> LLM developer guide for `opendecision-backends`. Read this before implementing model loaders, execution backends, or numerical algebra.
 
 ## Crate Purpose & Boundaries
 
-`opendecision-backends` contains model-facing loaders, parity implementations, and future concrete `DecisionEngine` implementations.
+`opendecision-backends` contains concrete model execution engines, safetensors loaders, and numerical readouts bridging deep-learning runtimes (e.g. `candle`, FP32 CPU kernels) to the `opendecision_engine::DecisionEngine` wire contract.
 
-It bridges neural network runtimes (e.g. `candle`, ONNX Runtime, or remote inference APIs) to the `SystemRequest` / `SystemResponse` wire contract.
-
-- [`src/branch`](./src/branch): the backend-neutral `BranchableState` /
-  `BranchBatch` contract: profile-bound `StateIdentity`, structural and
-  strict `StateFingerprint`s, `StorageBreakdown` byte accounting, `StateError`,
-  and the fork/batch/select/gather traits. The contract does not register a
-  backend or map state onto the Jev wire format.
+It is responsible for:
+- Deterministic score-summary readout math (projection, rejection, calibration, stable softmax).
+- Offline, digest-locked tokenizer and checkpoint loading.
+- Qwen 3.5 hybrid architecture execution (DeltaNet linear attention + causal grouped-query attention).
+- Branchable continuation-state implementation (`BranchableState` / `BranchBatch`).
+- Multi-lane execution strategies (`repeated_full`, `nested_sequential`, `nested_batched`) and adaptive scheduling.
+- `Qwen35DecisionEngine`: Wire adapter implementing `opendecision_engine::DecisionEngine`.
 
 ### Invariants & Non-Autoregressive Execution Model
 
-1. **No Language Generation Loop**:
-   - Jev is a **decision engine**, not a text generator.
-   - The execution path must NOT generate token strings autoregressively.
-   - Outputs are scalar candidate logits projected directly into a calibrated finite distribution.
-2. **Schema Validity is Deterministic**:
-   - JSON responses are serialized directly by host code from floating-point vectors and chosen keys. The model never outputs raw JSON text.
-3. **Trait Implementation**:
-   - Every backend struct must implement `opendecision_engine::DecisionEngine`:
-     - `backend_id()`: Canonical internal ID.
-     - `model_metadata()`: Metadata returned by `/v1/models`.
-     - `evaluate()`: Async forward pass returning `SystemResponse`.
-     - `estimate_input_tokens()`: Tokenizer-based or heuristic token estimation.
+1. **No Autoregressive Text Generation**:
+   - `opendecision` is a **decision engine**, not a text generator.
+   - Forward execution computes final hidden-state representations for candidate suffixes and evaluates them through the score-summary readout head.
+   - The execution loop never generates output tokens autoregressively.
+2. **Deterministic Schema Emission**:
+   - Host Rust code formats and validates JSON responses directly from floating-point candidate distributions. The model never outputs raw JSON text.
+3. **Offline & Fail-Closed Loading**:
+   - Builds and tests must never download model assets from the internet.
+   - Checkpoint shards, config manifests, and tokenizer JSON files are digest-checked and fail closed on missing files or hash mismatches.
+4. **Complete Hybrid State Isolation**:
+   - Qwen 3.5 branch state includes attention KV, DeltaNet recurrent state, and convolution state.
+   - Branching or cloning state must isolate all three tensor families; KV-only cloning fails to isolate DeltaNet and convolution state.
 
-## Qwen 3.5 parity scope
+## Key Modules & Files
 
-- [`src/qwen35`](./src/qwen35) loads the pinned `a047d6802c3f06f085b8` contracts fail closed:
-  - [`src/qwen35/profile.rs`](./src/qwen35/profile.rs): Offline manifest, profile, and bundle validation.
-  - [`src/qwen35/head/`](./src/qwen35/head/): Modular score-summary readout:
-    - [`types.rs`](./src/qwen35/head/types.rs): `ScoreSummaryHead`, `HeadWeights`, `HeadShape`, `CandidateLogits`, and `HeadEvaluationResult`.
-    - [`tensors.rs`](./src/qwen35/head/tensors.rs): SafeTensor loading and f64 matrix/vector extraction.
-    - [`math.rs`](./src/qwen35/head/math.rs): Numerically stable vector operations, normalization, and stable softmax.
-    - [`evaluation.rs`](./src/qwen35/head/evaluation.rs): Projection, rejection, temperature calibration, and distribution evaluation.
-    - [`tests.rs`](./src/qwen35/head/tests.rs): Unit tests for math, weight extraction, and head evaluation.
-  - [`src/qwen35/tokenizer.rs`](./src/qwen35/tokenizer.rs): Digest-locked offline tokenizer and exact state-first segmented rendering.
-  - [`src/qwen35/backbone/`](./src/qwen35/backbone/): Phase 3B contract validation, exact checkpoint embedding, 32-layer Candle CPU execution, final RMSNorm, and complete Qwen continuation state.
-  - [`src/qwen35/backbone/branch.rs`](./src/qwen35/backbone/branch.rs): `BranchableState`/`BranchBatch` for `BackboneState` with `Qwen35BranchBatch`, storage breakdown, structural and strict fingerprints.
-  - [`src/qwen35/backbone/nested.rs`](./src/qwen35/backbone/nested.rs): Phase 3.5 sequential nested execution (`run_sequential_nested`, `SequentialNestedExecutor`, `Qwen35Backbone::evaluate_nested`): one immutable prefill, per-question forks, per-candidate forks, fail-closed position/immutability checks.
-  - [`src/qwen35/backbone/batched.rs`](./src/qwen35/backbone/batched.rs): Phase 3.6/3.7 breadth-first batched Q/K execution (`run_batched_questions`, `run_batched_candidates`, `run_batched_nested`, `Qwen35Backbone::evaluate_batched_nested`): `fork_batch` question lanes, per-question candidate fan-outs, fail-closed root/sibling/position checks, and fan-out byte accounting.
-  - [`src/qwen35/backbone/strategy.rs`](./src/qwen35/backbone/strategy.rs): Phase 3.8 strategy layer (`run_strategy`, `run_repeated_full`, `run_with_scheduler`, `choose_strategy`): all three strategies with forward-call/staged-token accounting and the measured crossover-plus-ceiling selection policy.
-- Head evaluation uses f64 host algebra for normalization, projection, rejection, calibration, and stable softmax.
-- Offline tests replay the exported features, exact token IDs, and the pinned diagnostic embedding row. Builds and tests do not download model assets.
-- `BackboneReference` verifies 47 FP32 vectors and reports max-absolute, RMS, and cosine diagnostics for future native stages.
-- `Qwen35Embedding` verifies the immutable checkpoint config, shard index, first-shard size/digest, BF16 tensor layout, token bounds, finite values, and exact BF16-to-FP32 widening.
-- `Qwen35Backbone` verifies the second shard, executes 24 DeltaNet and 8 full-attention layers plus final RMSNorm in FP32, and exposes immutable Qwen-specific cached continuation.
-- This module does not implement Metal, vectorized suffix kernels, server registration, or native-none wire mapping. The adaptive scheduler is implemented and measured; its thresholds are host-specific.
+- [`src/branch/mod.rs`](./src/branch/mod.rs):
+  - Compatibility re-export of the runtime-owned branch-state contract ([`opendecision_runtime::branch`](../opendecision-runtime/src/branch/mod.rs)).
+- [`src/qwen35/mod.rs`](./src/qwen35/mod.rs): Root facade for the pinned Qwen 3.5 reference engine.
+- [`src/qwen35/profile.rs`](./src/qwen35/profile.rs):
+  - Validates profile `a047d6802c3f06f085b8`, bundle SHA-256, safetensors manifests, and numerical tolerances.
+- [`src/qwen35/engine.rs`](./src/qwen35/engine.rs):
+  - `Qwen35DecisionEngine`: Implements `opendecision_engine::DecisionEngine`.
+  - `Qwen35EngineConfig`: File paths, concurrency bounds, admission queue limits, and scheduler configuration.
+  - Concurrency management: Bounded by `execution_slots` and `admission_slots` semaphores; CPU forward passes run off-thread via `tokio::task::spawn_blocking`.
+  - `SEMANTIC_NONE_OPTION = "__none__"`: Reserved Choice criteria key exposing semantic-none mass.
+- [`src/qwen35/head/`](./src/qwen35/head/): Score-summary rejection readout:
+  - [`types.rs`](./src/qwen35/head/types.rs): `PrimitiveKind`, `PolicyAction`, `HeadEvaluation`, and feature-width/profile constants.
+  - [`tensors.rs`](./src/qwen35/head/tensors.rs): Safetensors extraction and f64 conversion.
+  - [`math.rs`](./src/qwen35/head/math.rs): Numerically stable vector algebra, normalization, and stable softmax.
+  - [`evaluation.rs`](./src/qwen35/head/evaluation.rs): Projection, rejection, temperature calibration, and distribution evaluation.
+- [`src/qwen35/tokenizer.rs`](./src/qwen35/tokenizer.rs):
+  - `Qwen35Tokenizer`: Digest-locked offline tokenizer loading.
+  - `encode_state_first()`: Segmented encoding producing shared root IDs, question IDs, and candidate suffix IDs.
+- [`src/qwen35/backbone/`](./src/qwen35/backbone/):
+  - [`embedding.rs`](./src/qwen35/backbone/embedding.rs) & [`embedding/layout.rs`](./src/qwen35/backbone/embedding/layout.rs): Checkpoint embedding lookup, index validation, and BF16-to-FP32 widening.
+  - [`layer0.rs`](./src/qwen35/backbone/layer0.rs), [`layer0/linear_attention.rs`](./src/qwen35/backbone/layer0/linear_attention.rs), [`layer0/full_attention.rs`](./src/qwen35/backbone/layer0/full_attention.rs): 24 DeltaNet recurrent layers, 8 grouped-query attention layers, and final RMSNorm in FP32.
+  - [`branch.rs`](./src/qwen35/backbone/branch.rs): `BranchableState` and `BranchBatch` implementations for `BackboneState` and `Qwen35BranchBatch`.
+  - [`persistence.rs`](./src/qwen35/backbone/persistence.rs): Atomic versioned pinned-state snapshot, envelope digest, identity/layout validation, and strict restored-content gate.
+  - [`nested.rs`](./src/qwen35/backbone/nested.rs): Sequential nested execution (`run_sequential_nested`, `SequentialNestedExecutor`).
+  - [`batched.rs`](./src/qwen35/backbone/batched.rs) & [`batched/types.rs`](./src/qwen35/backbone/batched/types.rs): Breadth-first batched question/candidate execution (`run_batched_questions`, `run_batched_candidates`, `run_batched_nested`).
+  - [`strategy.rs`](./src/qwen35/backbone/strategy.rs) & [`strategy/policy.rs`](./src/qwen35/backbone/strategy/policy.rs): Strategy dispatcher (`run_strategy`, `choose_strategy`, `SchedulerConfig`).
+  - [`reference.rs`](./src/qwen35/backbone/reference.rs): Golden vector validation for diagnostic stages.
 
-## Qwen State Contract
+## Critical Gotchas & Rules
 
-The complete branchable state for Qwen 3.5 includes attention KV, DeltaNet recurrent state, and convolution state. Attention masking or KV-only cloning cannot isolate branches.
-
-`BackboneState` now carries the pinned profile/model/tokenizer/renderer/arithmetic identity (`pinned_state_identity()`), process-local branch lineage, logical position, and every continuation tensor. `fork_one`, `fork_batch`, `select`, and `gather` deep-copy all three tensor families; the structural fingerprint hashes identity, lineage root, position, and tensor layout so scheduling never hashes tens of MiB, while `strict_fingerprint` hashes exact little-endian tensor bytes as the cross-process replay identity. `storage_breakdown()` reports exact attention-KV, recurrent, convolution, and metadata bytes; the tensor total equals the Phase 3B `root_cache_bytes` fixture (`59,899,904` at position 98).
-
-The named M4 Max checkpoint records maximum candidate-feature error
-`1.0300e-04`, maximum probability delta `4.5869e-06`, zero argmax or policy
-changes, exact root-state byte accounting, and exact native cached-versus-full
-candidate equality. The Phase 3.5 nested gate (`qwen35_nested_parity`) prefills
-each fixture case once and executes all four Phase 3B questions and 10
-candidates through immutable forks with maximum probability delta `4.5869e-06`,
-zero argmax or policy changes, root content identical to an independent
-prefill after all fork work, exact replay and sibling-order determinism, and
-exact cached-versus-full feature and state equality (`0.0`). The Phase 3.6/3.7
-batched gate (`qwen35_batched_parity`) fans the same fixtures through
-`fork_batch` question lanes (case 0: exactly `3 × 59,899,904 = 179,699,712`
-root bytes) and per-question candidate lanes; every batched feature and strict
-state fingerprint equals the sequential baseline exactly (`0.0`), the head
-reaches the same `4.5869e-06` maximum probability delta with zero argmax,
-zero policy, and zero cross-strategy decision changes, and fan-out byte
-accounting is exact. The Phase 3.8 scheduler gate (`qwen35_scheduler_bench`)
-measured five workloads on the named Mac with per-repetition feature parity
-across all three strategies: sharing beat `repeated_full` in every cell
-(1.25x-1.98x), `nested_sequential` and `nested_batched` are equal within
-noise, `T(3)/T(1)` is 2.87 repeated versus 2.11-2.18 shared, and the recorded
-crossover threshold is `MEASURED_MIN_SHARED_SAVINGS_RATIO = 2.0`. These are
-correctness-fixture results, not Metal or
-production-throughput evidence. CPU native parity does not imply Metal or
-accelerated parity. The next execution tasks are high-cardinality stress
-(Phase 3.9) and repeatability/persistence (Phase 3.10).
+1. **DeltaNet + Conv + KV State Isolation**:
+   In Qwen 3.5, causal attention masking alone does NOT prevent crosstalk between questions in a batch. Recurrent DeltaNet state and 1D convolution state carry historical activations forward. Forking a branch requires deep-copying all three state tensor groups.
+2. **Explicit Semantic None (`SEMANTIC_NONE_OPTION`)**:
+   In native Choice questions, semantic-none mass is explicitly managed via `__none__`. The adapter requires this criteria key with a non-empty description, removes it from candidate texts sent to the model backbone, and restores the calibrated rejection mass to the response probabilities map.
+3. **Entropy-Based Confidence Calculation**:
+   The engine computes confidence using normalized distribution entropy ($1.0 - H / \ln(N)$), clamped to $[0.0, 1.0]$. It is NOT simply the maximum/top probability.
+4. **Offline Parity Tests**:
+   Offline tests replay golden feature fixtures and pinned embedding rows. Any modification to backbone math, layer logic, or head evaluation must pass the parity test suites without network access.
+5. **Batching Claims**:
+   `fork_batch` proves state isolation and lane topology. The current CPU executor still advances each lane separately. Do not claim compute batching unless `BackendCapabilities` advertises vectorized question and candidate forward.
+6. **Memory Names**:
+   `tensor_storage_bytes()` excludes metadata, allocator overhead, mapped weights, Candle objects, and forward scratch. Admission must use a process-memory envelope for those costs.
+7. **Cancellation Holds Admission**:
+   Queue and execution permits are owned by the blocking native task. A cancelled caller must not release them while the model forward continues in the background. Cooperative preemption remains a separate future capability.
+8. **Persisted State Is Pinned**:
+   Persist and restore only the selected execution identity and exact Qwen layer layout. Restored states receive fresh process-local lineage and must reproduce the stored `ContentFingerprint`; `SchedulingFingerprint` is never serialized as content evidence.
 
 ## Verification Commands
 
 ```bash
+# Check compilation across all targets
 cargo check -p opendecision-backends
+
+# Run backends unit and parity test suites
 cargo test -p opendecision-backends
 ```

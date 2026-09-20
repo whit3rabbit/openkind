@@ -33,6 +33,9 @@
 - [`src/response.rs`](./src/response.rs):
   - `SystemResponse { model, answers, usage }`
   - `Usage { input_tokens, output_tokens }`: Required on all responses.
+- [`src/models.rs`](./src/models.rs):
+  - `ModelInfo { name, description, release_date }`
+  - `ModelsResponse { data: Vec<ModelInfo> }`
 - [`src/question.rs`](./src/question.rs):
   - Tagged union enum `Question`:
     - `Noul(NoulQuestion)`: Yes/no probability; optional `NoulCriteria` (`r#true`, `r#false`).
@@ -47,16 +50,27 @@
 - [`src/error/`](./src/error/):
   - Modularized validation and error types:
     - [`src/error/types.rs`](./src/error/types.rs): `ValidationError` enum and `ValidationResult` alias.
-    - [`src/error/validate.rs`](./src/error/validate.rs): `validate_request` (catches empty questions, missing instructions, empty choice criteria, $< 2$ score levels, empty score level strings, empty noul criteria strings) and `validate_response` (checks probabilities sum to $1.0 \pm 0.001$, confidence $\in [0.0, 1.0]$, noul $\in [0.0, 1.0]$, score indices are numeric strings, and criteria key consistency).
+    - [`src/error/validate.rs`](./src/error/validate.rs): `validate_request` and `validate_response`.
     - [`src/error/tests/`](./src/error/tests/): Unit tests partitioned into `request_tests.rs` and `response_tests.rs`.
 - [`src/state.rs`](./src/state.rs):
   - `State`: Untagged serde enum supporting `Text(String)`, `Object(Map)`, `Array(Vec)`.
 - [`tests/conformance.rs`](./tests/conformance.rs):
-  - Modular suite of 23 conformance tests directly pinned to TypeSafe Jev spec examples:
+  - Modular suite of conformance tests pinned to TypeSafe Jev spec examples:
     - [`tests/conformance/examples.rs`](./tests/conformance/examples.rs): Spec example requests and responses (`noul`, `choice`, `score`).
     - [`tests/conformance/edge_cases.rs`](./tests/conformance/edge_cases.rs): Flexible instructions (`string | object | array`), null criteria values, and structured state shapes.
     - [`tests/conformance/validation.rs`](./tests/conformance/validation.rs): Validation invariants, required fields, sum-to-one constraints, and confidence bounds.
     - [`tests/conformance/schema.rs`](./tests/conformance/schema.rs): JSON Schema derivations and literal model string preservation.
+
+## Gotchas & Wire Subtleties
+
+1. **`NoulAnswer` Has No Confidence**:
+   Unlike `ChoiceAnswer` and `ScoreAnswer`, `NoulAnswer` only has a `noul: f64` field. It must NOT contain a `confidence` field.
+2. **Choice Criteria Null Values**:
+   In `ChoiceQuestion`, criteria values are `Option<String>`. A `null` value is valid in Jev JSON; it means the choice label has no separate description text.
+3. **Score Level Indexing**:
+   Score questions require at least 2 rubric levels. In the response, `score` is a weighted expectation ($E[\text{level}] = \sum i \cdot P(i)$), and probabilities keys are stringified numeric indices (`"0"`, `"1"`, ...).
+4. **Permissive Instructions**:
+   `Instructions` is not just a plain string; it accepts raw strings, JSON objects, or arrays. Serializers and renderers must handle this polymorphism without panicking.
 
 ## Verification Commands
 

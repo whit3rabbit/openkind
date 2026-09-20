@@ -3,13 +3,9 @@
 use thiserror::Error;
 
 /// A branch-state identity, fork, batch, select, or gather operation failed.
-///
-/// Failures are reported instead of silently degrading isolation: a state that
-/// cannot be proven branchable is never treated as branchable.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum StateError {
-    /// A state carried a different profile/model/tokenizer/renderer/arithmetic
-    /// identity than the operation required.
+    /// A state carried a different execution identity than the operation required.
     #[error("state identity mismatch: expected {expected}, found {actual}")]
     IdentityMismatch {
         /// Required identity.

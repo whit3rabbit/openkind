@@ -1,117 +1,71 @@
-# AGENTS.md
+# AGENTS.md — Documentation
 
-> Documentation rules for files under `docs/`.
+> Documentation architecture, ownership rules, and verification standards for `docs/`.
 
-## Scope
+## Scope & Purpose
 
-The documentation set separates current project status, architecture, empirical
-evidence, and wire contracts. Do not copy the same detailed facts into several
-documents. Link to the canonical owner instead.
+The documentation suite maintains a strict division of responsibility across project status, landed architecture, empirical evidence, and wire protocols. Do not duplicate facts across multiple documents. Link to the canonical owner instead.
 
 ## Canonical Owners
 
-| Subject | File |
+| Subject | Canonical Owner |
 |---|---|
-| Current phases and open work | [`ROADMAP.md`](ROADMAP.md) |
-| Crate topology and data flow | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
-| Research dossier and prior art | [`RESEARCH.md`](RESEARCH.md) |
-| Scientific claims and measured results | [`whitepaper/OpenDecision_Whitepaper_v0.7.2.md`](whitepaper/OpenDecision_Whitepaper_v0.7.2.md) |
-| HTTP contract | [`../crates/opendecision-api/openapi.yaml`](../crates/opendecision-api/openapi.yaml) |
-| JSON Schema contract | [`../crates/opendecision-core/schemas/`](../crates/opendecision-core/schemas/) |
+| Current milestone phases, progress, and remaining work | [`ROADMAP.md`](ROADMAP.md) |
+| Landed crate boundaries, module topology, and data flow | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| Research dossier, background, and prior art | [`RESEARCH.md`](RESEARCH.md) |
+| Scientific rationale, theoretical grounding, and measured results | [`whitepaper/OpenDecision_Whitepaper_v0.8.0.md`](whitepaper/OpenDecision_Whitepaper_v0.8.0.md) |
+| HTTP wire specification | [`../crates/opendecision-api/openapi.yaml`](../crates/opendecision-api/openapi.yaml) |
+| JSON Schema definitions | [`../crates/opendecision-core/schemas/`](../crates/opendecision-core/schemas/) |
 | Protobuf contract | [`../proto/proto/opendecision.proto`](../proto/proto/opendecision.proto) |
+| Module-specific rules and invariants | Each crate's `AGENTS.md` |
 
-The roadmap owns milestone status. The whitepaper owns research interpretation.
-Architecture documentation describes landed structure, not planned structure,
-unless the text labels a proposal explicitly.
+- `ROADMAP.md` owns phase tracking and upcoming tasks.
+- `ARCHITECTURE.md` documents what is currently landed in code, never speculative designs unless explicitly marked as proposals.
+- Each crate's `AGENTS.md` serves as the developer guide and invariant boundary for that specific crate.
 
-When implementation evidence advances a parity gate, update the roadmap,
-architecture, whitepaper evidence/status summary, root agent briefing, and
-affected crate briefing together. Search the full documentation set for the
-superseded "next" or "not implemented" claim before finishing.
+## Evidence & Parity Standards
 
-## Evidence Rules
+1. **Distinguish Measured Evidence from Landed Code**:
+   - Explicitly distinguish offline Python research evidence or prototype scripts from landed Rust behavior.
+   - State the target device, host architecture, data type, fixture set, and tolerances for all numerical claims.
+2. **Implementation Equivalence vs Release Promotion**:
+   - Algorithmic equivalence or parity against reference vectors does not automatically constitute release promotion or model quality claims.
+   - CPU reference parity does not imply Metal or GPU acceleration parity.
+3. **Diagnostics vs Acceptance Tolerances**:
+   - Hidden-vector max-absolute, RMS, and cosine metrics are localization diagnostics to pinpoint divergence, not newly invented pass/fail criteria.
+   - Acceptance criteria are governed by final decision argmax parity, calibrated probabilities within tolerance (`0.005`), and policy threshold consistency.
 
-- Distinguish measured Python or hardware evidence from landed Rust behavior.
-- Distinguish implementation equivalence from release promotion and model quality.
-- State the device, dtype, fixture set, and tolerance for numerical claims.
-- Do not describe compilation, artifact loading, or head parity as backbone or
-  accelerator parity.
-- Phase 3.1 proves the selected head and probability algebra against saved
-  candidate features.
-- Phase 3.2 proves exact offline tokenizer and state-first segment IDs. It does
-  not prove the Qwen hidden-state path.
-- Loading Phase 3B architecture and diagnostic vectors is a reference-contract
-  gate, not backbone execution parity.
-- Phase 3.3 CPU parity covers the frozen 34-stage trace, 10 full-sequence
-  candidates, probability/decision replay, and Qwen-specific cached
-  continuation. It does not establish Metal, batching, service integration,
-  or release promotion.
-- Phase 3.4 lifts the complete Qwen continuation state into the backend-neutral
-  `BranchableState`/`BranchBatch` contract with profile-bound identity,
-  structural and strict fingerprints, exact byte accounting, immutable-root
-  fork, batched fork, and gather/select on the CPU path. It does not establish
-  Metal, nested or batched Q/K execution, service integration, or release
-  promotion. CPU native parity does not imply Metal or accelerated parity.
-- Phase 3.5 reproduces sequential nested `state → question → candidate`
-  execution on the CPU path: one immutable state prefill per fixture case,
-  question and candidate forks for all four Phase 3B questions and 10
-  candidates, probability/argmax/policy parity, root immutability, exact
-  replay determinism, and exact `repeated_full` agreement. It does not
-  establish Metal, batched Q/K execution, service integration, or release
-  promotion. CPU native parity does not imply Metal or accelerated parity.
-- Phase 3.6/3.7 reproduce breadth-first batched Q/K execution on the CPU
-  path: `fork_batch` question lanes from one immutable root and per-question
-  candidate fan-outs, with exact sequential-baseline parity, root
-  immutability, exact fan-out byte accounting, and unchanged head
-  probability/argmax/policy behavior. Per-lane executor calls remain the
-  primitive; vectorized suffix kernels, the adaptive scheduler, Metal,
-  service integration, and release promotion stay open. CPU native parity
-  does not imply Metal or accelerated parity.
-- Phase 3.8 measures the adaptive scheduler on the named M4 Max host:
-  `run_strategy`/`run_repeated_full` account forward calls and staged tokens
-  across all three parity-proven strategies, and `choose_strategy` applies a
-  measured crossover threshold (2.0) plus a state-byte ceiling. Sharing beat
-  `repeated_full` in every measured cell (1.25x-1.98x) and the two shared
-  strategies are equal within noise. Cold-start/cache-warmth cells,
-  memory-pressure fallback, vectorized suffix kernels, Metal, service
-  integration, and release promotion stay open. CPU native parity does not
-  imply Metal or accelerated parity.
-- Hidden-vector max-absolute/RMS/cosine values remain localization diagnostics,
-  not newly invented acceptance tolerances.
-- Native semantic none remains internal until the wire mapping is specified.
+## Wire Documentation Synchronization
 
-## Wire Documentation
-
-The Rust types in `opendecision-core` are the code authority for request and
-response shapes. Generated JSON Schema, Protobuf, and OpenAPI must remain
-synchronized with those types and their conformance tests.
+The Rust types in `opendecision-core` are the code authority for request and response wire shapes. Generated JSON Schema, Protobuf, and OpenAPI contracts must remain synchronized.
 
 When changing a wire type:
+1. Update the Rust types and validation logic in `opendecision-core`.
+2. Add or update conformance tests in `crates/opendecision-core/tests/conformance/`.
+3. Regenerate JSON Schema files:
+   ```bash
+   cargo run -p opendecision-gen-schemas -- --write
+   ```
+4. Update Protobuf (`proto/proto/opendecision.proto`) and OpenAPI (`crates/opendecision-api/openapi.yaml`) if the same surface is exposed.
+5. Update SDK compatibility tests in `crates/opendecision-api/tests/sdk_compat/`.
 
-1. Update the Rust type and validation behavior.
-2. Add or update conformance and SDK compatibility tests.
-3. Regenerate JSON Schema with
-   `cargo run -p opendecision-gen-schemas -- --write`.
-4. Update Protobuf and OpenAPI when the same contract is exposed there.
-5. Document intentional compatibility changes explicitly.
+## Documentation Style Rules
 
-## Documentation Style
+- **No Changelog Narration**: Describe landed architecture and current contracts in concise present tense. Avoid historical phase-by-phase chronological logs in architectural docs and briefings.
+- **Relative Links Only**: Use relative repository paths. Never commit machine-specific absolute file paths (`/Users/...` or `C:\...`).
+- **Upcoming Work**: Keep planned features and milestone roadmaps in `ROADMAP.md`, not scattered across module briefings.
+- **Benchmark Attribution**: Attribute performance numbers to specific hardware configurations, commit hashes, or checked-in benchmark logs.
 
-- Use relative repository links. Never commit machine-specific absolute paths.
-- Prefer concise present-tense statements over changelog narration.
-- Put open work in `ROADMAP.md`, not in module briefings.
-- Keep benchmark tables attributable to checked-in artifacts or named sources.
-- Do not update test totals by hand. Point to the verification command instead.
-- Preserve user-owned research artifacts and notebooks unless the task names them.
+## Verification Commands
 
-## Verification
-
-For documentation-only changes, check formatting and paths without implying that
-code or hardware tests ran:
+For documentation formatting and link checks:
 
 ```bash
-st --files docs --type md
+# Check indexed documentation files
+st --files -t md docs
+
+# Check git diff for trailing whitespace or formatting issues
 git diff --check -- docs/
 ```
 
-For wire or code changes, run the repository battery in [`../AGENTS.md`](../AGENTS.md).
+For wire contract or code changes, run the root verification battery in [`../AGENTS.md`](../AGENTS.md).
