@@ -169,11 +169,16 @@ fn resolve_api_key_preference() {
     });
     assert_eq!(key3, Some("typesafe-key".into()));
 
-    // 4. None if both are absent or empty
+    // 4. Fall back to the deprecated pre-rename variable during upgrades
     let key4 = AuthConfig::resolve_api_key_with(|k| match k {
         "OPENDECISION_API_KEY" => Ok("".into()),
         "TYPESAFE_API_KEY" => Ok("".into()),
+        "OPENPICK_API_KEY" => Ok("legacy-key".into()),
         _ => Err(std::env::VarError::NotPresent),
     });
-    assert_eq!(key4, None);
+    assert_eq!(key4, Some("legacy-key".into()));
+
+    // 5. None if all variables are absent or empty
+    let key5 = AuthConfig::resolve_api_key_with(|_| Err(std::env::VarError::NotPresent));
+    assert_eq!(key5, None);
 }

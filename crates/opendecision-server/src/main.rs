@@ -25,12 +25,20 @@ use tracing_subscriber::EnvFilter;
 #[command(name = "opendecisiond", about = "opendecision inference daemon")]
 struct Args {
     /// Address to bind the HTTP server on.
-    #[arg(long, env = "OPENDECISION_HTTP_ADDR", default_value = "0.0.0.0:8080")]
-    http_addr: SocketAddr,
+    #[arg(long, env = "OPENDECISION_HTTP_ADDR")]
+    http_addr: Option<SocketAddr>,
+
+    /// Deprecated pre-rename HTTP listener environment variable.
+    #[arg(long, env = "OPENPICK_HTTP_ADDR", hide = true)]
+    legacy_http_addr: Option<SocketAddr>,
 
     /// Address to bind the gRPC server on. Use `0` to disable the gRPC listener.
-    #[arg(long, env = "OPENDECISION_GRPC_ADDR", default_value = "0.0.0.0:9090")]
-    grpc_addr: String,
+    #[arg(long, env = "OPENDECISION_GRPC_ADDR")]
+    grpc_addr: Option<String>,
+
+    /// Deprecated pre-rename gRPC listener environment variable.
+    #[arg(long, env = "OPENPICK_GRPC_ADDR", hide = true)]
+    legacy_grpc_addr: Option<String>,
 
     /// Comma-separated model aliases to expose. For Phase 1, all point
     /// at the mock engine. Register `jev-latest` to accept the SDK's
@@ -49,6 +57,10 @@ struct Args {
     #[arg(long, env = "OPENDECISION_API_KEY")]
     api_key: Option<String>,
 
+    /// Deprecated pre-rename API-key environment variable.
+    #[arg(long, env = "OPENPICK_API_KEY", hide = true)]
+    legacy_api_key: Option<String>,
+
     /// Per-client-IP request budget per minute on `/v1/*` routes.
     /// `0` disables rate limiting entirely.
     #[arg(long, env = "OPENDECISION_RATE_LIMIT_RPM", default_value_t = 120)]
@@ -65,20 +77,37 @@ async fn main() -> Result<()> {
 
     init_tracing(&args.log_filter)?;
 
-    let grpc_addr = parse_grpc_addr(&args.grpc_addr)
+    let http_addr = resolve_alias(
+        args.http_addr,
+        args.legacy_http_addr,
+        "OPENDECISION_HTTP_ADDR",
+        "OPENPICK_HTTP_ADDR",
+    )?
+    .unwrap_or_else(|| "0.0.0.0:8080".parse().expect("valid default HTTP address"));
+    let grpc_addr_value = resolve_alias(
+        args.grpc_addr,
+        args.legacy_grpc_addr,
+        "OPENDECISION_GRPC_ADDR",
+        "OPENPICK_GRPC_ADDR",
+    )?
+    .unwrap_or_else(|| "0.0.0.0:9090".to_owned());
+    let grpc_addr = parse_grpc_addr(&grpc_addr_value)
         .context("invalid --grpc-addr (expected host:port, or `0` to disable)")?;
 
-    let auth = args
-        .api_key
+    let api_key = resolve_alias(
+        args.api_key.filter(|s| !s.is_empty()),
+        args.legacy_api_key.filter(|s| !s.is_empty()),
+        "OPENDECISION_API_KEY",
+        "OPENPICK_API_KEY",
+    )?;
+    let auth = api_key
         .filter(|s| !s.is_empty())
         .map(|k| AuthConfig::new(Some(k)))
         .unwrap_or_else(AuthConfig::from_env);
     if auth.is_required() {
         info!("api key auth: enabled (gate on /v1/* and gRPC)");
     } else {
-        if args.http_addr.ip().is_unspecified()
-            || grpc_addr.is_some_and(|g| g.ip().is_unspecified())
-        {
+        if http_addr.ip().is_unspecified() || grpc_addr.is_some_and(|g| g.ip().is_unspecified()) {
             tracing::warn!(
                 "SECURITY WARNING: Server is binding to a public interface without authentication! Anyone with network access can execute inference queries."
             );
@@ -88,7 +117,7 @@ async fn main() -> Result<()> {
     }
 
     info!(
-        http = %args.http_addr,
+        http = %http_addr,
         grpc = ?grpc_addr,
         models = ?args.models,
         "starting opendecisiond"
@@ -120,7 +149,6 @@ async fn main() -> Result<()> {
 
     // Spawn HTTP server.
     let http_state = state.clone();
-    let http_addr = args.http_addr;
     let http_auth = auth.clone();
     let http_tx = shutdown_tx.clone();
     let rate_limiter = if args.rate_limit_rpm > 0 {
@@ -197,6 +225,22 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+/// Resolve a renamed setting while refusing ambiguous migration configuration.
+fn resolve_alias<T: PartialEq>(
+    current: Option<T>,
+    legacy: Option<T>,
+    current_name: &str,
+    legacy_name: &str,
+) -> Result<Option<T>> {
+    match (current, legacy) {
+        (Some(current), Some(legacy)) if current != legacy => anyhow::bail!(
+            "conflicting values for {current_name} and deprecated {legacy_name}; remove {legacy_name} after migration"
+        ),
+        (Some(current), _) => Ok(Some(current)),
+        (None, legacy) => Ok(legacy),
+    }
+}
+
 fn init_tracing(filter: &str) -> Result<()> {
     let env_filter = EnvFilter::try_new(filter).context("invalid log filter")?;
     tracing_subscriber::fmt()
@@ -250,8 +294,8 @@ mod tests {
     #[test]
     fn args_default_values() {
         let args = Args::try_parse_from(["opendecisiond"]).unwrap();
-        assert_eq!(args.http_addr, "0.0.0.0:8080".parse().unwrap());
-        assert_eq!(args.grpc_addr, "0.0.0.0:9090");
+        assert_eq!(args.http_addr, None);
+        assert_eq!(args.grpc_addr, None);
         assert_eq!(args.models, vec!["mock", "jev-latest"]);
         assert_eq!(args.api_key, None);
         assert_eq!(args.rate_limit_rpm, 120);
@@ -277,8 +321,8 @@ mod tests {
         ])
         .unwrap();
 
-        assert_eq!(args.http_addr, "127.0.0.1:18080".parse().unwrap());
-        assert_eq!(args.grpc_addr, "127.0.0.1:19090");
+        assert_eq!(args.http_addr, Some("127.0.0.1:18080".parse().unwrap()));
+        assert_eq!(args.grpc_addr.as_deref(), Some("127.0.0.1:19090"));
         assert_eq!(args.models, vec!["mock", "candle", "jev-latest"]);
         assert_eq!(args.api_key.as_deref(), Some("secret-token"));
         assert_eq!(args.rate_limit_rpm, 0);
@@ -298,5 +342,23 @@ mod tests {
         );
         assert!(parse_grpc_addr("not-an-addr").is_err());
         assert!(parse_grpc_addr("").is_err());
+    }
+
+    #[test]
+    fn renamed_setting_uses_legacy_fallback() {
+        assert_eq!(
+            resolve_alias(None, Some("legacy"), "NEW", "OLD").unwrap(),
+            Some("legacy")
+        );
+        assert_eq!(
+            resolve_alias(Some("same"), Some("same"), "NEW", "OLD").unwrap(),
+            Some("same")
+        );
+    }
+
+    #[test]
+    fn renamed_setting_rejects_conflicting_values() {
+        let error = resolve_alias(Some("new"), Some("old"), "NEW", "OLD").unwrap_err();
+        assert!(error.to_string().contains("conflicting values for NEW"));
     }
 }

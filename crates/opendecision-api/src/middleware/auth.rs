@@ -31,7 +31,10 @@ impl AuthConfig {
         }
     }
 
-    /// Resolve an API key by consulting environment lookup closure, checking `OPENDECISION_API_KEY` then `TYPESAFE_API_KEY`.
+    /// Resolve an API key by consulting environment lookup closure.
+    ///
+    /// `OPENPICK_API_KEY` remains a deprecated fallback so that upgrading a
+    /// deployment cannot silently disable authentication.
     pub fn resolve_api_key_with<F>(get_env: F) -> Option<String>
     where
         F: Fn(&str) -> Result<String, std::env::VarError>,
@@ -40,9 +43,10 @@ impl AuthConfig {
             .ok()
             .filter(|s| !s.is_empty())
             .or_else(|| get_env("TYPESAFE_API_KEY").ok().filter(|s| !s.is_empty()))
+            .or_else(|| get_env("OPENPICK_API_KEY").ok().filter(|s| !s.is_empty()))
     }
 
-    /// Construct `AuthConfig` by resolving from environment variables `OPENDECISION_API_KEY` or `TYPESAFE_API_KEY`.
+    /// Construct `AuthConfig` by resolving from the supported API-key environment variables.
     pub fn from_env() -> Self {
         Self::new(Self::resolve_api_key_with(|k| std::env::var(k)))
     }
