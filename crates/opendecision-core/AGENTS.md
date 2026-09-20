@@ -52,7 +52,11 @@
 - [`src/state.rs`](./src/state.rs):
   - `State`: Untagged serde enum supporting `Text(String)`, `Object(Map)`, `Array(Vec)`.
 - [`tests/conformance.rs`](./tests/conformance.rs):
-  - 23 conformance tests directly pinned to TypeSafe Jev spec examples.
+  - Modular suite of 23 conformance tests directly pinned to TypeSafe Jev spec examples:
+    - [`tests/conformance/examples.rs`](./tests/conformance/examples.rs): Spec example requests and responses (`noul`, `choice`, `score`).
+    - [`tests/conformance/edge_cases.rs`](./tests/conformance/edge_cases.rs): Flexible instructions (`string | object | array`), null criteria values, and structured state shapes.
+    - [`tests/conformance/validation.rs`](./tests/conformance/validation.rs): Validation invariants, required fields, sum-to-one constraints, and confidence bounds.
+    - [`tests/conformance/schema.rs`](./tests/conformance/schema.rs): JSON Schema derivations and literal model string preservation.
 
 ## Verification Commands
 
