@@ -185,6 +185,17 @@ git diff --check
 
 Tests and builds must not download model artifacts. Native parity fixtures are vendored and digest-checked. After schema generation, confirm that unrelated schema files did not change.
 
+For a clean-commit verification with retained logs and the checkpoint-backed
+Qwen parity/benchmark gates, use:
+
+```bash
+scripts/verify-commit.sh --checkpoint-root path/to/Qwen3.5-4B-Base
+```
+
+The script refuses a dirty tree and never downloads weights. Use
+`--offline-only` only when the resulting record will explicitly remain a
+partial, non-model verification.
+
 For module-specific invariants and focused checks, start with [`AGENTS.md`](AGENTS.md).
 
 ## Documentation
