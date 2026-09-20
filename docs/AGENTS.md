@@ -52,6 +52,13 @@ superseded "next" or "not implemented" claim before finishing.
   fork, batched fork, and gather/select on the CPU path. It does not establish
   Metal, nested or batched Q/K execution, service integration, or release
   promotion. CPU native parity does not imply Metal or accelerated parity.
+- Phase 3.5 reproduces sequential nested `state → question → candidate`
+  execution on the CPU path: one immutable state prefill per fixture case,
+  question and candidate forks for all four Phase 3B questions and 10
+  candidates, probability/argmax/policy parity, root immutability, exact
+  replay determinism, and exact `repeated_full` agreement. It does not
+  establish Metal, batched Q/K execution, service integration, or release
+  promotion. CPU native parity does not imply Metal or accelerated parity.
 - Hidden-vector max-absolute/RMS/cosine values remain localization diagnostics,
   not newly invented acceptance tolerances.
 - Native semantic none remains internal until the wire mapping is specified.

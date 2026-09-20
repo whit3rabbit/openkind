@@ -59,7 +59,8 @@ correctness-first CPU backbone/continuation gates are complete for profile
 1. ~~Lift the Qwen-specific cached state into the backend-neutral
    `BranchableState` contract and prove fork/gather isolation.~~ Complete for
    the CPU path (Phase 3.4).
-2. Prove sequential and batched Q/K execution.
+2. ~~Prove sequential nested `state → question → candidate` execution.~~
+   Complete for the CPU path (Phase 3.5). Batched Q/K execution is next.
 3. Only then implement `DecisionEngine`, register the backend, and add
    wire-level mappings.
 

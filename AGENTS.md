@@ -41,9 +41,9 @@ Profile `a047d6802c3f06f085b8` is the native integration target:
 - Probability tolerance: `0.005`.
 - Ordering tolerance: `1e-5`.
 
-Phase 3.1 through Phase 3.4 implement the deterministic readout, tokenization,
-full-sequence backbone, Qwen-specific continuation, and backend-neutral
-branch-state slices:
+Phase 3.1 through Phase 3.5 implement the deterministic readout, tokenization,
+full-sequence backbone, Qwen-specific continuation, backend-neutral
+branch-state, and sequential nested execution slices:
 
 - immutable model execution metadata.
 - offline manifest and safetensors validation.
@@ -66,11 +66,15 @@ branch-state slices:
   profile/model/tokenizer/renderer/arithmetic state identity, structural and
   strict fingerprints, exact hybrid byte accounting, immutable-root fork,
   batched fork, and gather/select.
+- sequential nested `state → question → candidate` execution: one immutable
+  state prefill, question forks, per-candidate forks, fail-closed position and
+  immutability verification, and exact replay determinism.
 
-This establishes Phase 3.3 CPU backbone parity and the Phase 3.4 branch-state
-contract for the frozen fixtures. It does not establish Metal, sequential or
-batched nested Q/K execution, service registration, release promotion, or full
-Rust parity. CPU native parity does not imply Metal or accelerated parity.
+This establishes Phase 3.3 CPU backbone parity, the Phase 3.4 branch-state
+contract, and Phase 3.5 sequential nested execution parity for the frozen
+fixtures. It does not establish Metal, batched nested Q/K execution, service
+registration, release promotion, or full Rust parity. CPU native parity does
+not imply Metal or accelerated parity.
 Do not register the native backend or map native semantic none onto the Jev wire
 format before those contracts are implemented explicitly.
 
@@ -81,7 +85,12 @@ cached-versus-full candidate equality. The Phase 3.4 branch gate replays the
 root/question/candidate continuation through `BranchableState` and holds the
 exact `59,899,904`-byte root accounting, root immutability under fork, batch
 fan-out, gather, and exact cached-versus-full state equality (maximum
-absolute delta `0.0`). Treat
+absolute delta `0.0`). The Phase 3.5 nested gate replays all four Phase 3B
+questions and 10 candidates through one prefill per fixture case with
+maximum probability delta `4.5869e-06`, zero argmax or policy changes, root
+content identical to an independent prefill after all fork work, exact replay
+and sibling-order determinism, and exact cached-versus-full feature and state
+equality (`0.0`). Treat
 hidden-vector differences as localization diagnostics, not new acceptance
 tolerances.
 
@@ -90,7 +99,8 @@ Follow this integration order:
 1. ~~Lift the Qwen-specific continuation state into backend-neutral
    `BranchableState`, including profile identity, stable fingerprinting, fork,
    batched fork, and gather/select.~~ Complete for the CPU path (Phase 3.4).
-2. Sequential state, question, and candidate execution.
+2. ~~Sequential state, question, and candidate execution.~~ Complete for the
+   CPU path (Phase 3.5).
 3. Batched question and candidate execution.
 4. Amortization, high-cardinality, and service-lifecycle validation.
 
