@@ -44,8 +44,14 @@ superseded "next" or "not implemented" claim before finishing.
   gate, not backbone execution parity.
 - Phase 3.3 CPU parity covers the frozen 34-stage trace, 10 full-sequence
   candidates, probability/decision replay, and Qwen-specific cached
-  continuation. It does not establish Metal, a backend-neutral
-  `BranchableState`, batching, service integration, or release promotion.
+  continuation. It does not establish Metal, batching, service integration,
+  or release promotion.
+- Phase 3.4 lifts the complete Qwen continuation state into the backend-neutral
+  `BranchableState`/`BranchBatch` contract with profile-bound identity,
+  structural and strict fingerprints, exact byte accounting, immutable-root
+  fork, batched fork, and gather/select on the CPU path. It does not establish
+  Metal, nested or batched Q/K execution, service integration, or release
+  promotion. CPU native parity does not imply Metal or accelerated parity.
 - Hidden-vector max-absolute/RMS/cosine values remain localization diagnostics,
   not newly invented acceptance tolerances.
 - Native semantic none remains internal until the wire mapping is specified.

@@ -206,11 +206,16 @@ complete correctness-first CPU backbone and Qwen-specific continuation stage:
   24 DeltaNet blocks, 8 full-attention blocks, and final RMSNorm;
 - 10-candidate probability/argmax/policy replay;
 - immutable Qwen-specific continuation state with attention KV, recurrent,
-  convolution, position, and byte-accounting components.
+  convolution, position, and byte-accounting components;
+- profile/model/tokenizer/renderer/arithmetic state identity, structural and
+  strict content fingerprints, exact hybrid byte accounting, immutable-root
+  fork, batched fork, and gather/select through the backend-neutral
+  `BranchableState` and `BranchBatch` traits (`src/branch`, and
+  `src/qwen35/backbone/branch.rs`).
 
-It does not yet expose the backend-neutral `BranchableState` fork/gather API,
-batch Q/K branches, execute on Metal, register a native service backend, or
-expose semantic none through the Jev wire format.
+It does not yet implement sequential or batched nested Q/K execution, batch
+forward execution, Metal execution, a registered native service backend, or
+the Jev wire mapping for semantic none.
 
 ---
 
@@ -281,19 +286,19 @@ A branch that clones only attention KV can still share or corrupt mutable recurr
 
 ## `BranchableState` target abstraction
 
-Phase 3 should expose a backend-neutral continuation-state abstraction rather than Qwen-specific cache tensors through the engine boundary.
+Phase 3 exposes a backend-neutral continuation-state abstraction rather than Qwen-specific cache tensors through the engine boundary.
 
-Phase 3A now supplies a working Python reference for the required semantics. The first notebook draft attempted Transformers 5.17.0's generic `Cache.batch_repeat_interleave()`, which fails on Qwen3.5 because its `LinearAttentionLayer` does not implement that generic helper. The corrected reference instead deep-copies the complete hybrid cache and calls cache-wide `reorder_cache(indices)`. Repeated indices such as `[0,0,0,0]` fan one immutable root into multiple lanes; selected indices gather lanes back out. This reaches both ordinary attention KV layers and the linear-attention layers carrying recurrent and convolution state. The environment remains pinned rather than monkey-patching only the KV portion of the cache.
+Phase 3A supplies the working Python reference for the required semantics. The first notebook draft attempted Transformers 5.17.0's generic `Cache.batch_repeat_interleave()`, which fails on Qwen3.5 because its `LinearAttentionLayer` does not implement that generic helper. The corrected reference instead deep-copies the complete hybrid cache and calls cache-wide `reorder_cache(indices)`. Repeated indices such as `[0,0,0,0]` fan one immutable root into multiple lanes; selected indices gather lanes back out. This reaches both ordinary attention KV layers and the linear-attention layers carrying recurrent and convolution state. The environment remains pinned rather than monkey-patching only the KV portion of the cache.
 
-The Python contract validates immutable-root fan-out/select before the semantic benchmark. Rust does not need to copy the Python object model, but it must reproduce the **same complete-state semantics** and fixture outputs.
+The Python contract validates immutable-root fan-out/select before the semantic benchmark. Rust does not copy the Python object model, but it reproduces the **same complete-state semantics** and fixture outputs.
 
-The following is an **illustrative Rust target contract, not a claim about an already implemented Rust API**:
+The Phase 3.4 Rust contract is implemented in `crates/opendecision-backends/src/branch` and bound to `BackboneState` in `crates/opendecision-backends/src/qwen35/backbone/branch.rs`:
 
 ```rust
-trait BranchableState: Send + Sync {
-    type Batch;
+pub trait BranchableState: Send + Sync {
+    type Batch: BranchBatch<State = Self>;
 
-    fn profile_id(&self) -> &str;
+    fn profile_id(&self) -> &ProfileId;
     fn position(&self) -> usize;
     fn storage_bytes(&self) -> usize;
     fn fingerprint(&self) -> StateFingerprint;
@@ -302,19 +307,24 @@ trait BranchableState: Send + Sync {
     where
         Self: Sized;
 
-    fn fork_batch(&self, lanes: usize) -> Result<Self::Batch, StateError>;
+    fn fork_batch(&self, lanes: usize) -> Result<Self::Batch, StateError>
+    where
+        Self: Sized;
 }
 
-trait BranchBatch {
-    type State;
+pub trait BranchBatch {
+    type State: BranchableState<Batch = Self>;
 
     fn lanes(&self) -> usize;
     fn storage_bytes(&self) -> usize;
-    fn split(self) -> Result<Vec<Self::State>, StateError>;
+    fn select(&self, index: usize) -> Result<Self::State, StateError>;
+    fn gather(&self, indices: &[usize]) -> Result<Self, StateError>
+    where
+        Self: Sized;
 }
 ```
 
-A concrete implementation may add gather/rebatch operations where the backend supports them efficiently. The semantic requirements are more important than the exact trait syntax:
+The semantic requirements are more important than the exact trait syntax:
 
 1. **Immutable-root semantics** — branching must not mutate a reusable root.
 2. **Complete-state isolation** — all mutable continuation components are isolated.
@@ -323,6 +333,15 @@ A concrete implementation may add gather/rebatch operations where the backend su
 5. **Byte accounting** — scheduler/admission decisions use real branch-state storage, not only attention KV.
 6. **Stable identity** — state cannot be reused across incompatible model, renderer, adapter, arithmetic, tokenizer, or position contracts.
 7. **Backend neutrality** — future encoders/query models can implement a different reusable-state representation without pretending to be a Transformer KV cache.
+
+The Rust implementation adds two deliberate fingerprint levels. The structural
+`fingerprint()` hashes identity, lineage root, position, and tensor layout
+only, so scheduling can call it without reading tens of MiB of tensor bytes;
+it is process-local and makes a forked child scheduling-equivalent to its
+parent until the child advances. The strict `strict_fingerprint()` hashes
+exact little-endian tensor bytes, identity, and position; it is the
+cross-process replay/integrity identity and is intended for fixture gates,
+not per-fork scheduling.
 
 ---
 
@@ -525,7 +544,7 @@ The exported selected bundle is the model/probability reference contract. Phase 
 1. **Head/probability algebra, complete:** Rust matches the exported fixtures. It reproduces normalization, projection, rejection, calibration, stable softmax, and policy semantics.
 2. **Exact tokenizer + state-first token rendering, complete:** all four exported root, question, candidate-suffix, and full-sequence ID records match exactly. The implementation rejects overlength inputs rather than silently truncating them.
 3. **Full Qwen3.5 CPU backbone parity, complete for frozen fixtures:** exact embedding, all 32 decoder blocks, final RMSNorm, 34-stage diagnostics, 10 candidate features, and probability/decision replay pass. Qwen-specific cached continuation also matches native full-sequence output exactly for the exported branch.
-4. **`BranchableState`, in progress:** Qwen-specific state already carries attention KV, recurrent and convolution tensors, explicit position, clone isolation, and exact byte accounting. Backend-neutral profile identity, stable fingerprints, single/batched fork, and gather/select remain open.
+4. **`BranchableState`, complete for the CPU path:** Qwen state carries profile/model/tokenizer/renderer/arithmetic identity, lineage, explicit position, attention KV, recurrent and convolution tensors, clone isolation, exact byte accounting, structural and strict fingerprints, single and batched fork, and gather/select. Sequential nested execution and Metal remain open.
 5. **Sequential nested parity** — `state → question → candidate` against the Python reference.
 6. **Batched question layer** — Q breadth-first execution with isolation/parity tests against Phase 3A fixtures.
 7. **Batched candidate layer** — K vectorization with permutation/rejection parity.
@@ -658,8 +677,8 @@ Reference: https://morethanamachine.com/posts/jev-style-decisions-dgx-spark/
 - **Track S — PLANNED / PARALLEL.** Resolve final wire probability semantics and connect a real resident reference worker to the Rust service before claiming a real model-backed service.
 - **Phase 3A — COMPLETED PYTHON SYSTEMS/REFERENCE SCOPE.** Run `20260920T024056Z` validated full-hybrid-state branch fan-out/select, semantic batched parity, high-K systems parity and exact recorded same-process replay for the frozen selected profile. Its short semantic benchmark also establishes that sharing is workload-dependent rather than universally faster.
 - **Phase 3B: COMPLETED PYTHON BACKBONE-REFERENCE SCOPE.** Run `20260920T152206Z` keeps the selected profile unchanged. It exports exact tokens, 34 trace stages, 10 candidate features, and 3 continuation vectors.
-- **Phase 3: IN PROGRESS / CPU BACKBONE PARITY PASSED.** Rust head/probability, exact-token, full-sequence CPU backbone, and Qwen-specific cached-continuation parity pass. Backend-neutral `BranchableState` is next, followed by nested Q/K execution, adaptive Mac scheduling, Metal validation, and service integration.
+- **Phase 3: IN PROGRESS / CPU BACKBONE AND BRANCH-STATE PARITY PASSED.** Rust head/probability, exact-token, full-sequence CPU backbone, Qwen-specific cached-continuation, and backend-neutral `BranchableState` contract gates pass. Sequential nested Q/K execution is next, followed by batched Q/K, adaptive Mac scheduling, Metal validation, and service integration. CPU native parity does not imply Metal or accelerated parity.
 - **Phase 3A.1 — CONDITIONAL SCHEDULER/CROSSOVER STUDY.** Create the additional Colab only if early Rust profiling does not provide enough component timing to derive stable strategy crossover rules. It does not block 3.1–3.5.
 - **P2.1–P2.3 — CONDITIONAL.** Optimized kernels, model-weight precision/quantization, and teacher/student work require a specific unmet target and their own parity/quality evidence.
 
-The current architecture decision is conservative. **Keep the selected state-first Qwen profile fixed while building the native engine.** The Phase 3B trace has already localized and closed the correctness-first CPU full-sequence and cached-continuation gates. Lift the complete Qwen state into the backend-neutral branch contract next, then reproduce nested and batched execution before optimizing the scheduler or adding Metal. Let reviewed release-quality evidence decide whether the provisional profile ships.
+The current architecture decision is conservative. **Keep the selected state-first Qwen profile fixed while building the native engine.** The Phase 3B trace has already localized and closed the correctness-first CPU full-sequence and cached-continuation gates, and the Phase 3.4 contract lifts the complete Qwen state into the backend-neutral branch abstractions. Reproduce sequential nested execution next, then batched execution, before optimizing the scheduler or adding Metal. CPU native parity does not imply Metal or accelerated parity. Let reviewed release-quality evidence decide whether the provisional profile ships.

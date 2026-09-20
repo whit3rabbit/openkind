@@ -41,8 +41,9 @@ Profile `a047d6802c3f06f085b8` is the native integration target:
 - Probability tolerance: `0.005`.
 - Ordering tolerance: `1e-5`.
 
-Phase 3.1 through Phase 3.3 implement the deterministic readout, tokenization,
-full-sequence backbone, and Qwen-specific continuation slices:
+Phase 3.1 through Phase 3.4 implement the deterministic readout, tokenization,
+full-sequence backbone, Qwen-specific continuation, and backend-neutral
+branch-state slices:
 
 - immutable model execution metadata.
 - offline manifest and safetensors validation.
@@ -61,24 +62,34 @@ full-sequence backbone, and Qwen-specific continuation slices:
   policy changes.
 - Qwen-specific continuation state containing attention KV, DeltaNet
   recurrent state, convolution state, and absolute position.
+- backend-neutral `BranchableState`/`BranchBatch` contract with
+  profile/model/tokenizer/renderer/arithmetic state identity, structural and
+  strict fingerprints, exact hybrid byte accounting, immutable-root fork,
+  batched fork, and gather/select.
 
-This establishes Phase 3.3 CPU backbone parity for the frozen fixtures. It does
-not establish Metal, backend-neutral `BranchableState`, batched Q/K execution,
-service registration, release promotion, or full Rust parity.
+This establishes Phase 3.3 CPU backbone parity and the Phase 3.4 branch-state
+contract for the frozen fixtures. It does not establish Metal, sequential or
+batched nested Q/K execution, service registration, release promotion, or full
+Rust parity. CPU native parity does not imply Metal or accelerated parity.
 Do not register the native backend or map native semantic none onto the Jev wire
 format before those contracts are implemented explicitly.
 
 The named M4 Max checkpoint records maximum final-norm absolute error
 `5.8174e-05`, maximum candidate-feature error `1.0300e-04`, maximum probability
 delta `4.5869e-06`, zero argmax or policy changes, and exact native
-cached-versus-full candidate equality. Treat hidden-vector differences as
-localization diagnostics, not new acceptance tolerances.
+cached-versus-full candidate equality. The Phase 3.4 branch gate replays the
+root/question/candidate continuation through `BranchableState` and holds the
+exact `59,899,904`-byte root accounting, root immutability under fork, batch
+fan-out, gather, and exact cached-versus-full state equality (maximum
+absolute delta `0.0`). Treat
+hidden-vector differences as localization diagnostics, not new acceptance
+tolerances.
 
 Follow this integration order:
 
-1. Lift the Qwen-specific continuation state into backend-neutral
+1. ~~Lift the Qwen-specific continuation state into backend-neutral
    `BranchableState`, including profile identity, stable fingerprinting, fork,
-   batched fork, and gather/select.
+   batched fork, and gather/select.~~ Complete for the CPU path (Phase 3.4).
 2. Sequential state, question, and candidate execution.
 3. Batched question and candidate execution.
 4. Amortization, high-cardinality, and service-lifecycle validation.

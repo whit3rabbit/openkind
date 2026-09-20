@@ -27,11 +27,14 @@ It provides device identities, host discovery, worker limits, and memory-budget 
 
 ## Branchable-State Gate
 
-Head/probability, exact tokenizer/rendering, CPU full-sequence backbone, and
-Qwen-specific cached-continuation parity are complete. The next runtime task is
-the backend-neutral `BranchableState` contract. It must retain profile identity,
-stable fingerprints, fork/gather isolation, exact byte accounting, and all
-attention KV, DeltaNet recurrent, and convolution state.
+Head/probability, exact tokenizer/rendering, CPU full-sequence backbone,
+Qwen-specific cached-continuation parity, and the backend-neutral
+`BranchableState`/`BranchBatch` contract are complete on the CPU path. The
+landed contract retains profile identity, structural and strict fingerprints,
+fork/gather isolation, exact byte accounting, and all attention KV, DeltaNet
+recurrent, and convolution state. Sequential and batched nested Q/K execution
+remain open before runtime service lifecycle work (TTL, tenants, admission)
+can bind to branched native state.
 
 ## Verification Commands
 
