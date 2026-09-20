@@ -27,7 +27,11 @@ It provides device identities, host discovery, worker limits, and memory-budget 
 
 ## Branchable-State Gate
 
-Head/probability parity and exact tokenizer/rendering parity precede backbone integration. Add `BranchableState` only with the complete hybrid state contract and golden backbone evidence.
+Head/probability, exact tokenizer/rendering, CPU full-sequence backbone, and
+Qwen-specific cached-continuation parity are complete. The next runtime task is
+the backend-neutral `BranchableState` contract. It must retain profile identity,
+stable fingerprints, fork/gather isolation, exact byte accounting, and all
+attention KV, DeltaNet recurrent, and convolution state.
 
 ## Verification Commands
 

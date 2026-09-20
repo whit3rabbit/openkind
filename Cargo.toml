@@ -68,21 +68,26 @@ sha2 = "0.10"
 # Model artifacts. safetensors 0.5.3 is the newest release in this line
 # compatible with the workspace's declared Rust 1.75 minimum.
 safetensors = "=0.5.3"
+# Keep tokenizer execution offline and compatible with the workspace MSRV. The
+# native Oniguruma backend matches the regex behavior used by the export.
+# Cargo.lock also holds its Rayon, Monostate, Unicode segmentation, and Onig
+# transitive dependencies to releases verified with Rust 1.75.
+tokenizers = { version = "=0.20.4", default-features = false, features = ["onig"] }
 
 # Internal
-opendecision-core = { path = "crates/opendecision-core" }
-opendecision-api = { path = "crates/opendecision-api" }
-opendecision-engine = { path = "crates/opendecision-engine" }
-opendecision-runtime = { path = "crates/opendecision-runtime" }
-opendecision-backends = { path = "crates/opendecision-backends" }
-opendecision-proto = { path = "proto" }
+opendecision-core = { path = "crates/opendecision-core", version = "0.1.0" }
+opendecision-api = { path = "crates/opendecision-api", version = "0.1.0" }
+opendecision-engine = { path = "crates/opendecision-engine", version = "0.1.0" }
+opendecision-runtime = { path = "crates/opendecision-runtime", version = "0.1.0" }
+opendecision-backends = { path = "crates/opendecision-backends", version = "0.1.0" }
+opendecision-proto = { path = "proto", version = "0.1.0" }
 
 # Client
 fastrand = "2"
 
-# Phase 3 native-backend candidates. These remain unused until backbone parity.
-candle-core = "0.8"
-candle-nn = "0.8"
+# Phase 3 correctness-first native CPU backbone.
+candle-core = "=0.8.0"
+candle-nn = "=0.8.0"
 dashmap = "6"
 parking_lot = "0.12"
 

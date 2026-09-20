@@ -24,6 +24,11 @@ The roadmap owns milestone status. The whitepaper owns research interpretation.
 Architecture documentation describes landed structure, not planned structure,
 unless the text labels a proposal explicitly.
 
+When implementation evidence advances a parity gate, update the roadmap,
+architecture, whitepaper evidence/status summary, root agent briefing, and
+affected crate briefing together. Search the full documentation set for the
+superseded "next" or "not implemented" claim before finishing.
+
 ## Evidence Rules
 
 - Distinguish measured Python or hardware evidence from landed Rust behavior.
@@ -31,8 +36,18 @@ unless the text labels a proposal explicitly.
 - State the device, dtype, fixture set, and tolerance for numerical claims.
 - Do not describe compilation, artifact loading, or head parity as backbone or
   accelerator parity.
-- Phase 3.1 proves only the selected head and probability algebra against saved
+- Phase 3.1 proves the selected head and probability algebra against saved
   candidate features.
+- Phase 3.2 proves exact offline tokenizer and state-first segment IDs. It does
+  not prove the Qwen hidden-state path.
+- Loading Phase 3B architecture and diagnostic vectors is a reference-contract
+  gate, not backbone execution parity.
+- Phase 3.3 CPU parity covers the frozen 34-stage trace, 10 full-sequence
+  candidates, probability/decision replay, and Qwen-specific cached
+  continuation. It does not establish Metal, a backend-neutral
+  `BranchableState`, batching, service integration, or release promotion.
+- Hidden-vector max-absolute/RMS/cosine values remain localization diagnostics,
+  not newly invented acceptance tolerances.
 - Native semantic none remains internal until the wire mapping is specified.
 
 ## Wire Documentation

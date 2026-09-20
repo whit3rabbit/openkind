@@ -41,26 +41,47 @@ Profile `a047d6802c3f06f085b8` is the native integration target:
 - Probability tolerance: `0.005`.
 - Ordering tolerance: `1e-5`.
 
-Phase 3.1 implements only the deterministic feature-to-probability slice:
+Phase 3.1 through Phase 3.3 implement the deterministic readout, tokenization,
+full-sequence backbone, and Qwen-specific continuation slices:
 
-- immutable model execution metadata;
-- offline manifest and safetensors validation;
-- f64 normalization, projection, rejection, calibration, and stable softmax;
-- native semantic-none mass for Choice only;
+- immutable model execution metadata.
+- offline manifest and safetensors validation.
+- f64 normalization, projection, rejection, calibration, and stable softmax.
+- native semantic-none mass for Choice only.
 - four exported golden-feature fixtures.
+- digest-locked offline Qwen tokenizer loading.
+- exact state-first segment encoding for all four token fixtures.
+- fail-closed loading of the Phase 3B architecture, 47 golden vectors, and
+  34-stage diagnostic trace.
+- digest-locked loading of both pinned checkpoint shards and exact FP32
+  equality with `diagnostic.embedding`.
+- Candle CPU execution of all 32 decoder blocks and final RMSNorm in FP32.
+- replay of all 34 diagnostic stages and 10 full-sequence candidate features.
+- probability parity across all four Phase 3B questions with zero argmax and
+  policy changes.
+- Qwen-specific continuation state containing attention KV, DeltaNet
+  recurrent state, convolution state, and absolute position.
 
-Do not describe this as tokenizer, backbone, Metal, service, or full Rust parity.
+This establishes Phase 3.3 CPU backbone parity for the frozen fixtures. It does
+not establish Metal, backend-neutral `BranchableState`, batched Q/K execution,
+service registration, release promotion, or full Rust parity.
 Do not register the native backend or map native semantic none onto the Jev wire
 format before those contracts are implemented explicitly.
 
+The named M4 Max checkpoint records maximum final-norm absolute error
+`5.8174e-05`, maximum candidate-feature error `1.0300e-04`, maximum probability
+delta `4.5869e-06`, zero argmax or policy changes, and exact native
+cached-versus-full candidate equality. Treat hidden-vector differences as
+localization diagnostics, not new acceptance tolerances.
+
 Follow this integration order:
 
-1. Exact tokenizer and state-first renderer parity.
-2. Full Qwen 3.5 backbone parity against golden hidden features.
-3. Backend-neutral branchable state.
-4. Sequential state, question, and candidate execution.
-5. Batched question and candidate execution.
-6. Amortization, high-cardinality, and service-lifecycle validation.
+1. Lift the Qwen-specific continuation state into backend-neutral
+   `BranchableState`, including profile identity, stable fingerprinting, fork,
+   batched fork, and gather/select.
+2. Sequential state, question, and candidate execution.
+3. Batched question and candidate execution.
+4. Amortization, high-cardinality, and service-lifecycle validation.
 
 ## Workspace Map
 
