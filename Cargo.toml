@@ -63,6 +63,11 @@ metrics-exporter-prometheus = { version = "0.18", default-features = false, feat
 rustls = { version = "0.23", default-features = false, features = ["std", "logging", "aws_lc_rs", "tls12"] }
 rustls-pki-types = "1"
 jsonwebtoken = "11"
+sha2 = "0.10"
+
+# Model artifacts. safetensors 0.5.3 is the newest release in this line
+# compatible with the workspace's declared Rust 1.75 minimum.
+safetensors = "=0.5.3"
 
 # Internal
 opendecision-core = { path = "crates/opendecision-core" }
@@ -75,7 +80,7 @@ opendecision-proto = { path = "proto" }
 # Client
 fastrand = "2"
 
-# Phase 2 — declared so workspace deps resolve, but unused until then
+# Phase 3 native-backend candidates. These remain unused until backbone parity.
 candle-core = "0.8"
 candle-nn = "0.8"
 dashmap = "6"

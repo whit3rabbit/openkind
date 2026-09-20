@@ -1,0 +1,39 @@
+{
+  "scope": "exploratory_pilot",
+  "train_families": [
+    "asset",
+    "external",
+    "compromise",
+    "routing",
+    "urgency",
+    "multirc_answer_correctness"
+  ],
+  "dev_transfer_families": [
+    "conflicting_reports",
+    "owner_evidence"
+  ],
+  "final_transfer_families": [
+    "impact_rubric",
+    "evidence_sufficient"
+  ],
+  "max_tokens": 1792,
+  "max_questions": 16,
+  "max_candidates": 16,
+  "truncation": "reject",
+  "probability_tolerance": 0.005,
+  "order_tolerance": 1e-05,
+  "lora_last_blocks": 4,
+  "target_device": "NVIDIA L4",
+  "deployment_target": {
+    "platform": "to_be_declared_by_owner",
+    "validation": "not_measured",
+    "colab_device_is_not_deployment_evidence": true
+  },
+  "quality_requirements": {
+    "max_family_macro_nll": null,
+    "max_panel_accepted_error": null,
+    "min_policy_coverage": null,
+    "max_request_p95_ms": null,
+    "max_peak_allocated_gib": null
+  }
+}

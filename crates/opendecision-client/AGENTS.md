@@ -10,14 +10,14 @@
 
 - **Runtime dependency on `opendecision-core` only** (plus tokio/reqwest/serde stack). The client must never depend on `opendecision-api`, `opendecision-engine`, `opendecision-server`, or `opendecision-cli`.
 - `opendecision-api` and `opendecision-engine` appear **only in `[dev-dependencies]`**, used by the integration tests to boot a real server in-process.
-- Orphan-rule consequence: `impl From<&str> for State` is impossible (both foreign), which is why [`IntoState`](src/client.rs) exists as a local conversion trait. Do not replace it with serialization tricks.
+- Orphan-rule consequence: `impl From<&str> for State` is impossible (both foreign), which is why [`IntoState`](src/client/options.rs) exists as a local conversion trait. Do not replace it with serialization tricks.
 
 ## Module Map
 
 | Module | Responsibility |
 |---|---|
-| [`src/client.rs`](src/client.rs) | `Client`, `ClientBuilder`, `RequestOptions`, `IntoState`, `Health`; the retry send loop lives in `Client::send_json` |
-| [`src/error.rs`](src/error.rs) | `Error` / `ApiError` / `ApiErrorKind` taxonomy, `parse_retry_after` (ms → seconds → HTTP-date), lenient error-envelope extraction |
+| [`src/client/`](src/client/) | Modular client implementation: `mod.rs` (re-exports), [`options.rs`](src/client/options.rs) (`RequestOptions`, `IntoState`), [`builder.rs`](src/client/builder.rs) (`ClientBuilder`), [`core.rs`](src/client/core.rs) (`Client`, `Health`), [`transport.rs`](src/client/transport.rs) (retry send loop in `send_json`), and [`tests.rs`](src/client/tests.rs) |
+| [`src/error/`](src/error/) | Modular error taxonomy: `mod.rs` (re-exports, `Error` enum), [`api_error.rs`](src/error/api_error.rs) (`ApiError`, `ApiErrorKind`), [`envelope.rs`](src/error/envelope.rs) (lenient error-envelope extraction), [`retry_after.rs`](src/error/retry_after.rs) (`parse_retry_after`), and [`tests.rs`](src/error/tests.rs) |
 | [`src/retry.rs`](src/retry.rs) | `RetryPolicy`: max retries, exponential backoff with subtractive jitter, retryable status rules, total-time budget |
 | [`src/question.rs`](src/question.rs) | Ergonomic `Question` / `State` constructors mirroring the Python SDK's `Noul`/`Choice`/`Score` sugar |
 

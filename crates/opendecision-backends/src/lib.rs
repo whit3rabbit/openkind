@@ -1,15 +1,14 @@
-//! `opendecision-backends`: Decision engine backend drivers and providers.
+//! `opendecision-backends`: Model loaders, parity readouts, and backend providers.
 //!
 //! # Architecture & Responsibilities
-//! `opendecision-backends` contains driver implementations that fulfill the `DecisionEngine` trait
-//! from `opendecision-engine`.
-//!
-//! Per `docs/ARCHITECTURE.md` and `docs/RESEARCH.md`:
-//! - **Phase 1**: Features an in-memory, deterministic [`BackendType::Mock`] engine for testing wire protocols.
-//! - **Phase 2 & Phase 3**: Implements real inference drivers for Candle (Hugging Face tensors targeting
-//!   frozen Qwen3.5-4B + linear decision head), quantized GGUF via llama.cpp, ONNX runtime, and remote provider proxies.
+//! The [`qwen35`] module implements the selected profile's deterministic
+//! feature-to-probability readout. It intentionally does not implement Qwen
+//! execution or register a native [`opendecision_engine::DecisionEngine`].
 
 #![warn(missing_docs)]
+
+/// Qwen 3.5 profile execution contracts, safetensors readout, and parity fixtures.
+pub mod qwen35;
 
 use std::fmt;
 

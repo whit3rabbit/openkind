@@ -34,7 +34,7 @@
 ## Common Tasks
 
 ### Registering New Model Backends on Startup
-When Phase 2 introduces real model backends (e.g., Candle, ONNX):
+Register a native backend only after tokenizer, renderer, backbone, and policy parity are established:
 1. In `main.rs`, inspect `--models` aliases.
 2. Instantiate the appropriate backend struct (or mock) depending on the configuration.
 3. Register the engine into `EngineRegistry` under the designated alias before passing to `AppState`.

@@ -1,19 +1,25 @@
 # opendecision-backends
 
-> Model loaders and neural execution backends for `opendecision` (Phase 2).
+> Model artifact loaders and parity-checked decision readouts for `opendecision`.
 
-`opendecision-backends` will house real decision-model loaders and forward-pass inference engines behind the `DecisionEngine` trait defined in `opendecision-engine`.
+`opendecision-backends` houses model-facing loaders and forward-pass components that will eventually sit behind the `DecisionEngine` trait defined in `opendecision-engine`.
 
-## Scope & Roadmap (Phase 2)
+## Current Status: Phase 3.1
 
-As detailed in `docs/ROADMAP.md` and `docs/RESEARCH.md`, Jev-style decision models do not run autoregressive token generation loops. Instead, they execute a single forward pass over shared state and project representations into typed decision logits.
+The `qwen35` module implements the deterministic feature-to-probability slice for selected profile `a047d6802c3f06f085b8`:
 
-Planned backends:
-- **Candle / GGUF**: In-process lightweight inference using Hugging Face's `candle` framework with quantized weights.
-- **ONNX Runtime**: Cross-platform acceleration utilizing ONNX Runtime for CPU/GPU.
-- **Remote Provider Passthrough**: Proxy backend that forwards requests to hosted TypeSafe or compatible inference APIs while matching the local `DecisionEngine` interface.
-- **Fine-tuned Qwen 3.5 Backbone**: Native implementation following the architecture identified in Phase 2A/2B (shared trunk representation + parallel decision heads).
+- fail-closed reference metadata and safetensors validation;
+- f64 normalization, linear projection, score-summary rejection, temperature calibration, and stable softmax;
+- native semantic-none probability for Choice only;
+- frozen threshold policy returning accept or review;
+- offline replay of four exported golden fixtures.
 
-## Current Status
+This is head/probability parity only. Tokenizer execution, state-first rendering, Qwen inference, hardware acceleration, backend registration, and Jev wire mapping remain later phases.
 
-Phase 2 placeholder. Gated on Phase 2B benchmarking results before the concrete model runtime is chosen.
+The future branchable Qwen state must include attention KV, DeltaNet recurrent state, and convolution state. A KV-only abstraction is incomplete.
+
+## Verification
+
+```bash
+cargo test -p opendecision-backends
+```
