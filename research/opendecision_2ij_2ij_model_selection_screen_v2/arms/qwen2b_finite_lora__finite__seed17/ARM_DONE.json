@@ -1,0 +1,891 @@
+{
+  "status": "completed",
+  "identity": "a28247dd27e62de0e989ac81639768f8f5461aeb5597435309d7b8bf1d7a61e7",
+  "job": {
+    "arm": "qwen2b_finite_lora",
+    "layout": "finite",
+    "seed": 17
+  },
+  "profiles": [
+    {
+      "name": "finite_lora_seed17",
+      "method": "finite",
+      "layout": "finite",
+      "seed": 17,
+      "spec": {
+        "key": "qwen2b",
+        "id": "Qwen/Qwen3.5-2B-Base",
+        "revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+        "kind": "causal",
+        "parameter_hint": 2200000000
+      },
+      "training": {
+        "identity": "a9eb82fa4ae46cc9d1f6d07450d4ab50c352221b806bb79d065e7f53615eba3e",
+        "sha256": "8f29246c3f77d34c79c9ac22595b7877b53860e74087ee258ce0fa9468a7eed7",
+        "mode": "finite_lora",
+        "seed": 17,
+        "targets": [
+          "layers.20.linear_attn.out_proj",
+          "layers.20.linear_attn.in_proj_qkv",
+          "layers.20.linear_attn.in_proj_z",
+          "layers.20.linear_attn.in_proj_b",
+          "layers.20.linear_attn.in_proj_a",
+          "layers.20.mlp.gate_proj",
+          "layers.20.mlp.up_proj",
+          "layers.20.mlp.down_proj",
+          "layers.21.linear_attn.out_proj",
+          "layers.21.linear_attn.in_proj_qkv",
+          "layers.21.linear_attn.in_proj_z",
+          "layers.21.linear_attn.in_proj_b",
+          "layers.21.linear_attn.in_proj_a",
+          "layers.21.mlp.gate_proj",
+          "layers.21.mlp.up_proj",
+          "layers.21.mlp.down_proj",
+          "layers.22.linear_attn.out_proj",
+          "layers.22.linear_attn.in_proj_qkv",
+          "layers.22.linear_attn.in_proj_z",
+          "layers.22.linear_attn.in_proj_b",
+          "layers.22.linear_attn.in_proj_a",
+          "layers.22.mlp.gate_proj",
+          "layers.22.mlp.up_proj",
+          "layers.22.mlp.down_proj",
+          "layers.23.self_attn.q_proj",
+          "layers.23.self_attn.k_proj",
+          "layers.23.self_attn.v_proj",
+          "layers.23.self_attn.o_proj",
+          "layers.23.mlp.gate_proj",
+          "layers.23.mlp.up_proj",
+          "layers.23.mlp.down_proj"
+        ],
+        "rank": 8,
+        "alpha": 16,
+        "updates": 600,
+        "source_groups": 112,
+        "trainable_parameters": 1401600,
+        "history": [
+          {
+            "through_step": 32,
+            "epoch": 1,
+            "mean_weighted_loss_since_checkpoint": 0.42411515148705803
+          },
+          {
+            "through_step": 64,
+            "epoch": 1,
+            "mean_weighted_loss_since_checkpoint": 0.5767222823342308
+          },
+          {
+            "through_step": 96,
+            "epoch": 1,
+            "mean_weighted_loss_since_checkpoint": 0.7169908748992384
+          },
+          {
+            "through_step": 128,
+            "epoch": 1,
+            "mean_weighted_loss_since_checkpoint": 0.4747473598995384
+          },
+          {
+            "through_step": 160,
+            "epoch": 1,
+            "mean_weighted_loss_since_checkpoint": 0.5220236415711383
+          },
+          {
+            "through_step": 192,
+            "epoch": 1,
+            "mean_weighted_loss_since_checkpoint": 0.3061087503128306
+          },
+          {
+            "through_step": 224,
+            "epoch": 1,
+            "mean_weighted_loss_since_checkpoint": 0.526203406134262
+          },
+          {
+            "through_step": 256,
+            "epoch": 1,
+            "mean_weighted_loss_since_checkpoint": 0.14591671179668708
+          },
+          {
+            "through_step": 288,
+            "epoch": 1,
+            "mean_weighted_loss_since_checkpoint": 0.29778239080823177
+          },
+          {
+            "through_step": 320,
+            "epoch": 1,
+            "mean_weighted_loss_since_checkpoint": 0.3430803226327841
+          },
+          {
+            "through_step": 352,
+            "epoch": 1,
+            "mean_weighted_loss_since_checkpoint": 0.2688555055298423
+          },
+          {
+            "through_step": 384,
+            "epoch": 1,
+            "mean_weighted_loss_since_checkpoint": 0.3732990341042397
+          },
+          {
+            "through_step": 416,
+            "epoch": 1,
+            "mean_weighted_loss_since_checkpoint": 0.32439155964345723
+          },
+          {
+            "through_step": 448,
+            "epoch": 1,
+            "mean_weighted_loss_since_checkpoint": 0.09438708961417408
+          },
+          {
+            "through_step": 480,
+            "epoch": 1,
+            "mean_weighted_loss_since_checkpoint": 0.28272293271113913
+          },
+          {
+            "through_step": 512,
+            "epoch": 1,
+            "mean_weighted_loss_since_checkpoint": 0.11749050842112929
+          },
+          {
+            "through_step": 544,
+            "epoch": 2,
+            "mean_weighted_loss_since_checkpoint": 0.5250165257845145
+          },
+          {
+            "through_step": 576,
+            "epoch": 2,
+            "mean_weighted_loss_since_checkpoint": 0.205186235073489
+          },
+          {
+            "through_step": 600,
+            "epoch": 2,
+            "mean_weighted_loss_since_checkpoint": 0.36278663680259154
+          }
+        ],
+        "loss": "categorical NLL",
+        "matched_comparison": "online vs lora have same initializer, pairs, schedule, BCE and head learning rate; cross-family/finite-token training is not equal-gradient-budget",
+        "final_data_used": false,
+        "training_memory_before_cleanup": {
+          "rss_mib": 1961.921875,
+          "process_peak_rss_mib": 5479.78515625,
+          "allocated_gib": 7.047115802764893,
+          "reserved_gib": 7.90625,
+          "peak_allocated_gib": 7.839667797088623,
+          "free_gib": 13.8897705078125,
+          "total_gib": 22.0343017578125
+        },
+        "time_cap_scope": "max_gpu_minutes_per_arm is a per-invocation pause cap, not cumulative total; total optimizer updates are fixed by the locked schedule."
+      },
+      "training_dir": "training",
+      "head_file": null,
+      "calibration": {
+        "fitted": 3.254782141968889,
+        "selected": 3.254782141968889,
+        "gate_before": 0.3938450517095915,
+        "gate_after": 0.26717507215577724,
+        "selected_on": "cal_gate",
+        "selection_on_final": false
+      },
+      "development": {
+        "episodes": 216,
+        "messages": 36,
+        "accuracy": 0.8240740740740741,
+        "nll": 0.3038852962105875,
+        "brier": 0.20137919415858332,
+        "ece_15bins": 0.04438636843307637,
+        "ordinal_argmax_mae": 0.0,
+        "ordinal_expected_value_mae": 0.012889907874442712,
+        "by_family": {
+          "asset": {
+            "episodes": 24,
+            "messages": 24,
+            "accuracy": 1.0,
+            "nll": 0.02867774248432786,
+            "brier": 0.0019548946099585194,
+            "ece_15bins": 0.027916171202826856
+          },
+          "external": {
+            "episodes": 24,
+            "messages": 24,
+            "accuracy": 1.0,
+            "nll": 0.034833197928127835,
+            "brier": 0.0056639752923179215,
+            "ece_15bins": 0.033294513740967965
+          },
+          "compromise": {
+            "episodes": 24,
+            "messages": 24,
+            "accuracy": 1.0,
+            "nll": 0.06224087708381972,
+            "brier": 0.020356983230422072,
+            "ece_15bins": 0.05568648322555608
+          },
+          "routing": {
+            "episodes": 24,
+            "messages": 24,
+            "accuracy": 0.875,
+            "nll": 0.3540193263913032,
+            "brier": 0.19586964695078543,
+            "ece_15bins": 0.06553030894634732
+          },
+          "urgency": {
+            "episodes": 24,
+            "messages": 24,
+            "accuracy": 1.0,
+            "nll": 0.013991038262020278,
+            "brier": 0.00239166352904604,
+            "ece_15bins": 0.013306694132917943,
+            "ordinal_argmax_mae": 0.0,
+            "ordinal_expected_value_mae": 0.012889907874442712
+          },
+          "conflicting_reports": {
+            "episodes": 24,
+            "messages": 24,
+            "accuracy": 0.4166666666666667,
+            "nll": 0.7874270353401477,
+            "brier": 0.5886065278655449,
+            "ece_15bins": 0.20847404964698205
+          },
+          "owner_evidence": {
+            "episodes": 24,
+            "messages": 24,
+            "accuracy": 1.0,
+            "nll": 0.10983207457670663,
+            "brier": 0.03786550054081152,
+            "ece_15bins": 0.09839473318966575
+          },
+          "multirc_answer_correctness": {
+            "episodes": 48,
+            "messages": 12,
+            "accuracy": 0.5625,
+            "nll": 0.6719731869144173,
+            "brier": 0.4798517777041818,
+            "ece_15bins": 0.08842001866757507
+          }
+        },
+        "by_origin": {
+          "answer_present": {
+            "episodes": 200,
+            "messages": 36,
+            "accuracy": 0.81,
+            "nll": 0.32649512822764026,
+            "brier": 0.2174124596802931,
+            "ece_15bins": 0.046261380114159895,
+            "ordinal_argmax_mae": 0.0,
+            "ordinal_expected_value_mae": 0.012889907874442712,
+            "none_rate": 0.015
+          },
+          "annotated_intent_omitted": {
+            "episodes": 6,
+            "messages": 6,
+            "accuracy": 1.0,
+            "nll": 0.016683249445079682,
+            "brier": 0.0004275028266520985,
+            "ece_15bins": 0.016542388746206282,
+            "none_rate": 1.0
+          },
+          "author_oos": {
+            "episodes": 6,
+            "messages": 6,
+            "accuracy": 1.0,
+            "nll": 0.036152275750563796,
+            "brier": 0.0021078039176474547,
+            "ece_15bins": 0.035467936348315354,
+            "none_rate": 1.0
+          },
+          "insufficient_evidence": {
+            "episodes": 4,
+            "messages": 4,
+            "accuracy": 1.0,
+            "nll": 0.005796296196250543,
+            "brier": 5.0540432395368196e-05,
+            "ece_15bins": 0.005779402036347858,
+            "none_rate": 1.0
+          }
+        },
+        "family_macro_nll": 0.2578743098726088
+      },
+      "policy": {
+        "selected": {
+          "threshold": 0.8,
+          "episodes": 216,
+          "accepted_episodes": 115,
+          "wrong_accepted": 0,
+          "raw_coverage": 0.5324074074074074,
+          "panel_error_among_accepted": 0.0,
+          "family_group_weighted_coverage": 0.5989583333333333,
+          "family_group_weighted_cost": 0.04010416666666666,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        },
+        "candidates": [
+          {
+            "threshold": 0.0,
+            "episodes": 216,
+            "accepted_episodes": 197,
+            "wrong_accepted": 38,
+            "raw_coverage": 0.9120370370370371,
+            "panel_error_among_accepted": 0.19289340101522842,
+            "family_group_weighted_coverage": 0.9010416666666663,
+            "family_group_weighted_cost": 0.7390625000000002,
+            "always_review_cost": 0.1,
+            "selection_on_final": false
+          },
+          {
+            "threshold": 0.5,
+            "episodes": 216,
+            "accepted_episodes": 197,
+            "wrong_accepted": 38,
+            "raw_coverage": 0.9120370370370371,
+            "panel_error_among_accepted": 0.19289340101522842,
+            "family_group_weighted_coverage": 0.9010416666666663,
+            "family_group_weighted_cost": 0.7390625000000002,
+            "always_review_cost": 0.1,
+            "selection_on_final": false
+          },
+          {
+            "threshold": 0.7,
+            "episodes": 216,
+            "accepted_episodes": 127,
+            "wrong_accepted": 2,
+            "raw_coverage": 0.5879629629629629,
+            "panel_error_among_accepted": 0.015748031496062992,
+            "family_group_weighted_coverage": 0.6458333333333333,
+            "family_group_weighted_cost": 0.07447916666666667,
+            "always_review_cost": 0.1,
+            "selection_on_final": false
+          },
+          {
+            "threshold": 0.8,
+            "episodes": 216,
+            "accepted_episodes": 115,
+            "wrong_accepted": 0,
+            "raw_coverage": 0.5324074074074074,
+            "panel_error_among_accepted": 0.0,
+            "family_group_weighted_coverage": 0.5989583333333333,
+            "family_group_weighted_cost": 0.04010416666666666,
+            "always_review_cost": 0.1,
+            "selection_on_final": false
+          },
+          {
+            "threshold": 0.9,
+            "episodes": 216,
+            "accepted_episodes": 105,
+            "wrong_accepted": 0,
+            "raw_coverage": 0.4861111111111111,
+            "panel_error_among_accepted": 0.0,
+            "family_group_weighted_coverage": 0.546875,
+            "family_group_weighted_cost": 0.04531249999999999,
+            "always_review_cost": 0.1,
+            "selection_on_final": false
+          },
+          {
+            "threshold": 0.95,
+            "episodes": 216,
+            "accepted_episodes": 87,
+            "wrong_accepted": 0,
+            "raw_coverage": 0.4027777777777778,
+            "panel_error_among_accepted": 0.0,
+            "family_group_weighted_coverage": 0.453125,
+            "family_group_weighted_cost": 0.0546875,
+            "always_review_cost": 0.1,
+            "selection_on_final": false
+          },
+          {
+            "threshold": 0.98,
+            "episodes": 216,
+            "accepted_episodes": 70,
+            "wrong_accepted": 0,
+            "raw_coverage": 0.32407407407407407,
+            "panel_error_among_accepted": 0.0,
+            "family_group_weighted_coverage": 0.3645833333333333,
+            "family_group_weighted_cost": 0.06354166666666666,
+            "always_review_cost": 0.1,
+            "selection_on_final": false
+          },
+          {
+            "threshold": 0.99,
+            "episodes": 216,
+            "accepted_episodes": 50,
+            "wrong_accepted": 0,
+            "raw_coverage": 0.23148148148148148,
+            "panel_error_among_accepted": 0.0,
+            "family_group_weighted_coverage": 0.26041666666666663,
+            "family_group_weighted_cost": 0.07395833333333332,
+            "always_review_cost": 0.1,
+            "selection_on_final": false
+          },
+          {
+            "threshold": 1.0,
+            "episodes": 216,
+            "accepted_episodes": 0,
+            "wrong_accepted": 0,
+            "raw_coverage": 0.0,
+            "panel_error_among_accepted": null,
+            "family_group_weighted_coverage": 0.0,
+            "family_group_weighted_cost": 0.09999999999999998,
+            "always_review_cost": 0.1,
+            "selection_on_final": false
+          }
+        ],
+        "selected_on": "policy_dev",
+        "coverage_is_not_quality": true
+      },
+      "benchmark": {
+        "requests": 4,
+        "repeats": 3,
+        "p50_ms": 549.6342870001172,
+        "p95_ms": 769.028804851132,
+        "raw": [
+          {
+            "state_id": "pilot-4194714898-policy_dev-0000",
+            "source_kind": "constructed",
+            "questions": 4,
+            "milliseconds": 331.78958799908287
+          },
+          {
+            "state_id": "pilot-4194714898-policy_dev-0000",
+            "source_kind": "constructed",
+            "questions": 4,
+            "milliseconds": 338.12174100057746
+          },
+          {
+            "state_id": "pilot-4194714898-policy_dev-0000",
+            "source_kind": "constructed",
+            "questions": 4,
+            "milliseconds": 335.3484839990415
+          },
+          {
+            "state_id": "multirc-train-434",
+            "source_kind": "natural",
+            "questions": 4,
+            "milliseconds": 768.9051030010887
+          },
+          {
+            "state_id": "multirc-train-434",
+            "source_kind": "natural",
+            "questions": 4,
+            "milliseconds": 769.1799960011849
+          },
+          {
+            "state_id": "multirc-train-434",
+            "source_kind": "natural",
+            "questions": 4,
+            "milliseconds": 766.73135099918
+          },
+          {
+            "state_id": "pilot-4194714898-policy_dev-0001",
+            "source_kind": "constructed",
+            "questions": 4,
+            "milliseconds": 335.186694001095
+          },
+          {
+            "state_id": "pilot-4194714898-policy_dev-0001",
+            "source_kind": "constructed",
+            "questions": 4,
+            "milliseconds": 337.74015800008783
+          },
+          {
+            "state_id": "pilot-4194714898-policy_dev-0001",
+            "source_kind": "constructed",
+            "questions": 4,
+            "milliseconds": 336.3491569998587
+          },
+          {
+            "state_id": "multirc-train-179",
+            "source_kind": "natural",
+            "questions": 4,
+            "milliseconds": 761.1468329996569
+          },
+          {
+            "state_id": "multirc-train-179",
+            "source_kind": "natural",
+            "questions": 4,
+            "milliseconds": 767.1848959998897
+          },
+          {
+            "state_id": "multirc-train-179",
+            "source_kind": "natural",
+            "questions": 4,
+            "milliseconds": 764.2393229998561
+          }
+        ],
+        "memory": {
+          "rss_mib": 1963.21875,
+          "process_peak_rss_mib": 5479.78515625,
+          "allocated_gib": 7.031451225280762,
+          "reserved_gib": 7.90625,
+          "peak_allocated_gib": 7.095976829528809,
+          "free_gib": 13.8897705078125,
+          "total_gib": 22.0343017578125
+        },
+        "pre_benchmark_memory": {
+          "rss_mib": 1963.17578125,
+          "process_peak_rss_mib": 5479.78515625,
+          "allocated_gib": 7.031451225280762,
+          "reserved_gib": 7.90625,
+          "peak_allocated_gib": 7.095976829528809,
+          "free_gib": 13.8897705078125,
+          "total_gib": 22.0343017578125
+        },
+        "scope": "Q<=4 tokenization, full-sequential model calls, head, probabilities and native response JSON; resident model; no feature cache, shared-prefix credit, input parsing, HTTP, queue or startup",
+        "selection_benchmark": "policy_dev_Q4_full_sequential_complete_native_response",
+        "by_Q": {
+          "Q1": {
+            "requests": 4,
+            "repeats": 3,
+            "p50_ms": 136.81162699958804,
+            "p95_ms": 202.20833730027152,
+            "raw": [
+              {
+                "state_id": "pilot-4194714898-policy_dev-0000",
+                "source_kind": "constructed",
+                "questions": 1,
+                "milliseconds": 82.3695740000403
+              },
+              {
+                "state_id": "pilot-4194714898-policy_dev-0000",
+                "source_kind": "constructed",
+                "questions": 1,
+                "milliseconds": 82.35601399974257
+              },
+              {
+                "state_id": "pilot-4194714898-policy_dev-0000",
+                "source_kind": "constructed",
+                "questions": 1,
+                "milliseconds": 83.9568750016042
+              },
+              {
+                "state_id": "multirc-train-434",
+                "source_kind": "natural",
+                "questions": 1,
+                "milliseconds": 188.3435340005235
+              },
+              {
+                "state_id": "multirc-train-434",
+                "source_kind": "natural",
+                "questions": 1,
+                "milliseconds": 196.00380600058998
+              },
+              {
+                "state_id": "multirc-train-434",
+                "source_kind": "natural",
+                "questions": 1,
+                "milliseconds": 205.31675800157245
+              },
+              {
+                "state_id": "pilot-4194714898-policy_dev-0001",
+                "source_kind": "constructed",
+                "questions": 1,
+                "milliseconds": 84.21026099858864
+              },
+              {
+                "state_id": "pilot-4194714898-policy_dev-0001",
+                "source_kind": "constructed",
+                "questions": 1,
+                "milliseconds": 85.27971999865258
+              },
+              {
+                "state_id": "pilot-4194714898-policy_dev-0001",
+                "source_kind": "constructed",
+                "questions": 1,
+                "milliseconds": 83.53800999975647
+              },
+              {
+                "state_id": "multirc-train-179",
+                "source_kind": "natural",
+                "questions": 1,
+                "milliseconds": 190.2662419997796
+              },
+              {
+                "state_id": "multirc-train-179",
+                "source_kind": "natural",
+                "questions": 1,
+                "milliseconds": 199.66508399920713
+              },
+              {
+                "state_id": "multirc-train-179",
+                "source_kind": "natural",
+                "questions": 1,
+                "milliseconds": 199.557840000125
+              }
+            ],
+            "memory": {
+              "rss_mib": 1963.16015625,
+              "process_peak_rss_mib": 5479.78515625,
+              "allocated_gib": 7.031451225280762,
+              "reserved_gib": 7.90625,
+              "peak_allocated_gib": 7.095976829528809,
+              "free_gib": 13.8897705078125,
+              "total_gib": 22.0343017578125
+            },
+            "pre_benchmark_memory": {
+              "rss_mib": 1962.89453125,
+              "process_peak_rss_mib": 5479.78515625,
+              "allocated_gib": 7.031451225280762,
+              "reserved_gib": 7.90625,
+              "peak_allocated_gib": 7.839667797088623,
+              "free_gib": 13.8897705078125,
+              "total_gib": 22.0343017578125
+            }
+          },
+          "Q4": {
+            "requests": 4,
+            "repeats": 3,
+            "p50_ms": 549.6342870001172,
+            "p95_ms": 769.028804851132,
+            "raw": [
+              {
+                "state_id": "pilot-4194714898-policy_dev-0000",
+                "source_kind": "constructed",
+                "questions": 4,
+                "milliseconds": 331.78958799908287
+              },
+              {
+                "state_id": "pilot-4194714898-policy_dev-0000",
+                "source_kind": "constructed",
+                "questions": 4,
+                "milliseconds": 338.12174100057746
+              },
+              {
+                "state_id": "pilot-4194714898-policy_dev-0000",
+                "source_kind": "constructed",
+                "questions": 4,
+                "milliseconds": 335.3484839990415
+              },
+              {
+                "state_id": "multirc-train-434",
+                "source_kind": "natural",
+                "questions": 4,
+                "milliseconds": 768.9051030010887
+              },
+              {
+                "state_id": "multirc-train-434",
+                "source_kind": "natural",
+                "questions": 4,
+                "milliseconds": 769.1799960011849
+              },
+              {
+                "state_id": "multirc-train-434",
+                "source_kind": "natural",
+                "questions": 4,
+                "milliseconds": 766.73135099918
+              },
+              {
+                "state_id": "pilot-4194714898-policy_dev-0001",
+                "source_kind": "constructed",
+                "questions": 4,
+                "milliseconds": 335.186694001095
+              },
+              {
+                "state_id": "pilot-4194714898-policy_dev-0001",
+                "source_kind": "constructed",
+                "questions": 4,
+                "milliseconds": 337.74015800008783
+              },
+              {
+                "state_id": "pilot-4194714898-policy_dev-0001",
+                "source_kind": "constructed",
+                "questions": 4,
+                "milliseconds": 336.3491569998587
+              },
+              {
+                "state_id": "multirc-train-179",
+                "source_kind": "natural",
+                "questions": 4,
+                "milliseconds": 761.1468329996569
+              },
+              {
+                "state_id": "multirc-train-179",
+                "source_kind": "natural",
+                "questions": 4,
+                "milliseconds": 767.1848959998897
+              },
+              {
+                "state_id": "multirc-train-179",
+                "source_kind": "natural",
+                "questions": 4,
+                "milliseconds": 764.2393229998561
+              }
+            ],
+            "memory": {
+              "rss_mib": 1963.21875,
+              "process_peak_rss_mib": 5479.78515625,
+              "allocated_gib": 7.031451225280762,
+              "reserved_gib": 7.90625,
+              "peak_allocated_gib": 7.095976829528809,
+              "free_gib": 13.8897705078125,
+              "total_gib": 22.0343017578125
+            },
+            "pre_benchmark_memory": {
+              "rss_mib": 1963.17578125,
+              "process_peak_rss_mib": 5479.78515625,
+              "allocated_gib": 7.031451225280762,
+              "reserved_gib": 7.90625,
+              "peak_allocated_gib": 7.095976829528809,
+              "free_gib": 13.8897705078125,
+              "total_gib": 22.0343017578125
+            }
+          }
+        }
+      },
+      "artifact_dir": "arms/qwen2b_finite_lora__finite__seed17",
+      "runtime": {
+        "identity": {
+          "spec": {
+            "key": "qwen2b",
+            "id": "Qwen/Qwen3.5-2B-Base",
+            "revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+            "kind": "causal",
+            "parameter_hint": 2200000000
+          },
+          "flags": {
+            "matmul_precision": "highest",
+            "matmul_allow_tf32": false,
+            "cudnn_allow_tf32": false,
+            "sdpa": "math_only"
+          },
+          "environment": {
+            "python": "3.13.15",
+            "packages": {
+              "torch": "2.11.0+cu128",
+              "transformers": "5.17.0",
+              "numpy": "2.1.3",
+              "scipy": "1.16.3",
+              "safetensors": "0.8.0",
+              "peft": "0.20.0",
+              "accelerate": "1.14.0",
+              "huggingface-hub": "1.29.0",
+              "flash-linear-attention": null,
+              "fla-core": null,
+              "causal-conv1d": null,
+              "flash-attn": null
+            },
+            "workbench": "2ij.2.0",
+            "torch": "2.11.0+cu128",
+            "cuda": "12.8",
+            "gpu": "NVIDIA L4"
+          },
+          "runtime_sha256": "2b2774b9ec74763c7bb0b864f0d02b1e2dae14b708dffa698c29a486e57c41e9",
+          "model_code_sha256": "762feb6c7426a7f15b5bf830df54c07438bf9e7c27b8cdb23179045920412c3b",
+          "tokenizer_backend": "cc4ac36668961751f10c10901159d3fb3263507a4c24f4760833f9d21901849f",
+          "dtype": "float32",
+          "parameter_count": 1881825088,
+          "adaptation_sha256": "8f29246c3f77d34c79c9ac22595b7877b53860e74087ee258ce0fa9468a7eed7"
+        },
+        "model_load_seconds": 3.9350287620000017,
+        "after_load_memory": {
+          "rss_mib": 1229.8203125,
+          "process_peak_rss_mib": 5479.78515625,
+          "allocated_gib": 7.0103607177734375,
+          "reserved_gib": 7.01953125,
+          "peak_allocated_gib": 7.010361194610596,
+          "free_gib": 14.7960205078125,
+          "total_gib": 22.0343017578125
+        },
+        "parameter_count": 1881825088,
+        "storage_dtype": "float32",
+        "optimized_kernels": "not established; package inventory is not dispatch evidence",
+        "model_config": {
+          "transformers_version": "5.17.0",
+          "architectures": null,
+          "output_hidden_states": false,
+          "return_dict": true,
+          "dtype": "float32",
+          "chunk_size_feed_forward": 0,
+          "is_encoder_decoder": false,
+          "id2label": {
+            "0": "LABEL_0",
+            "1": "LABEL_1"
+          },
+          "label2id": {
+            "LABEL_0": 0,
+            "LABEL_1": 1
+          },
+          "problem_type": null,
+          "vocab_size": 248320,
+          "hidden_size": 2048,
+          "intermediate_size": 6144,
+          "num_hidden_layers": 24,
+          "num_attention_heads": 8,
+          "num_key_value_heads": 2,
+          "hidden_act": "silu",
+          "max_position_embeddings": 262144,
+          "initializer_range": 0.02,
+          "rms_norm_eps": 1e-06,
+          "use_cache": true,
+          "tie_word_embeddings": true,
+          "rope_parameters": {
+            "mrope_interleaved": true,
+            "mrope_section": [
+              11,
+              11,
+              10
+            ],
+            "rope_type": "default",
+            "rope_theta": 10000000,
+            "partial_rotary_factor": 0.25
+          },
+          "attention_bias": false,
+          "attention_dropout": 0.0,
+          "head_dim": 256,
+          "linear_conv_kernel_dim": 4,
+          "linear_key_head_dim": 128,
+          "linear_value_head_dim": 128,
+          "linear_num_key_heads": 16,
+          "linear_num_value_heads": 16,
+          "layer_types": [
+            "linear_attention",
+            "linear_attention",
+            "linear_attention",
+            "full_attention",
+            "linear_attention",
+            "linear_attention",
+            "linear_attention",
+            "full_attention",
+            "linear_attention",
+            "linear_attention",
+            "linear_attention",
+            "full_attention",
+            "linear_attention",
+            "linear_attention",
+            "linear_attention",
+            "full_attention",
+            "linear_attention",
+            "linear_attention",
+            "linear_attention",
+            "full_attention",
+            "linear_attention",
+            "linear_attention",
+            "linear_attention",
+            "full_attention"
+          ],
+          "pad_token_id": null,
+          "bos_token_id": null,
+          "eos_token_id": 248044,
+          "_name_or_path": "Qwen/Qwen3.5-2B-Base",
+          "attn_output_gate": true,
+          "full_attention_interval": 4,
+          "mlp_only_layers": [],
+          "model_type": "qwen3_5_text",
+          "mtp_num_hidden_layers": 1,
+          "mtp_use_dedicated_embeddings": false,
+          "mamba_ssm_dtype": "float32",
+          "partial_rotary_factor": 0.25,
+          "output_attentions": false
+        }
+      },
+      "arm": "qwen2b_finite_lora"
+    }
+  ],
+  "files": {
+    "ARM_IDENTITY.json": "d2fef9bc0ec8591188996de54e4288cac0a37d14f5ef590cddf91262fc9714ef",
+    "finite_lora_seed17.json": "46f48ad122b49e3daaa772d4abfab685e5c4c2932370defaf148e736ab38b327",
+    "finite_lora_seed17_nonfinal_predictions.json": "4eb1650d08e1d8d0e22dcc7b41fa1d9213bd77fa5256ff585ca2dea056b8c9ef",
+    "profiles.json": "cdb9ce76569858e8a283f54d71c1b14ff7ee7a09c848690b9f3440c4202fb0d8",
+    "runtime.json": "502280571bc00b032f397f7b90c4cfc4e20f9667a602b4755eb6ff3e4926acdf",
+    "tokenizer/chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+    "tokenizer/tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+    "tokenizer/tokenizer_config.json": "8671bed7c852ce9e661be94f179a7b4ffd091c2a65aea0363e5501c20318ee45",
+    "training/TRAINING_DONE.json": "68bef0d12e224096530d2a8d6e95a78aeec6ec732be109f2f057a896dea1cc84",
+    "training/trained.safetensors": "8f29246c3f77d34c79c9ac22595b7877b53860e74087ee258ce0fa9468a7eed7"
+  },
+  "final_data_used": false
+}

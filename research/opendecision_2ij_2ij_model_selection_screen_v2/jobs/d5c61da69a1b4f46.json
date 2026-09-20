@@ -1,0 +1,825 @@
+{
+  "cfg": {
+    "work_root": "/content/opendecision_2ij",
+    "drive_root": "/content/drive/MyDrive/Colab Notebooks/OpenDecision_Phase2IJ_results",
+    "study_id": "2ij_model_selection_screen_v2",
+    "source_archive": "/content/drive/MyDrive/Colab Notebooks/OpenDecision_Phase2H_Finish_results/20260919T040612625670Z__finish_2h_1_2/opendecision_phase2h_20260919T040612625670Z__finish_2h_1_2.zip",
+    "intake_root": "/content/drive/MyDrive/Colab Notebooks/OpenDecision_Phase2IJ_intakes/2ij_model_selection_screen_v2",
+    "study_mode": "exploratory_pilot",
+    "comparison_preset": "screen",
+    "include_multirc": true,
+    "run_model_export": true,
+    "run_gpu_mechanics": true,
+    "run_reviewed_study": true,
+    "run_final": true,
+    "run_scaling": true,
+    "coordinator_budget_minutes": 120.0,
+    "worker_budget_minutes": 45.0,
+    "checkpoint_steps": 32,
+    "sync_seconds": 180,
+    "minimum_free_disk_gib": 20.0,
+    "allow_cpu_test": false
+  },
+  "root": "/content/opendecision_2ij/2ij_model_selection_screen_v2",
+  "stage": "final",
+  "result_path": "/content/opendecision_2ij/2ij_model_selection_screen_v2/jobs/d5c61da69a1b4f46.result.json",
+  "profile": {
+    "name": "constant_seed17",
+    "kind": "constant",
+    "seed": 17,
+    "hidden": 2560,
+    "rank_history": [
+      {
+        "epoch": 1,
+        "dev_family_macro_nll": 0.4384752074131697
+      },
+      {
+        "epoch": 2,
+        "dev_family_macro_nll": 0.30718672027225447
+      },
+      {
+        "epoch": 3,
+        "dev_family_macro_nll": 0.28268503381668125
+      },
+      {
+        "epoch": 4,
+        "dev_family_macro_nll": 0.44065473476603495
+      },
+      {
+        "epoch": 5,
+        "dev_family_macro_nll": 0.48768485488263247
+      },
+      {
+        "epoch": 6,
+        "dev_family_macro_nll": 0.49107925856154017
+      }
+    ],
+    "rejection_history": [
+      {
+        "epoch": 1,
+        "dev_family_macro_nll": 0.2826734858987692
+      },
+      {
+        "epoch": 2,
+        "dev_family_macro_nll": 0.2826732861753888
+      },
+      {
+        "epoch": 3,
+        "dev_family_macro_nll": 0.28267312446443826
+      },
+      {
+        "epoch": 4,
+        "dev_family_macro_nll": 0.28267296111144796
+      },
+      {
+        "epoch": 5,
+        "dev_family_macro_nll": 0.28267279862143263
+      },
+      {
+        "epoch": 6,
+        "dev_family_macro_nll": 0.282672627664229
+      },
+      {
+        "epoch": 7,
+        "dev_family_macro_nll": 0.2826724898717072
+      },
+      {
+        "epoch": 8,
+        "dev_family_macro_nll": 0.2826723587868914
+      },
+      {
+        "epoch": 9,
+        "dev_family_macro_nll": 0.28267221970494316
+      },
+      {
+        "epoch": 10,
+        "dev_family_macro_nll": 0.282672087471963
+      },
+      {
+        "epoch": 11,
+        "dev_family_macro_nll": 0.28267200657476366
+      },
+      {
+        "epoch": 12,
+        "dev_family_macro_nll": 0.28267186450270476
+      }
+    ],
+    "weights_sha256": "37431279f90d703093a9400e7c91b31a801db878e5145b8f02ea0aad1a305dc8",
+    "calibration": {
+      "fitted": 2.470052500233075,
+      "selected": 2.470052500233075,
+      "gate_before": 0.1446409743756264,
+      "gate_after": 0.13650647741320027,
+      "selected_on": "cal_gate",
+      "selection_on_final": false
+    },
+    "development": {
+      "episodes": 216,
+      "messages": 36,
+      "accuracy": 0.875,
+      "nll": 0.2574374080333526,
+      "brier": 0.1731878623045704,
+      "ece_15bins": 0.060769483431155846,
+      "ordinal_argmax_mae": 0.0,
+      "ordinal_expected_value_mae": 0.00011685958642698679,
+      "by_family": {
+        "asset": {
+          "episodes": 24,
+          "messages": 24,
+          "accuracy": 1.0,
+          "nll": 0.005253756017600013,
+          "brier": 6.82894051180929e-05,
+          "ece_15bins": 0.0052327927432188615
+        },
+        "external": {
+          "episodes": 24,
+          "messages": 24,
+          "accuracy": 1.0,
+          "nll": 0.015745588958158117,
+          "brier": 0.001160751526239578,
+          "ece_15bins": 0.015442236086498057
+        },
+        "compromise": {
+          "episodes": 24,
+          "messages": 24,
+          "accuracy": 1.0,
+          "nll": 0.04218401108939048,
+          "brier": 0.010481423939257028,
+          "ece_15bins": 0.03915205964715704
+        },
+        "routing": {
+          "episodes": 24,
+          "messages": 24,
+          "accuracy": 1.0,
+          "nll": 0.021660532895521167,
+          "brier": 0.0010631645255749047,
+          "ece_15bins": 0.02133052461480922
+        },
+        "urgency": {
+          "episodes": 24,
+          "messages": 24,
+          "accuracy": 1.0,
+          "nll": 6.508504653164496e-05,
+          "brier": 3.785304067732571e-08,
+          "ece_15bins": 6.507462198535041e-05,
+          "ordinal_argmax_mae": 0.0,
+          "ordinal_expected_value_mae": 0.00011685958642698679
+        },
+        "conflicting_reports": {
+          "episodes": 24,
+          "messages": 24,
+          "accuracy": 0.625,
+          "nll": 0.69700623283277,
+          "brier": 0.5004779548635653,
+          "ece_15bins": 0.290133703227504
+        },
+        "owner_evidence": {
+          "episodes": 24,
+          "messages": 24,
+          "accuracy": 1.0,
+          "nll": 0.054030419497623626,
+          "brier": 0.015122529147641105,
+          "ece_15bins": 0.049595792063189564
+        },
+        "multirc_answer_correctness": {
+          "episodes": 48,
+          "messages": 12,
+          "accuracy": 0.625,
+          "nll": 0.740495522981289,
+          "brier": 0.5151583047403485,
+          "ece_15bins": 0.19391246017373243
+        }
+      },
+      "by_origin": {
+        "answer_present": {
+          "episodes": 200,
+          "messages": 36,
+          "accuracy": 0.865,
+          "nll": 0.2761364424308166,
+          "brier": 0.18693955215929722,
+          "ece_15bins": 0.06376809204683523,
+          "ordinal_argmax_mae": 0.0,
+          "ordinal_expected_value_mae": 0.00011685958642698679,
+          "none_rate": 0.0
+        },
+        "annotated_intent_omitted": {
+          "episodes": 6,
+          "messages": 6,
+          "accuracy": 1.0,
+          "nll": 0.008157788217267049,
+          "brier": 0.00011189466371397493,
+          "ece_15bins": 0.008123943001982159,
+          "none_rate": 1.0
+        },
+        "author_oos": {
+          "episodes": 6,
+          "messages": 6,
+          "accuracy": 1.0,
+          "nll": 0.03011739452518981,
+          "brier": 0.0017497501176207701,
+          "ece_15bins": 0.0295865259694138,
+          "none_rate": 1.0
+        },
+        "insufficient_evidence": {
+          "episodes": 4,
+          "messages": 4,
+          "accuracy": 1.0,
+          "nll": 0.03738513814652296,
+          "brier": 0.0023744893099389487,
+          "ece_15bins": 0.03658179948356166,
+          "none_rate": 1.0
+        }
+      },
+      "family_macro_nll": 0.19705514366486046
+    },
+    "policy": {
+      "selected": {
+        "threshold": 0.9,
+        "episodes": 216,
+        "accepted_episodes": 128,
+        "wrong_accepted": 0,
+        "raw_coverage": 0.5925925925925926,
+        "panel_error_among_accepted": 0.0,
+        "family_group_weighted_coverage": 0.6666666666666665,
+        "family_group_weighted_cost": 0.033333333333333326,
+        "always_review_cost": 0.1,
+        "selection_on_final": false
+      },
+      "candidates": [
+        {
+          "threshold": 0.0,
+          "episodes": 216,
+          "accepted_episodes": 201,
+          "wrong_accepted": 32,
+          "raw_coverage": 0.9305555555555556,
+          "panel_error_among_accepted": 0.15920398009950248,
+          "family_group_weighted_coverage": 0.9218749999999996,
+          "family_group_weighted_cost": 0.5416666666666669,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        },
+        {
+          "threshold": 0.5,
+          "episodes": 216,
+          "accepted_episodes": 201,
+          "wrong_accepted": 32,
+          "raw_coverage": 0.9305555555555556,
+          "panel_error_among_accepted": 0.15920398009950248,
+          "family_group_weighted_coverage": 0.9218749999999996,
+          "family_group_weighted_cost": 0.5416666666666669,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        },
+        {
+          "threshold": 0.7,
+          "episodes": 216,
+          "accepted_episodes": 167,
+          "wrong_accepted": 13,
+          "raw_coverage": 0.7731481481481481,
+          "panel_error_among_accepted": 0.07784431137724551,
+          "family_group_weighted_coverage": 0.8151041666666664,
+          "family_group_weighted_cost": 0.2528645833333334,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        },
+        {
+          "threshold": 0.8,
+          "episodes": 216,
+          "accepted_episodes": 148,
+          "wrong_accepted": 5,
+          "raw_coverage": 0.6851851851851852,
+          "panel_error_among_accepted": 0.033783783783783786,
+          "family_group_weighted_coverage": 0.7499999999999998,
+          "family_group_weighted_cost": 0.11614583333333331,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        },
+        {
+          "threshold": 0.9,
+          "episodes": 216,
+          "accepted_episodes": 128,
+          "wrong_accepted": 0,
+          "raw_coverage": 0.5925925925925926,
+          "panel_error_among_accepted": 0.0,
+          "family_group_weighted_coverage": 0.6666666666666665,
+          "family_group_weighted_cost": 0.033333333333333326,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        },
+        {
+          "threshold": 0.95,
+          "episodes": 216,
+          "accepted_episodes": 120,
+          "wrong_accepted": 0,
+          "raw_coverage": 0.5555555555555556,
+          "panel_error_among_accepted": 0.0,
+          "family_group_weighted_coverage": 0.625,
+          "family_group_weighted_cost": 0.03749999999999999,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        },
+        {
+          "threshold": 0.98,
+          "episodes": 216,
+          "accepted_episodes": 100,
+          "wrong_accepted": 0,
+          "raw_coverage": 0.46296296296296297,
+          "panel_error_among_accepted": 0.0,
+          "family_group_weighted_coverage": 0.5208333333333333,
+          "family_group_weighted_cost": 0.04791666666666666,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        },
+        {
+          "threshold": 0.99,
+          "episodes": 216,
+          "accepted_episodes": 74,
+          "wrong_accepted": 0,
+          "raw_coverage": 0.3425925925925926,
+          "panel_error_among_accepted": 0.0,
+          "family_group_weighted_coverage": 0.38541666666666663,
+          "family_group_weighted_cost": 0.06145833333333332,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        },
+        {
+          "threshold": 1.0,
+          "episodes": 216,
+          "accepted_episodes": 0,
+          "wrong_accepted": 0,
+          "raw_coverage": 0.0,
+          "panel_error_among_accepted": null,
+          "family_group_weighted_coverage": 0.0,
+          "family_group_weighted_cost": 0.09999999999999998,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        }
+      ],
+      "selected_on": "policy_dev",
+      "coverage_is_not_quality": true
+    },
+    "benchmark": {
+      "requests": 4,
+      "repeats": 3,
+      "p50_ms": 2906.0005485002876,
+      "p95_ms": 3943.298587949721,
+      "raw": [
+        {
+          "state_id": "pilot-4194714898-policy_dev-0000",
+          "source_kind": "constructed",
+          "questions": 4,
+          "milliseconds": 1959.8831559997052
+        },
+        {
+          "state_id": "pilot-4194714898-policy_dev-0000",
+          "source_kind": "constructed",
+          "questions": 4,
+          "milliseconds": 1964.453532999869
+        },
+        {
+          "state_id": "pilot-4194714898-policy_dev-0000",
+          "source_kind": "constructed",
+          "questions": 4,
+          "milliseconds": 1967.7097469993896
+        },
+        {
+          "state_id": "multirc-train-434",
+          "source_kind": "natural",
+          "questions": 4,
+          "milliseconds": 3989.102417999675
+        },
+        {
+          "state_id": "multirc-train-434",
+          "source_kind": "natural",
+          "questions": 4,
+          "milliseconds": 3905.8227269997587
+        },
+        {
+          "state_id": "multirc-train-434",
+          "source_kind": "natural",
+          "questions": 4,
+          "milliseconds": 3837.7998350006237
+        },
+        {
+          "state_id": "pilot-4194714898-policy_dev-0001",
+          "source_kind": "constructed",
+          "questions": 4,
+          "milliseconds": 1974.2012619999514
+        },
+        {
+          "state_id": "pilot-4194714898-policy_dev-0001",
+          "source_kind": "constructed",
+          "questions": 4,
+          "milliseconds": 1935.8677580003132
+        },
+        {
+          "state_id": "pilot-4194714898-policy_dev-0001",
+          "source_kind": "constructed",
+          "questions": 4,
+          "milliseconds": 1952.538941000057
+        },
+        {
+          "state_id": "multirc-train-179",
+          "source_kind": "natural",
+          "questions": 4,
+          "milliseconds": 3839.0364839997346
+        },
+        {
+          "state_id": "multirc-train-179",
+          "source_kind": "natural",
+          "questions": 4,
+          "milliseconds": 3855.8646910005336
+        },
+        {
+          "state_id": "multirc-train-179",
+          "source_kind": "natural",
+          "questions": 4,
+          "milliseconds": 3867.9257590001725
+        }
+      ],
+      "memory": {
+        "rss_mib": 1844.87890625,
+        "process_peak_rss_mib": 9482.0,
+        "allocated_gib": 15.675597190856934,
+        "reserved_gib": 15.98046875,
+        "peak_allocated_gib": 15.803746700286865,
+        "free_gib": 5.8253173828125,
+        "total_gib": 22.0343017578125
+      },
+      "pre_benchmark_memory": {
+        "rss_mib": 1844.87890625,
+        "process_peak_rss_mib": 9482.0,
+        "allocated_gib": 15.675597190856934,
+        "reserved_gib": 15.98046875,
+        "peak_allocated_gib": 15.803746700286865,
+        "free_gib": 5.8253173828125,
+        "total_gib": 22.0343017578125
+      },
+      "scope": "Q<=4 tokenization, full-sequential model calls, head, probabilities and native response JSON; resident model; no feature cache, shared-prefix credit, input parsing, HTTP, queue or startup",
+      "selection_benchmark": "policy_dev_Q4_full_sequential_complete_native_response",
+      "by_Q": {
+        "Q1": {
+          "requests": 4,
+          "repeats": 3,
+          "p50_ms": 715.4874885000027,
+          "p95_ms": 965.334733349755,
+          "raw": [
+            {
+              "state_id": "pilot-4194714898-policy_dev-0000",
+              "source_kind": "constructed",
+              "questions": 1,
+              "milliseconds": 446.2193009994735
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0000",
+              "source_kind": "constructed",
+              "questions": 1,
+              "milliseconds": 469.21806699992885
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0000",
+              "source_kind": "constructed",
+              "questions": 1,
+              "milliseconds": 449.2276179998953
+            },
+            {
+              "state_id": "multirc-train-434",
+              "source_kind": "natural",
+              "questions": 1,
+              "milliseconds": 963.8540699997975
+            },
+            {
+              "state_id": "multirc-train-434",
+              "source_kind": "natural",
+              "questions": 1,
+              "milliseconds": 959.0510819998599
+            },
+            {
+              "state_id": "multirc-train-434",
+              "source_kind": "natural",
+              "questions": 1,
+              "milliseconds": 962.854458000038
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0001",
+              "source_kind": "constructed",
+              "questions": 1,
+              "milliseconds": 466.8236910001724
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0001",
+              "source_kind": "constructed",
+              "questions": 1,
+              "milliseconds": 471.9238950001454
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0001",
+              "source_kind": "constructed",
+              "questions": 1,
+              "milliseconds": 467.2413729995242
+            },
+            {
+              "state_id": "multirc-train-179",
+              "source_kind": "natural",
+              "questions": 1,
+              "milliseconds": 961.0359539992714
+            },
+            {
+              "state_id": "multirc-train-179",
+              "source_kind": "natural",
+              "questions": 1,
+              "milliseconds": 959.0916650004147
+            },
+            {
+              "state_id": "multirc-train-179",
+              "source_kind": "natural",
+              "questions": 1,
+              "milliseconds": 967.144432999703
+            }
+          ],
+          "memory": {
+            "rss_mib": 1844.87890625,
+            "process_peak_rss_mib": 9482.0,
+            "allocated_gib": 15.675597190856934,
+            "reserved_gib": 15.98046875,
+            "peak_allocated_gib": 15.803746700286865,
+            "free_gib": 5.8253173828125,
+            "total_gib": 22.0343017578125
+          },
+          "pre_benchmark_memory": {
+            "rss_mib": 1844.62890625,
+            "process_peak_rss_mib": 9482.0,
+            "allocated_gib": 15.675597190856934,
+            "reserved_gib": 15.98046875,
+            "peak_allocated_gib": 15.85807991027832,
+            "free_gib": 5.8253173828125,
+            "total_gib": 22.0343017578125
+          }
+        },
+        "Q4": {
+          "requests": 4,
+          "repeats": 3,
+          "p50_ms": 2906.0005485002876,
+          "p95_ms": 3943.298587949721,
+          "raw": [
+            {
+              "state_id": "pilot-4194714898-policy_dev-0000",
+              "source_kind": "constructed",
+              "questions": 4,
+              "milliseconds": 1959.8831559997052
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0000",
+              "source_kind": "constructed",
+              "questions": 4,
+              "milliseconds": 1964.453532999869
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0000",
+              "source_kind": "constructed",
+              "questions": 4,
+              "milliseconds": 1967.7097469993896
+            },
+            {
+              "state_id": "multirc-train-434",
+              "source_kind": "natural",
+              "questions": 4,
+              "milliseconds": 3989.102417999675
+            },
+            {
+              "state_id": "multirc-train-434",
+              "source_kind": "natural",
+              "questions": 4,
+              "milliseconds": 3905.8227269997587
+            },
+            {
+              "state_id": "multirc-train-434",
+              "source_kind": "natural",
+              "questions": 4,
+              "milliseconds": 3837.7998350006237
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0001",
+              "source_kind": "constructed",
+              "questions": 4,
+              "milliseconds": 1974.2012619999514
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0001",
+              "source_kind": "constructed",
+              "questions": 4,
+              "milliseconds": 1935.8677580003132
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0001",
+              "source_kind": "constructed",
+              "questions": 4,
+              "milliseconds": 1952.538941000057
+            },
+            {
+              "state_id": "multirc-train-179",
+              "source_kind": "natural",
+              "questions": 4,
+              "milliseconds": 3839.0364839997346
+            },
+            {
+              "state_id": "multirc-train-179",
+              "source_kind": "natural",
+              "questions": 4,
+              "milliseconds": 3855.8646910005336
+            },
+            {
+              "state_id": "multirc-train-179",
+              "source_kind": "natural",
+              "questions": 4,
+              "milliseconds": 3867.9257590001725
+            }
+          ],
+          "memory": {
+            "rss_mib": 1844.87890625,
+            "process_peak_rss_mib": 9482.0,
+            "allocated_gib": 15.675597190856934,
+            "reserved_gib": 15.98046875,
+            "peak_allocated_gib": 15.803746700286865,
+            "free_gib": 5.8253173828125,
+            "total_gib": 22.0343017578125
+          },
+          "pre_benchmark_memory": {
+            "rss_mib": 1844.87890625,
+            "process_peak_rss_mib": 9482.0,
+            "allocated_gib": 15.675597190856934,
+            "reserved_gib": 15.98046875,
+            "peak_allocated_gib": 15.803746700286865,
+            "free_gib": 5.8253173828125,
+            "total_gib": 22.0343017578125
+          }
+        }
+      }
+    },
+    "method": "frozen",
+    "spec": {
+      "key": "qwen4b",
+      "id": "Qwen/Qwen3.5-4B-Base",
+      "revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+      "kind": "causal",
+      "parameter_hint": 4205751296
+    },
+    "layout": "instruction_first",
+    "artifact_dir": "arms/qwen4b_frozen__instruction_first__seed17",
+    "head_file": "constant_seed17.safetensors",
+    "runtime": {
+      "identity": {
+        "spec": {
+          "key": "qwen4b",
+          "id": "Qwen/Qwen3.5-4B-Base",
+          "revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+          "kind": "causal",
+          "parameter_hint": 4205751296
+        },
+        "flags": {
+          "matmul_precision": "highest",
+          "matmul_allow_tf32": false,
+          "cudnn_allow_tf32": false,
+          "sdpa": "math_only"
+        },
+        "environment": {
+          "python": "3.13.15",
+          "packages": {
+            "torch": "2.11.0+cu128",
+            "transformers": "5.17.0",
+            "numpy": "2.1.3",
+            "scipy": "1.16.3",
+            "safetensors": "0.8.0",
+            "peft": "0.20.0",
+            "accelerate": "1.14.0",
+            "huggingface-hub": "1.29.0",
+            "flash-linear-attention": null,
+            "fla-core": null,
+            "causal-conv1d": null,
+            "flash-attn": null
+          },
+          "workbench": "2ij.2.0",
+          "torch": "2.11.0+cu128",
+          "cuda": "12.8",
+          "gpu": "NVIDIA L4"
+        },
+        "runtime_sha256": "2b2774b9ec74763c7bb0b864f0d02b1e2dae14b708dffa698c29a486e57c41e9",
+        "model_code_sha256": "762feb6c7426a7f15b5bf830df54c07438bf9e7c27b8cdb23179045920412c3b",
+        "tokenizer_backend": "cc4ac36668961751f10c10901159d3fb3263507a4c24f4760833f9d21901849f",
+        "dtype": "float32",
+        "parameter_count": 4205751296
+      },
+      "model_load_seconds": 6.662491418000172,
+      "after_load_memory": {
+        "rss_mib": 1188.78125,
+        "process_peak_rss_mib": 9482.0,
+        "allocated_gib": 15.667662620544434,
+        "reserved_gib": 15.6875,
+        "peak_allocated_gib": 15.66796875,
+        "free_gib": 6.1280517578125,
+        "total_gib": 22.0343017578125
+      },
+      "parameter_count": 4205751296,
+      "storage_dtype": "float32",
+      "optimized_kernels": "not established; package inventory is not dispatch evidence",
+      "model_config": {
+        "transformers_version": "5.17.0",
+        "architectures": null,
+        "output_hidden_states": false,
+        "return_dict": true,
+        "dtype": "float32",
+        "chunk_size_feed_forward": 0,
+        "is_encoder_decoder": false,
+        "id2label": {
+          "0": "LABEL_0",
+          "1": "LABEL_1"
+        },
+        "label2id": {
+          "LABEL_0": 0,
+          "LABEL_1": 1
+        },
+        "problem_type": null,
+        "vocab_size": 248320,
+        "hidden_size": 2560,
+        "intermediate_size": 9216,
+        "num_hidden_layers": 32,
+        "num_attention_heads": 16,
+        "num_key_value_heads": 4,
+        "hidden_act": "silu",
+        "max_position_embeddings": 262144,
+        "initializer_range": 0.02,
+        "rms_norm_eps": 1e-06,
+        "use_cache": true,
+        "tie_word_embeddings": true,
+        "rope_parameters": {
+          "mrope_interleaved": true,
+          "mrope_section": [
+            11,
+            11,
+            10
+          ],
+          "rope_type": "default",
+          "rope_theta": 10000000,
+          "partial_rotary_factor": 0.25
+        },
+        "attention_bias": false,
+        "attention_dropout": 0.0,
+        "head_dim": 256,
+        "linear_conv_kernel_dim": 4,
+        "linear_key_head_dim": 128,
+        "linear_value_head_dim": 128,
+        "linear_num_key_heads": 16,
+        "linear_num_value_heads": 32,
+        "layer_types": [
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention"
+        ],
+        "pad_token_id": null,
+        "bos_token_id": null,
+        "eos_token_id": 248044,
+        "_name_or_path": "Qwen/Qwen3.5-4B-Base",
+        "attn_output_gate": true,
+        "full_attention_interval": 4,
+        "mlp_only_layers": [],
+        "model_type": "qwen3_5_text",
+        "mtp_num_hidden_layers": 1,
+        "mtp_use_dedicated_embeddings": false,
+        "mamba_ssm_dtype": "float32",
+        "partial_rotary_factor": 0.25,
+        "output_attentions": false
+      }
+    },
+    "arm": "qwen4b_frozen",
+    "profile_id": "1400f4ecba216a508505"
+  }
+}

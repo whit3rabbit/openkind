@@ -1,0 +1,2350 @@
+{
+  "status": "historical_only",
+  "selection_unchanged": "support_examples__instruction_first__joint_seed43__refit_none",
+  "source_run": "20260919T040612625670Z__finish_2h_1_2",
+  "results": {
+    "banking_seen": {
+      "quality": {
+        "episodes": 256,
+        "messages": 64,
+        "accuracy": 0.85546875,
+        "nll": 0.47206411249455027,
+        "brier_sum_classes": 0.21936463451652302,
+        "ece_15bins": 0.036262162479609755,
+        "accuracy_interval": {
+          "groups": 64,
+          "estimate": 0.85546875,
+          "ci_low": 0.80263671875,
+          "ci_high": 0.8984375,
+          "method": "message-cluster bootstrap; not pretraining uncertainty or rare-event certification"
+        },
+        "assumption_weighted_nll": 0.4753177677151762,
+        "conditional": {
+          "annotated_intent_omitted": {
+            "episodes": 128,
+            "messages": 64,
+            "accuracy": 0.8515625,
+            "none_rate": 0.8515625,
+            "offered_answer_error_rate": 0.1484375
+          },
+          "answer_present": {
+            "episodes": 128,
+            "messages": 64,
+            "accuracy": 0.859375,
+            "none_rate": 0.125,
+            "offered_answer_error_rate": 0.015625
+          }
+        }
+      },
+      "policies": [
+        {
+          "threshold": 0.8,
+          "assumed_absent_prior": 0.05,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 1.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.029346955128205128,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.7165464743589743,
+          "accepted_episodes": 99,
+          "wrong_accepted_episodes": 5,
+          "accepted_groups": 55,
+          "panel_error_among_accepted": 0.050505050505050504,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.9743589743589752,
+            "annotated_intent_omitted": 0.02564102564102558,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.02107822516025641,
+              "ci_high": 0.039444110576923076
+            },
+            "scenario_coverage": {
+              "ci_low": 0.6139172676282051,
+              "ci_high": 0.7970352564102563
+            }
+          }
+        },
+        {
+          "threshold": 0.8,
+          "assumed_absent_prior": 0.05,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 5.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.033353365384615384,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.7165464743589743,
+          "accepted_episodes": 99,
+          "wrong_accepted_episodes": 5,
+          "accepted_groups": 55,
+          "panel_error_among_accepted": 0.050505050505050504,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.9743589743589752,
+            "annotated_intent_omitted": 0.02564102564102558,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.023825620993589744,
+              "ci_high": 0.04467147435897436
+            },
+            "scenario_coverage": {
+              "ci_low": 0.6139172676282051,
+              "ci_high": 0.7970352564102563
+            }
+          }
+        },
+        {
+          "threshold": 0.9,
+          "assumed_absent_prior": 0.05,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 20.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.04801682692307693,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.6400240384615384,
+          "accepted_episodes": 87,
+          "wrong_accepted_episodes": 3,
+          "accepted_groups": 51,
+          "panel_error_among_accepted": 0.034482758620689655,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.9743589743589752,
+            "annotated_intent_omitted": 0.02564102564102558,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.03413461538461538,
+              "ci_high": 0.06758814102564104
+            },
+            "scenario_coverage": {
+              "ci_low": 0.5409605368589743,
+              "ci_high": 0.7278295272435896
+            }
+          }
+        },
+        {
+          "threshold": 0.8,
+          "assumed_absent_prior": 0.25,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 1.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.04207589285714286,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.6350446428571427,
+          "accepted_episodes": 99,
+          "wrong_accepted_episodes": 5,
+          "accepted_groups": 55,
+          "panel_error_among_accepted": 0.050505050505050504,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.8571428571428581,
+            "annotated_intent_omitted": 0.14285714285714265,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.033194754464285714,
+              "ci_high": 0.052455357142857144
+            },
+            "scenario_coverage": {
+              "ci_low": 0.5462890625,
+              "ci_high": 0.7075892857142857
+            }
+          }
+        },
+        {
+          "threshold": 0.9,
+          "assumed_absent_prior": 0.25,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 5.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.06015625,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.5658482142857143,
+          "accepted_episodes": 87,
+          "wrong_accepted_episodes": 3,
+          "accepted_groups": 51,
+          "panel_error_among_accepted": 0.034482758620689655,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.8571428571428581,
+            "annotated_intent_omitted": 0.14285714285714265,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.044126674107142855,
+              "ci_high": 0.08371651785714283
+            },
+            "scenario_coverage": {
+              "ci_low": 0.4782087053571428,
+              "ci_high": 0.6434430803571428
+            }
+          }
+        },
+        {
+          "threshold": 0.95,
+          "assumed_absent_prior": 0.25,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 20.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.05178571428571428,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.4821428571428571,
+          "accepted_episodes": 72,
+          "wrong_accepted_episodes": 0,
+          "accepted_groups": 45,
+          "panel_error_among_accepted": 0.0,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.8571428571428581,
+            "annotated_intent_omitted": 0.14285714285714265,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": true,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.04375,
+              "ci_high": 0.06049107142857143
+            },
+            "scenario_coverage": {
+              "ci_low": 0.3950892857142857,
+              "ci_high": 0.5625
+            }
+          }
+        },
+        {
+          "threshold": 0.9,
+          "assumed_absent_prior": 0.5,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 1.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.06328125,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.44531249999999994,
+          "accepted_episodes": 87,
+          "wrong_accepted_episodes": 3,
+          "accepted_groups": 51,
+          "panel_error_among_accepted": 0.034482758620689655,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.6666666666666671,
+            "annotated_intent_omitted": 0.33333333333333354,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.054290364583333334,
+              "ci_high": 0.07539713541666666
+            },
+            "scenario_coverage": {
+              "ci_low": 0.37760416666666663,
+              "ci_high": 0.5052083333333333
+            }
+          }
+        },
+        {
+          "threshold": 0.95,
+          "assumed_absent_prior": 0.5,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 5.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.0625,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.375,
+          "accepted_episodes": 72,
+          "wrong_accepted_episodes": 0,
+          "accepted_groups": 45,
+          "panel_error_among_accepted": 0.0,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.6666666666666671,
+            "annotated_intent_omitted": 0.33333333333333354,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": true,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.05625,
+              "ci_high": 0.06927083333333334
+            },
+            "scenario_coverage": {
+              "ci_low": 0.30729166666666663,
+              "ci_high": 0.4375
+            }
+          }
+        },
+        {
+          "threshold": 0.95,
+          "assumed_absent_prior": 0.5,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 20.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.0625,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.375,
+          "accepted_episodes": 72,
+          "wrong_accepted_episodes": 0,
+          "accepted_groups": 45,
+          "panel_error_among_accepted": 0.0,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.6666666666666671,
+            "annotated_intent_omitted": 0.33333333333333354,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": true,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.05625,
+              "ci_high": 0.06927083333333334
+            },
+            "scenario_coverage": {
+              "ci_low": 0.30729166666666663,
+              "ci_high": 0.4375
+            }
+          }
+        }
+      ]
+    },
+    "banking_unseen": {
+      "quality": {
+        "episodes": 256,
+        "messages": 64,
+        "accuracy": 0.63671875,
+        "nll": 1.2254583807063857,
+        "brier_sum_classes": 0.5342822264072704,
+        "ece_15bins": 0.10028563008542345,
+        "accuracy_interval": {
+          "groups": 64,
+          "estimate": 0.63671875,
+          "ci_low": 0.578125,
+          "ci_high": 0.6953125,
+          "method": "message-cluster bootstrap; not pretraining uncertainty or rare-event certification"
+        },
+        "assumption_weighted_nll": 1.019520988105442,
+        "conditional": {
+          "annotated_intent_omitted": {
+            "episodes": 128,
+            "messages": 64,
+            "accuracy": 0.484375,
+            "none_rate": 0.484375,
+            "offered_answer_error_rate": 0.515625
+          },
+          "answer_present": {
+            "episodes": 128,
+            "messages": 64,
+            "accuracy": 0.7890625,
+            "none_rate": 0.1328125,
+            "offered_answer_error_rate": 0.078125
+          }
+        }
+      },
+      "policies": [
+        {
+          "threshold": 0.8,
+          "assumed_absent_prior": 0.05,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 1.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.05254407051282052,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.4885817307692307,
+          "accepted_episodes": 71,
+          "wrong_accepted_episodes": 7,
+          "accepted_groups": 41,
+          "panel_error_among_accepted": 0.09859154929577464,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.9743589743589752,
+            "annotated_intent_omitted": 0.02564102564102558,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.042387820512820515,
+              "ci_high": 0.0619746594551282
+            },
+            "scenario_coverage": {
+              "ci_low": 0.39623397435897434,
+              "ci_high": 0.5995292467948716
+            }
+          }
+        },
+        {
+          "threshold": 0.8,
+          "assumed_absent_prior": 0.05,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 5.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.05815304487179488,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.4885817307692307,
+          "accepted_episodes": 71,
+          "wrong_accepted_episodes": 7,
+          "accepted_groups": 41,
+          "panel_error_among_accepted": 0.09859154929577464,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.9743589743589752,
+            "annotated_intent_omitted": 0.02564102564102558,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.04813651842948718,
+              "ci_high": 0.06826923076923076
+            },
+            "scenario_coverage": {
+              "ci_low": 0.39623397435897434,
+              "ci_high": 0.5995292467948716
+            }
+          }
+        },
+        {
+          "threshold": 0.9,
+          "assumed_absent_prior": 0.05,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 20.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.06933092948717949,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.42688301282051283,
+          "accepted_episodes": 59,
+          "wrong_accepted_episodes": 3,
+          "accepted_groups": 35,
+          "panel_error_among_accepted": 0.05084745762711865,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.9743589743589752,
+            "annotated_intent_omitted": 0.02564102564102558,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.05526842948717949,
+              "ci_high": 0.08472556089743588
+            },
+            "scenario_coverage": {
+              "ci_low": 0.33513621794871795,
+              "ci_high": 0.5378405448717947
+            }
+          }
+        },
+        {
+          "threshold": 0.8,
+          "assumed_absent_prior": 0.25,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 1.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.06417410714285714,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.43638392857142855,
+          "accepted_episodes": 71,
+          "wrong_accepted_episodes": 7,
+          "accepted_groups": 41,
+          "panel_error_among_accepted": 0.09859154929577464,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.8571428571428581,
+            "annotated_intent_omitted": 0.14285714285714265,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.05529296875,
+              "ci_high": 0.07321428571428572
+            },
+            "scenario_coverage": {
+              "ci_low": 0.35044642857142855,
+              "ci_high": 0.5357700892857142
+            }
+          }
+        },
+        {
+          "threshold": 0.9,
+          "assumed_absent_prior": 0.25,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 5.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.07890625,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.3783482142857143,
+          "accepted_episodes": 59,
+          "wrong_accepted_episodes": 3,
+          "accepted_groups": 35,
+          "panel_error_among_accepted": 0.05084745762711865,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.8571428571428581,
+            "annotated_intent_omitted": 0.14285714285714265,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.06261160714285714,
+              "ci_high": 0.09900669642857142
+            },
+            "scenario_coverage": {
+              "ci_low": 0.29575892857142855,
+              "ci_high": 0.4777901785714284
+            }
+          }
+        },
+        {
+          "threshold": 0.95,
+          "assumed_absent_prior": 0.25,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 20.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.06986607142857143,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.3013392857142857,
+          "accepted_episodes": 45,
+          "wrong_accepted_episodes": 0,
+          "accepted_groups": 28,
+          "panel_error_among_accepted": 0.0,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.8571428571428581,
+            "annotated_intent_omitted": 0.14285714285714265,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": true,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.06049107142857143,
+              "ci_high": 0.07790178571428573
+            },
+            "scenario_coverage": {
+              "ci_low": 0.22098214285714285,
+              "ci_high": 0.3950892857142857
+            }
+          }
+        },
+        {
+          "threshold": 0.9,
+          "assumed_absent_prior": 0.5,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 1.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.07786458333333333,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.29947916666666663,
+          "accepted_episodes": 59,
+          "wrong_accepted_episodes": 3,
+          "accepted_groups": 35,
+          "panel_error_among_accepted": 0.05084745762711865,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.6666666666666671,
+            "annotated_intent_omitted": 0.33333333333333354,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.06901041666666667,
+              "ci_high": 0.08723958333333334
+            },
+            "scenario_coverage": {
+              "ci_low": 0.23177083333333331,
+              "ci_high": 0.3815755208333333
+            }
+          }
+        },
+        {
+          "threshold": 0.95,
+          "assumed_absent_prior": 0.5,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 5.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.0765625,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.23437499999999997,
+          "accepted_episodes": 45,
+          "wrong_accepted_episodes": 0,
+          "accepted_groups": 28,
+          "panel_error_among_accepted": 0.0,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.6666666666666671,
+            "annotated_intent_omitted": 0.33333333333333354,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": true,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.06927083333333334,
+              "ci_high": 0.08281250000000001
+            },
+            "scenario_coverage": {
+              "ci_low": 0.171875,
+              "ci_high": 0.30729166666666663
+            }
+          }
+        },
+        {
+          "threshold": 0.95,
+          "assumed_absent_prior": 0.5,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 20.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.0765625,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.23437499999999997,
+          "accepted_episodes": 45,
+          "wrong_accepted_episodes": 0,
+          "accepted_groups": 28,
+          "panel_error_among_accepted": 0.0,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.6666666666666671,
+            "annotated_intent_omitted": 0.33333333333333354,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": true,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.06927083333333334,
+              "ci_high": 0.08281250000000001
+            },
+            "scenario_coverage": {
+              "ci_low": 0.171875,
+              "ci_high": 0.30729166666666663
+            }
+          }
+        }
+      ]
+    },
+    "clinc_holdout": {
+      "quality": {
+        "episodes": 256,
+        "messages": 64,
+        "accuracy": 0.66015625,
+        "nll": 1.182341715522555,
+        "brier_sum_classes": 0.49582188007823635,
+        "ece_15bins": 0.11526571182577115,
+        "accuracy_interval": {
+          "groups": 64,
+          "estimate": 0.66015625,
+          "ci_low": 0.60341796875,
+          "ci_high": 0.71484375,
+          "method": "message-cluster bootstrap; not pretraining uncertainty or rare-event certification"
+        },
+        "assumption_weighted_nll": 1.1374954512020734,
+        "conditional": {
+          "annotated_intent_omitted": {
+            "episodes": 128,
+            "messages": 64,
+            "accuracy": 0.625,
+            "none_rate": 0.625,
+            "offered_answer_error_rate": 0.375
+          },
+          "answer_present": {
+            "episodes": 128,
+            "messages": 64,
+            "accuracy": 0.6953125,
+            "none_rate": 0.2265625,
+            "offered_answer_error_rate": 0.078125
+          }
+        }
+      },
+      "policies": [
+        {
+          "threshold": 0.8,
+          "assumed_absent_prior": 0.05,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 1.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.050040064102564105,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.5196314102564102,
+          "accepted_episodes": 78,
+          "wrong_accepted_episodes": 10,
+          "accepted_groups": 43,
+          "panel_error_among_accepted": 0.1282051282051282,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.9743589743589752,
+            "annotated_intent_omitted": 0.02564102564102558,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.03958233173076923,
+              "ci_high": 0.06097005208333333
+            },
+            "scenario_coverage": {
+              "ci_low": 0.4130608974358974,
+              "ci_high": 0.6265074118589744
+            }
+          }
+        },
+        {
+          "threshold": 0.8,
+          "assumed_absent_prior": 0.05,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 5.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.05805288461538462,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.5196314102564102,
+          "accepted_episodes": 78,
+          "wrong_accepted_episodes": 10,
+          "accepted_groups": 43,
+          "panel_error_among_accepted": 0.1282051282051282,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.9743589743589752,
+            "annotated_intent_omitted": 0.02564102564102558,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.04570062099358974,
+              "ci_high": 0.0721173878205128
+            },
+            "scenario_coverage": {
+              "ci_low": 0.4130608974358974,
+              "ci_high": 0.6265074118589744
+            }
+          }
+        },
+        {
+          "threshold": 0.9,
+          "assumed_absent_prior": 0.05,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 20.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.07273637820512821,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.4729567307692307,
+          "accepted_episodes": 67,
+          "wrong_accepted_episodes": 5,
+          "accepted_groups": 39,
+          "panel_error_among_accepted": 0.07462686567164178,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.9743589743589752,
+            "annotated_intent_omitted": 0.02564102564102558,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.05052083333333334,
+              "ci_high": 0.10225811298076924
+            },
+            "scenario_coverage": {
+              "ci_low": 0.36638621794871795,
+              "ci_high": 0.5792317708333333
+            }
+          }
+        },
+        {
+          "threshold": 0.8,
+          "assumed_absent_prior": 0.25,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 1.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.06450892857142856,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.4665178571428571,
+          "accepted_episodes": 78,
+          "wrong_accepted_episodes": 10,
+          "accepted_groups": 43,
+          "panel_error_among_accepted": 0.1282051282051282,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.8571428571428581,
+            "annotated_intent_omitted": 0.14285714285714265,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.053284040178571426,
+              "ci_high": 0.0772488839285714
+            },
+            "scenario_coverage": {
+              "ci_low": 0.3727678571428571,
+              "ci_high": 0.5619698660714285
+            }
+          }
+        },
+        {
+          "threshold": 0.9,
+          "assumed_absent_prior": 0.25,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 5.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.08582589285714284,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.42075892857142855,
+          "accepted_episodes": 67,
+          "wrong_accepted_episodes": 5,
+          "accepted_groups": 39,
+          "panel_error_among_accepted": 0.07462686567164178,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.8571428571428581,
+            "annotated_intent_omitted": 0.14285714285714265,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.056849888392857144,
+              "ci_high": 0.1251283482142857
+            },
+            "scenario_coverage": {
+              "ci_low": 0.32700892857142855,
+              "ci_high": 0.5128627232142856
+            }
+          }
+        },
+        {
+          "threshold": 0.95,
+          "assumed_absent_prior": 0.25,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 20.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.12912946428571428,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.3783482142857143,
+          "accepted_episodes": 59,
+          "wrong_accepted_episodes": 3,
+          "accepted_groups": 35,
+          "panel_error_among_accepted": 0.05084745762711865,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.8571428571428581,
+            "annotated_intent_omitted": 0.14285714285714265,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.05679129464285714,
+              "ci_high": 0.24592075892857138
+            },
+            "scenario_coverage": {
+              "ci_low": 0.28178013392857143,
+              "ci_high": 0.47209821428571425
+            }
+          }
+        },
+        {
+          "threshold": 0.9,
+          "assumed_absent_prior": 0.5,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 1.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.07942708333333334,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.33593749999999994,
+          "accepted_episodes": 67,
+          "wrong_accepted_episodes": 5,
+          "accepted_groups": 39,
+          "panel_error_among_accepted": 0.07462686567164178,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.6666666666666671,
+            "annotated_intent_omitted": 0.33333333333333354,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.065625,
+              "ci_high": 0.09701171874999999
+            },
+            "scenario_coverage": {
+              "ci_low": 0.26425781249999997,
+              "ci_high": 0.40625
+            }
+          }
+        },
+        {
+          "threshold": 0.95,
+          "assumed_absent_prior": 0.5,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 5.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.10911458333333335,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.29947916666666663,
+          "accepted_episodes": 59,
+          "wrong_accepted_episodes": 3,
+          "accepted_groups": 35,
+          "panel_error_among_accepted": 0.05084745762711865,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.6666666666666671,
+            "annotated_intent_omitted": 0.33333333333333354,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.06639322916666666,
+              "ci_high": 0.17738281249999996
+            },
+            "scenario_coverage": {
+              "ci_low": 0.22259114583333334,
+              "ci_high": 0.3723958333333333
+            }
+          }
+        },
+        {
+          "threshold": 0.95,
+          "assumed_absent_prior": 0.5,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 20.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.22630208333333332,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.29947916666666663,
+          "accepted_episodes": 59,
+          "wrong_accepted_episodes": 3,
+          "accepted_groups": 35,
+          "panel_error_among_accepted": 0.05084745762711865,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.6666666666666671,
+            "annotated_intent_omitted": 0.33333333333333354,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.06639322916666666,
+              "ci_high": 0.48988281249999993
+            },
+            "scenario_coverage": {
+              "ci_low": 0.22259114583333334,
+              "ci_high": 0.3723958333333333
+            }
+          }
+        }
+      ]
+    },
+    "clinc_oos": {
+      "quality": {
+        "episodes": 128,
+        "messages": 64,
+        "accuracy": 1.0,
+        "nll": 0.02964410900383937,
+        "brier_sum_classes": 0.005956877497433175,
+        "ece_15bins": 0.027232900174104447,
+        "accuracy_interval": {
+          "groups": 64,
+          "estimate": 1.0,
+          "ci_low": 1.0,
+          "ci_high": 1.0,
+          "method": "message-cluster bootstrap; not pretraining uncertainty or rare-event certification"
+        },
+        "assumption_weighted_nll": 0.029644109003839368,
+        "conditional": {
+          "author_oos": {
+            "episodes": 128,
+            "messages": 64,
+            "accuracy": 1.0,
+            "none_rate": 1.0,
+            "offered_answer_error_rate": 0.0
+          }
+        }
+      },
+      "policies": [
+        {
+          "threshold": 0.8,
+          "assumed_absent_prior": 0.05,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 1.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.1,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.0,
+          "accepted_episodes": 0,
+          "wrong_accepted_episodes": 0,
+          "accepted_groups": 0,
+          "panel_error_among_accepted": null,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.0,
+            "annotated_intent_omitted": 0.0,
+            "author_oos": 1.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": true,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.09999999999999999,
+              "ci_high": 0.1
+            },
+            "scenario_coverage": {
+              "ci_low": 0.0,
+              "ci_high": 0.0
+            }
+          }
+        },
+        {
+          "threshold": 0.8,
+          "assumed_absent_prior": 0.05,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 5.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.1,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.0,
+          "accepted_episodes": 0,
+          "wrong_accepted_episodes": 0,
+          "accepted_groups": 0,
+          "panel_error_among_accepted": null,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.0,
+            "annotated_intent_omitted": 0.0,
+            "author_oos": 1.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": true,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.09999999999999999,
+              "ci_high": 0.1
+            },
+            "scenario_coverage": {
+              "ci_low": 0.0,
+              "ci_high": 0.0
+            }
+          }
+        },
+        {
+          "threshold": 0.9,
+          "assumed_absent_prior": 0.05,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 20.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.1,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.0,
+          "accepted_episodes": 0,
+          "wrong_accepted_episodes": 0,
+          "accepted_groups": 0,
+          "panel_error_among_accepted": null,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.0,
+            "annotated_intent_omitted": 0.0,
+            "author_oos": 1.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": true,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.09999999999999999,
+              "ci_high": 0.1
+            },
+            "scenario_coverage": {
+              "ci_low": 0.0,
+              "ci_high": 0.0
+            }
+          }
+        },
+        {
+          "threshold": 0.8,
+          "assumed_absent_prior": 0.25,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 1.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.1,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.0,
+          "accepted_episodes": 0,
+          "wrong_accepted_episodes": 0,
+          "accepted_groups": 0,
+          "panel_error_among_accepted": null,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.0,
+            "annotated_intent_omitted": 0.0,
+            "author_oos": 1.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": true,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.09999999999999999,
+              "ci_high": 0.1
+            },
+            "scenario_coverage": {
+              "ci_low": 0.0,
+              "ci_high": 0.0
+            }
+          }
+        },
+        {
+          "threshold": 0.9,
+          "assumed_absent_prior": 0.25,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 5.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.1,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.0,
+          "accepted_episodes": 0,
+          "wrong_accepted_episodes": 0,
+          "accepted_groups": 0,
+          "panel_error_among_accepted": null,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.0,
+            "annotated_intent_omitted": 0.0,
+            "author_oos": 1.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": true,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.09999999999999999,
+              "ci_high": 0.1
+            },
+            "scenario_coverage": {
+              "ci_low": 0.0,
+              "ci_high": 0.0
+            }
+          }
+        },
+        {
+          "threshold": 0.95,
+          "assumed_absent_prior": 0.25,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 20.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.1,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.0,
+          "accepted_episodes": 0,
+          "wrong_accepted_episodes": 0,
+          "accepted_groups": 0,
+          "panel_error_among_accepted": null,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.0,
+            "annotated_intent_omitted": 0.0,
+            "author_oos": 1.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": true,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.09999999999999999,
+              "ci_high": 0.1
+            },
+            "scenario_coverage": {
+              "ci_low": 0.0,
+              "ci_high": 0.0
+            }
+          }
+        },
+        {
+          "threshold": 0.9,
+          "assumed_absent_prior": 0.5,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 1.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.1,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.0,
+          "accepted_episodes": 0,
+          "wrong_accepted_episodes": 0,
+          "accepted_groups": 0,
+          "panel_error_among_accepted": null,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.0,
+            "annotated_intent_omitted": 0.0,
+            "author_oos": 1.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": true,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.09999999999999999,
+              "ci_high": 0.1
+            },
+            "scenario_coverage": {
+              "ci_low": 0.0,
+              "ci_high": 0.0
+            }
+          }
+        },
+        {
+          "threshold": 0.95,
+          "assumed_absent_prior": 0.5,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 5.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.1,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.0,
+          "accepted_episodes": 0,
+          "wrong_accepted_episodes": 0,
+          "accepted_groups": 0,
+          "panel_error_among_accepted": null,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.0,
+            "annotated_intent_omitted": 0.0,
+            "author_oos": 1.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": true,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.09999999999999999,
+              "ci_high": 0.1
+            },
+            "scenario_coverage": {
+              "ci_low": 0.0,
+              "ci_high": 0.0
+            }
+          }
+        },
+        {
+          "threshold": 0.95,
+          "assumed_absent_prior": 0.5,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 20.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.1,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.0,
+          "accepted_episodes": 0,
+          "wrong_accepted_episodes": 0,
+          "accepted_groups": 0,
+          "panel_error_among_accepted": null,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.0,
+            "annotated_intent_omitted": 0.0,
+            "author_oos": 1.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": true,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.09999999999999999,
+              "ci_high": 0.1
+            },
+            "scenario_coverage": {
+              "ci_low": 0.0,
+              "ci_high": 0.0
+            }
+          }
+        }
+      ]
+    },
+    "clinc_seen": {
+      "quality": {
+        "episodes": 256,
+        "messages": 64,
+        "accuracy": 0.8984375,
+        "nll": 0.3540011038836899,
+        "brier_sum_classes": 0.17341767834856914,
+        "ece_15bins": 0.03847107625796747,
+        "accuracy_interval": {
+          "groups": 64,
+          "estimate": 0.8984375,
+          "ci_low": 0.85546875,
+          "ci_high": 0.9395507812499999,
+          "method": "message-cluster bootstrap; not pretraining uncertainty or rare-event certification"
+        },
+        "assumption_weighted_nll": 0.32072482788358314,
+        "conditional": {
+          "annotated_intent_omitted": {
+            "episodes": 128,
+            "messages": 64,
+            "accuracy": 0.875,
+            "none_rate": 0.875,
+            "offered_answer_error_rate": 0.125
+          },
+          "answer_present": {
+            "episodes": 128,
+            "messages": 64,
+            "accuracy": 0.921875,
+            "none_rate": 0.0703125,
+            "offered_answer_error_rate": 0.0078125
+          }
+        }
+      },
+      "policies": [
+        {
+          "threshold": 0.8,
+          "assumed_absent_prior": 0.05,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 1.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.02550080128205128,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.7630208333333333,
+          "accepted_episodes": 109,
+          "wrong_accepted_episodes": 9,
+          "accepted_groups": 58,
+          "panel_error_among_accepted": 0.08256880733944955,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.9743589743589752,
+            "annotated_intent_omitted": 0.02564102564102558,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.016852463942307695,
+              "ci_high": 0.03430839342948718
+            },
+            "scenario_coverage": {
+              "ci_low": 0.6793820112179487,
+              "ci_high": 0.8463541666666666
+            }
+          }
+        },
+        {
+          "threshold": 0.8,
+          "assumed_absent_prior": 0.05,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 5.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.03271233974358974,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.7630208333333333,
+          "accepted_episodes": 109,
+          "wrong_accepted_episodes": 9,
+          "accepted_groups": 58,
+          "panel_error_among_accepted": 0.08256880733944955,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.9743589743589752,
+            "annotated_intent_omitted": 0.02564102564102558,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.022375801282051282,
+              "ci_high": 0.045625500801282054
+            },
+            "scenario_coverage": {
+              "ci_low": 0.6793820112179487,
+              "ci_high": 0.8463541666666666
+            }
+          }
+        },
+        {
+          "threshold": 0.9,
+          "assumed_absent_prior": 0.05,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 20.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.05540865384615385,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.6862980769230769,
+          "accepted_episodes": 96,
+          "wrong_accepted_episodes": 6,
+          "accepted_groups": 54,
+          "panel_error_among_accepted": 0.0625,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.9743589743589752,
+            "annotated_intent_omitted": 0.02564102564102558,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.03392427884615385,
+              "ci_high": 0.08249549278846152
+            },
+            "scenario_coverage": {
+              "ci_low": 0.5946464342948717,
+              "ci_high": 0.777549078525641
+            }
+          }
+        },
+        {
+          "threshold": 0.8,
+          "assumed_absent_prior": 0.25,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 1.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.04207589285714286,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.6796874999999999,
+          "accepted_episodes": 109,
+          "wrong_accepted_episodes": 9,
+          "accepted_groups": 58,
+          "panel_error_among_accepted": 0.08256880733944955,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.8571428571428581,
+            "annotated_intent_omitted": 0.14285714285714265,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.03236607142857143,
+              "ci_high": 0.054464285714285715
+            },
+            "scenario_coverage": {
+              "ci_low": 0.6065569196428571,
+              "ci_high": 0.7511160714285714
+            }
+          }
+        },
+        {
+          "threshold": 0.9,
+          "assumed_absent_prior": 0.25,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 5.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.07254464285714284,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.609375,
+          "accepted_episodes": 96,
+          "wrong_accepted_episodes": 6,
+          "accepted_groups": 54,
+          "panel_error_among_accepted": 0.0625,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.8571428571428581,
+            "annotated_intent_omitted": 0.14285714285714265,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.0453125,
+              "ci_high": 0.10870535714285715
+            },
+            "scenario_coverage": {
+              "ci_low": 0.5273158482142857,
+              "ci_high": 0.6892020089285713
+            }
+          }
+        },
+        {
+          "threshold": 0.95,
+          "assumed_absent_prior": 0.25,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 20.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.11238839285714283,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.5457589285714286,
+          "accepted_episodes": 84,
+          "wrong_accepted_episodes": 3,
+          "accepted_groups": 50,
+          "panel_error_among_accepted": 0.03571428571428571,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.8571428571428581,
+            "annotated_intent_omitted": 0.14285714285714265,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.045089285714285714,
+              "ci_high": 0.20457589285714287
+            },
+            "scenario_coverage": {
+              "ci_low": 0.44913504464285714,
+              "ci_high": 0.6316964285714285
+            }
+          }
+        },
+        {
+          "threshold": 0.9,
+          "assumed_absent_prior": 0.5,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 1.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.0671875,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.484375,
+          "accepted_episodes": 96,
+          "wrong_accepted_episodes": 6,
+          "accepted_groups": 54,
+          "panel_error_among_accepted": 0.0625,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.6666666666666671,
+            "annotated_intent_omitted": 0.33333333333333354,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.05402994791666667,
+              "ci_high": 0.08360677083333332
+            },
+            "scenario_coverage": {
+              "ci_low": 0.42311197916666665,
+              "ci_high": 0.5456380208333332
+            }
+          }
+        },
+        {
+          "threshold": 0.95,
+          "assumed_absent_prior": 0.5,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 5.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.09609375,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.4296875,
+          "accepted_episodes": 84,
+          "wrong_accepted_episodes": 3,
+          "accepted_groups": 50,
+          "panel_error_among_accepted": 0.03571428571428571,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.6666666666666671,
+            "annotated_intent_omitted": 0.33333333333333354,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.057291666666666664,
+              "ci_high": 0.14973958333333331
+            },
+            "scenario_coverage": {
+              "ci_low": 0.35416666666666663,
+              "ci_high": 0.49479166666666663
+            }
+          }
+        },
+        {
+          "threshold": 0.95,
+          "assumed_absent_prior": 0.5,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 20.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.21328124999999998,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.4296875,
+          "accepted_episodes": 84,
+          "wrong_accepted_episodes": 3,
+          "accepted_groups": 50,
+          "panel_error_among_accepted": 0.03571428571428571,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.6666666666666671,
+            "annotated_intent_omitted": 0.33333333333333354,
+            "author_oos": 0.0
+          },
+          "complete_population_mixture_available": false,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 64,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.057291666666666664,
+              "ci_high": 0.42317708333333337
+            },
+            "scenario_coverage": {
+              "ci_low": 0.35416666666666663,
+              "ci_high": 0.49479166666666663
+            }
+          }
+        }
+      ]
+    },
+    "pooled_declared_mixture": {
+      "quality": {
+        "episodes": 1152,
+        "messages": 320,
+        "accuracy": 0.7890625,
+        "nll": 0.7219305260242446,
+        "brier_sum_classes": 0.3168588573554034,
+        "ece_15bins": 0.04765346153800881,
+        "accuracy_interval": {
+          "groups": 320,
+          "estimate": 0.7890625,
+          "ci_low": 0.7617585920177383,
+          "ci_high": 0.8154367350003754,
+          "method": "message-cluster bootstrap; not pretraining uncertainty or rare-event certification"
+        },
+        "assumption_weighted_nll": 0.6319716612681593,
+        "conditional": {
+          "annotated_intent_omitted": {
+            "episodes": 512,
+            "messages": 256,
+            "accuracy": 0.708984375,
+            "none_rate": 0.708984375,
+            "offered_answer_error_rate": 0.291015625
+          },
+          "answer_present": {
+            "episodes": 512,
+            "messages": 256,
+            "accuracy": 0.81640625,
+            "none_rate": 0.138671875,
+            "offered_answer_error_rate": 0.044921875
+          },
+          "author_oos": {
+            "episodes": 128,
+            "messages": 64,
+            "accuracy": 1.0,
+            "none_rate": 1.0,
+            "offered_answer_error_rate": 0.0
+          }
+        }
+      },
+      "policies": [
+        {
+          "threshold": 0.8,
+          "assumed_absent_prior": 0.05,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 1.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.040874023437500004,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.6063964843749997,
+          "accepted_episodes": 357,
+          "wrong_accepted_episodes": 31,
+          "accepted_groups": 197,
+          "panel_error_among_accepted": 0.08683473389355742,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.9499999999999922,
+            "annotated_intent_omitted": 0.025000000000000223,
+            "author_oos": 0.024999999999999942
+          },
+          "complete_population_mixture_available": true,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 320,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.036469482421875005,
+              "ci_high": 0.045688476562500004
+            },
+            "scenario_coverage": {
+              "ci_low": 0.56025146484375,
+              "ci_high": 0.6489025878906249
+            }
+          }
+        },
+        {
+          "threshold": 0.8,
+          "assumed_absent_prior": 0.05,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 5.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.04692871093750001,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.6063964843749997,
+          "accepted_episodes": 357,
+          "wrong_accepted_episodes": 31,
+          "accepted_groups": 197,
+          "panel_error_among_accepted": 0.08683473389355742,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.9499999999999922,
+            "annotated_intent_omitted": 0.025000000000000223,
+            "author_oos": 0.024999999999999942
+          },
+          "complete_population_mixture_available": true,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 320,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.041834716796875004,
+              "ci_high": 0.0524102783203125
+            },
+            "scenario_coverage": {
+              "ci_low": 0.56025146484375,
+              "ci_high": 0.6489025878906249
+            }
+          }
+        },
+        {
+          "threshold": 0.9,
+          "assumed_absent_prior": 0.05,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 20.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.06233886718749999,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.5426269531249998,
+          "accepted_episodes": 309,
+          "wrong_accepted_episodes": 17,
+          "accepted_groups": 179,
+          "panel_error_among_accepted": 0.05501618122977346,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.9499999999999922,
+            "annotated_intent_omitted": 0.025000000000000223,
+            "author_oos": 0.024999999999999942
+          },
+          "complete_population_mixture_available": true,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 320,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.052862670898437505,
+              "ci_high": 0.07340820312500002
+            },
+            "scenario_coverage": {
+              "ci_low": 0.49527099609374997,
+              "ci_high": 0.58958984375
+            }
+          }
+        },
+        {
+          "threshold": 0.8,
+          "assumed_absent_prior": 0.25,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 1.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.0590576171875,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.485107421875,
+          "accepted_episodes": 357,
+          "wrong_accepted_episodes": 31,
+          "accepted_groups": 197,
+          "panel_error_among_accepted": 0.08683473389355742,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.75,
+            "annotated_intent_omitted": 0.125,
+            "author_oos": 0.125
+          },
+          "complete_population_mixture_available": true,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 320,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.054879150390625006,
+              "ci_high": 0.0635638427734375
+            },
+            "scenario_coverage": {
+              "ci_low": 0.448846435546875,
+              "ci_high": 0.518951416015625
+            }
+          }
+        },
+        {
+          "threshold": 0.9,
+          "assumed_absent_prior": 0.25,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 5.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.07756347656250001,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.431884765625,
+          "accepted_episodes": 309,
+          "wrong_accepted_episodes": 17,
+          "accepted_groups": 179,
+          "panel_error_among_accepted": 0.05501618122977346,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.75,
+            "annotated_intent_omitted": 0.125,
+            "author_oos": 0.125
+          },
+          "complete_population_mixture_available": true,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 320,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.0673187255859375,
+              "ci_high": 0.09048095703125
+            },
+            "scenario_coverage": {
+              "ci_low": 0.39451904296875,
+              "ci_high": 0.46728515625
+            }
+          }
+        },
+        {
+          "threshold": 0.95,
+          "assumed_absent_prior": 0.25,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 20.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.091943359375,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.37353515625,
+          "accepted_episodes": 260,
+          "wrong_accepted_episodes": 6,
+          "accepted_groups": 158,
+          "panel_error_among_accepted": 0.023076923076923078,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.75,
+            "annotated_intent_omitted": 0.125,
+            "author_oos": 0.125
+          },
+          "complete_population_mixture_available": true,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 320,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.06814392089843752,
+              "ci_high": 0.12270507812500002
+            },
+            "scenario_coverage": {
+              "ci_low": 0.3342041015625,
+              "ci_high": 0.411065673828125
+            }
+          }
+        },
+        {
+          "threshold": 0.9,
+          "assumed_absent_prior": 0.5,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 1.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.07895507812500002,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.29345703125,
+          "accepted_episodes": 309,
+          "wrong_accepted_episodes": 17,
+          "accepted_groups": 179,
+          "panel_error_among_accepted": 0.05501618122977346,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.5,
+            "annotated_intent_omitted": 0.25,
+            "author_oos": 0.25
+          },
+          "complete_population_mixture_available": true,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 320,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.074290771484375,
+              "ci_high": 0.08427734375000001
+            },
+            "scenario_coverage": {
+              "ci_low": 0.267578125,
+              "ci_high": 0.31666259765625
+            }
+          }
+        },
+        {
+          "threshold": 0.95,
+          "assumed_absent_prior": 0.5,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 5.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.08955078125000002,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.2509765625,
+          "accepted_episodes": 260,
+          "wrong_accepted_episodes": 6,
+          "accepted_groups": 158,
+          "panel_error_among_accepted": 0.023076923076923078,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.5,
+            "annotated_intent_omitted": 0.25,
+            "author_oos": 0.25
+          },
+          "complete_population_mixture_available": true,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 320,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.07760131835937502,
+              "ci_high": 0.10498046875
+            },
+            "scenario_coverage": {
+              "ci_low": 0.2245849609375,
+              "ci_high": 0.27587890625
+            }
+          }
+        },
+        {
+          "threshold": 0.95,
+          "assumed_absent_prior": 0.5,
+          "assumed_oos_share_of_absent": 0.5,
+          "wrong_cost": 20.0,
+          "review_cost": 0.1,
+          "scenario_cost": 0.13349609375000004,
+          "always_review_cost": 0.1,
+          "scenario_coverage": 0.2509765625,
+          "accepted_episodes": 260,
+          "wrong_accepted_episodes": 6,
+          "accepted_groups": 158,
+          "panel_error_among_accepted": 0.023076923076923078,
+          "policy_selection_on_final": false,
+          "effective_origin_masses": {
+            "answer_present": 0.5,
+            "annotated_intent_omitted": 0.25,
+            "author_oos": 0.25
+          },
+          "complete_population_mixture_available": true,
+          "scope": "When a family omits strata, costs are conditioned on available strata and effective masses are reported; pooled mixture is separate",
+          "intervals": {
+            "groups": 320,
+            "repeats": 500,
+            "method": "95% percentile message-cluster bootstrap stratified by family/origin membership; paired variants remain together; conditional on fixed family/stratum mix",
+            "zero_observed_accepted_errors": false,
+            "rare_event_certification": false,
+            "scenario_cost": {
+              "ci_low": 0.08579101562500001,
+              "ci_high": 0.19287109375000003
+            },
+            "scenario_coverage": {
+              "ci_low": 0.2245849609375,
+              "ci_high": 0.27587890625
+            }
+          }
+        }
+      ]
+    }
+  },
+  "cross_mode": {
+    "original__instruction_first__frozen__unchanged_none": {
+      "episodes": 1152,
+      "messages": 320,
+      "max_probability_delta": 0.0037690286112455063,
+      "over_tolerance": 0,
+      "argmax_changes": 2,
+      "policy_output_changes": 0,
+      "accepted": 1150
+    },
+    "original__instruction_first__frozen__refit_none": {
+      "episodes": 1152,
+      "messages": 320,
+      "max_probability_delta": 0.0036241946044119344,
+      "over_tolerance": 0,
+      "argmax_changes": 0,
+      "policy_output_changes": 2,
+      "accepted": 1150
+    },
+    "original__instruction_first__joint_seed17__refit_none": {
+      "episodes": 1152,
+      "messages": 320,
+      "max_probability_delta": 0.0062183707058565685,
+      "over_tolerance": 2,
+      "argmax_changes": 1,
+      "policy_output_changes": 2,
+      "accepted": 1148
+    },
+    "original__instruction_first__joint_seed29__refit_none": {
+      "episodes": 1152,
+      "messages": 320,
+      "max_probability_delta": 0.00647777568669039,
+      "over_tolerance": 3,
+      "argmax_changes": 1,
+      "policy_output_changes": 1,
+      "accepted": 1148
+    },
+    "original__instruction_first__joint_seed43__refit_none": {
+      "episodes": 1152,
+      "messages": 320,
+      "max_probability_delta": 0.006255952548703425,
+      "over_tolerance": 2,
+      "argmax_changes": 1,
+      "policy_output_changes": 3,
+      "accepted": 1146
+    },
+    "original__lexical": {
+      "episodes": 1152,
+      "messages": 320,
+      "max_probability_delta": 0.0,
+      "over_tolerance": 0,
+      "argmax_changes": 0,
+      "policy_output_changes": 0,
+      "accepted": 1152
+    },
+    "original__finite_code": {
+      "episodes": 1152,
+      "messages": 320,
+      "max_probability_delta": 0.0025698057314675893,
+      "over_tolerance": 0,
+      "argmax_changes": 0,
+      "policy_output_changes": 0,
+      "accepted": 1152
+    },
+    "support_examples__instruction_first__frozen__unchanged_none": {
+      "episodes": 1152,
+      "messages": 320,
+      "max_probability_delta": 0.00520182778912659,
+      "over_tolerance": 1,
+      "argmax_changes": 0,
+      "policy_output_changes": 1,
+      "accepted": 1150
+    },
+    "support_examples__instruction_first__frozen__refit_none": {
+      "episodes": 1152,
+      "messages": 320,
+      "max_probability_delta": 0.003699655493571208,
+      "over_tolerance": 0,
+      "argmax_changes": 0,
+      "policy_output_changes": 3,
+      "accepted": 1149
+    },
+    "support_examples__instruction_first__joint_seed17__refit_none": {
+      "episodes": 1152,
+      "messages": 320,
+      "max_probability_delta": 0.007890599334282877,
+      "over_tolerance": 5,
+      "argmax_changes": 1,
+      "policy_output_changes": 1,
+      "accepted": 1145
+    },
+    "support_examples__instruction_first__joint_seed29__refit_none": {
+      "episodes": 1152,
+      "messages": 320,
+      "max_probability_delta": 0.007243992894578888,
+      "over_tolerance": 4,
+      "argmax_changes": 1,
+      "policy_output_changes": 0,
+      "accepted": 1147
+    },
+    "support_examples__instruction_first__joint_seed43__refit_none": {
+      "episodes": 1152,
+      "messages": 320,
+      "max_probability_delta": 0.006938438685427539,
+      "over_tolerance": 2,
+      "argmax_changes": 0,
+      "policy_output_changes": 0,
+      "accepted": 1150
+    },
+    "support_examples__lexical": {
+      "episodes": 1152,
+      "messages": 320,
+      "max_probability_delta": 0.0,
+      "over_tolerance": 0,
+      "argmax_changes": 0,
+      "policy_output_changes": 0,
+      "accepted": 1152
+    },
+    "support_examples__finite_code": {
+      "episodes": 1152,
+      "messages": 320,
+      "max_probability_delta": 0.006538080222395631,
+      "over_tolerance": 1,
+      "argmax_changes": 0,
+      "policy_output_changes": 0,
+      "accepted": 1151
+    }
+  },
+  "interpretation": "Completed H final data are now historical/regression evidence. These values do not select a new default."
+}

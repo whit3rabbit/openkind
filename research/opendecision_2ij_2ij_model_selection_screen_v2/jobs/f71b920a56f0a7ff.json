@@ -1,0 +1,813 @@
+{
+  "cfg": {
+    "work_root": "/content/opendecision_2ij",
+    "drive_root": "/content/drive/MyDrive/Colab Notebooks/OpenDecision_Phase2IJ_results",
+    "study_id": "2ij_model_selection_screen_v2",
+    "source_archive": "/content/drive/MyDrive/Colab Notebooks/OpenDecision_Phase2H_Finish_results/20260919T040612625670Z__finish_2h_1_2/opendecision_phase2h_20260919T040612625670Z__finish_2h_1_2.zip",
+    "intake_root": "/content/drive/MyDrive/Colab Notebooks/OpenDecision_Phase2IJ_intakes/2ij_model_selection_screen_v2",
+    "study_mode": "exploratory_pilot",
+    "comparison_preset": "screen",
+    "include_multirc": true,
+    "run_model_export": true,
+    "run_gpu_mechanics": true,
+    "run_reviewed_study": true,
+    "run_final": true,
+    "run_scaling": true,
+    "coordinator_budget_minutes": 120.0,
+    "worker_budget_minutes": 45.0,
+    "checkpoint_steps": 32,
+    "sync_seconds": 180,
+    "minimum_free_disk_gib": 20.0,
+    "allow_cpu_test": false
+  },
+  "root": "/content/opendecision_2ij/2ij_model_selection_screen_v2",
+  "stage": "final",
+  "result_path": "/content/opendecision_2ij/2ij_model_selection_screen_v2/jobs/f71b920a56f0a7ff.result.json",
+  "profile": {
+    "name": "score_summary_seed17",
+    "kind": "score_summary",
+    "seed": 17,
+    "hidden": 2048,
+    "rank_history": [
+      {
+        "epoch": 1,
+        "dev_family_macro_nll": 0.08979945976760391
+      },
+      {
+        "epoch": 2,
+        "dev_family_macro_nll": 0.08778589396633427
+      },
+      {
+        "epoch": 3,
+        "dev_family_macro_nll": 0.1648358432703723
+      },
+      {
+        "epoch": 4,
+        "dev_family_macro_nll": 0.13896779952937652
+      },
+      {
+        "epoch": 5,
+        "dev_family_macro_nll": 0.11020090363835078
+      }
+    ],
+    "rejection_history": [
+      {
+        "epoch": 1,
+        "dev_family_macro_nll": 0.08777228142525523
+      },
+      {
+        "epoch": 2,
+        "dev_family_macro_nll": 0.08776797633021854
+      },
+      {
+        "epoch": 3,
+        "dev_family_macro_nll": 0.08776338177360182
+      },
+      {
+        "epoch": 4,
+        "dev_family_macro_nll": 0.0877594493607938
+      },
+      {
+        "epoch": 5,
+        "dev_family_macro_nll": 0.08775559272044806
+      },
+      {
+        "epoch": 6,
+        "dev_family_macro_nll": 0.08775262389028504
+      },
+      {
+        "epoch": 7,
+        "dev_family_macro_nll": 0.08775023122100256
+      },
+      {
+        "epoch": 8,
+        "dev_family_macro_nll": 0.08774731763416699
+      },
+      {
+        "epoch": 9,
+        "dev_family_macro_nll": 0.08774517985333455
+      },
+      {
+        "epoch": 10,
+        "dev_family_macro_nll": 0.087743282590039
+      },
+      {
+        "epoch": 11,
+        "dev_family_macro_nll": 0.08774107832057323
+      },
+      {
+        "epoch": 12,
+        "dev_family_macro_nll": 0.08773943206447887
+      }
+    ],
+    "weights_sha256": "0fff47b00723835ed782e9db9d146092d349dad4549ffad768eaf193d4e8a907",
+    "calibration": {
+      "fitted": 1.6741633736831312,
+      "selected": 1.6741633736831312,
+      "gate_before": 0.17288798537235883,
+      "gate_after": 0.15104980219635084,
+      "selected_on": "cal_gate",
+      "selection_on_final": false
+    },
+    "development": {
+      "episodes": 216,
+      "messages": 36,
+      "accuracy": 0.9537037037037037,
+      "nll": 0.12805564791998303,
+      "brier": 0.07473455136938235,
+      "ece_15bins": 0.048409237539848174,
+      "ordinal_argmax_mae": 0.0,
+      "ordinal_expected_value_mae": 0.0010313738730945434,
+      "by_family": {
+        "asset": {
+          "episodes": 24,
+          "messages": 24,
+          "accuracy": 1.0,
+          "nll": 0.00012639063004490304,
+          "brier": 6.946201671267275e-08,
+          "ece_15bins": 0.00012636841740221172
+        },
+        "external": {
+          "episodes": 24,
+          "messages": 24,
+          "accuracy": 1.0,
+          "nll": 0.019008088055519668,
+          "brier": 0.002028433629052442,
+          "ece_15bins": 0.018472807656649676
+        },
+        "compromise": {
+          "episodes": 24,
+          "messages": 24,
+          "accuracy": 1.0,
+          "nll": 0.01408793315162629,
+          "brier": 0.0007869631978313827,
+          "ece_15bins": 0.01388570810476486
+        },
+        "routing": {
+          "episodes": 24,
+          "messages": 24,
+          "accuracy": 1.0,
+          "nll": 0.0038080249777842877,
+          "brier": 0.00012309077597208492,
+          "ece_15bins": 0.0037765055157893412
+        },
+        "urgency": {
+          "episodes": 24,
+          "messages": 24,
+          "accuracy": 1.0,
+          "nll": 0.0006358927730301076,
+          "brier": 2.613315625192461e-06,
+          "ece_15bins": 0.0006352002780521948,
+          "ordinal_argmax_mae": 0.0,
+          "ordinal_expected_value_mae": 0.0010313738730945434
+        },
+        "conflicting_reports": {
+          "episodes": 24,
+          "messages": 24,
+          "accuracy": 0.9583333333333334,
+          "nll": 0.1628101482319437,
+          "brier": 0.0974963690176882,
+          "ece_15bins": 0.09297398292111946
+        },
+        "owner_evidence": {
+          "episodes": 24,
+          "messages": 24,
+          "accuracy": 1.0,
+          "nll": 0.07319083798357305,
+          "brier": 0.02223661081097611,
+          "ece_15bins": 0.06638392453320893
+        },
+        "multirc_answer_correctness": {
+          "episodes": 48,
+          "messages": 12,
+          "accuracy": 0.8125,
+          "nll": 0.4394167577381627,
+          "brier": 0.27496840605763956,
+          "ece_15bins": 0.19030538106109463
+        }
+      },
+      "by_origin": {
+        "answer_present": {
+          "episodes": 200,
+          "messages": 36,
+          "accuracy": 0.95,
+          "nll": 0.1382260326189778,
+          "brier": 0.080713024826554,
+          "ece_15bins": 0.05220799931370785,
+          "ordinal_argmax_mae": 0.0,
+          "ordinal_expected_value_mae": 0.0010313738730945434,
+          "none_rate": 0.0
+        },
+        "annotated_intent_omitted": {
+          "episodes": 6,
+          "messages": 6,
+          "accuracy": 1.0,
+          "nll": 0.000616387178065324,
+          "brier": 8.028058505077445e-07,
+          "ece_15bins": 0.000616129281127864,
+          "none_rate": 1.0
+        },
+        "author_oos": {
+          "episodes": 6,
+          "messages": 6,
+          "accuracy": 1.0,
+          "nll": 0.00022661564214492404,
+          "brier": 9.443069605069128e-08,
+          "ece_15bins": 0.00022658868369507257,
+          "none_rate": 1.0
+        },
+        "insufficient_evidence": {
+          "episodes": 4,
+          "messages": 4,
+          "accuracy": 1.0,
+          "nll": 0.0024388524998769693,
+          "brier": 1.3186764127551563e-05,
+          "ece_15bins": 0.002434784519169675,
+          "none_rate": 1.0
+        }
+      },
+      "family_macro_nll": 0.08913550919271057
+    },
+    "policy": {
+      "selected": {
+        "threshold": 0.98,
+        "episodes": 216,
+        "accepted_episodes": 118,
+        "wrong_accepted": 0,
+        "raw_coverage": 0.5462962962962963,
+        "panel_error_among_accepted": 0.0,
+        "family_group_weighted_coverage": 0.6119791666666666,
+        "family_group_weighted_cost": 0.03880208333333333,
+        "always_review_cost": 0.1,
+        "selection_on_final": false
+      },
+      "candidates": [
+        {
+          "threshold": 0.0,
+          "episodes": 216,
+          "accepted_episodes": 201,
+          "wrong_accepted": 10,
+          "raw_coverage": 0.9305555555555556,
+          "panel_error_among_accepted": 0.04975124378109453,
+          "family_group_weighted_coverage": 0.9218749999999996,
+          "family_group_weighted_cost": 0.15104166666666666,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        },
+        {
+          "threshold": 0.5,
+          "episodes": 216,
+          "accepted_episodes": 201,
+          "wrong_accepted": 10,
+          "raw_coverage": 0.9305555555555556,
+          "panel_error_among_accepted": 0.04975124378109453,
+          "family_group_weighted_coverage": 0.9218749999999996,
+          "family_group_weighted_cost": 0.15104166666666666,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        },
+        {
+          "threshold": 0.7,
+          "episodes": 216,
+          "accepted_episodes": 184,
+          "wrong_accepted": 5,
+          "raw_coverage": 0.8518518518518519,
+          "panel_error_among_accepted": 0.02717391304347826,
+          "family_group_weighted_coverage": 0.8619791666666664,
+          "family_group_weighted_cost": 0.07890625,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        },
+        {
+          "threshold": 0.8,
+          "episodes": 216,
+          "accepted_episodes": 171,
+          "wrong_accepted": 4,
+          "raw_coverage": 0.7916666666666666,
+          "panel_error_among_accepted": 0.023391812865497075,
+          "family_group_weighted_coverage": 0.8151041666666664,
+          "family_group_weighted_cost": 0.07057291666666667,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        },
+        {
+          "threshold": 0.9,
+          "episodes": 216,
+          "accepted_episodes": 156,
+          "wrong_accepted": 2,
+          "raw_coverage": 0.7222222222222222,
+          "panel_error_among_accepted": 0.01282051282051282,
+          "family_group_weighted_coverage": 0.7604166666666665,
+          "family_group_weighted_cost": 0.049999999999999996,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        },
+        {
+          "threshold": 0.95,
+          "episodes": 216,
+          "accepted_episodes": 137,
+          "wrong_accepted": 1,
+          "raw_coverage": 0.6342592592592593,
+          "panel_error_among_accepted": 0.0072992700729927005,
+          "family_group_weighted_coverage": 0.6901041666666666,
+          "family_group_weighted_cost": 0.04401041666666666,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        },
+        {
+          "threshold": 0.98,
+          "episodes": 216,
+          "accepted_episodes": 118,
+          "wrong_accepted": 0,
+          "raw_coverage": 0.5462962962962963,
+          "panel_error_among_accepted": 0.0,
+          "family_group_weighted_coverage": 0.6119791666666666,
+          "family_group_weighted_cost": 0.03880208333333333,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        },
+        {
+          "threshold": 0.99,
+          "episodes": 216,
+          "accepted_episodes": 97,
+          "wrong_accepted": 0,
+          "raw_coverage": 0.44907407407407407,
+          "panel_error_among_accepted": 0.0,
+          "family_group_weighted_coverage": 0.5052083333333333,
+          "family_group_weighted_cost": 0.04947916666666666,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        },
+        {
+          "threshold": 1.0,
+          "episodes": 216,
+          "accepted_episodes": 0,
+          "wrong_accepted": 0,
+          "raw_coverage": 0.0,
+          "panel_error_among_accepted": null,
+          "family_group_weighted_coverage": 0.0,
+          "family_group_weighted_cost": 0.09999999999999998,
+          "always_review_cost": 0.1,
+          "selection_on_final": false
+        }
+      ],
+      "selected_on": "policy_dev",
+      "coverage_is_not_quality": true
+    },
+    "benchmark": {
+      "requests": 4,
+      "repeats": 3,
+      "p50_ms": 1139.438669500123,
+      "p95_ms": 1524.241665949694,
+      "raw": [
+        {
+          "state_id": "pilot-4194714898-policy_dev-0000",
+          "source_kind": "constructed",
+          "questions": 4,
+          "milliseconds": 760.4756670007191
+        },
+        {
+          "state_id": "pilot-4194714898-policy_dev-0000",
+          "source_kind": "constructed",
+          "questions": 4,
+          "milliseconds": 762.7949059997263
+        },
+        {
+          "state_id": "pilot-4194714898-policy_dev-0000",
+          "source_kind": "constructed",
+          "questions": 4,
+          "milliseconds": 758.2988379999733
+        },
+        {
+          "state_id": "multirc-train-434",
+          "source_kind": "natural",
+          "questions": 4,
+          "milliseconds": 1524.1689679996853
+        },
+        {
+          "state_id": "multirc-train-434",
+          "source_kind": "natural",
+          "questions": 4,
+          "milliseconds": 1518.3429180005987
+        },
+        {
+          "state_id": "multirc-train-434",
+          "source_kind": "natural",
+          "questions": 4,
+          "milliseconds": 1521.7075620003016
+        },
+        {
+          "state_id": "pilot-4194714898-policy_dev-0001",
+          "source_kind": "constructed",
+          "questions": 4,
+          "milliseconds": 764.3322610001633
+        },
+        {
+          "state_id": "pilot-4194714898-policy_dev-0001",
+          "source_kind": "constructed",
+          "questions": 4,
+          "milliseconds": 757.7844019997428
+        },
+        {
+          "state_id": "pilot-4194714898-policy_dev-0001",
+          "source_kind": "constructed",
+          "questions": 4,
+          "milliseconds": 761.7276930004664
+        },
+        {
+          "state_id": "multirc-train-179",
+          "source_kind": "natural",
+          "questions": 4,
+          "milliseconds": 1524.3305189997045
+        },
+        {
+          "state_id": "multirc-train-179",
+          "source_kind": "natural",
+          "questions": 4,
+          "milliseconds": 1514.5450780000829
+        },
+        {
+          "state_id": "multirc-train-179",
+          "source_kind": "natural",
+          "questions": 4,
+          "milliseconds": 1519.6938750004847
+        }
+      ],
+      "memory": {
+        "rss_mib": 1885.6953125,
+        "process_peak_rss_mib": 5197.75390625,
+        "allocated_gib": 7.0182952880859375,
+        "reserved_gib": 7.13671875,
+        "peak_allocated_gib": 7.082592964172363,
+        "free_gib": 14.6690673828125,
+        "total_gib": 22.0343017578125
+      },
+      "pre_benchmark_memory": {
+        "rss_mib": 1885.6953125,
+        "process_peak_rss_mib": 5197.75390625,
+        "allocated_gib": 7.0182952880859375,
+        "reserved_gib": 7.13671875,
+        "peak_allocated_gib": 7.08250617980957,
+        "free_gib": 14.6690673828125,
+        "total_gib": 22.0343017578125
+      },
+      "scope": "Q<=4 tokenization, full-sequential model calls, head, probabilities and native response JSON; resident model; no feature cache, shared-prefix credit, input parsing, HTTP, queue or startup",
+      "selection_benchmark": "policy_dev_Q4_full_sequential_complete_native_response",
+      "by_Q": {
+        "Q1": {
+          "requests": 4,
+          "repeats": 3,
+          "p50_ms": 287.11044350029624,
+          "p95_ms": 387.98401214994556,
+          "raw": [
+            {
+              "state_id": "pilot-4194714898-policy_dev-0000",
+              "source_kind": "constructed",
+              "questions": 1,
+              "milliseconds": 197.43884800027445
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0000",
+              "source_kind": "constructed",
+              "questions": 1,
+              "milliseconds": 202.17410900022514
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0000",
+              "source_kind": "constructed",
+              "questions": 1,
+              "milliseconds": 200.61680900016654
+            },
+            {
+              "state_id": "multirc-train-434",
+              "source_kind": "natural",
+              "questions": 1,
+              "milliseconds": 372.04677800036734
+            },
+            {
+              "state_id": "multirc-train-434",
+              "source_kind": "natural",
+              "questions": 1,
+              "milliseconds": 390.5208579999453
+            },
+            {
+              "state_id": "multirc-train-434",
+              "source_kind": "natural",
+              "questions": 1,
+              "milliseconds": 379.8857269994187
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0001",
+              "source_kind": "constructed",
+              "questions": 1,
+              "milliseconds": 199.7742389994528
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0001",
+              "source_kind": "constructed",
+              "questions": 1,
+              "milliseconds": 198.11078200018528
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0001",
+              "source_kind": "constructed",
+              "questions": 1,
+              "milliseconds": 196.5116230003332
+            },
+            {
+              "state_id": "multirc-train-179",
+              "source_kind": "natural",
+              "questions": 1,
+              "milliseconds": 385.9084109999458
+            },
+            {
+              "state_id": "multirc-train-179",
+              "source_kind": "natural",
+              "questions": 1,
+              "milliseconds": 374.09862900040025
+            },
+            {
+              "state_id": "multirc-train-179",
+              "source_kind": "natural",
+              "questions": 1,
+              "milliseconds": 381.90933500027313
+            }
+          ],
+          "memory": {
+            "rss_mib": 1885.6953125,
+            "process_peak_rss_mib": 5197.75390625,
+            "allocated_gib": 7.0182952880859375,
+            "reserved_gib": 7.13671875,
+            "peak_allocated_gib": 7.08250617980957,
+            "free_gib": 14.6690673828125,
+            "total_gib": 22.0343017578125
+          },
+          "pre_benchmark_memory": {
+            "rss_mib": 1885.69140625,
+            "process_peak_rss_mib": 5197.75390625,
+            "allocated_gib": 7.0182952880859375,
+            "reserved_gib": 7.13671875,
+            "peak_allocated_gib": 7.082592964172363,
+            "free_gib": 14.6690673828125,
+            "total_gib": 22.0343017578125
+          }
+        },
+        "Q4": {
+          "requests": 4,
+          "repeats": 3,
+          "p50_ms": 1139.438669500123,
+          "p95_ms": 1524.241665949694,
+          "raw": [
+            {
+              "state_id": "pilot-4194714898-policy_dev-0000",
+              "source_kind": "constructed",
+              "questions": 4,
+              "milliseconds": 760.4756670007191
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0000",
+              "source_kind": "constructed",
+              "questions": 4,
+              "milliseconds": 762.7949059997263
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0000",
+              "source_kind": "constructed",
+              "questions": 4,
+              "milliseconds": 758.2988379999733
+            },
+            {
+              "state_id": "multirc-train-434",
+              "source_kind": "natural",
+              "questions": 4,
+              "milliseconds": 1524.1689679996853
+            },
+            {
+              "state_id": "multirc-train-434",
+              "source_kind": "natural",
+              "questions": 4,
+              "milliseconds": 1518.3429180005987
+            },
+            {
+              "state_id": "multirc-train-434",
+              "source_kind": "natural",
+              "questions": 4,
+              "milliseconds": 1521.7075620003016
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0001",
+              "source_kind": "constructed",
+              "questions": 4,
+              "milliseconds": 764.3322610001633
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0001",
+              "source_kind": "constructed",
+              "questions": 4,
+              "milliseconds": 757.7844019997428
+            },
+            {
+              "state_id": "pilot-4194714898-policy_dev-0001",
+              "source_kind": "constructed",
+              "questions": 4,
+              "milliseconds": 761.7276930004664
+            },
+            {
+              "state_id": "multirc-train-179",
+              "source_kind": "natural",
+              "questions": 4,
+              "milliseconds": 1524.3305189997045
+            },
+            {
+              "state_id": "multirc-train-179",
+              "source_kind": "natural",
+              "questions": 4,
+              "milliseconds": 1514.5450780000829
+            },
+            {
+              "state_id": "multirc-train-179",
+              "source_kind": "natural",
+              "questions": 4,
+              "milliseconds": 1519.6938750004847
+            }
+          ],
+          "memory": {
+            "rss_mib": 1885.6953125,
+            "process_peak_rss_mib": 5197.75390625,
+            "allocated_gib": 7.0182952880859375,
+            "reserved_gib": 7.13671875,
+            "peak_allocated_gib": 7.082592964172363,
+            "free_gib": 14.6690673828125,
+            "total_gib": 22.0343017578125
+          },
+          "pre_benchmark_memory": {
+            "rss_mib": 1885.6953125,
+            "process_peak_rss_mib": 5197.75390625,
+            "allocated_gib": 7.0182952880859375,
+            "reserved_gib": 7.13671875,
+            "peak_allocated_gib": 7.08250617980957,
+            "free_gib": 14.6690673828125,
+            "total_gib": 22.0343017578125
+          }
+        }
+      }
+    },
+    "method": "frozen",
+    "spec": {
+      "key": "qwen2b",
+      "id": "Qwen/Qwen3.5-2B-Base",
+      "revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+      "kind": "causal",
+      "parameter_hint": 2200000000
+    },
+    "layout": "state_first",
+    "artifact_dir": "arms/qwen2b_frozen__state_first__seed17",
+    "head_file": "score_summary_seed17.safetensors",
+    "runtime": {
+      "identity": {
+        "spec": {
+          "key": "qwen2b",
+          "id": "Qwen/Qwen3.5-2B-Base",
+          "revision": "b1485b2fa6dfa1287294f269f5fb618e03d52d7c",
+          "kind": "causal",
+          "parameter_hint": 2200000000
+        },
+        "flags": {
+          "matmul_precision": "highest",
+          "matmul_allow_tf32": false,
+          "cudnn_allow_tf32": false,
+          "sdpa": "math_only"
+        },
+        "environment": {
+          "python": "3.13.15",
+          "packages": {
+            "torch": "2.11.0+cu128",
+            "transformers": "5.17.0",
+            "numpy": "2.1.3",
+            "scipy": "1.16.3",
+            "safetensors": "0.8.0",
+            "peft": "0.20.0",
+            "accelerate": "1.14.0",
+            "huggingface-hub": "1.29.0",
+            "flash-linear-attention": null,
+            "fla-core": null,
+            "causal-conv1d": null,
+            "flash-attn": null
+          },
+          "workbench": "2ij.2.0",
+          "torch": "2.11.0+cu128",
+          "cuda": "12.8",
+          "gpu": "NVIDIA L4"
+        },
+        "runtime_sha256": "2b2774b9ec74763c7bb0b864f0d02b1e2dae14b708dffa698c29a486e57c41e9",
+        "model_code_sha256": "762feb6c7426a7f15b5bf830df54c07438bf9e7c27b8cdb23179045920412c3b",
+        "tokenizer_backend": "cc4ac36668961751f10c10901159d3fb3263507a4c24f4760833f9d21901849f",
+        "dtype": "float32",
+        "parameter_count": 1881825088
+      },
+      "model_load_seconds": 3.8666052420003325,
+      "after_load_memory": {
+        "rss_mib": 1242.42578125,
+        "process_peak_rss_mib": 5197.75390625,
+        "allocated_gib": 7.0103607177734375,
+        "reserved_gib": 7.01953125,
+        "peak_allocated_gib": 7.010361194610596,
+        "free_gib": 14.7960205078125,
+        "total_gib": 22.0343017578125
+      },
+      "parameter_count": 1881825088,
+      "storage_dtype": "float32",
+      "optimized_kernels": "not established; package inventory is not dispatch evidence",
+      "model_config": {
+        "transformers_version": "5.17.0",
+        "architectures": null,
+        "output_hidden_states": false,
+        "return_dict": true,
+        "dtype": "float32",
+        "chunk_size_feed_forward": 0,
+        "is_encoder_decoder": false,
+        "id2label": {
+          "0": "LABEL_0",
+          "1": "LABEL_1"
+        },
+        "label2id": {
+          "LABEL_0": 0,
+          "LABEL_1": 1
+        },
+        "problem_type": null,
+        "vocab_size": 248320,
+        "hidden_size": 2048,
+        "intermediate_size": 6144,
+        "num_hidden_layers": 24,
+        "num_attention_heads": 8,
+        "num_key_value_heads": 2,
+        "hidden_act": "silu",
+        "max_position_embeddings": 262144,
+        "initializer_range": 0.02,
+        "rms_norm_eps": 1e-06,
+        "use_cache": true,
+        "tie_word_embeddings": true,
+        "rope_parameters": {
+          "mrope_interleaved": true,
+          "mrope_section": [
+            11,
+            11,
+            10
+          ],
+          "rope_type": "default",
+          "rope_theta": 10000000,
+          "partial_rotary_factor": 0.25
+        },
+        "attention_bias": false,
+        "attention_dropout": 0.0,
+        "head_dim": 256,
+        "linear_conv_kernel_dim": 4,
+        "linear_key_head_dim": 128,
+        "linear_value_head_dim": 128,
+        "linear_num_key_heads": 16,
+        "linear_num_value_heads": 16,
+        "layer_types": [
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention",
+          "linear_attention",
+          "linear_attention",
+          "linear_attention",
+          "full_attention"
+        ],
+        "pad_token_id": null,
+        "bos_token_id": null,
+        "eos_token_id": 248044,
+        "_name_or_path": "Qwen/Qwen3.5-2B-Base",
+        "attn_output_gate": true,
+        "full_attention_interval": 4,
+        "mlp_only_layers": [],
+        "model_type": "qwen3_5_text",
+        "mtp_num_hidden_layers": 1,
+        "mtp_use_dedicated_embeddings": false,
+        "mamba_ssm_dtype": "float32",
+        "partial_rotary_factor": 0.25,
+        "output_attentions": false
+      }
+    },
+    "arm": "qwen2b_frozen",
+    "profile_id": "70d8dea31e47a29f5694"
+  }
+}

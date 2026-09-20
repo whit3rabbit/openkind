@@ -1,0 +1,165 @@
+{
+  "status": "completed",
+  "result": {
+    "status": "completed",
+    "profile_id": "2fc393ad70462a47654c",
+    "selected_before_final": false,
+    "metrics": {
+      "episodes": 320,
+      "messages": 56,
+      "accuracy": 0.515625,
+      "nll": 0.8019709514264328,
+      "brier": 0.5259598255746911,
+      "ece_15bins": 0.15284325345307367,
+      "ordinal_argmax_mae": 0.640625,
+      "ordinal_expected_value_mae": 0.6717826999093244,
+      "by_family": {
+        "asset": {
+          "episodes": 32,
+          "messages": 32,
+          "accuracy": 0.375,
+          "nll": 1.1597098473078369,
+          "brier": 0.666454221949236,
+          "ece_15bins": 0.028678392319529174
+        },
+        "external": {
+          "episodes": 32,
+          "messages": 32,
+          "accuracy": 0.4375,
+          "nll": 0.7227377917394755,
+          "brier": 0.5291824131951518,
+          "ece_15bins": 0.19582334887698932
+        },
+        "compromise": {
+          "episodes": 32,
+          "messages": 32,
+          "accuracy": 0.5625,
+          "nll": 0.6364557918597733,
+          "brier": 0.4475098894648255,
+          "ece_15bins": 0.25339448740512927
+        },
+        "routing": {
+          "episodes": 32,
+          "messages": 32,
+          "accuracy": 0.90625,
+          "nll": 0.33953416075912735,
+          "brier": 0.16315266942342396,
+          "ece_15bins": 0.07599289164263666
+        },
+        "urgency": {
+          "episodes": 32,
+          "messages": 32,
+          "accuracy": 0.375,
+          "nll": 1.0735342556969256,
+          "brier": 0.6332259689285524,
+          "ece_15bins": 0.422050830910395,
+          "ordinal_argmax_mae": 0.625,
+          "ordinal_expected_value_mae": 0.6655323576724825
+        },
+        "impact_rubric": {
+          "episodes": 32,
+          "messages": 32,
+          "accuracy": 0.34375,
+          "nll": 1.1664606706531448,
+          "brier": 0.6899515035465298,
+          "ece_15bins": 0.45703854334085203,
+          "ordinal_argmax_mae": 0.65625,
+          "ordinal_expected_value_mae": 0.6780330421461662
+        },
+        "evidence_sufficient": {
+          "episodes": 32,
+          "messages": 32,
+          "accuracy": 0.53125,
+          "nll": 0.7098573195592128,
+          "brier": 0.5169843159570207,
+          "ece_15bins": 0.17567242157306273
+        },
+        "multirc_answer_correctness": {
+          "episodes": 96,
+          "messages": 24,
+          "accuracy": 0.5416666666666666,
+          "nll": 0.7371398922296102,
+          "brier": 0.5377124244273904,
+          "ece_15bins": 0.13034260080315585
+        }
+      },
+      "by_origin": {
+        "answer_present": {
+          "episodes": 299,
+          "messages": 56,
+          "accuracy": 0.4816053511705686,
+          "nll": 0.8516852963052095,
+          "brier": 0.5618431117932652,
+          "ece_15bins": 0.16035315930473576,
+          "ordinal_argmax_mae": 0.640625,
+          "ordinal_expected_value_mae": 0.6717826999093244,
+          "none_rate": 0.010033444816053512
+        },
+        "annotated_intent_omitted": {
+          "episodes": 8,
+          "messages": 8,
+          "accuracy": 1.0,
+          "nll": 0.0439371553273951,
+          "brier": 0.0031198353414924203,
+          "ece_15bins": 0.042973512110161316,
+          "none_rate": 1.0
+        },
+        "author_oos": {
+          "episodes": 8,
+          "messages": 8,
+          "accuracy": 1.0,
+          "nll": 0.11080740810554456,
+          "brier": 0.016778088032824764,
+          "ece_15bins": 0.10483081293885343,
+          "none_rate": 1.0
+        },
+        "insufficient_evidence": {
+          "episodes": 5,
+          "messages": 5,
+          "accuracy": 1.0,
+          "nll": 0.14776887074746053,
+          "brier": 0.031374074144067454,
+          "ece_15bins": 0.1371912709696631,
+          "none_rate": 1.0
+        }
+      },
+      "family_macro_nll": 0.8181787162256382,
+      "accuracy_cluster_ci95": [
+        0.4573927089778571,
+        0.5617136280118595
+      ],
+      "uncertainty_limit": "Source-group bootstrap; no pretraining, label-validity, training-seed or rare-error certification."
+    },
+    "policy": {
+      "threshold": 0.8,
+      "episodes": 320,
+      "accepted_episodes": 8,
+      "wrong_accepted": 1,
+      "raw_coverage": 0.025,
+      "panel_error_among_accepted": 0.125,
+      "family_group_weighted_coverage": 0.028645833333333332,
+      "family_group_weighted_cost": 0.10364583333333333,
+      "always_review_cost": 0.1,
+      "selection_on_final": false
+    },
+    "predictions_sha256": "3bdb25ce12bbde1025dd6f7f379517534255b12dcbcf10556f4d374d5b35a1ae",
+    "interpretation": "Final quality is separate from task coverage, numerical equivalence and service readiness.",
+    "registered_point_estimate_checks": {
+      "max_family_macro_nll": null,
+      "max_panel_accepted_error": null,
+      "min_policy_coverage": null,
+      "max_request_p95_ms": null,
+      "max_peak_allocated_gib": null
+    },
+    "observed_point_values": {
+      "max_family_macro_nll": 0.8181787162256382,
+      "max_panel_accepted_error": 0.125,
+      "min_policy_coverage": 0.028645833333333332,
+      "max_request_p95_ms": 221.36285695005427,
+      "max_peak_allocated_gib": 1.5206713676452637
+    },
+    "meets_registered_point_estimate_limits": false,
+    "data_scope": "exploratory_pilot",
+    "acceptance_limit": "Unset bounds are unassessed, not passed. Exploratory final means held-out pilot cases, not independently reviewed deployment validation."
+  }
+}

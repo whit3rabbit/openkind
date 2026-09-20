@@ -1,5 +1,4 @@
 # OpenDecision
-
 ## A Qwen-led path to compact, multi-question decision models
 
 ### Abstract
@@ -9,7 +8,11 @@ The research destination remains a compact, useful model answering several indep
 
 The subsequent 2I/2J workbench now supplies a small real-GPU state-first branching result: synthetic Q = 2, K = 2 hidden features pass their declared feature tolerances, with the root recorded unchanged. It does not yet supply trained multi-question quality or a model comparison. Its reviewed-study gate is blocked by unsigned review, unspecified hardware/quality limits and a stale review-protocol hash. An added-question fixture actually duplicates the first question and must not be counted as a distinct unrelated-question test. The next stage remains reviewed protocol/data approval followed by the planned comparisons. [E10; I0; V3]
 
+Version 0.7 adds the completed `2ij.2.0` exploratory model-selection screen. Thirteen configured fit jobs completed and 31 locked final profiles were evaluated. The pre-final selection rule chose Qwen3.5-4B-Base with a frozen backbone, state-first rendering and the score-summary rejection head (profile `a047d6802c3f06f085b8`) as the provisional integration candidate. Its held-out exploratory panel contains 320 question episodes from 56 source messages and records 95.0% accuracy, 0.13006 NLL, 0.07319 Brier and 0.01661 15-bin ECE. The natural MultiRC answer-correctness slice is materially harder at 83.33% accuracy and 0.40361 NLL, while the constructed families are near-saturated; this is therefore a bounded pilot result, not a release-quality claim. A 0.98 policy accepted 214/320 episodes with one wrong accepted decision. The model-selection bundle subsequently passed a clean A100 reload check with maximum probability delta 3.67e-6, zero selected-ID changes and an independent NumPy/f64 head-algebra check. The exported reference bundle is now the implementation contract for Rust/native parity work. [E11]
+
 **Historical version 0.6 scope.** That revision built on v0.5.2, including its recovered-discussion traceability and conditional P2 tasks. It preserved the historical B–G and H-development numerical tables, added the completed `2h.1.2` continuation, and closed the bounded 2H-C1–C5 tasks. Detailed methods, all retained comparisons, rejection/policy behavior, numerical limits, robustness, primitive scores and resource measurements are in §13.1; the roadmap now keeps a concise closeout and next-work summary. V2 independently checks saved-output arithmetic and artifact lineage, not new model computation. No Qwen inference, retraining, new GPU benchmark, source-label adjudication, repository test or external-literature review was performed during this documentation revision. [E9; V2]
+
+**Version 0.7 scope.** This revision preserves all prior H and 2I/2J checkpoint evidence, adds the completed exploratory model comparison, final held-out pilot readout, multi-question execution measurements, and the A100-verified selected-model bundle. It does not convert the exploratory pilot into an independently reviewed release study, establish production acceptance limits, or claim Rust/Metal parity. The selected integration candidate remains provisional. [E11]
 
 **Version 0.6.1 scope.** This update uses the latest delivered v0.6 paper and roadmap as its editing bases, not the older v0.3 paper or pre-H roadmap also present in the conversation. It adds the first `2ij.1.0` workbench report, whose overall status is **blocked**: preparation and a Qwen4B/L4 synthetic feature-equivalence probe completed, but independent review and the selection contract are not approved. All historical B–G/H measurement tables and 2H closeout remain unchanged. Section 14 separates the probe from semantic quality, records a duplicate-question fixture mislabeled as unrelated-question addition, and identifies the exact review/target/manifest blockers. V3 checks saved records and source code without running the notebook or reading final-case annotations. No review is signed, no model is retrained and no Drive source is changed. [E10; I0; V3]
 
@@ -1459,7 +1462,114 @@ To continue the intended study, use the existing `OpenDecision_Phase2IJ_review` 
 
 The compact report is **not a full resume archive**: it explicitly excludes H source archives, weights, optimizer state and SQLite feature caches. The `LATEST.json` pointer identifies separate complete Drive snapshot generations for recovery. V3 verifies the current snapshot-manifest identity and the 18 files shared with this report; it does not validate the unmaterialized SQLite backup or test a fresh-runtime restore. Do not infer future resume success merely from a report ZIP. No notebook, intake approval, reservation, source result or persistent Drive file was changed by this documentation update. [E10; V3]
 
-## Conclusion
+#
+# 15. Completed exploratory 2I/2J model selection and Rust handoff
+
+## 15.1 Completion and evidence boundary
+
+Study `2ij_model_selection_screen_v2`, workbench `2ij.2.0`, completed its requested exploratory scope after an A100 export-only continuation. The run preserved Phase 2H as read-only historical evidence, registered a separate exploratory pilot, completed all configured fitting jobs, locked model selection before final evaluation, evaluated every locked final profile, completed the bounded multi-question scaling study, and exported the selected-model reference bundle. The final workflow status is `completed_requested_scope`.
+
+This completion has three important limits. First, the study scope is `exploratory_pilot`; the cases were not independently reviewed as an operational benchmark. Second, the five promotion bounds for family-macro NLL, accepted error, minimum coverage, request p95 and peak allocated memory were intentionally unset, so no release gate can be inferred from the point estimates. Third, native Rust/Metal parity and target-machine deployment measurements remain separate. The correct result is therefore **a measured provisional integration candidate with an exported executable reference contract**, not a production model.
+
+## 15.2 Comparison design and pre-final selection
+
+The screen completed 13 configured fit jobs and retained 31 final profiles after expanding rejection variants. It compared:
+
+- Qwen3.5-2B frozen, online-head and limited-LoRA treatments under instruction-first and state-first rendering;
+- Qwen3.5-4B frozen controls under both renderings;
+- frozen and fully fine-tuned ModernBERT-large joint-option scorers;
+- frozen and LoRA-trained finite-token controls on Qwen3.5-2B; and
+- a lexical control.
+
+The comparison is not an equal-compute tournament. The 2B online-head/LoRA pair is the specifically matched adaptation comparison; full ModernBERT training and finite-token adaptation have different optimization graphs and trainable-parameter budgets. All listed results are one-seed exploratory measurements unless otherwise stated.
+
+Model selection did not inspect final labels. The locked rule first applied any declared nonfinal constraints, then kept neural candidates within 0.02 family-macro development NLL of the best eligible profile, and then used the measured nonfinal Q<=4 resident-request latency as the tie-breaker. Because promotion limits were unset, the resulting choice is explicitly provisional.
+
+The best nonfinal family-macro NLL in the selection band was the Qwen4B state-first semantic-feature rejection variant at 0.049045. The score-summary variant was close at 0.049276 and had the lower measured Q<=4 p95 within the selection band, so profile `a047d6802c3f06f085b8` was frozen before final evaluation. No post-final reselection occurred.
+
+## 15.3 Final comparison: state-first Qwen is the strongest tested family in this pilot
+
+The table below reports the best final-NLL profile within each major fitted arm. It is descriptive of this pilot's data, renderer, optimization schedule and hardware; it is not an architecture ranking beyond that scope.
+
+| Arm | Rendering / treatment | Final accuracy | Final NLL | Family-macro NLL | Nonfinal p95 | Peak allocated |
+|---|---|---:|---:|---:|---:|---:|
+| Qwen4B frozen | **state-first**, semantic-feature rejection | **95.00%** | **0.12944** | **0.06104** | 3,877 ms | 15.80 GiB |
+| **Selected Qwen4B frozen** | **state-first**, score-summary rejection | **95.00%** | **0.13006** | **0.06168** | **3,840 ms** | **15.80 GiB** |
+| Qwen4B frozen | instruction-first, semantic-feature rejection | 86.25% | 0.23308 | 0.11326 | 3,890 ms | 15.80 GiB |
+| Qwen2B LoRA | state-first, score-summary rejection | 91.56% | 0.17834 | 0.10182 | 1,523 ms | 7.10 GiB |
+| Qwen2B frozen | state-first, semantic-feature rejection | 89.69% | 0.18936 | 0.12118 | 1,496 ms | 7.08 GiB |
+| Qwen2B online-head | state-first, score-summary rejection | 89.38% | 0.20791 | 0.11888 | 1,530 ms | 7.09 GiB |
+| Qwen2B LoRA | instruction-first, semantic-feature rejection | 85.31% | 0.42661 | 0.18712 | 1,500 ms | 7.10 GiB |
+| Qwen2B frozen | instruction-first, semantic-feature rejection | 84.38% | 0.46262 | 0.23046 | 1,497 ms | 7.08 GiB |
+| Qwen2B finite-token + LoRA | finite-token | 77.50% | 0.45772 | 0.38869 | 769 ms | 7.10 GiB |
+| ModernBERT-large frozen | joint option markers | 51.56% | 0.78912 | 0.80354 | 222 ms | 1.52 GiB |
+| ModernBERT-large full | full encoder update | 42.19% | 0.88529 | 0.93364 | 221 ms | 1.53 GiB |
+| Lexical control | native | 55.00% | 0.83242 | 0.86094 | 4.7 ms | ~0 GiB |
+
+Three conclusions are supported within the experiment. **First, state-first rendering is not merely an execution optimization:** the state-first Qwen profiles substantially outperform their instruction-first counterparts on this pilot, so rendering belongs to the learned model contract. **Second, the 2B model is a credible deployment alternative but did not match the 4B state-first quality point:** the strongest 2B result reaches 91.56% rather than 95.0%, while using roughly half the measured GPU allocation and less than half the Q<=4 latency. **Third, the compact ModernBERT arm is much faster and smaller but is not competitive on this task setup.** The result argues against selecting the compact encoder merely from architectural efficiency; it does not reject Laya or every bidirectional scorer, because the released Laya checkpoint was not evaluated and this training treatment is specific.
+
+The 2B LoRA result is also useful: limited adaptation improves the strongest 2B state-first operating point relative to the frozen and online-head variants in final accuracy/NLL, but does not close the observed quality gap to the selected 4B profile. The finite-token LoRA control improves materially over its unadapted finite-token counterpart but remains below the candidate-conditioned Qwen profiles.
+
+## 15.4 Selected candidate final quality
+
+The selected profile's final exploratory panel has **320 question episodes from 56 source messages**. Its aggregate metrics are:
+
+| Metric | Selected profile |
+|---|---:|
+| Accuracy | **95.00%** |
+| Source-group bootstrap 95% accuracy interval | **91.16%–97.64%** |
+| NLL | **0.13006** |
+| Family-macro NLL | **0.06168** |
+| Brier | **0.07319** |
+| ECE, 15 bins | **0.01661** |
+| Ordinal argmax MAE | **0.0000** |
+| Ordinal expected-value MAE | **0.00031** |
+
+The constructed asset, external, compromise, routing, urgency, impact-rubric and evidence-sufficiency families are all 100% accurate on their 32-episode slices. That is useful evidence that the model can learn the pilot contract, but it also indicates that these generated families are too easy to support a broad competence claim.
+
+The independently sourced MultiRC answer-correctness component is the informative counterweight: **80/96 correct = 83.33% accuracy**, with NLL 0.40361, Brier 0.23607 and ECE 0.07863 across 24 source messages. The overall 95% headline should therefore never be read without this natural-data slice.
+
+All sampled semantic-none strata in this small final panel are correct: 8/8 omitted-option episodes, 8/8 constructed author-OOS episodes and 5/5 insufficient-evidence episodes. These counts are too small and too constructed to supersede the harder rejection findings from G/H or certify operational OOS/insufficient-evidence handling.
+
+The selected application policy uses threshold 0.98. It accepts 214/320 episodes (66.875% raw coverage) and records **one wrong accepted decision**, or 0.467% error among accepted episodes. Family/group-weighted coverage is 72.92%; the corresponding weighted cost is 0.03359 under the pilot cost model versus 0.1 for always-review. These are observed pilot point estimates; because the promotion limits were left unset and rare-error uncertainty is not certified, they are not release acceptance results.
+
+## 15.5 Multi-question state-first execution is now measured, but only boundedly
+
+The sharing study intentionally selected a state-first Qwen4B semantic-feature profile from development data only (`5f993e269e342aeec63c`) so the execution experiment did not depend on the final model-selection outcome. Three policy-development source states supplied genuine same-state Q=1 and Q=4 semantic comparisons. Q=16 semantic evaluation was not applicable because those states did not contain 16 distinct reviewed questions.
+
+Across the Q=1/Q=4 semantic rows, nested state→question→candidate execution stayed within approximately **7.2e-7 maximum probability difference** from full sequential execution, with zero argmax changes and zero policy changes. Reordering questions, adding a genuinely distinct available question, renaming opaque IDs and permuting candidates also produced no recorded policy changes in these bounded cases. This closes the earlier duplicate-question fixture defect as an implementation test, while leaving broad semantic independence open.
+
+For the three Q=4 semantic states, full-sequential medians were approximately 1.65–1.75 s. Nested-cold medians were approximately 1.38–1.41 s and nested-warm medians approximately 1.23–1.29 s. Thus genuine state-first reuse reduced the measured Q=4 model/head work on these cases, but the benchmark excludes server queueing, network, request parsing and startup.
+
+The separate 12-cell mechanics grid spans actual state lengths 64, 256 and 1,024 tokens with Q in {1,4,16} and K values chosen from {2,4,8,16}. Every cell passed the declared scaled-feature tolerance. The largest recorded scaled feature delta is about 2.06e-6. The performance effect grows with shared state length: for example, at L=1024, Q=4, K=4, full sequential measured about 18.29 s, nested cold 3.16 s and nested warm 2.07 s; at L=1024, Q=16, K=2, the corresponding medians were about 36.48 s, 5.89 s and 4.81 s. These synthetic rows establish execution mechanics, not semantic quality at Q=16 or long natural-document competence.
+
+## 15.6 The selected-model bundle closes the research-to-Rust handoff
+
+The first bundle attempt on an L4 was skipped by its FP32 free-memory planning guard after the scientific study itself had completed. A dedicated A100 continuation restored the immutable study and retried only the selected-model bundle stage. The export completed without retraining, reselection or new final evaluation.
+
+The reference bundle has SHA-256:
+
+`4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332`
+
+Base Qwen weights are **not** duplicated in the approximately 4.3 MB bundle; they remain an immutable external checkpoint dependency. The bundle contains the selected fitted artifacts, tokenizer assets/identity, model and probability contracts, exact nonfinal golden fixtures, tensor inventory, implementation snapshot and Rust handoff notes.
+
+A fresh Python reload of the exported bundle passes its reference parity check on four nonfinal questions:
+
+- maximum probability delta: **3.6673555e-6**;
+- selected-ID changes: **0**;
+- independent NumPy/f64 head-algebra check: **passed**;
+- largest saved head-algebra logit delta: approximately **2.07e-6**.
+
+This validates artifact integrity and reference reload behavior. It is not Rust, Metal, Candle, GGUF or ONNX parity. The bundle deliberately exposes that boundary so native implementation work can proceed against exact fixtures instead of reverse-engineering the notebook.
+
+## 15.7 Roadmap consequence
+
+The project can now stop treating model identity as the main blocker for Rust engineering. **Profile `a047d6802c3f06f085b8` is the provisional integration target.** The appropriate next implementation sequence is exported head/probability algebra → exact tokenizer/state-first renderer → full-backbone hidden-state parity on the intended local runtime → supported nested sharing → service integration and target-device measurements.
+
+The remaining model-research gates are promotion gates, not prerequisites for beginning the port: independent review/natural-data confirmation, explicit release-quality/resource bounds, released Laya/GLiClass external baselines, and any conditional P2 quantization or teacher/student study. A later reviewed confirmation can reject the provisional candidate for release without invalidating its value as the fixed implementation target used to build and test the Rust/native path.
+
+
+# Conclusion
 
 OpenDecision’s completed evidence remains useful and unchanged: frozen-feature task results, dynamic candidate transfer, measured rejection trade-offs, cost-sensitive policies, strict-FP32 shared-prefix agreement, and bounded cache-compression/persistence findings. Phase 2G adds both stronger execution evidence and clearer limits in rejection, criteria interpretation, and background robustness. These are not reasons to discard Qwen; they are reasons to stop treating the narrowly fitted frozen scorer as the finished model. [E1–E7; R3]
 
@@ -1468,6 +1578,8 @@ OpenDecision’s completed evidence remains useful and unchanged: frozen-feature
 The next defensible claim is not “an open Jev clone” and not “the old FP32 scorer reproduced more precisely.” It is **an open, auditable, versioned decision model that answers several well-scoped questions over one state with measured quality, uncertainty, useful coverage, and resource cost.** Preserve historical equivalence gates, evaluate new models on fresh quality gates, and let those comparisons—not an assumed architecture or model size—determine what ships. [R3; proposed milestone]
 
 The first 2I/2J workbench invocation now contributes source-backed preparation and a small synthetic GPU branching probe. It has **not** passed the reviewed-study gate, produced a trained comparison or validated the new task families. Preserve its useful mechanical observations with their precise limits, including the duplicate-question coverage correction, and complete the substantive review/selection contract before moving forward. H remains closed; the broader research objective and open comparison tasks are unchanged. [E10; I0; V3]
+
+The later `2ij.2.0` exploratory continuation now completes the bounded comparison and changes the engineering bottleneck. Qwen3.5-4B-Base with frozen weights, state-first rendering and the score-summary rejection head is the locked provisional integration candidate; all final comparison profiles and the bounded sharing study completed, and the selected bundle passed a fresh A100 reload/parity check. The next implementation milestone is therefore native/Rust parity against the exported contract, while a fresh independently reviewed confirmation remains required before a release-quality model claim. [E11]
 
 ---
 
@@ -1556,6 +1668,9 @@ H0 remains a historical design source. E8 records the original `2h.1.1` configur
 
 **Version 0.6.1 editing lineage.** The editing authorities are the latest delivered v0.6 whitepaper and roadmap, whose hashes are recorded in the companion manifest. The older v0.3 paper and pre-H roadmap surfaced in the conversation are historical, not replacement authorities. All prior whitepaper numerical tables are retained verbatim; only current-status/priority text and the explicitly new checkpoint evidence are added or updated. The v0.6 completed-H closure and all 16 review-to-work groups remain intact. No source Drive file is modified.
 
+
+
+**E11 — Completed exploratory 2I/2J model-selection screen and selected-model export.** Study `2ij_model_selection_screen_v2`, workbench `2ij.2.0`; final workflow `completed_requested_scope`. The saved result set contains 13 completed fit jobs, 31 completed final profiles, bounded multi-question scaling, `MODEL_DECISION.json`, and an A100-completed reference model bundle. Selected profile: `a047d6802c3f06f085b8`, Qwen/Qwen3.5-4B-Base, state-first, score-summary rejection. The selected final panel contains 320 episodes from 56 messages and records 95.0% accuracy / 0.13006 NLL. Bundle SHA-256: `4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332`; fresh reload parity passed with max probability delta `3.6673555e-6` and zero selected-ID changes. Scope remains exploratory; independent review, production acceptance limits and Rust/Metal parity are not established.
 
 # Appendix B. Primary external references
 
