@@ -1,9 +1,10 @@
 //! Phase 3 parity implementation for the selected Qwen3.5 state-first profile.
 //!
 //! This module implements the exported tokenizer/renderer contract, verified
-//! FP32 CPU backbone and continuation path, and feature-to-probability readout.
-//! It does not expose a backend-neutral branch API, wire adapter, Metal path,
-//! or production backend registration.
+//! FP32 CPU backbone and continuation path, sequential nested execution over
+//! the backend-neutral branch contract, and feature-to-probability readout.
+//! It does not expose a wire adapter, Metal path, or production backend
+//! registration.
 
 mod backbone;
 mod head;
@@ -11,9 +12,10 @@ mod profile;
 mod tokenizer;
 
 pub use backbone::{
-    BackboneOutput, BackboneReference, BackboneState, EmbeddingOutput, FullSequenceRecord,
-    Layer0Output, LayerKind, Qwen35Backbone, Qwen35BranchBatch, Qwen35Embedding, Qwen35Layer0,
-    StageComparison, TraceStage,
+    run_sequential_nested, BackboneOutput, BackboneReference, BackboneState, EmbeddingOutput,
+    FullSequenceRecord, Layer0Output, LayerKind, NestedCandidateResult, NestedQuestion,
+    NestedQuestionResult, NestedRun, Qwen35Backbone, Qwen35BranchBatch, Qwen35Embedding,
+    Qwen35Layer0, SequentialNestedExecutor, StageComparison, TraceStage,
 };
 pub use head::{HeadEvaluation, PolicyAction, PrimitiveKind, ScoreSummaryHead, FEATURE_WIDTH};
 pub use profile::ReferenceBundle;

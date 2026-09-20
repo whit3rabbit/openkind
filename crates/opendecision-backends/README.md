@@ -4,7 +4,7 @@
 
 `opendecision-backends` houses model-facing loaders and forward-pass components that will eventually sit behind the `DecisionEngine` trait defined in `opendecision-engine`.
 
-## Current status: Phase 3.1 through 3.4 CPU parity and branch-state contract complete
+## Current status: Phase 3.1 through 3.5 CPU parity, branch-state contract, and sequential nested execution complete
 
 The `branch` module defines the backend-neutral continuation-state contract, and the `qwen35` module implements the deterministic feature-to-probability slice for selected profile `a047d6802c3f06f085b8`:
 
@@ -28,10 +28,15 @@ The `branch` module defines the backend-neutral continuation-state contract, and
 - profile/model/tokenizer/renderer/arithmetic state identity, structural and
   strict content fingerprints, exact hybrid byte accounting, immutable-root
   fork, batched fork, and gather/select through `BranchableState`.
+- sequential nested `state → question → candidate` execution through
+  `run_sequential_nested`: one immutable state prefill, question forks,
+  per-candidate forks, fail-closed position and immutability checks, and
+  exact replay determinism.
 
-This establishes the frozen Phase 3.3 CPU backbone fixtures and the Phase 3.4
-backend-neutral branch-state contract for the CPU path. Metal, sequential and
-batched nested Q/K execution, backend registration, and Jev wire mapping
+This establishes the frozen Phase 3.3 CPU backbone fixtures, the Phase 3.4
+backend-neutral branch-state contract, and Phase 3.5 sequential nested
+execution parity for the CPU path. Metal, batched nested Q/K execution,
+backend registration, and Jev wire mapping
 remain later gates. It is not a claim of full Rust parity or release
 promotion. CPU native parity does not imply Metal or accelerated parity.
 
@@ -63,8 +68,13 @@ cargo run --release -p opendecision-backends --example qwen35_full_parity -- \
   path/to/checkpoint \
   research/OpenDecision_Phase3B_BackboneParity_20260920T152206Z \
   crates/opendecision-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8
+
+cargo run --release -p opendecision-backends --example qwen35_nested_parity -- \
+  path/to/checkpoint \
+  research/OpenDecision_Phase3B_BackboneParity_20260920T152206Z \
+  crates/opendecision-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8
 ```
 
 The embedding-only probe hashes the complete 5.3 GB first shard. Decoder,
-continuation, and branch modes verify both immutable shards, about 9.3 GB
-total, before execution. None of these commands download model assets.
+continuation, branch, full, and nested modes verify both immutable shards,
+about 9.3 GB total, before execution. None of these commands download model assets.

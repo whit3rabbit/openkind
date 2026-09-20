@@ -16,9 +16,10 @@ Project documentation and architectural references for `opendecision`.
    - Phase 2H required scope and the exploratory 2I/2J model-selection screen
      are complete, with reviewed release confirmation still open.
    - Phase 3A and 3B Python reference scopes are complete.
-   - Rust Phase 3.1 through 3.4 CPU parity and backend-neutral
-     `BranchableState` contract gates pass. Sequential nested parity is the
-     next gate. CPU native parity does not imply Metal or accelerated parity.
+   - Rust Phase 3.1 through 3.5 CPU parity, backend-neutral `BranchableState`
+     contract, and sequential nested execution gates pass. Batched question
+     execution is the next gate. CPU native parity does not imply Metal or
+     accelerated parity.
    - Current verification comes from the commands in the root
      [`AGENTS.md`](../AGENTS.md), not a manually maintained test total.
 4. **[`RESEARCH.md`](./RESEARCH.md)** — Research dossier & technical background:
