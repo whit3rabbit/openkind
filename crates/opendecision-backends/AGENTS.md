@@ -43,12 +43,13 @@ It bridges neural network runtimes (e.g. `candle`, ONNX Runtime, or remote infer
   - [`src/qwen35/backbone/`](./src/qwen35/backbone/): Phase 3B contract validation, exact checkpoint embedding, 32-layer Candle CPU execution, final RMSNorm, and complete Qwen continuation state.
   - [`src/qwen35/backbone/branch.rs`](./src/qwen35/backbone/branch.rs): `BranchableState`/`BranchBatch` for `BackboneState` with `Qwen35BranchBatch`, storage breakdown, structural and strict fingerprints.
   - [`src/qwen35/backbone/nested.rs`](./src/qwen35/backbone/nested.rs): Phase 3.5 sequential nested execution (`run_sequential_nested`, `SequentialNestedExecutor`, `Qwen35Backbone::evaluate_nested`): one immutable prefill, per-question forks, per-candidate forks, fail-closed position/immutability checks.
+  - [`src/qwen35/backbone/batched.rs`](./src/qwen35/backbone/batched.rs): Phase 3.6/3.7 breadth-first batched Q/K execution (`run_batched_questions`, `run_batched_candidates`, `run_batched_nested`, `Qwen35Backbone::evaluate_batched_nested`): `fork_batch` question lanes, per-question candidate fan-outs, fail-closed root/sibling/position checks, and fan-out byte accounting.
 - Head evaluation uses f64 host algebra for normalization, projection, rejection, calibration, and stable softmax.
 - Offline tests replay the exported features, exact token IDs, and the pinned diagnostic embedding row. Builds and tests do not download model assets.
 - `BackboneReference` verifies 47 FP32 vectors and reports max-absolute, RMS, and cosine diagnostics for future native stages.
 - `Qwen35Embedding` verifies the immutable checkpoint config, shard index, first-shard size/digest, BF16 tensor layout, token bounds, finite values, and exact BF16-to-FP32 widening.
 - `Qwen35Backbone` verifies the second shard, executes 24 DeltaNet and 8 full-attention layers plus final RMSNorm in FP32, and exposes immutable Qwen-specific cached continuation.
-- This module does not implement Metal, batched nested Q/K execution, server registration, or native-none wire mapping.
+- This module does not implement Metal, vectorized suffix kernels or the adaptive scheduler, server registration, or native-none wire mapping.
 
 ## Qwen State Contract
 
@@ -64,11 +65,18 @@ each fixture case once and executes all four Phase 3B questions and 10
 candidates through immutable forks with maximum probability delta `4.5869e-06`,
 zero argmax or policy changes, root content identical to an independent
 prefill after all fork work, exact replay and sibling-order determinism, and
-exact cached-versus-full feature and state equality (`0.0`). These are
+exact cached-versus-full feature and state equality (`0.0`). The Phase 3.6/3.7
+batched gate (`qwen35_batched_parity`) fans the same fixtures through
+`fork_batch` question lanes (case 0: exactly `3 × 59,899,904 = 179,699,712`
+root bytes) and per-question candidate lanes; every batched feature and strict
+state fingerprint equals the sequential baseline exactly (`0.0`), the head
+reaches the same `4.5869e-06` maximum probability delta with zero argmax,
+zero policy, and zero cross-strategy decision changes, and fan-out byte
+accounting is exact. These are
 correctness-fixture results, not Metal or
 production-throughput evidence. CPU native parity does not imply Metal or
-accelerated parity. The next execution task is batched question
-execution (Phase 3.6) compared against this sequential baseline.
+accelerated parity. The next execution task is the adaptive scheduler and
+target-Mac performance measurements (Phase 3.8).
 
 ## Verification Commands
 

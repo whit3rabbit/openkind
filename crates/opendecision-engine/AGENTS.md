@@ -60,9 +60,12 @@ correctness-first CPU backbone/continuation gates are complete for profile
    `BranchableState` contract and prove fork/gather isolation.~~ Complete for
    the CPU path (Phase 3.4).
 2. ~~Prove sequential nested `state → question → candidate` execution.~~
-   Complete for the CPU path (Phase 3.5). Batched Q/K execution is next.
-3. Only then implement `DecisionEngine`, register the backend, and add
-   wire-level mappings.
+   Complete for the CPU path (Phase 3.5).
+3. ~~Prove batched Q/K execution against the sequential baseline.~~ Complete
+   for the CPU path (Phases 3.6/3.7).
+4. Only then implement `DecisionEngine`, register the backend, and add
+   wire-level mappings; the adaptive scheduler and Mac measurements (3.8)
+   precede production promotion.
 
 ## Verification Commands
 
