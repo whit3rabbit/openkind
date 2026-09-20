@@ -87,7 +87,7 @@ These values define the parity target. They do not promote the profile to releas
 | Native Qwen CPU embedding and decoder execution | Frozen Phase 3B parity gate passed |
 | Qwen-specific full-hybrid continuation state | Cached continuation gate passed |
 | Backend-neutral `BranchableState` (CPU) | Contract gate passed; Metal open |
-| Sequential nested execution (CPU) | Phase 3.5 gate passed; batched execution open |
+| Sequential nested execution (CPU) | Phase 3.5 gate passed |
 | Breadth-first batched Q/K execution (CPU) | Phase 3.6/3.7 gate passed; vectorized kernels open |
 | Adaptive scheduler (CPU, named Mac) | Phase 3.8 measured gate passed; stress/persistence open |
 | Metal and production service validation | Open |

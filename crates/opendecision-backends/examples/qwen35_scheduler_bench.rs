@@ -146,7 +146,12 @@ fn main() -> Result<(), Box<dyn Error>> {
                 );
             }
             let output = output.expect("at least one rep");
-            per_strategy.push(strategy_metrics(strategy, &samples, &output));
+            per_strategy.push(strategy_metrics(
+                strategy,
+                &samples,
+                &output,
+                workload.root_ids.len(),
+            ));
         }
         eprintln!("[bench] workload {} complete", workload.name);
 
@@ -297,12 +302,21 @@ fn strategy_metrics(
     output: &opendecision_backends::qwen35::StrategyOutput<
         opendecision_backends::qwen35::BackboneState,
     >,
+    root_tokens: usize,
 ) -> serde_json::Value {
     let mut seconds: Vec<f64> = samples.iter().map(|sample| sample.as_secs_f64()).collect();
     seconds.sort_by(|left, right| left.total_cmp(right));
     let p50 = seconds[seconds.len() / 2];
     let p95 = seconds[(0.95 * seconds.len() as f64).ceil() as usize - 1];
     let total_tokens = output.staged_tokens();
+    // State-prefill share: fraction of processed tokens inside the one-shot
+    // shared root prefill. repeated_full re-encodes every token, so its
+    // share is 0 by construction.
+    let prefill_tokens = match strategy {
+        ExecutionStrategy::RepeatedFull => 0,
+        _ => root_tokens,
+    };
+    let processed_tokens = prefill_tokens + total_tokens;
     serde_json::json!({
         "strategy": strategy.as_str(),
         "samples_seconds": seconds,
@@ -310,6 +324,8 @@ fn strategy_metrics(
         "p95_seconds": p95,
         "forward_calls": output.forward_calls(),
         "staged_tokens": total_tokens,
+        "prefill_tokens": prefill_tokens,
+        "state_prefill_fraction": prefill_tokens as f64 / processed_tokens as f64,
         "retained_state_bytes": output.retained_state_bytes(),
         "tokens_per_second_p50": total_tokens as f64 / p50,
     })
