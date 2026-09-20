@@ -79,7 +79,7 @@ pub mod retry;
 
 pub use client::{
     Client, ClientBuilder, Health, IntoState, RequestOptions, DEFAULT_BASE_URL, DEFAULT_MODEL,
-    DEFAULT_TIMEOUT,
+    DEFAULT_TIMEOUT, MAX_RESPONSE_BODY_SIZE,
 };
 pub use error::{ApiError, ApiErrorKind, Error};
 pub use retry::RetryPolicy;

@@ -16,6 +16,7 @@ use axum::routing::post;
 use axum::{Json, Router};
 use opendecision_client::{Client, Error, RequestOptions, RetryPolicy};
 use serde_json::{json, Value};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 fn valid_response() -> Value {
     json!({
@@ -134,6 +135,64 @@ fn evaluate_request() -> opendecision_client::SystemRequest {
             opendecision_client::question::noul("Is this billing?"),
         )]),
     }
+}
+
+async fn spawn_oversized_chunked_response(status: u16) -> String {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let mut request = [0_u8; 4096];
+        let _ = stream.read(&mut request).await;
+        let reason = if status == 200 { "OK" } else { "Bad Request" };
+        stream
+            .write_all(
+                format!(
+                    "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\n\r\n"
+                )
+                .as_bytes(),
+            )
+            .await
+            .unwrap();
+
+        let chunk = vec![b'x'; 64 * 1024];
+        for _ in 0..=(opendecision_client::MAX_RESPONSE_BODY_SIZE / chunk.len()) {
+            if stream
+                .write_all(format!("{:x}\r\n", chunk.len()).as_bytes())
+                .await
+                .is_err()
+                || stream.write_all(&chunk).await.is_err()
+                || stream.write_all(b"\r\n").await.is_err()
+            {
+                break;
+            }
+        }
+        let _ = stream.write_all(b"0\r\n\r\n").await;
+    });
+    format!("http://{addr}")
+}
+
+#[tokio::test]
+async fn rejects_oversized_chunked_success_response() {
+    let url = spawn_oversized_chunked_response(200).await;
+    let client = fast_client(&url, RetryPolicy::new().max_retries(0));
+
+    let err = client.evaluate(evaluate_request()).await.unwrap_err();
+    assert!(matches!(
+        err,
+        Error::ResponseTooLarge {
+            limit: opendecision_client::MAX_RESPONSE_BODY_SIZE
+        }
+    ));
+}
+
+#[tokio::test]
+async fn rejects_oversized_chunked_error_response_without_retrying() {
+    let url = spawn_oversized_chunked_response(400).await;
+    let client = fast_client(&url, RetryPolicy::new().max_retries(3));
+
+    let err = client.evaluate(evaluate_request()).await.unwrap_err();
+    assert!(matches!(err, Error::ResponseTooLarge { .. }));
 }
 
 #[tokio::test]

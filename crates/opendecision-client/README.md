@@ -71,8 +71,13 @@ All failures surface as `opendecision_client::Error`:
 | `Error::Api(ApiError)` | Non-success response: `status`, `code` (`rate_limited`, `unknown_model`, ...), `message`, `request_id` (from `x-typesafe-request-id`), `retry_after` |
 | `Error::Connection` | Could not reach / read from the server |
 | `Error::Timeout` | Per-attempt timeout exceeded |
+| `Error::ResponseTooLarge` | Response exceeded the fixed 8 MiB body limit |
 | `Error::Decode` | 2xx body did not match the expected wire type |
 | `Error::Config` | Invalid client configuration (missing API key, bad URL, ...) |
+
+Successful and error response bodies are both limited to 8 MiB
+(`MAX_RESPONSE_BODY_SIZE`). The limit is enforced while streaming the body, so
+it also applies when `Content-Length` is absent or inaccurate.
 
 `ApiError::kind()` classifies by status into the Python SDK taxonomy: `BadRequest` (400), `Authentication` (401), `NotFound` (404), `PayloadTooLarge` (413), `UnprocessableEntity` (422), `RateLimit` (429), `Overloaded` (529), `InternalServer` (5xx).
 
