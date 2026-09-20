@@ -322,7 +322,8 @@ pub struct StrategyEstimates {
 /// Admission-relevant retained-state estimates, in bytes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RetentionEstimates {
-    /// [`ExecutionStrategy::RepeatedFull`]: one transient full-sequence state.
+    /// [`ExecutionStrategy::RepeatedFull`]: every candidate state retained by
+    /// the output.
     pub repeated_full_bytes: usize,
     /// [`ExecutionStrategy::NestedSequential`]: root plus every question and
     /// candidate state retained by the run.
@@ -432,10 +433,11 @@ impl StrategyRequest {
 
 /// Estimate costs and select a strategy for `request`.
 ///
-/// Policy order: (1) share only when the measured crossover threshold says
-/// sharing recovers its overhead; (2) prefer the breadth-first batched path
-/// when its retained-state estimate fits the ceiling; (3) fall back to the
-/// sequential shared path; (4) otherwise repeat full sequences.
+/// Policy order: (1) prefer repeated-full below the measured crossover when
+/// its aggregate retained state fits; (2) prefer the breadth-first batched
+/// path when its retained-state estimate fits the ceiling; (3) fall back to
+/// the sequential shared path; (4) otherwise use repeated-full if it fits.
+/// [`run_with_scheduler`] rejects execution when no strategy fits.
 #[must_use]
 pub fn choose_strategy(config: &SchedulerConfig, request: &StrategyRequest) -> StrategyDecision {
     let shared_tokens = request.root_tokens
@@ -483,20 +485,18 @@ pub fn choose_strategy(config: &SchedulerConfig, request: &StrategyRequest) -> S
         }
     }
     let batched_bytes = root_state_bytes * (1 + questions) + batched_question_bytes;
+    let repeated_full_bytes = request
+        .question_tokens
+        .iter()
+        .zip(&request.suffix_tokens)
+        .flat_map(|(&question, suffixes)| {
+            suffixes.iter().map(move |&suffix| {
+                request.state_bytes(config, request.root_tokens + question + suffix)
+            })
+        })
+        .fold(0_usize, usize::saturating_add);
     let retention = RetentionEstimates {
-        repeated_full_bytes: request.state_bytes(
-            config,
-            request.root_tokens
-                + request
-                    .question_tokens
-                    .iter()
-                    .zip(&request.suffix_tokens)
-                    .map(|(&question, suffixes)| {
-                        question + suffixes.iter().max().copied().unwrap_or(0)
-                    })
-                    .max()
-                    .unwrap_or(0),
-        ),
+        repeated_full_bytes,
         nested_sequential_bytes: sequential_bytes,
         nested_batched_bytes: batched_bytes,
     };
@@ -506,7 +506,7 @@ pub fn choose_strategy(config: &SchedulerConfig, request: &StrategyRequest) -> S
         None => true,
     };
 
-    if savings_ratio < config.min_shared_savings_ratio {
+    if savings_ratio < config.min_shared_savings_ratio && fits(repeated_full_bytes) {
         return StrategyDecision {
             strategy: ExecutionStrategy::RepeatedFull,
             rationale: format!(
@@ -540,12 +540,26 @@ pub fn choose_strategy(config: &SchedulerConfig, request: &StrategyRequest) -> S
             retention,
         };
     }
+    let (rationale, strategy) = if fits(repeated_full_bytes) {
+        (
+            format!(
+                "retained shared state ({sequential_bytes} bytes) exceeds the ceiling; \
+                 falling back to full-sequence execution ({repeated_full_bytes} bytes)"
+            ),
+            ExecutionStrategy::RepeatedFull,
+        )
+    } else {
+        (
+            format!(
+                "no strategy fits the state ceiling; the repeated-full fallback requires \
+                 {repeated_full_bytes} bytes"
+            ),
+            ExecutionStrategy::RepeatedFull,
+        )
+    };
     StrategyDecision {
-        strategy: ExecutionStrategy::RepeatedFull,
-        rationale: format!(
-            "retained shared state ({sequential_bytes} bytes) exceeds the ceiling; \
-             falling back to transient full-sequence execution"
-        ),
+        strategy,
+        rationale,
         estimates,
         retention,
     }
@@ -554,7 +568,8 @@ pub fn choose_strategy(config: &SchedulerConfig, request: &StrategyRequest) -> S
 /// Choose a strategy and execute the request under it.
 ///
 /// # Errors
-/// Returns [`Qwen35Error`] from the underlying strategy runner.
+/// Returns [`Qwen35Error`] when no strategy fits the configured state-memory
+/// ceiling or from the underlying strategy runner.
 pub fn run_with_scheduler<E: SequentialNestedExecutor>(
     executor: &E,
     config: &SchedulerConfig,
@@ -566,6 +581,20 @@ where
 {
     let request = StrategyRequest::from_plans(root_ids.len(), plans);
     let decision = choose_strategy(config, &request);
+    let selected_bytes = match decision.strategy {
+        ExecutionStrategy::RepeatedFull => decision.retention.repeated_full_bytes,
+        ExecutionStrategy::NestedSequential => decision.retention.nested_sequential_bytes,
+        ExecutionStrategy::NestedBatched => decision.retention.nested_batched_bytes,
+    };
+    if config
+        .max_state_bytes
+        .is_some_and(|ceiling| selected_bytes > ceiling)
+    {
+        return Err(Qwen35Error::InvalidInput(format!(
+            "no execution strategy fits the state-memory ceiling: selected estimate \
+             {selected_bytes} bytes"
+        )));
+    }
     let output = run_strategy(executor, decision.strategy, root_ids, plans)?;
     Ok((decision, output))
 }

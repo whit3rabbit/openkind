@@ -150,6 +150,18 @@ fn choose_strategy_repeated_full_when_sharing_does_not_pay() {
     let decision = choose_strategy(&config, &request);
     assert_eq!(decision.strategy, ExecutionStrategy::RepeatedFull);
     assert!(decision.estimates.savings_ratio < 3.0);
+    assert_eq!(
+        decision.retention.repeated_full_bytes,
+        request
+            .question_tokens
+            .iter()
+            .zip(&request.suffix_tokens)
+            .flat_map(|(&question, suffixes)| suffixes.iter().map(move |&suffix| {
+                config.state_fixed_bytes
+                    + config.state_bytes_per_token * (request.root_tokens + question + suffix)
+            }))
+            .sum()
+    );
 }
 
 #[test]
@@ -174,8 +186,8 @@ fn choose_strategy_falls_back_through_the_memory_ceiling() {
     );
     assert_eq!(constrained.strategy, ExecutionStrategy::NestedSequential);
 
-    // A ceiling below every shared estimate falls back to the transient
-    // full-sequence path.
+    // A ceiling below every estimate leaves repeated-full as the decision;
+    // run_with_scheduler rejects that decision before execution.
     let tight = choose_strategy(
         &SchedulerConfig::for_pinned_profile(1.5, Some(1_000)),
         &request,
@@ -200,6 +212,24 @@ fn run_with_scheduler_executes_the_chosen_strategy() {
     )
     .expect("direct batched");
     assert_eq!(output.question_features(), direct.question_features());
+}
+
+#[test]
+fn run_with_scheduler_rejects_when_aggregate_repeated_state_exceeds_ceiling() {
+    let executor = SyntheticExecutor;
+    let plans = plan();
+    let config = SchedulerConfig::for_pinned_profile(10.0, Some(100_000_000));
+
+    let request = StrategyRequest::from_plans(ROOT_IDS.len(), &plans);
+    let decision = choose_strategy(&config, &request);
+    assert_eq!(decision.strategy, ExecutionStrategy::RepeatedFull);
+    assert!(decision.retention.repeated_full_bytes > 100_000_000);
+
+    assert!(matches!(
+        run_with_scheduler(&executor, &config, ROOT_IDS, &plans),
+        Err(Qwen35Error::InvalidInput(message))
+            if message.contains("no execution strategy fits the state-memory ceiling")
+    ));
 }
 
 #[test]
