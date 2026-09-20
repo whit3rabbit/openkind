@@ -4,7 +4,7 @@ use candle_core::{DType, Device};
 use candle_nn::VarBuilder;
 
 use super::super::Qwen35Error;
-use super::embedding::{verify_decoder_shard, Qwen35Embedding};
+use super::embedding::Qwen35Embedding;
 use super::layer0::{rms_norm_zero_centered, DecoderLayer, LayerState};
 use crate::branch::{StateError, StateIdentity, StateLineage};
 
@@ -113,7 +113,7 @@ impl Qwen35Backbone {
     pub fn load(checkpoint_root: impl AsRef<Path>) -> Result<Self, Qwen35Error> {
         let checkpoint_root = checkpoint_root.as_ref();
         let embedding = Qwen35Embedding::load(checkpoint_root)?;
-        let decoder_shard = verify_decoder_shard(checkpoint_root)?;
+        let decoder_shard = embedding.stage_decoder_shard(checkpoint_root)?;
         Ok(Self {
             embedding,
             decoder_shard,

@@ -4,7 +4,7 @@ use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 
 use super::super::Qwen35Error;
-use super::embedding::{verify_decoder_shard, Qwen35Embedding};
+use super::embedding::Qwen35Embedding;
 
 const HIDDEN_SIZE: usize = 2_560;
 const INTERMEDIATE_SIZE: usize = 9_216;
@@ -130,7 +130,7 @@ impl Qwen35Layer0 {
     pub fn load(checkpoint_root: impl AsRef<Path>) -> Result<Self, Qwen35Error> {
         let checkpoint_root = checkpoint_root.as_ref();
         let embedding = Qwen35Embedding::load(checkpoint_root)?;
-        let decoder_shard = verify_decoder_shard(checkpoint_root)?;
+        let decoder_shard = embedding.stage_decoder_shard(checkpoint_root)?;
         let embedding_shard = embedding.verified_shard_path();
         let device = Device::Cpu;
         // SAFETY: both paths name read-only shards whose exact byte lengths and

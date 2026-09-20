@@ -1,7 +1,8 @@
 use std::collections::BTreeMap;
 use std::fs::{self, File};
-use std::io::{BufReader, Read, Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -68,6 +69,8 @@ impl EmbeddingOutput {
 /// input IDs and widens the checkpoint BF16 values to FP32 exactly.
 #[derive(Debug, Clone)]
 pub struct Qwen35Embedding {
+    // Keeps the private, verified snapshot alive for every later read/mapping.
+    staging: Option<Arc<tempfile::TempDir>>,
     shard_path: PathBuf,
     tensor_data_start: u64,
     vocab_size: usize,
@@ -114,24 +117,25 @@ impl Qwen35Embedding {
             });
         }
 
-        let shard_path = root.join(shard_name);
-        let file_size = file_len(&shard_path)?;
-        if file_size != EMBEDDING_SHARD_BYTES {
-            return Err(Qwen35Error::InvalidTensor {
-                name: EMBEDDING_TENSOR.to_owned(),
-                message: format!("expected shard size {EMBEDDING_SHARD_BYTES}, found {file_size}"),
-            });
-        }
+        let staging = Arc::new(
+            tempfile::Builder::new()
+                .prefix("opendecision-qwen35-")
+                .tempdir()
+                .map_err(|source| Qwen35Error::Io {
+                    path: std::env::temp_dir(),
+                    source,
+                })?,
+        );
+        let shard_path = stage_verified_shard(
+            &root.join(shard_name),
+            staging.path(),
+            shard_name,
+            EMBEDDING_TENSOR,
+            EMBEDDING_SHARD_BYTES,
+            EMBEDDING_SHARD_SHA256,
+        )?;
         let layout = EmbeddingLayout::read(&shard_path, VOCAB_SIZE, HIDDEN_SIZE)?;
-        let actual_digest = sha256_file(&shard_path)?;
-        if actual_digest != EMBEDDING_SHARD_SHA256 {
-            return Err(Qwen35Error::DigestMismatch {
-                path: shard_name.clone(),
-                expected: EMBEDDING_SHARD_SHA256.to_owned(),
-                actual: actual_digest,
-            });
-        }
-        Ok(Self::from_layout(shard_path, layout))
+        Ok(Self::from_staged_layout(staging, shard_path, layout))
     }
 
     /// Embed an exact token-ID sequence using FP32 host values.
@@ -189,6 +193,7 @@ impl Qwen35Embedding {
 
     fn from_layout(shard_path: PathBuf, layout: EmbeddingLayout) -> Self {
         Self {
+            staging: None,
             shard_path,
             tensor_data_start: layout.tensor_data_start,
             vocab_size: layout.vocab_size,
@@ -196,29 +201,113 @@ impl Qwen35Embedding {
         }
     }
 
+    fn from_staged_layout(
+        staging: Arc<tempfile::TempDir>,
+        shard_path: PathBuf,
+        layout: EmbeddingLayout,
+    ) -> Self {
+        let mut embedding = Self::from_layout(shard_path, layout);
+        embedding.staging = Some(staging);
+        embedding
+    }
+
+    pub(super) fn stage_decoder_shard(
+        &self,
+        checkpoint_root: &Path,
+    ) -> Result<PathBuf, Qwen35Error> {
+        let staging = self.staging.as_ref().ok_or_else(|| {
+            Qwen35Error::InvalidInput(
+                "embedding has no private checkpoint staging directory".to_owned(),
+            )
+        })?;
+        stage_verified_shard(
+            &checkpoint_root.join(DECODER_SHARD),
+            staging.path(),
+            DECODER_SHARD,
+            "decoder checkpoint shard",
+            DECODER_SHARD_BYTES,
+            DECODER_SHARD_SHA256,
+        )
+    }
+
     pub(super) fn verified_shard_path(&self) -> &Path {
         &self.shard_path
     }
 }
 
-pub(super) fn verify_decoder_shard(checkpoint_root: &Path) -> Result<PathBuf, Qwen35Error> {
-    let shard_path = checkpoint_root.join(DECODER_SHARD);
-    let file_size = file_len(&shard_path)?;
-    if file_size != DECODER_SHARD_BYTES {
+fn stage_verified_shard(
+    source_path: &Path,
+    staging_root: &Path,
+    file_name: &str,
+    tensor_name: &str,
+    expected_size: u64,
+    expected_digest: &str,
+) -> Result<PathBuf, Qwen35Error> {
+    let mut source = File::open(source_path).map_err(|source| Qwen35Error::Io {
+        path: source_path.to_path_buf(),
+        source,
+    })?;
+    let file_size = source
+        .metadata()
+        .map_err(|source| Qwen35Error::Io {
+            path: source_path.to_path_buf(),
+            source,
+        })?
+        .len();
+    if file_size != expected_size {
         return Err(Qwen35Error::InvalidTensor {
-            name: "decoder checkpoint shard".to_owned(),
-            message: format!("expected shard size {DECODER_SHARD_BYTES}, found {file_size}"),
+            name: tensor_name.to_owned(),
+            message: format!("expected shard size {expected_size}, found {file_size}"),
         });
     }
-    let actual_digest = sha256_file(&shard_path)?;
-    if actual_digest != DECODER_SHARD_SHA256 {
+    let staged_path = staging_root.join(file_name);
+    let mut staged = File::create(&staged_path).map_err(|source| Qwen35Error::Io {
+        path: staged_path.clone(),
+        source,
+    })?;
+    let mut hasher = Sha256::new();
+    let mut buffer = vec![0_u8; 1024 * 1024];
+    loop {
+        let read = source.read(&mut buffer).map_err(|source| Qwen35Error::Io {
+            path: source_path.to_path_buf(),
+            source,
+        })?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+        std::io::Write::write_all(&mut staged, &buffer[..read]).map_err(|source| {
+            Qwen35Error::Io {
+                path: staged_path.clone(),
+                source,
+            }
+        })?;
+    }
+    let actual_digest = format!("{:x}", hasher.finalize());
+    if actual_digest != expected_digest {
         return Err(Qwen35Error::DigestMismatch {
-            path: DECODER_SHARD.to_owned(),
-            expected: DECODER_SHARD_SHA256.to_owned(),
+            path: file_name.to_owned(),
+            expected: expected_digest.to_owned(),
             actual: actual_digest,
         });
     }
-    Ok(shard_path)
+    staged.sync_all().map_err(|source| Qwen35Error::Io {
+        path: staged_path.clone(),
+        source,
+    })?;
+    let mut permissions = staged
+        .metadata()
+        .map_err(|source| Qwen35Error::Io {
+            path: staged_path.clone(),
+            source,
+        })?
+        .permissions();
+    permissions.set_readonly(true);
+    fs::set_permissions(&staged_path, permissions).map_err(|source| Qwen35Error::Io {
+        path: staged_path.clone(),
+        source,
+    })?;
+    Ok(staged_path)
 }
 
 #[derive(Debug, Deserialize)]
@@ -397,27 +486,6 @@ fn verify_small_artifact(
     Ok(bytes)
 }
 
-fn sha256_file(path: &Path) -> Result<String, Qwen35Error> {
-    let file = File::open(path).map_err(|source| Qwen35Error::Io {
-        path: path.to_path_buf(),
-        source,
-    })?;
-    let mut reader = BufReader::with_capacity(1024 * 1024, file);
-    let mut hasher = Sha256::new();
-    let mut buffer = vec![0_u8; 1024 * 1024];
-    loop {
-        let read = reader.read(&mut buffer).map_err(|source| Qwen35Error::Io {
-            path: path.to_path_buf(),
-            source,
-        })?;
-        if read == 0 {
-            break;
-        }
-        hasher.update(&buffer[..read]);
-    }
-    Ok(format!("{:x}", hasher.finalize()))
-}
-
 fn file_len(path: &Path) -> Result<u64, Qwen35Error> {
     fs::metadata(path)
         .map(|metadata| metadata.len())
@@ -517,14 +585,47 @@ mod tests {
     }
 
     #[test]
-    fn decoder_shard_verification_rejects_wrong_size() {
+    fn shard_staging_rejects_wrong_size() {
         let root = temp_dir("decoder-shard-size");
         fs::write(root.join(DECODER_SHARD), b"not a model shard").expect("write tiny shard");
         assert!(matches!(
-            verify_decoder_shard(&root),
+            stage_verified_shard(
+                &root.join(DECODER_SHARD),
+                &root,
+                "staged.safetensors",
+                "decoder checkpoint shard",
+                DECODER_SHARD_BYTES,
+                DECODER_SHARD_SHA256,
+            ),
             Err(Qwen35Error::InvalidTensor { .. })
         ));
         fs::remove_dir_all(root).expect("remove temp directory");
+    }
+
+    #[test]
+    fn staged_shard_is_not_affected_by_source_replacement() {
+        let root = temp_dir("source-replacement");
+        let staging = temp_dir("private-staging");
+        let source = root.join("source.safetensors");
+        fs::write(&source, b"verified weights").expect("write source shard");
+        let digest = format!("{:x}", Sha256::digest(b"verified weights"));
+        let staged = stage_verified_shard(
+            &source,
+            &staging,
+            "staged.safetensors",
+            "test tensor",
+            16,
+            &digest,
+        )
+        .expect("stage verified shard");
+
+        fs::write(&source, b"attacker weights").expect("replace source shard");
+        assert_eq!(
+            fs::read(staged).expect("read staged shard"),
+            b"verified weights"
+        );
+        fs::remove_dir_all(root).expect("remove source directory");
+        fs::remove_dir_all(staging).expect("remove staging directory");
     }
 
     fn temp_dir(label: &str) -> PathBuf {
