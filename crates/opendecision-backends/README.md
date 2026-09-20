@@ -4,7 +4,7 @@
 
 `opendecision-backends` houses model-facing loaders and forward-pass components that will eventually sit behind the `DecisionEngine` trait defined in `opendecision-engine`.
 
-## Current status: Phase 3.1 through 3.7 CPU parity, branch-state contract, sequential nested, and batched Q/K execution complete
+## Current status: Phase 3.1 through 3.8 CPU parity, branch-state contract, nested/batched execution, and measured adaptive scheduling complete
 
 The `branch` module defines the backend-neutral continuation-state contract, and the `qwen35` module implements the deterministic feature-to-probability slice for selected profile `a047d6802c3f06f085b8`:
 
@@ -36,11 +36,16 @@ The `branch` module defines the backend-neutral continuation-state contract, and
   `fork_batch` question lanes from one immutable root, per-question candidate
   fan-outs, fail-closed root/sibling/position checks, exact sequential-baseline
   parity, and fan-out byte accounting.
+- the Phase 3.8 strategy layer: `run_strategy`/`run_repeated_full` across all
+  three parity-proven strategies with forward-call and staged-token
+  accounting, and `choose_strategy` selecting by a measured crossover ratio
+  plus a retained-state byte ceiling.
 
 This establishes the frozen Phase 3.3 CPU backbone fixtures, the Phase 3.4
 backend-neutral branch-state contract, Phase 3.5 sequential nested
-execution parity, and Phase 3.6/3.7 batched Q/K parity for the CPU path.
-Metal, vectorized suffix kernels, the adaptive scheduler, backend
+execution parity, Phase 3.6/3.7 batched Q/K parity, and the Phase 3.8
+measured scheduler for the CPU path.
+Metal, vectorized suffix kernels, backend
 registration, and Jev wire mapping
 remain later gates. It is not a claim of full Rust parity or release
 promotion. CPU native parity does not imply Metal or accelerated parity.
@@ -83,6 +88,11 @@ cargo run --release -p opendecision-backends --example qwen35_batched_parity -- 
   path/to/checkpoint \
   research/OpenDecision_Phase3B_BackboneParity_20260920T152206Z \
   crates/opendecision-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8
+
+# Phase 3.8 measurement harness: roughly 35-45 minutes at default settings.
+cargo run --release -p opendecision-backends --example qwen35_scheduler_bench -- \
+  path/to/checkpoint \
+  research/OpenDecision_Phase3B_BackboneParity_20260920T152206Z
 ```
 
 The embedding-only probe hashes the complete 5.3 GB first shard. Decoder,

@@ -234,6 +234,22 @@ pub fn run_sequential_nested<E: SequentialNestedExecutor>(
     })
 }
 
+impl<E: SequentialNestedExecutor> SequentialNestedExecutor for &E {
+    type State = E::State;
+
+    fn prefill(&self, input_ids: &[u32]) -> Result<(Vec<f32>, Self::State), Qwen35Error> {
+        (*self).prefill(input_ids)
+    }
+
+    fn continue_from(
+        &self,
+        state: &Self::State,
+        suffix_ids: &[u32],
+    ) -> Result<(Vec<f32>, Self::State), Qwen35Error> {
+        (*self).continue_from(state, suffix_ids)
+    }
+}
+
 impl Qwen35Backbone {
     /// Sequential nested execution against the pinned Qwen3.5 backbone.
     ///

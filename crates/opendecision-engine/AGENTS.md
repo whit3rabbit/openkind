@@ -63,9 +63,11 @@ correctness-first CPU backbone/continuation gates are complete for profile
    Complete for the CPU path (Phase 3.5).
 3. ~~Prove batched Q/K execution against the sequential baseline.~~ Complete
    for the CPU path (Phases 3.6/3.7).
-4. Only then implement `DecisionEngine`, register the backend, and add
-   wire-level mappings; the adaptive scheduler and Mac measurements (3.8)
-   precede production promotion.
+4. ~~Measure the adaptive scheduler crossover on the named Mac.~~ Complete
+   for the warm-process CPU path (Phase 3.8). High-cardinality stress and
+   repeatability precede production promotion.
+5. Only then implement `DecisionEngine`, register the backend, and add
+   wire-level mappings.
 
 ## Verification Commands
 

@@ -8,6 +8,7 @@ mod layer0;
 mod model;
 mod nested;
 mod reference;
+mod strategy;
 mod types;
 
 #[cfg(test)]
@@ -16,6 +17,8 @@ mod batched_tests;
 mod branch_tests;
 #[cfg(test)]
 mod nested_tests;
+#[cfg(test)]
+mod strategy_tests;
 #[cfg(test)]
 mod test_support;
 
@@ -33,4 +36,9 @@ pub use nested::{
     SequentialNestedExecutor,
 };
 pub use reference::BackboneReference;
+pub use strategy::{
+    choose_strategy, run_repeated_full, run_strategy, run_with_scheduler, CountingExecutor,
+    ExecutionStrategy, RetentionEstimates, SchedulerConfig, StrategyDecision, StrategyEstimates,
+    StrategyOutput, StrategyRequest,
+};
 pub use types::{FullSequenceRecord, StageComparison, TraceStage};

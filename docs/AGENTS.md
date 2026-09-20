@@ -67,6 +67,15 @@ superseded "next" or "not implemented" claim before finishing.
   primitive; vectorized suffix kernels, the adaptive scheduler, Metal,
   service integration, and release promotion stay open. CPU native parity
   does not imply Metal or accelerated parity.
+- Phase 3.8 measures the adaptive scheduler on the named M4 Max host:
+  `run_strategy`/`run_repeated_full` account forward calls and staged tokens
+  across all three parity-proven strategies, and `choose_strategy` applies a
+  measured crossover threshold (2.0) plus a state-byte ceiling. Sharing beat
+  `repeated_full` in every measured cell (1.25x-1.98x) and the two shared
+  strategies are equal within noise. Cold-start/cache-warmth cells,
+  memory-pressure fallback, vectorized suffix kernels, Metal, service
+  integration, and release promotion stay open. CPU native parity does not
+  imply Metal or accelerated parity.
 - Hidden-vector max-absolute/RMS/cosine values remain localization diagnostics,
   not newly invented acceptance tolerances.
 - Native semantic none remains internal until the wire mapping is specified.

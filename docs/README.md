@@ -16,10 +16,11 @@ Project documentation and architectural references for `opendecision`.
    - Phase 2H required scope and the exploratory 2I/2J model-selection screen
      are complete, with reviewed release confirmation still open.
    - Phase 3A and 3B Python reference scopes are complete.
-   - Rust Phase 3.1 through 3.7 CPU parity, backend-neutral `BranchableState`,
-     sequential nested execution, and batched Q/K gates pass. Adaptive
-     scheduler measurement is the next gate. CPU native parity does not imply
-     Metal or accelerated parity.
+   - Rust Phase 3.1 through 3.8 CPU parity, backend-neutral `BranchableState`,
+     sequential nested execution, batched Q/K execution, and the measured
+     adaptive scheduler pass. High-cardinality stress and repeatability are
+     the next gates. CPU native parity does not imply Metal or accelerated
+     parity.
    - Current verification comes from the commands in the root
      [`AGENTS.md`](../AGENTS.md), not a manually maintained test total.
 4. **[`RESEARCH.md`](./RESEARCH.md)** — Research dossier & technical background:

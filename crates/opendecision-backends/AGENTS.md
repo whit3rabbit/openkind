@@ -44,12 +44,13 @@ It bridges neural network runtimes (e.g. `candle`, ONNX Runtime, or remote infer
   - [`src/qwen35/backbone/branch.rs`](./src/qwen35/backbone/branch.rs): `BranchableState`/`BranchBatch` for `BackboneState` with `Qwen35BranchBatch`, storage breakdown, structural and strict fingerprints.
   - [`src/qwen35/backbone/nested.rs`](./src/qwen35/backbone/nested.rs): Phase 3.5 sequential nested execution (`run_sequential_nested`, `SequentialNestedExecutor`, `Qwen35Backbone::evaluate_nested`): one immutable prefill, per-question forks, per-candidate forks, fail-closed position/immutability checks.
   - [`src/qwen35/backbone/batched.rs`](./src/qwen35/backbone/batched.rs): Phase 3.6/3.7 breadth-first batched Q/K execution (`run_batched_questions`, `run_batched_candidates`, `run_batched_nested`, `Qwen35Backbone::evaluate_batched_nested`): `fork_batch` question lanes, per-question candidate fan-outs, fail-closed root/sibling/position checks, and fan-out byte accounting.
+  - [`src/qwen35/backbone/strategy.rs`](./src/qwen35/backbone/strategy.rs): Phase 3.8 strategy layer (`run_strategy`, `run_repeated_full`, `run_with_scheduler`, `choose_strategy`): all three strategies with forward-call/staged-token accounting and the measured crossover-plus-ceiling selection policy.
 - Head evaluation uses f64 host algebra for normalization, projection, rejection, calibration, and stable softmax.
 - Offline tests replay the exported features, exact token IDs, and the pinned diagnostic embedding row. Builds and tests do not download model assets.
 - `BackboneReference` verifies 47 FP32 vectors and reports max-absolute, RMS, and cosine diagnostics for future native stages.
 - `Qwen35Embedding` verifies the immutable checkpoint config, shard index, first-shard size/digest, BF16 tensor layout, token bounds, finite values, and exact BF16-to-FP32 widening.
 - `Qwen35Backbone` verifies the second shard, executes 24 DeltaNet and 8 full-attention layers plus final RMSNorm in FP32, and exposes immutable Qwen-specific cached continuation.
-- This module does not implement Metal, vectorized suffix kernels or the adaptive scheduler, server registration, or native-none wire mapping.
+- This module does not implement Metal, vectorized suffix kernels, server registration, or native-none wire mapping. The adaptive scheduler is implemented and measured; its thresholds are host-specific.
 
 ## Qwen State Contract
 
@@ -72,11 +73,16 @@ root bytes) and per-question candidate lanes; every batched feature and strict
 state fingerprint equals the sequential baseline exactly (`0.0`), the head
 reaches the same `4.5869e-06` maximum probability delta with zero argmax,
 zero policy, and zero cross-strategy decision changes, and fan-out byte
-accounting is exact. These are
+accounting is exact. The Phase 3.8 scheduler gate (`qwen35_scheduler_bench`)
+measured five workloads on the named Mac with per-repetition feature parity
+across all three strategies: sharing beat `repeated_full` in every cell
+(1.25x-1.98x), `nested_sequential` and `nested_batched` are equal within
+noise, `T(3)/T(1)` is 2.87 repeated versus 2.11-2.18 shared, and the recorded
+crossover threshold is `MEASURED_MIN_SHARED_SAVINGS_RATIO = 2.0`. These are
 correctness-fixture results, not Metal or
 production-throughput evidence. CPU native parity does not imply Metal or
-accelerated parity. The next execution task is the adaptive scheduler and
-target-Mac performance measurements (Phase 3.8).
+accelerated parity. The next execution tasks are high-cardinality stress
+(Phase 3.9) and repeatability/persistence (Phase 3.10).
 
 ## Verification Commands
 
