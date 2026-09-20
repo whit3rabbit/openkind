@@ -2,7 +2,7 @@
 
 `opendecision` is an independent Rust decision-inference engine for typed `Noul`, `Choice`, and `Score` answers over Jev-compatible public interfaces. It is built to answer structured questions without depending on an autoregressive text-generation loop.
 
-The wire, service, and SDK layers are implemented. The selected Qwen 3.5 native path has passed Rust head, tokenizer, correctness-first CPU backbone, cached-continuation, backend-neutral branch-state, sequential nested execution, and batched Q/K parity gates. Adaptive scheduling, Metal validation, and production model serving remain open.
+The wire, service, and SDK layers are implemented. The selected Qwen 3.5 native path has passed Rust head, tokenizer, correctness-first CPU backbone, cached-continuation, backend-neutral branch-state, sequential nested execution, batched Q/K, and measured adaptive-scheduler gates. High-cardinality stress, repeatability, Metal validation, and production model serving remain open.
 
 [Quickstart](#quickstart) | [Research dossier](docs/RESEARCH.md) | [Whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.7.2.md) | [Roadmap](docs/ROADMAP.md) | [Architecture](docs/ARCHITECTURE.md) | [Jev wire reference](https://docs.typesafe.ai/api)
 
@@ -55,7 +55,7 @@ This repository carries the research behind the implementation, not only the imp
 | Phases 2I and 2J | 13 fit jobs and 31 locked final profiles across Qwen 3.5, ModernBERT, LoRA, and controls | Selected a provisional integration profile, not a release model |
 | Phase 3A | Full-hybrid branch-state and batched question/candidate reference behavior | Python systems reference, not Rust or Metal proof |
 | Phase 3B | Four exact token records and 47 FP32 vectors across 34 trace stages, candidates, and continuations | Backbone localization fixtures, not native execution |
-| Rust Phase 3.1 through 3.7 | Head, probability, tokenizer, state-first rendering, CPU backbone, cached continuation, branch-state contract, sequential nested execution, and batched Q/K | Frozen-fixture parity, not Metal or production service proof |
+| Rust Phase 3.1 through 3.8 | Head, probability, tokenizer, state-first rendering, CPU backbone, cached continuation, branch-state contract, sequential nested execution, batched Q/K, and the measured adaptive scheduler | Frozen-fixture parity and warm-host measurements, not Metal or production service proof |
 
 Start with the [research dossier](docs/RESEARCH.md) for the study sequence and the [whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.7.2.md) for methods, results, and interpretation. The [roadmap](docs/ROADMAP.md) is the current status authority. The public [Qwen 3.5 reference repository](https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst) exposes the selected integration line.
 
@@ -88,7 +88,8 @@ These values define the parity target. They do not promote the profile to releas
 | Qwen-specific full-hybrid continuation state | Cached continuation gate passed |
 | Backend-neutral `BranchableState` (CPU) | Contract gate passed; Metal open |
 | Sequential nested execution (CPU) | Phase 3.5 gate passed; batched execution open |
-| Breadth-first batched Q/K execution (CPU) | Phase 3.6/3.7 gate passed; vectorized kernels and adaptive scheduler open |
+| Breadth-first batched Q/K execution (CPU) | Phase 3.6/3.7 gate passed; vectorized kernels open |
+| Adaptive scheduler (CPU, named Mac) | Phase 3.8 measured gate passed; stress/persistence open |
 | Metal and production service validation | Open |
 
 Implementation equivalence and release promotion are different decisions. Passing a parity fixture does not establish model quality, hardware support, or production readiness.

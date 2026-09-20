@@ -41,10 +41,10 @@ Profile `a047d6802c3f06f085b8` is the native integration target:
 - Probability tolerance: `0.005`.
 - Ordering tolerance: `1e-5`.
 
-Phase 3.1 through Phase 3.7 implement the deterministic readout, tokenization,
+Phase 3.1 through Phase 3.8 implement the deterministic readout, tokenization,
 full-sequence backbone, Qwen-specific continuation, backend-neutral
-branch-state, sequential nested execution, and breadth-first batched Q/K
-slices:
+branch-state, sequential nested execution, breadth-first batched Q/K, and
+measured adaptive-scheduling slices:
 
 - immutable model execution metadata.
 - offline manifest and safetensors validation.
@@ -74,11 +74,15 @@ slices:
   immutable root, per-question candidate fan-outs, fail-closed root/sibling/
   position verification, exact sequential-baseline parity, and fan-out byte
   accounting.
+- measured adaptive scheduling: all three strategies behind `run_strategy`
+  with forward-call and staged-token accounting, and a crossover-plus-ceiling
+  policy whose threshold is measured on the named M4 Max host.
 
 This establishes Phase 3.3 CPU backbone parity, the Phase 3.4 branch-state
-contract, Phase 3.5 sequential nested execution parity, and Phase 3.6/3.7
-batched Q/K parity for the frozen fixtures. It does not establish Metal,
-vectorized suffix kernels, adaptive scheduling, high-cardinality or
+contract, Phase 3.5 sequential nested execution parity, Phase 3.6/3.7
+batched Q/K parity, and Phase 3.8 measured scheduling for the frozen
+fixtures. It does not establish Metal,
+vectorized suffix kernels, high-cardinality or
 repeatability gates, service registration, release promotion, or full Rust
 parity. CPU native parity does not imply Metal or accelerated parity.
 Do not register the native backend or map native semantic none onto the Jev wire
@@ -101,7 +105,13 @@ through `fork_batch` question lanes (case 0: exactly `3 × 59,899,904 =
 feature and strict state fingerprint equals the sequential baseline exactly
 (`0.0`), the head reaches the same `4.5869e-06` maximum probability delta
 with zero argmax, zero policy, and zero cross-strategy decision changes, and
-fan-out byte accounting is exact. Treat
+fan-out byte accounting is exact. The Phase 3.8 scheduler gate measured five
+workloads on the named Mac with per-repetition feature parity across all
+three strategies: sharing beat `repeated_full` everywhere measured
+(1.25×–1.98×), `nested_sequential` and `nested_batched` are equal within
+noise, `T(3)/T(1)` is 2.87 repeated versus 2.11–2.18 shared, and the measured
+crossover threshold is recorded as `MEASURED_MIN_SHARED_SAVINGS_RATIO = 2.0`.
+Treat
 hidden-vector differences as localization diagnostics, not new acceptance
 tolerances.
 
@@ -114,7 +124,9 @@ Follow this integration order:
    CPU path (Phase 3.5).
 3. ~~Batched question and candidate execution.~~ Complete for the CPU path
    (Phases 3.6/3.7).
-4. Amortization, high-cardinality, and service-lifecycle validation.
+4. ~~Amortization (Q-amortization crossover measurement).~~ Measured on the
+   named Mac (Phase 3.8). High-cardinality and service-lifecycle validation
+   remain.
 
 ## Workspace Map
 

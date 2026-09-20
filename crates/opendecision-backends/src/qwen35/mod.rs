@@ -12,12 +12,14 @@ mod profile;
 mod tokenizer;
 
 pub use backbone::{
-    run_batched_candidates, run_batched_nested, run_batched_questions, run_sequential_nested,
-    BackboneOutput, BackboneReference, BackboneState, BatchedCandidateResult, BatchedCandidates,
-    BatchedNestedRun, BatchedQuestionResult, BatchedQuestions, EmbeddingOutput, FullSequenceRecord,
-    Layer0Output, LayerKind, NestedCandidateResult, NestedQuestion, NestedQuestionResult,
-    NestedRun, Qwen35Backbone, Qwen35BranchBatch, Qwen35Embedding, Qwen35Layer0,
-    SequentialNestedExecutor, StageComparison, TraceStage,
+    choose_strategy, run_batched_candidates, run_batched_nested, run_batched_questions,
+    run_repeated_full, run_sequential_nested, run_strategy, run_with_scheduler, BackboneOutput,
+    BackboneReference, BackboneState, BatchedCandidateResult, BatchedCandidates, BatchedNestedRun,
+    BatchedQuestionResult, BatchedQuestions, CountingExecutor, EmbeddingOutput, ExecutionStrategy,
+    FullSequenceRecord, Layer0Output, LayerKind, NestedCandidateResult, NestedQuestion,
+    NestedQuestionResult, NestedRun, Qwen35Backbone, Qwen35BranchBatch, Qwen35Embedding,
+    Qwen35Layer0, RetentionEstimates, SchedulerConfig, SequentialNestedExecutor, StageComparison,
+    StrategyDecision, StrategyEstimates, StrategyOutput, StrategyRequest, TraceStage,
 };
 pub use head::{HeadEvaluation, PolicyAction, PrimitiveKind, ScoreSummaryHead, FEATURE_WIDTH};
 pub use profile::ReferenceBundle;
