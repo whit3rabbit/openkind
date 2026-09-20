@@ -22,12 +22,18 @@
 
 ## Key Files & Types
 
-- [`src/main.rs`](./src/main.rs):
+- [`src/main.rs`](./src/main.rs): Minimal CLI entrypoint and subcommand dispatch.
+- [`src/args.rs`](./src/args.rs):
   - `Cli`: Root Clap parser.
   - `Commands`:
     - `Inspect { file }`: Validates a request JSON file against `opendecision_core::validate_request`.
-    - `Evaluate { file, server, pretty }`: POSTs the raw JSON to `{server}/v1/systemone`.
+    - `Evaluate { file, server, api_key, pretty }`: POSTs the raw JSON to `{server}/v1/systemone`.
+    - `Serve { http_addr, grpc_addr, models, api_key }`: Launches `opendecisiond`.
     - `Version`: Prints `opendecision_core::api_version()`.
+- [`src/inspect.rs`](./src/inspect.rs): `cmd_inspect` and `MAX_CLI_INPUT_BYTES` input bounds.
+- [`src/evaluate.rs`](./src/evaluate.rs): `cmd_evaluate` and `cmd_evaluate_async` HTTP execution.
+- [`src/serve.rs`](./src/serve.rs): `cmd_serve` process execution.
+- [`src/tests.rs`](./src/tests.rs): Parser, inspect, and limits unit tests.
 
 ## Verification Commands
 

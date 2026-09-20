@@ -18,7 +18,7 @@
 |---|---|
 | [`src/client/`](src/client/) | Modular client implementation: `mod.rs` (re-exports), [`options.rs`](src/client/options.rs) (`RequestOptions`, `IntoState`), [`builder.rs`](src/client/builder.rs) (`ClientBuilder`), [`core.rs`](src/client/core.rs) (`Client`, `Health`), [`transport.rs`](src/client/transport.rs) (retry send loop in `send_json`), and [`tests.rs`](src/client/tests.rs) |
 | [`src/error/`](src/error/) | Modular error taxonomy: `mod.rs` (re-exports, `Error` enum), [`api_error.rs`](src/error/api_error.rs) (`ApiError`, `ApiErrorKind`), [`envelope.rs`](src/error/envelope.rs) (lenient error-envelope extraction), [`retry_after.rs`](src/error/retry_after.rs) (`parse_retry_after`), and [`tests.rs`](src/error/tests.rs) |
-| [`src/retry.rs`](src/retry.rs) | `RetryPolicy`: max retries, exponential backoff with subtractive jitter, retryable status rules, total-time budget |
+| [`src/retry/`](src/retry/) | Modular retry policy: `mod.rs` (re-exports), [`policy.rs`](src/retry/policy.rs) (`RetryPolicy`, backoff computation, jitter), and [`tests.rs`](src/retry/tests.rs) |
 | [`src/question.rs`](src/question.rs) | Ergonomic `Question` / `State` constructors mirroring the Python SDK's `Noul`/`Choice`/`Score` sugar |
 
 ## Critical Invariants
@@ -37,7 +37,7 @@
 cargo test -p opendecision-client
 ```
 
-- `tests/sdk_parity_retry.rs`, `tests/sdk_parity_errors.rs`, `tests/sdk_parity_wire.rs`, `tests/sdk_parity_config.rs` — ports of the TypeSafe Python SDK's test suite; [`PARITY.md`](PARITY.md) is the authoritative file-by-file mapping (ported / covered / N/A / divergence). Keep it in sync when porting new tests.
+- `tests/sdk_parity_retry.rs` (modularized into [`tests/sdk_parity_retry/`](tests/sdk_parity_retry/): `status.rs`, `overrides.rs`, `delays.rs`, `exhaustion.rs`, and `concurrency.rs`), `tests/sdk_parity_errors.rs`, `tests/sdk_parity_wire.rs`, `tests/sdk_parity_config.rs` — ports of the TypeSafe Python SDK's test suite; [`PARITY.md`](PARITY.md) is the authoritative file-by-file mapping (ported / covered / N/A / divergence). Keep it in sync when porting new tests.
 - `tests/common/mod.rs` — the `MockTransport`-style stub: per-request handler closure plus a captured-request handle (`x-call` marker, `x-typesafe-retry-count`, parsed body, headers).
 - `tests/live_server.rs` — real `opendecision-api` server over TCP (`into_make_service_with_connect_info` is required for the per-IP rate limiter to fire). Covers wire conformance for all three question types, auth, 404/422 error envelopes, and the real rate limiter.
 - `tests/retry_behavior.rs` — deterministic stub server for attempt counting, retry-count headers, `Retry-After` precedence, budget stops, connection classification, per-call overrides.
