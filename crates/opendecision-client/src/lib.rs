@@ -68,9 +68,13 @@
 
 #![warn(missing_docs)]
 
+/// Async HTTP client implementation, builder, and request options.
 pub mod client;
+/// Client error types, envelope extraction, and status classifications.
 pub mod error;
+/// Question construction convenience helpers.
 pub mod question;
+/// Retry policy, exponential backoff, and jitter strategies.
 pub mod retry;
 
 pub use client::{

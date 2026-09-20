@@ -1,17 +1,15 @@
 # opendecision-runtime
 
-> Hardware discovery, device management, and execution runtime for `opendecision` (Phase 2).
+> Hardware discovery, device management, and execution limits for `opendecision`.
 
-`opendecision-runtime` is the hardware and device management layer planned for Phase 2 of the `opendecision` roadmap.
+`opendecision-runtime` is the hardware and device-management layer used by native backends.
 
-## Scope & Roadmap (Phase 2)
+## Current Scope
 
-When implemented, `opendecision-runtime` will provide:
-- **Device Discovery**: Enumeration of available compute devices (CPU, Apple Metal, NVIDIA CUDA / ROCm).
-- **VRAM Accounting & Budgeting**: Tracking available memory to schedule weights and activations safely without OOM crashes.
-- **Worker Pools**: Thread and execution pools for concurrent inference batches across hardware devices.
-- **KV-Cache / State Cache Management**: Shared-state computation cache management across parallel question evaluations, as outlined in `docs/RESEARCH.md`.
+The crate currently provides:
+- **Device identities and discovery**: CPU, Metal, and CUDA configuration with host discovery for available targets.
+- **Execution limits**: Worker-count normalization and optional memory budgets.
 
-## Current Status
+## Phase 3 State Requirement
 
-Phase 2 placeholder. The crate currently links into the workspace to verify dependency resolution while Phase 2B benchmarking is completed.
+Future branchable execution must capture attention KV, DeltaNet recurrent state, and convolution state. Attention masks and KV-only caches are insufficient to isolate question and candidate branches in Qwen 3.5.

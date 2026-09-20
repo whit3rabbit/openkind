@@ -17,10 +17,15 @@
 
 #![warn(missing_docs)]
 
+/// HTTP error mapping and Axum response conversion.
 pub mod error;
+/// Tonic gRPC service implementation for `opendecision.SystemOne`.
 pub mod grpc;
+/// Axum HTTP router and endpoint handlers.
 pub mod http;
+/// Request ID, authentication, and rate limiting middleware.
 pub mod middleware;
+/// Model metadata structures and descriptors.
 pub mod models;
 
 pub use error::ApiError;

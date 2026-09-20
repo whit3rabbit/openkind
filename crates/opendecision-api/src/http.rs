@@ -63,10 +63,15 @@ fn router_full(
     rate_limiter: crate::middleware::RateLimiter,
 ) -> Router {
     Router::new()
+        // POST /v1/systemone — canonical Jev decision evaluation endpoint.
         .route("/v1/systemone", post(systemone))
+        // POST /v1/system_one — SDK alias for decision evaluation endpoint.
         .route("/v1/system_one", post(systemone))
+        // GET /v1/models — list registered models and their capabilities.
         .route("/v1/models", get(list_models))
+        // GET /health — unauthenticated service liveness probe.
         .route("/health", get(health))
+        // GET /metrics — Prometheus text-format scrape target.
         .route("/metrics", get(prometheus_metrics))
         // Order matters: layers added LATER are OUTERMOST. We want
         // request_id outermost so it stamps the response on every code
@@ -108,6 +113,7 @@ pub fn router_with_auth(registry: EngineRegistry, auth: AuthConfig) -> Router {
 // Re-exported at the crate root for tests.
 pub use router_with_state as build_router_with_state;
 
+/// Canonical evaluation handler for POST `/v1/systemone` and `/v1/system_one`.
 async fn systemone(
     State(state): State<Arc<AppState>>,
     req: Result<Json<SystemRequest>, axum::extract::rejection::JsonRejection>,
@@ -133,11 +139,13 @@ async fn systemone(
     Ok(Json(resp))
 }
 
+/// Model listing handler for GET `/v1/models`.
 async fn list_models(State(state): State<Arc<AppState>>) -> Json<ModelsResponse> {
     let models = state.registry.list_models();
     Json(ModelsResponse::new(models))
 }
 
+/// Service liveness probe handler for GET `/health`.
 async fn health() -> impl IntoResponse {
     Json(json!({ "status": "ok" }))
 }

@@ -1,9 +1,10 @@
 //! `opendecision-runtime`: Hardware abstraction, device discovery, and execution management.
 //!
 //! # Purpose & Integration
-//! As documented in `docs/ARCHITECTURE.md` and `docs/ROADMAP.md` (Phase 2 & Phase 3), `opendecision-runtime`
+//! As documented in `docs/ARCHITECTURE.md` and `docs/ROADMAP.md`, `opendecision-runtime`
 //! provides hardware device detection (CPU, Apple Silicon Metal Performance Shaders, NVIDIA CUDA),
-//! memory limit accounting, worker pool sizing, and foundations for shared-state KV prefill caching.
+//! memory limit accounting, and worker pool sizing. Future branchable state must capture attention
+//! KV, DeltaNet recurrent state, and convolution state together.
 //!
 //! Real model backends defined in `opendecision-backends` query this crate to discover available compute
 //! targets and configure thread parallelism.

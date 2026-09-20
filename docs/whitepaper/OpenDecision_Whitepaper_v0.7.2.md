@@ -14,17 +14,21 @@ Version 0.7 adds the completed `2ij.2.0` exploratory model-selection screen. Thi
 
 **Version 0.7 scope.** This revision preserves all prior H and 2I/2J checkpoint evidence, adds the completed exploratory model comparison, final held-out pilot readout, multi-question execution measurements, and the A100-verified selected-model bundle. It does not convert the exploratory pilot into an independently reviewed release study, establish production acceptance limits, or claim Rust/Metal parity. The selected integration candidate remains provisional. [E11]
 
+**Version 0.7.1 external-benchmark update.** Two new public sources sharpen the execution roadmap without changing the selected integration profile. A community Qwen Parallel Constrained Decoding implementation demonstrates one-prefill/batched-field mechanics and author-reported Apple-Silicon latency, but does not establish TypeSafe-style RLCD training or calibrated probabilities. A DGX Spark comparison reports substantially flatter Jev Q=1→4 latency than sequential local Qwen wrappers, while also showing task-dependent quality rankings, independent probability-quality variation and service repeatability differences. These results are treated as external benchmarks and architectural prompts, not OpenDecision measurements or evidence of Jev internals. The immediate implementation emphasis therefore becomes native parity followed by branchable hybrid state, breadth-first batched question execution and explicit Q-amortization measurement. [P21; P22; recommendation]
+
+**Version 0.7.2 Phase 3A systems update.** Phase 3A run `20260920T024056Z` keeps selected profile `a047d6802c3f06f085b8` and its bundle unchanged and performs no training or reselection. It validates a corrected full-hybrid-state branching reference for Qwen3.5, passes the notebook's semantic batched-parity and high-K systems-parity gates, and records exact same-process repeatability in the saved run. The performance result is intentionally mixed: batched state sharing is slightly slower on the three short semantic Q=4 cases but becomes dramatically faster as shared state length dominates, with a corresponding memory cost. The result supports Rust `BranchableState` parity plus an adaptive scheduler—not a model redesign and not an “always share” optimization rule. The selected integration line is now publicly available at <https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst>. Publication does not convert the exploratory profile into a release-quality model or establish Rust/Metal parity. [E12; PUB1]
+
 **Version 0.6.1 scope.** This update uses the latest delivered v0.6 paper and roadmap as its editing bases, not the older v0.3 paper or pre-H roadmap also present in the conversation. It adds the first `2ij.1.0` workbench report, whose overall status is **blocked**: preparation and a Qwen4B/L4 synthetic feature-equivalence probe completed, but independent review and the selection contract are not approved. All historical B–G/H measurement tables and 2H closeout remain unchanged. Section 14 separates the probe from semantic quality, records a duplicate-question fixture mislabeled as unrelated-question addition, and identifies the exact review/target/manifest blockers. V3 checks saved records and source code without running the notebook or reading final-case annotations. No review is signed, no model is retrained and no Drive source is changed. [E10; I0; V3]
 
 **Evidence boundary.** E8 remains the unchanged failed `2h.1.1` attempt and fitting/development source. E9 is the completed continuation with final predictions and an artifact lock; it supersedes the old final-pending status without rewriting the original failure. Completion is separate from numerical acceptance, task generality and deployment readiness. The earlier revision scopes remain in the source and revision registers. [E8; E9]
 
-**Operational plan:** the synchronized [roadmap](ROADMAP.md) keeps 2H-C1–C5 closed, credits 2I/2J preparation and the narrow mechanical probe, and leaves the full reviewed-data, semantic/model-selection, service and P2 requirements open. The immediate work is actual independent review, predeclared device/quality limits and a matching review manifest—not repeating H or marking every workbench stage complete. [E9; E10; I0]
+**Operational plan:** the synchronized [roadmap](ROADMAP.md) keeps 2H-C1–C5 closed and preserves the blocked `2ij.1.0` review-gated checkpoint, while E11 supplies the exploratory model-selection authority and E12 now supplies the Python branch/batch execution reference. **Native parity work is therefore the immediate next step** against `a047d6802c3f06f085b8`; independent review, natural-data confirmation and explicit release-quality/resource limits remain promotion gates rather than prerequisites for beginning the port. Phase 3A.1 is conditional: create a dedicated scheduler/crossover notebook only if early native profiling cannot determine stable execution-strategy thresholds. [E9–E12; P21; P22; recommendation]
 
 **Phase 2H reading guide:** [Completed continuation](#1318-completed-continuation-lineage-lock-and-evaluated-scope) · [Final quality and rejection](#1319-selected-model-final-quality-rejection-and-population-weighting) · [All comparison arms](#13110-all-retained-comparisons-the-development-winner-is-not-the-best-final-transfer-arm) · [Source archive and audit](#appendix-a-source-and-reproducibility-register).
 
 **New checkpoint reading guide:** [Workbench outcome](#14-phase-2i2j-workbench-preparation-mechanical-evidence-and-the-review-gate) · [Synthetic mechanics](#142-the-small-state-first-gpu-probe) · [Probe coverage correction](#143-coverage-correction-the-added-question-was-a-duplicate) · [Gate and continuation](#144-why-the-next-study-remains-blocked).
 
-**Next milestone:** a real, versioned OpenDecision model answering several independent, well-scoped questions over one state, with measured rejection, calibration, useful automation coverage, complete-request latency, and peak memory on a named machine. The current 4B FP32 scorer is the reference, not a required shipping configuration. [R3; proposed milestone]
+**Next milestone:** native/Rust parity for the exported state-first Qwen3.5-4B profile, followed by isolated nested state→question→candidate execution and **batched question branching** with measured Q-amortization, rejection, calibration, useful automation coverage, complete-request latency and peak memory on a named machine. The current 4B FP32 scorer is an integration reference, not a required shipping configuration. [E11; P21; P22; proposed milestone]
 
 ---
 
@@ -61,13 +65,13 @@ The new task evidence shifts the immediate bottleneck toward criteria and reject
 | Does persistent prefix reuse help? | Lossless FP32 savings were 13.91%/11.88% in F and 6.19% on G’s different expiry trace. | Benefits depend on workload and cache budget; no production or cross-question guarantee. |
 | Has H completed and selected a universally better model? | Required final/robustness/primitive/request workers completed; the development-selected support arm has weaker held-out transfer than a retained original-criteria control. | Close recovery; keep model selection, numerical acceptance and broader generality open. [E9] |
 
-**Revised direction:** keep the systems reference, but center research on reviewed multi-question data, transfer-aware model selection, smaller deployment candidates and independent questions sharing one state. H has now measured held-out consequences of readout adaptation and support-conditioned selection, not the ceiling of backbone adaptation. Its recovery/evaluation work is closed; use the current final data as historical/regression evidence after they inform design. The next shared foundation is 2I.1–2I.2, followed by early matched 2J comparisons alongside rendering/sharing and Track S contract/service work. [E9; V2; R3; RC; recommendation]
+**Revised direction after E11/E12:** keep reviewed multi-question data and release confirmation open, but the immediate engineering bottleneck is now native parity rather than model selection. E11 fixes a provisional state-first Qwen4B integration profile; E12 supplies the Python full-hybrid branching/batching reference and demonstrates that execution strategy must be workload-adaptive. Rust head/tokenizer/backbone parity and `BranchableState` should proceed now, while independent review/natural-data confirmation, efficient external baselines and Track S service work continue in parallel. [E9–E12; R3; RC; recommendation]
 
 Bring matched frozen-head versus LoRA versus Qwen3.5-2B comparisons forward, with a compact bidirectional dynamic-candidate arm in the same early comparison program. Keep Qwen as the leading research path without assuming the 4B model must ship or that a smaller encoder is automatically adequate. Measure the useful quality/resource trade-off, not agreement with every historical answer. Model selection and implementation equivalence are different decisions; Section 13 makes their gates explicit. [R3; S3; proposed program]
 
 Preserve strict FP32, lossless reuse, and bounded FP16-KV storage as execution references; keep TF32 as a separately versioned performance candidate and the tested low-bit configurations outside the accepted-equivalence set. Retain inspected G examples as regression data, not an untouched final test after tuning. Do not change prompts, kernels, precision, heads, policies, and caching simultaneously when attributing an effect. None of the revised priorities retroactively changes the F/G verdicts. [E3–E7; recommendation]
 
-**Latest workbench checkpoint:** the first 2I/2J invocation completed historical checks, draft construction and a small Qwen4B/L4 mechanics probe, then retained an overall `blocked` state because the independent-review/selection gate was unsatisfied. It has no registered semantic study, fitted model profiles or final results. This is preparatory progress, not a failed training result or completion of 2I/2J. The technical findings, fixture-coverage limitation and unblock procedure are in §14. [E10; I0; V3]
+**Workbench status now has two preserved stages.** The first `2ij.1.0` invocation remains a blocked review-gated checkpoint with no semantic training/final results; §14 preserves its mechanics evidence and blockers. The later `2ij.2.0` exploratory screen completed 13 fit jobs, evaluated 31 locked final profiles, measured bounded state-first sharing and exported the selected reference bundle. It does not erase the earlier review gate or convert the pilot into release-quality evidence. [E10; E11; I0; V3]
 
 # 2. What “Jev-style” should mean
 
@@ -124,6 +128,8 @@ Use Q for independent questions and K for the alternatives within one question. 
 | Phase 2H, original attempt | Criteria/rejection and primitive fitting | Original `20260919T040612625670Z`, v2h.1.1: saved fits/development, then reporting failure; preserved unchanged. [E8] |
 | Phase 2H, completed continuation | Finish the locked original evaluation without retraining | `20260919T040612625670Z__finish_2h_1_2`, v2h.1.2: both evaluation workers completed; final quality, policy, parity, robustness, primitive and request results saved. Optional state-first/2B/LoRA remain disabled. [E9] |
 | Phase 2I/2J workbench checkpoint | Prepare reviewed multi-question comparisons and test state-first mechanics | `2ij_reviewed_multiquestion_v1`, version `2ij.1.0`: preparation and synthetic GPU probe completed; reviewed-study gate blocked; no new semantic training/final results. [E10; I0] |
+| Phase 2I/2J exploratory screen | Compare state-first/instruction-first Qwen, smaller/adapted Qwen and compact controls; export an integration target | `2ij_model_selection_screen_v2`, version `2ij.2.0`: completed exploratory scope; 13 fit jobs, 31 final profiles, selected/exported profile `a047d6802c3f06f085b8`. [E11] |
+| Phase 3A Python systems reference | Validate complete hybrid-state branching, breadth-first Q/K batching, high-K mechanics, repeatability and crossover behavior without changing the model | Run `20260920T024056Z`: completed notebook scope; semantic/high-K parity passed; workload-dependent latency and memory measured; no Rust/Metal claim. [E12] |
 
 The completed measured sequence uses Qwen/Qwen3.5-4B-Base at revision `1001bb4d826a52d1f399e183466143f4da7b741b`. The text backbone has 4,205,751,296 parameters, hidden width 2,560, and 32 blocks. Its layer list contains 24 linear-attention and eight full-attention blocks. The core results were obtained on an NVIDIA L4. The saved environment includes Transformers 5.17.0; the expanded workers record PyTorch 2.11.0+cu128. Environment details should travel with results because kernel and precision behavior matter. [E1; E2; E5]
 
@@ -809,7 +815,7 @@ Each question receives its own none/applicability calculation and distribution. 
 
 No path should claim nearly flat question scaling from a candidate-only benchmark or a single batched call. Measure both Q and K, state length, complete latency, memory, and semantic isolation. [R3; proposed evaluation]
 
-**Implementation progress, not full milestone closure.** The initial workbench now exercises this nested graph on synthetic Q = 2, K = 2 inputs under strict FP32. Its feature comparisons and root check are recorded in §14.2. The reviewed semantic comparison and resource grid remain gated; the source's “unrelated question addition” fixture is a duplicate append (§14.3), so genuine unrelated-question isolation still needs a distinct test. [E10; V3]
+**Implementation progress after Phase 3A.** The original E10 workbench supplied only an early Q=2/K=2 mechanics probe and contained the duplicate-added-question fixture documented in §14.3. E11 later corrected the distinct-question test and measured bounded semantic sharing. E12 now goes further: it validates the selected profile's complete Python hybrid-state fan-out/select path, breadth-first question/candidate batching, high-K systems parity and same-process repeatability. That closes the Python execution-reference question sufficiently for native engineering; independently reviewed semantic generality and natural-document quality remain separate promotion gates. [E10–E12; V3]
 
 ## 11.3 Rust and Apple Silicon: define the parity ladder
 
@@ -843,6 +849,8 @@ Retain strict FP32 as the historical execution reference and TF32 as a performan
 
 The next reviewed dataset should contain different questions over the same state, including questions that legitimately require different answers. Include explicit inclusion/exclusion criteria, negation, conflicting evidence, insufficient evidence, unrelated background, and instruction-like text inside the state. Hold out whole question or rubric families in addition to source-state groups; held-out intent names alone do not test this target. Begin with a modest, carefully reviewed set rather than scaling unverified synthetic labels. Keep annotation disagreements and missing evidence visible instead of forcing every item into a confident single-answer target. [R3; proposed dataset]
 
+Add a separate **state/evidence sufficiency** axis. Deliberately omitted candidates, author-OOS, insufficient evidence, an observation that simply does not expose the required fact, and an application decision to escalate are not the same event. The DGX Doom study is useful motivation: changing the textual observation/history representation materially changed controller outcomes even though the underlying game task was unchanged. OpenDecision should include reviewed cases where the requested answer is not recoverable from the visible state, and should measure how richer but still non-leaking state summaries affect both correctness and confidence. This is a dataset/evaluation requirement, not evidence that the current profile already solves partial observability. [P22; proposed dataset extension]
+
 For example, one security-event state could support a question about the affected asset, another about whether external communication is evidenced, and a third about which documented handling category applies. This is an illustrative training design, not a claim that the current model handles security workflows. Deterministic calculations and authorization remain in application code. The same-state examples make instruction sensitivity testable without confusing it with a change in underlying facts. [R3; proposed task construction]
 
 The seven-parameter none model is a useful ablation, not a universal answerability mechanism. It sees symmetric score summaries rather than all the semantic information in the already-computed hidden representations. Identical summaries necessarily yield identical none outputs; changing a none logit cannot repair the ordering of two offered candidates. Compare it with a small, permutation-aware applicability/rejection head that can consume candidate-conditioned features, without presuming that another backbone pass is necessary. Keep the refitted-constant control. [E3; R3; architectural inference and proposal]
@@ -872,6 +880,36 @@ The useful comparison is joint candidate scoring with a compact bidirectional mo
 After establishing the supervised baseline, compare the same student trained on reviewed labels alone, labels plus reviewed teacher-generated examples, and an additional distribution-distillation treatment. Keep criteria, data splits, candidate ordering, none semantics, and budgets explicit; never replace independent final labels with teacher judgments. A 4B model is only a possible teacher, not automatically a better one. Evaluate student correctness, calibration, rejection, policy cost/coverage, and total resource use; agreement with an overconfident teacher is not enough. Direct supervised training remains first, and a large RL program needs a specific failure that simpler losses do not address. These are proposed OpenDecision adaptations of the discussion, not results established by R4T. [R3; S3; proposal]
 
 **Backlog traceability:** the compact comparison is an early **2J.1–2J.2** treatment, with released Laya evaluated separately under **2J.5**; the teacher/student comparison is the restored conditional **P2.3** study. The [review matrix](OpenDecision_Review_Followup_Traceability.md) retains their distinct tests and non-goals under RQ-06 and RQ-13. These are experimental commitments to compare, not commitments to replace Qwen or to deploy diffusion. [RC; RP2]
+
+### 11.7.1 Parallel constrained decoding and external Q-scaling evidence
+
+Two new public implementations/benchmarks help separate the useful execution ideas from stronger architectural claims.
+
+**Community Qwen Parallel Constrained Decoding (PCD).** The public `harshatheg/Qwen-2.5-1B-RLCD` page describes an inference engine that prefills a context plus semantic schema catalog once, broadcasts the decoder cache across fields, slices logits to valid answer tokens, performs limited continuation for multi-token candidate trees and assembles JSON in host code. Its model card reports Apple Silicon M4 Max timings of roughly 68–75 ms for four-field examples, 270 ms for 28 fields and 89 ms for one 255-choice example, with 5.6–7.0× latency reductions relative to its own autoregressive JSON baseline. Those are author-reported measurements on Qwen2.5-1.5B/MLX configurations, not OpenDecision results. More importantly, the public artifact does **not** document a TypeSafe-style reinforcement-learning procedure; its useful contribution here is an execution pattern. Labeling a softmax over candidate logits “calibrated” does not establish empirical calibration. [P21]
+
+The public PCD rendering also exposes an important architectural distinction. Its shared prefix includes the semantic schema/question catalog before the context. Therefore changing, adding or reordering fields can change the cached representation that precedes every branch. That is efficient but weaker than OpenDecision's intended isolation contract. The selected OpenDecision profile is **state-first**: the shared state root should be independent of the set of questions submitted with it, then isolated question branches should be created from that root. The design lesson is therefore **borrow breadth-first branch batching, not schema-conditioned state representation**.
+
+```text
+Schema-first PCD reference:
+    schema/question catalog + state → shared decoder cache → field branches
+
+OpenDecision selected direction:
+    stable format + state → immutable hybrid root
+        ├─ question batch Q1..Qn → isolated question states
+        │      ├─ candidate branches → scores
+        │      └─ ...
+        └─ per-question rejection/distribution/policy
+```
+
+For Qwen3.5, the root and every fork must include the full hybrid continuation state, not only attention keys/values: full-attention KV, DeltaNet recurrent state, convolution state, positions and profile identity. A Rust abstraction should therefore model **branchable execution state**, not assume a generic `KVCache` is sufficient. This also keeps the runtime interface usable by future architectures whose reusable state is not represented as ordinary decoder KV. [E4–E7; E10; E11; architectural recommendation]
+
+**DGX Spark decision-reader benchmark.** Reddy's September 2026 comparison reports whole-request p50/p95 and question throughput for one versus four questions. In that campaign, Jev 1.13 moved from **105.1 ms p50 at Q=1 to 109.2 ms at Q=4** (~1.04×), Laya moved from **16.4 to 29.1 ms** (~1.77×), while the tuned Qwen3.5 wrapper moved from **167.0 to 665.1 ms** (~3.98×). The absolute values are not apples-to-apples: local readers are warm on a DGX Spark while Jev includes a hosted HTTP round trip. The useful signal is the *within-system slope*: a Jev-style engine should make additional independent questions much cheaper than Q repeated full evaluations when shared-state work dominates. [P22]
+
+That benchmark also supports three methodological conclusions already present in OpenDecision. First, architecture rankings are task-dependent: the tuned compact encoder leads the reported WANLI slice while Jev leads the reported BoolQ slice, so a fast encoder should not be promoted from one narrow benchmark. Second, probability quality must be evaluated independently: the study reports separate Brier and ECE values rather than treating typed output or maximum probability as calibration. Third, repeatability is an observable serving property: identical Jev API requests changed some choices and many WANLI probability vectors between campaigns. This does not identify the cause, but it motivates a pinned local repeatability campaign for OpenDecision rather than assuming version labels imply identical numerical behavior. [P22]
+
+**Implication for the selected OpenDecision profile.** Do not restart model selection. E11 already provides a fixed integration target and a verified bundle. The immediate systems experiment is now sharper: reproduce the profile natively, establish sequential nested parity, then evaluate a **batched question fork** where all compatible question suffixes advance breadth-first from one immutable state root. Candidate branches can be batched at the next level. Compare repeated-full, sequential-nested and batched-nested paths under the same model/profile and report `T(Q)/T(1)`, marginal latency per added question, questions/second, forward-call count, state-prefill share and peak branch-state bytes. External Jev ratios are reference context, not a predeclared OpenDecision release threshold. [E11; P21; P22; recommendation]
+
+High-cardinality Choice should likewise be split into systems and semantic questions. P21 demonstrates that a constrained-token implementation can mechanically handle 255 declared choices at useful latency on its own workload; it does not demonstrate 255-way dynamic semantic accuracy. OpenDecision should first stress K=32/64/128/255 for memory, batching and scheduler behavior, then add a smaller reviewed high-K semantic panel with candidate descriptions and rejection cases. [P21; recommendation]
 
 ## 11.8 Resolve the wire contract and build a thin real-service path
 
@@ -910,7 +948,7 @@ Record H as **completed through a separately identified continuation**, with the
 | Is FP32 the most accurate model? | Not established generally. It is the most internally consistent tested reference; numerical and semantic quality are evaluated separately. |
 | Does TF32 permission preserve the decision contract? | Not fully. H’s selected profile has no final argmax/policy changes but two numeric-tolerance failures; additional controlled-context cross-mode failures remain. Historical G failures are unchanged. [E7; E9; V2] |
 | Can shared prefixes amortize work? | Yes, especially with longer prefixes and batched suffixes in the completed mechanical tests. |
-| Has state-once, arbitrary-question-many execution been demonstrated? | Not as a useful general decision model. E10 adds a synthetic Q = 2, K = 2 state-first feature-equivalence probe; trained question semantics, probability/policy equivalence and broader scaling remain open. [E10; V3] |
+| Has state-once, arbitrary-question-many execution been demonstrated? | **Mechanically, in bounded Python systems tests:** E11/E12 validate nested and batched state-first execution for the selected profile, including semantic smoke parity and a Q=16 mechanics grid. This is not independently reviewed arbitrary-question semantic competence or native/Rust evidence. [E11; E12] |
 | Is TurboQuant already a win for this model? | Not under the frozen equivalence gate: all four tested snapshot codecs failed; short-prefix overhead also limited storage benefit. |
 | Does FP16 KV storage help? | It passed strict-FP32 fresh/context gates in G and earlier storage tests; it saved bytes but did not add a cache hit or beat lossless trace time in G. |
 | Does persistent prefix reuse help? | Yes on controlled single-worker traces: F and G show workload-dependent gains, with G exercising expiry; no production concurrency claim follows. |
@@ -922,14 +960,17 @@ Record H as **completed through a separately identified continuation**, with the
 | Is the frozen 4B scorer the required deployment model? | No. It is the measured reference; matched adaptation and compact-model selection are now early priorities. |
 | Must a newly trained model reproduce all old probabilities? | No. Same-model implementation equivalence and fresh new-model quality have separate gates. |
 | Does a batched multi-question call prove state-once computation? | No. Q-scaling, actual shared work, isolation, and semantic quality must be measured separately. |
+| Does the public Qwen `RLCD` repository reproduce TypeSafe RLCD training? | Not from the reviewed public artifact. Its useful evidence is parallel constrained-decoding/cache-broadcast execution; a softmax over candidate logits is not by itself a calibration study. [P21] |
+| What new systems property should OpenDecision target after nested sharing? | **Adaptive question amortization.** E12 shows sharing is workload-dependent: short semantic requests can lose to repeated-full, while long shared-state mechanics gain strongly. Preserve multiple execution strategies and learn the target-machine crossover instead of assuming one universally fast path. [E12; P22] |
+| Should OpenDecision switch to schema-first PCD? | No. Keep the selected state-first root for stronger question-set isolation; borrow breadth-first branch batching and constrained-token baselines where useful. [P21; E11] |
 | Does Laya establish a better replacement, or R4T establish a diffusion decision architecture? | No. They motivate bounded comparisons and a later distillation study, not completed OpenDecision findings. |
 | Has Phase 2H completed? | Yes: both required `2h.1.2` continuation workers completed and 2H-C1–C5 are closed. The original `2h.1.1` failed attempt is unchanged; completion does not promote a model or arithmetic mode. [E8; E9] |
 
-**Current 2I/2J status:** preparation and a mechanical fixture are recorded, but the study is not registered and semantic training/final evaluation has not run. Unsigned review, null hardware/quality limits and a mismatched protocol hash are actionable prerequisites, not new accuracy results. [E10; I0]
+**Current 2I/2J status:** the original `2ij.1.0` reviewed-study path remains blocked by unsigned review, null promotion bounds and stale review metadata; separately, `2ij.2.0` completed an **exploratory** model-selection screen and exported a provisional integration profile. The pilot is sufficient to start native parity work but does not satisfy the independent-review/natural-data release gate. [E10; E11; I0]
 
 # 13. Refocused research program and next milestone
 
-The revised objective is a compact, instruction-sensitive, multi-question decision model—not a permanently frozen 4B scorer with an increasingly elaborate cache. Keep the accumulated numerical work as infrastructure for trustworthy comparisons. Move the next experimental budget toward model/data choices and real question-level reuse, while bringing an actual service path into view. The work packages below now use the synchronized roadmap's explicit task IDs and dependencies. They remain proposals except where the saved H or historical artifacts establish otherwise; relabeling a task does not implement it. [R3; R4; proposed program]
+The revised objective remains a compact, instruction-sensitive, multi-question decision model rather than a permanently frozen 4B scorer. E11 and E12 change the sequencing, however: a provisional profile and Python execution reference now exist, so the next engineering budget moves to native/Rust parity and target-machine execution while reviewed model-promotion work proceeds independently. The accumulated Python numerical/branching evidence becomes the contract the native implementation must reproduce, not a reason to defer the port for another model-search cycle. [E11; E12; R3; proposed program]
 
 ## 13.1 Phase 2H: completed continuation and retained development history
 
@@ -1297,7 +1338,7 @@ Both workers record approximately **16,043.69 MiB allocated immediately after mo
 
 The main learning is more specific than “training helped.” Rejection refitting and small readout adaptation improve paired final results relative to the historical control, but support-conditioned development selection did not choose the strongest final-transfer arm. Perfect author-OOS classification on this sample did not eliminate omitted-intent errors, policy risk or context sensitivity. TF32 offers a substantial batching speed benefit but still fails the unchanged combined equivalence gate. Bounded BoolQ/SST-5 evidence is now available without validating general primitives. [E9; V2; synthesis]
 
-The next priority is **2I.1–2I.2**: reviewed multi-question criteria and a selection/evaluation protocol that distinguishes fitting-domain performance, transfer without support examples, omitted alternatives, OOS and insufficient evidence. Use fresh development and final data for new interventions; the now-inspected H final set is historical/regression evidence once it influences design. Then run **2J.1–2J.6** with the original-criteria joint control, matched support treatments, feature-aware rejection, limited LoRA, smaller Qwen, compact ModernBERT-style scoring and fair trained finite-token/dynamic-label baselines. These are future comparisons, not gains measured by H. [E9; R3; RC; proposed next work]
+The required H study is closed and the exploratory E11 comparison has already supplied the provisional implementation profile. The **immediate engineering priority is Phase 3 native parity** against that immutable profile and the E12 execution fixtures. In parallel, **2I.1–2I.2 and 2J.5–2J.6** remain the release-quality path: independent review, natural/held-out task evidence, explicit promotion bounds and fair external baselines. New model interventions still require fresh development/final data; H and E11 final sets are historical/regression evidence once they influence design. [E9; E11; E12; R3; RC]
 
 State-first/nested Q sharing, independently reviewed natural documents and criteria, broad Noul/Score evidence, and the real Rust/resident-worker service remain open. The Laya comparator and later R4T-inspired teacher/student work remain captured in §11.7, P2.1–P2.3 and the traceability matrix. The refocus toward a compact, instruction-sensitive, multi-question engine is preserved; the 4B FP32 scorer is still a reference rather than a mandatory shipping model. [R3; RC; E9; proposed program]
 
@@ -1318,15 +1359,14 @@ The companion [ROADMAP.md](ROADMAP.md) is the task/status authority; this paper 
 | Priority | Roadmap package | Decision it enables | Evidence required before promotion |
 |---|---|---|---|
 | Closed — required H scope | **2H-C1–C5: preservation, recovery, locked final evaluation and evidence handoff** | Adds complete final evidence without retraining or erasing the failed attempt | E9/V2; no automatic model, TF32 or deployment promotion |
-| P0 — now | **S.1–S.2: current status and probability/API contracts** | Prevents different components from implementing different meanings | Pinned decision/execution/capability contracts; explicit none/key semantics; commit-stamped test evidence rather than unverified HEAD counts |
-| P0 — next study foundation | **2I.1–2I.2: approve reviewed multi-task/multi-question data and criteria** | Moves the prepared draft through the actual review gate | Distinct reviewer and signed attestations; predeclared device and five quality/resource limits; refreshed matching manifest; held-out state/question/rubric families and untouched final data. The current checkpoint remains blocked. [E10; I0] |
-| P1 — early matched model round | **2J.1–2J.6: adaptation, smaller Qwen, compact bidirectional model, rejection and efficient baselines** | Chooses model/data interventions on useful quality/resource trade-offs | Common semantic tasks/criteria/splits; matched losses and budgets within each ablation; normalization/calibration refits; multiple seeds for leading arms; final accepted-error/coverage and actual resource measurements |
-| P1 — alongside modeling | **2I.3–2I.6: matched rendering and nested question/candidate reuse** | Establishes the missing multi-question property | Quality under each trained rendering; Q and K varied independently; branch isolation and within-profile parity; complete cold/warm request costs |
-| P1 — alongside data/model work | **S.3–S.5: thin Rust service plus resident reference worker** | Exposes API, queueing, capability and resource limits before a native port | Real probabilities, bounded queue/work, explicit unsupported inputs, cancellation/failure tests, queue-inclusive latency and memory |
-| P2 — after a promising profile | **P2.1–P2.3: conditional optimized-kernel, weight-precision and teacher/distillation studies** | Tests an additional specific efficiency or learning hypothesis | Verified runtime capabilities; fresh model-quality gates when behavior changes; same-model parity when equivalence is claimed; total resource accounting |
-| P2 — deployment maturation | **Phase 3: selected native backend and production lifecycle** | Establishes target-platform behavior without CUDA-to-Mac extrapolation | Per-profile head → tokenizer → backbone → supported sharing/batching ladder; load, isolation, lifecycle and named-machine measurements |
+| P0 — now | **Phase 3.1–3.5: native head/tokenizer/backbone parity and `BranchableState`** | Converts E11/E12 into a target-runtime implementation contract | Hidden/probability parity; exact renderer tokens; immutable complete-state branching; sequential nested parity; named-machine identity/resources [E11; E12] |
+| P0 — parallel contract work | **S.1–S.2: current status and probability/API contracts** | Prevents different components from implementing different meanings | Pinned decision/execution/capability contracts; explicit none/key semantics; commit-stamped test evidence |
+| P1 — native optimization | **Phase 3.6–3.10: batched Q/K, adaptive scheduler, high-K/repeatability** | Establishes whether the selected profile amortizes work on the target Mac | Native batched parity, crossover/Q-amortization, branch memory and repeatability against E12 reference |
+| P1 — release confirmation in parallel | **2I.1–2I.2 + 2J.5–2J.6** | Determines whether the provisional profile may be promoted beyond exploratory scope | Independent review, natural/held-out cases, explicit release limits, fair external baselines and fresh final evidence [E10; I0; E11] |
+| P1 — service path in parallel | **S.3–S.5: thin Rust service plus resident reference worker** | Exposes API, queueing, capability and resource limits during native work | Real probabilities, bounded queue/work, unsupported-input errors, cancellation/failure tests, queue-inclusive latency/memory |
+| P2 — conditional | **P2.1–P2.3: optimized-kernel, weight-precision and teacher/distillation studies** | Tests a specific remaining bottleneck after the native baseline | Verified runtime capabilities; fresh quality when behavior changes; same-model parity when equivalence is claimed |
 
-**Dependency order.** H closeout is complete. Freeze the common **2I.1–2I.2** reviewed-data/comparison protocol next, using H’s selection/transfer mismatch to specify new diagnostics without tuning on H final outcomes. Then run the matched 2J screen alongside trained rendering/sharing work and a bounded Track S service. Carry the original-criteria joint arm as a retained control, not a newly test-selected default. Use fresh final state/question/rubric families for new interventions. [E9; R3; RC; proposed sequencing]
+**Dependency order after E11.** H closeout and the exploratory 2I/2J screen are complete enough to unblock implementation. Begin Phase 3 parity against the frozen exported profile **without waiting for release promotion**, while 2I.1–2I.2 independent review/natural-data work continues as the release-quality gate. After head/tokenizer/backbone parity, establish sequential nested sharing, then batch the question layer and candidate layer separately so numerical or semantic regressions can be localized. Use fresh reviewed data for model promotion; use the exported E11 fixtures for implementation equivalence. [E9; E11; P21; P22; proposed sequencing]
 
 **Observed gate:** E10 has generated the review package but has not satisfied that dependency. Resolve the exact intake requirements in §14.4–§14.5 before starting new semantic model selection. Correct the duplicate/unrelated fixture under 2I.6 as separately versioned test work; this checkpoint does not justify closing the full isolation task. [E10; I0; V3]
 
@@ -1364,7 +1404,7 @@ Demonstrate several independently defined questions over one state through a rea
 
 A proposed initial scaling grid is **Q = 1, 4, 16** and **K = 2, 4, 8, 16**, over proposed state-length targets **64, 256 and 1,024 tokens** and supported question types. Actual finalized token counts include question/criteria/formatting overhead; these are initial protocol targets, not demonstrated limits. It is a design grid, not a completed benchmark or required maximum API size. Hold other dimensions fixed for causal comparisons and use representative subsets before an expensive full sweep. Test question-order changes, opaque-ID renaming, candidate permutation, and adding/removing unrelated questions. Separate expected changes from changing a candidate set from unintended cross-question influence. [R3; proposed protocol]
 
-Report correctness, NLL/Brier and reliability diagnostics, conditional rejection rates, accepted-answer error, coverage, and scenario-defined application cost. Report independent source-state counts alongside all expanded episode/question counts and use source-group-aware uncertainty. For performance, include complete latency, decisions per second, peak and resident memory, model invocations, and actual shared work. Separate startup, cold-state, warm-state/cache-hit, and queueing costs; do not mix L4 GPU measurements with unmeasured Mac performance. [R3; proposed measurement contract]
+Report correctness, NLL/Brier and reliability diagnostics, conditional rejection rates, accepted-answer error, coverage, and scenario-defined application cost. Report independent source-state counts alongside all expanded episode/question counts and use source-group-aware uncertainty. For performance, include complete latency, decisions/questions per second, peak and resident memory, model invocations, branch-state bytes, state-prefill share, **`T(Q)/T(1)` and marginal latency per added question**. Compare repeated-full, sequential-nested and batched-nested execution on the same profile. Separate startup, cold-state, warm-state/cache-hit, and queueing costs; do not mix L4 GPU measurements, DGX Spark measurements or hosted Jev timings with unmeasured Mac performance. [R3; P22; proposed measurement contract]
 
 The preferred selection criterion is **correct automated decisions per second subject to predeclared accepted-error, coverage, latency, and memory requirements**. Set the numerical requirements and target hardware before looking at the final comparison; this paper does not invent an evidence-free safety threshold or resource winner. Always reviewing is a cost baseline, not a useful high-throughput success. At zero accepted answers, conditional accepted-error is undefined. A model should advance only with an explicit task scope and enough evidence to support its stated operating region. [R3; proposed selection rule]
 
@@ -1372,7 +1412,7 @@ The preferred selection criterion is **correct automated decisions per second su
 
 Pause further low-bit KV snapshot sweeps on the same short-prefix workloads. Keep lossless and bounded FP16-KV paths available as reference infrastructure, with the unsuccessful codecs preserved as negative results. Reopen compression only when a materially different workload, codec, or memory profile supplies a specific hypothesis. Failed snapshot quantization is not a verdict on model-weight quantization; they affect different tensors and require separate tests. [E6; E7; R3]
 
-Do not prioritize MTP for a graph that generates no output tokens, a large RLCD-inspired program before supervised baselines, a diffusion rewrite based on a retrieval paper, or a full native inference-stack rewrite before validating model choice and a real worker-backed service. A verified optimized backend can be an earlier controlled experiment, but package installation alone does not establish kernel use or support for the hidden-state/cache operations the engine needs. [E6; R3; P20; proposed limits]
+Do not prioritize MTP for a graph that generates no output tokens, a large RLCD-inspired program before supervised/proper-scoring baselines, or a diffusion rewrite based on a retrieval paper. The new PCD reference strengthens the case for optimizing the existing bounded-decision graph before inventing a new training paradigm; it does not establish that RL is unnecessary forever. A verified optimized backend can be an earlier controlled experiment, but package installation alone does not establish kernel use or support for the hidden-state/cache operations the engine needs. [E6; R3; P20; proposed limits]
 
 # 14. Phase 2I/2J workbench: preparation, mechanical evidence and the review gate
 
@@ -1569,17 +1609,215 @@ The project can now stop treating model identity as the main blocker for Rust en
 The remaining model-research gates are promotion gates, not prerequisites for beginning the port: independent review/natural-data confirmation, explicit release-quality/resource bounds, released Laya/GLiClass external baselines, and any conditional P2 quantization or teacher/student study. A later reviewed confirmation can reject the provisional candidate for release without invalidating its value as the fixed implementation target used to build and test the Rust/native path.
 
 
+# 16. Phase 3A: full-hybrid BranchableState, batched Q/K execution, and the Rust handoff
+
+## 16.1 Scope, lineage, and non-goals
+
+Phase 3A run `20260920T024056Z` is an implementation/systems study over the already selected E11 profile:
+
+```text
+profile_id: a047d6802c3f06f085b8
+backbone:   Qwen/Qwen3.5-4B-Base
+weights:    frozen
+renderer:   state-first
+rejection:  score-summary
+bundle:     4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332
+```
+
+The saved summary explicitly records `model_changed=false`, `training_performed=false`, and `selection_performed=false`. Phase 3A therefore cannot be interpreted as a new model-quality result or post-final reselection. It asks a narrower question: **can the selected numerical function be executed through a reusable, fully isolated hybrid continuation state and vectorized across independent questions/candidates without changing the declared decisions?** [E11; E12]
+
+The notebook reports `completed_notebook_scope`, three semantic smoke cases, `semantic_batched_parity_all_pass=true`, `high_k_parity_all_pass=true`, same-process repeatability maximum probability delta `0.0`, and zero repeatability argmax changes. It also retains `release_quality_claim=false` and `rust_metal_parity_claim=false`. These flags are evidence boundaries rather than deficiencies to be silently removed. [E12]
+
+The public reference repository for this integration line is:
+
+<https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst>
+
+This publication improves inspectability and handoff. It does not imply that the frozen Qwen base weights were retrained, that TypeSafe RLCD was reproduced, or that OpenDecision has passed a release-quality/natural-data or Rust/Metal gate. [PUB1]
+
+## 16.2 Why generic KV-cache batching was insufficient
+
+The first Phase 3A draft exposed a concrete Qwen3.5 runtime mismatch. Transformers 5.17.0 exposes a top-level cache `batch_repeat_interleave()` helper, but Qwen3.5's hybrid cache contains `LinearAttentionLayer` entries that do not implement that generic repeat operation. Treating the cache as ordinary attention KV therefore fails before the semantic benchmark.
+
+The corrected reference deliberately **does not** monkey-patch only the attention portion. It treats the continuation state as a heterogeneous object:
+
+```text
+Qwen3.5 continuation state
+├── 8 full-attention layers
+│   ├── key cache
+│   └── value cache
+└── 24 DeltaNet / linear-attention layers
+    ├── recurrent state
+    └── convolution state
+```
+
+Logical token position and execution/profile identity are also part of the reusable-state contract even though they are not simply tensor payloads.
+
+The corrected fan-out is conceptually:
+
+```python
+root = deep_copy(full_hybrid_cache)       # root remains reusable
+lanes = deep_copy(root)
+lanes.reorder_cache([0, 0, 0, 0])        # one root -> four complete-state lanes
+
+selected = deep_copy(lanes)
+selected.reorder_cache([2])               # gather one lane
+```
+
+`reorder_cache()` dispatches the index operation through each supported layer representation; repeated indices provide fan-out and arbitrary indices provide gather/select. The Phase 3A self-test performs fan-out then selection and requires the selected full-state fingerprint to match the original while confirming the source root was not mutated. The important contract is **complete-state isolation**, not the Python method name itself. A Rust backend can implement a more efficient representation, but cloning/gathering only attention KV would not be equivalent. [E12]
+
+This finding strengthens the architectural reason for a backend-neutral `BranchableState` abstraction. For the selected Qwen profile, at minimum it must bind:
+
+- attention KV;
+- recurrent DeltaNet state;
+- convolution state;
+- logical position;
+- profile/model/tokenizer/renderer/execution identity;
+- storage-byte accounting;
+- immutable-root fork semantics;
+- batched fork and gather/select semantics.
+
+## 16.3 Batched execution and numerical gates
+
+Phase 3A keeps three execution strategies separate:
+
+```text
+repeated_full
+    encode each question/candidate through its complete prompt independently
+
+nested_sequential
+    prefill state once
+    fork question states one at a time
+    fork candidate states one at a time/bucket
+
+nested_batched
+    prefill state once
+    fan out compatible question lanes
+    advance questions breadth-first
+    fan out compatible candidate lanes
+    advance candidates breadth-first
+```
+
+Question and candidate suffixes are grouped by exact or explicitly declared compatible length rather than padding recurrent streams merely to make a batch. This matters because the selected backbone is not a pure attention transformer; inserting padding or advancing recurrent state on dummy positions would define a different execution graph.
+
+The semantic smoke gate passes for all three tested states, and the high-cardinality systems gate also passes. The recorded same-process repeatability comparison has maximum probability delta zero and zero argmax changes. These are implementation-equivalence observations for the selected nonfinal fixtures; they are not estimates of semantic error rate, high-K calibrated accuracy, or future backend failure probability. [E12]
+
+## 16.4 Short semantic Q scaling: parity passes, speed does not yet look Jev-like
+
+The three semantic smoke states each contain Q=1 and Q=4 measurements. Taking the median across the three per-case medians gives:
+
+| Mode | Q=1 median | Q=4 median | `T(4)/T(1)` |
+|---|---:|---:|---:|
+| `repeated_full` | **265.0 ms** | **869.3 ms** | **3.28×** |
+| `nested_sequential_cold` | 456.0 ms | 1,260.9 ms | 2.77× |
+| `nested_batched_cold` | 380.8 ms | 1,058.4 ms | 2.78× |
+| `nested_batched_warm` | 288.4 ms | 962.4 ms | 3.34× |
+
+The negative result matters: on these short real semantic requests, warm nested batching is approximately **10.7% slower** than repeated-full execution at Q=4. The tested selected profile therefore does **not** yet reproduce the nearly flat Q=1→4 latency slope reported for hosted Jev in P22, and it would be misleading to present Phase 3A as a universal multi-question speedup. [E12; P22]
+
+The likely systems interpretation is that, at these short state lengths, the fixed costs of creating/reindexing branch state, arranging exact-length buckets, and running the question/candidate layers are large enough that avoided state re-encoding does not dominate. That interpretation should be confirmed by component profiling rather than assumed as a proven causal decomposition.
+
+## 16.5 Shared-state length changes the operating point
+
+The mechanical grid provides the complementary result. These inputs are systems fixtures rather than independently labeled natural semantic cases, but they isolate the cost structure:
+
+| State / shape | Repeated full | Nested sequential cold | Nested batched cold | Nested batched warm | Warm speedup vs repeated |
+|---|---:|---:|---:|---:|---:|
+| L=64, Q=4, K=4 | 1,375.4 ms | 1,918.5 ms | 597.9 ms | 514.9 ms | **2.67×** |
+| L=256, Q=4, K=4 | 2,934.3 ms | 1,962.4 ms | 677.0 ms | 507.6 ms | **5.78×** |
+| L=1024, Q=4, K=4 | 9,448.1 ms | 2,348.7 ms | 1,101.2 ms | 516.5 ms | **18.29×** |
+| L=1024, Q=16, K=2 | 18,928.6 ms | 4,884.9 ms | 2,506.3 ms | 1,922.0 ms | **9.85×** |
+
+The qualitative transition is clear. At L=64, sequential sharing loses to repeated execution while batched sharing already wins. At L=256, even sequential sharing becomes useful. At L=1024, repeated state computation dominates so strongly that both cold and warm shared-state execution are substantially faster. Phase 3A therefore supports the **state-first sharing architecture** but rejects a single unconditional execution strategy. [E12]
+
+Memory moves in the opposite direction. At L=1024/Q=16/K=2, recorded peak allocated memory is approximately:
+
+- repeated full: **16.42 GiB**;
+- nested sequential cold: **16.63 GiB**;
+- nested batched cold: **18.67 GiB**;
+- nested batched warm: **18.55 GiB**.
+
+The roughly 2.25 GiB peak increase from repeated-full to batched-cold is a real scheduler/admission cost. A runtime selecting the lower-latency path without checking branch expansion and available memory would be incomplete.
+
+## 16.6 The scheduler is now an architectural component
+
+The measured result implies at least three first-class execution plans:
+
+```rust
+enum ExecutionPlan {
+    RepeatedFull,
+    NestedSequential,
+    NestedBatched {
+        question_batch: usize,
+        candidate_batch: usize,
+    },
+}
+```
+
+The exact Rust API may differ, but the choice cannot be hidden inside a generic “fast mode.” A planner needs observable features such as:
+
+```text
+state token length
+Q independent questions
+per-question K
+question suffix lengths
+candidate suffix lengths
+exact-length bucket occupancy
+cold vs warm reusable state
+BranchableState bytes per lane
+temporary branch expansion
+available device memory
+backend / precision / kernel identity
+```
+
+The next target-machine work should separately profile:
+
+```text
+render/tokenize
+state prefill
+root clone/snapshot
+fan-out/reindex
+question forward
+question-state materialization
+candidate fan-out
+candidate forward
+head + rejection + calibration + policy
+device synchronization
+serialization
+```
+
+This decomposition is the purpose of a possible **Phase 3A.1 scheduler/crossover notebook**. It is conditional, not a prerequisite for starting Rust parity: if native profiling already gives stable component costs and crossover rules, another Colab adds little. If the Rust backend obscures the cause of a crossover or differs materially from the Python reference, Phase 3A.1 should freeze the model/profile and study only execution cost—not reopen model search.
+
+## 16.7 Rust handoff and acceptance boundary
+
+Phase 3A changes the Rust handoff in one important respect. Native engineering no longer needs to infer what “branch the Qwen cache” means. The reference behavior is now explicit:
+
+1. reproduce head/probability algebra;
+2. reproduce exact tokenizer and state-first rendering;
+3. reproduce full-backbone hidden features/distributions;
+4. construct a complete profile-bound state root;
+5. prove the root is immutable under fork/fan-out;
+6. support one-lane fork and batched fan-out/gather;
+7. reproduce sequential nested execution;
+8. reproduce batched Q/K parity;
+9. measure strategy crossover on the Mac rather than importing A100 thresholds.
+
+A successful Rust `BranchableState` implementation may use different tensor layouts, copy-on-write storage, preallocated slabs, gather kernels, MLX/Metal-native buffers, or another backend representation. Equivalence is judged by finalized input identity, full probabilities, argmax/policy behavior, branch isolation, and declared numeric tolerances—not by mimicking Python data structures.
+
+The public Hugging Face repository should be treated as the public identity of this reference line, while the immutable profile ID and bundle hash remain the stronger experiment identifiers. A future LoRA, weight-quantized, different-renderer, different-rejection, or otherwise behavior-changing artifact must receive a distinct model/execution profile and its own quality/equivalence record. [E11; E12; PUB1]
+
+---
+
 # Conclusion
 
 OpenDecision’s completed evidence remains useful and unchanged: frozen-feature task results, dynamic candidate transfer, measured rejection trade-offs, cost-sensitive policies, strict-FP32 shared-prefix agreement, and bounded cache-compression/persistence findings. Phase 2G adds both stronger execution evidence and clearer limits in rejection, criteria interpretation, and background robustness. These are not reasons to discard Qwen; they are reasons to stop treating the narrowly fitted frozen scorer as the finished model. [E1–E7; R3]
 
-**The revised direction is Qwen-led but model-comparative: better-defined judgments, broader supervised adaptation, richer answerability evidence, a smaller deployment candidate, and genuine independent questions over shared state.** Completed H adds paired final gains over the historical control but also a development-to-transfer reversal for support conditioning, persistent omitted-intent/policy errors, context sensitivity and incomplete TF32 equivalence. Its bounded primitive probes are finally evaluated, not generally validated. Close the required H study and preserve its negative findings; proceed to reviewed multi-question data and fresh matched model selection rather than more tuning on the exposed H final set. The compact bidirectional comparator, later teacher/student study and real-service bridge remain uncompleted parts of the program. [E9; V2; R3; RC; proposed next work]
+**The revised direction is Qwen-led but model-comparative: better-defined judgments, richer answerability evidence, a credible smaller-Qwen challenger, and genuine independent questions over shared state.** Completed H contributes transfer/rejection warnings; E11 now adds the bounded matched model screen and a fixed state-first Qwen4B integration target. The next engineering step is no longer another architecture search: reproduce that profile natively, then vectorize the already validated nested graph at the question layer. Independent reviewed/natural-data confirmation, efficient external baselines and later teacher/student work remain promotion/research gates rather than reasons to postpone the port. [E9; E11; P21; P22; recommendation]
 
 The next defensible claim is not “an open Jev clone” and not “the old FP32 scorer reproduced more precisely.” It is **an open, auditable, versioned decision model that answers several well-scoped questions over one state with measured quality, uncertainty, useful coverage, and resource cost.** Preserve historical equivalence gates, evaluate new models on fresh quality gates, and let those comparisons—not an assumed architecture or model size—determine what ships. [R3; proposed milestone]
 
-The first 2I/2J workbench invocation now contributes source-backed preparation and a small synthetic GPU branching probe. It has **not** passed the reviewed-study gate, produced a trained comparison or validated the new task families. Preserve its useful mechanical observations with their precise limits, including the duplicate-question coverage correction, and complete the substantive review/selection contract before moving forward. H remains closed; the broader research objective and open comparison tasks are unchanged. [E10; I0; V3]
+The first 2I/2J workbench invocation remains useful historical evidence of a blocked review gate and an early branching probe. The later exploratory screen supplies the trained comparison that the first invocation lacked, but does not retroactively approve the unsigned review package. Preserve both stages: use E11 for the provisional implementation target and E10/I0 for the still-open independent-review requirements. [E10; E11; I0; V3]
 
-The later `2ij.2.0` exploratory continuation now completes the bounded comparison and changes the engineering bottleneck. Qwen3.5-4B-Base with frozen weights, state-first rendering and the score-summary rejection head is the locked provisional integration candidate; all final comparison profiles and the bounded sharing study completed, and the selected bundle passed a fresh A100 reload/parity check. The next implementation milestone is therefore native/Rust parity against the exported contract, while a fresh independently reviewed confirmation remains required before a release-quality model claim. [E11]
+The later `2ij.2.0` exploratory continuation completed the bounded comparison and fixed the provisional integration candidate. Phase 3A now adds the missing Python execution reference: complete hybrid-state fan-out/select works under the corrected cache-wide reindex path, semantic and high-K batched parity gates pass, and the saved run is exactly repeatable in its recorded same-process check. The performance result is not uniformly positive—short semantic Q=4 requests still favor repeated-full execution, whereas longer shared state produces large batched-sharing gains with higher peak memory. The next implementation milestone is therefore **native/Rust parity → native BranchableState → sequential/batched parity → adaptive Mac scheduler**, not another model-architecture search. A fresh independently reviewed confirmation remains required before a release-quality model claim. [E11; E12; PUB1]
 
 ---
 
@@ -1672,6 +1910,10 @@ H0 remains a historical design source. E8 records the original `2h.1.1` configur
 
 **E11 — Completed exploratory 2I/2J model-selection screen and selected-model export.** Study `2ij_model_selection_screen_v2`, workbench `2ij.2.0`; final workflow `completed_requested_scope`. The saved result set contains 13 completed fit jobs, 31 completed final profiles, bounded multi-question scaling, `MODEL_DECISION.json`, and an A100-completed reference model bundle. Selected profile: `a047d6802c3f06f085b8`, Qwen/Qwen3.5-4B-Base, state-first, score-summary rejection. The selected final panel contains 320 episodes from 56 messages and records 95.0% accuracy / 0.13006 NLL. Bundle SHA-256: `4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332`; fresh reload parity passed with max probability delta `3.6673555e-6` and zero selected-ID changes. Scope remains exploratory; independent review, production acceptance limits and Rust/Metal parity are not established.
 
+**E12 — Phase 3A Python BranchableState and batched-Q systems reference.** Run `20260920T024056Z`, schema `opendecision-phase3a-summary/v1`, source/result path `Google Drive / Colab Notebooks / OpenDecision_Phase3A_results / 20260920T024056Z`. The run uses selected E11 profile `a047d6802c3f06f085b8` and bundle SHA-256 `4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332`; it records no model change, training or reselection. Saved headline gates: three semantic smoke cases, semantic batched parity all pass, high-K systems parity all pass, same-process repeatability maximum probability delta 0.0 and zero argmax changes. The benchmark rows retain repeated-full, nested-sequential, batched-cold and batched-warm timings and peak allocations over semantic Q=1/Q=4 cases and a mechanics grid through L=1024/Q=16. The corrected notebook uses complete-cache reindexing for hybrid fan-out/select after the generic Transformers repeat helper proved unsupported for Qwen3.5 linear-attention cache layers. `release_quality_claim` and `rust_metal_parity_claim` remain false. This whitepaper derives ratios only from the saved timing rows; it does not rerun Qwen.
+
+**PUB1 — Public OpenDecision state-first reference repository.** <https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst>. Project-owned publication of the selected state-first integration line. The repository URL is a public identity/reference surface; experiment identity remains pinned by profile ID, base-model revision, renderer/head/rejection contracts and bundle hash. Publication does not establish TypeSafe RLCD reproduction, release-quality promotion, or Rust/Metal parity.
+
 # Appendix B. Primary external references
 
 Version 0.6.1 adds no external-reference review. New checkpoint claims use E10/I0 and V3; the following public references retain their prior review dates.
@@ -1719,6 +1961,11 @@ Primary pages P1–P16 were checked for version 0.1 on 18 September 2026; their 
 **P19.** Convai Innovations. *Laya model card.* Author-described compact bidirectional decision architecture, option-marker scoring, per-question input budget, batching, and limitations, checked for v0.4. No author timing, calibration, or Jev-superiority claim is adopted as an independently reproduced result. [Model card](https://huggingface.co/convaiinnovations/laya). The linked project is a candidate for a future code audit, not an audited dependency of this revision.
 
 **P20.** Jiang, P., et al. (2026). *Efficient, Property-Aligned Fan-Out Retrieval via RL-Compiled Diffusion.* arXiv:2603.06397v1, 6 March 2026. The R4T workflow is cited for its separation of expensive teacher-side optimization from lightweight deployment; the proposed decision-model distillation study is an extrapolation, not a paper result. [Paper](https://arxiv.org/html/2603.06397v1).
+
+
+**P21.** Gundala, H. *Qwen-2.5-1B-RLCD / Parallel Constrained Decoding for Apple Silicon.* Hugging Face model/repository documentation, reviewed 20 September 2026. Describes a shared-prefix Qwen/MLX inference path with cache broadcasting across fields, constrained candidate-token logit slicing, token-tree continuation and host-side JSON assembly. The page reports M4 Max benchmark values including 68–75 ms four-field cases, 270 ms for 28 fields and 89 ms for one 255-choice case. OpenDecision cites these as author-reported inference mechanics/performance, not evidence that TypeSafe RLCD training has been reproduced or that the resulting probabilities are empirically calibrated. [Model card](https://huggingface.co/harshatheg/Qwen-2.5-1B-RLCD).
+
+**P22.** Reddy, N. (19 September 2026). *Jev-style models on DGX Spark.* More Than a Machine. External comparison of Jev 1.13, Laya and local decision readers on WANLI, BoolQ, serving Q-scaling and ViZDoom controllers. The reported serving table has Jev p50 105.1→109.2 ms from one to four questions, Laya 16.4→29.1 ms, and tuned Qwen3.5 167.0→665.1 ms; Jev includes hosted HTTP while local readers are warm/in-process, so absolute latencies are not directly comparable. The post also reports separate Brier/ECE metrics and campaign-to-campaign Jev API variation. OpenDecision uses it as external benchmark context, not evidence of Jev's private architecture. [Article](https://morethanamachine.com/posts/jev-style-decisions-dgx-spark/).
 
 # Appendix C. Reading the metrics
 
@@ -1847,3 +2094,15 @@ No historical measurements or gold labels are changed. Additional comparisons ar
 | Provenance | Add E10/I0/V3 and a 34-check saved-artifact audit; keep raw feature reproduction and annotation review outside scope |
 
 Historical measurement tables, earlier failures, H closeout, ModernBERT/Laya and R4T mappings and the existing acceptance framework remain intact. No model result or human approval is inferred from archive export.
+
+## Version 0.7 — exploratory model selection and Rust handoff
+
+The `2ij.2.0` exploratory screen completed the bounded model-selection program, selected `a047d6802c3f06f085b8` before final evaluation, measured state-first multi-question mechanics and exported a reload-verified reference bundle. State-first Qwen4B was the strongest tested family in this pilot; Qwen2B remained a credible deployment challenger, while the tested ModernBERT treatments were much faster/smaller but substantially weaker on this task construction. The result unblocked native parity work without constituting release promotion.
+
+## Version 0.7.1 — external PCD/DGX benchmark refocus
+
+This revision adds P21/P22 and changes no OpenDecision model result, selection or historical acceptance decision. It clarifies that the public `Qwen-2.5-1B-RLCD` artifact is primarily evidence for parallel constrained-decoding mechanics rather than a demonstrated TypeSafe-RLCD training procedure; contrasts schema-first PCD with OpenDecision's selected state-first isolation contract; adds explicit state/evidence-sufficiency and high-cardinality follow-ups; and refocuses Phase 3 on native parity → branchable hybrid state → sequential nested parity → batched question execution → candidate batching → Q-amortization/high-K/repeatability measurements. External Jev/Laya/Spark numbers are benchmark context, not OpenDecision release thresholds.
+
+## Version 0.7.2 — Phase 3A systems validation, public reference, and adaptive-scheduler handoff
+
+This revision adds E12/PUB1 and does not change the selected profile or any prior model-quality result. It records the completed Phase 3A Python systems run, the generic-cache batching failure and corrected complete-hybrid-state reindex semantics, semantic/high-K parity and same-process repeatability, and the measured execution crossover: short semantic Q=4 requests still favor repeated-full execution while long shared-state mechanics obtain large nested-batched gains at increased peak memory. `BranchableState` is therefore promoted from a design proposal to a Python-validated reference contract, while the Rust implementation and Mac scheduler remain open. The public Hugging Face repository is documented as the reference publication, not as release certification. Phase 3A.1 is retained only as conditional scheduler/cost-decomposition work if native profiling cannot derive stable crossover rules.

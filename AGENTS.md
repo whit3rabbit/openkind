@@ -1,126 +1,111 @@
 # AGENTS.md
 
-> LLM agent navigation briefing and master index for the `opendecision` workspace.
-> Every agent working on this codebase should read this document first before inspecting or modifying code.
+> Repository map and architectural rules for agents working on `opendecision`.
+>
+> Documentation baseline: v0.7.2, 20 September 2026.
 
----
+## Project
 
-## 🧭 System Orientation & Project Vision
+`opendecision` is an independent Rust decision-inference engine that speaks the
+Jev protocol. It returns typed `Noul`, `Choice`, and `Score` answers without an
+autoregressive text-generation loop.
 
-`opendecision` is an **independent, open-source, high-throughput decision inference engine that speaks the Jev protocol** — providing wire- and SDK-compatible judgment-envelope interfaces matching TypeSafe's System One models.
+The public HTTP and gRPC surfaces remain wire-compatible with TypeSafe's
+System One interfaces. The neural implementation is independent and uses the
+selected open-weight Qwen 3.5 profile described below.
 
-- **Wire & SDK Compatible**: Wire-compatible with TypeSafe's hosted API (`https://api.typesafe.ai`), allowing clients built with `typesafe_sdk` to target either the hosted service or a local `opendecisiond` daemon without code changes.
-- **Independent Architecture**: TypeSafe identifies Jev as its proprietary System One model family; `opendecision` is an independent open-source engine providing a compatible judgment-envelope interface.
-- **Dual Transports**: Native HTTP/REST (`/v1/systemone`, aliased to `/v1/system_one`) and gRPC (`opendecision.SystemOne/Evaluate`).
-- **Extensible Inference**: Multi-backend runtime supporting mock engines, a Python reference bridge, GGUF/llama.cpp, ONNX, and Candle.
+## Sources of Truth
 
----
+- [`README.md`](README.md): workspace overview and quickstart.
+- [`docs/ROADMAP.md`](docs/ROADMAP.md): current milestone status and remaining work.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): crate boundaries and data flow.
+- [`docs/RESEARCH.md`](docs/RESEARCH.md): empirical research and prior-art evidence.
+- [`docs/whitepaper/OpenDecision_Whitepaper_v0.7.2.md`](docs/whitepaper/OpenDecision_Whitepaper_v0.7.2.md): scientific rationale and measured results.
+- Each crate's `AGENTS.md`: module-specific invariants and verification commands.
 
-## 📚 Core Documentation Index
+If documentation and code disagree, do not silently choose one. Use executable
+contract tests to establish the current behavior, then update the stale source.
 
-Before diving into implementations, consult the relevant repository-level guides:
+## Native Parity Boundary
 
-- [docs/ROADMAP.md](docs/ROADMAP.md) — Implementation roadmap, phasing checklist (Phases 0 through 4), and milestone progress.
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — Architectural design, layered crate topology, transport protocol comparison, and data flow.
-- [docs/RESEARCH.md](docs/RESEARCH.md) — Research dossier, model benchmarks, zero-copy evaluation, and backend alternatives.
-- [docs/AGENTS.md](docs/AGENTS.md) — Project origin, wire contract rules, and architectural invariant checklists.
-- [README.md](README.md) — Workspace overview, quick start, installation, and CLI usage.
+Profile `a047d6802c3f06f085b8` is the native integration target:
 
----
+- Backbone: `Qwen/Qwen3.5-4B-Base` at revision
+  `1001bb4d826a52d1f399e183466143f4da7b741b`.
+- Renderer: state first.
+- Readout: score-summary rejection head.
+- Bundle SHA-256:
+  `4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332`.
+- Calibration temperature: `1.8186799910442777`.
+- Policy threshold: `0.98`.
+- Probability tolerance: `0.005`.
+- Ordering tolerance: `1e-5`.
 
-## 📦 Workspace Crate Catalog & Agent Briefings
+Phase 3.1 implements only the deterministic feature-to-probability slice:
 
-Each crate in `opendecision` maintains its own dedicated `AGENTS.md` specifying crate boundaries, invariant checklists, testing mandates, and modification patterns.
+- immutable model execution metadata;
+- offline manifest and safetensors validation;
+- f64 normalization, projection, rejection, calibration, and stable softmax;
+- native semantic-none mass for Choice only;
+- four exported golden-feature fixtures.
 
-| Crate | Layer | Purpose | Agent Briefing | Crate README |
-|---|---|---|---|---|
-| [`opendecision-core`](crates/opendecision-core) | Protocol & Types | Zero-dependency Jev data types, strict serde serialization, validation, and wire errors | [crates/opendecision-core/AGENTS.md](crates/opendecision-core/AGENTS.md) | [crates/opendecision-core/README.md](crates/opendecision-core/README.md) |
-| [`opendecision-engine`](crates/opendecision-engine) | Execution Engine | Core `Engine` trait, mock decision engine, calibrated scoring, and execution dispatch | [crates/opendecision-engine/AGENTS.md](crates/opendecision-engine/AGENTS.md) | [crates/opendecision-engine/README.md](crates/opendecision-engine/README.md) |
-| [`opendecision-api`](crates/opendecision-api) | Transports & Routing | HTTP router (Axum), gRPC service, auth layer, rate limiting, and SDK compatibility suite | [crates/opendecision-api/AGENTS.md](crates/opendecision-api/AGENTS.md) | [crates/opendecision-api/README.md](crates/opendecision-api/README.md) |
-| [`opendecision-server`](crates/opendecision-server) | Daemon Binary | `opendecisiond` server binary, configuration parsing (`OpenDecisionConfig`), and dual HTTP/gRPC lifecycle | [crates/opendecision-server/AGENTS.md](crates/opendecision-server/AGENTS.md) | [crates/opendecision-server/README.md](crates/opendecision-server/README.md) |
-| [`opendecision-cli`](crates/opendecision-cli) | Operator Tooling | `opendecision` command-line utility (`eval`, `serve`, `validate`, `bench`, `routes`) | [crates/opendecision-cli/AGENTS.md](crates/opendecision-cli/AGENTS.md) | [crates/opendecision-cli/README.md](crates/opendecision-cli/README.md) |
-| [`opendecision-client`](crates/opendecision-client) | Client SDK | Async Rust client for the SystemOne HTTP API: retries, rate-limit backoff, typed errors; Rust counterpart of `typesafe_sdk` | [crates/opendecision-client/AGENTS.md](crates/opendecision-client/AGENTS.md) | [crates/opendecision-client/README.md](crates/opendecision-client/README.md) |
-| [`opendecision-runtime`](crates/opendecision-runtime) | Engine Runtime | Runtime abstraction, engine factory, dynamic engine registry, and backend dispatch | [crates/opendecision-runtime/AGENTS.md](crates/opendecision-runtime/AGENTS.md) | [crates/opendecision-runtime/README.md](crates/opendecision-runtime/README.md) |
-| [`opendecision-backends`](crates/opendecision-backends) | Backend Drivers | Driver implementations for remote providers, GGUF/llama.cpp, ONNX, and Candle | [crates/opendecision-backends/AGENTS.md](crates/opendecision-backends/AGENTS.md) | [crates/opendecision-backends/README.md](crates/opendecision-backends/README.md) |
-| [`opendecision-gen-schemas`](crates/opendecision-gen-schemas) | Schema Generator | Tooling binary for generating JSON Schemas (`jev-v1-request.json`, `jev-v1-response.json`) from Rust structs | [crates/opendecision-gen-schemas/AGENTS.md](crates/opendecision-gen-schemas/AGENTS.md) | [crates/opendecision-gen-schemas/README.md](crates/opendecision-gen-schemas/README.md) |
-| [`proto`](proto) | Protobuf & gRPC Definitions | `opendecision.proto` definition, `tonic-prost-build` code generation, and binary wire serialization tests | [proto/AGENTS.md](proto/AGENTS.md) | [proto/README.md](proto/README.md) |
+Do not describe this as tokenizer, backbone, Metal, service, or full Rust parity.
+Do not register the native backend or map native semantic none onto the Jev wire
+format before those contracts are implemented explicitly.
 
----
+Follow this integration order:
 
-## 📋 Schema Architecture & Wire Contracts
+1. Exact tokenizer and state-first renderer parity.
+2. Full Qwen 3.5 backbone parity against golden hidden features.
+3. Backend-neutral branchable state.
+4. Sequential state, question, and candidate execution.
+5. Batched question and candidate execution.
+6. Amortization, high-cardinality, and service-lifecycle validation.
 
-`opendecision` maintains dual wire schemas that are strictly synchronized:
+## Workspace Map
 
-### 1. Jev JSON Schema (Draft 2020-12)
-- **Canonical Schema Files**:
-  - Request: [`crates/opendecision-core/schemas/jev-v1-request.json`](crates/opendecision-core/schemas/jev-v1-request.json)
-  - Response: [`crates/opendecision-core/schemas/jev-v1-response.json`](crates/opendecision-core/schemas/jev-v1-response.json)
-- **Code Authority**: [`crates/opendecision-core`](crates/opendecision-core) (`SystemRequest`, `SystemResponse`, `Question`, `Answer`).
-- **Generation Tool**: [`crates/opendecision-gen-schemas`](crates/opendecision-gen-schemas) (`cargo run -p opendecision-gen-schemas -- --write`).
-- **Data Model**:
-  - `SystemRequest`:
-    - `state`: Polymorphic `JSONContent` — plain string, JSON object, or JSON array.
-    - `model`: String identifier of target backend (`"jev-latest"`, `"mock"`, etc.).
-    - `questions`: Map of string identifiers to typed questions.
-  - Question Types (`"type"` discriminant):
-    - `noul`: Instructions (`JSONContent`), optional `criteria` (`{ "true": str, "false": str }`).
-    - `choice`: Instructions (`JSONContent`), `criteria` (`map<str, str | null>`).
-    - `score`: Instructions (`JSONContent`), `criteria` (`array<str>`, $\ge 2$ ordered rubric levels).
-  - `SystemResponse`:
-    - `model`: Echoed evaluation model string.
-    - `usage`: Token usage object (`input_tokens: uint32`, `output_tokens: uint32`).
-    - `answers`: Map of question identifiers to typed answers.
-  - Answer Types (`"type"` discriminant):
-    - `noul`: `noul: f64` $\in [0.0, 1.0]$. **No `confidence` field per specification**.
-    - `choice`: `choice: str`, `probabilities: map<str, f64>` (sums to $1.0$), `confidence: f64` $\in [0.0, 1.0]$.
-    - `score`: `score: f64`, `legend: map<str, str>` (indices `"0"`, `"1"`, ...), `probabilities: map<str, f64>`, `confidence: f64` $\in [0.0, 1.0]$.
+| Area | Briefing |
+|---|---|
+| Jev types and validation | [`crates/opendecision-core/AGENTS.md`](crates/opendecision-core/AGENTS.md) |
+| Engine traits and profiles | [`crates/opendecision-engine/AGENTS.md`](crates/opendecision-engine/AGENTS.md) |
+| HTTP and gRPC API | [`crates/opendecision-api/AGENTS.md`](crates/opendecision-api/AGENTS.md) |
+| Daemon lifecycle | [`crates/opendecision-server/AGENTS.md`](crates/opendecision-server/AGENTS.md) |
+| Operator CLI | [`crates/opendecision-cli/AGENTS.md`](crates/opendecision-cli/AGENTS.md) |
+| Rust client SDK | [`crates/opendecision-client/AGENTS.md`](crates/opendecision-client/AGENTS.md) |
+| Hardware and state lifecycle | [`crates/opendecision-runtime/AGENTS.md`](crates/opendecision-runtime/AGENTS.md) |
+| Model artifacts and readouts | [`crates/opendecision-backends/AGENTS.md`](crates/opendecision-backends/AGENTS.md) |
+| JSON Schema generation | [`crates/opendecision-gen-schemas/AGENTS.md`](crates/opendecision-gen-schemas/AGENTS.md) |
+| Protobuf contract | [`proto/AGENTS.md`](proto/AGENTS.md) |
+| Project documentation | [`docs/AGENTS.md`](docs/AGENTS.md) |
 
-### 2. Protobuf Schema (`opendecision.proto`)
-- **Canonical Schema File**: [`proto/proto/opendecision.proto`](proto/proto/opendecision.proto)
-- **Package**: `opendecision`
-- **Service**: `SystemOne`
-  - `rpc Evaluate(SystemOneRequest) returns (SystemOneResponse)`
-- **Wire Parity Invariants**:
-  - Floating-point fields MUST be `double` (64-bit IEEE 754), matching `f64` in `opendecision-core`.
-  - `state` is represented via `oneof value { string text = 1; Structured structured = 2; }` where `Structured.bytes json` carries UTF-8 JSON.
-  - `instructions_json` in questions carries UTF-8 JSON bytes to preserve `string | object | array` polymorphism.
-  - `NoulCriteria` uses `string is_true = 1` and `string is_false = 2` to avoid reserved keyword collision.
-  - `NoulAnswer` contains only `double noul = 1` (no confidence).
-  - Code generation runs at build time via [`proto/build.rs`](proto/build.rs) using `tonic-prost-build`.
+## Non-Negotiable Invariants
 
-### 3. OpenAPI 3.1 Specification (`openapi.yaml`)
-- **Canonical Schema File**: [`crates/opendecision-api/openapi.yaml`](crates/opendecision-api/openapi.yaml) (also referenced at [`docs/openapi.yaml`](docs/openapi.yaml))
-- **Format**: OpenAPI 3.1.0 (YAML), natively aligned with JSON Schema Draft 2020-12.
-- **Coverage**:
-  - Routes: `POST /v1/systemone` (canonical), `POST /v1/system_one` (SDK alias), `GET /v1/models`, `GET /health`, `GET /metrics`.
-  - Security: `BearerAuth` scheme (token gate on `/v1/*`).
-  - Headers: `x-typesafe-request-id` (UUIDv4), `Retry-After` (integer seconds), `retry-after-ms` (integer milliseconds), `WWW-Authenticate: Bearer`.
-  - Status Codes: `200 OK`, `400 Bad Request` (`bad_json`), `401 Unauthorized` (`unauthorized`), `404 Not Found` (`unknown_model`), `422 Unprocessable Entity` (`invalid_body`), `429 Too Many Requests` (`rate_limited`), `529 Overloaded` (`overloaded`), `500 Internal Server Error` (`internal_error`).
+1. Use relative repository paths in committed documentation, comments, and links.
+2. Preserve Jev wire compatibility. Wire floating-point values remain `f64` or
+   Protobuf `double`. `NoulAnswer` has no confidence field.
+3. Regenerate schemas after changing core wire types. Do not hand-edit generated
+   JSON Schema files.
+4. Qwen branch state includes attention KV, DeltaNet recurrent state, and
+   convolution state. Attention masks or KV-only cloning do not isolate branches.
+5. Preserve dependency direction. `core` is foundational. `engine` depends on
+   `core`. `runtime` and `backends` sit below `api`, `server`, and `cli`.
+6. Keep implementation equivalence separate from release promotion and model
+   quality claims.
+7. Tests and builds must not download model artifacts. Parity fixtures are
+   vendored and digest-checked.
+8. Preserve concurrent work. Do not reset, clean, broad-stage, or overwrite
+   unrelated changes.
 
----
+## Verification
 
+Run the project-specific battery before submitting changes:
 
-## 🛠️ Key Architectural Constraints & Rules
+```bash
+cargo fmt --check
+cargo clippy --workspace --all-targets -- -D warnings
+env -u RUST_LOG cargo test --workspace
+cargo run -p opendecision-gen-schemas -- --write
+git diff --check
+```
 
-1. **Path Discipline**:
-   - **Never include full machine paths or absolute paths** (e.g. `/Users/...` or `file:///...`) in documentation, code comments, or links.
-   - **Always use relative paths** (e.g., `crates/opendecision-core`, `docs/ARCHITECTURE.md`, `../opendecision-engine`). This ensures documentation is portable across development environments, CI runners, and team checkouts.
-2. **Wire Format Stability**:
-   - `opendecision-core` types MUST preserve 100% compatibility with TypeSafe's Jev JSON schemas and wire format.
-   - All floating-point fields must use `f64`.
-   - Never remove or re-order enum variants or struct fields without verifying schema conformance (`cargo run -p opendecision-gen-schemas`).
-3. **Dependency Flow**:
-   - `core` depends on nothing in workspace.
-   - `engine` depends only on `core`.
-   - `api` depends on `core`, `engine`, and optionally `proto`.
-   - `server` and `cli` compose `api`, `runtime`, and `backends`.
-   - Circular dependencies are forbidden.
-4. **Verification Before Merging**:
-   - Always run the full verification battery before submitting changes:
-     ```bash
-     cargo fmt --check
-     cargo clippy --workspace --all-targets -- -D warnings
-     cargo test --workspace
-     cargo run -p opendecision-gen-schemas -- --write
-     ```
-
+After schema generation, confirm that unrelated schema files did not change.

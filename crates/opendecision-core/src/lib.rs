@@ -22,12 +22,19 @@
 
 #![warn(missing_docs)]
 
+/// Wire answer types for Noul, Choice, and Score evaluations.
 pub mod answer;
+/// Request and response schema validation errors and checks.
 pub mod error;
+/// Model metadata structures for `/v1/models` discovery.
 pub mod models;
+/// Question descriptors and rubric criteria representations.
 pub mod question;
+/// System evaluation request envelope and versioning constants.
 pub mod request;
+/// System evaluation response payload and usage metrics.
 pub mod response;
+/// Flexible evaluation state input (text, structured object, or array).
 pub mod state;
 
 pub use answer::{Answer, ChoiceAnswer, NoulAnswer, ScoreAnswer};

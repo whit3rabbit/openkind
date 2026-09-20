@@ -6,6 +6,7 @@
 
 `opendecision-engine` sits between transport layers (`opendecision-api`) and model execution. It defines:
 - The `DecisionEngine` trait that all current and future model backends implement.
+- The immutable `ModelExecutionProfile` contract for pinned model, renderer, readout, calibration, policy, and parity identities.
 - `EngineRegistry`: Model alias mapping and dispatch router.
 - `dispatch()`: The unified orchestration pipeline (validation, token usage calculation, telemetry).
 - `MockEngine`: Deterministic fake engine for testing without loading neural weights.
@@ -23,29 +24,38 @@
 
 ## Key Files & Types
 
-- [`src/lib.rs`](./src/lib.rs):
+- [`src/lib.rs`](./src/lib.rs): Public API facade and module re-exports.
+- [`src/engine.rs`](./src/engine.rs):
   - `pub trait DecisionEngine: Send + Sync`:
     - `backend_id(&self) -> &str`
     - `model_metadata(&self) -> ModelInfo`
     - `async fn evaluate(&self, req: SystemRequest) -> EngineResult<SystemResponse>`
     - `fn estimate_input_tokens(&self, req: &SystemRequest) -> u32`
-  - `pub struct EngineRegistry`: Stores `HashMap<String, Arc<dyn DecisionEngine>>`.
+  - `estimate_output_tokens(answers)` calculation helper.
+- [`src/registry.rs`](./src/registry.rs):
+  - `pub struct EngineRegistry`: Thread-safe registry storing `HashMap<String, Arc<dyn DecisionEngine>>` with deterministic sorted model listing.
+- [`src/dispatch.rs`](./src/dispatch.rs):
   - `pub async fn dispatch(req, registry) -> EngineResult<SystemResponse>`: Emits telemetry metrics `opendecision_requests_total`, `opendecision_responses_total`, and `opendecision_request_duration_ms`.
+- [`src/error.rs`](./src/error.rs):
   - `enum EngineError`:
     - `Invalid(ValidationError)` (mapped to HTTP 422 by API layer)
     - `UnknownModel(String)` (mapped to HTTP 404)
     - `Backend { backend, message }` (mapped to HTTP 500)
+  - `EngineResult<T>` type alias.
 - [`src/mock.rs`](./src/mock.rs):
   - `MockEngine`: Seeds RNG using `(question_id, instructions)` hash to guarantee determinism across requests.
   - Generates valid distributions over choices and rubrics.
+- [`src/profile.rs`](./src/profile.rs):
+  - `ModelExecutionProfile`: Immutable provenance, execution semantics, and numerical parity contract.
+  - This metadata does not alter `DecisionEngine` or expose a native model through the wire API.
+- [`src/tests.rs`](./src/tests.rs): Comprehensive unit tests covering registry lookups, dispatch pipeline, and token usage accounting.
 
-## How to Add a New Backend (Phase 2)
+## Native Backend Integration Order
 
-1. Implement `DecisionEngine` for your backend struct in `crates/opendecision-backends`.
-2. Ensure `backend_id()` returns a unique identifier (e.g. `"qwen-3.5-4b-candle"`).
-3. Override `model_metadata()` with release date and description.
-4. Wire it into the `EngineRegistry` on startup in `crates/opendecision-server/src/main.rs`.
-5. Write roundtrip tests in `opendecision-engine` and `crates/opendecision-api/tests/sdk_compat.rs`.
+1. Prove the fitted head and probability algebra against the selected profile fixtures.
+2. Prove exact tokenizer and state-first rendering parity.
+3. Prove the complete Qwen backbone and branchable-state behavior.
+4. Only then implement `DecisionEngine`, register the backend, and add wire-level mappings.
 
 ## Verification Commands
 

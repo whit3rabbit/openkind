@@ -1,21 +1,22 @@
 # AGENTS.md — opendecision-runtime
 
-> LLM developer guide for `opendecision-runtime`. Read this before implementing Phase 2 hardware and device execution abstractions.
+> LLM developer guide for `opendecision-runtime`. Read this before modifying hardware or state-lifecycle abstractions.
 
 ## Crate Purpose & Boundaries
 
-`opendecision-runtime` is the hardware abstraction layer scheduled for implementation in **Phase 2** of the roadmap.
+`opendecision-runtime` is the hardware and execution-limits abstraction layer.
 
-Its primary role will be managing compute devices, memory limits, thread pools, and shared-state KV caches.
+It provides device identities, host discovery, worker limits, and memory-budget configuration. Model state lifecycle and branching remain outside the current implementation.
 
-### Invariants & Design Principles (From docs/RESEARCH.md & docs/ROADMAP.md)
+### Invariants and Design Principles
 
-1. **Shared State Cache**:
+1. **Complete Shared State**:
    - In Jev workloads, a single shared state document (often 10k–50k+ tokens) is evaluated across dozens of independent questions.
-   - The runtime must compute the state representation **once**, store the intermediate representation/KV-cache, and allow parallel decision heads to evaluate independent question branches against that cache.
-2. **Block Attention Isolation**:
+   - Qwen 3.5 state includes attention KV, DeltaNet recurrent state, and convolution state. All three must be captured and isolated at a branch point.
+   - KV-only cloning is invalid for the hybrid architecture.
+2. **Branch Isolation**:
    - Questions in a batch must NOT attend to one another: $P(y_A \mid x, q_A)$ must not condition on $q_B, q_C$.
-   - The runtime must enforce block-diagonal / isolated attention masks.
+   - Attention masks alone do not isolate DeltaNet recurrent or convolution state.
 3. **Hardware Backing**:
    - Must support device detection and execution dispatch across:
      - CPU (fallback)
@@ -24,9 +25,9 @@ Its primary role will be managing compute devices, memory limits, thread pools, 
 4. **Memory Hygiene**:
    - VRAM accounting must be tracked before batch admission to prevent Out-Of-Memory aborts during concurrent serving.
 
-## Roadmap Prerequisites
+## Branchable-State Gate
 
-Phase 3 (Rust engine implementation) is gated on the results of the Phase 2 Qwen model research experiments in Python documented in `docs/ROADMAP.md` and `docs/RESEARCH.md`. Do not start writing backend tensor operations until the Python benchmarks validate dynamic candidate schemas, LoRA adapters, and cache branching.
+Head/probability parity and exact tokenizer/rendering parity precede backbone integration. Add `BranchableState` only with the complete hybrid state contract and golden backbone evidence.
 
 ## Verification Commands
 

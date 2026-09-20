@@ -1,188 +1,72 @@
 # AGENTS.md
 
-> Briefing for any human or LLM agent working on `opendecision`. Read this
-> before touching the repo.
+> Documentation rules for files under `docs/`.
 
-## Project goal
+## Scope
 
-Build an **independent, open-source decision inference engine that speaks the Jev protocol**.
+The documentation set separates current project status, architecture, empirical
+evidence, and wire contracts. Do not copy the same detailed facts into several
+documents. Link to the canonical owner instead.
 
-- **Protocol Compatibility**: Wire- and SDK-compatible with TypeSafe's hosted API at `https://api.typesafe.ai`. Clients targeting TypeSafe's System One models (`typesafe_sdk`) can target a self-hosted `opendecisiond` daemon with **no code change**.
-- **Independent Architecture**: TypeSafe identifies Jev as its proprietary System One model family. `opendecision` is an independent open-source engine providing a compatible judgment-envelope interface—not an implementation of an unpublished proprietary neural architecture.
-- **Dual Transports**: Native HTTP/REST (`/v1/systemone`, aliased to `/v1/system_one`) and gRPC (`opendecision.SystemOne/Evaluate`).
-- **Extensible Inference**: Multi-backend runtime supporting mock engines, a Python reference bridge, and future native backends (Candle, GGUF/llama.cpp, ONNX).
+## Canonical Owners
 
-The end state is: drop in `opendecisiond`, point `typesafe_sdk` at it, keep the app layer untouched.
+| Subject | File |
+|---|---|
+| Current phases and open work | [`ROADMAP.md`](ROADMAP.md) |
+| Crate topology and data flow | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| Research dossier and prior art | [`RESEARCH.md`](RESEARCH.md) |
+| Scientific claims and measured results | [`whitepaper/OpenDecision_Whitepaper_v0.7.2.md`](whitepaper/OpenDecision_Whitepaper_v0.7.2.md) |
+| HTTP contract | [`../crates/opendecision-api/openapi.yaml`](../crates/opendecision-api/openapi.yaml) |
+| JSON Schema contract | [`../crates/opendecision-core/schemas/`](../crates/opendecision-core/schemas/) |
+| Protobuf contract | [`../proto/proto/opendecision.proto`](../proto/proto/opendecision.proto) |
 
-## Source of truth
+The roadmap owns milestone status. The whitepaper owns research interpretation.
+Architecture documentation describes landed structure, not planned structure,
+unless the text labels a proposal explicitly.
 
-| What                                  | Where                                                  |
-|---------------------------------------|--------------------------------------------------------|
-| Wire-format spec (HTTP)               | https://docs.typesafe.ai/api                           |
-| Wire-format spec (Python SDK surface)  | https://docs.typesafe.ai/sdk/python/api                |
-| Schema blog post (goal & framing)     | https://typesafe.ai/blog/introducing-system-one-models-and-jev |
-| Architecture diagram & phasing        | [docs/ARCHITECTURE.md](./ARCHITECTURE.md)              |
-| Implementation roadmap                | [docs/ROADMAP.md](./ROADMAP.md)                        |
-| Generated JSON Schema (request)       | [crates/opendecision-core/schemas/jev-v1-request.json](../crates/opendecision-core/schemas/jev-v1-request.json) |
-| Generated JSON Schema (response)      | [crates/opendecision-core/schemas/jev-v1-response.json](../crates/opendecision-core/schemas/jev-v1-response.json) |
-| Service `.proto`                       | [proto/proto/opendecision.proto](../proto/proto/opendecision.proto) |
-| Example request/response fixtures     | [examples/](../examples/) (`01_noul.json` ... `08_response_score.json`) |
-| SDK compatibility contract tests       | [crates/opendecision-api/tests/sdk_compat.rs](../crates/opendecision-api/tests/sdk_compat.rs) |
+## Evidence Rules
 
-If the docs and the code disagree, **the code wins only after a
-round-trip test proves it; otherwise the docs win**. The
-`tests/sdk_compat.rs` file is the executable contract — every
-endpoint, header, and error code from the docs is pinned there.
+- Distinguish measured Python or hardware evidence from landed Rust behavior.
+- Distinguish implementation equivalence from release promotion and model quality.
+- State the device, dtype, fixture set, and tolerance for numerical claims.
+- Do not describe compilation, artifact loading, or head parity as backbone or
+  accelerator parity.
+- Phase 3.1 proves only the selected head and probability algebra against saved
+  candidate features.
+- Native semantic none remains internal until the wire mapping is specified.
 
-## Schema Information & Wire Contracts
+## Wire Documentation
 
-`opendecision` maintains dual wire schemas that are strictly synchronized:
+The Rust types in `opendecision-core` are the code authority for request and
+response shapes. Generated JSON Schema, Protobuf, and OpenAPI must remain
+synchronized with those types and their conformance tests.
 
-### 1. Jev JSON Schema (Draft 2020-12)
-- **Canonical Schema Files**:
-  - Request: [`crates/opendecision-core/schemas/jev-v1-request.json`](../crates/opendecision-core/schemas/jev-v1-request.json)
-  - Response: [`crates/opendecision-core/schemas/jev-v1-response.json`](../crates/opendecision-core/schemas/jev-v1-response.json)
-- **Code Authority**: `opendecision-core` (`SystemRequest`, `SystemResponse`, `Question`, `Answer`, `State`, `Usage`).
-- **Generation Tool**: `opendecision-gen-schemas` (`cargo run -p opendecision-gen-schemas -- --write`).
-- **Request Format**:
-  - `state`: Polymorphic `JSONContent` (plain text string, JSON object, or JSON array).
-  - `model`: Target backend model identifier (`"jev-latest"`, `"mock"`, etc.).
-  - `questions`: Map of string identifiers to typed questions.
-- **Question Kinds** (`"type"` discriminant):
-  - `noul`: Boolean probability question. `instructions` (`JSONContent`), optional `criteria` (`{"true": str, "false": str}`).
-  - `choice`: Categorical choice question. `instructions` (`JSONContent`), `criteria` (`map<str, str | null>`).
-  - `score`: Ordered rubric rating. `instructions` (`JSONContent`), `criteria` (`array<str>`, $\ge 2$ ordered rubric levels).
-- **Response Format**:
-  - `model`: Echoed evaluation model.
-  - `usage`: `UsageInfo` (`input_tokens: uint32`, `output_tokens: uint32`).
-  - `answers`: Map of question identifiers to typed answers.
-- **Answer Kinds** (`"type"` discriminant):
-  - `noul`: `noul: f64` $\in [0.0, 1.0]$. **No `confidence` field per specification**.
-  - `choice`: `choice: str`, `probabilities: map<str, f64>` (sums to $1.0$), `confidence: f64` $\in [0.0, 1.0]$.
-  - `score`: `score: f64`, `legend: map<str, str>` (indices `"0"`, `"1"`, ...), `probabilities: map<str, f64>`, `confidence: f64` $\in [0.0, 1.0]$.
+When changing a wire type:
 
-### 2. Protobuf Schema (`opendecision.proto`)
-- **Canonical Schema File**: [`proto/proto/opendecision.proto`](../proto/proto/opendecision.proto)
-- **Package**: `opendecision`
-- **Service**: `SystemOne`
-  - `rpc Evaluate (SystemOneRequest) returns (SystemOneResponse)`
-- **Wire Parity Rules**:
-  - Floating-point fields MUST be `double` (64-bit IEEE 754), matching `f64` in `opendecision-core`.
-  - `state` uses `oneof value { string text = 1; Structured structured = 2; }` where `Structured.bytes json` forwards raw JSON bytes.
-  - `instructions_json` uses raw JSON bytes to preserve `string | object | array` polymorphism.
-  - `NoulCriteria` uses `string is_true = 1` and `string is_false = 2` to avoid keyword collision with Protobuf/Rust `true`/`false`.
-  - `NoulAnswer` contains only `double noul = 1` (no confidence).
-  - Code generation runs at build time via `proto/build.rs` using `tonic-prost-build`.
+1. Update the Rust type and validation behavior.
+2. Add or update conformance and SDK compatibility tests.
+3. Regenerate JSON Schema with
+   `cargo run -p opendecision-gen-schemas -- --write`.
+4. Update Protobuf and OpenAPI when the same contract is exposed there.
+5. Document intentional compatibility changes explicitly.
 
-### 3. OpenAPI 3.1 Specification (`openapi.yaml`)
-- **Canonical Schema File**: [`crates/opendecision-api/openapi.yaml`](../crates/opendecision-api/openapi.yaml) (also referenced at [`docs/openapi.yaml`](./openapi.yaml))
-- **Format**: OpenAPI 3.1.0 (YAML), natively aligned with JSON Schema Draft 2020-12.
-- **Coverage**:
-  - Routes: `POST /v1/systemone` (canonical), `POST /v1/system_one` (SDK alias), `GET /v1/models`, `GET /health`, `GET /metrics`.
-  - Security: `BearerAuth` scheme (token gate on `/v1/*`).
-  - Headers: `x-typesafe-request-id` (UUIDv4), `Retry-After` (integer seconds), `retry-after-ms` (integer milliseconds), `WWW-Authenticate: Bearer`.
-  - Status Codes: `200 OK`, `400 Bad Request` (`bad_json`), `401 Unauthorized` (`unauthorized`), `404 Not Found` (`unknown_model`), `422 Unprocessable Entity` (`invalid_body`), `429 Too Many Requests` (`rate_limited`), `529 Overloaded` (`overloaded`), `500 Internal Server Error` (`internal_error`).
+## Documentation Style
 
-## Phasing & Status
+- Use relative repository links. Never commit machine-specific absolute paths.
+- Prefer concise present-tense statements over changelog narration.
+- Put open work in `ROADMAP.md`, not in module briefings.
+- Keep benchmark tables attributable to checked-in artifacts or named sources.
+- Do not update test totals by hand. Point to the verification command instead.
+- Preserve user-owned research artifacts and notebooks unless the task names them.
 
-Phasing status is governed by [`docs/ROADMAP.md`](./ROADMAP.md). Each phase ships with passing tests at HEAD.
+## Verification
 
-### Phase 0 — wire contract (DONE)
-
-Lock the schema before the server. Goal: TypeSafe's spec examples
-must round-trip through our types without any data loss.
-
-- [x] `opendecision-core` crate — `SystemRequest`/`SystemResponse`/`Answer` with `f64` precision on wire values.
-- [x] `validate_request()` covering every documented validation rule.
-- [x] 23 conformance tests against every Jev spec example.
-- [x] `gen-schemas` binary → JSON Schema files for publishing.
-- [x] 8 example JSON fixtures in `examples/`.
-
-### Phase 1 — daemon + SDK compatibility (DONE)
-
-A self-hostable server that the future `typesafe_sdk` Python client can speak to without modification.
-
-- [x] HTTP (axum 0.8): `POST /v1/systemone` (aliased to `/v1/system_one`), `GET /v1/models`, `GET /health`, `GET /metrics`.
-- [x] gRPC (tonic 0.14): `opendecision.system_one.SystemOne`.
-- [x] `opendecisiond` daemon + `opendecision` CLI.
-- [x] `DecisionEngine` trait + `MockEngine` (deterministic, slightly jittered answers for testing).
-- [x] **SDK compatibility surface**:
-  - `x-typesafe-request-id` on every response, including 401s.
-  - Bearer auth opt-in via `OPENDECISION_API_KEY` with fallback to `TYPESAFE_API_KEY`.
-  - `Retry-After` / `retry-after-ms` on 429 / 529.
-  - Error envelope `{"error":{"code",message}}` mapped to the Python SDK's error taxonomy.
-  - `/v1/models` returns `{"models":[{name,description,release_date}]}`.
-- [x] **195 tests passing at HEAD** across workspace crates (43 core, 20 engine, 108 api, 10 cli, 3 server, 2 proto, 6 runtime, 3 gen-schemas).
-
-### Phase 2 — empirical model research (Phase 2A–2G MEASURED / DONE)
-
-Phases 2A–2G established that a frozen Qwen backbone + linear heads achieves ~87–89% NLI accuracy, transfers dynamic candidate descriptions, and reproduces FP32 cached execution parity. They also revealed key bottlenecks: low out-of-scope rejection recall (Phase 2G: 46.88%), ambiguous criteria failures, and instruction-first reuse limitations.
-
-- [x] **Phase 2A–2D**: Parameter audit, NLI head benchmarking, dynamic candidate scoring, and FP32 numerical reference establishment.
-- [x] **Phase 2E**: Shared-prefix parity and hybrid cache state isolation (attention KV + recurrent DeltaNet + convolution).
-- [x] **Phase 2F**: Cache compression limits (lossless & FP16-KV passed; low-bit TurboQuant failed) and persistent LRU caching.
-- [x] **Phase 2G**: Fresh decision evaluation (416 episodes), TF32 speedup vs. parity failure, and semantic context sensitivity.
-
-*(Historical note: Early planning described Phase 2F as a Rust reference engine; in execution, Phases 2E–2G were dedicated Python/Colab cache, precision, and empirical rejection research. Current status is consolidated in [docs/ROADMAP.md](./ROADMAP.md).)*
-
-### Active Milestone Target: Genuine Multi-Question Decision Model
-
-The project is rebalanced from further cache micro-benchmarks toward multi-question modeling, task adaptation, and end-to-end service integration:
-
-- **Phase 2H (NEXT)**: Contract hardening, criteria & annotation audit, feature-conditioned rejection head ($P(\text{none})=1-a$), and resident Python reference worker bridge.
-- **Phase 2I (PLANNED)**: Genuine multi-question execution ($1\text{ state} \to Q\text{ questions} \to K\text{ candidates}$), state-first prompt rendering, and nested hybrid cache branching.
-- **Phase 2J (PLANNED)**: Matched adaptation comparison (frozen heads vs. LoRA vs. `Qwen/Qwen3.5-2B-Base`), multi-task supervision, and proper scoring rule calibration (NLL / cumulative Brier for Score).
-- **Phase 3 (PLANNED / GATED ON 2H/2I/2J)**: Production Rust engine implementing the Parity Ladder, native backends (Candle, GGUF, ONNX), and deployment hardening.
-
-## Conventions for agents
-
-### When you change a wire type
-
-1. Edit the Rust struct in `crates/opendecision-core/src/`.
-2. Run `cargo test -p opendecision-core` — fix any broken round-trip.
-3. Regenerate the JSON Schema: `cargo run -p opendecision-gen-schemas -- --write`.
-4. Add a new fixture in `examples/` mirroring the Jev spec example.
-5. Add an `sdk_compat.rs` test pinning the new shape.
-6. Bump `JevRequest::SCHEMA_VERSION` (or whatever constants surface in `core::request`).
-7. Update `docs/ARCHITECTURE.md` if the layering changed.
-
-### When you touch the wire format
-
-Any change to a JSON field in `core::request` or `core::response` is a breaking change for every future SDK caller. Bisect-friendly phasing: the next non-trivial release must include a "Jev spec delta" section in the changelog pointing at the diff between `jev-v1-{request,response}.json` versions.
-
-### When you add a backend
-
-Implement `opendecision_engine::DecisionEngine` for your model loader. Wire it in `opendecision-server/src/main.rs` behind a CLI flag. Add at least one `cargo test -p opendecision-engine` round-trip test. Add a `crates/opendecision-api/tests/sdk_compat.rs` case that exercises the new alias end-to-end via `/v1/systemone`.
-
-### When you don't know what's right
-
-- Read `docs/ARCHITECTURE.md` first.
-- Look at `tests/sdk_compat.rs` second — if your change would break one of those tests, you are touching the wire contract and you must add a new pinned test alongside the fix.
-- The TypeSafe HTTP spec (https://docs.typesafe.ai/api) is authoritative for HTTP shapes. The Python SDK doc (https://docs.typesafe.ai/sdk/python/api) is authoritative for client surface conventions (headers, exceptions, retry policy).
-
-## Quick reference
+For documentation-only changes, check formatting and paths without implying that
+code or hardware tests ran:
 
 ```bash
-# Build everything
-cargo build --workspace
-
-# Run all tests (195 passing at HEAD)
-cargo test --workspace
-
-# Regenerate JSON Schema
-cargo run -p opendecision-gen-schemas -- --write
-
-# Start the daemon (mock engine, dev mode)
-cargo run -p opendecisiond -- --http-addr 127.0.0.1:18080 \
-                            --grpc-addr 127.0.0.1:19090 \
-                            --models mock,jev-latest
-
-# Verify a request against a running daemon
-curl -sS -H 'content-type: application/json' \
-     -X POST http://127.0.0.1:18080/v1/systemone \
-     -d @examples/04_mixed.json | jq
+st --files docs --type md
+git diff --check -- docs/
 ```
 
-[typesafe-api]: https://docs.typesafe.ai/api
-[typesafe-sdk]: https://docs.typesafe.ai/sdk/python/api
-[jev-blog]: https://typesafe.ai/blog/introducing-system-one-models-and-jev
+For wire or code changes, run the repository battery in [`../AGENTS.md`](../AGENTS.md).

@@ -1,0 +1,25 @@
+{
+  "method": "frozen",
+  "reference_implementation": "implementation/odij_head_reference.py",
+  "frozen_readout_steps": [
+    "V = (candidate_features - rank.mean) / rank.std; population-normalization buffers are already fitted.",
+    "z = V @ rank.linear.weight.T + rank.linear.bias; one real logit per candidate.",
+    "For Choice only: compute rejector features. Constant: [0]. Score-summary: [max, top-two gap, mean, population std, logmeanexp, log(K)].",
+    "Semantic rejector: concatenate score-summary, mean(V), sum(softmax(z) * V).",
+    "Standardize rejector features using reject.mean/std; apply stored linear, or linear→tanh→linear network.",
+    "Append rejector output as native none logit ONLY for Choice. rank.none is an unused training parameter in the exported FrozenDecision graph.",
+    "Noul and Score use only real logits. Divide all relevant logits by selected temperature; stable softmax.",
+    "Host argmax breaks exact ties by first candidate index. Remap to original supplied IDs; policy threshold is a separate application action."
+  ],
+  "encoder_native_steps": [
+    "Joint option-marker features include the explicit native none marker for Choice.",
+    "z = marker_features @ head.weight.T + head.bias from training/trained.safetensors.",
+    "Selected temperature then stable softmax."
+  ],
+  "finite_steps": [
+    "Renderer produces distinct single-token option codes; gather those output-embedding rows.",
+    "z = selected_vocabulary_weights @ final_hidden + selected_bias, if present.",
+    "Selected temperature then stable softmax. No free-text decoding; backbone/base matrix parity remains required."
+  ],
+  "arithmetic_note": "NumPy/f64 is an independent algebra check. It is not bitwise FP32 parity or Rust/Metal execution."
+}

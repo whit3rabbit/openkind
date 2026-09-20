@@ -1,92 +1,129 @@
 # opendecision — Architecture
 
-> A Jev-compatible, open-source decision-inference engine in Rust.
+> An open-source decision-inference engine in Rust targeting the Jev wire contract, with independently designed model and runtime internals.
+>
+> **Revision 0.7.2 · 20 September 2026 · Phase 3A Python systems validation completed; public state-first reference published; Rust parity is next.**
 >
 > Wire spec: https://docs.typesafe.ai/api
-> Reference client SDK (target): https://docs.typesafe.ai/sdk/python/api
+> Reference client SDK target: https://docs.typesafe.ai/sdk/python/api
 
 ## Overview
 
-`opendecision` is a server that takes structured decision questions (Noul,
-Choice, Score) and returns inferred answers, plus the surrounding
-tracing/metrics/auth surface a public SDK needs. It is wire-compatible
-with the proposed `typesafe_sdk` Python client, so any future consumer
-can speak to a self-hosted `opendecisiond` daemon the same way it speaks to
-the hosted TypeSafe API.
+`opendecision` accepts structured decision questions (Noul, Choice, Score) over a shared state and returns typed answers and probability distributions rather than generated answer prose. The surrounding service provides the tracing, metrics, authentication, admission, and lifecycle surface required by a public SDK.
 
-The repo is split so that the **wire contract** lives in a tiny crate
-(`opendecision-core`), the **model logic** lives behind a trait
-(`opendecision-engine`), and the **transport layers** (HTTP, gRPC) live in
-`opendecision-api`. Anyone can drop in a new model backend (candle, GGUF,
-ONNX, a remote provider) by implementing `DecisionEngine`.
+The repository separates the **wire contract**, **decision/model execution**, and **transport/runtime** layers so that a model backend can change without changing the public request/response schema. The project targets Jev-compatible wire behavior where explicitly supported; it does **not** claim to reproduce Jev's private neural architecture or RLCD training procedure.
+
+The current model-integration reference is profile `a047d6802c3f06f085b8`: `Qwen/Qwen3.5-4B-Base`, frozen backbone, **state-first rendering**, and **score-summary rejection**. The exploratory `2ij.2.0` study selected and exported this profile before final evaluation, and the exported bundle passed a clean Python reload/head-algebra parity check. Phase 3A then kept that profile immutable and validated the Python reference mechanics for full-hybrid-state branching, batched question/candidate execution, high-K systems stress, and same-process repeatability. That makes it the fixed Phase 3 implementation target. It remains a **provisional integration profile**, not a release-quality model: independent review, natural-data confirmation, explicit promotion limits, and target-machine Rust/Metal evidence remain open.
+
+A public OpenDecision reference repository for this integration line is published at <https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst>. Publication improves inspectability and handoff; it does **not** change the release-quality or Rust/Metal parity boundary.
+
+The immediate architecture objective is therefore no longer “choose a model.” It is:
+
+```text
+completed Python Phase 3A reference
+  → native head/tokenizer/backbone parity
+  → Rust BranchableState for the full Qwen3.5 hybrid continuation state
+  → sequential state→question→candidate parity
+  → batched question and candidate execution
+  → adaptive workload scheduler from measured crossover behavior
+  → Mac Q-amortization / high-K / repeatability
+  → production service lifecycle
+```
+
+Model promotion and implementation equivalence remain separate decisions.
+
+---
+
+## Current status boundary
+
+The architecture document distinguishes implemented/reported repository behavior from research artifacts and planned work:
+
+- **Phase 0 / Phase 1:** wire types, schemas, mock engine, HTTP/gRPC surfaces, CLI and SDK-compatibility fixtures are reported implemented in the supplied repository documentation. The previously reported workspace total is 195 tests; this document does not claim that count was freshly rerun at current HEAD.
+- **Phase 2H:** required criteria/rejection-transfer study is complete through the preserved `2h.1.2` continuation. The old failed attempt remains historical evidence.
+- **Phase 2I:** bounded state-first multi-question mechanics and Q=1/Q=4 semantic sharing are measured; independently reviewed/natural-data confirmation remains open.
+- **Phase 2J:** the exploratory model-selection screen is complete; the Qwen4B state-first/score-summary profile is the provisional integration target. Release promotion remains open.
+- **Track S:** the thin Rust → resident Python reference-worker bridge is a planned parallel integration track, not a completed Phase 2H component.
+- **Phase 3A (Python reference):** run `20260920T024056Z` completed notebook scope with the selected profile unchanged; semantic batched parity passed, high-K parity passed, and the recorded same-process repeatability delta was zero. The run is systems/reference evidence, not Rust/Metal parity or release certification.
+- **Phase 3:** native/Rust parity against the selected bundle and Phase 3A fixtures is **READY / NEXT**.
+
+The roadmap is the task/status authority; the whitepaper is the evidence/interpretation authority. This file defines the intended software and execution architecture.
+
+---
 
 ## Workspace layout
 
-```
+```text
 opendecision/
-├── Cargo.toml                # workspace manifest + shared deps
+├── Cargo.toml                    # workspace manifest + shared deps
 ├── crates/
-│   ├── opendecision-core/        # Jev wire types (request, response, error)
-│   ├── opendecision-engine/      # DecisionEngine trait + EngineRegistry
-│   ├── opendecision-api/         # HTTP (axum) + gRPC (tonic) transport
+│   ├── opendecision-core/        # wire types (request, response, errors)
+│   ├── opendecision-engine/      # DecisionEngine + profile/execution boundary
+│   ├── opendecision-api/         # HTTP (axum) + gRPC (tonic)
 │   ├── opendecision-server/      # opendecisiond binary
 │   ├── opendecision-cli/         # opendecision binary
-│   ├── opendecision-runtime/     # hardware / OS abstraction (Phase 2+)
-│   ├── opendecision-backends/    # candle / GGUF / onnx (Phase 2+)
-│   └── opendecision-gen-schemas/ # one-shot JSON Schema codegen
+│   ├── opendecision-runtime/     # device/scheduler/state/cache lifecycle
+│   ├── opendecision-backends/    # supported native model drivers
+│   └── opendecision-gen-schemas/ # JSON Schema codegen
 ├── proto/opendecision.proto      # gRPC service definition
-├── examples/                 # 8 JSON fixtures from the Jev spec
-├── docs/ARCHITECTURE.md      # this file
-└── crates/opendecision-core/schemas/   # generated JSON Schema docs
+├── examples/                     # wire-format fixtures
+├── docs/ARCHITECTURE.md          # this file
+└── crates/opendecision-core/schemas/
 ```
 
 ### Layering
 
-```
-┌─────────────────────────────────────────────────────┐
-│ opendecisiond  / opendecision cli (binaries)                │
-├─────────────────────────────────────────────────────┤
-│ opendecision-api      (HTTP axum 0.8 + gRPC tonic 0.14) │
-│   ├── middleware: request_id, auth, tracing         │
-│   ├── error mapping → 400/401/404/422/429/5xx       │
-│   └── models: ModelInfo, ModelsResponse (Jev shape) │
-├─────────────────────────────────────────────────────┤
-│ opendecision-engine    (DecisionEngine trait)           │
-│   └── MockEngine (Phase 1) — deterministic fake     │
-│   └── validated native backends (Phase 3) — gated    │
-├─────────────────────────────────────────────────────┤
-│ opendecision-core      (wire types only)                │
-│   ├── SystemRequest, SystemResponse, Answer         │
-│   ├── validate_request() → ValidationError          │
-│   └── JSON Schema (jev-v1-request.json, ...)        │
-└─────────────────────────────────────────────────────┘
+```text
+┌──────────────────────────────────────────────────────────────┐
+│ opendecisiond / opendecision CLI                            │
+├──────────────────────────────────────────────────────────────┤
+│ opendecision-api                                            │
+│   HTTP axum + gRPC tonic                                    │
+│   request IDs · auth · validation · errors · tracing        │
+├──────────────────────────────────────────────────────────────┤
+│ opendecision-engine                                         │
+│   DecisionEngine · EngineRegistry                           │
+│   DecisionSpecification · ModelExecutionProfile             │
+│   probability / rejection / policy contracts                │
+├──────────────────────────────────────────────────────────────┤
+│ opendecision-runtime                                        │
+│   admission · scheduling · device/runtime lifecycle          │
+│   BranchableState · batching · persistent state reuse        │
+├──────────────────────────────────────────────────────────────┤
+│ opendecision-backends                                       │
+│   selected supported Qwen/runtime implementation(s)          │
+│   profile-specific hidden-state and branch operations        │
+├──────────────────────────────────────────────────────────────┤
+│ opendecision-core                                           │
+│   SystemRequest · SystemResponse · Answer · validation       │
+│   generated schemas                                          │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-Strict dependency direction: `core` ⇐ `engine` ⇐ `api` ⇐ `server/cli`.
-None of the upper layers ever reach back. New types land in `core`;
-behaviors land in `engine`; transport lives in `api`.
+The public dependency direction remains one-way. `core` owns wire types; `engine` owns semantic/model contracts; `runtime` and `backends` implement execution; `api` exposes the service; `server/cli` compose those pieces. Backends must not redefine public probability semantics merely because their internal execution graph differs.
+
+---
 
 ## Crate responsibilities
 
 ### `opendecision-core`
 
-Jev wire-format types. This crate is the single source of truth for
-what a request and response look like on the wire, across both HTTP
-and gRPC. Public API:
+The single source of truth for supported request/response wire types across HTTP and gRPC.
+
+Public types include:
 
 - `SystemRequest`, `SystemResponse`
-- `Question` (Noul, Choice, Score variants), `Answer` (same)
-- `State` (string | object | array), `Instructions` (same)
+- `Question` (Noul, Choice, Score variants), `Answer`
+- `State`, `Instructions`
 - `ValidationError` + `validate_request(req)`
-- `ModelInfo`, `ModelsResponse` (`GET /v1/models` wire shape)
+- `ModelInfo`, `ModelsResponse`
 
-Float widths matter on the wire: `probabilities`, `score`, `noul`,
-`confidence` are all `f64`. `0.92f32` round-trips to
-`0.9200000166893005` which is a wire-format regression.
+Wire floating-point values such as `probabilities`, `score`, `noul`, and `confidence` remain `f64`. Do not replace wire precision with an implementation backend's internal dtype.
+
+Wire compatibility and model capability are separate. A syntactically valid request can still be unsupported by a specific profile because of primitive, context-length, Q/K, memory, or execution-mode limits.
 
 ### `opendecision-engine`
 
-The trait that anything callable from `/v1/systemone` implements:
+Anything callable from `/v1/systemone` implements the public engine boundary:
 
 ```rust
 #[async_trait]
@@ -101,156 +138,495 @@ pub trait DecisionEngine: Send + Sync + 'static {
 }
 ```
 
-`EngineRegistry` maps alias → `Arc<dyn DecisionEngine>`. The server CLI takes a `--models mock,qwen-bridge,probe=candle,...` flag and registers each name in the registry on startup.
+`EngineRegistry` maps aliases to `Arc<dyn DecisionEngine>`.
 
-Behind this public boundary, internal execution is governed by four explicit contracts:
-1. **Decision Specification**: Encapsulates state, question semantics, candidate criteria, missing-option semantics, and truncation rules.
-2. **Model / Execution Profile**: Identifies checkpoint, adapter, tokenizer/rendering conventions, feature normalization, heads, precision/arithmetic mode, and supported execution strategies.
-3. **Backend Capabilities**: Declares supported primitives (Noul, Choice, Score), tested candidate/context boundaries, cache operations, and device memory requirements.
-4. **Evaluation Context**: Carries tenant identity, admission budget, deadline/cancellation token, and tracing identifiers.
+Behind that public boundary, execution is governed by four versioned contracts:
 
-While `evaluate()` is an async trait method, internal execution contracts define how underlying GPU/model work is queued, resource-bounded, and cancelled under load.
+1. **Decision Specification** — state semantics, question instructions, candidate/rubric descriptions, semantic-none rules, insufficient-evidence behavior, truncation, and supported primitive semantics.
+2. **Model / Execution Profile** — checkpoint revision, adapter, tokenizer, renderer, normalization, heads, rejection model, calibration, policy mapping, arithmetic mode, kernels, and allowed execution strategies.
+3. **Backend Capabilities** — supported primitives, context/Q/K limits, branch/batch operations, precision modes, state-storage behavior, and device-memory requirements.
+4. **Evaluation Context** — tenant identity, admission/work budget, deadline/cancellation, tracing identifiers, and any request-scoped scheduling metadata.
 
-### Prototype Bridge Architecture (Phase 2H)
-
-To expose architectural, API, and serving gaps before completing a full native Rust inference rewrite, OpenDecision implements an end-to-end prototype bridge:
+The **selected Phase 3 profile** is currently:
 
 ```text
-HTTP Client (typesafe_sdk / curl)
-  │
-  ▼
-opendecisiond (Rust Axum HTTP Service)
-  │  - x-typesafe-request-id tracing
-  │  - Bearer token authentication
-  │  - Rate limiting & deadline propagation
-  │  - Jev schema validation (validate_request)
-  ▼
-BridgeEngine (implements DecisionEngine)
-  │  - Request serialization & token estimation
-  ▼ (resident IPC / local HTTP)
-Persistent Python Reference Worker
-  │  - Resident Qwen backbone (Qwen3.5-4B / 2B)
-  │  - Feature-conditioned rejection head
-  │  - Isolated hybrid state cache
-  ▼
-Real Decision Probabilities & Token Accounting
-  │
-  ▼
-Jev-Compliant SystemResponse (validated & stamped)
+profile_id: a047d6802c3f06f085b8
+backbone:   Qwen/Qwen3.5-4B-Base
+weights:    frozen
+renderer:   state-first
+rejection:  score-summary
+status:     provisional integration target
 ```
 
-This bridge allows immediate validation of live SDK requests, unsupported input rejection, token accounting, deadline cancellation, and response semantics against real Qwen predictions.
+`score-summary` is part of this profile; it must **not** be hard-coded into the engine architecture. The exploratory screen also produced semantic-feature rejection variants, and future profiles may use different applicability/rejection heads. Rejection is therefore profile-owned behavior behind a stable probability contract.
+
+### `opendecision-runtime`
+
+Owns device/runtime lifecycle and execution mechanics that are independent of one particular neural head:
+
+- device discovery and backend selection;
+- bounded request admission and worker pools;
+- request scheduling across Q questions and K candidates;
+- `BranchableState` lifecycle;
+- exact-prefix/persistent state reuse where supported;
+- memory accounting for retained and transient branch state;
+- cancellation, deadlines, TTL, eviction, and active-reader lifetime;
+- repeatability/profile identity telemetry;
+- queue-inclusive performance measurement.
+
+The runtime must not assume that reusable model state is an ordinary Transformer KV cache. Qwen3.5 requires a hybrid continuation state.
+
+### `opendecision-backends`
+
+Contains only backends that can satisfy the selected profile's required capabilities. Candle, GGUF/llama.cpp, ONNX, MLX-backed bridges, or other implementations are candidates—not promises.
+
+A backend is promotable only if it can reproduce the required tokenizer/rendering and hidden-state path and expose enough control over continuation state to support the selected profile's parity ladder. If a backend cannot expose recurrent/convolution state or the required hidden representations, it must report the unsupported capability rather than silently substitute a different decision function.
+
+---
+
+## Track S — thin real-service bridge (planned / parallel)
+
+Before a complete native backend is production-ready, Track S may connect the existing Rust service boundary to a persistent reference worker:
+
+```text
+HTTP / gRPC client
+  │
+  ▼
+opendecisiond
+  │  request ID · auth · validation · admission · deadline
+  ▼
+BridgeEngine : DecisionEngine
+  │  versioned request/profile serialization
+  ▼
+Persistent reference worker
+  │  selected pinned model profile
+  │  real probability/rejection computation
+  │  bounded execution
+  ▼
+validated typed SystemResponse
+```
+
+This bridge is useful for exercising real probabilities, unsupported-input errors, queueing, cancellation, token/work accounting, and SDK behavior before the native port is complete.
+
+It is **not** a substitute for native parity, and this document does not claim that the real worker-backed bridge is already implemented. Track S.3–S.5 in the roadmap own that evidence.
+
+---
+
+## State-first execution contract
+
+State-first rendering is part of the selected learned profile, not merely a caching trick.
+
+The selected architecture intentionally keeps the shared state representation independent of which questions happen to be submitted in the same request:
+
+```text
+stable format + state
+        │
+        ▼
+immutable shared state root
+        │
+        ├── question A suffix → isolated question-A state
+        │       ├── candidate A1 suffix → feature/score
+        │       └── candidate A2 suffix → feature/score
+        │
+        └── question B suffix → isolated question-B state
+                ├── candidate B1 suffix → feature/score
+                └── candidate B2 suffix → feature/score
+```
+
+This is deliberately different from a schema-first parallel-constrained-decoding pattern in which the complete semantic field/question catalog appears before the state and is therefore part of the shared cached representation. That design can be efficient, but adding/reordering questions can alter the prefix used by every field. OpenDecision borrows **breadth-first branch batching** from public PCD implementations while retaining a **state-first isolation contract**.
+
+### Why `KVCache` is not the right abstraction
+
+Qwen3.5 mixes full-attention blocks with recurrent DeltaNet blocks. A valid continuation branch includes at least:
+
+- full-attention key/value state;
+- DeltaNet recurrent state;
+- convolution state;
+- logical/token position state;
+- execution/profile identity required to prevent cross-profile reuse.
+
+A branch that clones only attention KV can still share or corrupt mutable recurrent state. Attention masks do not make recurrent streams independent.
+
+---
+
+## `BranchableState` target abstraction
+
+Phase 3 should expose a backend-neutral continuation-state abstraction rather than Qwen-specific cache tensors through the engine boundary.
+
+Phase 3A now supplies a working Python reference for the required semantics. The first notebook draft attempted Transformers 5.17.0's generic `Cache.batch_repeat_interleave()`, which fails on Qwen3.5 because its `LinearAttentionLayer` does not implement that generic helper. The corrected reference instead deep-copies the complete hybrid cache and calls cache-wide `reorder_cache(indices)`. Repeated indices such as `[0,0,0,0]` fan one immutable root into multiple lanes; selected indices gather lanes back out. This reaches both ordinary attention KV layers and the linear-attention layers carrying recurrent and convolution state. The environment remains pinned rather than monkey-patching only the KV portion of the cache.
+
+The Python contract validates immutable-root fan-out/select before the semantic benchmark. Rust does not need to copy the Python object model, but it must reproduce the **same complete-state semantics** and fixture outputs.
+
+The following is an **illustrative Rust target contract, not a claim about an already implemented Rust API**:
+
+```rust
+trait BranchableState: Send + Sync {
+    type Batch;
+
+    fn profile_id(&self) -> &str;
+    fn position(&self) -> usize;
+    fn storage_bytes(&self) -> usize;
+    fn fingerprint(&self) -> StateFingerprint;
+
+    fn fork_one(&self) -> Result<Self, StateError>
+    where
+        Self: Sized;
+
+    fn fork_batch(&self, lanes: usize) -> Result<Self::Batch, StateError>;
+}
+
+trait BranchBatch {
+    type State;
+
+    fn lanes(&self) -> usize;
+    fn storage_bytes(&self) -> usize;
+    fn split(self) -> Result<Vec<Self::State>, StateError>;
+}
+```
+
+A concrete implementation may add gather/rebatch operations where the backend supports them efficiently. The semantic requirements are more important than the exact trait syntax:
+
+1. **Immutable-root semantics** — branching must not mutate a reusable root.
+2. **Complete-state isolation** — all mutable continuation components are isolated.
+3. **Single and batched fork** — a backend can create one continuation or a vectorized set of lanes.
+4. **Split/gather/rebatch support where valid** — batching is an execution optimization, not a semantic merge.
+5. **Byte accounting** — scheduler/admission decisions use real branch-state storage, not only attention KV.
+6. **Stable identity** — state cannot be reused across incompatible model, renderer, adapter, arithmetic, tokenizer, or position contracts.
+7. **Backend neutrality** — future encoders/query models can implement a different reusable-state representation without pretending to be a Transformer KV cache.
+
+---
+
+## Breadth-first Q/K execution
+
+The correctness reference is **sequential nested execution**. Vectorization comes only after that path matches the selected Python profile.
+
+### Reference graph
+
+```text
+state_tokens = render_state(state)
+S0 = prefill_state(state_tokens)
+
+for question in questions:
+    Sq = fork(S0)
+    Sq = run_question_suffix(Sq, question)
+
+    for candidate in question.candidates:
+        Sc = fork(Sq)
+        feature[candidate] = run_candidate_suffix(Sc, candidate)
+
+    scores = candidate_head(feature[*])
+    rejection = profile.rejection(scores, feature[*])
+    distribution = profile.normalize(scores, rejection)
+    decision = profile.policy(distribution)
+```
+
+### Optimized graph
+
+```text
+S0 = prefill_state(state)                       # once
+
+Q_batch = S0.fork_batch(Q)                      # isolated Q lanes
+Q_batch = run_question_suffixes(Q_batch)        # breadth-first
+question_states = split_or_view(Q_batch)
+
+for compatible question bucket:
+    C_batch = fork_candidates(question_states)  # K lanes/question
+    candidate_features = run_candidate_suffixes(C_batch)
+
+scores
+  → profile-specific rejection
+  → calibrated distribution
+  → application policy
+  → wire adapter
+```
+
+Question batching and candidate batching must remain independently switchable. If an optimized path changes probabilities or policy outputs, the system must be able to localize whether the difference entered at state prefill, Q batching, K batching, rejection, arithmetic, or the wire adapter.
+
+### Scheduler modes
+
+Every supported profile should have explicit execution modes rather than a single opaque “fast” path:
+
+- `repeated_full` — Q complete independent evaluations; slow but conceptually simple baseline.
+- `nested_sequential` — state prefilled once, questions/candidates branched sequentially; primary sharing correctness reference.
+- `nested_batched` — state prefilled once, compatible Q and K suffix work vectorized; target high-throughput path.
+
+The scheduler may choose among these only within capabilities already accepted for the profile. The choice can depend on state length, Q, K, suffix-length distribution, available memory, and arithmetic mode.
+
+---
+
+## Q-amortization is a first-class systems metric
+
+Single-question latency is insufficient for a Jev-style multi-question engine. Phase 3 must measure how total request time grows with independent question count.
+
+For the same pinned profile and semantic workload, report at minimum:
+
+- complete-request p50 / p95 latency;
+- `T(Q) / T(1)`;
+- marginal milliseconds per additional question;
+- questions/second and decisions/second;
+- actual model/forward invocation count;
+- state-prefill fraction of total model time;
+- branch-state bytes, peak allocation, and resident memory;
+- cold-state versus warm-state reuse;
+- queue-inclusive service latency separately from model-only timings.
+
+Primary comparison:
+
+```text
+                    Q=1    Q=4    Q=16
+repeated_full        x      x       x
+nested_sequential    x      x       x
+nested_batched       x      x       x
+```
+
+The external DGX Spark comparison is useful because its within-system slope differs sharply across implementations: the published campaign reports Jev 1.13 at roughly 105.1 → 109.2 ms p50 from Q=1 to Q=4, while a sequential tuned-Qwen wrapper reports roughly 167.0 → 665.1 ms. These absolute values are not OpenDecision targets and are not directly comparable across hosted/local environments.
+
+### Phase 3A measured crossover
+
+Phase 3A shows why the scheduler cannot equate “shared state” with “always faster.” Across the three real semantic smoke states, median-of-case timings were approximately:
+
+| Execution mode | Q=1 median | Q=4 median | `T(4)/T(1)` |
+|---|---:|---:|---:|
+| `repeated_full` | 265.0 ms | 869.3 ms | 3.28× |
+| `nested_sequential_cold` | 456.0 ms | 1,260.9 ms | 2.77× |
+| `nested_batched_cold` | 380.8 ms | 1,058.4 ms | 2.78× |
+| `nested_batched_warm` | 288.4 ms | 962.4 ms | 3.34× |
+
+On these short semantic Q=4 requests, warm nested batching was about **10.7% slower** than repeated-full execution. Phase 3A therefore does **not** establish Jev-like near-flat Q scaling for short semantic requests.
+
+The synthetic mechanics grid demonstrates the complementary result: sharing becomes strongly advantageous as the common state dominates request cost.
+
+| Mechanics cell | Repeated full | Nested batched cold | Nested batched warm | Warm speedup vs repeated |
+|---|---:|---:|---:|---:|
+| L=64, Q=4, K=4 | 1,375.4 ms | 597.9 ms | 514.9 ms | 2.67× |
+| L=256, Q=4, K=4 | 2,934.3 ms | 677.0 ms | 507.6 ms | 5.78× |
+| L=1024, Q=4, K=4 | 9,448.1 ms | 1,101.2 ms | 516.5 ms | 18.29× |
+| L=1024, Q=16, K=2 | 18,928.6 ms | 2,506.3 ms | 1,922.0 ms | 9.85× |
+
+At L=1024/Q=16/K=2, batched-cold peak allocation is about **18.67 GiB**, versus about **16.42 GiB** for repeated-full. Latency and branch memory therefore belong in the same scheduling decision.
+
+**Architecture consequence:** retain `repeated_full`, `nested_sequential`, and `nested_batched` as explicit strategies. The runtime planner should choose among them using measured state length, Q, K, suffix-length buckets, available memory, precision/backend identity, and cache warmth. A Phase 3A.1 Colab cost-model study is conditional: run it if early Rust profiling cannot determine stable crossover rules; it should not block head/tokenizer/backbone parity.
+
+---
+
+## Candidate cardinality and constrained-token baselines
+
+High K and high Q are different scaling problems.
+
+The selected OpenDecision candidate scorer uses semantic candidate descriptions and candidate-conditioned features. A public Qwen parallel-constrained-decoding implementation demonstrates a much cheaper alternative for finite answer tokens: prefill once, broadcast state, slice logits to allowed tokens, and serialize the result in host code. OpenDecision should use that idea as an **efficient baseline / latency floor**, not silently replace the selected semantic scorer.
+
+Phase 3 systems stress should cover K = 32, 64, 128, and 255 where supported, measuring:
+
+- candidate-branch memory;
+- model invocations and suffix grouping;
+- scheduler/batch saturation;
+- latency and throughput;
+- behavior under mixed Q/K request shapes.
+
+Semantic quality at high K requires a separate reviewed evaluation. Surviving a 255-choice systems test does not establish 255-way decision accuracy or calibration.
+
+---
+
+## Rejection, evidence sufficiency, and application review
+
+The runtime must not collapse several different “do not answer” concepts into one bit:
+
+1. **Offered-option omission** — a valid semantic answer exists but is not among the offered candidates.
+2. **Out of domain / unsupported task** — the question lies outside the model's supported scope.
+3. **Insufficient evidence** — the requested judgment is meaningful, but the visible state does not support a determinate answer.
+4. **Unobservable state** — required facts are absent because the state representation is incomplete/lossy.
+5. **Application review** — the model may have a valid semantic answer, but policy declines automation because risk/cost exceeds the operating threshold.
+
+These categories are evaluation and decision-semantics concerns first; they must not be inserted into the public wire probability vector without an explicit versioned contract.
+
+The selected profile currently uses **score-summary rejection**. Future profiles may use semantic-feature applicability or another rejection model, so the engine should expose a profile-specific rejection interface rather than a single universal equation such as `P(none) = 1 - a` baked into runtime code.
+
+---
+
+## Wire & API contract resolutions
+
+### Choice `none` / rejection mass
+
+OpenDecision must not silently append an unrequested `none` choice or drop/renormalize internally modeled mass while calling the resulting probabilities unchanged unconditional probabilities.
+
+Supported mappings must be explicit and versioned, for example:
+
+- caller supplies a semantic `other` / `none` option;
+- a native OpenDecision response extension represents semantic-none separately;
+- an application policy returns a review/routing action outside the semantic probability vector.
+
+Application review is not the same as semantic none.
+
+### Candidate identifiers and semantic descriptions
+
+Machine IDs and semantic meaning remain separate. IDs are routing/stability keys; model input comes from the declared names/descriptions/criteria according to the selected profile. Opaque ID renaming must not alter model meaning.
+
+### Confidence
+
+Do not substitute top probability for a separately defined compatibility `confidence` statistic. Any compatibility adapter must implement the documented meaning explicitly and version that mapping.
+
+---
+
+## HTTP and gRPC service boundary
 
 ### `opendecision-api`
 
-Two transports, one business logic:
+Two transports share the same validated engine behavior:
 
-- **HTTP** (`src/http.rs`) — axum 0.8 router:
-  - `POST /v1/systemone`  — canonical Jev evaluation endpoint
-  - `POST /v1/system_one` — SDK compatibility alias
-  - `GET /v1/models`     — `{"models":[{name,description,release_date}]}`
-  - `GET /health`        — liveness, no auth
-  - `GET /metrics`       — Prometheus exporter
-- **gRPC** (`src/grpc.rs`) — tonic 0.14, single service `system_one` with one `evaluate` RPC. Inherits request ID and deadline cancellation.
+- **HTTP** (`src/http.rs`)
+  - `POST /v1/systemone`
+  - `POST /v1/system_one` compatibility alias where retained
+  - `GET /v1/models`
+  - `GET /health`
+  - `GET /metrics`
+- **gRPC** (`src/grpc.rs`)
+  - one evaluate RPC through the same engine registry and semantic contract.
 
-Middleware (`src/middleware.rs`):
+Reported middleware behavior includes request-ID propagation, bearer authentication where enabled, validation, tracing, and a common error taxonomy. Request IDs must remain available on failures so service/model traces can be joined.
 
-- `request_id_layer` — reads `x-typesafe-request-id` from request if present, else mints UUIDv4 and stamps on response. Runs **outermost** so it is stamped even on 401s.
-- `auth_layer` — Bearer-token gate on `/v1/*`, env-driven via `OPENDECISION_API_KEY` (with fallback to `TYPESAFE_API_KEY`). `/health` and `/metrics` are open.
-- `TraceLayer` — structured tracing per request.
-
-Error model (`src/error.rs`) maps `ApiError` → `(status, error-envelope, headers)`:
-
-| Status | Variant                 | Headers                        |
-|--------|-------------------------|--------------------------------|
-| 400    | `BadJson`               | —                              |
-| 401    | `Unauthorized`          | `WWW-Authenticate: Bearer`     |
-| 404    | `ModelNotFound`         | —                              |
-| 422    | `Validation(...)`       | —                              |
-| 429    | `RateLimited { retry_after_ms }` | `Retry-After`, `retry-after-ms` |
-| 529    | `Overloaded { retry_after_ms }` | `Retry-After`, `retry-after-ms` |
-| 5xx    | `Internal`              | —                              |
-
-Every error response includes `x-typesafe-request-id`, including 4xx and 5xx.
-
-### `opendecision-server`
-
-The `opendecisiond` daemon binary. Entry point for production. Parses CLI flags via clap, builds the registry, mounts the HTTP router from `opendecision-api::http`, mounts the gRPC service from `opendecision-api::grpc`, listens on both ports concurrently, and shuts down cleanly on SIGTERM.
-
-### `opendecision-cli`
-
-The `opendecision` binary. Subcommands:
-
-- `opendecision serve`  — runs the daemon
-- `opendecision evaluate` — read a JSON request from a file or stdin, hit a running daemon, write response to stdout
-- `opendecision inspect` — pretty-print a JSON file, validating it against the Jev request schema
-- `opendecision version` — print build metadata
-
-### `opendecision-runtime`, `opendecision-backends`
-
-Production native components for Phase 3. `runtime` manages device discovery, VRAM allocation, worker pools, queue admission, and persistent LRU caches. `backends` implements native drivers (Candle, GGUF/llama.cpp, ONNX) following the Parity Ladder.
+Transport success is not model success. `/v1/models` should advertise the exact supported profile/capabilities rather than imply arbitrary primitive, Q/K, context, or precision support.
 
 ---
 
-## Nested Hybrid Cache Architecture (Phase 2I)
+## Phase 3 parity ladder
 
-Jev models evaluate multiple typed questions independently against a single state. OpenDecision organizes prefix computation into a **two-level nested cache tree**:
+The exported selected bundle is the model/probability reference contract; Phase 3A adds the Python branch/batch execution reference and fixtures. Native work advances in this order:
+
+1. **Head/probability algebra** — normalization, candidate/primitive projections, score-summary rejection, stable softmax, calibration, policy semantics.
+2. **Exact tokenizer + state-first renderer** — token IDs, segmentation/order, masks, positions, truncation, candidate ordering.
+3. **Full Qwen3.5 backbone parity** — hidden features, distributions, argmax, directed policy outputs on the target runtime.
+4. **`BranchableState`** — reproduce the Phase 3A full-hybrid-state semantics: root immutability, single/batched fork, gather/select, explicit position, storage accounting, and profile-bound identity.
+5. **Sequential nested parity** — `state → question → candidate` against the Python reference.
+6. **Batched question layer** — Q breadth-first execution with isolation/parity tests against Phase 3A fixtures.
+7. **Batched candidate layer** — K vectorization with permutation/rejection parity.
+8. **Adaptive scheduler / Q-amortization** — reproduce workload-shape crossover behavior on the named Mac; do not hard-code `nested_batched` as universally faster.
+9. **High-K / repeatability / persistence** — K=32/64/128/255 systems stress, pinned-runtime replay, cache lifecycle, profile/version telemetry.
+10. **Production lifecycle** — queueing, admission, cancellation, recovery, load shedding, telemetry, soak/load tests.
+
+A change to model, tokenizer, renderer, adapter, head, rejection, calibration, precision, kernels, batching, cache/state representation, or policy triggers the relevant equivalence or new-model review. “Same checkpoint” alone is not sufficient identity.
+
+---
+
+## Repeatability and profile identity
+
+A self-hosted engine should make execution identity stronger, not weaker.
+
+Every returned/model telemetry record should be able to identify the relevant combination of:
 
 ```text
-[State Prefix] ─── (prefill root once)
-       │
-       ├──► [Question 1 Suffix] ─── (isolated question state)
-       │           │
-       │           ├──► [Candidate 1.1 Suffix] ──► Score
-       │           └──► [Candidate 1.2 Suffix] ──► Score
-       │
-       └──► [Question 2 Suffix] ─── (isolated question state)
-                   │
-                   ├──► [Candidate 2.1 Suffix] ──► Score
-                   └──► [Candidate 2.2 Suffix] ──► Score
+model revision
++ tokenizer revision
++ renderer version
++ adapter/head/rejection versions
++ calibration/policy version
++ backend/runtime version
++ arithmetic/precision mode
++ kernel family
++ execution strategy
 ```
 
-### Hybrid Isolation Invariant
-Because Qwen alternates recurrent DeltaNet blocks and attention blocks, **branch isolation must clone recurrent state and convolution state at every branch point, not merely apply an attention mask**. Recurrent streams cannot be concatenated or shared without mutating state across independent questions or candidates.
+Pinned replay campaigns should distinguish:
 
----
+- exact deterministic replay where the runtime supports it;
+- bounded floating-point differences that preserve the declared contract;
+- true profile/runtime changes that must receive a new identity.
 
-## Wire & API Contract Resolutions
-
-1. **Rejection & `none` Probability**:
-   - The TypeSafe wire contract returns probabilities over caller-supplied criteria and recommends callers add an "other" option when needed.
-   - OpenDecision does not silently append an unrequested `none` choice or renormalize probabilities without explicit contract. Internally, rejection probability ($P(\text{none}) = 1 - a$) is evaluated via a feature-conditioned applicability head and surfaced either through caller-supplied `none` criteria, a versioned native extension, or an application review trigger.
-2. **Candidate Identifiers & Semantic Descriptions**:
-   - Machine IDs are kept separate from candidate semantics. Both candidate names and descriptions reach the model; null descriptions are permitted because option names provide semantic meaning.
+The external DGX study observed campaign-to-campaign differences from identical hosted Jev requests. That does not establish a cause, but it is sufficient motivation to measure and version repeatability explicitly rather than assume a service/model label guarantees identical numerical behavior.
 
 ---
 
 ## Testing strategy
 
-- **`opendecision-core`** — `cargo test` validates every spec example round-trips through serde (request → response).
-- **`opendecision-core`** — `cargo run -p opendecision-gen-schemas -- --write` regenerates `schemas/jev-v1-{request,response}.json`.
-- **`opendecision-engine`** — `MockEngine` is deterministic with a seeded RNG and sorted key iteration.
-- **`opendecision-api`** — middleware unit tests + `sdk_compat.rs` end-to-end tests (56 tests covering headers, errors, auth, and wire compatibility).
-- **`opendecision-api`** — `grpc_roundtrip.rs` spins up a real `tonic::transport::Server` on a random port and exercises the evaluate RPC.
-- **`opendecision-server`** — end-to-end CLI parsing and daemon launch tests.
+### Existing/reported repository tests
 
-Current totals at commit HEAD: **195 tests passing, 0 failing.**
+- `opendecision-core` — serde/wire round trips and generated-schema checks.
+- `opendecision-engine` — deterministic mock/dispatch behavior.
+- `opendecision-api` — middleware and SDK-compatibility tests.
+- `opendecision-api` — gRPC round-trip tests.
+- `opendecision-server` / CLI — launch/parsing/integration behavior.
+
+The supplied project history reports **195 tests passing** at an earlier snapshot. Record an exact commit, command, toolchain, and result before describing any total as current HEAD.
+
+### Phase 3 model/runtime tests
+
+Add fixture families for:
+
+- exported head/probability algebra;
+- exact tokenizer/state-first render tokens;
+- full-backbone hidden features and distributions;
+- immutable state-root fingerprints;
+- single versus batched branch storage isolation;
+- question order / unrelated-question addition/removal;
+- candidate permutation and opaque-ID renaming;
+- repeated-full versus nested-sequential parity;
+- nested-sequential versus nested-batched Q parity;
+- candidate-batch K parity;
+- precision/kernel/profile identity changes;
+- persistent state restore, TTL, byte eviction, tenant separation;
+- cancellation and abandoned-reader safety;
+- exact/bounded replay repeatability;
+- Q=1/4/16 scaling and high-K scheduler stress;
+- queue-inclusive load and memory-soak behavior.
+
+Probability delta, argmax changes, and directed application-policy changes must remain separate assertions. Aggregate accuracy is not an implementation-equivalence test.
 
 ---
 
 ## Operational notes
 
-- **Auth is opt-in.** Without `OPENDECISION_API_KEY` set, `/v1/*` is open for local development. Setting the env var gates the API surface with constant-time token comparison.
-- **Metrics are optional.** `/metrics` returns 200 with `# not installed` until the daemon binary calls `install_metrics_recorder()` on startup.
-- **gRPC keeps the same error model.** `rpc_status_to_http()` in `grpc.rs` maps `ApiError` → `tonic::Status` codes so a gRPC client sees the same taxonomy.
-- **Wire types must stay in sync.** Any change to a field in `core` is a breaking change for every future SDK caller. Bump `JevRequest::SCHEMA_VERSION` and add a round-trip test before merging.
-- **Deployment Hardening**: In production, explicit opt-in is required for non-loopback network binding, metrics exposure, bounded request payload limits, and sensitive input redaction.
+- **Bound work before dispatch.** Admission should account for state tokens, Q, K, model/profile limits, branch-state bytes, temporary batch expansion, and currently available memory.
+- **Do not equate cache budget with process memory.** Model weights, recurrent/convolution/KV state, restored branches, allocator reservations, and backend scratch buffers all matter.
+- **Auth and metrics exposure are deployment decisions.** Non-loopback unauthenticated serving and sensitive telemetry require explicit opt-in and redaction rules.
+- **Cancellation must be defined across queue and model execution.** Cancelling an HTTP future is not sufficient if GPU work or retained state remains alive.
+- **Cache identity includes semantic execution identity.** Similar text is not enough; token/profile/position contracts must match exactly.
+- **No silent semantic fallback.** If a backend lacks a required primitive, state operation, precision, or context/Q/K shape, return a precise unsupported-path error.
+- **Mac performance must be measured on Mac.** CUDA/L4/A100/DGX results inform hypotheses, not Apple-Silicon latency or memory guarantees.
 
 ---
 
-## Phasing & What's Left
+## Public reference artifact
 
-- **Phase 2H (NEXT)**: Contract hardening, criteria review, feature-conditioned rejection head ($P(\text{none}) = 1-a$), and resident Python reference worker bridge.
-- **Phase 2I (PLANNED)**: Genuine multi-question execution ($1\text{ state} \to Q\text{ questions} \to K\text{ candidates}$), state-first prompt rendering, and nested hybrid cache branching.
-- **Phase 2J (PLANNED)**: Matched adaptation comparison (frozen heads vs. LoRA vs. `Qwen/Qwen3.5-2B-Base`), multi-task supervision, and honest calibration (NLL / cumulative Brier for Score).
-- **Phase 3 (PLANNED / GATED ON 2H/2I/2J)**: Production Rust engine implementing the Parity Ladder, native backends (Candle, GGUF/llama.cpp, ONNX), and deployment hardening.
+The selected state-first integration line is published at:
+
+<https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst>
+
+Treat this repository as a public **OpenDecision reference artifact** tied to the provisional integration profile, not as evidence that the frozen Qwen backbone itself was newly trained. Phase 3A records `model_changed=false`, `training_performed=false`, and `selection_performed=false`. Any future adapted/quantized profile must receive a distinct identity and its own quality/equivalence evidence.
+
+---
+
+## Architecture lessons from external systems
+
+### Parallel constrained decoding
+
+The public `harshatheg/Qwen-2.5-1B-RLCD` artifact is useful primarily as an inference pattern: shared prefill, cache broadcasting, constrained candidate-token logits, limited token-tree continuation, and host-side structured assembly. It is **not** treated here as evidence that TypeSafe's RLCD training procedure was reproduced, and normalized softmax outputs are not by themselves a calibration result.
+
+OpenDecision adopts the execution lesson—**batch branches breadth-first**—while retaining its state-first root. A schema/question catalog placed before state would weaken the intended question-set isolation contract.
+
+Reference: https://huggingface.co/harshatheg/Qwen-2.5-1B-RLCD
+
+### Jev-style DGX Spark benchmark
+
+The September 2026 More Than a Machine comparison is useful as a systems-shape benchmark. Its published Q=1→4 p50 results are approximately:
+
+- Jev 1.13: 105.1 → 109.2 ms;
+- Laya: 16.4 → 29.1 ms;
+- tuned Qwen3.5 wrapper: 167.0 → 665.1 ms.
+
+The absolute numbers are not apples-to-apples because hosted Jev and warm local readers have different boundaries. OpenDecision therefore adopts **no external latency threshold** from this table. The architectural takeaway is to measure the within-system Q-scaling slope and make additional questions cheaper than Q repeated full evaluations where shared state is substantial.
+
+Reference: https://morethanamachine.com/posts/jev-style-decisions-dgx-spark/
+
+---
+
+## Phasing & what's left
+
+- **Phase 2H — COMPLETED REQUIRED SCOPE.** Criteria/rejection transfer, bounded primitive probes, locked continuation and evidence handoff are complete. Historical failures/limits remain preserved.
+- **Phase 2I — BOUNDED PILOT COMPLETE / REVIEWED CONFIRMATION OPEN.** State-first rendering and nested Q sharing have exploratory semantic/mechanical evidence; independent review, natural documents, broader isolation/evidence-sufficiency and semantic high-K confirmation remain open.
+- **Phase 2J — EXPLORATORY SCREEN COMPLETE / RELEASE CONFIRMATION OPEN.** Thirteen fit jobs and 31 final profiles completed; Qwen4B/state-first/score-summary is the provisional integration target. Released external baselines and release promotion remain open.
+- **Track S — PLANNED / PARALLEL.** Resolve final wire probability semantics and connect a real resident reference worker to the Rust service before claiming a real model-backed service.
+- **Phase 3A — COMPLETED PYTHON SYSTEMS/REFERENCE SCOPE.** Run `20260920T024056Z` validated full-hybrid-state branch fan-out/select, semantic batched parity, high-K systems parity and exact recorded same-process replay for the frozen selected profile. Its short semantic benchmark also establishes that sharing is workload-dependent rather than universally faster.
+- **Phase 3 — NEXT / INTEGRATION PROFILE LOCKED.** Implement native parity for `a047d6802c3f06f085b8` using the selected bundle plus Phase 3A execution fixtures, then reproduce `BranchableState`, nested Q/K execution and an adaptive scheduler on the named Mac.
+- **Phase 3A.1 — CONDITIONAL SCHEDULER/CROSSOVER STUDY.** Create the additional Colab only if early Rust profiling does not provide enough component timing to derive stable strategy crossover rules. It does not block 3.1–3.5.
+- **P2.1–P2.3 — CONDITIONAL.** Optimized kernels, model-weight precision/quantization, and teacher/student work require a specific unmet target and their own parity/quality evidence.
+
+The current architecture decision is therefore conservative: **keep the selected state-first Qwen profile fixed long enough to build a trustworthy native execution engine; use the completed Python Phase 3A run as the execution reference; make scheduling adaptive rather than assuming shared-state execution always wins; and let reviewed release-quality evidence decide later whether the provisional profile ships.**

@@ -41,10 +41,12 @@ It defines:
 - [`src/grpc.rs`](./src/grpc.rs):
   - `SystemOneService`: Implements `opendecision::system_one_server::SystemOne`.
   - Converts Protobuf types $\leftrightarrow$ `opendecision_core` types (`pb_state_to_core`, `pb_questions_to_core`, `core_to_pb_response`).
-- [`src/middleware.rs`](./src/middleware.rs):
-  - `REQUEST_ID_HEADER = "x-typesafe-request-id"`.
-  - `request_id_layer`: Checks for inbound client header, falls back to `Uuid::new_v4()`.
-  - `auth_layer`: Constant-time bearer token check using `constant_time_eq` (supports `OPENDECISION_API_KEY` and `TYPESAFE_API_KEY`).
+- [`src/middleware/`](./src/middleware/):
+  - Modular middleware stack:
+    - [`src/middleware/request_id.rs`](./src/middleware/request_id.rs): `REQUEST_ID_HEADER = "x-typesafe-request-id"`, `request_id_layer` (checks for inbound client header, falls back to `Uuid::new_v4()`).
+    - [`src/middleware/auth.rs`](./src/middleware/auth.rs): `auth_layer` (constant-time bearer token check using `constant_time_eq`, supports `OPENDECISION_API_KEY` and `TYPESAFE_API_KEY`).
+    - [`src/middleware/rate_limit.rs`](./src/middleware/rate_limit.rs): `rate_limit_layer` (per-IP sliding window rate limiter emitting 429 status and retry headers).
+    - [`src/middleware/tests/`](./src/middleware/tests/): Dedicated test suites (`request_id_tests.rs`, `auth_tests.rs`, `rate_limit_tests.rs`).
 - [`src/error.rs`](./src/error.rs):
   - `ApiError` enum and `IntoResponse` implementation:
     - Formats body as `{"error":{"code": ..., "message": ...}}`.
