@@ -110,7 +110,10 @@ pub async fn rate_limit_layer(
     req: Request<Body>,
     next: Next,
 ) -> Response {
-    if !limiter.is_enabled() || !req.uri().path().starts_with("/v1/") {
+    if !limiter.is_enabled()
+        || !req.uri().path().starts_with("/v1/")
+        || req.method() == axum::http::Method::OPTIONS
+    {
         return next.run(req).await;
     }
     let peer_ip = req
