@@ -2,7 +2,7 @@
 
 > An open-source decision-inference engine in Rust targeting the Jev wire contract, with independently designed model and runtime internals.
 >
-> **Revision 0.7.2 · 20 September 2026 · Phase 3A Python systems validation completed; public state-first reference published; Rust parity is next.**
+> **Revision 0.7.2 · 20 September 2026 · Rust Phase 3.3 CPU full-sequence and cached-continuation parity pass; backend-neutral branch state is next.**
 >
 > Wire spec: https://docs.typesafe.ai/api
 > Reference client SDK target: https://docs.typesafe.ai/sdk/python/api
@@ -13,16 +13,19 @@
 
 The repository separates the **wire contract**, **decision/model execution**, and **transport/runtime** layers so that a model backend can change without changing the public request/response schema. The project targets Jev-compatible wire behavior where explicitly supported; it does **not** claim to reproduce Jev's private neural architecture or RLCD training procedure.
 
-The current model-integration reference is profile `a047d6802c3f06f085b8`: `Qwen/Qwen3.5-4B-Base`, frozen backbone, **state-first rendering**, and **score-summary rejection**. The exploratory `2ij.2.0` study selected and exported this profile before final evaluation, and the exported bundle passed a clean Python reload/head-algebra parity check. Phase 3A then kept that profile immutable and validated the Python reference mechanics for full-hybrid-state branching, batched question/candidate execution, high-K systems stress, and same-process repeatability. That makes it the fixed Phase 3 implementation target. It remains a **provisional integration profile**, not a release-quality model: independent review, natural-data confirmation, explicit promotion limits, and target-machine Rust/Metal evidence remain open.
+The current model-integration reference is profile `a047d6802c3f06f085b8`: `Qwen/Qwen3.5-4B-Base`, frozen backbone, **state-first rendering**, and **score-summary rejection**. The exploratory `2ij.2.0` study selected and exported this profile before final evaluation, and the exported bundle passed a clean Python reload/head-algebra parity check. Phase 3A kept that profile immutable and validated the Python reference mechanics for full-hybrid-state branching, batched question/candidate execution, high-K systems stress, and same-process repeatability. Phase 3B kept the same profile, bundle, and base revision and exported exact segmented tokens, a 34-stage embedding-to-final-norm trace, 10 candidate features, and 3 continuation vectors. Rust Phase 3.3 now reproduces the correctness-first CPU backbone and Qwen-specific cached continuation on the named M4 Max. That makes the profile the fixed Phase 3 implementation target. It remains a **provisional integration profile**, not a release-quality model: independent review, natural-data confirmation, explicit promotion limits, backend-neutral branching, optimized execution, and Metal evidence remain open.
+
+Rust now reproduces the selected head/probability algebra and all four exported token records. It loads and validates the Phase 3B architecture and 47-vector reference bundle, verifies both immutable checkpoint shards, and executes the complete 32-layer Qwen text backbone plus final RMSNorm through Candle's CPU backend in FP32. All 34 stage diagnostics are localized, all 10 candidate sequences pass the declared probability/argmax/policy gate, and Qwen-specific cached continuation carries attention KV, DeltaNet recurrent state, convolution state, and absolute position without mutating its root. This is correctness-first CPU evidence, not Metal, production-service, or release-quality evidence.
 
 A public OpenDecision reference repository for this integration line is published at <https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst>. Publication improves inspectability and handoff; it does **not** change the release-quality or Rust/Metal parity boundary.
 
 The immediate architecture objective is therefore no longer “choose a model.” It is:
 
 ```text
-completed Python Phase 3A reference
-  → native head/tokenizer/backbone parity
-  → Rust BranchableState for the full Qwen3.5 hybrid continuation state
+completed Python Phase 3A branch/batch reference + Phase 3B backbone reference
+  → completed Rust head/probability + exact-token + CPU backbone parity
+  → completed Qwen-specific full-hybrid cached continuation
+  → backend-neutral Rust BranchableState with fork/gather/profile identity
   → sequential state→question→candidate parity
   → batched question and candidate execution
   → adaptive workload scheduler from measured crossover behavior
@@ -38,13 +41,14 @@ Model promotion and implementation equivalence remain separate decisions.
 
 The architecture document distinguishes implemented/reported repository behavior from research artifacts and planned work:
 
-- **Phase 0 / Phase 1:** wire types, schemas, mock engine, HTTP/gRPC surfaces, CLI and SDK-compatibility fixtures are reported implemented in the supplied repository documentation. The previously reported workspace total is 195 tests; this document does not claim that count was freshly rerun at current HEAD.
+- **Phase 0 / Phase 1:** wire types, schemas, mock engine, HTTP/gRPC surfaces, CLI and SDK-compatibility fixtures are implemented and covered by the repository verification battery.
 - **Phase 2H:** required criteria/rejection-transfer study is complete through the preserved `2h.1.2` continuation. The old failed attempt remains historical evidence.
 - **Phase 2I:** bounded state-first multi-question mechanics and Q=1/Q=4 semantic sharing are measured; independently reviewed/natural-data confirmation remains open.
 - **Phase 2J:** the exploratory model-selection screen is complete; the Qwen4B state-first/score-summary profile is the provisional integration target. Release promotion remains open.
 - **Track S:** the thin Rust → resident Python reference-worker bridge is a planned parallel integration track, not a completed Phase 2H component.
 - **Phase 3A (Python reference):** run `20260920T024056Z` completed notebook scope with the selected profile unchanged; semantic batched parity passed, high-K parity passed, and the recorded same-process repeatability delta was zero. The run is systems/reference evidence, not Rust/Metal parity or release certification.
-- **Phase 3:** native/Rust parity against the selected bundle and Phase 3A fixtures is **READY / NEXT**.
+- **Phase 3B (Python reference):** run `20260920T152206Z` completed notebook scope with no training, model selection, model modification, or bundle change. It exports 4 token records and 47 FP32 vectors for layer, candidate, and continuation localization. Its hidden-vector deltas are diagnostics, not Rust acceptance tolerances.
+- **Phase 3 (Rust/native):** head/probability, exact tokenizer/state-first token, full CPU decoder/final-normalization, and Qwen-specific cached-continuation parity pass against the frozen fixtures. Backend-neutral branch operations, batched Q/K execution, Metal, service registration, and release promotion remain open.
 
 The roadmap is the task/status authority; the whitepaper is the evidence/interpretation authority. This file defines the intended software and execution architecture.
 
@@ -152,11 +156,17 @@ The **selected Phase 3 profile** is currently:
 ```text
 profile_id: a047d6802c3f06f085b8
 backbone:   Qwen/Qwen3.5-4B-Base
+revision:   1001bb4d826a52d1f399e183466143f4da7b741b
 weights:    frozen
 renderer:   state-first
 rejection:  score-summary
+bundle:     4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332
 status:     provisional integration target
 ```
+
+`ModelExecutionProfile` records this identity and its reference bundle, renderer,
+head, rejection, calibration, policy, and numerical tolerances without changing
+the public `DecisionEngine` trait.
 
 `score-summary` is part of this profile; it must **not** be hard-coded into the engine architecture. The exploratory screen also produced semantic-feature rejection variants, and future profiles may use different applicability/rejection heads. Rejection is therefore profile-owned behavior behind a stable probability contract.
 
@@ -178,9 +188,29 @@ The runtime must not assume that reusable model state is an ordinary Transformer
 
 ### `opendecision-backends`
 
-Contains only backends that can satisfy the selected profile's required capabilities. Candle, GGUF/llama.cpp, ONNX, MLX-backed bridges, or other implementations are candidates—not promises.
+Contains only backends that can satisfy the selected profile's required capabilities. Candle now supplies the correctness-first CPU tensor path. Candle Metal, GGUF/llama.cpp, ONNX, MLX-backed bridges, or other production implementations remain candidates, not promises.
 
 A backend is promotable only if it can reproduce the required tokenizer/rendering and hidden-state path and expose enough control over continuation state to support the selected profile's parity ladder. If a backend cannot expose recurrent/convolution state or the required hidden representations, it must report the unsupported capability rather than silently substitute a different decision function.
+
+The current `qwen35` module implements the deterministic contracts through the
+complete correctness-first CPU backbone and Qwen-specific continuation stage:
+
+- fail-closed selected-profile and head-artifact loading;
+- f64 normalization, projection, rejection, calibration, stable softmax, and
+  policy evaluation;
+- digest-locked offline tokenizer loading and exact segmented state-first IDs;
+- Phase 3B architecture, 426-entry parameter inventory, tensor index, trace,
+  continuation metadata, and golden-vector validation;
+- max-absolute, RMS, and cosine comparisons across all 34 native stages;
+- exact two-shard checkpoint validation, BF16 loading, FP32 host execution,
+  24 DeltaNet blocks, 8 full-attention blocks, and final RMSNorm;
+- 10-candidate probability/argmax/policy replay;
+- immutable Qwen-specific continuation state with attention KV, recurrent,
+  convolution, position, and byte-accounting components.
+
+It does not yet expose the backend-neutral `BranchableState` fork/gather API,
+batch Q/K branches, execute on Metal, register a native service backend, or
+expose semantic none through the Jev wire format.
 
 ---
 
@@ -490,12 +520,12 @@ Transport success is not model success. `/v1/models` should advertise the exact 
 
 ## Phase 3 parity ladder
 
-The exported selected bundle is the model/probability reference contract; Phase 3A adds the Python branch/batch execution reference and fixtures. Native work advances in this order:
+The exported selected bundle is the model/probability reference contract. Phase 3A adds the Python branch/batch execution reference, and Phase 3B adds exact token, layer, candidate, and continuation diagnostics. Native work advances in this order:
 
-1. **Head/probability algebra** — normalization, candidate/primitive projections, score-summary rejection, stable softmax, calibration, policy semantics.
-2. **Exact tokenizer + state-first renderer** — token IDs, segmentation/order, masks, positions, truncation, candidate ordering.
-3. **Full Qwen3.5 backbone parity** — hidden features, distributions, argmax, directed policy outputs on the target runtime.
-4. **`BranchableState`** — reproduce the Phase 3A full-hybrid-state semantics: root immutability, single/batched fork, gather/select, explicit position, storage accounting, and profile-bound identity.
+1. **Head/probability algebra, complete:** Rust matches the exported fixtures. It reproduces normalization, projection, rejection, calibration, stable softmax, and policy semantics.
+2. **Exact tokenizer + state-first token rendering, complete:** all four exported root, question, candidate-suffix, and full-sequence ID records match exactly. The implementation rejects overlength inputs rather than silently truncating them.
+3. **Full Qwen3.5 CPU backbone parity, complete for frozen fixtures:** exact embedding, all 32 decoder blocks, final RMSNorm, 34-stage diagnostics, 10 candidate features, and probability/decision replay pass. Qwen-specific cached continuation also matches native full-sequence output exactly for the exported branch.
+4. **`BranchableState`, in progress:** Qwen-specific state already carries attention KV, recurrent and convolution tensors, explicit position, clone isolation, and exact byte accounting. Backend-neutral profile identity, stable fingerprints, single/batched fork, and gather/select remain open.
 5. **Sequential nested parity** — `state → question → candidate` against the Python reference.
 6. **Batched question layer** — Q breadth-first execution with isolation/parity tests against Phase 3A fixtures.
 7. **Batched candidate layer** — K vectorization with permutation/rejection parity.
@@ -537,22 +567,24 @@ The external DGX study observed campaign-to-campaign differences from identical 
 
 ## Testing strategy
 
-### Existing/reported repository tests
+### Current repository tests
 
 - `opendecision-core` — serde/wire round trips and generated-schema checks.
-- `opendecision-engine` — deterministic mock/dispatch behavior.
+- `opendecision-engine`: deterministic mock/dispatch behavior plus immutable selected-profile identity and validation.
 - `opendecision-api` — middleware and SDK-compatibility tests.
 - `opendecision-api` — gRPC round-trip tests.
 - `opendecision-server` / CLI — launch/parsing/integration behavior.
+- `opendecision-backends`: head algebra, artifact validation, exact-token replay,
+  Phase 3B reference loading, and candidate-feature probability replay.
 
-The supplied project history reports **195 tests passing** at an earlier snapshot. Record an exact commit, command, toolchain, and result before describing any total as current HEAD.
+Use the verification commands in the root `AGENTS.md` instead of copying a test
+total into this document. The backend parity suite must also pass under the
+workspace's Rust 1.75 minimum.
 
-### Phase 3 model/runtime tests
+### Remaining Phase 3 model/runtime tests
 
-Add fixture families for:
+Extend the current fixtures with:
 
-- exported head/probability algebra;
-- exact tokenizer/state-first render tokens;
 - full-backbone hidden features and distributions;
 - immutable state-root fingerprints;
 - single versus batched branch storage isolation;
@@ -590,7 +622,7 @@ The selected state-first integration line is published at:
 
 <https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst>
 
-Treat this repository as a public **OpenDecision reference artifact** tied to the provisional integration profile, not as evidence that the frozen Qwen backbone itself was newly trained. Phase 3A records `model_changed=false`, `training_performed=false`, and `selection_performed=false`. Any future adapted/quantized profile must receive a distinct identity and its own quality/equivalence evidence.
+Treat this repository as a public **OpenDecision reference artifact** tied to the provisional integration profile. It is not evidence that anyone retrained the frozen Qwen backbone. Phase 3A and Phase 3B record no model change, training, or selection. Any adapted or quantized profile requires a distinct identity and its own quality/equivalence evidence.
 
 ---
 
@@ -625,8 +657,9 @@ Reference: https://morethanamachine.com/posts/jev-style-decisions-dgx-spark/
 - **Phase 2J — EXPLORATORY SCREEN COMPLETE / RELEASE CONFIRMATION OPEN.** Thirteen fit jobs and 31 final profiles completed; Qwen4B/state-first/score-summary is the provisional integration target. Released external baselines and release promotion remain open.
 - **Track S — PLANNED / PARALLEL.** Resolve final wire probability semantics and connect a real resident reference worker to the Rust service before claiming a real model-backed service.
 - **Phase 3A — COMPLETED PYTHON SYSTEMS/REFERENCE SCOPE.** Run `20260920T024056Z` validated full-hybrid-state branch fan-out/select, semantic batched parity, high-K systems parity and exact recorded same-process replay for the frozen selected profile. Its short semantic benchmark also establishes that sharing is workload-dependent rather than universally faster.
-- **Phase 3 — NEXT / INTEGRATION PROFILE LOCKED.** Implement native parity for `a047d6802c3f06f085b8` using the selected bundle plus Phase 3A execution fixtures, then reproduce `BranchableState`, nested Q/K execution and an adaptive scheduler on the named Mac.
+- **Phase 3B: COMPLETED PYTHON BACKBONE-REFERENCE SCOPE.** Run `20260920T152206Z` keeps the selected profile unchanged. It exports exact tokens, 34 trace stages, 10 candidate features, and 3 continuation vectors.
+- **Phase 3: IN PROGRESS / CPU BACKBONE PARITY PASSED.** Rust head/probability, exact-token, full-sequence CPU backbone, and Qwen-specific cached-continuation parity pass. Backend-neutral `BranchableState` is next, followed by nested Q/K execution, adaptive Mac scheduling, Metal validation, and service integration.
 - **Phase 3A.1 — CONDITIONAL SCHEDULER/CROSSOVER STUDY.** Create the additional Colab only if early Rust profiling does not provide enough component timing to derive stable strategy crossover rules. It does not block 3.1–3.5.
 - **P2.1–P2.3 — CONDITIONAL.** Optimized kernels, model-weight precision/quantization, and teacher/student work require a specific unmet target and their own parity/quality evidence.
 
-The current architecture decision is therefore conservative: **keep the selected state-first Qwen profile fixed long enough to build a trustworthy native execution engine; use the completed Python Phase 3A run as the execution reference; make scheduling adaptive rather than assuming shared-state execution always wins; and let reviewed release-quality evidence decide later whether the provisional profile ships.**
+The current architecture decision is conservative. **Keep the selected state-first Qwen profile fixed while building the native engine.** The Phase 3B trace has already localized and closed the correctness-first CPU full-sequence and cached-continuation gates. Lift the complete Qwen state into the backend-neutral branch contract next, then reproduce nested and batched execution before optimizing the scheduler or adding Metal. Let reviewed release-quality evidence decide whether the provisional profile ships.

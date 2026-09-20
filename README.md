@@ -1,202 +1,140 @@
 # opendecision
 
-> **Independent, open-source decision inference engine speaking the Jev protocol** — providing wire- and SDK-compatible judgment-envelope interfaces matching TypeSafe's System One models.
->
-> Wire specification: <https://docs.typesafe.ai/api>
-> Client SDK reference: <https://docs.typesafe.ai/sdk/python/api>
+`opendecision` is an independent Rust decision-inference engine for typed `Noul`, `Choice`, and `Score` answers over Jev-compatible public interfaces. It is built to answer structured questions without depending on an autoregressive text-generation loop.
 
----
+The wire, service, and SDK layers are implemented. The selected Qwen 3.5 native path has passed Rust head, tokenizer, correctness-first CPU backbone, and cached-continuation parity gates. Backend-neutral branch execution, Metal validation, and production model serving remain open.
 
-## 🎯 Executive Overview
+[Quickstart](#quickstart) | [Research dossier](docs/RESEARCH.md) | [Whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.7.2.md) | [Roadmap](docs/ROADMAP.md) | [Architecture](docs/ARCHITECTURE.md) | [Jev wire reference](https://docs.typesafe.ai/api)
 
-`opendecision` is a high-throughput, non-generative decision engine implemented in Rust. Instead of generating free-form text via an autoregressive loop and parsing it after the fact, `opendecision` takes a **shared state** and one or more **typed questions** (`Choice`, `Score`, `Noul`) and directly outputs deterministic, schema-validated answers with calibrated probability distributions.
+> [!IMPORTANT]
+> The daemon currently maps configured model aliases to `MockEngine`. The native Qwen backend is not registered yet. The quickstart below verifies the wire and service path, not model quality or native Qwen execution.
 
-- **Wire & SDK Compatible**: Drop-in compatible with TypeSafe's hosted API (`https://api.typesafe.ai`). Client applications built with `typesafe_sdk` (Python) or [`opendecision-client`](crates/opendecision-client) (Rust) can target either hosted TypeSafe or a local `opendecisiond` daemon without code changes.
-- **Independent Architecture**: TypeSafe identifies Jev as its proprietary System One model family. `opendecision` is an independently designed, open-source engine providing a compatible judgment-envelope interface.
-- **Dual Transports**: First-class HTTP/REST (`/v1/systemone`, aliased to `/v1/system_one`) via Axum 0.8 and gRPC (`opendecision.SystemOne/Evaluate`) via Tonic 0.14.
-- **State-First Hybrid Execution**: Extensively researched and optimized for models with hybrid recurrent/attention backends (such as Qwen 3.5), amortizing prefill computation across multiple questions and candidate alternatives.
+## Quickstart
 
----
+You need Rust 1.75 or newer and `protoc` for gRPC code generation.
 
-## 🧭 Repository Navigation
-
-- [`AGENTS.md`](AGENTS.md) — Master navigation briefing, invariant checklists, crate catalog, and engineering guidelines.
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — Implementation roadmap, phasing checklist (Phases 0 through 4), and milestone progress.
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — Layered crate topology, transport protocols, data flow, and runtime state management.
-- [`docs/RESEARCH.md`](docs/RESEARCH.md) — Research dossier, reverse-engineering analysis, benchmarks, and prior art audit.
-- [`docs/whitepaper/OpenDecision_Whitepaper_v0.7.1.md`](docs/whitepaper/OpenDecision_Whitepaper_v0.7.1.md) — Canonical scientific whitepaper detailing Phases 2A through 2J, empirical benchmarks, and architectural conclusions.
-
----
-
-## 📊 Project Status & Phased Roadmap
-
-| Phase | Description | Status | Verification / Artifacts |
-|---|---|:---:|---|
-| **Phase 0** | Jev Wire Contract & Canonical Types | **DONE** ✅ | 43 tests; JSON Schema Draft 2020-12; 8 canonical examples |
-| **Phase 1** | Daemon, Transports & SDK Parity | **DONE** ✅ | Axum HTTP, Tonic gRPC, `MockEngine`, CLI, client SDK (259 tests) |
-| **Phase 2** | Empirical Model Research & Benchmarks | **COMPLETED** ✅ | Phases 2A–2J completed; provisional model profile selected & locked |
-| **Track S** | Contract Hardening & Thin Real-Service Bridge | **IN PROGRESS** 🚧 | Reference worker bridge & deployment safeguard architecture |
-| **Phase 3** | Production Rust Engine & Native Backend | **READY / NEXT** 🚀 | Native parity against profile `a047d6802c3f06f085b8` |
-| **Phase 4** | Autonomous Deployment & Edge Packaging | **PLANNED** 📋 | Embedded runtimes, Apple Silicon / Metal optimizations |
-
-### Current Test Suite Status: 302 Tests Passing at HEAD
-The workspace maintains **302 automated tests** across 9 crates and doc-tests (`cargo test --workspace`):
-
-```text
-Suite                                                Tests   Status
--------------------------------------------------------------------
-opendecision-core (unit + Jev conformance)              43   PASS
-opendecision-engine (unit + dispatch + MockEngine)      20   PASS
-opendecision-api (unit + grpc_roundtrip + sdk_compat)  103   PASS
-opendecision-client (unit + live + retry + parity)     107   PASS
-opendecision-cli (unit + command line interface)        10   PASS
-opendecision-backends (driver unit tests)                5   PASS
-opendecision-runtime (device detection + limits)         6   PASS
-opendecision-server (daemon configuration tests)         3   PASS
-opendecision-gen-schemas (schema synchronization)        3   PASS
-opendecision-proto (protobuf wire roundtrips)            2   PASS
--------------------------------------------------------------------
-Total Automated Workspace Tests                        302   PASS
-```
-
----
-
-## 🔬 Empirical Research & Findings (Phases 2A–2J)
-
-Between September 17 and September 20, 2026, extensive empirical investigations using Qwen 3.5, ModernBERT, and alternative architectures produced a rigorous foundation for native engine design:
-
-1. **Non-Generative Decision Feasibility (Phases 2A–2C)**:
-   - A frozen `Qwen/Qwen3.5-4B-Base` backbone (4.2B parameters, hidden dimension 2,560) combined with a compact linear classification head (7,683 parameters) achieved **87.67% matched / 87.33% mismatched accuracy on MultiNLI** without autoregressive token generation.
-   - Avoiding the generation loop yielded a **~28.6× latency speedup** over generative prompt completions.
-   - Evaluated dynamic candidate transfer on Banking77: achieved **88.54% accuracy** on seen labels and **82.29% accuracy** on labels withheld from head fitting.
-
-2. **Precision & Numerical Equivalence (Phases 2D–2E)**:
-   - Evaluated FP32, TF32, and BF16 execution modes against an exact full-sequential FP32 reference.
-   - FP32 batching and lossless cache reuse maintained within **1.1 × 10⁻⁵ maximum probability delta** with zero policy flips.
-   - BF16 failed the declared 0.005 probability tolerance and altered discrete decision actions.
-   - TF32 provided ~2× batching speedup but introduced drift on edge cases; therefore, FP32 remains the canonical numerical reference.
-
-3. **Cache Compression & Prefix Reuse (Phase 2F)**:
-   - Evaluated 6 cache codecs on Qwen 3.5: FP16 attention-KV storage passed all numerical and policy gates.
-   - All four low-bit TurboQuant codecs failed tolerance gates; low-bit compression was rejected for decision inference.
-   - Lossless exact-prefix reuse delivered **11.9%–13.9% wall-clock latency reduction** on controlled multi-request workloads.
-
-4. **Rejection & Criteria Transfer (Phases 2G–2H)**:
-   - Investigated the missing-option problem ("none" handling) and out-of-scope (OOS) rejection across Banking77 and CLINC150.
-   - Demonstrated that semantic "none", author-OOS, and evidence insufficiency are separate failure modes requiring structured rejection heads rather than arbitrary post-hoc thresholding.
-   - Phase 2H completed all required evaluation workers across 14 comparison arms, locking development artifacts.
-
-5. **Exploratory Model Selection Screen (Phases 2I–2J / Workbench `2ij.2.0`)**:
-   - Completed 13 fit jobs and evaluated 31 locked final profiles across Qwen 3.5 4B, Qwen 3.5 2B (frozen, online-head, LoRA), ModernBERT-large (frozen, fully fine-tuned), and controls.
-   - **Key Finding: State-First Rendering is Learned**: Placing the state before the question/candidate prompt (`state → question → candidate`) significantly outperformed instruction-first rendering (95.0% vs 86.25% accuracy on 4B; 91.56% vs 85.31% on 2B LoRA). State-first is a learned model contract, not merely a caching trick.
-   - **ModernBERT Compact Arm**: ModernBERT was very fast (~220 ms) but struggled with dynamic multi-choice generalization (42%–51% accuracy), demonstrating that bidirectional encoders require different training formulations.
-   - **Provisional Integration Candidate Selected**:
-     - **Profile ID**: `a047d6802c3f06f085b8`
-     - **Architecture**: `Qwen/Qwen3.5-4B-Base`, frozen backbone, **state-first rendering**, **score-summary rejection head**.
-     - **Performance**: **95.00% accuracy**, 0.13006 NLL, 0.06168 family-macro NLL, 0.01661 ECE on 320 held-out episodes (with natural MultiRC slice at 83.33%).
-     - **Reload Parity**: Passed clean A100 reload checks with maximum probability delta **3.67 × 10⁻⁶**, zero selected-ID changes, and passed NumPy/f64 head-algebra verification.
-     - **Exported Reference Bundle**: SHA-256 `4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332`.
-
-6. **External Benchmarks & Architectural Prompts (v0.7.1)**:
-   - Community Parallel Constrained Decoding (PCD) demonstrated one-prefill/batched-field execution on Apple Silicon.
-   - DGX Spark benchmark demonstrated near-flat Q=1→4 latency on Jev hosted endpoints, proving that multi-question amortization is achievable and essential.
-
----
-
-## 🚀 The Phase 3 Native Implementation Direction
-
-With the provisional integration profile `a047d6802c3f06f085b8` locked and its reference bundle verified, model selection no longer blocks native systems engineering. Phase 3 focuses on native execution in Rust:
-
-```text
-Phase 3 Execution Pipeline:
-1. Head / Probability Parity (opendecision-engine / opendecision-backends)
-   └── Reproduce normalization, score-summary rejection, stable softmax, calibration
-2. Exact Tokenizer & State-First Renderer (opendecision-backends)
-   └── Match exact token IDs, segment markers, positional encodings, and truncation
-3. Full Qwen 3.5 Backbone Parity (opendecision-runtime / opendecision-backends)
-   └── Verify hidden features, argmax outcomes, and policy actions against golden fixtures
-4. Backend-Neutral BranchableState Abstraction (opendecision-runtime)
-   └── Isolate recurrent DeltaNet state, Conv state, and Attention KV state at branch points
-5. Sequential Nested Execution Baseline
-   └── state → question → candidate tree evaluation with root immutability guarantees
-6. Breadth-First Batched Question Execution
-   └── Fork immutable state root into a Q-batch; evaluate question suffixes concurrently
-7. Batched Candidate Execution
-   └── Length-bucketed candidate suffix evaluation per question
-8. Empirical Q-Amortization Measurement
-   └── Measure T(Q)/T(1) scaling curves, throughput (questions/s), and memory overhead
-9. High-Cardinality Systems Stress
-   └── Exercise K ∈ {32, 64, 128, 255} candidate sets
-10. Production Service Lifecycle
-    └── Queueing, admission limits, tenant isolation, and cancellation safeguards
-```
-
----
-
-## 📦 Workspace Architecture & Crates
-
-```text
-opendecision/
-├── crates/
-│   ├── opendecision-core/        # Zero-dependency Jev types, serde, validation & errors
-│   ├── opendecision-engine/      # DecisionEngine trait, MockEngine, execution contracts
-│   ├── opendecision-api/         # Axum 0.8 HTTP router & Tonic 0.14 gRPC service
-│   ├── opendecision-server/      # opendecisiond server daemon binary
-│   ├── opendecision-cli/         # opendecision operator CLI utility
-│   ├── opendecision-client/      # Async Rust client SDK (typesafe_sdk counterpart)
-│   ├── opendecision-runtime/     # Hardware detection, device memory & state management
-│   ├── opendecision-backends/    # Native model drivers (Candle, GGUF, ONNX)
-│   └── opendecision-gen-schemas/ # Tooling for JSON Schema Draft 2020-12 generation
-├── proto/                        # opendecision.proto Protobuf & gRPC definitions
-├── examples/                     # Canonical Jev JSON request/response fixtures
-├── research/                     # Jupyter research notebooks (Phases 2A–2J) and archives
-└── docs/                         # Whitepaper, architecture, roadmap, and research dossiers
-```
-
----
-
-## ⚡ Quickstart
-
-### Prerequisites
-- Rust 1.80+ (`cargo`, `rustc`)
-- Protocol Buffers compiler (`protoc`) for gRPC codegen
-
-### Build & Run Tests
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/opendecision.git
+git clone https://github.com/whit3rabbit/opendecision.git
 cd opendecision
-
-# Build workspace
 cargo build --workspace
-
-# Run all 302 workspace tests (unit, conformance, SDK parity, doc tests)
-cargo test --workspace
-
-# Verify JSON Schema generation
-cargo run -p opendecision-gen-schemas -- --write
-```
-
-### Launch the Daemon
-```bash
-# Run opendecisiond with mock backend in development mode
-cargo run -p opendecisiond -- \
+cargo run -p opendecision-server --bin opendecisiond -- \
     --http-addr 127.0.0.1:18080 \
     --grpc-addr 127.0.0.1:19090 \
     --models mock,jev-latest
 ```
 
-### Query the API
+In another terminal, send the canonical mixed-question fixture:
+
 ```bash
-# Execute a multi-question evaluation request
 curl -sS -X POST http://127.0.0.1:18080/v1/systemone \
-     -H 'Content-Type: application/json' \
-     -d @examples/04_mixed.json | jq
+    -H 'Content-Type: application/json' \
+    -d @examples/04_mixed.json
 ```
 
-### Use the Rust Client SDK
+The same service is available through gRPC at `opendecision.SystemOne/Evaluate`.
+
+## What it provides
+
+- Typed Jev request and response models with JSON Schema generation.
+- HTTP endpoints at `/v1/systemone` and `/v1/system_one`.
+- A gRPC `SystemOne/Evaluate` service using Protobuf `double` values.
+- A Rust client with retry, configuration, and wire-parity coverage.
+- A deterministic mock engine for service and integration testing.
+- Native Qwen 3.5 contracts for model identity, head algebra, tokenization, and reference tensors.
+
+The public interfaces target TypeSafe System One wire compatibility where the repository has explicit contract coverage. The neural implementation is independent. This project does not claim to reproduce TypeSafe's private architecture or training process.
+
+## Research record
+
+This repository carries the research behind the implementation, not only the implementation plan. Phases 2A through 2J tested model families, rendering order, precision, rejection, cache reuse, batching, transfer, and model selection. Phases 3A and 3B then converted that work into branch-state and backbone reference artifacts for the Rust port.
+
+| Work | Evidence produced | Boundary |
+|---|---|---|
+| Phases 2A through 2C | Frozen-backbone feasibility, compact readout heads, dynamic candidate transfer | Research evidence, not general decision competence |
+| Phases 2D through 2H | FP32, BF16, TF32, cache, rejection, policy, and complete-request studies | Python and GPU evidence, not native Rust parity |
+| Phases 2I and 2J | 13 fit jobs and 31 locked final profiles across Qwen 3.5, ModernBERT, LoRA, and controls | Selected a provisional integration profile, not a release model |
+| Phase 3A | Full-hybrid branch-state and batched question/candidate reference behavior | Python systems reference, not Rust or Metal proof |
+| Phase 3B | Four exact token records and 47 FP32 vectors across 34 trace stages, candidates, and continuations | Backbone localization fixtures, not native execution |
+| Rust Phase 3.1 through 3.3 | Head, probability, tokenizer, state-first rendering, CPU backbone, and cached continuation | Frozen-fixture parity, not Metal or production service proof |
+
+Start with the [research dossier](docs/RESEARCH.md) for the study sequence and the [whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.7.2.md) for methods, results, and interpretation. The [roadmap](docs/ROADMAP.md) is the current status authority. The public [Qwen 3.5 reference repository](https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst) exposes the selected integration line.
+
+### Locked native integration target
+
+| Field | Value |
+|---|---|
+| Profile | `a047d6802c3f06f085b8` |
+| Backbone | `Qwen/Qwen3.5-4B-Base` |
+| Revision | `1001bb4d826a52d1f399e183466143f4da7b741b` |
+| Renderer | State first |
+| Readout | Score-summary rejection head |
+| Bundle SHA-256 | `4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332` |
+| Calibration temperature | `1.8186799910442777` |
+| Policy threshold | `0.98` |
+| Probability tolerance | `0.005` |
+
+These values define the parity target. They do not promote the profile to release quality. Independent review, natural-data confirmation, backend-neutral execution, Metal, and production validation remain separate gates.
+
+## Current implementation status
+
+| Area | Status |
+|---|---|
+| Jev types, validation, schemas, and fixtures | Implemented |
+| HTTP, gRPC, CLI, daemon, and Rust client | Implemented with mock-engine service coverage |
+| Native head and probability algebra | Parity gate passed |
+| Offline tokenizer and state-first renderer | Exact token gate passed |
+| Phase 3B architecture and reference-vector loader | Validation gate passed |
+| Native Qwen CPU embedding and decoder execution | Frozen Phase 3B parity gate passed |
+| Qwen-specific full-hybrid continuation state | Cached continuation gate passed |
+| Backend-neutral `BranchableState` | In progress |
+| Batched question and candidate execution | Python reference complete, Rust implementation open |
+| Metal and production service validation | Open |
+
+Implementation equivalence and release promotion are different decisions. Passing a parity fixture does not establish model quality, hardware support, or production readiness.
+
+## Architecture
+
+The workspace keeps wire types independent from model execution and transport code:
+
+```text
+HTTP / gRPC / Rust client
+          |
+          v
+Jev validation and typed requests
+          |
+          v
+EngineRegistry and DecisionEngine
+          |
+          +---- MockEngine                     current service path
+          |
+          +---- native Qwen 3.5 backend        integration path
+                         |
+                         v
+             typed answers and probabilities
+```
+
+The native execution order is state first:
+
+```text
+state -> question -> candidate -> backbone -> readout -> policy
+```
+
+Qwen 3.5 branch state is more than attention KV. Correct isolation also requires DeltaNet recurrent state, convolution state, logical position, and profile identity. The [architecture document](docs/ARCHITECTURE.md) covers the crate boundaries and full execution plan.
+
+### Workspace map
+
+| Area | Crates |
+|---|---|
+| Wire types and engine contracts | `opendecision-core`, `opendecision-engine` |
+| HTTP and gRPC | `opendecision-api`, `opendecision-server`, `opendecision-proto` |
+| Clients and operator tools | `opendecision-client`, `opendecision-cli` |
+| Hardware and model execution | `opendecision-runtime`, `opendecision-backends` |
+| Schema generation | `opendecision-gen-schemas` |
+
+## Rust client
+
 ```rust
-use opendecision_client::{Client, question};
+use opendecision_client::{question, Client};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -206,29 +144,50 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let response = client
         .system_one(
-            "Customer states: 'I cannot log in and password reset fails.'",
+            "Customer cannot log in after resetting a password.",
             [
                 ("urgent", question::noul("Is immediate escalation required?")),
-                ("department", question::choice("Route ticket to:", [
-                    ("auth_support", Some("Authentication & login issues")),
-                    ("billing", Some("Billing & subscription issues")),
-                    ("general", None),
-                ])),
+                (
+                    "department",
+                    question::choice(
+                        "Route this ticket.",
+                        [("auth_support", None), ("billing", None)],
+                    ),
+                ),
             ],
         )
         .await?;
 
-    println!("Response ID: {}", response.model);
+    println!("{}", response.model);
     Ok(())
 }
 ```
 
----
+See the [`opendecision-client` guide](crates/opendecision-client/README.md) for configuration, authentication, retries, and request options.
 
-## 🛡️ Architectural & Engineering Invariants
+## Development
 
-1. **Path Discipline**: Never use absolute machine paths (`/Users/...` or `file:///...`) in documentation, code, or comments. Always use relative paths (`crates/opendecision-core`, `docs/ROADMAP.md`).
-2. **Wire Format Stability**: `f64` precision is strictly enforced across all probability and score fields. Wire types must match TypeSafe's Jev JSON schema Draft 2020-12 and `opendecision.proto`.
-3. **Clean Dependency Flow**: `core` → `engine` → `runtime`/`backends` → `api` → `server`/`cli`. No circular dependencies.
-4. **Hybrid State Isolation**: Qwen 3.5 utilizes both attention and recurrent DeltaNet layers. Branching optimizations must isolate recurrent and convolution states alongside KV caches.
-5. **Quality vs Equivalence**: Model selection and numerical equivalence are distinct gates. Never alter model contracts or selection criteria after inspecting test outcomes.
+Run the repository verification battery before submitting changes:
+
+```bash
+cargo fmt --check
+cargo clippy --workspace --all-targets -- -D warnings
+env -u RUST_LOG cargo test --workspace
+cargo run -p opendecision-gen-schemas -- --write
+git diff --check
+```
+
+Tests and builds must not download model artifacts. Native parity fixtures are vendored and digest-checked. After schema generation, confirm that unrelated schema files did not change.
+
+For module-specific invariants and focused checks, start with [`AGENTS.md`](AGENTS.md).
+
+## Documentation
+
+- [Roadmap](docs/ROADMAP.md): current phase status, gates, and remaining work.
+- [Architecture](docs/ARCHITECTURE.md): crate boundaries, data flow, and runtime state.
+- [Research dossier](docs/RESEARCH.md): experiment sequence, evidence, and prior art.
+- [Whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.7.2.md): scientific rationale and measured results.
+
+## License
+
+Cargo metadata declares `MIT OR Apache-2.0`. The checked-in [license text](LICENSE) contains the MIT terms.

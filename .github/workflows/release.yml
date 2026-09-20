@@ -1,0 +1,163 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag to release (e.g. v0.1.0)'
+        required: true
+        default: 'v0.1.0'
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  publish-crates:
+    name: publish to crates.io
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Publish workspace crates to crates.io
+        uses: katyo/publish-crates@v2
+        with:
+          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          ignore-unpublished-changes: true
+          check-repo: false
+
+  build-binaries:
+    name: build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            target: aarch64-apple-darwin
+          - os: macos-13
+            target: x86_64-apple-darwin
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install musl tools (Linux)
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - name: Build release binaries
+        run: cargo build --release --locked --target ${{ matrix.target }} --bin opendecision --bin opendecisiond
+
+      - name: Package tarball and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          raw_tag="${GITHUB_REF_NAME:-${{ inputs.tag }}}"
+          tag="${raw_tag:-v0.1.0}"
+          ver="${tag#v}"
+          name="opendecision-${ver}-${{ matrix.target }}"
+
+          tar -C "target/${{ matrix.target }}/release" -czf "${name}.tar.gz" opendecision opendecisiond
+
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "${name}.tar.gz" > "${name}.tar.gz.sha256"
+          else
+            shasum -a 256 "${name}.tar.gz" > "${name}.tar.gz.sha256"
+          fi
+
+          echo "RELEASE_TAG=${tag}" >> "$GITHUB_ENV"
+          echo "ASSET=${name}.tar.gz" >> "$GITHUB_ENV"
+          echo "CHECKSUM=${name}.tar.gz.sha256" >> "$GITHUB_ENV"
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: ${{ env.ASSET }}
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          files: |
+            ${{ env.ASSET }}
+            ${{ env.CHECKSUM }}
+
+      - name: Upload artifact for tap update
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ASSET }}
+          path: |
+            ${{ env.ASSET }}
+            ${{ env.CHECKSUM }}
+
+  homebrew-tap:
+    name: update homebrew tap
+    needs: [build-binaries]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout opendecision templates
+        uses: actions/checkout@v4
+
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Render formula from release checksums
+        run: |
+          set -euo pipefail
+          raw_tag="${GITHUB_REF_NAME:-${{ inputs.tag }}}"
+          tag="${raw_tag:-v0.1.0}"
+          ver="${tag#v}"
+          mkdir -p out
+
+          tgz_arm="opendecision-${ver}-aarch64-apple-darwin.tar.gz"
+          tgz_intel="opendecision-${ver}-x86_64-apple-darwin.tar.gz"
+          tgz_linux="opendecision-${ver}-x86_64-unknown-linux-musl.tar.gz"
+
+          sha_arm=$(sha256sum "artifacts/${tgz_arm}" | cut -d' ' -f1)
+          sha_intel=$(sha256sum "artifacts/${tgz_intel}" | cut -d' ' -f1)
+          sha_linux=$(sha256sum "artifacts/${tgz_linux}" | cut -d' ' -f1)
+
+          sed -e "s/@@VERSION@@/${ver}/g" \
+              -e "s/@@SHA_ARM_TGZ@@/${sha_arm}/g" \
+              -e "s/@@SHA_INTEL_TGZ@@/${sha_intel}/g" \
+              -e "s/@@SHA_LINUX_TGZ@@/${sha_linux}/g" \
+              packaging/homebrew/opendecision.rb > out/opendecision.rb
+
+          echo "TAG=${tag}" >> "$GITHUB_ENV"
+
+      - name: Checkout whit3rabbit/homebrew-tap
+        uses: actions/checkout@v4
+        with:
+          repository: whit3rabbit/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: Commit and push formula to homebrew-tap
+        run: |
+          set -euo pipefail
+          mkdir -p tap/Formula
+          cp out/opendecision.rb tap/Formula/opendecision.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/opendecision.rb
+          git commit -m "opendecision ${TAG}" || { echo "no changes to formula"; exit 0; }
+          git push

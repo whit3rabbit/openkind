@@ -34,7 +34,10 @@
 ## Common Tasks
 
 ### Registering New Model Backends on Startup
-Register a native backend only after tokenizer, renderer, backbone, and policy parity are established:
+The selected Qwen profile now passes tokenizer, renderer, CPU backbone, and
+policy parity, but it is not ready for daemon registration. Wait for the
+backend-neutral `BranchableState`, sequential/batched Q/K parity, explicit
+capability limits, and native semantic-none wire decision before registration:
 1. In `main.rs`, inspect `--models` aliases.
 2. Instantiate the appropriate backend struct (or mock) depending on the configuration.
 3. Register the engine into `EngineRegistry` under the designated alias before passing to `AppState`.

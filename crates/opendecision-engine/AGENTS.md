@@ -52,10 +52,15 @@
 
 ## Native Backend Integration Order
 
-1. Prove the fitted head and probability algebra against the selected profile fixtures.
-2. Prove exact tokenizer and state-first rendering parity.
-3. Prove the complete Qwen backbone and branchable-state behavior.
-4. Only then implement `DecisionEngine`, register the backend, and add wire-level mappings.
+The fitted head/probability algebra, exact tokenizer/state-first rendering, and
+correctness-first CPU backbone/continuation gates are complete for profile
+`a047d6802c3f06f085b8`.
+
+1. Lift the Qwen-specific cached state into the backend-neutral
+   `BranchableState` contract and prove fork/gather isolation.
+2. Prove sequential and batched Q/K execution.
+3. Only then implement `DecisionEngine`, register the backend, and add
+   wire-level mappings.
 
 ## Verification Commands
 

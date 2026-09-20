@@ -1,14 +1,26 @@
 //! Phase 3 parity implementation for the selected Qwen3.5 state-first profile.
 //!
-//! This module implements only the exported feature-to-probability readout.
-//! It does not load Qwen weights, tokenize inputs, expose a wire adapter, or
-//! claim native-backbone parity.
+//! This module implements the exported tokenizer/renderer contract, verified
+//! FP32 CPU backbone and continuation path, and feature-to-probability readout.
+//! It does not expose a backend-neutral branch API, wire adapter, Metal path,
+//! or production backend registration.
 
+mod backbone;
 mod head;
 mod profile;
+mod tokenizer;
 
+pub use backbone::{
+    BackboneOutput, BackboneReference, BackboneState, EmbeddingOutput, FullSequenceRecord,
+    Layer0Output, LayerKind, Qwen35Backbone, Qwen35Embedding, Qwen35Layer0, StageComparison,
+    TraceStage,
+};
 pub use head::{HeadEvaluation, PolicyAction, PrimitiveKind, ScoreSummaryHead, FEATURE_WIDTH};
 pub use profile::ReferenceBundle;
+pub use tokenizer::{
+    CandidateText, Qwen35Tokenizer, StateFirstSegments, MAX_CANDIDATES, MAX_SEQUENCE_TOKENS,
+    STATE_FIRST_RENDERER_ID, TOKENIZER_BACKEND_SHA256, TOKENIZER_JSON_SHA256,
+};
 
 use std::path::PathBuf;
 
@@ -41,7 +53,7 @@ pub const ORDERING_TOLERANCE: f64 = 0.000_01;
 
 const MANIFEST_SHA256: &str = "dd42289e525d82a1ab8d55efd3843970e6c31a23059512a2c7e4ee7ca6459f78";
 
-/// Errors raised while loading or evaluating the selected Qwen3.5 readout.
+/// Errors raised while loading or evaluating the selected Qwen3.5 profile.
 #[derive(Debug, Error)]
 pub enum Qwen35Error {
     /// A required artifact could not be read.
@@ -62,9 +74,17 @@ pub enum Qwen35Error {
         source: serde_json::Error,
     },
 
+    /// The pinned tokenizer artifact could not be decoded or executed.
+    #[error("tokenizer failure: {0}")]
+    Tokenizer(String),
+
     /// A safetensors artifact was malformed.
     #[error("invalid safetensors artifact: {0}")]
     Safetensors(#[from] safetensors::SafeTensorError),
+
+    /// Native tensor execution failed.
+    #[error("native Qwen tensor execution failed: {0}")]
+    Candle(#[from] candle_core::Error),
 
     /// Engine-level profile validation failed.
     #[error("invalid model execution profile: {0}")]

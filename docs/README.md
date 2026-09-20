@@ -4,28 +4,30 @@ Project documentation and architectural references for `opendecision`.
 
 ## Reading Order
 
-1. **[`AGENTS.md`](./AGENTS.md)** — **Start here.** Core briefing for developers and AI agents:
-   - System orientation & project vision.
-   - Authoritative sources of truth.
-   - **Schema Information & Wire Contracts**: Jev JSON Schema (Draft 2020-12) & Protobuf definitions.
-   - Phasing and milestone status.
-   - Critical invariant checklists and conventions.
+1. **[`AGENTS.md`](./AGENTS.md)**: Start here for documentation ownership,
+   evidence boundaries, wire-documentation rules, and verification guidance.
 2. **[`ARCHITECTURE.md`](./ARCHITECTURE.md)** — System design and topology:
    - Layered crate topology and dependency graph.
    - Dual transport design: HTTP/REST (`/v1/systemone`, `/v1/system_one`) & gRPC (`opendecision.SystemOne/Evaluate`).
    - Token accounting and execution dispatch.
    - Error mapping and status code conventions (including HTTP 529 for server overload).
-3. **[`ROADMAP.md`](./ROADMAP.md)** — Implementation roadmap and phase tracking:
-   - Phase 0 (Wire contract) ✅
-   - Phase 1 (Daemon, CLI, & Python SDK compatibility suite) ✅
-   - Phase 2 (Qwen empirical research complete through 2G; Phase 2H criteria/rejection/bridge next; 2I multi-question, 2J adaptation & 2B) 🚧
-   - Phase 3 (Production Rust engine & native backends) 📋
-   - Test totals (195 passing at HEAD) and verification matrices across the workspace.
+3. **[`ROADMAP.md`](./ROADMAP.md)**: Implementation roadmap and phase tracking:
+   - Phases 0 and 1 wire, service, CLI, and SDK foundations are complete.
+   - Phase 2H required scope and the exploratory 2I/2J model-selection screen
+     are complete, with reviewed release confirmation still open.
+   - Phase 3A and 3B Python reference scopes are complete.
+   - Rust Phase 3.1 through 3.3 CPU parity passes. Backend-neutral
+     `BranchableState` is the next gate.
+   - Current verification comes from the commands in the root
+     [`AGENTS.md`](../AGENTS.md), not a manually maintained test total.
 4. **[`RESEARCH.md`](./RESEARCH.md)** — Research dossier & technical background:
    - System 1 inference paradigm and judgment-envelope protocol origins.
    - Hardware requirements, quantization, and model sizing.
    - Backend runtime evaluation (Candle vs llama.cpp vs ONNX).
    - Zero-copy tensor evaluation strategies.
+5. **[`whitepaper/OpenDecision_Whitepaper_v0.7.2.md`](./whitepaper/OpenDecision_Whitepaper_v0.7.2.md)**:
+   Canonical scientific interpretation, evidence register, and measured Phase
+   3A, Phase 3B, and Rust parity results.
 
 ---
 
