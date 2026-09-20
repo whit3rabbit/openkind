@@ -195,7 +195,7 @@ impl RetryPolicy {
             }
             // Configuration and decode failures are deterministic; retrying
             // cannot change the outcome.
-            Error::Config(_) | Error::Decode { .. } => false,
+            Error::Config(_) | Error::Decode { .. } | Error::ResponseTooLarge { .. } => false,
         };
         builtin || self.retry_predicate.as_ref().is_some_and(|f| f(error))
     }
