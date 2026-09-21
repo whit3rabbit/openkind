@@ -28,5 +28,16 @@ tokio = { workspace = true }
 candle-core = { workspace = true, features = ["accelerate"] }
 candle-nn = { workspace = true, features = ["accelerate"] }
 
+# MLX/Metal parity backend (Phase 3M). Optional so the default workspace
+# battery never requires the Metal toolchain; enable with --features mlx on
+# macOS arm64 (set SDKROOT to the macOS SDK for bindgen).
+[target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
+mlx-rs = { workspace = true, optional = true }
+mlx-sys = { workspace = true, optional = true }
+half = { workspace = true, optional = true }
+
+[features]
+mlx = ["dep:mlx-rs", "dep:mlx-sys", "dep:half"]
+
 [lib]
 path = "src/lib.rs"
