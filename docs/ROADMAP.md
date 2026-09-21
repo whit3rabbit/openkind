@@ -543,7 +543,7 @@ Rather than treating custom modeling as a distant or serial replacement, OpenDec
 ```text
 Track A — Reference engine (Frozen Qwen3.5-4B baseline)
     Finish 3.10 (full restored persistence & replay)
-    MLX / Metal acceleration (prior-art mechanism review: SemIf, see docs/RESEARCH.md)
+    MLX acceleration phases 3M.5–3M.8 (parity backend 3M.0–3M.4 landed; prior-art review in docs/RESEARCH.md)
     Production service lifecycle & load/soak (3.11, S.4–S.5)
 
 Track B — OpenDecision-native model (Phase 4A)
@@ -993,6 +993,165 @@ To maintain focus and avoid high-cost, speculative tangents:
 
 ---
 
+## Phase 3M — MLX/Metal Parity Backend (FP32 GATED / BF16 FOLLOW-UP OPEN)
+
+A second execution backend behind the same frozen Phase 3B contract: MLX
+arrays and kernels (pinned `mlx-rs` `=0.32.0` / `mlx-sys` `=0.6.0`, vendored
+mlx-c `v0.6.0-7-gc74db53` = MLX core `0.32.2`) driven by the Rust Qwen3.5
+layer semantics already proven on the Candle CPU oracle. Rust FFI over a
+Python sidecar was a deliberate choice: the layer math stays owned and
+auditable, and no mlx-lm code executes. The backend is feature-gated
+(`--features mlx`, macOS arm64; build with `SDKROOT=$(xcrun --show-sdk-path)`)
+and optional, so the default workspace battery never requires the Metal
+toolchain. It is a **parity** backend, not yet an accelerated one: the
+recurrent layers run the per-token `ReferenceOps` path over ordinary array
+ops, and the fused Gated-DeltaNet Metal kernel is 3M.5 work. Candle CPU
+remains the correctness oracle. [RUSTM1]
+
+- [x] **3M.0 — MLX-C runtime qualification.** Before any 4B-parameter run,
+      constant-tensor primitive gates (fp32: gather, matmul, fast RMSNorm,
+      RoPE, depthwise `conv1d` with `groups`, cumsum, reshape/concatenate,
+      synchronize; bf16: gather, RMSNorm, matmul, and the exact
+      ml-explore/mlx-c#115 gather→RMSNorm→matmul reproduction) pass on the
+      named development Mac under Xcode 27.0 (27A266a) / Metal toolchain
+      32023.921 / macOS 26.6.2 / rustc 1.98.1. The open #115 BF16 corruption
+      does **not** reproduce on this toolchain: both precision paths
+      qualified (exit 0). Gate semantics are frozen: fp32 failure means an
+      invalid runtime; bf16 failure would block the `mlx-native-bf16`
+      candidate profile. `--formal` emits runtime provenance (mlx-c release,
+      static-archive and `mlx.metallib` SHA-256 hashes, Xcode/Metal/macOS
+      identity, git commit); rebuilding mlx-c under a different toolchain is
+      a different runtime identity and must re-run 3M.0.
+- [x] **3M.1 — Runtime, spine, and serialized execution.** `MlxRuntime`
+      bounds the inactive allocator cache (`set_cache_limit`, default
+      256 MiB safety bound pending 3M.8 measurement), exposes
+      active/peak/cache telemetry and `synchronize`, verifies the linked MLX
+      version against the pinned constant fail-closed, and serializes **all**
+      MLX work behind one execution mutex — mlx-c streams are thread-affine
+      (per-thread registries; a stream created on one thread throws when
+      evaluated from another), so per-thread default GPU streams under the
+      mutex are the discipline, with `mlx_stream_new_thread_unsafe` the
+      designated future refinement. Two qualification discoveries are pinned
+      by tests: MLX `conv1d` computes *true convolution* (kernel reversed,
+      weight layout `(C_out, K, C_in/groups)`), and the checkpoint stores
+      `A_log` plus `linear_attn.norm.weight` in FP32 with everything else
+      BF16.
+- [x] **3M.2 — Streamed weight loading and exact embedding.** Both pinned
+      shards are digest/size-verified through the Candle oracle's loader, then
+      tensors stream one at a time (read → widen on host → MLX array → drop
+      staging; ~4.3 s, peak active MLX ≈ 16.1 GiB fp32, peak RSS ≈ 10–11 GiB;
+      the 1.27 GiB tied embedding table stays host-resident). Offset-RMSNorm
+      weights fold `(1 + w)` exactly once at load; the DeltaNet `norm.weight`
+      stays raw. The pinned-base embedding gate is **bit-exact** against the
+      Phase 3B golden trace input (`max_abs 0`). The loader now also has an
+      explicit, digest-locked adapter for the tested MLX-community export;
+      that path keeps the embedding host-resident and records a distinct
+      checkpoint identity.
+- [x] **3M.3 — Layer port with an offline differential oracle.** The full
+      layer math (offset-RMSNorm, per-token Gated DeltaNet recurrence
+      vectorized across the 32 value heads, causal depthwise conv inside the
+      recurrence loop, GQA with per-head q/k norms, partial RoPE over the
+      first 64 dims with NeoX pairing and host-computed tables, sigmoid
+      gating, SiLU-gated MLP) is pinned by a synthetic full-width
+      differential test against an independently transcribed host reference
+      (no checkpoint required). That test caught a real conv-window
+      shift bug (keeping the oldest tap instead of dropping it) before any
+      model gate ran. The conv is deliberately an explicit shifted-add
+      window rather than native `mlx_conv1d`: the last-K raw-input window is
+      the continuation state, so the shifted form transcribes the oracle's
+      tap order at every position; the 3M.0-qualified native conv
+      (true-convolution kernel flip) is the intended primitive for the fused
+      3M.5 path. The 21 September working-tree rerun on the pinned
+      checkpoint reached parity-noise: bit-exact embedding, layer_00
+      `3.22e-06`, and final norm `3.86e-05`. The trace is localization
+      evidence, not a replacement acceptance tolerance.
+- [x] **3M.4 — Full-sequence and sequential nested parity (fp32).**
+      The real-checkpoint working-tree rerun passes the frozen decision gates
+      on all 10 Phase 3B candidates: maximum full-sequence probability delta
+      `1.5148e-06` under the `0.005` contract with zero argmax and zero
+      policy changes. `qwen35_mlx_nested_parity`
+      prefills each root once, forks questions and candidates through
+      `BranchableState` (MLX arrays are immutable refcounted values, so fork
+      isolation is structural and verified by strict content fingerprints):
+      probability delta `1.3787e-05`, zero argmax/policy changes, root
+      fingerprint unchanged by all downstream work and equal to an
+      independent prefill, positions match the exported fixtures, reversed
+      sibling-order replay reproduces features, and cached-versus-full
+      candidate features stay within the Phase 3B `1e-4` guard
+      (`7.25e-05`). `MlxQwen35Backbone` also implements
+      `SequentialNestedExecutor`, so the backend-neutral nested runners drive
+      it unchanged. Arithmetic identities
+      `mlx-core-0.32.2/fp32/reference-ops` and `.../bf16/reference-ops`
+      include the kernel family; cross-backend state mixing fails closed.
+- [ ] **3M.6 — bf16 candidate profile (gates A then B, no relaxation).**
+      Gate A still passes in 3M.0, but the real-checkpoint working-tree Gate B
+      is open. Full-sequence BF16 reaches zero argmax and policy changes, but
+      its maximum probability delta is `5.4572e-03`, just over the frozen
+      `0.005` tolerance. BF16 nested continuation fails before its decision
+      gate at layer 4 with `invalid linear cache shape or dtype`. The failure
+      follows the first full-attention block: the causal mask is currently
+      constructed as FP32 and can promote the BF16 hidden path, while state
+      validation requires BF16 caches. Fix and rerun this path; do not promote
+      BF16 or treat the historical first-pass reports as current evidence.
+- [x] **3M.6a — MLX-community artifact adapter.** The tested unquantized
+      comparison, `mlx-community/Qwen3.5-4B-MLX-bf16` at Hub revision
+      `475632ded9a95863da4e4b235ab9ccbc5d3cc6bf`, is now accepted through an
+      explicit digest-locked adapter. It validates the community config,
+      tokenizer, index, shard names and shard hashes, ignores the standard
+      safetensors `__metadata__` header entry, normalizes
+      `language_model.model.*` and `vision_tower.*` prefixes, accepts the
+      community singleton-axis convolution layout, and records a distinct
+      backbone/checkpoint identity. After normalization it still omits the 15
+      unused base `mtp.*` tensors and stores `linear_attn.norm.weight` as BF16
+      instead of the pinned base checkpoint's FP32 tensor. Compatibility here
+      means the backend loads and executes the artifact, not that it reproduces
+      the frozen base-model decisions. The community model card identifies its
+      source as `Qwen/Qwen3.5-4B` converted through an `mlx-vlm` fix branch,
+      while this profile is frozen to `Qwen/Qwen3.5-4B-Base`. Quantized
+      4-bit/8-bit MLX exports remain separate profiles and are not supported by
+      the current adapter.
+- [ ] **3M.6b — MLX-community parity and model-quality qualification.** The
+      community adapter's real FP32 run loads in `4.4 s` and executes the full
+      10-candidate harness in `38.2 s`, but it is not parity-compatible with
+      the frozen Phase 3B reference: embedding max error `8.5449e-04`, feature
+      max error `45.64`, probability max error `0.9999983`, four argmax changes,
+      and three policy changes. Its nested FP32 run preserves root storage,
+      positions, root immutability, and sibling isolation, but reaches maximum
+      probability error `0.9999982301` and cached/full feature delta
+      `0.2339146631` in `69.69 s`. Its native BF16 run also completes, with
+      feature max error `38.42`, probability max error `0.99055`, one argmax
+      change, and two policy changes. The community export therefore represents
+      a different source model/conversion and must not inherit the pinned base
+      parity or fitted-head quality claim. See the working-tree verification
+      note for hashes and the exact commands.
+- [ ] **3M.5 — Fused Gated-DeltaNet Metal kernel + native batch state.**
+      Implement the fused kernel via mlx-c's custom-Metal-kernel API
+      (`mlx_fast_metal_kernel_*`, exposed through `mlx_sys`), compare it
+      against the permanent `ReferenceOps` oracle first, then probabilities.
+      Native cache-merge `fork_batch` replaces handle-copies. Only then may
+      the backend advertise vectorized forward in `BackendCapabilities`.
+- [ ] **3M.7 — Variable-length batched suffixes and scheduler integration.**
+      `prepare(lengths, right_padding)`-style masked batching, the
+      `advance_batch` executor trait, engine/daemon registration with MLX
+      aliases and `MlxRuntimeConfig` settings, and measured
+      strategy comparison. Quantization stays under P2.2 with its own
+      profile.
+- [ ] **3M.8 — Unified-memory stress.** Allocator-cache-limit measurement
+      (default 256 MiB is a safety bound, not a tuned value), Q/K expansion,
+      K=32/64/128/255, admission fallback, with MLX active/peak/cache
+      telemetry plumbed into `ProcessMemoryEnvelope`.
+
+**Evidence:** the historical first-pass artifacts remain in
+[`verification/phase3m-2026-09-20/`](verification/phase3m-2026-09-20/). The
+current dirty-tree real-checkpoint rerun is recorded in
+[`verification/phase3m-2026-09-21-working-tree.md`](verification/phase3m-2026-09-21-working-tree.md)
+and is not commit-stamped. It supersedes the historical BF16 status: FP32
+full/nested parity passes, while BF16 full probability tolerance and nested
+state validation remain open. The MLX-community comparison is also recorded
+there. Working-tree battery at the first-pass recording time: fmt, strict
+Clippy in both feature configurations, workspace tests, and `--features mlx`
+tests all passed; schema regeneration was unchanged.
+
 ## Status snapshot
 
 | Phase / track | Current description | Status / authority |
@@ -1015,6 +1174,7 @@ To maintain focus and avoid high-cost, speculative tangents:
 | **Phase 3A (Python)** | Full-hybrid BranchableState reference, batched Q/K systems validation and crossover measurement | **Completed notebook scope — `20260920T024056Z`**; semantic/high-K parity passed, exact recorded same-process replay; no model change, release promotion or Rust/Metal claim [P3A] |
 | **Phase 3B (Python)** | Exact Qwen token, layer, candidate, and continuation reference export | **Completed notebook scope — `20260920T152206Z`**; 47 FP32 vectors, no model or bundle change, no Rust/Metal claim [P3B] |
 | **Phase 3 (Rust/native)** | Native parity, branchable hybrid state, sequential/lane-topology Q/K execution, safe measured scheduling, high-K admission, persistence, and service lifecycle | **In progress:** 3.1–3.9b bounded evidence passes; structural 3.10 replay and native 3.11 service smoke pass. Full restored head/decision replay, practical high-K latency, production load/soak, Metal, and release promotion remain open |
+| **Phase 3M (MLX parity backend)** | MLX/Metal Qwen3.5 parity backend via pinned `mlx-rs`/mlx-c, feature-gated: runtime qualification, streamed weights, and full-sequence/sequential-nested parity at FP32; BF16 and community-model parity remain gated | **FP32 3M.0–3M.4 passes; the community adapter loads and executes but fails model parity qualification; BF16 Gate B remains open — [`verification/phase3m-2026-09-21-working-tree.md`](verification/phase3m-2026-09-21-working-tree.md)**; fused Metal kernel, vectorized batching, memory stress, and service wiring open [RUSTM1] |
 | **Phase 4A** | **OpenDecision-native architecture feasibility (Track B)** | **Planned parallel track** — Option B frozen-Qwen query probe (4A.1) formulated; full training gated on 2I.1/2I.2 reviewed data |
 
 ### Superseded task mapping
@@ -1124,6 +1284,8 @@ The v0.5.2 review-capture revision left historical metrics and H-development tab
 **RUST9 — Commit-stamped v0.8.0 verification.** [`verification/2026-09-20-v0.8.0-35c481a.md`](verification/2026-09-20-v0.8.0-35c481a.md) records a clean named-Mac run for subject commit `35c481a6e95a`. Formatting, all-target/all-feature linting, default and all-feature workspace tests, schema regeneration with zero diff, scheduler stress, checkpoint digests, full/branch/nested/batched native parity, the canonical warm-process scheduler benchmark, commit diff hygiene, and final clean-tree status pass. In the rerun, `NestedSequential` is 1.29×–2.02× faster than repeated-full across the five workloads, `NestedBatched` stays within 2.9% of sequential, Q-amortization is 2.815 repeated versus 2.170/2.233 shared, and post-benchmark peak resident memory is 10.968 GiB. The record retains the exact current test count and benchmark medians. It does not close model-backed high-K, fresh-process replay, service load/soak, Metal, or release promotion.
 
 **RUST10 — Named-Mac native follow-up campaign.** [`verification/2026-09-20-v0.8.0-native-follow-up-working-tree.md`](verification/2026-09-20-v0.8.0-native-follow-up-working-tree.md) records a dirty-tree run anchored at `9d086107bb017bf721d815bb5bcb8ba516ce0e6e`. Rust 1.98.1 workspace tests, all-features tests, formatting, strict Clippy, and diff hygiene pass. Rust 1.88.0 is the verified workspace floor and is added to CI. Model-backed K=32/64/128/255 stress passes bounded completion, root immutability, and memory behavior; two fresh processes pass structural persistence replay; and a real native daemon request, overload admission, cancellation/recovery, clean shutdown, and 20 health probes pass. The full restored candidate-feature/head/probability/argmax/policy replay gate, practical high-K latency, production load/soak, Metal, and release promotion remain open.
+
+**RUSTM1 — Phase 3M MLX/Metal parity-backend checkpoint.** The optional `mlx` backend (`mlx-rs =0.32.0`, vendored mlx-c `v0.6.0-7-gc74db53` / MLX 0.32.2) is real-checkpoint validated for FP32 on the named development Mac (Xcode 27.0, Metal 32023.921): runtime qualification passes FP32/BF16 including the exact ml-explore/mlx-c#115 reproduction; pinned-base embedding is bit-exact; the 34-stage trace remains at parity noise; full-sequence probability delta is `1.5148e-06` with zero argmax/policy changes; nested probability delta is `1.3787e-05` with root immutability, fixture positions, sibling isolation, and cached-vs-full `7.25e-05` inside the `1e-4` guard. Load-inclusive rough timings were `44.7 s` for pinned full FP32 parity and `59.3 s` for pinned nested FP32 parity; these are not `opendecision-bench` throughput records. BF16 is not closed: full probability delta is `5.4572e-03` and nested continuation rejects layer-4 state dtype/shape. The explicit MLX-community adapter now loads and executes `mlx-community/Qwen3.5-4B-MLX-bf16`, but its FP32 run differs materially from the frozen base reference: embedding max error `8.5449e-04`, feature max error `45.64`, probability max error `0.9999983`, four argmax changes, and three policy changes. Its native BF16 run also completes but reaches probability max error `0.99055`, with one argmax change and two policy changes. It is therefore a compatibility path, not a promoted parity model. Candle remains the correctness oracle; no mlx-lm code executes; the recurrent path is the per-token ReferenceOps implementation, not a fused kernel. Current evidence is in [`verification/phase3m-2026-09-21-working-tree.md`](verification/phase3m-2026-09-21-working-tree.md); the historical first-pass provenance remains in [`verification/phase3m-2026-09-20/`](verification/phase3m-2026-09-20/). Fused GDN kernel (3M.5), vectorized batching and registration (3M.7), unified-memory stress (3M.8), and quantization (P2.2) remain open.
 
 **PUB1 — Public OpenDecision state-first reference repository.** <https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst>. This project-owned publication exposes the integration line publicly. Publication does not by itself establish release-quality model promotion, native parity, or TypeSafe RLCD reproduction.
 

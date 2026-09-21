@@ -150,6 +150,51 @@ investigated before any numbers from that run are quoted.
 |---|---|---|
 | [`benchmarks/2026-09-20-mock-smoke/`](./benchmarks/2026-09-20-mock-smoke/) | mock | Complete — harness validation only; not performance evidence |
 | [`benchmarks/2026-09-20-qwen35-smoke/`](./benchmarks/2026-09-20-qwen35-smoke/) | qwen35-native-cpu | Complete — smoke-scale, single-sample cells; CPU parity does not imply Metal or accelerated parity |
+| [`verification/phase3m-2026-09-21-working-tree.md`](./verification/phase3m-2026-09-21-working-tree.md) | qwen35-mlx-fp32 | Complete parity probe — dirty-tree, load-inclusive timing, not an `opendecision-bench` throughput record |
+
+### MLX parity timing boundary
+
+The 21 September 2026 MLX probe used the pinned original Qwen3.5-4B-Base
+checkpoint on the named macOS arm64 development Mac, with MLX 0.32.2,
+Xcode 27.0, and Metal toolchain 32023.921. These timings include process
+startup, model loading, and the parity fixture work, so they are useful for
+bring-up and memory sizing only. They exclude neither load nor fixture
+comparison and must not be compared directly with the warm-process
+`opendecision-bench` numbers above.
+
+| Run | Result | Load | Wall | Peak MLX allocation | Peak RSS |
+|---|---|---:|---:|---:|---:|
+| Full FP32 parity, 10 candidates | pass | 4.7 s | 44.7 s | 16.10 GB | 6.40 GB |
+| Nested FP32 parity, 10 candidates | pass | included | 59.3 s | not emitted | 9.85 GB |
+| Full BF16 parity, 10 candidates | gate fail | 3.7 s | 37.9 s | 8.05 GB | 8.35 GB |
+| MLX-community full FP32, 10 candidates | model-parity fail | 4.4 s | 38.2 s | 15.61 GB | 8.70 GB |
+| MLX-community nested FP32, 10 candidates | model-parity fail | included | 69.7 s | not emitted | 6.62 GB |
+| MLX-community full BF16, 10 candidates | model-parity fail | 3.7 s | 55.3 s | 7.81 GB | 7.66 GB |
+
+The BF16 full run retained all argmax and policy decisions but exceeded the
+probability tolerance (`0.005457` versus `0.005`). The BF16 nested run failed
+state validation at layer 4, so no BF16 nested throughput claim is valid.
+The community adapter completed loading and full execution, but its output was
+not a frozen-reference parity result: embedding max error was `8.5449e-04`,
+feature max error `45.64`, probability max error `0.9999983`, with four argmax
+changes and three policy changes. The complete commands, model revisions, and
+shard digests are recorded in the linked verification note. These are
+load-inclusive bring-up timings, not warm-process throughput measurements. The
+community native-BF16 run also completed, but its probability delta was
+`0.99055`, with one argmax change and two policy changes.
+
+The community nested FP32 run preserved position checks, root storage and
+immutability, and sibling isolation, but failed model parity with maximum
+probability delta `0.9999982301` and maximum cached-versus-full feature delta
+`0.2339146631`. Its `/usr/bin/time -l` wall time was `69.69 s`, with peak RSS
+`6.62 GB` and peak memory footprint `16.09 GB`. The nested result confirms that
+the adapter can exercise the complete branch topology, but it does not turn the
+community export into a parity-qualified model.
+
+Against the pinned FP32 runs, the community full run was roughly 15% faster
+wall-clock, while its nested run was roughly 18% slower. Because the community
+checkpoint has a different source model and conversion, these load-inclusive
+timings are implementation observations, not model-speed claims.
 
 The named-machine native follow-up verification records bounded model-backed
 K=32/64/128/255 completion and RSS behavior, structural fresh-process
