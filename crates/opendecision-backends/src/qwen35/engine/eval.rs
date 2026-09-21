@@ -12,9 +12,7 @@ use super::mapping::{
 };
 use super::EngineInner;
 use crate::qwen35::backbone::NestedQuestion;
-use crate::qwen35::{
-    choose_strategy, run_strategy, CandidateText, ExecutionIdentity, Qwen35Error, StrategyRequest,
-};
+use crate::qwen35::{choose_strategy, run_strategy, CandidateText, Qwen35Error, StrategyRequest};
 
 pub(super) fn evaluate_request(
     inner: &EngineInner,
@@ -134,31 +132,6 @@ pub(super) fn evaluate_request(
         repeated_tokens = decision.estimates.repeated_tokens,
         shared_tokens = decision.estimates.shared_tokens,
         "scheduler decision detail"
-    );
-    // Token-level execution identity. Debug-level only: raw digests of
-    // low-entropy inputs can be guessed offline, so they stay out of default
-    // production logs and go to offline evidence artifacts instead.
-    let identity_questions: Vec<(&[u32], &[&[u32]])> = encoded
-        .iter()
-        .zip(&suffix_refs)
-        .map(|(question, candidates)| (question.question_ids.as_slice(), candidates.as_slice()))
-        .collect();
-    let identity = ExecutionIdentity::compute(
-        &root_ids,
-        &identity_questions,
-        decision.strategy,
-        decision.batch_forward_mode,
-        decision.forced,
-    );
-    tracing::debug!(
-        profile = %identity.profile_id,
-        backend = %identity.arithmetic_id,
-        strategy = %identity.execution_plan,
-        batch_forward_mode = %identity.batch_forward_mode,
-        execution_input_digest = %identity.execution_input_digest,
-        state_token_digest = %identity.state_token_digest,
-        semantic_set_digest = %identity.semantic_set_digest,
-        "execution input identity"
     );
     let output = run_strategy(&inner.backbone, decision.strategy, &root_ids, &plans)?;
 

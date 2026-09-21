@@ -6,10 +6,9 @@
 //! and physical execution selections behind one evaluation, so a bug report
 //! or evidence artifact can state exactly which computation it discusses.
 //!
-//! Digest values are emitted at `debug` level in the daemon (never in default
-//! production logs, because low-entropy inputs can be guessed offline from
-//! raw digests) and into offline evidence artifacts, where they are the
-//! reproducibility identity.
+//! Digest values are reserved for explicitly requested offline evidence
+//! artifacts. They must not be emitted in daemon telemetry because
+//! low-entropy inputs can be guessed offline from raw digests.
 
 use opendecision_runtime::{
     BatchForwardMode, CandidateTokenDigest, ExecutionInputDigest, QuestionTokenDigest,
