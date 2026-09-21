@@ -350,3 +350,85 @@ async fn missing_api_key_fails_at_build_time() {
         }
     }
 }
+
+#[tokio::test]
+async fn client_evaluates_openapi_documented_examples() {
+    let base_url = spawn_server(Some("test-key"), None).await;
+    let client = test_client(&base_url);
+
+    // 1. OpenAPI quickstart Noul example
+    let resp1 = client
+        .system_one(
+            "I was charged twice for order #1042.",
+            [(
+                "billing",
+                question::noul("Is this inquiry related to a billing issue?"),
+            )],
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp1.model, "mock");
+    match &resp1.answers["billing"] {
+        opendecision_client::Answer::Noul(ans) => {
+            assert!((0.0..=1.0).contains(&ans.noul));
+        }
+        other => panic!("expected Noul, got {other:?}"),
+    }
+
+    // 2. OpenAPI multi-question evaluation example
+    let resp2 = client
+        .system_one(
+            "Customer support transcript: Agent resolved issue in 4 minutes.",
+            [
+                (
+                    "is_resolved",
+                    question::noul_with(
+                        "Was the issue resolved?",
+                        "Customer issue was successfully resolved.",
+                        "Issue remains unresolved or escalated.",
+                    ),
+                ),
+                (
+                    "department",
+                    question::choice(
+                        "Which team handled this request?",
+                        [
+                            ("billing", Some("Payments, invoicing, refunds".to_string())),
+                            ("technical", Some("Bugs, outages, integrations".to_string())),
+                            ("sales", None),
+                        ],
+                    ),
+                ),
+                (
+                    "satisfaction",
+                    question::score(
+                        "Rate customer satisfaction",
+                        ["Dissatisfied", "Neutral", "Delighted"],
+                    ),
+                ),
+            ],
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(resp2.answers.len(), 3);
+    match &resp2.answers["is_resolved"] {
+        opendecision_client::Answer::Noul(ans) => assert!((0.0..=1.0).contains(&ans.noul)),
+        other => panic!("expected Noul, got {other:?}"),
+    }
+    match &resp2.answers["department"] {
+        opendecision_client::Answer::Choice(ans) => {
+            assert!(["billing", "technical", "sales"].contains(&ans.choice.as_str()));
+            assert!((0.0..=1.0).contains(&ans.confidence));
+        }
+        other => panic!("expected Choice, got {other:?}"),
+    }
+    match &resp2.answers["satisfaction"] {
+        opendecision_client::Answer::Score(ans) => {
+            assert!((0.0..=2.0).contains(&ans.score));
+            assert_eq!(ans.legend.len(), 3);
+            assert!((0.0..=1.0).contains(&ans.confidence));
+        }
+        other => panic!("expected Score, got {other:?}"),
+    }
+}

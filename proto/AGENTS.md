@@ -52,10 +52,11 @@ It generates the Rust structs and client/server service traits consumed by `open
 
 ## Step-by-Step Change Protocol
 
-1. Edit `proto/proto/opendecision.proto`.
+1. Edit `proto/proto/opendecision.proto`. Ensure doc comments cross-reference the canonical Jev API (`https://docs.typesafe.ai/api`) and Python SDK (`https://docs.typesafe.ai/sdk/python/api`).
 2. Verify Protobuf code generation: `cargo build -p opendecision-proto`.
 3. Update conversions in `crates/opendecision-api/src/grpc.rs`.
-4. Run gRPC integration tests:
+4. Keep wire parity with OpenAPI (`crates/opendecision-api/openapi.yaml` / `docs/openapi.yaml`).
+5. Run gRPC integration tests:
    ```bash
    cargo test -p opendecision-api --test grpc_roundtrip
    ```
@@ -63,6 +64,9 @@ It generates the Rust structs and client/server service traits consumed by `open
 ## Verification Commands
 
 ```bash
+# Build proto crate and regenerate bindings
 cargo build -p opendecision-proto
+
+# Run full gRPC integration test suite
 cargo test -p opendecision-api --test grpc_roundtrip
 ```
