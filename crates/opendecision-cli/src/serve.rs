@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 
+/// Spawns and supervises the `opendecisiond` daemon binary with configured flags and credentials.
 pub fn cmd_serve(
     http_addr: String,
     grpc_addr: String,

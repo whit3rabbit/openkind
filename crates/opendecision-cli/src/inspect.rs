@@ -6,6 +6,7 @@ use opendecision_core::{validate_request, SystemRequest};
 /// Maximum allowed input file size (32 MB) to prevent local memory exhaustion.
 pub const MAX_CLI_INPUT_BYTES: u64 = 32 * 1024 * 1024;
 
+/// Validates a decision request JSON file against the canonical schema and domain constraints.
 pub fn cmd_inspect(file: PathBuf) -> Result<()> {
     let meta = std::fs::metadata(&file).with_context(|| format!("stat {}", file.display()))?;
     if meta.len() > MAX_CLI_INPUT_BYTES {

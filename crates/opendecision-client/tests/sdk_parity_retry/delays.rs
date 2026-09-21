@@ -100,6 +100,9 @@ async fn budget_is_fresh_per_call() {
             .backoff_jitter(0.0)
             .total_timeout(Some(Duration::from_millis(30))),
     );
+    // Warm up connection so both measured calls run over an established keep-alive channel.
+    let _ = client.evaluate(evaluate_request()).await;
+
     let mut used_per_call = Vec::new();
     for _ in 0..2 {
         let before = requests.len();
