@@ -280,17 +280,27 @@ pub fn choose_strategy(config: &SchedulerConfig, request: &StrategyRequest) -> S
         }
     }
     let batched_bytes = root_state_bytes * (1 + questions) + batched_question_bytes;
-    let repeated_full_tensor_bytes = request.state_bytes(
-        config,
-        request.root_tokens
-            + request
-                .question_tokens
-                .iter()
-                .zip(&request.suffix_tokens)
-                .map(|(&question, suffixes)| question + suffixes.iter().max().copied().unwrap_or(0))
-                .max()
-                .unwrap_or(0),
-    );
+    // The repeated-full executor returns every candidate state in its output,
+    // so admission must account for all of those states rather than only the
+    // largest one. Use saturating arithmetic so an unrepresentable aggregate
+    // fails any finite ceiling instead of wrapping into an admissible value.
+    let repeated_full_tensor_bytes = request
+        .question_tokens
+        .iter()
+        .zip(&request.suffix_tokens)
+        .fold(0_usize, |request_bytes, (&question, suffixes)| {
+            suffixes.iter().fold(request_bytes, |bytes, &suffix| {
+                bytes.saturating_add(
+                    request.state_bytes(
+                        config,
+                        request
+                            .root_tokens
+                            .saturating_add(question)
+                            .saturating_add(suffix),
+                    ),
+                )
+            })
+        });
     let process_peak = |tensor_bytes| {
         config
             .process_memory
@@ -413,7 +423,7 @@ pub fn choose_strategy(config: &SchedulerConfig, request: &StrategyRequest) -> S
         rationale: if admitted {
             format!(
                 "retained shared tensor payload ({sequential_bytes} bytes) exceeds admission; \
-                 falling back to transient full-sequence execution"
+                 falling back to repeated full-sequence execution"
             )
         } else {
             format!(
