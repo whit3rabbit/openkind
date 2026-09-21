@@ -53,7 +53,7 @@ Profile `a047d6802c3f06f085b8` is the native integration target:
 - **Execution Identity**: Finalized token sequences are the execution contract. Role-typed digests
   (`StateTokenDigest`, `QuestionTokenDigest`, `CandidateTokenDigest`, an order-sensitive
   `ExecutionInputDigest`, and an order-independent `SemanticSetDigest`) live in `opendecision-runtime`
-  and are emitted at debug level only (raw digests of low-entropy inputs must stay out of default logs).
+  and are reserved for explicitly requested offline evidence artifacts (raw digests of low-entropy inputs must stay out of daemon logs).
 - **Native-Run Evidence**: Harness evidence uses the backend-neutral `opendecision-native-run/v1`
   schema (`opendecision-runtime::evidence`): sanitized invocation (never raw argv), environment,
   profile/backend/execution identity, parity/performance/memory reports, and per-file checksums.
