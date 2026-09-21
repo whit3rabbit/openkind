@@ -12,6 +12,7 @@ The documentation suite maintains a strict division of responsibility across pro
 |---|---|
 | Current milestone phases, progress, and remaining work | [`ROADMAP.md`](ROADMAP.md) |
 | Landed crate boundaries, module topology, and data flow | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| Benchmark methodology, harness usage, and recorded runs | [`BENCHMARKS.md`](BENCHMARKS.md) |
 | Research dossier, background, and prior art | [`RESEARCH.md`](RESEARCH.md) |
 | Scientific rationale, theoretical grounding, and measured results | [`whitepaper/OpenDecision_Whitepaper_v0.8.0.md`](whitepaper/OpenDecision_Whitepaper_v0.8.0.md) |
 | HTTP wire specification | [`../crates/opendecision-api/openapi.yaml`](../crates/opendecision-api/openapi.yaml) |

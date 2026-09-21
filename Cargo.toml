@@ -10,13 +10,14 @@ members = [
     "crates/opendecision-cli",
     "crates/opendecision-client",
     "crates/opendecision-gen-schemas",
+    "crates/opendecision-bench",
     "proto",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.88"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/whit3rabbit/opendecision"
 
@@ -65,13 +66,10 @@ rustls-pki-types = "1"
 jsonwebtoken = "11"
 sha2 = "0.10"
 
-# Model artifacts. safetensors 0.5.3 is the newest release in this line
-# compatible with the workspace's declared Rust 1.75 minimum.
+# Model artifacts are pinned for reproducible profile/runtime behavior.
 safetensors = "=0.5.3"
-# Keep tokenizer execution offline and compatible with the workspace MSRV. The
-# native Oniguruma backend matches the regex behavior used by the export.
-# Cargo.lock also holds its Rayon, Monostate, Unicode segmentation, and Onig
-# transitive dependencies to releases verified with Rust 1.75.
+# Keep tokenizer execution offline and pinned to the regex behavior used by the
+# export. Cargo.lock pins the remaining transitive runtime dependencies.
 tokenizers = { version = "=0.20.4", default-features = false, features = ["onig"] }
 
 # Internal

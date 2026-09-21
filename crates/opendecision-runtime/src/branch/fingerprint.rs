@@ -1,7 +1,5 @@
 //! Typed branch-state fingerprints.
 
-use std::fmt;
-
 use sha2::{Digest, Sha256};
 
 macro_rules! fingerprint_type {
@@ -28,8 +26,8 @@ macro_rules! fingerprint_type {
             }
         }
 
-        impl fmt::Display for $name {
-            fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        impl ::std::fmt::Display for $name {
+            fn fmt(&self, formatter: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                 formatter.write_str(&self.hex())
             }
         }
@@ -82,3 +80,5 @@ fingerprint_type!(
     ContentFingerprintBuilder,
     "Strict cross-process fingerprint over execution identity, position, and exact tensor contents."
 );
+
+pub(crate) use fingerprint_type;

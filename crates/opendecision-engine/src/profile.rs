@@ -129,25 +129,62 @@ impl ProfileSource {
     }
 }
 
+/// Probability semantics a profile's scores live in.
+///
+/// This makes the meaning of returned probabilities an explicit, versioned
+/// profile property instead of an implicit adapter behavior. An adapter that
+/// cannot serve the declared space must fail explicitly rather than discard
+/// or renormalize mass the space promises — silently dropping semantic-none
+/// mass and renormalizing the remainder is exactly the drift this declaration
+/// exists to prevent.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProbabilitySpace {
+    /// Probabilities are conditional on the offered options only: the
+    /// distribution over those options sums to one and no none mass is
+    /// modeled. A finite-token or direct-logit profile may legitimately
+    /// declare this space.
+    ConditionalOnOfferedOptions,
+    /// Probabilities cover the offered options plus explicit semantic-none
+    /// mass: the full distribution includes the reserved none class and sums
+    /// to one over options-plus-none. The selected native profile declares
+    /// this space.
+    OfferedOptionsPlusSemanticNone,
+}
+
+impl ProbabilitySpace {
+    /// Stable lowercase identifier used in reports and evidence artifacts.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ConditionalOnOfferedOptions => "conditional_on_offered_options",
+            Self::OfferedOptionsPlusSemanticNone => "offered_options_plus_semantic_none",
+        }
+    }
+}
+
 /// Names the learned input and readout semantics of a profile.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExecutionSemantics {
     renderer: String,
     head: String,
     rejection: String,
+    probability_space: ProbabilitySpace,
 }
 
 impl ExecutionSemantics {
-    /// Construct the renderer, head, and rejection identities.
+    /// Construct the renderer, head, rejection, and probability-space
+    /// identities.
     pub fn new(
         renderer: impl Into<String>,
         head: impl Into<String>,
         rejection: impl Into<String>,
+        probability_space: ProbabilitySpace,
     ) -> Result<Self, ProfileValidationError> {
         Ok(Self {
             renderer: required(renderer, "execution.renderer")?,
             head: required(head, "execution.head")?,
             rejection: required(rejection, "execution.rejection")?,
+            probability_space,
         })
     }
 
@@ -164,6 +201,12 @@ impl ExecutionSemantics {
     /// Rejection mechanism identity.
     pub fn rejection(&self) -> &str {
         &self.rejection
+    }
+
+    /// Probability space the profile's scores live in.
+    #[must_use]
+    pub const fn probability_space(&self) -> ProbabilitySpace {
+        self.probability_space
     }
 }
 
@@ -288,8 +331,13 @@ mod tests {
         )
         .unwrap();
         let backbone = ArtifactIdentity::new("model", "model-revision").unwrap();
-        let execution =
-            ExecutionSemantics::new("state-first", "head.safetensors", "score-summary").unwrap();
+        let execution = ExecutionSemantics::new(
+            "state-first",
+            "head.safetensors",
+            "score-summary",
+            ProbabilitySpace::OfferedOptionsPlusSemanticNone,
+        )
+        .unwrap();
         let parity = ParityContract::new(1.5, 0.98, 0.005, 0.00001).unwrap();
 
         let profile = ModelExecutionProfile::new(source, backbone, execution, parity);
@@ -298,6 +346,18 @@ mod tests {
         assert_eq!(profile.backbone().id(), "model");
         assert_eq!(profile.execution().renderer(), "state-first");
         assert_eq!(profile.parity().policy_threshold(), 0.98);
+        assert_eq!(
+            profile.execution().probability_space(),
+            ProbabilitySpace::OfferedOptionsPlusSemanticNone
+        );
+        assert_eq!(
+            ProbabilitySpace::ConditionalOnOfferedOptions.as_str(),
+            "conditional_on_offered_options"
+        );
+        assert_eq!(
+            ProbabilitySpace::OfferedOptionsPlusSemanticNone.as_str(),
+            "offered_options_plus_semantic_none"
+        );
     }
 
     #[test]

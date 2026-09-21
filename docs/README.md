@@ -16,22 +16,28 @@ Project documentation and architectural references for `opendecision`.
    - Phase 2H required scope and the exploratory 2I/2J model-selection screen
      are complete, with reviewed release confirmation still open.
    - Phase 3A and 3B Python reference scopes are complete.
-   - Rust Phase 3.1 through 3.8 CPU parity, backend-neutral `BranchableState`,
+   - Rust Phase 3.1 through 3.9b CPU parity, backend-neutral `BranchableState`,
      sequential nested execution, batched Q/K execution, and the measured
-     adaptive scheduler pass. State/scheduler high-cardinality stress and
-     cache/snapshot persistence contracts are implemented. Model-backed high-K
-     and the named-machine fresh-process replay remain open. CPU native parity
-     does not imply Metal or accelerated parity.
-   - The latest offline and checkpoint-backed evidence is the
-     [`v0.8.0 commit verification`](./verification/2026-09-20-v0.8.0-35c481a.md).
-     It verifies clean subject commit `35c481a6e95a` on the named Mac without
-     claiming release promotion.
+     adaptive scheduler pass. Bounded model-backed high-K stress, structural
+     fresh-process replay, and native service lifecycle smoke are recorded in
+     the follow-up verification. Full restored head/decision replay, practical
+     high-K latency, production load/soak, and Metal remain open. CPU native
+     parity does not imply Metal or accelerated parity.
+   - The clean checkpoint is the [`v0.8.0 commit verification`](./verification/2026-09-20-v0.8.0-35c481a.md).
+     The latest dirty-tree native follow-up is the
+     [`native follow-up verification`](./verification/2026-09-20-v0.8.0-native-follow-up-working-tree.md);
+     it records the bounded high-K, structural persistence, and service smoke
+     evidence without claiming release promotion.
 4. **[`RESEARCH.md`](./RESEARCH.md)** — Research dossier & technical background:
    - System 1 inference paradigm and judgment-envelope protocol origins.
    - Hardware requirements, quantization, and model sizing.
    - Backend runtime evaluation (Candle vs llama.cpp vs ONNX).
    - Zero-copy tensor evaluation strategies.
-5. **[`whitepaper/OpenDecision_Whitepaper_v0.8.0.md`](./whitepaper/OpenDecision_Whitepaper_v0.8.0.md)**:
+5. **[`BENCHMARKS.md`](./BENCHMARKS.md)** — Benchmark methodology & records:
+   - Timing scope, warm policy, and execution-strategy sweep definition.
+   - `opendecision-bench` harness usage and workload fixture inventory.
+   - Prior-art (SemIf) comparability mapping and recorded run evidence.
+6. **[`whitepaper/OpenDecision_Whitepaper_v0.8.0.md`](./whitepaper/OpenDecision_Whitepaper_v0.8.0.md)**:
    Canonical scientific interpretation, evidence register, and measured Phase
    3 native CPU reference engine results through adaptive scheduling.
 

@@ -15,11 +15,13 @@
 //! memory-pressure cells belong to the later lifecycle work.
 //!
 //! Usage: `qwen35_scheduler_bench <checkpoint-root> <phase3b-reference-root>
-//! [reps]` — the default is 3 repetitions for semantic workloads and 2 for
-//! synthetic ones. With 3 samples, p50 is the median and p95 is the maximum;
-//! sample counts are reported alongside. The run executes the real checkpoint
-//! on CPU for roughly 35-45 minutes at the default settings and is not part
-//! of `cargo test`.
+//! [reps] [--evidence-root <dir>]` — the default is 3 repetitions for semantic
+//! workloads and 2 for synthetic ones. With 3 samples, p50 is the median and
+//! p95 is the maximum; sample counts are reported alongside. The run executes
+//! the real checkpoint on CPU for roughly 35-45 minutes at the default
+//! settings and is not part of `cargo test`. Evidence defaults to the
+//! ephemeral `target/verification/native-runs`; pass
+//! `--evidence-root research/native` to record committed evidence.
 
 use std::collections::BTreeMap;
 use std::env;
@@ -29,7 +31,11 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use opendecision_backends::qwen35::{
-    run_strategy, BackboneReference, ExecutionStrategy, NestedQuestion, Qwen35Backbone,
+    choose_strategy, native_profile_record, run_strategy, BackboneReference, ExecutionStrategy,
+    NestedQuestion, Qwen35Backbone, SchedulerConfig, StrategyRequest,
+};
+use opendecision_runtime::evidence::{
+    generate_run_id, NativeRunWriter, RunEnvironment, SanitizedInvocation,
 };
 use opendecision_runtime::peak_resident_bytes;
 use serde::Deserialize;
@@ -63,13 +69,24 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut arguments = env::args_os().skip(1);
     let checkpoint_root = required_path(&mut arguments, "checkpoint-root")?;
     let reference_root = required_path(&mut arguments, "phase3b-reference-root")?;
-    let extra_reps: Option<usize> = arguments
-        .next()
-        .and_then(|value| value.to_string_lossy().into_owned().parse().ok());
-    if arguments.next().is_some() {
-        return Err(
-            "qwen35_scheduler_bench accepts two paths and an optional reps override".into(),
-        );
+    let mut extra_reps: Option<usize> = None;
+    let mut evidence_root = PathBuf::from("target/verification/native-runs");
+    while let Some(argument) = arguments.next() {
+        let text = argument.to_string_lossy().into_owned();
+        if text == "--evidence-root" {
+            let value = arguments
+                .next()
+                .ok_or_else(|| "missing --evidence-root value".to_string())?;
+            evidence_root = PathBuf::from(value);
+        } else if let Ok(reps) = text.parse::<usize>() {
+            extra_reps = Some(reps);
+        } else {
+            return Err(
+                "qwen35_scheduler_bench accepts two paths, an optional reps override, and \
+                 --evidence-root"
+                    .into(),
+            );
+        }
     }
 
     let peak_resident_before_load = peak_resident_bytes()?;
@@ -199,6 +216,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         })
         .collect();
 
+    let workload_rows = workload_results.clone();
     println!(
         "{}",
         serde_json::to_string_pretty(&serde_json::json!({
@@ -216,6 +234,72 @@ fn main() -> Result<(), Box<dyn Error>> {
             },
         }))?
     );
+
+    // Evidence: the harness executes every strategy explicitly, so the
+    // recorded decision is the pinned CPU policy's choice for the first
+    // semantic workload, annotated as such.
+    let representative = &workloads[0];
+    let scheduler = SchedulerConfig::for_pinned_profile(
+        SchedulerConfig::LOWEST_MEASURED_SHARED_SAVINGS_RATIO,
+        None,
+    );
+    let decision = choose_strategy(
+        &scheduler,
+        &StrategyRequest {
+            root_tokens: representative.root_ids.len(),
+            question_tokens: representative.question_ids.iter().map(Vec::len).collect(),
+            suffix_tokens: representative
+                .suffix_ids
+                .iter()
+                .map(|question| question.iter().map(Vec::len).collect())
+                .collect(),
+        },
+    );
+    let mut profile = native_profile_record(&scheduler, &decision);
+    profile.execution.scheduler = serde_json::json!({
+        "harness": "executes all three strategies explicitly per workload; the recorded \
+                    decision is the pinned CPU policy's choice for the first semantic workload",
+        "policy": profile.execution.scheduler,
+    });
+    let parity = serde_json::json!({
+        "schema": "opendecision-qwen35-scheduler-bench-parity/v1",
+        "oracle": "feature parity across strategies asserted per workload per repetition",
+        "workloads": workload_rows
+            .iter()
+            .map(|row| serde_json::json!({
+                "workload": row["workload"],
+                "feature_parity_across_strategies": row["feature_parity_across_strategies"],
+            }))
+            .collect::<Vec<_>>(),
+    });
+    let directory = NativeRunWriter::begin(
+        &evidence_root,
+        generate_run_id(),
+        SanitizedInvocation {
+            harness: "qwen35-scheduler-bench".to_owned(),
+            command: "qwen35_scheduler_bench".to_owned(),
+            parameters: serde_json::json!({
+                "workloads": workloads.iter().map(|w| w.name.clone()).collect::<Vec<_>>(),
+                "reps": workloads.iter().map(|w| w.reps).collect::<Vec<_>>(),
+                "strategies": ["repeated_full", "nested_sequential", "nested_batched"],
+            }),
+            raw_argv_recorded: false,
+        },
+        RunEnvironment::capture(),
+    )?
+    .profile(profile)
+    .parity(parity)
+    .performance(serde_json::json!({
+        "schema": "opendecision-qwen35-scheduler-bench/v1",
+        "q_amortization_case0_q3_vs_q1": amortization,
+        "workloads": workload_rows,
+    }))
+    .memory(serde_json::json!({
+        "peak_resident_before_model_load_bytes": peak_resident_before_load,
+        "peak_resident_after_bench_bytes": peak_resident_bytes()?,
+    }))
+    .finish()?;
+    eprintln!("evidence recorded: {}", directory.display());
     Ok(())
 }
 

@@ -26,7 +26,7 @@ pub(crate) fn validate_tensor(
     Ok(())
 }
 
-// `slice::as_chunks` is newer than the workspace's Rust 1.75 minimum.
+// Keep the chunks_exact form for compatibility with the workspace MSRV.
 #[allow(clippy::chunks_exact_to_as_chunks)]
 pub(crate) fn tensor_values(
     tensors: &SafeTensors<'_>,

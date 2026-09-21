@@ -9,7 +9,9 @@
 
 mod backbone;
 mod engine;
+mod evidence;
 mod head;
+mod identity;
 mod profile;
 mod tokenizer;
 
@@ -25,8 +27,10 @@ pub use backbone::{
     TraceStage,
 };
 pub use engine::{Qwen35DecisionEngine, Qwen35EngineConfig, SEMANTIC_NONE_OPTION};
+pub use evidence::{native_profile_record, BACKEND_IMPLEMENTATION};
 pub use head::{HeadEvaluation, PolicyAction, PrimitiveKind, ScoreSummaryHead, FEATURE_WIDTH};
-pub use profile::ReferenceBundle;
+pub use identity::ExecutionIdentity;
+pub use profile::{ReferenceBundle, DECLARED_PROBABILITY_SPACE};
 pub use tokenizer::{
     CandidateText, Qwen35Tokenizer, StateFirstSegments, MAX_CANDIDATES, MAX_SEQUENCE_TOKENS,
     STATE_FIRST_RENDERER_ID, TOKENIZER_BACKEND_SHA256, TOKENIZER_JSON_SHA256,

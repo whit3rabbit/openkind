@@ -56,8 +56,11 @@ It is responsible for:
   - [`persistence.rs`](./src/qwen35/backbone/persistence.rs): Atomic versioned pinned-state snapshot, envelope digest, identity/layout validation, and strict restored-content gate.
   - [`nested.rs`](./src/qwen35/backbone/nested.rs): Sequential nested execution (`run_sequential_nested`, `SequentialNestedExecutor`).
   - [`batched.rs`](./src/qwen35/backbone/batched.rs) & [`batched/types.rs`](./src/qwen35/backbone/batched/types.rs): Breadth-first batched question/candidate execution (`run_batched_questions`, `run_batched_candidates`, `run_batched_nested`).
-  - [`strategy.rs`](./src/qwen35/backbone/strategy.rs) & [`strategy/policy.rs`](./src/qwen35/backbone/strategy/policy.rs): Strategy dispatcher (`run_strategy`, `choose_strategy`, `SchedulerConfig`).
+  - [`strategy.rs`](./src/qwen35/backbone/strategy.rs) & [`strategy/policy.rs`](./src/qwen35/backbone/strategy/policy.rs): Strategy dispatcher (`run_strategy`, `choose_strategy`, `SchedulerConfig`). `SchedulerConfig::forced_strategy` overrides the plan for diagnostics — bypassing the savings-ratio and vectorized-preference policy only; tensor/process admission still fails closed. Every `StrategyDecision` carries the selected plan, its physical `BatchForwardMode`, and a `forced` flag.
   - [`reference.rs`](./src/qwen35/backbone/reference.rs): Golden vector validation for diagnostic stages.
+  - [`identity.rs`](./src/qwen35/identity.rs): `ExecutionIdentity` — profile/renderer/tokenizer/arithmetic identity plus the role-typed token digests of one finalized request (order-sensitive `execution_input_digest` is the reproducibility identity; `semantic_set_digest` is order-independent).
+  - [`evidence.rs`](./src/qwen35/evidence.rs): Maps the pinned profile, scheduler config, and one decision onto the backend-neutral `opendecision-native-run/v1` records from `opendecision-runtime::evidence`.
+  - [`engine.rs` state canonicalization](./src/qwen35/engine.rs): Structured wire state (`State::Object`/`State::Array`) renders through an explicit canonical serializer with byte-lexicographically sorted object keys at every nesting level; key construction order and the JSON map implementation cannot alter the model input. This is the `state_first` renderer's ordering semantics — no renderer-ID bump.
 
 ## Critical Gotchas & Rules
 

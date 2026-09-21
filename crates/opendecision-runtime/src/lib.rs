@@ -14,12 +14,25 @@
 
 /// Backend-neutral branchable continuation-state contracts.
 pub mod branch;
+/// Typed digests over finalized execution-input token sequences.
+pub mod digest;
+/// Backend-neutral native-run evidence artifacts.
+pub mod evidence;
 /// Backend capabilities and generic execution-plan vocabulary.
 pub mod execution;
 /// Process-memory observations for admission calibration.
 pub mod memory;
 
-pub use execution::{BackendCapabilities, ExecutionPlan};
+pub use digest::{
+    CandidateTokenDigest, ExecutionInputDigest, QuestionTokenDigest, SemanticSetDigest,
+    StateTokenDigest,
+};
+pub use evidence::{
+    generate_run_id, BackendRecord, ChecksumsRecord, EvidenceError, ExecutionRecord,
+    NativeRunWriter, ProfileRecord, RunEnvironment, RunRecord, SanitizedInvocation,
+    CHECKSUMS_SCHEMA, NATIVE_RUN_SCHEMA,
+};
+pub use execution::{BackendCapabilities, BatchForwardMode, ExecutionPlan};
 pub use memory::peak_resident_bytes;
 
 use std::fmt;

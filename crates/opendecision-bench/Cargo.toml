@@ -1,0 +1,25 @@
+[package]
+name = "opendecision-bench"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Offline scoring and timing benchmark harness for opendecision engines."
+
+[dependencies]
+opendecision-core = { workspace = true }
+opendecision-engine = { workspace = true }
+opendecision-backends = { workspace = true }
+opendecision-runtime = { workspace = true }
+anyhow = { workspace = true }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+tokio = { workspace = true }
+rand = "0.9"
+
+[[bin]]
+name = "opendecision-bench"
+path = "src/main.rs"

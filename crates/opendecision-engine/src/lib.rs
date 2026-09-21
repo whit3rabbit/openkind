@@ -38,7 +38,7 @@ pub use engine::DecisionEngine;
 pub use error::{EngineError, EngineResult};
 pub use mock::MockEngine;
 pub use profile::{
-    ArtifactIdentity, ExecutionSemantics, ModelExecutionProfile, ParityContract, ProfileSource,
-    ProfileValidationError,
+    ArtifactIdentity, ExecutionSemantics, ModelExecutionProfile, ParityContract, ProbabilitySpace,
+    ProfileSource, ProfileValidationError,
 };
 pub use registry::EngineRegistry;

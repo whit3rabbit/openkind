@@ -3,7 +3,8 @@ use std::fs;
 use std::path::Path;
 
 use opendecision_engine::{
-    ArtifactIdentity, ExecutionSemantics, ModelExecutionProfile, ParityContract, ProfileSource,
+    ArtifactIdentity, ExecutionSemantics, ModelExecutionProfile, ParityContract, ProbabilitySpace,
+    ProfileSource,
 };
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
@@ -21,6 +22,14 @@ const PROFILE_METHOD: &str = "frozen";
 const PROFILE_LAYOUT: &str = "state_first";
 const PROFILE_REJECTION: &str = "score_summary";
 const ARTIFACT_DIR: &str = "model";
+
+/// Probability space declared by the selected profile.
+///
+/// Single source of truth for the profile construction and the evidence
+/// mapping: the adapter's none-mass behavior and the recorded declaration can
+/// never drift apart.
+pub const DECLARED_PROBABILITY_SPACE: ProbabilitySpace =
+    ProbabilitySpace::OfferedOptionsPlusSemanticNone;
 
 const REQUIRED_MANIFEST_FILES: &[&str] = &[
     "HEAD_GRAPH.json",
@@ -101,6 +110,10 @@ impl ReferenceBundle {
             PROFILE_LAYOUT,
             format!("{ARTIFACT_DIR}/{HEAD_FILE}"),
             PROFILE_REJECTION,
+            // The selected profile's scores are probabilities over the offered
+            // options plus explicit semantic-none mass; the adapter reports
+            // none mass under `__none__` without discarding or renormalizing.
+            DECLARED_PROBABILITY_SPACE,
         )?;
         let parity = ParityContract::new(
             profile_json.calibration.selected,

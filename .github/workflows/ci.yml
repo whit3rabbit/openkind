@@ -29,3 +29,16 @@ jobs:
 
       - name: Run workspace tests
         run: env -u RUST_LOG cargo test --workspace
+
+  msrv:
+    name: MSRV Rust 1.88
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install workspace MSRV
+        uses: dtolnay/rust-toolchain@1.88.0
+
+      - name: Run locked all-features workspace tests
+        run: env -u RUST_LOG cargo test --workspace --all-features --locked

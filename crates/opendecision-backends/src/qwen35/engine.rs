@@ -9,14 +9,15 @@ use opendecision_core::{
     Answer, ChoiceAnswer, ModelInfo, NoulAnswer, Question, ScoreAnswer, State, SystemRequest,
     SystemResponse, Usage,
 };
-use opendecision_engine::{DecisionEngine, EngineError, EngineResult};
+use opendecision_engine::{DecisionEngine, EngineError, EngineResult, ProbabilitySpace};
 use opendecision_runtime::peak_resident_bytes;
 use tokio::sync::Semaphore;
 
 use super::backbone::NestedQuestion;
 use super::{
-    run_with_scheduler, CandidateText, PrimitiveKind, Qwen35Backbone, Qwen35Error, Qwen35Tokenizer,
-    ReferenceBundle, SchedulerConfig, ScoreSummaryHead,
+    choose_strategy, run_strategy, CandidateText, ExecutionIdentity, PrimitiveKind, Qwen35Backbone,
+    Qwen35Error, Qwen35Tokenizer, ReferenceBundle, SchedulerConfig, ScoreSummaryHead,
+    StrategyRequest,
 };
 
 /// Reserved Choice criteria key that explicitly exposes the model's semantic-none mass.
@@ -66,6 +67,22 @@ impl Qwen35DecisionEngine {
         let tokenizer = Qwen35Tokenizer::from_file(&config.tokenizer_path)?;
         let backbone = Qwen35Backbone::load(&config.checkpoint_root)?;
         let bundle = ReferenceBundle::load(&config.bundle_root)?;
+        // The adapter branches on the declared probability space: this native
+        // adapter implements exactly one, and a profile declaring any other
+        // space fails explicitly at load instead of silently discarding
+        // semantic-none mass or renormalizing the remainder.
+        match bundle.profile().execution().probability_space() {
+            ProbabilitySpace::OfferedOptionsPlusSemanticNone => {}
+            declared => {
+                return Err(Qwen35Error::ContractMismatch {
+                    field: "execution.probability_space",
+                    expected: ProbabilitySpace::OfferedOptionsPlusSemanticNone
+                        .as_str()
+                        .to_owned(),
+                    actual: declared.as_str().to_owned(),
+                });
+            }
+        }
         let concurrent = config.max_concurrent_requests.max(1);
         let admitted = concurrent.saturating_add(config.max_queued_requests);
         Ok(Self {
@@ -163,7 +180,7 @@ fn evaluate_request(
     inner: &EngineInner,
     request: SystemRequest,
 ) -> Result<SystemResponse, Qwen35Error> {
-    let state = state_text(&request.state)?;
+    let state = state_text(&request.state);
     let mut question_ids: Vec<_> = request.questions.keys().cloned().collect();
     question_ids.sort();
     let mut encoded = Vec::with_capacity(question_ids.len());
@@ -239,7 +256,71 @@ fn evaluate_request(
                 .for_concurrent_requests(peak_resident_bytes()?, inner.max_concurrent_requests),
         );
     }
-    let (_, output) = run_with_scheduler(&inner.backbone, &scheduler, &root_ids, &plans)?;
+    // Choose explicitly (rather than through `run_with_scheduler`) so the
+    // decision itself is telemetered on both the admitted and rejected paths.
+    let strategy_request = StrategyRequest::from_plans(root_ids.len(), &plans);
+    let decision = choose_strategy(&scheduler, &strategy_request);
+    if !decision.admitted {
+        metrics::counter!(
+            "opendecision_execution_admission_rejected_total",
+            "strategy" => decision.strategy.as_str(),
+        )
+        .increment(1);
+        tracing::warn!(
+            strategy = decision.strategy.as_str(),
+            forced = decision.forced,
+            rationale = %decision.rationale,
+            "execution plan rejected by admission ceilings"
+        );
+        return Err(Qwen35Error::InvalidInput(decision.rationale));
+    }
+    metrics::counter!(
+        "opendecision_execution_strategy_total",
+        "strategy" => decision.strategy.as_str(),
+        "batch_forward_mode" => decision.batch_forward_mode.as_str(),
+        "forced" => if decision.forced { "true" } else { "false" },
+    )
+    .increment(1);
+    tracing::info!(
+        strategy = decision.strategy.as_str(),
+        batch_forward_mode = decision.batch_forward_mode.as_str(),
+        admitted = decision.admitted,
+        forced = decision.forced,
+        "execution strategy selected"
+    );
+    tracing::debug!(
+        rationale = %decision.rationale,
+        savings_ratio = decision.estimates.savings_ratio,
+        repeated_tokens = decision.estimates.repeated_tokens,
+        shared_tokens = decision.estimates.shared_tokens,
+        "scheduler decision detail"
+    );
+    // Token-level execution identity. Debug-level only: raw digests of
+    // low-entropy inputs can be guessed offline, so they stay out of default
+    // production logs and go to offline evidence artifacts instead.
+    let identity_questions: Vec<(&[u32], &[&[u32]])> = encoded
+        .iter()
+        .zip(&suffix_refs)
+        .map(|(question, candidates)| (question.question_ids.as_slice(), candidates.as_slice()))
+        .collect();
+    let identity = ExecutionIdentity::compute(
+        &root_ids,
+        &identity_questions,
+        decision.strategy,
+        decision.batch_forward_mode,
+        decision.forced,
+    );
+    tracing::debug!(
+        profile = %identity.profile_id,
+        backend = %identity.arithmetic_id,
+        strategy = %identity.execution_plan,
+        batch_forward_mode = %identity.batch_forward_mode,
+        execution_input_digest = %identity.execution_input_digest,
+        state_token_digest = %identity.state_token_digest,
+        semantic_set_digest = %identity.semantic_set_digest,
+        "execution input identity"
+    );
+    let output = run_strategy(&inner.backbone, decision.strategy, &root_ids, &plans)?;
 
     let mut answers = HashMap::with_capacity(encoded.len());
     for (question, features) in encoded.iter().zip(output.question_features()) {
@@ -390,13 +471,61 @@ fn distribution_confidence(probabilities: &[f64]) -> f64 {
     (1.0 - entropy / (probabilities.len() as f64).ln()).clamp(0.0, 1.0)
 }
 
-fn state_text(state: &State) -> Result<String, Qwen35Error> {
+/// Render wire state to the renderer's state text.
+///
+/// Structured state is canonicalized by [`canonical_object_text`] /
+/// [`canonical_array_text`] so the rendered state — and therefore the model's
+/// input tokens and every digest derived from them — depends only on the
+/// semantic content of the state, never on key construction order or the
+/// serializer's map implementation. This formalizes the output the renderer
+/// has always produced and is part of the `state_first` renderer's ordering
+/// semantics, not a new renderer contract.
+fn state_text(state: &State) -> String {
     match state {
-        State::Text(text) => Ok(text.clone()),
-        State::Object(value) => serde_json::to_string(value),
-        State::Array(value) => serde_json::to_string(value),
+        State::Text(text) => text.clone(),
+        State::Object(map) => canonical_object_text(map),
+        State::Array(items) => canonical_array_text(items),
     }
-    .map_err(|error| Qwen35Error::Tokenizer(format!("state serialization failed: {error}")))
+}
+
+/// Recursively rebuild one JSON value with every object's keys sorted.
+///
+/// Sorting is byte-lexicographic over the UTF-8 key bytes (`str` ordering).
+/// Arrays keep their order — order is semantic in arrays — and scalars are
+/// carried through unchanged, so number formatting stays the serializer's
+/// stable shortest-round-trip form.
+fn canonical_value(value: &serde_json::Value) -> serde_json::Value {
+    match value {
+        serde_json::Value::Object(map) => serde_json::Value::Object(canonical_object(map)),
+        serde_json::Value::Array(items) => {
+            serde_json::Value::Array(items.iter().map(canonical_value).collect())
+        }
+        scalar => scalar.clone(),
+    }
+}
+
+fn canonical_object(
+    map: &serde_json::Map<String, serde_json::Value>,
+) -> serde_json::Map<String, serde_json::Value> {
+    let mut keys: Vec<&str> = map.keys().map(String::as_str).collect();
+    keys.sort_unstable();
+    let mut sorted = serde_json::Map::with_capacity(map.len());
+    for key in keys {
+        sorted.insert(key.to_owned(), canonical_value(&map[key]));
+    }
+    sorted
+}
+
+/// Canonical compact JSON text for one structured-state object.
+fn canonical_object_text(map: &serde_json::Map<String, serde_json::Value>) -> String {
+    serde_json::to_string(&serde_json::Value::Object(canonical_object(map)))
+        .expect("compact JSON serialization of a Value is infallible")
+}
+
+/// Canonical compact JSON text for one structured-state array.
+fn canonical_array_text(items: &[serde_json::Value]) -> String {
+    let canonical: Vec<serde_json::Value> = items.iter().map(canonical_value).collect();
+    serde_json::to_string(&canonical).expect("compact JSON serialization of a Value is infallible")
 }
 
 fn instruction_text(question: &Question) -> Result<String, Qwen35Error> {
@@ -470,6 +599,92 @@ mod tests {
         assert!(uniform.abs() <= f64::EPSILON);
         assert!(peaked > 0.9);
         assert_ne!(peaked, 0.99);
+    }
+
+    #[test]
+    fn structured_state_text_passes_text_through_verbatim() {
+        assert_eq!(state_text(&State::Text("raw".into())), "raw");
+        assert_eq!(state_text(&State::Text(String::new())), "");
+    }
+
+    #[test]
+    fn structured_state_text_is_canonical_with_sorted_keys() {
+        let object = |value: serde_json::Value| State::Object(value.as_object().cloned().unwrap());
+        let array = |value: serde_json::Value| State::Array(value.as_array().cloned().unwrap());
+
+        // Keys sorted at every nesting level; empty containers and null are
+        // preserved.
+        assert_eq!(
+            state_text(&object(serde_json::json!({"b": 1, "a": {"y": 2, "x": 3}}))),
+            r#"{"a":{"x":3,"y":2},"b":1}"#
+        );
+        assert_eq!(state_text(&object(serde_json::json!({}))), "{}");
+        assert_eq!(state_text(&array(serde_json::json!([]))), "[]");
+        assert_eq!(
+            state_text(&object(serde_json::json!({"n": null}))),
+            r#"{"n":null}"#
+        );
+
+        // Array order is semantic and never sorted.
+        assert_eq!(
+            state_text(&array(serde_json::json!([3, 1, {"b": 1, "a": 2}]))),
+            r#"[3,1,{"a":2,"b":1}]"#
+        );
+
+        // Byte-lexicographic key ordering: multi-byte UTF-8 keys sort after
+        // ASCII keys regardless of code-point or collation expectations.
+        assert_eq!(
+            state_text(&object(
+                serde_json::json!({"unicode_é": "café", "unicode_z": "zürich"})
+            )),
+            "{\"unicode_z\":\"zürich\",\"unicode_é\":\"café\"}"
+        );
+
+        // Number forms are carried through unchanged: integers stay integers
+        // (i64 boundaries) and floats keep the serializer's stable
+        // shortest-round-trip form, including -0.0 and denormal/extreme
+        // magnitudes.
+        assert_eq!(
+            state_text(&object(serde_json::json!({"i": 9223372036854775807i64}))),
+            r#"{"i":9223372036854775807}"#
+        );
+        assert_eq!(
+            state_text(&object(serde_json::json!({"z": -0.0}))),
+            r#"{"z":-0.0}"#
+        );
+        assert_eq!(
+            state_text(&object(
+                serde_json::json!({"t": 1e-308, "h": 1.7976931348623157e308})
+            )),
+            r#"{"h":1.7976931348623157e+308,"t":1e-308}"#
+        );
+    }
+
+    #[test]
+    fn structured_state_canonicalization_formalizes_existing_bytes() {
+        // The canonical form is byte-identical to what compact serialization
+        // of the same value already produced (serde_json's default map sorts
+        // keys), so this pins formalization rather than a renderer change.
+        let complex = serde_json::json!({
+            "z": [1, {"q": null, "b": [[], {}]}, 2.5],
+            "a": {"deep": {"beta": -0.0, "alpha": "α"}},
+            "m": "café"
+        });
+        let direct = serde_json::to_string(&complex).expect("direct serialization");
+        let canonical = state_text(&State::Object(complex.as_object().cloned().unwrap()));
+        assert_eq!(canonical, direct);
+
+        // Key construction order cannot change the canonical text.
+        let mut first = serde_json::Map::new();
+        first.insert("alpha".into(), serde_json::json!(1));
+        first.insert("beta".into(), serde_json::json!(2));
+        let mut second = serde_json::Map::new();
+        second.insert("beta".into(), serde_json::json!(2));
+        second.insert("alpha".into(), serde_json::json!(1));
+        assert_eq!(
+            state_text(&State::Object(first)),
+            state_text(&State::Object(second))
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
