@@ -138,3 +138,12 @@ git diff --check
 ```
 
 After schema generation, confirm that unrelated schema files did not change.
+
+Optional MLX parity backend (macOS arm64 only): build with
+`SDKROOT=$(xcrun --show-sdk-path)` and `--features mlx` for
+`opendecision-backends`. Clippy and tests should also be run in that
+configuration on the Mac. The mlx-sys build compiles the vendored, pinned
+mlx-c (MLX 0.32.2) and needs CMake plus the Metal toolchain
+(`xcodebuild -downloadComponent MetalToolchain` if missing). Rebuilding
+mlx-c under a different Xcode/Metal toolchain changes the runtime identity:
+re-run the 3M.0 qualification gate before trusting any MLX parity result.

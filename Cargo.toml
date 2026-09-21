@@ -17,6 +17,8 @@ members = [
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
+# Raised from 1.75 for the optional Phase 3M MLX/Metal backend: mlx-rs 0.32.0
+# (pinned in the Phase 3M dependency block below) requires 1.88.
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/whit3rabbit/opendecision"
@@ -86,6 +88,14 @@ fastrand = "2"
 # Phase 3 correctness-first native CPU backbone.
 candle-core = "=0.8.0"
 candle-nn = "=0.8.0"
+
+# Phase 3M MLX/Metal parity backend (optional, macOS arm64 only). The versions
+# track Apple's MLX release line; the exact pins keep the vendored mlx-c build
+# and the Rust API surface reproducible. mlx-sys 0.6.0 vendors mlx-c
+# v0.6.0-7-gc74db53 (MLX core 0.32.2); `half` mirrors mlx-rs's bfloat16 type.
+mlx-rs = "=0.32.0"
+mlx-sys = "=0.6.0"
+half = "2"
 dashmap = "6"
 parking_lot = "0.12"
 libc = "0.2"

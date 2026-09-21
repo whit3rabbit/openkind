@@ -14,9 +14,9 @@ pub(super) const MODEL_INDEX_FILE: &str = "model.safetensors.index.json";
 pub(super) const EMBEDDING_TENSOR: &str = "model.language_model.embed_tokens.weight";
 pub(super) const EMBEDDING_SHARD: &str = "model.safetensors-00001-of-00002.safetensors";
 pub(super) const DECODER_SHARD: &str = "model.safetensors-00002-of-00002.safetensors";
-pub(super) const CONFIG_SHA256: &str =
+pub(crate) const CONFIG_SHA256: &str =
     "ddc63e1c717afa86c865bb5e01313d89d72bb53b97ad4a8a03ba8510c0621670";
-pub(super) const MODEL_INDEX_SHA256: &str =
+pub(crate) const MODEL_INDEX_SHA256: &str =
     "eae340074abb0a5f31a6621f7ae8e8248a7c1790df04a722c4e4b70c2a6d1dbb";
 pub(super) const EMBEDDING_SHARD_SHA256: &str =
     "df547074dce70532a0493e5433152bd17a65efb89088cfabc2e7e2371a93d712";
@@ -198,12 +198,29 @@ impl Qwen35Embedding {
         }
     }
 
-    pub(super) fn verified_shard_path(&self) -> &Path {
+    /// Construct an embedding reader after another checkpoint adapter has
+    /// verified the shard and the embedding tensor layout.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    pub(crate) fn from_verified_parts(
+        shard_path: PathBuf,
+        tensor_data_start: u64,
+        vocab_size: usize,
+        hidden_size: usize,
+    ) -> Self {
+        Self {
+            shard_path,
+            tensor_data_start,
+            vocab_size,
+            hidden_size,
+        }
+    }
+
+    pub(crate) fn verified_shard_path(&self) -> &Path {
         &self.shard_path
     }
 }
 
-pub(super) fn verify_decoder_shard(checkpoint_root: &Path) -> Result<PathBuf, Qwen35Error> {
+pub(crate) fn verify_decoder_shard(checkpoint_root: &Path) -> Result<PathBuf, Qwen35Error> {
     let shard_path = checkpoint_root.join(DECODER_SHARD);
     let file_size = file_len(&shard_path)?;
     if file_size != DECODER_SHARD_BYTES {

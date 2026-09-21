@@ -12,6 +12,9 @@ mod engine;
 mod evidence;
 mod head;
 mod identity;
+/// Phase 3M MLX/Metal parity backend (available on macOS arm64 with feature `mlx`).
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub mod mlx;
 mod profile;
 mod tokenizer;
 
@@ -72,6 +75,12 @@ pub const ORDERING_TOLERANCE: f64 = 0.000_01;
 /// instead of silently mixed.
 pub const EXECUTION_ARITHMETIC_ID: &str = "candle-cpu-fp32";
 
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub use mlx::{
+    MLX_ARITHMETIC_ID_BF16_REFERENCE, MLX_ARITHMETIC_ID_FP32_REFERENCE, MLX_C_RELEASE,
+    MLX_LM_REFERENCE_COMMIT, MLX_RS_VERSION,
+};
+
 const MANIFEST_SHA256: &str = "dd42289e525d82a1ab8d55efd3843970e6c31a23059512a2c7e4ee7ca6459f78";
 
 /// Errors raised while loading or evaluating the selected Qwen3.5 profile.
@@ -106,6 +115,11 @@ pub enum Qwen35Error {
     /// Native tensor execution failed.
     #[error("native Qwen tensor execution failed: {0}")]
     Candle(#[from] candle_core::Error),
+
+    /// MLX parity-backend execution failed (feature `mlx`, macOS arm64).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[error("MLX execution failed: {0}")]
+    Mlx(#[from] mlx::MlxError),
 
     /// The operating system could not provide process-memory evidence.
     #[error("failed to observe native process memory: {0}")]
