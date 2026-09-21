@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 
 use crate::inspect::MAX_CLI_INPUT_BYTES;
 
+/// Asynchronously evaluates a decision request against a remote opendecision server.
 pub async fn cmd_evaluate_async(
     file: PathBuf,
     server: String,
@@ -79,6 +80,7 @@ pub async fn cmd_evaluate_async(
     Ok(())
 }
 
+/// Synchronous entrypoint for the `evaluate` CLI subcommand, executing within a fresh Tokio runtime.
 pub fn cmd_evaluate(
     file: PathBuf,
     server: String,

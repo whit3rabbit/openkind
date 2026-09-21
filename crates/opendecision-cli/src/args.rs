@@ -2,16 +2,19 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 
+/// Top-level command-line argument parser for the `opendecision` CLI.
 #[derive(Parser, Debug)]
 #[command(
     name = "opendecision",
     about = "opendecision — Jev-compatible decision inference CLI"
 )]
 pub struct Cli {
+    /// Subcommand to execute.
     #[command(subcommand)]
     pub command: Commands,
 }
 
+/// Subcommands supported by the `opendecision` CLI.
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// Validate a request JSON file against the opendecision schema.

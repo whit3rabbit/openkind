@@ -28,6 +28,11 @@ Methodology, timing scope, and recorded results are owned by
 4. **f64 on Reports**: All probabilities and timings serialized into summaries and
    predictions are `f64` (workspace wire-precision rule applies to benchmark evidence
    the same way).
+5. **MLX Boundary**: `opendecision-bench` currently drives `MockEngine` and the
+   native Candle `Qwen35DecisionEngine`; it does not dispatch the optional MLX
+   backend. Real MLX checkpoint comparisons use the parity examples documented in
+   [`opendecision-backends/AGENTS.md`](../opendecision-backends/AGENTS.md), and their
+   load-inclusive timings are not `opendecision-bench` warm-process throughput.
 
 ## Key Files & Types
 
@@ -75,3 +80,7 @@ cargo run --release -p opendecision-bench -- score <workload.jsonl> \
   --engine qwen35 --bundle-root <dir> --checkpoint-root <dir> --tokenizer <json> \
   --host "<host label>" --commit <hash>
 ```
+
+Use the opt-in download commands in the repository
+[`README.md`](../../README.md) to obtain the pinned local checkpoint. Do not add
+model downloads to this harness or to its tests.

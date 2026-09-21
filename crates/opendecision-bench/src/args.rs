@@ -16,6 +16,7 @@ pub struct Cli {
     pub command: Commands,
 }
 
+/// Subcommands supported by the `opendecision-bench` benchmark harness CLI.
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// Generate a seeded deterministic state × criterion workload JSONL.
