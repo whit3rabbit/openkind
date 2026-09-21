@@ -149,6 +149,12 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
    re-run `qwen35_mlx_qualify` (3M.0) before trusting any MLX gate after a
    toolchain change; bf16 is a separately gated candidate profile and must
    never be treated as a default-equivalent of the FP32 oracle.
+10. **Confine Execution Identity Digests to Offline Evidence**:
+    Do not emit raw token digests (`execution_input_digest`, `state_token_digest`, `semantic_set_digest`) in daemon telemetry or debug tracing during runtime evaluation. Raw digests of low-entropy inputs can be guessed offline. Reserve them strictly for explicit offline evidence generation.
+11. **Complete Candidate Retention in Memory Estimation**:
+    When calculating retention in the execution strategy scheduler, account for all candidate states retained by the chosen strategy. In particular, `repeated_full` retains all candidate states across all questions in its `StrategyOutput`. Always use saturating arithmetic when computing total retained bytes to avoid overflow.
+12. **In-Place Checkpoint Verification**:
+    Safetensors shards must be verified in-place on their read-only filesystem paths. Never copy or stage multi-gigabyte model weights to `/tmp` or ephemeral directories during model loading or inference.
 
 ## Verification Commands
 

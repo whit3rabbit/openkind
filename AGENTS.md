@@ -53,7 +53,7 @@ Profile `a047d6802c3f06f085b8` is the native integration target:
 - **Execution Identity**: Finalized token sequences are the execution contract. Role-typed digests
   (`StateTokenDigest`, `QuestionTokenDigest`, `CandidateTokenDigest`, an order-sensitive
   `ExecutionInputDigest`, and an order-independent `SemanticSetDigest`) live in `opendecision-runtime`
-  and are emitted at debug level only (raw digests of low-entropy inputs must stay out of default logs).
+  and are reserved for explicitly requested offline evidence artifacts (raw digests of low-entropy inputs must stay out of daemon logs).
 - **Native-Run Evidence**: Harness evidence uses the backend-neutral `opendecision-native-run/v1`
   schema (`opendecision-runtime::evidence`): sanitized invocation (never raw argv), environment,
   profile/backend/execution identity, parity/performance/memory reports, and per-file checksums.
@@ -106,6 +106,18 @@ high-K, fresh-process replay, and queue-inclusive load/soak remain open.
 5. **Semantic None in Choice**:
    Native Choice questions must explicitly include a non-empty `__none__` option in criteria to reserve
    and report semantic-none probability mass on the wire.
+6. **No Token or Request Digests in Daemon Logs**:
+   Role-typed token digests (`ExecutionInputDigest`, `StateTokenDigest`, `SemanticSetDigest`) are strictly reserved
+   for explicitly requested offline evidence artifacts. They must NEVER be emitted in daemon telemetry or debug logs,
+   as low-entropy inputs can be guessed offline from raw digests.
+7. **Complete Strategy Memory Retention Accounting**:
+   Admission ceilings and scheduler memory estimations must account for the full retained state footprint of the strategy.
+   `repeated_full` retains one state per candidate; its tensor memory estimate must sum all candidate states across all
+   questions using saturating arithmetic to prevent integer wraparound.
+8. **In-Place Read-Only Checkpoint Verification**:
+   Model checkpoint shards are multi-gigabyte files (up to 4 GB+ per shard). They must be verified in-place on the
+   read-only checkpoint directory and mmapped directly. Never copy or stage checkpoint shards to `/tmp` or ephemeral
+   directories during model load.
 
 ## Non-Negotiable Invariants
 
