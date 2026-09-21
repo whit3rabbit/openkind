@@ -198,13 +198,35 @@ fn choose_strategy_falls_back_through_the_memory_ceiling() {
     );
     assert_eq!(constrained.strategy, ExecutionStrategy::NestedSequential);
 
-    // A ceiling below every shared estimate falls back to the transient
-    // full-sequence path.
+    // A ceiling below every estimate reports repeated-full as the last-resort
+    // strategy but rejects the request.
     let tight = choose_strategy(
         &SchedulerConfig::for_pinned_profile(1.5, Some(1_000)),
         &request,
     );
     assert_eq!(tight.strategy, ExecutionStrategy::RepeatedFull);
+    assert!(!tight.admitted);
+}
+
+#[test]
+fn repeated_full_admission_accounts_for_every_retained_candidate_state() {
+    let request = StrategyRequest {
+        root_tokens: 149,
+        question_tokens: vec![5; 64],
+        suffix_tokens: vec![vec![17, 17]; 64],
+    };
+    let per_candidate_bytes = 53_477_376 + 65_536 * (149 + 5 + 17);
+    let expected_retained_bytes = per_candidate_bytes * 128;
+    let config = SchedulerConfig::for_pinned_profile(1.5, Some(80 * 1024 * 1024));
+
+    let decision = choose_strategy(&config, &request);
+
+    assert_eq!(
+        decision.retention.repeated_full_tensor_bytes,
+        expected_retained_bytes
+    );
+    assert_eq!(decision.strategy, ExecutionStrategy::RepeatedFull);
+    assert!(!decision.admitted);
 }
 
 #[test]
