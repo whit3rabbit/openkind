@@ -51,6 +51,7 @@ The architecture document distinguishes implemented/reported repository behavior
 - **Phase 3A (Python reference):** run `20260920T024056Z` completed notebook scope with the selected profile unchanged; semantic batched parity passed, high-K parity passed, and the recorded same-process repeatability delta was zero. The run is systems/reference evidence, not Rust/Metal parity or release certification.
 - **Phase 3B (Python reference):** run `20260920T152206Z` completed notebook scope with no training, model selection, model modification, or bundle change. It exports 4 token records and 47 FP32 vectors for layer, candidate, and continuation localization. Its hidden-vector deltas are diagnostics, not Rust acceptance tolerances.
 - **Phase 3 (Rust/native):** head/probability, exact tokenizer/state-first token, full CPU decoder/final-normalization, Qwen-specific cached-continuation, backend-neutral branch-state, sequential nested execution, batched Q/K, and the measured adaptive scheduler pass against the frozen fixtures. State/scheduler high-K stress, bounded model-backed K=32/64/128/255 execution, process-peak admission, tenant-isolated cache semantics, structural fresh-process replay, direct service registration, explicit semantic-none mapping, and native service lifecycle smoke are recorded. Full restored head/probability/argmax/policy replay, practical high-K latency, Metal, production load/soak, and release promotion remain open.
+- **Phase 3M (MLX parity backend):** the pinned real-checkpoint FP32 path passes on the named Mac, including runtime qualification, streamed digest-verified loading, bit-exact embedding, the 34-stage trace, frozen full-sequence parity, and sequential-nested continuation parity. The explicit adapter for `mlx-community/Qwen3.5-4B-MLX-bf16` also loads and executes, but its full FP32 run fails frozen-reference parity with probability error `0.9999983`, four argmax changes, and three policy changes. The BF16 runtime primitives qualify, but the model-backed candidate remains open: full-sequence probability delta is just above tolerance and nested continuation rejects a layer-4 cache after the first full-attention block. The fused Gated-DeltaNet Metal kernel, vectorized batch forward, memory stress, and service registration remain open. Current dirty-tree evidence: [`docs/verification/phase3m-2026-09-21-working-tree.md`](verification/phase3m-2026-09-21-working-tree.md); the 20 September files are historical first-pass evidence.
 
 The roadmap is the task/status authority; the whitepaper is the evidence/interpretation authority. This file defines the intended software and execution architecture.
 
@@ -191,7 +192,27 @@ The runtime must not assume that reusable model state is an ordinary Transformer
 
 ### `opendecision-backends`
 
-Contains only backends that can satisfy the selected profile's required capabilities. Candle now supplies the correctness-first CPU tensor path. Candle Metal, GGUF/llama.cpp, ONNX, MLX-backed bridges, or other production implementations remain candidates, not promises.
+Contains only backends that can satisfy the selected profile's required capabilities. Candle supplies the correctness-first CPU tensor path and remains the correctness oracle. The first additional backend is the feature-gated MLX/Metal **parity** backend (Phase 3M, `--features mlx` on macOS arm64): pinned `mlx-rs`/vendored mlx-c driven by the same Rust Qwen3.5 layer semantics, executing the per-token `ReferenceOps` recurrent path — not yet a fused-kernel or vectorized execution engine. Candle Metal, GGUF/llama.cpp, ONNX, and other production implementations remain candidates, not promises.
+
+The MLX parity loader targets the original pinned
+`Qwen/Qwen3.5-4B-Base` Transformers/Safetensors layout, including its two
+digest-verified shard names and FP32 `A_log`/`linear_attn.norm.weight` tensors.
+It also has an explicit adapter for the verified
+`mlx-community/Qwen3.5-4B-MLX-bf16` export. The adapter validates the
+community config, tokenizer, index, shard sizes and hashes, skips the standard
+safetensors `__metadata__` entry, maps `language_model.model.*` text keys and
+`vision_tower.*` vision keys to the backend namespace, and accepts the
+community `[C, K, 1]` convolution singleton-axis layout alongside the pinned
+`[C, 1, K]` layout. The community index omits the 15 unused `mtp.*` tensors
+and stores `linear_attn.norm.weight` as BF16. The adapter records a distinct
+backbone/checkpoint identity, so continuation states cannot mix across these
+artifacts. This is load/execute compatibility only: the tested community
+export fails the frozen model-parity gates and is not a replacement for the
+pinned reference. The community model card identifies its source as
+`Qwen/Qwen3.5-4B` converted through an `mlx-vlm` fix branch, while the frozen
+target is `Qwen/Qwen3.5-4B-Base`; this source-model difference explains why
+loading compatibility does not imply parity. Quantized MLX-community exports
+are separate profiles, not alternate files for this backend.
 
 A backend is promotable only if it can reproduce the required tokenizer/rendering and hidden-state path and expose enough control over continuation state to support the selected profile's parity ladder. If a backend cannot expose recurrent/convolution state or the required hidden representations, it must report the unsupported capability rather than silently substitute a different decision function.
 
@@ -570,7 +591,9 @@ The exported selected bundle is the model/probability reference contract. Phase 
 10. **Repeatability/persistence contract, implementation complete but checkpoint evidence open:** exact same-process state replay is pinned by parity tests. `BranchStateCache` adds tenant isolation, TTL, tensor-byte LRU eviction, and strict `ContentFingerprint` keys. `BackboneState::persist_pinned`/`restore_pinned` add an atomic, versioned, envelope-digested snapshot with pinned execution identity, exact layout validation, fresh process-local lineage, and strict restored-content verification. The two-invocation `persist-save`/`persist-replay` probe defines the fresh-process model gate; its named-machine run remains open.
 11. **Direct service adapter, implemented but not production-promoted:** `Qwen35DecisionEngine` loads artifacts offline, registers through `EngineRegistry`, preserves explicit semantic-none mass, and bounds concurrent/queued requests. Cancellation after blocking execution begins, recovery, load shedding telemetry, and soak/load tests remain open.
 
-A change to model, tokenizer, renderer, adapter, head, rejection, calibration, precision, kernels, batching, cache/state representation, or policy triggers the relevant equivalence or new-model review. “Same checkpoint” alone is not sufficient identity.
+A change to model, tokenizer, renderer, adapter, head, rejection, calibration, precision, kernels, batching, cache/state representation, or policy triggers the relevant equivalence or new-model review.
+
+The MLX parity backend (Phase 3M) climbs the same ladder against the same frozen fixtures rather than a new one: runtime qualification of the linked MLX build (toolchain identity is part of the numerical function), bit-exact embedding, the 34-stage trace as diagnostics, then the identical probability/argmax/policy and nested-continuation gates. The real-checkpoint FP32 path passes those gates. Native BF16 remains a separately gated candidate profile, never a default-equivalent of the FP32 oracle: the current full path is just outside the probability tolerance, and the nested path fails state validation at layer 4 after the first full-attention block. The causal attention mask is currently materialized as FP32, which is the leading implementation suspect for BF16 promotion into the following continuation state. “Same checkpoint” alone is not sufficient identity.
 
 ---
 

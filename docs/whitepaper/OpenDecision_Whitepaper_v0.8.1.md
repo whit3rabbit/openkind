@@ -1,6 +1,8 @@
 # OpenDecision
 ## A Qwen-led path to compact, multi-question decision models
 
+**Document version:** 0.8.1 (21 September 2026)
+
 ### Abstract
 OpenDecision treats decision inference as a scoring protocol rather than a text-generation task. A frozen Qwen3.5-4B-Base backbone produces features; small trained heads convert those features into typed answers and probability distributions. Completed Phases 2B–2G establish useful NLI and dynamic-candidate behavior, important rejection limits, and a strict-FP32 execution reference. Lossless prefix reuse and bounded FP16 attention-KV storage pass the reported sampled gates; four tested low-bit snapshot codecs do not. TF32-permitted batching offers a measured speed opportunity without full equivalence.
 
@@ -36,19 +38,23 @@ These values are Python self-consistency diagnostics under the notebook's `1e-4`
 
 **Version 0.8.0 scope: Native CPU reference engine through safe adaptive scheduling and direct registration.** This architectural milestone consolidates Phases 3.1–3.8 (RUST1–RUST7), then closes the review issues recorded in RUST8. RUST9 adds a clean, commit-stamped rerun of the complete workspace, native parity ladder, scheduler stress, and warm-process benchmark. RUST10 adds the named-Mac native follow-up campaign: bounded model-backed K=32/64/128/255 completion and memory stability, structural fresh-process persistence replay, native service lifecycle smoke, and the Rust 1.88 workspace floor. Full restored candidate-feature/decision replay, practical high-K latency, vectorized kernels, Metal, and production load/soak remain open. [E11–E13; RUST1–RUST10]
 
+**Version 0.8.1 scope: Phase 4A natural-document benchmark and non-final StateQuery results.** Phase 4A.0 locks a two-source corpus with 2,192 states, 15,368 questions, 25,687 options, 21,894 evidence rows, and 18 criteria before model predictions. Phase 4A.1's original B1 StateQuery checkpoint improves the historical candidate-conditioned reference on source-macro accuracy and proper-scoring metrics, but collapses QASPER semantic-none recall to 0.0 and yields negligible policy coverage. Phase 4A.2's completed matched B0 control reproduces the QASPER collapse and trails the original B1 on the source-macro comparison. A balanced B1 rerun is recorded only as an in-progress epoch-11 development checkpoint at the evidence cutoff; it remains below the QASPER none-recall floor and has no completed training or non-final evaluation report. No Phase 4A final label or prediction was opened, no promotion gate is satisfied, and no model is promoted in this revision. [E14; E15]
+
 **Version 0.6.1 scope.** This update uses the latest delivered v0.6 paper and roadmap as its editing bases, not the older v0.3 paper or pre-H roadmap also present in the conversation. It adds the first `2ij.1.0` workbench report, whose overall status is **blocked**: preparation and a Qwen4B/L4 synthetic feature-equivalence probe completed, but independent review and the selection contract are not approved. All historical B–G/H measurement tables and 2H closeout remain unchanged.
 
 Section 14 separates the probe from semantic quality, records a duplicate-question fixture mislabeled as unrelated-question addition, and identifies the exact review/target/manifest blockers. V3 checks saved records and source code without running the notebook or reading final-case annotations. No review is signed, no model is retrained and no Drive source is changed. [E10; I0; V3]
 
 **Evidence boundary.** E8 remains the unchanged failed `2h.1.1` attempt and fitting/development source. E9 is the completed continuation with final predictions and an artifact lock; it supersedes the old final-pending status without rewriting the original failure. Completion is separate from numerical acceptance, task generality and deployment readiness. The earlier revision scopes remain in the source and revision registers. [E8; E9]
 
-**Operational plan:** the synchronized [roadmap](../ROADMAP.md) keeps 2H-C1–C5 closed and preserves the blocked `2ij.1.0` review-gated checkpoint. E11 supplies the exploratory model-selection authority, E12 supplies the Python branch/batch reference, and E13 supplies the layer-localized backbone handoff. RUST1–RUST7 close the deterministic head, exact-token, correctness-first CPU backbone, Qwen-specific continuation, backend-neutral `BranchableState`, sequential nested execution, batched Q/K, and measured adaptive-scheduler gates against `a047d6802c3f06f085b8`; RUST8 implements high-cardinality admission, cache/snapshot persistence contracts, and direct service registration; RUST9 supplies the commit-stamped verification rerun; RUST10 records bounded model-backed high-K stress, structural fresh-process replay, and native service lifecycle smoke. Full restored head/decision replay, practical high-K latency, and production service load/soak are next; CPU native parity does not imply Metal or accelerated parity. Independent review, natural-data confirmation, and explicit release-quality/resource limits remain promotion gates rather than prerequisites for the port. If later native Mac profiling cannot determine stable execution-strategy thresholds, Phase 3A.1 should create a dedicated scheduler/crossover notebook. [E9–E13; RUST1–RUST10; P21; P22; recommendation]
+**Operational plan:** the synchronized [roadmap](../ROADMAP.md) keeps 2H-C1–C5 closed and preserves the blocked `2ij.1.0` review-gated checkpoint. E11 supplies the exploratory model-selection authority, E12 supplies the Python branch/batch reference, and E13 supplies the layer-localized backbone handoff. RUST1–RUST7 close the deterministic head, exact-token, correctness-first CPU backbone, Qwen-specific continuation, backend-neutral `BranchableState`, sequential nested execution, batched Q/K, and measured adaptive-scheduler gates against `a047d6802c3f06f085b8`; RUST8 implements high-cardinality admission, cache/snapshot persistence contracts, and direct service registration; RUST9 supplies the commit-stamped verification rerun; RUST10 records bounded model-backed high-K stress, structural fresh-process replay, and native service lifecycle smoke. E14 now supplies the locked natural-document Phase 4A corpus and original B1 non-final readout; E15 supplies the completed B0 control and the explicitly provisional balanced-B1 checkpoint. Finish and lock the balanced B1 run, compare B0 and B1 under the same 4A.2 contract, and define immutable promotion gates before any final opening. In parallel, complete full restored head/decision replay, practical high-K latency, and production service load/soak; CPU native parity does not imply Metal or accelerated parity. Independent review, final-data discipline, and explicit release-quality/resource limits remain promotion gates. If later native Mac profiling cannot determine stable execution-strategy thresholds, Phase 3A.1 should create a dedicated scheduler/crossover notebook. [E9–E15; RUST1–RUST10; P21–P23; recommendation]
 
 **Phase 2H reading guide:** [Completed continuation](#1318-completed-continuation-lineage-lock-and-evaluated-scope) · [Final quality and rejection](#1319-selected-model-final-quality-rejection-and-population-weighting) · [All comparison arms](#13110-all-retained-comparisons-the-development-winner-is-not-the-best-final-transfer-arm) · [Source archive and audit](#appendix-a-source-and-reproducibility-register).
 
 **New checkpoint reading guide:** [Workbench outcome](#14-phase-2i2j-workbench-preparation-mechanical-evidence-and-the-review-gate) · [Synthetic mechanics](#142-the-small-state-first-gpu-probe) · [Probe coverage correction](#143-coverage-correction-the-added-question-was-a-duplicate) · [Gate and continuation](#144-why-the-next-study-remains-blocked).
 
-**Next milestone:** with the measured scheduler, state/persistence contracts, bounded model-backed high-K, and native service smoke landed and recorded, complete full restored persistence/replay, then deliver the service-level Q-amortization report — measured Q-amortization, rejection, calibration, useful automation coverage, complete-request latency, and peak memory on the named Mac. The current 4B FP32 scorer is an integration reference, not a required shipping configuration. [E11–E13; RUST7–RUST10; P21; P22; proposed milestone]
+**Phase 4A reading guide:** [Scope and status](#181-scope-status-and-evidence-boundary) · [Corpus and cache lock](#182-phase-4a0-corpus-partitions-and-frozen-feature-identity) · [Completed comparison](#184-completed-non-final-comparison-aggregate-improvement-hides-a-qasper-collapse) · [Balanced B1 checkpoint](#187-balanced-b1-checkpoint-promising-movement-still-below-the-gate) · [Next gates](#188-what-phase-4a-establishes-and-what-remains-open).
+
+**Next milestone:** close two independent tracks without mixing their evidence. On the model track, let the balanced B1 run finish, lock its selected checkpoint and non-final evaluation, compare it with B0 under the identical 4A.2 contract, and set promotion gates before any final opening. On the systems track, complete full restored persistence/replay and the service-level Q-amortization report — rejection, calibration, useful automation coverage, complete-request latency, and peak memory on the named Mac. The current 4B FP32 scorer is an integration reference, not a required shipping configuration. [E11–E15; RUST7–RUST10; P21–P23; proposed milestone]
 
 ---
 
@@ -76,6 +82,8 @@ These are different test constructions from earlier phases, not a measured deter
 
 **Closure is not promotion.** The selected model still has weak held-out omission recall, context-sensitive false-none behavior and residual wrong acceptances under the frozen policies. TF32 changes no final argmax or selected-model policy output, but two episodes exceed the 0.005 probability tolerance; additional saved-row context comparisons expose more drift. BoolQ and SST-5 now have bounded final readout scores, and complete in-process request timings are available. None establishes a general primitive, optimized-kernel dispatch, Q-level sharing, Rust/Metal parity or a real service. Section 13.1 preserves the full positive and negative readout. [E9; V2]
 
+**Phase 4A converts the multi-question goal into a locked natural-document benchmark, but it does not yet produce a promotable model.** The corpus joins ContractNLI and QASPER under state/component-safe partitions and preserves final labels and predictions unopened. On the non-final calibration-gate comparison, the original B1 StateQuery model reaches source-macro accuracy 0.7796 and NLL 0.5427 versus 0.3766 and 1.6734 for the historical candidate-conditioned reference. That aggregate gain hides a decisive source failure: QASPER balanced accuracy is 0.5000 and semantic-none recall is 0.0. The 4A.2 B0 control has source-macro accuracy 0.7283 and NLL 0.6211 and reproduces the same QASPER collapse. The in-progress balanced B1 checkpoint raises development QASPER semantic-none recall to 0.1681, but remains below the declared 0.30 floor and is not a completed evaluation. [E14; E15]
+
 | Question | Current evidence | Practical conclusion |
 |---|---|---|
 | Can Qwen make decisions without generating text? | Yes: trained NLI and candidate heads over frozen features. | Keep the decision-only path as a valid baseline. |
@@ -88,8 +96,9 @@ These are different test constructions from earlier phases, not a measured deter
 | Is cache compression already beneficial? | FP16 KV storage passed FP32 sample gates; all four tested low-bit codecs failed. | Retain lossless as the baseline; evaluate FP16 storage by prefix length and full cost. |
 | Does persistent prefix reuse help? | Lossless FP32 savings were 13.91%/11.88% in F and 6.19% on G’s different expiry trace. | Benefits depend on workload and cache budget; no production or cross-question guarantee. |
 | Has H completed and selected a universally better model? | Required final/robustness/primitive/request workers completed; the development-selected support arm has weaker held-out transfer than a retained original-criteria control. | Close recovery; keep model selection, numerical acceptance and broader generality open. [E9] |
+| Has Phase 4A solved multi-source question answering and semantic none? | No. The corpus/cache/lock pipeline is complete and B1 improves the historical reference overall, but both completed models have 0.0 QASPER semantic-none recall; the balanced B1 rerun is still provisional and below its QASPER floor. | Treat 4A as a benchmark and diagnostic result. Finish the matched B1 comparison and set promotion gates before final evaluation. [E14; E15] |
 
-**Revised direction after E11–E13 and RUST1–RUST3:** keep reviewed multi-question data and release confirmation open. E11 fixes a provisional state-first Qwen4B integration profile; E12 supplies the Python full-hybrid branching/batching reference and shows that execution strategy must be workload-adaptive; E13 and RUST1–RUST7 close the correctness-first CPU parity ladder through cached continuation, the backend-neutral branch-state contract, sequential nested execution, batched Q/K execution, and the measured adaptive scheduler. High-cardinality stress and repeatability coverage are now the immediate engineering bottleneck, while independent review/natural-data confirmation, efficient external baselines and Track S service work continue in parallel. [E9–E13; RUST1–RUST7; R3; RC; recommendation]
+**Revised direction after E11–E15 and RUST1–RUST10:** keep release confirmation open. E11 fixes a provisional state-first Qwen4B integration profile; E12 supplies the Python full-hybrid branching/batching reference; E13 and RUST1–RUST10 close the correctness-first CPU reference through bounded native service smoke. E14/E15 add a locked natural-document benchmark and expose source-specific rejection failure. The immediate modeling bottleneck is now the matched balanced B1 comparison and applicability behavior, not another architecture claim from aggregate accuracy. Full restored persistence, practical high-K latency, production load/soak, independent review, efficient external baselines, and Track S service work continue in parallel. [E9–E15; RUST1–RUST10; R3; RC; recommendation]
 
 Bring matched frozen-head versus LoRA versus Qwen3.5-2B comparisons forward, with a compact bidirectional dynamic-candidate arm in the same early comparison program. Keep Qwen as the leading research path without assuming the 4B model must ship or that a smaller encoder is automatically adequate. Measure the useful quality/resource trade-off, not agreement with every historical answer. Model selection and implementation equivalence are different decisions; Section 13 makes their gates explicit. [R3; S3; proposed program]
 
@@ -154,6 +163,9 @@ Use Q for independent questions and K for the alternatives within one question. 
 | Phase 2I/2J workbench checkpoint | Prepare reviewed multi-question comparisons and test state-first mechanics | `2ij_reviewed_multiquestion_v1`, version `2ij.1.0`: preparation and synthetic GPU probe completed; reviewed-study gate blocked; no new semantic training/final results. [E10; I0] |
 | Phase 2I/2J exploratory screen | Compare state-first/instruction-first Qwen, smaller/adapted Qwen and compact controls; export an integration target | `2ij_model_selection_screen_v2`, version `2ij.2.0`: completed exploratory scope; 13 fit jobs, 31 final profiles, selected/exported profile `a047d6802c3f06f085b8`. [E11] |
 | Phase 3A Python systems reference | Validate complete hybrid-state branching, breadth-first Q/K batching, high-K mechanics, repeatability and crossover behavior without changing the model | Run `20260920T024056Z`: completed notebook scope; semantic/high-K parity passed; workload-dependent latency and memory measured; no Rust/Metal claim. [E12] |
+| Phase 4A.0 corpus and feature lock | Can natural documents support several questions per shared state under an auditable split and cache contract? | Run `20260921T013558Z`: 2,192 states and 15,368 questions from ContractNLI/QASPER locked before model predictions; group-safe partitions and BF16 state features saved; final labels/predictions unopened. [E14] |
+| Phase 4A.1 original StateQuery B1 | Does a trained question-conditioned readout improve the historical candidate-conditioned reference? | Completed non-final training/evaluation and model lock. Aggregate metrics improve strongly, but QASPER collapses to majority-answerable behavior with 0.0 semantic-none recall; promotion gates are unset and final remains closed. [E14] |
+| Phase 4A.2 matched comparison | Do source balancing, semantic-none weighting, and a matched B0/B1 contract isolate the architecture and repair rejection? | B0 completed and locked as comparison-only; it also has 0.0 QASPER semantic-none recall. Balanced B1 is in progress at the v0.8.1 cutoff: epoch 11 is the best saved development checkpoint, QASPER none recall 0.1681 versus the 0.30 floor, with no completed report. [E15] |
 
 The completed measured sequence uses Qwen/Qwen3.5-4B-Base at revision `1001bb4d826a52d1f399e183466143f4da7b741b`. The text backbone has 4,205,751,296 parameters, hidden width 2,560, and 32 blocks. Its layer list contains 24 linear-attention and eight full-attention blocks. The core results were obtained on an NVIDIA L4. The saved environment includes Transformers 5.17.0; the expanded workers record PyTorch 2.11.0+cu128. Environment details should travel with results because kernel and precision behavior matter. [E1; E2; E5]
 
@@ -186,6 +198,8 @@ V2 also verifies 39 implementation hashes, 37 locked fitting/runtime-source file
 For v0.6.1, E10's standalone compact summary matches its report-archive member byte-for-byte. V3 records **34 saved-artifact consistency checks**: status/gate/job agreement, recorded feature-threshold arithmetic, runtime-source identity, cache-family and exclusion inventories, three recorded model revision strings, unsigned/stale review metadata and the canonical protocol-body hash. It verifies 18 report files against the separately retrieved snapshot manifest; the SQLite backup and CPU-test XML are not materialized. The source reports 48 passed CPU tests, but this revision does not rerun them. The raw hidden vectors are absent from the compact archive, so the feature deltas remain source-reported. [E10; I0; V3]
 
 The intake is reviewed as metadata only: protocol, unsigned review and refreshed manifest. The 92 case IDs are counted from their hash inventory; `cases.jsonl`, final questions and their annotations are not opened. The duplicate-question coverage finding comes from static inspection of the archived generator/call site. No model code is imported, no new GPU timing or H numerical reconstruction is performed, and no approval or persistent file is changed. The distinction between a prepared draft and a reviewed dataset remains intact. [I0; V3]
+
+For v0.8.1, the supplied v0.8.0 Markdown (SHA-256 `6ddb149e7c3229188e60a97399533e0cff1cc5a2e94ecff669c6cca49a0e6201`) is the editing authority. The Phase 4A record was reconstructed directly from the Drive-resident corpus manifest/lock, feature manifest, training reports, non-final evaluations, model/result locks, experiment contracts, comparison snapshot, and B1 progress pointers. Reported metrics are read from those JSON artifacts; raw predictions were not re-scored and Qwen was not run. No source label was adjudicated, no notebook or Drive result was modified, and no final label or prediction was opened. The balanced B1 entry is explicitly a live checkpoint observed at `2026-09-21T21:39:24Z`, not a completed training or evaluation result. [E14; E15]
 
 ## 3.3 Evaluation units and leakage boundaries
 
@@ -986,6 +1000,10 @@ Record H as **completed through a separately identified continuation**, with the
 | Is the frozen 4B scorer the required deployment model? | No. It is the measured reference; matched adaptation and compact-model selection are now early priorities. |
 | Must a newly trained model reproduce all old probabilities? | No. Same-model implementation equivalence and fresh new-model quality have separate gates. |
 | Does a batched multi-question call prove state-once computation? | No. Q-scaling, actual shared work, isolation, and semantic quality must be measured separately. |
+| Is there now a locked natural-document multi-question benchmark? | Yes, within the declared Phase 4A scope: ContractNLI and QASPER contribute 2,192 states and 15,368 questions under state/component-safe partitions, with hashes and model-feature identities locked before predictions. This is a benchmark asset, not proof of label quality or deployment representativeness. [E14] |
+| Does the original StateQuery B1 solve multi-source applicability? | No. It materially improves the historical reference on aggregate non-final metrics, but QASPER balanced accuracy is 0.5 and semantic-none recall is 0.0. [E14] |
+| Does the completed B0 control isolate a B1 architecture gain? | Not yet. B0 trails the original B1 overall and also collapses on QASPER none, but it uses the new balanced 4A.2 recipe while the original B1 does not. The balanced B1 arm must finish before the architecture comparison is matched. [E15] |
+| May the Phase 4A final split be opened now? | No. The original model lock has unset promotion gates; B0 is comparison-only with final unavailable; balanced B1 is incomplete and below its QASPER none-recall floor. [E14; E15] |
 | Does the public Qwen `RLCD` repository reproduce TypeSafe RLCD training? | Not from the reviewed public artifact. Its useful evidence is parallel constrained-decoding/cache-broadcast execution; a softmax over candidate logits is not by itself a calibration study. [P21] |
 | What new systems property should OpenDecision target after nested sharing? | **Adaptive question amortization.** E12 shows sharing is workload-dependent: short semantic requests can lose to repeated-full, while long shared-state mechanics gain strongly. Preserve multiple execution strategies and learn the target-machine crossover instead of assuming one universally fast path. [E12; P22] |
 | Should OpenDecision switch to schema-first PCD? | No. Keep the selected state-first root for stronger question-set isolation; borrow breadth-first branch batching and constrained-token baselines where useful. [P21; E11] |
@@ -994,9 +1012,13 @@ Record H as **completed through a separately identified continuation**, with the
 
 **Current 2I/2J status:** the original `2ij.1.0` reviewed-study path remains blocked by unsigned review, null promotion bounds and stale review metadata; separately, `2ij.2.0` completed an **exploratory** model-selection screen and exported a provisional integration profile. The pilot is sufficient to start native parity work but does not satisfy the independent-review/natural-data release gate. [E10; E11; I0]
 
+**Current Phase 4A status:** the corpus and original B1 are locked; B0 is a completed comparison-only result; balanced B1 is still an in-progress development checkpoint. The next valid update is a completed B1 training report, non-final evaluation, and immutable result lock under the existing 4A.2 contract. Any change in data, weighting, floors, selection rule, or model identity requires a new variant rather than an overwritten result. [E14; E15]
+
 # 13. Refocused research program and next milestone
 
 The revised objective remains a compact, instruction-sensitive, multi-question decision model rather than a permanently frozen 4B scorer. E11 and E12 change the sequencing, however: a provisional profile and Python execution reference now exist, so the next engineering budget moves to native/Rust parity and target-machine execution while reviewed model-promotion work proceeds independently. The accumulated Python numerical/branching evidence becomes the contract the native implementation must reproduce, not a reason to defer the port for another model-search cycle. [E11; E12; R3; proposed program]
+
+Phase 4A now supplies the natural-document modeling track that this program previously lacked. Its result changes the immediate sequence: finish the matched balanced B1 arm; require the per-source applicability floors; compare B0/B1 only on identical non-final partitions and contracts; then preregister promotion gates before any final opening. Aggregate accuracy cannot substitute for this sequence because both completed candidates fail QASPER semantic none completely. [E14; E15]
 
 ## 13.1 Phase 2H: completed continuation and retained development history
 
@@ -1387,7 +1409,7 @@ The companion [ROADMAP.md](../ROADMAP.md) is the task/status authority; this pap
 | Closed — required H scope | **2H-C1–C5: preservation, recovery, locked final evaluation and evidence handoff** | Adds complete final evidence without retraining or erasing the failed attempt | E9/V2; no automatic model, TF32 or deployment promotion |
 | P0 — now | **Phase 3.10: full restored persistence and replay; 3.9b bounded campaign complete** | Restored candidate features, probabilities, argmax, and policy behavior against the independent full path [E12; E13; RUST8; RUST10] |
 | Closed — contract work | **S.1–S.3: runtime contracts, probability semantics, direct native adapter** | Prevents components from implementing different meanings | Runtime-owned contracts; explicit `__none__`; entropy confidence; direct bounded registration [RUST8] |
-| P1 — native optimization | **Vectorized forward + Metal after correctness gates** | Establishes whether lane topology becomes actual throughput batching | Backend capability evidence, model parity, and named-Mac memory/latency |
+| P1 — native optimization | **Vectorized forward + Metal after correctness gates** — pinned-base MLX FP32 parity (Phase 3M.0–3M.4) complete; BF16 Gate B, community-export parity, and fused-kernel/vectorized phases remain open | Establishes whether lane topology becomes actual throughput batching | Backend capability evidence, model parity, and named-Mac memory/latency |
 | P1 — release confirmation in parallel | **2I.1–2I.2 + 2J.5–2J.6** | Determines whether the provisional profile may be promoted beyond exploratory scope | Independent review, natural/held-out cases, explicit release limits, fair external baselines and fresh final evidence [E10; I0; E11] |
 | P1 — service validation in parallel | **S.4–S.5: direct native lifecycle and load/soak** | Validates queueing, cancellation, recovery, capability and resource limits | Cancellation/failure tests and queue-inclusive latency/memory |
 | P2 — conditional | **P2.1–P2.3: optimized-kernel, weight-precision and teacher/distillation studies** | Tests a specific remaining bottleneck after the native baseline | Verified runtime capabilities; fresh quality when behavior changes; same-model parity when equivalence is claimed |
@@ -1827,7 +1849,7 @@ Phase 3A changes the Rust handoff in one important respect. Native engineering n
 8. reproduce batched Q/K parity;
 9. measure strategy crossover on the Mac rather than importing A100 thresholds.
 
-A successful Rust `BranchableState` implementation may use different tensor layouts, copy-on-write storage, preallocated slabs, gather kernels, MLX/Metal-native buffers, or another backend representation. Equivalence is judged by finalized input identity, full probabilities, argmax/policy behavior, branch isolation, and declared numeric tolerances. It is not judged by whether Rust mimics Python data structures.
+A successful Rust `BranchableState` implementation may use different tensor layouts, copy-on-write storage, preallocated slabs, gather kernels, MLX/Metal-native buffers, or another backend representation. Equivalence is judged by finalized input identity, full probabilities, argmax/policy behavior, branch isolation, and declared numeric tolerances. It is not judged by whether Rust mimics Python data structures. The first backend to exercise this clause is the Phase 3M MLX/Metal parity backend (feature-gated `mlx`): MLX immutable refcounted arrays with mutex-serialized evaluation, the same frozen Phase 3B fixtures, pinned-base FP32 decision gates passing at `1.5148e-06` maximum probability delta, and a separately gated `mlx-native-bf16` candidate profile that remains open. The explicit adapter for the downloaded `mlx-community/Qwen3.5-4B-MLX-bf16` export loads and executes, but fails the frozen model-parity gates because its source model and conversion differ from the pinned `Qwen/Qwen3.5-4B-Base` target. It remains a parity backend — the per-token reference recurrence, not a fused kernel — and Candle CPU remains the oracle.
 
 The public Hugging Face repository should be treated as the public identity of this reference line, while the immutable profile ID and bundle hash remain the stronger experiment identifiers. A future LoRA, weight-quantized, different-renderer, different-rejection, or otherwise behavior-changing artifact must receive a distinct model/execution profile and its own quality/equivalence record. [E11; E12; PUB1]
 
@@ -1902,13 +1924,161 @@ The next gates are full restored candidate-feature/decision replay in Phase 3.10
 
 ---
 
+# 18. Phase 4A: locked natural-document benchmark and StateQuery comparison
+
+## 18.1 Scope, status, and evidence boundary
+
+Phase 4A is the first OpenDecision study in this record that combines many questions over the same natural document with a trained question-conditioned readout. It uses the selected state-first Qwen3.5-4B-Base identity from E11–E13, but it asks a new modeling question: whether one frozen state representation can support ContractNLI entailment judgments and QASPER answerability decisions without re-encoding each state for every question. [E14]
+
+The evidence cutoff for this revision is 21 September 2026. Four statuses must remain distinct:
+
+| Stage | Artifact status at v0.8.1 cutoff | Permitted interpretation |
+|---|---|---|
+| Phase 4A.0 corpus/cache | Completed and hash-locked before model predictions | Reproducible benchmark and feature-cache identity |
+| Phase 4A.1 original B1 StateQuery | Training, non-final evaluation, checkpoint, and exploratory model lock completed | Completed non-final model result; no promotion |
+| Phase 4A.2 B0 matched control | Training, non-final evaluation, and comparison-only result lock completed | Completed control result; final unavailable |
+| Phase 4A.2 balanced B1 | In progress; latest and best saved pointer at epoch 11, observed `2026-09-21T21:39:24Z` | Provisional development diagnostic only |
+
+No Phase 4A final label or prediction was opened for this documentation update. The original B1 lock has six unset promotion gates. The B0 contract declares the final split unavailable. The balanced B1 directory has no completed `TRAINING_REPORT.json`, non-final evaluation, or result lock at the cutoff. Therefore this chapter records progress and failure modes; it does not select or promote a Phase 4A model. [E14; E15]
+
+## 18.2 Phase 4A.0: corpus, partitions, and frozen feature identity
+
+The corpus manifest joins two natural-document sources under one state/question/option/evidence schema:
+
+| Corpus object | Count |
+|---|---:|
+| States | 2,192 |
+| Questions | 15,368 |
+| Options | 25,687 |
+| Evidence rows | 21,894 |
+| Criteria | 18 |
+
+ContractNLI contributes 10,319 `contract_entailment` questions. QASPER contributes 5,049 `paper_answerability` questions. The source revisions are pinned in the manifest: ContractNLI commit `eced6528dd3c1d14d73f9a87df8f7bdbc03126f9`; QASPER repository revision `fdc9d8214fbab5dd782958601db4d678e6934a54` with parquet/data revision `06806e4608976fc2fac0a090ac425d5b2b29caf4`. Both sources are recorded as CC-BY-4.0 and training-allowed. [E14]
+
+State counts preserve state/component grouping across six partitions:
+
+| Source | Train | Development | Calibration fit | Calibration gate | Policy development | Final | Total |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| ContractNLI | 341 | 70 | 34 | 71 | 39 | 52 | 607 |
+| QASPER | 707 | 242 | 119 | 199 | 101 | 217 | 1,585 |
+| **Total** | **1,048** | **312** | **153** | **270** | **140** | **269** | **2,192** |
+
+The manifest SHA-256 is `1aad04ca7d37ea8be640a51878857c6d2c501d635e913eca12234cb548f8399d`. The lock binds the exact tables and records `locked_before_model_predictions=true`:
+
+| Locked table | SHA-256 |
+|---|---|
+| States | `7e6333202ad934e66148724a565b27176fcaad4133a566d2c8f8b57044ef3120` |
+| Questions | `549b446f609a9407eceb5df7ef4c0f14779bc73d72396ae749424626d8777434` |
+| Options | `cbd40c9162909c6c637296e9c8f408e0ba1bece0aca1786cef98f73d242f6cf2` |
+| Evidence | `566e0e69e8f57ed0ce626021647a3b770a89ae5a3eb318e1d4f8bea284f2c6be` |
+| Criteria | `1e3e62c93506fc7add11c88dc7232dba9f6c0b9ee8db2ee4b465fb283a91430b` |
+
+This is stronger provenance than a mutable list of dataset names, although it does not independently validate every source label or establish deployment representativeness. [E14]
+
+The frozen feature cache binds the benchmark to profile `a047d6802c3f06f085b8`, bundle `4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332`, and `Qwen/Qwen3.5-4B-Base` revision `1001bb4d826a52d1f399e183466143f4da7b741b`. It contains 2,192 BF16 state-feature files capped at 1,024 state tokens and 13,725 non-final candidate-conditioned control files. The frozen input-embedding artifact has SHA-256 `19175cf27eb1cb2cb49e1ed3afde552b9588a1c5ae6a004bd3d7efd2e384d093`. Historical reference predictions explicitly exclude final. [E14]
+
+Several safeguards match the conservative benchmark discipline described by SemIf: freeze IDs, labels, semantics, revisions, and metrics before full output inspection; report unlike sources separately rather than collapsing them into one accuracy; preserve source-grouped uncertainty; and keep systems mechanics distinct from semantic quality. Phase 4A implements those principles through its corpus lock, per-source metrics, state bootstrap, and closed final boundary. P23 is methodological context, not an independent audit of Phase 4A or evidence that the two projects use the same benchmark. [P23]
+
+## 18.3 Phase 4A.1: original B1 training and selection
+
+The original B1 StateQuery model trains 26,384,647 parameters over frozen state features and a frozen 635,699,200-parameter input embedding. Development loss selects epoch 1; the subsequent decrease in training loss does not transfer consistently to development:
+
+| Epoch | Train state loss | Development state loss |
+|---:|---:|---:|
+| **1 (selected)** | **0.616901** | **0.587660** |
+| 2 | 0.570560 | 0.640708 |
+| 3 | 0.536795 | 0.592321 |
+| 4 | 0.524565 | 0.606392 |
+
+This is early overfitting evidence, not merely incomplete optimization. The selected checkpoint SHA-256 is `9b19138268b5de2bb48b461337e88b9de6492a7bc52eff6489525e09eb63d940`. The model lock preserves the corpus lock and fitted temperatures, but its status is `exploratory_locked_gates_unset`; all six promotion thresholds are null. [E14]
+
+## 18.4 Completed non-final comparison: aggregate improvement hides a QASPER collapse
+
+The saved non-final by-source comparison evaluates the historical candidate-conditioned reference, the original B1 StateQuery model, and the completed Phase 4A.2 B0 matched control on the same 1,207 ContractNLI and 692 QASPER decisions. Source-macro rows are unweighted means of the two source metrics. Higher is favorable for accuracy, balanced accuracy, macro F1, and semantic-none recall; lower is favorable for NLL, Brier, and ECE.
+
+| Model | Source | n | Accuracy | Balanced acc. | Macro F1 | NLL | Brier | ECE15 | Semantic-none recall |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Historical reference | ContractNLI | 1,207 | 0.2908 | 0.4018 | 0.2849 | 1.8788 | 0.9887 | 0.4211 | 0.3538 |
+| Original B1 | ContractNLI | 1,207 | 0.6893 | 0.6089 | 0.6340 | 0.6913 | 0.4220 | 0.0454 | 0.6482 |
+| B0 matched control | ContractNLI | 1,207 | 0.5866 | 0.5050 | 0.5252 | 0.8536 | 0.5221 | 0.0511 | 0.7194 |
+| Historical reference | QASPER | 692 | 0.4624 | 0.5209 | 0.4067 | 1.4680 | 0.8174 | 0.3750 | 0.6000 |
+| Original B1 | QASPER | 692 | 0.8699 | 0.5000 | 0.4652 | 0.3940 | 0.2291 | 0.0432 | 0.0000 |
+| B0 matched control | QASPER | 692 | 0.8699 | 0.5000 | 0.4652 | 0.3887 | 0.2269 | 0.0332 | 0.0000 |
+| Historical reference | Source macro | — | 0.3766 | 0.4613 | 0.3458 | 1.6734 | 0.9031 | 0.3980 | 0.4769 |
+| **Original B1** | **Source macro** | **—** | **0.7796** | **0.5545** | **0.5496** | **0.5427** | **0.3256** | **0.0443** | **0.3241** |
+| B0 matched control | Source macro | — | 0.7283 | 0.5025 | 0.4952 | 0.6211 | 0.3745 | 0.0421 | 0.3597 |
+
+The original B1 is clearly better than the historical reference on aggregate accuracy, balanced accuracy, macro F1, NLL, Brier, and ECE. It is also better than B0 on the source-macro quality measures except ECE and semantic-none recall. Those gains do not resolve applicability. On QASPER, both learned models attain high raw accuracy by selecting the majority answerable class, while balanced accuracy stays at 0.5 and all 90 semantic-none cases are missed. The historical reference is much less accurate overall but recalls 60% of QASPER none cases. This is why raw accuracy cannot be the promotion statistic. [E14; E15]
+
+The original B1 state-bootstrap accuracy interval is 0.7330–0.7824. B0's corresponding interval is 0.6616–0.7220. These intervals summarize the saved non-final population under state resampling; they do not repair the source-specific failure or establish performance on the closed final split.
+
+## 18.5 Calibration and policy behavior remain non-operational
+
+The original B1 calibration-gate diagnostic pools 1,899 decisions and records 0.7551 accuracy, 0.58299 NLL, 0.04462 ECE15, and 0.5503 semantic-none recall. Policy development records 0.7508 accuracy, 0.59148 NLL, 0.04344 ECE15, and 0.5877 semantic-none recall. Those pooled values again average across a strong majority-class QASPER result and a more discriminating ContractNLI result, so the per-source table remains the controlling diagnostic. [E14]
+
+The declared policy charges 5.0 for a wrong accepted decision and 0.1 for review. Reviewing every case therefore costs 0.1 per decision. The selected thresholds deliver little or no useful automation:
+
+| Model | Threshold | Policy-development coverage | Accepted / wrong | Policy-development cost | Calibration-gate coverage | Accepted / wrong | Gate cost |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Original B1 | 0.608636 | 0.305% | 3 / 0 | 0.09969 | 1.264% | 24 / 1 | 0.10137 |
+| B0 matched control | 0.829407 | 1.017% | 10 / 0 | 0.09898 | 0.263% | 5 / 1 | 0.10237 |
+
+Both policies accept too few cases to show meaningful automation. On the calibration gate, each is more expensive than reviewing everything under the declared cost model. Calibration and low ECE therefore do not imply an operationally useful acceptance policy. [E14; E15]
+
+## 18.6 Phase 4A.2 B0: matched-control result
+
+Phase 4A.2 introduces a shared experiment contract for the B0 and balanced-B1 arms: source undersampling to the smaller source each epoch, QASPER semantic-none weighting capped at 5.0, development none-recall floors of 0.35 for ContractNLI and 0.30 for QASPER, seed 17, and a selection rule that first requires every floor and then minimizes source-macro NLL. Before eligibility, it minimizes total recall deficit and then NLL. This contract is pinned to the original corpus, feature cache, historical predictions, and selected profile. [E15]
+
+B0 completes six epochs before early stopping from a maximum of 12 and selects epoch 2. Its selected development result has source-macro accuracy 0.7131, NLL 0.6538, and semantic-none recall 0.4336. ContractNLI none recall is 0.8671, but QASPER none recall is 0.0, so the checkpoint is ineligible with a 0.30 total deficit. The later calibrated non-final comparison is reported in §18.4.
+
+The result lock binds selected checkpoint `checkpoints/epoch_002_model.safetensors` with SHA-256 `82f50370b789941b0cfdee55b6cfc786ed5edff55bf743a93fc329e19950f714`. Its status is `comparison_only_final_unavailable`, and `final_opened=false`. B0 therefore answers a diagnostic question: candidate-conditioned frozen features under the balanced recipe do not repair QASPER applicability. It does not yet isolate the value of B1 because the original B1 used a different training recipe. [E15]
+
+## 18.7 Balanced B1 checkpoint: promising movement, still below the gate
+
+The balanced B1 arm uses the same Phase 4A.2 data, weighting, floors, selection rule, seed, and optimization contract as B0. At the v0.8.1 cutoff, `LATEST.json` and `BEST.json` both point to epoch 11. The saved best development metrics are:
+
+| Source | n | Accuracy | Balanced acc. | Macro F1 | NLL | Brier | ECE15 | Semantic-none recall | Required floor |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| ContractNLI | 1,190 | 0.7067 | 0.6600 | 0.6593 | 0.6468 | 0.3945 | 0.0482 | 0.7410 | 0.35 |
+| QASPER | 836 | 0.8170 | 0.5433 | 0.5478 | 0.5398 | 0.3005 | 0.1195 | 0.1681 | 0.30 |
+| **Source macro** | **—** | **0.7619** | **0.6016** | **0.6035** | **0.5933** | **0.3475** | **0.0838** | **0.4546** | **both sources** |
+
+ContractNLI meets its floor; QASPER misses by 0.131858, so `eligible=false`. The movement from 0.0 QASPER none recall in the completed models to 0.1681 on this development checkpoint is directionally useful, but it is not a completed non-final result and it is not measured on the 1,207/692 comparison partition used in §18.4. Cross-partition values must not be ranked as if they were the same evaluation. [E15]
+
+The correct next record is the immutable completed training report, selected checkpoint, non-final evaluation, and result lock. If the run stops or its contract changes, the existing epoch-11 pointer remains historical progress and the changed work becomes a new variant. It must not be silently relabeled as the completed 4A.2 B1 result.
+
+## 18.8 What Phase 4A establishes and what remains open
+
+Phase 4A establishes five bounded facts:
+
+1. A reproducible natural-document, multi-question corpus and frozen feature cache now exist for the selected state-first Qwen profile.
+2. The original B1 StateQuery readout substantially improves the historical candidate-conditioned reference on aggregate non-final quality and calibration metrics.
+3. That aggregate improvement coexists with complete QASPER semantic-none failure and effectively useless policy coverage.
+4. The balanced B0 control reproduces the QASPER collapse, so candidate-conditioned features alone do not solve the failure.
+5. The provisional balanced B1 checkpoint improves development discrimination and none recall, but still misses the declared QASPER floor and has not completed.
+
+The evidence does **not** yet establish that B1 is the causal winner under a matched recipe, that either model is ready for final evaluation, that the closed final split would preserve these results, or that the benchmark covers arbitrary question semantics. The immediate sequence is therefore:
+
+1. finish and lock balanced B1 without changing its contract;
+2. evaluate B0 and B1 on the same non-final partitions and report per-source metrics first;
+3. require the declared per-source none-recall floors;
+4. set immutable promotion bounds for quality, calibration, accepted error, and minimum useful coverage;
+5. open final at most once for an eligible locked candidate, if a final split is made available under the protocol;
+6. preserve all unsuccessful checkpoints and comparison-only locks as part of the benchmark record.
+
+This sequence follows the central lesson of the earlier phases: a typed probability output is not automatically a calibrated, useful, or safe decision. Phase 4A makes that lesson visible at natural-document scale. [E14; E15; P23]
+
+---
+
 # Conclusion
 
 OpenDecision’s completed evidence supports a bounded mechanism: encode with Qwen, score typed decisions with small heads, and treat execution precision as part of the model contract. The evidence includes frozen-feature task results, dynamic candidate transfer, measured rejection trade-offs, cost-sensitive policies, strict-FP32 shared-prefix agreement, and bounded cache-compression and persistence findings. Phase 2G adds stronger execution evidence and clearer limits in rejection, criteria interpretation, and background reliability. These limits do not invalidate Qwen. They show that the narrowly fitted frozen scorer is not the finished model. [E1–E7; R3]
 
 **The revised direction keeps Qwen as the lead while preserving model comparison.** It requires better-defined judgments, richer answerability evidence, a credible smaller-Qwen challenger, and genuine independent questions over shared state. Completed H contributes transfer and rejection warnings. E11 adds the bounded matched model screen and fixes a state-first Qwen4B integration target.
 
-The profile has now been reproduced natively on the correctness-first CPU path, verified at a clean subject commit, and registered directly behind the service contract. The next engineering evidence is representative model-backed high-K, fresh-process replay, and queue-inclusive load/soak, followed by vectorized/Metal execution under the same parity gates. Independent reviewed and natural-data confirmation remains a separate promotion gate. [E9; E11; P21; P22; RUST1–RUST9]
+The profile has now been reproduced natively on the correctness-first CPU path, verified at a clean subject commit, registered directly behind the service contract, exercised through bounded model-backed high-K, and structurally restored in a fresh process. The next engineering evidence is full restored candidate-feature/decision replay, practical high-K latency, and queue-inclusive production load/soak, followed by vectorized/Metal execution under the same parity gates. Independent reviewed and natural-data confirmation remains a separate promotion gate. [E9; E11; P21; P22; RUST1–RUST10]
+
+Phase 4A now provides the first locked natural-document, many-question benchmark for that modeling track. Its original B1 result is promising in aggregate but fails QASPER applicability completely; the completed B0 control repeats that failure, and the balanced B1 arm remains provisional and below its declared QASPER recall floor. The honest conclusion is progress in benchmark construction and diagnosis, not model promotion. Finish the matched comparison, preserve per-source gates, and keep final closed until an eligible checkpoint and immutable promotion contract exist. [E14; E15; P23]
 
 The next defensible claim is neither “an open Jev clone” nor “the old FP32 scorer reproduced more precisely.” It is an open, auditable, versioned decision model. The model should answer several well-scoped questions over one state with measured quality, uncertainty, useful coverage, and resource cost. Preserve historical equivalence gates and evaluate new models on fresh quality gates. Those comparisons should determine what ships, not an assumed architecture or model size. [R3; proposed milestone]
 
@@ -1927,6 +2097,8 @@ The next implementation sequence is **model-backed high-K → fresh-process pers
 # Appendix A. Source and reproducibility register
 
 The source IDs below identify the evidence behind the numbered sections. In the accompanying evidence manifest, local snapshot SHA-256 hashes distinguish the exact files reviewed from later Drive edits. Result paths are under `Google Drive / Colab Notebooks`. Timestamps embedded in run IDs are UTC.
+
+**Version 0.8.1 documentation boundary.** The editing base is `OpenDecision_Whitepaper_v0.8.0.md`, SHA-256 `6ddb149e7c3229188e60a97399533e0cff1cc5a2e94ecff669c6cca49a0e6201`. E14 and E15 were read directly from the named Drive artifacts. This revision parses their recorded JSON fields and reconciles the displayed Phase 4A tables; it does not rerun training or inference, rescore raw predictions, adjudicate labels, inspect final labels/predictions, or modify Drive sources. The balanced-B1 record is a timestamped progress snapshot and may be superseded only by a separately identifiable completed report/lock.
 
 **Historical version 0.2 audit boundary.** The completed Phase 2F archive SHA-256 is `e1d3fea878d35b9e929e83424d4f3aa8b5de0385bb100ace001110f7e5f83c37`. The version 0.2 companion retained version 0.1 evidence and added the Phase 2F manifest, compact results, and an independent standard-library aggregation audit. Probability and policy comparisons are recomputed where raw vectors/actions are retained. Request/long-prefix rows retain comparison diagnostics rather than all output vectors, so their numerical gates remain source-reported while timing aggregates are independently checked. No source Drive files were modified. [E6]
 
@@ -2019,6 +2191,10 @@ H0 remains a historical design source. E8 records the original `2h.1.1` configur
 
 The E13 export contains 4 exact token records and 47 FP32 vectors. Those vectors cover 34 ordered trace stages, 10 full-sequence candidate features, and 3 continuation points. Maximum fresh-feature delta versus the earlier bundle is `4.9591064453125e-05`. Cached continuation versus fresh full sequence is `1.9073486328125e-05`. Both are Python self-consistency diagnostics under the notebook's `1e-4` guard. The saved summary explicitly sets `rust_parity_claim=false` and `metal_parity_claim=false`.
 
+**E14: Phase 4A.0 corpus/cache lock and Phase 4A.1 original B1 non-final result.** Run `20260921T013558Z`; [run folder](https://drive.google.com/drive/folders/1Sh7NQdO68AP6bcdY3fU4iIrP4B4c_7f0). Principal artifacts: [declared contract](https://drive.google.com/file/d/1bbrz2MSLz3Ryf4Qqd2XUZCLOO4hSnphE/view), [corpus manifest](https://drive.google.com/file/d/1N79DfdZPuUsdGzuuRckwtdg6_LdSHfst/view), [corpus lock](https://drive.google.com/file/d/1gCzZWaNgdCVrRAx4UCRzeghchhV80OSP/view), [feature manifest](https://drive.google.com/file/d/1LoqWYzvFEu-BSxXpPmgcGOFxur_etmdy/view), [training report](https://drive.google.com/file/d/1teZKYQjeKzpSxV2okdPVvHPRXWEyddUk/view), [non-final evaluation](https://drive.google.com/file/d/1yXpkhMmGzc1yFOu__3MzJPNIWWUFqK0H/view), and [model-selection lock](https://drive.google.com/file/d/1kROx4vzWWECcR9bR0kgt50YFVLuBkBv0/view). The corpus manifest records 2,192 states, 15,368 questions, 25,687 options, 21,894 evidence rows, and 18 criteria; corpus-manifest SHA-256 `1aad04ca7d37ea8be640a51878857c6d2c501d635e913eca12234cb548f8399d`. The feature cache binds profile `a047d6802c3f06f085b8`, bundle `4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332`, and base revision `1001bb4d826a52d1f399e183466143f4da7b741b`. The original B1 selected checkpoint SHA-256 is `9b19138268b5de2bb48b461337e88b9de6492a7bc52eff6489525e09eb63d940`; non-final report SHA-256 `a003c4648a1c28aa4a900b680b6c9ca3318c039a900cd3d106701b9be03bbd57`. Status is `exploratory_locked_gates_unset`; final remains unopened.
+
+**E15: Phase 4A.2 matched StateQuery comparison.** Workbench `4a.2.0`, base run `20260921T013558Z`; [comparison root](https://drive.google.com/drive/folders/1LMeEV_5_trzVBsPFYcZKhM0cN1XnWyDl) and [run folder](https://drive.google.com/drive/folders/1CZWhbgcu3H0RwEFQgPYBFyIX0MoRew3Y). The completed [B0 folder](https://drive.google.com/drive/folders/1Cx8eNZbz6djc7xkUa3g2jMmkBatC-S4e) contains its experiment contract, six-epoch early-stopped training report, non-final evaluation, selected checkpoint, and `comparison_only_final_unavailable` result lock. Selected epoch 2 checkpoint SHA-256 is `82f50370b789941b0cfdee55b6cfc786ed5edff55bf743a93fc329e19950f714`. The [comparison snapshot](https://drive.google.com/file/d/15q90M8aLlKRDfj8Z7O9Z1YCvILwvMvN7/view) was created `2026-09-21T20:14:09Z` and contains the historical reference, original B1, and B0 non-final tables reproduced in §18.4. The [balanced-B1 folder](https://drive.google.com/drive/folders/1Oz-tSCBXDJZn2Ssatqhqwhq21oF9rt6X) contained only its contract, checkpoints, [LATEST](https://drive.google.com/file/d/19XxGI4Dk2q5O13m2H6O8ISx9RJT8Fqyi/view), and [BEST](https://drive.google.com/file/d/1G2jlNOYujMNlDvnQmFSgert3a3hoG-jP/view) at the documentation cutoff. Both pointers identified epoch 11 and were last modified `2026-09-21T21:39:24Z`; no completed training report, non-final evaluation, or result lock was present. Its values are provisional development metrics, not part of the completed comparison snapshot.
+
 **RUST1: Rust Phase 3.1/3.2 implementation checkpoint.** The repository adds `ModelExecutionProfile` in `opendecision-engine`. `opendecision-backends` adds the selected `qwen35` profile, head, tokenizer, and Phase 3B reference loader. Offline tests validate bundle and head hashes. They replay four original golden-feature cases and reproduce all four Phase 3B token records exactly.
 
 The tests also validate the 47-vector contract and replay 10 Phase 3B candidate features through the selected head. The historical implementation checkpoint used Rust 1.75, but the current workspace requires Rust 1.88 because the tonic 0.14.6 service stack declares that MSRV. The current CI floor is verified with locked, all-features workspace tests. The recorded working session also passes formatting, strict workspace Clippy, workspace tests, schema regeneration/no-diff, and `git diff --check`. No native Qwen weights, Candle/Metal execution, `BranchableState`, server registration, or Jev semantic-none mapping are claimed.
@@ -2044,6 +2220,8 @@ The tests also validate the 47-vector contract and replay 10 Phase 3B candidate 
 **PUB1: Public OpenDecision state-first reference repository.** <https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst>. Project-owned publication of the selected state-first integration line. The repository URL is a public identity/reference surface; experiment identity remains pinned by profile ID, base-model revision, renderer/head/rejection contracts and bundle hash. Publication does not establish TypeSafe RLCD reproduction, release-quality promotion, or Rust/Metal parity.
 
 # Appendix B. Primary external references
+
+Version 0.8.1 adds the focused P23 method review for Phase 4A benchmark-reporting context. It does not repeat the earlier external-reference review or treat SemIf results as OpenDecision measurements.
 
 Version 0.6.1 adds no external-reference review. New checkpoint claims use E10/I0 and V3; the following public references retain their prior review dates.
 
@@ -2095,6 +2273,8 @@ Primary pages P1–P16 were checked for version 0.1 on 18 September 2026; their 
 **P21.** Gundala, H. *Qwen-2.5-1B-RLCD / Parallel Constrained Decoding for Apple Silicon.* Hugging Face model/repository documentation, reviewed 20 September 2026. Describes a shared-prefix Qwen/MLX inference path with cache broadcasting across fields, constrained candidate-token logit slicing, token-tree continuation and host-side JSON assembly. The page reports M4 Max benchmark values including 68–75 ms four-field cases, 270 ms for 28 fields and 89 ms for one 255-choice case. OpenDecision cites these as author-reported inference mechanics/performance, not evidence that TypeSafe RLCD training has been reproduced or that the resulting probabilities are empirically calibrated. [Model card](https://huggingface.co/harshatheg/Qwen-2.5-1B-RLCD).
 
 **P22.** Reddy, N. (19 September 2026). *Jev-style models on DGX Spark.* More Than a Machine. External comparison of Jev 1.13, Laya and local decision readers on WANLI, BoolQ, serving Q-scaling and ViZDoom controllers. The reported serving table has Jev p50 105.1→109.2 ms from one to four questions, Laya 16.4→29.1 ms, and tuned Qwen3.5 167.0→665.1 ms; Jev includes hosted HTTP while local readers are warm/in-process, so absolute latencies are not directly comparable. The post also reports separate Brier/ECE metrics and campaign-to-campaign Jev API variation. OpenDecision uses it as external benchmark context, not evidence of Jev's private architecture. [Article](https://morethanamachine.com/posts/jev-style-decisions-dgx-spark/).
+
+**P23.** Lee, T. *SemIf — Method.* Repository method note, reviewed 21 September 2026. It freezes prompts, IDs, labels, task semantics, revisions, and metrics before full evaluation; reports unlike task families separately; uses source-group bootstrap intervals; aligns perturbation probabilities by semantic option ID; and distinguishes shape-matched systems measurements from semantic or Jev head-to-head claims. OpenDecision uses these as methodological checks for the Phase 4A record, not as Phase 4A measurements or evidence that the benchmarks are identical. [Method](https://github.com/TheoLeeCJ/SemIf/blob/master/docs/METHOD.md).
 
 # Appendix C. Reading the metrics
 
@@ -2286,3 +2466,19 @@ The named-machine native follow-up campaign ([`../verification/2026-09-20-v0.8.0
 3. **Native service lifecycle smoke (3.11).** The `opendecisiond` binary booted with `--models qwen35=qwen35-native-cpu` and explicit offline artifact paths. Real `/v1/systemone` evaluation returned HTTP 200 with typed answers; concurrency 1 with queue 1 admitted two requests and returned HTTP 529 on the third in 0.65 ms; client cancellation during blocking model execution released permits properly; queued cancellation recovered; 20 health probes passed at stable resident memory; and SIGINT produced a clean exit.
 4. **Workspace MSRV alignment.** Rust 1.88 is verified as the locked workspace floor and enforced in CI due to the tonic 0.14.6 gRPC stack requirement.
 5. **Standardized evidence packaging.** Execution identities bind role-typed token digests (`ExecutionInputDigest`, `SemanticSetDigest`), physical compute modes (`BatchForwardMode`), and sanitized invocation records into the backend-neutral `opendecision-native-run/v1` schema.
+
+## Version 0.8.1: Phase 4A benchmark and non-final model record
+
+| Area | Version 0.8.1 update |
+|---|---|
+| Version identity | Marks the document as v0.8.1 while preserving v0.8.0 as the editing base with recorded SHA-256 |
+| Phase 4A.0 | Adds the locked ContractNLI/QASPER corpus, state/component-safe split counts, table hashes, frozen model/cache identity, and closed-final boundary |
+| Phase 4A.1 | Adds the original B1 training curve, selected checkpoint, non-final calibration/source metrics, policy behavior, bootstrap interval, and unset-promotion-gate status |
+| Phase 4A.2 B0 | Adds the matched-control contract, completed early-stopped result, by-source/source-macro comparison, policy result, checkpoint lock, and final-unavailable status |
+| Phase 4A.2 B1 | Records the epoch-11 best/latest development checkpoint as of `2026-09-21T21:39:24Z`, including the unmet QASPER none-recall floor; explicitly does not treat it as completed |
+| Interpretation | Separates raw accuracy from balanced discrimination/applicability, identifies the repeated QASPER majority-class collapse, and prevents an unmatched architecture conclusion |
+| Method | Adds SemIf's public benchmark method as contextual guidance on frozen matrices, per-source reporting, grouped uncertainty, perturbations, and systems/quality separation |
+| Program | Makes completed balanced-B1 reporting, matched B0/B1 non-final comparison, and preregistered promotion gates prerequisites for any final opening |
+| Provenance | Adds E14/E15/P23 with direct source links and states exactly what was read, not rerun, and not opened |
+
+No prior metric, failure, selection decision, native-parity result, or revision history is removed. This revision runs no training or inference, changes no experiment artifact, opens no Phase 4A final label or prediction, and promotes no model. A later completed balanced-B1 report must supersede only the provisional checkpoint subsection while preserving this cutoff as historical provenance.
