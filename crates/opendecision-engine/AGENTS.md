@@ -53,6 +53,7 @@
   - `MockEngine`: Deterministic fake engine. Seeds PRNG with `(question_id, instructions)` hash to return reproducible distributions over choices and rubrics.
 - [`src/profile.rs`](./src/profile.rs):
   - `ModelExecutionProfile`: Profile identity, bundle SHA-256, calibration temperature, and numerical parity tolerances.
+  - `ProbabilitySpace` (on `ExecutionSemantics`): the declared meaning of returned probabilities — `ConditionalOnOfferedOptions` or `OfferedOptionsPlusSemanticNone`. Adapters must fail explicitly on a space they do not implement; silently dropping none mass and renormalizing is the drift this declaration prevents.
 - [`src/tests.rs`](./src/tests.rs): Unit tests for registry operations, dispatch pipeline, and token usage accounting.
 
 ## Gotchas & Architectural Rules

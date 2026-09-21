@@ -1,10 +1,10 @@
 # opendecision — Roadmap
 
 > Qwen-led, open-source typed decision inference, with a Rust service and an explicitly pinned Jev-compatible interface target.
-> **Revision 0.8.0 · 20 September 2026 · Native CPU reference engine through safe adaptive scheduling, state/scheduler high-K stress, and direct service registration. Model-backed high-K, fresh-process repeatability, Metal, and load/soak remain open.**
+> **Revision 0.8.0 · 20 September 2026 · Native CPU reference engine through safe adaptive scheduling, bounded model-backed high-K stress, structural fresh-process replay, and direct service registration. Full restored head/decision replay, practical high-K latency, Metal, and production load/soak remain open.**
 > Contract reference: <https://docs.typesafe.ai/api>. A live documentation URL does not replace pinned schemas and conformance fixtures.
 
-**Current evidence:** B–G remain historical research. **Phase 2H is completed through the `2h.1.2` continuation** and the exploratory 2I/2J screen selected/exported a provisional Qwen3.5-4B state-first integration profile. **Phase 3A is completed in Python** for run `20260920T024056Z`: the selected profile remained unchanged, semantic batched parity passed, high-K systems parity passed, and the recorded same-process repeatability delta was zero. **Phase 3B is completed in Python** for run `20260920T152206Z`: it exports exact tokens, 34 ordered diagnostic stages, 10 candidate vectors, and 3 continuation vectors without changing the model or bundle. Rust Phase 3.1–3.8 parity and measurement pass. The backend-neutral contract now lives in `opendecision-runtime`; scheduling/content fingerprints are distinct types; memory reporting is explicitly tensor payload plus a separately measured process envelope; the per-lane CPU backend defaults to `NestedSequential`; and `2.52` is the lowest measured sharing ratio. Phase 3.9a adds K=32/64/128/255 state/scheduler stress, mixed Q/K, lane limits, process-peak admission, and fallback without a naïve full-state fan-out. Tenant/TTL/byte-bounded strict-content caching, atomic versioned state snapshots, cancellation-safe capacity ownership, and direct `Qwen35DecisionEngine` registration are implemented. Choice semantic none is caller-visible as required `__none__`, and confidence is entropy-derived rather than maximum probability. A clean, commit-stamped named-Mac checkpoint now verifies the workspace, schema stability, full/branch/nested/batched native parity, and the canonical warm-process scheduler benchmark for subject commit `35c481a6e95a`. **Current direction:** run the checkpoint-gated model-backed high-K and fresh-process replay gates, then queue-inclusive service load/soak and Metal. CPU native parity does not imply Metal or accelerated parity. [H; HF; IJ2; P3A; P3B; RUST1–RUST9; WP §§13.3–13.5, 15–17]
+**Current evidence:** B–G remain historical research. **Phase 2H is completed through the `2h.1.2` continuation** and the exploratory 2I/2J screen selected/exported a provisional Qwen3.5-4B state-first integration profile. **Phase 3A is completed in Python** for run `20260920T024056Z`: the selected profile remained unchanged, semantic batched parity passed, high-K systems parity passed, and the recorded same-process repeatability delta was zero. **Phase 3B is completed in Python** for run `20260920T152206Z`: it exports exact tokens, 34 ordered diagnostic stages, 10 candidate vectors, and 3 continuation vectors without changing the model or bundle. Rust Phase 3.1–3.8 parity and measurement pass. The backend-neutral contract now lives in `opendecision-runtime`; scheduling/content fingerprints are distinct types; memory reporting is explicitly tensor payload plus a separately measured process envelope; the per-lane CPU backend defaults to `NestedSequential`; and `2.52` is the lowest measured sharing ratio. Phase 3.9a and 3.9b cover K=32/64/128/255 admission and bounded model-backed completion without a naïve full-state fan-out. Tenant/TTL/byte-bounded strict-content caching, atomic versioned state snapshots, cancellation-safe capacity ownership, and direct `Qwen35DecisionEngine` registration are implemented. Choice semantic none is caller-visible as required `__none__`, and confidence is entropy-derived rather than maximum probability. A clean, commit-stamped named-Mac checkpoint now verifies the workspace, schema stability, full/branch/nested/batched native parity, and the canonical warm-process scheduler benchmark for subject commit `35c481a6e95a`. The follow-up working-tree campaign adds structural fresh-process replay and native service lifecycle smoke. **Current direction:** complete restored candidate-feature/head/probability/decision replay, then practical high-K latency, queue-inclusive service load/soak, Metal, and release confirmation. CPU native parity does not imply Metal or accelerated parity. [H; HF; IJ2; P3A; P3B; RUST1–RUST10; WP §§13.3–13.5, 15–17]
 
 **Latest systems workbench:** `OpenDecision_Phase3A_BranchableState_BatchedQ`, run `20260920T024056Z`, completed notebook scope against selected profile `a047d6802c3f06f085b8` without model changes, training or reselection. It validates the Python branch/batch reference and sharpens the scheduler requirement; it does not establish Rust/Metal parity or release quality. The earlier `2ij.2.0` model-selection screen remains the model-selection authority, while the blocked `2ij.1.0` review-gated checkpoint remains preserved as evidence for the still-open independent-review path. [IJ; IJ2; P3A; WP §§14–16]
 
@@ -511,7 +511,7 @@ Source and full interpretation: HF / WP §§13.1.8–13.1.16. The pooled headlin
 
 Completed B–G results establish the original reference and its limits. H now adds **completed paired final readout-learning evidence**, including a support-conditioned development/final transfer reversal, persistent omission/context/policy limits and incomplete TF32 equivalence. It does not establish backbone adaptation, general question following, a smaller-model winner or a real service. Keep these evidence levels distinct. [HF; WP §§13.1.8–13.1.16]
 
-Rust Phase 3.1 through 3.8 parity and measurement now pass against the frozen selected profile and Phase 3B fixtures: head/probability, exact tokens, CPU full-sequence backbone, cached continuation, the backend-neutral `BranchableState` contract, sequential nested execution, batched Q/K execution, and the measured adaptive scheduler. State/scheduler high-cardinality stress and cache/snapshot persistence contracts are implemented. The near-term evidence sequence is model-backed high-K, fresh-process replay, and the production service lifecycle. CPU native parity does not imply Metal or accelerated parity. Independent review/natural-data confirmation, 2J.5–2J.6 release confirmation and Track S service work continue in parallel; they are promotion/integration gates, not reasons to change the frozen implementation target. Do not tune new model choices on exposed H/E11 final data. [HF; IJ2; P3A; P3B; RUST3; RUST4; RUST5; RUST6; RUST7; RUST8; WP §§13.3, 16–17]
+Rust Phase 3.1 through 3.9b parity, admission, and bounded model-backed completion now pass against the frozen selected profile and Phase 3B fixtures: head/probability, exact tokens, CPU full-sequence backbone, cached continuation, the backend-neutral `BranchableState` contract, sequential nested execution, batched Q/K execution, the measured adaptive scheduler, and K=32/64/128/255 memory behavior. Structural fresh-process replay and native service lifecycle smoke also pass. The near-term evidence sequence is full restored head/decision replay, practical high-K latency, and the production service lifecycle. CPU native parity does not imply Metal or accelerated parity. Independent review/natural-data confirmation, 2J.5–2J.6 release confirmation and Track S service work continue in parallel; they are promotion/integration gates, not reasons to change the frozen implementation target. Do not tune new model choices on exposed H/E11 final data. [HF; IJ2; P3A; P3B; RUST3; RUST4; RUST5; RUST6; RUST7; RUST8; RUST10; WP §§13.3, 16–17]
 
 ### External benchmark implications — execution shape, not architecture proof
 
@@ -534,16 +534,38 @@ Two September 2026 external sources refine the systems target without changing t
 
 The historical E/F/G tolerance of **0.005** and their no-outcome/no-policy-change requirements are not relaxed retrospectively. A new model can legitimately correct old errors, but must subsequently have its own tested implementation contract. Failed BF16/TF32/codec equivalence results are not universal claims about model quality and are not automatically accepted under a new label. [WP §§7, 9–10, 13.2]
 
+### Parallel tracks: reference engine vs. OpenDecision-native model
+
+With native CPU parity, branch-state isolation, and adaptive scheduling established for the reference baseline, the serving contract is now known and measured: state-first root isolation, $Q$ independent questions over one shared state, $K$ candidate decisions, explicit semantic-none/rejection, calibrated probabilities, reusable branchable state, and explicit memory accounting.
+
+Rather than treating custom modeling as a distant or serial replacement, OpenDecision runs two parallel tracks:
+
+```text
+Track A — Reference engine (Frozen Qwen3.5-4B baseline)
+    Finish 3.10 (full restored persistence & replay)
+    MLX / Metal acceleration (prior-art mechanism review: SemIf, see docs/RESEARCH.md)
+    Production service lifecycle & load/soak (3.11, S.4–S.5)
+
+Track B — OpenDecision-native model (Phase 4A)
+    Workload-specific architecture definition
+    Query-module prototyping against frozen state (Option B bridge)
+    Train/evaluate on reviewed multi-question data (2I.1/2I.2)
+    Distill from 4B reference teacher (P2.3 bridge)
+```
+
+The 4B FP32 system remains a reference oracle rather than a mandatory shipping model. MLX answers *“how fast can we make the selected reference model?”* while the custom model track answers *“do we actually need an expensive causal decoder graph at all?”*
+
 ### Priorities and dependencies
 
 | Priority | Work package | Start condition | Evidence needed before the next decision |
 |---|---|---|---|
 | **Closed** | **2H-C1–C5:** original-study recovery and closeout | Completed continuation and evidence handoff | Preserved E8 failure plus HF final outputs; model/numerical promotion remains separate |
-| **P0 — now** | **Phase 3.9b–3.10:** model-backed high-K and fresh-process repeatability; 3.9a complete | Safe scheduler/admission + completed Phase 3A Python reference | Named-Mac model-backed high-K and fresh-process replay evidence [P3A; RUST8] |
+| **P0 — now** | **Phase 3.10:** full restored persistence and replay; 3.9b bounded campaign complete | Structural fresh-process replay plus completed Phase 3A Python reference | Restored candidate features, probabilities, argmax, and policy behavior against the independent full path [RUST10] |
 | **P0 — parallel contract work** | **S.1–S.2:** one contract/status authority and probability semantics | Existing wire types and selected profile | Versioned supported contract/capabilities and source-backed status |
 | **P1 — production lifecycle** | **Phase 3.11:** production backend and service lifecycle | Measured scheduler plus one supported profile | Queue-inclusive service report with bounded admission and recovery |
 | **P1 — release confirmation in parallel** | **2I.1–2I.2 + 2J.5–2J.6:** reviewed data, natural cases, efficient external baselines and scoped promotion | Existing draft intake plus frozen E11 profile | Distinct review, explicit release limits, fresh held-out evidence and comparable resource results [IJ; I0; IJ2] |
 | **P1 — service validation in parallel** | **S.4–S.5:** validate the direct native adapter | S.1–S.3 direct path complete | Cancellation/recovery, bounded work, honest errors, and queue-inclusive measurements |
+| **P2 — parallel Track B** | **Phase 4A:** OpenDecision-native architecture feasibility | 2I.1–2I.2 reviewed data + frozen 4B reference | Option B query-module prototype on frozen Qwen; encoder sizing; teacher distillation |
 | **P2 — conditional** | **P2.1–P2.3:** optimized kernels, weight precision or teacher/distillation | Specific unmet target after native baseline | Verified capabilities, fresh quality or same-model equivalence gates as appropriate |
 
 Phase 3A removes Python execution mechanics from the critical path, Rust Phase 3.3 removes full-sequence CPU backbone reproduction from it, Rust Phase 3.4 removes backend-neutral branch-state semantics from it, Rust Phase 3.5 removes sequential nested execution from it, Rust Phase 3.6/3.7 removes batched Q/K execution from it, and Rust Phase 3.8 removes scheduler measurement from it. The immediate blocker is high-cardinality and repeatability coverage, not another model search or Colab export. Reviewed release confirmation remains necessary before production promotion, but it proceeds independently of the fixed implementation target. [IJ2; P3A; P3B; RUST3; RUST7; WP §§13.3, 16–17]
@@ -554,7 +576,7 @@ Pause additional low-bit KV snapshot sweeps on the same short-prefix workload. K
 
 Optimize model work before host serialization: the historical cached profiles place approximately **92–94%** of instrumented time in model execution and **4.6–6.6%** in cloning/expansion. Fewer forward invocations, more useful suffix packing, smaller backbones and verified faster kernels are the relevant hypotheses—not claims of measured gains in this revision. No CUDA timing is a Mac prediction. [WP §§8, 11, 13]
 
-Do not prioritize MTP in the no-output-decoding graph, a large RLCD/RL effort before supervised baselines, or a diffusion rewrite based on R4T. Keep the later teacher-to-student hypothesis separate from the early compact bidirectional comparison. A purpose-built shared-encoder/query redesign is conditional on simpler measured approaches missing the target. Laya is motivation for a comparator, not proof of broad question competence or an accepted replacement. [WP §§11.7, 13.5]
+Do not prioritize MTP in the no-output-decoding graph, a large RLCD/RL effort before supervised baselines, or a diffusion rewrite based on R4T. Keep the teacher-to-student distillation hypothesis aligned with Phase 4A as an offline training loss. A purpose-built custom model track is now structured under Phase 4A as a parallel feasibility study, but full model training remains strictly gated on reviewed multi-question data (2I.1/2I.2) to prevent overfitting synthetic families. Laya is motivation for a comparator, not proof of broad question competence or an accepted replacement. [WP §§11.7, 13.5]
 
 ---
 
@@ -630,7 +652,7 @@ The exploratory 2J screen has already completed the matched Qwen4B/Qwen2B/Modern
 - [x] **2J.2 — Run attributable supervised adaptation.** **Closed for the exploratory screen:** frozen, online-head, 2B LoRA, ModernBERT full-encoder and finite-token adaptation treatments completed under the registered pilot.  Hold criteria, split semantics and loss/update budgets fixed within each intended ablation; disclose unavoidable cross-family training differences. Refit normalization and calibration when representations change. For the optional H-style online LoRA recipe, compare against its matched online-head-only BCE control—not directly against joint-CE results as an equal-training comparison. No RL/RLCD reproduction is claimed.
 - [x] **2J.3 — Compare feature-aware applicability/rejection.** **Closed for the exploratory screen:** constant, score-summary and semantic-feature rejection variants were retained and evaluated; score-summary was selected pre-final for the integration candidate.  Retain constant-none and score-summary set-linear controls. Add a small head that can use already-computed candidate-conditioned semantic features, with explicit applicability and absent-answer supervision. Test whether it improves rejection without unacceptable false-none or ranking losses; do not preselect it as a replacement. Separate omitted options, OOS and insufficient evidence in evaluation, and measure any additional feature/cache cost.
 - [x] **2J.4 — Extend bounded Noul/Score evidence.** **Closed for this pilot scope:** dedicated binary and described ordinal questions were included with full distributions and ordinal diagnostics; operational/general primitive validation remains outside this closure.  H’s BoolQ/SST-5 final evaluation is closed and supplies a bounded baseline. This task remains open for new binary questions, explicit insufficient-evidence cases and described ordinal rubrics on held-out families. Start from a proper distribution loss such as NLL and assess ordinal action costs separately; an expected-distance penalty is not itself a proper probability score or calibration guarantee. Treat cumulative-probability Brier training as a separate experiment. [HF; WP §13.1.14]
-- [ ] **2J.5 — Use fair efficient baselines.** **Partial:** lexical, frozen/trained finite-token and newly trained ModernBERT controls completed. Released Laya and GLiClass adapters remain deferred, so the broader baseline task stays open.  Retain H's inexpensive lexical and unadapted finite-code controls, clearly labeled. Add a trained finite-token/SALSA-style control, a **state-first parallel-constrained-decoding (PCD) latency-floor baseline** where candidate tokenization permits it, and a dynamic-label/GLiClass-style comparator where task-compatible. The PCD baseline should use OpenDecision's state-first isolation contract rather than copying a schema-before-state shared prefix. Avoid long JSON generation as the only baseline; disclose input budgets, supervision, trainable parameters and complete request costs. External benchmark numbers are not OpenDecision results.
+- [ ] **2J.5 — Use fair efficient baselines.** **Partial:** lexical, frozen/trained finite-token and newly trained ModernBERT controls completed. Released Laya and GLiClass adapters remain deferred, so the broader baseline task stays open.  Retain H's inexpensive lexical and unadapted finite-code controls, clearly labeled. Add a trained finite-token/SALSA-style control, a **state-first parallel-constrained-decoding (PCD) latency-floor baseline** where candidate tokenization permits it, and a dynamic-label/GLiClass-style comparator where task-compatible. The PCD baseline should use OpenDecision's state-first isolation contract rather than copying a schema-before-state shared prefix, and would declare `ProbabilitySpace::ConditionalOnOfferedOptions` — a different, explicitly declared probability space than the selected profile's. Avoid long JSON generation as the only baseline; disclose input budgets, supervision, trainable parameters and complete request costs. External benchmark numbers are not OpenDecision results.
 - [ ] **2J.6 — Select a scoped quality/resource operating point.** **Exploratory candidate selected:** Qwen4B/state-first/score-summary is locked and exported, but release selection remains open because the pilot is not independently reviewed and promotion bounds were unset.  Use untouched final data, held-out state/question/rubric families, rejection strata, calibrated-distribution diagnostics, accepted-error/coverage and scenario costs. Measure actual resident/peak memory and latency on the named device. Promote a model only within its supported scope; close an unsuccessful arm without changing selection rules after seeing its final outcome.
 
 **Compact-arm specification (2J.1–2J.2).** Retain a full-fine-tuning ModernBERT-style joint-candidate treatment in the early comparison, disclosing its trainable parameters and training budget rather than claiming identical adaptation cost to LoRA. Evaluate the **released Laya checkpoint separately** as an external baseline under 2J.5; its prior supervision is not a matched training treatment. Test held-out question/criteria families, omission/OOS/insufficient-evidence behavior, calibration, accepted-error/coverage and complete latency/memory. Do not silently truncate decisive evidence, substitute maximum probability for the defined confidence statistic, or treat question batching as proof of one shared state encoding. Architecture and marker scoring are test candidates, not adopted superiority claims. [WP §§11.2, 11.7; RC RQ-06]
@@ -654,7 +676,7 @@ The possible benefit is richer evidence and supervision, not the reparameterizat
 The daemon still defaults to mock aliases, but it can now register the pinned native engine directly when explicit offline artifacts and native aliases are supplied. This is an integration implementation, not load/soak evidence or release promotion. Track S remains separate from the numbered H experiment. [R0; WP §§11.8–11.9]
 
 - [x] **S.1 — Consolidate contracts and current status.** The runtime now owns `BranchableState`, `BranchBatch`, execution plans, backend capabilities, typed fingerprints, and tenant-scoped cache primitives. Documentation is synchronized at v0.8.0, and the clean subject commit `35c481a6e95a` has a commit-stamped workspace and native CPU parity checkpoint. [RUST9]
-- [x] **S.2 — Resolve probability and candidate semantics before integration.** Native Choice requires the caller to supply `__none__` with a non-empty description. The adapter removes that entry from real model candidates, then restores the native none mass under the same key without discarding or renormalizing it. Null real-option descriptions fall back to their stable option key. Noul remains confidence-free; Choice and Score confidence use normalized distribution entropy rather than top probability. [IJ; RUST8]
+- [x] **S.2 — Resolve probability and candidate semantics before integration.** Native Choice requires the caller to supply `__none__` with a non-empty description. The adapter removes that entry from real model candidates, then restores the native none mass under the same key without discarding or renormalizing it. Null real-option descriptions fall back to their stable option key. Noul remains confidence-free; Choice and Score confidence use normalized distribution entropy rather than top probability. The semantics are now a declared profile property: `ProbabilitySpace::OfferedOptionsPlusSemanticNone` on the profile's execution semantics, with the adapter failing closed on any other declared space. [IJ; RUST8]
 - [x] **S.3 — Register the native engine directly.** `Qwen35DecisionEngine` loads the pinned tokenizer, backbone, and fitted head offline, implements `DecisionEngine`, and registers through `EngineRegistry` under explicitly configured aliases. The Python implementation is now an optional differential oracle, not the deployment bridge. Unsupported shapes fail explicitly; mock aliases remain the daemon default. [RUST8]
 - [ ] **S.4 — Complete admission, lifecycle and deployment safeguards.** **Partial implementation:** bounded running/queued requests, overload responses, tensor/process-peak scheduler admission, high-K lane limits, TTL/byte eviction, tenant-separated state-cache keys, and versioned/digest-checked state snapshots are implemented. Cancellation while queued is safe, and a cancelled caller cannot release queue/execution permits until blocking native work actually finishes. Cooperative preemption of already-running compute, deadlines, recovery, sensitive telemetry policy, and active-reader/soak evidence remain open.
 - [ ] **S.5 — Measure the real service.** Record queue-inclusive end-to-end latency distributions, throughput, accepted-error/coverage where labels exist, startup versus resident requests, peak/process memory and model-profile identifiers. Test concurrency, request IDs, validation, cancellation and leak/soak behavior. Do not substitute offline Colab medians for these measurements or extrapolate L4 latency to Apple Silicon.
@@ -754,15 +776,220 @@ The new external benchmarks do **not** reopen model selection. OpenDecision has 
 - [x] **3.7 — Batch candidate branches within question states.** Use exact/declared length-aware buckets, retaining candidate permutation invariance and score-summary rejection semantics. **Phase 3A checkpoint:** high-K Python systems parity passed; native K batching still requires its own parity and memory evidence. **Native checkpoint:** the same gate fans each question state into `K` candidate lanes (`run_batched_candidates`), advances them breadth-first, and proves gather/reorder equivalence offline: advancing gathered lanes equals advancing in order, candidate features follow suffixes under permutation, and every lane is isolated. Across all 10 Phase 3B candidates, batched candidate features equal the sequential baseline exactly (`0.0`) with identical strict state fingerprints, the frozen head reaches the same `4.5869e-06` maximum probability delta with zero argmax and zero policy changes under both strategies, and no decision changes between sequential and batched execution. Length-bucketed packing of the per-lane executor calls remains future vectorized-scheduler work; this checkpoint establishes the state-level batch semantics, parity, and fan-out byte accounting. This is a CPU/Candle result; it does not establish Metal, vectorized suffix kernels, or release promotion. [P3A; RUST6]
 - [x] **3.8 — Build the adaptive scheduler and Mac Q-amortization curve.** `run_strategy` and `run_repeated_full` expose all three parity-proven plans with forward-call and staged-token accounting. The commit-stamped named M4 Max rerun measured five warm CPU workloads with feature parity in every repetition: the CPU-default `nested_sequential` path beat `repeated_full` by 1.29×–2.02×, the per-lane `nested_batched` topology stayed within 2.9%, and `T(3)/T(1)` was 2.815 repeated versus 2.170 sequential and 2.233 batched. Peak resident memory after the benchmark was 10.968 GiB. The least favorable measured token-work ratio remains `2.52`, so the default is `LOWEST_MEASURED_SHARED_SAVINGS_RATIO = 2.52`; the former 2.0 value was an unmeasured extrapolation. `BackendCapabilities` distinguishes lane topology from vectorized model forward, making `NestedSequential` the current CPU default. Admission names the exact Qwen continuation payload as tensor storage and separately models observed process peak, forward scratch, allocator headroom, lane ceilings, and hard limits. Cold-start/cache-warmth, real vectorized suffix packing, and queue-inclusive service measurements remain open. [P3A; RUST7–RUST9]
 - [x] **3.9a — State/scheduler high-cardinality stress.** Offline gates cover K=32/64/128/255, mixed Q/K lengths, vectorized lane ceilings, exact tensor-payload estimates, observed process peak plus scratch/allocator headroom, and strategy fallback without allocating a naïve 15+ GB K-wide Qwen fan-out. `qwen35_scheduler_stress` emits an inspectable JSON report. This is systems/admission coverage, not semantic high-K quality. [RUST8]
-- [ ] **3.9b — Representative model-backed high-K stress.** `qwen35_model_stress` streams K=32/64/128/255 short-suffix candidate continuations from one question state, records process peak, and checks root immutability without retaining every candidate state. Run the practical cells against the pinned checkpoint on the named Mac; once vectorized/Metal forward exists, add true K-wide throughput. Keep semantic high-K quality under 2I.8.
-- [ ] **3.10 — Repeatability and persistence.** **Implementation complete; checkpoint evidence open:** same-process exact replay is pinned by nested tests, and `BranchStateCache` enforces tenant isolation, TTL, tensor-byte LRU eviction, and strict `ContentFingerprint` keys. `BackboneState::persist_pinned`/`restore_pinned` use an atomic versioned snapshot with envelope SHA-256, pinned identity and layer-layout validation, fresh process-local lineage, and exact restored `ContentFingerprint`. Unit round-trip and corruption rejection pass. Two separate `qwen35_parity_probe persist-save` / `persist-replay` invocations define the fresh-process cached-versus-full model gate. Run that gate on the named Mac with the pinned checkpoint before checking this item complete. Distinguish deterministic equality from declared floating-point tolerance. [P3A; EXT2; RUST8]
-- [ ] **3.11 — Production backend and service lifecycle.** **Partial implementation:** the selected native backend registers directly through `Qwen35DecisionEngine`, with bounded execution/queue admission, overload mapping, explicit offline artifacts, and explicit none/confidence semantics. Cancellation after blocking execution starts, recovery, telemetry, load shedding, load/soak, and deployment promotion remain open. Additional backends require actual Qwen3.5 hidden-state/branch capability evidence.
+- [x] **3.9b — Representative model-backed high-K stress.** `qwen35_model_stress` completed K=32/64/128/255 short-suffix candidate continuations from one question state on the named M4 Max. All cells completed with the root immutable and no retained candidate-state fan-out. Wall times were 60.16 s, 90.40 s, 145.06 s, and 246.77 s; peak RSS stayed between 7,982,170,112 and 7,991,951,360 bytes. This is bounded correctness/memory evidence, not practical latency, throughput, or semantic high-K quality evidence. The harness records each cell as a `opendecision-native-run/v1` evidence directory (`--evidence-root`); once vectorized/Metal forward exists, add true K-wide throughput. Keep semantic high-K quality under 2I.8. [RUST10]
+- [ ] **3.10 — Repeatability and persistence.** **Implementation complete; full checkpoint evidence still open:** same-process exact replay is pinned by nested tests, and `BranchStateCache` enforces tenant isolation, TTL, tensor-byte LRU eviction, and strict `ContentFingerprint` keys. `BackboneState::persist_pinned`/`restore_pinned` use an atomic versioned snapshot with envelope SHA-256, pinned identity and layer-layout validation, fresh process-local lineage, and exact restored `ContentFingerprint`. Two separate `qwen35_parity_probe persist-save` / `persist-replay` invocations passed the structural fresh-process gate on the named M4 Max: the restored fingerprint matched, positions were `98 → 109 → 121`, cached-versus-independent-full hidden output max error was `0.0`, and the root remained immutable. Both invocations recorded `opendecision-native-run/v1` evidence with snapshot paths redacted. The current replay harness does not yet compare restored candidate features, probabilities, argmax, and policy behavior against the independent full path, so the complete persistence contract remains open. [P3A; EXT2; RUST8; RUST10]
+- [ ] **3.11 — Production backend and service lifecycle.** **Native smoke validation passed; production lifecycle remains open:** the selected native backend registers directly through `Qwen35DecisionEngine`, with bounded execution/queue admission, overload mapping, explicit offline artifacts, and explicit none/confidence semantics. A real `/v1/systemone` request returned HTTP 200; concurrency 1 plus queue 1 produced two HTTP 200 responses and immediate HTTP 529 overload; client cancellation, queued cancellation, worker recovery, clean shutdown, and 20 health probes passed in the named-machine smoke campaign. Production telemetry, load/soak, deployment promotion, and broader cancellation timing coverage remain open. Additional backends require actual Qwen3.5 hidden-state/branch capability evidence. [RUST10]
 
 ### Per-profile parity requirements
 
 Every optimization that claims to preserve `a047d6802c3f06f085b8` must keep the selected finalized tokens, weights, renderer, heads, rejection semantics, calibration and policy fixed and must pass declared probability, argmax and directed-policy checks. For the measured 4B profile, recurrent branch storage remains a material cost; total admission accounting must include model weights, recurrent/convolution/KV state, temporary branch expansion, restoration buffers and allocator overhead. FP16 attention-KV remains a tested storage candidate only for configurations where its profile-specific gate passes.
 
-**Release gate:** commit-stamped fixtures/tests; named-machine parity, Q-amortization and load/soak results; explicit task/capability limits; a memory and latency envelope; repeatability results; and no unreviewed probability/API changes. Kernel, precision, model, adapter, renderer, head, policy or cache changes trigger the appropriate equivalence or new-model review. This revision asserts Rust head/probability, exact-token, correctness-first CPU backbone/continuation, runtime-owned branch-state, sequential nested execution, lane-topology Q/K parity, warm-Mac scheduler measurements, state/scheduler high-K admission, in-process cache contracts, explicit semantic-none mapping, and direct native registration. It does not assert vectorized suffix kernels, completed model-backed high-K or fresh-process replay, queue-inclusive load/soak, release promotion, or Metal parity. [WP §§11.3–11.4, 13.2, 13.4; EXT1; EXT2; RUST8]
+**Release gate:** commit-stamped fixtures/tests; named-machine parity, Q-amortization and load/soak results; explicit task/capability limits; a memory and latency envelope; repeatability results; and no unreviewed probability/API changes. Kernel, precision, model, adapter, renderer, head, policy or cache changes trigger the appropriate equivalence or new-model review. This revision asserts Rust head/probability, exact-token, correctness-first CPU backbone/continuation, runtime-owned branch-state, sequential nested execution, lane-topology Q/K parity, warm-Mac scheduler measurements, bounded model-backed high-K completion, structural fresh-process replay, explicit semantic-none mapping, and direct native registration. It does not assert practical high-K latency, full restored head/decision replay, vectorized suffix kernels, queue-inclusive load/soak, release promotion, or Metal parity. [WP §§11.3–11.4, 13.2, 13.4; EXT1; EXT2; RUST10]
+
+---
+
+## Phase 4A — OpenDecision-Native Architecture Feasibility (PARALLEL TRACK B / PLANNED)
+
+**Goal:** prototype and evaluate a purpose-built OpenDecision decision architecture rather than continuing to rely indefinitely on a frozen causal LM (`Qwen3.5-4B-Base`) carrying unused token-generation machinery and expensive per-branch hybrid recurrent state.
+
+### Strategic rationale: separating efficiency from accuracy
+
+A smaller shared encoder is primarily an **efficiency architecture**, not an accuracy fix. Given OpenDecision's empirical findings, assume a naive 500M–1.5B replacement is **less accurate** than the current 4B system until proven otherwise.
+
+What can improve accuracy is the combination of **better supervision + a model architecture matched to the decision task**; parameter count is secondary.
+
+The current 4B reference system has four structural limitations that a purpose-trained architecture could overcome:
+1. **The backbone is frozen and never saw the decision contract.** Features are extracted from a general-purpose causal LM with small fitted heads, hoping the LM's final hidden state captures:
+   $$\text{state} + \text{question} + \text{candidate criteria} \longrightarrow \text{decision probability}$$
+2. **The terminal-token readout bottleneck is severe.** The candidate decision currently depends heavily on a single 2,560-dimensional last-token representation:
+   ```text
+   Current:
+   state + question + candidate ──► Qwen ──► LAST TOKEN ONLY ──► score
+   ```
+   A custom query model can attend directly across the entire encoded state sequence:
+   ```text
+   Custom:
+   state ──► H_1, H_2, H_3, ..., H_n
+                   ▲    ▲    ▲
+                   │    │    │ (cross-attention)
+       question / candidate query ──► decision
+   ```
+   This retrieves relevant evidence across multiple positions rather than forcing all evidence through one terminal token.
+3. **Causal input structure is suboptimal for document classification.** Qwen was trained causally. A decision-specific state representation can be bidirectional, allowing evidence near the beginning and end of the state to interact directly before the decision query arrives (mitigating the context and evidence-position sensitivities observed in Phase 2H/2I).
+4. **Rejection can be learned directly from semantic evidence instead of score summaries.** Difficult errors are rarely just candidate A slightly outranking B; often, none of the candidates are adequately supported. A custom architecture can jointly predict candidate compatibility, evidence sufficiency, candidate applicability, and semantic-none directly from the state representations.
+
+---
+
+### Core architectural hypothesis & topology
+
+The core architectural principle is: **encode the state once, then make question and candidate work cheap.**
+
+```text
+                    Shared State Encoder (300M–1.5B params)
+                                    │
+                         Reusable State Representation H
+                                    │
+              ┌─────────────────────┼─────────────────────┐
+              │                     │                     │
+          Question 1            Question 2            Question Q
+              │                     │                     │
+        Question Query Embeddings / Lightweight Cross-Attention Adapter
+              │
+         ┌────┴────┐
+         │         │
+      Option 1  Option K
+         │         │
+     Candidate Score & Semantic Feature
+         └────┬────┘
+              │
+      Applicability / None Mass
+              │
+       Calibrated Distribution
+```
+
+Target stack:
+- **State encoder:** 300M–1.5B parameters (bidirectional or prefix causal encoder).
+- **Question/candidate module:** 50M–300M parameters (small cross-attention / query transformer, 2–6 layers).
+- **Decision heads:** << 10M parameters.
+
+This eliminates the ~50–100 MiB per-branch DeltaNet recurrent state cloning problem entirely, replacing it with a static state representation queried by batched cross-attention.
+
+---
+
+### Methodological sequence: accuracy first, compression second
+
+Do not invert the development path by starting with a 500M encoder and wondering why quality dropped. The first custom experiment keeps the **4B Qwen backbone** to isolate the architectural query mechanism from encoder shrinkage.
+
+Core research question:
+> **Can we train a state-once decision architecture that uses Qwen's semantic representation more effectively than the existing last-token candidate-conditioned scorer?**
+
+```text
+               frozen Qwen 4B
+state ──────────────► H_state
+                       │
+                       │ cross-attention
+                       ▼
+question + candidate → small query transformer
+                       │
+                candidate score
+                applicability
+                none probability
+```
+
+The progression follows three clear gates:
+
+```text
+Stage 1 — Accuracy Baseline Gate (4A.1)
+    Qwen4B current candidate-conditioned path
+    vs
+    Qwen4B state-once + trained query module
+    Goal: equal or BETTER decision quality.
+    (If this fails, the custom shared-state architecture is not viable regardless of speed.)
+
+Stage 2 — Compression & Encoder Sizing (4A.2)
+    Same validated query architecture:
+    Qwen4B shared encoder
+       ↓
+    Qwen2B shared encoder
+       ↓
+    ~1B model
+       ↓
+    ~500M model
+    Goal: identify the smallest encoder that preserves decision quality.
+
+Stage 3 — Teacher/Student Distillation (4A.3)
+    4B teacher (distributions, semantic features, none mass)
+       ↓
+    Smaller state encoder / query model
+    Goal: recover quality lost in compression.
+```
+
+---
+
+### Ranked sources of expected accuracy gains
+
+Ranked by empirical leverage for OpenDecision:
+1. **Better reviewed training/evaluation data and clearer criteria** (unambiguous boundaries prevent confident failures).
+2. **Training the representation for actual question families** (task-conditioned semantic geometry).
+3. **A richer evidence-aware rejection/applicability model** (joint semantic-none & sufficiency).
+4. **A query architecture accessing all relevant state tokens** (multi-token cross-attention vs. single terminal token).
+5. **Limited backbone adaptation / LoRA** (adapting late representations).
+6. **Distillation / extra teacher-labeled examples** (soft labels from 4B reference).
+7. **Model size** (at the bottom; scale alone does not fix ambiguous rubrics or naive rejection).
+
+---
+
+### Three architectural candidates
+
+- **Option A — Shared encoder + cross-attention decision decoder (Primary long-term destination):**
+  - Bidirectional state encoder processes state tokens once $\to H_{\text{state}} [L \times d]$.
+  - Lightweight cross-attention decoder processes question and candidate tokens against $H_{\text{state}}$.
+  - For $Q$ questions: $H_{\text{state}}$ computed once; $Q$ query batches operate over it.
+  - For $K$ candidates: question representation shared; $K$ candidate queries batched.
+  - *Advantages:* Native state-once architecture; no causal KV/recurrent branching; $Q$ and $K$ naturally batchable with easy variable-length packing; bidirectional state context; drastically reduced continuation memory.
+  - *Risks:* Requires full supervised training across diverse domains to match pretrained causal LM question-following generalization.
+
+- **Option B — Frozen Qwen state encoder + learned query module (Bridge / Risk-mitigated probe):**
+  - Use frozen `Qwen3.5-4B` (or 2B) to encode state into hidden sequence $H_{\text{state}}$ once.
+  - Feed question and candidate tokens into a small query module that cross-attends to $H_{\text{state}}$.
+  - Train *only* the query module initially.
+  - *Value:* Directly isolates the core architectural hypothesis: *How much quality depends on causally rerunning Qwen with question/candidate tokens, versus querying a frozen state representation?* Minimizes compute and risk before training full encoders.
+
+- **Option C — State-first joint question/candidate encoder (Comparator):**
+  - Retain state-once encoding $H_{\text{state}}$, but score candidates jointly using candidate markers (similar to Laya/ModernBERT joint-scoring), maintaining state-first isolation.
+  - *Value:* Evaluates direct candidate competition and low-latency joint scoring, though prior ModernBERT exploratory results require careful verification.
+
+---
+
+### Teacher/student supervision (P2.3 bridge)
+
+Training a purpose-built student model does not depend solely on sparse hard labels. The frozen 4B reference engine acts as an offline teacher producing:
+- Candidate probability distributions;
+- Semantic feature targets;
+- Calibrated semantic-none masses;
+- Directed policy outcomes.
+
+Training loss:
+$$\mathcal{L} = \lambda_1 \mathcal{L}_{\text{NLL}}(\text{human}) + \lambda_2 \mathcal{D}_{\text{KL}}(\text{student} \parallel \text{teacher}) + \lambda_3 \mathcal{L}_{\text{applicability}}$$
+
+Authoritative human labels remain the ground truth for evaluation.
+
+---
+
+### Data prerequisite gate
+
+Full custom model training must **not** precede completion of the **2I.1 / 2I.2** data foundation:
+- Reviewed task definitions and explicit criteria boundaries;
+- Multiple genuine, distinct question types evaluated over the same shared state;
+- Held-out question/rubric families;
+- Real natural documents (distinguished from constructed synthetic wrappers);
+- Insufficient-evidence, out-of-scope, and omitted-candidate strata.
+
+*Rationale:* In exploratory Phase 2IJ (E11), the model achieved 95.0% on constructed families but only 83.33% on natural MultiRC. Training a purpose-built model prior to 2I.1/2I.2 risks severe overfitting to synthetic phrasing artifacts.
+
+---
+
+### Concrete Phase 4A tasks
+
+- [ ] **4A.1 — Frozen-Qwen shared representation accuracy test (Option B probe).** Encode state once with frozen Qwen3.5-4B to produce $H_{\text{state}}$. Train a lightweight cross-attention query head (2–4 layers) taking question and candidate suffix tokens and attending to $H_{\text{state}}$. Gate condition: achieve equal or better accuracy, NLL, calibration, and rejection compared to the full candidate-conditioned Qwen baseline before considering encoder compression.
+- [ ] **4A.2 — Progressive encoder compression & sizing.** Using the validated query head from 4A.1, compare state representations from:
+  - Frozen `Qwen3.5-4B-Base`;
+  - Frozen `Qwen3.5-2B-Base`;
+  - A compact pretrained encoder (~300M–1B parameters, e.g. ModernBERT or DeBERTa-v3).
+  Hold task data, query module architecture, and calibration fixed. Identify the inflection point where representation compression impacts decision quality.
+- [ ] **4A.3 — Teacher/student distillation for quality recovery.** On the smallest viable representation from 4A.2, evaluate:
+  - Supervised training on human labels alone;
+  - Supervised training augmented with teacher distribution KL divergence and semantic feature matching.
+  Assess sample efficiency, calibration error (ECE), and out-of-domain transfer.
+
+### Explicit non-goals for Phase 4A
+
+To maintain focus and avoid high-cost, speculative tangents:
+- **No training causal language models from scratch:** leverage existing pretrained weights for representations.
+- **No RL / RLCD loops:** establish rigorous supervised and distilled baselines first.
+- **No diffusion architectures:** maintain direct, deterministic decision inference.
+- **No novel recurrent / state-space architectures:** do not design new recurrent math before standard cross-attention is measured.
+- **No 4B custom transformer training:** the goal of Track B is efficiency and flat $Q$-scaling; a 4B custom transformer defeats the architectural objective.
 
 ---
 
@@ -783,11 +1010,12 @@ Every optimization that claims to preserve `a047d6802c3f06f085b8` must keep the 
 | **2H-C1–C5** | Preserve/recover/close the original H study | **Closed** — continuation, original artifact/selection lock, final readout and v0.6 handoff; acceptance remains bounded |
 | **Phase 2I** | Multi-question evaluation, rendering and sharing | **Bounded exploratory evidence completed**: corrected isolation fixture, Q=1/Q=4 semantic sharing and 12-cell Q/K/length mechanics grid measured; independent reviewed/natural-data confirmation and broader generality remain open [IJ2] |
 | **Phase 2J** | Matched adaptation, smaller/compact models and feature-aware rejection | **Exploratory screen completed**: 13 fit jobs, 31 final profiles, pre-final selection of Qwen4B/state-first/score-summary; release selection remains open pending reviewed confirmation and declared promotion bounds [IJ2] |
-| **Track S** | Contracts and native service lifecycle | Direct Rust registry integration and explicit none/confidence mapping implemented; checkpoint-backed endpoint, cancellation, load/soak, and service measurements remain open |
+| **Track S** | Contracts and native service lifecycle | Direct Rust registry integration, explicit none/confidence mapping, checkpoint-backed endpoint, bounded overload behavior, cancellation/recovery, and health-probe smoke passed; production load/soak and telemetry remain open |
 | **P2.1–P2.3** | Verified optimized execution, weight precision and teacher/student tests | Conditional after a promising profile; restored tracked work, not completed experiments |
 | **Phase 3A (Python)** | Full-hybrid BranchableState reference, batched Q/K systems validation and crossover measurement | **Completed notebook scope — `20260920T024056Z`**; semantic/high-K parity passed, exact recorded same-process replay; no model change, release promotion or Rust/Metal claim [P3A] |
 | **Phase 3B (Python)** | Exact Qwen token, layer, candidate, and continuation reference export | **Completed notebook scope — `20260920T152206Z`**; 47 FP32 vectors, no model or bundle change, no Rust/Metal claim [P3B] |
-| **Phase 3 (Rust/native)** | Native parity, branchable hybrid state, sequential/lane-topology Q/K execution, safe measured scheduling, high-K admission, persistence, and service lifecycle | **In progress:** 3.1–3.8 and 3.9a pass; cache/snapshot persistence and the direct service adapter are implemented. Model-backed 3.9b, fresh-process 3.10, and production 3.11 evidence remain open |
+| **Phase 3 (Rust/native)** | Native parity, branchable hybrid state, sequential/lane-topology Q/K execution, safe measured scheduling, high-K admission, persistence, and service lifecycle | **In progress:** 3.1–3.9b bounded evidence passes; structural 3.10 replay and native 3.11 service smoke pass. Full restored head/decision replay, practical high-K latency, production load/soak, Metal, and release promotion remain open |
+| **Phase 4A** | **OpenDecision-native architecture feasibility (Track B)** | **Planned parallel track** — Option B frozen-Qwen query probe (4A.1) formulated; full training gated on 2I.1/2I.2 reviewed data |
 
 ### Superseded task mapping
 
@@ -891,13 +1119,15 @@ The v0.5.2 review-capture revision left historical metrics and H-development tab
 
 **RUST7 — Rust Phase 3.8 adaptive-scheduler checkpoint.** The initial named M4 Max harness measured five warm CPU workloads with feature parity asserted per repetition: sharing beat `repeated_full` in every cell (1.25×–1.98×), the two per-lane shared topologies were within noise, and `T(3)/T(1)` was 2.87 repeated versus 2.11–2.18 shared. The least favorable measured token-work ratio was `2.52`. The scheduler therefore uses `LOWEST_MEASURED_SHARED_SAVINGS_RATIO = 2.52`; it does not claim a measured crossover below that point. `BackendCapabilities` separates state fan-out from vectorized model forward, so the current CPU backend selects `NestedSequential`. Tensor storage and process-peak admission are reported separately. RUST9 is the current commit-stamped rerun. Cold-start/cache-warmth and vectorized suffix packing remain open.
 
-**RUST8 — Rust Phase 3.9a and direct-service contract checkpoint.** Offline tests and `qwen35_scheduler_stress` cover K=32/64/128/255, mixed Q/K, vectorized lane limits, tensor/process memory ceilings, and safe fallback without full model-state fan-out. `BranchStateCache` uses tenant-scoped `ContentFingerprint` keys with TTL and tensor-byte LRU eviction. Qwen states also have an atomic, versioned, envelope-digested snapshot format with pinned identity/layout validation and strict restored-content verification; the two-invocation fresh-process model probe is implemented but unrun. `Qwen35DecisionEngine` directly implements the registry contract with bounded concurrency/queueing and overload mapping. Process admission refreshes peak RSS after model load and before each evaluation, then apportions remaining headroom across the concurrency limit. Cancelled callers retain permits until their blocking native work finishes. Choice requires explicit `__none__`, preserves native none mass without renormalization, and uses entropy-derived confidence. `qwen35_model_stress` defines but does not itself prove the remaining checkpoint-gated model-backed high-K cells. Fresh-process replay and service load/soak remain open.
+**RUST8 — Rust Phase 3.9a and direct-service contract checkpoint.** Offline tests and `qwen35_scheduler_stress` cover K=32/64/128/255, mixed Q/K, vectorized lane limits, tensor/process memory ceilings, and safe fallback without full model-state fan-out. `BranchStateCache` uses tenant-scoped `ContentFingerprint` keys with TTL and tensor-byte LRU eviction. Qwen states also have an atomic, versioned, envelope-digested snapshot format with pinned identity/layout validation and strict restored-content verification. `Qwen35DecisionEngine` directly implements the registry contract with bounded concurrency/queueing and overload mapping. Process admission refreshes peak RSS after model load and before each evaluation, then apportions remaining headroom across the concurrency limit. Cancelled callers retain permits until their blocking native work finishes. Choice requires explicit `__none__`, preserves native none mass without renormalization, and uses entropy-derived confidence. The checkpoint-gated model-backed and fresh-process cells were intentionally left to the later RUST10 follow-up record.
 
 **RUST9 — Commit-stamped v0.8.0 verification.** [`verification/2026-09-20-v0.8.0-35c481a.md`](verification/2026-09-20-v0.8.0-35c481a.md) records a clean named-Mac run for subject commit `35c481a6e95a`. Formatting, all-target/all-feature linting, default and all-feature workspace tests, schema regeneration with zero diff, scheduler stress, checkpoint digests, full/branch/nested/batched native parity, the canonical warm-process scheduler benchmark, commit diff hygiene, and final clean-tree status pass. In the rerun, `NestedSequential` is 1.29×–2.02× faster than repeated-full across the five workloads, `NestedBatched` stays within 2.9% of sequential, Q-amortization is 2.815 repeated versus 2.170/2.233 shared, and post-benchmark peak resident memory is 10.968 GiB. The record retains the exact current test count and benchmark medians. It does not close model-backed high-K, fresh-process replay, service load/soak, Metal, or release promotion.
 
+**RUST10 — Named-Mac native follow-up campaign.** [`verification/2026-09-20-v0.8.0-native-follow-up-working-tree.md`](verification/2026-09-20-v0.8.0-native-follow-up-working-tree.md) records a dirty-tree run anchored at `9d086107bb017bf721d815bb5bcb8ba516ce0e6e`. Rust 1.98.1 workspace tests, all-features tests, formatting, strict Clippy, and diff hygiene pass. Rust 1.88.0 is the verified workspace floor and is added to CI. Model-backed K=32/64/128/255 stress passes bounded completion, root immutability, and memory behavior; two fresh processes pass structural persistence replay; and a real native daemon request, overload admission, cancellation/recovery, clean shutdown, and 20 health probes pass. The full restored candidate-feature/head/probability/argmax/policy replay gate, practical high-K latency, production load/soak, Metal, and release promotion remain open.
+
 **PUB1 — Public OpenDecision state-first reference repository.** <https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst>. This project-owned publication exposes the integration line publicly. Publication does not by itself establish release-quality model promotion, native parity, or TypeSafe RLCD reproduction.
 
-**Revision 0.8.0 outcome:** Native CPU reference engine through safe adaptive scheduling and direct registration. Consolidates Phases 3.1–3.8 (RUST1–RUST7), then corrects the scheduler's unmeasured 2.0 claim to the observed 2.52 boundary, distinguishes lane topology from vectorized forward, moves generic execution contracts into runtime, separates fingerprint types, qualifies tensor/process memory, completes 3.9a admission stress, adds tenant-scoped cache primitives, and registers the native engine with explicit none/confidence semantics (RUST8). Model-backed high-K, fresh-process persistence, vectorized kernels, Metal, and load/soak remain open.
+**Revision 0.8.0 outcome:** Native CPU reference engine through safe adaptive scheduling and direct registration. Consolidates Phases 3.1–3.8 (RUST1–RUST7), then corrects the scheduler's unmeasured 2.0 claim to the observed 2.52 boundary, distinguishes lane topology from vectorized forward, moves generic execution contracts into runtime, separates fingerprint types, qualifies tensor/process memory, completes 3.9a admission stress, adds tenant-scoped cache primitives, and registers the native engine with explicit none/confidence semantics (RUST8). RUST10 adds bounded model-backed high-K, structural fresh-process replay, and native service lifecycle smoke. Full restored head/decision replay, practical high-K latency, vectorized kernels, Metal, and production load/soak remain open.
 
 **Revision 0.7.2 outcome:** Phase 3A and Phase 3B are closed for their Python reference scopes. Rust head/probability, exact renderer/tokenizer, CPU full-sequence backbone, and Qwen-specific cached-continuation parity pass, the Phase 3.4 amendment adds the backend-neutral branch-state contract with its native checkpoint, the Phase 3.5 amendment adds sequential nested execution parity with its native checkpoint, the Phase 3.6/3.7 amendment adds breadth-first batched Q/K parity with its native checkpoint, and the Phase 3.8 amendment adds the measured adaptive scheduler with its native benchmark. The remaining queue starts with high-cardinality stress and repeatability/persistence, then the production service lifecycle. CPU native parity does not imply Metal or accelerated parity. Phase 3A.1 remains conditional cost-model work.
 

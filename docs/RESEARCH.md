@@ -1240,3 +1240,82 @@ checks, the production Rust implementation should:
   fixtures and prior NLI golden vectors (`golden_head_inputs.npz`).
 - Build the scheduler around the declared numerical reference, small
   length-aware candidate batches, and explicit rejection-policy tests.
+
+## Prior-Art Implementation Review: SemIf MLX Backend (Reviewed 2026-09-20)
+
+[SemIf](https://github.com/TheoLeeCJ/SemIf) is an independent decision-scoring
+project that converges on the same direction as OpenDecision: decision-native
+inference without an autoregressive loop, shared-state reuse across questions,
+parallel suffix work, and a strict separation between interface compatibility
+and reproducing Jev internals. This section records what its MLX backend
+implementation actually does, pinned to immutable revisions so the entry
+cannot drift as the external repository moves.
+
+### Pinned provenance
+
+| Artifact | Pin |
+|---|---|
+| SemIf repository | commit `ca3ba65f142967030ecb453346e94d6f476a69df` (2026-09-19) |
+| MLX backend source | `src/semif_phase1/mlx_backend.py` at that commit |
+| MLX documentation | `docs/MLX.md` at that commit |
+| MLX-LM dependency | `mlx_lm` `models/qwen3_5.py` and `models/cache.py` pinned to `a63e24c` (as recorded in SemIf's `docs/MLX.md`) |
+| Executed model | `Qwen/Qwen3.5-4B` revision `851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a`, BF16 |
+| Date reviewed | 2026-09-20 |
+
+The executed model is **not** OpenDecision's selected checkpoint
+(`Qwen/Qwen3.5-4B-Base` revision `1001bb4d826a52d1f399e183466143f4da7b741b`,
+FP32). SemIf's published drift and throughput numbers — including its
+reported 5–6 argmax changes out of 777 decisions between BF16 shared reuse
+and fresh scoring — are external implementation evidence from a different
+model, precision, and stack. They are not expected OpenDecision rates, and no
+SemIf number is imported as an OpenDecision measurement. The reusable content
+is the mechanism.
+
+### Verified mechanisms (against the pinned source)
+
+- **Serial reuse = deep-copy per lane.** `SerialPrefixScorer.score` never
+  mutates the retained prefix cache; for each question it evaluates
+  `branch = copy.deepcopy(self.cache)` and runs the suffix against the copy.
+  This is the same shape as OpenDecision's `fork_one` on an immutable root,
+  and its "merge native cache copies" (`entry.merge([entry] * len(rows))`) is
+  the same shape as `fork_batch`.
+- **Shared mode = one batched forward with right padding.** `score_shared`
+  right-pads question suffixes to the max lane width, then calls
+  `entry.prepare(lengths=lengths, right_padding=[width - size for size in
+  lengths])` so the native recurrent caches receive true (unpadded) lengths
+  and mask the padding; readout indexes each lane's last real token
+  (`logits[i, lengths[i] - 1, ...]`).
+- **Hybrid state is delegated to MLX-LM's native Qwen3.5 cache**
+  (`mlx_lm.models.cache.make_prompt_cache`), which combines attention history
+  with the recurrent convolution/DeltaNet state in one object, exactly the
+  three tensor families OpenDecision's `BranchableState` isolates together.
+- **Precision is a profile property.** The backend runs checkpoint precision
+  (BF16) and casts only the readout logits to FP32; optional 4/8-bit affine
+  quantization (group size 64) is applied in memory and its results must be
+  evaluated separately. Frozen per-run manifests under `manifests/` and
+  checksummed `results/mlx/<run>/` directories record every changed choice.
+
+### Implications for OpenDecision
+
+1. **Vectorized forward mechanics.** SemIf's shared mode is the concrete
+   shape a future OpenDecision vectorized `nested_batched` forward needs:
+   right-pad lanes for the attention path, pass true lengths to the recurrent
+   (DeltaNet/conv) state, and gather the last real position per lane. The
+   hybrid-state fan-out it needs (`entry.merge`) maps onto `fork_batch`, which
+   the CPU backend already exposes. This informs the P1 vectorized/Metal work;
+   it does not change any current claim.
+2. **Precision drift is real and must stay profile-gated.** SemIf's reported
+   BF16 reuse argmax changes independently confirm OpenDecision's discipline
+   that a changed device, precision, or kernel path is a new arithmetic
+   identity, not an implementation detail of the same profile.
+3. **Evidence packaging converges.** Commit-pinned model manifests plus
+   checksummed per-run result directories mirror the
+   `opendecision-native-run/v1` evidence format recorded in
+   `crates/opendecision-runtime/src/evidence.rs`; their MLX-LM commit pinning
+   is why the native-run `PROFILE.json` records backend version/commit
+   identity.
+4. **Probability wording.** SemIf states plainly that its probabilities are
+   conditional on the supplied options. OpenDecision's selected profile
+   instead declares `offered_options_plus_semantic_none`
+   (`opendecision-engine` `ProbabilitySpace`); the explicit declaration, not
+   the wording, is the borrow.

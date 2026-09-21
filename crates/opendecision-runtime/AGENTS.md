@@ -9,9 +9,11 @@
 It defines:
 - Compute device discovery and target configuration (`DeviceType`, `RuntimeConfig`, `detect_available_devices`).
 - Process-level memory observation (`peak_resident_bytes`) for admission control.
-- Generic execution plan vocabulary (`ExecutionPlan`) and backend vectorization capabilities (`BackendCapabilities`).
+- Generic execution plan vocabulary (`ExecutionPlan`), the physical compute mode a plan executed in (`BatchForwardMode`), and backend vectorization capabilities (`BackendCapabilities`).
+- Role-typed digests over finalized execution-input token sequences (`digest`: `StateTokenDigest`, `QuestionTokenDigest`, `CandidateTokenDigest`, order-sensitive `ExecutionInputDigest`, order-independent `SemanticSetDigest`).
 - The backend-neutral `BranchableState` / `BranchBatch` continuation-state contracts.
 - Tenant-isolated, byte-bounded branch-state caching with TTL and LRU eviction (`BranchStateCache`).
+- Backend-neutral native-run evidence artifacts (`evidence`: `opendecision-native-run/v1` writer with sanitized invocations, environment capture, and per-file checksums).
 
 ### Critical Invariants
 
@@ -38,7 +40,12 @@ It defines:
   - `peak_resident_bytes()`: Queries the OS `getrusage` high-water mark. macOS reports bytes; other Unix targets are converted from KiB. It is peak RSS, not current RSS.
 - [`src/execution.rs`](./src/execution.rs):
   - `ExecutionPlan`: `RepeatedFull`, `NestedSequential`, `NestedBatched`.
+  - `BatchForwardMode`: `PerLane` vs `Vectorized` — how a plan physically executed, derived from `BackendCapabilities` and the request shape. A plan name is state topology only.
   - `BackendCapabilities`: Advertises whether a backend supports vectorized question forwards, vectorized candidate forwards, and lane capacity limits.
+- [`src/digest.rs`](./src/digest.rs):
+  - Role-domain-separated SHA-256 digests over fixed-width little-endian token IDs (never textual renderings). `ExecutionInputDigest` is order-sensitive (the reproducibility identity); `SemanticSetDigest` is order-independent (invariance/isolation testing).
+- [`src/evidence.rs`](./src/evidence.rs):
+  - `NativeRunWriter`: writes `RUN.json`/`PROFILE.json`/optional reports/`predictions.jsonl`/`checksums.json` under one run directory. Invocation records are structured and sanitized — raw `argv` is never recorded, run IDs outside `[A-Za-z0-9._-]` are rejected, and `contains_input_content`/`contains_sensitive_paths` flags state what was written.
 - [`src/branch/`](./src/branch/):
   - [`src/branch/state.rs`](./src/branch/state.rs):
     - `pub trait BranchableState: Send + Sync`: `fork_one()`, `fork_batch(lanes)`, `position()`, `tensor_storage_bytes()`, `scheduling_fingerprint()`.

@@ -5,8 +5,12 @@ use std::path::{Path, PathBuf};
 
 use opendecision_backends::branch::{BranchBatch, BranchableState};
 use opendecision_backends::qwen35::{
-    BackboneReference, BackboneState, Qwen35Backbone, Qwen35Embedding, Qwen35Layer0,
-    EXECUTION_ARITHMETIC_ID, PROFILE_ID,
+    choose_strategy, native_profile_record, BackboneReference, BackboneState, Qwen35Backbone,
+    Qwen35Embedding, Qwen35Layer0, SchedulerConfig, StrategyRequest, EXECUTION_ARITHMETIC_ID,
+    PROFILE_ID,
+};
+use opendecision_runtime::evidence::{
+    generate_run_id, NativeRunWriter, RunEnvironment, SanitizedInvocation,
 };
 use serde::Deserialize;
 
@@ -36,11 +40,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         .map(|value| value.to_string_lossy().into_owned())
         .unwrap_or_else(|| "embedding".to_owned());
     let snapshot_path = arguments.next().map(PathBuf::from);
-    if arguments.next().is_some() {
-        return Err(
-            "qwen35_parity_probe accepts two roots, one optional stage, and one optional snapshot path"
-                .into(),
-        );
+    let mut evidence_root = PathBuf::from("target/verification/native-runs");
+    while let Some(flag) = arguments.next() {
+        match flag.to_string_lossy().as_ref() {
+            "--evidence-root" => {
+                let value = arguments
+                    .next()
+                    .ok_or_else(|| "missing --evidence-root value".to_string())?;
+                evidence_root = PathBuf::from(value);
+            }
+            other => {
+                return Err(format!("unknown argument `{other}`").into());
+            }
+        }
     }
 
     let reference = BackboneReference::load(&reference_root)?;
@@ -51,16 +63,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         let backbone = Qwen35Backbone::load(checkpoint_root)?;
         let (_, root_state) = backbone.prefill(&trace.root_ids)?;
         root_state.persist_pinned(&snapshot_path)?;
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&serde_json::json!({
-                "schema": "opendecision-qwen35-persist-save/v1",
-                "snapshot": snapshot_path,
-                "position": root_state.position(),
-                "tensor_storage_bytes": root_state.tensor_storage_bytes(),
-                "content_fingerprint": root_state.strict_fingerprint().hex(),
-            }))?
-        );
+        let report = serde_json::json!({
+            "schema": "opendecision-qwen35-persist-save/v1",
+            "snapshot": snapshot_path,
+            "position": root_state.position(),
+            "tensor_storage_bytes": root_state.tensor_storage_bytes(),
+            "content_fingerprint": root_state.strict_fingerprint().hex(),
+        });
+        println!("{}", serde_json::to_string_pretty(&report)?);
+        record_persist_evidence(&evidence_root, "persist-save", &trace, redact(report))?;
         return Ok(());
     }
     if stop_after == "persist-replay" {
@@ -86,22 +97,21 @@ fn main() -> Result<(), Box<dyn Error>> {
             && candidate_state.position() == trace.candidate_position
             && root_immutable
             && cached_vs_full == 0.0;
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&serde_json::json!({
-                "schema": "opendecision-qwen35-persist-replay/v1",
-                "passed": passed,
-                "snapshot": snapshot_path,
-                "root_content_fingerprint": before.hex(),
-                "root_immutable": root_immutable,
-                "question_position": question_state.position(),
-                "candidate_position": candidate_state.position(),
-                "cached_vs_native_full_max_abs": cached_vs_full,
-                "question_reference_max_abs": reference
-                    .compare("continuation.question_last_hidden", question_output.final_token())?
-                    .max_abs(),
-            }))?
-        );
+        let report = serde_json::json!({
+            "schema": "opendecision-qwen35-persist-replay/v1",
+            "passed": passed,
+            "snapshot": snapshot_path,
+            "root_content_fingerprint": before.hex(),
+            "root_immutable": root_immutable,
+            "question_position": question_state.position(),
+            "candidate_position": candidate_state.position(),
+            "cached_vs_native_full_max_abs": cached_vs_full,
+            "question_reference_max_abs": reference
+                .compare("continuation.question_last_hidden", question_output.final_token())?
+                .max_abs(),
+        });
+        println!("{}", serde_json::to_string_pretty(&report)?);
+        record_persist_evidence(&evidence_root, "persist-replay", &trace, redact(report))?;
         if !passed {
             return Err("fresh-process persisted-state replay gate failed".into());
         }
@@ -287,6 +297,57 @@ fn maximum_abs(left: &[f32], right: &[f32]) -> f64 {
         .zip(right)
         .map(|(left, right)| f64::from((left - right).abs()))
         .fold(0.0, f64::max)
+}
+
+/// Replace the operator-chosen snapshot path before copying a report into an
+/// evidence artifact, so evidence never records potentially sensitive paths.
+fn redact(mut report: serde_json::Value) -> serde_json::Value {
+    if report.get("snapshot").is_some() {
+        report["snapshot"] = serde_json::json!("<redacted>");
+    }
+    report
+}
+
+/// Record one persist-gate invocation as a native-run evidence directory.
+fn record_persist_evidence(
+    evidence_root: &Path,
+    stage: &str,
+    trace: &ContinuationTrace,
+    report: serde_json::Value,
+) -> Result<(), Box<dyn Error>> {
+    let scheduler = SchedulerConfig::for_pinned_profile(
+        SchedulerConfig::LOWEST_MEASURED_SHARED_SAVINGS_RATIO,
+        None,
+    );
+    let decision = choose_strategy(
+        &scheduler,
+        &StrategyRequest {
+            root_tokens: trace.root_ids.len(),
+            question_tokens: vec![trace.question_ids.len()],
+            suffix_tokens: vec![vec![trace.candidate_suffix_ids.len()]],
+        },
+    );
+    let directory = NativeRunWriter::begin(
+        evidence_root,
+        generate_run_id(),
+        SanitizedInvocation {
+            harness: "qwen35-parity-probe".to_owned(),
+            command: "qwen35_parity_probe".to_owned(),
+            parameters: serde_json::json!({
+                "stage": stage,
+                "root_tokens": trace.root_ids.len(),
+                "question_tokens": trace.question_ids.len(),
+                "candidate_suffix_tokens": trace.candidate_suffix_ids.len(),
+            }),
+            raw_argv_recorded: false,
+        },
+        RunEnvironment::capture(),
+    )?
+    .profile(native_profile_record(&scheduler, &decision))
+    .parity(report)
+    .finish()?;
+    eprintln!("evidence recorded: {}", directory.display());
+    Ok(())
 }
 
 /// Phase 3.4 checkpoint: root -> question -> candidate parity through the

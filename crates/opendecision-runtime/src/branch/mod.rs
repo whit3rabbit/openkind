@@ -14,6 +14,7 @@ mod state;
 
 pub use cache::{BranchStateCache, CacheError, StateCacheKey};
 pub use error::StateError;
+pub(crate) use fingerprint::fingerprint_type;
 pub use fingerprint::{
     ContentFingerprint, ContentFingerprintBuilder, SchedulingFingerprint,
     SchedulingFingerprintBuilder,

@@ -31,6 +31,61 @@ impl ExecutionPlan {
             Self::NestedBatched,
         ]
     }
+
+    /// Physical compute mode this plan executes in under `capabilities`.
+    ///
+    /// `NestedBatched` is vectorized only when the backend advertises complete
+    /// vectorized nested forward and the request shape fits the advertised
+    /// lane ceilings; otherwise its lanes advance one call at a time. The two
+    /// single-lane plans are per-lane by definition.
+    #[must_use]
+    pub const fn batch_forward_mode(
+        self,
+        capabilities: BackendCapabilities,
+        questions: usize,
+        max_candidates: usize,
+    ) -> BatchForwardMode {
+        match self {
+            Self::RepeatedFull | Self::NestedSequential => BatchForwardMode::PerLane,
+            Self::NestedBatched => {
+                if capabilities.supports_vectorized_nested_forward()
+                    && questions <= capabilities.max_vectorized_question_lanes()
+                    && max_candidates <= capabilities.max_vectorized_candidate_lanes()
+                {
+                    BatchForwardMode::Vectorized
+                } else {
+                    BatchForwardMode::PerLane
+                }
+            }
+        }
+    }
+}
+
+/// Physical compute mode a selected [`ExecutionPlan`] actually executed in.
+///
+/// A plan name describes state topology — how branches share the immutable
+/// root — not how the model forward advanced lanes. The same plan legitimately
+/// executes per-lane on a backend without vectorized kernels and vectorized on
+/// one that has them, so telemetry and evidence artifacts must record the plan
+/// and this mode as siblings: an accelerated backend can otherwise appear to
+/// test the same execution graph as the CPU reference when it does not.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BatchForwardMode {
+    /// Lanes advanced one model call at a time.
+    PerLane,
+    /// Question or candidate lanes were consumed by vectorized model calls.
+    Vectorized,
+}
+
+impl BatchForwardMode {
+    /// Stable lowercase identifier used in reports and evidence artifacts.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::PerLane => "per_lane",
+            Self::Vectorized => "vectorized",
+        }
+    }
 }
 
 /// Model-forward capabilities advertised by one concrete backend.
@@ -136,5 +191,49 @@ mod tests {
         assert_eq!(limited.max_vectorized_question_lanes(), 8);
         assert_eq!(limited.max_vectorized_candidate_lanes(), 64);
         assert_eq!(ExecutionPlan::NestedBatched.as_str(), "nested_batched");
+    }
+
+    #[test]
+    fn batch_forward_mode_separates_plan_topology_from_physical_compute() {
+        let per_lane = BackendCapabilities::per_lane();
+        for plan in ExecutionPlan::all() {
+            assert_eq!(
+                plan.batch_forward_mode(per_lane, 2, 16),
+                BatchForwardMode::PerLane,
+                "per-lane backends advance every plan one lane at a time"
+            );
+        }
+
+        let vectorized = BackendCapabilities::fully_vectorized();
+        assert_eq!(
+            ExecutionPlan::RepeatedFull.batch_forward_mode(vectorized, 2, 16),
+            BatchForwardMode::PerLane
+        );
+        assert_eq!(
+            ExecutionPlan::NestedSequential.batch_forward_mode(vectorized, 2, 16),
+            BatchForwardMode::PerLane
+        );
+        assert_eq!(
+            ExecutionPlan::NestedBatched.batch_forward_mode(vectorized, 2, 16),
+            BatchForwardMode::Vectorized
+        );
+
+        // Advertised kernels but a request shape beyond the lane ceilings still
+        // executes per-lane.
+        let limited = vectorized.with_lane_limits(8, 64);
+        assert_eq!(
+            ExecutionPlan::NestedBatched.batch_forward_mode(limited, 16, 16),
+            BatchForwardMode::PerLane
+        );
+        assert_eq!(
+            ExecutionPlan::NestedBatched.batch_forward_mode(limited, 8, 128),
+            BatchForwardMode::PerLane
+        );
+        assert_eq!(
+            ExecutionPlan::NestedBatched.batch_forward_mode(limited, 8, 64),
+            BatchForwardMode::Vectorized
+        );
+        assert_eq!(BatchForwardMode::PerLane.as_str(), "per_lane");
+        assert_eq!(BatchForwardMode::Vectorized.as_str(), "vectorized");
     }
 }

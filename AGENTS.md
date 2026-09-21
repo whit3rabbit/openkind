@@ -19,6 +19,7 @@ selected open-weight Qwen 3.5 profile described below.
 - [`README.md`](README.md): workspace overview and quickstart.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md): current milestone status and remaining work.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): crate boundaries and data flow.
+- [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md): benchmark methodology, harness usage, and recorded runs.
 - [`docs/RESEARCH.md`](docs/RESEARCH.md): empirical research and prior-art evidence.
 - [`docs/whitepaper/OpenDecision_Whitepaper_v0.8.0.md`](docs/whitepaper/OpenDecision_Whitepaper_v0.8.0.md): scientific rationale and measured results.
 - Each crate's `AGENTS.md`: module-specific invariants and verification commands.
@@ -45,10 +46,21 @@ Profile `a047d6802c3f06f085b8` is the native integration target:
   - `nested_sequential`: Prefills immutable root state once, then sequentially forks question and candidate lanes.
   - `nested_batched`: Prefills immutable root state once, then fans out question lanes (`fork_batch`) and candidate lanes. This is state topology; it is compute-batched only when the backend advertises vectorized forward.
   - `choose_strategy`: Capability-aware scheduler using the lowest measured ratio (`2.52`), tensor/process memory ceilings, and lane limits. The current CPU default is `nested_sequential`.
+  - Every decision records the selected plan and its physical `BatchForwardMode` (`per_lane` vs `vectorized`); the same plan name can execute with different physical graphs on different backends.
+  - `--qwen35-execution` on `opendecisiond` forces one plan for diagnostics and reproducibility. It bypasses the profitability policy only — admission ceilings and real backend capabilities still apply.
 - **Daemon Registration**: `Qwen35DecisionEngine` integrates directly behind `DecisionEngine`
   and is registered by `opendecisiond` via `--qwen35-*` CLI flags and environment variables.
+- **Execution Identity**: Finalized token sequences are the execution contract. Role-typed digests
+  (`StateTokenDigest`, `QuestionTokenDigest`, `CandidateTokenDigest`, an order-sensitive
+  `ExecutionInputDigest`, and an order-independent `SemanticSetDigest`) live in `opendecision-runtime`
+  and are emitted at debug level only (raw digests of low-entropy inputs must stay out of default logs).
+- **Native-Run Evidence**: Harness evidence uses the backend-neutral `opendecision-native-run/v1`
+  schema (`opendecision-runtime::evidence`): sanitized invocation (never raw argv), environment,
+  profile/backend/execution identity, parity/performance/memory reports, and per-file checksums.
 - **Native Semantic None**: Choice questions handle semantic-none mass explicitly via
-  the reserved criteria key `__none__` (`SEMANTIC_NONE_OPTION`).
+  the reserved criteria key `__none__` (`SEMANTIC_NONE_OPTION`). The profile declares this explicitly
+  as `ProbabilitySpace::OfferedOptionsPlusSemanticNone`; the adapter fails closed on any other
+  declared space instead of renormalizing.
 
 Parity tolerances against golden fixtures:
 - Bundle SHA-256: `4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332`.
@@ -72,6 +84,7 @@ high-K, fresh-process replay, and queue-inclusive load/soak remain open.
 | Rust client SDK | [`crates/opendecision-client/AGENTS.md`](crates/opendecision-client/AGENTS.md) |
 | Hardware and state lifecycle | [`crates/opendecision-runtime/AGENTS.md`](crates/opendecision-runtime/AGENTS.md) |
 | Model artifacts and readouts | [`crates/opendecision-backends/AGENTS.md`](crates/opendecision-backends/AGENTS.md) |
+| Scoring/timing benchmark harness | [`crates/opendecision-bench/AGENTS.md`](crates/opendecision-bench/AGENTS.md) |
 | JSON Schema generation | [`crates/opendecision-gen-schemas/AGENTS.md`](crates/opendecision-gen-schemas/AGENTS.md) |
 | Protobuf contract | [`proto/AGENTS.md`](proto/AGENTS.md) |
 | Project documentation | [`docs/AGENTS.md`](docs/AGENTS.md) |

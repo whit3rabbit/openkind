@@ -301,7 +301,7 @@ impl ContinuationTrace {
     }
 }
 
-// `slice::as_chunks` is newer than the workspace's Rust 1.75 minimum.
+// Keep the chunks_exact form for compatibility with the workspace MSRV.
 #[allow(clippy::chunks_exact_to_as_chunks)]
 fn load_vectors(
     bytes: &[u8],

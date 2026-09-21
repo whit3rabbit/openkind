@@ -2,7 +2,7 @@
 
 `opendecision` is an independent Rust decision-inference engine for typed `Noul`, `Choice`, and `Score` answers over Jev-compatible public interfaces. It is built to answer structured questions without depending on an autoregressive text-generation loop.
 
-The wire, service, and SDK layers are implemented. The selected Qwen 3.5 native path has passed Rust head, tokenizer, correctness-first CPU backbone, cached-continuation, backend-neutral branch-state, sequential nested execution, batched Q/K, and measured adaptive-scheduler gates. State/scheduler high-K stress, process-peak admission, tenant-isolated state reuse, versioned/digest-checked state snapshots, cancellation-safe permit ownership, and a direct native `DecisionEngine` adapter are implemented. Model-backed high-K runs, the checkpoint-gated fresh-process replay, Metal validation, and production load/soak remain open.
+The wire, service, and SDK layers are implemented. The selected Qwen 3.5 native path has passed Rust head, tokenizer, correctness-first CPU backbone, cached-continuation, backend-neutral branch-state, sequential nested execution, batched Q/K, and measured adaptive-scheduler gates. State/scheduler high-K stress, process-peak admission, tenant-isolated state reuse, versioned/digest-checked state snapshots, cancellation-safe permit ownership, and a direct native `DecisionEngine` adapter are implemented. The named-machine follow-up completed bounded model-backed K=32/64/128/255 stress, structural fresh-process replay, and native service lifecycle smoke. Restored head/probability/decision replay, practical high-K latency, Metal validation, and production load/soak remain open.
 
 [Quickstart](#quickstart) | [Research dossier](docs/RESEARCH.md) | [Whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.8.0.md) | [Roadmap](docs/ROADMAP.md) | [Architecture](docs/ARCHITECTURE.md) | [Jev wire reference](https://docs.typesafe.ai/api)
 
@@ -11,7 +11,7 @@ The wire, service, and SDK layers are implemented. The selected Qwen 3.5 native 
 
 ## Quickstart
 
-You need Rust 1.75 or newer and `protoc` for gRPC code generation.
+You need Rust 1.88 or newer and `protoc` for gRPC code generation.
 
 ```bash
 git clone https://github.com/whit3rabbit/opendecision.git
@@ -90,8 +90,8 @@ These values define the parity target. They do not promote the profile to releas
 | Sequential nested execution (CPU) | Phase 3.5 gate passed |
 | Breadth-first batched Q/K execution (CPU) | Phase 3.6/3.7 gate passed; vectorized kernels open |
 | Adaptive scheduler (CPU, named Mac) | Phase 3.8 measured gate passed; 2.52 is the lowest measured boundary |
-| High-K state/scheduler stress and state reuse | K=32/64/128/255 estimator/admission gates and tenant/TTL/byte-bounded cache implemented; model-backed runs open |
-| Direct native service adapter | Implemented behind explicit artifact paths; load/soak and promotion open |
+| High-K state/scheduler stress and state reuse | K=32/64/128/255 bounded model-backed correctness/memory campaign passed; semantic quality and practical latency remain open |
+| Direct native service adapter | Real endpoint, overload, cancellation, recovery, and health-probe smoke passed; production load/soak and promotion remain open |
 | Metal and production service validation | Open |
 
 Implementation equivalence and release promotion are different decisions. Passing a parity fixture does not establish model quality, hardware support, or production readiness.

@@ -1,7 +1,7 @@
 //! Cost estimation, retention modeling, and scheduler selection policy.
 
 use crate::qwen35::Qwen35Error;
-use opendecision_runtime::BackendCapabilities;
+use opendecision_runtime::{BackendCapabilities, BatchForwardMode};
 
 use super::super::nested::{NestedQuestion, SequentialNestedExecutor};
 use super::{run_strategy, ExecutionStrategy, StrategyOutput};
@@ -85,6 +85,14 @@ impl ProcessMemoryEnvelope {
 pub struct StrategyDecision {
     /// Selected strategy.
     pub strategy: ExecutionStrategy,
+    /// Physical compute mode the selected plan executes in. A plan name is
+    /// state topology; this records how lanes actually advanced, so a
+    /// `nested_batched` run on a per-lane CPU backend is not mistaken for a
+    /// vectorized one on an accelerated backend.
+    pub batch_forward_mode: BatchForwardMode,
+    /// Whether the plan came from a diagnostic override instead of the
+    /// measured policy.
+    pub forced: bool,
     /// Human-readable reason referencing the measured model.
     pub rationale: String,
     /// Cost estimates behind the decision.
@@ -117,6 +125,12 @@ pub struct SchedulerConfig {
     pub state_fixed_tensor_bytes: usize,
     /// Attention-KV bytes added per position token.
     pub state_tensor_bytes_per_token: usize,
+    /// Diagnostic execution-plan override. When set, the measured savings
+    /// ratio and the scheduler's vectorized-preference policy are bypassed,
+    /// but admission (tensor and process-memory ceilings) is still enforced
+    /// and the backend's real capabilities still bound the physical forward
+    /// mode recorded in the decision.
+    pub forced_strategy: Option<ExecutionStrategy>,
 }
 
 impl SchedulerConfig {
@@ -142,6 +156,7 @@ impl SchedulerConfig {
             backend_capabilities: BackendCapabilities::per_lane(),
             state_fixed_tensor_bytes: 53_477_376,
             state_tensor_bytes_per_token: 65_536,
+            forced_strategy: None,
         }
     }
 
@@ -156,6 +171,18 @@ impl SchedulerConfig {
     #[must_use]
     pub const fn with_process_memory(mut self, process_memory: ProcessMemoryEnvelope) -> Self {
         self.process_memory = Some(process_memory);
+        self
+    }
+
+    /// Force one execution plan for diagnostics and reproducibility.
+    ///
+    /// The override bypasses only the scheduler's profitability policy — the
+    /// measured savings ratio and its preference for vectorized-capable
+    /// backends. Admission ceilings still apply, and the decision records the
+    /// physical [`BatchForwardMode`] the backend will actually use.
+    #[must_use]
+    pub const fn with_forced_strategy(mut self, plan: Option<ExecutionStrategy>) -> Self {
+        self.forced_strategy = plan;
         self
     }
 }
@@ -199,7 +226,10 @@ impl StrategyRequest {
 
 /// Estimate costs and select a strategy for `request`.
 ///
-/// Policy order: (1) share only when the measured crossover threshold says
+/// Policy order: (0) a configured [`SchedulerConfig::forced_strategy`]
+/// override short-circuits the policy for diagnostics and reproducibility —
+/// bypassing profitability only, never admission or the backend's real
+/// capabilities; (1) share only when the measured crossover threshold says
 /// sharing recovers its overhead; (2) prefer the breadth-first batched path
 /// when its retained-state estimate fits the ceiling; (3) fall back to the
 /// sequential shared path; (4) otherwise repeat full sequences.
@@ -284,11 +314,51 @@ pub fn choose_strategy(config: &SchedulerConfig, request: &StrategyRequest) -> S
         });
         tensor_fits && process_fits
     };
+    let max_candidates = request
+        .suffix_tokens
+        .iter()
+        .map(Vec::len)
+        .max()
+        .unwrap_or(0);
+    let mode_for = |plan: ExecutionStrategy| {
+        plan.batch_forward_mode(config.backend_capabilities, questions, max_candidates)
+    };
+
+    if let Some(forced) = config.forced_strategy {
+        // A diagnostic override bypasses profitability only: the measured
+        // savings ratio and the vectorized-preference policy. Admission and
+        // the backend's real capabilities still bound the decision, and the
+        // physical forward mode is recorded so a per-lane `nested_batched`
+        // run cannot be mistaken for a vectorized one.
+        let tensor_bytes = match forced {
+            ExecutionStrategy::RepeatedFull => repeated_full_tensor_bytes,
+            ExecutionStrategy::NestedSequential => sequential_bytes,
+            ExecutionStrategy::NestedBatched => batched_bytes,
+        };
+        let admitted = fits(tensor_bytes);
+        let batch_forward_mode = mode_for(forced);
+        return StrategyDecision {
+            strategy: forced,
+            batch_forward_mode,
+            forced: true,
+            rationale: format!(
+                "forced override bypasses the measured savings-ratio and vectorized-preference \
+                 policy only; retained tensor payload ({tensor_bytes} bytes) admission={admitted}; \
+                 physical forward mode is {}",
+                batch_forward_mode.as_str()
+            ),
+            estimates,
+            retention,
+            admitted,
+        };
+    }
 
     if savings_ratio < config.min_shared_savings_ratio {
         let admitted = fits(repeated_full_tensor_bytes);
         return StrategyDecision {
             strategy: ExecutionStrategy::RepeatedFull,
+            batch_forward_mode: mode_for(ExecutionStrategy::RepeatedFull),
+            forced: false,
             rationale: format!(
                 "measured crossover: shared work would save less than the measured \
                  minimum ratio ({shared_tokens} shared vs {repeated_tokens} repeated tokens); \
@@ -299,12 +369,6 @@ pub fn choose_strategy(config: &SchedulerConfig, request: &StrategyRequest) -> S
             admitted,
         };
     }
-    let max_candidates = request
-        .suffix_tokens
-        .iter()
-        .map(Vec::len)
-        .max()
-        .unwrap_or(0);
     let vectorized_shape_supported = config
         .backend_capabilities
         .supports_vectorized_nested_forward()
@@ -313,6 +377,8 @@ pub fn choose_strategy(config: &SchedulerConfig, request: &StrategyRequest) -> S
     if vectorized_shape_supported && fits(batched_bytes) {
         return StrategyDecision {
             strategy: ExecutionStrategy::NestedBatched,
+            batch_forward_mode: mode_for(ExecutionStrategy::NestedBatched),
+            forced: false,
             rationale: format!(
                 "sharing saves {savings_ratio}x repeated work, the backend has vectorized \
                  question/candidate forward kernels, and the batched tensor payload \
@@ -326,6 +392,8 @@ pub fn choose_strategy(config: &SchedulerConfig, request: &StrategyRequest) -> S
     if fits(sequential_bytes) {
         return StrategyDecision {
             strategy: ExecutionStrategy::NestedSequential,
+            batch_forward_mode: mode_for(ExecutionStrategy::NestedSequential),
+            forced: false,
             rationale: format!(
                 "sharing saves {savings_ratio}x repeated work; the backend lacks complete \
                  vectorized nested forward support or the batched tensor payload \
@@ -340,6 +408,8 @@ pub fn choose_strategy(config: &SchedulerConfig, request: &StrategyRequest) -> S
     let admitted = fits(repeated_full_tensor_bytes);
     StrategyDecision {
         strategy: ExecutionStrategy::RepeatedFull,
+        batch_forward_mode: mode_for(ExecutionStrategy::RepeatedFull),
+        forced: false,
         rationale: if admitted {
             format!(
                 "retained shared tensor payload ({sequential_bytes} bytes) exceeds admission; \

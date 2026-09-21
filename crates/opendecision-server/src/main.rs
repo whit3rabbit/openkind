@@ -19,7 +19,7 @@ use clap::Parser;
 use opendecision_api::{grpc, http, AppState, AuthConfig};
 use opendecision_backends::qwen35::{Qwen35DecisionEngine, Qwen35EngineConfig, SchedulerConfig};
 use opendecision_engine::{DecisionEngine, EngineRegistry, MockEngine};
-use opendecision_runtime::{peak_resident_bytes, BackendCapabilities};
+use opendecision_runtime::{peak_resident_bytes, BackendCapabilities, ExecutionPlan};
 use tokio::net::TcpListener;
 use tonic::transport::Server;
 use tracing::info;
@@ -84,6 +84,17 @@ struct Args {
     #[arg(long, env = "OPENDECISION_QWEN35_QUEUE", default_value_t = 2)]
     qwen35_queue: usize,
 
+    /// Execution-plan override for diagnostics and reproducibility.
+    /// Overrides adaptive scheduling only; memory and backend capability
+    /// admission still apply.
+    #[arg(
+        long,
+        env = "OPENDECISION_QWEN35_EXECUTION",
+        value_enum,
+        default_value_t = ExecutionArg::Auto
+    )]
+    qwen35_execution: ExecutionArg,
+
     /// Optional continuation tensor-payload ceiling per request.
     #[arg(long, env = "OPENDECISION_QWEN35_MAX_TENSOR_BYTES")]
     qwen35_max_tensor_bytes: Option<usize>,
@@ -126,6 +137,31 @@ struct Args {
     /// Log filter. Standard `tracing_subscriber::EnvFilter` syntax.
     #[arg(long, env = "RUST_LOG", default_value = "info")]
     log_filter: String,
+}
+
+/// CLI surface for `--qwen35-execution`: the three execution plans plus the
+/// adaptive `auto` default.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+enum ExecutionArg {
+    /// Adaptive scheduling from the measured policy (default).
+    Auto,
+    /// One full-sequence evaluation per candidate.
+    RepeatedFull,
+    /// Prefill once, advance question and candidate lanes sequentially.
+    NestedSequential,
+    /// Prefill once, breadth-first question/candidate state fan-out.
+    NestedBatched,
+}
+
+impl From<ExecutionArg> for Option<ExecutionPlan> {
+    fn from(value: ExecutionArg) -> Self {
+        match value {
+            ExecutionArg::Auto => None,
+            ExecutionArg::RepeatedFull => Some(ExecutionPlan::RepeatedFull),
+            ExecutionArg::NestedSequential => Some(ExecutionPlan::NestedSequential),
+            ExecutionArg::NestedBatched => Some(ExecutionPlan::NestedBatched),
+        }
+    }
 }
 
 #[tokio::main]
@@ -204,7 +240,8 @@ async fn main() -> Result<()> {
             SchedulerConfig::LOWEST_MEASURED_SHARED_SAVINGS_RATIO,
             args.qwen35_max_tensor_bytes,
         )
-        .with_backend_capabilities(BackendCapabilities::per_lane());
+        .with_backend_capabilities(BackendCapabilities::per_lane())
+        .with_forced_strategy(args.qwen35_execution.into());
         if let Some(max_process_bytes) = args.qwen35_max_process_bytes {
             scheduler = scheduler.with_process_memory(
                 opendecision_backends::qwen35::ProcessMemoryEnvelope {
@@ -413,6 +450,36 @@ mod tests {
         assert_eq!(args.api_key, None);
         assert_eq!(args.rate_limit_rpm, 120);
         assert_eq!(args.log_filter, "info");
+        assert_eq!(args.qwen35_execution, ExecutionArg::Auto);
+    }
+
+    #[test]
+    fn args_qwen35_execution_override_parses_and_maps() {
+        let forced =
+            Args::try_parse_from(["opendecisiond", "--qwen35-execution", "nested-batched"])
+                .unwrap();
+        assert_eq!(forced.qwen35_execution, ExecutionArg::NestedBatched);
+        assert_eq!(
+            Option::<ExecutionPlan>::from(forced.qwen35_execution),
+            Some(ExecutionPlan::NestedBatched)
+        );
+
+        for (flag, expected) in [
+            ("repeated-full", ExecutionPlan::RepeatedFull),
+            ("nested-sequential", ExecutionPlan::NestedSequential),
+            ("nested-batched", ExecutionPlan::NestedBatched),
+        ] {
+            let args = Args::try_parse_from(["opendecisiond", "--qwen35-execution", flag]).unwrap();
+            assert_eq!(
+                Option::<ExecutionPlan>::from(args.qwen35_execution),
+                Some(expected),
+                "--qwen35-execution {flag}"
+            );
+        }
+
+        let auto = Args::try_parse_from(["opendecisiond"]).unwrap();
+        assert_eq!(Option::<ExecutionPlan>::from(auto.qwen35_execution), None);
+        assert!(Args::try_parse_from(["opendecisiond", "--qwen35-execution", "turbo"]).is_err());
     }
 
     #[test]

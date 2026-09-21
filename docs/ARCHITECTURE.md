@@ -2,7 +2,7 @@
 
 > An open-source decision-inference engine in Rust targeting the Jev wire contract, with independently designed model and runtime internals.
 >
-> **Revision 0.8.0 · 20 September 2026 · Native CPU reference engine through safe adaptive scheduling, state/scheduler high-K stress, and direct service registration. Model-backed high-K, fresh-process repeatability, Metal, and load/soak remain open.**
+> **Revision 0.8.0 · 20 September 2026 · Native CPU reference engine through safe adaptive scheduling, bounded model-backed high-K stress, structural fresh-process replay, and direct service registration. Restored head/decision replay, practical high-K latency, Metal, and production load/soak remain open.**
 >
 > Wire spec: https://docs.typesafe.ai/api
 > Reference client SDK target: https://docs.typesafe.ai/sdk/python/api
@@ -31,7 +31,7 @@ completed Python Phase 3A branch/batch reference + Phase 3B backbone reference
   → completed adaptive workload scheduler measured on the named Mac
   → completed state/scheduler high-K admission stress + cache/snapshot persistence contracts
   → completed direct native DecisionEngine registration + explicit none mapping
-  → model-backed high-K / fresh-process repeatability
+  → full restored head/decision replay after model-backed high-K and structural fresh-process checks
   → production load/soak lifecycle
 ```
 
@@ -50,7 +50,7 @@ The architecture document distinguishes implemented/reported repository behavior
 - **Track S:** the service path now supports direct `Qwen35DecisionEngine` registration through `EngineRegistry`; the Python implementation remains a differential-test oracle, not a deployment bridge.
 - **Phase 3A (Python reference):** run `20260920T024056Z` completed notebook scope with the selected profile unchanged; semantic batched parity passed, high-K parity passed, and the recorded same-process repeatability delta was zero. The run is systems/reference evidence, not Rust/Metal parity or release certification.
 - **Phase 3B (Python reference):** run `20260920T152206Z` completed notebook scope with no training, model selection, model modification, or bundle change. It exports 4 token records and 47 FP32 vectors for layer, candidate, and continuation localization. Its hidden-vector deltas are diagnostics, not Rust acceptance tolerances.
-- **Phase 3 (Rust/native):** head/probability, exact tokenizer/state-first token, full CPU decoder/final-normalization, Qwen-specific cached-continuation, backend-neutral branch-state, sequential nested execution, batched Q/K, and the measured adaptive scheduler pass against the frozen fixtures. State/scheduler high-K stress, process-peak admission, tenant-isolated cache semantics, direct service registration, and explicit semantic-none mapping are implemented. Model-backed high-K execution, fresh-process replay, Metal, load/soak, and release promotion remain open.
+- **Phase 3 (Rust/native):** head/probability, exact tokenizer/state-first token, full CPU decoder/final-normalization, Qwen-specific cached-continuation, backend-neutral branch-state, sequential nested execution, batched Q/K, and the measured adaptive scheduler pass against the frozen fixtures. State/scheduler high-K stress, bounded model-backed K=32/64/128/255 execution, process-peak admission, tenant-isolated cache semantics, structural fresh-process replay, direct service registration, explicit semantic-none mapping, and native service lifecycle smoke are recorded. Full restored head/probability/argmax/policy replay, practical high-K latency, Metal, production load/soak, and release promotion remain open.
 
 The roadmap is the task/status authority; the whitepaper is the evidence/interpretation authority. This file defines the intended software and execution architecture.
 
@@ -69,6 +69,7 @@ opendecision/
 │   ├── opendecision-cli/         # opendecision binary
 │   ├── opendecision-runtime/     # device/scheduler/state/cache lifecycle
 │   ├── opendecision-backends/    # supported native model drivers
+│   ├── opendecision-bench/       # offline scoring and timing benchmark harness
 │   └── opendecision-gen-schemas/ # JSON Schema codegen
 ├── proto/opendecision.proto      # gRPC service definition
 ├── examples/                     # wire-format fixtures
@@ -80,7 +81,7 @@ opendecision/
 
 ```text
 ┌──────────────────────────────────────────────────────────────┐
-│ opendecisiond / opendecision CLI                            │
+│ opendecisiond / opendecision CLI / opendecision-bench        │
 ├──────────────────────────────────────────────────────────────┤
 │ opendecision-api                                            │
 │   HTTP axum + gRPC tonic                                    │
@@ -105,7 +106,7 @@ opendecision/
 └──────────────────────────────────────────────────────────────┘
 ```
 
-The public dependency direction remains one-way. `core` owns wire types; `engine` owns semantic/model contracts; `runtime` and `backends` implement execution; `api` exposes the service; `server/cli` compose those pieces. Backends must not redefine public probability semantics merely because their internal execution graph differs.
+The public dependency direction remains one-way. `core` owns wire types; `engine` owns semantic/model contracts; `runtime` and `backends` implement execution; `api` exposes the service; `server/cli` compose those pieces; `bench` drives offline workloads through `DecisionEngine` for scoring and timing. Backends must not redefine public probability semantics merely because their internal execution graph differs.
 
 ---
 
@@ -223,7 +224,12 @@ complete correctness-first CPU backbone and Qwen-specific continuation stage:
   with none mass preserved and confidence derived from normalized entropy.
 
 It does not yet implement vectorized batch-forward kernels, Metal execution,
-fresh-process replay proof, or production load/soak validation.
+full restored head/probability/decision replay, or production load/soak
+validation.
+
+### `opendecision-bench`
+
+The offline scoring and timing benchmark harness binary (`crates/opendecision-bench`). It drives workloads through `DecisionEngine` instances (both `MockEngine` and `Qwen35DecisionEngine`) to measure complete-request latencies, execution strategy sweeps (`repeated_full`, `nested_sequential`, `nested_batched`), answer equality across strategies, and Q-amortization curves. It also generates deterministic, seeded ticket-grid decision workloads (`gen-workload`). Benchmark records emit the `opendecision-bench/v1` format; full methodology is documented in [`BENCHMARKS.md`](BENCHMARKS.md).
 
 ---
 
@@ -248,7 +254,7 @@ Native tokenizer + Qwen backbone + fitted head
 validated typed SystemResponse
 ```
 
-The daemon still defaults to mock aliases. Native aliases require explicit bundle, checkpoint, and tokenizer paths and never download artifacts. Queue admission, unsupported-input errors, and direct typed responses are implemented. Cancellation after a blocking model call starts, recovery, service load/soak, and deployment promotion remain open. The Python reference worker is retained only as an optional differential oracle.
+The daemon still defaults to mock aliases. Native aliases require explicit bundle, checkpoint, and tokenizer paths and never download artifacts. Queue admission, unsupported-input errors, direct typed responses, overload mapping, cancellation-safe permit ownership, and recovery are implemented and covered by a named-machine native service smoke campaign. Production load/soak, telemetry, and deployment promotion remain open. The Python reference worker is retained only as an optional differential oracle.
 
 ---
 
@@ -405,6 +411,11 @@ Every supported profile should have explicit execution modes rather than a singl
 
 The scheduler may choose among these only within capabilities already accepted for the profile. The choice can depend on state length, Q, K, suffix-length distribution, available memory, and arithmetic mode.
 
+Two distinctions keep modes honest:
+
+- **Plan vs physical mode.** A plan name is state topology. Every decision also records the physical `BatchForwardMode` (`per_lane` or `vectorized`) the backend actually used: `nested_batched` on the per-lane CPU backend executes per-lane, and crediting it with a vectorized graph — or vice versa on an accelerated backend — would corrupt benchmark comparison.
+- **Diagnostic override.** `opendecisiond --qwen35-execution <auto|repeated-full|nested-sequential|nested-batched>` forces one plan so parity and high-K investigations cannot be contaminated by scheduler choice. The override bypasses the profitability policy (measured savings ratio, vectorized preference) only; tensor/process-memory admission and real backend capabilities still apply and fail closed.
+
 ---
 
 ## Q-amortization is a first-class systems metric
@@ -502,6 +513,8 @@ The selected profile currently uses **score-summary rejection**. Future profiles
 
 OpenDecision must not silently append an unrequested `none` choice or drop/renormalize internally modeled mass while calling the resulting probabilities unchanged unconditional probabilities.
 
+The meaning of returned probabilities is a declared, versioned profile property, not an implicit adapter behavior: `ProbabilitySpace` on the profile's execution semantics is either `conditional_on_offered_options` or `offered_options_plus_semantic_none`. The selected native profile declares `offered_options_plus_semantic_none`; the adapter branches on the declaration and fails explicitly at load for any space it does not implement, so a compatibility adapter can never quietly discard none mass and renormalize the remainder.
+
 Supported mappings must be explicit and versioned, for example:
 
 - caller supplies a semantic `other` / `none` option;
@@ -577,7 +590,10 @@ model revision
 + arithmetic/precision mode
 + kernel family
 + execution strategy
++ physical batch-forward mode
 ```
+
+The native engine implements this today in two layers. Per request, role-typed digests over the finalized token sequences (`opendecision-runtime` `digest` module) identify the exact execution — the order-sensitive `ExecutionInputDigest` is the reproducibility identity — and are emitted at debug level only, because raw digests of low-entropy inputs can be guessed offline. Per harness run, the backend-neutral `opendecision-native-run/v1` evidence schema (`opendecision-runtime::evidence`) records a sanitized invocation (never raw argv), the machine environment, the profile/backend/execution identity including plan and physical batch mode, optional parity/performance/memory reports, row-level outputs, and checksums over every file — so the Candle CPU path and a future accelerated backend emit mechanically comparable artifacts.
 
 Pinned replay campaigns should distinguish:
 
@@ -603,7 +619,9 @@ The external DGX study observed campaign-to-campaign differences from identical 
 
 Use the verification commands in the root `AGENTS.md` instead of copying a test
 total into this document. The backend parity suite must also pass under the
-workspace's Rust 1.75 minimum.
+workspace's Rust 1.88 minimum. CI verifies this floor with locked,
+all-features workspace tests because the tonic 0.14.6 service stack requires
+Rust 1.88.
 
 ### Remaining Phase 3 model/runtime tests
 
@@ -679,11 +697,11 @@ Reference: https://morethanamachine.com/posts/jev-style-decisions-dgx-spark/
 - **Phase 2H — COMPLETED REQUIRED SCOPE.** Criteria/rejection transfer, bounded primitive probes, locked continuation and evidence handoff are complete. Historical failures/limits remain preserved.
 - **Phase 2I — BOUNDED PILOT COMPLETE / REVIEWED CONFIRMATION OPEN.** State-first rendering and nested Q sharing have exploratory semantic/mechanical evidence; independent review, natural documents, broader isolation/evidence-sufficiency and semantic high-K confirmation remain open.
 - **Phase 2J — EXPLORATORY SCREEN COMPLETE / RELEASE CONFIRMATION OPEN.** Thirteen fit jobs and 31 final profiles completed; Qwen4B/state-first/score-summary is the provisional integration target. Released external baselines and release promotion remain open.
-- **Track S — DIRECT NATIVE ADAPTER IMPLEMENTED / SERVICE EVIDENCE OPEN.** `Qwen35DecisionEngine` registers directly, and Choice semantic none is explicit through `__none__`; the Python worker is only a differential oracle. Load/soak, cancellation during active model work, recovery, and deployment promotion remain open.
+- **Track S — DIRECT NATIVE ADAPTER IMPLEMENTED / LIFECYCLE SMOKE RECORDED.** `Qwen35DecisionEngine` registers directly, and Choice semantic none is explicit through `__none__`; the Python worker is only a differential oracle. Native endpoint, overload, cancellation, recovery, clean shutdown, and health-probe smoke pass on the named machine. Production load/soak, telemetry, and deployment promotion remain open.
 - **Phase 3A — COMPLETED PYTHON SYSTEMS/REFERENCE SCOPE.** Run `20260920T024056Z` validated full-hybrid-state branch fan-out/select, semantic batched parity, high-K systems parity and exact recorded same-process replay for the frozen selected profile. Its short semantic benchmark also establishes that sharing is workload-dependent rather than universally faster.
 - **Phase 3B: COMPLETED PYTHON BACKBONE-REFERENCE SCOPE.** Run `20260920T152206Z` keeps the selected profile unchanged. It exports exact tokens, 34 trace stages, 10 candidate features, and 3 continuation vectors.
-- **Phase 3: IN PROGRESS / CPU REFERENCE, SAFE SCHEDULER, AND DIRECT ADAPTER IMPLEMENTED.** Rust head/probability, exact-token, full-sequence CPU backbone, Qwen-specific cached continuation, backend-neutral `BranchableState`, sequential nested execution, lane-topology Q/K parity, measured scheduling, state/scheduler high-K admission, cache lifecycle, and direct engine registration are implemented. Model-backed high-K, fresh-process replay, real vectorized forward, Metal, and service load/soak remain open. CPU native parity does not imply Metal or accelerated parity.
+- **Phase 3: IN PROGRESS / CPU REFERENCE, SAFE SCHEDULER, AND DIRECT ADAPTER IMPLEMENTED.** Rust head/probability, exact-token, full-sequence CPU backbone, Qwen-specific cached continuation, backend-neutral `BranchableState`, sequential nested execution, lane-topology Q/K parity, measured scheduling, state/scheduler high-K admission, bounded model-backed K=32/64/128/255 completion, structural fresh-process replay, cache lifecycle, direct engine registration, and native service lifecycle smoke are implemented or recorded. Full restored head/probability/decision replay, real vectorized forward, Metal, practical high-K latency, and service load/soak remain open. CPU native parity does not imply Metal or accelerated parity.
 - **Phase 3A.1 — CONDITIONAL SCHEDULER/CROSSOVER STUDY.** Create the additional Colab only if early Rust profiling does not provide enough component timing to derive stable strategy crossover rules. It does not block 3.1–3.5.
 - **P2.1–P2.3 — CONDITIONAL.** Optimized kernels, model-weight precision/quantization, and teacher/student work require a specific unmet target and their own parity/quality evidence.
 
-The current architecture decision is conservative. **Keep the selected state-first Qwen profile fixed while validating the native service.** The Phase 3B trace localized and closed the correctness-first CPU full-sequence and cached-continuation gates. The runtime-owned branch contract, sequential nested path, breadth-first lane topology, measured scheduler, safe CPU default, high-K admission model, strict-content cache keys, and direct adapter are now implemented. The next evidence is model-backed high-K, fresh-process replay, and queue-inclusive service load/soak before kernel optimization or Metal. CPU native parity does not imply Metal or accelerated parity. Let reviewed release-quality evidence decide whether the provisional profile ships.
+The current architecture decision is conservative. **Keep the selected state-first Qwen profile fixed while validating the native service.** The Phase 3B trace localized and closed the correctness-first CPU full-sequence and cached-continuation gates. The runtime-owned branch contract, sequential nested path, breadth-first lane topology, measured scheduler, safe CPU default, high-K admission model, strict-content cache keys, direct adapter, bounded model-backed high-K completion, structural fresh-process replay, and native service lifecycle smoke are now implemented or recorded. The next evidence is full restored head/decision replay, practical high-K latency, queue-inclusive service load/soak, and then kernel optimization or Metal. CPU native parity does not imply Metal or accelerated parity. Let reviewed release-quality evidence decide whether the provisional profile ships.

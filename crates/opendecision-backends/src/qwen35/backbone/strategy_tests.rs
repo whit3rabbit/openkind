@@ -12,7 +12,7 @@ use super::strategy::{
 };
 use super::test_support::{plan, SyntheticExecutor, ROOT_IDS};
 use crate::qwen35::Qwen35Error;
-use opendecision_runtime::BackendCapabilities;
+use opendecision_runtime::{BackendCapabilities, BatchForwardMode};
 
 fn scheduler_config(min_shared_savings_ratio: f64) -> SchedulerConfig {
     SchedulerConfig::for_pinned_profile(min_shared_savings_ratio, None)
@@ -324,4 +324,99 @@ fn repeated_full_rejects_plans_without_candidates() {
         run_repeated_full(&executor, ROOT_IDS, &empty),
         Err(Qwen35Error::InvalidInput(message)) if message.contains("no candidate suffixes")
     ));
+}
+
+#[test]
+fn forced_strategy_bypasses_profitability_but_not_admission() {
+    // A 3.0 crossover would never share for this shape; the diagnostic
+    // override forces the shared sequential plan through anyway.
+    let config =
+        scheduler_config(3.0).with_forced_strategy(Some(ExecutionStrategy::NestedSequential));
+    let request = StrategyRequest {
+        root_tokens: 3,
+        question_tokens: vec![2, 1],
+        suffix_tokens: vec![vec![1, 2], vec![2]],
+    };
+
+    let decision = choose_strategy(&config, &request);
+    assert_eq!(decision.strategy, ExecutionStrategy::NestedSequential);
+    assert!(decision.forced);
+    assert!(decision.admitted);
+    assert_eq!(decision.batch_forward_mode, BatchForwardMode::PerLane);
+    assert!(decision.rationale.contains("forced override"));
+    assert!(decision.rationale.contains("admission=true"));
+}
+
+#[test]
+fn forced_nested_batched_records_the_physical_forward_mode() {
+    let request = StrategyRequest {
+        root_tokens: 512,
+        question_tokens: vec![10, 10],
+        suffix_tokens: vec![vec![16, 16], vec![16, 16]],
+    };
+
+    // Forcing the batched topology on a per-lane CPU backend is legal (it is
+    // state topology; compute advances lane by lane) and must be recorded as
+    // per-lane so it can never be mistaken for a vectorized run.
+    let per_lane =
+        scheduler_config(1.5).with_forced_strategy(Some(ExecutionStrategy::NestedBatched));
+    let decision = choose_strategy(&per_lane, &request);
+    assert_eq!(decision.strategy, ExecutionStrategy::NestedBatched);
+    assert!(decision.forced);
+    assert_eq!(decision.batch_forward_mode, BatchForwardMode::PerLane);
+
+    // The same override on a vectorized backend records the vectorized mode.
+    let vectorized = vectorized_scheduler_config(1.5)
+        .with_forced_strategy(Some(ExecutionStrategy::NestedBatched));
+    let decision = choose_strategy(&vectorized, &request);
+    assert_eq!(decision.batch_forward_mode, BatchForwardMode::Vectorized);
+
+    // Auto decisions carry the same field: the per-lane CPU default selects
+    // sequential and executes per-lane.
+    let auto = choose_strategy(&scheduler_config(1.5), &request);
+    assert!(!auto.forced);
+    assert_eq!(auto.strategy, ExecutionStrategy::NestedSequential);
+    assert_eq!(auto.batch_forward_mode, BatchForwardMode::PerLane);
+}
+
+#[test]
+fn forced_strategy_still_fails_closed_on_admission() {
+    let request = StrategyRequest {
+        root_tokens: 512,
+        question_tokens: vec![10, 10],
+        suffix_tokens: vec![vec![16, 16], vec![16, 16]],
+    };
+    let config = SchedulerConfig::for_pinned_profile(1.5, Some(1_000))
+        .with_forced_strategy(Some(ExecutionStrategy::NestedSequential));
+
+    let decision = choose_strategy(&config, &request);
+    assert_eq!(decision.strategy, ExecutionStrategy::NestedSequential);
+    assert!(!decision.admitted);
+    assert!(decision.rationale.contains("admission=false"));
+
+    let executor = SyntheticExecutor;
+    assert!(matches!(
+        run_with_scheduler(&executor, &config, ROOT_IDS, &plan()),
+        Err(Qwen35Error::InvalidInput(message)) if message.contains("forced override")
+    ));
+}
+
+#[test]
+fn forced_strategy_executes_and_matches_a_direct_run() {
+    let executor = SyntheticExecutor;
+    let config = scheduler_config(1.5).with_forced_strategy(Some(ExecutionStrategy::NestedBatched));
+
+    let (decision, output) =
+        run_with_scheduler(&executor, &config, ROOT_IDS, &plan()).expect("forced run");
+    assert_eq!(decision.strategy, ExecutionStrategy::NestedBatched);
+    assert_eq!(output.strategy(), ExecutionStrategy::NestedBatched);
+
+    let direct = run_strategy(
+        &executor,
+        ExecutionStrategy::NestedBatched,
+        ROOT_IDS,
+        &plan(),
+    )
+    .expect("direct batched");
+    assert_eq!(output.question_features(), direct.question_features());
 }
