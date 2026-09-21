@@ -48,3 +48,6 @@ mod contract_types;
 
 #[path = "sdk_compat/contract_errors.rs"]
 mod contract_errors;
+
+#[path = "sdk_compat/openapi.rs"]
+mod openapi;

@@ -1,145 +1,195 @@
 // opendecision/v1 — Protobuf wire definition for opendecision.
 //
-// Wire-compatible gRPC service mirroring the HTTP API at POST /v1/systemone
-// (aliased to /v1/system_one).
+// High-performance gRPC wire contract mirroring the Jev HTTP REST API at
+// POST /v1/systemone (aliased to /v1/system_one).
+//
+// Specifications & References:
+// - HTTP API Reference: https://docs.typesafe.ai/api
+// - Python SDK Reference: https://docs.typesafe.ai/sdk/python/api
+// - Question Primitives: https://docs.typesafe.ai/primitives
 //
 // Invariants:
-// - All floating-point values are 64-bit `double` (IEEE 754), matching `f64` in `opendecision-core`.
-// - The `state` field is polymorphic (`string | object | array`), represented via `oneof value`.
-// - `instructions_json` contains raw UTF-8 JSON bytes to support string, object, or array instructions.
+// - All floating-point values are 64-bit `double` (IEEE 754), matching `f64` in `opendecision-core` and wire compatibility.
+// - The `state` field is polymorphic (`string | object | array`), represented via `oneof value { string text; Structured structured; }`.
+// - `instructions_json` contains raw UTF-8 JSON bytes to support string, object, or array instructions (`JSONContent`).
 // - Noul answers strictly do NOT have a `confidence` field per Jev specification.
+// - gRPC metadata `x-typesafe-request-id` preserves request UUID correlation matching `result.request_id` in the Python SDK.
 
 syntax = "proto3";
 package opendecision;
 
-// SystemOne service provides low-latency decision-inference evaluations.
+// SystemOne service provides low-latency, non-autoregressive decision-inference evaluations.
+// Mirrors HTTP endpoints `POST /v1/systemone` and `POST /v1/system_one`, as well as
+// the Python SDK `TypeSafeClient.system_one` and `AsyncTypeSafeClient.system_one`.
 service SystemOne {
   // Evaluates a decision-making / System 1 request against a registered model backend.
-  // Wire equivalent of HTTP POST /v1/systemone and /v1/system_one.
+  //
+  // Returns:
+  // - 200 OK equivalent: `SystemOneResponse` with typed answers and token usage.
+  // - Error statuses mapped symmetrically to HTTP:
+  //   * INVALID_ARGUMENT -> 422 Unprocessable Entity (malformed request body, criteria, or empty questions)
+  //   * UNAUTHENTICATED  -> 401 Unauthorized (missing or invalid Bearer / x-api-key)
+  //   * NOT_FOUND        -> 404 Not Found (unregistered model alias)
+  //   * RESOURCE_EXHAUSTED -> 429 Too Many Requests (rate limit exceeded)
+  //   * UNAVAILABLE      -> 529 Overloaded (engine overloaded, client should back off)
+  //   * INTERNAL         -> 500 Internal Server Error (runtime or backend failure)
   rpc Evaluate (SystemOneRequest) returns (SystemOneResponse);
 }
 
-// State represents the context or input document to evaluate.
+// State represents the context or input document to evaluate (`JSONContent` in Python SDK).
+// Corresponds to `opendecision_core::State`.
 message State {
   // Value variant representing the input document.
   oneof value {
-    // Plain text state (e.g. customer message, error log, prompt).
+    // Plain text state (e.g. customer message, error log, prompt text).
     string text = 1;
-    // Structured JSON document (object or array) encoded as raw bytes.
+    // Structured JSON document (object or array) encoded as raw UTF-8 JSON bytes.
     Structured structured = 2;
   }
 }
 
 // Structured forwards any JSON-shaped payload (object or array) as raw UTF-8 bytes.
+// Allows nested objects (records, ticket details) and arrays (chat histories, event logs).
 message Structured {
+  // Raw UTF-8 encoded JSON bytes.
   bytes json = 1;
 }
 
-// SystemOneRequest represents a complete evaluation request.
+// SystemOneRequest represents a complete decision evaluation request.
+// Corresponds to `opendecision_core::SystemRequest` and Python SDK `client.system_one(state, questions, model=...)`.
 message SystemOneRequest {
   // Input state/document to evaluate. Required.
   State state = 1;
   // Identifier or alias of the model backend to execute (e.g. "jev-latest", "mock"). Required.
+  // In Python SDK, default is "jev-latest" or configured via TYPESAFE_DEFAULT_MODEL.
   string model = 2;
   // Map of client-chosen question identifiers to question specifications. Required.
+  // Answers are returned in SystemOneResponse.answers keyed by these same identifiers.
   map<string, Question> questions = 3;
 }
 
 // Question is a tagged union of the three supported Jev question types.
+// Corresponds to `typesafe_sdk.Noul`, `typesafe_sdk.Choice`, and `typesafe_sdk.Score`.
 message Question {
   oneof kind {
+    // Boolean probability evaluation (yes/no).
     NoulQuestion noul = 1;
+    // Categorical choice evaluation across discrete options.
     ChoiceQuestion choice = 2;
+    // Ordinal rating evaluation along an ordered rubric.
     ScoreQuestion score = 3;
   }
 }
 
 // NoulQuestion represents a boolean probability evaluation (yes/no).
+// Corresponds to `typesafe_sdk.Noul(instructions=..., criteria=...)` in the Python SDK.
 // Returns the probability that the answer is true.
 message NoulQuestion {
   // Instruction string or structured JSON instructions encoded as raw UTF-8 bytes. Required.
+  // Can be plain text `"Is this inquiry urgent?"` or structured JSON object/array.
   bytes instructions_json = 1;
   // Optional explicit rubric definitions for true and false outcomes.
   NoulCriteria criteria = 2;
 }
 
 // NoulCriteria specifies explicit criteria for true and false answers.
+// Corresponds to `typesafe_sdk.NoulCriteria` in the Python SDK.
 message NoulCriteria {
-  // Description of what a true/yes answer represents.
+  // Description of what a true/yes answer represents (e.g. "Explicitly time-sensitive").
   string is_true = 1;
-  // Description of what a false/no answer represents.
+  // Description of what a false/no answer represents (e.g. "Standard inquiry without urgency").
   string is_false = 2;
 }
 
 // ChoiceQuestion represents a categorical choice evaluation over discrete options.
+// Corresponds to `typesafe_sdk.Choice(instructions=..., criteria=...)` in the Python SDK.
+// Selects one option from a defined set of up to 255 alternatives.
 message ChoiceQuestion {
   // Instruction string or structured JSON instructions encoded as raw UTF-8 bytes. Required.
   bytes instructions_json = 1;
-  // Map of option identifier to rubric description. Empty string indicates no extra description (null).
+  // Map of option identifier to rubric description.
+  // An empty string value represents `null` in JSON (an option with no additional description).
   map<string, string> criteria = 2;
 }
 
 // ScoreQuestion represents an ordered rubric rating evaluation.
+// Corresponds to `typesafe_sdk.Score(instructions=..., criteria=...)` in the Python SDK.
+// Rates the state along an ordered rubric of 2 to 10 discrete levels.
 message ScoreQuestion {
   // Instruction string or structured JSON instructions encoded as raw UTF-8 bytes. Required.
   bytes instructions_json = 1;
-  // Ordered array of level descriptions. Must contain at least 2 levels.
+  // Ordered array of level descriptions (minimum 2 levels, maximum 10 levels).
+  // Implicitly indexed from 0 to N-1.
   repeated string criteria = 2;
 }
 
 // SystemOneResponse contains evaluation results for all requested questions.
+// Corresponds to `typesafe_sdk.SystemOneResponse` in the Python SDK.
 message SystemOneResponse {
-  // The model backend that performed the evaluation.
+  // The model backend that performed the evaluation (e.g. "jev-1.13.0", "mock").
   string model = 1;
   // Map of question identifiers to their corresponding evaluated answers.
+  // Keys match the question keys provided in SystemOneRequest.questions.
   map<string, Answer> answers = 2;
-  // Token accounting for the evaluation request.
+  // Token accounting for the evaluation request (`typesafe_sdk.UsageInfo`).
   Usage usage = 3;
 }
 
-// Answer is a tagged union of the answer models matching the question types.
+// Answer is a tagged union of the answer models matching the evaluated question types.
+// Corresponds to `typesafe_sdk.Answer` in the Python SDK.
 message Answer {
   oneof kind {
+    // Answer to a NoulQuestion.
     NoulAnswer noul = 1;
+    // Answer to a ChoiceQuestion.
     ChoiceAnswer choice = 2;
+    // Answer to a ScoreQuestion.
     ScoreAnswer score = 3;
   }
 }
 
 // NoulAnswer contains the calibrated probability of a true/yes answer.
-// Note: Per the Jev specification, NoulAnswer does NOT carry a confidence score.
+// Corresponds to `typesafe_sdk.NoulAnswer` in the Python SDK.
+//
+// CRITICAL SPECIFICATION INVARIANT:
+// Per the Jev wire specification, NoulAnswer strictly does NOT carry a confidence score.
+// Confidence is defined only for Choice and Score answers.
 message NoulAnswer {
-  // Probability in the range [0.0, 1.0].
+  // Calibrated probability in the range [0.0, 1.0] (64-bit IEEE 754 double precision).
   double noul = 1;
 }
 
 // ChoiceAnswer contains the selected discrete choice and its probability distribution.
+// Corresponds to `typesafe_sdk.ChoiceAnswer` in the Python SDK.
 message ChoiceAnswer {
-  // Selected option identifier corresponding to one of the criteria keys.
+  // Selected option identifier corresponding to the highest-probability criteria key.
   string choice = 1;
   // Calibrated probability distribution over all criteria options, summing to 1.0.
+  // Map keys are the option names; values are 64-bit double probabilities.
   map<string, double> probabilities = 2;
-  // Confidence score for the selection in the range [0.0, 1.0].
+  // Model confidence score in the range [0.0, 1.0] derived from the probability distribution.
   double confidence = 3;
 }
 
 // ScoreAnswer contains the continuous score rating along an ordered rubric.
+// Corresponds to `typesafe_sdk.ScoreAnswer` in the Python SDK.
 message ScoreAnswer {
-  // Continuous rating value calculated as sum(level_index * probability[level_index]).
+  // Expected continuous rating value calculated as sum(level_index * probability[level_index]).
+  // Can land between discrete rubric levels.
   double score = 1;
-  // Map of level indices ("0", "1", ...) to level descriptions.
+  // Map of level index strings ("0", "1", ...) back to level descriptions.
   map<string, string> legend = 2;
-  // Probability distribution across rubric levels, summing to 1.0.
+  // Probability distribution across rubric level index strings, summing to 1.0.
   map<string, double> probabilities = 3;
-  // Confidence score for the score rating in the range [0.0, 1.0].
+  // Model confidence score in the range [0.0, 1.0] derived from the probability distribution.
   double confidence = 4;
 }
 
 // Usage accounts for token consumption during evaluation.
+// Corresponds to `typesafe_sdk.UsageInfo` in the Python SDK.
 message Usage {
   // Number of input tokens consumed by state and question instructions.
   uint32 input_tokens = 1;
   // Number of output tokens generated during inference.
   uint32 output_tokens = 2;
 }
-

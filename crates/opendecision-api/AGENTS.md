@@ -30,6 +30,8 @@ It defines:
 
 - [`openapi.yaml`](./openapi.yaml):
   - Canonical OpenAPI 3.1.0 specification for all HTTP endpoints, request/response headers, status codes, and Jev data schemas.
+  - Linked at `docs/openapi.yaml` and documented for TypeSafe Python SDK compatibility (`https://docs.typesafe.ai/sdk/python/api`).
+  - Validated via `npx --yes @redocly/cli lint docs/openapi.yaml`.
 - [`src/http.rs`](./src/http.rs):
   - `router(registry)` / `router_with_auth(registry, auth)` / `router_with_state(state, auth)`.
   - Routes:
@@ -86,6 +88,9 @@ It defines:
 ## Verification Commands
 
 ```bash
+# Validate OpenAPI specification syntax and semantic rules
+npx --yes @redocly/cli lint docs/openapi.yaml
+
 # Run all API tests (unit tests, grpc roundtrip, and sdk compat)
 cargo test -p opendecision-api
 
