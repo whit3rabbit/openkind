@@ -93,7 +93,7 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
   - [`evidence.rs`](./src/qwen35/evidence.rs): Maps the pinned profile, scheduler config, and one decision onto the backend-neutral `opendecision-native-run/v1` records from `opendecision-runtime::evidence`.
   - [`engine/canonical.rs` state canonicalization](./src/qwen35/engine/canonical.rs): Structured wire state (`State::Object`/`State::Array`) renders through an explicit canonical serializer with byte-lexicographically sorted object keys at every nesting level; key construction order and the JSON map implementation cannot alter the model input. This is the `state_first` renderer's ordering semantics — no renderer-ID bump.
 - [`src/qwen35/mlx/`](./src/qwen35/mlx/): Optional MLX/Metal parity backend (`--features mlx`):
-  - [`runtime.rs`](./src/qwen35/mlx/runtime.rs): Thread-affine execution driver, memory telemetry, and toolchain qualification.
+  - [`runtime.rs`](./src/qwen35/mlx/runtime.rs): Process-wide serialized explicit-stream execution, memory telemetry, and toolchain qualification.
   - [`weights/`](./src/qwen35/mlx/weights/): Safetensors checkpoint loader with format detection and key normalization:
     - [`mod.rs`](./src/qwen35/mlx/weights/mod.rs): `MlxWeightStore` and `MlxWeightLoadReport` streaming loader.
     - [`checkpoint.rs`](./src/qwen35/mlx/weights/checkpoint.rs): `MlxCheckpointFormat` detection, size/hash verification, and namespace mapping.
@@ -103,6 +103,7 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
   - [`layers/`](./src/qwen35/mlx/layers/): Decoder blocks decomposed into modular components:
     - [`mod.rs`](./src/qwen35/mlx/layers/mod.rs): Block lifecycle (`MlxDecoderLayer`), continuation states (`MlxLinearState`, `MlxFullState`, `MlxLayerState`), and mixer dispatch.
     - [`linear_attention.rs`](./src/qwen35/mlx/layers/linear_attention.rs): Linear attention forward pass and vectorized per-token `gated_delta_step`.
+    - [`gated_delta_kernel.rs`](./src/qwen35/mlx/layers/gated_delta_kernel.rs): Generic masked/vector-gate and packed FP32 `Dk = Dv = 128` custom Metal reduction-tree kernels.
     - [`full_attention.rs`](./src/qwen35/mlx/layers/full_attention.rs): Grouped-query attention, rotary embedding (`apply_rotary`), and per-head normalization.
     - [`ops.rs`](./src/qwen35/mlx/layers/ops.rs): MLX array operations, causal conv windowing, and tensor loading helpers.
     - [`differential_tests/`](./src/qwen35/mlx/layers/differential_tests/): Independent FP32 host reference and differential verification tests.
@@ -131,8 +132,9 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
 9. **MLX Backend (`--features mlx`, macOS arm64)**:
    The MLX parity backend in `src/qwen35/mlx/` is optional. Rules: build with
    `SDKROOT=$(xcrun --show-sdk-path)` (bindgen needs the macOS SDK); all MLX
-   work goes through `MlxRuntime::execute` (mlx-c streams are thread-affine;
-   evaluation outside the execution mutex is unsound); MLX `conv1d` is true
+   work goes through `MlxRuntime::execute`, which holds one process-wide lock
+   and installs the same explicit cross-thread GPU stream for every operation;
+   evaluation outside that scope is unsound. MLX `conv1d` is true
    convolution (kernel reversed, weight `(C_out, K, C_in/groups)`) — the
    recurrent path implements the causal conv explicitly instead; the
    pinned checkpoint stores `A_log` and `linear_attn.norm.weight` in FP32 and
@@ -146,7 +148,11 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
    isolation is structural (verified by strict fingerprints); arithmetic
    identities include precision and kernel family
    (`mlx-core-0.32.2/fp32/reference-ops`), so MLX states never mix with
-   Candle states; a different Xcode/Metal toolchain is a different runtime —
+   Candle states. The generic masked/vector-gate and packed FP32 reduction-tree
+   kernels are opt-in candidates; `ReferenceOps` remains the default because
+   the packed sequence candidate passed FP32 parity but was 14–28% slower on
+   the smoke sweep. Native BF16 falls back to `ReferenceOps` because its fused
+   candidate failed the frozen model gate. A different Xcode/Metal toolchain is a different runtime —
    re-run `qwen35_mlx_qualify` (3M.0) before trusting any MLX gate after a
    toolchain change; bf16 is a separately gated candidate profile and must
    never be treated as a default-equivalent of the FP32 oracle.

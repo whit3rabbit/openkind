@@ -33,7 +33,7 @@ pub(crate) fn trace_stage(
     } else {
         Some(
             backbone
-                .prefill(input_ids)
+                .prefill_trace(input_ids)
                 .map_err(|error| format!("MLX prefill failed: {error}"))?
                 .0,
         )
@@ -74,6 +74,7 @@ pub(crate) fn trace_stage(
             "final_norm" => output
                 .as_ref()
                 .ok_or("final norm output unavailable for embedding-only stage")?
+                .output
                 .feature()
                 .to_vec(),
             other => return Err(format!("unexpected trace stage {other}").into()),

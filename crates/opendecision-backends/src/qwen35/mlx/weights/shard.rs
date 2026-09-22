@@ -221,6 +221,20 @@ pub(crate) fn widen_bf16(bytes: &[u8]) -> Option<Vec<f32>> {
     Some(values)
 }
 
+/// Exact little-endian BF16 read without an intermediate FP32 allocation.
+pub(crate) fn read_bf16(bytes: &[u8]) -> Option<Vec<half::bf16>> {
+    let (chunks, remainder) = bytes.as_chunks::<2>();
+    if !remainder.is_empty() {
+        return None;
+    }
+    Some(
+        chunks
+            .iter()
+            .map(|chunk| half::bf16::from_bits(u16::from_le_bytes(*chunk)))
+            .collect(),
+    )
+}
+
 /// Exact little-endian FP32 read for the checkpoint's FP32 tensors.
 pub(crate) fn read_f32(bytes: &[u8]) -> Option<Vec<f32>> {
     let (chunks, remainder) = bytes.as_chunks::<4>();

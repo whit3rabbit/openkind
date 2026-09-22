@@ -1,28 +1,20 @@
 //! Serialized MLX execution context, runtime identity, and memory policy.
 //!
-//! MLX streams are **thread-affine**: a stream's GPU command encoder is
-//! registered per thread, and mlx-c resolves evaluation through the calling
-//! thread's stream registry (`mlx_stream_new_thread_unsafe` is the one
-//! cross-thread exception, whose synchronization burden falls on the caller;
-//! it is the designated 3M.5 refinement once benchmarks show encoder
-//! contention). The registry does not migrate across threads: a lazy graph
-//! records the stream of the thread that created it, and another thread
-//! cannot resolve that stream's encoder ("There is no Stream(gpu, 0) in
-//! current thread"). This backend therefore uses one simple discipline:
+//! MLX streams are normally **thread-affine**: a stream's GPU command encoder
+//! is registered per thread, and a lazy graph records the stream that created
+//! it. The backend instead creates one process-wide cross-thread GPU stream
+//! with `mlx_stream_new_thread_unsafe` and supplies the synchronization MLX
+//! deliberately leaves to the caller. The resulting discipline is:
 //!
 //! - every MLX operation — graph creation, evaluation, synchronization, and
-//!   state advancement — runs while holding the process-wide execution mutex,
-//!   on the calling thread's default GPU stream (which mlx-c creates lazily
-//!   per thread on first use);
+//!   state advancement — runs while holding the process-wide execution mutex
+//!   and inside an explicit [`mlx_rs::with_stream`] scope bound to that one
+//!   cross-thread stream;
 //!
-//! - threads never touch MLX concurrently, so per-thread default streams
-//!   are mutually exclusive by construction, and arrays that cross a thread
-//!   boundary do so **fully materialized**: weights are evaluated on the
-//!   loading thread before the backbone is shared (see
-//!   `MlxDecoderLayer::materialize`), and continuation state is evaluated at
-//!   executor boundaries. Engine forwards may run on blocking-pool threads
-//!   that never loaded the model, so no unevaluated lazy graph may ever
-//!   cross a boundary.
+//! - threads never touch MLX concurrently. Arrays that cross a request
+//!   boundary are still fully materialized to keep retained graphs bounded,
+//!   but correctness no longer depends on recreating an equivalent default
+//!   stream on each blocking-pool thread.
 //!
 //! Continuation state produced through this runtime is fully materialized
 //! (evaluated) at executor boundaries; unevaluated lazy graphs never cross
@@ -38,7 +30,7 @@ use std::sync::{
 use mlx_rs::Stream;
 use mlx_rs::{memory, with_stream, Array};
 
-use super::MlxError;
+use super::{MlxError, MlxGatedDeltaKernel};
 
 /// Pinned MLX core version supplied by the vendored mlx-c release.
 ///
@@ -62,12 +54,18 @@ pub struct MlxRuntimeConfig {
     /// (`set_cache_limit`). All runtimes in one process must use the same
     /// value because MLX exposes one allocator cache.
     pub inactive_cache_limit_bytes: usize,
+    /// Gated DeltaNet implementation. Reference ops remain the production
+    /// default because the qualified FP32 fused candidate is slower on the
+    /// current smoke benchmark; `MetalTree` is opt-in for differential and
+    /// tuning work.
+    pub gated_delta_kernel: MlxGatedDeltaKernel,
 }
 
 impl Default for MlxRuntimeConfig {
     fn default() -> Self {
         Self {
             inactive_cache_limit_bytes: DEFAULT_INACTIVE_CACHE_LIMIT_BYTES,
+            gated_delta_kernel: MlxGatedDeltaKernel::ReferenceOps,
         }
     }
 }
@@ -89,12 +87,12 @@ impl MlxRuntime {
     /// Construct the runtime: verify the linked MLX version against the
     /// pinned constant and bound the allocator cache.
     ///
-    /// This also initializes the calling thread's default GPU stream; the
-    /// runtime must be constructed before any other thread performs MLX
-    /// work, which the engine's load path guarantees.
+    /// This also initializes the process-wide serialized GPU stream; the
+    /// runtime must be constructed before any other backend thread performs
+    /// MLX work, which the engine's load path guarantees.
     pub fn new(config: MlxRuntimeConfig) -> Result<Self, MlxError> {
         let _guard = lock_global_execution()?;
-        let stream = Stream::thread_local_or_default();
+        let stream = explicit_execution_stream()?;
         let version = query_mlx_version(&stream)?;
         if version.trim() != MLX_CORE_VERSION {
             return Err(MlxError::VersionMismatch {
@@ -217,28 +215,26 @@ impl MlxRuntime {
         self.bf16_qualified.load(Ordering::Acquire)
     }
 
-    /// Run `f` under the execution lock.
+    /// Run `f` under the execution lock on the runtime-owned GPU stream.
     ///
-    /// Inside `f`, use ordinary `mlx_rs` operations: they resolve to the
-    /// calling thread's default GPU stream, which is safe because the lock
-    /// guarantees no other thread is executing MLX work concurrently.
+    /// Inside `f`, ordinary `mlx_rs` operations resolve to the explicit
+    /// stream installed by this scope. The global lock is the synchronization
+    /// contract required by MLX's cross-thread stream API.
     pub fn execute<T>(&self, f: impl FnOnce() -> T) -> Result<T, MlxError> {
         let _guard = self.lock_execution()?;
-        std::panic::catch_unwind(AssertUnwindSafe(f)).map_err(|payload| MlxError::Operation {
-            operation: "MLX execution",
-            message: panic_message(payload),
+        let stream = explicit_execution_stream()?;
+        with_stream(&stream, || {
+            std::panic::catch_unwind(AssertUnwindSafe(f)).map_err(|payload| MlxError::Operation {
+                operation: "MLX execution",
+                message: panic_message(payload),
+            })
         })
     }
 
-    /// Block until all work already enqueued on the calling thread's stream
-    /// completes.
-    ///
-    /// Meaningful when called from the thread that enqueued the work (the
-    /// executor-boundary case); takes the execution lock so it cannot race
-    /// with other MLX users.
+    /// Block until all work enqueued on the runtime-owned stream completes.
     pub fn synchronize(&self) -> Result<(), MlxError> {
         let _guard = self.lock_execution()?;
-        let stream = Stream::thread_local_or_default();
+        let stream = explicit_execution_stream()?;
         let status = unsafe { mlx_sys::mlx_synchronize(stream.as_ptr()) };
         if status != 0 {
             return Err(MlxError::Operation {
@@ -289,6 +285,63 @@ impl MlxRuntime {
     fn lock_execution(&self) -> Result<MutexGuard<'static, ()>, MlxError> {
         lock_global_execution()
     }
+}
+
+/// The one GPU stream shared by all MLX runtimes in this process.
+///
+/// MLX marks this stream as thread-unsafe because it supplies no internal
+/// synchronization. `global_execution` is that synchronization: the raw
+/// handle is never selected, used, or synchronized without holding the lock.
+struct SerializedGpuStream {
+    raw: mlx_sys::mlx_stream,
+}
+
+// SAFETY: the only access to `raw` is through `explicit_execution_stream`,
+// whose caller already holds `global_execution`. That mutex serializes every
+// command submission and synchronization exactly as required by mlx-c.
+unsafe impl Send for SerializedGpuStream {}
+// SAFETY: same argument as the `Send` implementation above.
+unsafe impl Sync for SerializedGpuStream {}
+
+fn serialized_gpu_stream() -> &'static SerializedGpuStream {
+    static STREAM: OnceLock<SerializedGpuStream> = OnceLock::new();
+    STREAM.get_or_init(|| {
+        // SAFETY: both handles are created by mlx-c. The stream retains the
+        // device identity independently, so the temporary device can be freed
+        // immediately after construction.
+        let raw = unsafe {
+            let device = mlx_sys::mlx_device_new_type(mlx_sys::mlx_device_type__MLX_GPU, 0);
+            let stream = mlx_sys::mlx_stream_new_thread_unsafe(device);
+            let _ = mlx_sys::mlx_device_free(device);
+            stream
+        };
+        SerializedGpuStream { raw }
+    })
+}
+
+/// Select the runtime-owned stream explicitly for the current operation.
+///
+/// `mlx-rs` does not expose a constructor for a cross-thread stream handle.
+/// Installing the owned handle as MLX's GPU default and immediately taking a
+/// managed clone gives `with_stream` a safe owning wrapper. This process-wide
+/// mutation is protected by the same execution mutex as command submission.
+fn explicit_execution_stream() -> Result<Stream, MlxError> {
+    let owned = serialized_gpu_stream();
+    let status = unsafe { mlx_sys::mlx_set_default_stream(owned.raw) };
+    if status != 0 {
+        return Err(MlxError::Operation {
+            operation: "mlx_set_default_stream",
+            message: format!("status {status}"),
+        });
+    }
+    let stream = Stream::gpu();
+    if !unsafe { mlx_sys::mlx_stream_equal(stream.as_ptr(), owned.raw) } {
+        return Err(MlxError::Operation {
+            operation: "explicit execution stream",
+            message: "MLX did not return the runtime-owned GPU stream".to_owned(),
+        });
+    }
+    Ok(stream)
 }
 
 fn lock_global_execution() -> Result<MutexGuard<'static, ()>, MlxError> {

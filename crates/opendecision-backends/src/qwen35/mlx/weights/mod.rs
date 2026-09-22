@@ -1,12 +1,11 @@
 //! Streamed verified-checkpoint loading into MLX arrays (Phase 3M).
 //!
 //! Accepted checkpoint shards are size- and SHA-256-verified before any tensor
-//! is read, then tensors are loaded one at a time: read BF16/FP32 bytes →
-//! widen on host (or keep BF16 for
-//! the candidate profile) → construct the MLX array → drop the staging
-//! buffer. The loader never retains a second full copy of the weights in
-//! host memory, and it reports peak MLX allocation, process-lifetime peak RSS
-//! sampled after loading, and inactive-cache size.
+//! is read, then required decoder tensors are loaded one at a time. FP32
+//! execution widens BF16 exactly; native-BF16 execution decodes BF16 directly
+//! without a full FP32 staging copy. Embeddings, vision tensors, and unused
+//! heads never become MLX arrays. The loader reports peak MLX allocation,
+//! process-lifetime peak RSS sampled after loading, and inactive-cache size.
 //!
 //! RMSNorm offset folding: the Candle oracle multiplies by `(1 + w)` per
 //! element at execution time; this loader folds that offset once, in FP32 on
@@ -26,7 +25,7 @@ use mlx_rs::Array;
 pub use self::checkpoint::MlxCheckpointFormat;
 use self::checkpoint::{canonical_tensor_name, load_checkpoint, MlxCheckpointIdentity};
 pub(crate) use self::shard::shape_i32;
-use self::shard::{read_f32, widen_bf16};
+use self::shard::{read_bf16, read_f32, widen_bf16};
 use super::runtime::MlxRuntime;
 use super::{MlxError, MlxPrecision};
 use crate::qwen35::{Qwen35Embedding, Qwen35Error};
@@ -44,8 +43,8 @@ pub struct MlxWeightLoadReport {
     pub inactive_cache_bytes: Option<usize>,
     /// Wall time of the streamed tensor load in seconds.
     pub load_seconds: f64,
-    /// Total checkpoint tensor bytes streamed (both shards, embedding table
-    /// excluded).
+    /// Total retained decoder tensor bytes streamed (embedding, vision, and
+    /// unused output heads excluded).
     pub loaded_tensor_bytes: u64,
 }
 
@@ -86,38 +85,53 @@ impl MlxWeightStore {
                 if tensor_name.starts_with("model.language_model.embed_tokens") {
                     continue;
                 }
+                if !is_required_decoder_tensor(&tensor_name) {
+                    continue;
+                }
                 let (bytes, shape, is_f32) = index
                     .read_bytes(source_tensor_name)
                     .map_err(MlxError::from_qwen)?;
                 loaded_bytes = loaded_bytes.saturating_add(bytes.len() as u64);
-                let values = if is_f32 {
-                    read_f32(&bytes).ok_or_else(|| {
-                        MlxError::InvalidState(format!(
-                            "FP32 tensor `{tensor_name}` has a non-integral byte count"
-                        ))
-                    })?
-                } else {
-                    widen_bf16(&bytes).ok_or_else(|| {
-                        MlxError::InvalidState(format!(
-                            "BF16 tensor `{tensor_name}` has a non-integral byte count"
-                        ))
-                    })?
+                let mlx_shape = shape_i32(shape);
+                let array = match (precision, is_f32) {
+                    (MlxPrecision::Fp32, true) => {
+                        let values = read_f32(&bytes).ok_or_else(|| {
+                            MlxError::InvalidState(format!(
+                                "FP32 tensor `{tensor_name}` has a non-integral byte count"
+                            ))
+                        })?;
+                        make_f32_array(runtime, &values, &mlx_shape)?
+                    }
+                    (MlxPrecision::Fp32, false) => {
+                        let values = widen_bf16(&bytes).ok_or_else(|| {
+                            MlxError::InvalidState(format!(
+                                "BF16 tensor `{tensor_name}` has a non-integral byte count"
+                            ))
+                        })?;
+                        make_f32_array(runtime, &values, &mlx_shape)?
+                    }
+                    (MlxPrecision::NativeBf16, false) => {
+                        let values = read_bf16(&bytes).ok_or_else(|| {
+                            MlxError::InvalidState(format!(
+                                "BF16 tensor `{tensor_name}` has a non-integral byte count"
+                            ))
+                        })?;
+                        make_bf16_array(runtime, &values, &mlx_shape)?
+                    }
+                    (MlxPrecision::NativeBf16, true) => {
+                        // The pinned checkpoint's FP32 tensors are small
+                        // vectors (`A_log` and DeltaNet norm), so conversion
+                        // does not create a second matrix-sized allocation.
+                        let values = read_f32(&bytes).ok_or_else(|| {
+                            MlxError::InvalidState(format!(
+                                "FP32 tensor `{tensor_name}` has a non-integral byte count"
+                            ))
+                        })?;
+                        let values: Vec<half::bf16> =
+                            values.into_iter().map(half::bf16::from_f32).collect();
+                        make_bf16_array(runtime, &values, &mlx_shape)?
+                    }
                 };
-                let array = runtime.execute(|| -> Result<Array, MlxError> {
-                    let array = match precision {
-                        MlxPrecision::Fp32 => Array::from_slice(&values, &shape_i32(shape)),
-                        MlxPrecision::NativeBf16 => {
-                            let bf16_values: Vec<half::bf16> =
-                                values.iter().map(|v| half::bf16::from_f32(*v)).collect();
-                            Array::from_slice(&bf16_values, &shape_i32(shape))
-                        }
-                    };
-                    array.eval().map_err(|e| MlxError::Operation {
-                        operation: "weight eval",
-                        message: e.to_string(),
-                    })?;
-                    Ok(array)
-                })??;
                 if tensors.insert(tensor_name.clone(), array).is_some() {
                     return Err(MlxError::InvalidState(format!(
                         "checkpoint adapter mapped multiple tensors to `{tensor_name}`"
@@ -154,8 +168,58 @@ impl MlxWeightStore {
     }
 }
 
+fn is_required_decoder_tensor(name: &str) -> bool {
+    name == "model.language_model.norm.weight" || name.starts_with("model.language_model.layers.")
+}
+
+fn make_f32_array(runtime: &MlxRuntime, values: &[f32], shape: &[i32]) -> Result<Array, MlxError> {
+    runtime.execute(|| -> Result<Array, MlxError> {
+        let array = Array::from_slice(values, shape);
+        array.eval().map_err(|error| MlxError::Operation {
+            operation: "weight eval",
+            message: error.to_string(),
+        })?;
+        Ok(array)
+    })?
+}
+
+fn make_bf16_array(
+    runtime: &MlxRuntime,
+    values: &[half::bf16],
+    shape: &[i32],
+) -> Result<Array, MlxError> {
+    runtime.execute(|| -> Result<Array, MlxError> {
+        let array = Array::from_slice(values, shape);
+        array.eval().map_err(|error| MlxError::Operation {
+            operation: "weight eval",
+            message: error.to_string(),
+        })?;
+        Ok(array)
+    })?
+}
+
 impl MlxError {
     pub(crate) fn from_qwen(error: Qwen35Error) -> Self {
         MlxError::InvalidState(error.to_string())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_required_decoder_tensor;
+
+    #[test]
+    fn required_tensor_filter_excludes_non_decoder_payloads() {
+        assert!(is_required_decoder_tensor(
+            "model.language_model.layers.0.linear_attn.in_proj_qkv.weight"
+        ));
+        assert!(is_required_decoder_tensor(
+            "model.language_model.norm.weight"
+        ));
+        assert!(!is_required_decoder_tensor(
+            "model.language_model.embed_tokens.weight"
+        ));
+        assert!(!is_required_decoder_tensor("model.visual.blocks.0.weight"));
+        assert!(!is_required_decoder_tensor("lm_head.weight"));
     }
 }

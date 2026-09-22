@@ -3,9 +3,10 @@
 //! This module adds a second execution backend behind the same frozen Phase 3B
 //! contract: MLX arrays and kernels (built from the pinned mlx-c release inside
 //! `mlx-sys`) driven by the Rust Qwen3.5 layer semantics already proven on the
-//! Candle CPU oracle. It is a *parity* backend, not yet an accelerated one:
-//! until the fused Gated-DeltaNet Metal kernel path lands, the recurrent
-//! layers run a per-token reference recurrence over ordinary array ops.
+//! Candle CPU oracle. The production path uses the faster ordinary-ops
+//! recurrence. Generic masked/vector-gate reduction-tree kernels and a packed
+//! FP32 `Dk = Dv = 128` sequence kernel are available as qualified tuning
+//! candidates, but benchmark evidence has not justified promoting them.
 //!
 //! Non-goals of this module: daemon registration, vectorized batch forward,
 //! quantization, and any relaxation of the frozen probability gates. Candle
@@ -30,7 +31,7 @@ pub mod runtime;
 pub mod weights;
 
 pub use branch_state::MlxBranchBatch;
-pub use model::{MlxBackboneOutput, MlxBackboneState, MlxQwen35Backbone};
+pub use model::{MlxBackboneOutput, MlxBackboneState, MlxBackboneTrace, MlxQwen35Backbone};
 pub use runtime::{
     MlxMemorySnapshot, MlxRuntime, MlxRuntimeConfig, SharedMlxRuntime,
     DEFAULT_INACTIVE_CACHE_LIMIT_BYTES, MLX_CORE_VERSION,
@@ -48,6 +49,30 @@ pub enum MlxPrecision {
     /// preflight must pass before any model workload may run in this mode;
     /// the full Gate A example remains the promotion check for a toolchain.
     NativeBf16,
+}
+
+/// Gated DeltaNet recurrence implementation selected for an MLX runtime.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MlxGatedDeltaKernel {
+    /// Ordinary MLX array operations, retained as the independent fallback
+    /// and differential comparator.
+    ReferenceOps,
+    /// Fused Metal reduction-tree kernels where model-backed qualification
+    /// passes. FP32 dispatches the packed `Dk = Dv = 128` specialization.
+    /// The generic BF16 kernel remains an unpromoted differential candidate,
+    /// so native BF16 model loads currently fall back to `ReferenceOps`.
+    MetalTree,
+}
+
+impl MlxGatedDeltaKernel {
+    /// Stable kernel-family identifier used in execution identity.
+    #[must_use]
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::ReferenceOps => "reference-ops",
+            Self::MetalTree => "metal-tree-v1",
+        }
+    }
 }
 
 impl MlxPrecision {
@@ -82,14 +107,21 @@ pub const MLX_LM_REFERENCE_COMMIT: &str = "a63e24c389382619eb6d9af656e3b46024be2
 
 /// Base arithmetic identity of the MLX FP32 reference-ops execution path.
 ///
-/// Kernel family is part of the identity: the future fused Gated-DeltaNet
-/// Metal kernel will receive its own distinct value instead of silently
-/// sharing this one. A loaded backbone appends the runtime's Xcode/Metal
-/// toolchain identity before storing this in continuation state.
+/// Kernel family is part of the identity: opt-in fused Gated-DeltaNet
+/// execution receives its own distinct value instead of silently sharing
+/// this one. A loaded backbone appends the runtime's Xcode/Metal toolchain
+/// identity before storing this in continuation state.
 pub const MLX_ARITHMETIC_ID_FP32_REFERENCE: &str = "mlx-core-0.32.2/fp32/reference-ops";
 
 /// Base arithmetic identity of the MLX native-BF16 reference-ops candidate profile.
 pub const MLX_ARITHMETIC_ID_BF16_REFERENCE: &str = "mlx-core-0.32.2/bf16/reference-ops";
+
+/// Base arithmetic identity of the FP32 packed Metal reduction-tree path.
+pub const MLX_ARITHMETIC_ID_FP32_METAL_TREE: &str =
+    "mlx-core-0.32.2/fp32/metal-tree-packed-dk128-v1";
+
+/// Base arithmetic identity of the BF16 generic Metal reduction-tree path.
+pub const MLX_ARITHMETIC_ID_BF16_METAL_TREE: &str = "mlx-core-0.32.2/bf16/metal-tree-generic-v1";
 
 /// Errors raised by the MLX parity backend.
 #[derive(Debug, Error)]
