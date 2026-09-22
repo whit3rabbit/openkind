@@ -120,11 +120,45 @@ fn load_mlx(
         runtime.qualify_bf16()?;
     }
     let backbone = mlx::MlxQwen35Backbone::load(checkpoint_root, runtime, precision)?;
+    validate_mlx_profile(&backbone)?;
     scheduler.state_fixed_tensor_bytes = backbone.expected_tensor_storage_bytes(0);
     scheduler.state_tensor_bytes_per_token =
         backbone.expected_tensor_storage_bytes(1) - backbone.expected_tensor_storage_bytes(0);
     scheduler.backend_capabilities = BackendCapabilities::per_lane();
     Ok(backbone)
+}
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+fn validate_mlx_profile(backbone: &mlx::MlxQwen35Backbone) -> Result<(), Qwen35Error> {
+    use crate::qwen35::mlx::MlxCheckpointFormat;
+    use crate::qwen35::{
+        require_equal, BACKBONE_ID, BACKBONE_REVISION, PROFILE_ID, STATE_FIRST_RENDERER_ID,
+        TOKENIZER_JSON_SHA256,
+    };
+
+    let identity = backbone.identity();
+    require_equal(
+        "checkpoint.format",
+        MlxCheckpointFormat::PinnedQwen35Base.as_str(),
+        backbone.checkpoint_format().as_str(),
+    )?;
+    require_equal("profile_id", PROFILE_ID, identity.profile().as_str())?;
+    require_equal("backbone_id", BACKBONE_ID, identity.backbone_id())?;
+    require_equal(
+        "backbone_revision",
+        BACKBONE_REVISION,
+        identity.backbone_revision(),
+    )?;
+    require_equal(
+        "renderer_id",
+        STATE_FIRST_RENDERER_ID,
+        identity.renderer_id(),
+    )?;
+    require_equal(
+        "tokenizer_digest",
+        TOKENIZER_JSON_SHA256,
+        identity.tokenizer_digest(),
+    )
 }
 
 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
