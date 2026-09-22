@@ -129,7 +129,7 @@ impl BranchBatch for MlxBranchBatch {
         self.lanes
             .iter()
             .map(BranchableState::tensor_storage_bytes)
-            .sum()
+            .fold(0_usize, usize::saturating_add)
     }
 
     fn select(&self, index: usize) -> Result<Self::State, StateError> {
@@ -172,12 +172,18 @@ impl MlxBackboneState {
                 for layer in &self.layers {
                     match layer {
                         MlxLayerState::Linear(state) => {
-                            breakdown.convolution_bytes += state.conv.nbytes();
-                            breakdown.recurrent_bytes += state.recurrent.nbytes();
+                            breakdown.convolution_bytes = breakdown
+                                .convolution_bytes
+                                .saturating_add(state.conv.nbytes());
+                            breakdown.recurrent_bytes = breakdown
+                                .recurrent_bytes
+                                .saturating_add(state.recurrent.nbytes());
                         }
                         MlxLayerState::Full(state) => {
-                            breakdown.attention_kv_bytes +=
-                                state.keys.nbytes() + state.values.nbytes();
+                            breakdown.attention_kv_bytes =
+                                breakdown.attention_kv_bytes.saturating_add(
+                                    state.keys.nbytes().saturating_add(state.values.nbytes()),
+                                );
                         }
                     }
                 }

@@ -182,6 +182,23 @@ impl TensorStorageBreakdown {
     /// Exact total tensor payload bytes.
     #[must_use]
     pub const fn tensor_storage_bytes(&self) -> usize {
-        self.attention_kv_bytes + self.recurrent_bytes + self.convolution_bytes
+        self.attention_kv_bytes
+            .saturating_add(self.recurrent_bytes)
+            .saturating_add(self.convolution_bytes)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TensorStorageBreakdown;
+
+    #[test]
+    fn tensor_storage_total_saturates_instead_of_wrapping() {
+        let breakdown = TensorStorageBreakdown {
+            attention_kv_bytes: usize::MAX,
+            recurrent_bytes: 1,
+            convolution_bytes: 1,
+        };
+        assert_eq!(breakdown.tensor_storage_bytes(), usize::MAX);
     }
 }

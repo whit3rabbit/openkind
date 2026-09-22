@@ -104,7 +104,7 @@ impl BranchBatch for Qwen35BranchBatch {
         self.lanes
             .iter()
             .map(BranchableState::tensor_storage_bytes)
-            .sum()
+            .fold(0_usize, usize::saturating_add)
     }
 
     fn select(&self, index: usize) -> Result<Self::State, StateError> {
@@ -146,11 +146,19 @@ impl BackboneState {
         for layer in &self.layers {
             match layer {
                 LayerState::Linear { conv, recurrent } => {
-                    breakdown.convolution_bytes += conv.len() * float_bytes;
-                    breakdown.recurrent_bytes += recurrent.len() * float_bytes;
+                    breakdown.convolution_bytes = breakdown
+                        .convolution_bytes
+                        .saturating_add(conv.len().saturating_mul(float_bytes));
+                    breakdown.recurrent_bytes = breakdown
+                        .recurrent_bytes
+                        .saturating_add(recurrent.len().saturating_mul(float_bytes));
                 }
                 LayerState::Full { keys, values } => {
-                    breakdown.attention_kv_bytes += (keys.len() + values.len()) * float_bytes;
+                    breakdown.attention_kv_bytes = breakdown.attention_kv_bytes.saturating_add(
+                        keys.len()
+                            .saturating_add(values.len())
+                            .saturating_mul(float_bytes),
+                    );
                 }
             }
         }
