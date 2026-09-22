@@ -27,6 +27,13 @@ tracing-subscriber = { workspace = true }
 clap = { workspace = true }
 humantime-serde = { workspace = true }
 
+[dev-dependencies]
+criterion = { workspace = true }
+
 [[bin]]
 name = "openkindd"
 path = "src/main.rs"
+
+[[bench]]
+name = "server"
+harness = false

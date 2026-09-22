@@ -1,0 +1,132 @@
+{
+  "schema": "openkind-phase4e-qasper-audit-contract/v1",
+  "config": {
+    "schema": "openkind-phase4e-qasper-audit-config/v1",
+    "workbench_version": "4e.0.0",
+    "base_run_id": "20260921T013558Z",
+    "seed": 17,
+    "run_label": "qasper_error_audit_s17",
+    "mode": "prepare_audit_or_analyze_review",
+    "source": "qasper",
+    "policy_development": {
+      "include_all_false_negatives": true,
+      "include_all_false_positives": true,
+      "true_positive_controls": 10,
+      "true_negative_controls": 10
+    },
+    "calibration_gate": {
+      "sample_false_negatives": 30,
+      "sample_false_positives": 30,
+      "sampling": "deterministic_state_round_robin_sha256"
+    },
+    "review_target_kinds": [
+      "answerable",
+      "semantic_none",
+      "ambiguous"
+    ],
+    "final_split_available": false,
+    "final_opened": false
+  },
+  "input_lock": {
+    "phase4d_experiment_sha256": "70ac547c7a257d978cbc241f049fb2dbbc912b0d5801ca28080820d1e183d4c5",
+    "phase4d_checkpoint_sha256": "314d3a45009a51159bb74bebed9806af76d1df103a14eca9a38160d0dab0d972",
+    "phase4d_nonfinal_report_sha256": "9cc328dd3deeafb175aabaf18ba2daaf9914863b95879368a61416582c96680b",
+    "prediction_files_sha256": {
+      "policy_development": "401aaf4ee9139fa178155c0fbb1a4efa232d8c43ac69604a79b931d09792d90c",
+      "calibration_gate": "fa87dde72ea7e268d6a5f80802d1e70b27818346cf612c178ac7cc0402ab3a3a"
+    },
+    "corpus_manifest_sha256": "1aad04ca7d37ea8be640a51878857c6d2c501d635e913eca12234cb548f8399d",
+    "corpus_tables_sha256": {
+      "states": "7e6333202ad934e66148724a565b27176fcaad4133a566d2c8f8b57044ef3120",
+      "questions": "549b446f609a9407eceb5df7ef4c0f14779bc73d72396ae749424626d8777434",
+      "options": "cbd40c9162909c6c637296e9c8f408e0ba1bece0aca1786cef98f73d242f6cf2",
+      "evidence": "566e0e69e8f57ed0ce626021647a3b770a89ae5a3eb318e1d4f8bea284f2c6be",
+      "criteria": "1e3e62c93506fc7add11c88dc7232dba9f6c0b9ee8db2ee4b465fb283a91430b"
+    },
+    "qasper_threshold": 0.21089398860931396,
+    "final_opened": false
+  },
+  "selection_counts": [
+    {
+      "partition": "calibration_gate",
+      "selection_role": "gate_state_diverse_error_sample",
+      "operating_outcome": "fn",
+      "n": 30
+    },
+    {
+      "partition": "calibration_gate",
+      "selection_role": "gate_state_diverse_error_sample",
+      "operating_outcome": "fp",
+      "n": 30
+    },
+    {
+      "partition": "policy_development",
+      "selection_role": "policy_all_error",
+      "operating_outcome": "fn",
+      "n": 29
+    },
+    {
+      "partition": "policy_development",
+      "selection_role": "policy_all_error",
+      "operating_outcome": "fp",
+      "n": 41
+    },
+    {
+      "partition": "policy_development",
+      "selection_role": "policy_blinded_control",
+      "operating_outcome": "tn",
+      "n": 10
+    },
+    {
+      "partition": "policy_development",
+      "selection_role": "policy_blinded_control",
+      "operating_outcome": "tp",
+      "n": 10
+    }
+  ],
+  "blinding": {
+    "reviewer_visible": [
+      "review_id",
+      "partition",
+      "source",
+      "state_id",
+      "question_id",
+      "state_text",
+      "instruction",
+      "options",
+      "evidence",
+      "review_target_kind",
+      "review_reason_code",
+      "review_confidence",
+      "review_notes",
+      "reviewer_id"
+    ],
+    "key_only": [
+      "review_id",
+      "partition",
+      "state_id",
+      "question_id",
+      "selection_role",
+      "locked_target_kind",
+      "target_label",
+      "model_prediction_label",
+      "none_probability",
+      "operating_threshold",
+      "operating_predicted_none",
+      "operating_outcome"
+    ],
+    "forbidden_from_review": [
+      "locked_target_kind",
+      "model_prediction_label",
+      "none_probability",
+      "operating_outcome",
+      "operating_predicted_none",
+      "operating_threshold",
+      "selection_role",
+      "target_label"
+    ]
+  },
+  "automatic_phase4e_b_authorization": false,
+  "final_opened": false,
+  "audit_experiment_sha256": "055683587cc016e33cfd889795d5d70f9e16623acf9c75bcb3b5db9ae276ee63"
+}

@@ -14,7 +14,7 @@ owned elsewhere and linked, not duplicated:
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — measurement-plan metric definitions
   (complete-request p50/p95, `T(Q)/T(1)`, state-prefill fraction, memory) and
   the landed execution-strategy contract.
-- [`whitepaper/OpenKind_Whitepaper_v0.8.1.md`](./whitepaper/OpenKind_Whitepaper_v0.8.1.md)
+- [`whitepaper/OpenKind_Whitepaper_v0.8.2.md`](./whitepaper/OpenKind_Whitepaper_v0.8.2.md)
   — canonical measured-results register for the native engine.
 - [`ROADMAP.md`](./ROADMAP.md) — open benchmark work: practical high-K latency,
   full restored head/decision replay, and queue-inclusive load/soak.
@@ -163,6 +163,55 @@ Native sweeps force each strategy through the scheduler's diagnostic override
 Answer equality across strategies is asserted per workload — a violation
 flags `cross_strategy_answer_parity_clean: false` in the summary and must be
 investigated before any numbers from that run are quoted.
+
+## Criterion microbenchmarks
+
+Criterion 0.8.2 provides warm-process statistical timing for three product
+surfaces that are intentionally smaller than the model-backed harness:
+
+| Target | Measured region | Excluded |
+|---|---|---|
+| `openkind-cli` / `cli` | Clap parsing plus in-memory request JSON deserialization and validation for 1, 8, and 32 questions | Process startup, file I/O, stdout, and HTTP |
+| `openkind-server` / `server` | Authenticated Axum middleware, JSON extraction, validation, MockEngine dispatch, serialization, and full response-body collection | TCP, daemon startup, rate limiting, and model execution |
+| `openkind-client` / `client` | Warm localhost HTTP connection, SDK serialization/headers, authenticated Axum/MockEngine response, and SDK decoding | Connection setup, retry sleeps, remote network behavior, and model execution |
+
+Run the complete timing targets with:
+
+```bash
+cargo bench -p openkind-cli --bench cli -- --noplot
+cargo bench -p openkind-server --bench server -- --noplot
+cargo bench -p openkind-client --bench client -- --noplot
+```
+
+Use `cargo test --workspace --benches --locked` for a one-iteration smoke
+check. This verifies that every benchmark executes, but it does not produce
+performance evidence or enforce regression thresholds. Criterion reports are
+written below `target/criterion/` and are not committed.
+
+Criterion measures speed and throughput, not scoped heap or resident memory.
+For a process-level peak-RSS comparison, run one exact benchmark id in its own
+process:
+
+```bash
+scripts/bench-rss.sh \
+  --package openkind-client \
+  --bench client \
+  --filter client_http_systemone/questions/32
+```
+
+The helper builds the bench target with the lockfile, runs its executable
+directly under `/usr/bin/time -l` on macOS or `/usr/bin/time -v` on Linux, and
+records the subject commit, dirty-tree state, toolchain, host, command, and
+output under `target/bench-rss/`. The result is the benchmark process high-water
+mark, including Criterion, the runtime, and allocator retention. It is not
+bytes per operation and must only be compared on the same host, toolchain,
+benchmark id, and profile duration.
+
+These microbenchmarks use MockEngine and localhost only. They are useful for
+finding serialization, validation, middleware, and SDK regressions; they are
+not native-model throughput, queue-inclusive service load, soak, Metal, or
+production memory evidence. `openkind-bench` remains the authority for the
+full engine request path and model-backed peak RSS.
 
 ## Recorded runs
 

@@ -1,0 +1,95 @@
+{
+  "schema": "openkind-phase4c-headonly-experiment/v1",
+  "config": {
+    "schema": "openkind-phase4c-headonly-config/v1",
+    "workbench_version": "4c.0.0",
+    "base_run_id": "20260921T013558Z",
+    "variant": "b2_factorized",
+    "run_label": "b2_app_headonly_guard18_s17",
+    "architecture": "B2",
+    "state_refiner_layers": 0,
+    "seed": 17,
+    "query_dim": 768,
+    "query_heads": 12,
+    "query_layers": 2,
+    "question_latents": 8,
+    "max_question_tokens": 96,
+    "max_candidate_tokens": 64,
+    "epochs": 8,
+    "patience": 3,
+    "gradient_accumulation_states": 4,
+    "learning_rate": 5e-05,
+    "weight_decay": 0.01,
+    "source_balance_strategy": "undersample_to_smallest_source_each_epoch",
+    "training_objective": "locked_parent_initialization_plus_frozen_b2_plus_applicability_head_only_source_class_balanced_bce",
+    "trainable_scope": "existing_applicability_mlp_only",
+    "rank_loss_population": "frozen_parent_no_rank_optimization",
+    "applicability_balance_strategy": "equal_source_class_question_mass_per_epoch",
+    "applicability_loss_weight": 1.0,
+    "scalar_semantic_none_weighting": false,
+    "pairwise_applicability_loss": false,
+    "minimum_development_none_recall": {
+      "contractnli": 0.35,
+      "qasper": 0.3
+    },
+    "selection_false_none_rate_cap": {
+      "contractnli": 0.18,
+      "qasper": 0.18
+    },
+    "formal_gate_false_none_rate_cap": {
+      "contractnli": 0.2,
+      "qasper": 0.2
+    },
+    "policy_wrong_cost": 5.0,
+    "policy_review_cost": 0.1
+  },
+  "base_artifacts": {
+    "declared_contract": "1dea824e1d9d0455ee138103046e68d55650c6649916798ab8dafc5ac43771af",
+    "corpus_manifest": "c68b813e04eeff671c0c92fc6f7d7253f5d6671e76b54439c3e4c426f55ff815",
+    "corpus_lock": "3b9f9813d28eb4f9e270a420739cfa4aaf3a7b2ef21af921940e178d5745a200",
+    "feature_manifest": "f5cda5b97dc0687ac9a89a4f7d29996cfb4dfe6326c009310a8392589101ba27",
+    "base_training_report": "0f70071417b28d04a6b593b045c7d70d62602f5e8bcb45073b31298d55f7d68c",
+    "base_nonfinal_report": "a003c4648a1c28aa4a900b680b6c9ca3318c039a900cd3d106701b9be03bbd57",
+    "base_model_lock": "d785e528dace5f6716bb4e5ba687536f729f10d5954d0139025a5eaf6d1cb39d",
+    "base_selected_checkpoint": "9b19138268b5de2bb48b461337e88b9de6492a7bc52eff6489525e09eb63d940",
+    "reference_nonfinal_predictions": "007d5bc189f6955b03bd6cc0ef00d8740df631d90a56caf7a53998ae5ae73aff"
+  },
+  "parent_phase4b21_initialization": {
+    "run_label": "b2_applicability_stratified_s17",
+    "experiment_sha256": "4313087778356312ac8646486ac8c45731885595b88e7236edcefa5c985d703e",
+    "selected_epoch": 8,
+    "artifacts": {
+      "experiment_contract": "50472a778dfc58088b5200007dc1f94d85c6a68d3c4fd4d9612e5169216e15af",
+      "training_report": "6529d94dcd3541a601278b57c4d2683270f4a33e532f0d7e5c91417047039300",
+      "nonfinal_report": "ec4e62daa2508bbdec4d413625b53560290b36c74975df238fe2d1dfdd648f58",
+      "nonfinal_result_lock": "06e39288ed3f1b224b43df2ed91357610b5ae8292417eee47abf939588c0ab68",
+      "selected_checkpoint": "87c3b3a4069b64e4a150ad6e0812ce2d953346eb17999865770df508269ed871",
+      "calibration_fit_predictions": "e0a9ab42e985bad5cd6019c2def4871828ec5c9699894301e01c1f279cb45b1f",
+      "calibration_gate_predictions": "1eb3541f3a26e8fae01c1926a878c2d5a641981cc0785abfba2d439ef7358f6c",
+      "policy_development_predictions": "164d665f5b49584c353f7afa8ae60fb9967b4fde98fc6b4a6ba348387d8da03e"
+    }
+  },
+  "model_contract": {
+    "profile_id": "a047d6802c3f06f085b8",
+    "bundle_sha256": "4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332",
+    "model_id": "Qwen/Qwen3.5-4B-Base",
+    "revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+    "hidden_size": 2560,
+    "parameter_count": 4205751296,
+    "reference_repo": "cowWhySo/OpenKind-Qwen3.5-4B-StateFirst"
+  },
+  "corpus_lock": {
+    "schema": "openkind-corpus-lock/v1",
+    "manifest_sha256": "1aad04ca7d37ea8be640a51878857c6d2c501d635e913eca12234cb548f8399d",
+    "tables": {
+      "states": "7e6333202ad934e66148724a565b27176fcaad4133a566d2c8f8b57044ef3120",
+      "questions": "549b446f609a9407eceb5df7ef4c0f14779bc73d72396ae749424626d8777434",
+      "options": "cbd40c9162909c6c637296e9c8f408e0ba1bece0aca1786cef98f73d242f6cf2",
+      "evidence": "566e0e69e8f57ed0ce626021647a3b770a89ae5a3eb318e1d4f8bea284f2c6be",
+      "criteria": "1e3e62c93506fc7add11c88dc7232dba9f6c0b9ee8db2ee4b465fb283a91430b"
+    },
+    "locked_before_model_predictions": true
+  },
+  "final_split_available": false,
+  "experiment_sha256": "396748e3f495403dd5cdccf1a6708ddc3de815e2f54fcf75e0b92525a27037ef"
+}

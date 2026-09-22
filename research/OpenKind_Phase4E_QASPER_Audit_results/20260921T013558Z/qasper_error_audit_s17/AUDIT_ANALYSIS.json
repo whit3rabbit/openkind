@@ -1,0 +1,136 @@
+{
+  "schema": "openkind-phase4e-qasper-audit-analysis/v1",
+  "audit_experiment_sha256": "055683587cc016e33cfd889795d5d70f9e16623acf9c75bcb3b5db9ae276ee63",
+  "completed_review_sha256": "11e6444c5c8e648eb5052cabe650bd91a66cc1740442ce0e94efc881fdd83e9f",
+  "analyzed_at_utc": "2026-09-22T22:33:43.262612+00:00",
+  "overall": {
+    "n": 150.0,
+    "ambiguous_n": 79.0,
+    "ambiguous_rate": 0.5266666666666666,
+    "decided_n": 71.0,
+    "locked_label_agreement": 0.8169014084507042,
+    "mean_review_confidence": 0.9639333333333332
+  },
+  "by_partition": [
+    {
+      "partition": "calibration_gate",
+      "n": 60.0,
+      "ambiguous_n": 37.0,
+      "ambiguous_rate": 0.6166666666666667,
+      "decided_n": 23.0,
+      "locked_label_agreement": 0.6956521739130435,
+      "mean_review_confidence": 0.9493333333333335
+    },
+    {
+      "partition": "policy_development",
+      "n": 90.0,
+      "ambiguous_n": 42.0,
+      "ambiguous_rate": 0.4666666666666667,
+      "decided_n": 48.0,
+      "locked_label_agreement": 0.875,
+      "mean_review_confidence": 0.9736666666666666
+    }
+  ],
+  "by_operating_outcome": [
+    {
+      "operating_outcome": "fn",
+      "n": 59.0,
+      "ambiguous_n": 47.0,
+      "ambiguous_rate": 0.7966101694915254,
+      "decided_n": 12.0,
+      "locked_label_agreement": 0.0,
+      "mean_review_confidence": 0.9725423728813561
+    },
+    {
+      "operating_outcome": "fp",
+      "n": 71.0,
+      "ambiguous_n": 21.0,
+      "ambiguous_rate": 0.29577464788732394,
+      "decided_n": 50.0,
+      "locked_label_agreement": 1.0,
+      "mean_review_confidence": 0.9563380281690139
+    },
+    {
+      "operating_outcome": "tn",
+      "n": 10.0,
+      "ambiguous_n": 2.0,
+      "ambiguous_rate": 0.2,
+      "decided_n": 8.0,
+      "locked_label_agreement": 1.0,
+      "mean_review_confidence": 0.962
+    },
+    {
+      "operating_outcome": "tp",
+      "n": 10.0,
+      "ambiguous_n": 9.0,
+      "ambiguous_rate": 0.9,
+      "decided_n": 1.0,
+      "locked_label_agreement": 0.0,
+      "mean_review_confidence": 0.9690000000000001
+    }
+  ],
+  "by_selection_role": [
+    {
+      "selection_role": "gate_state_diverse_error_sample",
+      "n": 60.0,
+      "ambiguous_n": 37.0,
+      "ambiguous_rate": 0.6166666666666667,
+      "decided_n": 23.0,
+      "locked_label_agreement": 0.6956521739130435,
+      "mean_review_confidence": 0.9493333333333335
+    },
+    {
+      "selection_role": "policy_all_error",
+      "n": 70.0,
+      "ambiguous_n": 31.0,
+      "ambiguous_rate": 0.44285714285714284,
+      "decided_n": 39.0,
+      "locked_label_agreement": 0.8717948717948718,
+      "mean_review_confidence": 0.9759999999999999
+    },
+    {
+      "selection_role": "policy_blinded_control",
+      "n": 20.0,
+      "ambiguous_n": 11.0,
+      "ambiguous_rate": 0.55,
+      "decided_n": 9.0,
+      "locked_label_agreement": 0.8888888888888888,
+      "mean_review_confidence": 0.9654999999999999
+    }
+  ],
+  "reason_counts": [
+    {
+      "reason": "explicit_answer",
+      "n": 64
+    },
+    {
+      "reason": "missing_context",
+      "n": 38
+    },
+    {
+      "reason": "partial_evidence",
+      "n": 32
+    },
+    {
+      "reason": "implicit_answer",
+      "n": 7
+    },
+    {
+      "reason": "missing_table_values",
+      "n": 7
+    },
+    {
+      "reason": "question_underspecified",
+      "n": 2
+    }
+  ],
+  "reviewer_counts": [
+    {
+      "reviewer_id": "openai_codex_blinded_review_20260922",
+      "n": 150
+    }
+  ],
+  "automatic_phase4e_b_authorization": false,
+  "required_next_decision": "Resolve ambiguous cases and locked-label disagreements. Then choose data repair or preregister one representation-aware seed-17 arm; do not tune on this audit pack.",
+  "final_opened": false
+}

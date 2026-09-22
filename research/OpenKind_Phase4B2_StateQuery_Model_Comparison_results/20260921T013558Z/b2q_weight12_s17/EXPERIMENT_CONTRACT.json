@@ -1,0 +1,84 @@
+{
+  "schema": "openkind-phase4b2-experiment/v1",
+  "config": {
+    "schema": "openkind-phase4b2-config/v1",
+    "workbench_version": "4b.2.0",
+    "base_run_id": "20260921T013558Z",
+    "variant": "b2_factorized",
+    "run_label": "b2q_weight12_s17",
+    "architecture": "B2",
+    "state_refiner_layers": 0,
+    "seed": 17,
+    "query_dim": 768,
+    "query_heads": 12,
+    "query_layers": 2,
+    "question_latents": 8,
+    "max_question_tokens": 96,
+    "max_candidate_tokens": 64,
+    "epochs": 12,
+    "patience": 4,
+    "gradient_accumulation_states": 4,
+    "learning_rate": 0.0002,
+    "weight_decay": 0.01,
+    "evidence_loss_weight": 0.15,
+    "reason_loss_weight": 0.1,
+    "source_balance_strategy": "undersample_to_smallest_source_each_epoch",
+    "semantic_none_weight_sources": [
+      "qasper"
+    ],
+    "semantic_none_weight_cap": 12.0,
+    "minimum_development_none_recall": {
+      "contractnli": 0.35,
+      "qasper": 0.3
+    },
+    "policy_wrong_cost": 5.0,
+    "policy_review_cost": 0.1
+  },
+  "base_artifacts": {
+    "declared_contract": "1dea824e1d9d0455ee138103046e68d55650c6649916798ab8dafc5ac43771af",
+    "corpus_manifest": "c68b813e04eeff671c0c92fc6f7d7253f5d6671e76b54439c3e4c426f55ff815",
+    "corpus_lock": "3b9f9813d28eb4f9e270a420739cfa4aaf3a7b2ef21af921940e178d5745a200",
+    "feature_manifest": "f5cda5b97dc0687ac9a89a4f7d29996cfb4dfe6326c009310a8392589101ba27",
+    "base_training_report": "0f70071417b28d04a6b593b045c7d70d62602f5e8bcb45073b31298d55f7d68c",
+    "base_nonfinal_report": "a003c4648a1c28aa4a900b680b6c9ca3318c039a900cd3d106701b9be03bbd57",
+    "base_model_lock": "d785e528dace5f6716bb4e5ba687536f729f10d5954d0139025a5eaf6d1cb39d",
+    "base_selected_checkpoint": "9b19138268b5de2bb48b461337e88b9de6492a7bc52eff6489525e09eb63d940",
+    "reference_nonfinal_predictions": "007d5bc189f6955b03bd6cc0ef00d8740df631d90a56caf7a53998ae5ae73aff"
+  },
+  "parent_phase4a2": {
+    "run_label": "b2q_weight8_s17",
+    "experiment_sha256": "11999bb4b2b68477c0cd8a9159b70c325220cf58b24741302d47c7501dbc990e",
+    "selected_epoch": 11,
+    "effective_qasper_semantic_none_weight": 8.0,
+    "artifacts": {
+      "experiment_contract": "e31ac792b5758f05cb9bbaf9d737570db8e1ff9b75f22c0d5cc29df76410899a",
+      "training_report": "6cf5e30556e568825207ee5651e6050a4cd4368abc17bf8c9d225add8b4c2c6b",
+      "nonfinal_report": "6beca42a0aaecda6361178b33407dc05cf745af4c875c2eb714f49525f1ea8bc",
+      "nonfinal_result_lock": "11f68f7c1840ac515f976c8c8afc3c3337888ff236337bde01ba5bb5232be687",
+      "selected_checkpoint": "5066d13074a7ee4c9837e76fb6508d49c13848addfc09bc8c18f8ff8fd9af326"
+    }
+  },
+  "model_contract": {
+    "profile_id": "a047d6802c3f06f085b8",
+    "bundle_sha256": "4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332",
+    "model_id": "Qwen/Qwen3.5-4B-Base",
+    "revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+    "hidden_size": 2560,
+    "parameter_count": 4205751296,
+    "reference_repo": "cowWhySo/OpenKind-Qwen3.5-4B-StateFirst"
+  },
+  "corpus_lock": {
+    "schema": "openkind-corpus-lock/v1",
+    "manifest_sha256": "1aad04ca7d37ea8be640a51878857c6d2c501d635e913eca12234cb548f8399d",
+    "tables": {
+      "states": "7e6333202ad934e66148724a565b27176fcaad4133a566d2c8f8b57044ef3120",
+      "questions": "549b446f609a9407eceb5df7ef4c0f14779bc73d72396ae749424626d8777434",
+      "options": "cbd40c9162909c6c637296e9c8f408e0ba1bece0aca1786cef98f73d242f6cf2",
+      "evidence": "566e0e69e8f57ed0ce626021647a3b770a89ae5a3eb318e1d4f8bea284f2c6be",
+      "criteria": "1e3e62c93506fc7add11c88dc7232dba9f6c0b9ee8db2ee4b465fb283a91430b"
+    },
+    "locked_before_model_predictions": true
+  },
+  "final_split_available": false,
+  "experiment_sha256": "ac1c90aa2592b5536d4351686fb559e1c6733885d0f902230a8b57155cc6bfdb"
+}

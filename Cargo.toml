@@ -56,6 +56,10 @@ config = "0.15"
 humantime = "2"
 humantime-serde = "1"
 
+# Development benchmarking. Pin the patch release so future Criterion MSRV
+# changes cannot silently move the workspace above Rust 1.88.
+criterion = { version = "=0.8.2", features = ["async_tokio", "html_reports"] }
+
 # Observability
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }

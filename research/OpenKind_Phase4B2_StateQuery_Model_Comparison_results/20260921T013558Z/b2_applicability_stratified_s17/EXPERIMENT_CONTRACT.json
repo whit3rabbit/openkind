@@ -1,0 +1,92 @@
+{
+  "schema": "openkind-phase4b2-stratified-experiment/v1",
+  "config": {
+    "schema": "openkind-phase4b2-stratified-config/v1",
+    "workbench_version": "4b.2.1",
+    "base_run_id": "20260921T013558Z",
+    "variant": "b2_factorized",
+    "run_label": "b2_applicability_stratified_s17",
+    "architecture": "B2",
+    "state_refiner_layers": 0,
+    "seed": 17,
+    "query_dim": 768,
+    "query_heads": 12,
+    "query_layers": 2,
+    "question_latents": 8,
+    "max_question_tokens": 96,
+    "max_candidate_tokens": 64,
+    "epochs": 12,
+    "patience": 4,
+    "gradient_accumulation_states": 4,
+    "learning_rate": 0.0002,
+    "weight_decay": 0.01,
+    "evidence_loss_weight": 0.15,
+    "reason_loss_weight": 0.1,
+    "source_balance_strategy": "undersample_to_smallest_source_each_epoch",
+    "training_objective": "answerable_rank_plus_source_class_balanced_applicability",
+    "rank_loss_population": "answerable_only",
+    "applicability_balance_strategy": "equal_source_class_question_mass_per_epoch",
+    "applicability_loss_weight": 1.0,
+    "scalar_semantic_none_weighting": false,
+    "minimum_development_none_recall": {
+      "contractnli": 0.35,
+      "qasper": 0.3
+    },
+    "maximum_development_false_none_rate": {
+      "contractnli": 0.2,
+      "qasper": 0.2
+    },
+    "policy_wrong_cost": 5.0,
+    "policy_review_cost": 0.1
+  },
+  "base_artifacts": {
+    "declared_contract": "1dea824e1d9d0455ee138103046e68d55650c6649916798ab8dafc5ac43771af",
+    "corpus_manifest": "c68b813e04eeff671c0c92fc6f7d7253f5d6671e76b54439c3e4c426f55ff815",
+    "corpus_lock": "3b9f9813d28eb4f9e270a420739cfa4aaf3a7b2ef21af921940e178d5745a200",
+    "feature_manifest": "f5cda5b97dc0687ac9a89a4f7d29996cfb4dfe6326c009310a8392589101ba27",
+    "base_training_report": "0f70071417b28d04a6b593b045c7d70d62602f5e8bcb45073b31298d55f7d68c",
+    "base_nonfinal_report": "a003c4648a1c28aa4a900b680b6c9ca3318c039a900cd3d106701b9be03bbd57",
+    "base_model_lock": "d785e528dace5f6716bb4e5ba687536f729f10d5954d0139025a5eaf6d1cb39d",
+    "base_selected_checkpoint": "9b19138268b5de2bb48b461337e88b9de6492a7bc52eff6489525e09eb63d940",
+    "reference_nonfinal_predictions": "007d5bc189f6955b03bd6cc0ef00d8740df631d90a56caf7a53998ae5ae73aff"
+  },
+  "parent_phase4b2": {
+    "run_label": "b2q_weight12_s17",
+    "experiment_sha256": "ac1c90aa2592b5536d4351686fb559e1c6733885d0f902230a8b57155cc6bfdb",
+    "selected_epoch": 11,
+    "effective_qasper_semantic_none_weight": 8.560185185185185,
+    "artifacts": {
+      "experiment_contract": "61dbc49ab3c80dee5a5abb4f13be7f06442f6ff577161a11ccc981673a43cc15",
+      "training_report": "2f55984aedcd45daca057e28906930f6dd8b88427a82f6d5ac91f5de95c37da9",
+      "nonfinal_report": "980c4401a1b76738cc8ebaf873cc7188c41b6e9cd824c5a688a8e18826d4f44c",
+      "nonfinal_result_lock": "8f26a47cd8703d3a42cd376275cd8be2dd8e8c22b2ebff6c44a933e6a02298d0",
+      "selected_checkpoint": "722bc8c4e24654c71c6e8d9be7e421b506d76fd1c5be50081a237b0e9551709d",
+      "calibration_fit_predictions": "0bc97d473b7861632c14c63c0878728afbe28d07a688267427769d33976c5fbd",
+      "calibration_gate_predictions": "f86bc64e78a64b808b3e5477da3eba47cac62c0562d3d25deb6a584b95250dc8",
+      "policy_development_predictions": "401515f06ca043705aa7e36072fe93782b83810dc97f644530b96a576c5f5d2a"
+    }
+  },
+  "model_contract": {
+    "profile_id": "a047d6802c3f06f085b8",
+    "bundle_sha256": "4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332",
+    "model_id": "Qwen/Qwen3.5-4B-Base",
+    "revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+    "hidden_size": 2560,
+    "parameter_count": 4205751296,
+    "reference_repo": "cowWhySo/OpenKind-Qwen3.5-4B-StateFirst"
+  },
+  "corpus_lock": {
+    "schema": "openkind-corpus-lock/v1",
+    "manifest_sha256": "1aad04ca7d37ea8be640a51878857c6d2c501d635e913eca12234cb548f8399d",
+    "tables": {
+      "states": "7e6333202ad934e66148724a565b27176fcaad4133a566d2c8f8b57044ef3120",
+      "questions": "549b446f609a9407eceb5df7ef4c0f14779bc73d72396ae749424626d8777434",
+      "options": "cbd40c9162909c6c637296e9c8f408e0ba1bece0aca1786cef98f73d242f6cf2",
+      "evidence": "566e0e69e8f57ed0ce626021647a3b770a89ae5a3eb318e1d4f8bea284f2c6be",
+      "criteria": "1e3e62c93506fc7add11c88dc7232dba9f6c0b9ee8db2ee4b465fb283a91430b"
+    },
+    "locked_before_model_predictions": true
+  },
+  "final_split_available": false,
+  "experiment_sha256": "4313087778356312ac8646486ac8c45731885595b88e7236edcefa5c985d703e"
+}

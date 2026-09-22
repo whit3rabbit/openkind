@@ -22,7 +22,7 @@ selected open-weight Qwen 3.5 profile described below.
 - [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md): benchmark methodology, harness usage, and recorded runs.
 - [`docs/MLX.md`](docs/MLX.md): MLX runtime contract, implementation guide, limitations, and enhancement path.
 - [`docs/RESEARCH.md`](docs/RESEARCH.md): empirical research and prior-art evidence.
-- [`docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md`](docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md): scientific rationale and measured results.
+- [`docs/whitepaper/OpenKind_Whitepaper_v0.8.2.md`](docs/whitepaper/OpenKind_Whitepaper_v0.8.2.md): scientific rationale and measured results.
 - Each crate's `AGENTS.md`: module-specific invariants and verification commands.
 
 If documentation and code disagree, do not silently choose one. Use executable
@@ -85,10 +85,26 @@ high-K, fresh-process replay, and queue-inclusive load/soak remain open.
 | Rust client SDK | [`crates/openkind-client/AGENTS.md`](crates/openkind-client/AGENTS.md) |
 | Hardware and state lifecycle | [`crates/openkind-runtime/AGENTS.md`](crates/openkind-runtime/AGENTS.md) |
 | Model artifacts and readouts | [`crates/openkind-backends/AGENTS.md`](crates/openkind-backends/AGENTS.md) |
-| Scoring/timing benchmark harness | [`crates/openkind-bench/AGENTS.md`](crates/openkind-bench/AGENTS.md) |
+| Native decision-workload benchmark harness | [`crates/openkind-bench/AGENTS.md`](crates/openkind-bench/AGENTS.md) |
 | JSON Schema generation | [`crates/openkind-gen-schemas/AGENTS.md`](crates/openkind-gen-schemas/AGENTS.md) |
 | Protobuf contract | [`proto/AGENTS.md`](proto/AGENTS.md) |
 | Project documentation | [`docs/AGENTS.md`](docs/AGENTS.md) |
+
+## Benchmark Taxonomy
+
+Always qualify which kind of benchmark was run. These produce different
+evidence and are not interchangeable:
+
+| Benchmark type | Primary path | What it measures |
+|---|---|---|
+| Criterion component microbenchmark | `cargo bench` targets in `openkind-cli`, `openkind-server`, and `openkind-client` | Warm MockEngine parsing, validation, middleware, serialization, dispatch, and localhost SDK overhead. These runs do not measure native-model throughput or classification quality. |
+| Native request-path benchmark | `openkind-bench score` | Full engine request-path predictions, timing, strategy parity, and attributed peak RSS for a pinned backend and workload. Predictions alone are not classification-accuracy evidence. |
+| Classification or model-quality evaluation | Labeled evaluation datasets with explicit metrics and recorded provenance | Semantic task quality. Report the dataset revision, metric definition, seed, checkpoint/profile identity, and exclusions. Do not infer this evidence from Criterion or throughput-only runs. |
+
+Criterion reports live under ignored `target/criterion/`. Use
+`scripts/bench-rss.sh` for whole-process peak RSS, not bytes per operation.
+Methodology, complete commands, and evidence boundaries live in
+[`docs/BENCHMARKS.md`](docs/BENCHMARKS.md).
 
 ## Critical Workspace Gotchas
 
@@ -146,6 +162,7 @@ Run the project-specific battery before submitting changes:
 cargo fmt --check
 cargo clippy --workspace --all-targets -- -D warnings
 env -u RUST_LOG cargo test --workspace
+env -u RUST_LOG cargo test --workspace --benches --locked
 cargo run -p openkind-gen-schemas -- --write
 git diff --check
 ```
