@@ -12,7 +12,14 @@ use crate::qwen35::mlx::runtime::{MlxRuntime, MlxRuntimeConfig};
 fn synthetic_stage_bisect() {
     let runtime = MlxRuntime::new(MlxRuntimeConfig::default()).expect("runtime");
     let tensors = synthetic_tensors();
-    let layer = MlxDecoderLayer::load(&tensors, 0, MlxPrecision::Fp32).expect("layer");
+    let layer = MlxDecoderLayer::load(
+        &tensors,
+        0,
+        MlxPrecision::Fp32,
+        crate::qwen35::mlx::MlxGatedDeltaKernel::MetalTree,
+    )
+    .expect("layer");
+    assert_eq!(layer.weight_array_count(), 14);
     let w = host_weights();
     let hidden_values = seeded(&[ROWS * HIDDEN_SIZE], 99);
 
@@ -79,6 +86,7 @@ fn synthetic_stage_bisect() {
                 &mixer.a_log,
                 &mixer.delta_norm,
                 &mut recurrent,
+                crate::qwen35::mlx::MlxGatedDeltaKernel::MetalTree,
             )
             .expect("step");
             read(&out)
@@ -196,6 +204,7 @@ fn synthetic_stage_bisect() {
                 &mixer.a_log,
                 &mixer.delta_norm,
                 &mut recurrent,
+                crate::qwen35::mlx::MlxGatedDeltaKernel::MetalTree,
             )
             .expect("step a");
             let step_b = gated_delta_step(
@@ -207,6 +216,7 @@ fn synthetic_stage_bisect() {
                 &mixer.a_log,
                 &mixer.delta_norm,
                 &mut recurrent,
+                crate::qwen35::mlx::MlxGatedDeltaKernel::MetalTree,
             )
             .expect("step b");
             let flat = step_b;
@@ -322,17 +332,25 @@ fn synthetic_stage_bisect() {
 fn synthetic_linear_layer_matches_host_reference() {
     let runtime = MlxRuntime::new(MlxRuntimeConfig::default()).expect("runtime");
     let tensors = synthetic_tensors();
-    let layer = MlxDecoderLayer::load(&tensors, 0, MlxPrecision::Fp32).expect("layer");
+    let layer = MlxDecoderLayer::load(
+        &tensors,
+        0,
+        MlxPrecision::Fp32,
+        crate::qwen35::mlx::MlxGatedDeltaKernel::MetalTree,
+    )
+    .expect("layer");
     let hidden_values = seeded(&[ROWS * HIDDEN_SIZE], 99);
-    let hidden = runtime
-        .execute(|| Array::from_slice(&hidden_values, &[ROWS as i32, HIDDEN_SIZE as i32]))
-        .expect("execute");
-    let (mlx_out, _state) = layer.forward(&hidden, ROWS, 0, None).expect("forward");
-    let mlx_host = mlx_out
-        .eval()
-        .ok()
-        .and_then(|()| mlx_out.to_vec_cast::<f32>().ok())
-        .expect("read");
+    let mlx_host = runtime
+        .execute(|| {
+            let hidden = Array::from_slice(&hidden_values, &[ROWS as i32, HIDDEN_SIZE as i32]);
+            let (mlx_out, _state) = layer.forward(&hidden, ROWS, 0, None)?;
+            mlx_out.eval().map_err(op("linear layer eval"))?;
+            mlx_out
+                .to_vec_cast::<f32>()
+                .map_err(op("linear layer read"))
+        })
+        .expect("execute")
+        .expect("forward");
     let host_out = host_layer(&hidden_values, &host_weights());
     let max_abs = mlx_host
         .iter()
@@ -346,6 +364,91 @@ fn synthetic_linear_layer_matches_host_reference() {
         max_abs <= 5e-3 * host_scale,
         "synthetic layer_00 diverged from host reference: max_abs {max_abs:.6} on scale {host_scale:.3}"
     );
+}
+
+#[test]
+fn fused_linear_mixer_continuation_matches_one_pass() {
+    const PREFIX_ROWS: usize = 3;
+    let runtime = MlxRuntime::new(MlxRuntimeConfig::default()).expect("runtime");
+    let tensors = synthetic_tensors();
+    let layer = MlxDecoderLayer::load(
+        &tensors,
+        0,
+        MlxPrecision::Fp32,
+        crate::qwen35::mlx::MlxGatedDeltaKernel::MetalTree,
+    )
+    .expect("layer");
+    let TokenMixer::Linear(mixer) = &layer.mixer else {
+        panic!("linear")
+    };
+    let hidden = seeded(&[ROWS * HIDDEN_SIZE], 109);
+
+    runtime
+        .execute(|| {
+            let full_input = Array::from_slice(&hidden, &[ROWS as i32, HIDDEN_SIZE as i32]);
+            let (full_output, full_state) =
+                mixer.forward(&full_input, ROWS, None).expect("full mixer");
+            let prefix_input = Array::from_slice(
+                &hidden[..PREFIX_ROWS * HIDDEN_SIZE],
+                &[PREFIX_ROWS as i32, HIDDEN_SIZE as i32],
+            );
+            let (_, prefix_state) = mixer
+                .forward(&prefix_input, PREFIX_ROWS, None)
+                .expect("prefix mixer");
+            let MlxLayerState::Linear(prefix_state) = prefix_state else {
+                panic!("linear prefix state")
+            };
+            let suffix_input = Array::from_slice(
+                &hidden[PREFIX_ROWS * HIDDEN_SIZE..],
+                &[(ROWS - PREFIX_ROWS) as i32, HIDDEN_SIZE as i32],
+            );
+            let (suffix_output, suffix_state) = mixer
+                .forward(&suffix_input, ROWS - PREFIX_ROWS, Some(&prefix_state))
+                .expect("suffix mixer");
+            let MlxLayerState::Linear(full_state) = full_state else {
+                panic!("linear full state")
+            };
+            let MlxLayerState::Linear(suffix_state) = suffix_state else {
+                panic!("linear suffix state")
+            };
+            for array in [
+                &full_output,
+                &suffix_output,
+                &full_state.conv,
+                &full_state.recurrent,
+                &suffix_state.conv,
+                &suffix_state.recurrent,
+            ] {
+                array.eval().expect("eval");
+            }
+            let full_output = full_output.to_vec_cast::<f32>().expect("full output read");
+            let suffix_output = suffix_output
+                .to_vec_cast::<f32>()
+                .expect("suffix output read");
+            let expected_suffix = &full_output[PREFIX_ROWS * HIDDEN_SIZE..];
+            assert_eq!(expected_suffix, suffix_output);
+            assert_eq!(
+                full_state
+                    .conv
+                    .to_vec_cast::<f32>()
+                    .expect("full conv read"),
+                suffix_state
+                    .conv
+                    .to_vec_cast::<f32>()
+                    .expect("suffix conv read")
+            );
+            assert_eq!(
+                full_state
+                    .recurrent
+                    .to_vec_cast::<f32>()
+                    .expect("full recurrent read"),
+                suffix_state
+                    .recurrent
+                    .to_vec_cast::<f32>()
+                    .expect("suffix recurrent read")
+            );
+        })
+        .expect("execute");
 }
 
 #[test]
@@ -373,6 +476,7 @@ fn gated_delta_softplus_is_finite_at_extremes() {
                 &a_log,
                 &norm,
                 &mut recurrent,
+                crate::qwen35::mlx::MlxGatedDeltaKernel::MetalTree,
             )?;
             output.eval().map_err(op("extreme softplus eval"))?;
             let values = output

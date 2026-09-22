@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
 
+use opendecision_backends::qwen35::mlx::MlxPrecision;
 use opendecision_backends::qwen35::mlx::MlxQwen35Backbone as Backbone;
 use opendecision_backends::qwen35::{
     BackboneReference, PolicyAction, ReferenceBundle, POLICY_THRESHOLD, PROBABILITY_TOLERANCE,
@@ -210,7 +211,7 @@ pub(crate) fn nested_stage(
     // execution legitimately rounds differently between cached and full
     // shapes; for the candidate profile it is reported as a diagnostic and
     // the frozen decision gates (probability/argmax/policy) decide.
-    let fp32 = backbone.arithmetic_id().contains("/fp32/reference-ops;");
+    let fp32 = backbone.precision() == MlxPrecision::Fp32;
     let cached_gate = !fp32 || maximum_cached_vs_full <= CACHED_VS_FULL_GUARD;
     let gate_passed = probability_gate
         && argmax_changes == 0

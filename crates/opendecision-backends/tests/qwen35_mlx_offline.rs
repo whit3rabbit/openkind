@@ -8,12 +8,14 @@
 #![cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
 
 use std::ops::{Add, Mul};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Barrier};
 
 use mlx_rs::Array;
 
 use opendecision_backends::qwen35::mlx::{
-    MlxRuntime, MlxRuntimeConfig, MLX_ARITHMETIC_ID_BF16_REFERENCE,
+    MlxGatedDeltaKernel, MlxRuntime, MlxRuntimeConfig, MLX_ARITHMETIC_ID_BF16_METAL_TREE,
+    MLX_ARITHMETIC_ID_BF16_REFERENCE, MLX_ARITHMETIC_ID_FP32_METAL_TREE,
     MLX_ARITHMETIC_ID_FP32_REFERENCE, MLX_CORE_VERSION, MLX_C_RELEASE, MLX_LM_REFERENCE_COMMIT,
     MLX_RS_VERSION,
 };
@@ -62,6 +64,19 @@ fn arithmetic_ids_are_distinct_per_precision_and_kernel_family() {
     assert!(MLX_ARITHMETIC_ID_FP32_REFERENCE.starts_with("mlx-core-0.32.2/fp32/"));
     assert!(MLX_ARITHMETIC_ID_BF16_REFERENCE.starts_with("mlx-core-0.32.2/bf16/"));
     assert!(MLX_ARITHMETIC_ID_FP32_REFERENCE.ends_with("/reference-ops"));
+    assert_ne!(
+        MLX_ARITHMETIC_ID_FP32_REFERENCE,
+        MLX_ARITHMETIC_ID_FP32_METAL_TREE
+    );
+    assert_ne!(
+        MLX_ARITHMETIC_ID_BF16_REFERENCE,
+        MLX_ARITHMETIC_ID_BF16_METAL_TREE
+    );
+    assert!(MLX_ARITHMETIC_ID_FP32_METAL_TREE.contains("packed-dk128"));
+    assert_eq!(
+        MlxRuntimeConfig::default().gated_delta_kernel,
+        MlxGatedDeltaKernel::ReferenceOps
+    );
 }
 
 #[test]
@@ -130,15 +145,26 @@ fn clone_shares_immutable_values_without_corruption() {
 #[test]
 fn concurrent_callers_are_serialized_without_deadlock() {
     let runtime = Arc::new(runtime());
+    let start = Arc::new(Barrier::new(4));
+    let in_flight = Arc::new(AtomicUsize::new(0));
+    let max_in_flight = Arc::new(AtomicUsize::new(0));
     let mut handles = Vec::new();
     for lane in 0..4_u32 {
         let runtime = Arc::clone(&runtime);
+        let start = Arc::clone(&start);
+        let in_flight = Arc::clone(&in_flight);
+        let max_in_flight = Arc::clone(&max_in_flight);
         handles.push(std::thread::spawn(move || {
+            start.wait();
             runtime
                 .execute(move || {
+                    let current = in_flight.fetch_add(1, Ordering::SeqCst) + 1;
+                    max_in_flight.fetch_max(current, Ordering::SeqCst);
                     let x = Array::from_slice(&vec![lane as f32; 256], &[1, 256]);
                     let out = x.matmul(x.transpose().expect("transpose")).expect("matmul");
                     out.eval().expect("eval");
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                    in_flight.fetch_sub(1, Ordering::SeqCst);
                 })
                 .expect("execute");
         }));
@@ -146,6 +172,7 @@ fn concurrent_callers_are_serialized_without_deadlock() {
     for handle in handles {
         handle.join().expect("thread");
     }
+    assert_eq!(max_in_flight.load(Ordering::SeqCst), 1);
 }
 
 #[test]
@@ -157,6 +184,7 @@ fn stream_explicit_execution_survives_thread_local_default_absence() {
     let handle = std::thread::spawn(move || {
         runtime
             .execute(|| {
+                assert!(mlx_rs::thread_local_default_stream().is_some());
                 let x = Array::from_slice(&[2.0_f32, 3.0], &[2]);
                 let out = x.clone().mul(&x);
                 out.eval().expect("eval");

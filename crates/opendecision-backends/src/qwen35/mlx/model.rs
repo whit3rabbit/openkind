@@ -13,30 +13,54 @@ use opendecision_runtime::branch::{StateIdentity, StateLineage};
 
 use crate::qwen35::{Qwen35Embedding, PROFILE_ID, STATE_FIRST_RENDERER_ID};
 
-use super::layers::{MlxDecoderLayer, MlxLayerState, HIDDEN_SIZE};
+use super::layers::{row_of, MlxDecoderLayer, MlxLayerState, HIDDEN_SIZE};
 use super::runtime::SharedMlxRuntime;
 use super::weights::{MlxCheckpointFormat, MlxWeightLoadReport, MlxWeightStore};
 use super::{MlxError, MlxPrecision};
 
-/// Full backbone output materialized to host FP32 at the executor boundary.
+/// Production backbone output materialized to host FP32 at the executor boundary.
 #[derive(Debug, Clone)]
 pub struct MlxBackboneOutput {
     /// Number of tokens in the executed suffix.
     pub token_count: usize,
-    /// Host-read embedding row of the final token (pre-layer).
-    pub embedding_last_token: Vec<f32>,
-    /// Final-token hidden vector after each of the 32 layers, in order.
-    pub layer_last_tokens: Vec<Vec<f32>>,
-    /// Final RMSNorm output for every token, row-major `[token_count, 2560]`.
-    pub final_values: Vec<f32>,
+    /// Final RMSNorm output for the last token only.
+    final_feature: Vec<f32>,
 }
 
 impl MlxBackboneOutput {
     /// Final-token feature vector consumed by the score-summary head.
     #[must_use]
     pub fn feature(&self) -> &[f32] {
-        &self.final_values[(self.token_count - 1) * HIDDEN_SIZE..]
+        &self.final_feature
     }
+}
+
+/// Opt-in diagnostic trace for frozen-stage parity localization.
+///
+/// Production scoring deliberately does not construct this value: collecting
+/// it inserts one GPU-to-host readback after every decoder layer.
+#[derive(Debug, Clone)]
+pub struct MlxBackboneTrace {
+    /// Production result from the same forward.
+    pub output: MlxBackboneOutput,
+    /// Host-read embedding row of the final token (pre-layer).
+    pub embedding_last_token: Vec<f32>,
+    /// Final-token hidden vector after each of the 32 layers, in order.
+    pub layer_last_tokens: Vec<Vec<f32>>,
+}
+
+type TraceVectors = (Vec<f32>, Vec<Vec<f32>>);
+
+struct BackboneExecution {
+    output: MlxBackboneOutput,
+    state: MlxBackboneState,
+    trace: Option<TraceVectors>,
+}
+
+struct DeviceExecution {
+    output: MlxBackboneOutput,
+    layers: Vec<MlxLayerState>,
+    layer_trace: Option<Vec<Vec<f32>>>,
 }
 
 /// Complete hybrid continuation state (attention KV, DeltaNet recurrent,
@@ -102,6 +126,12 @@ pub struct MlxQwen35Backbone {
 unsafe impl Sync for MlxQwen35Backbone {}
 
 impl MlxQwen35Backbone {
+    /// Arithmetic precision used by this loaded backbone.
+    #[must_use]
+    pub const fn precision(&self) -> MlxPrecision {
+        self.precision
+    }
+
     /// Verify the pinned checkpoint and load it into MLX arrays at the
     /// requested precision.
     pub fn load(
@@ -118,6 +148,8 @@ impl MlxQwen35Backbone {
         let load_report = store.load_report;
         let checkpoint_identity = store.checkpoint_identity();
         let (tensors, embedding) = store.into_tensors();
+        let gated_delta_kernel =
+            effective_gated_delta_kernel(precision, runtime.config().gated_delta_kernel);
 
         let identity = StateIdentity::new(
             PROFILE_ID,
@@ -125,21 +157,31 @@ impl MlxQwen35Backbone {
             checkpoint_identity.backbone_revision,
             STATE_FIRST_RENDERER_ID,
             checkpoint_identity.tokenizer_digest,
-            arithmetic_id(precision, &runtime, checkpoint_identity.format),
+            arithmetic_id(
+                precision,
+                gated_delta_kernel,
+                &runtime,
+                checkpoint_identity.format,
+            ),
         )
         .map_err(|error| MlxError::InvalidState(error.to_string()))?;
 
         let (layers, final_norm) = runtime.execute(|| -> Result<_, MlxError> {
             let mut layers = Vec::with_capacity(32);
             for layer_index in 0..32 {
-                layers.push(MlxDecoderLayer::load(&tensors, layer_index, precision)?);
+                layers.push(MlxDecoderLayer::load(
+                    &tensors,
+                    layer_index,
+                    precision,
+                    gated_delta_kernel,
+                )?);
             }
             let final_norm = folded_final_norm(&tensors, precision)?;
             // Weight arrays must leave the loading thread fully materialized:
             // lazy graphs record this thread's stream, which worker threads
             // (engine blocking-pool forwards) cannot resolve.
-            for layer in &layers {
-                layer.materialize()?;
+            for (layer_index, layer) in layers.iter().enumerate() {
+                layer.materialize(layer_index)?;
             }
             final_norm.eval().map_err(|error| MlxError::Operation {
                 operation: "final norm materialization",
@@ -191,15 +233,23 @@ impl MlxQwen35Backbone {
         };
         let linear_layers = self.layers.len() - self.layers.len() / 4;
         let full_layers = self.layers.len() / 4;
-        let linear_elements = linear_layers
-            * (super::layers::QKV_SIZE * super::layers::CONV_KERNEL
-                + super::layers::VALUE_HEADS * super::layers::HEAD_DIM * super::layers::HEAD_DIM);
+        let linear_elements = linear_layers.saturating_mul(
+            super::layers::QKV_SIZE
+                .saturating_mul(super::layers::CONV_KERNEL)
+                .saturating_add(
+                    super::layers::VALUE_HEADS
+                        .saturating_mul(super::layers::HEAD_DIM)
+                        .saturating_mul(super::layers::HEAD_DIM),
+                ),
+        );
         let full_elements = full_layers
-            * position
-            * 2
-            * super::layers::KV_HEADS
-            * super::layers::ATTENTION_HEAD_DIM;
-        (linear_elements + full_elements) * element_bytes
+            .saturating_mul(position)
+            .saturating_mul(2)
+            .saturating_mul(super::layers::KV_HEADS)
+            .saturating_mul(super::layers::ATTENTION_HEAD_DIM);
+        linear_elements
+            .saturating_add(full_elements)
+            .saturating_mul(element_bytes)
     }
 
     /// Prefill a fresh root sequence.
@@ -207,7 +257,30 @@ impl MlxQwen35Backbone {
         &self,
         input_ids: &[u32],
     ) -> Result<(MlxBackboneOutput, MlxBackboneState), MlxError> {
-        self.execute(input_ids, None)
+        let execution = self.execute(input_ids, None, false)?;
+        Ok((execution.output, execution.state))
+    }
+
+    /// Prefill while collecting per-layer host vectors for parity diagnostics.
+    ///
+    /// This is intentionally separate from [`Self::prefill`] so benchmark and
+    /// serving paths cannot accidentally pay for 32 diagnostic readbacks.
+    pub fn prefill_trace(
+        &self,
+        input_ids: &[u32],
+    ) -> Result<(MlxBackboneTrace, MlxBackboneState), MlxError> {
+        let execution = self.execute(input_ids, None, true)?;
+        let (embedding_last_token, layer_last_tokens) = execution.trace.ok_or_else(|| {
+            MlxError::InvalidState("diagnostic trace was not collected".to_owned())
+        })?;
+        Ok((
+            MlxBackboneTrace {
+                output: execution.output,
+                embedding_last_token,
+                layer_last_tokens,
+            },
+            execution.state,
+        ))
     }
 
     /// Read the final host embedding row without executing decoder layers.
@@ -253,7 +326,8 @@ impl MlxQwen35Backbone {
             ));
         }
         self.validate_state(state)?;
-        self.execute(suffix_ids, Some(state))
+        let execution = self.execute(suffix_ids, Some(state), false)?;
+        Ok((execution.output, execution.state))
     }
 
     fn validate_state(&self, state: &MlxBackboneState) -> Result<(), MlxError> {
@@ -317,7 +391,8 @@ impl MlxQwen35Backbone {
         &self,
         input_ids: &[u32],
         previous_state: Option<&MlxBackboneState>,
-    ) -> Result<(MlxBackboneOutput, MlxBackboneState), MlxError> {
+        collect_trace: bool,
+    ) -> Result<BackboneExecution, MlxError> {
         if input_ids.is_empty() {
             return Err(MlxError::InvalidState(
                 "execution input must contain at least one token".to_owned(),
@@ -331,20 +406,29 @@ impl MlxQwen35Backbone {
             .embedding
             .embed(input_ids)
             .map_err(MlxError::from_qwen)?;
-        let embedding_last_token = embedding.last_token().to_vec();
+        let embedding_last_token = collect_trace.then(|| embedding.last_token().to_vec());
 
-        let (output, next_layers) =
-            self.runtime.execute(
-                || -> Result<(MlxBackboneOutput, Vec<MlxLayerState>), MlxError> {
+        let device =
+            self.runtime
+                .execute(|| -> Result<DeviceExecution, MlxError> {
                     let mut hidden = embed_array(embedding.values(), self.precision);
-                    let mut layer_last_tokens = Vec::with_capacity(self.layers.len());
+                    let mut layer_last_tokens =
+                        collect_trace.then(|| Vec::with_capacity(self.layers.len()));
                     let mut next_layers = Vec::with_capacity(self.layers.len());
                     for (layer_index, layer) in self.layers.iter().enumerate() {
                         let previous = previous_state.map(|state| &state.layers[layer_index]);
                         let (next_hidden, next_state) =
                             layer.forward(&hidden, token_count, position_start, previous)?;
                         hidden = next_hidden;
-                        layer_last_tokens.push(last_row_to_host(&hidden)?);
+                        if let Some(trace) = &mut layer_last_tokens {
+                            trace.push(last_row_to_host(&hidden)?);
+                        } else {
+                            // Bound the lazy graph without a host readback.
+                            hidden.eval().map_err(|error| MlxError::Operation {
+                                operation: "decoder layer eval",
+                                message: format!("layer {layer_index}: {error}"),
+                            })?;
+                        }
                         next_layers.push(next_state);
                     }
                     let final_array = fast::rms_norm(&hidden, Some(&self.final_norm), 1e-6)
@@ -352,27 +436,35 @@ impl MlxQwen35Backbone {
                             operation: "final rms norm",
                             message: error.to_string(),
                         })?;
+                    let final_row = row_of(&final_array, token_count - 1)?;
                     let output = MlxBackboneOutput {
                         token_count,
-                        embedding_last_token: embedding_last_token.clone(),
-                        layer_last_tokens,
-                        final_values: array_to_host(&final_array)?,
+                        final_feature: array_to_host(&final_row)?,
                     };
                     materialize_state(&next_layers)?;
-                    Ok((output, next_layers))
-                },
-            )??;
+                    Ok(DeviceExecution {
+                        output,
+                        layers: next_layers,
+                        layer_trace: layer_last_tokens,
+                    })
+                })??;
 
-        Ok((
-            output,
-            MlxBackboneState {
+        Ok(BackboneExecution {
+            output: device.output,
+            state: MlxBackboneState {
                 runtime: super::runtime::SharedMlxRuntime::clone(&self.runtime),
                 identity: self.identity.clone(),
                 lineage,
                 position: position_start + token_count,
-                layers: next_layers,
+                layers: device.layers,
             },
-        ))
+            trace: device.layer_trace.map(|layers| {
+                (
+                    embedding_last_token.expect("trace embedding accompanies trace layers"),
+                    layers,
+                )
+            }),
+        })
     }
 }
 
@@ -380,18 +472,45 @@ impl MlxQwen35Backbone {
 /// Xcode/Metal toolchain that affects native-BF16 behavior.
 fn arithmetic_id(
     precision: MlxPrecision,
+    gated_delta_kernel: super::MlxGatedDeltaKernel,
     runtime: &super::runtime::MlxRuntime,
     checkpoint_format: MlxCheckpointFormat,
 ) -> String {
-    let base = match precision {
-        MlxPrecision::Fp32 => super::MLX_ARITHMETIC_ID_FP32_REFERENCE,
-        MlxPrecision::NativeBf16 => super::MLX_ARITHMETIC_ID_BF16_REFERENCE,
+    let base = match (precision, gated_delta_kernel) {
+        (MlxPrecision::Fp32, super::MlxGatedDeltaKernel::ReferenceOps) => {
+            super::MLX_ARITHMETIC_ID_FP32_REFERENCE
+        }
+        (MlxPrecision::NativeBf16, super::MlxGatedDeltaKernel::ReferenceOps) => {
+            super::MLX_ARITHMETIC_ID_BF16_REFERENCE
+        }
+        (MlxPrecision::Fp32, super::MlxGatedDeltaKernel::MetalTree) => {
+            super::MLX_ARITHMETIC_ID_FP32_METAL_TREE
+        }
+        (MlxPrecision::NativeBf16, super::MlxGatedDeltaKernel::MetalTree) => {
+            super::MLX_ARITHMETIC_ID_BF16_METAL_TREE
+        }
     };
     format!(
         "{base};checkpoint={};toolchain={}",
         checkpoint_format.as_str(),
         runtime.toolchain_identity()
     )
+}
+
+fn effective_gated_delta_kernel(
+    precision: MlxPrecision,
+    requested: super::MlxGatedDeltaKernel,
+) -> super::MlxGatedDeltaKernel {
+    match (precision, requested) {
+        // The generic BF16 Metal kernel is directly tested, but its current
+        // model-backed result exceeds the frozen probability gate. Keep the
+        // candidate implementation out of serving/benchmark dispatch until a
+        // distinct arithmetic profile qualifies it.
+        (MlxPrecision::NativeBf16, super::MlxGatedDeltaKernel::MetalTree) => {
+            super::MlxGatedDeltaKernel::ReferenceOps
+        }
+        _ => requested,
+    }
 }
 
 /// Build `[rows, 2560]` embedding array from host-widened rows.
@@ -435,9 +554,8 @@ fn array_to_host(array: &Array) -> Result<Vec<f32>, MlxError> {
 /// Host FP32 of the final row of a `[rows, width]` array.
 fn last_row_to_host(array: &Array) -> Result<Vec<f32>, MlxError> {
     let rows = array.shape()[0] as usize;
-    let all = array_to_host(array)?;
-    let width = all.len() / rows;
-    Ok(all[(rows - 1) * width..].to_vec())
+    let row = row_of(array, rows - 1)?;
+    array_to_host(&row)
 }
 
 /// Materialize every continuation tensor before it leaves the runtime lock.
@@ -488,4 +606,22 @@ fn folded_final_norm(
             &[HIDDEN_SIZE as i32],
         ),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::qwen35::mlx::MlxGatedDeltaKernel;
+
+    #[test]
+    fn fused_kernel_promotion_is_precision_scoped() {
+        assert_eq!(
+            effective_gated_delta_kernel(MlxPrecision::Fp32, MlxGatedDeltaKernel::MetalTree),
+            MlxGatedDeltaKernel::MetalTree,
+        );
+        assert_eq!(
+            effective_gated_delta_kernel(MlxPrecision::NativeBf16, MlxGatedDeltaKernel::MetalTree,),
+            MlxGatedDeltaKernel::ReferenceOps,
+        );
+    }
 }

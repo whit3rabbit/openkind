@@ -23,9 +23,10 @@ use std::ops::{Add, Mul};
 
 use mlx_rs::Array;
 
-use super::{MlxError, MlxPrecision};
+use super::{MlxError, MlxGatedDeltaKernel, MlxPrecision};
 
 mod full_attention;
+mod gated_delta_kernel;
 mod linear_attention;
 mod ops;
 
@@ -102,6 +103,7 @@ impl MlxDecoderLayer {
         tensors: &BTreeMap<String, Array>,
         layer_index: usize,
         precision: MlxPrecision,
+        gated_delta_kernel: MlxGatedDeltaKernel,
     ) -> Result<Self, MlxError> {
         let prefix = format!("model.language_model.layers.{layer_index}");
         let matrix = |suffix: &str, shape: [usize; 2]| -> Result<Array, MlxError> {
@@ -134,6 +136,7 @@ impl MlxDecoderLayer {
                 delta_norm: vector("linear_attn.norm.weight", HEAD_DIM)?,
                 out_proj: matrix("linear_attn.out_proj.weight", [HIDDEN_SIZE, VALUE_SIZE])?,
                 precision,
+                gated_delta_kernel,
             })
         };
         Ok(Self {
@@ -157,40 +160,61 @@ impl MlxDecoderLayer {
     ///
     /// # Errors
     /// Returns [`MlxError`] when a weight array cannot be evaluated.
-    pub(crate) fn materialize(&self) -> Result<(), MlxError> {
-        fn eval(array: &Array, label: &str) -> Result<(), MlxError> {
+    pub(crate) fn materialize(&self, layer_index: usize) -> Result<(), MlxError> {
+        self.visit_weight_arrays(|label, array| {
             array.eval().map_err(|error| MlxError::Operation {
                 operation: "weight materialization",
-                message: format!("{label}: {error}"),
+                message: format!("layer {layer_index} {label}: {error}"),
             })
-        }
-        eval(&self.input_layernorm, "input_layernorm")?;
-        eval(&self.post_attention_layernorm, "post_attention_layernorm")?;
-        eval(&self.mlp_gate_proj, "mlp_gate_proj")?;
-        eval(&self.mlp_up_proj, "mlp_up_proj")?;
-        eval(&self.mlp_down_proj, "mlp_down_proj")?;
+        })
+    }
+
+    /// Visit every retained weight array exactly once.
+    ///
+    /// Keeping materialization and accounting on one inventory prevents a new
+    /// layer field from silently escaping load-time evaluation.
+    fn visit_weight_arrays(
+        &self,
+        mut visit: impl FnMut(&'static str, &Array) -> Result<(), MlxError>,
+    ) -> Result<(), MlxError> {
+        visit("input_layernorm", &self.input_layernorm)?;
+        visit("post_attention_layernorm", &self.post_attention_layernorm)?;
+        visit("mlp_gate_proj", &self.mlp_gate_proj)?;
+        visit("mlp_up_proj", &self.mlp_up_proj)?;
+        visit("mlp_down_proj", &self.mlp_down_proj)?;
         match &self.mixer {
             TokenMixer::Linear(mixer) => {
-                eval(&mixer.in_proj_qkv, "in_proj_qkv")?;
-                eval(&mixer.in_proj_z, "in_proj_z")?;
-                eval(&mixer.in_proj_b, "in_proj_b")?;
-                eval(&mixer.in_proj_a, "in_proj_a")?;
-                eval(&mixer.conv1d, "conv1d")?;
-                eval(&mixer.dt_bias, "dt_bias")?;
-                eval(&mixer.a_log, "a_log")?;
-                eval(&mixer.delta_norm, "delta_norm")?;
-                eval(&mixer.out_proj, "out_proj")?;
+                visit("in_proj_qkv", &mixer.in_proj_qkv)?;
+                visit("in_proj_z", &mixer.in_proj_z)?;
+                visit("in_proj_b", &mixer.in_proj_b)?;
+                visit("in_proj_a", &mixer.in_proj_a)?;
+                visit("conv1d", &mixer.conv1d)?;
+                visit("dt_bias", &mixer.dt_bias)?;
+                visit("a_log", &mixer.a_log)?;
+                visit("delta_norm", &mixer.delta_norm)?;
+                visit("out_proj", &mixer.out_proj)?;
             }
             TokenMixer::Full(mixer) => {
-                eval(&mixer.q_proj, "q_proj")?;
-                eval(&mixer.k_proj, "k_proj")?;
-                eval(&mixer.v_proj, "v_proj")?;
-                eval(&mixer.q_norm, "q_norm")?;
-                eval(&mixer.k_norm, "k_norm")?;
-                eval(&mixer.o_proj, "o_proj")?;
+                visit("q_proj", &mixer.q_proj)?;
+                visit("k_proj", &mixer.k_proj)?;
+                visit("v_proj", &mixer.v_proj)?;
+                visit("q_norm", &mixer.q_norm)?;
+                visit("k_norm", &mixer.k_norm)?;
+                visit("o_proj", &mixer.o_proj)?;
             }
         }
         Ok(())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn weight_array_count(&self) -> usize {
+        let mut count = 0;
+        self.visit_weight_arrays(|_, _| {
+            count += 1;
+            Ok(())
+        })
+        .expect("weight visitor cannot fail while counting");
+        count
     }
 
     /// Advance the layer, returning the new hidden state and continuation
