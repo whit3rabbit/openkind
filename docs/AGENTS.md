@@ -13,6 +13,7 @@ The documentation suite maintains a strict division of responsibility across pro
 | Current milestone phases, progress, and remaining work | [`ROADMAP.md`](ROADMAP.md) |
 | Landed crate boundaries, module topology, and data flow | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | Benchmark methodology, harness usage, and recorded runs | [`BENCHMARKS.md`](BENCHMARKS.md) |
+| MLX runtime contract, implementation guide, limitations, and enhancement path | [`MLX.md`](MLX.md) |
 | Research dossier, background, and prior art | [`RESEARCH.md`](RESEARCH.md) |
 | Scientific rationale, theoretical grounding, and measured results | [`whitepaper/OpenDecision_Whitepaper_v0.8.1.md`](whitepaper/OpenDecision_Whitepaper_v0.8.1.md) |
 | HTTP wire specification | [`../crates/opendecision-api/openapi.yaml`](../crates/opendecision-api/openapi.yaml) |
@@ -22,6 +23,7 @@ The documentation suite maintains a strict division of responsibility across pro
 
 - `ROADMAP.md` owns phase tracking and upcoming tasks.
 - `ARCHITECTURE.md` documents what is currently landed in code, never speculative designs unless explicitly marked as proposals.
+- `MLX.md` is the operational guide for the landed MLX backend. It links to canonical benchmark and roadmap owners instead of replacing them.
 - Each crate's `AGENTS.md` serves as the developer guide and invariant boundary for that specific crate.
 
 ## Evidence & Parity Standards

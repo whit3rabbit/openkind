@@ -21,13 +21,19 @@ Project documentation and architectural references for `opendecision`.
      adaptive scheduler pass. Bounded model-backed high-K stress, structural
      fresh-process replay, and native service lifecycle smoke are recorded in
      the follow-up verification. Full restored head/decision replay, practical
-     high-K latency, production load/soak, and Metal remain open. CPU native
+     high-K latency and production load/soak remain open. The separate MLX
+     FP32 parity backend passes its frozen gates, while BF16, native
+     vectorized batching, and production promotion remain open. CPU native
      parity does not imply Metal or accelerated parity.
    - The clean checkpoint is the [`v0.8.0 commit verification`](./verification/2026-09-20-v0.8.0-35c481a.md).
      The latest dirty-tree native follow-up is the
      [`native follow-up verification`](./verification/2026-09-20-v0.8.0-native-follow-up-working-tree.md);
      it records the bounded high-K, structural persistence, and service smoke
      evidence without claiming release promotion.
+   - The latest MLX runtime and kernel evidence is the
+     [`Phase 3M.5 working-tree review`](./verification/phase3m5-2026-09-21-working-tree.md),
+     with raw timing artifacts under
+     [`benchmarks/2026-09-21-qwen35-mlx-gdn-review/`](./benchmarks/2026-09-21-qwen35-mlx-gdn-review/).
 4. **[`RESEARCH.md`](./RESEARCH.md)** — Research dossier & technical background:
    - System 1 inference paradigm and judgment-envelope protocol origins.
    - Hardware requirements, quantization, and model sizing.
@@ -37,7 +43,12 @@ Project documentation and architectural references for `opendecision`.
    - Timing scope, warm policy, and execution-strategy sweep definition.
    - `opendecision-bench` harness usage and workload fixture inventory.
    - Prior-art (SemIf) comparability mapping and recorded run evidence.
-6. **[`whitepaper/OpenDecision_Whitepaper_v0.8.1.md`](./whitepaper/OpenDecision_Whitepaper_v0.8.1.md)**:
+6. **[`MLX.md`](./MLX.md)**: MLX/Metal backend operations and development:
+   - Serialized explicit-stream execution and memory policy.
+   - Checkpoint loading, continuation-state, and kernel architecture.
+   - Current limitations, benchmark decision, correctness gates, and
+     prioritized enhancements.
+7. **[`whitepaper/OpenDecision_Whitepaper_v0.8.1.md`](./whitepaper/OpenDecision_Whitepaper_v0.8.1.md)**:
    Canonical scientific interpretation, evidence register, and measured Phase
    3 native CPU reference engine results through adaptive scheduling.
 

@@ -2,9 +2,9 @@
 
 `opendecision` is an independent Rust decision-inference engine for typed `Noul`, `Choice`, and `Score` answers over Jev-compatible public interfaces. It is built to answer structured questions without depending on an autoregressive text-generation loop.
 
-The wire, service, and SDK layers are implemented. The selected Qwen 3.5 native path has passed Rust head, tokenizer, correctness-first CPU backbone, cached-continuation, backend-neutral branch-state, sequential nested execution, batched Q/K, and measured adaptive-scheduler gates. State/scheduler high-K stress, process-peak admission, tenant-isolated state reuse, versioned/digest-checked state snapshots, cancellation-safe permit ownership, and a direct native `DecisionEngine` adapter are implemented. The named-machine follow-up completed bounded model-backed K=32/64/128/255 stress, structural fresh-process replay, and native service lifecycle smoke. Restored head/probability/decision replay, practical high-K latency, and production load/soak remain open. A feature-gated MLX/Metal parity backend (Phase 3M) passes the frozen fixture gates in FP32 for the pinned base checkpoint. Its BF16 candidate Gate B remains open. An explicit adapter loads and executes the tested MLX-community export, but that artifact fails frozen-reference model parity; fused kernels and vectorized batching remain open.
+The wire, service, and SDK layers are implemented. The selected Qwen 3.5 native path has passed Rust head, tokenizer, correctness-first CPU backbone, cached-continuation, backend-neutral branch-state, sequential nested execution, batched Q/K, and measured adaptive-scheduler gates. State/scheduler high-K stress, process-peak admission, tenant-isolated state reuse, versioned/digest-checked state snapshots, cancellation-safe permit ownership, and a direct native `DecisionEngine` adapter are implemented. The named-machine follow-up completed bounded model-backed K=32/64/128/255 stress, structural fresh-process replay, and native service lifecycle smoke. Restored head/probability/decision replay, practical high-K latency, and production load/soak remain open. A feature-gated MLX/Metal parity backend (Phase 3M) passes the frozen fixture gates in FP32 for the pinned base checkpoint. Its BF16 candidate Gate B remains open. Generic and packed fused Metal kernels are implemented and FP32 parity-qualified, but the packed candidate remains opt-in after a same-host throughput regression. An explicit adapter loads and executes the tested MLX-community export, but that artifact fails frozen-reference model parity. Native vectorized batching remains open.
 
-[Quickstart](#quickstart) | [Research dossier](docs/RESEARCH.md) | [Whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md) | [Roadmap](docs/ROADMAP.md) | [Architecture](docs/ARCHITECTURE.md) | [Jev wire reference](https://docs.typesafe.ai/api)
+[Quickstart](#quickstart) | [Research dossier](docs/RESEARCH.md) | [Whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md) | [Roadmap](docs/ROADMAP.md) | [Architecture](docs/ARCHITECTURE.md) | [MLX backend](docs/MLX.md) | [Jev wire reference](https://docs.typesafe.ai/api)
 
 > [!IMPORTANT]
 > The daemon defaults to `MockEngine`. A native alias can be registered directly with explicit offline bundle, checkpoint, and tokenizer paths. The quickstart below still verifies the mock wire/service path, not model quality or native Qwen execution.
@@ -105,8 +105,8 @@ compatibility and model-difference comparison only. The [community model
 card](https://huggingface.co/mlx-community/Qwen3.5-4B-MLX-bf16) identifies it
 as `Qwen/Qwen3.5-4B` converted through an `mlx-vlm` fix branch, not the pinned
 `Qwen/Qwen3.5-4B-Base` revision. See the backend briefing and
-[`docs/BENCHMARKS.md`](docs/BENCHMARKS.md) for the required local paths and
-recorded MLX results.
+[`docs/MLX.md`](docs/MLX.md) for the backend contract and
+[`docs/BENCHMARKS.md`](docs/BENCHMARKS.md) for recorded results.
 
 ## Current implementation status
 
@@ -119,14 +119,14 @@ recorded MLX results.
 | Phase 3B architecture and reference-vector loader | Validation gate passed |
 | Native Qwen CPU embedding and decoder execution | Frozen Phase 3B parity gate passed |
 | Qwen-specific full-hybrid continuation state | Cached continuation gate passed |
-| Backend-neutral `BranchableState` (CPU) | Contract gate passed; Metal open |
-| MLX/Metal parity backend (Phase 3M, `--features mlx`) | Pinned-base FP32 3M.0–3M.4 passes; BF16 Gate B remains open; the community adapter loads but fails model parity; fused kernel and vectorized execution open |
+| Backend-neutral `BranchableState` | CPU and MLX structural gates passed; native vectorized MLX batch state open |
+| MLX/Metal parity backend (Phase 3M, `--features mlx`) | Pinned-base FP32 3M.0–3M.4 passes; BF16 Gate B remains open; the community adapter loads but fails model parity; fused FP32 kernels pass parity but remain opt-in after a throughput regression; vectorized execution open |
 | Sequential nested execution (CPU) | Phase 3.5 gate passed |
 | Breadth-first batched Q/K execution (CPU) | Phase 3.6/3.7 gate passed; vectorized kernels open |
 | Adaptive scheduler (CPU, named Mac) | Phase 3.8 measured gate passed; 2.52 is the lowest measured boundary |
 | High-K state/scheduler stress and state reuse | K=32/64/128/255 bounded model-backed correctness/memory campaign passed; semantic quality and practical latency remain open |
 | Direct native service adapter | Real endpoint, overload, cancellation, recovery, and health-probe smoke passed; production load/soak and promotion remain open |
-| Metal and production service validation | Open |
+| Accelerated production and service validation | MLX FP32 parity evidence landed; daemon wiring, memory stress, load/soak, and promotion open |
 
 Implementation equivalence and release promotion are different decisions. Passing a parity fixture does not establish model quality, hardware support, or production readiness.
 
@@ -236,6 +236,8 @@ For module-specific invariants and focused checks, start with [`AGENTS.md`](AGEN
 
 - [Roadmap](docs/ROADMAP.md): current phase status, gates, and remaining work.
 - [Architecture](docs/ARCHITECTURE.md): crate boundaries, data flow, and runtime state.
+- [MLX backend](docs/MLX.md): explicit-stream execution, weights, branch state, kernels, limitations, and enhancement priorities.
+- [Benchmarks](docs/BENCHMARKS.md): methodology, harness commands, and recorded runs.
 - [Research dossier](docs/RESEARCH.md): experiment sequence, evidence, and prior art.
 - [Whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md): scientific rationale and measured results.
 
