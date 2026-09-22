@@ -15,10 +15,10 @@ The documentation suite maintains a strict division of responsibility across pro
 | Benchmark methodology, harness usage, and recorded runs | [`BENCHMARKS.md`](BENCHMARKS.md) |
 | MLX runtime contract, implementation guide, limitations, and enhancement path | [`MLX.md`](MLX.md) |
 | Research dossier, background, and prior art | [`RESEARCH.md`](RESEARCH.md) |
-| Scientific rationale, theoretical grounding, and measured results | [`whitepaper/OpenDecision_Whitepaper_v0.8.1.md`](whitepaper/OpenDecision_Whitepaper_v0.8.1.md) |
-| HTTP wire specification | [`../crates/opendecision-api/openapi.yaml`](../crates/opendecision-api/openapi.yaml) |
-| JSON Schema definitions | [`../crates/opendecision-core/schemas/`](../crates/opendecision-core/schemas/) |
-| Protobuf contract | [`../proto/proto/opendecision.proto`](../proto/proto/opendecision.proto) |
+| Scientific rationale, theoretical grounding, and measured results | [`whitepaper/OpenKind_Whitepaper_v0.8.1.md`](whitepaper/OpenKind_Whitepaper_v0.8.1.md) |
+| HTTP wire specification | [`../crates/openkind-api/openapi.yaml`](../crates/openkind-api/openapi.yaml) |
+| JSON Schema definitions | [`../crates/openkind-core/schemas/`](../crates/openkind-core/schemas/) |
+| Protobuf contract | [`../proto/proto/openkind.proto`](../proto/proto/openkind.proto) |
 | Module-specific rules and invariants | Each crate's `AGENTS.md` |
 
 - `ROADMAP.md` owns phase tracking and upcoming tasks.
@@ -40,17 +40,17 @@ The documentation suite maintains a strict division of responsibility across pro
 
 ## Wire Documentation Synchronization
 
-The Rust types in `opendecision-core` are the code authority for request and response wire shapes. Generated JSON Schema, Protobuf, and OpenAPI contracts must remain synchronized.
+The Rust types in `openkind-core` are the code authority for request and response wire shapes. Generated JSON Schema, Protobuf, and OpenAPI contracts must remain synchronized.
 
 When changing a wire type:
-1. Update the Rust types and validation logic in `opendecision-core`.
-2. Add or update conformance tests in `crates/opendecision-core/tests/conformance/`.
+1. Update the Rust types and validation logic in `openkind-core`.
+2. Add or update conformance tests in `crates/openkind-core/tests/conformance/`.
 3. Regenerate JSON Schema files:
    ```bash
-   cargo run -p opendecision-gen-schemas -- --write
+   cargo run -p openkind-gen-schemas -- --write
    ```
-4. Update Protobuf (`proto/proto/opendecision.proto`) and OpenAPI (`crates/opendecision-api/openapi.yaml` / `docs/openapi.yaml`) if the same surface is exposed. Validate OpenAPI using `npx --yes @redocly/cli@1.34.5 lint docs/openapi.yaml`.
-5. Update SDK compatibility tests in `crates/opendecision-api/tests/sdk_compat/`.
+4. Update Protobuf (`proto/proto/openkind.proto`) and OpenAPI (`crates/openkind-api/openapi.yaml` / `docs/openapi.yaml`) if the same surface is exposed. Validate OpenAPI using `npx --yes @redocly/cli@1.34.5 lint docs/openapi.yaml`.
+5. Update SDK compatibility tests in `crates/openkind-api/tests/sdk_compat/`.
 
 ## Documentation Style Rules
 

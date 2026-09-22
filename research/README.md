@@ -1,10 +1,10 @@
-# OpenDecision Research & Empirical Notebooks
+# OpenKind Research & Empirical Notebooks
 
-This directory contains the experimental notebooks, frozen reference artifacts, benchmark datasets, and model selection studies that form the scientific foundation of **OpenDecision**.
+This directory contains the experimental notebooks, frozen reference artifacts, benchmark datasets, and model selection studies that form the scientific foundation of **OpenKind**.
 
-OpenDecision evaluates typed decisions (`Choice`, `Score`, `Noul`) directly from neural representations without an autoregressive token-generation loop. The research journey documented here progresses from initial feasibility probes on `Qwen/Qwen3.5-4B-Base`, through precision contracts, prefix caching, cache compression, multi-domain criteria transfer, and multi-model screening, to the native Rust backbone handoff and multi-question natural-document architectures.
+OpenKind evaluates typed decisions (`Choice`, `Score`, `Noul`) directly from neural representations without an autoregressive token-generation loop. The research journey documented here progresses from initial feasibility probes on `Qwen/Qwen3.5-4B-Base`, through precision contracts, prefix caching, cache compression, multi-domain criteria transfer, and multi-model screening, to the native Rust backbone handoff and multi-question natural-document architectures.
 
-Detailed analysis, theoretical foundations, and mathematical formulations are documented in the [OpenDecision Whitepaper v0.8.1](../docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md) and [Research Dossier](../docs/RESEARCH.md).
+Detailed analysis, theoretical foundations, and mathematical formulations are documented in the [OpenKind Whitepaper v0.8.1](../docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md) and [Research Dossier](../docs/RESEARCH.md).
 
 ---
 
@@ -12,29 +12,29 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 
 | # | Notebook | Phase / Run ID | Target HW | Core Research Focus | Status & Outcome | Supporting Artifacts |
 |---|---|---|---|---|---|---|
-| **1** | [1 - OpenDecision_Phase2_Qwen3_5_4B_Probe.ipynb](./1%20-%20OpenDecision_Phase2_Qwen3_5_4B_Probe.ipynb) | Phase 2 Probe | GPU (L4/A100) | Frozen Qwen3.5 feature extraction & linear decision head | Feasibility proven; identified text vs vision parameter count | [Whitepaper §3.1](../docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md#31-research-chronology) |
-| **2** | [2 - OpenDecision_Phase2B_Qwen3_5_4B_Benchmark.ipynb](./2%20-%20OpenDecision_Phase2B_Qwen3_5_4B_Benchmark.ipynb) | Phase 2B (`20260917T205849Z`) | NVIDIA L4 (BF16) | MultiNLI classification, pooling strategies, calibration, generation vs decision timing | Last-token + linear won (87.7% matched); 44.6× speedup over generation; temperature scaling rejected | [opendecision_phase2b_20260917T205849Z/](./opendecision_phase2b_20260917T205849Z) |
-| **3** | [3 - OpenDecision_Phase2C_Stability_DynamicChoice_LoRA.ipynb](./3%20-%20OpenDecision_Phase2C_Stability_DynamicChoice_LoRA.ipynb) | Phase 2C (`20260917T222948Z`) | NVIDIA L4 (BF16) | Multi-seed stability, dynamic candidate scoring (Banking77), global `__none__` logit | Stable across seeds (87.0% / 88.8%); 80.8% seen / 64.6% unseen accuracy; 0.817 AUROC for none | [opendecision_phase2c_20260917T222948Z/](./opendecision_phase2c_20260917T222948Z) |
-| **4** | [4 - OpenDecision_Phase2D_Numerics_NoneHandling_RequestBench.ipynb](./4%20-%20OpenDecision_Phase2D_Numerics_NoneHandling_RequestBench.ipynb) | Phase 2D (`20260917T234417Z`) | NVIDIA L4 | Precision diagnostics (BF16 vs FP32 vs TF32), none-head alternatives, request latency vs K | Isolated layer divergence in DeltaNet/conv; linear latency scaling without prefix caching | [opendecision_phase2d_20260917T234417Z/](./opendecision_phase2d_20260917T234417Z) |
-| **5** | [5 - OpenDecision_Phase2E_SelectivePrecision_SharedPrefix_Policy.ipynb](./5%20-%20OpenDecision_Phase2E_SelectivePrecision_SharedPrefix_Policy.ipynb) | Phase 2E initial (`20260918T032049180933Z`, v2e.1.1) | GPU (L4/A100) | Module-level FP32 promotion, shared-prefix KV branching, application policies | Full FP32 stage halted by memory guard; isolated hybrid state isolation requirement | [opendecision_phase2e_20260918T032049180933Z/](./opendecision_phase2e_20260918T032049180933Z) |
-| **6** | [6 - OpenDecision_Phase2E_SelectivePrecision_SharedPrefix_Policy.ipynb](./6%20-%20OpenDecision_Phase2E_SelectivePrecision_SharedPrefix_Policy.ipynb) | Phase 2E expanded (`20260918T114914072764Z`, v2e.2.0) | GPU (isolated processes) | Strict FP32 reference, batched prefix reuse parity vs BF16, component breakdown | Strict FP32 prefix reuse passed ($Δp \le 1.1 \times 10^{-5}$); BF16 failed tolerance ($>0.005$) and flipped actions | [opendecision_phase2e_expanded_20260918T114914072764Z/](./opendecision_phase2e_expanded_20260918T114914072764Z) |
-| **7** | [7 - OpenDecision_Phase2F_CacheCompression_TurboQuant_PrefixReuse.ipynb](./7%20-%20OpenDecision_Phase2F_CacheCompression_TurboQuant_PrefixReuse.ipynb) | Phase 2F (`20260918T224427722898Z`, v2f.1.0) | NVIDIA L4 / A100 | TurboQuant low-bit KV compression (2/3/4-bit) vs FP16/lossless, GPU LRU prefix cache | Lossless & FP16-KV passed all gates; all 4 low-bit TurboQuant variants failed and flipped actions | [opendecision_phase2f_20260918T224427722898Z/](./opendecision_phase2f_20260918T224427722898Z) |
-| **8** | [8 - OpenDecision_Phase2G_FreshEvidence_TF32_CacheLifecycle.ipynb](./8%20-%20OpenDecision_Phase2G_FreshEvidence_TF32_CacheLifecycle.ipynb) | Phase 2G (`20260919T005142584348Z`, v2g.1.0) | NVIDIA L4 / A100 | Generalization to fresh Banking/CLINC/OOS data, TF32 execution, cache TTL & eviction | TF32 cut latency ~2× but flipped 3 argmax decisions; revealed candidate head narrowness on OOS | [opendecision_phase2g_20260919T005142584348Z/](./opendecision_phase2g_20260919T005142584348Z) |
-| **9** | [9 - OpenDecision_Phase2H_Criteria_Rejection_Multidomain.ipynb](./9%20-%20OpenDecision_Phase2H_Criteria_Rejection_Multidomain.ipynb) | Phase 2H (`20260919T040612625670Z`, v2h.1.2) | NVIDIA L4 / A100 | Multi-domain candidate fitting, criteria augmentation (support examples), rejection transfer | Original criteria transferred better (83.8% acc) than support examples (78.9% acc); held to pre-registration | [opendecision_phase2h_20260919T040612625670Z/](./opendecision_phase2h_20260919T040612625670Z) |
-| **10** | [10 - OpenDecision_Phase2IJ_Gated_Workbench.ipynb](./10%20-%20OpenDecision_Phase2IJ_Gated_Workbench.ipynb) | Phase 2I/2J Workbench (`2ij.1.0`) | NVIDIA L4 / A100 | Multi-question reviewed study gate, state-first vs instruction-first GPU mechanics probe | Strict independent-review gate blocked unverified training; probe validated state-first prefill mechanics | [opendecision_2ij_2ij_reviewed_multiquestion_v1/](./opendecision_2ij_2ij_reviewed_multiquestion_v1) |
-| **11** | [11 - OpenDecision_Phase2IJ_Gated_Workbench (update & model selection).ipynb](./11%20-%20OpenDecision_Phase2IJ_Gated_Workbench%20(update%20%26%20model%20selection).ipynb) | Phase 2I/2J Screen (`2ij.2.0`) | NVIDIA L4 / A100 | 13 fit jobs, 31 evaluation profiles across Qwen 3.5 4B, Qwen 2.5 1.5B/2B, ModernBERT | Selected & locked profile `a047d6802c3f06f085b8` (Qwen3.5-4B state-first score-summary head) | [opendecision_2ij_2ij_model_selection_screen_v2/](./opendecision_2ij_2ij_model_selection_screen_v2) |
-| **12** | [12 - OpenDecision_Phase2IJ_A100.ipynb](./12%20-%20OpenDecision_Phase2IJ_A100.ipynb) | Phase 2I/2J Continuation | NVIDIA A100 | Clean selected-model bundle export and checksum verification on high-memory GPU | Produced golden bundle `4d9ffdee...3332` with zero OOM risk; validated reference repo | Informs profile `a047d6802c3f06f085b8` |
-| **13** | [13 - OpenDecision_Phase3A_BranchableState_BatchedQ.ipynb](./13%20-%20OpenDecision_Phase3A_BranchableState_BatchedQ.ipynb) | Phase 3A (`20260920T024056Z`) | NVIDIA L4 / A100 | Hybrid state branching (KV + DeltaNet + conv), batched-Q/K topologies, crossover behavior | Zero-leakage branch isolation confirmed; batched-Q faster for long state/high Q; informed Rust scheduler | [Whitepaper §15](../docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md#15-phase-3a-branchable-hybrid-state-and-batched-q-execution) |
-| **14** | [14 - OpenDecision_Phase3B_Qwen35_Backbone_Parity.ipynb](./14%20-%20OpenDecision_Phase3B_Qwen35_Backbone_Parity.ipynb) | Phase 3B (`20260920T152206Z`) | GPU (FP32) | Layer-by-layer backbone traces, golden token fixtures, Rust handoff contract | Exported 47 FP32 vectors across 34 stages; maximum cached continuation drift $\le 1.91 \times 10^{-5}$ | [OpenDecision_Phase3B_BackboneParity_20260920T152206Z/](./OpenDecision_Phase3B_BackboneParity_20260920T152206Z) |
-| **15** | [15 - OpenDecision_Phase4A0_4A1_StateQuery_Workbench.ipynb](./15%20-%20OpenDecision_Phase4A0_4A1_StateQuery_Workbench.ipynb) | Phase 4A.0 / 4A.1 (`20260921T013558Z`, v4a.0.2) | GPU (L4/A100) | Natural-document corpus lock (ContractNLI + QASPER) & StateQuery B1 representation probe | Locked 2,192 states / 15,368 Qs; B1 scored 0.7796 macro-acc but collapsed QASPER none-recall to 0.0 | [Whitepaper §18](../docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md#18-phase-4a-natural-document-multi-question-benchmark-and-statequery-readout) |
-| **16** | [16 - OpenDecision_Phase4A2_StateQuery_Model_Comparison.ipynb](./16%20-%20OpenDecision_Phase4A2_StateQuery_Model_Comparison.ipynb) | Phase 4A.2 (`4a.2.0`) | GPU (L4/A100) | Matched B0 control, source-balanced B1, factorized B2 without reopening final splits | B0 matched collapse (0.0 none-recall); balanced B1 raised none-recall to 0.168 (gate threshold: 0.30) | [Whitepaper §18.4](../docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md#184-completed-non-final-comparison-aggregate-improvement-hides-a-qasper-collapse) |
+| **1** | [1 - OpenKind_Phase2_Qwen3_5_4B_Probe.ipynb](./1%20-%20OpenKind_Phase2_Qwen3_5_4B_Probe.ipynb) | Phase 2 Probe | GPU (L4/A100) | Frozen Qwen3.5 feature extraction & linear decision head | Feasibility proven; identified text vs vision parameter count | [Whitepaper §3.1](../docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md#31-research-chronology) |
+| **2** | [2 - OpenKind_Phase2B_Qwen3_5_4B_Benchmark.ipynb](./2%20-%20OpenKind_Phase2B_Qwen3_5_4B_Benchmark.ipynb) | Phase 2B (`20260917T205849Z`) | NVIDIA L4 (BF16) | MultiNLI classification, pooling strategies, calibration, generation vs decision timing | Last-token + linear won (87.7% matched); 44.6× speedup over generation; temperature scaling rejected | [openkind_phase2b_20260917T205849Z/](./openkind_phase2b_20260917T205849Z) |
+| **3** | [3 - OpenKind_Phase2C_Stability_DynamicChoice_LoRA.ipynb](./3%20-%20OpenKind_Phase2C_Stability_DynamicChoice_LoRA.ipynb) | Phase 2C (`20260917T222948Z`) | NVIDIA L4 (BF16) | Multi-seed stability, dynamic candidate scoring (Banking77), global `__none__` logit | Stable across seeds (87.0% / 88.8%); 80.8% seen / 64.6% unseen accuracy; 0.817 AUROC for none | [openkind_phase2c_20260917T222948Z/](./openkind_phase2c_20260917T222948Z) |
+| **4** | [4 - OpenKind_Phase2D_Numerics_NoneHandling_RequestBench.ipynb](./4%20-%20OpenKind_Phase2D_Numerics_NoneHandling_RequestBench.ipynb) | Phase 2D (`20260917T234417Z`) | NVIDIA L4 | Precision diagnostics (BF16 vs FP32 vs TF32), none-head alternatives, request latency vs K | Isolated layer divergence in DeltaNet/conv; linear latency scaling without prefix caching | [openkind_phase2d_20260917T234417Z/](./openkind_phase2d_20260917T234417Z) |
+| **5** | [5 - OpenKind_Phase2E_SelectivePrecision_SharedPrefix_Policy.ipynb](./5%20-%20OpenKind_Phase2E_SelectivePrecision_SharedPrefix_Policy.ipynb) | Phase 2E initial (`20260918T032049180933Z`, v2e.1.1) | GPU (L4/A100) | Module-level FP32 promotion, shared-prefix KV branching, application policies | Full FP32 stage halted by memory guard; isolated hybrid state isolation requirement | [openkind_phase2e_20260918T032049180933Z/](./openkind_phase2e_20260918T032049180933Z) |
+| **6** | [6 - OpenKind_Phase2E_SelectivePrecision_SharedPrefix_Policy.ipynb](./6%20-%20OpenKind_Phase2E_SelectivePrecision_SharedPrefix_Policy.ipynb) | Phase 2E expanded (`20260918T114914072764Z`, v2e.2.0) | GPU (isolated processes) | Strict FP32 reference, batched prefix reuse parity vs BF16, component breakdown | Strict FP32 prefix reuse passed ($Δp \le 1.1 \times 10^{-5}$); BF16 failed tolerance ($>0.005$) and flipped actions | [openkind_phase2e_expanded_20260918T114914072764Z/](./openkind_phase2e_expanded_20260918T114914072764Z) |
+| **7** | [7 - OpenKind_Phase2F_CacheCompression_TurboQuant_PrefixReuse.ipynb](./7%20-%20OpenKind_Phase2F_CacheCompression_TurboQuant_PrefixReuse.ipynb) | Phase 2F (`20260918T224427722898Z`, v2f.1.0) | NVIDIA L4 / A100 | TurboQuant low-bit KV compression (2/3/4-bit) vs FP16/lossless, GPU LRU prefix cache | Lossless & FP16-KV passed all gates; all 4 low-bit TurboQuant variants failed and flipped actions | [openkind_phase2f_20260918T224427722898Z/](./openkind_phase2f_20260918T224427722898Z) |
+| **8** | [8 - OpenKind_Phase2G_FreshEvidence_TF32_CacheLifecycle.ipynb](./8%20-%20OpenKind_Phase2G_FreshEvidence_TF32_CacheLifecycle.ipynb) | Phase 2G (`20260919T005142584348Z`, v2g.1.0) | NVIDIA L4 / A100 | Generalization to fresh Banking/CLINC/OOS data, TF32 execution, cache TTL & eviction | TF32 cut latency ~2× but flipped 3 argmax decisions; revealed candidate head narrowness on OOS | [openkind_phase2g_20260919T005142584348Z/](./openkind_phase2g_20260919T005142584348Z) |
+| **9** | [9 - OpenKind_Phase2H_Criteria_Rejection_Multidomain.ipynb](./9%20-%20OpenKind_Phase2H_Criteria_Rejection_Multidomain.ipynb) | Phase 2H (`20260919T040612625670Z`, v2h.1.2) | NVIDIA L4 / A100 | Multi-domain candidate fitting, criteria augmentation (support examples), rejection transfer | Original criteria transferred better (83.8% acc) than support examples (78.9% acc); held to pre-registration | [openkind_phase2h_20260919T040612625670Z/](./openkind_phase2h_20260919T040612625670Z) |
+| **10** | [10 - OpenKind_Phase2IJ_Gated_Workbench.ipynb](./10%20-%20OpenKind_Phase2IJ_Gated_Workbench.ipynb) | Phase 2I/2J Workbench (`2ij.1.0`) | NVIDIA L4 / A100 | Multi-question reviewed study gate, state-first vs instruction-first GPU mechanics probe | Strict independent-review gate blocked unverified training; probe validated state-first prefill mechanics | [openkind_2ij_2ij_reviewed_multiquestion_v1/](./openkind_2ij_2ij_reviewed_multiquestion_v1) |
+| **11** | [11 - OpenKind_Phase2IJ_Gated_Workbench (update & model selection).ipynb](./11%20-%20OpenKind_Phase2IJ_Gated_Workbench%20(update%20%26%20model%20selection).ipynb) | Phase 2I/2J Screen (`2ij.2.0`) | NVIDIA L4 / A100 | 13 fit jobs, 31 evaluation profiles across Qwen 3.5 4B, Qwen 2.5 1.5B/2B, ModernBERT | Selected & locked profile `a047d6802c3f06f085b8` (Qwen3.5-4B state-first score-summary head) | [openkind_2ij_2ij_model_selection_screen_v2/](./openkind_2ij_2ij_model_selection_screen_v2) |
+| **12** | [12 - OpenKind_Phase2IJ_A100.ipynb](./12%20-%20OpenKind_Phase2IJ_A100.ipynb) | Phase 2I/2J Continuation | NVIDIA A100 | Clean selected-model bundle export and checksum verification on high-memory GPU | Produced golden bundle `4d9ffdee...3332` with zero OOM risk; validated reference repo | Informs profile `a047d6802c3f06f085b8` |
+| **13** | [13 - OpenKind_Phase3A_BranchableState_BatchedQ.ipynb](./13%20-%20OpenKind_Phase3A_BranchableState_BatchedQ.ipynb) | Phase 3A (`20260920T024056Z`) | NVIDIA L4 / A100 | Hybrid state branching (KV + DeltaNet + conv), batched-Q/K topologies, crossover behavior | Zero-leakage branch isolation confirmed; batched-Q faster for long state/high Q; informed Rust scheduler | [Whitepaper §15](../docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md#15-phase-3a-branchable-hybrid-state-and-batched-q-execution) |
+| **14** | [14 - OpenKind_Phase3B_Qwen35_Backbone_Parity.ipynb](./14%20-%20OpenKind_Phase3B_Qwen35_Backbone_Parity.ipynb) | Phase 3B (`20260920T152206Z`) | GPU (FP32) | Layer-by-layer backbone traces, golden token fixtures, Rust handoff contract | Exported 47 FP32 vectors across 34 stages; maximum cached continuation drift $\le 1.91 \times 10^{-5}$ | [OpenKind_Phase3B_BackboneParity_20260920T152206Z/](./OpenKind_Phase3B_BackboneParity_20260920T152206Z) |
+| **15** | [15 - OpenKind_Phase4A0_4A1_StateQuery_Workbench.ipynb](./15%20-%20OpenKind_Phase4A0_4A1_StateQuery_Workbench.ipynb) | Phase 4A.0 / 4A.1 (`20260921T013558Z`, v4a.0.2) | GPU (L4/A100) | Natural-document corpus lock (ContractNLI + QASPER) & StateQuery B1 representation probe | Locked 2,192 states / 15,368 Qs; B1 scored 0.7796 macro-acc but collapsed QASPER none-recall to 0.0 | [Whitepaper §18](../docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md#18-phase-4a-natural-document-multi-question-benchmark-and-statequery-readout) |
+| **16** | [16 - OpenKind_Phase4A2_StateQuery_Model_Comparison.ipynb](./16%20-%20OpenKind_Phase4A2_StateQuery_Model_Comparison.ipynb) | Phase 4A.2 (`4a.2.0`) | GPU (L4/A100) | Matched B0 control, source-balanced B1, factorized B2 without reopening final splits | B0 matched collapse (0.0 none-recall); balanced B1 raised none-recall to 0.168 (gate threshold: 0.30) | [Whitepaper §18.4](../docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md#184-completed-non-final-comparison-aggregate-improvement-hides-a-qasper-collapse) |
 
 ---
 
 ## Detailed Notebook Breakdown
 
 ### 1. Phase 2 Initial Feasibility Probe
-* **File**: [`1 - OpenDecision_Phase2_Qwen3_5_4B_Probe.ipynb`](./1%20-%20OpenDecision_Phase2_Qwen3_5_4B_Probe.ipynb)
+* **File**: [`1 - OpenKind_Phase2_Qwen3_5_4B_Probe.ipynb`](./1%20-%20OpenKind_Phase2_Qwen3_5_4B_Probe.ipynb)
 * **Goal**: Establish basic end-to-end viability of using `Qwen/Qwen3.5-4B-Base` as a frozen feature extractor for a non-autoregressive decision classification head.
 * **Methodology**:
   - Loaded `Qwen/Qwen3.5-4B-Base` in BF16 on Google Colab.
@@ -48,7 +48,7 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 ---
 
 ### 2. Phase 2B Benchmark: Frozen Decision Heads & Readout Baseline
-* **File**: [`2 - OpenDecision_Phase2B_Qwen3_5_4B_Benchmark.ipynb`](./2%20-%20OpenDecision_Phase2B_Qwen3_5_4B_Benchmark.ipynb)
+* **File**: [`2 - OpenKind_Phase2B_Qwen3_5_4B_Benchmark.ipynb`](./2%20-%20OpenKind_Phase2B_Qwen3_5_4B_Benchmark.ipynb)
 * **Run ID**: `20260917T205849Z` (NVIDIA L4 GPU, native BF16)
 * **What it Measured**:
   - Performance of frozen backbone feature pooling (last-token, mean-pool, max-pool) paired with Linear vs 2-layer MLP classification heads on MultiNLI (3-class natural language inference).
@@ -59,13 +59,13 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - **Latency / Throughput**: Decision forward pass completed in **~38.4 ms** versus **~1,714 ms** for autoregressive generation (~44.6× speedup; ~250× fewer FLOPs).
   - **Calibration Insight**: Fitted temperature ($T = 0.887$) worsened matched test NLL (0.380 $\to$ 0.428) and ECE. Established rule: post-hoc calibration must pass held-out validation gates before being applied.
 * **Supporting Directory**:
-  - [`opendecision_phase2b_20260917T205849Z/`](./opendecision_phase2b_20260917T205849Z)
-  - Key files: [`opendecision_phase2b_summary.md`](./opendecision_phase2b_20260917T205849Z/opendecision_phase2b_summary.md), `decision_benchmark.json`, `generation_benchmark.json`, `metrics.json`.
+  - [`openkind_phase2b_20260917T205849Z/`](./openkind_phase2b_20260917T205849Z)
+  - Key files: [`openkind_phase2b_summary.md`](./openkind_phase2b_20260917T205849Z/openkind_phase2b_summary.md), `decision_benchmark.json`, `generation_benchmark.json`, `metrics.json`.
 
 ---
 
 ### 3. Phase 2C: Stability, Dynamic Choices, and Serving Gates
-* **File**: [`3 - OpenDecision_Phase2C_Stability_DynamicChoice_LoRA.ipynb`](./3%20-%20OpenDecision_Phase2C_Stability_DynamicChoice_LoRA.ipynb)
+* **File**: [`3 - OpenKind_Phase2C_Stability_DynamicChoice_LoRA.ipynb`](./3%20-%20OpenKind_Phase2C_Stability_DynamicChoice_LoRA.ipynb)
 * **Run ID**: `20260917T222948Z` (NVIDIA L4 GPU)
 * **What it Measured**:
   - Multi-seed training stability (seeds 17, 29, 43) across newly partitioned MultiNLI splits strictly decontaminated from Phase 2B premise groups.
@@ -77,13 +77,13 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - Calibration gate strictly enforced: temperature scaling was rejected ($T=1.0$ retained) as it failed held-out gate criteria.
   - Dynamic choice head scored **80.8% accuracy on seen labels** and **64.6% on withheld labels**. The global `__none__` scalar yielded an **AUROC of 0.817** for identifying unrepresented intents.
 * **Supporting Directory**:
-  - [`opendecision_phase2c_20260917T222948Z/`](./opendecision_phase2c_20260917T222948Z)
-  - Key files: [`opendecision_phase2c_summary.md`](./opendecision_phase2c_summary.md), `stability.json`, `dynamic_predictions_test_seen.json`, `dynamic_predictions_test_unseen.json`.
+  - [`openkind_phase2c_20260917T222948Z/`](./openkind_phase2c_20260917T222948Z)
+  - Key files: [`openkind_phase2c_summary.md`](./openkind_phase2c_summary.md), `stability.json`, `dynamic_predictions_test_seen.json`, `dynamic_predictions_test_unseen.json`.
 
 ---
 
 ### 4. Phase 2D: Numerical Reference, None-Handling, and Request Benchmarks
-* **File**: [`4 - OpenDecision_Phase2D_Numerics_NoneHandling_RequestBench.ipynb`](./4%20-%20OpenDecision_Phase2D_Numerics_NoneHandling_RequestBench.ipynb)
+* **File**: [`4 - OpenKind_Phase2D_Numerics_NoneHandling_RequestBench.ipynb`](./4%20-%20OpenKind_Phase2D_Numerics_NoneHandling_RequestBench.ipynb)
 * **Run ID**: `20260917T234417Z` (NVIDIA L4 GPU)
 * **What it Measured**:
   - Numerical divergence across datatypes: default BF16, strict FP32 math, and TF32.
@@ -95,13 +95,13 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - Dedicated none-head failed to improve out-of-scope discrimination over the simpler global scalar logit.
   - Without prefix caching, latency scaled linearly with $K$ (~25 ms per candidate), confirming the theoretical necessity of shared-prefix continuation caching.
 * **Supporting Directory**:
-  - [`opendecision_phase2d_20260917T234417Z/`](./opendecision_phase2d_20260917T234417Z)
-  - Key files: [`opendecision_phase2d_summary.md`](./opendecision_phase2d_summary.md), `layer_divergence.json`, `none_head_comparison.json`, `request_benchmarks.json`.
+  - [`openkind_phase2d_20260917T234417Z/`](./openkind_phase2d_20260917T234417Z)
+  - Key files: [`openkind_phase2d_summary.md`](./openkind_phase2d_summary.md), `layer_divergence.json`, `none_head_comparison.json`, `request_benchmarks.json`.
 
 ---
 
 ### 5. Phase 2E (Initial): Selective Precision & Shared-Prefix Policy
-* **File**: [`5 - OpenDecision_Phase2E_SelectivePrecision_SharedPrefix_Policy.ipynb`](./5%20-%20OpenDecision_Phase2E_SelectivePrecision_SharedPrefix_Policy.ipynb)
+* **File**: [`5 - OpenKind_Phase2E_SelectivePrecision_SharedPrefix_Policy.ipynb`](./5%20-%20OpenKind_Phase2E_SelectivePrecision_SharedPrefix_Policy.ipynb)
 * **Run ID**: `20260918T032049180933Z` (Version `2e.1.1`)
 * **What it Measured**:
   - Feasibility of module-level selective precision (promoting specific linear-attention or normalization modules to FP32 while leaving others in BF16).
@@ -111,13 +111,13 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - An in-process memory guard halted the full FP32 stage due to running the notebook coordinator and GPU tensors in the same process space.
   - Demonstrated that cloning Qwen attention KV tensors alone is insufficient for state branching: hybrid recurrent DeltaNet states must also be isolated.
 * **Supporting Directory**:
-  - [`opendecision_phase2e_20260918T032049180933Z/`](./opendecision_phase2e_20260918T032049180933Z)
-  - Key files: [`README_results.md`](./opendecision_phase2e_20260918T032049180933Z/README_results.md).
+  - [`openkind_phase2e_20260918T032049180933Z/`](./openkind_phase2e_20260918T032049180933Z)
+  - Key files: [`README_results.md`](./openkind_phase2e_20260918T032049180933Z/README_results.md).
 
 ---
 
 ### 6. Phase 2E (Expanded): Isolated FP32 Reference & Batched Prefix Parity
-* **File**: [`6 - OpenDecision_Phase2E_SelectivePrecision_SharedPrefix_Policy.ipynb`](./6%20-%20OpenDecision_Phase2E_SelectivePrecision_SharedPrefix_Policy.ipynb)
+* **File**: [`6 - OpenKind_Phase2E_SelectivePrecision_SharedPrefix_Policy.ipynb`](./6%20-%20OpenKind_Phase2E_SelectivePrecision_SharedPrefix_Policy.ipynb)
 * **Run ID**: `20260918T114914072764Z` (Version `2e.2.0`)
 * **What it Measured**:
   - Executed coordinator and GPU workers in completely isolated Python processes, successfully executing the full FP32 reference path.
@@ -130,15 +130,15 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - **Foundational Precision Invariant Established**:
     - Under strict FP32, shared-prefix branching matched sequential evaluation with **maximum probability delta $\le 1.1 \times 10^{-5}$** and zero class flips or policy changes.
     - Under BF16, shared-prefix branching **violated the 0.005 parity tolerance** and altered application-policy decisions.
-    - Established that strict FP32 is the required mathematical parity reference for OpenDecision engine verification.
+    - Established that strict FP32 is the required mathematical parity reference for OpenKind engine verification.
 * **Supporting Directory**:
-  - [`opendecision_phase2e_expanded_20260918T114914072764Z/`](./opendecision_phase2e_expanded_20260918T114914072764Z)
-  - Key files: [`README_results.md`](./opendecision_phase2e_expanded_20260918T114914072764Z/README_results.md), `fp32_strict_math/parity_rows.json`, `bf16_default/parity_rows.json`, `component_profiles.json`.
+  - [`openkind_phase2e_expanded_20260918T114914072764Z/`](./openkind_phase2e_expanded_20260918T114914072764Z)
+  - Key files: [`README_results.md`](./openkind_phase2e_expanded_20260918T114914072764Z/README_results.md), `fp32_strict_math/parity_rows.json`, `bf16_default/parity_rows.json`, `component_profiles.json`.
 
 ---
 
 ### 7. Phase 2F: Cache Compression, TurboQuant Codecs, and Serving Trade-Offs
-* **File**: [`7 - OpenDecision_Phase2F_CacheCompression_TurboQuant_PrefixReuse.ipynb`](./7%20-%20OpenDecision_Phase2F_CacheCompression_TurboQuant_PrefixReuse.ipynb)
+* **File**: [`7 - OpenKind_Phase2F_CacheCompression_TurboQuant_PrefixReuse.ipynb`](./7%20-%20OpenKind_Phase2F_CacheCompression_TurboQuant_PrefixReuse.ipynb)
 * **Run ID**: `20260918T224427722898Z` (Version `2f.1.0`)
 * **What it Measured**:
   - Evaluated low-bit quantization of stored continuation states using external GPL-3.0 **0xSero/TurboQuant** codecs (4-bit, 3-bit, 2-bit variants) versus lossless FP32 and FP16-KV snapshots.
@@ -149,13 +149,13 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - **All four low-bit TurboQuant codecs failed the gates**, introducing severe probability distortions that flipped decisions and downstream application actions.
   - Proved that low-bit quantization of continuation state cannot be applied without end-to-end retraining. Bounded lossless prefix caching was adopted.
 * **Supporting Directory**:
-  - [`opendecision_phase2f_20260918T224427722898Z/`](./opendecision_phase2f_20260918T224427722898Z)
-  - Key files: [`README_results.md`](./opendecision_phase2f_20260918T224427722898Z/README_results.md), `codec_regression.json`, `lru_trace_results.json`, `storage_benchmarks.json`.
+  - [`openkind_phase2f_20260918T224427722898Z/`](./openkind_phase2f_20260918T224427722898Z)
+  - Key files: [`README_results.md`](./openkind_phase2f_20260918T224427722898Z/README_results.md), `codec_regression.json`, `lru_trace_results.json`, `storage_benchmarks.json`.
 
 ---
 
 ### 8. Phase 2G: Fresh Evidence, TF32 Arithmetic, and Cache Lifecycle
-* **File**: [`8 - OpenDecision_Phase2G_FreshEvidence_TF32_CacheLifecycle.ipynb`](./8%20-%20OpenDecision_Phase2G_FreshEvidence_TF32_CacheLifecycle.ipynb)
+* **File**: [`8 - OpenKind_Phase2G_FreshEvidence_TF32_CacheLifecycle.ipynb`](./8%20-%20OpenKind_Phase2G_FreshEvidence_TF32_CacheLifecycle.ipynb)
 * **Run ID**: `20260919T005142584348Z` (Version `2g.1.0`)
 * **What it Measured**:
   - Generalization to fresh labeled messages: Banking77 fresh partition (416 episodes, 112 messages), CLINC150 non-financial domain transfer, and author-written out-of-scope (OOS) queries.
@@ -165,13 +165,13 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - **Rejection Limitation Identified**: On the CLINC panel, answerable accuracy was 93.75%, but omitted-intent recall was only 39.06% (author OOS recall was 46.88%). Revealed that candidate-conditioned scoring trained on in-domain tasks does not automatically generalize to out-of-domain rejection.
   - **TF32 Trade-off**: TF32 halved latency ($K=4$: 265 ms $\to$ 132 ms; $K=16$: 1,118 ms $\to$ 518 ms), but caused 3 argmax flips across 416 episodes. TF32 is valuable for high-throughput serving but cannot be used as the reference parity authority.
 * **Supporting Directory**:
-  - [`opendecision_phase2g_20260919T005142584348Z/`](./opendecision_phase2g_20260919T005142584348Z)
-  - Key files: [`README_results.md`](./opendecision_phase2g_20260919T005142584348Z/README_results.md), `fresh_quality_summary.json`, `tf32_comparison.json`, `cache_lifecycle_trace.json`.
+  - [`openkind_phase2g_20260919T005142584348Z/`](./openkind_phase2g_20260919T005142584348Z)
+  - Key files: [`README_results.md`](./openkind_phase2g_20260919T005142584348Z/README_results.md), `fresh_quality_summary.json`, `tf32_comparison.json`, `cache_lifecycle_trace.json`.
 
 ---
 
 ### 9. Phase 2H: Criteria Augmentation, Rejection, and Multi-Domain Transfer
-* **File**: [`9 - OpenDecision_Phase2H_Criteria_Rejection_Multidomain.ipynb`](./9%20-%20OpenDecision_Phase2H_Criteria_Rejection_Multidomain.ipynb)
+* **File**: [`9 - OpenKind_Phase2H_Criteria_Rejection_Multidomain.ipynb`](./9%20-%20OpenKind_Phase2H_Criteria_Rejection_Multidomain.ipynb)
 * **Run ID**: `20260919T040612625670Z` (Version `2h.1.2`, continuation)
 * **What it Measured**:
   - Multi-domain candidate head fitting and criteria transfer across Banking77 and CLINC150.
@@ -181,14 +181,14 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - The support-example joint head achieved 78.91% raw pooled accuracy (1,152 episodes), 85.55% on Banking fitting labels, and 89.84% on CLINC fitting domains, but dropped to 63.67% on held-out Banking labels and 66.02% on held-out CLINC domains.
   - **Methodological Victory**: The original-criteria control head transferred significantly better on held-out data (83.77% accuracy / 0.541 NLL) than the development-selected support-augmented head. Following pre-registration rules, the project did *not* retroactively swap winners, using this as motivation for architectural model selection in Phase 2I/2J.
 * **Supporting Directory**:
-  - [`opendecision_phase2h_20260919T040612625670Z/`](./opendecision_phase2h_20260919T040612625670Z)
-  - Key files: [`README_results.md`](./opendecision_phase2h_20260919T040612625670Z/README_results.md), `final_quality_report.json`, `comparison_arms.json`.
+  - [`openkind_phase2h_20260919T040612625670Z/`](./openkind_phase2h_20260919T040612625670Z)
+  - Key files: [`README_results.md`](./openkind_phase2h_20260919T040612625670Z/README_results.md), `final_quality_report.json`, `comparison_arms.json`.
 
 ---
 
 ### 10. Phase 2I/2J: Gated Multi-Question Workbench
-* **File**: [`10 - OpenDecision_Phase2IJ_Gated_Workbench.ipynb`](./10%20-%20OpenDecision_Phase2IJ_Gated_Workbench.ipynb)
-* **Version**: `2ij.1.0` (`opendecision_2ij_2ij_reviewed_multiquestion_v1`)
+* **File**: [`10 - OpenKind_Phase2IJ_Gated_Workbench.ipynb`](./10%20-%20OpenKind_Phase2IJ_Gated_Workbench.ipynb)
+* **Version**: `2ij.1.0` (`openkind_2ij_2ij_reviewed_multiquestion_v1`)
 * **What it Measured**:
   - Setup of a formal review gate requiring independent human audit of task criteria and split manifests before launching expensive training.
   - Small synthetic GPU probe validating **state-first segmented tokenization**:
@@ -198,14 +198,14 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - The review gate successfully blocked unreviewed multi-question training, preventing unverified claims.
   - Synthetic GPU probe validated state-first mechanics: prefilling the state document once and branching questions/candidates reduced compute without token leakage.
 * **Supporting Directory**:
-  - [`opendecision_2ij_2ij_reviewed_multiquestion_v1/`](./opendecision_2ij_2ij_reviewed_multiquestion_v1)
-  - Key files: [`REPORT.md`](./opendecision_2ij_2ij_reviewed_multiquestion_v1/REPORT.md), `gate_report.json`, `contracts/SERVICE_HANDOFF.md`.
+  - [`openkind_2ij_2ij_reviewed_multiquestion_v1/`](./openkind_2ij_2ij_reviewed_multiquestion_v1)
+  - Key files: [`REPORT.md`](./openkind_2ij_2ij_reviewed_multiquestion_v1/REPORT.md), `gate_report.json`, `contracts/SERVICE_HANDOFF.md`.
 
 ---
 
 ### 11. Phase 2I/2J: Model Selection Screen & Architectural Decision
-* **File**: [`11 - OpenDecision_Phase2IJ_Gated_Workbench (update & model selection).ipynb`](./11%20-%20OpenDecision_Phase2IJ_Gated_Workbench%20(update%20%26%20model%20selection).ipynb)
-* **Version**: `2ij.2.0` (`opendecision_2ij_2ij_model_selection_screen_v2`)
+* **File**: [`11 - OpenKind_Phase2IJ_Gated_Workbench (update & model selection).ipynb`](./11%20-%20OpenKind_Phase2IJ_Gated_Workbench%20(update%20%26%20model%20selection).ipynb)
+* **Version**: `2ij.2.0` (`openkind_2ij_2ij_model_selection_screen_v2`)
 * **What it Measured**:
   - Extensive screening across 13 model fit jobs and 31 evaluation profiles.
   - Model families evaluated:
@@ -221,24 +221,24 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - ModernBERT and Qwen2.5 baselines trailed Qwen3.5-4B on dynamic candidate expressivity and state prefill compatibility.
   - This locked profile became the permanent target for native Rust and Metal implementations.
 * **Supporting Directory**:
-  - [`opendecision_2ij_2ij_model_selection_screen_v2/`](./opendecision_2ij_2ij_model_selection_screen_v2)
-  - Key files: [`REPORT.md`](./opendecision_2ij_2ij_model_selection_screen_v2/REPORT.md), [`MODEL_DECISION.md`](./opendecision_2ij_2ij_model_selection_screen_v2/MODEL_DECISION.md), `contracts/SERVICE_HANDOFF.md`.
+  - [`openkind_2ij_2ij_model_selection_screen_v2/`](./openkind_2ij_2ij_model_selection_screen_v2)
+  - Key files: [`REPORT.md`](./openkind_2ij_2ij_model_selection_screen_v2/REPORT.md), [`MODEL_DECISION.md`](./openkind_2ij_2ij_model_selection_screen_v2/MODEL_DECISION.md), `contracts/SERVICE_HANDOFF.md`.
 
 ---
 
 ### 12. Phase 2I/2J: A100 Selected-Model Bundle Export
-* **File**: [`12 - OpenDecision_Phase2IJ_A100.ipynb`](./12%20-%20OpenDecision_Phase2IJ_A100.ipynb)
+* **File**: [`12 - OpenKind_Phase2IJ_A100.ipynb`](./12%20-%20OpenKind_Phase2IJ_A100.ipynb)
 * **Goal**: High-memory export continuation on an NVIDIA A100 GPU to export the full model bundle for profile `a047d6802c3f06f085b8` without risk of VRAM fragmentation or host memory limits.
 * **Outputs**:
   - Exported complete self-contained reference bundle:
     - SHA-256: `4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332`.
-    - Published public reference repository: `cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst`.
+    - Published public reference repository: `cowWhySo/OpenKind-Qwen3.5-4B-StateFirst`.
   - Exported token fixtures, configuration JSONs, and model weights.
 
 ---
 
 ### 13. Phase 3A: Branchable Hybrid State & Batched-Q Execution
-* **File**: [`13 - OpenDecision_Phase3A_BranchableState_BatchedQ.ipynb`](./13%20-%20OpenDecision_Phase3A_BranchableState_BatchedQ.ipynb)
+* **File**: [`13 - OpenKind_Phase3A_BranchableState_BatchedQ.ipynb`](./13%20-%20OpenKind_Phase3A_BranchableState_BatchedQ.ipynb)
 * **Run ID**: `20260920T024056Z` (NVIDIA L4 / A100)
 * **What it Measured**:
   - Formalized the complete hybrid state branching abstraction for Qwen 3.5: attention KV cache + DeltaNet recurrent state + convolution state.
@@ -251,17 +251,17 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - **Workload Crossover Discovery**:
     - For short documents and small $Q$ ($Q \le 4$), `nested_sequential` is faster due to low kernel dispatch overhead.
     - As state length grows ($>500$ tokens) and $Q$ expands ($Q \ge 8$), `nested_batched` delivers massive speedups at the expense of peak VRAM.
-    - Directly informed the implementation of the capability-aware `choose_strategy` scheduler in `opendecision-runtime`.
+    - Directly informed the implementation of the capability-aware `choose_strategy` scheduler in `openkind-runtime`.
 * **Supporting Documentation**:
-  - [OpenDecision Whitepaper §15](../docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md#15-phase-3a-branchable-hybrid-state-and-batched-q-execution).
+  - [OpenKind Whitepaper §15](../docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md#15-phase-3a-branchable-hybrid-state-and-batched-q-execution).
 
 ---
 
 ### 14. Phase 3B: Qwen3.5 Backbone Parity Reference for Rust
-* **File**: [`14 - OpenDecision_Phase3B_Qwen35_Backbone_Parity.ipynb`](./14%20-%20OpenDecision_Phase3B_Qwen35_Backbone_Parity.ipynb)
+* **File**: [`14 - OpenKind_Phase3B_Qwen35_Backbone_Parity.ipynb`](./14%20-%20OpenKind_Phase3B_Qwen35_Backbone_Parity.ipynb)
 * **Run ID**: `20260920T152206Z` (FP32 CPU & GPU)
 * **What it Measured**:
-  - Exported exact ground-truth golden fixtures from PyTorch/Transformers to guide the pure Rust CPU backbone implementation (`crates/opendecision-backends`).
+  - Exported exact ground-truth golden fixtures from PyTorch/Transformers to guide the pure Rust CPU backbone implementation (`crates/openkind-backends`).
   - Traced intermediate activations across all 32 layers for a diagnostic candidate sequence.
   - Verified cached continuation against fresh full-sequence inference.
 * **Results**:
@@ -270,13 +270,13 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - Cached continuation differed from fresh full-sequence execution by at most $1.91 \times 10^{-5}$.
   - Locked the parity gates: Bundle SHA-256 match, max probability difference $\le 0.005$, argmax rank ordering tolerance $\le 10^{-5}$.
 * **Supporting Directory**:
-  - [`OpenDecision_Phase3B_BackboneParity_20260920T152206Z/`](./OpenDecision_Phase3B_BackboneParity_20260920T152206Z)
-  - Key files: [`RUST_BACKBONE_HANDOFF.md`](./OpenDecision_Phase3B_BackboneParity_20260920T152206Z/RUST_BACKBONE_HANDOFF.md), `TOKEN_FIXTURES.json`, `PROBABILITY_REFERENCE.json`, `CONTINUATION_TRACE.json`, `QWEN35_BACKBONE_GOLDEN.safetensors`.
+  - [`OpenKind_Phase3B_BackboneParity_20260920T152206Z/`](./OpenKind_Phase3B_BackboneParity_20260920T152206Z)
+  - Key files: [`RUST_BACKBONE_HANDOFF.md`](./OpenKind_Phase3B_BackboneParity_20260920T152206Z/RUST_BACKBONE_HANDOFF.md), `TOKEN_FIXTURES.json`, `PROBABILITY_REFERENCE.json`, `CONTINUATION_TRACE.json`, `QWEN35_BACKBONE_GOLDEN.safetensors`.
 
 ---
 
 ### 15. Phase 4A.0 / 4A.1: Natural-Document Corpus & StateQuery Workbench
-* **File**: [`15 - OpenDecision_Phase4A0_4A1_StateQuery_Workbench.ipynb`](./15%20-%20OpenDecision_Phase4A0_4A1_StateQuery_Workbench.ipynb)
+* **File**: [`15 - OpenKind_Phase4A0_4A1_StateQuery_Workbench.ipynb`](./15%20-%20OpenKind_Phase4A0_4A1_StateQuery_Workbench.ipynb)
 * **Run ID**: `20260921T013558Z` (Version `4a.0.2`)
 * **What it Measured**:
   - **Phase 4A.0**: Assembled and locked a natural multi-question document benchmark combining **ContractNLI** (legal non-disclosure contracts) and **QASPER** (NLP research papers): 2,192 states, 15,368 questions, 25,687 options, 21,894 evidence rows. Partitions split strictly by document group (zero test leakage).
@@ -286,12 +286,12 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - StateQuery B1 improved source-macro accuracy (0.7796 vs 0.3766 for historical candidate reference) and reduced NLL (0.5427 vs 1.6734).
   - **Critical Failure Mode Discovered**: StateQuery B1 collapsed on QASPER semantic-none recall to **0.0** (defaulted to predicting answerable options). Proved that aggregate macro accuracy can obscure catastrophic rejection collapse. Model promotion was halted.
 * **Supporting Documentation**:
-  - [OpenDecision Whitepaper §18](../docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md#18-phase-4a-natural-document-multi-question-benchmark-and-statequery-readout).
+  - [OpenKind Whitepaper §18](../docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md#18-phase-4a-natural-document-multi-question-benchmark-and-statequery-readout).
 
 ---
 
 ### 16. Phase 4A.2: StateQuery Model Comparison & Balance Optimization
-* **File**: [`16 - OpenDecision_Phase4A2_StateQuery_Model_Comparison.ipynb`](./16%20-%20OpenDecision_Phase4A2_StateQuery_Model_Comparison.ipynb)
+* **File**: [`16 - OpenKind_Phase4A2_StateQuery_Model_Comparison.ipynb`](./16%20-%20OpenKind_Phase4A2_StateQuery_Model_Comparison.ipynb)
 * **Version**: `4a.2.0`
 * **What it Measured**:
   - Evaluated three model architectures under identical data partitions without opening final test splits:
@@ -303,7 +303,7 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - Balanced B1 training raised development QASPER none-recall to 0.1681, moving toward the required 0.30 floor, but remained below the promotion threshold.
   - Reaffirmed project governance: final test splits remain locked until development models satisfy all gate conditions.
 * **Supporting Documentation**:
-  - [OpenDecision Whitepaper §18.4](../docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md#184-completed-non-final-comparison-aggregate-improvement-hides-a-qasper-collapse).
+  - [OpenKind Whitepaper §18.4](../docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md#184-completed-non-final-comparison-aggregate-improvement-hides-a-qasper-collapse).
 
 ---
 

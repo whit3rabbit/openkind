@@ -1,12 +1,12 @@
-//! Build script for `opendecision-proto`.
+//! Build script for `openkind-proto`.
 //!
-//! Invokes `tonic-prost-build` to compile `proto/opendecision.proto` into Rust structs
+//! Invokes `tonic-prost-build` to compile `proto/openkind.proto` into Rust structs
 //! and gRPC client/server stubs with byte field mappings.
 
 use std::io::Result;
 
 fn main() -> Result<()> {
-    let proto = "proto/opendecision.proto";
+    let proto = "proto/openkind.proto";
     println!("cargo:rerun-if-changed={proto}");
     println!("cargo:rerun-if-changed=Cargo.toml");
 

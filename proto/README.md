@@ -1,16 +1,16 @@
-# opendecision-proto
+# openkind-proto
 
-> Protocol Buffers schema and generated Rust client/server types for `opendecision`.
+> Protocol Buffers schema and generated Rust client/server types for `openkind`.
 
-`opendecision-proto` contains the canonical gRPC service definitions and protobuf messages for the `opendecision.system_one.SystemOne` service.
+`openkind-proto` contains the canonical gRPC service definitions and protobuf messages for the `openkind.system_one.SystemOne` service.
 
-## Schema: `proto/opendecision.proto`
+## Schema: `proto/openkind.proto`
 
 Defines the binary service equivalent of the HTTP `POST /v1/systemone` endpoint:
 
 ```protobuf
 syntax = "proto3";
-package opendecision;
+package openkind;
 
 service SystemOne {
   rpc Evaluate (SystemOneRequest) returns (SystemOneResponse);
@@ -25,9 +25,9 @@ Key protobuf messages:
 
 ## Compilation & Codegen
 
-`build.rs` compiles `proto/opendecision.proto` via `tonic-prost-build` during `cargo build`, exposing generated types inside the `opendecision` module:
+`build.rs` compiles `proto/openkind.proto` via `tonic-prost-build` during `cargo build`, exposing generated types inside the `openkind` module:
 
 ```rust
-use opendecision_proto::opendecision::system_one_client::SystemOneClient;
-use opendecision_proto::opendecision::system_one_server::{SystemOne, SystemOneServer};
+use openkind_proto::openkind::system_one_client::SystemOneClient;
+use openkind_proto::openkind::system_one_server::{SystemOne, SystemOneServer};
 ```

@@ -1,37 +1,37 @@
 # Benchmarks
 
-> How `opendecision` is benchmarked for scoring and timing, how to reproduce
+> How `openkind` is benchmarked for scoring and timing, how to reproduce
 > runs, and where recorded evidence lives.
 
 ## Ownership
 
 This document owns benchmark methodology (timing scope, warm policy,
 repetitions, percentiles, execution-strategy sweep, parity assertions), the
-`opendecision-bench` harness guide, workload fixture inventory, and checked-in
+`openkind-bench` harness guide, workload fixture inventory, and checked-in
 harness-run records under [`benchmarks/`](./benchmarks/). Related material is
 owned elsewhere and linked, not duplicated:
 
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — measurement-plan metric definitions
   (complete-request p50/p95, `T(Q)/T(1)`, state-prefill fraction, memory) and
   the landed execution-strategy contract.
-- [`whitepaper/OpenDecision_Whitepaper_v0.8.1.md`](./whitepaper/OpenDecision_Whitepaper_v0.8.1.md)
+- [`whitepaper/OpenKind_Whitepaper_v0.8.1.md`](./whitepaper/OpenKind_Whitepaper_v0.8.1.md)
   — canonical measured-results register for the native engine.
 - [`ROADMAP.md`](./ROADMAP.md) — open benchmark work: practical high-K latency,
   full restored head/decision replay, and queue-inclusive load/soak.
 - [`verification/`](./verification/) — verification records for gate runs.
 - The `qwen35_scheduler_bench` example
-  ([`crates/opendecision-backends/examples/`](../crates/opendecision-backends/examples/))
+  ([`crates/openkind-backends/examples/`](../crates/openkind-backends/examples/))
   — the Phase 3.8 scheduler deep-dive harness (forward-call accounting,
   synthetic mechanics grid, crossover measurement) that produced the measured
   `2.52` savings ratio. It remains the tool for backbone-level cost-model
-  measurements; `opendecision-bench` measures the full request path.
+  measurements; `openkind-bench` measures the full request path.
 
 ## Prior-art comparability (SemIf)
 
 The methodology mirrors the published SemIf systems benchmark
 (github.com/TheoLeeCJ/SemIf, MIT) so runs are **methodology-comparable**:
 
-| SemIf scoring path | opendecision equivalent |
+| SemIf scoring path | openkind equivalent |
 |---|---|
 | Fresh direct scoring (batch one per decision) | `--no-group` requests; scheduler-forced `repeated_full` |
 | Serial prefix reuse (one state prefill) | State-grouped requests, `nested_sequential` |
@@ -76,10 +76,10 @@ JSONL, one decision per row, flattened primitive tag:
 
 | Fixture | Contents | SHA-256 |
 |---|---|---|
-| [`crates/opendecision-bench/fixtures/decisions_smoke.jsonl`](../crates/opendecision-bench/fixtures/decisions_smoke.jsonl) | 4 support tickets × 3 primitives (noul, choice, score) = 12 rows; mock-testable | `3a673e843690b942658b4c9de6cc594770185756098d356e78dcd3efd5cffeeb` |
+| [`crates/openkind-bench/fixtures/decisions_smoke.jsonl`](../crates/openkind-bench/fixtures/decisions_smoke.jsonl) | 4 support tickets × 3 primitives (noul, choice, score) = 12 rows; mock-testable | `3a673e843690b942658b4c9de6cc594770185756098d356e78dcd3efd5cffeeb` |
 
 Larger shape-matched workloads are **generated, not vendored**:
-`opendecision-bench gen-workload` produces a seeded ticket × binary-criterion
+`openkind-bench gen-workload` produces a seeded ticket × binary-criterion
 grid (default 37 × 21 = 777 decisions, matching the prior-art shape). Identical
 seeds emit byte-identical files; every run summary records the fixture
 SHA-256, which pins the workload without committing megabytes.
@@ -100,16 +100,16 @@ sample counts ship alongside as `samples_seconds`.
 
 ```bash
 # CI-safe smoke (mock engine, fully offline)
-cargo run -p opendecision-bench -- score \
-  crates/opendecision-bench/fixtures/decisions_smoke.jsonl \
+cargo run -p openkind-bench -- score \
+  crates/openkind-bench/fixtures/decisions_smoke.jsonl \
   --engine mock --output-dir bench-output --reps 3
 
 # Generate a shape-matched workload
-cargo run -p opendecision-bench -- gen-workload \
+cargo run -p openkind-bench -- gen-workload \
   --states 37 --criteria 21 --seed 291607 --output bench-output/shape777.jsonl
 
 # Native engine (checkpoint-gated; loads only local pinned artifacts)
-cargo run --release -p opendecision-bench -- score <workload.jsonl> \
+cargo run --release -p openkind-bench -- score <workload.jsonl> \
   --engine qwen35 \
   --bundle-root <profile-bundle-dir> \
   --checkpoint-root <pinned-checkpoint-dir> \
@@ -118,7 +118,7 @@ cargo run --release -p opendecision-bench -- score <workload.jsonl> \
   --reps 1 --host "<host label>" --commit <hash> --output-dir bench-output
 
 # MLX engines (macOS arm64; requires the vendored mlx-c toolchain)
-SDKROOT=$(xcrun --show-sdk-path) cargo run --release -p opendecision-bench \
+SDKROOT=$(xcrun --show-sdk-path) cargo run --release -p openkind-bench \
   --features mlx -- score <workload.jsonl> \
   --engine qwen35-mlx-fp32 \
   --bundle-root <profile-bundle-dir> \
@@ -144,7 +144,7 @@ but its bench output is not a parity claim.
 
 ### Outputs
 
-- `summary-<engine>.json` — schema `opendecision-bench/v1`: provenance
+- `summary-<engine>.json` — schema `openkind-bench/v1`: provenance
   (profile id, model revision, bundle version, fixture digest, host, commit),
   per-strategy `samples_seconds` / `p50_seconds` / `p95_seconds` /
   `decisions_per_second` / `input_tokens_total`, peak resident bytes, and
@@ -174,7 +174,7 @@ investigated before any numbers from that run are quoted.
 | [`benchmarks/2026-09-21-qwen35-mlx-community-smoke/`](./benchmarks/2026-09-21-qwen35-mlx-community-smoke/) | qwen35-mlx-fp32 (community checkpoint) | Complete — throughput only; community export fails the frozen parity gates and its numbers carry no model-quality claim |
 | [`benchmarks/2026-09-21-qwen35-mlx-gdn-review/`](./benchmarks/2026-09-21-qwen35-mlx-gdn-review/) | qwen35-mlx-fp32 reference ops vs packed Metal tree | Complete working-tree record: raw summaries and predictions for the current production-default decision; candidate parity passed but throughput regressed |
 | [`verification/phase3m-2026-09-21-dispatch-recheck.md`](./verification/phase3m-2026-09-21-dispatch-recheck.md) | qwen35-native-cpu vs qwen35-mlx-fp32 | Complete — same fixture and four strategies; fresh CPU, pinned-base MLX, and community MLX recheck |
-| [`verification/phase3m-2026-09-21-working-tree.md`](./verification/phase3m-2026-09-21-working-tree.md) | qwen35-mlx-fp32 | Complete parity probe — dirty-tree, load-inclusive timing, not an `opendecision-bench` throughput record |
+| [`verification/phase3m-2026-09-21-working-tree.md`](./verification/phase3m-2026-09-21-working-tree.md) | qwen35-mlx-fp32 | Complete parity probe — dirty-tree, load-inclusive timing, not an `openkind-bench` throughput record |
 | [`verification/phase3m5-2026-09-21-working-tree.md`](./verification/phase3m5-2026-09-21-working-tree.md) | qwen35-mlx-fp32 kernel review | Complete working-tree comparison: serialized explicit stream, fused-kernel parity, and same-host default-versus-candidate smoke sweep; candidate not promoted |
 
 ### Initial MLX dispatch recheck (historical)
@@ -243,7 +243,7 @@ Xcode 27.0, and Metal toolchain 32023.921. These timings include process
 startup, model loading, and the parity fixture work, so they are useful for
 bring-up and memory sizing only. They exclude neither load nor fixture
 comparison and must not be compared directly with the warm-process
-`opendecision-bench` numbers above.
+`openkind-bench` numbers above.
 
 | Run | Result | Load | Wall | Peak MLX allocation | Peak RSS |
 |---|---|---:|---:|---:|---:|

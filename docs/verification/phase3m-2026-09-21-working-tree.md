@@ -32,9 +32,9 @@ BF16 status because the current rerun found a BF16 continuation defect.
   `tokenizer.json`:
   `87a7830d63fcf43bf241c3c5242e96e62dd3fdc29224ca26fed8ea333db72de4`.
 - Phase 3B reference root:
-  [`OpenDecision_Phase3B_BackboneParity_20260920T152206Z/`](../../research/OpenDecision_Phase3B_BackboneParity_20260920T152206Z/).
+  [`OpenKind_Phase3B_BackboneParity_20260920T152206Z/`](../../research/OpenKind_Phase3B_BackboneParity_20260920T152206Z/).
 - Head bundle:
-  [`qwen35_statefirst_a047d6802c3f06f085b8/`](../../crates/opendecision-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8/).
+  [`qwen35_statefirst_a047d6802c3f06f085b8/`](../../crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8/).
 
 The checkpoint was downloaded outside the repository. No repository files were
 changed by the download or parity commands.
@@ -82,7 +82,7 @@ The closest unquantized community artifact was downloaded for comparison:
 The [community model page](https://huggingface.co/mlx-community/Qwen3.5-4B-MLX-bf16/tree/main)
 labels it as an MLX BF16 export.
 Its model card identifies the source as `Qwen/Qwen3.5-4B`, converted through
-an `mlx-vlm` Qwen3.5 fix branch, while the frozen OpenDecision target is
+an `mlx-vlm` Qwen3.5 fix branch, while the frozen OpenKind target is
 `Qwen/Qwen3.5-4B-Base`. That source-model distinction is an important
 qualification boundary before comparing decision probabilities.
 
@@ -114,7 +114,7 @@ different source model and conversion, not merely a different file layout.
 The 4-bit and 8-bit community exports are quantized profiles and were not
 tested against this non-quantized adapter.
 
-## Addendum (same day): `opendecision-bench` MLX dispatch
+## Addendum (same day): `openkind-bench` MLX dispatch
 
 The benchmark harness now dispatches the MLX backends. This is working-tree
 evidence on top of the same dirty tree; nothing here changes the parity-gate
@@ -129,8 +129,8 @@ status above.
 - An MLX backbone re-derives the scheduler's continuation-state size
   constants from the loaded model (BF16 states are half the FP32 bytes)
   and clamps backend capabilities to per-lane forward.
-- `opendecision-bench` gains an `mlx` cargo feature (forwarding to
-  `opendecision-backends/mlx`) and `--engine qwen35-mlx-fp32` /
+- `openkind-bench` gains an `mlx` cargo feature (forwarding to
+  `openkind-backends/mlx`) and `--engine qwen35-mlx-fp32` /
   `qwen35-mlx-bf16` choices with distinct summary ids and output slugs.
 - The daemon stays CPU-only; engine-side selection is in-process only
   (daemon alias registration remains 3M.7).
@@ -176,11 +176,11 @@ bit-identical as the CPU engine produces.
 
 - `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`
   (default), and `SDKROOT=$(xcrun --show-sdk-path) cargo clippy
-  -p opendecision-backends -p opendecision-bench --features mlx --all-targets
+  -p openkind-backends -p openkind-bench --features mlx --all-targets
   -- -D warnings` pass.
 - `env -u RUST_LOG cargo test --workspace` (exit 0) and
-  `cargo test -p opendecision-backends --features mlx` (103 tests incl. the
-  new regression test) and `cargo test -p opendecision-bench --features mlx`
+  `cargo test -p openkind-backends --features mlx` (103 tests incl. the
+  new regression test) and `cargo test -p openkind-bench --features mlx`
   pass.
-- `cargo run -p opendecision-gen-schemas -- --write` produced no schema
+- `cargo run -p openkind-gen-schemas -- --write` produced no schema
   changes (no wire types were touched); `git diff --check` is clean.

@@ -583,7 +583,7 @@ The evidence now supports a clear, grounded consensus:
 
 ## Phase 2B Empirical Benchmark: Qwen3.5-4B Decision Head & Baseline Readout (Run 20260917T205849Z)
 
-An empirical benchmark run was conducted on **September 17, 2026** (run ID: `20260917T205849Z`, archived in `research/opendecision_phase2b_20260917T205849Z`) probing `Qwen/Qwen3.5-4B-Base` (commit `1001bb4d826a52d1f399e183466143f4da7b741b`) on an **NVIDIA L4 GPU** with native BF16 (`torch.bfloat16`). LoRA was disabled.
+An empirical benchmark run was conducted on **September 17, 2026** (run ID: `20260917T205849Z`, archived in `research/openkind_phase2b_20260917T205849Z`) probing `Qwen/Qwen3.5-4B-Base` (commit `1001bb4d826a52d1f399e183466143f4da7b741b`) on an **NVIDIA L4 GPU** with native BF16 (`torch.bfloat16`). LoRA was disabled.
 
 The primary finding is that a **frozen Qwen3.5-4B backbone coupled with a lightweight linear classification head** achieves **87.67% matched** and **87.33% mismatched** test accuracy on MultiNLI, trained on 2,400 examples. Recomputation of accuracy, negative log-likelihood (NLL), and Brier scores from the archived prediction tensors confirms the reported metrics.
 
@@ -711,7 +711,7 @@ Linear Projection (2560 -> 3 logits, 7,683 params)
 Softmax (in strict label order: [entailment, neutral, contradiction])
 ```
 
-Exported reference artifacts in `research/opendecision_phase2b_20260917T205849Z/frozen_export/`:
+Exported reference artifacts in `research/openkind_phase2b_20260917T205849Z/frozen_export/`:
 - `manifest.json`: Architecture, tokenization, prompt segments, and label specifications.
 - `head.safetensors`: Serialized linear head weights and normalization buffers (~51.5 KB).
 - `golden_head_inputs.npz`: Reference input hidden states and expected output logits for Rust parity testing.
@@ -724,7 +724,7 @@ Exported reference artifacts in `research/opendecision_phase2b_20260917T205849Z/
 ## Phase 2C Empirical Readout: Stability, Dynamic Choice, and Serving Gates
 
 Run `20260917T222948Z` was archived in
-`research/opendecision_phase2c_20260917T222948Z/`. It used
+`research/openkind_phase2c_20260917T222948Z/`. It used
 `Qwen/Qwen3.5-4B-Base` on an NVIDIA L4 with native BF16. The report
 metrics were independently recomputed from the saved NLI predictions,
 dynamic predictions, and benchmark records. The dynamic stage completed;
@@ -862,7 +862,7 @@ shared-prefix branching, and Rust/Metal execution remain untested.
 ## Phase 2D Empirical Readout: Numerical Reference, Rejection Policy, and Complete Requests
 
 Run `20260917T234417Z` was archived in
-`research/opendecision_phase2d_20260917T234417Z/`, using the Phase 2C
+`research/openkind_phase2d_20260917T234417Z/`, using the Phase 2C
 checkpoint and frozen NLI and real-candidate heads. Only small `none` heads
 and the temperature option were fitted. The run did not implement KV
 branching, LoRA, quantization, Rust/Metal, or HTTP validation. The numerical
@@ -1020,19 +1020,19 @@ configuration even when the nominal weights are identical.
 Run `20260918T114914072764Z` completed on an NVIDIA L4 with separate FP32
 and BF16 workers. Both workers completed cache parity, policy agreement,
 component profiling, and complete-request benchmarks. The [expanded result
-archive](../research/opendecision_phase2e_expanded_20260918T114914072764Z/)
-includes the [results README](../research/opendecision_phase2e_expanded_20260918T114914072764Z/README_results.md),
+archive](../research/openkind_phase2e_expanded_20260918T114914072764Z/)
+includes the [results README](../research/openkind_phase2e_expanded_20260918T114914072764Z/README_results.md),
 saved raw rows, and machine-readable summaries. An independent
 reconstruction of 3,072 probability distributions from saved candidate
 scores and frozen `none`-head coefficients agreed with the report, including
 policy actions, parity counts, and timing aggregates. Qwen itself was not
 rerun for that reconstruction.
 
-The key machine-readable evidence is the [FP32 parity rows](../research/opendecision_phase2e_expanded_20260918T114914072764Z/fp32_strict_math/parity_rows.json),
-[BF16 parity rows](../research/opendecision_phase2e_expanded_20260918T114914072764Z/bf16_default/parity_rows.json),
-[FP32 request benchmarks](../research/opendecision_phase2e_expanded_20260918T114914072764Z/fp32_strict_math/request_benchmarks.json),
-[FP32 component profiles](../research/opendecision_phase2e_expanded_20260918T114914072764Z/fp32_strict_math/component_profiles.json),
-and [frozen export manifest](../research/opendecision_phase2e_expanded_20260918T114914072764Z/frozen_export/phase2e_manifest.json).
+The key machine-readable evidence is the [FP32 parity rows](../research/openkind_phase2e_expanded_20260918T114914072764Z/fp32_strict_math/parity_rows.json),
+[BF16 parity rows](../research/openkind_phase2e_expanded_20260918T114914072764Z/bf16_default/parity_rows.json),
+[FP32 request benchmarks](../research/openkind_phase2e_expanded_20260918T114914072764Z/fp32_strict_math/request_benchmarks.json),
+[FP32 component profiles](../research/openkind_phase2e_expanded_20260918T114914072764Z/fp32_strict_math/component_profiles.json),
+and [frozen export manifest](../research/openkind_phase2e_expanded_20260918T114914072764Z/frozen_export/phase2e_manifest.json).
 
 The experiment contains eight distinct messages expanded into 128 factorial
 episodes. Archived examples were reused for execution regression, not new
@@ -1234,8 +1234,8 @@ After the Phase 2F reference path reproduces the Phase 2E FP32 and policy
 checks, the production Rust implementation should:
 
 - Port the validated Qwen architecture, dynamic candidate head, and shared-
-  prefix path to Rust (`opendecision-engine`, `opendecision-backends` with
-  Candle/GGUF, `opendecision-runtime`).
+  prefix path to Rust (`openkind-engine`, `openkind-backends` with
+  Candle/GGUF, `openkind-runtime`).
 - Execute parity verification against the Phase 2C and Phase 2D exported
   fixtures and prior NLI golden vectors (`golden_head_inputs.npz`).
 - Build the scheduler around the declared numerical reference, small
@@ -1244,7 +1244,7 @@ checks, the production Rust implementation should:
 ## Prior-Art Implementation Review: SemIf MLX Backend (Reviewed 2026-09-20)
 
 [SemIf](https://github.com/TheoLeeCJ/SemIf) is an independent decision-scoring
-project that converges on the same direction as OpenDecision: decision-native
+project that converges on the same direction as OpenKind: decision-native
 inference without an autoregressive loop, shared-state reuse across questions,
 parallel suffix work, and a strict separation between interface compatibility
 and reproducing Jev internals. This section records what its MLX backend
@@ -1262,13 +1262,13 @@ cannot drift as the external repository moves.
 | Executed model | `Qwen/Qwen3.5-4B` revision `851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a`, BF16 |
 | Date reviewed | 2026-09-20 |
 
-The executed model is **not** OpenDecision's selected checkpoint
+The executed model is **not** OpenKind's selected checkpoint
 (`Qwen/Qwen3.5-4B-Base` revision `1001bb4d826a52d1f399e183466143f4da7b741b`,
 FP32). SemIf's published drift and throughput numbers — including its
 reported 5–6 argmax changes out of 777 decisions between BF16 shared reuse
 and fresh scoring — are external implementation evidence from a different
-model, precision, and stack. They are not expected OpenDecision rates, and no
-SemIf number is imported as an OpenDecision measurement. The reusable content
+model, precision, and stack. They are not expected OpenKind rates, and no
+SemIf number is imported as an OpenKind measurement. The reusable content
 is the mechanism.
 
 ### Verified mechanisms (against the pinned source)
@@ -1276,7 +1276,7 @@ is the mechanism.
 - **Serial reuse = deep-copy per lane.** `SerialPrefixScorer.score` never
   mutates the retained prefix cache; for each question it evaluates
   `branch = copy.deepcopy(self.cache)` and runs the suffix against the copy.
-  This is the same shape as OpenDecision's `fork_one` on an immutable root,
+  This is the same shape as OpenKind's `fork_one` on an immutable root,
   and its "merge native cache copies" (`entry.merge([entry] * len(rows))`) is
   the same shape as `fork_batch`.
 - **Shared mode = one batched forward with right padding.** `score_shared`
@@ -1288,34 +1288,34 @@ is the mechanism.
 - **Hybrid state is delegated to MLX-LM's native Qwen3.5 cache**
   (`mlx_lm.models.cache.make_prompt_cache`), which combines attention history
   with the recurrent convolution/DeltaNet state in one object, exactly the
-  three tensor families OpenDecision's `BranchableState` isolates together.
+  three tensor families OpenKind's `BranchableState` isolates together.
 - **Precision is a profile property.** The backend runs checkpoint precision
   (BF16) and casts only the readout logits to FP32; optional 4/8-bit affine
   quantization (group size 64) is applied in memory and its results must be
   evaluated separately. Frozen per-run manifests under `manifests/` and
   checksummed `results/mlx/<run>/` directories record every changed choice.
 
-### Implications for OpenDecision
+### Implications for OpenKind
 
 1. **Vectorized forward mechanics.** SemIf's shared mode is the concrete
-   shape a future OpenDecision vectorized `nested_batched` forward needs:
+   shape a future OpenKind vectorized `nested_batched` forward needs:
    right-pad lanes for the attention path, pass true lengths to the recurrent
    (DeltaNet/conv) state, and gather the last real position per lane. The
    hybrid-state fan-out it needs (`entry.merge`) maps onto `fork_batch`, which
    the CPU backend already exposes. This informs the P1 vectorized/Metal work;
    it does not change any current claim.
 2. **Precision drift is real and must stay profile-gated.** SemIf's reported
-   BF16 reuse argmax changes independently confirm OpenDecision's discipline
+   BF16 reuse argmax changes independently confirm OpenKind's discipline
    that a changed device, precision, or kernel path is a new arithmetic
    identity, not an implementation detail of the same profile.
 3. **Evidence packaging converges.** Commit-pinned model manifests plus
    checksummed per-run result directories mirror the
-   `opendecision-native-run/v1` evidence format recorded in
-   `crates/opendecision-runtime/src/evidence.rs`; their MLX-LM commit pinning
+   `openkind-native-run/v1` evidence format recorded in
+   `crates/openkind-runtime/src/evidence.rs`; their MLX-LM commit pinning
    is why the native-run `PROFILE.json` records backend version/commit
    identity.
 4. **Probability wording.** SemIf states plainly that its probabilities are
-   conditional on the supplied options. OpenDecision's selected profile
+   conditional on the supplied options. OpenKind's selected profile
    instead declares `offered_options_plus_semantic_none`
-   (`opendecision-engine` `ProbabilitySpace`); the explicit declaration, not
+   (`openkind-engine` `ProbabilitySpace`); the explicit declaration, not
    the wording, is the borrow.

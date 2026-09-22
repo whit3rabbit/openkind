@@ -1,6 +1,6 @@
 # Qwen 3.5 MLX Gated-DeltaNet review benchmark
 
-This directory preserves the raw `opendecision-bench/v1` summaries and
+This directory preserves the raw `openkind-bench/v1` summaries and
 per-strategy predictions used by the Phase 3M.5 production-default decision.
 Both runs are dirty-working-tree, single-sample measurements anchored to
 subject baseline `e492bab3e4428c0413365ed9d0699ebcb114c320`. They are not

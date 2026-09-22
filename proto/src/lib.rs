@@ -1,12 +1,12 @@
-//! `opendecision-proto`: Protocol Buffers and gRPC wire contracts for `opendecision`.
+//! `openkind-proto`: Protocol Buffers and gRPC wire contracts for `openkind`.
 //!
 //! # Overview
-//! This crate contains the compiled Protobuf bindings for the `opendecision` service,
-//! generated from `proto/proto/opendecision.proto` at build time via `tonic-prost-build`.
+//! This crate contains the compiled Protobuf bindings for the `openkind` service,
+//! generated from `proto/proto/openkind.proto` at build time via `tonic-prost-build`.
 //!
 //! # Invariants & Wire Parity
 //! - **64-bit Floating Point**: All probabilities, scores, and confidence metrics use
-//!   double precision (`double`), guaranteeing wire parity with `f64` in `opendecision-core`.
+//!   double precision (`double`), guaranteeing wire parity with `f64` in `openkind-core`.
 //! - **Raw JSON Polymorphism**: Fields that accept polymorphic types in the JSON wire
 //!   format (`state` and question `instructions`) serialize arbitrary JSON structures as raw UTF-8 bytes.
 //! - **Noul Answer Wire Contract**: Boolean probability (`Noul`) answers contain only `double noul = 1`
@@ -14,15 +14,15 @@
 
 #![allow(clippy::all)]
 
-/// Generated Protobuf message types and gRPC client/server stubs for the `opendecision` package.
+/// Generated Protobuf message types and gRPC client/server stubs for the `openkind` package.
 #[allow(missing_docs)]
-pub mod opendecision {
-    tonic::include_proto!("opendecision");
+pub mod openkind {
+    tonic::include_proto!("openkind");
 }
 
 #[cfg(test)]
 mod tests {
-    use super::opendecision::*;
+    use super::openkind::*;
     use prost::Message;
     use std::collections::HashMap;
 

@@ -1,10 +1,10 @@
-# opendecision
+# openkind
 
-`opendecision` is an independent Rust decision-inference engine for typed `Noul`, `Choice`, and `Score` answers over Jev-compatible public interfaces. It is built to answer structured questions without depending on an autoregressive text-generation loop.
+`openkind` is an independent Rust decision-inference engine for typed `Noul`, `Choice`, and `Score` answers over Jev-compatible public interfaces. It is built to answer structured questions without depending on an autoregressive text-generation loop.
 
 The wire, service, and SDK layers are implemented. The selected Qwen 3.5 native path has passed Rust head, tokenizer, correctness-first CPU backbone, cached-continuation, backend-neutral branch-state, sequential nested execution, batched Q/K, and measured adaptive-scheduler gates. State/scheduler high-K stress, process-peak admission, tenant-isolated state reuse, versioned/digest-checked state snapshots, cancellation-safe permit ownership, and a direct native `DecisionEngine` adapter are implemented. The named-machine follow-up completed bounded model-backed K=32/64/128/255 stress, structural fresh-process replay, and native service lifecycle smoke. Restored head/probability/decision replay, practical high-K latency, and production load/soak remain open. A feature-gated MLX/Metal parity backend (Phase 3M) passes the frozen fixture gates in FP32 for the pinned base checkpoint. Its BF16 candidate Gate B remains open. Generic and packed fused Metal kernels are implemented and FP32 parity-qualified, but the packed candidate remains opt-in after a same-host throughput regression. An explicit adapter loads and executes the tested MLX-community export, but that artifact fails frozen-reference model parity. Native vectorized batching remains open.
 
-[Quickstart](#quickstart) | [Research dossier](docs/RESEARCH.md) | [Whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md) | [Roadmap](docs/ROADMAP.md) | [Architecture](docs/ARCHITECTURE.md) | [MLX backend](docs/MLX.md) | [Jev wire reference](https://docs.typesafe.ai/api)
+[Quickstart](#quickstart) | [Research dossier](docs/RESEARCH.md) | [Whitepaper](docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md) | [Roadmap](docs/ROADMAP.md) | [Architecture](docs/ARCHITECTURE.md) | [MLX backend](docs/MLX.md) | [Jev wire reference](https://docs.typesafe.ai/api)
 
 > [!IMPORTANT]
 > The daemon defaults to `MockEngine`. A native alias can be registered directly with explicit offline bundle, checkpoint, and tokenizer paths. The quickstart below still verifies the mock wire/service path, not model quality or native Qwen execution.
@@ -14,10 +14,10 @@ The wire, service, and SDK layers are implemented. The selected Qwen 3.5 native 
 You need Rust 1.88 or newer and `protoc` for gRPC code generation.
 
 ```bash
-git clone https://github.com/whit3rabbit/opendecision.git
-cd opendecision
+git clone https://github.com/whit3rabbit/openkind.git
+cd openkind
 cargo build --workspace
-cargo run -p opendecision-server --bin opendecisiond -- \
+cargo run -p openkind-server --bin openkindd -- \
     --http-addr 127.0.0.1:18080 \
     --grpc-addr 127.0.0.1:19090 \
     --models mock,jev-latest
@@ -31,7 +31,7 @@ curl -sS -X POST http://127.0.0.1:18080/v1/systemone \
     -d @examples/04_mixed.json
 ```
 
-The same service is available through gRPC at `opendecision.SystemOne/Evaluate`.
+The same service is available through gRPC at `openkind.SystemOne/Evaluate`.
 
 ## What it provides
 
@@ -57,7 +57,7 @@ This repository carries the research behind the implementation, not only the imp
 | Phase 3B | Four exact token records and 47 FP32 vectors across 34 trace stages, candidates, and continuations | Backbone localization fixtures, not native execution |
 | Rust Phase 3.1 through 3.8 | Head, probability, tokenizer, state-first rendering, CPU backbone, cached continuation, branch-state contract, sequential nested execution, batched Q/K, and the measured adaptive scheduler | Frozen-fixture parity and warm-host measurements, not Metal or production service proof |
 
-Start with the [research dossier](docs/RESEARCH.md) for the study sequence and the [whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md) for methods, results, and interpretation. The [roadmap](docs/ROADMAP.md) is the current status authority. The public [Qwen 3.5 reference repository](https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst) exposes the selected integration line.
+Start with the [research dossier](docs/RESEARCH.md) for the study sequence and the [whitepaper](docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md) for methods, results, and interpretation. The [roadmap](docs/ROADMAP.md) is the current status authority. The public [Qwen 3.5 reference repository](https://huggingface.co/cowWhySo/OpenKind-Qwen3.5-4B-StateFirst) exposes the selected integration line.
 
 ### Locked native integration target
 
@@ -77,14 +77,14 @@ These values define the parity target. They do not promote the profile to releas
 
 ### Optional model download for local parity and benchmarking
 
-Normal builds, tests, and the `opendecision-bench` harness never download model
+Normal builds, tests, and the `openkind-bench` harness never download model
 artifacts. For an explicit real-checkpoint run, install the Hugging Face CLI
 and download the pinned base checkpoint locally:
 
 ```bash
 # Run this only if the `hf` command is not already installed.
 python3 -m pip install --user --upgrade huggingface_hub
-MODEL_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/opendecision"
+MODEL_CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/openkind"
 
 hf download Qwen/Qwen3.5-4B-Base \
   --revision 1001bb4d826a52d1f399e183466143f4da7b741b \
@@ -165,16 +165,16 @@ Native Choice requests must include an explicit `__none__` criteria key. The ada
 
 | Area | Crates |
 |---|---|
-| Wire types and engine contracts | `opendecision-core`, `opendecision-engine` |
-| HTTP and gRPC | `opendecision-api`, `opendecision-server`, `opendecision-proto` |
-| Clients and operator tools | `opendecision-client`, `opendecision-cli` |
-| Hardware and model execution | `opendecision-runtime`, `opendecision-backends` |
-| Schema generation | `opendecision-gen-schemas` |
+| Wire types and engine contracts | `openkind-core`, `openkind-engine` |
+| HTTP and gRPC | `openkind-api`, `openkind-server`, `openkind-proto` |
+| Clients and operator tools | `openkind-client`, `openkind-cli` |
+| Hardware and model execution | `openkind-runtime`, `openkind-backends` |
+| Schema generation | `openkind-gen-schemas` |
 
 ## Rust client
 
 ```rust
-use opendecision_client::{question, Client};
+use openkind_client::{question, Client};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -203,7 +203,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-See the [`opendecision-client` guide](crates/opendecision-client/README.md) for configuration, authentication, retries, and request options.
+See the [`openkind-client` guide](crates/openkind-client/README.md) for configuration, authentication, retries, and request options.
 
 ## Development
 
@@ -213,7 +213,7 @@ Run the repository verification battery before submitting changes:
 cargo fmt --check
 cargo clippy --workspace --all-targets -- -D warnings
 env -u RUST_LOG cargo test --workspace
-cargo run -p opendecision-gen-schemas -- --write
+cargo run -p openkind-gen-schemas -- --write
 git diff --check
 ```
 
@@ -239,7 +239,7 @@ For module-specific invariants and focused checks, start with [`AGENTS.md`](AGEN
 - [MLX backend](docs/MLX.md): explicit-stream execution, weights, branch state, kernels, limitations, and enhancement priorities.
 - [Benchmarks](docs/BENCHMARKS.md): methodology, harness commands, and recorded runs.
 - [Research dossier](docs/RESEARCH.md): experiment sequence, evidence, and prior art.
-- [Whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md): scientific rationale and measured results.
+- [Whitepaper](docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md): scientific rationale and measured results.
 
 ## License
 

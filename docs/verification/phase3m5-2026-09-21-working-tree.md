@@ -76,12 +76,12 @@ Command shape for both arithmetic paths:
 
 ```bash
 SDKROOT=$(xcrun --show-sdk-path) cargo run --release \
-  -p opendecision-bench --features mlx -- score \
-  crates/opendecision-bench/fixtures/decisions_smoke.jsonl \
+  -p openkind-bench --features mlx -- score \
+  crates/openkind-bench/fixtures/decisions_smoke.jsonl \
   --engine qwen35-mlx-fp32 \
-  --bundle-root crates/opendecision-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8 \
+  --bundle-root crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8 \
   --checkpoint-root <pinned-checkpoint-root> \
-  --tokenizer research/OpenDecision_Phase3B_BackboneParity_20260920T152206Z/backbone_runtime/tokenizer/tokenizer.json \
+  --tokenizer research/OpenKind_Phase3B_BackboneParity_20260920T152206Z/backbone_runtime/tokenizer/tokenizer.json \
   --strategies repeated_full,nested_sequential,nested_batched,choose_strategy \
   --reps 1 --host "Mac16,5 Apple M4 Max 36 GiB (named Mac)" \
   --commit e492bab3e4428c0413365ed9d0699ebcb114c320 \
@@ -90,7 +90,7 @@ SDKROOT=$(xcrun --show-sdk-path) cargo run --release \
 
 Both runs used one timed repetition per strategy after the harness warmup.
 Model load and output writes are excluded from each strategy total.
-The raw `opendecision-bench/v1` summaries and per-strategy predictions are
+The raw `openkind-bench/v1` summaries and per-strategy predictions are
 retained in
 [`docs/benchmarks/2026-09-21-qwen35-mlx-gdn-review/`](../benchmarks/2026-09-21-qwen35-mlx-gdn-review/).
 
@@ -122,12 +122,12 @@ Final checks completed during the review:
 cargo fmt --check
 cargo clippy --workspace --all-targets -- -D warnings
 env -u RUST_LOG cargo test --workspace
-SDKROOT=$(xcrun --show-sdk-path) cargo check -p opendecision-backends --features mlx --all-targets
-SDKROOT=$(xcrun --show-sdk-path) cargo clippy -p opendecision-backends --features mlx --all-targets -- -D warnings
-SDKROOT=$(xcrun --show-sdk-path) cargo test -p opendecision-backends --features mlx
-SDKROOT=$(xcrun --show-sdk-path) cargo clippy -p opendecision-bench --features mlx --all-targets -- -D warnings
-SDKROOT=$(xcrun --show-sdk-path) cargo test -p opendecision-bench --features mlx
-cargo run -p opendecision-gen-schemas -- --write
+SDKROOT=$(xcrun --show-sdk-path) cargo check -p openkind-backends --features mlx --all-targets
+SDKROOT=$(xcrun --show-sdk-path) cargo clippy -p openkind-backends --features mlx --all-targets -- -D warnings
+SDKROOT=$(xcrun --show-sdk-path) cargo test -p openkind-backends --features mlx
+SDKROOT=$(xcrun --show-sdk-path) cargo clippy -p openkind-bench --features mlx --all-targets -- -D warnings
+SDKROOT=$(xcrun --show-sdk-path) cargo test -p openkind-bench --features mlx
+cargo run -p openkind-gen-schemas -- --write
 git diff --check
 ```
 
