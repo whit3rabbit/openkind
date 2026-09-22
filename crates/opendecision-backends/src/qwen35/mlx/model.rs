@@ -93,6 +93,14 @@ pub struct MlxQwen35Backbone {
     pub load_report: MlxWeightLoadReport,
 }
 
+// SAFETY: every array evaluation in this backbone's methods runs under the
+// process-wide `MlxRuntime` execution mutex (see the `branch_state` module
+// docs); outside the lock, array handles are immutable refcounted values whose
+// handle-only operations (clone, shape, dtype) are safe concurrently. This is
+// the same soundness argument as `unsafe impl Sync for MlxBackboneState`, and
+// it is what lets the engine share one loaded backbone across worker threads.
+unsafe impl Sync for MlxQwen35Backbone {}
+
 impl MlxQwen35Backbone {
     /// Verify the pinned checkpoint and load it into MLX arrays at the
     /// requested precision.
@@ -127,6 +135,16 @@ impl MlxQwen35Backbone {
                 layers.push(MlxDecoderLayer::load(&tensors, layer_index, precision)?);
             }
             let final_norm = folded_final_norm(&tensors, precision)?;
+            // Weight arrays must leave the loading thread fully materialized:
+            // lazy graphs record this thread's stream, which worker threads
+            // (engine blocking-pool forwards) cannot resolve.
+            for layer in &layers {
+                layer.materialize()?;
+            }
+            final_norm.eval().map_err(|error| MlxError::Operation {
+                operation: "final norm materialization",
+                message: error.to_string(),
+            })?;
             Ok((layers, final_norm))
         })??;
         Ok(Self {

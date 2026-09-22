@@ -83,6 +83,12 @@ pub enum EngineArg {
     Mock,
     /// Pinned Qwen3.5 native CPU engine; real scoring and timing.
     Qwen35,
+    /// Pinned Qwen3.5 MLX FP32 reference-ops engine; requires `--features mlx`.
+    #[cfg(feature = "mlx")]
+    Qwen35MlxFp32,
+    /// Pinned Qwen3.5 MLX native-BF16 candidate engine; requires `--features mlx`.
+    #[cfg(feature = "mlx")]
+    Qwen35MlxBf16,
 }
 
 impl From<EngineArg> for EngineKind {
@@ -90,6 +96,10 @@ impl From<EngineArg> for EngineKind {
         match value {
             EngineArg::Mock => EngineKind::Mock,
             EngineArg::Qwen35 => EngineKind::Qwen35,
+            #[cfg(feature = "mlx")]
+            EngineArg::Qwen35MlxFp32 => EngineKind::Qwen35MlxFp32,
+            #[cfg(feature = "mlx")]
+            EngineArg::Qwen35MlxBf16 => EngineKind::Qwen35MlxBf16,
         }
     }
 }

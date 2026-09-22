@@ -165,3 +165,33 @@ fn stream_explicit_execution_survives_thread_local_default_absence() {
     });
     handle.join().expect("thread");
 }
+
+#[test]
+fn materialized_arrays_evaluate_on_worker_threads() {
+    // Engine forwards run on blocking-pool threads that never loaded the
+    // model. MLX graphs record their creating thread's stream, which other
+    // threads cannot resolve, so arrays crossing the load boundary must be
+    // fully materialized first — the same discipline
+    // `MlxDecoderLayer::materialize` applies to weights.
+    let runtime = Arc::new(runtime());
+    let array = runtime
+        .execute(|| {
+            let raw = Array::from_slice(&[1.0_f32, 2.0, 3.0, 4.0], &[2, 2]);
+            // A lazy reshape stands in for load-time weight transforms.
+            let folded = raw.reshape(&[4]).expect("reshape");
+            folded.eval().expect("materialize on the loading thread");
+            folded
+        })
+        .expect("load-side execute");
+    let handle = std::thread::spawn(move || {
+        runtime
+            .execute(move || {
+                let doubled = array.clone().add(&array);
+                doubled.eval().expect("eval on worker thread");
+                doubled.to_vec_cast::<f32>().expect("read")
+            })
+            .expect("worker execute")
+    });
+    let values = handle.join().expect("thread");
+    assert_eq!(values, vec![2.0, 4.0, 6.0, 8.0]);
+}

@@ -146,6 +146,53 @@ impl MlxDecoderLayer {
         })
     }
 
+    /// Evaluate every weight array so no unevaluated lazy graph crosses the
+    /// loading thread's boundary.
+    ///
+    /// MLX graphs record the stream of the thread that created them, and a
+    /// different thread cannot resolve that stream's encoder. Forwards may
+    /// run on worker threads that never loaded the model (the engine's
+    /// blocking pool), so load-time transforms such as the conv-weight
+    /// reshape must be evaluated here while still on the loading thread.
+    ///
+    /// # Errors
+    /// Returns [`MlxError`] when a weight array cannot be evaluated.
+    pub(crate) fn materialize(&self) -> Result<(), MlxError> {
+        fn eval(array: &Array, label: &str) -> Result<(), MlxError> {
+            array.eval().map_err(|error| MlxError::Operation {
+                operation: "weight materialization",
+                message: format!("{label}: {error}"),
+            })
+        }
+        eval(&self.input_layernorm, "input_layernorm")?;
+        eval(&self.post_attention_layernorm, "post_attention_layernorm")?;
+        eval(&self.mlp_gate_proj, "mlp_gate_proj")?;
+        eval(&self.mlp_up_proj, "mlp_up_proj")?;
+        eval(&self.mlp_down_proj, "mlp_down_proj")?;
+        match &self.mixer {
+            TokenMixer::Linear(mixer) => {
+                eval(&mixer.in_proj_qkv, "in_proj_qkv")?;
+                eval(&mixer.in_proj_z, "in_proj_z")?;
+                eval(&mixer.in_proj_b, "in_proj_b")?;
+                eval(&mixer.in_proj_a, "in_proj_a")?;
+                eval(&mixer.conv1d, "conv1d")?;
+                eval(&mixer.dt_bias, "dt_bias")?;
+                eval(&mixer.a_log, "a_log")?;
+                eval(&mixer.delta_norm, "delta_norm")?;
+                eval(&mixer.out_proj, "out_proj")?;
+            }
+            TokenMixer::Full(mixer) => {
+                eval(&mixer.q_proj, "q_proj")?;
+                eval(&mixer.k_proj, "k_proj")?;
+                eval(&mixer.v_proj, "v_proj")?;
+                eval(&mixer.q_norm, "q_norm")?;
+                eval(&mixer.k_norm, "k_norm")?;
+                eval(&mixer.o_proj, "o_proj")?;
+            }
+        }
+        Ok(())
+    }
+
     /// Advance the layer, returning the new hidden state and continuation
     /// state. `hidden` is `[rows, HIDDEN_SIZE]` and is never mutated.
     pub(crate) fn forward(

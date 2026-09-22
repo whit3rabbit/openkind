@@ -1,5 +1,6 @@
 //! Direct Jev wire adapter for the pinned native Qwen3.5 profile.
 
+mod backbone;
 mod canonical;
 mod eval;
 mod mapping;
@@ -12,11 +13,10 @@ use opendecision_core::{ModelInfo, SystemRequest, SystemResponse};
 use opendecision_engine::{DecisionEngine, EngineError, EngineResult, ProbabilitySpace};
 use tokio::sync::Semaphore;
 
+pub use self::backbone::Qwen35Backend;
+use self::backbone::{load_backbone, EngineBackbone};
 use self::eval::{evaluate_request, map_evaluation_error};
-use super::{
-    Qwen35Backbone, Qwen35Error, Qwen35Tokenizer, ReferenceBundle, SchedulerConfig,
-    ScoreSummaryHead,
-};
+use super::{Qwen35Error, Qwen35Tokenizer, ReferenceBundle, SchedulerConfig, ScoreSummaryHead};
 
 /// Reserved Choice criteria key that explicitly exposes the model's semantic-none mass.
 ///
@@ -33,6 +33,8 @@ pub struct Qwen35EngineConfig {
     pub checkpoint_root: PathBuf,
     /// Digest-locked exported tokenizer JSON.
     pub tokenizer_path: PathBuf,
+    /// Execution backend executing tokens for this engine.
+    pub backend: Qwen35Backend,
     /// Adaptive execution policy and memory admission settings.
     pub scheduler: SchedulerConfig,
     /// Maximum model evaluations executing concurrently.
@@ -45,10 +47,11 @@ pub struct Qwen35EngineConfig {
 
 pub(super) struct EngineInner {
     pub(super) tokenizer: Qwen35Tokenizer,
-    pub(super) backbone: Qwen35Backbone,
+    pub(super) backbone: EngineBackbone,
     pub(super) head: ScoreSummaryHead,
     pub(super) scheduler: SchedulerConfig,
     pub(super) max_concurrent_requests: usize,
+    pub(super) backend_id: &'static str,
 }
 
 /// Native CPU implementation registered directly behind [`DecisionEngine`].
@@ -63,7 +66,8 @@ impl Qwen35DecisionEngine {
     /// Load every pinned artifact offline and construct the bounded native engine.
     pub fn load(config: Qwen35EngineConfig) -> Result<Self, Qwen35Error> {
         let tokenizer = Qwen35Tokenizer::from_file(&config.tokenizer_path)?;
-        let backbone = Qwen35Backbone::load(&config.checkpoint_root)?;
+        let mut scheduler = config.scheduler;
+        let backbone = load_backbone(config.backend, &config.checkpoint_root, &mut scheduler)?;
         let bundle = ReferenceBundle::load(&config.bundle_root)?;
         // The adapter branches on the declared probability space: this native
         // adapter implements exactly one, and a profile declaring any other
@@ -88,8 +92,9 @@ impl Qwen35DecisionEngine {
                 tokenizer,
                 backbone,
                 head: bundle.head().clone(),
-                scheduler: config.scheduler,
+                scheduler,
                 max_concurrent_requests: concurrent,
+                backend_id: config.backend.as_str(),
             }),
             execution_slots: Arc::new(Semaphore::new(concurrent)),
             admission_slots: Arc::new(Semaphore::new(admitted)),
@@ -101,14 +106,18 @@ impl Qwen35DecisionEngine {
 #[async_trait]
 impl DecisionEngine for Qwen35DecisionEngine {
     fn backend_id(&self) -> &str {
-        "qwen35-native-cpu"
+        self.inner.backend_id
     }
 
     fn model_metadata(&self) -> ModelInfo {
+        let flavor = if self.inner.backend_id == Qwen35Backend::NativeCpu.as_str() {
+            "native CPU reference"
+        } else {
+            "MLX reference-ops"
+        };
         ModelInfo {
             name: String::new(),
-            description:
-                "Pinned Qwen3.5-4B native CPU reference engine with explicit semantic none.".into(),
+            description: format!("Pinned Qwen3.5-4B {flavor} engine with explicit semantic none."),
             release_date: "2026-09-20".into(),
         }
     }

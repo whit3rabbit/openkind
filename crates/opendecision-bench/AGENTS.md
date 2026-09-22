@@ -28,24 +28,32 @@ Methodology, timing scope, and recorded results are owned by
 4. **f64 on Reports**: All probabilities and timings serialized into summaries and
    predictions are `f64` (workspace wire-precision rule applies to benchmark evidence
    the same way).
-5. **MLX Boundary**: `opendecision-bench` currently drives `MockEngine` and the
-   native Candle `Qwen35DecisionEngine`; it does not dispatch the optional MLX
-   backend. Real MLX checkpoint comparisons use the parity examples documented in
-   [`opendecision-backends/AGENTS.md`](../opendecision-backends/AGENTS.md), and their
-   load-inclusive timings are not `opendecision-bench` warm-process throughput.
+5. **MLX Boundary**: Behind the optional `mlx` cargo feature (macOS arm64, built
+   with `SDKROOT=$(xcrun --show-sdk-path)`), `--engine qwen35-mlx-fp32` and
+   `--engine qwen35-mlx-bf16` dispatch the MLX backends through the same
+   `Qwen35DecisionEngine` request path as the CPU engine
+   (`Qwen35Backend` selection in
+   [`opendecision-backends`](../opendecision-backends/AGENTS.md)). Default
+   builds (no feature) expose only `mock` and `qwen35` and never link MLX.
+   MLX runs use the same fixtures, strategy sweep, warmup, and parity
+   assertions; their numbers are throughput evidence only — the frozen parity
+   gates live in the parity examples, and the known BF16 continuation defect
+   blocks BF16 nested strategies (`--strategies repeated_full` for BF16).
 
 ## Key Files & Types
 
 - [`src/main.rs`](./src/main.rs): Entrypoint; `gen-workload` prints one JSON result line,
   `score` prints the summary JSON to stdout (progress goes to stderr).
-- [`src/args.rs`](./src/args.rs): Clap parser; `EngineArg`, `parse_strategies`.
+- [`src/args.rs`](./src/args.rs): Clap parser; `EngineArg` (`mock`, `qwen35`,
+  plus `qwen35-mlx-fp32`/`qwen35-mlx-bf16` behind the `mlx` feature),
+  `parse_strategies`.
 - [`src/workload.rs`](./src/workload.rs): `WorkloadRow` (flattened `primitive` tag),
   `load_workload`/`parse_workload` (SHA-256 recorded), `state_groups`,
   `build_request`. Choice rows always carry a non-empty `__none__` criterion — one is
   injected when absent so native Choice evaluation keeps semantic-none mass on wire.
 - [`src/gen.rs`](./src/gen.rs): Seeded ticket-grid generator (`states × criteria` binary
   noul rows), byte-identical for identical seeds.
-- [`src/score.rs`](./src/score.rs): `run_score`/`ScoreArgs`. Native engine sweeps run the
+- [`src/score/mod.rs`](./src/score/mod.rs): `run_score`/`ScoreArgs`. Native engine sweeps run the
   scheduler's `forced_strategy` diagnostic override per strategy (admission still
   enforced) and assert cross-strategy answer equality per workload.
 - [`src/tests.rs`](./src/tests.rs): Offline tests (fixture parsing, grouping, `__none__`
@@ -80,6 +88,31 @@ cargo run --release -p opendecision-bench -- score <workload.jsonl> \
   --engine qwen35 --bundle-root <dir> --checkpoint-root <dir> --tokenizer <json> \
   --host "<host label>" --commit <hash>
 ```
+
+MLX timing runs use the same command with the optional feature and an explicit
+MLX engine. Run this only on macOS arm64 with the pinned local checkpoint,
+profile bundle, and digest-locked tokenizer:
+
+```bash
+SDKROOT=$(xcrun --show-sdk-path) cargo run --release \
+  -p opendecision-bench --features mlx -- score <workload.jsonl> \
+  --engine qwen35-mlx-fp32 \
+  --bundle-root <profile-bundle-dir> \
+  --checkpoint-root <pinned-checkpoint-dir> \
+  --tokenizer <digest-locked-tokenizer.json> \
+  --strategies repeated_full,nested_sequential,nested_batched,choose_strategy \
+  --reps 1 --host "<host label>" --commit <hash> \
+  --output-dir <benchmark-output-dir>
+```
+
+Use `--engine qwen35-mlx-bf16` only with
+`--strategies repeated_full`; the known BF16 continuation defect blocks the
+nested strategies. The pinned base model for the recorded comparison is
+`Qwen/Qwen3.5-4B-Base` at revision
+`1001bb4d826a52d1f399e183466143f4da7b741b`. Use the community MLX checkpoint
+only for throughput or format-compatibility comparison, not parity claims.
+See [`docs/BENCHMARKS.md`](../../docs/BENCHMARKS.md) for the current recorded
+results and attribution requirements.
 
 Use the opt-in download commands in the repository
 [`README.md`](../../README.md) to obtain the pinned local checkpoint. Do not add

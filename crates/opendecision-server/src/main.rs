@@ -18,7 +18,9 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use clap::Parser;
 use opendecision_api::{grpc, http, AppState, AuthConfig};
-use opendecision_backends::qwen35::{Qwen35DecisionEngine, Qwen35EngineConfig, SchedulerConfig};
+use opendecision_backends::qwen35::{
+    Qwen35Backend, Qwen35DecisionEngine, Qwen35EngineConfig, SchedulerConfig,
+};
 use opendecision_engine::{DecisionEngine, EngineRegistry, MockEngine};
 use opendecision_runtime::{peak_resident_bytes, BackendCapabilities};
 use tokio::net::TcpListener;
@@ -122,6 +124,7 @@ async fn main() -> Result<()> {
                 bundle_root,
                 checkpoint_root,
                 tokenizer_path,
+                backend: Qwen35Backend::NativeCpu,
                 scheduler,
                 max_concurrent_requests: args.qwen35_concurrency,
                 max_queued_requests: args.qwen35_queue,
