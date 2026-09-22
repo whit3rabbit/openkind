@@ -14,7 +14,7 @@ owned elsewhere and linked, not duplicated:
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — measurement-plan metric definitions
   (complete-request p50/p95, `T(Q)/T(1)`, state-prefill fraction, memory) and
   the landed execution-strategy contract.
-- [`whitepaper/OpenDecision_Whitepaper_v0.8.0.md`](./whitepaper/OpenDecision_Whitepaper_v0.8.0.md)
+- [`whitepaper/OpenDecision_Whitepaper_v0.8.1.md`](./whitepaper/OpenDecision_Whitepaper_v0.8.1.md)
   — canonical measured-results register for the native engine.
 - [`ROADMAP.md`](./ROADMAP.md) — open benchmark work: practical high-K latency,
   full restored head/decision replay, and queue-inclusive load/soak.
@@ -116,11 +116,31 @@ cargo run --release -p opendecision-bench -- score <workload.jsonl> \
   --tokenizer <digest-locked tokenizer.json> \
   --strategies repeated_full,nested_sequential,nested_batched,choose_strategy \
   --reps 1 --host "<host label>" --commit <hash> --output-dir bench-output
+
+# MLX engines (macOS arm64; requires the vendored mlx-c toolchain)
+SDKROOT=$(xcrun --show-sdk-path) cargo run --release -p opendecision-bench \
+  --features mlx -- score <workload.jsonl> \
+  --engine qwen35-mlx-fp32 \
+  --bundle-root <profile-bundle-dir> \
+  --checkpoint-root <pinned-or-community-checkpoint-dir> \
+  --tokenizer <digest-locked tokenizer.json> \
+  --reps 1 --host "<host label>" --commit <hash> --output-dir bench-output
 ```
 
 Every published number must carry `--host` and `--commit` attribution;
 summaries default to an "unattributed" host label that must be replaced before
 results are quoted anywhere.
+
+The `qwen35-mlx-fp32` and `qwen35-mlx-bf16` engines (behind the harness's
+`mlx` feature) run the identical request path as `qwen35` — render,
+state-first tokenization, scheduling, backbone execution, readout — with the
+backbone swapped through `Qwen35Backend`; summaries carry the distinct engine
+ids `qwen35-mlx-fp32` / `qwen35-mlx-bf16` and per-engine output slugs. MLX
+bench numbers are throughput evidence only: the frozen parity gates live in
+the parity examples, and the known BF16 continuation defect blocks BF16
+nested strategies (run BF16 with `--strategies repeated_full`). A community
+checkpoint can be passed as `--checkpoint-root` for throughput comparison,
+but its bench output is not a parity claim.
 
 ### Outputs
 
@@ -150,7 +170,45 @@ investigated before any numbers from that run are quoted.
 |---|---|---|
 | [`benchmarks/2026-09-20-mock-smoke/`](./benchmarks/2026-09-20-mock-smoke/) | mock | Complete — harness validation only; not performance evidence |
 | [`benchmarks/2026-09-20-qwen35-smoke/`](./benchmarks/2026-09-20-qwen35-smoke/) | qwen35-native-cpu | Complete — smoke-scale, single-sample cells; CPU parity does not imply Metal or accelerated parity |
+| [`benchmarks/2026-09-21-qwen35-mlx-smoke/`](./benchmarks/2026-09-21-qwen35-mlx-smoke/) | qwen35-mlx-fp32 (+ bf16 repeated_full probe) | Complete — first MLX bench dispatch; dirty-tree, single-sample cells; cross-strategy exact-answer flag false with bounded `1.68e-05` probability divergence, zero selection changes |
+| [`benchmarks/2026-09-21-qwen35-mlx-community-smoke/`](./benchmarks/2026-09-21-qwen35-mlx-community-smoke/) | qwen35-mlx-fp32 (community checkpoint) | Complete — throughput only; community export fails the frozen parity gates and its numbers carry no model-quality claim |
+| [`verification/phase3m-2026-09-21-dispatch-recheck.md`](./verification/phase3m-2026-09-21-dispatch-recheck.md) | qwen35-native-cpu vs qwen35-mlx-fp32 | Complete — same fixture and four strategies; fresh CPU, pinned-base MLX, and community MLX recheck |
 | [`verification/phase3m-2026-09-21-working-tree.md`](./verification/phase3m-2026-09-21-working-tree.md) | qwen35-mlx-fp32 | Complete parity probe — dirty-tree, load-inclusive timing, not an `opendecision-bench` throughput record |
+
+### Current MLX dispatch recheck
+
+This fresh working-tree comparison used the same 12-row, four-state smoke
+fixture, one timed repetition per strategy, warm-process timing, and the same
+named M4 Max host. CPU and pinned MLX use the same frozen base checkpoint, so
+that pair is the meaningful backend comparison. The community row uses the
+digest-locked `mlx-community/Qwen3.5-4B-MLX-bf16` adapter and is a separate
+model comparison. Model load is excluded from the totals and reported in the
+run summaries; load ranged from `17.69–17.92 s` for CPU, `22.08–22.93 s` for
+pinned MLX, and `21.71–21.98 s` for community MLX.
+
+| Backend / checkpoint | `repeated_full` | `nested_sequential` | `nested_batched` | `choose_strategy` | Peak RSS | Cross-strategy exact parity |
+|---|---:|---:|---:|---:|---:|---|
+| Candle CPU / pinned base | 119.22 s | 70.34 s | 71.41 s | 68.83 s | 10.08 GB | true |
+| MLX FP32 / pinned base | 29.42 s | 7.91 s | 7.92 s | 7.94 s | 11.66 GB | false |
+| MLX FP32 / community export | 29.57 s | 7.91 s | 7.89 s | 7.88 s | 11.92 GB | false |
+
+Relative to the CPU run, pinned MLX was `4.05x` faster for repeated-full,
+`8.89x` faster for nested-sequential, `9.02x` faster for nested-batched, and
+`8.67x` faster for the measured scheduler choice. The community export was
+within roughly `0.4%` of pinned MLX on these single-sample cells, so this does
+not show a meaningful speed difference between the two MLX weight sets.
+Pinned MLX versus CPU `choose_strategy` answers had maximum probability delta
+`1.7687e-05`, maximum scalar delta `1.8477e-05`, and zero Choice selection
+changes. The exact-answer flag is false because the benchmark compares full
+wire JSON values, not only selected options; this bounded numerical difference
+is separate from the frozen model-parity gate.
+
+The community `choose_strategy` answers differed from CPU on three Choice
+selections, with maximum probability delta `0.91194`. That is expected from
+the community artifact's different source model/conversion and is not evidence
+of an MLX kernel or dispatch regression. Its summary still reports the fitted
+head's pinned-base revision in `model_revision`; use the checkpoint identity in
+the community record and adapter state identity when interpreting that run.
 
 ### MLX parity timing boundary
 
