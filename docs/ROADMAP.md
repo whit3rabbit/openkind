@@ -10,7 +10,7 @@
 
 **Latest backbone workbench:** `OpenDecision_Phase3B_Qwen35_Backbone_Parity`, run `20260920T152206Z`, completed its Python/Qwen reference scope without training, model selection, model modification, or bundle change. The export contains 47 FP32 vectors: 34 trace stages, 10 full candidate features, and 3 continuation vectors. Fresh full-sequence features differ from the earlier bundle features by at most `4.9591e-05`. Cached continuation differs from fresh full sequence by at most `1.9073e-05`. These are localization diagnostics under the notebook's `1e-4` self-consistency guard, not a new Rust acceptance tolerance. [P3B]
 
-This file is the task/status authority; the companion [whitepaper](whitepaper/OpenDecision_Whitepaper_v0.8.0.md) is the evidence and interpretation authority. Neither updates the underlying repository or notebook by itself. Checkbox completion below is source-reported historical work or an explicitly stated saved-artifact result; open work remains unchecked. Execution completion, statistical quality, numerical equivalence and deployment readiness are separate gates.
+This file is the task/status authority; the companion [whitepaper](whitepaper/OpenDecision_Whitepaper_v0.8.1.md) is the evidence and interpretation authority. Neither updates the underlying repository or notebook by itself. Checkbox completion below is source-reported historical work or an explicitly stated saved-artifact result; open work remains unchecked. Execution completion, statistical quality, numerical equivalence and deployment readiness are separate gates.
 
 **Review capture (v0.5.2):** the historical `OpenDecision_Review_Followup_Traceability.md` review-to-work/test matrix maps the recovered architecture discussion and Laya/R4T follow-ups to the tasks below. ModernBERT-style joint-candidate scoring and a separate released-Laya baseline are explicit early comparisons; conditional **P2.1–P2.3** checkboxes are restored from the earlier roadmap. This is source-based documentation, not a claim of a complete shared-chat transcript or completed future experiments. [RC; WP §11.7]
 
@@ -301,7 +301,7 @@ The Phase 2D result is therefore: preserve two references, a numerical FP32 refe
 
 ### Phase 2E: selective precision, shared-prefix parity & rejection policy (MEASURED / DONE)
 
-Run `20260918T114914072764Z` completed on an NVIDIA L4 with fresh FP32 and BF16 workers. The [saved expanded-run summary](https://drive.google.com/file/d/1SxOG4VY4TlqK0e4eqBgZ_KwfDYjbXeFX/view) and [whitepaper discussion](whitepaper/OpenDecision_Whitepaper_v0.8.0.md#8-shared-prefix-execution-what-works-and-when) provide the source result and detailed interpretation. The historical review reconstructed 3,072 probability distributions, policy actions, parity counts and timing aggregates with agreement to the report; it did not rerun Qwen. That earlier saved-calculation audit is retained as historical evidence, not repeated by this v0.6 documentation update. [WP §§7–8; E5]
+Run `20260918T114914072764Z` completed on an NVIDIA L4 with fresh FP32 and BF16 workers. The [saved expanded-run summary](https://drive.google.com/file/d/1SxOG4VY4TlqK0e4eqBgZ_KwfDYjbXeFX/view) and [whitepaper discussion](whitepaper/OpenDecision_Whitepaper_v0.8.1.md#8-shared-prefix-execution-what-works-and-when) provide the source result and detailed interpretation. The historical review reconstructed 3,072 probability distributions, policy actions, parity counts and timing aggregates with agreement to the report; it did not rerun Qwen. That earlier saved-calculation audit is retained as historical evidence, not repeated by this v0.6 documentation update. [WP §§7–8; E5]
 
 - [x] **FP32 cached execution is the numerical reference.** Full-prompt
       batch-four, shared-prefix sequential suffixes, and shared-prefix
@@ -475,7 +475,7 @@ The evaluation introduced 416 fresh sampled-choice episodes across 112 messages 
 
 **Result authority:** continuation `20260919T040612625670Z__finish_2h_1_2`, version `2h.1.2`, saved around 14:45 UTC on 19 September 2026. **Both `eval_qwen4b_strict` and `eval_qwen4b_tf32` completed.** The original `20260919T040612625670Z` failed attempt is preserved unchanged; its fitted artifacts, selection, criteria and original reserved final data were validated and reused without retraining. Execution completion, numerical acceptance and model/deployment quality remain separate decisions. [H; HF]
 
-**Detailed evidence belongs in the [whitepaper §13.1](whitepaper/OpenDecision_Whitepaper_v0.8.0.md#131-phase-2h-completed-continuation-and-retained-development-history).** It retains the development tables, full final comparisons, conditional rejection, calibration/policies, TF32 and cache gates, robustness, primitive scores, complete-request timing, memory limitations and the audit scope. Original H development details are no longer duplicated here.
+**Detailed evidence belongs in the [whitepaper §13.1](whitepaper/OpenDecision_Whitepaper_v0.8.1.md#131-phase-2h-completed-continuation-and-retained-development-history).** It retains the development tables, full final comparisons, conditional rejection, calibration/policies, TF32 and cache gates, robustness, primitive scores, complete-request timing, memory limitations and the audit scope. Original H development details are no longer duplicated here.
 
 [Completed summary](https://drive.google.com/file/d/1rhO2B5ro3rQxEGJ3ZSt6JhflluV7-NPz/view) · [Compact summary](https://drive.google.com/file/d/1072Mee3vu6JFjMXADPBe-GWm_BhCbGGE/view) · [Continuation archive](https://drive.google.com/file/d/1kSnKjnOinF6fvyc-ZO9UF3rbfNT5eMCR/view) · [Recovery validation](https://drive.google.com/file/d/139rnY0E9EK6lIXrXDE0PhmSESZrPNiIu/view) · [Final lock](https://drive.google.com/file/d/15nnlgaO__RDAzVQOKh96LzF9XvIBWkeG/view).
 
@@ -592,7 +592,7 @@ The selection objective is **correct automated decisions per second subject to p
 
 ## Phase 2IJ workbench checkpoint (PREPARATION RECORDED / REVIEW GATED)
 
-**Recorded invocation:** `2ij_reviewed_multiquestion_v1`, workbench `2ij.1.0`, exported around 16:10 UTC on 19 September 2026. The overall **`blocked`** status is a review/protocol gate, not a training crash. Full technical evidence and the coverage audit live in [whitepaper §14](whitepaper/OpenDecision_Whitepaper_v0.8.0.md#14-phase-2i2j-workbench-preparation-mechanical-evidence-and-the-review-gate). [IJ]
+**Recorded invocation:** `2ij_reviewed_multiquestion_v1`, workbench `2ij.1.0`, exported around 16:10 UTC on 19 September 2026. The overall **`blocked`** status is a review/protocol gate, not a training crash. Full technical evidence and the coverage audit live in [whitepaper §14](whitepaper/OpenDecision_Whitepaper_v0.8.1.md#14-phase-2i2j-workbench-preparation-mechanical-evidence-and-the-review-gate). [IJ]
 
 | Recorded contribution | Status | Roadmap boundary |
 |---|---|---|
@@ -1006,7 +1006,14 @@ and optional, so the default workspace battery never requires the Metal
 toolchain. It is a **parity** backend, not yet an accelerated one: the
 recurrent layers run the per-token `ReferenceOps` path over ordinary array
 ops, and the fused Gated-DeltaNet Metal kernel is 3M.5 work. Candle CPU
-remains the correctness oracle. [RUSTM1]
+remains the correctness oracle. `Qwen35EngineConfig` selects the backend
+(`Qwen35Backend`: CPU, MLX FP32, MLX BF16) behind the same backend-neutral
+request path, and `opendecision-bench` dispatches the MLX engines behind its
+own `mlx` feature (`--engine qwen35-mlx-fp32` / `qwen35-mlx-bf16`); the
+first recorded MLX smoke sweep (shared-state strategies ≈ 8.4–8.9× the CPU
+cells on the named Mac, with bounded `1.68e-05` cross-strategy probability
+divergence and zero selection changes) lives in `docs/BENCHMARKS.md`.
+Daemon-side MLX alias registration stays 3M.7 work. [RUSTM1]
 
 - [x] **3M.0 — MLX-C runtime qualification.** Before any 4B-parameter run,
       constant-tensor primitive gates (fp32: gather, matmul, fast RMSNorm,
@@ -1234,7 +1241,7 @@ The commands are retained as project usage examples, not commands run during thi
 
 **R0 — Uploaded roadmap.** `ROADMAP(20260919-123538).md`. Authority for supplied code milestones and historical test counts, not independent current-repository verification. Its numerical tables in the 2A–2G history are retained unchanged. Corrections to the exploratory interpretation and current scope are explicitly recorded in the companion change log.
 
-**WP: Latest whitepaper lineage.** The current [whitepaper v0.8.0](whitepaper/OpenDecision_Whitepaper_v0.8.0.md) establishes the v0.8.0 provenance boundary ("Native CPU reference engine through adaptive scheduling"), consolidating Phases 3.1–3.8 (RUST1–RUST7) and retaining the delivered v0.6/v0.6.1/v0.7/v0.7.2 lineage. Older v0.3 and pre-H files surfaced in the conversation remain historical, not replacement bases. E1–E8 preserve earlier evidence, E9 the completed H continuation, and E10/I0 the blocked workbench and unsigned intake. The v0.4 refocus, 16-group review mapping and all prior results remain intact; B–H experiments were not rerun here.
+**WP: Latest whitepaper lineage.** The current [whitepaper v0.8.1](whitepaper/OpenDecision_Whitepaper_v0.8.1.md) establishes the v0.8.1 provenance boundary ("Native CPU reference engine through adaptive scheduling and Phase 4A natural-document benchmark"), consolidating Phases 3.1–3.8 (RUST1–RUST7) and retaining the delivered v0.6/v0.6.1/v0.7/v0.7.2/v0.8.0 lineage. Older v0.3 and pre-H files surfaced in the conversation remain historical, not replacement bases. E1–E8 preserve earlier evidence, E9 the completed H continuation, and E10/I0 the blocked workbench and unsigned intake. The v0.4 refocus, 16-group review mapping and all prior results remain intact; B–H experiments were not rerun here.
 
 **H — Saved Phase 2H attempt.** `Google Drive / Colab Notebooks / OpenDecision_Phase2H_results / 20260919T040612625670Z`. [Full summary](https://drive.google.com/file/d/1IT4cJN74vgOW0td7haE_bl2KfviHiaP1/view), [compact summary](https://drive.google.com/file/d/1525L3h-0hVKtgm50c_IAX1dCAKHNZNUe/view), [attempt archive](https://drive.google.com/file/d/1X8JP-8hhb3lu_PmMCWNLovMMdXPK6eDO/view), and [saved Colab notebook](https://colab.research.google.com/drive/1fhRJTek7Ura3aSdItwBjJTJubXUIee4a). The notebook and exported result snapshots, saved around 05:03–05:04 UTC on 19 September 2026, describe a partial attempt. No inaccessible live runtime or later unsaved continuation is inferred.
 

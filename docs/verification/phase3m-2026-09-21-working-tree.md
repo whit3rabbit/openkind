@@ -113,3 +113,74 @@ policy changes. This is evidence that the downloaded community export is a
 different source model and conversion, not merely a different file layout.
 The 4-bit and 8-bit community exports are quantized profiles and were not
 tested against this non-quantized adapter.
+
+## Addendum (same day): `opendecision-bench` MLX dispatch
+
+The benchmark harness now dispatches the MLX backends. This is working-tree
+evidence on top of the same dirty tree; nothing here changes the parity-gate
+status above.
+
+### Changes
+
+- `Qwen35EngineConfig` selects the execution backend through a new
+  `Qwen35Backend` enum (`NativeCpu`, `MlxFp32`, `MlxBf16`); the engine's
+  request pipeline is unchanged and the CPU default is byte-for-byte the
+  previous behavior (`backend_id` stays `qwen35-native-cpu`).
+- An MLX backbone re-derives the scheduler's continuation-state size
+  constants from the loaded model (BF16 states are half the FP32 bytes)
+  and clamps backend capabilities to per-lane forward.
+- `opendecision-bench` gains an `mlx` cargo feature (forwarding to
+  `opendecision-backends/mlx`) and `--engine qwen35-mlx-fp32` /
+  `qwen35-mlx-bf16` choices with distinct summary ids and output slugs.
+- The daemon stays CPU-only; engine-side selection is in-process only
+  (daemon alias registration remains 3M.7).
+
+### Defect found and fixed: cross-thread MLX evaluation
+
+The first bench run failed on the first request with
+`There is no Stream(gpu, 0) in current thread` raised at the executor
+boundary `eval`. Root cause: the engine evaluates on `spawn_blocking`
+threads, but MLX graphs record the stream of the thread that created them
+(mlx-c keeps per-thread stream/encoder registries), and load-time weight
+transforms — the conv-weight reshape — left unevaluated lazy graphs
+referencing the loading thread's stream. Worker threads cannot resolve that
+stream's encoder.
+
+Fix: weights now leave the loading thread fully materialized
+(`MlxDecoderLayer::materialize` evaluates every weight array inside the
+load-time `runtime.execute` closure; the final norm is evaluated too). This
+extends the module's existing boundary discipline — continuation state was
+already evaluated at executor boundaries — to weights. An offline regression
+test (`materialized_arrays_evaluate_on_worker_threads`) pins the discipline
+without a checkpoint. `MlxQwen35Backbone` also gained an `unsafe impl Sync`
+with the same soundness argument as `MlxBackboneState` (all evaluation under
+the process-wide execution mutex), which is what lets the engine share one
+loaded backbone across blocking-pool threads.
+
+### Results
+
+Recorded in [`docs/benchmarks/2026-09-21-qwen35-mlx-smoke/`](../benchmarks/2026-09-21-qwen35-mlx-smoke/)
+(pinned base) and
+[`docs/benchmarks/2026-09-21-qwen35-mlx-community-smoke/`](../benchmarks/2026-09-21-qwen35-mlx-community-smoke/)
+(community export): warm-process, untimed-warmup, single-sample-per-strategy
+smoke cells on the named Mac, directly comparable to the CPU smoke record.
+Headline: pinned-base FP32 shared-state strategies completed in ~8.3 s
+versus ~70–74 s on CPU for the same fixture. The harness's exact
+cross-strategy answer-equality flag is `false` for the MLX run: measured
+maximum probability delta `1.68e-05`, confidence delta `1.46e-05`, zero
+selection changes — the cached-versus-full numerical divergence already
+measured by the 3M.4 gate, far inside the frozen `0.005` tolerance, but not
+bit-identical as the CPU engine produces.
+
+### Verification
+
+- `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`
+  (default), and `SDKROOT=$(xcrun --show-sdk-path) cargo clippy
+  -p opendecision-backends -p opendecision-bench --features mlx --all-targets
+  -- -D warnings` pass.
+- `env -u RUST_LOG cargo test --workspace` (exit 0) and
+  `cargo test -p opendecision-backends --features mlx` (103 tests incl. the
+  new regression test) and `cargo test -p opendecision-bench --features mlx`
+  pass.
+- `cargo run -p opendecision-gen-schemas -- --write` produced no schema
+  changes (no wire types were touched); `git diff --check` is clean.
