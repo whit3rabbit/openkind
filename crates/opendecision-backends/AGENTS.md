@@ -68,6 +68,7 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
   - Validates profile `a047d6802c3f06f085b8`, bundle SHA-256, safetensors manifests, and numerical tolerances.
 - [`src/qwen35/engine/`](./src/qwen35/engine/): Direct Jev wire adapter for the native reference engine:
   - [`mod.rs`](./src/qwen35/engine/mod.rs): `Qwen35DecisionEngine` (implements `opendecision_engine::DecisionEngine`), `Qwen35EngineConfig`, semaphore admission, off-thread blocking spawn, and `SEMANTIC_NONE_OPTION = "__none__"`.
+  - [`backbone.rs`](./src/qwen35/engine/backbone.rs): Execution-backend selection. `Qwen35Backend` (`NativeCpu`, plus `MlxFp32`/`MlxBf16` behind `mlx`) picks the backbone behind the same backend-neutral executor contract; MLX loads re-derive the scheduler's state-size constants from the loaded model (BF16 states are half the FP32 bytes) and clamp capabilities to per-lane forward. BF16 loads run the runtime preflight and fail closed.
   - [`canonical.rs`](./src/qwen35/engine/canonical.rs): Structured wire state canonicalization (`state_text`) with byte-lexicographically sorted object keys at every nesting level.
   - [`eval.rs`](./src/qwen35/engine/eval.rs): Model evaluation pipeline (`evaluate_request`), scheduler decision logging, and engine error mapping.
   - [`mapping.rs`](./src/qwen35/engine/mapping.rs): Question criteria extraction, entropy-based confidence calculation, and distribution answer mapping.
@@ -187,3 +188,30 @@ cargo run -p opendecision-backends --features mlx --release \
 cargo run -p opendecision-backends --features mlx --release \
     --example qwen35_mlx_nested_parity -- --formal <paths...>
 ```
+
+### MLX benchmark dispatch
+
+For warm request throughput, use the benchmark harness rather than the parity
+examples. The harness dispatches `qwen35-mlx-fp32` through the same
+`Qwen35DecisionEngine` path as the CPU backend:
+
+```bash
+SDKROOT=$(xcrun --show-sdk-path) cargo run --release \
+  -p opendecision-bench --features mlx -- score <workload.jsonl> \
+  --engine qwen35-mlx-fp32 \
+  --bundle-root <profile-bundle-dir> \
+  --checkpoint-root <pinned-checkpoint-dir> \
+  --tokenizer <digest-locked-tokenizer.json> \
+  --strategies repeated_full,nested_sequential,nested_batched,choose_strategy \
+  --reps 1 --host "<host label>" --commit <hash> \
+  --output-dir <benchmark-output-dir>
+```
+
+The pinned comparison model is `Qwen/Qwen3.5-4B-Base` at revision
+`1001bb4d826a52d1f399e183466143f4da7b741b`. The MLX backend is built with the
+vendored MLX 0.32.2 toolchain. Use `qwen35-mlx-bf16` with
+`--strategies repeated_full` only, because nested BF16 continuation remains
+blocked. The community `mlx-community/Qwen3.5-4B-MLX-bf16` artifact is a
+separate model/conversion and is throughput evidence only. See
+[`docs/BENCHMARKS.md`](../../docs/BENCHMARKS.md) for recorded timings,
+speedups, and parity boundaries.

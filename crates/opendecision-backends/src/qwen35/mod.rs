@@ -29,7 +29,7 @@ pub use backbone::{
     StageComparison, StrategyDecision, StrategyEstimates, StrategyOutput, StrategyRequest,
     TraceStage,
 };
-pub use engine::{Qwen35DecisionEngine, Qwen35EngineConfig, SEMANTIC_NONE_OPTION};
+pub use engine::{Qwen35Backend, Qwen35DecisionEngine, Qwen35EngineConfig, SEMANTIC_NONE_OPTION};
 pub use evidence::{native_profile_record, BACKEND_IMPLEMENTATION};
 pub use head::{HeadEvaluation, PolicyAction, PrimitiveKind, ScoreSummaryHead, FEATURE_WIDTH};
 pub use identity::ExecutionIdentity;

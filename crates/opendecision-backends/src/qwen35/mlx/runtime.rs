@@ -5,16 +5,24 @@
 //! thread's stream registry (`mlx_stream_new_thread_unsafe` is the one
 //! cross-thread exception, whose synchronization burden falls on the caller;
 //! it is the designated 3M.5 refinement once benchmarks show encoder
-//! contention). This backend therefore uses one simple discipline today:
+//! contention). The registry does not migrate across threads: a lazy graph
+//! records the stream of the thread that created it, and another thread
+//! cannot resolve that stream's encoder ("There is no Stream(gpu, 0) in
+//! current thread"). This backend therefore uses one simple discipline:
 //!
 //! - every MLX operation — graph creation, evaluation, synchronization, and
 //!   state advancement — runs while holding the process-wide execution mutex,
-//!   on the calling thread's default GPU stream;
+//!   on the calling thread's default GPU stream (which mlx-c creates lazily
+//!   per thread on first use);
 //!
 //! - threads never touch MLX concurrently, so per-thread default streams
-//!   are mutually exclusive by construction, and arrays created on one
-//!   thread are evaluated on another only under the lock (their `(gpu, 0)`
-//!   registry entry exists on every thread that has run MLX work).
+//!   are mutually exclusive by construction, and arrays that cross a thread
+//!   boundary do so **fully materialized**: weights are evaluated on the
+//!   loading thread before the backbone is shared (see
+//!   `MlxDecoderLayer::materialize`), and continuation state is evaluated at
+//!   executor boundaries. Engine forwards may run on blocking-pool threads
+//!   that never loaded the model, so no unevaluated lazy graph may ever
+//!   cross a boundary.
 //!
 //! Continuation state produced through this runtime is fully materialized
 //! (evaluated) at executor boundaries; unevaluated lazy graphs never cross
