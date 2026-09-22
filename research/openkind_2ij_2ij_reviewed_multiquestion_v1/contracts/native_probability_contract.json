@@ -1,0 +1,19 @@
+{
+  "schema": "openkind-native-study-response/v1",
+  "not_jev_conformance": true,
+  "fields": {
+    "option_probabilities": "map of caller IDs to unconditional probabilities",
+    "none_probability": "separate mass for native Choice only, null for Noul/Score",
+    "selected_id": "caller option ID or null when native none wins",
+    "top_probability": "maximum probability, NOT vendor confidence",
+    "noul": "P(yes) only for registered binary tasks",
+    "score": "expectation under explicitly supplied numeric levels",
+    "engine_profile": "immutable experiment/model identity"
+  },
+  "rules": [
+    "Option IDs never enter model text; labels and criteria must be present.",
+    "No hidden renormalization or injected caller option.",
+    "No automatic authorization/irreversible action.",
+    "Unsupported primitives/shapes and overlength inputs are errors."
+  ]
+}

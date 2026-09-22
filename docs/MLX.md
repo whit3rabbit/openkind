@@ -57,9 +57,9 @@ Qwen35DecisionEngine
 ```
 
 The backend is an execution replacement, not a different decision model.
-[`engine/backbone.rs`](../crates/opendecision-backends/src/qwen35/engine/backbone.rs)
+[`engine/backbone.rs`](../crates/openkind-backends/src/qwen35/engine/backbone.rs)
 selects MLX behind the same backend-neutral executor contract used by Candle.
-[`model.rs`](../crates/opendecision-backends/src/qwen35/mlx/model.rs) owns load,
+[`model.rs`](../crates/openkind-backends/src/qwen35/mlx/model.rs) owns load,
 prefill, continuation, final normalization, and executor-boundary
 materialization.
 
@@ -73,7 +73,7 @@ MLX streams and lazy graphs are normally thread-sensitive. The engine can
 load on one thread and execute on a blocking-pool worker, so relying on each
 caller's default stream is unsafe.
 
-[`MlxRuntime`](../crates/opendecision-backends/src/qwen35/mlx/runtime.rs)
+[`MlxRuntime`](../crates/openkind-backends/src/qwen35/mlx/runtime.rs)
 therefore enforces one process-wide contract:
 
 1. Construct one GPU stream with `mlx_stream_new_thread_unsafe`.
@@ -100,7 +100,7 @@ repeatability.
 
 ## Checkpoint loading and memory
 
-[`weights/`](../crates/opendecision-backends/src/qwen35/mlx/weights/) verifies
+[`weights/`](../crates/openkind-backends/src/qwen35/mlx/weights/) verifies
 checkpoint configuration, tokenizer, index, shard length, and shard digests
 before execution. Multi-gigabyte shards remain in their read-only checkpoint
 directory and are read in place. They are never copied to temporary storage.
@@ -128,7 +128,7 @@ saturating arithmetic and must retain a separately measured process envelope.
 
 ## Continuation and batching
 
-[`branch_state.rs`](../crates/opendecision-backends/src/qwen35/mlx/branch_state.rs)
+[`branch_state.rs`](../crates/openkind-backends/src/qwen35/mlx/branch_state.rs)
 implements `BranchableState` and `BranchBatch`. A root state can be forked,
 selected, and gathered without mutating the original. Strict fingerprints and
 tests cover root immutability and sibling isolation.
@@ -155,7 +155,7 @@ differential comparator for any fused kernel.
 
 ### `MetalTree`
 
-[`gated_delta_kernel.rs`](../crates/opendecision-backends/src/qwen35/mlx/layers/gated_delta_kernel.rs)
+[`gated_delta_kernel.rs`](../crates/openkind-backends/src/qwen35/mlx/layers/gated_delta_kernel.rs)
 contains independently derived custom Metal kernels:
 
 - generic FP32 and BF16 scalar-gate recurrence;
@@ -258,24 +258,24 @@ are localization diagnostics, not replacement acceptance tolerances.
 ```bash
 export SDKROOT=$(xcrun --show-sdk-path)
 
-cargo check -p opendecision-backends --features mlx --all-targets
-cargo clippy -p opendecision-backends --features mlx --all-targets -- -D warnings
-cargo test -p opendecision-backends --features mlx
+cargo check -p openkind-backends --features mlx --all-targets
+cargo clippy -p openkind-backends --features mlx --all-targets -- -D warnings
+cargo test -p openkind-backends --features mlx
 
-cargo clippy -p opendecision-bench --features mlx --all-targets -- -D warnings
-cargo test -p opendecision-bench --features mlx
+cargo clippy -p openkind-bench --features mlx --all-targets -- -D warnings
+cargo test -p openkind-bench --features mlx
 ```
 
 Runtime and model gates:
 
 ```bash
-cargo run --release -p opendecision-backends --features mlx \
+cargo run --release -p openkind-backends --features mlx \
   --example qwen35_mlx_qualify -- --formal
 
-cargo run --release -p opendecision-backends --features mlx \
+cargo run --release -p openkind-backends --features mlx \
   --example qwen35_mlx_full_parity -- --stage full --formal <paths...>
 
-cargo run --release -p opendecision-backends --features mlx \
+cargo run --release -p openkind-backends --features mlx \
   --example qwen35_mlx_nested_parity -- --formal <paths...>
 ```
 

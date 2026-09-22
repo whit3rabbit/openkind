@@ -27,14 +27,14 @@ EOF
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [[ -z "${repo_root}" ]]; then
-  echo "error: run inside the opendecision Git repository" >&2
+  echo "error: run inside the openkind Git repository" >&2
   exit 2
 fi
 cd "${repo_root}"
 
 checkpoint_root=""
-reference_root="research/OpenDecision_Phase3B_BackboneParity_20260920T152206Z"
-head_bundle_root="crates/opendecision-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8"
+reference_root="research/OpenKind_Phase3B_BackboneParity_20260920T152206Z"
+head_bundle_root="crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8"
 output_dir=""
 scheduler_reps=""
 offline_only=0
@@ -152,43 +152,43 @@ run_gate cargo-test-all-features-list env -u RUST_LOG cargo test --workspace --a
 all_features_test_count="$(count_tests "${output_dir}/cargo-test-all-features-list.log")"
 echo "all_features_test_count=${all_features_test_count}" >> "${output_dir}/manifest.env"
 
-run_gate schema-regeneration cargo run -p opendecision-gen-schemas -- --write
-if ! git diff --quiet -- crates/opendecision-core/schemas; then
+run_gate schema-regeneration cargo run -p openkind-gen-schemas -- --write
+if ! git diff --quiet -- crates/openkind-core/schemas; then
   echo "error: schema regeneration changed committed schema files" >&2
-  git diff -- crates/opendecision-core/schemas >&2
+  git diff -- crates/openkind-core/schemas >&2
   exit 1
 fi
-if [[ -n "$(git status --porcelain -- crates/opendecision-core/schemas)" ]]; then
+if [[ -n "$(git status --porcelain -- crates/openkind-core/schemas)" ]]; then
   echo "error: schema regeneration created untracked schema files" >&2
-  git status --short -- crates/opendecision-core/schemas >&2
+  git status --short -- crates/openkind-core/schemas >&2
   exit 1
 fi
 echo "schema_zero_diff=true" >> "${output_dir}/manifest.env"
 
-run_gate scheduler-stress cargo run -p opendecision-backends --example qwen35_scheduler_stress
+run_gate scheduler-stress cargo run -p openkind-backends --example qwen35_scheduler_stress
 
 if [[ "${offline_only}" -eq 0 ]]; then
   run_gate checkpoint-digests shasum -a 256 \
     "${checkpoint_root}/model.safetensors-00001-of-00002.safetensors" \
     "${checkpoint_root}/model.safetensors-00002-of-00002.safetensors"
-  run_gate qwen35-full-parity cargo run --release -p opendecision-backends \
+  run_gate qwen35-full-parity cargo run --release -p openkind-backends \
     --example qwen35_full_parity -- \
     "${checkpoint_root}" "${reference_root}" "${head_bundle_root}"
-  run_gate qwen35-branch-parity cargo run --release -p opendecision-backends \
+  run_gate qwen35-branch-parity cargo run --release -p openkind-backends \
     --example qwen35_parity_probe -- \
     "${checkpoint_root}" "${reference_root}" branch
-  run_gate qwen35-nested-parity cargo run --release -p opendecision-backends \
+  run_gate qwen35-nested-parity cargo run --release -p openkind-backends \
     --example qwen35_nested_parity -- \
     "${checkpoint_root}" "${reference_root}" "${head_bundle_root}"
-  run_gate qwen35-batched-parity cargo run --release -p opendecision-backends \
+  run_gate qwen35-batched-parity cargo run --release -p openkind-backends \
     --example qwen35_batched_parity -- \
     "${checkpoint_root}" "${reference_root}" "${head_bundle_root}"
   if [[ -n "${scheduler_reps}" ]]; then
-    run_gate qwen35-scheduler-benchmark cargo run --release -p opendecision-backends \
+    run_gate qwen35-scheduler-benchmark cargo run --release -p openkind-backends \
       --example qwen35_scheduler_bench -- \
       "${checkpoint_root}" "${reference_root}" "${scheduler_reps}"
   else
-    run_gate qwen35-scheduler-benchmark cargo run --release -p opendecision-backends \
+    run_gate qwen35-scheduler-benchmark cargo run --release -p openkind-backends \
       --example qwen35_scheduler_bench -- \
       "${checkpoint_root}" "${reference_root}"
   fi

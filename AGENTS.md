@@ -1,12 +1,12 @@
 # AGENTS.md
 
-> Repository map and architectural rules for agents working on `opendecision`.
+> Repository map and architectural rules for agents working on `openkind`.
 >
 > Documentation baseline: v0.8.0, 20 September 2026.
 
 ## Project
 
-`opendecision` is an independent Rust decision-inference engine that speaks the
+`openkind` is an independent Rust decision-inference engine that speaks the
 Jev protocol. It returns typed `Noul`, `Choice`, and `Score` answers without an
 autoregressive text-generation loop.
 
@@ -22,7 +22,7 @@ selected open-weight Qwen 3.5 profile described below.
 - [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md): benchmark methodology, harness usage, and recorded runs.
 - [`docs/MLX.md`](docs/MLX.md): MLX runtime contract, implementation guide, limitations, and enhancement path.
 - [`docs/RESEARCH.md`](docs/RESEARCH.md): empirical research and prior-art evidence.
-- [`docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md`](docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md): scientific rationale and measured results.
+- [`docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md`](docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md): scientific rationale and measured results.
 - Each crate's `AGENTS.md`: module-specific invariants and verification commands.
 
 If documentation and code disagree, do not silently choose one. Use executable
@@ -40,7 +40,7 @@ Profile `a047d6802c3f06f085b8` is the native integration target:
 - **Readout**: Score-summary rejection head with normalization, projection, rejection,
   temperature calibration (`1.8186799910442777`), policy threshold (`0.98`), and stable softmax.
 - **Continuation State**: Backend-neutral `BranchableState` / `BranchBatch` abstractions
-  (defined in `opendecision-runtime`) capturing attention KV, DeltaNet recurrent state,
+  (defined in `openkind-runtime`) capturing attention KV, DeltaNet recurrent state,
   and convolution state together with exact tensor-payload accounting and typed scheduling/content fingerprints.
 - **Execution Strategies**:
   - `repeated_full`: Evaluates every complete candidate sequence independently.
@@ -48,15 +48,15 @@ Profile `a047d6802c3f06f085b8` is the native integration target:
   - `nested_batched`: Prefills immutable root state once, then fans out question lanes (`fork_batch`) and candidate lanes. This is state topology; it is compute-batched only when the backend advertises vectorized forward.
   - `choose_strategy`: Capability-aware scheduler using the lowest measured ratio (`2.52`), tensor/process memory ceilings, and lane limits. The current CPU default is `nested_sequential`.
   - Every decision records the selected plan and its physical `BatchForwardMode` (`per_lane` vs `vectorized`); the same plan name can execute with different physical graphs on different backends.
-  - `--qwen35-execution` on `opendecisiond` forces one plan for diagnostics and reproducibility. It bypasses the profitability policy only — admission ceilings and real backend capabilities still apply.
+  - `--qwen35-execution` on `openkindd` forces one plan for diagnostics and reproducibility. It bypasses the profitability policy only — admission ceilings and real backend capabilities still apply.
 - **Daemon Registration**: `Qwen35DecisionEngine` integrates directly behind `DecisionEngine`
-  and is registered by `opendecisiond` via `--qwen35-*` CLI flags and environment variables.
+  and is registered by `openkindd` via `--qwen35-*` CLI flags and environment variables.
 - **Execution Identity**: Finalized token sequences are the execution contract. Role-typed digests
   (`StateTokenDigest`, `QuestionTokenDigest`, `CandidateTokenDigest`, an order-sensitive
-  `ExecutionInputDigest`, and an order-independent `SemanticSetDigest`) live in `opendecision-runtime`
+  `ExecutionInputDigest`, and an order-independent `SemanticSetDigest`) live in `openkind-runtime`
   and are reserved for explicitly requested offline evidence artifacts (raw digests of low-entropy inputs must stay out of daemon logs).
-- **Native-Run Evidence**: Harness evidence uses the backend-neutral `opendecision-native-run/v1`
-  schema (`opendecision-runtime::evidence`): sanitized invocation (never raw argv), environment,
+- **Native-Run Evidence**: Harness evidence uses the backend-neutral `openkind-native-run/v1`
+  schema (`openkind-runtime::evidence`): sanitized invocation (never raw argv), environment,
   profile/backend/execution identity, parity/performance/memory reports, and per-file checksums.
 - **Native Semantic None**: Choice questions handle semantic-none mass explicitly via
   the reserved criteria key `__none__` (`SEMANTIC_NONE_OPTION`). The profile declares this explicitly
@@ -77,16 +77,16 @@ high-K, fresh-process replay, and queue-inclusive load/soak remain open.
 
 | Area | Briefing |
 |---|---|
-| Jev types and validation | [`crates/opendecision-core/AGENTS.md`](crates/opendecision-core/AGENTS.md) |
-| Engine traits and profiles | [`crates/opendecision-engine/AGENTS.md`](crates/opendecision-engine/AGENTS.md) |
-| HTTP and gRPC API | [`crates/opendecision-api/AGENTS.md`](crates/opendecision-api/AGENTS.md) |
-| Daemon lifecycle | [`crates/opendecision-server/AGENTS.md`](crates/opendecision-server/AGENTS.md) |
-| Operator CLI | [`crates/opendecision-cli/AGENTS.md`](crates/opendecision-cli/AGENTS.md) |
-| Rust client SDK | [`crates/opendecision-client/AGENTS.md`](crates/opendecision-client/AGENTS.md) |
-| Hardware and state lifecycle | [`crates/opendecision-runtime/AGENTS.md`](crates/opendecision-runtime/AGENTS.md) |
-| Model artifacts and readouts | [`crates/opendecision-backends/AGENTS.md`](crates/opendecision-backends/AGENTS.md) |
-| Scoring/timing benchmark harness | [`crates/opendecision-bench/AGENTS.md`](crates/opendecision-bench/AGENTS.md) |
-| JSON Schema generation | [`crates/opendecision-gen-schemas/AGENTS.md`](crates/opendecision-gen-schemas/AGENTS.md) |
+| Jev types and validation | [`crates/openkind-core/AGENTS.md`](crates/openkind-core/AGENTS.md) |
+| Engine traits and profiles | [`crates/openkind-engine/AGENTS.md`](crates/openkind-engine/AGENTS.md) |
+| HTTP and gRPC API | [`crates/openkind-api/AGENTS.md`](crates/openkind-api/AGENTS.md) |
+| Daemon lifecycle | [`crates/openkind-server/AGENTS.md`](crates/openkind-server/AGENTS.md) |
+| Operator CLI | [`crates/openkind-cli/AGENTS.md`](crates/openkind-cli/AGENTS.md) |
+| Rust client SDK | [`crates/openkind-client/AGENTS.md`](crates/openkind-client/AGENTS.md) |
+| Hardware and state lifecycle | [`crates/openkind-runtime/AGENTS.md`](crates/openkind-runtime/AGENTS.md) |
+| Model artifacts and readouts | [`crates/openkind-backends/AGENTS.md`](crates/openkind-backends/AGENTS.md) |
+| Scoring/timing benchmark harness | [`crates/openkind-bench/AGENTS.md`](crates/openkind-bench/AGENTS.md) |
+| JSON Schema generation | [`crates/openkind-gen-schemas/AGENTS.md`](crates/openkind-gen-schemas/AGENTS.md) |
 | Protobuf contract | [`proto/AGENTS.md`](proto/AGENTS.md) |
 | Project documentation | [`docs/AGENTS.md`](docs/AGENTS.md) |
 
@@ -99,7 +99,7 @@ high-K, fresh-process replay, and queue-inclusive load/soak remain open.
    In Qwen 3.5, attention KV alone does NOT isolate branches. The model contains both attention KV,
    DeltaNet recurrent state, and convolution state. Branching or cloning state must isolate all three tensor families.
 3. **Non-Autoregressive Invariant**:
-   `opendecision` is a decision engine, not a generative chatbot. Host code computes candidate logits
+   `openkind` is a decision engine, not a generative chatbot. Host code computes candidate logits
    and serializes structured JSON responses directly. Never introduce token-by-token text generation loops.
 4. **Offline Reproducibility**:
    Tests and builds must never download model assets from Hugging Face or the internet. All parity
@@ -125,7 +125,7 @@ high-K, fresh-process replay, and queue-inclusive load/soak remain open.
 1. Use relative repository paths in committed documentation, comments, and links.
 2. Preserve Jev wire compatibility. Wire floating-point values remain `f64` or
    Protobuf `double`. `NoulAnswer` has no confidence field.
-3. Regenerate schemas after changing core wire types (`cargo run -p opendecision-gen-schemas -- --write`).
+3. Regenerate schemas after changing core wire types (`cargo run -p openkind-gen-schemas -- --write`).
    Do not hand-edit generated JSON Schema files.
 4. Qwen branch state includes attention KV, DeltaNet recurrent state, and
    convolution state. Attention masks or KV-only cloning do not isolate branches.
@@ -146,7 +146,7 @@ Run the project-specific battery before submitting changes:
 cargo fmt --check
 cargo clippy --workspace --all-targets -- -D warnings
 env -u RUST_LOG cargo test --workspace
-cargo run -p opendecision-gen-schemas -- --write
+cargo run -p openkind-gen-schemas -- --write
 git diff --check
 ```
 
@@ -154,13 +154,13 @@ After schema generation, confirm that unrelated schema files did not change.
 
 Optional MLX parity backend (macOS arm64 only): build with
 `SDKROOT=$(xcrun --show-sdk-path)` and `--features mlx` for
-`opendecision-backends`. Clippy and tests should also be run in that
+`openkind-backends`. Clippy and tests should also be run in that
 configuration on the Mac. The mlx-sys build compiles the vendored, pinned
 mlx-c (MLX 0.32.2) and needs CMake plus the Metal toolchain
 (`xcodebuild -downloadComponent MetalToolchain` if missing). Rebuilding
 mlx-c under a different Xcode/Metal toolchain changes the runtime identity:
 re-run the 3M.0 qualification gate before trusting any MLX parity result.
-For warm throughput comparisons, use `opendecision-bench` with
+For warm throughput comparisons, use `openkind-bench` with
 `--features mlx` and `--engine qwen35-mlx-fp32` or `qwen35-mlx-bf16`; the
 command, pinned `Qwen/Qwen3.5-4B-Base` model revision, and current results are
 recorded in [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md). BF16 benchmark runs

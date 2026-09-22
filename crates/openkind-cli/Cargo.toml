@@ -1,0 +1,22 @@
+[package]
+name = "openkind-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Phase 1: `openkind` command-line tool — serve, evaluate, inspect, version."
+
+[dependencies]
+openkind-core = { workspace = true }
+openkind-engine = { workspace = true }
+clap = { workspace = true }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "fs"] }
+tracing = { workspace = true }
+
+[[bin]]
+name = "openkind"
+path = "src/main.rs"

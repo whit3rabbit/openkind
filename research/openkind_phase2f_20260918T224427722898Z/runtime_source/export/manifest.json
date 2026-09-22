@@ -1,0 +1,75 @@
+{
+  "format": "openkind-frozen-scorer-none-head/v1",
+  "model_id": "Qwen/Qwen3.5-4B-Base",
+  "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+  "source_archive_sha256": "2952c2fcca6638c0cc1d1e1060a567b849e46424eb2d16a078d1945233bffb63",
+  "candidate_head_sha256": "598b8a3f57362d2e6772d6775b9583dacf9658bf7052b0e76f7dabef0a7e68b9",
+  "candidate_contract": {
+    "format": "openkind-independent-candidate-scorer/v1",
+    "model_id": "Qwen/Qwen3.5-4B-Base",
+    "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+    "hidden_size": 2560,
+    "scorer": "shared affine scalar on standardized candidate-conditioned final token",
+    "none": "learned global scalar logit; appended to every candidate distribution",
+    "selected_temperature": 1.074912503716196,
+    "candidate_ids_in_model_input": false,
+    "prompt_segments": {
+      "prefix": "Evaluate how well the candidate intent matches the message.\nInstruction:\n",
+      "state_prefix": "\nMessage:\n",
+      "candidate_prefix": "\nCandidate intent:\n",
+      "tail": "\nMatch assessment:"
+    },
+    "default_instruction": "Select the banking support intent that best describes the customer's message.",
+    "max_length": 256,
+    "state_reencoded_per_candidate": true,
+    "shared_prefix_cache": false,
+    "base_weights_included": false,
+    "ordinal_score_supported": false,
+    "jev_http_compatibility_tested": false,
+    "parity_scope": "head tensors/normalization/masking/none logit; not Rust backbone parity"
+  },
+  "selected_none_head": "set_linear",
+  "none_model": {
+    "kind": "set_linear",
+    "coef": [
+      2.581737860535158,
+      0.08713083479832107,
+      -0.38775227598695,
+      -0.037805183328526594,
+      -1.0232565947309917,
+      1.6205726902392634,
+      0.6983326876442784
+    ],
+    "feature_mean": [
+      3.5821185398772357,
+      3.109599673047662,
+      -0.05570779301924631,
+      1.8980408568266272,
+      2.1562500961166235,
+      1.7938649032891247
+    ],
+    "feature_std": [
+      3.2666549384665893,
+      2.804942342491134,
+      1.7353789671335738,
+      1.136408185779281,
+      2.9424770104992555,
+      0.7675665385067751
+    ]
+  },
+  "none_feature_names": [
+    "max_score",
+    "top_two_gap",
+    "mean_score",
+    "std_score",
+    "logmeanexp",
+    "log_K"
+  ],
+  "feature_definition": "max, max-second_max, arithmetic mean, population std(ddof=0), logsumexp(s)-log(K), natural log(K); evaluated in float64",
+  "temperature": 1.0,
+  "probability_arithmetic": "float64 log-softmax after appending none logit; temperature applies to all K+1 logits",
+  "fit_absent_prior_assumption": 0.25,
+  "base_weights_included": false,
+  "batch_invariant": false,
+  "scope": "Python none/scoring export; Rust/Metal and Jev HTTP untested; no shared prefill"
+}

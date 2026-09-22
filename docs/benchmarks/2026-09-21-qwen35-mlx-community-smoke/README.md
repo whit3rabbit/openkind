@@ -1,6 +1,6 @@
 # 2026-09-21 — qwen35-MLX community-checkpoint smoke sweep
 
-First `opendecision-bench` run against the MLX-community export:
+First `openkind-bench` run against the MLX-community export:
 `mlx-community/Qwen3.5-4B-MLX-bf16`, Hub revision
 `475632ded9a95863da4e4b235ab9ccbc5d3cc6bf`, loaded through the digest-locked
 community adapter (checkpoint identity `mlx-community-qwen35-4b-bf16`).
@@ -11,7 +11,7 @@ pinned `Qwen3.5-4B-Base`): it already fails the frozen Phase 3B parity gates
 working-tree verification note). Nothing in this record is a parity or
 model-quality claim.
 
-- Schema: `opendecision-bench/v1` (`summary-qwen35-mlx-fp32.json`)
+- Schema: `openkind-bench/v1` (`summary-qwen35-mlx-fp32.json`)
 - Engine: `qwen35-mlx-fp32` (`mlx-core-0.32.2/fp32/reference-ops`),
   bundle version `2ij.2.0`
 - **Checkpoint caveat**: the summary's `model_revision` field
@@ -19,7 +19,7 @@ model-quality claim.
   manifest and describes the fitted head's base, **not** the community
   checkpoint this run actually loaded. The checkpoint identity is carried by
   this README and the adapter's state identity, not by that summary field.
-- Fixture: `crates/opendecision-bench/fixtures/decisions_smoke.jsonl`,
+- Fixture: `crates/openkind-bench/fixtures/decisions_smoke.jsonl`,
   SHA-256 `3a673e843690b942658b4c9de6cc594770185756098d356e78dcd3efd5cffeeb`,
   12 rows grouped per state (4 groups)
 - Host: Mac16,5 Apple M4 Max 36 GiB (named Mac), warm process, untimed warmup

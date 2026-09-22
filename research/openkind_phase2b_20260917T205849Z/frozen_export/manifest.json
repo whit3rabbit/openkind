@@ -1,0 +1,94 @@
+{
+  "format": "openkind-fixed-nli-probe/v1",
+  "model_id": "Qwen/Qwen3.5-4B-Base",
+  "model_commit": "1001bb4d826a52d1f399e183466143f4da7b741b",
+  "text_backbone_class": "Qwen3_5TextModel",
+  "hidden_size": 2560,
+  "head": {
+    "key": "last_linear_seed17",
+    "pooling": "last",
+    "head_architecture": "linear",
+    "seed": 17,
+    "parameters": 7683,
+    "selection_dev_nll": 0.3458625501844342,
+    "epochs_run": 8,
+    "train_seconds": 1.0567715779998252,
+    "history": [
+      {
+        "epoch": 1,
+        "train_nll": 0.4807293184598287,
+        "dev_nll": 0.39845477325488593,
+        "dev_accuracy": 0.83
+      },
+      {
+        "epoch": 2,
+        "train_nll": 0.3905786863962809,
+        "dev_nll": 0.3898246349402947,
+        "dev_accuracy": 0.8533333333333334
+      },
+      {
+        "epoch": 3,
+        "train_nll": 0.35003884315490724,
+        "dev_nll": 0.3592971597684734,
+        "dev_accuracy": 0.8733333333333333
+      },
+      {
+        "epoch": 4,
+        "train_nll": 0.32074843764305117,
+        "dev_nll": 0.3458625501844342,
+        "dev_accuracy": 0.8733333333333333
+      },
+      {
+        "epoch": 5,
+        "train_nll": 0.30147767583529156,
+        "dev_nll": 0.3562821197846197,
+        "dev_accuracy": 0.8833333333333333
+      },
+      {
+        "epoch": 6,
+        "train_nll": 0.28549691557884216,
+        "dev_nll": 0.3576948004689977,
+        "dev_accuracy": 0.8733333333333333
+      },
+      {
+        "epoch": 7,
+        "train_nll": 0.27286784331003827,
+        "dev_nll": 0.3574404448806973,
+        "dev_accuracy": 0.88
+      },
+      {
+        "epoch": 8,
+        "train_nll": 0.2579732954502106,
+        "dev_nll": 0.35105457089450104,
+        "dev_accuracy": 0.88
+      }
+    ]
+  },
+  "label_order": [
+    "entailment",
+    "neutral",
+    "contradiction"
+  ],
+  "temperature": 1.1441454179902166,
+  "dtype": "torch.bfloat16",
+  "activation_cache_dtype": "float16",
+  "pad_token_id": 248044,
+  "padding_side": "right",
+  "pooling": "last",
+  "prompt_version": "nli-described-abc-v1",
+  "prompt_segments": {
+    "prefix": "Decide the relationship between the premise and hypothesis.\nPremise:\n",
+    "hypothesis_prefix": "\nHypothesis:\n",
+    "tail": "\nChoices:\nA: entailment. The premise makes the hypothesis true.\nB: neutral. The premise does not establish whether the hypothesis is true or false.\nC: contradiction. The premise makes the hypothesis false.\nReturn the choice code.\nAnswer:"
+  },
+  "tokenization": "Tokenize each segment separately without special tokens, concatenate; follow encode_record for truncation.",
+  "max_length": 256,
+  "head_input": "final text hidden states; masks exclude padding",
+  "head_output": "three logits in label_order; probability = softmax(logits / temperature)",
+  "normalization": "FixedHead contains train-only feature_mean/std buffers. MLP also has LayerNorm; GELU is exact.",
+  "backbone_weights_included": false,
+  "lora": false,
+  "jev_dynamic_choices_implemented": false,
+  "shared_state_cache_implemented": false,
+  "parity_scope": "head.safetensors + golden_head_inputs.npz test the head only; not a Rust Qwen implementation"
+}

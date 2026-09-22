@@ -1,0 +1,24 @@
+{
+  "format": "openkind-independent-candidate-scorer/v1",
+  "model_id": "Qwen/Qwen3.5-4B-Base",
+  "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+  "hidden_size": 2560,
+  "scorer": "shared affine scalar on standardized candidate-conditioned final token",
+  "none": "learned global scalar logit; appended to every candidate distribution",
+  "selected_temperature": 1.074912503716196,
+  "candidate_ids_in_model_input": false,
+  "prompt_segments": {
+    "prefix": "Evaluate how well the candidate intent matches the message.\nInstruction:\n",
+    "state_prefix": "\nMessage:\n",
+    "candidate_prefix": "\nCandidate intent:\n",
+    "tail": "\nMatch assessment:"
+  },
+  "default_instruction": "Select the banking support intent that best describes the customer's message.",
+  "max_length": 256,
+  "state_reencoded_per_candidate": true,
+  "shared_prefix_cache": false,
+  "base_weights_included": false,
+  "ordinal_score_supported": false,
+  "jev_http_compatibility_tested": false,
+  "parity_scope": "head tensors/normalization/masking/none logit; not Rust backbone parity"
+}

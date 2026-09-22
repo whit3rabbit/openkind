@@ -1,0 +1,159 @@
+{
+  "format": "openkind-research-reference/v2e",
+  "model": {
+    "id": "Qwen/Qwen3.5-4B-Base",
+    "revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+    "class": "Qwen3_5TextModel",
+    "hidden_size": 2560,
+    "parameters": 4205751296,
+    "trainable_parameters": 0,
+    "implementation_sha256": "762feb6c7426a7f15b5bf830df54c07438bf9e7c27b8cdb23179045920412c3b",
+    "layer_types": [
+      "linear_attention",
+      "linear_attention",
+      "linear_attention",
+      "full_attention",
+      "linear_attention",
+      "linear_attention",
+      "linear_attention",
+      "full_attention",
+      "linear_attention",
+      "linear_attention",
+      "linear_attention",
+      "full_attention",
+      "linear_attention",
+      "linear_attention",
+      "linear_attention",
+      "full_attention",
+      "linear_attention",
+      "linear_attention",
+      "linear_attention",
+      "full_attention",
+      "linear_attention",
+      "linear_attention",
+      "linear_attention",
+      "full_attention",
+      "linear_attention",
+      "linear_attention",
+      "linear_attention",
+      "full_attention",
+      "linear_attention",
+      "linear_attention",
+      "linear_attention",
+      "full_attention"
+    ],
+    "generation": false,
+    "vision": false
+  },
+  "source": {
+    "source_c_sha256": "2952c2fcca6638c0cc1d1e1060a567b849e46424eb2d16a078d1945233bffb63",
+    "source_d_sha256": "88a40170bd7b6a44bc41439c14163c5f0f816121201dd4106a2ffa7c51df3050",
+    "source_c_run": "20260917T222948Z",
+    "source_d_run": "20260917T234417Z",
+    "head_fixture_parity": {
+      "nli_max_abs_logit_difference": 0.0,
+      "candidate_max_abs_logit_difference": 0.0,
+      "scope": "CPU head fixture parity only, not GPU backbone parity",
+      "frozen": true
+    },
+    "none_fixtures_passed": 8,
+    "heads_frozen": true,
+    "source_paths_read_only": true
+  },
+  "original_none_manifest": "manifest.json",
+  "policy_selections": [
+    {
+      "absent_prior_assumption": 0.05,
+      "wrong_answer_cost": 1.0,
+      "review_cost": 0.1,
+      "none_head": "frozen_global",
+      "acceptance_threshold": 0.9400000000000001,
+      "dev_expected_cost": 0.05403320312500001,
+      "selected_on": "fresh development messages; test outcomes never used"
+    },
+    {
+      "absent_prior_assumption": 0.05,
+      "wrong_answer_cost": 5.0,
+      "review_cost": 0.1,
+      "none_head": "set_linear",
+      "acceptance_threshold": 0.98,
+      "dev_expected_cost": 0.06875976562500001,
+      "selected_on": "fresh development messages; test outcomes never used"
+    },
+    {
+      "absent_prior_assumption": 0.05,
+      "wrong_answer_cost": 20.0,
+      "review_cost": 0.1,
+      "none_head": "set_linear",
+      "acceptance_threshold": 0.98,
+      "dev_expected_cost": 0.080478515625,
+      "selected_on": "fresh development messages; test outcomes never used"
+    },
+    {
+      "absent_prior_assumption": 0.25,
+      "wrong_answer_cost": 1.0,
+      "review_cost": 0.1,
+      "none_head": "refit_global",
+      "acceptance_threshold": 0.9500000000000001,
+      "dev_expected_cost": 0.07143554687499999,
+      "selected_on": "fresh development messages; test outcomes never used"
+    },
+    {
+      "absent_prior_assumption": 0.25,
+      "wrong_answer_cost": 5.0,
+      "review_cost": 0.1,
+      "none_head": "refit_global",
+      "acceptance_threshold": 0.99,
+      "dev_expected_cost": 0.09072265624999999,
+      "selected_on": "fresh development messages; test outcomes never used"
+    },
+    {
+      "absent_prior_assumption": 0.25,
+      "wrong_answer_cost": 20.0,
+      "review_cost": 0.1,
+      "none_head": "frozen_global",
+      "acceptance_threshold": 1.0,
+      "dev_expected_cost": 0.10000000000000002,
+      "selected_on": "fresh development messages; test outcomes never used"
+    },
+    {
+      "absent_prior_assumption": 0.5,
+      "wrong_answer_cost": 1.0,
+      "review_cost": 0.1,
+      "none_head": "set_linear",
+      "acceptance_threshold": 0.98,
+      "dev_expected_cost": 0.08857421875000002,
+      "selected_on": "fresh development messages; test outcomes never used"
+    },
+    {
+      "absent_prior_assumption": 0.5,
+      "wrong_answer_cost": 5.0,
+      "review_cost": 0.1,
+      "none_head": "frozen_global",
+      "acceptance_threshold": 1.0,
+      "dev_expected_cost": 0.10000000000000005,
+      "selected_on": "fresh development messages; test outcomes never used"
+    },
+    {
+      "absent_prior_assumption": 0.5,
+      "wrong_answer_cost": 20.0,
+      "review_cost": 0.1,
+      "none_head": "frozen_global",
+      "acceptance_threshold": 1.0,
+      "dev_expected_cost": 0.10000000000000005,
+      "selected_on": "fresh development messages; test outcomes never used"
+    }
+  ],
+  "precision_results": "../precision/precision_report.json",
+  "cache_results": "../cache/report.json",
+  "shared_prefix_method": "exact token longest common prefix; all-state deepcopy; no sampled text generation",
+  "cache_key_fields": [
+    "checkpoint revision",
+    "tokenizer/prompt identity",
+    "precision mode",
+    "exact prefix ids",
+    "positions",
+    "request isolation"
+  ],
+  "scope": "Python evidence/fixtures only; no Rust/Metal implementation or production certification"
+}

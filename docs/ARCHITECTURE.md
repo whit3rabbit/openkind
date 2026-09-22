@@ -1,4 +1,4 @@
-# opendecision — Architecture
+# openkind — Architecture
 
 > An open-source decision-inference engine in Rust targeting the Jev wire contract, with independently designed model and runtime internals.
 >
@@ -9,7 +9,7 @@
 
 ## Overview
 
-`opendecision` accepts structured decision questions (Noul, Choice, Score) over a shared state and returns typed answers and probability distributions rather than generated answer prose. The surrounding service provides the tracing, metrics, authentication, admission, and lifecycle surface required by a public SDK.
+`openkind` accepts structured decision questions (Noul, Choice, Score) over a shared state and returns typed answers and probability distributions rather than generated answer prose. The surrounding service provides the tracing, metrics, authentication, admission, and lifecycle surface required by a public SDK.
 
 The repository separates the **wire contract**, **decision/model execution**, and **transport/runtime** layers so that a model backend can change without changing the public request/response schema. The project targets Jev-compatible wire behavior where explicitly supported; it does **not** claim to reproduce Jev's private neural architecture or RLCD training procedure.
 
@@ -17,7 +17,7 @@ The current model-integration reference is profile `a047d6802c3f06f085b8`: `Qwen
 
 Rust now reproduces the selected head/probability algebra and all four exported token records. It loads and validates the Phase 3B architecture and 47-vector reference bundle, verifies both immutable checkpoint shards, and executes the complete 32-layer Qwen text backbone plus final RMSNorm through Candle's CPU backend in FP32. All 34 stage diagnostics are localized, all 10 candidate sequences pass the declared probability/argmax/policy gate, and Qwen-specific cached continuation carries attention KV, DeltaNet recurrent state, convolution state, and absolute position without mutating its root. This is correctness-first CPU evidence, not Metal, production-service, or release-quality evidence.
 
-A public OpenDecision reference repository for this integration line is published at <https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst>. Publication improves inspectability and handoff; it does **not** change the release-quality or Rust/Metal parity boundary.
+A public OpenKind reference repository for this integration line is published at <https://huggingface.co/cowWhySo/OpenKind-Qwen3.5-4B-StateFirst>. Publication improves inspectability and handoff; it does **not** change the release-quality or Rust/Metal parity boundary.
 
 The immediate architecture objective is therefore no longer “choose a model.” It is:
 
@@ -60,48 +60,48 @@ The roadmap is the task/status authority; the whitepaper is the evidence/interpr
 ## Workspace layout
 
 ```text
-opendecision/
+openkind/
 ├── Cargo.toml                    # workspace manifest + shared deps
 ├── crates/
-│   ├── opendecision-core/        # wire types (request, response, errors)
-│   ├── opendecision-engine/      # DecisionEngine + profile/execution boundary
-│   ├── opendecision-api/         # HTTP (axum) + gRPC (tonic)
-│   ├── opendecision-server/      # opendecisiond binary
-│   ├── opendecision-cli/         # opendecision binary
-│   ├── opendecision-runtime/     # device/scheduler/state/cache lifecycle
-│   ├── opendecision-backends/    # supported native model drivers
-│   ├── opendecision-bench/       # offline scoring and timing benchmark harness
-│   └── opendecision-gen-schemas/ # JSON Schema codegen
-├── proto/opendecision.proto      # gRPC service definition
+│   ├── openkind-core/        # wire types (request, response, errors)
+│   ├── openkind-engine/      # DecisionEngine + profile/execution boundary
+│   ├── openkind-api/         # HTTP (axum) + gRPC (tonic)
+│   ├── openkind-server/      # openkindd binary
+│   ├── openkind-cli/         # openkind binary
+│   ├── openkind-runtime/     # device/scheduler/state/cache lifecycle
+│   ├── openkind-backends/    # supported native model drivers
+│   ├── openkind-bench/       # offline scoring and timing benchmark harness
+│   └── openkind-gen-schemas/ # JSON Schema codegen
+├── proto/openkind.proto      # gRPC service definition
 ├── examples/                     # wire-format fixtures
 ├── docs/ARCHITECTURE.md          # this file
-└── crates/opendecision-core/schemas/
+└── crates/openkind-core/schemas/
 ```
 
 ### Layering
 
 ```text
 ┌──────────────────────────────────────────────────────────────┐
-│ opendecisiond / opendecision CLI / opendecision-bench        │
+│ openkindd / openkind CLI / openkind-bench        │
 ├──────────────────────────────────────────────────────────────┤
-│ opendecision-api                                            │
+│ openkind-api                                            │
 │   HTTP axum + gRPC tonic                                    │
 │   request IDs · auth · validation · errors · tracing        │
 ├──────────────────────────────────────────────────────────────┤
-│ opendecision-engine                                         │
+│ openkind-engine                                         │
 │   DecisionEngine · EngineRegistry                           │
 │   DecisionSpecification · ModelExecutionProfile             │
 │   probability / rejection / policy contracts                │
 ├──────────────────────────────────────────────────────────────┤
-│ opendecision-runtime                                        │
+│ openkind-runtime                                        │
 │   admission · scheduling · device/runtime lifecycle          │
 │   BranchableState · batching · persistent state reuse        │
 ├──────────────────────────────────────────────────────────────┤
-│ opendecision-backends                                       │
+│ openkind-backends                                       │
 │   selected supported Qwen/runtime implementation(s)          │
 │   profile-specific hidden-state and branch operations        │
 ├──────────────────────────────────────────────────────────────┤
-│ opendecision-core                                           │
+│ openkind-core                                           │
 │   SystemRequest · SystemResponse · Answer · validation       │
 │   generated schemas                                          │
 └──────────────────────────────────────────────────────────────┘
@@ -113,7 +113,7 @@ The public dependency direction remains one-way. `core` owns wire types; `engine
 
 ## Crate responsibilities
 
-### `opendecision-core`
+### `openkind-core`
 
 The single source of truth for supported request/response wire types across HTTP and gRPC.
 
@@ -129,7 +129,7 @@ Wire floating-point values such as `probabilities`, `score`, `noul`, and `confid
 
 Wire compatibility and model capability are separate. A syntactically valid request can still be unsupported by a specific profile because of primitive, context-length, Q/K, memory, or execution-mode limits.
 
-### `opendecision-engine`
+### `openkind-engine`
 
 Anything callable from `/v1/systemone` implements the public engine boundary:
 
@@ -137,7 +137,7 @@ Anything callable from `/v1/systemone` implements the public engine boundary:
 #[async_trait]
 pub trait DecisionEngine: Send + Sync + 'static {
     fn backend_id(&self) -> &str;
-    fn model_metadata(&self) -> opendecision_core::ModelInfo;
+    fn model_metadata(&self) -> openkind_core::ModelInfo;
 
     async fn evaluate(
         &self,
@@ -174,7 +174,7 @@ the public `DecisionEngine` trait.
 
 `score-summary` is part of this profile; it must **not** be hard-coded into the engine architecture. The exploratory screen also produced semantic-feature rejection variants, and future profiles may use different applicability/rejection heads. Rejection is therefore profile-owned behavior behind a stable probability contract.
 
-### `opendecision-runtime`
+### `openkind-runtime`
 
 Owns device/runtime lifecycle and execution mechanics that are independent of one particular neural head:
 
@@ -190,7 +190,7 @@ Owns device/runtime lifecycle and execution mechanics that are independent of on
 
 The runtime must not assume that reusable model state is an ordinary Transformer KV cache. Qwen3.5 requires a hybrid continuation state.
 
-### `opendecision-backends`
+### `openkind-backends`
 
 Contains only backends that can satisfy the selected profile's required capabilities. Candle supplies the correctness-first CPU tensor path and remains the correctness oracle. The first additional backend is the feature-gated MLX/Metal **parity** backend (Phase 3M, `--features mlx` on macOS arm64): pinned `mlx-rs`/vendored mlx-c driven by the same Rust Qwen3.5 layer semantics. The production path executes the faster per-token `ReferenceOps` recurrence. Opt-in custom Metal kernels cover generic scalar/vector gates, masked heads, an explicit reduction tree, and the packed FP32 `Dk = Dv = 128` sequence shape; they are qualified tuning candidates, not the production default or a vectorized batch engine. Candle Metal, GGUF/llama.cpp, ONNX, and other production implementations remain candidates, not promises.
 
@@ -234,7 +234,7 @@ complete correctness-first CPU backbone and Qwen-specific continuation stage:
 - profile/model/tokenizer/renderer/arithmetic state identity, distinct scheduling
   and strict content fingerprint types, exact tensor-payload accounting,
   immutable-root fork, batched fork, and gather/select through the
-  backend-neutral `opendecision-runtime::branch` contracts;
+  backend-neutral `openkind-runtime::branch` contracts;
 - sequential nested and breadth-first Q/K execution, with the current CPU
   backend explicitly advertising per-lane rather than vectorized forward;
 - scheduler admission over tensor payload plus observed process peak, scratch,
@@ -248,9 +248,9 @@ It does not yet implement vectorized batch-forward kernels, Metal execution,
 full restored head/probability/decision replay, or production load/soak
 validation.
 
-### `opendecision-bench`
+### `openkind-bench`
 
-The offline scoring and timing benchmark harness binary (`crates/opendecision-bench`). It drives workloads through `DecisionEngine` instances (both `MockEngine` and `Qwen35DecisionEngine`) to measure complete-request latencies, execution strategy sweeps (`repeated_full`, `nested_sequential`, `nested_batched`), answer equality across strategies, and Q-amortization curves. It also generates deterministic, seeded ticket-grid decision workloads (`gen-workload`). Benchmark records emit the `opendecision-bench/v1` format; full methodology is documented in [`BENCHMARKS.md`](BENCHMARKS.md).
+The offline scoring and timing benchmark harness binary (`crates/openkind-bench`). It drives workloads through `DecisionEngine` instances (both `MockEngine` and `Qwen35DecisionEngine`) to measure complete-request latencies, execution strategy sweeps (`repeated_full`, `nested_sequential`, `nested_batched`), answer equality across strategies, and Q-amortization curves. It also generates deterministic, seeded ticket-grid decision workloads (`gen-workload`). Benchmark records emit the `openkind-bench/v1` format; full methodology is documented in [`BENCHMARKS.md`](BENCHMARKS.md).
 
 ---
 
@@ -262,7 +262,7 @@ The service now connects the existing Rust boundary directly to the native backe
 HTTP / gRPC client
   │
   ▼
-opendecisiond
+openkindd
   │  request ID · auth · validation · admission · deadline
   ▼
 Qwen35DecisionEngine : DecisionEngine
@@ -300,7 +300,7 @@ immutable shared state root
                 └── candidate B2 suffix → feature/score
 ```
 
-This is deliberately different from a schema-first parallel-constrained-decoding pattern in which the complete semantic field/question catalog appears before the state and is therefore part of the shared cached representation. That design can be efficient, but adding/reordering questions can alter the prefix used by every field. OpenDecision borrows **breadth-first branch batching** from public PCD implementations while retaining a **state-first isolation contract**.
+This is deliberately different from a schema-first parallel-constrained-decoding pattern in which the complete semantic field/question catalog appears before the state and is therefore part of the shared cached representation. That design can be efficient, but adding/reordering questions can alter the prefix used by every field. OpenKind borrows **breadth-first branch batching** from public PCD implementations while retaining a **state-first isolation contract**.
 
 ### Why `KVCache` is not the right abstraction
 
@@ -324,7 +324,7 @@ Phase 3A supplies the working Python reference for the required semantics. The f
 
 The Python contract validates immutable-root fan-out/select before the semantic benchmark. Rust does not copy the Python object model, but it reproduces the **same complete-state semantics** and fixture outputs.
 
-The Phase 3.4 Rust contract is owned by `crates/opendecision-runtime/src/branch` and bound to `BackboneState` in `crates/opendecision-backends/src/qwen35/backbone/branch.rs`:
+The Phase 3.4 Rust contract is owned by `crates/openkind-runtime/src/branch` and bound to `BackboneState` in `crates/openkind-backends/src/qwen35/backbone/branch.rs`:
 
 ```rust
 pub trait BranchableState: Send + Sync {
@@ -378,7 +378,7 @@ by fixture gates and tenant-scoped persistent-state keys, not per-fork schedulin
 
 ## Breadth-first Q/K execution
 
-The correctness reference is **sequential nested execution**, now implemented natively in `crates/opendecision-backends/src/qwen35/backbone/nested.rs` (`run_sequential_nested` / `Qwen35Backbone::evaluate_nested`, Phase 3.5): one immutable state prefill, then `fork question → advance question → fork candidate → advance candidate` through `BranchableState`, with fail-closed position and immutability verification and exact `repeated_full` agreement. The breadth-first lane topology is also native (`crates/opendecision-backends/src/qwen35/backbone/batched.rs`, `run_batched_nested`, Phases 3.6/3.7): `fork_batch` question lanes from the same root, then a `fork_batch` candidate fan-out per question state, proven exactly equal to the sequential baseline. This is state-semantic batching, not compute-vectorized forward. `BackendCapabilities` keeps those claims separate, and the current CPU scheduler defaults to `NestedSequential`. `NestedBatched` is eligible only when a backend advertises vectorized question and candidate forward support within explicit lane limits.
+The correctness reference is **sequential nested execution**, now implemented natively in `crates/openkind-backends/src/qwen35/backbone/nested.rs` (`run_sequential_nested` / `Qwen35Backbone::evaluate_nested`, Phase 3.5): one immutable state prefill, then `fork question → advance question → fork candidate → advance candidate` through `BranchableState`, with fail-closed position and immutability verification and exact `repeated_full` agreement. The breadth-first lane topology is also native (`crates/openkind-backends/src/qwen35/backbone/batched.rs`, `run_batched_nested`, Phases 3.6/3.7): `fork_batch` question lanes from the same root, then a `fork_batch` candidate fan-out per question state, proven exactly equal to the sequential baseline. This is state-semantic batching, not compute-vectorized forward. `BackendCapabilities` keeps those claims separate, and the current CPU scheduler defaults to `NestedSequential`. `NestedBatched` is eligible only when a backend advertises vectorized question and candidate forward support within explicit lane limits.
 
 ### Reference graph
 
@@ -435,7 +435,7 @@ The scheduler may choose among these only within capabilities already accepted f
 Two distinctions keep modes honest:
 
 - **Plan vs physical mode.** A plan name is state topology. Every decision also records the physical `BatchForwardMode` (`per_lane` or `vectorized`) the backend actually used: `nested_batched` on the per-lane CPU backend executes per-lane, and crediting it with a vectorized graph — or vice versa on an accelerated backend — would corrupt benchmark comparison.
-- **Diagnostic override.** `opendecisiond --qwen35-execution <auto|repeated-full|nested-sequential|nested-batched>` forces one plan so parity and high-K investigations cannot be contaminated by scheduler choice. The override bypasses the profitability policy (measured savings ratio, vectorized preference) only; tensor/process-memory admission and real backend capabilities still apply and fail closed.
+- **Diagnostic override.** `openkindd --qwen35-execution <auto|repeated-full|nested-sequential|nested-batched>` forces one plan so parity and high-K investigations cannot be contaminated by scheduler choice. The override bypasses the profitability policy (measured savings ratio, vectorized preference) only; tensor/process-memory admission and real backend capabilities still apply and fail closed.
 
 ---
 
@@ -464,7 +464,7 @@ nested_sequential    x      x       x
 nested_batched       x      x       x
 ```
 
-The external DGX Spark comparison is useful because its within-system slope differs sharply across implementations: the published campaign reports Jev 1.13 at roughly 105.1 → 109.2 ms p50 from Q=1 to Q=4, while a sequential tuned-Qwen wrapper reports roughly 167.0 → 665.1 ms. These absolute values are not OpenDecision targets and are not directly comparable across hosted/local environments.
+The external DGX Spark comparison is useful because its within-system slope differs sharply across implementations: the published campaign reports Jev 1.13 at roughly 105.1 → 109.2 ms p50 from Q=1 to Q=4, while a sequential tuned-Qwen wrapper reports roughly 167.0 → 665.1 ms. These absolute values are not OpenKind targets and are not directly comparable across hosted/local environments.
 
 ### Phase 3A measured crossover
 
@@ -498,7 +498,7 @@ At L=1024/Q=16/K=2, batched-cold peak allocation is about **18.67 GiB**, versus 
 
 High K and high Q are different scaling problems.
 
-The selected OpenDecision candidate scorer uses semantic candidate descriptions and candidate-conditioned features. A public Qwen parallel-constrained-decoding implementation demonstrates a much cheaper alternative for finite answer tokens: prefill once, broadcast state, slice logits to allowed tokens, and serialize the result in host code. OpenDecision should use that idea as an **efficient baseline / latency floor**, not silently replace the selected semantic scorer.
+The selected OpenKind candidate scorer uses semantic candidate descriptions and candidate-conditioned features. A public Qwen parallel-constrained-decoding implementation demonstrates a much cheaper alternative for finite answer tokens: prefill once, broadcast state, slice logits to allowed tokens, and serialize the result in host code. OpenKind should use that idea as an **efficient baseline / latency floor**, not silently replace the selected semantic scorer.
 
 Phase 3 systems stress should cover K = 32, 64, 128, and 255 where supported, measuring:
 
@@ -532,14 +532,14 @@ The selected profile currently uses **score-summary rejection**. Future profiles
 
 ### Choice `none` / rejection mass
 
-OpenDecision must not silently append an unrequested `none` choice or drop/renormalize internally modeled mass while calling the resulting probabilities unchanged unconditional probabilities.
+OpenKind must not silently append an unrequested `none` choice or drop/renormalize internally modeled mass while calling the resulting probabilities unchanged unconditional probabilities.
 
 The meaning of returned probabilities is a declared, versioned profile property, not an implicit adapter behavior: `ProbabilitySpace` on the profile's execution semantics is either `conditional_on_offered_options` or `offered_options_plus_semantic_none`. The selected native profile declares `offered_options_plus_semantic_none`; the adapter branches on the declaration and fails explicitly at load for any space it does not implement, so a compatibility adapter can never quietly discard none mass and renormalize the remainder.
 
 Supported mappings must be explicit and versioned, for example:
 
 - caller supplies a semantic `other` / `none` option;
-- a native OpenDecision response extension represents semantic-none separately;
+- a native OpenKind response extension represents semantic-none separately;
 - an application policy returns a review/routing action outside the semantic probability vector.
 
 Application review is not the same as semantic none.
@@ -556,7 +556,7 @@ Do not substitute top probability for a separately defined compatibility `confid
 
 ## HTTP and gRPC service boundary
 
-### `opendecision-api`
+### `openkind-api`
 
 Two transports share the same validated engine behavior:
 
@@ -582,7 +582,7 @@ The exported selected bundle is the model/probability reference contract. Phase 
 1. **Head/probability algebra, complete:** Rust matches the exported fixtures. It reproduces normalization, projection, rejection, calibration, stable softmax, and policy semantics.
 2. **Exact tokenizer + state-first token rendering, complete:** all four exported root, question, candidate-suffix, and full-sequence ID records match exactly. The implementation rejects overlength inputs rather than silently truncating them.
 3. **Full Qwen3.5 CPU backbone parity, complete for frozen fixtures:** exact embedding, all 32 decoder blocks, final RMSNorm, 34-stage diagnostics, 10 candidate features, and probability/decision replay pass. Qwen-specific cached continuation also matches native full-sequence output exactly for the exported branch.
-4. **`BranchableState`, complete for the CPU path:** the backend-neutral contract lives in `opendecision-runtime`; Qwen state carries profile/model/tokenizer/renderer/arithmetic identity, lineage, explicit position, attention KV, recurrent and convolution tensors, clone isolation, exact tensor-payload accounting, distinct scheduling/content fingerprints, single and batched fork, and gather/select. Metal remains open.
+4. **`BranchableState`, complete for the CPU path:** the backend-neutral contract lives in `openkind-runtime`; Qwen state carries profile/model/tokenizer/renderer/arithmetic identity, lineage, explicit position, attention KV, recurrent and convolution tensors, clone isolation, exact tensor-payload accounting, distinct scheduling/content fingerprints, single and batched fork, and gather/select. Metal remains open.
 5. **Sequential nested parity, complete for the CPU path:** `state → question → candidate` against the Python reference with exact `repeated_full` agreement, root immutability, and replay determinism.
 6. **Batched question layer, complete for the CPU path:** Q breadth-first `fork_batch` execution with lane isolation and exact sequential-baseline parity.
 7. **Batched candidate layer, complete for the CPU path:** K breadth-first fan-out per question state with permutation/rejection parity; vectorized suffix kernels remain open.
@@ -616,7 +616,7 @@ model revision
 + physical batch-forward mode
 ```
 
-The native engine implements this today in two layers. Role-typed digests over finalized token sequences (`opendecision-runtime` `digest` module) identify an exact execution — the order-sensitive `ExecutionInputDigest` is the reproducibility identity — but remain confined to explicitly requested offline evidence because raw digests of low-entropy inputs can be guessed offline. The backend-neutral `opendecision-native-run/v1` evidence schema (`opendecision-runtime::evidence`) records a sanitized invocation (never raw argv), the machine environment, the profile/backend/execution identity including plan and physical batch mode, optional parity/performance/memory reports, row-level outputs, and checksums over every file — so the Candle CPU path and a future accelerated backend emit mechanically comparable artifacts without exposing content-derived identifiers in daemon telemetry.
+The native engine implements this today in two layers. Role-typed digests over finalized token sequences (`openkind-runtime` `digest` module) identify an exact execution — the order-sensitive `ExecutionInputDigest` is the reproducibility identity — but remain confined to explicitly requested offline evidence because raw digests of low-entropy inputs can be guessed offline. The backend-neutral `openkind-native-run/v1` evidence schema (`openkind-runtime::evidence`) records a sanitized invocation (never raw argv), the machine environment, the profile/backend/execution identity including plan and physical batch mode, optional parity/performance/memory reports, row-level outputs, and checksums over every file — so the Candle CPU path and a future accelerated backend emit mechanically comparable artifacts without exposing content-derived identifiers in daemon telemetry.
 
 Pinned replay campaigns should distinguish:
 
@@ -632,12 +632,12 @@ The external DGX study observed campaign-to-campaign differences from identical 
 
 ### Current repository tests
 
-- `opendecision-core` — serde/wire round trips and generated-schema checks.
-- `opendecision-engine`: deterministic mock/dispatch behavior plus immutable selected-profile identity and validation.
-- `opendecision-api` — middleware and SDK-compatibility tests.
-- `opendecision-api` — gRPC round-trip tests.
-- `opendecision-server` / CLI — launch/parsing/integration behavior.
-- `opendecision-backends`: head algebra, artifact validation, exact-token replay,
+- `openkind-core` — serde/wire round trips and generated-schema checks.
+- `openkind-engine`: deterministic mock/dispatch behavior plus immutable selected-profile identity and validation.
+- `openkind-api` — middleware and SDK-compatibility tests.
+- `openkind-api` — gRPC round-trip tests.
+- `openkind-server` / CLI — launch/parsing/integration behavior.
+- `openkind-backends`: head algebra, artifact validation, exact-token replay,
   Phase 3B reference loading, and candidate-feature probability replay.
 
 Use the verification commands in the root `AGENTS.md` instead of copying a test
@@ -685,9 +685,9 @@ Probability delta, argmax changes, and directed application-policy changes must 
 
 The selected state-first integration line is published at:
 
-<https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst>
+<https://huggingface.co/cowWhySo/OpenKind-Qwen3.5-4B-StateFirst>
 
-Treat this repository as a public **OpenDecision reference artifact** tied to the provisional integration profile. It is not evidence that anyone retrained the frozen Qwen backbone. Phase 3A and Phase 3B record no model change, training, or selection. Any adapted or quantized profile requires a distinct identity and its own quality/equivalence evidence.
+Treat this repository as a public **OpenKind reference artifact** tied to the provisional integration profile. It is not evidence that anyone retrained the frozen Qwen backbone. Phase 3A and Phase 3B record no model change, training, or selection. Any adapted or quantized profile requires a distinct identity and its own quality/equivalence evidence.
 
 ---
 
@@ -697,7 +697,7 @@ Treat this repository as a public **OpenDecision reference artifact** tied to th
 
 The public `harshatheg/Qwen-2.5-1B-RLCD` artifact is useful primarily as an inference pattern: shared prefill, cache broadcasting, constrained candidate-token logits, limited token-tree continuation, and host-side structured assembly. It is **not** treated here as evidence that TypeSafe's RLCD training procedure was reproduced, and normalized softmax outputs are not by themselves a calibration result.
 
-OpenDecision adopts the execution lesson—**batch branches breadth-first**—while retaining its state-first root. A schema/question catalog placed before state would weaken the intended question-set isolation contract.
+OpenKind adopts the execution lesson—**batch branches breadth-first**—while retaining its state-first root. A schema/question catalog placed before state would weaken the intended question-set isolation contract.
 
 Reference: https://huggingface.co/harshatheg/Qwen-2.5-1B-RLCD
 
@@ -709,7 +709,7 @@ The September 2026 More Than a Machine comparison is useful as a systems-shape b
 - Laya: 16.4 → 29.1 ms;
 - tuned Qwen3.5 wrapper: 167.0 → 665.1 ms.
 
-The absolute numbers are not apples-to-apples because hosted Jev and warm local readers have different boundaries. OpenDecision therefore adopts **no external latency threshold** from this table. The architectural takeaway is to measure the within-system Q-scaling slope and make additional questions cheaper than Q repeated full evaluations where shared state is substantial.
+The absolute numbers are not apples-to-apples because hosted Jev and warm local readers have different boundaries. OpenKind therefore adopts **no external latency threshold** from this table. The architectural takeaway is to measure the within-system Q-scaling slope and make additional questions cheaper than Q repeated full evaluations where shared state is substantial.
 
 Reference: https://morethanamachine.com/posts/jev-style-decisions-dgx-spark/
 

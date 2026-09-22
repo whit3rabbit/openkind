@@ -1,6 +1,6 @@
-# 2026-09-21 — qwen35-MLX smoke sweep (first `opendecision-bench` MLX dispatch)
+# 2026-09-21 — qwen35-MLX smoke sweep (first `openkind-bench` MLX dispatch)
 
-First recorded MLX run through the full `opendecision-bench` request path:
+First recorded MLX run through the full `openkind-bench` request path:
 12 decisions (4 states × 3 primitives) through `Qwen35DecisionEngine` with
 `Qwen35Backend::MlxFp32` — render, state-first tokenization, scheduling,
 MLX backbone execution, readout, answer mapping — under each execution
@@ -9,14 +9,14 @@ strategy. Same fixture, host, and methodology as the CPU smoke record in
 are directly comparable. **Smoke-scale evidence**: single sample per
 strategy on a short-state fixture; quote ratios, not absolutes.
 
-- Schema: `opendecision-bench/v1` (`summary-qwen35-mlx-fp32.json`)
+- Schema: `openkind-bench/v1` (`summary-qwen35-mlx-fp32.json`)
 - Engine: `qwen35-mlx-fp32`, profile `a047d6802c3f06f085b8`,
   model revision `1001bb4d826a52d1f399e183466143f4da7b741b`,
   bundle version `2ij.2.0`, `mlx-core-0.32.2/fp32/reference-ops`
   (mlx-rs 0.32.0, vendored mlx-c `v0.6.0-7-gc74db53`)
 - Build: `--features mlx` behind
   `SDKROOT=$(xcrun --show-sdk-path)`, release profile
-- Fixture: `crates/opendecision-bench/fixtures/decisions_smoke.jsonl`,
+- Fixture: `crates/openkind-bench/fixtures/decisions_smoke.jsonl`,
   SHA-256 `3a673e843690b942658b4c9de6cc594770185756098d356e78dcd3efd5cffeeb`,
   12 rows grouped per state (4 groups)
 - Host: Mac16,5 Apple M4 Max 36 GiB (named Mac), warm process, untimed warmup
@@ -27,7 +27,7 @@ strategy on a short-state fixture; quote ratios, not absolutes.
   load (~22–23 s per strategy instance, including weight materialization)
   excluded and reported separately
 - Digest-locked tokenizer: vendored Phase 3B copy
-  (`research/OpenDecision_Phase3B_BackboneParity_20260920T152206Z/backbone_runtime/tokenizer/tokenizer.json`,
+  (`research/OpenKind_Phase3B_BackboneParity_20260920T152206Z/backbone_runtime/tokenizer/tokenizer.json`,
   SHA-256 `06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523`)
   — the HF checkpoint download's `tokenizer.json` is a different export and
   fails the engine's digest lock

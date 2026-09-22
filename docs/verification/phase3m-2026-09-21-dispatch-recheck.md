@@ -1,7 +1,7 @@
 # Phase 3M MLX dispatch benchmark recheck: 21 September 2026
 
 This is a fresh dirty-working-tree benchmark recheck after adding MLX backend
-selection to `Qwen35DecisionEngine` and `opendecision-bench`. It compares the
+selection to `Qwen35DecisionEngine` and `openkind-bench`. It compares the
 same 12-row smoke fixture and the same four execution strategies on the named
 M4 Max. The CPU and pinned MLX rows load the same frozen
 `Qwen/Qwen3.5-4B-Base` checkpoint, so they are the backend comparison. The
@@ -12,7 +12,7 @@ community row uses a different source model and is throughput evidence only.
 - Subject commit: `ddbc5dd7e46bb1318bb98af8b0d924d78d4452ee`, with uncommitted
   MLX dispatch changes in the working tree.
 - Host: Mac16,5 Apple M4 Max, 36 GiB.
-- Fixture: `crates/opendecision-bench/fixtures/decisions_smoke.jsonl`, 12 rows,
+- Fixture: `crates/openkind-bench/fixtures/decisions_smoke.jsonl`, 12 rows,
   4 state groups, SHA-256
   `3a673e843690b942658b4c9de6cc594770185756098d356e78dcd3efd5cffeeb`.
 - Timing: one warm-process timed repetition per strategy. Model load and output
@@ -25,12 +25,12 @@ The command shape was:
 
 ```bash
 SDKROOT=$(xcrun --show-sdk-path) cargo run --release \
-  -p opendecision-bench --features mlx -- score \
-  crates/opendecision-bench/fixtures/decisions_smoke.jsonl \
+  -p openkind-bench --features mlx -- score \
+  crates/openkind-bench/fixtures/decisions_smoke.jsonl \
   --engine qwen35-mlx-fp32 \
-  --bundle-root crates/opendecision-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8 \
+  --bundle-root crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8 \
   --checkpoint-root <pinned-or-community-checkpoint> \
-  --tokenizer research/OpenDecision_Phase3B_BackboneParity_20260920T152206Z/backbone_runtime/tokenizer/tokenizer.json \
+  --tokenizer research/OpenKind_Phase3B_BackboneParity_20260920T152206Z/backbone_runtime/tokenizer/tokenizer.json \
   --strategies repeated_full,nested_sequential,nested_batched,choose_strategy \
   --reps 1 --host "Mac16,5 Apple M4 Max 36 GiB (named Mac)" \
   --commit ddbc5dd7e46bb1318bb98af8b0d924d78d4452ee \
