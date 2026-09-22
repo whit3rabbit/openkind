@@ -37,7 +37,7 @@ Project documentation and architectural references for `opendecision`.
    - Timing scope, warm policy, and execution-strategy sweep definition.
    - `opendecision-bench` harness usage and workload fixture inventory.
    - Prior-art (SemIf) comparability mapping and recorded run evidence.
-6. **[`whitepaper/OpenDecision_Whitepaper_v0.8.0.md`](./whitepaper/OpenDecision_Whitepaper_v0.8.0.md)**:
+6. **[`whitepaper/OpenDecision_Whitepaper_v0.8.1.md`](./whitepaper/OpenDecision_Whitepaper_v0.8.1.md)**:
    Canonical scientific interpretation, evidence register, and measured Phase
    3 native CPU reference engine results through adaptive scheduling.
 
