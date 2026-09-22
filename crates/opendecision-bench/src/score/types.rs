@@ -16,10 +16,10 @@ pub enum EngineKind {
     /// Pinned Qwen3.5 native CPU engine; real scoring and timing.
     Qwen35,
     /// Pinned Qwen3.5 MLX FP32 reference-ops engine (`mlx` feature).
-    #[cfg(feature = "mlx")]
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     Qwen35MlxFp32,
     /// Pinned Qwen3.5 MLX native-BF16 candidate engine (`mlx` feature).
-    #[cfg(feature = "mlx")]
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     Qwen35MlxBf16,
 }
 
@@ -28,7 +28,7 @@ pub enum EngineKind {
 /// # Panics
 /// Panics when called for [`EngineKind::Mock`]; callers gate on the mock
 /// engine before reaching this mapping.
-#[cfg(feature = "mlx")]
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
 pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
     match engine {
         EngineKind::Mock => panic!("the mock engine has no native backend"),
@@ -43,7 +43,7 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
 /// # Panics
 /// Panics when called for [`EngineKind::Mock`]; callers gate on the mock
 /// engine before reaching this mapping.
-#[cfg(not(feature = "mlx"))]
+#[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
 pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
     match engine {
         EngineKind::Mock => panic!("the mock engine has no native backend"),
@@ -55,7 +55,7 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
 /// keeps its historical `qwen35` slug; MLX engines get distinct slugs so
 /// sweeps of different backends never overwrite each other.
 pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
-    #[cfg(feature = "mlx")]
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     {
         match engine {
             EngineKind::Mock => "mock",
@@ -64,7 +64,7 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
             EngineKind::Qwen35MlxBf16 => "qwen35-mlx-bf16",
         }
     }
-    #[cfg(not(feature = "mlx"))]
+    #[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
     {
         match engine {
             EngineKind::Mock => "mock",
@@ -165,3 +165,24 @@ pub const DEFAULT_STRATEGIES: [StrategySpec; 4] = [
     StrategySpec::Forced(ExecutionStrategy::NestedBatched),
     StrategySpec::ChooseStrategy,
 ];
+
+/// Reject strategy/backend combinations that cannot produce qualifying evidence.
+pub(crate) fn validate_strategy_selection(
+    engine: EngineKind,
+    strategies: &[StrategySpec],
+) -> Result<()> {
+    if engine != EngineKind::Mock && strategies.is_empty() {
+        bail!("native benchmark runs require at least one execution strategy");
+    }
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    if engine == EngineKind::Qwen35MlxBf16
+        && strategies
+            .iter()
+            .any(|strategy| *strategy != StrategySpec::Forced(ExecutionStrategy::RepeatedFull))
+    {
+        bail!(
+            "qwen35-mlx-bf16 is restricted to --strategies repeated_full until nested BF16 continuation is qualified"
+        );
+    }
+    Ok(())
+}
