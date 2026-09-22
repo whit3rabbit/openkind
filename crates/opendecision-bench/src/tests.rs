@@ -171,3 +171,24 @@ fn mock_score_run_end_to_end_writes_summary_and_predictions() {
     // Silence unused-variable lint when fixture constant changes shape.
     let _ = &input;
 }
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+#[test]
+fn bf16_benchmarks_fail_closed_for_unqualified_nested_strategies() {
+    use opendecision_backends::qwen35::ExecutionStrategy;
+
+    let allowed = [StrategySpec::Forced(ExecutionStrategy::RepeatedFull)];
+    crate::score::validate_strategy_selection(EngineKind::Qwen35MlxBf16, &allowed)
+        .expect("repeated_full remains qualifying");
+
+    for rejected in [
+        StrategySpec::Forced(ExecutionStrategy::NestedSequential),
+        StrategySpec::Forced(ExecutionStrategy::NestedBatched),
+        StrategySpec::ChooseStrategy,
+    ] {
+        let error =
+            crate::score::validate_strategy_selection(EngineKind::Qwen35MlxBf16, &[rejected])
+                .expect_err("nested BF16 strategy must fail closed");
+        assert!(error.to_string().contains("repeated_full"));
+    }
+}

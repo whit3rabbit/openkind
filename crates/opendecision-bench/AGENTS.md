@@ -39,6 +39,9 @@ Methodology, timing scope, and recorded results are owned by
    assertions; their numbers are throughput evidence only — the frozen parity
    gates live in the parity examples, and the known BF16 continuation defect
    blocks BF16 nested strategies (`--strategies repeated_full` for BF16).
+   FP32 benchmarks use the production `ReferenceOps` default. Do not publish
+   an opt-in Metal-kernel run without naming its arithmetic identity and
+   comparing it against that default on the same fixture and host.
 
 ## Key Files & Types
 

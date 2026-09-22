@@ -26,6 +26,7 @@ use opendecision_backends::qwen35::{Qwen35DecisionEngine, Qwen35EngineConfig, Sc
 use opendecision_engine::EngineRegistry;
 use serde_json::Value;
 
+pub(crate) use types::validate_strategy_selection;
 pub use types::{
     EngineKind, ScoreArgs, ScoreOutcome, StrategySpec, DEFAULT_STRATEGIES, STRATEGY_HELP,
 };
@@ -53,6 +54,7 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
         args.group
     );
     anyhow::ensure!(args.reps >= 1, "reps must be at least 1");
+    validate_strategy_selection(args.engine, &args.strategies)?;
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
