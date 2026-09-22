@@ -4,7 +4,7 @@
 
 The wire, service, and SDK layers are implemented. The selected Qwen 3.5 native path has passed Rust head, tokenizer, correctness-first CPU backbone, cached-continuation, backend-neutral branch-state, sequential nested execution, batched Q/K, and measured adaptive-scheduler gates. State/scheduler high-K stress, process-peak admission, tenant-isolated state reuse, versioned/digest-checked state snapshots, cancellation-safe permit ownership, and a direct native `DecisionEngine` adapter are implemented. The named-machine follow-up completed bounded model-backed K=32/64/128/255 stress, structural fresh-process replay, and native service lifecycle smoke. Restored head/probability/decision replay, practical high-K latency, and production load/soak remain open. A feature-gated MLX/Metal parity backend (Phase 3M) passes the frozen fixture gates in FP32 for the pinned base checkpoint. Its BF16 candidate Gate B remains open. An explicit adapter loads and executes the tested MLX-community export, but that artifact fails frozen-reference model parity; fused kernels and vectorized batching remain open.
 
-[Quickstart](#quickstart) | [Research dossier](docs/RESEARCH.md) | [Whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.8.0.md) | [Roadmap](docs/ROADMAP.md) | [Architecture](docs/ARCHITECTURE.md) | [Jev wire reference](https://docs.typesafe.ai/api)
+[Quickstart](#quickstart) | [Research dossier](docs/RESEARCH.md) | [Whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md) | [Roadmap](docs/ROADMAP.md) | [Architecture](docs/ARCHITECTURE.md) | [Jev wire reference](https://docs.typesafe.ai/api)
 
 > [!IMPORTANT]
 > The daemon defaults to `MockEngine`. A native alias can be registered directly with explicit offline bundle, checkpoint, and tokenizer paths. The quickstart below still verifies the mock wire/service path, not model quality or native Qwen execution.
@@ -57,7 +57,7 @@ This repository carries the research behind the implementation, not only the imp
 | Phase 3B | Four exact token records and 47 FP32 vectors across 34 trace stages, candidates, and continuations | Backbone localization fixtures, not native execution |
 | Rust Phase 3.1 through 3.8 | Head, probability, tokenizer, state-first rendering, CPU backbone, cached continuation, branch-state contract, sequential nested execution, batched Q/K, and the measured adaptive scheduler | Frozen-fixture parity and warm-host measurements, not Metal or production service proof |
 
-Start with the [research dossier](docs/RESEARCH.md) for the study sequence and the [whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.8.0.md) for methods, results, and interpretation. The [roadmap](docs/ROADMAP.md) is the current status authority. The public [Qwen 3.5 reference repository](https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst) exposes the selected integration line.
+Start with the [research dossier](docs/RESEARCH.md) for the study sequence and the [whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md) for methods, results, and interpretation. The [roadmap](docs/ROADMAP.md) is the current status authority. The public [Qwen 3.5 reference repository](https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst) exposes the selected integration line.
 
 ### Locked native integration target
 
@@ -237,7 +237,7 @@ For module-specific invariants and focused checks, start with [`AGENTS.md`](AGEN
 - [Roadmap](docs/ROADMAP.md): current phase status, gates, and remaining work.
 - [Architecture](docs/ARCHITECTURE.md): crate boundaries, data flow, and runtime state.
 - [Research dossier](docs/RESEARCH.md): experiment sequence, evidence, and prior art.
-- [Whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.8.0.md): scientific rationale and measured results.
+- [Whitepaper](docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md): scientific rationale and measured results.
 
 ## License
 

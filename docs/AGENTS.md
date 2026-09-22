@@ -14,7 +14,7 @@ The documentation suite maintains a strict division of responsibility across pro
 | Landed crate boundaries, module topology, and data flow | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | Benchmark methodology, harness usage, and recorded runs | [`BENCHMARKS.md`](BENCHMARKS.md) |
 | Research dossier, background, and prior art | [`RESEARCH.md`](RESEARCH.md) |
-| Scientific rationale, theoretical grounding, and measured results | [`whitepaper/OpenDecision_Whitepaper_v0.8.0.md`](whitepaper/OpenDecision_Whitepaper_v0.8.0.md) |
+| Scientific rationale, theoretical grounding, and measured results | [`whitepaper/OpenDecision_Whitepaper_v0.8.1.md`](whitepaper/OpenDecision_Whitepaper_v0.8.1.md) |
 | HTTP wire specification | [`../crates/opendecision-api/openapi.yaml`](../crates/opendecision-api/openapi.yaml) |
 | JSON Schema definitions | [`../crates/opendecision-core/schemas/`](../crates/opendecision-core/schemas/) |
 | Protobuf contract | [`../proto/proto/opendecision.proto`](../proto/proto/opendecision.proto) |

@@ -21,7 +21,7 @@ selected open-weight Qwen 3.5 profile described below.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): crate boundaries and data flow.
 - [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md): benchmark methodology, harness usage, and recorded runs.
 - [`docs/RESEARCH.md`](docs/RESEARCH.md): empirical research and prior-art evidence.
-- [`docs/whitepaper/OpenDecision_Whitepaper_v0.8.0.md`](docs/whitepaper/OpenDecision_Whitepaper_v0.8.0.md): scientific rationale and measured results.
+- [`docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md`](docs/whitepaper/OpenDecision_Whitepaper_v0.8.1.md): scientific rationale and measured results.
 - Each crate's `AGENTS.md`: module-specific invariants and verification commands.
 
 If documentation and code disagree, do not silently choose one. Use executable
@@ -159,3 +159,8 @@ mlx-c (MLX 0.32.2) and needs CMake plus the Metal toolchain
 (`xcodebuild -downloadComponent MetalToolchain` if missing). Rebuilding
 mlx-c under a different Xcode/Metal toolchain changes the runtime identity:
 re-run the 3M.0 qualification gate before trusting any MLX parity result.
+For warm throughput comparisons, use `opendecision-bench` with
+`--features mlx` and `--engine qwen35-mlx-fp32` or `qwen35-mlx-bf16`; the
+command, pinned `Qwen/Qwen3.5-4B-Base` model revision, and current results are
+recorded in [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md). BF16 benchmark runs
+must use `--strategies repeated_full` until nested continuation is qualified.
