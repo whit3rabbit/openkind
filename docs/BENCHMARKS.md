@@ -172,10 +172,12 @@ investigated before any numbers from that run are quoted.
 | [`benchmarks/2026-09-20-qwen35-smoke/`](./benchmarks/2026-09-20-qwen35-smoke/) | qwen35-native-cpu | Complete — smoke-scale, single-sample cells; CPU parity does not imply Metal or accelerated parity |
 | [`benchmarks/2026-09-21-qwen35-mlx-smoke/`](./benchmarks/2026-09-21-qwen35-mlx-smoke/) | qwen35-mlx-fp32 (+ bf16 repeated_full probe) | Complete — first MLX bench dispatch; dirty-tree, single-sample cells; cross-strategy exact-answer flag false with bounded `1.68e-05` probability divergence, zero selection changes |
 | [`benchmarks/2026-09-21-qwen35-mlx-community-smoke/`](./benchmarks/2026-09-21-qwen35-mlx-community-smoke/) | qwen35-mlx-fp32 (community checkpoint) | Complete — throughput only; community export fails the frozen parity gates and its numbers carry no model-quality claim |
+| [`benchmarks/2026-09-21-qwen35-mlx-gdn-review/`](./benchmarks/2026-09-21-qwen35-mlx-gdn-review/) | qwen35-mlx-fp32 reference ops vs packed Metal tree | Complete working-tree record: raw summaries and predictions for the current production-default decision; candidate parity passed but throughput regressed |
 | [`verification/phase3m-2026-09-21-dispatch-recheck.md`](./verification/phase3m-2026-09-21-dispatch-recheck.md) | qwen35-native-cpu vs qwen35-mlx-fp32 | Complete — same fixture and four strategies; fresh CPU, pinned-base MLX, and community MLX recheck |
 | [`verification/phase3m-2026-09-21-working-tree.md`](./verification/phase3m-2026-09-21-working-tree.md) | qwen35-mlx-fp32 | Complete parity probe — dirty-tree, load-inclusive timing, not an `opendecision-bench` throughput record |
+| [`verification/phase3m5-2026-09-21-working-tree.md`](./verification/phase3m5-2026-09-21-working-tree.md) | qwen35-mlx-fp32 kernel review | Complete working-tree comparison: serialized explicit stream, fused-kernel parity, and same-host default-versus-candidate smoke sweep; candidate not promoted |
 
-### Current MLX dispatch recheck
+### Initial MLX dispatch recheck (historical)
 
 This fresh working-tree comparison used the same 12-row, four-state smoke
 fixture, one timed repetition per strategy, warm-process timing, and the same
@@ -209,6 +211,29 @@ the community artifact's different source model/conversion and is not evidence
 of an MLX kernel or dispatch regression. Its summary still reports the fitted
 head's pinned-base revision in `model_revision`; use the checkpoint identity in
 the community record and adapter state identity when interpreting that run.
+
+### Current Gated-DeltaNet kernel review
+
+A later same-day working-tree review compared the production
+`mlx-core-0.32.2/fp32/reference-ops` path with an opt-in packed FP32 Metal
+sequence kernel on the same host, pinned checkpoint, fixture, and one-sample
+methodology. The production rerun also includes the new serialized explicit
+GPU stream and loader/memory-accounting changes.
+
+| Arithmetic path | `repeated_full` | `nested_sequential` | `nested_batched` | `choose_strategy` | Peak RSS |
+|---|---:|---:|---:|---:|---:|
+| `reference-ops` (production default) | 29.998 s | 7.819 s | 7.860 s | 7.755 s | 11,838,046,208 bytes |
+| `metal-tree-packed-dk128-v1` (opt-in candidate) | 38.279 s | 9.055 s | 8.957 s | 9.060 s | 11,894,095,872 bytes |
+
+The packed candidate was 1.14–1.28 times slower, so it is not promoted. This
+is a useful negative optimization result, not a parity failure: the candidate
+passed the pinned-base full gate (maximum probability delta `3.9155e-07`, no
+argmax or policy changes) and nested gate (maximum probability delta
+`6.6133e-06`, cached-versus-full `7.6294e-05`). The generic masked and
+vector-gate kernels remain direct-test coverage and future batching building
+blocks. The comparison is a dirty-working-tree, single-sample result. Raw
+summaries and prediction files are preserved in the linked GDN review record;
+exact commands and boundaries are in the linked 3M.5 verification note.
 
 ### MLX parity timing boundary
 

@@ -1,10 +1,10 @@
 # opendecision — Roadmap
 
 > Qwen-led, open-source typed decision inference, with a Rust service and an explicitly pinned Jev-compatible interface target.
-> **Revision 0.8.1 · 21 September 2026 · Native CPU reference engine through safe adaptive scheduling, Phase 3M MLX parity backend and benchmark dispatch, and Phase 4A natural-document benchmark. Fused Metal kernels, daemon MLX registration, full restored head/decision replay, practical high-K latency, and production load/soak remain open.**
+> **Revision 0.8.1 · 22 September 2026 · Native CPU reference engine through safe adaptive scheduling, Phase 3M MLX parity backend and benchmark dispatch, and completed Phase 4A/4B non-final StateQuery comparisons. Metal-kernel production promotion and native batching, daemon MLX registration, stratified applicability training, full restored head/decision replay, practical high-K latency, and production load/soak remain open.**
 > Contract reference: <https://docs.typesafe.ai/api>. A live documentation URL does not replace pinned schemas and conformance fixtures.
 
-**Current evidence:** B–G remain historical research. **Phase 2H is completed through the `2h.1.2` continuation** and the exploratory 2I/2J screen selected/exported a provisional Qwen3.5-4B state-first integration profile. **Phase 3A is completed in Python** for run `20260920T024056Z`: the selected profile remained unchanged, semantic batched parity passed, high-K systems parity passed, and the recorded same-process repeatability delta was zero. **Phase 3B is completed in Python** for run `20260920T152206Z`: it exports exact tokens, 34 ordered diagnostic stages, 10 candidate vectors, and 3 continuation vectors without changing the model or bundle. Rust Phase 3.1–3.8 parity and measurement pass. The backend-neutral contract lives in `opendecision-runtime`; scheduling/content fingerprints are distinct types; memory reporting is explicitly tensor payload plus a separately measured process envelope; the per-lane CPU backend defaults to `NestedSequential`; and `2.52` is the lowest measured sharing ratio. Phase 3.9a and 3.9b cover K=32/64/128/255 admission (including saturating sum accounting for `repeated_full` retained states) and bounded model-backed completion without a naïve full-state fan-out. Tenant/TTL/byte-bounded strict-content caching, atomic versioned state snapshots, cancellation-safe capacity ownership, and direct `Qwen35DecisionEngine` registration are implemented. Request-derived digests are strictly barred from daemon logs to preserve offline privacy. Choice semantic none is caller-visible as required `__none__`, and confidence is entropy-derived rather than maximum probability. A clean, commit-stamped named-Mac checkpoint verifies the workspace, schema stability, full/branch/nested/batched native parity, and the canonical warm-process scheduler benchmark for subject commit `35c481a6e95a`. Structural fresh-process replay and native service lifecycle smoke pass. **Phase 3M (MLX)** adds an optional Apple Silicon backend (`--features mlx`) with FP32 runtime, streamed loading, full/nested parity, `Qwen35Backend` selection, and `opendecision-bench` dispatch, showing `8.4–9.0×` speedups on shared strategies over CPU with `1.77e-05` max probability delta to CPU and zero selection changes; BF16 continuation defect and community parity failure remain open. **Phase 4A** locks a natural-document multi-question benchmark (2,192 states, 15,368 questions) with initial StateQuery probe and model comparison readouts. **Current direction:** complete restored candidate-feature/head/probability/decision replay, practical high-K latency, queue-inclusive service load/soak, Metal, and release confirmation. CPU native parity does not imply Metal or accelerated parity. [H; HF; IJ2; P3A; P3B; RUST1–RUST10; RUSTM1; WP §§13.3–13.5, 15–18]
+**Current evidence:** B–G remain historical research. **Phase 2H is completed through the `2h.1.2` continuation** and the exploratory 2I/2J screen selected/exported a provisional Qwen3.5-4B state-first integration profile. **Phase 3A is completed in Python** for run `20260920T024056Z`: the selected profile remained unchanged, semantic batched parity passed, high-K systems parity passed, and the recorded same-process repeatability delta was zero. **Phase 3B is completed in Python** for run `20260920T152206Z`: it exports exact tokens, 34 ordered diagnostic stages, 10 candidate vectors, and 3 continuation vectors without changing the model or bundle. Rust Phase 3.1–3.8 parity and measurement pass. The backend-neutral contract lives in `opendecision-runtime`; scheduling/content fingerprints are distinct types; memory reporting is explicitly tensor payload plus a separately measured process envelope; the per-lane CPU backend defaults to `NestedSequential`; and `2.52` is the lowest measured sharing ratio. Phase 3.9a and 3.9b cover K=32/64/128/255 admission and bounded model-backed completion. Tenant/TTL/byte-bounded strict-content caching, atomic versioned state snapshots, cancellation-safe capacity ownership, and direct `Qwen35DecisionEngine` registration are implemented. **Phase 3M (MLX)** provides the optional FP32 Apple-Silicon backend and measured shared-strategy acceleration while BF16 and native batching remain open. **Phase 4A/4B** locks a natural-document multi-question benchmark (2,192 states, 15,368 questions) and completes the non-final B0/B1/B2/B2R plus QASPER-weight sweep. The cap-12 run saturates at an effective weight of 8.5602, still misses the QASPER none-recall floor, and creates a 39.66% ContractNLI false-none rate. **Current direction:** stop scalar-weight tuning; run one seed-17 source/class-normalized applicability objective with a false-none guardrail, while continuing restored decision replay, practical high-K latency, queue-inclusive service load/soak, and Metal work. CPU native parity does not imply Metal or accelerated parity. [H; HF; IJ2; P3A; P3B; P4B2; RUST1–RUST10; RUSTM1; WP §§13.3–13.5, 15–18]
 
 **Latest systems workbench:** `OpenDecision_Phase3A_BranchableState_BatchedQ`, run `20260920T024056Z`, completed notebook scope against selected profile `a047d6802c3f06f085b8` without model changes, training or reselection. It validates the Python branch/batch reference and sharpens the scheduler requirement; it does not establish Rust/Metal parity or release quality. The earlier `2ij.2.0` model-selection screen remains the model-selection authority, while the blocked `2ij.1.0` review-gated checkpoint remains preserved as evidence for the still-open independent-review path. [IJ; IJ2; P3A; WP §§14–16]
 
@@ -543,7 +543,7 @@ Rather than treating custom modeling as a distant or serial replacement, OpenDec
 ```text
 Track A — Reference engine (Frozen Qwen3.5-4B baseline)
     Finish 3.10 (full restored persistence & replay)
-    MLX parity backend & benchmark dispatch landed (3M.0–3M.4, engine selection, bench harness); fused Metal kernels (3M.5), BF16 Gate B (3M.6), daemon CLI aliases (3M.7), and unified-memory stress (3M.8) open
+    MLX parity backend & benchmark dispatch landed (3M.0–3M.4, engine selection, bench harness); 3M.5 Metal-kernel prototypes landed but production promotion/native batch state remain open, as do BF16 Gate B (3M.6), daemon CLI aliases (3M.7), and unified-memory stress (3M.8)
     Production service lifecycle & load/soak (3.11, S.4–S.5)
 
 Track B — OpenDecision-native model (Phase 4A)
@@ -788,7 +788,7 @@ Every optimization that claims to preserve `a047d6802c3f06f085b8` must keep the 
 
 ---
 
-## Phase 4A — OpenDecision-Native Architecture Feasibility (PARALLEL TRACK B / PLANNED)
+## Phase 4A/4B — OpenDecision-Native Architecture Feasibility (NON-FINAL SWEEP COMPLETE / NEXT OBJECTIVE OPEN)
 
 **Goal:** prototype and evaluate a purpose-built OpenDecision decision architecture rather than continuing to rely indefinitely on a frozen causal LM (`Qwen3.5-4B-Base`) carrying unused token-generation machinery and expensive per-branch hybrid recurrent state.
 
@@ -904,6 +904,8 @@ Stage 3 — Teacher/Student Distillation (4A.3)
     Goal: recover quality lost in compression.
 ```
 
+**Current gate disposition:** Stage 1 has a positive aggregate-quality result but has not passed the applicability gate. Phase 4A.2 and 4B.2 show that architecture refinements and a saturated scalar none weight do not produce acceptable per-source none discrimination. Workbench 4B.2.1 is therefore a required objective-design recovery step before Stage 2 encoder compression or Stage 3 distillation proceeds.
+
 ---
 
 ### Ranked sources of expected accuracy gains
@@ -972,7 +974,9 @@ Full custom model training must **not** precede completion of the **2I.1 / 2I.2*
 ### Concrete Phase 4A tasks
 
 - [x] **4A.1 — Frozen-Qwen shared representation accuracy test (Option B probe).** Natural-document corpus locked (`ContractNLI` + `QASPER`, 2,192 states / 15,368 questions) with frozen feature caches in `research/OpenDecision_Phase4A0_4A1_StateQuery_Workbench.ipynb` (`20260921T013558Z`, v4a.0.2). The Option B StateQuery B1 readout (attending to frozen state representations) achieved **0.7796 macro accuracy** across non-final partitions (vs 0.7099 for historical candidate-conditioned reference), but suffered complete **QASPER none-recall collapse (0.0)**. Gate condition remains open: uncollapsed semantic-none discrimination required before release promotion. [WP §18.3–18.5]
-- [x] **4A.2 — Progressive encoder compression & model comparison.** Evaluated in `research/OpenDecision_Phase4A2_StateQuery_Model_Comparison.ipynb` (`4a.2.0`) without reopening final splits: matched B0 control reproduced the 0.0 QASPER none-recall collapse; source-balanced B1 raised none-recall to **0.168** (approaching but below the 0.30 gate threshold); factorized B2 evaluated. Progressive sizing across smaller backbones remains open pending none-recall recovery. [WP §18.6–18.7]
+- [x] **4A.2 — Matched architecture comparison and first applicability recovery.** Completed in `research/OpenDecision_Phase4A2_StateQuery_Model_Comparison.ipynb` (`4a.2.0`) without opening final: B0 reproduced the 0.0 QASPER collapse; balanced B1, factorized B2, and refined B2R completed; and B2 with QASPER none weight 8 reached the strongest Phase 4A.2 source-macro balanced accuracy (**0.5872**), macro F1 (**0.5905**), and QASPER gate none recall (**0.1667**). B2 provides the best matched architecture-arm proper scores, but every arm remains below the 0.30 QASPER floor. Progressive encoder sizing remains blocked on applicability recovery. [WP §18.6–18.7]
+- [x] **4B.2 — Close the scalar semantic-none-weight sweep.** `OpenDecision_Phase4B2_StateQuery_Model_Comparison.ipynb` holds B2 and seed 17 fixed while raising the configured QASPER cap from 8 to 12. The realized weight saturates at **8.5602**. Selected epoch 11 records QASPER development/gate none recall of **0.1239/0.1556**, while ContractNLI gate false-none reaches **0.3966**. Prediction hashes, rows, and reported metrics independently reconcile; final remains unavailable and unopened. Do not run cap 16 or replicate this failed arm. [P4B2; WP §18.8]
+- [ ] **4B.2.1 — Stratified applicability objective (next run).** Keep B2, seed 17, the locked corpus/features, optimizer, non-final partitions, and answer distribution fixed. Remove the scalar none multiplier from the joint choice loss; train candidate ranking only on answerable questions and train binary applicability with equalized source/class question mass. Require ContractNLI/QASPER none recall of at least **0.35/0.30** and a diagnostic per-source false-none ceiling of **0.20** before replication. Run seeds 42/123 only after seed 17 clears every gate. Preserve the cap-12 run as the immutable parent and keep final closed.
 - [ ] **4A.3 — Teacher/student distillation for quality recovery.** On the smallest viable representation from 4A.2, evaluate:
   - Supervised training on human labels alone;
   - Supervised training augmented with teacher distribution KL divergence and semantic feature matching.
@@ -999,9 +1003,10 @@ Python sidecar was a deliberate choice: the layer math stays owned and
 auditable, and no mlx-lm code executes. The backend is feature-gated
 (`--features mlx`, macOS arm64; build with `SDKROOT=$(xcrun --show-sdk-path)`)
 and optional, so the default workspace battery never requires the Metal
-toolchain. It is a **parity** backend, not yet an accelerated one: the
-recurrent layers run the per-token `ReferenceOps` path over ordinary array
-ops, and the fused Gated-DeltaNet Metal kernel is 3M.5 work. Candle CPU
+toolchain. It is a **parity** backend: the production recurrent path remains
+the faster per-token `ReferenceOps` implementation. Phase 3M.5 now includes
+generic masked/vector-gate kernels and a packed FP32 sequence kernel, but its
+same-host smoke result does not justify production promotion. Candle CPU
 remains the correctness oracle. `Qwen35EngineConfig` selects the backend
 (`Qwen35Backend`: CPU, MLX FP32, MLX BF16) behind the same backend-neutral
 request path, and `opendecision-bench` dispatches the MLX engines behind its
@@ -1030,19 +1035,21 @@ Daemon-side MLX alias registration stays 3M.7 work. [RUSTM1]
       256 MiB safety bound pending 3M.8 measurement), exposes
       active/peak/cache telemetry and `synchronize`, verifies the linked MLX
       version against the pinned constant fail-closed, and serializes **all**
-      MLX work behind one execution mutex — mlx-c streams are thread-affine
-      (per-thread registries; a stream created on one thread throws when
-      evaluated from another), so per-thread default GPU streams under the
-      mutex are the discipline, with `mlx_stream_new_thread_unsafe` the
-      designated future refinement. Two qualification discoveries are pinned
+      MLX work behind one execution mutex. The runtime creates one process-wide
+      GPU stream with `mlx_stream_new_thread_unsafe`, installs that explicit
+      stream for every `MlxRuntime::execute` scope, and synchronizes that same
+      stream. This permits worker-thread entry without relying on whichever
+      default stream belongs to the caller. Two qualification discoveries are pinned
       by tests: MLX `conv1d` computes *true convolution* (kernel reversed,
       weight layout `(C_out, K, C_in/groups)`), and the checkpoint stores
       `A_log` plus `linear_attn.norm.weight` in FP32 with everything else
       BF16.
 - [x] **3M.2 — Streamed weight loading and exact embedding.** Both pinned
       shards are digest/size-verified through the Candle oracle's loader, then
-      tensors stream one at a time (read → widen on host → MLX array → drop
-      staging; ~4.3 s, peak active MLX ≈ 16.1 GiB fp32, peak RSS ≈ 10–11 GiB;
+      only decoder tensors are retained: unused MTP/vision entries are filtered
+      before allocation/read, native BF16 payloads decode directly without an
+      FP32 staging vector, and FP32 tensors stream one at a time (read → widen
+      on host → MLX array → drop staging; ~4.3 s, peak active MLX ≈ 16.1 GiB fp32, peak RSS ≈ 10–11 GiB;
       the 1.27 GiB tied embedding table stays host-resident). Offset-RMSNorm
       weights fold `(1 + w)` exactly once at load; the DeltaNet `norm.weight`
       stays raw. The pinned-base embedding gate is **bit-exact** against the
@@ -1128,11 +1135,25 @@ Daemon-side MLX alias registration stays 3M.7 work. [RUSTM1]
       parity or fitted-head quality claim. See the working-tree verification
       note for hashes and the exact commands.
 - [ ] **3M.5 — Fused Gated-DeltaNet Metal kernel + native batch state.**
-      Implement the fused kernel via mlx-c's custom-Metal-kernel API
-      (`mlx_fast_metal_kernel_*`, exposed through `mlx_sys`), compare it
-      against the permanent `ReferenceOps` oracle first, then probabilities.
-      Native cache-merge `fork_batch` replaces handle-copies. Only then may
-      the backend advertise vectorized forward in `BackendCapabilities`.
+      **Kernel sub-scope implemented and parity-qualified; production promotion
+      and native batch state remain open.** The mlx-c custom-Metal-kernel path
+      now provides generic FP32/BF16 scalar-gate, masked, and vector-gate
+      variants; a packed FP32 `Dk = Dv = 128` sequence specialization; and an
+      explicit fixed reduction tree. Differential tests pin masks, vector
+      gates, replay determinism, sequence-versus-step equality, continuation
+      equality, and the BF16 candidate's finiteness. A shared-reduction race
+      found during replay stress was fixed with a separate reduction value and
+      barrier before any lane overwrites scratch memory. The pinned-base FP32
+      path passes full parity (max probability delta `3.9155e-07`, zero
+      argmax/policy changes) and nested parity (cached/full `7.6294e-05`, max
+      probability delta `6.6133e-06`). It is opt-in, not the default: on the
+      same 12-row smoke sweep it took `38.279/9.055/8.957/9.060 s` versus
+      `29.998/7.819/7.860/7.755 s` for `ReferenceOps`, 14–28% slower. Raw
+      benchmark artifacts are retained in
+      [`benchmarks/2026-09-21-qwen35-mlx-gdn-review/`](benchmarks/2026-09-21-qwen35-mlx-gdn-review/),
+      and the operational design is documented in [`MLX.md`](MLX.md). Native
+      cache-merge `fork_batch`, vectorized forward, and a kernel that beats the
+      default remain required before advertising vectorized capability.
 - [ ] **3M.7 — Variable-length batched suffixes and scheduler integration.**
       **Engine selection and benchmark dispatch landed; daemon aliases and masked batching open:**
       `Qwen35Backend` (`NativeCpu`, `MlxFp32`, `MlxBf16`) integrates MLX into
@@ -1158,6 +1179,7 @@ parity-gate rerun on the pinned checkpoint is recorded in
 (FP32 full/nested parity passes; BF16 Gate B and nested continuation defect
 remain open). The fresh dispatch benchmark recheck and smoke benchmarks are
 recorded in
+[`verification/phase3m5-2026-09-21-working-tree.md`](verification/phase3m5-2026-09-21-working-tree.md),
 [`verification/phase3m-2026-09-21-dispatch-recheck.md`](verification/phase3m-2026-09-21-dispatch-recheck.md),
 [`benchmarks/2026-09-21-qwen35-mlx-smoke/`](benchmarks/2026-09-21-qwen35-mlx-smoke/),
 and
@@ -1195,8 +1217,8 @@ passed; schema regeneration was unchanged.
 | **Phase 3A (Python)** | Full-hybrid BranchableState reference, batched Q/K systems validation and crossover measurement | **Completed notebook scope — `20260920T024056Z`**; semantic/high-K parity passed, exact recorded same-process replay; no model change, release promotion or Rust/Metal claim [P3A] |
 | **Phase 3B (Python)** | Exact Qwen token, layer, candidate, and continuation reference export | **Completed notebook scope — `20260920T152206Z`**; 47 FP32 vectors, no model or bundle change, no Rust/Metal claim [P3B] |
 | **Phase 3 (Rust/native)** | Native parity, branchable hybrid state, sequential/lane-topology Q/K execution, safe measured scheduling, high-K admission, persistence, and service lifecycle | **In progress:** 3.1–3.9b bounded evidence passes; structural 3.10 replay and native 3.11 service smoke pass. Full restored head/decision replay, practical high-K latency, production load/soak, Metal, and release promotion remain open |
-| **Phase 3M (MLX parity backend)** | MLX/Metal Qwen3.5 parity backend via pinned `mlx-rs`/mlx-c, feature-gated: runtime qualification, streamed weights, full/nested FP32 parity, engine backend selection, and benchmark dispatch | **FP32 3M.0–3M.4 passes; warm benchmark dispatch recheck records 8.4–9.0× shared speedup over CPU with 1.77e-05 max prob delta — [`verification/phase3m-2026-09-21-dispatch-recheck.md`](verification/phase3m-2026-09-21-dispatch-recheck.md)**; community adapter loads but fails parity; BF16 Gate B, fused Metal kernel, variable-length masked batching, memory stress, and daemon CLI wiring open [RUSTM1] |
-| **Phase 4A** | **OpenDecision-native architecture feasibility (Track B)** | **Research workbench & model comparison active** — locked natural-document benchmark (2,192 states / 15,368 Qs; ContractNLI + QASPER) in `15-StateQuery_Workbench.ipynb`; StateQuery B1 probe (0.78 macro acc) and B0/B1/B2 comparisons in `16-StateQuery_Model_Comparison.ipynb` and [WP §18](whitepaper/OpenDecision_Whitepaper_v0.8.1.md#18-phase-4a-natural-document-multi-question-benchmark-and-statequery-readout); balanced none-recall recovery and full training open |
+| **Phase 3M (MLX parity backend)** | MLX/Metal Qwen3.5 parity backend via pinned `mlx-rs`/mlx-c, feature-gated: runtime qualification, streamed weights, full/nested FP32 parity, engine backend selection, benchmark dispatch, serialized explicit stream, and custom GDN kernel candidates | **FP32 3M.0–3M.4 passes; 3M.5 kernel sub-scope passes parity but remains opt-in because it is 14–28% slower than `ReferenceOps` — [`verification/phase3m5-2026-09-21-working-tree.md`](verification/phase3m5-2026-09-21-working-tree.md)**; community adapter loads but fails parity; BF16 Gate B, native batch state, variable-length masked batching, memory stress, and daemon CLI wiring open [RUSTM1] |
+| **Phase 4A/4B** | **OpenDecision-native architecture feasibility (Track B)** | **Completed non-final architecture/scalar-weight sweep; objective recovery open** — locked ContractNLI/QASPER benchmark (2,192 states / 15,368 questions); completed B0/B1/B2/B2R, weight-8, and cap-12 reports/locks. No arm meets the QASPER 0.30 floor; cap 12 saturates at 8.5602 and produces 39.66% ContractNLI false-none. Next: one seed-17 stratified-applicability run with recall and false-none gates; no final opening [P4B2; WP §18] |
 
 ### Superseded task mapping
 
@@ -1255,7 +1277,7 @@ The commands are retained as project usage examples, not commands run during thi
 
 **R0 — Uploaded roadmap.** `ROADMAP(20260919-123538).md`. Authority for supplied code milestones and historical test counts, not independent current-repository verification. Its numerical tables in the 2A–2G history are retained unchanged. Corrections to the exploratory interpretation and current scope are explicitly recorded in the companion change log.
 
-**WP: Latest whitepaper lineage.** The current [whitepaper v0.8.1](whitepaper/OpenDecision_Whitepaper_v0.8.1.md) establishes the v0.8.1 provenance boundary ("Native CPU reference engine through adaptive scheduling and Phase 4A natural-document benchmark"), consolidating Phases 3.1–3.8 (RUST1–RUST7) and retaining the delivered v0.6/v0.6.1/v0.7/v0.7.2/v0.8.0 lineage. Older v0.3 and pre-H files surfaced in the conversation remain historical, not replacement bases. E1–E8 preserve earlier evidence, E9 the completed H continuation, and E10/I0 the blocked workbench and unsigned intake. The v0.4 refocus, 16-group review mapping and all prior results remain intact; B–H experiments were not rerun here.
+**WP: Latest whitepaper lineage.** The current [whitepaper v0.8.1](whitepaper/OpenDecision_Whitepaper_v0.8.1.md) establishes the v0.8.1 provenance boundary ("Native CPU reference engine through adaptive scheduling and Phase 4A/4B natural-document benchmark"), consolidating Phases 3.1–3.8 (RUST1–RUST7) and retaining the delivered v0.6/v0.6.1/v0.7/v0.7.2/v0.8.0 lineage. Older v0.3 and pre-H files surfaced in the conversation remain historical, not replacement bases. E1–E8 preserve earlier evidence, E9 the completed H continuation, E10/I0 the blocked workbench and unsigned intake, and E14–E16 the locked corpus plus completed non-final StateQuery sweep. The v0.4 refocus, 16-group review mapping and all prior results remain intact; B–H experiments were not rerun here.
 
 **H — Saved Phase 2H attempt.** `Google Drive / Colab Notebooks / OpenDecision_Phase2H_results / 20260919T040612625670Z`. [Full summary](https://drive.google.com/file/d/1IT4cJN74vgOW0td7haE_bl2KfviHiaP1/view), [compact summary](https://drive.google.com/file/d/1525L3h-0hVKtgm50c_IAX1dCAKHNZNUe/view), [attempt archive](https://drive.google.com/file/d/1X8JP-8hhb3lu_PmMCWNLovMMdXPK6eDO/view), and [saved Colab notebook](https://colab.research.google.com/drive/1fhRJTek7Ura3aSdItwBjJTJubXUIee4a). The notebook and exported result snapshots, saved around 05:03–05:04 UTC on 19 September 2026, describe a partial attempt. No inaccessible live runtime or later unsaved continuation is inferred.
 
@@ -1306,11 +1328,13 @@ The v0.5.2 review-capture revision left historical metrics and H-development tab
 
 **RUST10 — Named-Mac native follow-up campaign.** [`verification/2026-09-20-v0.8.0-native-follow-up-working-tree.md`](verification/2026-09-20-v0.8.0-native-follow-up-working-tree.md) records a dirty-tree run anchored at `9d086107bb017bf721d815bb5bcb8ba516ce0e6e`. Rust 1.98.1 workspace tests, all-features tests, formatting, strict Clippy, and diff hygiene pass. Rust 1.88.0 is the verified workspace floor and is added to CI. Model-backed K=32/64/128/255 stress passes bounded completion, root immutability, and memory behavior; two fresh processes pass structural persistence replay; and a real native daemon request, overload admission, cancellation/recovery, clean shutdown, and 20 health probes pass. The full restored candidate-feature/head/probability/argmax/policy replay gate, practical high-K latency, production load/soak, Metal, and release promotion remain open.
 
-**RUSTM1 — Phase 3M MLX/Metal parity-backend checkpoint.** The optional `mlx` backend (`mlx-rs =0.32.0`, vendored mlx-c `v0.6.0-7-gc74db53` / MLX 0.32.2) is real-checkpoint validated for FP32 on the named development Mac (Xcode 27.0, Metal 32023.921): runtime qualification passes FP32/BF16 including the exact ml-explore/mlx-c#115 reproduction; pinned-base embedding is bit-exact; the 34-stage trace remains at parity noise; full-sequence probability delta is `1.5148e-06` with zero argmax/policy changes; nested probability delta is `1.3787e-05` with root immutability, fixture positions, sibling isolation, and cached-vs-full `7.25e-05` inside the `1e-4` guard. Load-inclusive rough timings were `44.7 s` for pinned full FP32 parity and `59.3 s` for pinned nested FP32 parity; these are not `opendecision-bench` throughput records. The fresh dispatch recheck in [`verification/phase3m-2026-09-21-dispatch-recheck.md`](verification/phase3m-2026-09-21-dispatch-recheck.md) and [`benchmarks/2026-09-21-qwen35-mlx-smoke/`](benchmarks/2026-09-21-qwen35-mlx-smoke/) establishes warm benchmark throughput via `opendecision-bench --features mlx`: pinned MLX FP32 achieves `29.42 s` repeated-full (`4.05×` faster than CPU), `7.91 s` nested-sequential (`8.89×`), `7.92 s` nested-batched (`9.02×`), and `7.94 s` choose-strategy (`8.67×`), with maximum probability delta `1.7687e-05` against CPU and zero Choice selection changes. BF16 is not closed: full probability delta is `5.4572e-03` and nested continuation rejects layer-4 state dtype/shape. The explicit MLX-community adapter now loads and executes `mlx-community/Qwen3.5-4B-MLX-bf16`, but its FP32 run differs materially from the frozen base reference: embedding max error `8.5449e-04`, feature max error `45.64`, probability max error `0.9999983`, four argmax changes, and three policy changes. Its native BF16 run also completes but reaches probability max error `0.99055`, with one argmax change and two policy changes. It is therefore a compatibility path, not a promoted parity model. Candle remains the correctness oracle; no mlx-lm code executes; the recurrent path is the per-token ReferenceOps implementation, not a fused kernel. Current evidence is in [`verification/phase3m-2026-09-21-dispatch-recheck.md`](verification/phase3m-2026-09-21-dispatch-recheck.md) and [`verification/phase3m-2026-09-21-working-tree.md`](verification/phase3m-2026-09-21-working-tree.md); historical first-pass provenance remains in [`verification/phase3m-2026-09-20/`](verification/phase3m-2026-09-20/). Fused GDN kernel (3M.5), variable-length masked batching and daemon aliases (3M.7), unified-memory stress (3M.8), and quantization (P2.2) remain open.
+**RUSTM1 — Phase 3M MLX/Metal parity-backend checkpoint.** The optional `mlx` backend (`mlx-rs =0.32.0`, vendored mlx-c `v0.6.0-7-gc74db53` / MLX 0.32.2) is real-checkpoint validated for FP32 on the named development Mac (Xcode 27.0, Metal 32023.921). `MlxRuntime` serializes all execution on one explicit cross-thread GPU stream and bounds the inactive cache. The production `ReferenceOps` path retains the recorded full/nested gates and warm throughput. The 3M.5 candidate adds generic FP32/BF16 scalar-gate, masked, vector-gate, deterministic reduction-tree kernels and a packed FP32 `Dk = Dv = 128` sequence kernel. The packed candidate passes pinned-base full parity (maximum probability delta `3.9155e-07`, zero argmax/policy changes) and nested parity (maximum probability delta `6.6133e-06`, cached/full `7.6294e-05`), but remains opt-in because it measured `38.279/9.055/8.957/9.060 s` versus the production path's `29.998/7.819/7.860/7.755 s` on the same smoke sweep. BF16 is not closed: the generic fused candidate failed the model gate and falls back to `ReferenceOps`; the existing reference profile also remains outside its frozen Gate B. The MLX-community adapter remains a compatibility path, not a promoted parity model. Current kernel-review evidence is in [`verification/phase3m5-2026-09-21-working-tree.md`](verification/phase3m5-2026-09-21-working-tree.md); raw benchmark artifacts are in [`benchmarks/2026-09-21-qwen35-mlx-gdn-review/`](benchmarks/2026-09-21-qwen35-mlx-gdn-review/); the operational contract is in [`MLX.md`](MLX.md); historical dispatch and parity provenance remain in the earlier Phase 3M records. Native batch state/vectorized forward, variable-length masked batching and daemon aliases (3M.7), unified-memory stress (3M.8), and quantization (P2.2) remain open.
 
 **PUB1 — Public OpenDecision state-first reference repository.** <https://huggingface.co/cowWhySo/OpenDecision-Qwen3.5-4B-StateFirst>. This project-owned publication exposes the integration line publicly. Publication does not by itself establish release-quality model promotion, native parity, or TypeSafe RLCD reproduction.
 
-**Revision 0.8.1 outcome:** Documentation baseline synchronized to v0.8.1. Phase 3M MLX/Metal execution backend integrates `Qwen35Backend` selection into `Qwen35DecisionEngine` and `opendecision-bench` dispatch, delivering the first warm benchmark sweep (`8.4–9.0×` speedup on shared strategies over CPU on Apple Silicon M4 Max, bounded `1.77e-05` max probability delta, zero selection changes). Phase 4A establishes the locked natural-document multi-question benchmark (2,192 states, 15,368 questions) with StateQuery B1 probe and B0/B1/B2 model comparisons in research notebooks and Whitepaper §18. Native admission accounts for `repeated_full` retained states with saturating arithmetic (PR #6), and request-derived digests are restricted from daemon telemetry logs. BF16 nested continuation, daemon MLX CLI aliases, fused GDN Metal kernels, and production load/soak remain open.
+**P4B2 — Completed Phase 4B.2 scalar-weight result.** `OpenDecision_Phase4B2_StateQuery_Model_Comparison.ipynb`, workbench `4b.2.0`, base run `20260921T013558Z`, run `b2q_weight12_s17`; [result folder](https://drive.google.com/drive/folders/1IAC0FrXyJGJieonUQZX0_pFNA8D3Og8P). The run completed 12 epochs, selected epoch 11, recorded effective QASPER semantic-none weight `8.560185185185185`, and remained ineligible. QASPER development/gate none recall is `0.1239/0.1556`; ContractNLI gate false-none is `0.3966`. The experiment/evaluation/checkpoint references and saved prediction hashes reconcile, and final is unavailable/unopened. This closes the scalar-cap sweep but does not promote a model.
+
+**Revision 0.8.1 outcome:** Documentation baseline synchronized to v0.8.1. Phase 3M MLX/Metal execution backend integrates `Qwen35Backend` selection into `Qwen35DecisionEngine` and `opendecision-bench` dispatch, delivering the first warm benchmark sweep (`8.4–9.0×` speedup on shared strategies over CPU on Apple Silicon M4 Max, bounded `1.77e-05` max probability delta, zero selection changes). The explicit serialized stream and 3M.5 kernel candidate now have working-tree evidence; benchmark regression keeps the kernel opt-in. Phase 4A/4B establishes the locked natural-document multi-question benchmark and completes the B0/B1/B2/B2R plus QASPER-weight non-final sweep. Scalar weighting is now closed as insufficient; the next model task is workbench 4B.2.1 source/class-normalized applicability with a false-none guardrail. Native admission accounts for `repeated_full` retained states with saturating arithmetic, and request-derived digests are restricted from daemon telemetry logs. BF16 nested continuation, daemon MLX CLI aliases, native MLX batching, stratified applicability training, and production load/soak remain open.
 
 **Revision 0.8.0 outcome:** Native CPU reference engine through safe adaptive scheduling and direct registration. Consolidates Phases 3.1–3.8 (RUST1–RUST7), then corrects the scheduler's unmeasured 2.0 claim to the observed 2.52 boundary, distinguishes lane topology from vectorized forward, moves generic execution contracts into runtime, separates fingerprint types, qualifies tensor/process memory, completes 3.9a admission stress, adds tenant-scoped cache primitives, and registers the native engine with explicit none/confidence semantics (RUST8). RUST10 adds bounded model-backed high-K, structural fresh-process replay, and native service lifecycle smoke. Full restored head/decision replay, practical high-K latency, vectorized kernels, Metal, and production load/soak remain open.
 
