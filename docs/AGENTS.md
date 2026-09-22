@@ -47,7 +47,7 @@ When changing a wire type:
    ```bash
    cargo run -p opendecision-gen-schemas -- --write
    ```
-4. Update Protobuf (`proto/proto/opendecision.proto`) and OpenAPI (`crates/opendecision-api/openapi.yaml` / `docs/openapi.yaml`) if the same surface is exposed. Validate OpenAPI using `npx --yes @redocly/cli lint docs/openapi.yaml`.
+4. Update Protobuf (`proto/proto/opendecision.proto`) and OpenAPI (`crates/opendecision-api/openapi.yaml` / `docs/openapi.yaml`) if the same surface is exposed. Validate OpenAPI using `npx --yes @redocly/cli@1.34.5 lint docs/openapi.yaml`.
 5. Update SDK compatibility tests in `crates/opendecision-api/tests/sdk_compat/`.
 
 ## Documentation Style Rules
