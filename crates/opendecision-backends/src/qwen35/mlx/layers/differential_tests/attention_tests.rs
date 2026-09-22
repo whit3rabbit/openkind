@@ -1,5 +1,5 @@
 use mlx_rs::ops::concatenate;
-use mlx_rs::Array;
+use mlx_rs::{Array, Dtype};
 
 use super::super::full_attention::{apply_rotary, grouped_query_attention};
 use super::super::ops::op;
@@ -75,6 +75,28 @@ fn full_attention_prefix_cache_matches_one_pass() {
         max_abs <= 1e-5,
         "full attention prefix cache diverged from one pass: max_abs {max_abs:.6}"
     );
+}
+
+#[test]
+fn full_attention_preserves_bfloat16_dtype() {
+    let runtime = MlxRuntime::new(MlxRuntimeConfig::default()).expect("runtime");
+    runtime
+        .execute(|| -> Result<(), MlxError> {
+            let queries = Array::from_slice(
+                &vec![half::bf16::ZERO; ATTENTION_HEADS * ATTENTION_HEAD_DIM],
+                &[1, ATTENTION_HEADS as i32, ATTENTION_HEAD_DIM as i32],
+            );
+            let keys = Array::from_slice(
+                &vec![half::bf16::ZERO; KV_HEADS * ATTENTION_HEAD_DIM],
+                &[1, KV_HEADS as i32, ATTENTION_HEAD_DIM as i32],
+            );
+            let values = keys.clone();
+            let output = grouped_query_attention(&queries, &keys, &values, 1, 0)?;
+            assert_eq!(output.dtype(), Dtype::Bfloat16);
+            Ok(())
+        })
+        .expect("execute")
+        .expect("bfloat16 attention");
 }
 
 #[test]

@@ -142,9 +142,17 @@ pub(crate) fn grouped_query_attention(
             mask[row * total_rows + column] = 0.0;
         }
     }
-    let mask = Array::from_slice(&mask, &[rows as i32, total_rows as i32])
-        .reshape(&[1, rows as i32, total_rows as i32])
-        .map_err(op("mask reshape"))?;
+    let mask = if scores.dtype() == Dtype::Bfloat16 {
+        let mask = mask
+            .iter()
+            .map(|value| half::bf16::from_f32(*value))
+            .collect::<Vec<_>>();
+        Array::from_slice(&mask, &[rows as i32, total_rows as i32])
+    } else {
+        Array::from_slice(&mask, &[rows as i32, total_rows as i32])
+    }
+    .reshape(&[1, rows as i32, total_rows as i32])
+    .map_err(op("mask reshape"))?;
     let scores = scores.add(&mask);
 
     let maximum = scores.max_axis(-1, true).map_err(op("softmax max"))?;
