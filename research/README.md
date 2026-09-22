@@ -4,7 +4,7 @@ This directory contains the experimental notebooks, frozen reference artifacts, 
 
 OpenKind evaluates typed decisions (`Choice`, `Score`, `Noul`) directly from neural representations without an autoregressive token-generation loop. The research journey documented here progresses from initial feasibility probes on `Qwen/Qwen3.5-4B-Base`, through precision contracts, prefix caching, cache compression, multi-domain criteria transfer, and multi-model screening, to the native Rust backbone handoff and multi-question natural-document architectures.
 
-Detailed analysis, theoretical foundations, and mathematical formulations are documented in the [OpenKind Whitepaper v0.8.1](../docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md) and [Research Dossier](../docs/RESEARCH.md).
+Detailed analysis, theoretical foundations, and mathematical formulations are documented in the [OpenKind Whitepaper v0.8.2](../docs/whitepaper/OpenKind_Whitepaper_v0.8.2.md) and [Research Dossier](../docs/RESEARCH.md).
 
 ---
 
@@ -12,7 +12,7 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 
 | # | Notebook | Phase / Run ID | Target HW | Core Research Focus | Status & Outcome | Supporting Artifacts |
 |---|---|---|---|---|---|---|
-| **1** | [1 - OpenKind_Phase2_Qwen3_5_4B_Probe.ipynb](./1%20-%20OpenKind_Phase2_Qwen3_5_4B_Probe.ipynb) | Phase 2 Probe | GPU (L4/A100) | Frozen Qwen3.5 feature extraction & linear decision head | Feasibility proven; identified text vs vision parameter count | [Whitepaper §3.1](../docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md#31-research-chronology) |
+| **1** | [1 - OpenKind_Phase2_Qwen3_5_4B_Probe.ipynb](./1%20-%20OpenKind_Phase2_Qwen3_5_4B_Probe.ipynb) | Phase 2 Probe | GPU (L4/A100) | Frozen Qwen3.5 feature extraction & linear decision head | Feasibility proven; identified text vs vision parameter count | [Whitepaper §3.1](../docs/whitepaper/OpenKind_Whitepaper_v0.8.2.md#31-research-chronology) |
 | **2** | [2 - OpenKind_Phase2B_Qwen3_5_4B_Benchmark.ipynb](./2%20-%20OpenKind_Phase2B_Qwen3_5_4B_Benchmark.ipynb) | Phase 2B (`20260917T205849Z`) | NVIDIA L4 (BF16) | MultiNLI classification, pooling strategies, calibration, generation vs decision timing | Last-token + linear won (87.7% matched); 44.6× speedup over generation; temperature scaling rejected | [openkind_phase2b_20260917T205849Z/](./openkind_phase2b_20260917T205849Z) |
 | **3** | [3 - OpenKind_Phase2C_Stability_DynamicChoice_LoRA.ipynb](./3%20-%20OpenKind_Phase2C_Stability_DynamicChoice_LoRA.ipynb) | Phase 2C (`20260917T222948Z`) | NVIDIA L4 (BF16) | Multi-seed stability, dynamic candidate scoring (Banking77), global `__none__` logit | Stable across seeds (87.0% / 88.8%); 80.8% seen / 64.6% unseen accuracy; 0.817 AUROC for none | [openkind_phase2c_20260917T222948Z/](./openkind_phase2c_20260917T222948Z) |
 | **4** | [4 - OpenKind_Phase2D_Numerics_NoneHandling_RequestBench.ipynb](./4%20-%20OpenKind_Phase2D_Numerics_NoneHandling_RequestBench.ipynb) | Phase 2D (`20260917T234417Z`) | NVIDIA L4 | Precision diagnostics (BF16 vs FP32 vs TF32), none-head alternatives, request latency vs K | Isolated layer divergence in DeltaNet/conv; linear latency scaling without prefix caching | [openkind_phase2d_20260917T234417Z/](./openkind_phase2d_20260917T234417Z) |
@@ -24,10 +24,15 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 | **10** | [10 - OpenKind_Phase2IJ_Gated_Workbench.ipynb](./10%20-%20OpenKind_Phase2IJ_Gated_Workbench.ipynb) | Phase 2I/2J Workbench (`2ij.1.0`) | NVIDIA L4 / A100 | Multi-question reviewed study gate, state-first vs instruction-first GPU mechanics probe | Strict independent-review gate blocked unverified training; probe validated state-first prefill mechanics | [openkind_2ij_2ij_reviewed_multiquestion_v1/](./openkind_2ij_2ij_reviewed_multiquestion_v1) |
 | **11** | [11 - OpenKind_Phase2IJ_Gated_Workbench (update & model selection).ipynb](./11%20-%20OpenKind_Phase2IJ_Gated_Workbench%20(update%20%26%20model%20selection).ipynb) | Phase 2I/2J Screen (`2ij.2.0`) | NVIDIA L4 / A100 | 13 fit jobs, 31 evaluation profiles across Qwen 3.5 4B, Qwen 2.5 1.5B/2B, ModernBERT | Selected & locked profile `a047d6802c3f06f085b8` (Qwen3.5-4B state-first score-summary head) | [openkind_2ij_2ij_model_selection_screen_v2/](./openkind_2ij_2ij_model_selection_screen_v2) |
 | **12** | [12 - OpenKind_Phase2IJ_A100.ipynb](./12%20-%20OpenKind_Phase2IJ_A100.ipynb) | Phase 2I/2J Continuation | NVIDIA A100 | Clean selected-model bundle export and checksum verification on high-memory GPU | Produced golden bundle `4d9ffdee...3332` with zero OOM risk; validated reference repo | Informs profile `a047d6802c3f06f085b8` |
-| **13** | [13 - OpenKind_Phase3A_BranchableState_BatchedQ.ipynb](./13%20-%20OpenKind_Phase3A_BranchableState_BatchedQ.ipynb) | Phase 3A (`20260920T024056Z`) | NVIDIA L4 / A100 | Hybrid state branching (KV + DeltaNet + conv), batched-Q/K topologies, crossover behavior | Zero-leakage branch isolation confirmed; batched-Q faster for long state/high Q; informed Rust scheduler | [Whitepaper §15](../docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md#15-phase-3a-branchable-hybrid-state-and-batched-q-execution) |
+| **13** | [13 - OpenKind_Phase3A_BranchableState_BatchedQ.ipynb](./13%20-%20OpenKind_Phase3A_BranchableState_BatchedQ.ipynb) | Phase 3A (`20260920T024056Z`) | NVIDIA L4 / A100 | Hybrid state branching (KV + DeltaNet + conv), batched-Q/K topologies, crossover behavior | Zero-leakage branch isolation confirmed; batched-Q faster for long state/high Q; informed Rust scheduler | [Whitepaper §15](../docs/whitepaper/OpenKind_Whitepaper_v0.8.2.md#15-phase-3a-branchable-hybrid-state-and-batched-q-execution) |
 | **14** | [14 - OpenKind_Phase3B_Qwen35_Backbone_Parity.ipynb](./14%20-%20OpenKind_Phase3B_Qwen35_Backbone_Parity.ipynb) | Phase 3B (`20260920T152206Z`) | GPU (FP32) | Layer-by-layer backbone traces, golden token fixtures, Rust handoff contract | Exported 47 FP32 vectors across 34 stages; maximum cached continuation drift $\le 1.91 \times 10^{-5}$ | [OpenKind_Phase3B_BackboneParity_20260920T152206Z/](./OpenKind_Phase3B_BackboneParity_20260920T152206Z) |
-| **15** | [15 - OpenKind_Phase4A0_4A1_StateQuery_Workbench.ipynb](./15%20-%20OpenKind_Phase4A0_4A1_StateQuery_Workbench.ipynb) | Phase 4A.0 / 4A.1 (`20260921T013558Z`, v4a.0.2) | GPU (L4/A100) | Natural-document corpus lock (ContractNLI + QASPER) & StateQuery B1 representation probe | Locked 2,192 states / 15,368 Qs; B1 scored 0.7796 macro-acc but collapsed QASPER none-recall to 0.0 | [Whitepaper §18](../docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md#18-phase-4a-natural-document-multi-question-benchmark-and-statequery-readout) |
-| **16** | [16 - OpenKind_Phase4A2_StateQuery_Model_Comparison.ipynb](./16%20-%20OpenKind_Phase4A2_StateQuery_Model_Comparison.ipynb) | Phase 4A.2 (`4a.2.0`) | GPU (L4/A100) | Matched B0 control, source-balanced B1, factorized B2 without reopening final splits | B0 matched collapse (0.0 none-recall); balanced B1 raised none-recall to 0.168 (gate threshold: 0.30) | [Whitepaper §18.4](../docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md#184-completed-non-final-comparison-aggregate-improvement-hides-a-qasper-collapse) |
+| **15** | [15 - OpenKind_Phase4A0_4A1_StateQuery_Workbench.ipynb](./15%20-%20OpenKind_Phase4A0_4A1_StateQuery_Workbench.ipynb) | Phase 4A.0 / 4A.1 (`20260921T013558Z`, v4a.0.2) | GPU (L4/A100) | Natural-document corpus lock (ContractNLI + QASPER) & StateQuery B1 representation probe | Locked 2,192 states / 15,368 Qs; B1 scored 0.7796 macro-acc but collapsed QASPER none-recall to 0.0 | [Whitepaper §18](../docs/whitepaper/OpenKind_Whitepaper_v0.8.2.md#18-phase-4a-natural-document-multi-question-benchmark-and-statequery-readout) |
+| **16** | [16 - OpenKind_Phase4A2_StateQuery_Model_Comparison.ipynb](./16%20-%20OpenKind_Phase4A2_StateQuery_Model_Comparison.ipynb) | Phase 4A.2 (`4a.2.0`) | GPU (L4/A100) | Matched B0 control, source-balanced B1, factorized B2 without reopening final splits | B0 matched collapse (0.0 none-recall); balanced B1 raised none-recall to 0.168 (gate threshold: 0.30) | [Whitepaper §18.4](../docs/whitepaper/OpenKind_Whitepaper_v0.8.2.md#184-completed-non-final-comparison-aggregate-improvement-hides-a-qasper-collapse) |
+| **17** | [17 - OpenKind_Phase4B2_StateQuery_Model_Comparison.ipynb](./17%20-%20OpenKind_Phase4B2_StateQuery_Model_Comparison.ipynb) | Phase 4B.2 (`4b.2.0` / `4b.2.1`) | GPU (L4/A100) | Scalar-weight saturation (cap 12) & source/class-stratified applicability | Realized weight saturated at 8.5602; stratified objective raised QASPER recall to 0.3111 gate, but gate policy cost failed (0.11675) | [OpenKind_Phase4B2_StateQuery_Model_Comparison_results/](./OpenKind_Phase4B2_StateQuery_Model_Comparison_results) |
+| **18** | [18 - OpenKind_Phase4B3_Applicability_Ranking_Sweep.ipynb](./18%20-%20OpenKind_Phase4B3_Applicability_Ranking_Sweep.ipynb) | Phase 4B.3 (`4b.3.0`) | GPU (L4/A100) | Within-state pairwise applicability ranking loss ($w \in \{0.25, 0.50, 1.00\}$) | Cleared development recall (0.3451), but failed gate false-none (>0.21) and policy cost (0.10221); rejected | [Whitepaper §18.10](../docs/whitepaper/OpenKind_Whitepaper_v0.8.2.md#1810-phase-4b3-pairwise-applicability-passes-development-but-not-transfer) |
+| **19** | [19 - OpenKind_Phase4C_Decoupled_Applicability_Head.ipynb](./19%20-%20OpenKind_Phase4C_Decoupled_Applicability_Head.ipynb) | Phase 4C (`4c.0.0`) | GPU (L4/A100) | Isolated applicability head fine-tuning over frozen B2 representations | Child epochs regressed NLL (+2.77%) and Brier (+2.10%) for only +2 true positives; parent epoch 0 retained | [OpenKind_Phase4C_Decoupled_Applicability_results/](./OpenKind_Phase4C_Decoupled_Applicability_results) |
+| **20** | [20 - OpenKind_Phase4D_EvidenceAware_Applicability.ipynb](./20%20-%20OpenKind_Phase4D_EvidenceAware_Applicability.ipynb) | Phase 4D (`4d.0.0`) | GPU (L4/A100) | 19-dim handcrafted evidence/uncertainty diagnostic residual over frozen parent | Strict JSON enforced; child gained only +1 true positive while NLL worsened +6.08%; child rejected | [OpenKind_Phase4D_EvidenceAware_Applicability_results/](./OpenKind_Phase4D_EvidenceAware_Applicability_results) |
+| **21** | [21 - OpenKind_Phase4E_QASPER_Error_Audit.ipynb](./21%20-%20OpenKind_Phase4E_QASPER_Error_Audit.ipynb) | Phase 4E (`4e.0.0`) | CPU | Blinded human audit of 150 QASPER false-negative, false-positive, and control cases | Prepares double-blind adjudication pack to separate representation failure from label ambiguity before 4E-B | [OpenKind_Phase4E_QASPER_Audit_results/](./OpenKind_Phase4E_QASPER_Audit_results) |
 
 ---
 
@@ -253,7 +258,7 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
     - As state length grows ($>500$ tokens) and $Q$ expands ($Q \ge 8$), `nested_batched` delivers massive speedups at the expense of peak VRAM.
     - Directly informed the implementation of the capability-aware `choose_strategy` scheduler in `openkind-runtime`.
 * **Supporting Documentation**:
-  - [OpenKind Whitepaper §15](../docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md#15-phase-3a-branchable-hybrid-state-and-batched-q-execution).
+  - [OpenKind Whitepaper §15](../docs/whitepaper/OpenKind_Whitepaper_v0.8.2.md#15-phase-3a-branchable-hybrid-state-and-batched-q-execution).
 
 ---
 
@@ -286,7 +291,7 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - StateQuery B1 improved source-macro accuracy (0.7796 vs 0.3766 for historical candidate reference) and reduced NLL (0.5427 vs 1.6734).
   - **Critical Failure Mode Discovered**: StateQuery B1 collapsed on QASPER semantic-none recall to **0.0** (defaulted to predicting answerable options). Proved that aggregate macro accuracy can obscure catastrophic rejection collapse. Model promotion was halted.
 * **Supporting Documentation**:
-  - [OpenKind Whitepaper §18](../docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md#18-phase-4a-natural-document-multi-question-benchmark-and-statequery-readout).
+  - [OpenKind Whitepaper §18](../docs/whitepaper/OpenKind_Whitepaper_v0.8.2.md#18-phase-4a-natural-document-multi-question-benchmark-and-statequery-readout).
 
 ---
 
@@ -303,7 +308,111 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - Balanced B1 training raised development QASPER none-recall to 0.1681, moving toward the required 0.30 floor, but remained below the promotion threshold.
   - Reaffirmed project governance: final test splits remain locked until development models satisfy all gate conditions.
 * **Supporting Documentation**:
-  - [OpenKind Whitepaper §18.4](../docs/whitepaper/OpenKind_Whitepaper_v0.8.1.md#184-completed-non-final-comparison-aggregate-improvement-hides-a-qasper-collapse).
+  - [OpenKind Whitepaper §18.4](../docs/whitepaper/OpenKind_Whitepaper_v0.8.2.md#184-completed-non-final-comparison-aggregate-improvement-hides-a-qasper-collapse).
+
+---
+
+### 17. Phase 4B.2: StateQuery Model Comparison & Scalar-Weight Saturation
+* **File**: [`17 - OpenKind_Phase4B2_StateQuery_Model_Comparison.ipynb`](./17%20-%20OpenKind_Phase4B2_StateQuery_Model_Comparison.ipynb)
+* **Run ID**: `20260921T013558Z` (Workbench `4b.2.0`, arm `b2q_weight12_s17`, followed by `4b.2.1` `b2_applicability_stratified_s17`)
+* **Target HW**: GPU (NVIDIA L4 / A100)
+* **What it Measured**:
+  - Testing whether raising the configured scalar QASPER semantic-none weight cap from 8 to 12 can rescue missing-answer recall.
+  - Evaluating empirical effective loss weight saturation against the natural answerable-to-none class imbalance ratio.
+  - Follow-on objective experiment (`4b.2.1`): replacing the single joint scalar choice loss with decoupled answerable candidate ranking plus source/class-stratified binary applicability BCE.
+* **What Was Confirmed**:
+  - **Saturation Confirmed**: Raising the cap to 12 saturated at an empirical realized weight of **8.5602**; higher caps cannot increase weight under empirical sampling.
+  - **Stratified Objective Confirmed**: The source/class-stratified applicability loss substantially improved QASPER operating recall to **0.2564** on policy development and **0.3111** on the calibration gate, while ContractNLI maintained 0.5751 recall with only 0.1626 false-none.
+  - **In-Scope Discrimination Confirmed**: Factorized B2 architecture reliably learned answerable candidate ranking across both legal and scientific text.
+* **What Was Not Confirmed / Disproved**:
+  - **Scalar Recovery Disproved**: Larger scalar weights failed to resolve the cross-source conflict. While ContractNLI none recall rose to 0.8399, 278 of 701 answerable ContractNLI questions were falsely rejected (0.3966 false-none rate). The scalar weight sweep was permanently closed.
+  - **Policy Transfer Disproved**: The stratified model accepted 14 development decisions with 0 errors (cost 0.09858), but on the untouched calibration gate accepted 32 decisions with 7 errors, driving cost to **0.11675** (worse than the 0.10 review-all ceiling). The model remained ineligible for release promotion.
+* **Supporting Directory**:
+  - [`OpenKind_Phase4B2_StateQuery_Model_Comparison_results/`](./OpenKind_Phase4B2_StateQuery_Model_Comparison_results/)
+  - Key files: [`b2q_weight12_s17/TRAINING_REPORT.json`](./OpenKind_Phase4B2_StateQuery_Model_Comparison_results/20260921T013558Z/b2q_weight12_s17/TRAINING_REPORT.json), [`b2_applicability_stratified_s17/NONFINAL_RESULT_LOCK.json`](./OpenKind_Phase4B2_StateQuery_Model_Comparison_results/20260921T013558Z/b2_applicability_stratified_s17/NONFINAL_RESULT_LOCK.json), `comparison_snapshot_20260922T115817Z.json`.
+
+---
+
+### 18. Phase 4B.3: Applicability Ranking & Pairwise Loss Sweep
+* **File**: [`18 - OpenKind_Phase4B3_Applicability_Ranking_Sweep.ipynb`](./18%20-%20OpenKind_Phase4B3_Applicability_Ranking_Sweep.ipynb)
+* **Run ID**: `20260921T013558Z` (Workbench `4b.3.0`, locked parent `b2_applicability_stratified_s17`, arm `b2_app_pairwise_w025_s17`)
+* **Target HW**: GPU (NVIDIA L4 / A100)
+* **What it Measured**:
+  - Evaluating whether QASPER unanswerability is fundamentally a score-separation ranking problem.
+  - Added a source-balanced within-state pairwise margin loss ($L_{\text{pairwise}}$ with weights 0.25, 0.50, 1.00) between answerable and unanswerable questions over the same state document.
+  - Evaluated development operating points under a strict $\le 0.20$ false-none guardrail.
+* **What Was Confirmed**:
+  - **Development Separation Confirmed**: Under the 0.25 pairwise weight, development QASPER none recall cleared the pre-registered floor for the first time, reaching **0.3451** (39/113) with a 0.1936 false-none rate, while ContractNLI reached 0.5811 recall (0.1971 false-none).
+  - **Within-State Consistency Confirmed**: Pairwise loss prevented probability mass from pooling uniformly across questions on dense states.
+* **What Was Not Confirmed / Disproved**:
+  - **Threshold Generalization Disproved**: The development gains failed to transfer to the calibration gate. Both sources exceeded the 0.20 false-none ceiling (ContractNLI: 0.2111; QASPER: 0.2110).
+  - **Gate Discrimination Disproved**: Raw-choice QASPER none recall collapsed to 0.0 on the calibration gate, and ROC AUC remained weak (0.5925).
+  - **Policy Transfer Disproved**: The transferred policy accepted 8 gate decisions with 1 error, yielding a cost of **0.10221** ($>0.10$). Pairwise loss was officially rejected as a non-generalizing local fit.
+* **Supporting Documentation**:
+  - [OpenKind Whitepaper §18.10](../docs/whitepaper/OpenKind_Whitepaper_v0.8.2.md#1810-phase-4b3-pairwise-applicability-passes-development-but-not-transfer).
+
+---
+
+### 19. Phase 4C: Decoupled Applicability Head Recovery
+* **File**: [`19 - OpenKind_Phase4C_Decoupled_Applicability_Head.ipynb`](./19%20-%20OpenKind_Phase4C_Decoupled_Applicability_Head.ipynb)
+* **Run ID**: `20260921T013558Z` (Workbench `4c.0.0`, locked parent Phase 4B.2.1 epoch 8, arm `b2_app_headonly_guard18_s17`)
+* **Target HW**: GPU (NVIDIA L4 / A100)
+* **What it Measured**:
+  - Investigating whether multi-task gradient interference between candidate ranking and applicability heads degraded rejection performance.
+  - Froze all underlying B2 representations, query attention stacks, and candidate heads; fine-tuned only the 1,771,009-parameter applicability MLP head using source/class-balanced BCE.
+  - Parent checkpoint was evaluated and registered as epoch 0, establishing an explicit non-regression baseline.
+* **What Was Confirmed**:
+  - **Parent Optimality Confirmed**: The unchanged parent (epoch 0) outperformed every fine-tuned child on development NLL (parent: 0.56457; child epochs: 0.58351, 0.59079, 0.58022).
+  - **Representation Bottleneck Confirmed**: Multi-task gradient conflict was ruled out as the primary cause of rejection failure; the limitation lies in the pooled feature representations themselves.
+* **What Was Not Confirmed / Disproved**:
+  - **Head-Only Recovery Disproved**: Fine-tuning the head in isolation failed to yield viable candidates. The best child (epoch 3) gained only 2 additional QASPER true positives (34 $\to$ 36 of 113) while degrading source-macro NLL by +2.77% and Brier by +2.10%.
+  - **Child Promotion Disproved**: All child checkpoints were rejected; epoch 0 was retained. Concluded that further head-only hyperparameter tuning on frozen pooled features is an unproductive route.
+* **Supporting Directory**:
+  - [`OpenKind_Phase4C_Decoupled_Applicability_results/`](./OpenKind_Phase4C_Decoupled_Applicability_results/)
+  - Key files: [`b2_app_headonly_guard18_s17/TRAINING_REPORT.json`](./OpenKind_Phase4C_Decoupled_Applicability_results/20260921T013558Z/b2_app_headonly_guard18_s17/TRAINING_REPORT.json), [`b2_app_headonly_guard18_s17/NONFINAL_RESULT_LOCK.json`](./OpenKind_Phase4C_Decoupled_Applicability_results/20260921T013558Z/b2_app_headonly_guard18_s17/NONFINAL_RESULT_LOCK.json), `comparison_snapshot_20260922T172543Z.json`.
+
+---
+
+### 20. Phase 4D: Evidence-Aware Applicability Residual
+* **File**: [`20 - OpenKind_Phase4D_EvidenceAware_Applicability.ipynb`](./20%20-%20OpenKind_Phase4D_EvidenceAware_Applicability.ipynb)
+* **Run ID**: `20260921T013558Z` (Workbench `4d.0.0`, locked parent Phase 4C epoch 0, arm `b2_evidence_residual_s17`)
+* **Target HW**: GPU (NVIDIA L4 / A100)
+* **What it Measured**:
+  - Tested whether 19 runtime diagnostic features (candidate entropy, rank margin, question-candidate cosine stats, question-state cosine stats, and cross-attention entropy/top-4 mass) could furnish the missing applicability signal.
+  - Added a zero-initialized 19 $\to$ 64 $\to$ 1 shallow residual MLP (1,345 parameters) to the frozen parent applicability logit.
+  - Implemented strict JSON data hygiene (mapping non-standard floating-point `NaN`/`Inf` to standard JSON `null`).
+* **What Was Confirmed**:
+  - **Strict JSON Contract Confirmed**: Zero IEEE non-standard floats; complete compatibility with strict JSON parsers and audit hashing.
+  - **Zero-Initialization Safety Confirmed**: Epoch 0 replicated parent predictions with bit-level mathematical identity.
+* **What Was Not Confirmed / Disproved**:
+  - **Diagnostic Feature Sufficiency Disproved**: Handcrafted statistical and attention heuristics failed to separate applicable from unanswerable questions. The best child (epoch 1) gained only a single QASPER true positive (34 $\to$ 35 of 113), falling 5 short of the 40 required.
+  - **Proper-Score Stability Disproved**: Source-macro development NLL deteriorated by **+6.08%** (0.56457 $\to$ 0.59888) and Brier by **+6.60%** (0.33934 $\to$ 0.36172).
+  - **Training Signal Generalization Disproved**: Training loss proxy steadily decreased from 0.75076 to 0.65405 while validation metrics worsened, demonstrating rapid memorization of surface heuristics. All 8 child epochs were rejected; status locked as `nonfinal_failed_final_unavailable`.
+* **Supporting Directory**:
+  - [`OpenKind_Phase4D_EvidenceAware_Applicability_results/`](./OpenKind_Phase4D_EvidenceAware_Applicability_results/)
+  - Key files: [`b2_evidence_residual_s17/TRAINING_REPORT.json`](./OpenKind_Phase4D_EvidenceAware_Applicability_results/20260921T013558Z/b2_evidence_residual_s17/TRAINING_REPORT.json), [`b2_evidence_residual_s17/NONFINAL_RESULT_LOCK.json`](./OpenKind_Phase4D_EvidenceAware_Applicability_results/20260921T013558Z/b2_evidence_residual_s17/NONFINAL_RESULT_LOCK.json), `comparison_snapshot_20260922T200741Z.json`.
+
+---
+
+### 21. Phase 4E: QASPER Error & Evidence Audit
+* **File**: [`21 - OpenKind_Phase4E_QASPER_Error_Audit.ipynb`](./21%20-%20OpenKind_Phase4E_QASPER_Error_Audit.ipynb)
+* **Run ID**: `20260921T013558Z` (Workbench `4e.0.0`, run label `qasper_error_audit_s17`)
+* **Target HW**: CPU (zero GPU compute; analytical audit)
+* **What it Measured**:
+  - Conducted a blinded human audit across 150 QASPER episodes to determine what portion of missing-answer errors stem from ground-truth annotation ambiguity versus genuine model representation failure.
+  - Partition breakdown:
+    - 70 policy-development errors (29 false negatives, 41 false positives).
+    - 60 calibration-gate sampled errors (30 false negatives, 30 false positives via deterministic state round-robin).
+    - 20 policy-development controls (10 true positives, 10 true negatives).
+  - Complete double-blind protocol: hidden labels, model scores, predictions, and error classes with cryptographically locked key (`AUDIT_KEY.parquet`).
+* **What Was Confirmed**:
+  - **Weak Separability Confirmed**: Retained parent exhibited weak ROC AUC (0.5903 policy development / 0.6173 calibration gate) at ~12–13% base rate, proving mathematically that threshold calibration alone cannot achieve safe policy automation.
+  - **Audit Protocol Locked Confirmed**: 150 items fully exported to blinded CSV, ground-truth key SHA-256 locked in `AUDIT_CONTRACT.json`, and final splits kept strictly unopened.
+* **What Was Not Confirmed / Blocked**:
+  - **Upstream Representation Retraining Blocked**: Phase 4E-B (upstream token-level attention adaptation) remains strictly blocked until human review quantifies paper-level annotation ambiguity and establishes verified target bounds.
+* **Supporting Directory**:
+  - [`OpenKind_Phase4E_QASPER_Audit_results/`](./OpenKind_Phase4E_QASPER_Audit_results/)
+  - Key files: [`AUDIT_GUIDE.md`](./OpenKind_Phase4E_QASPER_Audit_results/20260921T013558Z/qasper_error_audit_s17/AUDIT_GUIDE.md), [`AUDIT_REVIEW_BLINDED.csv`](./OpenKind_Phase4E_QASPER_Audit_results/20260921T013558Z/qasper_error_audit_s17/AUDIT_REVIEW_BLINDED.csv), [`AUDIT_ANALYSIS.json`](./OpenKind_Phase4E_QASPER_Audit_results/20260921T013558Z/qasper_error_audit_s17/AUDIT_ANALYSIS.json), [`AUDIT_RESULT_LOCK.json`](./OpenKind_Phase4E_QASPER_Audit_results/20260921T013558Z/qasper_error_audit_s17/AUDIT_RESULT_LOCK.json).
 
 ---
 
@@ -324,3 +433,11 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
    Standard softmax classification and naive pooling overconfidentially assign probability to provided candidates when the true answer is absent. Robust decision inference requires explicit semantic-none modeling (`__none__`), calibrated rejection thresholds, and domain-specific verification.
 6. **Pre-Registration & Anti-Leakage Governance**:
    Development winners are not replaced post-hoc after inspecting final evaluation splits. Test partitions must remain strictly locked until all pre-registered acceptance criteria are satisfied.
+7. **Saturation of Scalar Rejection Loss Weights**:
+   Scaling a single scalar loss multiplier for missing-answer options saturates at the dataset's empirical class imbalance ratio (e.g. 8.5602 in Phase 4B.2). Forcing higher scalar penalties creates destructive cross-source interference—raising none-recall on one dataset while driving catastrophic false-none rejection (39.66%) on another.
+8. **Generalization Collapse in Pairwise Applicability**:
+   Adding within-state pairwise ranking losses can satisfy development recall thresholds in isolation, but fails to transport to untouched calibration gates. Models easily memorize within-state ranking artifacts that do not translate into globally calibrated confidence thresholds across new documents.
+9. **Inadequacy of Isolated Head and Shallow Residual Tuning**:
+   When pooled backbone representations lack the necessary resolution to distinguish unanswerable questions from answerable ones, neither fine-tuning the classification MLP head in isolation nor attaching shallow handcrafted diagnostic residuals can resolve the boundary. Both interventions degrade proper scoring rules (NLL and Brier) while failing to recover required true-positive recall.
+10. **Blinded Adjudication Preceding Representation Learning**:
+    Before committing compute to upstream token-level representation retraining, systematic errors must be evaluated under double-blind protocols. If dataset annotations contain inherent ambiguity or unresolvable answerability boundaries, training larger models against noisy labels guarantees failure. Rigorous error audits provide the only sound prerequisite for new representation modeling.

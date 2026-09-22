@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use clap::Parser;
 
 use crate::args::{Cli, Commands};
-use crate::inspect::{cmd_inspect, MAX_CLI_INPUT_BYTES};
+use crate::inspect::{cmd_inspect, parse_and_validate_request, MAX_CLI_INPUT_BYTES};
 
 #[test]
 fn cli_parse_version() {
@@ -85,6 +85,33 @@ fn cmd_inspect_valid_request() {
 }
 
 #[test]
+fn parse_and_validate_request_accepts_valid_input() {
+    let request = parse_and_validate_request(
+        r#"{
+            "state": "test content",
+            "model": "mock",
+            "questions": {
+                "is_ok": { "type": "noul", "instructions": "Is it ok?" }
+            }
+        }"#,
+    )
+    .expect("valid request");
+    assert_eq!(request.model, "mock");
+    assert_eq!(request.questions.len(), 1);
+}
+
+#[test]
+fn parse_and_validate_request_preserves_parse_and_validation_failures() {
+    let parse_error = parse_and_validate_request("not valid json").expect_err("invalid JSON");
+    assert!(parse_error.to_string().contains("parse request JSON"));
+
+    let validation_error =
+        parse_and_validate_request(r#"{"state":"test","model":"mock","questions":{}}"#)
+            .expect_err("empty questions");
+    assert!(validation_error.to_string().contains("validate request"));
+}
+
+#[test]
 fn cmd_inspect_nonexistent_file() {
     let res = cmd_inspect(PathBuf::from("/non/existent/file.json"));
     assert!(res.is_err());
@@ -96,9 +123,9 @@ fn cmd_inspect_invalid_json() {
     let file = dir.join("openkind_test_invalid_json.json");
     std::fs::write(&file, "not valid json").unwrap();
 
-    let res = cmd_inspect(file.clone());
-    let _ = std::fs::remove_file(file);
-    assert!(res.is_err());
+    let error = cmd_inspect(file.clone()).expect_err("invalid JSON");
+    let _ = std::fs::remove_file(&file);
+    assert_eq!(error.to_string(), format!("parse {}", file.display()));
 }
 
 #[test]
@@ -115,9 +142,9 @@ fn cmd_inspect_invalid_schema_empty_questions() {
     )
     .unwrap();
 
-    let res = cmd_inspect(file.clone());
-    let _ = std::fs::remove_file(file);
-    assert!(res.is_err());
+    let error = cmd_inspect(file.clone()).expect_err("empty questions");
+    let _ = std::fs::remove_file(&file);
+    assert_eq!(error.to_string(), format!("validate {}", file.display()));
 }
 
 #[test]

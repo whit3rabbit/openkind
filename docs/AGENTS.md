@@ -15,7 +15,7 @@ The documentation suite maintains a strict division of responsibility across pro
 | Benchmark methodology, harness usage, and recorded runs | [`BENCHMARKS.md`](BENCHMARKS.md) |
 | MLX runtime contract, implementation guide, limitations, and enhancement path | [`MLX.md`](MLX.md) |
 | Research dossier, background, and prior art | [`RESEARCH.md`](RESEARCH.md) |
-| Scientific rationale, theoretical grounding, and measured results | [`whitepaper/OpenKind_Whitepaper_v0.8.1.md`](whitepaper/OpenKind_Whitepaper_v0.8.1.md) |
+| Scientific rationale, theoretical grounding, and measured results | [`whitepaper/OpenKind_Whitepaper_v0.8.2.md`](whitepaper/OpenKind_Whitepaper_v0.8.2.md) |
 | HTTP wire specification | [`../crates/openkind-api/openapi.yaml`](../crates/openkind-api/openapi.yaml) |
 | JSON Schema definitions | [`../crates/openkind-core/schemas/`](../crates/openkind-core/schemas/) |
 | Protobuf contract | [`../proto/proto/openkind.proto`](../proto/proto/openkind.proto) |

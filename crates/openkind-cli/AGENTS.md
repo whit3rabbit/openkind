@@ -26,6 +26,8 @@
 ## Key Files & Types
 
 - [`src/main.rs`](./src/main.rs): Minimal CLI entrypoint and subcommand dispatch.
+- [`src/lib.rs`](./src/lib.rs): Benchmarkable library seam exposing parsed-command
+  dispatch and pure request parse/validation.
 - [`src/args.rs`](./src/args.rs):
   - `Cli`: Root Clap parser.
   - `Commands`:
@@ -37,6 +39,8 @@
 - [`src/evaluate.rs`](./src/evaluate.rs): `cmd_evaluate` and `cmd_evaluate_async` HTTP execution.
 - [`src/serve.rs`](./src/serve.rs): `cmd_serve` process execution delegating to `openkindd`.
 - [`src/tests.rs`](./src/tests.rs): Parser, inspect, and input bounds unit tests.
+- [`benches/cli.rs`](./benches/cli.rs): Criterion argument-parsing and in-memory
+  inspect benchmarks for 1, 8, and 32 questions.
 
 ## Critical Gotchas & Rules
 
@@ -50,4 +54,6 @@
 ```bash
 cargo check -p openkind-cli
 cargo test -p openkind-cli
+cargo test -p openkind-cli --bench cli
+cargo bench -p openkind-cli --bench cli -- --noplot
 ```

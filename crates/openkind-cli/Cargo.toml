@@ -17,6 +17,16 @@ anyhow = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "fs"] }
 tracing = { workspace = true }
 
+[dev-dependencies]
+criterion = { workspace = true }
+
+[lib]
+path = "src/lib.rs"
+
 [[bin]]
 name = "openkind"
 path = "src/main.rs"
+
+[[bench]]
+name = "cli"
+harness = false

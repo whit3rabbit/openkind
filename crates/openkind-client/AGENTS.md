@@ -53,10 +53,14 @@
 - `tests/sdk_parity_errors.rs`, `tests/sdk_parity_wire.rs`, `tests/sdk_parity_config.rs`: Ports of the TypeSafe Python SDK's test suite; [`PARITY.md`](PARITY.md) is the authoritative file-by-file mapping.
 - `tests/live_server.rs`: Real `openkind-api` server over TCP verifying wire conformance across all question types, auth, 404/422 envelopes, and the real rate limiter.
 - `tests/retry_behavior.rs`: Deterministic stub server for attempt counting, retry headers, precedence, and budget stops.
+- `benches/client.rs`: Criterion benchmarks over a warmed localhost connection
+  to the authenticated Axum/MockEngine stack, with retries disabled.
 
 ## Verification Commands
 
 ```bash
 cargo check -p openkind-client
 cargo test -p openkind-client
+cargo test -p openkind-client --bench client
+cargo bench -p openkind-client --bench client -- --noplot
 ```
