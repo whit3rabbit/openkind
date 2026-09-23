@@ -32,8 +32,8 @@ pub(crate) use retry_after::parse_retry_after_with;
 pub(crate) use retry_after::REQUEST_ID_HEADER;
 
 /// All client failures. [`Error::Api`] wraps the unsuccessful-response case;
-/// the other variants cover transport, timeout, decoding, and configuration
-/// problems.
+/// the other variants cover transport, timeout, decoding, response validation,
+/// and configuration problems.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     /// The server responded with a non-success status. See [`ApiError`].
@@ -72,6 +72,14 @@ pub enum Error {
         /// The underlying JSON error.
         #[source]
         source: serde_json::Error,
+    },
+
+    /// A 2xx response decoded but violated the submitted question contract.
+    #[error("invalid response: {source}")]
+    InvalidResponse {
+        /// The violated request/response invariant. Response content is omitted.
+        #[source]
+        source: openkind_core::ValidationError,
     },
 
     /// The client was constructed with invalid settings (missing API key,

@@ -263,6 +263,12 @@ Two open community implementations validate key mechanics:
 1. **`AlexWortega/openjev`**: A Qwen3.5-4B NLI cross-encoder trained with standard cross-entropy over 3 fixed labels (entailment, neutral, contradiction). It validates non-generative classification, but does not support dynamic arbitrary candidate sets or shared-state multi-query execution.
 2. **`monotykamary/LFM2.5-2.6B-RLCD` & `Qwen-2.5-1B-RLCD`**: Demonstrate shared-prefix KV-cache branching. The shared prompt is prefilled once, the cache is broadcast across question branches, candidate logits are computed in parallel, and JSON is assembled in host code. These are TypeSafe-inspired inference reproductions, not reproductions of RLCD training.
 
+### 8. Agent consumers and scoped authority
+
+[`safe-upgrade`](https://github.com/tenuo-ai/safe-upgrade) is an external example of a Jev-compatible decision consumer. Its [architecture](https://github.com/tenuo-ai/safe-upgrade/blob/main/docs/architecture.md) computes eligible workflow steps in trusted code, asks Jev to judge among them, and uses separate [Tenuo](https://github.com/tenuo-ai/tenuo) warrants to authorize worker tools. Deterministic checks determine the final result. This illustrates a consumer boundary; it is not an OpenKind integration or evidence of OpenKind model quality.
+
+OpenKind can validate that a response uses the requested question types and `Choice` keys. It cannot decide which actions a consumer should offer, grant tool authority, or verify a tool's effects. Agent consumers must enforce those parts at their own execution boundary. Tenuo's [constraint reference](https://tenuo.ai/constraints) is useful for that design, but its evolving constraint catalog is not an OpenKind protocol contract. The [authority-separation figures summarized by Tenuo](https://tenuo.ai/related-work) come from an [evaluation suite with deterministic mock model responses](https://github.com/Anima-Core/authority-separation-suite); they should not be quoted as measured safety gains for Jev or OpenKind.
+
 ---
 
 ## Property Comparison Across Paradigms

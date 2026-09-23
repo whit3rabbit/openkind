@@ -1,35 +1,10 @@
 //! Request dispatching, metrics tracking, and token estimation.
 
-use std::collections::HashMap;
-
-use openkind_core::{
-    validate_request, validate_response, Answer, Question, SystemRequest, SystemResponse,
-};
+use openkind_core::{Answer, ResponseContract, SystemRequest, SystemResponse};
 use tracing::instrument;
 
 use crate::error::{EngineError, EngineResult};
 use crate::registry::EngineRegistry;
-
-/// Per-question reference data for response validation: question id → the
-/// choice-criteria keys a choice answer must respect (empty for noul/score).
-/// Passing the full id set lets `validate_response` also enforce that the
-/// engine answered exactly the requested questions, no more and no less.
-fn response_criteria(req: &SystemRequest) -> HashMap<String, Vec<String>> {
-    let mut criteria = HashMap::with_capacity(req.questions.len());
-    for (id, q) in &req.questions {
-        let keys = match q {
-            Question::Noul(_) => Vec::new(),
-            Question::Choice(c) => {
-                let mut keys: Vec<String> = c.criteria.keys().cloned().collect();
-                keys.sort();
-                keys
-            }
-            Question::Score(s) => (0..s.criteria.len()).map(|i| i.to_string()).collect(),
-        };
-        criteria.insert(id.clone(), keys);
-    }
-    criteria
-}
 
 /// Validate + dispatch. The HTTP and gRPC layers both call this — it
 /// contains the cross-cutting logic (validation, telemetry, routing).
@@ -45,8 +20,7 @@ pub async fn dispatch(
         .get(&req.model)
         .ok_or_else(|| EngineError::UnknownModel(req.model.clone()))?;
 
-    validate_request(&req)?;
-    let criteria = response_criteria(&req);
+    let contract = ResponseContract::from_request(&req)?;
     let input_tokens = engine.estimate_input_tokens(&req);
 
     let mut resp = engine.evaluate(req).await?;
@@ -54,7 +28,7 @@ pub async fn dispatch(
     // Never forward a contract-violating engine response to the client:
     // a bad answer shape is a backend fault, so it maps to Backend (500),
     // not to a client-facing 422.
-    if let Err(validation) = validate_response(&resp, &criteria) {
+    if let Err(validation) = contract.validate(&resp) {
         return Err(EngineError::Backend {
             backend: engine.backend_id().to_string(),
             message: format!("backend returned an invalid response: {validation}"),

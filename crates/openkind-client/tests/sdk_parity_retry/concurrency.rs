@@ -141,7 +141,7 @@ async fn retry_recovery_with_full_wire_assertions() {
         } else if captured.retry_count.as_deref() == Some("1") {
             Outcome::error(500, json!({"message": "backend hiccup"}))
         } else {
-            Outcome::success(result())
+            Outcome::success(result_for(captured))
         }
     })
     .await;
@@ -196,7 +196,7 @@ async fn retry_recovery_with_full_wire_assertions() {
     // A plain follow-up call uses the client defaults again: default model,
     // no per-call headers, no retry-count on the initial attempt.
     drop(requests);
-    let (url2, requests2) = spawn(move |_| Outcome::success(result())).await;
+    let (url2, requests2) = spawn(move |captured| Outcome::success(result_for(captured))).await;
     let client2 = Client::builder()
         .api_key("test-key")
         .base_url(&url2)

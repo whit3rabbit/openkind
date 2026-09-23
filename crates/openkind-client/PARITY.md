@@ -69,6 +69,7 @@ Status legend: **ported** (assertions live in Rust), **covered** (equivalent gua
 | `test_responses.py` malformed bodies | ported — `malformed_responses_are_decode_errors` |
 | `test_responses.py` unknown extra fields | ported — `unknown_extra_fields_tolerated` |
 | `test_responses.py` unknown answer type ignored | divergence — `unknown_answer_type_is_strict` (fail closed instead of dropping judgments) |
+| `test_responses.py` answer/request correspondence | divergence — `response_validation.rs` rejects a decoded 2xx response with missing or extra answer IDs, a mismatched answer type, or an out-of-list Choice; transport-only stubs return answers matching the submitted questions |
 | `test_responses.py` typed attributes / frozen / cached groups | ported/covered — typed matches in round trip; mutability/caching N/A (plain data structs) |
 | `test_questions.py` discriminators/omitted defaults/reserved keys | ported — `question_discriminators_and_omitted_defaults` + `src/question.rs` unit tests |
 | `test_questions.py` construction-time validation | divergence — Rust structs don't validate at construction (server 422s; see `question_schema_validation_is_left_to_api`) |

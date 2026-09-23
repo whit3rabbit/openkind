@@ -16,8 +16,8 @@
 
 | Module | Responsibility |
 |---|---|
-| [`src/client/`](src/client/) | Modular client implementation: `mod.rs` (re-exports), [`options.rs`](src/client/options.rs) (`RequestOptions`, `IntoState`), [`builder.rs`](src/client/builder.rs) (`ClientBuilder`), [`core.rs`](src/client/core.rs) (`Client`, `Health`), [`transport.rs`](src/client/transport.rs) (retry send loop in `send_json`), and [`tests.rs`](src/client/tests.rs) |
-| [`src/error/`](src/error/) | Modular error taxonomy: `mod.rs` (re-exports, `Error` enum), [`api_error.rs`](src/error/api_error.rs) (`ApiError`, `ApiErrorKind`), [`envelope.rs`](src/error/envelope.rs) (lenient error-envelope extraction), [`retry_after.rs`](src/error/retry_after.rs) (`parse_retry_after`), and [`tests.rs`](src/error/tests.rs) |
+| [`src/client/`](src/client/) | Modular client implementation: `mod.rs` (re-exports), [`options.rs`](src/client/options.rs) (`RequestOptions`, `IntoState`), [`builder.rs`](src/client/builder.rs) (`ClientBuilder`), [`core.rs`](src/client/core.rs) (`Client`, `Health`, request-bound response validation), [`transport.rs`](src/client/transport.rs) (retry send loop in `send_json`), and [`tests.rs`](src/client/tests.rs) |
+| [`src/error/`](src/error/) | Modular error taxonomy: `mod.rs` (re-exports, `Error` enum including `InvalidResponse`), [`api_error.rs`](src/error/api_error.rs) (`ApiError`, `ApiErrorKind`), [`envelope.rs`](src/error/envelope.rs) (lenient error-envelope extraction), [`retry_after.rs`](src/error/retry_after.rs) (`parse_retry_after`), and [`tests.rs`](src/error/tests.rs) |
 | [`src/retry/`](src/retry/) | Modular retry policy: `mod.rs` (re-exports), [`policy.rs`](src/retry/policy.rs) (`RetryPolicy`, backoff computation, jitter), and [`tests.rs`](src/retry/tests.rs) |
 | [`src/question.rs`](src/question.rs) | Ergonomic `Question` / `State` constructors mirroring the Python SDK's `Noul`/`Choice`/`Score` sugar |
 
@@ -32,7 +32,7 @@
 4. **Budget Semantics**:
    Mirror tenacity `stop_before_delay` — if `elapsed + next_delay >= total_timeout`, return the last error immediately instead of sleeping. Do not start a retry that cannot complete.
 5. **Never Retry Non-Transient Failures**:
-   4xx errors (except 408/429), deserialization errors, and configuration failures must surface immediately without retrying. `RetryPolicy::is_retryable` is the single decision point.
+   4xx errors (except 408/429), deserialization errors, and configuration failures must surface immediately without retrying. `RetryPolicy::is_retryable` decides transport and API retries. A decoded 2xx response that fails request-bound validation becomes nonretryable `Error::InvalidResponse` after the send loop.
 6. **Wire Types from Core**:
    Wire types come strictly from `openkind-core` — re-exported, never redefined here.
 
@@ -43,7 +43,7 @@
 2. **Protected Header Precedence**:
    Protected headers (`authorization`, `accept`, `user-agent`, `x-typesafe-sdk`, `x-typesafe-runtime`, `x-typesafe-retry-count`, `content-type`) cannot be overridden by user defaults or per-call options.
 3. **Strict Answer Tag Decoding**:
-   Unknown answer `"type"` tags fail decoding with an error (intentional strict divergence from Python SDK's silent drop).
+   Unknown answer `"type"` tags fail decoding with an error (intentional strict divergence from Python SDK's silent drop). Known tags must still match the originating question type, and Choice options must match the caller's criteria.
 4. **Timing-Sensitive Tests**:
    Integration tests must use millisecond-scale delays and generous wall-clock bounds; never assert exact sleep durations.
 
@@ -53,6 +53,7 @@
 - `tests/sdk_parity_errors.rs`, `tests/sdk_parity_wire.rs`, `tests/sdk_parity_config.rs`: Ports of the TypeSafe Python SDK's test suite; [`PARITY.md`](PARITY.md) is the authoritative file-by-file mapping.
 - `tests/live_server.rs`: Real `openkind-api` server over TCP verifying wire conformance across all question types, auth, 404/422 envelopes, and the real rate limiter.
 - `tests/retry_behavior.rs`: Deterministic stub server for attempt counting, retry headers, precedence, and budget stops.
+- `tests/response_validation.rs`: Stub server checks for valid 2xx responses and nonretryable invalid responses.
 - `benches/client.rs`: Criterion benchmarks over a warmed localhost connection
   to the authenticated Axum/MockEngine stack, with retries disabled.
 

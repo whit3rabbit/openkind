@@ -1,9 +1,9 @@
 //! `openkind-client`: an async Rust client for the `openkindd`
 //! daemon and the TypeSafe Jev SystemOne HTTP API.
 //!
-//! Built directly on the `openkind-core` wire types, so requests and
-//! responses are validated against the same canonical structs the server
-//! uses (`crates/openkind-core/schemas/`). Wire-compatible with
+//! Built directly on the `openkind-core` wire types. Successful evaluation
+//! responses are validated against their originating requests, including
+//! question types and Choice keys. Wire-compatible with
 //! `https://api.typesafe.ai` and the `typesafe_sdk` Python SDK: the same
 //! retry taxonomy, `Retry-After` handling, error envelope parsing, request
 //! ids, and env-var resolution — with defaults mirroring the Python

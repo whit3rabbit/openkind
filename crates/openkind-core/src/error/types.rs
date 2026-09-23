@@ -140,6 +140,17 @@ pub enum ValidationError {
     /// Emitted when a response contains an answer for a question id that was not requested.
     #[error("response contains an answer for unknown question `{0}`")]
     UnexpectedAnswer(String),
+
+    /// Emitted when an answer uses a different primitive than its question.
+    #[error("question `{id}`: expected {expected} answer, got {actual}")]
+    AnswerTypeMismatch {
+        /// Question identifier.
+        id: String,
+        /// Requested primitive.
+        expected: &'static str,
+        /// Returned primitive.
+        actual: &'static str,
+    },
 }
 
 /// Specialized Result alias for operations returning a [`ValidationError`].

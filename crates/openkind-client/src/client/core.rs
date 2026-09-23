@@ -3,7 +3,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use openkind_core::{ModelsResponse, Question, SystemRequest, SystemResponse};
+use openkind_core::{
+    validate_response_for_request, ModelsResponse, Question, SystemRequest, SystemResponse,
+};
 use reqwest::header::HeaderMap;
 use reqwest::Method;
 
@@ -112,14 +114,18 @@ impl Client {
         // request is not serialized a second time inside the HTTP client.
         let body = serde_json::to_vec(&request)
             .map_err(|e| Error::Config(format!("request could not be serialized: {e}")))?;
-        self.send_json(
-            Method::POST,
-            &self.inner.urls.system_one,
-            SYSTEM_ONE_PATH,
-            Some(body),
-            opts,
-        )
-        .await
+        let response = self
+            .send_json(
+                Method::POST,
+                &self.inner.urls.system_one,
+                SYSTEM_ONE_PATH,
+                Some(body),
+                opts,
+            )
+            .await?;
+        validate_response_for_request(&response, &request)
+            .map_err(|source| Error::InvalidResponse { source })?;
+        Ok(response)
     }
 
     /// Evaluate ad-hoc questions against a state, mirroring the Python SDK's

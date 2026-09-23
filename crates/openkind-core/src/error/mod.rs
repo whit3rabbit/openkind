@@ -11,5 +11,6 @@ mod tests;
 
 pub use types::{ValidationError, ValidationResult};
 pub use validate::{
-    validate_request, validate_response, MAX_CRITERIA_OPTIONS, MAX_QUESTIONS_PER_REQUEST,
+    validate_request, validate_response, validate_response_for_request, ResponseContract,
+    MAX_CRITERIA_OPTIONS, MAX_QUESTIONS_PER_REQUEST,
 };
