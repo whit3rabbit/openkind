@@ -6,7 +6,7 @@
 
 `openkind-core` is the **single source of truth** for the Jev wire protocol. It contains:
 - Request/Response data structures (`SystemRequest`, `SystemResponse`, `Question`, `Answer`, `State`, `Usage`).
-- Input validation (`validate_request`) and response verification (`validate_response`).
+- Input validation (`validate_request`) and request-bound response verification (`validate_response_for_request`, `ResponseContract`).
 - Model listing structures (`ModelInfo`, `ModelsResponse`).
 - JSON Schema derivations (`schemars::JsonSchema`).
 
@@ -50,7 +50,7 @@
 - [`src/error/`](./src/error/):
   - Modularized validation and error types:
     - [`src/error/types.rs`](./src/error/types.rs): `ValidationError` enum and `ValidationResult` alias.
-    - [`src/error/validate.rs`](./src/error/validate.rs): `validate_request` and `validate_response`.
+    - [`src/error/validate.rs`](./src/error/validate.rs): `validate_request`, compatibility `validate_response`, `ResponseContract`, and `validate_response_for_request`.
     - [`src/error/tests/`](./src/error/tests/): Unit tests partitioned into `request_tests.rs` and `response_tests.rs`.
 - [`src/state.rs`](./src/state.rs):
   - `State`: Untagged serde enum supporting `Text(String)`, `Object(Map)`, `Array(Vec)`.
@@ -71,6 +71,11 @@
    Score questions require at least 2 rubric levels. In the response, `score` is a weighted expectation ($E[\text{level}] = \sum i \cdot P(i)$), and probabilities keys are stringified numeric indices (`"0"`, `"1"`, ...).
 4. **Permissive Instructions**:
    `Instructions` is not just a plain string; it accepts raw strings, JSON objects, or arrays. Serializers and renderers must handle this polymorphism without panicking.
+5. **Request-Bound Response Checks**:
+   `ChoiceAnswer.choice` is a string, so the wire type alone does not enforce the offered option set. Use
+   `validate_response_for_request` when the request is available. It checks question coverage and answer types,
+   then applies the existing numeric and distribution rules. `ResponseContract` retains those expectations when
+   an engine takes ownership of the request. The older `validate_response` lacks question types.
 
 ## Verification Commands
 

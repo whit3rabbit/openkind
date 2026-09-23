@@ -39,8 +39,8 @@ pub mod state;
 
 pub use answer::{Answer, ChoiceAnswer, NoulAnswer, ScoreAnswer};
 pub use error::{
-    validate_request, validate_response, ValidationError, ValidationResult, MAX_CRITERIA_OPTIONS,
-    MAX_QUESTIONS_PER_REQUEST,
+    validate_request, validate_response, validate_response_for_request, ResponseContract,
+    ValidationError, ValidationResult, MAX_CRITERIA_OPTIONS, MAX_QUESTIONS_PER_REQUEST,
 };
 pub use models::{ModelInfo, ModelsResponse};
 pub use question::{ChoiceQuestion, NoulCriteria, NoulQuestion, Question, ScoreQuestion};

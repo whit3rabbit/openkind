@@ -4,8 +4,126 @@ use std::collections::HashMap;
 
 use crate::answer::{Answer, ChoiceAnswer, NoulAnswer, ScoreAnswer};
 use crate::error::types::ValidationError;
-use crate::error::validate::validate_response;
+use crate::error::validate::{validate_response, validate_response_for_request};
+use crate::question::{ChoiceQuestion, Question};
+use crate::request::SystemRequest;
 use crate::response::{SystemResponse, Usage};
+use crate::state::State;
+
+fn choice_request() -> SystemRequest {
+    SystemRequest {
+        state: State::Text("test".into()),
+        model: "mock".into(),
+        questions: HashMap::from_iter([(
+            "route".into(),
+            Question::Choice(ChoiceQuestion {
+                instructions: serde_json::json!("Pick a route"),
+                criteria: HashMap::from_iter([("inspect".into(), None), ("verify".into(), None)]),
+            }),
+        )]),
+    }
+}
+
+fn choice_response() -> SystemResponse {
+    SystemResponse {
+        model: "mock".into(),
+        answers: HashMap::from_iter([(
+            "route".into(),
+            Answer::Choice(ChoiceAnswer {
+                choice: "inspect".into(),
+                probabilities: HashMap::from_iter([
+                    ("inspect".into(), 0.6),
+                    ("verify".into(), 0.4),
+                ]),
+                confidence: 0.6,
+            }),
+        )]),
+        usage: Usage {
+            input_tokens: 1,
+            output_tokens: 1,
+        },
+    }
+}
+
+#[test]
+fn contextual_validation_binds_choice_to_request() {
+    let request = choice_request();
+    let response = choice_response();
+    assert!(validate_response_for_request(&response, &request).is_ok());
+
+    let mut outside = response.clone();
+    let Answer::Choice(choice) = outside.answers.get_mut("route").unwrap() else {
+        unreachable!()
+    };
+    choice.choice = "publish".into();
+    assert!(matches!(
+        validate_response_for_request(&outside, &request),
+        Err(ValidationError::ChoiceNotInCriteria(id)) if id == "route"
+    ));
+
+    let mut changed_keys = response;
+    let Answer::Choice(choice) = changed_keys.answers.get_mut("route").unwrap() else {
+        unreachable!()
+    };
+    choice.probabilities.remove("verify");
+    choice.probabilities.insert("publish".into(), 0.4);
+    assert!(matches!(
+        validate_response_for_request(&changed_keys, &request),
+        Err(ValidationError::ProbabilityKeysMismatch(id)) if id == "route"
+    ));
+}
+
+#[test]
+fn contextual_validation_checks_coverage_and_answer_kind() {
+    let request = choice_request();
+    let mut response = choice_response();
+    response.answers.clear();
+    assert!(matches!(
+        validate_response_for_request(&response, &request),
+        Err(ValidationError::MissingAnswer(id)) if id == "route"
+    ));
+
+    response = choice_response();
+    response
+        .answers
+        .insert("extra".into(), Answer::Noul(NoulAnswer { noul: 0.5 }));
+    assert!(matches!(
+        validate_response_for_request(&response, &request),
+        Err(ValidationError::UnexpectedAnswer(id)) if id == "extra"
+    ));
+
+    response = choice_response();
+    response
+        .answers
+        .insert("route".into(), Answer::Noul(NoulAnswer { noul: 0.5 }));
+    assert!(matches!(
+        validate_response_for_request(&response, &request),
+        Err(ValidationError::AnswerTypeMismatch { id, expected: "choice", actual: "noul" }) if id == "route"
+    ));
+}
+
+#[test]
+fn contextual_validation_accepts_caller_supplied_semantic_none() {
+    let mut request = choice_request();
+    let Question::Choice(choice) = request.questions.get_mut("route").unwrap() else {
+        unreachable!()
+    };
+    choice
+        .criteria
+        .insert("__none__".into(), Some("No eligible answer".into()));
+
+    let mut response = choice_response();
+    let Answer::Choice(choice) = response.answers.get_mut("route").unwrap() else {
+        unreachable!()
+    };
+    choice.choice = "__none__".into();
+    choice.probabilities = HashMap::from_iter([
+        ("inspect".into(), 0.1),
+        ("verify".into(), 0.2),
+        ("__none__".into(), 0.7),
+    ]);
+    assert!(validate_response_for_request(&response, &request).is_ok());
+}
 
 #[test]
 fn validate_response_rejects_probability_keys_mismatch() {

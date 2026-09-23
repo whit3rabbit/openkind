@@ -193,9 +193,11 @@ impl RetryPolicy {
                 self.retry_server_errors && (500..600).contains(&api.status)
                     || self.retry_statuses.contains(&api.status)
             }
-            // Configuration and decode failures are deterministic; retrying
-            // cannot change the outcome.
-            Error::Config(_) | Error::Decode { .. } | Error::ResponseTooLarge { .. } => false,
+            // Invalid responses and local failures are not transient.
+            Error::Config(_)
+            | Error::Decode { .. }
+            | Error::InvalidResponse { .. }
+            | Error::ResponseTooLarge { .. } => false,
         };
         builtin || self.retry_predicate.as_ref().is_some_and(|f| f(error))
     }

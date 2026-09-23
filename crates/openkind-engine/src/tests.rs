@@ -90,6 +90,50 @@ async fn dispatch_returns_validation_error_on_invalid_request() {
 }
 
 #[tokio::test]
+async fn dispatch_rejects_backend_answer_with_wrong_primitive() {
+    struct WrongPrimitiveBackend;
+    #[async_trait]
+    impl DecisionEngine for WrongPrimitiveBackend {
+        fn backend_id(&self) -> &str {
+            "wrong-primitive"
+        }
+
+        async fn evaluate(&self, req: SystemRequest) -> EngineResult<SystemResponse> {
+            let answers = req
+                .questions
+                .into_keys()
+                .map(|id| (id, Answer::Noul(NoulAnswer { noul: 0.5 })))
+                .collect();
+            Ok(SystemResponse {
+                model: "wrong-primitive".into(),
+                answers,
+                usage: Usage {
+                    input_tokens: 1,
+                    output_tokens: 1,
+                },
+            })
+        }
+    }
+
+    let mut registry = EngineRegistry::new();
+    registry.register("wrong-primitive", Arc::new(WrongPrimitiveBackend));
+    let request = SystemRequest {
+        state: State::Text("test".into()),
+        model: "wrong-primitive".into(),
+        questions: HashMap::from_iter([(
+            "route".into(),
+            Question::Choice(ChoiceQuestion {
+                instructions: serde_json::json!("Pick"),
+                criteria: HashMap::from_iter([("inspect".into(), None)]),
+            }),
+        )]),
+    };
+    let err = dispatch(request, &registry).await.unwrap_err();
+    assert!(matches!(err, EngineError::Backend { .. }), "{err:?}");
+    assert!(err.to_string().contains("expected choice answer, got noul"));
+}
+
+#[tokio::test]
 async fn dispatch_successful_and_populates_token_usage() {
     let mut reg = EngineRegistry::new();
     reg.register("mock", Arc::new(MockEngine::new()));

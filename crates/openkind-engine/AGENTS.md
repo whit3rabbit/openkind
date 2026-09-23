@@ -7,7 +7,7 @@
 `openkind-engine` sits between transport layers (`openkind-api`) and concrete model backends (`openkind-backends`). It defines:
 - The `DecisionEngine` trait that all model backends implement.
 - `EngineRegistry`: Thread-safe model alias routing and deterministic listing.
-- `dispatch()`: Unified evaluation orchestration (request validation, telemetry, and token usage calculation).
+- `dispatch()`: Unified evaluation orchestration (request and response validation, telemetry, and token usage calculation).
 - `EngineError`: Transport-neutral error taxonomy.
 - `MockEngine`: Deterministic pseudo-random engine for testing without loading model weights.
 - `ModelExecutionProfile`: Immutable contract for model provenance, execution semantics, and numerical tolerances.
@@ -22,6 +22,9 @@
    - `EngineRegistry::list_models()` must override the internal backend's `ModelInfo.name` with the **registered alias** (the client-facing identifier requested by operators).
 3. **Usage Accounting Guarantee**:
    - `dispatch()` guarantees that `resp.usage.input_tokens` is populated (falling back to `engine.estimate_input_tokens(req)`) and `resp.usage.output_tokens` is calculated via `estimate_output_tokens(&resp.answers)`.
+4. **Backend Response Contract**:
+   - `dispatch()` captures request-bound answer expectations before passing the request to the engine. Missing,
+     extra, wrong-type, or out-of-list backend answers are `EngineError::Backend` faults, not input errors.
 
 ## Key Files & Types
 
@@ -36,10 +39,10 @@
   - `pub struct EngineRegistry`: Stores `HashMap<String, Arc<dyn DecisionEngine>>`; registry construction/mutation happens before it is wrapped in shared app state, and query results are sorted deterministically.
 - [`src/dispatch.rs`](./src/dispatch.rs):
   - `pub async fn dispatch(req, registry) -> EngineResult<SystemResponse>`:
-    - Validates request using `openkind_core::validate_request`.
+    - Captures and validates `openkind_core::ResponseContract` from the request.
     - Looks up model alias in `registry`.
     - Records metrics: `openkind_requests_total`, `openkind_responses_total`, and `openkind_request_duration_ms`.
-    - Executes `engine.evaluate()` and ensures token usage is populated.
+    - Executes `engine.evaluate()`, validates its response against the contract, and ensures token usage is populated.
     - `estimate_output_tokens(resp)`: Calculates fallback output token counts across answer types.
 - [`src/error.rs`](./src/error.rs):
   - `enum EngineError`:

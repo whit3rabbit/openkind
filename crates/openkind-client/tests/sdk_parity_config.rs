@@ -32,7 +32,7 @@ fn sdk_constants_match_python_defaults() {
 // ---------------------------------------------------------------------
 #[tokio::test]
 async fn model_override_beats_client_default() {
-    let (url, requests) = spawn(move |_| Outcome::success(result())).await;
+    let (url, requests) = spawn(move |captured| Outcome::success(result_for(captured))).await;
     let client = client(&url, no_retries());
 
     // Explicit model on the request.

@@ -195,6 +195,96 @@ pub fn validate_response(
     Ok(())
 }
 
+/// Request-bound answer expectations retained while an engine consumes the request.
+pub struct ResponseContract {
+    questions: HashMap<String, (AnswerKind, Vec<String>)>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum AnswerKind {
+    Noul,
+    Choice,
+    Score,
+}
+
+impl AnswerKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Noul => "noul",
+            Self::Choice => "choice",
+            Self::Score => "score",
+        }
+    }
+}
+
+impl ResponseContract {
+    /// Capture question IDs, types, and Choice keys without copying state or instructions.
+    pub fn from_request(req: &SystemRequest) -> ValidationResult<Self> {
+        validate_request(req)?;
+        let questions = req
+            .questions
+            .iter()
+            .map(|(id, question)| {
+                let (kind, keys) = match question {
+                    Question::Noul(_) => (AnswerKind::Noul, Vec::new()),
+                    Question::Choice(choice) => (
+                        AnswerKind::Choice,
+                        choice.criteria.keys().cloned().collect(),
+                    ),
+                    Question::Score(_) => (AnswerKind::Score, Vec::new()),
+                };
+                (id.clone(), (kind, keys))
+            })
+            .collect();
+        Ok(Self { questions })
+    }
+
+    /// Check that every answer matches the originating question and wire rules.
+    pub fn validate(&self, resp: &SystemResponse) -> ValidationResult<()> {
+        for (id, (expected, _)) in &self.questions {
+            let answer = resp
+                .answers
+                .get(id)
+                .ok_or_else(|| ValidationError::MissingAnswer(id.clone()))?;
+            let actual = match answer {
+                Answer::Noul(_) => AnswerKind::Noul,
+                Answer::Choice(_) => AnswerKind::Choice,
+                Answer::Score(_) => AnswerKind::Score,
+            };
+            if actual != *expected {
+                return Err(ValidationError::AnswerTypeMismatch {
+                    id: id.clone(),
+                    expected: expected.as_str(),
+                    actual: actual.as_str(),
+                });
+            }
+        }
+        for id in resp.answers.keys() {
+            if !self.questions.contains_key(id) {
+                return Err(ValidationError::UnexpectedAnswer(id.clone()));
+            }
+        }
+        let criteria = self
+            .questions
+            .iter()
+            .map(|(id, (_, keys))| (id.clone(), keys.clone()))
+            .collect();
+        validate_response(resp, &criteria)
+    }
+}
+
+/// Validate a response against its originating request.
+///
+/// The request supplies the question types and Choice option set that cannot
+/// be established from a response alone. The older [`validate_response`]
+/// remains available for callers that only have a criteria map.
+pub fn validate_response_for_request(
+    resp: &SystemResponse,
+    req: &SystemRequest,
+) -> ValidationResult<()> {
+    ResponseContract::from_request(req)?.validate(resp)
+}
+
 fn check_confidence(id: &str, value: f64) -> ValidationResult<()> {
     if value.is_nan() || !(0.0..=1.0).contains(&value) {
         return Err(ValidationError::ConfidenceOutOfRange {

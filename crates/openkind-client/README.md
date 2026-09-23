@@ -4,6 +4,8 @@ Async Rust client for the `openkindd` daemon and the TypeSafe Jev SystemOne HTTP
 
 Built on the shared `openkind-core` wire types (`SystemRequest`, `SystemResponse`, `Question`, `Answer`, ...), so request/response conformance with `jev-v1-request.json` / `jev-v1-response.json` is structural, not hand-maintained. Retry, rate-limit, and error conventions mirror the `typesafe_sdk` Python SDK.
 
+Successful evaluation responses are also checked against the submitted request: answer IDs and types must match, and a `Choice` selection and its probability keys must come from that question's criteria. A model decision does not authorize the caller's next action.
+
 ## Quick start
 
 ```rust
@@ -73,6 +75,7 @@ All failures surface as `openkind_client::Error`:
 | `Error::Timeout` | Per-attempt timeout exceeded |
 | `Error::ResponseTooLarge` | Response exceeded the fixed 8 MiB body limit |
 | `Error::Decode` | 2xx body did not match the expected wire type |
+| `Error::InvalidResponse` | 2xx body decoded but violated the submitted question contract; never retried |
 | `Error::Config` | Invalid client configuration (missing API key, bad URL, ...) |
 
 Successful and error response bodies are both limited to 8 MiB
@@ -123,6 +126,7 @@ cargo test -p openkind-client
 - `tests/sdk_parity_*.rs`: ports of the TypeSafe Python SDK's own test suite (`tests/test_retry.py`, `test_clients.py`, `test_errors.py`, `test_config.py`, `test_responses.py`, `test_questions.py`, `test_types.py`) — status matrices, attempt counts, retry-count header sequences, exact wire bodies, header-precedence rules. [PARITY.md](PARITY.md) maps every Python test file to its Rust counterpart.
 - `tests/live_server.rs`: boots a real `openkind-api` server in-process (including the real rate limiter) and verifies the full client↔server contract — the client-side mirror of the API crate's `sdk_compat.rs` suite.
 - `tests/retry_behavior.rs`: deterministic stub server for retry mechanics (attempt counts, retry-count headers, `Retry-After` precedence, budget stops, connection errors).
+- `tests/response_validation.rs`: request-bound answer validation against a stub server.
 
 ## Boundaries
 

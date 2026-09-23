@@ -286,7 +286,11 @@ async fn protected_headers_cannot_be_overridden() {
             let received = received_for_handler.clone();
             async move {
                 received.lock().unwrap().push(headers);
-                Json(result())
+                Json(json!({
+                    "model": "jev-latest",
+                    "usage": {"input_tokens": 1, "output_tokens": 1},
+                    "answers": {"q": {"type": "noul", "noul": 0.5}}
+                }))
             }
         }),
     );

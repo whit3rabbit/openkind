@@ -576,6 +576,12 @@ Reported middleware behavior includes request-ID propagation, bearer authenticat
 
 Transport success is not model success. `/v1/models` should advertise the exact supported profile/capabilities rather than imply arbitrary primitive, Q/K, context, or precision support.
 
+### Decision consumers and action authority
+
+OpenKind returns judgments; it does not authorize or execute the actions a caller names. A consumer that routes work from a `Choice` answer must compute eligible actions from trusted state, submit only those keys, validate the answer against the originating request, and map the selected key to a known worker. The wire type alone cannot enforce a closed list. Server dispatch and the Rust client use request-bound validation to reject missing, extra, mismatched-type, or out-of-list answers. Server dispatch treats an invalid backend answer as a backend fault (HTTP 500); the Rust client reports an invalid 2xx answer as nonretryable `Error::InvalidResponse`.
+
+The consumer owns tool authorization, approval, workflow state, and independent result verification. An API key identifies a daemon caller when configured; it is not a grant to perform the action selected by a model. `__none__` is an explicit caller-supplied option required by the selected native Qwen profile, not a universal Jev `Choice` requirement. Keep low-entropy request and token digests in explicitly requested offline evidence, never daemon audit logs.
+
 ---
 
 ## Phase 3 parity ladder

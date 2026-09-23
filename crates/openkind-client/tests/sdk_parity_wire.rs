@@ -189,13 +189,16 @@ async fn invalid_models_response_is_decode_error() {
 // ---------------------------------------------------------------------
 #[tokio::test]
 async fn unknown_extra_fields_tolerated() {
-    let mut full = result();
-    full["new_top_level"] = json!({"anything": [1, 2]});
-    full["answers"]["spam"]["extra_answer_field"] = json!(true);
-    let (url, _requests) = spawn(move |_| Outcome::success(full.clone())).await;
+    let (url, _requests) = spawn(move |captured| {
+        let mut response = result_for(captured);
+        response["new_top_level"] = json!({"anything": [1, 2]});
+        response["answers"]["q"]["extra_answer_field"] = json!(true);
+        Outcome::success(response)
+    })
+    .await;
     let client = client(&url, no_retries());
     let response = client.evaluate(evaluate_request()).await.unwrap();
-    assert_eq!(response.answers.len(), 3);
+    assert_eq!(response.answers.len(), 1);
 }
 
 // ---------------------------------------------------------------------
@@ -262,7 +265,7 @@ async fn malformed_responses_are_decode_errors() {
 // ---------------------------------------------------------------------
 #[tokio::test]
 async fn array_and_object_states_wire_through() {
-    let (url, requests) = spawn(move |_| Outcome::success(result())).await;
+    let (url, requests) = spawn(move |captured| Outcome::success(result_for(captured))).await;
     let client = client(&url, no_retries());
 
     // Array state via the direct State variant…
@@ -308,7 +311,7 @@ async fn array_and_object_states_wire_through() {
 // ---------------------------------------------------------------------
 #[tokio::test]
 async fn rich_instructions_wire_through() {
-    let (url, requests) = spawn(move |_| Outcome::success(result())).await;
+    let (url, requests) = spawn(move |captured| Outcome::success(result_for(captured))).await;
     let client = client(&url, no_retries());
 
     let request = SystemRequest {

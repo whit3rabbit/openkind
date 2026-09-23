@@ -43,6 +43,64 @@ pub fn result() -> Value {
     })
 }
 
+/// A valid response for tests focused on request transport rather than answer content.
+pub fn result_for(captured: &Captured) -> Value {
+    let mut answers = serde_json::Map::new();
+    let questions = captured.body.as_ref().unwrap()["questions"]
+        .as_object()
+        .unwrap();
+    for (id, question) in questions {
+        let answer = match question["type"].as_str().unwrap() {
+            "noul" => json!({"type": "noul", "noul": 0.5}),
+            "choice" => {
+                let labels: Vec<_> = question["criteria"]
+                    .as_object()
+                    .unwrap()
+                    .keys()
+                    .cloned()
+                    .collect();
+                let probability = 1.0 / labels.len() as f64;
+                let probabilities: serde_json::Map<_, _> = labels
+                    .iter()
+                    .map(|label| (label.clone(), json!(probability)))
+                    .collect();
+                json!({
+                    "type": "choice",
+                    "choice": labels[0],
+                    "confidence": 0.5,
+                    "probabilities": probabilities
+                })
+            }
+            "score" => {
+                let levels = question["criteria"].as_array().unwrap();
+                let probability = 1.0 / levels.len() as f64;
+                let probabilities: serde_json::Map<_, _> = (0..levels.len())
+                    .map(|i| (i.to_string(), json!(probability)))
+                    .collect();
+                let legend: serde_json::Map<_, _> = levels
+                    .iter()
+                    .enumerate()
+                    .map(|(i, level)| (i.to_string(), level.clone()))
+                    .collect();
+                json!({
+                    "type": "score",
+                    "score": (levels.len() - 1) as f64 / 2.0,
+                    "confidence": 0.5,
+                    "legend": legend,
+                    "probabilities": probabilities
+                })
+            }
+            other => panic!("unexpected question type: {other}"),
+        };
+        answers.insert(id.clone(), answer);
+    }
+    json!({
+        "model": "jev-latest",
+        "usage": {"input_tokens": 12, "output_tokens": 3},
+        "answers": answers
+    })
+}
+
 /// The Python test suite's `CARD` model-metadata fixture.
 pub fn card() -> Value {
     json!({"name": "jev-latest", "description": "Fast model", "release_date": "2026-08-01"})

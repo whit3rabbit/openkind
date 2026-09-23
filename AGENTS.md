@@ -137,6 +137,10 @@ Methodology, complete commands, and evidence boundaries live in
    Model checkpoint shards are multi-gigabyte files (up to 4 GB+ per shard). They must be verified in-place on the
    read-only checkpoint directory and mmapped directly. Never copy or stage checkpoint shards to `/tmp` or ephemeral
    directories during model load.
+9. **Choice and Consumer Authority**:
+   The `Choice` wire type does not close the option set by itself. Validate answers against the originating request,
+   including question IDs, answer types, selected option, and probability keys. Trusted consumer code determines
+   eligible actions and separately authorizes and verifies any action selected from the decision.
 
 ## Non-Negotiable Invariants
 
