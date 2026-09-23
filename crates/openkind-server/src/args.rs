@@ -64,6 +64,20 @@ pub(crate) struct Args {
     #[arg(long, env = "OPENKIND_QWEN35_QUEUE", default_value_t = 2)]
     pub(crate) qwen35_queue: usize,
 
+    /// Queue-inclusive deadline for one native evaluation, in milliseconds.
+    #[arg(long, env = "OPENKIND_QWEN35_TIMEOUT_MS", default_value_t = 600_000)]
+    pub(crate) qwen35_timeout_ms: u64,
+
+    /// Native model backend. `mlx-fp32` is available on macOS arm64 with the
+    /// daemon's `mlx` feature enabled.
+    #[arg(
+        long,
+        env = "OPENKIND_QWEN35_BACKEND",
+        value_enum,
+        default_value_t = Qwen35BackendArg::NativeCpu
+    )]
+    pub(crate) qwen35_backend: Qwen35BackendArg,
+
     /// Execution-plan override for diagnostics and reproducibility.
     /// Overrides adaptive scheduling only; memory and backend capability
     /// admission still apply.
@@ -117,6 +131,16 @@ pub(crate) struct Args {
     /// Log filter. Standard `tracing_subscriber::EnvFilter` syntax.
     #[arg(long, env = "RUST_LOG", default_value = "info")]
     pub(crate) log_filter: String,
+}
+
+/// Native backbone choices exposed by the daemon.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub(crate) enum Qwen35BackendArg {
+    /// Candle FP32 CPU reference backend.
+    NativeCpu,
+    /// MLX FP32 backend on macOS arm64 when the optional feature is enabled.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    MlxFp32,
 }
 
 /// CLI surface for `--qwen35-execution`: the three execution plans plus the
@@ -175,6 +199,8 @@ pub(crate) fn parse_grpc_addr(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::CommandFactory;
+    use std::ffi::OsStr;
 
     #[test]
     fn args_default_values() {
@@ -186,6 +212,44 @@ mod tests {
         assert_eq!(args.rate_limit_rpm, 120);
         assert_eq!(args.log_filter, "info");
         assert_eq!(args.qwen35_execution, ExecutionArg::Auto);
+        assert_eq!(args.qwen35_backend, Qwen35BackendArg::NativeCpu);
+        assert_eq!(args.qwen35_timeout_ms, 600_000);
+    }
+
+    #[test]
+    fn qwen35_backend_cli_values_and_diagnostics() {
+        let args = Args::try_parse_from(["openkindd", "--qwen35-backend", "native-cpu"]).unwrap();
+        assert_eq!(args.qwen35_backend, Qwen35BackendArg::NativeCpu);
+
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        {
+            let args = Args::try_parse_from(["openkindd", "--qwen35-backend", "mlx-fp32"]).unwrap();
+            assert_eq!(args.qwen35_backend, Qwen35BackendArg::MlxFp32);
+        }
+
+        #[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
+        {
+            let error = Args::try_parse_from(["openkindd", "--qwen35-backend", "mlx-fp32"])
+                .unwrap_err()
+                .to_string();
+            assert!(error.contains("native-cpu"), "{error}");
+        }
+
+        let error = Args::try_parse_from(["openkindd", "--qwen35-backend", "mlx-bf16"])
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("invalid value 'mlx-bf16'"), "{error}");
+        assert!(error.contains("native-cpu"), "{error}");
+    }
+
+    #[test]
+    fn qwen35_backend_environment_alias_is_declared() {
+        let command = Args::command();
+        let arg = command
+            .get_arguments()
+            .find(|arg| arg.get_long() == Some("qwen35-backend"))
+            .expect("--qwen35-backend argument");
+        assert_eq!(arg.get_env(), Some(OsStr::new("OPENKIND_QWEN35_BACKEND")));
     }
 
     #[test]

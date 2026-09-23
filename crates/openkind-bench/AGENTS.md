@@ -10,6 +10,7 @@ timing harness over JSONL decision workloads. It exists to:
 - Score decision workloads end to end through a real engine path (`score`), recording
   per-row predictions and a provenance summary (`openkind-bench/v1`).
 - Generate seeded, deterministic shape-matched workloads (`gen-workload`).
+- Keep service-level queue/HTTP measurements in [`scripts/native-service-gate.py`](../../scripts/native-service-gate.py), not in this in-process harness.
 
 Methodology, timing scope, and recorded results are owned by
 [`docs/BENCHMARKS.md`](../../docs/BENCHMARKS.md) — do not duplicate numbers here.
@@ -37,8 +38,12 @@ Methodology, timing scope, and recorded results are owned by
    builds (no feature) expose only `mock` and `qwen35` and never link MLX.
    MLX runs use the same fixtures, strategy sweep, warmup, and parity
    assertions; their numbers are throughput evidence only — the frozen parity
-   gates live in the parity examples, and the known BF16 continuation defect
-   blocks BF16 nested strategies (`--strategies repeated_full` for BF16).
+   gates live in the parity examples. The pinned-base BF16 reference path fails
+   the frozen probability gate in both full and nested execution; use
+   `--strategies repeated_full` for BF16 throughput comparisons unless a run is
+   explicitly labeled as a nested diagnostic. Do not describe the mismatch as
+   cache corruption: the current trace first localizes shape-dependent
+   projection rounding.
    FP32 benchmarks use the production `ReferenceOps` default. Do not publish
    an opt-in Metal-kernel run without naming its arithmetic identity and
    comparing it against that default on the same fixture and host.
@@ -108,9 +113,11 @@ SDKROOT=$(xcrun --show-sdk-path) cargo run --release \
   --output-dir <benchmark-output-dir>
 ```
 
-Use `--engine qwen35-mlx-bf16` only with
-`--strategies repeated_full`; the known BF16 continuation defect blocks the
-nested strategies. The pinned base model for the recorded comparison is
+Use `--engine qwen35-mlx-bf16` with `--strategies repeated_full` for the
+default throughput comparison. Both full and nested BF16 paths fail frozen
+probability tolerance, so nested measurements are diagnostics and must not be
+reported as parity-qualified. The current evidence does not establish cache
+corruption. The pinned base model for the recorded comparison is
 `Qwen/Qwen3.5-4B-Base` at revision
 `1001bb4d826a52d1f399e183466143f4da7b741b`. Use the community MLX checkpoint
 only for throughput or format-compatibility comparison, not parity claims.

@@ -137,8 +137,9 @@ state-first tokenization, scheduling, backbone execution, readout — with the
 backbone swapped through `Qwen35Backend`; summaries carry the distinct engine
 ids `qwen35-mlx-fp32` / `qwen35-mlx-bf16` and per-engine output slugs. MLX
 bench numbers are throughput evidence only: the frozen parity gates live in
-the parity examples, and the known BF16 continuation defect blocks BF16
-nested strategies (run BF16 with `--strategies repeated_full`). A community
+the parity examples. Pinned-base BF16 currently fails the frozen probability
+tolerance in both full and nested execution, so BF16 remains unqualified for
+decision use even though the nested state checks complete. A community
 checkpoint can be passed as `--checkpoint-root` for throughput comparison,
 but its bench output is not a parity claim.
 
@@ -212,6 +213,85 @@ finding serialization, validation, middleware, and SDK regressions; they are
 not native-model throughput, queue-inclusive service load, soak, Metal, or
 production memory evidence. `openkind-bench` remains the authority for the
 full engine request path and model-backed peak RSS.
+
+## Native service load and soak
+
+[`scripts/native-service-gate.py`](../scripts/native-service-gate.py) launches
+the real `openkindd` process and drives the native HTTP endpoint over TCP. It
+measures client-observed queue-inclusive p50/p95/p99 latency and accepted
+request/question throughput at client concurrency 1, 2, and 4. It records
+startup-to-health, first and resident requests, wire validation, request-ID
+echoes, overloads, client-disconnect cancellation and recovery, a steady
+single-client soak, current RSS samples, and the daemon's OS peak-RSS metric.
+It starts a second daemon with a short queue-inclusive deadline and checks the
+HTTP 504 path. The workload has no reviewed labels, so it cannot support
+semantic accuracy, accepted-error, or coverage claims. The report saves no
+request bodies, IDs, or API key; the daemon log is kept separately for
+lifecycle diagnosis.
+
+The runner defaults to a 30-minute soak. Download the pinned checkpoint using
+the opt-in command in the repository README and set
+`OPENKIND_QWEN35_CHECKPOINT` to that local directory. Build the release daemon
+and run:
+
+```bash
+mkdir -p docs/verification/native-service-gate/run-YYYYMMDD
+python3 scripts/native-service-gate.py --capture-source . \
+  > docs/verification/native-service-gate/run-YYYYMMDD/build-source.json
+CARGO_TARGET_DIR=target/native-service-gate cargo build --release --locked --offline -p openkind-server --bin openkindd
+python3 scripts/native-service-gate.py --capture-source . \
+  > docs/verification/native-service-gate/run-YYYYMMDD/post-build-source.json
+python3 -c 'import json; a=json.load(open("docs/verification/native-service-gate/run-YYYYMMDD/build-source.json")); b=json.load(open("docs/verification/native-service-gate/run-YYYYMMDD/post-build-source.json")); keys=("commit", "tracked_diff_sha256", "untracked_crate_source_sha256", "harness_sha256"); assert all(a[k] == b[k] for k in keys), "source changed during build"'
+python3 scripts/native-service-gate.py \
+  --repo . \
+  --daemon target/native-service-gate/release/openkindd \
+  --bundle-root crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8 \
+  --runtime-manifest research/OpenKind_Phase3B_BackboneParity_20260920T152206Z/bundle_probability_runtime/runtime.json \
+  --checkpoint-root "$OPENKIND_QWEN35_CHECKPOINT" \
+  --tokenizer research/OpenKind_Phase3B_BackboneParity_20260920T152206Z/backbone_runtime/tokenizer/tokenizer.json \
+  --fixture crates/openkind-bench/fixtures/decisions_smoke.jsonl \
+  --output-dir docs/verification/native-service-gate/run-YYYYMMDD \
+  --build-source-record docs/verification/native-service-gate/run-YYYYMMDD/build-source.json \
+  --soak-seconds 1800 \
+  --build-profile release \
+  --build-command 'CARGO_TARGET_DIR=target/native-service-gate cargo build --release --locked --offline -p openkind-server --bin openkindd'
+```
+
+The report records hardware, OS, toolchain, commit, tracked-diff, untracked
+crate-source, harness, and executable hashes, plus profile/model/fixture
+identity, load parameters, per-request status and latency, and shutdown status.
+It deliberately distinguishes sampled current RSS from the operating-system
+peak. The source snapshot is captured before building and checked again after
+the build and at daemon start. The runner also records the final workspace
+fingerprint and verifies that the tested executable hash stayed unchanged.
+Source edits after daemon startup are reported, but do not invalidate the
+already built artifact. Results from this endpoint campaign are service
+evidence, separate from the in-process `openkind-bench score` timing scope
+above.
+
+### Recorded native CPU service campaign
+
+The release-mode native service gate passed on a Mac16,5 Apple M4 Max (36 GiB,
+macOS 26.6.2, Rust 1.98.1). The full report, service logs, source identity,
+artifact hash, log-redaction audit, and interpretation are in
+[`verification/native-service-gate/2026-09-22-rerun2/`](verification/native-service-gate/2026-09-22-rerun2/README.md).
+
+| Load phase | Accepted latency p50 / p95 / p99 | Accepted throughput | Outcome |
+|---|---:|---:|---|
+| Concurrency 1 | 15.22 / 15.40 / 15.40 s | 0.06577 requests/s | 3/3 HTTP 200 |
+| Concurrency 2 | 15.61 / 30.91 / 30.91 s | 0.06500 requests/s | 6/6 HTTP 200 |
+| Concurrency 4 | 31.07 / 47.02 / 47.02 s | 0.06420 requests/s | 9 HTTP 200, 3 HTTP 529 |
+| 30-minute soak | 15.78 / 15.88 / 15.94 s | 0.06339 requests/s | 115/115 HTTP 200, 345 answers |
+
+Sampled RSS peaked at 10,280,976,384 bytes; the separate daemon peak-RSS
+metric reported 10,283,155,456 bytes. The cancellation counter advanced and
+the recovery request returned HTTP 200. The 1 ms deadline probe returned HTTP
+504 in 2.12 ms. Build and daemon-start source fingerprints matched, and the
+release executable hash stayed unchanged through the run. Shared source edits
+after startup are recorded in the report and do not change the running
+artifact. This evidence closes the native CPU service gate only. The profile
+manifest remains `production_ready: false`, so model-quality review and
+official release promotion remain separate.
 
 ## Recorded runs
 
@@ -304,9 +384,17 @@ comparison and must not be compared directly with the warm-process
 | MLX-community nested FP32, 10 candidates | model-parity fail | included | 69.7 s | not emitted | 6.62 GB |
 | MLX-community full BF16, 10 candidates | model-parity fail | 3.7 s | 55.3 s | 7.81 GB | 7.66 GB |
 
-The BF16 full run retained all argmax and policy decisions but exceeded the
-probability tolerance (`0.005457` versus `0.005`). The BF16 nested run failed
-state validation at layer 4, so no BF16 nested throughput claim is valid.
+These BF16 timings are from the 21 September bring-up run. Its full run
+retained all argmax and policy decisions but exceeded the probability
+tolerance (`0.005457` versus `0.005`), and its nested run stopped at layer 4
+state validation. The 22 September pinned-base rerun supersedes those Gate B
+results: full maximum probability delta was `0.006099619710620674`, and nested
+maximum probability delta was `0.026580797832947478`; both retained all
+argmax and policy decisions, and nested state, position, root, and sibling
+checks passed. The frozen tolerance remains `0.005`, so Gate B still fails.
+The bounded first-mismatch trace localizes the first captured BF16 split to
+shape-dependent layer 0 output projection rounding. Raw commands and outputs
+are in [`verification/phase3m-2026-09-22/README.md`](verification/phase3m-2026-09-22/README.md).
 The community adapter completed loading and full execution, but its output was
 not a frozen-reference parity result: embedding max error was `8.5449e-04`,
 feature max error `45.64`, probability max error `0.9999983`, with four argmax

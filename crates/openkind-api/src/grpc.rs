@@ -271,6 +271,7 @@ fn status_from_engine(e: openkind_engine::EngineError) -> Status {
         UnknownModel(_) => Status::not_found(e.to_string()),
         Unsupported { .. } => Status::invalid_argument(e.to_string()),
         Overloaded { .. } => Status::unavailable(e.to_string()),
+        DeadlineExceeded { .. } => Status::deadline_exceeded(e.to_string()),
         Backend { .. } => Status::internal(e.to_string()),
     }
 }

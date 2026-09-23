@@ -14,8 +14,9 @@
 //! checkpoint-gated implementation validated by the `qwen35_nested_parity`
 //! example.
 
-use crate::qwen35::Qwen35Error;
+use crate::qwen35::{ExecutionControl, Qwen35Error};
 use openkind_runtime::branch::BranchableState;
+use openkind_runtime::BatchForwardMode;
 
 use super::model::{BackboneState, Qwen35Backbone};
 
@@ -35,6 +36,20 @@ pub trait SequentialNestedExecutor {
     /// Fails when the sequence cannot be executed.
     fn prefill(&self, input_ids: &[u32]) -> Result<(Vec<f32>, Self::State), Qwen35Error>;
 
+    /// Evaluate a fresh sequence with request-scoped lifecycle checks.
+    /// Executors that cannot interrupt an active kernel still check before
+    /// and after the forward so callers can bound cancellation latency.
+    fn prefill_controlled(
+        &self,
+        input_ids: &[u32],
+        control: &ExecutionControl,
+    ) -> Result<(Vec<f32>, Self::State), Qwen35Error> {
+        control.check()?;
+        let output = self.prefill(input_ids)?;
+        control.check()?;
+        Ok(output)
+    }
+
     /// Continue `state` with `suffix_ids` without mutating it, returning the
     /// suffix's final-token feature plus the advanced continuation state.
     ///
@@ -46,6 +61,178 @@ pub trait SequentialNestedExecutor {
         state: &Self::State,
         suffix_ids: &[u32],
     ) -> Result<(Vec<f32>, Self::State), Qwen35Error>;
+
+    /// Continue several independent states in one executor operation.
+    ///
+    /// The default preserves the per-lane implementation. A backend that
+    /// implements a real multi-lane forward may override this method and
+    /// return [`BatchForwardMode::Vectorized`]. The reported mode describes
+    /// the physical forwards performed, not the requested state topology.
+    ///
+    /// # Errors
+    /// Fails when the lane counts differ, a suffix is empty, or any lane
+    /// cannot be continued.
+    fn continue_batch_from(
+        &self,
+        states: &[&Self::State],
+        suffix_ids: &[&[u32]],
+    ) -> Result<BatchContinuation<Self::State>, Qwen35Error> {
+        validate_batch_inputs(states.len(), suffix_ids)?;
+        let mut lanes = Vec::with_capacity(states.len());
+        for (&state, &suffix) in states.iter().zip(suffix_ids) {
+            lanes.push(self.continue_from(state, suffix)?);
+        }
+        Ok(BatchContinuation::new(lanes, BatchForwardMode::PerLane))
+    }
+
+    /// Request-scoped variant of [`Self::continue_batch_from`].
+    ///
+    /// The default checks lifecycle state around each per-lane forward. A
+    /// backend that overrides both batch methods may check once before and
+    /// after a non-interruptible vectorized kernel.
+    fn continue_batch_from_controlled(
+        &self,
+        states: &[&Self::State],
+        suffix_ids: &[&[u32]],
+        control: &ExecutionControl,
+    ) -> Result<BatchContinuation<Self::State>, Qwen35Error> {
+        validate_batch_inputs(states.len(), suffix_ids)?;
+        let mut lanes = Vec::with_capacity(states.len());
+        for (&state, &suffix) in states.iter().zip(suffix_ids) {
+            lanes.push(self.continue_from_controlled(state, suffix, control)?);
+        }
+        Ok(BatchContinuation::new(lanes, BatchForwardMode::PerLane))
+    }
+
+    /// Continue a sequence with request-scoped lifecycle checks.
+    fn continue_from_controlled(
+        &self,
+        state: &Self::State,
+        suffix_ids: &[u32],
+        control: &ExecutionControl,
+    ) -> Result<(Vec<f32>, Self::State), Qwen35Error> {
+        control.check()?;
+        let output = self.continue_from(state, suffix_ids)?;
+        control.check()?;
+        Ok(output)
+    }
+}
+
+/// Results from advancing a set of continuation lanes.
+#[derive(Debug)]
+pub struct BatchContinuation<S> {
+    lanes: Vec<(Vec<f32>, S)>,
+    batch_forward_mode: BatchForwardMode,
+}
+
+impl<S> BatchContinuation<S> {
+    /// Build a batch result with its observed physical forward mode.
+    #[must_use]
+    pub fn new(lanes: Vec<(Vec<f32>, S)>, batch_forward_mode: BatchForwardMode) -> Self {
+        Self {
+            lanes,
+            batch_forward_mode,
+        }
+    }
+
+    /// Consume the result and return features and advanced states in lane order.
+    #[must_use]
+    pub fn into_lanes(self) -> Vec<(Vec<f32>, S)> {
+        self.lanes
+    }
+
+    /// Consume the result and return its lanes and physical forward mode.
+    #[must_use]
+    pub fn into_parts(self) -> (Vec<(Vec<f32>, S)>, BatchForwardMode) {
+        (self.lanes, self.batch_forward_mode)
+    }
+
+    /// Physical forward mode observed for this batch.
+    #[must_use]
+    pub const fn batch_forward_mode(&self) -> BatchForwardMode {
+        self.batch_forward_mode
+    }
+}
+
+fn validate_batch_inputs(states: usize, suffix_ids: &[&[u32]]) -> Result<(), Qwen35Error> {
+    if states == 0 || states != suffix_ids.len() {
+        return Err(Qwen35Error::InvalidInput(format!(
+            "batch continuation has {states} states and {} suffixes",
+            suffix_ids.len()
+        )));
+    }
+    if suffix_ids.iter().any(|suffix| suffix.is_empty()) {
+        return Err(Qwen35Error::InvalidInput(
+            "batch continuation contains an empty suffix".into(),
+        ));
+    }
+    Ok(())
+}
+
+/// Adapter that runs an existing strategy through one request's control token.
+pub(crate) struct ControlledExecutor<'a, E> {
+    executor: &'a E,
+    control: &'a ExecutionControl,
+}
+
+impl<'a, E> ControlledExecutor<'a, E> {
+    pub(crate) const fn new(executor: &'a E, control: &'a ExecutionControl) -> Self {
+        Self { executor, control }
+    }
+}
+
+impl<E: SequentialNestedExecutor> SequentialNestedExecutor for ControlledExecutor<'_, E> {
+    type State = E::State;
+
+    fn prefill(&self, input_ids: &[u32]) -> Result<(Vec<f32>, Self::State), Qwen35Error> {
+        self.executor.prefill_controlled(input_ids, self.control)
+    }
+
+    fn continue_from(
+        &self,
+        state: &Self::State,
+        suffix_ids: &[u32],
+    ) -> Result<(Vec<f32>, Self::State), Qwen35Error> {
+        self.executor
+            .continue_from_controlled(state, suffix_ids, self.control)
+    }
+
+    fn continue_batch_from(
+        &self,
+        states: &[&Self::State],
+        suffix_ids: &[&[u32]],
+    ) -> Result<BatchContinuation<Self::State>, Qwen35Error> {
+        self.executor
+            .continue_batch_from_controlled(states, suffix_ids, self.control)
+    }
+
+    fn prefill_controlled(
+        &self,
+        input_ids: &[u32],
+        control: &ExecutionControl,
+    ) -> Result<(Vec<f32>, Self::State), Qwen35Error> {
+        self.executor.prefill_controlled(input_ids, control)
+    }
+
+    fn continue_from_controlled(
+        &self,
+        state: &Self::State,
+        suffix_ids: &[u32],
+        control: &ExecutionControl,
+    ) -> Result<(Vec<f32>, Self::State), Qwen35Error> {
+        self.executor
+            .continue_from_controlled(state, suffix_ids, control)
+    }
+
+    fn continue_batch_from_controlled(
+        &self,
+        states: &[&Self::State],
+        suffix_ids: &[&[u32]],
+        control: &ExecutionControl,
+    ) -> Result<BatchContinuation<Self::State>, Qwen35Error> {
+        self.executor
+            .continue_batch_from_controlled(states, suffix_ids, control)
+    }
 }
 
 /// One question plan inside a nested run.
@@ -248,6 +435,23 @@ impl<E: SequentialNestedExecutor> SequentialNestedExecutor for &E {
     ) -> Result<(Vec<f32>, Self::State), Qwen35Error> {
         (*self).continue_from(state, suffix_ids)
     }
+
+    fn continue_batch_from(
+        &self,
+        states: &[&Self::State],
+        suffix_ids: &[&[u32]],
+    ) -> Result<BatchContinuation<Self::State>, Qwen35Error> {
+        (*self).continue_batch_from(states, suffix_ids)
+    }
+
+    fn continue_batch_from_controlled(
+        &self,
+        states: &[&Self::State],
+        suffix_ids: &[&[u32]],
+        control: &ExecutionControl,
+    ) -> Result<BatchContinuation<Self::State>, Qwen35Error> {
+        (*self).continue_batch_from_controlled(states, suffix_ids, control)
+    }
 }
 
 impl Qwen35Backbone {
@@ -283,6 +487,20 @@ impl SequentialNestedExecutor for Qwen35Backbone {
         Ok((output.final_token().to_vec(), state))
     }
 
+    fn prefill_controlled(
+        &self,
+        input_ids: &[u32],
+        control: &ExecutionControl,
+    ) -> Result<(Vec<f32>, BackboneState), Qwen35Error> {
+        if input_ids.is_empty() {
+            return Err(Qwen35Error::InvalidInput(
+                "nested prefill requires a non-empty root sequence".into(),
+            ));
+        }
+        let (output, state) = self.prefill_controlled(input_ids, control)?;
+        Ok((output.final_token().to_vec(), state))
+    }
+
     fn continue_from(
         &self,
         state: &BackboneState,
@@ -294,6 +512,21 @@ impl SequentialNestedExecutor for Qwen35Backbone {
             ));
         }
         let (output, next_state) = Qwen35Backbone::continue_from(self, state, suffix_ids)?;
+        Ok((output.final_token().to_vec(), next_state))
+    }
+
+    fn continue_from_controlled(
+        &self,
+        state: &BackboneState,
+        suffix_ids: &[u32],
+        control: &ExecutionControl,
+    ) -> Result<(Vec<f32>, BackboneState), Qwen35Error> {
+        if suffix_ids.is_empty() {
+            return Err(Qwen35Error::InvalidInput(
+                "nested continuation requires a non-empty suffix".into(),
+            ));
+        }
+        let (output, next_state) = self.continue_from_controlled(state, suffix_ids, control)?;
         Ok((output.final_token().to_vec(), next_state))
     }
 }

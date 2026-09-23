@@ -426,6 +426,66 @@ fn forced_nested_batched_records_the_physical_forward_mode() {
 }
 
 #[test]
+fn vectorized_mode_requires_every_nested_fanout_to_have_multiple_lanes() {
+    let config = vectorized_scheduler_config(1.5)
+        .with_forced_strategy(Some(ExecutionStrategy::NestedBatched));
+    let auto_config = vectorized_scheduler_config(1.5);
+    let one_question = StrategyRequest {
+        root_tokens: 32,
+        question_tokens: vec![8],
+        suffix_tokens: vec![vec![4, 5]],
+    };
+    let one_candidate_fanout = StrategyRequest {
+        root_tokens: 32,
+        question_tokens: vec![8, 8],
+        suffix_tokens: vec![vec![4, 5], vec![6]],
+    };
+    let unequal_question_lengths = StrategyRequest {
+        root_tokens: 32,
+        question_tokens: vec![8, 9],
+        suffix_tokens: vec![vec![4, 5], vec![6, 7]],
+    };
+    let fully_batched = StrategyRequest {
+        root_tokens: 32,
+        question_tokens: vec![8, 8],
+        suffix_tokens: vec![vec![4, 5], vec![6, 7]],
+    };
+
+    assert_eq!(
+        choose_strategy(&config, &one_question).batch_forward_mode,
+        BatchForwardMode::PerLane
+    );
+    assert_eq!(
+        choose_strategy(&config, &one_candidate_fanout).batch_forward_mode,
+        BatchForwardMode::PerLane
+    );
+    assert_eq!(
+        choose_strategy(&config, &unequal_question_lengths).batch_forward_mode,
+        BatchForwardMode::Vectorized
+    );
+    assert_eq!(
+        choose_strategy(&config, &fully_batched).batch_forward_mode,
+        BatchForwardMode::Vectorized
+    );
+    assert_eq!(
+        choose_strategy(&auto_config, &one_question).strategy,
+        ExecutionStrategy::NestedSequential
+    );
+    assert_eq!(
+        choose_strategy(&auto_config, &one_candidate_fanout).strategy,
+        ExecutionStrategy::NestedSequential
+    );
+    assert_eq!(
+        choose_strategy(&auto_config, &unequal_question_lengths).strategy,
+        ExecutionStrategy::NestedBatched
+    );
+    assert_eq!(
+        choose_strategy(&auto_config, &fully_batched).strategy,
+        ExecutionStrategy::NestedBatched
+    );
+}
+
+#[test]
 fn forced_strategy_still_fails_closed_on_admission() {
     let request = StrategyRequest {
         root_tokens: 512,

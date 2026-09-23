@@ -1,0 +1,182 @@
+    Finished `release` profile [optimized] target(s) in 0.30s
+     Running `target/release/examples/qwen35_mlx_nested_parity /Users/whit3rabbit/.cache/openkind/qwen35-4b-base-1001bb4d826a52d1f399e183466143f4da7b741b research/OpenKind_Phase3B_BackboneParity_20260920T152206Z crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8`
+backend: mlx-core-0.32.2/fp32/reference-ops;checkpoint=qwen35-base-safetensors;toolchain=xcode=Xcode 27.0|Build version 27A266a;metal=Apple metal version 32023.921 (metalfe-32023.921.6)|Target: air64-apple-darwin25.6.0|Thread model: posix|InstalledDir: /private/var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v27.1.266.1.vSBe6u/Metal.xctoolchain/usr/metal/current/bin
+{
+  "argmax_changes": 0,
+  "cached_vs_full_gate_asserted": true,
+  "cached_vs_full_guard": 0.0001,
+  "candidates": 10,
+  "gate_passed": true,
+  "git_commit": "a5a752ab50efccba2eff0345fc5435c01248d41e",
+  "maximum_cached_vs_full_delta": 0.000072479248046875,
+  "maximum_probability_delta": 0.000013787393158604111,
+  "policy_changes": 0,
+  "position_gates_hold": true,
+  "precision": "mlx-core-0.32.2/fp32/reference-ops;checkpoint=qwen35-base-safetensors;toolchain=xcode=Xcode 27.0|Build version 27A266a;metal=Apple metal version 32023.921 (metalfe-32023.921.6)|Target: air64-apple-darwin25.6.0|Thread model: posix|InstalledDir: /private/var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v27.1.266.1.vSBe6u/Metal.xctoolchain/usr/metal/current/bin",
+  "probability_gate": true,
+  "probability_tolerance": 0.005,
+  "questions": 4,
+  "results": [
+    {
+      "candidates": 3,
+      "fixture_case": 0,
+      "probability_max_abs": 6.080643100148109e-7,
+      "question_id": "asset",
+      "selected_id": "o1"
+    },
+    {
+      "candidates": 2,
+      "fixture_case": 0,
+      "probability_max_abs": 3.5192733343920174e-7,
+      "question_id": "external",
+      "selected_id": "no"
+    },
+    {
+      "candidates": 3,
+      "fixture_case": 0,
+      "probability_max_abs": 5.240459584542185e-13,
+      "question_id": "urgency",
+      "selected_id": "l2"
+    },
+    {
+      "candidates": 2,
+      "fixture_case": 1,
+      "probability_max_abs": 0.000013787393158604111,
+      "question_id": "q4897_a26093",
+      "selected_id": "yes"
+    }
+  ],
+  "root_immutability_holds": true,
+  "root_storage_gates_hold": true,
+  "root_tensor_bytes": [
+    {
+      "expected_root_tensor_bytes": 59899904,
+      "fixture_case": 0,
+      "question_id": "asset",
+      "root_tensor_bytes": 59899904,
+      "root_tensor_bytes_match": true,
+      "root_tokens": 98
+    },
+    {
+      "expected_root_tensor_bytes": 59899904,
+      "fixture_case": 0,
+      "question_id": "external",
+      "root_tensor_bytes": 59899904,
+      "root_tensor_bytes_match": true,
+      "root_tokens": 98
+    },
+    {
+      "expected_root_tensor_bytes": 59899904,
+      "fixture_case": 0,
+      "question_id": "urgency",
+      "root_tensor_bytes": 59899904,
+      "root_tensor_bytes_match": true,
+      "root_tokens": 98
+    },
+    {
+      "expected_root_tensor_bytes": 76087296,
+      "fixture_case": 1,
+      "question_id": "q4897_a26093",
+      "root_tensor_bytes": 76087296,
+      "root_tensor_bytes_match": true,
+      "root_tokens": 345
+    }
+  ],
+  "sibling_isolation_holds": true,
+  "vectorized_batch_parity": {
+    "aggregate_batch_forward_mode": "vectorized",
+    "applicable": true,
+    "argmax_changes": 0,
+    "candidate_fanout_modes": [
+      "vectorized",
+      "vectorized"
+    ],
+    "candidate_fanouts_vectorized": true,
+    "candidate_mode_recording_complete": true,
+    "candidate_suffix_lengths_by_question": [
+      [
+        12,
+        13,
+        13
+      ],
+      [
+        20,
+        20
+      ]
+    ],
+    "feature_delta_is_diagnostic_only": true,
+    "feature_delta_vs_each_lane_nested_baseline": 0.0000362396240234375,
+    "fixture_case": 0,
+    "gate_passed": true,
+    "git_commit": "a5a752ab50efccba2eff0345fc5435c01248d41e",
+    "lanes": 2,
+    "lanes_report": [
+      {
+        "candidate_suffix_lengths": [
+          12,
+          13,
+          13
+        ],
+        "lane": 0,
+        "probability_max_abs_delta_vs_head_fixture": 1.263484928126779e-6,
+        "question_id": "asset",
+        "question_suffix_length": 11,
+        "selected_id": "o1",
+        "top_probability_abs_delta_vs_probability_reference": 1.4643666819136314e-6
+      },
+      {
+        "candidate_suffix_lengths": [
+          20,
+          20
+        ],
+        "lane": 1,
+        "probability_max_abs_delta_vs_head_fixture": 3.093857042016368e-7,
+        "question_id": "external",
+        "question_suffix_length": 16,
+        "selected_id": "no",
+        "top_probability_abs_delta_vs_probability_reference": 6.427215937243602e-8
+      }
+    ],
+    "maximum_feature_delta": 0.0000362396240234375,
+    "maximum_head_fixture_probability_delta": 1.263484928126779e-6,
+    "maximum_probability_delta": 1.4643666819136314e-6,
+    "maximum_probability_reference_top_delta": 1.4643666819136314e-6,
+    "policy_changes": 0,
+    "positions": {
+      "candidates": [
+        [
+          121,
+          122,
+          122
+        ],
+        [
+          134,
+          134
+        ]
+      ],
+      "question_starts": [
+        98,
+        98
+      ],
+      "questions": [
+        109,
+        114
+      ],
+      "root": 98
+    },
+    "positions_gate": true,
+    "probability_gate": true,
+    "probability_tolerance": 0.005,
+    "question_fanout_mode": "vectorized",
+    "question_fanout_vectorized": true,
+    "question_ids": [
+      "asset",
+      "external"
+    ],
+    "question_lanes_share_start_position": true,
+    "question_suffix_lengths": [
+      11,
+      16
+    ]
+  }
+}

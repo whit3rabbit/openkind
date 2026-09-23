@@ -28,7 +28,15 @@ use tonic::transport::Server;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
-use crate::args::{parse_grpc_addr, resolve_alias, Args};
+use crate::args::{parse_grpc_addr, resolve_alias, Args, Qwen35BackendArg};
+
+fn backend_from_arg(backend: Qwen35BackendArg) -> Qwen35Backend {
+    match backend {
+        Qwen35BackendArg::NativeCpu => Qwen35Backend::NativeCpu,
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        Qwen35BackendArg::MlxFp32 => Qwen35Backend::MlxFp32,
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -123,11 +131,12 @@ async fn main() -> Result<()> {
                 bundle_root,
                 checkpoint_root,
                 tokenizer_path,
-                backend: Qwen35Backend::NativeCpu,
+                backend: backend_from_arg(args.qwen35_backend),
                 scheduler,
                 max_concurrent_requests: args.qwen35_concurrency,
                 max_queued_requests: args.qwen35_queue,
                 retry_after_ms: 1_000,
+                evaluation_timeout: Some(std::time::Duration::from_millis(args.qwen35_timeout_ms)),
             })
             .context("load native Qwen3.5 engine")?,
         ))

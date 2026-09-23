@@ -11,13 +11,17 @@ use super::mapping::{
     answer_from_distribution, instruction_text, question_candidates, EncodedQuestion,
 };
 use super::EngineInner;
-use crate::qwen35::backbone::NestedQuestion;
-use crate::qwen35::{choose_strategy, run_strategy, CandidateText, Qwen35Error, StrategyRequest};
+use crate::qwen35::backbone::{ControlledExecutor, NestedQuestion};
+use crate::qwen35::{
+    choose_strategy, run_strategy, CandidateText, ExecutionControl, Qwen35Error, StrategyRequest,
+};
 
 pub(super) fn evaluate_request(
     inner: &EngineInner,
     request: SystemRequest,
+    control: &ExecutionControl,
 ) -> Result<SystemResponse, Qwen35Error> {
+    control.check()?;
     let state = state_text(&request.state);
     let mut question_ids: Vec<_> = request.questions.keys().cloned().collect();
     question_ids.sort();
@@ -87,6 +91,9 @@ pub(super) fn evaluate_request(
             })
             .sum::<usize>();
     let root_ids = root_ids.ok_or_else(|| Qwen35Error::InvalidInput("no questions".into()))?;
+    if let Ok(peak_bytes) = peak_resident_bytes() {
+        metrics::gauge!("openkind_native_process_peak_rss_bytes").set(peak_bytes as f64);
+    }
     let mut scheduler = inner.scheduler.clone();
     if let Some(process_memory) = scheduler.process_memory {
         scheduler.process_memory = Some(
@@ -112,20 +119,6 @@ pub(super) fn evaluate_request(
         );
         return Err(Qwen35Error::InvalidInput(decision.rationale));
     }
-    metrics::counter!(
-        "openkind_execution_strategy_total",
-        "strategy" => decision.strategy.as_str(),
-        "batch_forward_mode" => decision.batch_forward_mode.as_str(),
-        "forced" => if decision.forced { "true" } else { "false" },
-    )
-    .increment(1);
-    tracing::info!(
-        strategy = decision.strategy.as_str(),
-        batch_forward_mode = decision.batch_forward_mode.as_str(),
-        admitted = decision.admitted,
-        forced = decision.forced,
-        "execution strategy selected"
-    );
     tracing::debug!(
         rationale = %decision.rationale,
         savings_ratio = decision.estimates.savings_ratio,
@@ -133,15 +126,39 @@ pub(super) fn evaluate_request(
         shared_tokens = decision.estimates.shared_tokens,
         "scheduler decision detail"
     );
-    let output = run_strategy(&inner.backbone, decision.strategy, &root_ids, &plans)?;
+    let controlled = ControlledExecutor::new(&inner.backbone, control);
+    let output = run_strategy(&controlled, decision.strategy, &root_ids, &plans)?;
+    if output.batch_forward_mode() != decision.batch_forward_mode {
+        return Err(Qwen35Error::InvalidInput(format!(
+            "scheduler selected {} batch forwarding but executor reported {}",
+            decision.batch_forward_mode.as_str(),
+            output.batch_forward_mode().as_str()
+        )));
+    }
+    metrics::counter!(
+        "openkind_execution_strategy_total",
+        "strategy" => decision.strategy.as_str(),
+        "batch_forward_mode" => output.batch_forward_mode().as_str(),
+        "forced" => if decision.forced { "true" } else { "false" },
+    )
+    .increment(1);
+    tracing::info!(
+        strategy = decision.strategy.as_str(),
+        batch_forward_mode = output.batch_forward_mode().as_str(),
+        admitted = decision.admitted,
+        forced = decision.forced,
+        "execution strategy completed"
+    );
 
     let mut answers: HashMap<String, openkind_core::Answer, _> =
         HashMap::with_capacity_and_hasher(encoded.len(), Default::default());
     for (question, features) in encoded.iter().zip(output.question_features()) {
+        control.check()?;
         let evaluation = inner.head.evaluate(question.primitive, features)?;
         let answer = answer_from_distribution(question, &evaluation)?;
         answers.insert(question.id.clone(), answer);
     }
+    control.check()?;
     Ok(SystemResponse {
         model: request.model,
         answers,
@@ -152,11 +169,23 @@ pub(super) fn evaluate_request(
     })
 }
 
-pub(super) fn map_evaluation_error(backend: &str, error: Qwen35Error) -> EngineError {
+pub(super) fn map_evaluation_error(
+    backend: &str,
+    error: Qwen35Error,
+    timeout_ms: Option<u64>,
+) -> EngineError {
     match error {
         Qwen35Error::InvalidInput(message) => EngineError::Unsupported {
             backend: backend.into(),
             message,
+        },
+        Qwen35Error::ExecutionDeadlineExceeded => EngineError::DeadlineExceeded {
+            backend: backend.into(),
+            timeout_ms: timeout_ms.unwrap_or_default(),
+        },
+        Qwen35Error::ExecutionCancelled => EngineError::Backend {
+            backend: backend.into(),
+            message: "native evaluation cancelled after caller disconnect".into(),
         },
         error => EngineError::Backend {
             backend: backend.into(),

@@ -58,10 +58,9 @@ impl Qwen35Backend {
 /// for the backend actually loaded.
 ///
 /// The pinned scheduler constants describe the FP32 CPU continuation state.
-/// An MLX backbone therefore re-derives the per-state tensor-size inputs from
-/// the loaded model (BF16 states are half the FP32 bytes) and clamps backend
-/// capabilities to per-lane forward: the MLX reference-ops executor has no
-/// vectorized batched forward, whatever a caller configured.
+/// An MLX backbone therefore re-derives per-state tensor-size inputs from the
+/// loaded model. Vectorized MLX batching remains an explicit forced-plan path
+/// until parity and performance gates support automatic selection.
 ///
 /// # Errors
 /// Returns [`Qwen35Error`] when artifact loading, or for BF16 the runtime
@@ -113,6 +112,7 @@ fn load_mlx(
     qualify_bf16: bool,
     scheduler: &mut SchedulerConfig,
 ) -> Result<mlx::MlxQwen35Backbone, Qwen35Error> {
+    use crate::qwen35::backbone::ExecutionStrategy;
     use openkind_runtime::BackendCapabilities;
 
     let runtime = std::sync::Arc::new(mlx::MlxRuntime::new(mlx::MlxRuntimeConfig::default())?);
@@ -124,7 +124,14 @@ fn load_mlx(
     scheduler.state_fixed_tensor_bytes = backbone.expected_tensor_storage_bytes(0);
     scheduler.state_tensor_bytes_per_token =
         backbone.expected_tensor_storage_bytes(1) - backbone.expected_tensor_storage_bytes(0);
-    scheduler.backend_capabilities = BackendCapabilities::per_lane();
+    let forced_vectorized_batch = precision == mlx::MlxPrecision::Fp32
+        && scheduler.forced_strategy == Some(ExecutionStrategy::NestedBatched)
+        && backbone.supports_vectorized_batch();
+    scheduler.backend_capabilities = if forced_vectorized_batch {
+        BackendCapabilities::fully_vectorized().with_lane_limits(8, 8)
+    } else {
+        BackendCapabilities::per_lane()
+    };
     Ok(backbone)
 }
 
@@ -169,8 +176,9 @@ mod dispatch {
         BranchBatch, BranchableState, ProfileId, SchedulingFingerprint, StateError,
     };
 
-    use crate::qwen35::backbone::SequentialNestedExecutor;
+    use crate::qwen35::backbone::{BatchContinuation, SequentialNestedExecutor};
     use crate::qwen35::mlx::{MlxBackboneState, MlxBranchBatch, MlxQwen35Backbone};
+    use crate::qwen35::ExecutionControl;
     use crate::qwen35::{BackboneState, Qwen35Backbone, Qwen35BranchBatch, Qwen35Error};
 
     /// One loaded backbone behind the backend-neutral request pipeline.
@@ -233,6 +241,113 @@ mod dispatch {
                 _ => Err(Qwen35Error::InvalidInput(
                     "engine backbone and continuation state backends do not match".into(),
                 )),
+            }
+        }
+
+        fn continue_batch_from(
+            &self,
+            states: &[&Self::State],
+            suffix_ids: &[&[u32]],
+        ) -> Result<BatchContinuation<Self::State>, Qwen35Error> {
+            match self {
+                Self::Cpu(backbone) => {
+                    let states = states
+                        .iter()
+                        .map(|state| match *state {
+                            EngineBackboneState::Cpu(state) => Ok(state),
+                            EngineBackboneState::Mlx(_) => Err(Qwen35Error::InvalidInput(
+                                "CPU engine received an MLX continuation state".into(),
+                            )),
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let result = SequentialNestedExecutor::continue_batch_from(
+                        backbone, &states, suffix_ids,
+                    )?;
+                    let (lanes, mode) = result.into_parts();
+                    Ok(BatchContinuation::new(
+                        lanes
+                            .into_iter()
+                            .map(|(feature, state)| (feature, EngineBackboneState::Cpu(state)))
+                            .collect(),
+                        mode,
+                    ))
+                }
+                Self::Mlx(backbone) => {
+                    let states = states
+                        .iter()
+                        .map(|state| match *state {
+                            EngineBackboneState::Mlx(state) => Ok(state),
+                            EngineBackboneState::Cpu(_) => Err(Qwen35Error::InvalidInput(
+                                "MLX engine received a CPU continuation state".into(),
+                            )),
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let result = SequentialNestedExecutor::continue_batch_from(
+                        backbone, &states, suffix_ids,
+                    )?;
+                    let (lanes, mode) = result.into_parts();
+                    Ok(BatchContinuation::new(
+                        lanes
+                            .into_iter()
+                            .map(|(feature, state)| (feature, EngineBackboneState::Mlx(state)))
+                            .collect(),
+                        mode,
+                    ))
+                }
+            }
+        }
+
+        fn continue_batch_from_controlled(
+            &self,
+            states: &[&Self::State],
+            suffix_ids: &[&[u32]],
+            control: &ExecutionControl,
+        ) -> Result<BatchContinuation<Self::State>, Qwen35Error> {
+            match self {
+                Self::Cpu(backbone) => {
+                    let states = states
+                        .iter()
+                        .map(|state| match *state {
+                            EngineBackboneState::Cpu(state) => Ok(state),
+                            EngineBackboneState::Mlx(_) => Err(Qwen35Error::InvalidInput(
+                                "CPU engine received an MLX continuation state".into(),
+                            )),
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let result = SequentialNestedExecutor::continue_batch_from_controlled(
+                        backbone, &states, suffix_ids, control,
+                    )?;
+                    let (lanes, mode) = result.into_parts();
+                    Ok(BatchContinuation::new(
+                        lanes
+                            .into_iter()
+                            .map(|(feature, state)| (feature, EngineBackboneState::Cpu(state)))
+                            .collect(),
+                        mode,
+                    ))
+                }
+                Self::Mlx(backbone) => {
+                    let states = states
+                        .iter()
+                        .map(|state| match *state {
+                            EngineBackboneState::Mlx(state) => Ok(state),
+                            EngineBackboneState::Cpu(_) => Err(Qwen35Error::InvalidInput(
+                                "MLX engine received a CPU continuation state".into(),
+                            )),
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let result = SequentialNestedExecutor::continue_batch_from_controlled(
+                        backbone, &states, suffix_ids, control,
+                    )?;
+                    let (lanes, mode) = result.into_parts();
+                    Ok(BatchContinuation::new(
+                        lanes
+                            .into_iter()
+                            .map(|(feature, state)| (feature, EngineBackboneState::Mlx(state)))
+                            .collect(),
+                        mode,
+                    ))
+                }
             }
         }
     }

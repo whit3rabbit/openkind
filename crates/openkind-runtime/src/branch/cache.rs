@@ -176,6 +176,7 @@ fn purge_expired<S>(inner: &mut CacheInner<S>, now: Instant) {
 mod tests {
     use super::*;
     use crate::branch::{BranchBatch, ProfileId, SchedulingFingerprint, StateError};
+    use std::sync::Arc;
 
     #[derive(Clone)]
     struct DummyState {
@@ -290,5 +291,34 @@ mod tests {
             StateCacheKey::new("", ContentFingerprint::builder("x").finish()),
             Err(CacheError::EmptyTenant)
         );
+    }
+
+    #[test]
+    fn active_reader_clone_survives_concurrent_cache_eviction() {
+        let cache = Arc::new(BranchStateCache::new(10, Duration::from_secs(60)));
+        cache
+            .insert(key("alpha", 1), state(10))
+            .expect("insert root");
+        let reader_cache = cache.clone();
+        let (read_tx, read_rx) = std::sync::mpsc::channel();
+        let reader = std::thread::spawn(move || {
+            let active = reader_cache
+                .get(&key("alpha", 1))
+                .expect("read root")
+                .expect("root present");
+            read_tx.send(()).expect("signal acquired reader clone");
+            std::thread::sleep(Duration::from_millis(20));
+            active.tensor_storage_bytes()
+        });
+
+        read_rx.recv().expect("reader cloned active state");
+        cache
+            .insert(key("alpha", 2), state(10))
+            .expect("evict cached root");
+        assert!(cache
+            .get(&key("alpha", 1))
+            .expect("lookup evicted root")
+            .is_none());
+        assert_eq!(reader.join().expect("active reader remains valid"), 10);
     }
 }

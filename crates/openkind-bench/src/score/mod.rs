@@ -117,6 +117,7 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
                 max_concurrent_requests: 1,
                 max_queued_requests: 0,
                 retry_after_ms: 250,
+                evaluation_timeout: None,
             })
             .map_err(|error| anyhow::anyhow!("load {} engine: {error}", backend.as_str()))?;
             let model_load_seconds = load_started.elapsed().as_secs_f64();

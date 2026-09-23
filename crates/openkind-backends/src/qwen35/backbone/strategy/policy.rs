@@ -330,8 +330,24 @@ pub fn choose_strategy(config: &SchedulerConfig, request: &StrategyRequest) -> S
         .map(Vec::len)
         .max()
         .unwrap_or(0);
+    let min_candidates = request
+        .suffix_tokens
+        .iter()
+        .map(Vec::len)
+        .min()
+        .unwrap_or(0);
+    // Every question lane forks the same immutable root, so the input states
+    // share a position even when their suffix lengths differ. MLX right-pads
+    // those suffixes and restores each lane's true position afterward.
+    let question_lanes_share_start_position = true;
     let mode_for = |plan: ExecutionStrategy| {
-        plan.batch_forward_mode(config.backend_capabilities, questions, max_candidates)
+        plan.batch_forward_mode(
+            config.backend_capabilities,
+            questions,
+            question_lanes_share_start_position,
+            min_candidates,
+            max_candidates,
+        )
     };
 
     if let Some(forced) = config.forced_strategy {
@@ -382,7 +398,10 @@ pub fn choose_strategy(config: &SchedulerConfig, request: &StrategyRequest) -> S
     let vectorized_shape_supported = config
         .backend_capabilities
         .supports_vectorized_nested_forward()
+        && questions >= 2
         && questions <= config.backend_capabilities.max_vectorized_question_lanes()
+        && question_lanes_share_start_position
+        && min_candidates >= 2
         && max_candidates <= config.backend_capabilities.max_vectorized_candidate_lanes();
     if vectorized_shape_supported && fits(batched_bytes) {
         return StrategyDecision {
@@ -457,5 +476,12 @@ where
         return Err(Qwen35Error::InvalidInput(decision.rationale.clone()));
     }
     let output = run_strategy(executor, decision.strategy, root_ids, plans)?;
+    if output.batch_forward_mode() != decision.batch_forward_mode {
+        return Err(Qwen35Error::InvalidInput(format!(
+            "scheduler selected {} batch forwarding but executor reported {}",
+            decision.batch_forward_mode.as_str(),
+            output.batch_forward_mode().as_str()
+        )));
+    }
     Ok((decision, output))
 }

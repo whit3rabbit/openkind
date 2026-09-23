@@ -21,13 +21,13 @@ mod tokenizer;
 pub use backbone::{
     choose_strategy, run_batched_candidates, run_batched_nested, run_batched_questions,
     run_repeated_full, run_sequential_nested, run_strategy, run_with_scheduler, BackboneOutput,
-    BackboneReference, BackboneState, BatchedCandidateResult, BatchedCandidates, BatchedNestedRun,
-    BatchedQuestionResult, BatchedQuestions, CountingExecutor, EmbeddingOutput, ExecutionStrategy,
-    FullSequenceRecord, Layer0Output, LayerKind, NestedCandidateResult, NestedQuestion,
-    NestedQuestionResult, NestedRun, ProcessMemoryEnvelope, Qwen35Backbone, Qwen35BranchBatch,
-    Qwen35Embedding, Qwen35Layer0, RetentionEstimates, SchedulerConfig, SequentialNestedExecutor,
-    StageComparison, StrategyDecision, StrategyEstimates, StrategyOutput, StrategyRequest,
-    TraceStage,
+    BackboneReference, BackboneState, BatchContinuation, BatchedCandidateResult, BatchedCandidates,
+    BatchedNestedRun, BatchedQuestionResult, BatchedQuestions, CountingExecutor, EmbeddingOutput,
+    ExecutionStrategy, FullSequenceRecord, Layer0Output, LayerKind, NestedCandidateResult,
+    NestedQuestion, NestedQuestionResult, NestedRun, ProcessMemoryEnvelope, Qwen35Backbone,
+    Qwen35BranchBatch, Qwen35Embedding, Qwen35Layer0, RetentionEstimates, SchedulerConfig,
+    SequentialNestedExecutor, StageComparison, StrategyDecision, StrategyEstimates, StrategyOutput,
+    StrategyRequest, TraceStage,
 };
 pub use engine::{Qwen35Backend, Qwen35DecisionEngine, Qwen35EngineConfig, SEMANTIC_NONE_OPTION};
 pub use evidence::{native_profile_record, BACKEND_IMPLEMENTATION};
@@ -40,6 +40,9 @@ pub use tokenizer::{
 };
 
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+use std::time::Instant;
 
 use openkind_engine::ProfileValidationError;
 use openkind_runtime::branch::{StateError, StateIdentity};
@@ -178,6 +181,14 @@ pub enum Qwen35Error {
     #[error("invalid head input: {0}")]
     InvalidInput(String),
 
+    /// A disconnected caller requested cooperative cancellation of native work.
+    #[error("native evaluation was cancelled")]
+    ExecutionCancelled,
+
+    /// The configured queue-inclusive evaluation deadline elapsed.
+    #[error("native evaluation exceeded its configured deadline")]
+    ExecutionDeadlineExceeded,
+
     /// A branch-state contract operation failed.
     #[error("branch state contract violated: {0}")]
     State(#[from] StateError),
@@ -189,6 +200,36 @@ pub enum Qwen35Error {
     /// Numerical evaluation failed instead of returning a finite distribution.
     #[error("head evaluation produced invalid arithmetic: {0}")]
     Numerical(String),
+}
+
+/// Request-scoped cancellation and deadline checks shared with native execution.
+#[doc(hidden)]
+#[derive(Clone, Debug)]
+pub struct ExecutionControl {
+    cancelled: Arc<AtomicBool>,
+    deadline: Option<Instant>,
+}
+
+impl ExecutionControl {
+    pub(crate) fn new(cancelled: Arc<AtomicBool>, deadline: Option<Instant>) -> Self {
+        Self {
+            cancelled,
+            deadline,
+        }
+    }
+
+    pub(crate) fn check(&self) -> Result<(), Qwen35Error> {
+        if self
+            .deadline
+            .is_some_and(|deadline| Instant::now() >= deadline)
+        {
+            return Err(Qwen35Error::ExecutionDeadlineExceeded);
+        }
+        if self.cancelled.load(Ordering::Acquire) {
+            return Err(Qwen35Error::ExecutionCancelled);
+        }
+        Ok(())
+    }
 }
 
 /// Pinned branch-state identity of the selected profile's native CPU path.
@@ -227,5 +268,30 @@ pub(crate) fn require_equal(
             expected,
             actual,
         })
+    }
+}
+
+#[cfg(test)]
+mod execution_control_tests {
+    use super::*;
+
+    #[test]
+    fn execution_control_distinguishes_deadline_from_cancellation() {
+        let not_cancelled = Arc::new(AtomicBool::new(false));
+        let deadline = ExecutionControl::new(not_cancelled.clone(), Some(Instant::now()));
+        assert!(matches!(
+            deadline.check(),
+            Err(Qwen35Error::ExecutionDeadlineExceeded)
+        ));
+
+        let cancelled = Arc::new(AtomicBool::new(true));
+        let control = ExecutionControl::new(cancelled, None);
+        assert!(matches!(
+            control.check(),
+            Err(Qwen35Error::ExecutionCancelled)
+        ));
+
+        let active = ExecutionControl::new(not_cancelled, None);
+        assert!(active.check().is_ok());
     }
 }

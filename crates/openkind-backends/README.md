@@ -63,11 +63,23 @@ no vectorized suffix capability, so its scheduler uses nested-sequential when
 sharing is admitted. `nested_batched` remains a state/lane topology with exact
 parity, not a claim of vectorized compute.
 
-Model-backed high-K execution, checkpoint-backed fresh-process replay,
-cooperative cancellation of already-running native compute, load/soak, Metal,
-and release promotion remain later gates. A cancelled caller retains its queue
-and execution permits until the blocking native work actually finishes.
-CPU native parity does not imply Metal or accelerated parity.
+The CPU path now also has bounded model-backed K=32/64/128/255 execution,
+checkpoint-backed fresh-process feature/decision replay, cooperative
+cancellation of already-running native compute, and named-machine daemon
+load/soak evidence in the [RUST11 report](../../docs/verification/native-service-gate/2026-09-22-rerun2/README.md).
+Practical high-K latency, model-quality review, and release promotion remain
+open. A cancelled caller retains its queue and execution permits until the
+blocking native work actually finishes.
+
+The optional pinned-base MLX path passes FP32 full, nested, and variable-length
+vectorized batch parity. Native BF16 fails the frozen probability tolerance in
+both full and nested modes. A forced FP32 vectorized daemon request and bounded
+unified-memory admission/recovery measurements are recorded in the
+[Phase 3M follow-up](../../docs/verification/phase3m-2026-09-22/README.md).
+Automatic vectorized scheduling and the packed Metal kernel remain opt-in
+pending matched performance evidence. MLX service load/soak and production
+promotion remain open. CPU native parity does not imply MLX or accelerated
+production promotion.
 
 The branchable Qwen state includes attention KV, DeltaNet recurrent state,
 and convolution state. A KV-only abstraction is incomplete.
@@ -100,7 +112,8 @@ cargo run --release -p openkind-backends --example qwen35_parity_probe -- \
 cargo run --release -p openkind-backends --example qwen35_parity_probe -- \
   path/to/checkpoint \
   research/OpenKind_Phase3B_BackboneParity_20260920T152206Z \
-  persist-replay path/to/root-state.bin
+  persist-replay path/to/root-state.bin \
+  crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8
 
 cargo run --release -p openkind-backends --example qwen35_parity_probe -- \
   path/to/checkpoint \
@@ -137,3 +150,10 @@ The embedding-only probe hashes the complete 5.3 GB first shard. Decoder,
 continuation, branch, full, nested, and batched modes verify both immutable
 shards, about 9.3 GB total, before execution. None of these commands download
 model assets.
+
+The fresh-process replay filters the token fixtures to the persisted root's
+fixture case. It compares every restored candidate feature with an independent
+full-sequence forward (maximum absolute difference `1e-4`), then compares the
+full head probabilities (`0.005`), argmax, and policy action. The replay fails
+if the saved trace is missing, fixture segments do not reconstruct the exported
+full sequences, or any decision differs.

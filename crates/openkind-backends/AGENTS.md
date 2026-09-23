@@ -68,7 +68,7 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
   - Validates profile `a047d6802c3f06f085b8`, bundle SHA-256, safetensors manifests, and numerical tolerances.
 - [`src/qwen35/engine/`](./src/qwen35/engine/): Direct Jev wire adapter for the native reference engine:
   - [`mod.rs`](./src/qwen35/engine/mod.rs): `Qwen35DecisionEngine` (implements `openkind_engine::DecisionEngine`), `Qwen35EngineConfig`, semaphore admission, off-thread blocking spawn, and `SEMANTIC_NONE_OPTION = "__none__"`.
-  - [`backbone.rs`](./src/qwen35/engine/backbone.rs): Execution-backend selection. `Qwen35Backend` (`NativeCpu`, plus `MlxFp32`/`MlxBf16` behind `mlx`) picks the backbone behind the same backend-neutral executor contract; MLX loads re-derive the scheduler's state-size constants from the loaded model (BF16 states are half the FP32 bytes) and clamp capabilities to per-lane forward. BF16 loads run the runtime preflight and fail closed.
+  - [`backbone.rs`](./src/qwen35/engine/backbone.rs): Execution-backend selection. `Qwen35Backend` (`NativeCpu`, plus `MlxFp32`/`MlxBf16` behind `mlx`) picks the backbone behind the same backend-neutral executor contract; MLX loads re-derive scheduler state-size constants from the loaded model (BF16 states are half the FP32 bytes). Only FP32 `ReferenceOps` with an explicitly forced `NestedBatched` plan advertises the implemented 2–8-lane vectorized forward. The unequal-length frozen batch fixture passes, but automatic scheduling and unsupported shapes remain per-lane until matched performance evidence supports broader capability. BF16 loads run the runtime preflight; pinned-base full and nested probability gates fail at the unchanged tolerance.
   - [`canonical.rs`](./src/qwen35/engine/canonical.rs): Structured wire state canonicalization (`state_text`) with byte-lexicographically sorted object keys at every nesting level.
   - [`eval.rs`](./src/qwen35/engine/eval.rs): Model evaluation pipeline (`evaluate_request`), scheduler decision logging, and engine error mapping.
   - [`mapping.rs`](./src/qwen35/engine/mapping.rs): Question criteria extraction, entropy-based confidence calculation, and distribution answer mapping.
@@ -126,9 +126,10 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
 6. **Memory Names**:
    `tensor_storage_bytes()` excludes metadata, allocator overhead, mapped weights, Candle objects, and forward scratch. Admission must use a process-memory envelope for those costs.
 7. **Cancellation Holds Admission**:
-   Queue and execution permits are owned by the blocking native task. A cancelled caller must not release them while the model forward continues in the background. Cooperative preemption remains a separate future capability.
+   Queue and execution permits are owned by the blocking native task. A cancelled caller must not release them early; the CPU executor observes cancellation and queue-inclusive deadlines between decoder layers, then releases both permits when it exits. Executors with a non-interruptible forward check before and after that forward, so cancellation latency is bounded by the active backend operation rather than a CPU layer. Metrics may record fixed outcome labels and durations only, never request IDs, input content, token IDs, fingerprints, or digests. The named CPU service evidence is in [`docs/verification/native-service-gate/2026-09-22/`](../../docs/verification/native-service-gate/2026-09-22/README.md) and does not qualify MLX cancellation timing.
 8. **Persisted State Is Pinned**:
    Persist and restore only the selected execution identity and exact Qwen layer layout. Restored states receive fresh process-local lineage and must reproduce the stored `ContentFingerprint`; `SchedulingFingerprint` is never serialized as content evidence.
+   The checkpoint-gated `qwen35_parity_probe persist-replay` compares every restored candidate feature and full head decision against independent full-sequence forwards. The named-host CPU result is recorded in [`docs/verification/phase3.10-2026-09-22/`](../../docs/verification/phase3.10-2026-09-22/README.md).
 9. **MLX Backend (`--features mlx`, macOS arm64)**:
    The MLX parity backend in `src/qwen35/mlx/` is optional. Rules: build with
    `SDKROOT=$(xcrun --show-sdk-path)` (bindgen needs the macOS SDK); all MLX
@@ -215,9 +216,10 @@ SDKROOT=$(xcrun --show-sdk-path) cargo run --release \
 
 The pinned comparison model is `Qwen/Qwen3.5-4B-Base` at revision
 `1001bb4d826a52d1f399e183466143f4da7b741b`. The MLX backend is built with the
-vendored MLX 0.32.2 toolchain. Use `qwen35-mlx-bf16` with
-`--strategies repeated_full` only, because nested BF16 continuation remains
-blocked. The community `mlx-community/Qwen3.5-4B-MLX-bf16` artifact is a
+vendored MLX 0.32.2 toolchain. Keep BF16 benchmark comparisons on
+`--strategies repeated_full` until Gate B passes; nested continuation now
+completes its state checks but exceeds the frozen probability tolerance. The
+community `mlx-community/Qwen3.5-4B-MLX-bf16` artifact is a
 separate model/conversion and is throughput evidence only. See
 [`docs/BENCHMARKS.md`](../../docs/BENCHMARKS.md) for recorded timings,
 speedups, and parity boundaries.

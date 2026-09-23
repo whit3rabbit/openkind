@@ -45,6 +45,155 @@ pub(crate) fn row_of(matrix: &Array, index: usize) -> Result<Array, MlxError> {
         .map_err(op("row reshape"))
 }
 
+/// Select the final `length` rows from a token-major array for diagnostics.
+pub(crate) fn tail_rows(matrix: &Array, length: usize) -> Result<Array, MlxError> {
+    let shape = matrix.shape();
+    let available = shape.first().copied().unwrap_or_default().max(0) as usize;
+    if shape.len() < 2 || length == 0 || length > available {
+        return Err(MlxError::InvalidState(format!(
+            "cannot select {length} diagnostic rows from shape {shape:?}"
+        )));
+    }
+    let indices = (available - length..available)
+        .map(|index| index as u32)
+        .collect::<Vec<_>>();
+    matrix
+        .take_axis(Array::from_slice(&indices, &[length as i32]), 0)
+        .map_err(op("diagnostic tail rows"))
+}
+
+/// Extract one sequence row from `[lanes, rows, width]`, preserving lanes.
+pub(crate) fn batch_row_of(matrix: &Array, index: usize) -> Result<Array, MlxError> {
+    let shape = matrix.shape();
+    if shape.len() != 3 {
+        return Err(MlxError::InvalidState(format!(
+            "batched row extraction expects rank 3, found shape {shape:?}"
+        )));
+    }
+    matrix
+        .take_axis(Array::from_slice(&[index as u32], &[1]), 1)
+        .map_err(op("batch row take"))?
+        .reshape(&[shape[0], shape[2]])
+        .map_err(op("batch row reshape"))
+}
+
+/// Gather one lane's last real suffix token from `[lanes, rows, width]`.
+pub(crate) fn gather_last_real_token(
+    hidden: &Array,
+    lane: usize,
+    true_length: usize,
+) -> Result<Array, MlxError> {
+    let shape = hidden.shape();
+    if shape.len() != 3
+        || lane >= shape[0] as usize
+        || true_length == 0
+        || true_length > shape[1] as usize
+    {
+        return Err(MlxError::InvalidState(format!(
+            "invalid lane {lane} or true length {true_length} for batched hidden shape {shape:?}"
+        )));
+    }
+    lane_of(&batch_row_of(hidden, true_length - 1)?, lane)
+}
+
+/// Stack equal-shaped arrays on a new leading lane axis.
+pub(crate) fn stack_lanes(lanes: &[&Array]) -> Result<Array, MlxError> {
+    let Some(first) = lanes.first() else {
+        return Err(MlxError::InvalidState(
+            "cannot stack an empty MLX lane batch".to_owned(),
+        ));
+    };
+    let mut shape = Vec::with_capacity(first.shape().len() + 1);
+    shape.push(1);
+    shape.extend_from_slice(first.shape());
+    let mut stacked = (*first)
+        .clone()
+        .reshape(&shape)
+        .map_err(op("lane stack reshape"))?;
+    for lane in &lanes[1..] {
+        if lane.shape() != first.shape() || lane.dtype() != first.dtype() {
+            return Err(MlxError::InvalidState(
+                "batched continuation tensors have different shapes or dtypes".to_owned(),
+            ));
+        }
+        let mut shape = Vec::with_capacity(lane.shape().len() + 1);
+        shape.push(1);
+        shape.extend_from_slice(lane.shape());
+        let next = (*lane)
+            .clone()
+            .reshape(&shape)
+            .map_err(op("lane stack reshape"))?;
+        stacked = concatenate(&[&stacked, &next], 0).map_err(op("lane stack concat"))?;
+    }
+    Ok(stacked)
+}
+
+/// Extract one lane from an array whose leading dimension is the lane axis.
+pub(crate) fn lane_of(array: &Array, lane: usize) -> Result<Array, MlxError> {
+    let shape = array.shape();
+    if shape.is_empty() {
+        return Err(MlxError::InvalidState(
+            "cannot select a lane from a scalar MLX array".to_owned(),
+        ));
+    }
+    let mut output_shape = shape[1..].to_vec();
+    if output_shape.is_empty() {
+        output_shape.push(1);
+    }
+    array
+        .take_axis(Array::from_slice(&[lane as u32], &[1]), 0)
+        .map_err(op("lane take"))?
+        .reshape(&output_shape)
+        .map_err(op("lane reshape"))
+}
+
+/// Keep the first `length` elements of axis zero.
+pub(crate) fn prefix_axis0(array: &Array, length: usize) -> Result<Array, MlxError> {
+    let shape = array.shape();
+    if shape.is_empty() || length > shape[0] as usize {
+        return Err(MlxError::InvalidState(format!(
+            "cannot take length {length} from axis zero of shape {shape:?}"
+        )));
+    }
+    let indices = (0..length as u32).collect::<Vec<_>>();
+    array
+        .take_axis(Array::from_slice(&indices, &[length as i32]), 0)
+        .map_err(op("axis prefix take"))
+}
+
+/// Stack `[lanes, width]` token outputs as sequence-major `[lanes, rows, width]`.
+pub(crate) fn stack_batch_time(rows: &[Array]) -> Result<Array, MlxError> {
+    let Some(first) = rows.first() else {
+        return Err(MlxError::InvalidState(
+            "cannot stack an empty MLX sequence".to_owned(),
+        ));
+    };
+    if first.shape().len() != 2 {
+        return Err(MlxError::InvalidState(format!(
+            "batched sequence row must have rank 2, found {:?}",
+            first.shape()
+        )));
+    }
+    let [lanes, width] = [first.shape()[0], first.shape()[1]];
+    let mut stacked = first
+        .clone()
+        .reshape(&[lanes, 1, width])
+        .map_err(op("batch sequence reshape"))?;
+    for row in &rows[1..] {
+        if row.shape() != [lanes, width] || row.dtype() != first.dtype() {
+            return Err(MlxError::InvalidState(
+                "batched sequence rows have different shapes or dtypes".to_owned(),
+            ));
+        }
+        let row = row
+            .clone()
+            .reshape(&[lanes, 1, width])
+            .map_err(op("batch sequence reshape"))?;
+        stacked = concatenate(&[&stacked, &row], 1).map_err(op("batch sequence concat"))?;
+    }
+    Ok(stacked)
+}
+
 /// Split a flat row at cumulative widths; returns the pieces flattened.
 pub(crate) fn split_last(row: &Array, widths: &[usize]) -> Result<Vec<Array>, MlxError> {
     let mut indices = Vec::new();
@@ -231,4 +380,40 @@ pub(crate) fn folded_vector(
             &[width as i32],
         ),
     })
+}
+
+#[cfg(test)]
+mod vectorized_tests {
+    use super::{gather_last_real_token, lane_of, prefix_axis0};
+    use mlx_rs::Array;
+
+    #[test]
+    fn gather_uses_each_lanes_true_last_token_and_truncates_padding() {
+        let hidden = Array::from_slice(
+            &[
+                1.0_f32, 2.0, 3.0, 4.0, 5.0, 6.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0,
+            ],
+            &[2, 3, 2],
+        );
+        assert_eq!(
+            gather_last_real_token(&hidden, 0, 3)
+                .unwrap()
+                .to_vec_cast::<f32>()
+                .unwrap(),
+            vec![5.0, 6.0]
+        );
+        assert_eq!(
+            gather_last_real_token(&hidden, 1, 1)
+                .unwrap()
+                .to_vec_cast::<f32>()
+                .unwrap(),
+            vec![10.0, 20.0]
+        );
+
+        let padded_cache = Array::from_slice(&[1.0_f32, 2.0, 3.0, 99.0], &[1, 4, 1]);
+        let lane_cache = lane_of(&padded_cache, 0).unwrap();
+        let truncated = prefix_axis0(&lane_cache, 3).unwrap();
+        assert_eq!(truncated.shape(), [3, 1]);
+        assert_eq!(truncated.to_vec_cast::<f32>().unwrap(), vec![1.0, 2.0, 3.0]);
+    }
 }

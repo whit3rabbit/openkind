@@ -44,9 +44,10 @@ pub(crate) use embedding::verify_decoder_shard;
 pub(crate) use embedding::{CONFIG_SHA256, MODEL_INDEX_SHA256};
 pub use layer0::{Layer0Output, Qwen35Layer0};
 pub use model::{BackboneOutput, BackboneState, Qwen35Backbone};
+pub(crate) use nested::ControlledExecutor;
 pub use nested::{
-    run_sequential_nested, NestedCandidateResult, NestedQuestion, NestedQuestionResult, NestedRun,
-    SequentialNestedExecutor,
+    run_sequential_nested, BatchContinuation, NestedCandidateResult, NestedQuestion,
+    NestedQuestionResult, NestedRun, SequentialNestedExecutor,
 };
 pub use reference::BackboneReference;
 pub use strategy::{

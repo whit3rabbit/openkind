@@ -8,10 +8,12 @@
 //! FP32 `Dk = Dv = 128` sequence kernel are available as qualified tuning
 //! candidates, but benchmark evidence has not justified promoting them.
 //!
-//! Non-goals of this module: daemon registration, vectorized batch forward,
-//! quantization, and any relaxation of the frozen probability gates. Candle
-//! CPU remains the correctness oracle; every comparison target is a Phase 3B
-//! saved vector, never a live Candle model in this process.
+//! The FP32 reference-ops path includes a vectorized continuation candidate
+//! for same-position lane batches with right-padded suffixes. It remains
+//! fail-closed at capability dispatch until model-backed parity and workload
+//! gates qualify it. BF16 and FP32 MetalTree stay per-lane. Candle CPU remains
+//! the correctness oracle; every comparison target is a Phase 3B saved vector,
+//! never a live Candle model in this process.
 //!
 //! The whole module requires macOS arm64 and the `mlx` cargo feature.
 
@@ -31,7 +33,9 @@ pub mod runtime;
 pub mod weights;
 
 pub use branch_state::MlxBranchBatch;
-pub use model::{MlxBackboneOutput, MlxBackboneState, MlxBackboneTrace, MlxQwen35Backbone};
+pub use model::{
+    MlxBackboneOutput, MlxBackboneState, MlxBackboneTrace, MlxOperationTrace, MlxQwen35Backbone,
+};
 pub use runtime::{
     MlxMemorySnapshot, MlxRuntime, MlxRuntimeConfig, SharedMlxRuntime,
     DEFAULT_INACTIVE_CACHE_LIMIT_BYTES, MLX_CORE_VERSION,

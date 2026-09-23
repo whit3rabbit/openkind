@@ -70,8 +70,10 @@ Parity tolerances against golden fixtures:
 - Hidden-vector absolute/RMS/cosine differences are localization diagnostics, not acceptance tolerances.
 
 Current native CPU parity does not imply Metal or accelerated parity. Accelerated kernels
-and production release promotion are governed separately by the roadmap. Model-backed
-high-K, fresh-process replay, and queue-inclusive load/soak remain open.
+and production release promotion are governed separately by the roadmap. Bounded
+model-backed high-K and fresh-process replay gates passed on the named Mac. Practical
+high-K latency, Metal or accelerated parity, queue-inclusive load/soak, and release
+promotion remain open.
 
 ## Workspace Map
 
