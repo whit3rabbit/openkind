@@ -16,23 +16,29 @@ Project documentation and architectural references for `openkind`.
    - Phase 2H required scope and the exploratory 2I/2J model-selection screen
      are complete, with reviewed release confirmation still open.
    - Phase 3A and 3B Python reference scopes are complete.
-   - Rust Phase 3.1 through 3.9b CPU parity, backend-neutral `BranchableState`,
+   - Rust Phase 3.1 through 3.11 CPU parity, backend-neutral `BranchableState`,
      sequential nested execution, batched Q/K execution, and the measured
-     adaptive scheduler pass. Bounded model-backed high-K stress, structural
-     fresh-process replay, and native service lifecycle smoke are recorded in
-     the follow-up verification. Full restored head/decision replay, practical
-     high-K latency and production load/soak remain open. The separate MLX
-     FP32 parity backend passes its frozen gates, while BF16, native
-     vectorized batching, and production promotion remain open. CPU native
-     parity does not imply Metal or accelerated parity.
+     adaptive scheduler pass. Bounded model-backed high-K stress, full
+     fresh-process replay, and named-machine native CPU service lifecycle,
+     load, and soak evidence are recorded in the follow-up verification.
+     Practical high-K latency remains open. The separate MLX FP32 full, nested,
+     and variable-length vectorized batch gates pass on the pinned base. BF16
+     fails its frozen probability gate; automatic batch selection and fused
+     kernel promotion await performance evidence. The forced daemon request
+     path and bounded unified-memory stress are recorded in the
+     [`Phase 3M follow-up`](./verification/phase3m-2026-09-22/README.md).
+     Reviewed model quality, production service load/soak, and release
+     promotion remain open. CPU native parity does not imply Metal parity.
+     The named-machine Phase 3.11 service campaign is in the
+     [`RUST11 report`](./verification/native-service-gate/2026-09-22-rerun2/README.md).
    - The clean checkpoint is the [`v0.8.0 commit verification`](./verification/2026-09-20-v0.8.0-35c481a.md).
      The latest dirty-tree native follow-up is the
      [`native follow-up verification`](./verification/2026-09-20-v0.8.0-native-follow-up-working-tree.md);
      it records the bounded high-K, structural persistence, and service smoke
      evidence without claiming release promotion.
    - The latest MLX runtime and kernel evidence is the
-     [`Phase 3M.5 working-tree review`](./verification/phase3m5-2026-09-21-working-tree.md),
-     with raw timing artifacts under
+     [`Phase 3M follow-up`](./verification/phase3m-2026-09-22/README.md),
+     with packed-kernel timing artifacts under
      [`benchmarks/2026-09-21-qwen35-mlx-gdn-review/`](./benchmarks/2026-09-21-qwen35-mlx-gdn-review/).
 4. **[`RESEARCH.md`](./RESEARCH.md)** — Research dossier & technical background:
    - System 1 inference paradigm and judgment-envelope protocol origins.

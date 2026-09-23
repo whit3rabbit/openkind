@@ -1,6 +1,7 @@
 //! Types for breadth-first batched execution results.
 
 use openkind_runtime::branch::BranchableState;
+use openkind_runtime::BatchForwardMode;
 
 /// Question fan-out (Phase 3.6): `Q` isolated lanes advanced breadth-first.
 #[derive(Debug)]
@@ -8,6 +9,7 @@ pub struct BatchedQuestions<S: BranchableState> {
     pub(crate) question_features: Vec<Vec<f32>>,
     pub(crate) question_states: Vec<S>,
     pub(crate) batch_bytes: usize,
+    pub(crate) batch_forward_mode: BatchForwardMode,
 }
 
 impl<S: BranchableState> BatchedQuestions<S> {
@@ -28,6 +30,12 @@ impl<S: BranchableState> BatchedQuestions<S> {
     pub const fn batch_bytes(&self) -> usize {
         self.batch_bytes
     }
+
+    /// Physical forward mode used to advance the question lanes.
+    #[must_use]
+    pub const fn batch_forward_mode(&self) -> BatchForwardMode {
+        self.batch_forward_mode
+    }
 }
 
 /// Candidate fan-out (Phase 3.7): `K` isolated lanes advanced breadth-first.
@@ -36,6 +44,7 @@ pub struct BatchedCandidates<S: BranchableState> {
     pub(crate) candidate_features: Vec<Vec<f32>>,
     pub(crate) candidate_states: Vec<S>,
     pub(crate) batch_bytes: usize,
+    pub(crate) batch_forward_mode: BatchForwardMode,
 }
 
 impl<S: BranchableState> BatchedCandidates<S> {
@@ -55,6 +64,12 @@ impl<S: BranchableState> BatchedCandidates<S> {
     #[must_use]
     pub const fn batch_bytes(&self) -> usize {
         self.batch_bytes
+    }
+
+    /// Physical forward mode used to advance the candidate lanes.
+    #[must_use]
+    pub const fn batch_forward_mode(&self) -> BatchForwardMode {
+        self.batch_forward_mode
     }
 }
 
@@ -121,6 +136,7 @@ pub struct BatchedNestedRun<S: BranchableState> {
     pub(crate) root_feature: Vec<f32>,
     pub(crate) root_state: S,
     pub(crate) question_batch_bytes: usize,
+    pub(crate) batch_forward_mode: BatchForwardMode,
     pub(crate) questions: Vec<BatchedQuestionResult<S>>,
 }
 
@@ -141,6 +157,15 @@ impl<S: BranchableState> BatchedNestedRun<S> {
     #[must_use]
     pub const fn question_batch_bytes(&self) -> usize {
         self.question_batch_bytes
+    }
+
+    /// Physical mode used across all question and candidate lane forwards.
+    ///
+    /// The complete run reports `Vectorized` only when every batched stage
+    /// used a true multi-lane forward.
+    #[must_use]
+    pub const fn batch_forward_mode(&self) -> BatchForwardMode {
+        self.batch_forward_mode
     }
 
     /// Per-question results in plan order.

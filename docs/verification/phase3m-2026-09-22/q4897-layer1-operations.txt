@@ -1,0 +1,507 @@
+   Compiling openkind-backends v0.1.0 (/Users/whit3rabbit/Documents/GitHub/openpick/crates/openkind-backends)
+    Finished `release` profile [optimized] target(s) in 11.74s
+     Running `target/release/examples/qwen35_mlx_bf16_trace /Users/whit3rabbit/.cache/openkind/qwen35-4b-base-1001bb4d826a52d1f399e183466143f4da7b741b research/OpenKind_Phase3B_BackboneParity_20260920T152206Z`
+backend: mlx-core-0.32.2/bf16/reference-ops;checkpoint=qwen35-base-safetensors;toolchain=xcode=Xcode 27.0|Build version 27A266a;metal=Apple metal version 32023.921 (metalfe-32023.921.6)|Target: air64-apple-darwin25.6.0|Thread model: posix|InstalledDir: /private/var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v27.1.266.1.vSBe6u/Metal.xctoolchain/usr/metal/current/bin
+{
+  "cached_feature_max_abs_vs_full": 0.25,
+  "candidate_index": null,
+  "layer_one_operations": [
+    {
+      "cached_dtype": "Bfloat16",
+      "cached_shape": [
+        36,
+        2560
+      ],
+      "full_dtype": "Bfloat16",
+      "full_shape": [
+        36,
+        2560
+      ],
+      "max_abs_cached_vs_full": 0.00048828125,
+      "operation": "input",
+      "rms_cached_vs_full": 0.000015175525526976882
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "cached_shape": [
+        36,
+        2560
+      ],
+      "full_dtype": "Bfloat16",
+      "full_shape": [
+        36,
+        2560
+      ],
+      "max_abs_cached_vs_full": 0.0234375,
+      "operation": "input_rms_norm",
+      "rms_cached_vs_full": 0.0003604858411787156
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "cached_shape": [
+        36,
+        8192
+      ],
+      "full_dtype": "Bfloat16",
+      "full_shape": [
+        36,
+        8192
+      ],
+      "max_abs_cached_vs_full": 0.03125,
+      "operation": "linear_qkv_projection",
+      "rms_cached_vs_full": 0.0004510717947116212
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "cached_shape": [
+        36,
+        4096
+      ],
+      "full_dtype": "Bfloat16",
+      "full_shape": [
+        36,
+        4096
+      ],
+      "max_abs_cached_vs_full": 0.03125,
+      "operation": "linear_z_projection",
+      "rms_cached_vs_full": 0.00046933275153252045
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "cached_shape": [
+        36,
+        32
+      ],
+      "full_dtype": "Bfloat16",
+      "full_shape": [
+        36,
+        32
+      ],
+      "max_abs_cached_vs_full": 0.0078125,
+      "operation": "linear_beta_projection",
+      "rms_cached_vs_full": 0.000806934873099885
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "cached_shape": [
+        36,
+        32
+      ],
+      "full_dtype": "Bfloat16",
+      "full_shape": [
+        36,
+        32
+      ],
+      "max_abs_cached_vs_full": 0.015625,
+      "operation": "linear_decay_projection",
+      "rms_cached_vs_full": 0.001068008156847078
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "cached_shape": [
+        36,
+        8192
+      ],
+      "full_dtype": "Bfloat16",
+      "full_shape": [
+        36,
+        8192
+      ],
+      "max_abs_cached_vs_full": 0.03125,
+      "operation": "linear_conv_window_sum",
+      "rms_cached_vs_full": 0.00007316872513507964
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "cached_shape": [
+        36,
+        8192
+      ],
+      "full_dtype": "Bfloat16",
+      "full_shape": [
+        36,
+        8192
+      ],
+      "max_abs_cached_vs_full": 0.00390625,
+      "operation": "linear_conv_silu",
+      "rms_cached_vs_full": 0.000019834235651519064
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "cached_shape": [
+        36,
+        4096
+      ],
+      "full_dtype": "Bfloat16",
+      "full_shape": [
+        36,
+        4096
+      ],
+      "max_abs_cached_vs_full": 0.00390625,
+      "operation": "linear_gated_delta_output",
+      "rms_cached_vs_full": 0.0000668994250737293
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "cached_shape": [
+        36,
+        2560
+      ],
+      "full_dtype": "Bfloat16",
+      "full_shape": [
+        36,
+        2560
+      ],
+      "max_abs_cached_vs_full": 0.00390625,
+      "operation": "linear_out_projection",
+      "rms_cached_vs_full": 0.0000683969147948071
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "cached_shape": [
+        36,
+        2560
+      ],
+      "full_dtype": "Bfloat16",
+      "full_shape": [
+        36,
+        2560
+      ],
+      "max_abs_cached_vs_full": 0.00390625,
+      "operation": "mixer_output",
+      "rms_cached_vs_full": 0.0000683969147948071
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "cached_shape": [
+        36,
+        2560
+      ],
+      "full_dtype": "Bfloat16",
+      "full_shape": [
+        36,
+        2560
+      ],
+      "max_abs_cached_vs_full": 0.015625,
+      "operation": "attention_residual",
+      "rms_cached_vs_full": 0.00009583722584747353
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "cached_shape": [
+        36,
+        2560
+      ],
+      "full_dtype": "Bfloat16",
+      "full_shape": [
+        36,
+        2560
+      ],
+      "max_abs_cached_vs_full": 0.03125,
+      "operation": "post_attention_rms_norm",
+      "rms_cached_vs_full": 0.0013296494308887123
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "cached_shape": [
+        36,
+        9216
+      ],
+      "full_dtype": "Bfloat16",
+      "full_shape": [
+        36,
+        9216
+      ],
+      "max_abs_cached_vs_full": 0.0625,
+      "operation": "mlp_gate_projection",
+      "rms_cached_vs_full": 0.0008219721441318189
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "cached_shape": [
+        36,
+        9216
+      ],
+      "full_dtype": "Bfloat16",
+      "full_shape": [
+        36,
+        9216
+      ],
+      "max_abs_cached_vs_full": 0.015625,
+      "operation": "mlp_up_projection",
+      "rms_cached_vs_full": 0.0006951630820903383
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "cached_shape": [
+        36,
+        9216
+      ],
+      "full_dtype": "Bfloat16",
+      "full_shape": [
+        36,
+        9216
+      ],
+      "max_abs_cached_vs_full": 0.0078125,
+      "operation": "mlp_silu_times_up",
+      "rms_cached_vs_full": 0.00012574316796808076
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "cached_shape": [
+        36,
+        2560
+      ],
+      "full_dtype": "Bfloat16",
+      "full_shape": [
+        36,
+        2560
+      ],
+      "max_abs_cached_vs_full": 0.001953125,
+      "operation": "mlp_down_projection",
+      "rms_cached_vs_full": 0.00011459519930229172
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "cached_shape": [
+        36,
+        2560
+      ],
+      "full_dtype": "Bfloat16",
+      "full_shape": [
+        36,
+        2560
+      ],
+      "max_abs_cached_vs_full": 0.015625,
+      "operation": "output",
+      "rms_cached_vs_full": 0.0001760562006039568
+    }
+  ],
+  "layers": [
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 0,
+      "max_abs_cached_vs_full": 0.0,
+      "rms_cached_vs_full": 0.0
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 1,
+      "max_abs_cached_vs_full": 0.001953125,
+      "rms_cached_vs_full": 0.00016393258235181202
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 2,
+      "max_abs_cached_vs_full": 0.001953125,
+      "rms_cached_vs_full": 0.000432247978746511
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 3,
+      "max_abs_cached_vs_full": 0.00390625,
+      "rms_cached_vs_full": 0.0009025303364184379
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 4,
+      "max_abs_cached_vs_full": 0.004638671875,
+      "rms_cached_vs_full": 0.0011087674823384533
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 5,
+      "max_abs_cached_vs_full": 0.03125,
+      "rms_cached_vs_full": 0.001264611324236264
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 6,
+      "max_abs_cached_vs_full": 0.03125,
+      "rms_cached_vs_full": 0.0013219634151457392
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 7,
+      "max_abs_cached_vs_full": 0.03125,
+      "rms_cached_vs_full": 0.0017415905168892706
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 8,
+      "max_abs_cached_vs_full": 0.0625,
+      "rms_cached_vs_full": 0.0020363661263476857
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 9,
+      "max_abs_cached_vs_full": 0.03125,
+      "rms_cached_vs_full": 0.0017826903814817867
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 10,
+      "max_abs_cached_vs_full": 0.03125,
+      "rms_cached_vs_full": 0.0017916374386184218
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 11,
+      "max_abs_cached_vs_full": 0.03125,
+      "rms_cached_vs_full": 0.0020529849810211544
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 12,
+      "max_abs_cached_vs_full": 0.03125,
+      "rms_cached_vs_full": 0.0021360359491826874
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 13,
+      "max_abs_cached_vs_full": 0.03125,
+      "rms_cached_vs_full": 0.0024056283652131444
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 14,
+      "max_abs_cached_vs_full": 0.03125,
+      "rms_cached_vs_full": 0.0027513138374121054
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 15,
+      "max_abs_cached_vs_full": 0.03125,
+      "rms_cached_vs_full": 0.0035469093330938797
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 16,
+      "max_abs_cached_vs_full": 0.0625,
+      "rms_cached_vs_full": 0.0040809222347872225
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 17,
+      "max_abs_cached_vs_full": 0.0625,
+      "rms_cached_vs_full": 0.00429400080698017
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 18,
+      "max_abs_cached_vs_full": 0.03125,
+      "rms_cached_vs_full": 0.005395965375056971
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 19,
+      "max_abs_cached_vs_full": 0.03125,
+      "rms_cached_vs_full": 0.006673730069922706
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 20,
+      "max_abs_cached_vs_full": 0.03125,
+      "rms_cached_vs_full": 0.007552429468028521
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 21,
+      "max_abs_cached_vs_full": 0.033203125,
+      "rms_cached_vs_full": 0.008050763111289858
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 22,
+      "max_abs_cached_vs_full": 0.0625,
+      "rms_cached_vs_full": 0.008707731941753215
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 23,
+      "max_abs_cached_vs_full": 0.125,
+      "rms_cached_vs_full": 0.00993294952561338
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 24,
+      "max_abs_cached_vs_full": 0.125,
+      "rms_cached_vs_full": 0.01046308017661242
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 25,
+      "max_abs_cached_vs_full": 0.125,
+      "rms_cached_vs_full": 0.010812901082795402
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 26,
+      "max_abs_cached_vs_full": 0.125,
+      "rms_cached_vs_full": 0.01122685813653502
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 27,
+      "max_abs_cached_vs_full": 0.125,
+      "rms_cached_vs_full": 0.014195060833775827
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 28,
+      "max_abs_cached_vs_full": 0.078125,
+      "rms_cached_vs_full": 0.015484121084943212
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 29,
+      "max_abs_cached_vs_full": 0.078125,
+      "rms_cached_vs_full": 0.01679208006625074
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 30,
+      "max_abs_cached_vs_full": 0.078125,
+      "rms_cached_vs_full": 0.01863022009147613
+    },
+    {
+      "cached_dtype": "Bfloat16",
+      "full_dtype": "Bfloat16",
+      "layer": 31,
+      "max_abs_cached_vs_full": 0.125,
+      "rms_cached_vs_full": 0.024638400529916303
+    }
+  ],
+  "stage": "question"
+}

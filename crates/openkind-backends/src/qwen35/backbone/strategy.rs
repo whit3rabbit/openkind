@@ -21,11 +21,12 @@
 
 use std::cell::Cell;
 
-use crate::qwen35::Qwen35Error;
+use crate::qwen35::{ExecutionControl, Qwen35Error};
 use openkind_runtime::branch::BranchableState;
+use openkind_runtime::BatchForwardMode;
 pub use openkind_runtime::ExecutionPlan as ExecutionStrategy;
 
-use super::nested::{NestedQuestion, SequentialNestedExecutor};
+use super::nested::{BatchContinuation, NestedQuestion, SequentialNestedExecutor};
 use super::{run_batched_nested, run_sequential_nested};
 
 mod policy;
@@ -75,6 +76,41 @@ impl<E: SequentialNestedExecutor> SequentialNestedExecutor for CountingExecutor<
         self.continues.set(self.continues.get() + 1);
         self.inner.continue_from(state, suffix_ids)
     }
+
+    fn continue_batch_from(
+        &self,
+        states: &[&Self::State],
+        suffix_ids: &[&[u32]],
+    ) -> Result<BatchContinuation<Self::State>, Qwen35Error> {
+        let result = self.inner.continue_batch_from(states, suffix_ids)?;
+        let (lanes, mode) = result.into_parts();
+        let calls = match mode {
+            BatchForwardMode::PerLane => lanes.len(),
+            BatchForwardMode::Vectorized => 1,
+        };
+        self.continues
+            .set(self.continues.get().saturating_add(calls));
+        Ok(BatchContinuation::new(lanes, mode))
+    }
+
+    fn continue_batch_from_controlled(
+        &self,
+        states: &[&Self::State],
+        suffix_ids: &[&[u32]],
+        control: &ExecutionControl,
+    ) -> Result<BatchContinuation<Self::State>, Qwen35Error> {
+        let result = self
+            .inner
+            .continue_batch_from_controlled(states, suffix_ids, control)?;
+        let (lanes, mode) = result.into_parts();
+        let calls = match mode {
+            BatchForwardMode::PerLane => lanes.len(),
+            BatchForwardMode::Vectorized => 1,
+        };
+        self.continues
+            .set(self.continues.get().saturating_add(calls));
+        Ok(BatchContinuation::new(lanes, mode))
+    }
 }
 
 /// Strategy output in one uniform shape for reporting and parity checks.
@@ -84,6 +120,7 @@ pub struct StrategyOutput<S: BranchableState> {
     question_features: Vec<Vec<Vec<f32>>>,
     question_states: Vec<Vec<S>>,
     forward_calls: usize,
+    batch_forward_mode: BatchForwardMode,
     staged_tokens: usize,
     retained_tensor_bytes: usize,
 }
@@ -111,6 +148,12 @@ impl<S: BranchableState> StrategyOutput<S> {
     #[must_use]
     pub const fn forward_calls(&self) -> usize {
         self.forward_calls
+    }
+
+    /// Physical batch-forward mode reported by the executor.
+    #[must_use]
+    pub const fn batch_forward_mode(&self) -> BatchForwardMode {
+        self.batch_forward_mode
     }
 
     /// Non-root tokens executed. For [`ExecutionStrategy::RepeatedFull`] this
@@ -178,6 +221,7 @@ where
                 question_features,
                 question_states,
                 forward_calls: counting.forward_calls(),
+                batch_forward_mode: BatchForwardMode::PerLane,
                 staged_tokens,
                 retained_tensor_bytes: retained,
             }
@@ -215,6 +259,7 @@ where
                 question_features,
                 question_states,
                 forward_calls: counting.forward_calls(),
+                batch_forward_mode: run.batch_forward_mode(),
                 staged_tokens,
                 retained_tensor_bytes: retained,
             }
@@ -274,6 +319,7 @@ fn repeated_full_output<E: SequentialNestedExecutor>(
         question_features,
         question_states,
         forward_calls: executor.forward_calls(),
+        batch_forward_mode: BatchForwardMode::PerLane,
         staged_tokens,
         retained_tensor_bytes,
     })

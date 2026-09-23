@@ -1,0 +1,1367 @@
+{
+  "schema": "openkind-native-service-gate/v1",
+  "started_at_utc": "2026-09-23T03:54:31.847894+00:00",
+  "finished_at_utc": "2026-09-23T04:30:43.116594+00:00",
+  "machine": {
+    "label": "Mac16,5 Apple M4 Max",
+    "architecture": "arm64",
+    "os": "macOS-26.6.2-arm64-arm-64bit-Mach-O",
+    "memory_bytes": 38654705664,
+    "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)"
+  },
+  "source": {
+    "commit": "a5a752ab50efccba2eff0345fc5435c01248d41e",
+    "dirty_tree": true,
+    "tracked_diff_sha256": "303f8ce5a6b31cec45310a0a6530f142299babab242ec156b1981cd9e28194cd",
+    "untracked_crate_source_sha256": "644adb9d32ab359539bfe0d8d254dbbe1d206994913babce4c88b14b348c8f6f",
+    "harness_sha256": "92615413e1384a6d3358978d0bebdc8eb4f81e4e850de2a4cc58da3d81cd0e7c",
+    "build_source_record": {
+      "commit": "a5a752ab50efccba2eff0345fc5435c01248d41e",
+      "dirty_tree": true,
+      "tracked_diff_sha256": "303f8ce5a6b31cec45310a0a6530f142299babab242ec156b1981cd9e28194cd",
+      "untracked_crate_source_sha256": "644adb9d32ab359539bfe0d8d254dbbe1d206994913babce4c88b14b348c8f6f",
+      "harness_sha256": "92615413e1384a6d3358978d0bebdc8eb4f81e4e850de2a4cc58da3d81cd0e7c"
+    },
+    "build_matches_run_start": true,
+    "tracked_source_unchanged_during_run": false,
+    "harness_unchanged_during_run": true,
+    "finish_tracked_diff_sha256": "229a2e2c0164dcbd636cd3cb5802f6f64b252c7f0153994c0192402d238e88d9",
+    "finish_commit": "a5a752ab50efccba2eff0345fc5435c01248d41e",
+    "finish_untracked_crate_source_sha256": "40a11183604cee5bf9e674d1de3f768b53253284574059b24202442bbd0f9d80",
+    "source_changed_after_run_start": true
+  },
+  "daemon_artifact": {
+    "path": "target/native-service-gate/release/openkindd",
+    "sha256": "0672cad7ca9066db5c849c89364930814668534923b7f4f98fd7a2c17d657d8d",
+    "build_profile": "release",
+    "build_command": "CARGO_TARGET_DIR=target/native-service-gate cargo build --release --locked --offline -p openkind-server --bin openkindd",
+    "finish_sha256": "0672cad7ca9066db5c849c89364930814668534923b7f4f98fd7a2c17d657d8d",
+    "unchanged_during_run": true
+  },
+  "profile": {
+    "profile_id": "a047d6802c3f06f085b8",
+    "model_id": "Qwen/Qwen3.5-4B-Base",
+    "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+    "bundle_manifest_sha256": "dd42289e525d82a1ab8d55efd3843970e6c31a23059512a2c7e4ee7ca6459f78",
+    "bundle_runtime_sha256": "24638e612659f322af5c1c1fdf64772a1bfbd73dd5724158511aeb9f83fd9193",
+    "checkpoint_index_sha256": "eae340074abb0a5f31a6621f7ae8e8248a7c1790df04a722c4e4b70c2a6d1dbb",
+    "fixture_sha256": "3a673e843690b942658b4c9de6cc594770185756098d356e78dcd3efd5cffeeb",
+    "fixture_requests": 4,
+    "fixture_questions": 12,
+    "accepted_error_metrics": "unavailable: fixture has no reviewed labels"
+  },
+  "configuration": {
+    "concurrency": 1,
+    "queue": 2,
+    "timeout_ms": 600000,
+    "max_process_bytes": 32212254720,
+    "soak_seconds": 1800.0,
+    "payloads_saved": false,
+    "request_ids_saved": false,
+    "api_key_saved": false
+  },
+  "startup_seconds_to_health": 15.585217125015333,
+  "phases": {
+    "first_request": {
+      "status": 200,
+      "latency_ms": 15053.649667010177,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    "resident_request": {
+      "status": 200,
+      "latency_ms": 15099.133957992308,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    "validation": {
+      "status": 422,
+      "latency_ms": 0.8874579798430204,
+      "request_id_echoed": true,
+      "malformed_json_status": 400,
+      "malformed_json_latency_ms": 0.7461250061169267,
+      "malformed_json_request_id_echoed": true
+    },
+    "concurrency_1": {
+      "attempts": 3,
+      "http_200": 3,
+      "http_422": 0,
+      "http_504": 0,
+      "http_529": 0,
+      "transport_errors": 0,
+      "http_status_counts": {
+        "200": 3
+      },
+      "accepted_questions": 9,
+      "wall_seconds": 45.614702874969225,
+      "accepted_requests_per_second": 0.06576826792499466,
+      "accepted_questions_per_second": 0.19730480377498397,
+      "accepted_latency_ms": {
+        "p50": 15222.10041701328,
+        "p95": 15399.654416018166,
+        "p99": 15399.654416018166,
+        "min": 14987.528208002914,
+        "max": 15399.654416018166,
+        "samples": 3
+      },
+      "request_id_echoes": 3
+    },
+    "concurrency_2": {
+      "attempts": 6,
+      "http_200": 6,
+      "http_422": 0,
+      "http_504": 0,
+      "http_529": 0,
+      "transport_errors": 0,
+      "http_status_counts": {
+        "200": 6
+      },
+      "accepted_questions": 18,
+      "wall_seconds": 92.30443687498337,
+      "accepted_requests_per_second": 0.06500229244804741,
+      "accepted_questions_per_second": 0.19500687734414224,
+      "accepted_latency_ms": {
+        "p50": 15606.731290987227,
+        "p95": 30913.145625032485,
+        "p99": 30913.145625032485,
+        "min": 15228.219083044678,
+        "max": 30913.145625032485,
+        "samples": 6
+      },
+      "request_id_echoes": 6
+    },
+    "concurrency_4": {
+      "attempts": 12,
+      "http_200": 9,
+      "http_422": 0,
+      "http_504": 0,
+      "http_529": 3,
+      "transport_errors": 0,
+      "http_status_counts": {
+        "200": 9,
+        "529": 3
+      },
+      "accepted_questions": 27,
+      "wall_seconds": 140.17811700003222,
+      "accepted_requests_per_second": 0.06420402979159673,
+      "accepted_questions_per_second": 0.19261208937479019,
+      "accepted_latency_ms": {
+        "p50": 31073.089500016067,
+        "p95": 47018.02954199957,
+        "p99": 47018.02954199957,
+        "min": 15386.293124989606,
+        "max": 47018.02954199957,
+        "samples": 9
+      },
+      "request_id_echoes": 12
+    },
+    "cancellation_recovery": {
+      "disconnect_after_ms": 250,
+      "cancellation_metric_before": 0.0,
+      "cancellation_metric_after": 1.0,
+      "cancellation_observed": true,
+      "recovery": {
+        "status": 200,
+        "latency_ms": 15946.599167014938,
+        "question_count": 3,
+        "answer_count": 3,
+        "request_id_echoed": true
+      },
+      "recovery_wall_seconds": 15.946650416008197
+    },
+    "soak": {
+      "attempts": 115,
+      "http_200": 115,
+      "http_422": 0,
+      "http_504": 0,
+      "http_529": 0,
+      "transport_errors": 0,
+      "http_status_counts": {
+        "200": 115
+      },
+      "accepted_questions": 345,
+      "wall_seconds": 1814.2157452500542,
+      "accepted_requests_per_second": 0.0633882713790192,
+      "accepted_questions_per_second": 0.1901648141370576,
+      "accepted_latency_ms": {
+        "p50": 15780.343000020366,
+        "p95": 15882.651666004676,
+        "p99": 15935.52112497855,
+        "min": 15482.920750044286,
+        "max": 15938.359583029523,
+        "samples": 115
+      },
+      "request_id_echoes": 115
+    },
+    "metrics": {
+      "process_peak_rss_bytes": 10283155456,
+      "queue_wait_seconds_sum": 185.84999692300008,
+      "execution_seconds_sum": 2137.128560453001,
+      "request_seconds_sum": 2322.708817254
+    }
+  },
+  "samples": [
+    {
+      "phase": "first_request",
+      "status": 200,
+      "latency_ms": 15053.649667010177,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "resident_request",
+      "status": 200,
+      "latency_ms": 15099.133957992308,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_1",
+      "status": 200,
+      "latency_ms": 14987.528208002914,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_1",
+      "status": 200,
+      "latency_ms": 15222.10041701328,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_1",
+      "status": 200,
+      "latency_ms": 15399.654416018166,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_2",
+      "status": 200,
+      "latency_ms": 15228.219083044678,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_2",
+      "status": 200,
+      "latency_ms": 30587.28058298584,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_2",
+      "status": 200,
+      "latency_ms": 15375.228875025641,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_2",
+      "status": 200,
+      "latency_ms": 30802.83312499523,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_2",
+      "status": 200,
+      "latency_ms": 30913.145625032485,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_2",
+      "status": 200,
+      "latency_ms": 15606.731290987227,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_4",
+      "status": 200,
+      "latency_ms": 15386.293124989606,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_4",
+      "status": 200,
+      "latency_ms": 30895.194708020426,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_4",
+      "status": 200,
+      "latency_ms": 46423.28162502963,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_4",
+      "status": 529,
+      "latency_ms": 1.9936670432798564,
+      "question_count": 3,
+      "answer_count": 0,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_4",
+      "status": 200,
+      "latency_ms": 31073.089500016067,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_4",
+      "status": 200,
+      "latency_ms": 15655.119624978397,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_4",
+      "status": 200,
+      "latency_ms": 46735.114665993024,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_4",
+      "status": 529,
+      "latency_ms": 2.0162920118309557,
+      "question_count": 3,
+      "answer_count": 0,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_4",
+      "status": 200,
+      "latency_ms": 15484.747375012375,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_4",
+      "status": 200,
+      "latency_ms": 31149.472041986883,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_4",
+      "status": 200,
+      "latency_ms": 47018.02954199957,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "concurrency_4",
+      "status": 529,
+      "latency_ms": 1.9265830051153898,
+      "question_count": 3,
+      "answer_count": 0,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "post_cancellation_recovery",
+      "status": 200,
+      "latency_ms": 15946.599167014938,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15622.016125009395,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15772.263249964453,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15734.47299998952,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15814.814042008948,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15572.207708028145,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15683.472667005844,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15544.131207978353,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15821.006959013175,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15609.945999982301,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15818.587250018027,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15670.638457988389,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15813.73741698917,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15562.149957986549,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15780.343000020366,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15765.26333304355,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15755.046500009485,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15608.543874986935,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15864.867541997228,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15714.15541699389,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15846.804666041862,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15713.950374978594,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15938.359583029523,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15784.235416038428,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15808.364416006953,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15620.30704197241,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15782.250165997539,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15693.206000025384,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15790.815750020556,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15640.497874992434,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15792.14974999195,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15800.90333300177,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15811.371250019874,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15624.693082994781,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15853.03733299952,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15737.841915979516,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15785.467625013553,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15482.920750044286,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15887.301541049965,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15774.454333004542,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15840.528458007611,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15626.40054197982,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15806.201916013379,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15685.819250007626,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15826.011708006263,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15733.153707988095,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15772.625874960795,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15773.507457983214,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15884.74316598149,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15738.009458000306,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15805.372416973114,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15709.738707984798,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15832.901041023433,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15682.293207966723,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15935.52112497855,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15800.411790958606,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15887.604958959855,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15652.658834005706,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15777.964999957476,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15769.607624970376,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15837.389290973078,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15735.54491699906,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15845.844084047712,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15750.923542014789,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15850.798667001072,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15641.346374992281,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15820.873791002668,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15764.279750001151,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15835.837374965195,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15647.426832991187,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15800.964041030966,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15751.266917039175,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15826.053290977143,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15735.110624984372,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15822.475583001506,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15804.648958030157,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15830.208999977913,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15682.924458000343,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15852.188249991741,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15748.579290986527,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15857.261708006263,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15627.312832977623,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15780.520749976858,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15811.342582979705,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15794.421917002182,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15680.537915963214,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15800.560542033054,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15774.030875007156,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15842.824625025969,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15663.840332999825,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15816.54274999164,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15735.447041981388,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15837.674624985084,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15654.404541943222,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15819.619207992218,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15807.759791030549,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15829.64016700862,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15668.519124970771,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15822.69083301071,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15773.725666978862,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15856.721042015124,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15679.0449579712,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15846.000707999337,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15776.212917000521,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15854.614957992453,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15670.94762501074,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15864.108665962704,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15678.90591698233,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15856.14045796683,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15696.696250000969,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15871.404415986035,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15762.99833302619,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15873.182250012178,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15677.109332988039,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15882.651666004676,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    },
+    {
+      "phase": "soak",
+      "status": 200,
+      "latency_ms": 15766.718333994504,
+      "question_count": 3,
+      "answer_count": 3,
+      "request_id_echoed": true
+    }
+  ],
+  "sampled_process_rss": {
+    "samples": 2111,
+    "interval_seconds": 1.0,
+    "min_bytes": 241385472,
+    "median_bytes": 6648053760.0,
+    "max_bytes": 10280976384,
+    "first_bytes": 241385472,
+    "last_bytes": 10052665344
+  },
+  "shutdown": {
+    "signal": "SIGINT",
+    "exit_code": 0,
+    "clean": true
+  },
+  "deadline_probe": {
+    "configured_timeout_ms": 1,
+    "startup_seconds_to_health": 16.863882292003836,
+    "sample": {
+      "status": 504,
+      "latency_ms": 2.115333976689726,
+      "question_count": 3,
+      "answer_count": 0,
+      "request_id_echoed": true
+    },
+    "shutdown_clean": true,
+    "error_type": null,
+    "passed": true
+  },
+  "gate": {
+    "passed": true,
+    "checks": {
+      "release_daemon_artifact": true,
+      "source_to_artifact_provenance": true,
+      "first_and_resident_requests": true,
+      "wire_validation": true,
+      "bounded_concurrency_and_overload": true,
+      "queue_inclusive_latency_and_throughput": true,
+      "cancellation_and_recovery": true,
+      "queue_inclusive_telemetry": true,
+      "process_memory_sampling": true,
+      "steady_state_soak": true,
+      "queue_inclusive_deadline": true,
+      "clean_shutdown": true
+    },
+    "reviewed_at_utc": "2026-09-23T04:38:00.967162+00:00",
+    "evaluator_sha256": "fc2fccfcb8747e631d3b64ae28cdf6164887b6135e9d47c3802062d6bb9f0be0",
+    "provenance_basis": "The pre-build source record matched the daemon-start fingerprint, and the release executable SHA-256 remained unchanged during the campaign. Later shared-worktree edits are recorded separately and do not alter the already running executable."
+  }
+}

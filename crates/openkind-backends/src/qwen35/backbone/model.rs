@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use candle_core::{DType, Device};
 use candle_nn::VarBuilder;
 
-use super::super::Qwen35Error;
+use super::super::{ExecutionControl, Qwen35Error};
 use super::embedding::{verify_decoder_shard, Qwen35Embedding};
 use super::layer0::{rms_norm_zero_centered, DecoderLayer, LayerState};
 use openkind_runtime::branch::{StateError, StateIdentity, StateLineage};
@@ -129,7 +129,8 @@ impl Qwen35Backbone {
 
     /// Execute embedding, all 32 decoder layers, and final RMSNorm in FP32.
     pub fn forward(&self, input_ids: &[u32]) -> Result<BackboneOutput, Qwen35Error> {
-        self.execute(input_ids, None).map(|(output, _)| output)
+        self.execute(input_ids, None, None)
+            .map(|(output, _)| output)
     }
 
     /// Evaluate a prefix and return its complete immutable continuation state.
@@ -137,7 +138,16 @@ impl Qwen35Backbone {
         &self,
         input_ids: &[u32],
     ) -> Result<(BackboneOutput, BackboneState), Qwen35Error> {
-        self.execute(input_ids, None)
+        self.execute(input_ids, None, None)
+    }
+
+    /// Evaluate a prefix with cooperative cancellation checks between decoder layers.
+    pub(crate) fn prefill_controlled(
+        &self,
+        input_ids: &[u32],
+        control: &ExecutionControl,
+    ) -> Result<(BackboneOutput, BackboneState), Qwen35Error> {
+        self.execute(input_ids, None, Some(control))
     }
 
     /// Continue from complete prefix state without mutating the source.
@@ -163,15 +173,45 @@ impl Qwen35Backbone {
                 state.layers.len()
             )));
         }
-        self.execute(suffix_ids, Some(state))
+        self.execute(suffix_ids, Some(state), None)
+    }
+
+    /// Continue a prefix with cooperative cancellation checks between decoder layers.
+    pub(crate) fn continue_from_controlled(
+        &self,
+        state: &BackboneState,
+        suffix_ids: &[u32],
+        control: &ExecutionControl,
+    ) -> Result<(BackboneOutput, BackboneState), Qwen35Error> {
+        if state.identity != self.identity {
+            return Err(StateError::IdentityMismatch {
+                expected: self.identity.to_string(),
+                actual: state.identity.to_string(),
+            }
+            .into());
+        }
+        if state.layers.len() != LAYER_COUNT {
+            return Err(Qwen35Error::InvalidInput(format!(
+                "continuation state has {} layers, expected {LAYER_COUNT}",
+                state.layers.len()
+            )));
+        }
+        self.execute(suffix_ids, Some(state), Some(control))
     }
 
     fn execute(
         &self,
         input_ids: &[u32],
         previous_state: Option<&BackboneState>,
+        control: Option<&ExecutionControl>,
     ) -> Result<(BackboneOutput, BackboneState), Qwen35Error> {
+        if let Some(control) = control {
+            control.check()?;
+        }
         let embedding = self.embedding.embed(input_ids)?;
+        if let Some(control) = control {
+            control.check()?;
+        }
         let token_count = embedding.token_count();
         let position_start = previous_state.map_or(0, |state| state.position);
         // Continuation extends the source state's own timeline and keeps its
@@ -198,6 +238,9 @@ impl Qwen35Backbone {
         let mut layer_last_tokens = Vec::with_capacity(LAYER_COUNT);
         let mut next_layers = Vec::with_capacity(LAYER_COUNT);
         for layer_index in 0..LAYER_COUNT {
+            if let Some(control) = control {
+                control.check()?;
+            }
             let layer = DecoderLayer::load(&layers, layer_index, &device)?;
             let previous_layer = previous_state.map(|state| &state.layers[layer_index]);
             let (next_hidden, next_state) = layer.forward_with_state(
@@ -211,6 +254,9 @@ impl Qwen35Backbone {
             next_layers.push(next_state);
             let start = (token_count - 1) * HIDDEN_SIZE;
             layer_last_tokens.push(hidden[start..].to_vec());
+        }
+        if let Some(control) = control {
+            control.check()?;
         }
         let norm = variables
             .get(HIDDEN_SIZE, "norm.weight")?

@@ -17,14 +17,21 @@ The current production configuration is deliberately conservative:
 - FP32 with `ReferenceOps` is the default and passes the frozen full and
   sequential-nested parity gates on the named M4 Max development host.
 - GPU work is serialized process-wide on one explicit cross-thread stream.
-- `nested_batched` provides branch topology only. The backend advertises
-  `BatchForwardMode::PerLane`, not vectorized compute.
+- A forced `nested_batched` FP32 `ReferenceOps` run can use a real vectorized
+  forward for 2–8 equal-start-position lanes, with right padding and each
+  lane's true suffix length. The pinned-base variable-length model gate now
+  passes for unequal question and candidate lengths. Automatic scheduling
+  remains per-lane until a matched performance comparison supports a useful
+  lane range.
 - The packed FP32 Metal reduction-tree kernel passes parity but remains opt-in
   because it is slower than `ReferenceOps` on the current smoke workload.
 - Native BF16 and the downloaded MLX-community checkpoint are unpromoted
   compatibility or research paths. Neither inherits the FP32 parity claim.
-- Daemon CLI aliases, native multi-lane forward, unified-memory stress, and a
-  clean-commit promotion record remain open.
+- The daemon exposes `--qwen35-backend mlx-fp32` behind its `mlx` feature.
+  A forced vectorized two-question request returned HTTP 200 and logged the
+  expected physical forwarding mode. Bounded unified-memory admission and
+  recovery runs are recorded. Service load/soak and a clean-commit promotion
+  record remain open.
 
 ## Pinned runtime and model identity
 
@@ -133,15 +140,18 @@ implements `BranchableState` and `BranchBatch`. A root state can be forked,
 selected, and gathered without mutating the original. Strict fingerprints and
 tests cover root immutability and sibling isolation.
 
-`fork_batch` currently creates a vector of independent lane states. Forward
-still advances those lanes one at a time, and the scheduler is explicitly
-configured with `BackendCapabilities::per_lane()`. Consequently:
+`fork_batch` creates isolated lane states. For FP32 `ReferenceOps`, the
+explicitly forced `nested_batched` runner advances 2–8 lanes through a real
+vectorized suffix forward. It right-pads variable lengths and restores each
+lane's true position and state. The pinned fixture pair covers unequal
+question and candidate lengths. Automatic scheduling still advertises
+per-lane execution while the performance comparison is outstanding.
+Consequently:
 
-- `nested_sequential` is the meaningful shared-prefix production plan;
-- forcing `nested_batched` is useful for topology and parity testing;
-- similar `nested_sequential` and `nested_batched` times are expected;
-- no throughput result may describe the current implementation as a
-  vectorized Metal batch.
+- `nested_sequential` remains the automatic shared-prefix plan;
+- forcing `nested_batched` exercises the vectorized FP32 path for diagnostics;
+- parity does not establish that vectorized execution is faster;
+- no measured vectorized-versus-per-lane throughput result is available yet.
 
 ## Gated DeltaNet implementations
 
@@ -217,14 +227,14 @@ are localization diagnostics, not replacement acceptance tolerances.
 | Area | Current issue | Consequence |
 |---|---|---|
 | GPU concurrency | One process-wide lock and stream | Correct and race-resistant, but model requests do not overlap on the GPU |
-| Physical batching | Branch lanes advance per lane | `nested_batched` is not a vectorized throughput claim |
+| Physical batching | Forced FP32 `ReferenceOps` lanes use one vectorized forward for 2–8 lanes; model parity is pending | Keep automatic capability disabled and make no throughput claim until the variable-length gate and comparison pass |
 | Packed Metal kernel | Correct but 14 to 28 percent slower in the smoke sweep | Remains opt-in |
-| Native BF16 reference path | Full probability error reached `0.005457`; nested state failed at layer 4 | BF16 Gate B remains open; nested BF16 benchmarks are rejected |
+| Native BF16 reference path | 22 September full probability error `0.0060996`; nested probability error `0.0265808`; both have zero argmax/policy changes | Gate B fails at the frozen `0.005` tolerance; nested state and isolation checks pass, but BF16 remains unpromoted |
 | Native BF16 fused path | Model-backed probability error was about `0.0287` with one policy change | Runtime falls back to BF16 `ReferenceOps` |
 | MLX-community checkpoint | Loads and executes, but differs from the pinned base model and conversion | Compatibility only, no frozen-model parity or quality claim |
 | Exact cross-strategy JSON | FP32 smoke outputs differ by bounded floating-point noise | Use frozen probability, argmax, and policy gates, not byte equality, for numerical acceptance |
-| Unified memory | Smoke peak RSS is about 11.84 GB; high-cardinality MLX stress is not complete | Do not infer production capacity from the smoke workload |
-| Service integration | Benchmark and engine selection exist; daemon MLX aliases do not | Not production-promoted |
+| Unified memory | 36-GiB host; 8-GiB retained-state cap; Q/K sweep fallback K=92/45/22 for Q=1/2/4; peak process physical footprint 23.25 GB; two recovery cycles complete | Bounded allocator/admission evidence only; no production capacity or concurrency claim |
+| Service integration | `mlx-fp32` daemon alias and forced `nested-batched` request path return HTTP 200 and log `vectorized`; clean SIGINT verified | One request smoke only; no service load/soak or production promotion |
 | Evidence status | Latest runtime/kernel record is from a dirty tree | Clean-commit formal rerun is still required |
 
 ## Enhancement priorities
@@ -233,25 +243,32 @@ are localization diagnostics, not replacement acceptance tolerances.
    preparation ops, recurrent-state bandwidth, normalization, and output
    projection. The current negative result says recurrence fusion alone is
    insufficient.
-2. **Build a real vectorized continuation state.** Store question and
-   candidate lanes in batched KV, recurrent, and convolution tensors; carry
-   true suffix lengths and masks; implement merge/gather without host loops.
+2. **Measure the vectorized continuation path.** The FP32 path now batches
+   question and candidate lanes in MLX tensors, carries true suffix lengths,
+   and restores lane positions. Compare it with the per-lane path over matched
+   Q/K/length workloads before widening capability or enabling automatic use.
 3. **Fuse around the actual bottleneck.** Evaluate combining input
    preparation, causal-convolution update, gate construction, recurrence,
    normalization, and output projection only where profiling justifies the
    added numerical surface.
-4. **Qualify lane limits before advertising capability.** Add differential
-   tests across variable lengths, masks, Q, K, and lane counts, then advertise
-   vectorized capabilities only inside measured limits.
-5. **Run unified-memory stress.** Measure active MLX bytes, cache bytes, RSS,
-   process footprint, and recovery after alternating small and large requests.
-   Tune the 256 MiB cache limit only from those results.
-6. **Isolate BF16 drift.** Localize the reference and fused BF16 failures by
-   layer and operation. Any accepted correction receives a distinct
-   arithmetic identity and reruns the complete gate ladder.
-7. **Add service wiring last.** Daemon aliases, queue-inclusive latency,
-   cancellation behavior, and load/soak belong after vectorized forward and
-   memory admission are truthful.
+4. **Qualify lane limits before advertising automatic use.** The first
+   variable-length model gate covers unequal question and candidate lengths
+   with 2–8 lanes. Extend differential and matched timing coverage across Q, K,
+   masks, and suffix buckets, then enable automatic capability only within
+   measured limits.
+5. **Extend unified-memory coverage.** The bounded Q/K sweep and two-cycle
+   recovery record active MLX bytes, cache bytes, RSS, process footprint, and
+   fallback behavior. Add concurrent request/load-soak evidence before setting
+   a production capacity limit. Tune the 256 MiB cache only from broader runs.
+6. **Isolate BF16 drift.** The 22 September pinned-base trace first observes
+   shape-dependent rounding at layer 0 `linear_out_projection`: identical
+   inputs produce a maximum output difference of `0.000122070312` across 36
+   question rows, with the final row still exact. Any arithmetic correction
+   receives a distinct identity and reruns the complete gate ladder.
+7. **Extend daemon validation.** `--qwen35-backend mlx-fp32` and its feature
+   gate are implemented, and a forced vectorized request passes the bounded
+   smoke. Add queue-inclusive load, cancellation/recovery, and memory checks
+   before production service claims.
 
 ## Build, test, and benchmark
 

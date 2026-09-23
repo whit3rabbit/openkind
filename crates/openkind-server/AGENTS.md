@@ -31,7 +31,7 @@
   - `Args`: Clap argument parser defining:
     - Server endpoints: `--http-addr`, `--grpc-addr`, `--api-key`, `--log-filter`.
     - Model aliases: `--models`, `--qwen35-aliases`.
-    - Native Qwen3.5 parameters: `--qwen35-bundle-root`, `--qwen35-checkpoint-root`, `--qwen35-tokenizer`, `--qwen35-concurrency`, `--qwen35-queue`, `--qwen35-max-tensor-bytes`, `--qwen35-max-process-bytes`, `--qwen35-scratch-bytes`, `--qwen35-allocator-headroom-bytes`, `--qwen35-execution` (diagnostic plan override: `auto` default; bypasses the profitability policy only — admission ceilings and backend capabilities still apply).
+    - Native Qwen3.5 parameters: `--qwen35-bundle-root`, `--qwen35-checkpoint-root`, `--qwen35-tokenizer`, `--qwen35-backend` / `OPENKIND_QWEN35_BACKEND` (`native-cpu` default, or feature-gated `mlx-fp32` on macOS arm64), `--qwen35-concurrency`, `--qwen35-queue`, `--qwen35-timeout-ms` (queue-inclusive, default 600000), `--qwen35-max-tensor-bytes`, `--qwen35-max-process-bytes`, `--qwen35-scratch-bytes`, `--qwen35-allocator-headroom-bytes`, `--qwen35-execution` (diagnostic plan override: `auto` default; bypasses the profitability policy only — admission ceilings and backend capabilities still apply).
   - `main()`: Orchestrates logging, auth, Prometheus recorder, engine registration, and concurrent listener tasks via `tokio::join!`.
   - `shutdown_signal()`: Future selecting on `tokio::signal::ctrl_c()` and Unix `SIGTERM`.
 - [`benches/server.rs`](./benches/server.rs): Criterion coverage for the complete
@@ -42,7 +42,7 @@
 `openkindd` populates `EngineRegistry` dynamically based on `--models`:
 1. **Native Engine Path**: If any alias in `--models` is listed in `--qwen35-aliases` (default `qwen35-native`):
    - Validates that `--qwen35-bundle-root`, `--qwen35-checkpoint-root`, and `--qwen35-tokenizer` are provided.
-   - Instantiates `SchedulerConfig::for_pinned_profile` with `BackendCapabilities::per_lane()`.
+   - Instantiates `SchedulerConfig::for_pinned_profile` with `BackendCapabilities::per_lane()`. The MLX loader may advertise vectorized forward only for FP32 `ReferenceOps` when `--qwen35-execution nested-batched` is explicitly forced; automatic scheduling stays per-lane pending measured performance. MLX server startup requires the `mlx` crate feature and is available only on macOS arm64.
    - Optionally attaches a process-memory envelope if `--qwen35-max-process-bytes` is configured. The engine refreshes peak RSS after model load and immediately before each request, then divides remaining headroom across the concurrency limit.
    - Loads `Qwen35DecisionEngine` with configured concurrency and queue semaphores.
    - Registers the shared engine under each matching alias.
@@ -57,7 +57,11 @@
 3. **Graceful Drain**:
    When orchestrating shutdown, drop guards ensure server tasks drain in-flight evaluations. Do not call `std::process::exit(0)` abruptly from signal handlers.
 4. **Cancellation Does Not Free Native Capacity Early**:
-   `Qwen35DecisionEngine` moves queue and execution permits into the blocking model task. If an HTTP or gRPC caller disconnects, replacement work remains blocked until the native task actually finishes.
+   `Qwen35DecisionEngine` moves queue and execution permits into the blocking model task. If an HTTP or gRPC caller disconnects, replacement work remains blocked until cooperative cancellation reaches a CPU decoder-layer boundary and the native task exits. `--qwen35-timeout-ms` is a queue-inclusive deadline (default 600000 ms).
+5. **Telemetry Privacy**:
+   Native metrics use fixed outcome labels and durations only. HTTP spans exclude headers. Never log request IDs, auth headers, state/question/candidate content, token IDs, content fingerprints, or input digests.
+6. **Service Evidence Boundary**:
+   The release-mode native CPU load/soak evidence is recorded in [`docs/verification/native-service-gate/2026-09-22/`](../../docs/verification/native-service-gate/2026-09-22/README.md). Its fixture has no reviewed labels and does not establish model quality, Metal behavior, or product-release promotion; use [`docs/BENCHMARKS.md`](../../docs/BENCHMARKS.md) for the canonical methodology.
 
 ## Verification Commands
 

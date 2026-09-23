@@ -37,6 +37,19 @@ pub(crate) use full_attention::*;
 pub(crate) use linear_attention::*;
 pub(crate) use ops::*;
 
+/// Arrays retained only by opt-in per-layer parity diagnostics.
+pub(crate) type LayerOperationArrays = Vec<(String, Array)>;
+
+pub(crate) fn trace_operation(
+    trace: &mut Option<&mut LayerOperationArrays>,
+    name: &str,
+    array: &Array,
+) {
+    if let Some(trace) = trace.as_deref_mut() {
+        trace.push((name.to_owned(), array.clone()));
+    }
+}
+
 pub(crate) const HIDDEN_SIZE: usize = 2_560;
 const INTERMEDIATE_SIZE: usize = 9_216;
 pub(crate) const KEY_HEADS: usize = 16;
@@ -169,6 +182,15 @@ impl MlxDecoderLayer {
         })
     }
 
+    pub(crate) fn supports_reference_batch(&self) -> bool {
+        match &self.mixer {
+            TokenMixer::Linear(mixer) => {
+                mixer.gated_delta_kernel == MlxGatedDeltaKernel::ReferenceOps
+            }
+            TokenMixer::Full(_) => true,
+        }
+    }
+
     /// Visit every retained weight array exactly once.
     ///
     /// Keeping materialization and accounting on one inventory prevents a new
@@ -219,6 +241,7 @@ impl MlxDecoderLayer {
 
     /// Advance the layer, returning the new hidden state and continuation
     /// state. `hidden` is `[rows, HIDDEN_SIZE]` and is never mutated.
+    #[cfg(test)]
     pub(crate) fn forward(
         &self,
         hidden: &Array,
@@ -226,12 +249,31 @@ impl MlxDecoderLayer {
         position_start: usize,
         previous: Option<&MlxLayerState>,
     ) -> Result<(Array, MlxLayerState), MlxError> {
+        self.forward_traced(hidden, rows, position_start, previous, None)
+    }
+
+    pub(crate) fn forward_traced(
+        &self,
+        hidden: &Array,
+        rows: usize,
+        position_start: usize,
+        previous: Option<&MlxLayerState>,
+        mut operation_trace: Option<&mut LayerOperationArrays>,
+    ) -> Result<(Array, MlxLayerState), MlxError> {
+        trace_operation(&mut operation_trace, "input", hidden);
         let normalized = rms_norm(hidden, &self.input_layernorm)?;
+        trace_operation(&mut operation_trace, "input_rms_norm", &normalized);
         let (attention, state) = match (&self.mixer, previous) {
-            (TokenMixer::Linear(mixer), Some(MlxLayerState::Linear(state))) => {
-                mixer.forward(&normalized, rows, Some(state))?
+            (TokenMixer::Linear(mixer), Some(MlxLayerState::Linear(state))) => mixer
+                .forward_traced(
+                    &normalized,
+                    rows,
+                    Some(state),
+                    operation_trace.as_deref_mut(),
+                )?,
+            (TokenMixer::Linear(mixer), None) => {
+                mixer.forward_traced(&normalized, rows, None, operation_trace.as_deref_mut())?
             }
-            (TokenMixer::Linear(mixer), None) => mixer.forward(&normalized, rows, None)?,
             (TokenMixer::Full(mixer), Some(MlxLayerState::Full(state))) => {
                 mixer.forward(&normalized, rows, position_start, Some(state))?
             }
@@ -244,13 +286,62 @@ impl MlxDecoderLayer {
                 ));
             }
         };
+        trace_operation(&mut operation_trace, "mixer_output", &attention);
+        let hidden = hidden.clone().add(&attention);
+        trace_operation(&mut operation_trace, "attention_residual", &hidden);
+        let mlp_input = rms_norm(&hidden, &self.post_attention_layernorm)?;
+        trace_operation(&mut operation_trace, "post_attention_rms_norm", &mlp_input);
+        let gate = linear(&mlp_input, &self.mlp_gate_proj)?;
+        trace_operation(&mut operation_trace, "mlp_gate_projection", &gate);
+        let up = linear(&mlp_input, &self.mlp_up_proj)?;
+        trace_operation(&mut operation_trace, "mlp_up_projection", &up);
+        let activated = mlx_rs::nn::silu(&gate).map_err(op("mlp silu"))?.mul(&up);
+        trace_operation(&mut operation_trace, "mlp_silu_times_up", &activated);
+        let mlp = linear(&activated, &self.mlp_down_proj)?;
+        trace_operation(&mut operation_trace, "mlp_down_projection", &mlp);
+        let hidden = hidden.add(&mlp);
+        trace_operation(&mut operation_trace, "output", &hidden);
+        Ok((hidden, state))
+    }
+
+    /// Advance one layer with a lane axis and right-padded suffix rows.
+    pub(crate) fn forward_batched(
+        &self,
+        hidden: &Array,
+        rows: usize,
+        lengths: &[usize],
+        position_start: usize,
+        previous: &MlxLayerState,
+    ) -> Result<(Array, MlxLayerState), MlxError> {
+        let lanes = lengths.len();
+        if hidden.shape() != [lanes as i32, rows as i32, HIDDEN_SIZE as i32] {
+            return Err(MlxError::InvalidState(format!(
+                "batched decoder layer expects [{lanes}, {rows}, {HIDDEN_SIZE}], found {:?}",
+                hidden.shape()
+            )));
+        }
+        let normalized = rms_norm(hidden, &self.input_layernorm)?;
+        let (attention, state) = match (&self.mixer, previous) {
+            (TokenMixer::Linear(mixer), MlxLayerState::Linear(state)) => {
+                mixer.forward_batched(&normalized, rows, lengths, state)?
+            }
+            (TokenMixer::Full(mixer), MlxLayerState::Full(state)) => {
+                mixer.forward_batched(&normalized, rows, position_start, lengths, state)?
+            }
+            _ => {
+                return Err(MlxError::InvalidState(
+                    "batched cache kind does not match the layer mixer".to_owned(),
+                ));
+            }
+        };
         let hidden = hidden.clone().add(&attention);
         let mlp_input = rms_norm(&hidden, &self.post_attention_layernorm)?;
         let gate = linear(&mlp_input, &self.mlp_gate_proj)?;
         let up = linear(&mlp_input, &self.mlp_up_proj)?;
-        let activated = mlx_rs::nn::silu(&gate).map_err(op("mlp silu"))?.mul(&up);
+        let activated = mlx_rs::nn::silu(&gate)
+            .map_err(op("batched mlp silu"))?
+            .mul(&up);
         let mlp = linear(&activated, &self.mlp_down_proj)?;
-        let hidden = hidden.add(&mlp);
-        Ok((hidden, state))
+        Ok((hidden.add(&mlp), state))
     }
 }

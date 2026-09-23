@@ -86,6 +86,11 @@ pub(crate) fn trace_stage(
             "stage": stage.stage(),
             "max_abs": max_abs,
             "rms": rms,
+            "mlx_dtype": stage
+                .stage()
+                .strip_prefix("layer_")
+                .and_then(|index| index.parse::<usize>().ok())
+                .and_then(|layer| output.as_ref()?.layer_output_dtypes.get(layer).cloned()),
         }));
         match stage.stage() {
             "embedding" => embedding_exact = max_abs == 0.0,

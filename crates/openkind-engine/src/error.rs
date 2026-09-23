@@ -34,6 +34,15 @@ pub enum EngineError {
         retry_after_ms: u64,
     },
 
+    /// Queue-inclusive evaluation deadline elapsed. Mapped to HTTP 504 / gRPC deadline exceeded.
+    #[error("backend `{backend}` evaluation exceeded its {timeout_ms} ms deadline")]
+    DeadlineExceeded {
+        /// Identifier of the selected backend.
+        backend: String,
+        /// Configured end-to-end queue and execution budget.
+        timeout_ms: u64,
+    },
+
     /// Underlying backend driver encountered an internal execution failure. Mapped to HTTP 500.
     #[error("backend `{backend}` failed: {message}")]
     Backend {

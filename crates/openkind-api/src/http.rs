@@ -20,7 +20,8 @@ use axum::{
 };
 use openkind_core::SystemRequest;
 use openkind_engine::{dispatch, EngineRegistry};
-use tower_http::trace::TraceLayer;
+use tower_http::trace::{DefaultMakeSpan, TraceLayer};
+use tracing::Level;
 
 use crate::error::ApiError;
 use crate::middleware::AuthConfig;
@@ -91,7 +92,16 @@ fn router_full(
             crate::middleware::request_id_layer,
         ))
         .layer(axum::extract::DefaultBodyLimit::max(max_payload_bytes))
-        .layer(TraceLayer::new_for_http())
+        // Keep request headers out of telemetry. In particular, auth
+        // credentials and caller-supplied request IDs must never become span
+        // fields; native-engine metrics use only fixed outcome labels.
+        .layer(
+            TraceLayer::new_for_http().make_span_with(
+                DefaultMakeSpan::new()
+                    .level(Level::INFO)
+                    .include_headers(false),
+            ),
+        )
         .with_state(Arc::new(state))
 }
 

@@ -12,13 +12,13 @@
 //! Like the sequential baseline, the orchestration is expressed against
 //! [`SequentialNestedExecutor`] and validated offline on synthetic states;
 //! the `qwen35_batched_parity` example establishes the checkpoint-gated
-//! parity of the batched path against the sequential baseline. Each lane is
-//! currently advanced with its own executor call; vectorized suffix execution
-//! replaces that loop later without changing the state-level semantics
-//! proven here.
+//! parity of the batched path against the sequential baseline. The executor
+//! reports whether lane advancement used per-lane calls or a true vectorized
+//! forward; state fan-out alone never implies compute batching.
 
 use crate::qwen35::Qwen35Error;
 use openkind_runtime::branch::{BranchBatch, BranchableState};
+use openkind_runtime::BatchForwardMode;
 
 use super::model::{BackboneState, Qwen35Backbone};
 use super::nested::{NestedQuestion, SequentialNestedExecutor};
@@ -63,16 +63,34 @@ pub fn run_batched_questions<E: SequentialNestedExecutor>(
         lane_fingerprints.push(batch.select(lane_index)?.scheduling_fingerprint());
     }
 
-    let mut question_features = Vec::with_capacity(plans.len());
-    let mut question_states = Vec::with_capacity(plans.len());
+    let mut suffixes = Vec::with_capacity(plans.len());
     for (index, plan) in plans.iter().enumerate() {
         if plan.question_ids.is_empty() {
             return Err(Qwen35Error::InvalidInput(format!(
                 "question {index} has an empty token suffix"
             )));
         }
-        let lane = batch.select(index)?;
-        let (feature, state) = executor.continue_from(&lane, plan.question_ids)?;
+        suffixes.push(plan.question_ids);
+    }
+    let lanes = (0..plans.len())
+        .map(|index| batch.select(index))
+        .collect::<Result<Vec<_>, _>>()?;
+    let lane_refs = lanes.iter().collect::<Vec<_>>();
+    let continuation = executor.continue_batch_from(&lane_refs, &suffixes)?;
+    let batch_forward_mode = continuation.batch_forward_mode();
+    let advanced_lanes = continuation.into_lanes();
+    if advanced_lanes.len() != plans.len() {
+        return Err(Qwen35Error::InvalidInput(format!(
+            "question continuation returned {} lanes, expected {}",
+            advanced_lanes.len(),
+            plans.len()
+        )));
+    }
+
+    let mut question_features = Vec::with_capacity(plans.len());
+    let mut question_states = Vec::with_capacity(plans.len());
+    for (index, (feature, state)) in advanced_lanes.into_iter().enumerate() {
+        let plan = &plans[index];
         let expected_position = root_position + plan.question_ids.len();
         if state.position() != expected_position {
             return Err(Qwen35Error::InvalidInput(format!(
@@ -80,26 +98,27 @@ pub fn run_batched_questions<E: SequentialNestedExecutor>(
                 state.position()
             )));
         }
-        if root.scheduling_fingerprint() != root_fingerprint {
-            return Err(Qwen35Error::InvalidInput(format!(
-                "shared root changed while advancing question {index}"
-            )));
-        }
-        for (lane_index, expected_fingerprint) in lane_fingerprints.iter().enumerate() {
-            if batch.select(lane_index)?.scheduling_fingerprint() != *expected_fingerprint {
-                return Err(Qwen35Error::InvalidInput(format!(
-                    "fan-out lane {lane_index} changed while advancing question {index}"
-                )));
-            }
-        }
         question_features.push(feature);
         question_states.push(state);
+    }
+    if root.scheduling_fingerprint() != root_fingerprint {
+        return Err(Qwen35Error::InvalidInput(
+            "shared root changed while advancing question lanes".into(),
+        ));
+    }
+    for (lane_index, expected_fingerprint) in lane_fingerprints.iter().enumerate() {
+        if batch.select(lane_index)?.scheduling_fingerprint() != *expected_fingerprint {
+            return Err(Qwen35Error::InvalidInput(format!(
+                "fan-out lane {lane_index} changed while advancing question lanes"
+            )));
+        }
     }
 
     Ok(BatchedQuestions {
         question_features,
         question_states,
         batch_bytes,
+        batch_forward_mode,
     })
 }
 
@@ -138,16 +157,32 @@ pub fn run_batched_candidates<E: SequentialNestedExecutor>(
         lane_fingerprints.push(batch.select(lane_index)?.scheduling_fingerprint());
     }
 
-    let mut candidate_features = Vec::with_capacity(suffixes.len());
-    let mut candidate_states = Vec::with_capacity(suffixes.len());
-    for (index, &suffix_ids) in suffixes.iter().enumerate() {
+    for (index, suffix_ids) in suffixes.iter().enumerate() {
         if suffix_ids.is_empty() {
             return Err(Qwen35Error::InvalidInput(format!(
                 "candidate {index} has an empty suffix"
             )));
         }
-        let lane = batch.select(index)?;
-        let (feature, state) = executor.continue_from(&lane, suffix_ids)?;
+    }
+    let lanes = (0..suffixes.len())
+        .map(|index| batch.select(index))
+        .collect::<Result<Vec<_>, _>>()?;
+    let lane_refs = lanes.iter().collect::<Vec<_>>();
+    let continuation = executor.continue_batch_from(&lane_refs, suffixes)?;
+    let batch_forward_mode = continuation.batch_forward_mode();
+    let advanced_lanes = continuation.into_lanes();
+    if advanced_lanes.len() != suffixes.len() {
+        return Err(Qwen35Error::InvalidInput(format!(
+            "candidate continuation returned {} lanes, expected {}",
+            advanced_lanes.len(),
+            suffixes.len()
+        )));
+    }
+
+    let mut candidate_features = Vec::with_capacity(suffixes.len());
+    let mut candidate_states = Vec::with_capacity(suffixes.len());
+    for (index, (feature, state)) in advanced_lanes.into_iter().enumerate() {
+        let suffix_ids = suffixes[index];
         let expected_position = question_state.position() + suffix_ids.len();
         if state.position() != expected_position {
             return Err(Qwen35Error::InvalidInput(format!(
@@ -155,26 +190,27 @@ pub fn run_batched_candidates<E: SequentialNestedExecutor>(
                 state.position()
             )));
         }
-        if question_state.scheduling_fingerprint() != source_fingerprint {
-            return Err(Qwen35Error::InvalidInput(format!(
-                "question state changed while advancing candidate {index}"
-            )));
-        }
-        for (lane_index, expected_fingerprint) in lane_fingerprints.iter().enumerate() {
-            if batch.select(lane_index)?.scheduling_fingerprint() != *expected_fingerprint {
-                return Err(Qwen35Error::InvalidInput(format!(
-                    "fan-out lane {lane_index} changed while advancing candidate {index}"
-                )));
-            }
-        }
         candidate_features.push(feature);
         candidate_states.push(state);
+    }
+    if question_state.scheduling_fingerprint() != source_fingerprint {
+        return Err(Qwen35Error::InvalidInput(
+            "question state changed while advancing candidate lanes".into(),
+        ));
+    }
+    for (lane_index, expected_fingerprint) in lane_fingerprints.iter().enumerate() {
+        if batch.select(lane_index)?.scheduling_fingerprint() != *expected_fingerprint {
+            return Err(Qwen35Error::InvalidInput(format!(
+                "fan-out lane {lane_index} changed while advancing candidate lanes"
+            )));
+        }
     }
 
     Ok(BatchedCandidates {
         candidate_features,
         candidate_states,
         batch_bytes,
+        batch_forward_mode,
     })
 }
 
@@ -203,8 +239,10 @@ pub fn run_batched_nested<E: SequentialNestedExecutor>(
         question_features,
         question_states,
         batch_bytes: question_batch_bytes,
+        batch_forward_mode: question_forward_mode,
     } = questions;
 
+    let mut batch_forward_mode = question_forward_mode;
     let mut results = Vec::with_capacity(question_states.len());
     for ((question_state, question_feature), plan) in question_states
         .into_iter()
@@ -217,7 +255,11 @@ pub fn run_batched_nested<E: SequentialNestedExecutor>(
             candidate_features,
             candidate_states,
             batch_bytes: candidate_batch_bytes,
+            batch_forward_mode: candidate_forward_mode,
         } = candidates;
+        if candidate_forward_mode == BatchForwardMode::PerLane {
+            batch_forward_mode = BatchForwardMode::PerLane;
+        }
         results.push(BatchedQuestionResult {
             question_feature,
             question_state,
@@ -240,6 +282,7 @@ pub fn run_batched_nested<E: SequentialNestedExecutor>(
         root_feature,
         root_state,
         question_batch_bytes,
+        batch_forward_mode,
         questions: results,
     })
 }

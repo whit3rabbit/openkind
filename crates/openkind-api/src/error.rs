@@ -87,6 +87,9 @@ impl ApiError {
             ApiError::Engine(EngineError::Overloaded { .. }) => {
                 (StatusCode::from_u16(529).unwrap(), "overloaded")
             }
+            ApiError::Engine(EngineError::DeadlineExceeded { .. }) => {
+                (StatusCode::GATEWAY_TIMEOUT, "deadline_exceeded")
+            }
             ApiError::Engine(EngineError::Backend { .. }) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "backend_error")
             }
@@ -258,6 +261,14 @@ mod tests {
         assert_eq!(status, StatusCode::from_u16(529).unwrap());
         assert_eq!(headers["retry-after-ms"], "750");
         assert_eq!(body["error"]["code"], "overloaded");
+
+        let deadline = ApiError::Engine(EngineError::DeadlineExceeded {
+            backend: "native".into(),
+            timeout_ms: 30_000,
+        });
+        let (status, _, body) = extract_body_json(deadline.into_response()).await;
+        assert_eq!(status, StatusCode::GATEWAY_TIMEOUT);
+        assert_eq!(body["error"]["code"], "deadline_exceeded");
     }
 
     #[test]

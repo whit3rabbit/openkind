@@ -4,7 +4,7 @@ use mlx_rs::fast;
 use mlx_rs::ops::{broadcast_to, concatenate};
 use mlx_rs::{Array, Dtype};
 
-use super::ops::{linear, op, scalar_like};
+use super::ops::{batch_row_of, linear, op, scalar_like, stack_batch_time};
 use super::{
     MlxError, MlxFullState, MlxLayerState, ATTENTION_HEADS, ATTENTION_HEAD_DIM, ATTENTION_SIZE,
     KV_HEADS, RMS_EPSILON, ROPE_THETA, ROTARY_DIM,
@@ -104,6 +104,335 @@ impl FullAttention {
             }),
         ))
     }
+
+    /// Causal multi-lane attention over right-padded suffixes. The cache is
+    /// rectangular during the forward, then the model adapter truncates each
+    /// lane back to its true length before returning state.
+    pub(crate) fn forward_batched(
+        &self,
+        normalized: &Array,
+        rows: usize,
+        position_start: usize,
+        lengths: &[usize],
+        previous: &MlxFullState,
+    ) -> Result<(Array, MlxLayerState), MlxError> {
+        let shape = normalized.shape();
+        if shape.len() != 3 || shape[1] as usize != rows {
+            return Err(MlxError::InvalidState(format!(
+                "invalid batched attention input shape {shape:?}"
+            )));
+        }
+        let lanes = shape[0] as usize;
+        if lengths.len() != lanes || lengths.iter().any(|length| *length == 0 || *length > rows) {
+            return Err(MlxError::InvalidState(
+                "invalid true lengths for batched attention".to_owned(),
+            ));
+        }
+        let expected_prefix = [
+            lanes as i32,
+            position_start as i32,
+            KV_HEADS as i32,
+            ATTENTION_HEAD_DIM as i32,
+        ];
+        if previous.keys.shape() != expected_prefix || previous.values.shape() != expected_prefix {
+            return Err(MlxError::InvalidState(
+                "invalid batched attention cache shape".to_owned(),
+            ));
+        }
+
+        let projected_q = linear(normalized, &self.q_proj)?;
+        let projected_k = linear(normalized, &self.k_proj)?;
+        let projected_v = linear(normalized, &self.v_proj)?;
+        let reshaped = projected_q
+            .reshape(&[
+                lanes as i32,
+                rows as i32,
+                ATTENTION_HEADS as i32,
+                2,
+                ATTENTION_HEAD_DIM as i32,
+            ])
+            .map_err(op("batched qproj reshape"))?;
+        let halves = reshaped
+            .split_at_indices(&[1], 3)
+            .map_err(op("batched q split"))?;
+        let queries = halves[0]
+            .clone()
+            .reshape(&[
+                lanes as i32,
+                rows as i32,
+                ATTENTION_HEADS as i32,
+                ATTENTION_HEAD_DIM as i32,
+            ])
+            .map_err(op("batched q view"))?;
+        let gates = halves[1]
+            .clone()
+            .reshape(&[
+                lanes as i32,
+                rows as i32,
+                ATTENTION_HEADS as i32,
+                ATTENTION_HEAD_DIM as i32,
+            ])
+            .map_err(op("batched gate view"))?;
+        let keys = projected_k
+            .reshape(&[
+                lanes as i32,
+                rows as i32,
+                (KV_HEADS * ATTENTION_HEAD_DIM) as i32,
+            ])
+            .map_err(op("batched k reshape"))?;
+        let values = projected_v
+            .reshape(&[
+                lanes as i32,
+                rows as i32,
+                (KV_HEADS * ATTENTION_HEAD_DIM) as i32,
+            ])
+            .map_err(op("batched v reshape"))?;
+
+        let mut all_keys = previous.keys.clone();
+        let mut all_values = previous.values.clone();
+        let mut mixed_rows = Vec::with_capacity(rows);
+        for row in 0..rows {
+            let query = batch_row_of(
+                &queries
+                    .reshape(&[
+                        lanes as i32,
+                        rows as i32,
+                        (ATTENTION_HEADS * ATTENTION_HEAD_DIM) as i32,
+                    ])
+                    .map_err(op("batched q flatten"))?,
+                row,
+            )?
+            .reshape(&[
+                lanes as i32,
+                ATTENTION_HEADS as i32,
+                ATTENTION_HEAD_DIM as i32,
+            ])
+            .map_err(op("batched q token reshape"))?;
+            let gate = batch_row_of(
+                &gates
+                    .reshape(&[
+                        lanes as i32,
+                        rows as i32,
+                        (ATTENTION_HEADS * ATTENTION_HEAD_DIM) as i32,
+                    ])
+                    .map_err(op("batched gate flatten"))?,
+                row,
+            )?
+            .reshape(&[
+                lanes as i32,
+                ATTENTION_HEADS as i32,
+                ATTENTION_HEAD_DIM as i32,
+            ])
+            .map_err(op("batched gate token reshape"))?;
+            let mut query = norm_heads(&query, &self.q_norm)?;
+            let mut key = batch_row_of(&keys, row)?
+                .reshape(&[lanes as i32, KV_HEADS as i32, ATTENTION_HEAD_DIM as i32])
+                .map_err(op("batched k token reshape"))?;
+            let value = batch_row_of(&values, row)?
+                .reshape(&[lanes as i32, KV_HEADS as i32, ATTENTION_HEAD_DIM as i32])
+                .map_err(op("batched v token reshape"))?;
+            key = norm_heads(&key, &self.k_norm)?;
+            query = apply_rotary_batch_position(&query, position_start + row, ATTENTION_HEADS)?;
+            key = apply_rotary_batch_position(&key, position_start + row, KV_HEADS)?;
+
+            let key = key
+                .reshape(&[lanes as i32, 1, KV_HEADS as i32, ATTENTION_HEAD_DIM as i32])
+                .map_err(op("batched cache key reshape"))?;
+            let value = value
+                .reshape(&[lanes as i32, 1, KV_HEADS as i32, ATTENTION_HEAD_DIM as i32])
+                .map_err(op("batched cache value reshape"))?;
+            all_keys = concatenate(&[&all_keys, &key], 1).map_err(op("batched keys concat"))?;
+            all_values =
+                concatenate(&[&all_values, &value], 1).map_err(op("batched values concat"))?;
+
+            let mut mixed = grouped_query_attention_batched(
+                &query,
+                &all_keys,
+                &all_values,
+                lengths,
+                position_start,
+                row,
+            )?;
+            mixed = mixed.mul(&mlx_rs::nn::sigmoid(&gate).map_err(op("batched gate sigmoid"))?);
+            mixed = mixed
+                .reshape(&[lanes as i32, ATTENTION_SIZE as i32])
+                .map_err(op("batched mixed flatten"))?;
+            mixed_rows.push(linear(&mixed, &self.o_proj)?);
+        }
+        Ok((
+            stack_batch_time(&mixed_rows)?,
+            MlxLayerState::Full(MlxFullState {
+                keys: all_keys,
+                values: all_values,
+            }),
+        ))
+    }
+}
+
+fn grouped_query_attention_batched(
+    queries: &Array,
+    keys: &Array,
+    values: &Array,
+    lengths: &[usize],
+    position_start: usize,
+    row: usize,
+) -> Result<Array, MlxError> {
+    let lanes = queries.shape()[0];
+    let total = keys.shape()[1];
+    let repeat = ATTENTION_HEADS / KV_HEADS;
+    let expand = |kv: &Array| -> Result<Array, MlxError> {
+        let reshaped = kv
+            .clone()
+            .reshape(&[lanes, total, KV_HEADS as i32, 1, ATTENTION_HEAD_DIM as i32])
+            .map_err(op("batched kv reshape"))?;
+        broadcast_to(
+            &reshaped,
+            &[
+                lanes,
+                total,
+                KV_HEADS as i32,
+                repeat as i32,
+                ATTENTION_HEAD_DIM as i32,
+            ],
+        )
+        .map_err(op("batched kv broadcast"))?
+        .reshape(&[
+            lanes,
+            total,
+            ATTENTION_HEADS as i32,
+            ATTENTION_HEAD_DIM as i32,
+        ])
+        .map_err(op("batched kv flatten"))
+    };
+    let k = expand(keys)?
+        .transpose_axes(&[0, 2, 3, 1])
+        .map_err(op("batched k layout"))?;
+    let v = expand(values)?
+        .transpose_axes(&[0, 2, 1, 3])
+        .map_err(op("batched v layout"))?;
+    let q = queries
+        .clone()
+        .reshape(&[lanes, ATTENTION_HEADS as i32, 1, ATTENTION_HEAD_DIM as i32])
+        .map_err(op("batched q layout"))?;
+    let mut scores = q
+        .matmul(&k)
+        .map_err(op("batched scores matmul"))?
+        .mul(scalar_like(
+            queries,
+            (ATTENTION_HEAD_DIM as f32).sqrt().recip(),
+        ));
+    let total = total as usize;
+    let mask = batched_key_padding_mask(lengths, position_start, row, total)?;
+    let mask = Array::from_slice(&mask, &[lanes, 1, 1, total as i32]);
+    scores = scores.add(&mask);
+    let maximum = scores
+        .max_axis(-1, true)
+        .map_err(op("batched softmax max"))?;
+    let exp = scores
+        .sub(&maximum)
+        .exp()
+        .map_err(op("batched softmax exp"))?;
+    let denominator = exp.sum_axis(-1, true).map_err(op("batched softmax sum"))?;
+    let probabilities = exp.div(&denominator);
+    probabilities
+        .matmul(&v)
+        .map_err(op("batched mix matmul"))?
+        .reshape(&[lanes, ATTENTION_HEADS as i32, ATTENTION_HEAD_DIM as i32])
+        .map_err(op("batched mixed reshape"))
+}
+
+fn batched_key_padding_mask(
+    lengths: &[usize],
+    position_start: usize,
+    row: usize,
+    total_keys: usize,
+) -> Result<Vec<f32>, MlxError> {
+    if lengths.is_empty() || lengths.contains(&0) {
+        return Err(MlxError::InvalidState(
+            "attention padding mask requires non-empty lane lengths".to_owned(),
+        ));
+    }
+    let mut mask = Vec::with_capacity(lengths.len().saturating_mul(total_keys));
+    for length in lengths {
+        let visible = (position_start + row + 1).min(position_start + length);
+        for column in 0..total_keys {
+            mask.push(if column < visible {
+                0.0
+            } else {
+                f32::NEG_INFINITY
+            });
+        }
+    }
+    Ok(mask)
+}
+
+fn apply_rotary_batch_position(
+    values: &Array,
+    position: usize,
+    heads: usize,
+) -> Result<Array, MlxError> {
+    let lanes = values.shape()[0] as usize;
+    let rot = ROTARY_DIM as i32;
+    let half = (ROTARY_DIM / 2) as i32;
+    let reshaped = values
+        .clone()
+        .reshape(&[lanes as i32, heads as i32, 4, rot])
+        .map_err(op("batched rope reshape"))?;
+    let parts = reshaped
+        .split_at_indices(&[1], 2)
+        .map_err(op("batched rope split"))?;
+    let first = parts[0]
+        .clone()
+        .reshape(&[lanes as i32, heads as i32, rot])
+        .map_err(op("batched rope first"))?;
+    let rest = parts[1]
+        .clone()
+        .reshape(&[lanes as i32, heads as i32, 3 * rot])
+        .map_err(op("batched rope rest"))?;
+    let pairs = first
+        .reshape(&[lanes as i32, heads as i32, 2, half])
+        .map_err(op("batched rope pairs"))?;
+    let pair_split = pairs
+        .split_at_indices(&[1], 2)
+        .map_err(op("batched rope pair split"))?;
+    let x_lo = pair_split[0]
+        .clone()
+        .reshape(&[lanes as i32, heads as i32, half])
+        .map_err(op("batched rope lo"))?;
+    let x_hi = pair_split[1]
+        .clone()
+        .reshape(&[lanes as i32, heads as i32, half])
+        .map_err(op("batched rope hi"))?;
+    let mut cos = Vec::with_capacity(ROTARY_DIM / 2);
+    let mut sin = Vec::with_capacity(ROTARY_DIM / 2);
+    for index in 0..ROTARY_DIM / 2 {
+        let frequency = ROPE_THETA.powf(-((2 * index) as f32) / ROTARY_DIM as f32);
+        let (s, c) = (position as f32 * frequency).sin_cos();
+        cos.push(c);
+        sin.push(s);
+    }
+    let shape = &[1, 1, half];
+    let (cos, sin) = if values.dtype() == Dtype::Bfloat16 {
+        let cast = |values: &[f32]| {
+            values
+                .iter()
+                .map(|value| half::bf16::from_f32(*value))
+                .collect::<Vec<_>>()
+        };
+        (
+            Array::from_slice(&cast(&cos), shape),
+            Array::from_slice(&cast(&sin), shape),
+        )
+    } else {
+        (
+            Array::from_slice(&cos, shape),
+            Array::from_slice(&sin, shape),
+        )
+    };
+    let lo_rot = x_lo.clone().mul(&cos).sub(&x_hi.clone().mul(&sin));
+    let hi_rot = x_hi.mul(&cos).add(&x_lo.mul(&sin));
+    let rotated = concatenate(&[&lo_rot, &hi_rot], -1).map_err(op("batched rope join"))?;
+    concatenate(&[&rotated, &rest], -1).map_err(op("batched rope concat"))
 }
 
 /// Causal grouped-query attention with explicit max-subtracted softmax,
@@ -286,4 +615,16 @@ pub(crate) fn norm_heads(values: &Array, weight: &Array) -> Result<Array, MlxErr
         .map_err(op("norm reshape"))?;
     let normed = fast::rms_norm(&flat, Some(weight), RMS_EPSILON).map_err(op("head norm"))?;
     normed.reshape(&dims).map_err(op("norm restore"))
+}
+
+#[cfg(test)]
+mod vectorized_tests {
+    use super::batched_key_padding_mask;
+
+    #[test]
+    fn attention_mask_excludes_right_padding_for_shorter_lanes() {
+        let mask = batched_key_padding_mask(&[2, 4], 3, 2, 6).unwrap();
+        assert_eq!(&mask[..6], &[0.0, 0.0, 0.0, 0.0, 0.0, f32::NEG_INFINITY]);
+        assert_eq!(&mask[6..], &[0.0; 6]);
+    }
 }
