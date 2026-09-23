@@ -33,6 +33,7 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 | **19** | [19 - OpenKind_Phase4C_Decoupled_Applicability_Head.ipynb](./19%20-%20OpenKind_Phase4C_Decoupled_Applicability_Head.ipynb) | Phase 4C (`4c.0.0`) | GPU (L4/A100) | Isolated applicability head fine-tuning over frozen B2 representations | Child epochs regressed NLL (+2.77%) and Brier (+2.10%) for only +2 true positives; parent epoch 0 retained | [OpenKind_Phase4C_Decoupled_Applicability_results/](./OpenKind_Phase4C_Decoupled_Applicability_results) |
 | **20** | [20 - OpenKind_Phase4D_EvidenceAware_Applicability.ipynb](./20%20-%20OpenKind_Phase4D_EvidenceAware_Applicability.ipynb) | Phase 4D (`4d.0.0`) | GPU (L4/A100) | 19-dim handcrafted evidence/uncertainty diagnostic residual over frozen parent | Strict JSON enforced; child gained only +1 true positive while NLL worsened +6.08%; child rejected | [OpenKind_Phase4D_EvidenceAware_Applicability_results/](./OpenKind_Phase4D_EvidenceAware_Applicability_results) |
 | **21** | [21 - OpenKind_Phase4E_QASPER_Error_Audit.ipynb](./21%20-%20OpenKind_Phase4E_QASPER_Error_Audit.ipynb) | Phase 4E (`4e.0.0`) | CPU | Blinded human audit of 150 QASPER false-negative, false-positive, and control cases | Prepares double-blind adjudication pack to separate representation failure from label ambiguity before 4E-B | [OpenKind_Phase4E_QASPER_Audit_results/](./OpenKind_Phase4E_QASPER_Audit_results) |
+| **22** | [22 - OpenKind_Phase4E_A2_QASPER_Audit_Repair.ipynb](./22%20-%20OpenKind_Phase4E_A2_QASPER_Audit_Repair.ipynb) | Phase 4E-A2 (`20260921T013558Z`, `qasper_error_audit_repair_s17`) | CPU | Repaired QASPER error/evidence audit with complete paper text; primary blinded review & adjudication packet generation | Validated hash chain, 66.4% decided agreement, 51 adjudication rows, asymmetric disagreement (44 challenged semantic_none, 6 representation/serialization defects); Phase 4E-B blocked pending benchmark/representation repair | [OpenKind_Phase4E_A2_QASPER_Audit_Repair_results/](./OpenKind_Phase4E_A2_QASPER_Audit_Repair_results) |
 
 ---
 
@@ -416,6 +417,42 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 
 ---
 
+### 22. Phase 4E-A2: Repaired QASPER Error & Evidence Audit
+* **File**: [`22 - OpenKind_Phase4E_A2_QASPER_Audit_Repair.ipynb`](./22%20-%20OpenKind_Phase4E_A2_QASPER_Audit_Repair.ipynb)
+* **Run ID**: `20260921T013558Z` (Workbench `4e.a2.0`, run label `qasper_error_audit_repair_s17`)
+* **Target HW**: CPU (zero GPU compute; analytical audit)
+* **What it Measured**:
+  - Repaired the earlier broken audit packet where missing state text inflated ambiguity to 52.7%. Restored full state paper text (median 24,812 chars, up to 98,130 chars) with verified SHA-256 hashes across all 150 rows.
+  - Completed blinded primary review across 150 QASPER episodes (70 policy-development errors, 60 calibration-gate errors, 20 policy-development blinded controls) without access to gold evidence, model predictions, or locked targets.
+  - Evaluated agreement between primary human review (`answerable`, `semantic_none`, `ambiguous`) and locked benchmark targets.
+  - Generated frozen adjudication packet (`AUDIT_ADJUDICATION_PACKET.csv`) for all 51 disagreed or ambiguous rows.
+* **What Was Confirmed**:
+  - **Audit Integrity & Pipeline Validation Confirmed**: Hash chain, joins, row counts, and adjudication selection all validate. No NaN values, duplication, or corruption issues found. Ambiguity collapsed from 52.7% (broken audit) to 0.67% (1 of 150) once full text context was supplied. Final splits remain closed (`final_opened: false`).
+  - **Decided Agreement Baseline**: 99 of 149 decided cases agreed (66.4% overall agreement). High agreement on locked answerable targets (75/81 = 92.6%), but very low agreement on locked semantic-none targets (24/68 = 35.3%).
+  - **Asymmetry in Missing-Answer Annotations**: Disagreement is highly asymmetric: 44 cases had reviewer answerable vs locked `semantic_none`, 6 cases had reviewer `semantic_none` vs locked answerable, and 1 case was genuinely ambiguous. Crucially, among the 44 challenged semantic-none labels, 38 were judged explicitly answerable and 6 implicitly answerable; 28 already had non-empty gold evidence attached in the source dataset, and 16 had clear answers in the paper text despite missing evidence annotations. This confirms that missing-option errors are heavily driven by incomplete or erroneous dataset labels rather than model incapacity alone.
+* **What Was Not Confirmed / Disproved**:
+  - **Representation Sufficiency Disproved**: In all 6 cases where the locked target was answerable but the reviewer found `semantic_none`, critical information was omitted during state serialization (numeric results only in omitted tables, table captions without table values, bibliography placeholders instead of model names, and code-mixed text without second-language identification). Passing state-text length and character hash checks did not guarantee answer-bearing representation coverage.
+  - **Immediate Phase 4E-B Sweep Disproved**: Automatically authorizing Phase 4E-B representation retraining was rejected (`phase4e_b_automatically_authorized: false`). Model fine-tuning cannot recover information never serialized into state representations.
+* **Decision Semantics Note**:
+  - `model_prediction_label` is the raw 0.5 decision, while `operating_outcome` uses the frozen 0.210894 threshold. Seven adjudication rows differ between those two decisions. The calculations are verified correct; future outputs should rename this field to `argmax_prediction_label` and add an explicit `operating_prediction_label`.
+* **Recommended Next Step & Defect Taxonomy**:
+  - Do not run another parameter sweep or authorize Phase 4E-B yet.
+  - The 51 rows require independent adjudication under a structured defect taxonomy:
+    1. Incorrect semantic-none label
+    2. Missing or incomplete gold evidence
+    3. Table/float serialization loss
+    4. Bibliography/reference-resolution loss
+    5. Genuine underspecification
+    6. Primary-review error
+  - Final adjudication must be performed by a fresh reviewer or isolated adjudication run to preserve independence. A mixed repair (label/evidence cleanup and table/reference serialization) is required before any preregistered seed-17 model arm.
+* **Supporting Directory & Artifacts**:
+  - Local Directory: [`OpenKind_Phase4E_A2_QASPER_Audit_Repair_results/20260921T013558Z/qasper_error_audit_repair_s17/`](./OpenKind_Phase4E_A2_QASPER_Audit_Repair_results/20260921T013558Z/qasper_error_audit_repair_s17/)
+  - Adjudication Packet: [`AUDIT_ADJUDICATION_PACKET.csv`](https://drive.google.com/file/d/1eu6evYz9JzRQBSr9eJa5g_XpK6szIKE1/view) (SHA-256 `2d6b3be4dfa532de7c0c320d4e84b67d2be571ff4ddcc7f886b22f437e88edeb`)
+  - Analysis JSON: [`AUDIT_ANALYSIS.json`](https://drive.google.com/file/d/1-UTO4L8gRy5NrbAracI7o2jGxJoXyGu4/view) (SHA-256 `858d1b7b08d2e3e9969f7de4bdc1780cbaf83a831c379b9529d4acfe2a84b25f`)
+  - Result Lock: [`AUDIT_RESULT_LOCK.json`](https://drive.google.com/file/d/1n7Xb9Ye_ek9kyHt1t6yRqKi1GMgJXY_c/view) (SHA-256 `89d0e283a2b743efcb95de3f73189c6fb0157620c5f6252beea149a44d1ecefd`)
+
+---
+
 ## Key Scientific Insights & Architectural Invariants
 
 1. **Strict FP32 Reference Boundary**:
@@ -441,3 +478,5 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
    When pooled backbone representations lack the necessary resolution to distinguish unanswerable questions from answerable ones, neither fine-tuning the classification MLP head in isolation nor attaching shallow handcrafted diagnostic residuals can resolve the boundary. Both interventions degrade proper scoring rules (NLL and Brier) while failing to recover required true-positive recall.
 10. **Blinded Adjudication Preceding Representation Learning**:
     Before committing compute to upstream token-level representation retraining, systematic errors must be evaluated under double-blind protocols. If dataset annotations contain inherent ambiguity or unresolvable answerability boundaries, training larger models against noisy labels guarantees failure. Rigorous error audits provide the only sound prerequisite for new representation modeling.
+11. **Answer-Bearing Representation Coverage vs Raw State Coverage**:
+    Passing string-length and character-hash validation on state documents does not guarantee that the serialized text contains the answer-bearing representation. When tables, float values, figure contents, or bibliography citations are dropped or truncated during serialization, answerable questions become unanswerable in the representation space. Models cannot learn representations for data that was never serialized; benchmark serialization repair and data adjudication must precede model retraining.
