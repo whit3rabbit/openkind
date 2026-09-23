@@ -176,6 +176,30 @@ fn choose_strategy_repeated_full_when_sharing_does_not_pay() {
 }
 
 #[test]
+fn choose_strategy_handles_degenerate_zero_token_request() {
+    let config = scheduler_config(1.5);
+    let request = StrategyRequest {
+        root_tokens: 0,
+        question_tokens: Vec::new(),
+        suffix_tokens: Vec::new(),
+    };
+
+    // No tokens means no shared work to amortize (ratio zero, not a division
+    // by zero) and an empty retention footprint, so the scheduler falls back
+    // to repeated-full and admits the request.
+    let decision = choose_strategy(&config, &request);
+    assert_eq!(decision.estimates.shared_tokens, 0);
+    assert_eq!(decision.estimates.repeated_tokens, 0);
+    assert_eq!(decision.estimates.savings_ratio, 0.0);
+    assert_eq!(
+        decision.retention.repeated_full_tensor_bytes, 0,
+        "nothing is retained for an empty request"
+    );
+    assert_eq!(decision.strategy, ExecutionStrategy::RepeatedFull);
+    assert!(decision.admitted);
+}
+
+#[test]
 fn choose_strategy_falls_back_through_the_memory_ceiling() {
     let config = vectorized_scheduler_config(1.5);
     let request = StrategyRequest {

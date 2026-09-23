@@ -14,13 +14,44 @@ use super::options::{
 use crate::error::Error;
 use crate::retry::RetryPolicy;
 
+/// The endpoints this SDK talks to, with per-endpoint request URLs resolved
+/// once at client construction instead of formatted and parsed per call.
+#[derive(Clone)]
+pub(crate) struct EndpointUrls {
+    /// `POST` target for evaluation requests.
+    pub(crate) system_one: reqwest::Url,
+    /// `GET` target for model discovery.
+    pub(crate) models: reqwest::Url,
+    /// `GET` target for liveness probes.
+    pub(crate) health: reqwest::Url,
+}
+
+impl EndpointUrls {
+    pub(crate) fn new(base_url: &str) -> Result<Self, Error> {
+        let join = |path: &str| {
+            reqwest::Url::parse(&format!("{base_url}{path}"))
+                .map_err(|e| Error::Config(format!("invalid base URL `{base_url}`: {e}")))
+        };
+        Ok(Self {
+            system_one: join(SYSTEM_ONE_PATH)?,
+            models: join(MODELS_PATH)?,
+            health: join(HEALTH_PATH)?,
+        })
+    }
+}
+
 pub(crate) struct ClientInner {
     pub(crate) http: reqwest::Client,
     pub(crate) base_url: String,
+    pub(crate) urls: EndpointUrls,
     pub(crate) default_model: String,
     pub(crate) timeout: Duration,
     pub(crate) retry: RetryPolicy,
     pub(crate) base_headers: HeaderMap,
+    /// Direct HTTP/1.1 pool used for plain-`http` base URLs. `None` keeps
+    /// every request on the reqwest transport (https base URLs, caller
+    /// supplied HTTP clients, or proxy environments).
+    pub(crate) fast_h1: Option<tokio::sync::Mutex<super::http1::H1Pool>>,
 }
 
 /// An async client for the SystemOne HTTP API.
@@ -77,10 +108,18 @@ impl Client {
         request: SystemRequest,
         opts: &RequestOptions,
     ) -> Result<SystemResponse, Error> {
-        let body = serde_json::to_value(&request)
+        // Serialize once here; the transport sends the bytes directly so the
+        // request is not serialized a second time inside the HTTP client.
+        let body = serde_json::to_vec(&request)
             .map_err(|e| Error::Config(format!("request could not be serialized: {e}")))?;
-        self.send_json(Method::POST, SYSTEM_ONE_PATH, Some(&body), opts)
-            .await
+        self.send_json(
+            Method::POST,
+            &self.inner.urls.system_one,
+            SYSTEM_ONE_PATH,
+            Some(body),
+            opts,
+        )
+        .await
     }
 
     /// Evaluate ad-hoc questions against a state, mirroring the Python SDK's
@@ -144,7 +183,14 @@ impl Client {
 
     /// [`list_models`](Self::list_models) with per-call [`RequestOptions`].
     pub async fn list_models_with(&self, opts: &RequestOptions) -> Result<ModelsResponse, Error> {
-        self.send_json(Method::GET, MODELS_PATH, None, opts).await
+        self.send_json(
+            Method::GET,
+            &self.inner.urls.models,
+            MODELS_PATH,
+            None,
+            opts,
+        )
+        .await
     }
 
     /// `GET /health` — liveness probe. Unauthenticated, so it works even
@@ -155,6 +201,13 @@ impl Client {
 
     /// [`health`](Self::health) with per-call [`RequestOptions`].
     pub async fn health_with(&self, opts: &RequestOptions) -> Result<Health, Error> {
-        self.send_json(Method::GET, HEALTH_PATH, None, opts).await
+        self.send_json(
+            Method::GET,
+            &self.inner.urls.health,
+            HEALTH_PATH,
+            None,
+            opts,
+        )
+        .await
     }
 }

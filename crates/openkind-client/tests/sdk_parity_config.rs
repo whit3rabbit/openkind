@@ -39,7 +39,7 @@ async fn model_override_beats_client_default() {
     let request = openkind_client::SystemRequest {
         state: openkind_client::State::Text("hello".into()),
         model: "call-model".into(),
-        questions: HashMap::from([("q".to_string(), question::noul("?"))]),
+        questions: HashMap::from_iter([("q".to_string(), question::noul("?"))]),
     };
     client.evaluate(request).await.unwrap();
     assert_eq!(
@@ -155,7 +155,7 @@ fn request_builders_compose_without_network() {
             json!({"document": "hello"}).as_object().unwrap().clone(),
         ),
         model: "jev-latest".into(),
-        questions: HashMap::from([
+        questions: HashMap::from_iter([
             ("spam".to_string(), question::noul("Spam?")),
             (
                 "tone".to_string(),

@@ -23,6 +23,8 @@ mod layer0_tests;
 #[cfg(test)]
 mod nested_tests;
 #[cfg(test)]
+mod persistence_tests;
+#[cfg(test)]
 mod strategy_tests;
 #[cfg(test)]
 mod test_support;

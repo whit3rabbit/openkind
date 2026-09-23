@@ -50,7 +50,7 @@ impl RateLimiter {
     pub fn new(config: RateLimitConfig) -> Self {
         Self {
             config,
-            buckets: Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+            buckets: Arc::new(std::sync::Mutex::new(std::collections::HashMap::default())),
         }
     }
 

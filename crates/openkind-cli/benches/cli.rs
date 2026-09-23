@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::hint::black_box;
 
-use clap::Parser;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use openkind_cli::{parse_and_validate_request, Cli};
 use openkind_core::{NoulQuestion, Question, State, SystemRequest};
@@ -19,7 +18,7 @@ fn request_json(question_count: usize) -> String {
                 }),
             )
         })
-        .collect::<HashMap<_, _>>();
+        .collect::<HashMap<_, _, _>>();
     serde_json::to_string(&SystemRequest {
         state: State::Text("A deterministic CLI benchmark state.".into()),
         model: "mock".into(),

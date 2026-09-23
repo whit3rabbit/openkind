@@ -4,13 +4,15 @@
 //! > A `Question` is one of three types, set by its `type` field. All three
 //! > share `type` and `instructions`; each adds its own `criteria`.
 
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::de::{Error as _, IgnoredAny, MapAccess, Visitor};
+use serde::{Deserialize, Deserializer, Serialize};
 
 /// Tagged union of the three question kinds. The `type` field is the discriminant.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, PartialEq, Serialize, JsonSchema)]
 #[serde(tag = "type", rename_all = "lowercase")]
 pub enum Question {
     /// Boolean probability evaluation (yes/no), returning a single probability value.
@@ -19,6 +21,143 @@ pub enum Question {
     Choice(ChoiceQuestion),
     /// Ordinal rating evaluation rated along an ordered rubric of at least 2 levels.
     Score(ScoreQuestion),
+}
+
+// Serde's internally-tagged derive buffers the entire object into `Content`
+// before it can pick a variant, allocating twice per question on every
+// request parse. The visitor below streams the same wire format directly:
+// it reads `type` (emitted first by this engine and the reference SDKs) and
+// deserializes the remaining fields straight into the selected variant.
+// Fields that legitimately arrive before `type` are buffered as JSON values
+// and converted once the tag is known, and every rejected shape (missing or
+// unknown tag, missing or duplicate fields, wrong field types) still fails
+// exactly like the derived implementation.
+impl<'de> Deserialize<'de> for Question {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct QuestionVisitor;
+
+        impl<'de> Visitor<'de> for QuestionVisitor {
+            type Value = Question;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("a tagged question object")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut tag: Option<Cow<'de, str>> = None;
+                // `instructions` has the same shape in every variant, so it
+                // streams even before the tag is known. `criteria` differs
+                // per variant and is buffered as a JSON value if it arrives
+                // before the tag.
+                let mut instructions: Option<Instructions> = None;
+                let mut early_criteria: Option<serde_json::Value> = None;
+                let mut noul_criteria: Option<Option<NoulCriteria>> = None;
+                let mut choice_criteria: Option<HashMap<String, Option<String>>> = None;
+                let mut score_criteria: Option<Vec<String>> = None;
+
+                while let Some(key) = map.next_key::<Cow<'de, str>>()? {
+                    match key.as_ref() {
+                        "type" => {
+                            if tag.is_some() {
+                                return Err(A::Error::duplicate_field("type"));
+                            }
+                            let value = map.next_value::<Cow<'de, str>>()?;
+                            tag = Some(match value.as_ref() {
+                                "noul" | "choice" | "score" => value,
+                                other => {
+                                    return Err(A::Error::unknown_variant(
+                                        other,
+                                        &["noul", "choice", "score"],
+                                    ))
+                                }
+                            });
+                        }
+                        "instructions" => {
+                            if instructions.is_some() {
+                                return Err(A::Error::duplicate_field("instructions"));
+                            }
+                            instructions = Some(map.next_value()?);
+                        }
+                        "criteria" => {
+                            let already_buffered = early_criteria.is_some()
+                                || noul_criteria.is_some()
+                                || choice_criteria.is_some()
+                                || score_criteria.is_some();
+                            if already_buffered {
+                                return Err(A::Error::duplicate_field("criteria"));
+                            }
+                            match tag.as_deref() {
+                                None => early_criteria = Some(map.next_value()?),
+                                Some("noul") => {
+                                    noul_criteria = Some(map.next_value::<Option<NoulCriteria>>()?)
+                                }
+                                Some("choice") => choice_criteria = Some(map.next_value()?),
+                                Some("score") => score_criteria = Some(map.next_value()?),
+                                Some(_) => unreachable!("tag matched one of the variants above"),
+                            }
+                        }
+                        _ => {
+                            let _ = map.next_value::<IgnoredAny>()?;
+                        }
+                    }
+                }
+
+                let tag = tag.ok_or_else(|| A::Error::missing_field("type"))?;
+                let instructions =
+                    instructions.ok_or_else(|| A::Error::missing_field("instructions"))?;
+                match tag.as_ref() {
+                    "noul" => Ok(Question::Noul(NoulQuestion {
+                        instructions,
+                        criteria: match noul_criteria {
+                            Some(criteria) => criteria,
+                            // `null` criteria deserializes to `None`, so the
+                            // buffered value converts through the Option.
+                            None => convert_criteria::<Option<NoulCriteria>, _>(early_criteria)?
+                                .flatten(),
+                        },
+                    })),
+                    "choice" => Ok(Question::Choice(ChoiceQuestion {
+                        instructions,
+                        criteria: match choice_criteria {
+                            Some(criteria) => criteria,
+                            None => convert_criteria(early_criteria)?
+                                .ok_or_else(|| A::Error::missing_field("criteria"))?,
+                        },
+                    })),
+                    "score" => Ok(Question::Score(ScoreQuestion {
+                        instructions,
+                        criteria: match score_criteria {
+                            Some(criteria) => criteria,
+                            None => convert_criteria(early_criteria)?
+                                .ok_or_else(|| A::Error::missing_field("criteria"))?,
+                        },
+                    })),
+                    _ => unreachable!("tag validated against the variant list above"),
+                }
+            }
+        }
+
+        deserializer.deserialize_map(QuestionVisitor)
+    }
+}
+
+/// Convert a `criteria` value that arrived before the `type` tag into the
+/// selected variant's criteria type.
+fn convert_criteria<T, E>(early: Option<serde_json::Value>) -> Result<Option<T>, E>
+where
+    T: serde::de::DeserializeOwned,
+    E: serde::de::Error,
+{
+    early
+        .map(serde_json::from_value)
+        .transpose()
+        .map_err(E::custom)
 }
 
 /// `instructions` is `string | object | array` per the spec.

@@ -11,8 +11,15 @@ enum RequestInputError {
     Validate(ValidationError),
 }
 
+#[inline]
 fn parse_and_validate(raw: &str) -> Result<SystemRequest, RequestInputError> {
-    let request = serde_json::from_str(raw).map_err(RequestInputError::Parse)?;
+    // sonic-rs parses the same serde data model measurably faster for
+    // CLI-sized documents; on any parse failure re-parse with serde_json
+    // so error text stays byte-identical with the wire-standard parser.
+    let request = match sonic_rs::from_str(raw) {
+        Ok(request) => request,
+        Err(_) => serde_json::from_str(raw).map_err(RequestInputError::Parse)?,
+    };
     validate_request(&request).map_err(RequestInputError::Validate)?;
     Ok(request)
 }

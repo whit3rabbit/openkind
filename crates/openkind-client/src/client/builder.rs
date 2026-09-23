@@ -147,6 +147,7 @@ impl ClientBuilder {
         let retry = self.retry.unwrap_or_default();
         retry.validate()?;
 
+        let owns_http_client = self.http_client.is_none();
         let http = match self.http_client {
             Some(client) => client,
             None => {
@@ -199,14 +200,36 @@ impl ClientBuilder {
             .map_err(|_| Error::Config("runtime header construction failed".into()))?,
         );
 
+        // The direct HTTP/1.1 transport applies only when this SDK owns the
+        // HTTP client, the base URL is plain http, and no proxy is
+        // configured — otherwise reqwest handles everything, exactly as
+        // before.
+        let fast_h1 = match (
+            owns_http_client,
+            reqwest::Url::parse(&base_url).ok(),
+            super::http1::proxy_env_present(),
+        ) {
+            (true, Some(url), false) if url.scheme() == "http" => {
+                match (url.host_str(), url.port_or_known_default()) {
+                    (Some(host), Some(port)) => Some(tokio::sync::Mutex::new(
+                        super::http1::H1Pool::new(host, port, self.connect_timeout),
+                    )),
+                    _ => None,
+                }
+            }
+            _ => None,
+        };
+
         Ok(Client {
             inner: Arc::new(ClientInner {
                 http,
+                urls: super::core::EndpointUrls::new(&base_url)?,
                 base_url,
                 default_model,
                 timeout,
                 retry,
                 base_headers,
+                fast_h1,
             }),
         })
     }

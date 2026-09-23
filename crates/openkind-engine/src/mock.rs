@@ -5,26 +5,104 @@
 //! or GGUF engine in Phase 2 and the server is unchanged.
 
 use std::collections::HashMap;
+use std::hash::Hasher;
 
 use async_trait::async_trait;
 use openkind_core::ModelInfo;
 use openkind_core::{
     Answer, ChoiceAnswer, NoulAnswer, Question, ScoreAnswer, SystemRequest, SystemResponse, Usage,
 };
-use rand::{Rng, SeedableRng};
 
 use crate::{DecisionEngine, EngineResult};
 
 /// Hash the question id and instructions into a deterministic seed so
 /// repeated requests get the same answer. Determinism > realism here —
 /// we just want the server to be testable.
+///
+/// The instructions value is hashed structurally (variant-tagged fields)
+/// instead of being serialized to a JSON string first: same determinism,
+/// no per-question formatting or allocation on the request path.
 fn seed_for_question(id: &str, instructions: &serde_json::Value) -> u64 {
     use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
+    use std::hash::Hash;
     let mut h = DefaultHasher::new();
     id.hash(&mut h);
-    instructions.to_string().hash(&mut h);
+    hash_value(&mut h, instructions);
     h.finish()
+}
+
+/// Fold a JSON value into a hasher with variant tags so distinct shapes
+/// (for example the string `"1"` and the number `1`) hash differently.
+fn hash_value<H: Hasher>(h: &mut H, value: &serde_json::Value) {
+    use std::hash::Hash;
+    match value {
+        serde_json::Value::Null => h.write_u8(0),
+        serde_json::Value::Bool(b) => {
+            h.write_u8(1);
+            b.hash(h);
+        }
+        serde_json::Value::Number(n) => {
+            h.write_u8(2);
+            if let Some(i) = n.as_i64() {
+                h.write_u8(0);
+                i.hash(h);
+            } else if let Some(u) = n.as_u64() {
+                h.write_u8(1);
+                u.hash(h);
+            } else if let Some(f) = n.as_f64() {
+                h.write_u8(2);
+                f.to_bits().hash(h);
+            }
+        }
+        serde_json::Value::String(s) => {
+            h.write_u8(3);
+            s.hash(h);
+        }
+        serde_json::Value::Array(a) => {
+            h.write_u8(4);
+            a.len().hash(h);
+            for item in a {
+                hash_value(h, item);
+            }
+        }
+        serde_json::Value::Object(m) => {
+            h.write_u8(5);
+            m.len().hash(h);
+            for (key, item) in m {
+                key.hash(h);
+                hash_value(h, item);
+            }
+        }
+    }
+}
+
+/// Small deterministic SplitMix64 generator. Mock answers only need stable
+/// per-question determinism, not cryptographic quality, and seeding a
+/// ChaCha-backed `StdRng` per question dominated mock dispatch profiles.
+struct SplitMix64(u64);
+
+impl SplitMix64 {
+    fn new(seed: u64) -> Self {
+        Self(seed)
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = self.0;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    }
+
+    /// Uniform `f64` in `[0, 1)` with 53 bits of resolution.
+    fn next_f64(&mut self) -> f64 {
+        (self.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
+    }
+
+    /// Uniform integer in `[0, n)` via multiply-shift.
+    fn next_below(&mut self, n: usize) -> usize {
+        ((self.next_u64() as u128 * n as u128) >> 64) as usize
+    }
 }
 
 /// A mock that returns distributions seeded from `(id, instructions)`.
@@ -71,14 +149,13 @@ impl DecisionEngine for MockEngine {
     }
 
     async fn evaluate(&self, req: SystemRequest) -> EngineResult<SystemResponse> {
-        let mut answers = HashMap::new();
+        let mut answers: HashMap<String, Answer, _> = HashMap::default();
 
         for (id, q) in &req.questions {
-            let seed = seed_for_question(id, instructions_of(q));
-            let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+            let mut rng = SplitMix64::new(seed_for_question(id, instructions_of(q)));
             let answer = match q {
                 Question::Noul(_) => Answer::Noul(NoulAnswer {
-                    noul: rng.random_range(0.05..=0.95),
+                    noul: 0.05 + rng.next_f64() * 0.90,
                 }),
                 Question::Choice(cq) => {
                     let mut keys: Vec<&String> = cq.criteria.keys().collect();
@@ -92,9 +169,7 @@ impl DecisionEngine for MockEngine {
                         });
                     }
                     let n = keys.len() as f64;
-                    let raw: Vec<f64> = (0..keys.len())
-                        .map(|_| rng.random_range(0.0..1.0))
-                        .collect();
+                    let raw: Vec<f64> = (0..keys.len()).map(|_| rng.next_f64()).collect();
                     let sum: f64 = raw.iter().sum();
                     let probs: HashMap<String, f64> = if sum <= 0.0 || !sum.is_finite() {
                         let uniform = 1.0 / n;
@@ -145,7 +220,7 @@ impl DecisionEngine for MockEngine {
                     let mut probs = vec![0.0f64; n];
                     // Bias the peak toward the middle of the range — feels
                     // more realistic than uniform for a mock.
-                    let peak = rng.random_range(0..n);
+                    let peak = rng.next_below(n);
                     for (i, p) in probs.iter_mut().enumerate() {
                         let d = (i as f64 - peak as f64).abs();
                         *p = (-d * 1.5).exp();
@@ -217,7 +292,7 @@ mod tests {
     use openkind_core::{State, SystemRequest};
 
     fn req(model: &str) -> SystemRequest {
-        let mut questions = HashMap::new();
+        let mut questions = HashMap::default();
         questions.insert(
             "is_urgent".into(),
             Question::Noul(openkind_core::NoulQuestion {
@@ -325,12 +400,12 @@ mod tests {
     #[tokio::test]
     async fn empty_criteria_returns_error_not_panic() {
         let engine = MockEngine::new();
-        let mut questions = HashMap::new();
+        let mut questions = HashMap::default();
         questions.insert(
             "bad_choice".into(),
             Question::Choice(openkind_core::ChoiceQuestion {
                 instructions: serde_json::json!("pick"),
-                criteria: HashMap::new(),
+                criteria: HashMap::default(),
             }),
         );
         questions.insert(
@@ -359,5 +434,99 @@ mod tests {
         let meta = engine.model_metadata();
         assert_eq!(meta.release_date, "2026-01-01");
         assert!(meta.description.contains("wire protocol"));
+    }
+
+    #[test]
+    fn seed_for_question_distinguishes_json_shapes() {
+        // One representative per `Value` variant, plus the integer/float
+        // number encodings: the variant tags must keep every seed distinct.
+        let shapes = [
+            serde_json::json!("1"),
+            serde_json::json!(1),
+            serde_json::json!(1.0),
+            serde_json::json!(true),
+            serde_json::Value::Null,
+            serde_json::json!([1]),
+            serde_json::json!({"a": 1}),
+        ];
+        let seeds: Vec<u64> = shapes.iter().map(|v| seed_for_question("q", v)).collect();
+        let unique: std::collections::HashSet<u64> = seeds.iter().copied().collect();
+        assert_eq!(
+            unique.len(),
+            seeds.len(),
+            "variant tags must keep seeds distinct, got {seeds:?}"
+        );
+        // Same input always hashes to the same seed.
+        for value in &shapes {
+            assert_eq!(seed_for_question("q", value), seed_for_question("q", value));
+        }
+        // Deeply nested values recurse without panicking and stay stable.
+        let nested = serde_json::json!([[1, {"b": [2.5]}], {"a": null, "c": [true, "x"]}]);
+        assert_eq!(
+            seed_for_question("deep", &nested),
+            seed_for_question("deep", &nested)
+        );
+    }
+
+    #[test]
+    fn splitmix64_values_stay_in_range() {
+        let mut rng = SplitMix64::new(0xDEAD_BEEF);
+        for _ in 0..10_000 {
+            let x = rng.next_f64();
+            assert!((0.0..1.0).contains(&x), "next_f64 escaped [0, 1): {x}");
+        }
+        for n in [1usize, 2, 7, 100] {
+            for _ in 0..10_000 {
+                let i = rng.next_below(n);
+                assert!(i < n, "next_below({n}) escaped range: {i}");
+            }
+        }
+        // The degenerate single-criterion score draw has exactly one
+        // valid index.
+        assert_eq!(rng.next_below(1), 0);
+        assert_eq!(rng.next_below(1), 0);
+    }
+
+    #[tokio::test]
+    async fn mock_is_deterministic_for_non_string_instructions() {
+        let request = |instructions: serde_json::Value| {
+            let mut questions = HashMap::default();
+            questions.insert(
+                "structured".into(),
+                Question::Noul(openkind_core::NoulQuestion {
+                    instructions,
+                    criteria: None,
+                }),
+            );
+            SystemRequest {
+                state: State::Text("x".into()),
+                model: "mock".into(),
+                questions,
+            }
+        };
+        let engine = MockEngine::new();
+
+        let structured = serde_json::json!([{"role": "user", "text": "urgent?"}]);
+        let a = engine.evaluate(request(structured.clone())).await.unwrap();
+        let b = engine.evaluate(request(structured)).await.unwrap();
+        match (&a.answers["structured"], &b.answers["structured"]) {
+            (Answer::Noul(x), Answer::Noul(y)) => assert_eq!(x.noul, y.noul),
+            _ => panic!("expected noul answers"),
+        }
+
+        // The string `"1"` and the number `1` hash differently, so their
+        // answers must not alias.
+        let number = engine
+            .evaluate(request(serde_json::json!(1)))
+            .await
+            .unwrap();
+        let string = engine
+            .evaluate(request(serde_json::json!("1")))
+            .await
+            .unwrap();
+        match (&number.answers["structured"], &string.answers["structured"]) {
+            (Answer::Noul(x), Answer::Noul(y)) => assert_ne!(x.noul, y.noul),
+            _ => panic!("expected noul answers"),
+        }
     }
 }

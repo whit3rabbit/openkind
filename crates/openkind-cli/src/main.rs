@@ -1,7 +1,7 @@
 use anyhow::Result;
-use clap::Parser;
 use openkind_cli::Cli;
 
 fn main() -> Result<()> {
-    openkind_cli::run(Cli::parse())
+    let cli = Cli::try_parse_from(std::env::args_os()).unwrap_or_else(|err| err.exit());
+    openkind_cli::run(cli)
 }

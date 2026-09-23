@@ -2,11 +2,14 @@
 
 use std::time::{Duration, Instant};
 
+use reqwest::header::CONTENT_TYPE;
 use reqwest::Method;
 use serde::de::DeserializeOwned;
 
 use super::core::Client;
-use super::options::{RequestOptions, RETRY_COUNT_HEADER};
+use super::options::{
+    RequestOptions, HEALTH_PATH, MODELS_PATH, RETRY_COUNT_HEADER, SYSTEM_ONE_PATH,
+};
 use crate::error::{parse_retry_after, ApiError, Error, REQUEST_ID_HEADER};
 
 /// Maximum number of response-body bytes buffered by the client (8 MiB).
@@ -19,9 +22,9 @@ pub const MAX_RESPONSE_BODY_SIZE: usize = 8 * 1024 * 1024;
 /// attempt (only the retry count and headers differ between attempts).
 pub(crate) struct RequestDesc<'a> {
     pub(crate) method: Method,
-    pub(crate) url: String,
-    pub(crate) endpoint: String,
-    pub(crate) body: Option<&'a serde_json::Value>,
+    pub(crate) url: &'a reqwest::Url,
+    pub(crate) endpoint: &'static str,
+    pub(crate) body: Option<Vec<u8>>,
     pub(crate) timeout: Duration,
 }
 
@@ -31,15 +34,21 @@ impl Client {
     pub(crate) async fn send_json<T: DeserializeOwned>(
         &self,
         method: Method,
-        path: &str,
-        body: Option<&serde_json::Value>,
+        url: &reqwest::Url,
+        path: &'static str,
+        body: Option<Vec<u8>>,
         opts: &RequestOptions,
     ) -> Result<T, Error> {
         let policy = opts.retry.as_ref().unwrap_or(&self.inner.retry);
-        let endpoint = format!("{method} {path}");
+        let endpoint: &'static str = match path {
+            SYSTEM_ONE_PATH => "POST /v1/systemone",
+            MODELS_PATH => "GET /v1/models",
+            HEALTH_PATH => "GET /health",
+            _ => "GET /",
+        };
         let desc = RequestDesc {
             method,
-            url: format!("{}{}", self.inner.base_url, path),
+            url,
             endpoint,
             body,
             timeout: opts.timeout.unwrap_or(self.inner.timeout),
@@ -95,18 +104,64 @@ impl Client {
                 }
             }
         }
+
+        // Direct HTTP/1.1 transport for plain-http targets. A redirect
+        // response falls through to the reqwest path below so the whole
+        // chain is followed exactly as reqwest would.
+        if let Some(pool) = self.inner.fast_h1.as_ref() {
+            let pool = pool.lock().await;
+            let target = request_target(desc.url);
+            let wire = super::http1::encode_request(
+                desc.method.as_str(),
+                &target,
+                pool.authority(),
+                &headers,
+                desc.body.as_deref(),
+                (retries > 0).then_some(retries),
+            );
+            match super::http1::exchange(&pool, &wire, MAX_RESPONSE_BODY_SIZE, desc.timeout).await {
+                Ok(Ok(response)) => {
+                    let retry_after = if (200..300).contains(&response.status) {
+                        None
+                    } else {
+                        crate::error::parse_retry_after_with(|name| response.header(name))
+                    };
+                    return finish_response(
+                        response.status,
+                        response.header(REQUEST_ID_HEADER).map(str::to_owned),
+                        retry_after,
+                        response.body,
+                        desc,
+                    );
+                }
+                Ok(Err(super::http1::FastError::Redirect)) => {}
+                Ok(Err(error)) => {
+                    return Err(super::http1::classify_fast_error(
+                        error,
+                        desc.timeout,
+                        MAX_RESPONSE_BODY_SIZE,
+                    ))
+                }
+                Err(timeout_error) => return Err(timeout_error),
+            }
+        }
+
         let mut request = self
             .inner
             .http
-            .request(desc.method.clone(), &desc.url)
+            .request(desc.method.clone(), desc.url.clone())
             .headers(headers)
             .timeout(desc.timeout);
         if retries > 0 {
             // Lets the server observe (and metrics count) client retries.
             request = request.header(RETRY_COUNT_HEADER, retries.to_string());
         }
-        if let Some(body) = desc.body {
-            request = request.json(body);
+        if let Some(body) = &desc.body {
+            // Byte-identical to `.json(body)`: the JSON was serialized once
+            // by the caller and is stamped with the same content type.
+            request = request
+                .header(CONTENT_TYPE, "application/json")
+                .body(body.clone());
         }
 
         let mut response = request
@@ -136,7 +191,14 @@ impl Client {
         // Do not trust Content-Length as the enforcement mechanism: it may be
         // absent (for example, for chunked bodies) or incorrect. Count bytes
         // while consuming the stream and reject before extending the buffer.
-        let mut bytes = Vec::new();
+        // When present, it still sizes the buffer so the body is not
+        // reallocated while growing.
+        let mut bytes = Vec::with_capacity(
+            response
+                .content_length()
+                .map(|length| (length as usize).min(MAX_RESPONSE_BODY_SIZE))
+                .unwrap_or(0),
+        );
         while let Some(chunk) = response
             .chunk()
             .await
@@ -156,15 +218,44 @@ impl Client {
                 request_id,
                 retry_after,
                 &bytes,
-                desc.endpoint.clone(),
+                desc.endpoint.to_string(),
             ))));
         }
 
-        serde_json::from_slice(&bytes).map_err(|source| Error::Decode {
-            status: status.as_u16(),
-            body_excerpt: String::from_utf8_lossy(&bytes).chars().take(200).collect(),
-            source,
-        })
+        finish_response(status.as_u16(), request_id, retry_after, bytes, desc)
+    }
+}
+
+/// Shared response tail: non-2xx maps to [`ApiError`] (with retry-after and
+/// request-id extracted by the caller), 2xx decodes as `T`.
+fn finish_response<T: DeserializeOwned>(
+    status: u16,
+    request_id: Option<String>,
+    retry_after: Option<std::time::Duration>,
+    bytes: Vec<u8>,
+    desc: &RequestDesc<'_>,
+) -> Result<T, Error> {
+    if !(200..300).contains(&status) {
+        return Err(Error::Api(Box::new(ApiError::from_response(
+            status,
+            request_id,
+            retry_after,
+            &bytes,
+            desc.endpoint.to_string(),
+        ))));
+    }
+    serde_json::from_slice(&bytes).map_err(|source| Error::Decode {
+        status,
+        body_excerpt: String::from_utf8_lossy(&bytes).chars().take(200).collect(),
+        source,
+    })
+}
+
+/// Request target (path plus optional query) for the HTTP/1.1 request line.
+fn request_target(url: &reqwest::Url) -> String {
+    match url.query() {
+        Some(query) => format!("{}?{}", url.path(), query),
+        None => url.path().to_owned(),
     }
 }
 
@@ -188,6 +279,6 @@ pub(crate) fn classify_transport_error(error: reqwest::Error, timeout: Duration)
     if error.is_timeout() {
         Error::Timeout { timeout }
     } else {
-        Error::Connection(error)
+        Error::Connection(Box::new(error))
     }
 }

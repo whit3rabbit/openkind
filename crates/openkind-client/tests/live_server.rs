@@ -125,7 +125,7 @@ async fn evaluate_with_explicit_system_request() {
             .clone(),
         ),
         model: "mock".into(),
-        questions: std::collections::HashMap::from([(
+        questions: std::collections::HashMap::from_iter([(
             "billing".to_string(),
             question::noul("Is this about billing?"),
         )]),
@@ -173,7 +173,7 @@ async fn unknown_model_is_not_found() {
     let request = openkind_client::SystemRequest {
         state: openkind_client::State::Text("hello".into()),
         model: "no-such-model".into(),
-        questions: std::collections::HashMap::from([(
+        questions: std::collections::HashMap::from_iter([(
             "q".to_string(),
             question::noul("Is this billing?"),
         )]),
@@ -309,7 +309,7 @@ async fn question_schema_validation_is_left_to_api() {
                 "c",
                 openkind_client::Question::Choice(openkind_core::ChoiceQuestion {
                     instructions: serde_json::json!("Pick one"),
-                    criteria: std::collections::HashMap::new(),
+                    criteria: std::collections::HashMap::default(),
                 }),
             )],
         )

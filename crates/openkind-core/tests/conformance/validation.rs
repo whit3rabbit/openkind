@@ -81,7 +81,7 @@ fn response_probabilities_must_sum_to_one() {
         "usage": { "input_tokens": 1, "output_tokens": 1 }
     });
     let resp: SystemResponse = serde_json::from_value(raw).unwrap();
-    let mut criteria = HashMap::new();
+    let mut criteria = HashMap::default();
     criteria.insert(
         "department".to_string(),
         vec!["billing".into(), "technical".into(), "sales".into()],
@@ -107,7 +107,7 @@ fn response_choice_not_in_criteria_is_rejected() {
         "usage": { "input_tokens": 1, "output_tokens": 1 }
     });
     let resp: SystemResponse = serde_json::from_value(raw).unwrap();
-    let mut criteria = HashMap::new();
+    let mut criteria = HashMap::default();
     criteria.insert("department".to_string(), vec!["billing".into()]);
     assert!(matches!(
         validate_response(&resp, &criteria),
@@ -130,7 +130,7 @@ fn response_confidence_must_be_in_range() {
         "usage": { "input_tokens": 1, "output_tokens": 1 }
     });
     let resp: SystemResponse = serde_json::from_value(raw).unwrap();
-    let mut criteria = HashMap::new();
+    let mut criteria = HashMap::default();
     criteria.insert("department".to_string(), vec!["billing".into()]);
     assert!(matches!(
         validate_response(&resp, &criteria),
@@ -173,7 +173,7 @@ fn score_legend_and_probability_keys_must_match() {
         "usage": { "input_tokens": 1, "output_tokens": 1 }
     });
     let resp: SystemResponse = serde_json::from_value(raw).unwrap();
-    let mut criteria = HashMap::new();
+    let mut criteria = HashMap::default();
     criteria.insert("frustration".to_string(), Vec::new());
     assert!(matches!(
         validate_response(&resp, &criteria),
@@ -197,7 +197,7 @@ fn score_indices_must_be_numeric_strings() {
         "usage": { "input_tokens": 1, "output_tokens": 1 }
     });
     let resp: SystemResponse = serde_json::from_value(raw).unwrap();
-    let mut criteria = HashMap::new();
+    let mut criteria = HashMap::default();
     criteria.insert("frustration".to_string(), Vec::new());
     assert!(matches!(
         validate_response(&resp, &criteria),

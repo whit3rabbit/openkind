@@ -54,7 +54,7 @@ fn request(question_count: usize) -> SystemRequest {
                 }),
             )
         })
-        .collect::<HashMap<_, _>>();
+        .collect::<HashMap<_, _, _>>();
     SystemRequest {
         state: State::Text("A deterministic client benchmark state.".into()),
         model: "mock".into(),

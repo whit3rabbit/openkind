@@ -16,7 +16,7 @@ use crate::mock::MockEngine;
 use crate::registry::EngineRegistry;
 
 fn make_test_request(model: &str) -> SystemRequest {
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     questions.insert(
         "urgent".into(),
         Question::Noul(NoulQuestion {
@@ -80,7 +80,7 @@ async fn dispatch_returns_validation_error_on_invalid_request() {
     let invalid_req = SystemRequest {
         state: State::Text("hello".into()),
         model: "mock".into(),
-        questions: HashMap::new(), // empty questions is invalid
+        questions: HashMap::default(), // empty questions is invalid
     };
     let err = dispatch(invalid_req, &reg).await.unwrap_err();
     assert!(matches!(
@@ -110,7 +110,7 @@ async fn dispatch_preserves_engine_reported_tokens() {
             "explicit"
         }
         async fn evaluate(&self, req: SystemRequest) -> EngineResult<SystemResponse> {
-            let mut answers = HashMap::new();
+            let mut answers = HashMap::default();
             for id in req.questions.keys() {
                 answers.insert(id.clone(), Answer::Noul(NoulAnswer { noul: 0.5 }));
             }
@@ -142,7 +142,7 @@ async fn dispatch_estimates_output_tokens_per_answer_kind() {
             "multi"
         }
         async fn evaluate(&self, req: SystemRequest) -> EngineResult<SystemResponse> {
-            let mut answers = HashMap::new();
+            let mut answers = HashMap::default();
             for (id, q) in &req.questions {
                 match q {
                     Question::Noul(_) => {
@@ -150,7 +150,7 @@ async fn dispatch_estimates_output_tokens_per_answer_kind() {
                     }
                     Question::Choice(c) => {
                         let pick = c.criteria.keys().next().cloned().unwrap();
-                        let mut probs = HashMap::new();
+                        let mut probs = HashMap::default();
                         for k in c.criteria.keys() {
                             probs.insert(k.clone(), 1.0 / c.criteria.len() as f64);
                         }
@@ -164,8 +164,8 @@ async fn dispatch_estimates_output_tokens_per_answer_kind() {
                         );
                     }
                     Question::Score(s) => {
-                        let mut probs = HashMap::new();
-                        let mut legend = HashMap::new();
+                        let mut probs = HashMap::default();
+                        let mut legend = HashMap::default();
                         for (i, name) in s.criteria.iter().enumerate() {
                             probs.insert(i.to_string(), 1.0 / s.criteria.len() as f64);
                             legend.insert(i.to_string(), name.clone());
@@ -195,7 +195,7 @@ async fn dispatch_estimates_output_tokens_per_answer_kind() {
 
     let mut reg = EngineRegistry::new();
     reg.register("multi", Arc::new(MultiAnswerBackend));
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     questions.insert(
         "q1".into(),
         Question::Noul(NoulQuestion {
@@ -203,7 +203,7 @@ async fn dispatch_estimates_output_tokens_per_answer_kind() {
             criteria: None,
         }),
     );
-    let mut choice_criteria = HashMap::new();
+    let mut choice_criteria = HashMap::default();
     choice_criteria.insert("a".into(), None);
     choice_criteria.insert("b".into(), None);
     questions.insert(
@@ -242,7 +242,7 @@ async fn dispatch_rejects_backend_that_skips_answers() {
         async fn evaluate(&self, _req: SystemRequest) -> EngineResult<SystemResponse> {
             Ok(SystemResponse {
                 model: "drop".into(),
-                answers: HashMap::new(), // returns nothing!
+                answers: HashMap::default(), // returns nothing!
                 usage: Usage {
                     input_tokens: 1,
                     output_tokens: 1,
@@ -270,7 +270,7 @@ async fn dispatch_rejects_backend_with_nan_probabilities() {
             "nan"
         }
         async fn evaluate(&self, req: SystemRequest) -> EngineResult<SystemResponse> {
-            let mut answers = HashMap::new();
+            let mut answers = HashMap::default();
             for id in req.questions.keys() {
                 answers.insert(id.clone(), Answer::Noul(NoulAnswer { noul: f64::NAN }));
             }
@@ -322,7 +322,7 @@ fn token_estimation_handles_text_object_and_array_states() {
         state: State::Text("12345678".into()), // 8 chars -> 2 tokens
         model: "mock".into(),
         questions: {
-            let mut q = HashMap::new();
+            let mut q = HashMap::default();
             q.insert(
                 "q1".into(),
                 Question::Noul(NoulQuestion {
@@ -342,7 +342,7 @@ fn token_estimation_handles_text_object_and_array_states() {
     let req_obj = SystemRequest {
         state: State::Object(map),
         model: "mock".into(),
-        questions: HashMap::new(),
+        questions: HashMap::default(),
     };
     assert!(engine.estimate_input_tokens(&req_obj) > 0);
 
@@ -350,7 +350,7 @@ fn token_estimation_handles_text_object_and_array_states() {
     let req_arr = SystemRequest {
         state: State::Array(vec![serde_json::json!(1), serde_json::json!(2)]),
         model: "mock".into(),
-        questions: HashMap::new(),
+        questions: HashMap::default(),
     };
     assert!(engine.estimate_input_tokens(&req_arr) > 0);
 }

@@ -21,13 +21,18 @@ pub const AUTH_HEADER: HeaderName = HeaderName::from_static("authorization");
 pub struct AuthConfig {
     /// Expected Bearer API key token wrapped in an `Arc`. If `None`, authentication is disabled.
     pub expected: Arc<Option<String>>,
+    /// SHA-256 digest of the expected token, computed once at construction so
+    /// the per-request comparison only hashes the supplied token.
+    expected_digest: Option<[u8; 32]>,
 }
 
 impl AuthConfig {
     /// Construct a new `AuthConfig` with the specified optional expected API key token.
     pub fn new(expected: Option<String>) -> Self {
+        let expected_digest = expected.as_deref().map(digest_of);
         Self {
             expected: Arc::new(expected),
+            expected_digest,
         }
     }
 
@@ -65,7 +70,7 @@ pub async fn auth_layer(
     req: Request<Body>,
     next: Next,
 ) -> Response {
-    let path = req.uri().path().to_string();
+    let path = req.uri().path();
     if !auth.is_required()
         || path == "/health"
         || path == "/metrics"
@@ -83,8 +88,11 @@ pub async fn auth_layer(
                 .or_else(|| s.strip_prefix("bearer "))
         });
 
-    let ok = match (supplied, auth.expected.as_deref()) {
-        (Some(given), Some(expected)) => secure_token_eq(given, expected),
+    let ok = match (supplied, auth.expected_digest.as_ref()) {
+        (Some(given), Some(expected_digest)) => {
+            use subtle::ConstantTimeEq;
+            digest_of(given).ct_eq(expected_digest).into()
+        }
         _ => false,
     };
 
@@ -112,6 +120,14 @@ pub async fn auth_layer(
     next.run(req).await
 }
 
+/// SHA-256 digest of one token as a fixed 32-byte array.
+fn digest_of(token: &str) -> [u8; 32] {
+    let digest = ring::digest::digest(&ring::digest::SHA256, token.as_bytes());
+    let mut out = [0u8; 32];
+    out.copy_from_slice(digest.as_ref());
+    out
+}
+
 /// Secure constant-time token comparison.
 ///
 /// To completely eliminate timing side-channels (including length-leakage attacks),
@@ -119,9 +135,7 @@ pub async fn auth_layer(
 /// are compared in constant time using `subtle::ConstantTimeEq`.
 pub fn secure_token_eq(a: &str, b: &str) -> bool {
     use subtle::ConstantTimeEq;
-    let digest_a = ring::digest::digest(&ring::digest::SHA256, a.as_bytes());
-    let digest_b = ring::digest::digest(&ring::digest::SHA256, b.as_bytes());
-    digest_a.as_ref().ct_eq(digest_b.as_ref()).into()
+    digest_of(a).ct_eq(&digest_of(b)).into()
 }
 
 /// Dummy route handler used when attaching authentication middleware as an independent router layer.

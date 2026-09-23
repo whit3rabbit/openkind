@@ -22,7 +22,7 @@ async fn grpc_empty_questions_returns_error() {
     let url = format!("http://{addr}");
     let mut client = SystemOneClient::connect(url).await.unwrap();
 
-    let pb_req = req("mock", HashMap::new());
+    let pb_req = req("mock", HashMap::default());
     let resp = client.evaluate(pb_req).await;
     assert!(resp.is_err(), "empty questions must produce a gRPC error");
 
@@ -42,7 +42,7 @@ async fn grpc_unknown_model_returns_not_found() {
     let url = format!("http://{addr}");
     let mut client = SystemOneClient::connect(url).await.unwrap();
 
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     questions.insert("q".to_string(), noul_q());
     let pb_req = req("no-such-model", questions);
     let resp = client.evaluate(pb_req).await;
@@ -66,7 +66,7 @@ async fn grpc_missing_state_returns_invalid_argument() {
     let url = format!("http://{addr}");
     let mut client = SystemOneClient::connect(url).await.unwrap();
 
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     questions.insert("q".to_string(), noul_q());
     let pb_req = PbRequest {
         state: None,
@@ -93,7 +93,7 @@ async fn grpc_question_without_kind_returns_invalid_argument() {
     let url = format!("http://{addr}");
     let mut client = SystemOneClient::connect(url).await.unwrap();
 
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     questions.insert("q".to_string(), PbQuestion { kind: None });
     let pb_req = req("mock", questions);
 
@@ -117,7 +117,7 @@ async fn grpc_malformed_instructions_json_returns_invalid_argument() {
     let url = format!("http://{addr}");
     let mut client = SystemOneClient::connect(url).await.unwrap();
 
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     questions.insert(
         "q".to_string(),
         PbQuestion {
@@ -149,7 +149,7 @@ async fn grpc_error_carries_request_id_metadata() {
     let url = format!("http://{addr}");
     let mut client = SystemOneClient::connect(url).await.unwrap();
 
-    let pb_req = req("unknown-model", HashMap::new());
+    let pb_req = req("unknown-model", HashMap::default());
     let resp = client.evaluate(pb_req).await;
     let status = resp.unwrap_err();
     let req_id_header = status.metadata().get("x-typesafe-request-id");

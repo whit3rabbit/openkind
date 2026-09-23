@@ -30,6 +30,16 @@ async fn health_endpoint_returns_ok() {
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
+    // The body is a pre-encoded constant; pin the bytes and content type so
+    // probes and SDK health checks keep seeing the JSON shape.
+    assert_eq!(
+        resp.headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok()),
+        Some("application/json")
+    );
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    assert_eq!(body.as_ref(), b"{\"status\":\"ok\"}");
 }
 
 #[tokio::test]

@@ -28,6 +28,7 @@ mod tests;
 
 pub use api_error::{ApiError, ApiErrorKind};
 pub use retry_after::parse_retry_after;
+pub(crate) use retry_after::parse_retry_after_with;
 pub(crate) use retry_after::REQUEST_ID_HEADER;
 
 /// All client failures. [`Error::Api`] wraps the unsuccessful-response case;
@@ -45,7 +46,7 @@ pub enum Error {
     /// The request could not reach, or the response could not be read from,
     /// the server.
     #[error("connection error: {0}")]
-    Connection(#[source] reqwest::Error),
+    Connection(#[source] Box<dyn std::error::Error + Send + Sync>),
 
     /// The request exceeded its per-attempt timeout.
     #[error("request timed out after {timeout:?}")]

@@ -44,7 +44,7 @@ pub use error::{
 };
 pub use models::{ModelInfo, ModelsResponse};
 pub use question::{ChoiceQuestion, NoulCriteria, NoulQuestion, Question, ScoreQuestion};
-pub use request::{SystemRequest, API_VERSION};
+pub use request::{SystemRequest, WireHashState, API_VERSION};
 pub use response::{SystemResponse, Usage};
 pub use state::State;
 

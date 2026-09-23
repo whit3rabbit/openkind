@@ -17,12 +17,27 @@ pub(crate) const RETRY_AFTER_MS_HEADER: &str = "retry-after-ms";
 /// Returns `None` when neither header is present, or their values are
 /// negative, non-finite, or unparseable.
 pub fn parse_retry_after(headers: &HeaderMap) -> Option<Duration> {
-    if let Some(raw) = header_str(headers, RETRY_AFTER_MS_HEADER) {
+    parse_retry_after_with(|name| {
+        headers
+            .get(name)
+            .and_then(|v| v.to_str().ok())
+            .map(str::trim)
+    })
+}
+
+/// Header-source-agnostic core, so the direct HTTP/1.1 transport (which
+/// keeps headers in its own structure) reuses the exact same precedence
+/// and parsing rules.
+pub(crate) fn parse_retry_after_with<'h, F>(lookup: F) -> Option<Duration>
+where
+    F: Fn(&str) -> Option<&'h str>,
+{
+    if let Some(raw) = lookup(RETRY_AFTER_MS_HEADER) {
         if let Some(delay) = finite_millis(raw, 1.0) {
             return Some(delay);
         }
     }
-    if let Some(raw) = header_str(headers, RETRY_AFTER_HEADER) {
+    if let Some(raw) = lookup(RETRY_AFTER_HEADER) {
         if let Some(delay) = finite_millis(raw, 1000.0) {
             return Some(delay);
         }
@@ -31,13 +46,6 @@ pub fn parse_retry_after(headers: &HeaderMap) -> Option<Duration> {
         }
     }
     None
-}
-
-fn header_str<'a>(headers: &'a HeaderMap, name: &str) -> Option<&'a str> {
-    headers
-        .get(name)
-        .and_then(|v| v.to_str().ok())
-        .map(str::trim)
 }
 
 /// Parse a header value as a finite, non-negative number and scale it to

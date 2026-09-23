@@ -36,7 +36,7 @@ async fn grpc_auth_enforces_bearer_token() {
     let url = format!("http://{addr}");
     let mut client = SystemOneClient::connect(url).await.unwrap();
 
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     questions.insert("q".to_string(), noul_q());
     let pb_req = PbRequest {
         state: Some(PbState {
@@ -97,7 +97,7 @@ async fn grpc_auth_accepts_x_api_key_and_lowercase_bearer() {
         .await
         .unwrap();
 
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     questions.insert("q".to_string(), noul_q());
     let pb_req = PbRequest {
         state: Some(PbState {
@@ -139,7 +139,7 @@ async fn grpc_unsafe_request_id_is_replaced_with_uuid() {
         .await
         .unwrap();
 
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     questions.insert("q".to_string(), noul_q());
     let mut request = tonic::Request::new(req("mock", questions));
     // Header-injection attempt: spaces are not safe id characters.

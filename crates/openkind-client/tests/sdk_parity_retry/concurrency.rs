@@ -12,7 +12,7 @@ use super::common::*;
 // ---------------------------------------------------------------------
 #[tokio::test]
 async fn concurrent_calls_have_independent_retry_state() {
-    let counts: Arc<Mutex<HashMap<String, u32>>> = Arc::new(Mutex::new(HashMap::new()));
+    let counts: Arc<Mutex<HashMap<String, u32>>> = Arc::new(Mutex::new(HashMap::default()));
     let (url, requests) = spawn(move |captured: &Captured| {
         let key = captured.call.clone().unwrap_or_default();
         let mut counts = counts.lock().unwrap();
@@ -84,7 +84,7 @@ async fn concurrent_calls_with_distinct_policies_and_models() {
             let request = SystemRequest {
                 state: State::Text(name.into()),
                 model: name.into(),
-                questions: std::collections::HashMap::from([(
+                questions: std::collections::HashMap::from_iter([(
                     "q".to_string(),
                     question::noul("?"),
                 )]),
@@ -157,7 +157,7 @@ async fn retry_recovery_with_full_wire_assertions() {
     let request = SystemRequest {
         state: State::Object(json!({"document": "hello"}).as_object().unwrap().clone()),
         model: "call-model".into(),
-        questions: std::collections::HashMap::from([("q".to_string(), question::noul("?"))]),
+        questions: std::collections::HashMap::from_iter([("q".to_string(), question::noul("?"))]),
     };
     let opts = RequestOptions::new()
         .timeout(Duration::from_millis(3_000))
