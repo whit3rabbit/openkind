@@ -106,7 +106,7 @@ mod tests {
         let request = SystemRequest {
             state: State::Text("hello".into()),
             model: "jev-latest".into(),
-            questions: HashMap::from([
+            questions: HashMap::from_iter([
                 ("b".to_string(), question::noul("Is this billing?")),
                 (
                     "c".to_string(),

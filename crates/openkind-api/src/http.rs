@@ -20,7 +20,6 @@ use axum::{
 };
 use openkind_core::SystemRequest;
 use openkind_engine::{dispatch, EngineRegistry};
-use serde_json::json;
 use tower_http::trace::TraceLayer;
 
 use crate::error::ApiError;
@@ -147,8 +146,19 @@ async fn list_models(State(state): State<Arc<AppState>>) -> Json<ModelsResponse>
 }
 
 /// Service liveness probe handler for GET `/health`.
+///
+/// The body is constant, so it is pre-encoded once instead of rebuilding a
+/// `serde_json::Value` and re-serializing it on every probe. The bytes and
+/// content type match what `Json(json!({"status":"ok"}))` produced.
 async fn health() -> impl IntoResponse {
-    Json(json!({ "status": "ok" }))
+    static HEALTH_BODY: &str = "{\"status\":\"ok\"}";
+    (
+        [(
+            axum::http::header::CONTENT_TYPE,
+            axum::http::HeaderValue::from_static("application/json"),
+        )],
+        HEALTH_BODY,
+    )
 }
 
 static HANDLE: std::sync::OnceLock<metrics_exporter_prometheus::PrometheusHandle> =

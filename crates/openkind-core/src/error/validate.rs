@@ -21,6 +21,7 @@ pub const MAX_CRITERIA_OPTIONS: usize = 10_000;
 /// - all question kinds validate their own `criteria` shape
 /// - for Choice: criteria must be non-empty (no explicit lower bound in spec
 ///   but a zero-option question is meaningless and would 422 from the real API)
+#[inline]
 pub fn validate_request(req: &SystemRequest) -> ValidationResult<()> {
     if req.questions.is_empty() {
         return Err(ValidationError::NoQuestions);
@@ -37,6 +38,7 @@ pub fn validate_request(req: &SystemRequest) -> ValidationResult<()> {
     Ok(())
 }
 
+#[inline]
 fn validate_question(id: &str, q: &Question) -> ValidationResult<()> {
     match q {
         Question::Noul(n) => {
@@ -94,6 +96,7 @@ fn validate_question(id: &str, q: &Question) -> ValidationResult<()> {
     Ok(())
 }
 
+#[inline]
 fn instructions_missing(v: &serde_json::Value) -> bool {
     match v {
         serde_json::Value::String(s) => s.is_empty(),

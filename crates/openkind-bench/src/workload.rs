@@ -114,7 +114,7 @@ impl WorkloadRow {
                 if options.is_empty() {
                     bail!("row `{}`: choice question has no options", self.id);
                 }
-                let mut map: HashMap<String, Option<String>> = HashMap::new();
+                let mut map: HashMap<String, Option<String>> = HashMap::default();
                 for option in options {
                     if option.id == SEMANTIC_NONE_OPTION {
                         let description = option
@@ -225,7 +225,7 @@ pub fn parse_workload(label: &str, raw: &[u8]) -> Result<Workload> {
 /// Groups of row indices sharing one state, in first-appearance order.
 pub fn state_groups(rows: &[WorkloadRow]) -> Result<Vec<Vec<usize>>> {
     let mut order: Vec<String> = Vec::new();
-    let mut groups: HashMap<String, Vec<usize>> = HashMap::new();
+    let mut groups: HashMap<String, Vec<usize>> = HashMap::default();
     for (index, row) in rows.iter().enumerate() {
         let key = row.group_key()?;
         let entry = groups.entry(key.clone()).or_default();
@@ -246,7 +246,8 @@ pub fn state_groups(rows: &[WorkloadRow]) -> Result<Vec<Vec<usize>>> {
 /// produces a single root prefix; [`state_groups`] guarantees this.
 pub fn build_request(model: &str, rows: &[WorkloadRow], group: &[usize]) -> Result<SystemRequest> {
     let first = &rows[*group.first().expect("non-empty group")];
-    let mut questions = HashMap::with_capacity(group.len());
+    let mut questions: HashMap<String, openkind_core::Question, _> =
+        HashMap::with_capacity_and_hasher(group.len(), Default::default());
     for &index in group {
         let row = &rows[index];
         if row.group_key()? != first.group_key()? {

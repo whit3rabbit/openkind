@@ -36,7 +36,7 @@ fn request_body(question_count: usize) -> Vec<u8> {
                 }),
             )
         })
-        .collect::<HashMap<_, _>>();
+        .collect::<HashMap<_, _, _>>();
     serde_json::to_vec(&SystemRequest {
         state: State::Text("A deterministic server benchmark state.".into()),
         model: "mock".into(),

@@ -24,7 +24,7 @@ async fn grpc_roundtrip_returns_one_answer_per_question() {
     let url = format!("http://{addr}");
     let mut client = SystemOneClient::connect(url).await.unwrap();
 
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     questions.insert("is_urgent".to_string(), noul_q());
     let pb_req = req("mock", questions);
 
@@ -50,11 +50,11 @@ async fn grpc_roundtrip_choice_and_score_questions() {
     let url = format!("http://{addr}");
     let mut client = SystemOneClient::connect(url).await.unwrap();
 
-    let mut choice_criteria = HashMap::new();
+    let mut choice_criteria = HashMap::default();
     choice_criteria.insert("billing".into(), "Billing issues".into());
     choice_criteria.insert("tech".into(), "".into()); // empty string mapped to None
 
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     questions.insert("dept".to_string(), choice_q(choice_criteria));
     questions.insert(
         "severity".to_string(),
@@ -109,7 +109,7 @@ async fn grpc_roundtrip_structured_state_and_noul_criteria() {
     }))
     .unwrap();
 
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     questions.insert(
         "q".to_string(),
         PbQuestion {
@@ -157,7 +157,7 @@ async fn grpc_structured_array_state_roundtrip() {
     let url = format!("http://{addr}");
     let mut client = SystemOneClient::connect(url).await.unwrap();
 
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     questions.insert("q".to_string(), noul_q());
     let array_json = serde_json::to_vec(&serde_json::json!([
         {"speaker": "user", "text": "Hello"},

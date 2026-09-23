@@ -108,7 +108,7 @@ fn spec_example_response_noul() {
         "usage": { "input_tokens": 312, "output_tokens": 48 }
     });
     let resp: SystemResponse = serde_json::from_value(raw.clone()).expect("parse");
-    let mut criteria = HashMap::new();
+    let mut criteria = HashMap::default();
     criteria.insert("is_urgent".to_string(), Vec::new());
     validate_response(&resp, &criteria).expect("valid");
     assert_eq!(serde_json::to_value(&resp).unwrap(), raw);
@@ -129,7 +129,7 @@ fn spec_example_response_choice() {
         "usage": { "input_tokens": 312, "output_tokens": 48 }
     });
     let resp: SystemResponse = serde_json::from_value(raw.clone()).expect("parse");
-    let mut criteria = HashMap::new();
+    let mut criteria = HashMap::default();
     criteria.insert(
         "department".to_string(),
         vec!["billing".into(), "technical".into(), "sales".into()],
@@ -154,7 +154,7 @@ fn spec_example_response_score() {
         "usage": { "input_tokens": 312, "output_tokens": 48 }
     });
     let resp: SystemResponse = serde_json::from_value(raw.clone()).expect("parse");
-    let mut criteria = HashMap::new();
+    let mut criteria = HashMap::default();
     criteria.insert("frustration".to_string(), Vec::new());
     validate_response(&resp, &criteria).expect("valid");
     assert_eq!(serde_json::to_value(&resp).unwrap(), raw);

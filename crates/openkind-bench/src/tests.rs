@@ -192,3 +192,79 @@ fn bf16_benchmarks_fail_closed_for_unqualified_nested_strategies() {
         assert!(error.to_string().contains("repeated_full"));
     }
 }
+
+#[test]
+fn strategy_tokens_parse_to_matching_specs() {
+    use openkind_backends::qwen35::ExecutionStrategy;
+
+    assert_eq!(
+        StrategySpec::parse("choose_strategy").unwrap(),
+        StrategySpec::ChooseStrategy
+    );
+    assert_eq!(
+        StrategySpec::parse("auto").unwrap(),
+        StrategySpec::ChooseStrategy
+    );
+    assert_eq!(
+        StrategySpec::parse("repeated_full").unwrap(),
+        StrategySpec::Forced(ExecutionStrategy::RepeatedFull)
+    );
+    assert_eq!(
+        StrategySpec::parse("nested_sequential").unwrap(),
+        StrategySpec::Forced(ExecutionStrategy::NestedSequential)
+    );
+    assert_eq!(
+        StrategySpec::parse("nested_batched").unwrap(),
+        StrategySpec::Forced(ExecutionStrategy::NestedBatched)
+    );
+
+    for unknown in ["RepeatedFull", "fast", "nested"] {
+        let err = StrategySpec::parse(unknown).unwrap_err();
+        assert!(
+            err.to_string().contains("unknown strategy"),
+            "`{unknown}`: {err}"
+        );
+    }
+}
+
+#[test]
+fn parse_strategies_defaults_explicit_lists_and_rejects_empty() {
+    use crate::args::parse_strategies;
+    use crate::score::DEFAULT_STRATEGIES;
+    use openkind_backends::qwen35::ExecutionStrategy;
+
+    // No flag: the full default sweep.
+    assert_eq!(parse_strategies(None).unwrap(), DEFAULT_STRATEGIES.to_vec());
+
+    // Explicit list: trimmed tokens, `auto` alias included.
+    let parsed = parse_strategies(Some("repeated_full, auto ,nested_batched")).unwrap();
+    assert_eq!(
+        parsed,
+        vec![
+            StrategySpec::Forced(ExecutionStrategy::RepeatedFull),
+            StrategySpec::ChooseStrategy,
+            StrategySpec::Forced(ExecutionStrategy::NestedBatched),
+        ]
+    );
+
+    // Unknown tokens surface the accepted set.
+    let err = parse_strategies(Some("repeated_full,turbo")).unwrap_err();
+    assert!(err.to_string().contains("accepted"), "{err}");
+
+    // Present-but-empty tokens yield no strategies, not the default sweep.
+    let err = parse_strategies(Some(",,")).unwrap_err();
+    assert!(err.to_string().contains("listed no strategies"), "{err}");
+}
+
+#[test]
+fn native_runs_require_at_least_one_strategy() {
+    // The mock engine ignores strategies, so an empty sweep is fine there...
+    crate::score::validate_strategy_selection(EngineKind::Mock, &[]).unwrap();
+    // ...but a native run with no strategy cannot produce evidence.
+    let err = crate::score::validate_strategy_selection(EngineKind::Qwen35, &[])
+        .expect_err("native run with no strategies must fail");
+    assert!(
+        err.to_string().contains("at least one execution strategy"),
+        "{err}"
+    );
+}

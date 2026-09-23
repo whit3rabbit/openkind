@@ -10,7 +10,7 @@ use crate::state::State;
 
 #[test]
 fn validate_request_happy_path_all_three_types() {
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     questions.insert(
         "noul".to_string(),
         Question::Noul(NoulQuestion {
@@ -21,7 +21,7 @@ fn validate_request_happy_path_all_three_types() {
             }),
         }),
     );
-    let mut criteria = HashMap::new();
+    let mut criteria = HashMap::default();
     criteria.insert("opt1".into(), Some("First".into()));
     criteria.insert("opt2".into(), None);
     questions.insert(
@@ -48,7 +48,7 @@ fn validate_request_happy_path_all_three_types() {
 
 #[test]
 fn validate_request_rejects_empty_score_level() {
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     questions.insert(
         "rating".to_string(),
         Question::Score(ScoreQuestion {
@@ -70,7 +70,7 @@ fn validate_request_rejects_empty_score_level() {
 
 #[test]
 fn validate_request_rejects_empty_noul_criteria_strings() {
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     questions.insert(
         "q1".to_string(),
         Question::Noul(NoulQuestion {
@@ -91,7 +91,7 @@ fn validate_request_rejects_empty_noul_criteria_strings() {
         ValidationError::NoulTrueEmpty(_)
     ));
 
-    let mut questions2 = HashMap::new();
+    let mut questions2 = HashMap::default();
     questions2.insert(
         "q2".to_string(),
         Question::Noul(NoulQuestion {
@@ -122,7 +122,7 @@ fn validate_request_rejects_missing_instructions_shapes() {
         serde_json::Value::Null,
     ];
     for empty_instr in empty_shapes {
-        let mut questions = HashMap::new();
+        let mut questions = HashMap::default();
         questions.insert(
             "q".to_string(),
             Question::Noul(NoulQuestion {
@@ -148,7 +148,7 @@ fn validate_request_rejects_missing_instructions_shapes() {
 
 #[test]
 fn validate_request_rejects_excessive_questions_and_criteria() {
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     for i in 0..=MAX_QUESTIONS_PER_REQUEST {
         questions.insert(
             format!("q_{i}"),
@@ -171,7 +171,7 @@ fn validate_request_rejects_excessive_questions_and_criteria() {
 
 #[test]
 fn validate_request_rejects_excessive_choice_criteria() {
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     questions.insert(
         "big_choice".to_string(),
         Question::Choice(ChoiceQuestion {
@@ -198,7 +198,7 @@ fn validate_request_rejects_excessive_choice_criteria() {
 
 #[test]
 fn validate_request_rejects_excessive_score_criteria() {
-    let mut questions = HashMap::new();
+    let mut questions = HashMap::default();
     questions.insert(
         "big_score".to_string(),
         Question::Score(ScoreQuestion {

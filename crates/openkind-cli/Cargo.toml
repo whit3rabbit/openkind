@@ -13,6 +13,9 @@ openkind-engine = { workspace = true }
 clap = { workspace = true }
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 serde_json = { workspace = true }
+# Faster JSON parse for the inspect/evaluate request path; serde_json
+# remains the fallback and the authority on parse-error messages.
+sonic-rs = { workspace = true }
 anyhow = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "fs"] }
 tracing = { workspace = true }

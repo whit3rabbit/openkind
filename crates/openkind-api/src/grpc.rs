@@ -153,7 +153,7 @@ fn json_value_to_state(v: serde_json::Value) -> Result<State, Status> {
 
 fn pb_questions_to_core(
     pb: HashMap<String, pb::Question>,
-) -> Result<HashMap<String, Question>, Status> {
+) -> Result<HashMap<String, Question, openkind_core::WireHashState>, Status> {
     if pb.len() > openkind_core::MAX_QUESTIONS_PER_REQUEST {
         return Err(Status::invalid_argument(format!(
             "request exceeds maximum question count limit (got {}, max {})",
@@ -162,7 +162,8 @@ fn pb_questions_to_core(
         )));
     }
     let cap = pb.len().min(openkind_core::MAX_QUESTIONS_PER_REQUEST);
-    let mut out = HashMap::with_capacity(cap);
+    let mut out: HashMap<String, Question, openkind_core::WireHashState> =
+        HashMap::with_capacity_and_hasher(cap, Default::default());
     for (id, q) in pb {
         let kind = q
             .kind

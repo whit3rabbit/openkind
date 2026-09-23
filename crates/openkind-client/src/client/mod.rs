@@ -11,6 +11,7 @@
 
 mod builder;
 mod core;
+mod http1;
 mod options;
 mod transport;
 

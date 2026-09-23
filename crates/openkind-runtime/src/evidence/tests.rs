@@ -113,6 +113,56 @@ fn writer_rejects_traversal_run_ids() {
 }
 
 #[test]
+fn writer_rejects_empty_run_id() {
+    let root = temp_root("empty");
+    assert!(matches!(
+        NativeRunWriter::begin(&root, "", invocation(), environment()),
+        Err(EvidenceError::InvalidRunId(_))
+    ));
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn writer_writes_optional_reports_and_declared_flags() {
+    let root = temp_root("optional");
+    let directory = NativeRunWriter::begin(&root, "20260922T000000Z", invocation(), environment())
+        .expect("begin")
+        .performance(serde_json::json!({"p50_seconds": 1.25}))
+        .memory(serde_json::json!({"peak_resident_bytes": 1_048_576}))
+        .contains_input_content(true)
+        .contains_sensitive_paths(true)
+        .finish()
+        .expect("finish");
+
+    let run: RunRecord =
+        serde_json::from_str(&fs::read_to_string(directory.join("RUN.json")).unwrap()).unwrap();
+    assert!(run.contains_input_content);
+    assert!(run.contains_sensitive_paths);
+
+    let performance: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(directory.join("PERFORMANCE.json")).unwrap())
+            .unwrap();
+    assert_eq!(performance["p50_seconds"], serde_json::json!(1.25));
+    let memory: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(directory.join("MEMORY.json")).unwrap()).unwrap();
+    assert_eq!(memory["peak_resident_bytes"], serde_json::json!(1_048_576));
+
+    // Optional reports are checksummed like every other artifact.
+    let checksums: ChecksumsRecord =
+        serde_json::from_str(&fs::read_to_string(directory.join("checksums.json")).unwrap())
+            .unwrap();
+    for name in ["PERFORMANCE.json", "MEMORY.json"] {
+        let bytes = fs::read(directory.join(name)).unwrap();
+        assert_eq!(
+            checksums.files.get(name),
+            Some(&sha256_hex(&bytes)),
+            "{name} must be checksummed"
+        );
+    }
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
 fn utc_formatting_covers_epoch_and_leap_days() {
     assert_eq!(format_utc_timestamp(0), "1970-01-01T00:00:00Z");
     assert_eq!(format_utc_timestamp(86_400), "1970-01-02T00:00:00Z");

@@ -135,7 +135,8 @@ pub(super) fn evaluate_request(
     );
     let output = run_strategy(&inner.backbone, decision.strategy, &root_ids, &plans)?;
 
-    let mut answers = HashMap::with_capacity(encoded.len());
+    let mut answers: HashMap<String, openkind_core::Answer, _> =
+        HashMap::with_capacity_and_hasher(encoded.len(), Default::default());
     for (question, features) in encoded.iter().zip(output.question_features()) {
         let evaluation = inner.head.evaluate(question.primitive, features)?;
         let answer = answer_from_distribution(question, &evaluation)?;

@@ -15,21 +15,20 @@ use crate::registry::EngineRegistry;
 /// Passing the full id set lets `validate_response` also enforce that the
 /// engine answered exactly the requested questions, no more and no less.
 fn response_criteria(req: &SystemRequest) -> HashMap<String, Vec<String>> {
-    req.questions
-        .iter()
-        .map(|(id, q)| {
-            let keys = match q {
-                Question::Noul(_) => Vec::new(),
-                Question::Choice(c) => {
-                    let mut keys: Vec<String> = c.criteria.keys().cloned().collect();
-                    keys.sort();
-                    keys
-                }
-                Question::Score(s) => (0..s.criteria.len()).map(|i| i.to_string()).collect(),
-            };
-            (id.clone(), keys)
-        })
-        .collect()
+    let mut criteria = HashMap::with_capacity(req.questions.len());
+    for (id, q) in &req.questions {
+        let keys = match q {
+            Question::Noul(_) => Vec::new(),
+            Question::Choice(c) => {
+                let mut keys: Vec<String> = c.criteria.keys().cloned().collect();
+                keys.sort();
+                keys
+            }
+            Question::Score(s) => (0..s.criteria.len()).map(|i| i.to_string()).collect(),
+        };
+        criteria.insert(id.clone(), keys);
+    }
+    criteria
 }
 
 /// Validate + dispatch. The HTTP and gRPC layers both call this — it

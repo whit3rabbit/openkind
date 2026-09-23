@@ -130,7 +130,7 @@ fn evaluate_request() -> openkind_client::SystemRequest {
     openkind_client::SystemRequest {
         state: openkind_client::State::Text("hello".into()),
         model: "mock".into(),
-        questions: std::collections::HashMap::from([(
+        questions: std::collections::HashMap::from_iter([(
             "q".to_string(),
             openkind_client::question::noul("Is this billing?"),
         )]),

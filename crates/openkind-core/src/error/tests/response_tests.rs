@@ -9,8 +9,8 @@ use crate::response::{SystemResponse, Usage};
 
 #[test]
 fn validate_response_rejects_probability_keys_mismatch() {
-    let mut answers = HashMap::new();
-    let mut probs = HashMap::new();
+    let mut answers = HashMap::default();
+    let mut probs = HashMap::default();
     probs.insert("option_a".into(), 0.6);
     probs.insert("option_x".into(), 0.4);
     answers.insert(
@@ -29,7 +29,7 @@ fn validate_response_rejects_probability_keys_mismatch() {
             output_tokens: 5,
         },
     };
-    let mut criteria = HashMap::new();
+    let mut criteria = HashMap::default();
     criteria.insert("ch".into(), vec!["option_a".into(), "option_b".into()]);
     assert!(matches!(
         validate_response(&resp, &criteria).unwrap_err(),
@@ -40,7 +40,7 @@ fn validate_response_rejects_probability_keys_mismatch() {
 #[test]
 fn validate_response_rejects_noul_out_of_range() {
     for invalid_noul in [-0.01, 1.05] {
-        let mut answers = HashMap::new();
+        let mut answers = HashMap::default();
         answers.insert(
             "noul_q".into(),
             Answer::Noul(NoulAnswer { noul: invalid_noul }),
@@ -53,7 +53,7 @@ fn validate_response_rejects_noul_out_of_range() {
                 output_tokens: 5,
             },
         };
-        let criteria = HashMap::new();
+        let criteria = HashMap::default();
         assert!(
             matches!(
                 validate_response(&resp, &criteria).unwrap_err(),
@@ -68,11 +68,11 @@ fn validate_response_rejects_noul_out_of_range() {
 #[test]
 fn validate_response_rejects_confidence_out_of_range() {
     for invalid_conf in [-0.1, 1.2] {
-        let mut answers = HashMap::new();
-        let mut probs = HashMap::new();
+        let mut answers = HashMap::default();
+        let mut probs = HashMap::default();
         probs.insert("0".into(), 0.7);
         probs.insert("1".into(), 0.3);
-        let mut legend = HashMap::new();
+        let mut legend = HashMap::default();
         legend.insert("0".into(), "Low".into());
         legend.insert("1".into(), "High".into());
         answers.insert(
@@ -92,7 +92,7 @@ fn validate_response_rejects_confidence_out_of_range() {
                 output_tokens: 5,
             },
         };
-        let criteria = HashMap::new();
+        let criteria = HashMap::default();
         assert!(
             matches!(
                 validate_response(&resp, &criteria).unwrap_err(),
@@ -106,9 +106,9 @@ fn validate_response_rejects_confidence_out_of_range() {
 
 #[test]
 fn validate_response_happy_path_all_three_types() {
-    let mut answers = HashMap::new();
+    let mut answers = HashMap::default();
     answers.insert("noul".into(), Answer::Noul(NoulAnswer { noul: 0.85 }));
-    let mut c_probs = HashMap::new();
+    let mut c_probs = HashMap::default();
     c_probs.insert("a".into(), 0.7);
     c_probs.insert("b".into(), 0.3);
     answers.insert(
@@ -119,10 +119,10 @@ fn validate_response_happy_path_all_three_types() {
             confidence: 0.75,
         }),
     );
-    let mut s_probs = HashMap::new();
+    let mut s_probs = HashMap::default();
     s_probs.insert("0".into(), 0.2);
     s_probs.insert("1".into(), 0.8);
-    let mut legend = HashMap::new();
+    let mut legend = HashMap::default();
     legend.insert("0".into(), "No".into());
     legend.insert("1".into(), "Yes".into());
     answers.insert(
@@ -142,7 +142,7 @@ fn validate_response_happy_path_all_three_types() {
             output_tokens: 6,
         },
     };
-    let mut criteria = HashMap::new();
+    let mut criteria = HashMap::default();
     criteria.insert("choice".into(), vec!["a".into(), "b".into()]);
     criteria.insert("noul".into(), Vec::new());
     criteria.insert("score".into(), Vec::new());
@@ -151,7 +151,7 @@ fn validate_response_happy_path_all_three_types() {
 
 #[test]
 fn validate_response_rejects_missing_answer() {
-    let mut answers = HashMap::new();
+    let mut answers = HashMap::default();
     answers.insert("noul".into(), Answer::Noul(NoulAnswer { noul: 0.5 }));
     let resp = SystemResponse {
         model: "mock".into(),
@@ -161,7 +161,7 @@ fn validate_response_rejects_missing_answer() {
             output_tokens: 1,
         },
     };
-    let mut criteria = HashMap::new();
+    let mut criteria = HashMap::default();
     criteria.insert("noul".into(), Vec::new());
     criteria.insert("dropped".into(), Vec::new());
     assert!(matches!(
@@ -172,7 +172,7 @@ fn validate_response_rejects_missing_answer() {
 
 #[test]
 fn validate_response_rejects_unexpected_answer() {
-    let mut answers = HashMap::new();
+    let mut answers = HashMap::default();
     answers.insert("noul".into(), Answer::Noul(NoulAnswer { noul: 0.5 }));
     answers.insert("ghost".into(), Answer::Noul(NoulAnswer { noul: 0.5 }));
     let resp = SystemResponse {
@@ -183,7 +183,7 @@ fn validate_response_rejects_unexpected_answer() {
             output_tokens: 1,
         },
     };
-    let mut criteria = HashMap::new();
+    let mut criteria = HashMap::default();
     criteria.insert("noul".into(), Vec::new());
     assert!(matches!(
         validate_response(&resp, &criteria).unwrap_err(),
@@ -193,7 +193,7 @@ fn validate_response_rejects_unexpected_answer() {
 
 #[test]
 fn validate_response_empty_criteria_skips_coverage_checks() {
-    let mut answers = HashMap::new();
+    let mut answers = HashMap::default();
     answers.insert("anything".into(), Answer::Noul(NoulAnswer { noul: 0.5 }));
     let resp = SystemResponse {
         model: "mock".into(),
@@ -203,13 +203,13 @@ fn validate_response_empty_criteria_skips_coverage_checks() {
             output_tokens: 1,
         },
     };
-    assert!(validate_response(&resp, &HashMap::new()).is_ok());
+    assert!(validate_response(&resp, &HashMap::default()).is_ok());
 }
 
 #[test]
 fn validate_response_rejects_nan_probabilities() {
-    let mut answers = HashMap::new();
-    let mut c_probs = HashMap::new();
+    let mut answers = HashMap::default();
+    let mut c_probs = HashMap::default();
     c_probs.insert("a".into(), f64::NAN);
     c_probs.insert("b".into(), 0.5);
     answers.insert(
@@ -228,7 +228,7 @@ fn validate_response_rejects_nan_probabilities() {
             output_tokens: 2,
         },
     };
-    let mut criteria = HashMap::new();
+    let mut criteria = HashMap::default();
     criteria.insert("choice".into(), vec!["a".into(), "b".into()]);
     assert!(matches!(
         validate_response(&resp, &criteria).unwrap_err(),
@@ -238,8 +238,8 @@ fn validate_response_rejects_nan_probabilities() {
 
 #[test]
 fn validate_response_rejects_negative_probabilities() {
-    let mut answers = HashMap::new();
-    let mut c_probs = HashMap::new();
+    let mut answers = HashMap::default();
+    let mut c_probs = HashMap::default();
     c_probs.insert("a".into(), -0.2);
     c_probs.insert("b".into(), 1.2);
     answers.insert(
@@ -258,7 +258,7 @@ fn validate_response_rejects_negative_probabilities() {
             output_tokens: 2,
         },
     };
-    let mut criteria = HashMap::new();
+    let mut criteria = HashMap::default();
     criteria.insert("choice".into(), vec!["a".into(), "b".into()]);
     assert!(matches!(
         validate_response(&resp, &criteria).unwrap_err(),
@@ -268,16 +268,16 @@ fn validate_response_rejects_negative_probabilities() {
 
 #[test]
 fn validate_response_rejects_nan_and_out_of_range_score() {
-    let mut legend = HashMap::new();
+    let mut legend = HashMap::default();
     legend.insert("0".into(), "Low".into());
     legend.insert("1".into(), "High".into());
 
-    let mut score_probs = HashMap::new();
+    let mut score_probs = HashMap::default();
     score_probs.insert("0".into(), 0.5);
     score_probs.insert("1".into(), 0.5);
 
     // Test NaN score
-    let mut answers_nan = HashMap::new();
+    let mut answers_nan = HashMap::default();
     answers_nan.insert(
         "score_q".into(),
         Answer::Score(ScoreAnswer {
@@ -296,12 +296,12 @@ fn validate_response_rejects_nan_and_out_of_range_score() {
         },
     };
     assert!(matches!(
-        validate_response(&resp_nan, &HashMap::new()).unwrap_err(),
+        validate_response(&resp_nan, &HashMap::default()).unwrap_err(),
         ValidationError::ScoreOutOfRange { .. }
     ));
 
     // Test out of range score (score 2.5 when max index is 1)
-    let mut answers_oor = HashMap::new();
+    let mut answers_oor = HashMap::default();
     answers_oor.insert(
         "score_q".into(),
         Answer::Score(ScoreAnswer {
@@ -320,14 +320,14 @@ fn validate_response_rejects_nan_and_out_of_range_score() {
         },
     };
     assert!(matches!(
-        validate_response(&resp_oor, &HashMap::new()).unwrap_err(),
+        validate_response(&resp_oor, &HashMap::default()).unwrap_err(),
         ValidationError::ScoreOutOfRange { .. }
     ));
 }
 
 #[test]
 fn validate_response_rejects_nan_noul() {
-    let mut answers = HashMap::new();
+    let mut answers = HashMap::default();
     answers.insert("noul_q".into(), Answer::Noul(NoulAnswer { noul: f64::NAN }));
     let resp = SystemResponse {
         model: "mock".into(),
@@ -338,7 +338,7 @@ fn validate_response_rejects_nan_noul() {
         },
     };
     assert!(matches!(
-        validate_response(&resp, &HashMap::new()).unwrap_err(),
+        validate_response(&resp, &HashMap::default()).unwrap_err(),
         ValidationError::NoulOutOfRange { .. }
     ));
 }

@@ -64,7 +64,7 @@ pub fn choice<K: Into<String>>(
         criteria: criteria
             .into_iter()
             .map(|(k, v)| (k.into(), v))
-            .collect::<HashMap<_, _>>(),
+            .collect::<HashMap<_, _, _>>(),
     })
 }
 
@@ -104,7 +104,7 @@ mod tests {
         let request = SystemRequest {
             state: text("I was charged twice. Please help."),
             model: "mock".into(),
-            questions: HashMap::from([
+            questions: HashMap::from_iter([
                 ("billing".to_string(), noul("Is this about billing?")),
                 (
                     "tone".to_string(),

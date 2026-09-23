@@ -31,7 +31,7 @@ async fn round_trip_exact_wire_body_and_typed_response() {
     let request = SystemRequest {
         state: State::Object(json!({"document": "Hello 🌍"}).as_object().unwrap().clone()),
         model: "jev-latest".into(),
-        questions: HashMap::from([
+        questions: HashMap::from_iter([
             ("spam".to_string(), question::noul("Spam?")),
             (
                 "tone".to_string(),
@@ -88,7 +88,7 @@ async fn round_trip_exact_wire_body_and_typed_response() {
             assert_eq!(a.confidence, 0.9);
             assert_eq!(
                 a.probabilities,
-                HashMap::from([("friendly".to_string(), 0.9), ("hostile".to_string(), 0.1)])
+                HashMap::from_iter([("friendly".to_string(), 0.9), ("hostile".to_string(), 0.1)])
             );
         }
         other => panic!("expected choice, got {other:?}"),
@@ -100,7 +100,7 @@ async fn round_trip_exact_wire_body_and_typed_response() {
             // Rust keeps the wire's string keys; Python's public model uses ints.
             assert_eq!(
                 a.legend,
-                HashMap::from([
+                HashMap::from_iter([
                     ("0".to_string(), "bad".to_string()),
                     ("1".to_string(), "ok".to_string()),
                     ("2".to_string(), "great".to_string())
@@ -108,7 +108,7 @@ async fn round_trip_exact_wire_body_and_typed_response() {
             );
             assert_eq!(
                 a.probabilities,
-                HashMap::from([
+                HashMap::from_iter([
                     ("0".to_string(), 0.1),
                     ("1".to_string(), 0.1),
                     ("2".to_string(), 0.8)
@@ -269,7 +269,7 @@ async fn array_and_object_states_wire_through() {
     let request = SystemRequest {
         state: State::Array(vec![json!("hello"), json!({"role": "user"})]),
         model: "client-model".into(),
-        questions: HashMap::from([("q".to_string(), question::noul("?"))]),
+        questions: HashMap::from_iter([("q".to_string(), question::noul("?"))]),
     };
     client.evaluate(request).await.unwrap();
     assert_eq!(
@@ -314,7 +314,7 @@ async fn rich_instructions_wire_through() {
     let request = SystemRequest {
         state: State::Text("hello".into()),
         model: "client-model".into(),
-        questions: HashMap::from([
+        questions: HashMap::from_iter([
             (
                 "obj".to_string(),
                 question::noul(json!({"en": "Is it spam?", "de": "Ist das Spam?"})),

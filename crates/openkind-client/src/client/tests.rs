@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use super::builder::{clean_env_value, resolve_lookup};
 use super::core::Client;
+use super::transport::is_user_overridable;
 use crate::error::Error;
 
 /// Port of the Python SDK's `test_resolution` precedence matrix, using an
@@ -74,6 +75,44 @@ fn invalid_base_url_rejected_at_build() {
         .build()
         .unwrap_err();
     assert!(matches!(err, Error::Config(_)), "{err:?}");
+}
+
+#[test]
+fn base_url_with_invalid_port_rejected_at_build() {
+    // Passes the http(s) prefix check but fails URL parsing, so endpoint
+    // resolution must reject it at construction time instead of per request.
+    let err = Client::builder()
+        .api_key("k")
+        .base_url("http://example.test:not-a-port")
+        .build()
+        .unwrap_err();
+    assert!(matches!(err, Error::Config(_)), "{err:?}");
+    assert!(
+        err.to_string().contains("invalid base URL"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
+fn protected_headers_are_not_user_overridable() {
+    // SDK identification/protocol headers always win over per-call extras.
+    for name in [
+        "authorization",
+        "accept",
+        "user-agent",
+        "x-typesafe-sdk",
+        "x-typesafe-runtime",
+        "x-typesafe-retry-count",
+    ] {
+        assert!(!is_user_overridable(name, false), "{name} with no body");
+        assert!(!is_user_overridable(name, true), "{name} with body");
+    }
+    // Content-type belongs to the JSON body: only settable on bodiless calls.
+    assert!(!is_user_overridable("content-type", true));
+    assert!(is_user_overridable("content-type", false));
+    // Anything else passes through to the request.
+    assert!(is_user_overridable("x-custom", true));
+    assert!(is_user_overridable("x-custom", false));
 }
 
 #[test]

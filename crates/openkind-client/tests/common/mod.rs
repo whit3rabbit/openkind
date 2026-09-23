@@ -264,6 +264,6 @@ pub fn evaluate_request() -> SystemRequest {
     SystemRequest {
         state: openkind_client::State::Text("hello".into()),
         model: "client-model".into(),
-        questions: std::collections::HashMap::from([("q".to_string(), question::noul("?"))]),
+        questions: std::collections::HashMap::from_iter([("q".to_string(), question::noul("?"))]),
     }
 }

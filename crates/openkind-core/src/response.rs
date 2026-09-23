@@ -8,6 +8,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::answer::Answer;
+use crate::request::WireHashState;
 
 /// Token usage accounting for the evaluation request.
 ///
@@ -29,7 +30,7 @@ pub struct SystemResponse {
     pub model: String,
 
     /// One answer per question id. **Required.**
-    pub answers: HashMap<String, Answer>,
+    pub answers: HashMap<String, Answer, WireHashState>,
 
     /// Required token usage.
     pub usage: Usage,
