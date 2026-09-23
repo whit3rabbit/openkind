@@ -217,6 +217,7 @@ full engine request path and model-backed peak RSS.
 
 | Record | Engine | Status |
 |---|---|---|
+| [`benchmarks/2026-09-22-criterion-microbenchmarks/`](./benchmarks/2026-09-22-criterion-microbenchmarks/) | CLI, server, and client with MockEngine | Complete clean-commit Criterion timing baseline, 100 samples per case; component overhead only |
 | [`benchmarks/2026-09-20-mock-smoke/`](./benchmarks/2026-09-20-mock-smoke/) | mock | Complete — harness validation only; not performance evidence |
 | [`benchmarks/2026-09-20-qwen35-smoke/`](./benchmarks/2026-09-20-qwen35-smoke/) | qwen35-native-cpu | Complete — smoke-scale, single-sample cells; CPU parity does not imply Metal or accelerated parity |
 | [`benchmarks/2026-09-21-qwen35-mlx-smoke/`](./benchmarks/2026-09-21-qwen35-mlx-smoke/) | qwen35-mlx-fp32 (+ bf16 repeated_full probe) | Complete — first MLX bench dispatch; dirty-tree, single-sample cells; cross-strategy exact-answer flag false with bounded `1.68e-05` probability divergence, zero selection changes |
@@ -337,3 +338,15 @@ high-K latency or production throughput benchmarks.
 
 Queue-inclusive HTTP service latency and long-duration soak remain deferred
 roadmap work; the harness measures the in-process request path only.
+
+## External evaluation and submission
+
+When implementation, native parity qualification, and release readiness are
+finished, submit the model for external evaluation:
+
+- **BenchmarkHeaven Custom Evaluation**:
+  <https://benchmarkheaven.com/jev-models/custom-evaluation> — submission portal
+  for independent Jev-compatible model evaluation.
+- **`jevbench` Harness**:
+  [`fstandhartinger/jevbench`](https://github.com/fstandhartinger/jevbench) —
+  evaluation suite and benchmark harness for Jev models.
