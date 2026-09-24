@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use crate::answer::Answer;
 use crate::error::types::{ValidationError, ValidationResult};
 use crate::question::Question;
-use crate::request::SystemRequest;
+use crate::request::{SystemRequest, WireHashState};
 use crate::response::SystemResponse;
 
 /// Maximum number of questions allowed in a single evaluation request to prevent DoS.
@@ -129,12 +129,21 @@ pub fn validate_response(
                 return Err(ValidationError::MissingAnswer(id.clone()));
             }
         }
-        for id in resp.answers.keys() {
-            if !criteria.contains_key(id) {
-                return Err(ValidationError::UnexpectedAnswer(id.clone()));
+        if resp.answers.len() != criteria.len() {
+            for id in resp.answers.keys() {
+                if !criteria.contains_key(id) {
+                    return Err(ValidationError::UnexpectedAnswer(id.clone()));
+                }
             }
         }
     }
+    validate_response_inner(resp, |id| criteria.get(id).map(Vec::as_slice))
+}
+
+fn validate_response_inner<'a>(
+    resp: &SystemResponse,
+    keys_for: impl Fn(&str) -> Option<&'a [String]>,
+) -> ValidationResult<()> {
     // Every question id in the request must have a matching answer.
     // (Caller passes criteria so we can validate cross-references.)
     for (id, ans) in &resp.answers {
@@ -148,8 +157,7 @@ pub fn validate_response(
                 }
             }
             Answer::Choice(c) => {
-                let expected_keys: HashSet<&str> = criteria
-                    .get(id)
+                let expected_keys: HashSet<&str> = keys_for(id)
                     .map(|v| v.iter().map(String::as_str).collect())
                     .unwrap_or_default();
                 if !expected_keys.is_empty() && !expected_keys.contains(c.choice.as_str()) {
@@ -197,7 +205,7 @@ pub fn validate_response(
 
 /// Request-bound answer expectations retained while an engine consumes the request.
 pub struct ResponseContract {
-    questions: HashMap<String, (AnswerKind, Vec<String>)>,
+    questions: HashMap<String, (AnswerKind, Vec<String>), WireHashState>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -220,22 +228,22 @@ impl AnswerKind {
 impl ResponseContract {
     /// Capture question IDs, types, and Choice keys without copying state or instructions.
     pub fn from_request(req: &SystemRequest) -> ValidationResult<Self> {
-        validate_request(req)?;
-        let questions = req
-            .questions
-            .iter()
-            .map(|(id, question)| {
-                let (kind, keys) = match question {
-                    Question::Noul(_) => (AnswerKind::Noul, Vec::new()),
-                    Question::Choice(choice) => (
-                        AnswerKind::Choice,
-                        choice.criteria.keys().cloned().collect(),
-                    ),
-                    Question::Score(_) => (AnswerKind::Score, Vec::new()),
-                };
-                (id.clone(), (kind, keys))
-            })
-            .collect();
+        if req.questions.is_empty() {
+            return Err(ValidationError::NoQuestions);
+        }
+        if req.questions.len() > MAX_QUESTIONS_PER_REQUEST {
+            return Err(ValidationError::TooManyQuestions {
+                count: req.questions.len(),
+                max: MAX_QUESTIONS_PER_REQUEST,
+            });
+        }
+        let mut questions =
+            HashMap::with_capacity_and_hasher(req.questions.len(), WireHashState::default());
+        for (id, question) in &req.questions {
+            validate_question(id, question)?;
+            let (kind, keys) = contract_entry(question);
+            questions.insert(id.clone(), (kind, keys));
+        }
         Ok(Self { questions })
     }
 
@@ -246,11 +254,7 @@ impl ResponseContract {
                 .answers
                 .get(id)
                 .ok_or_else(|| ValidationError::MissingAnswer(id.clone()))?;
-            let actual = match answer {
-                Answer::Noul(_) => AnswerKind::Noul,
-                Answer::Choice(_) => AnswerKind::Choice,
-                Answer::Score(_) => AnswerKind::Score,
-            };
+            let actual = answer_kind(answer);
             if actual != *expected {
                 return Err(ValidationError::AnswerTypeMismatch {
                     id: id.clone(),
@@ -259,17 +263,37 @@ impl ResponseContract {
                 });
             }
         }
-        for id in resp.answers.keys() {
-            if !self.questions.contains_key(id) {
-                return Err(ValidationError::UnexpectedAnswer(id.clone()));
+        if resp.answers.len() != self.questions.len() {
+            for id in resp.answers.keys() {
+                if !self.questions.contains_key(id) {
+                    return Err(ValidationError::UnexpectedAnswer(id.clone()));
+                }
             }
         }
-        let criteria = self
-            .questions
-            .iter()
-            .map(|(id, (_, keys))| (id.clone(), keys.clone()))
-            .collect();
-        validate_response(resp, &criteria)
+        // Reuse the retained contract directly. Rebuilding a second map here
+        // copied every question ID and Choice key on each response.
+        validate_response_inner(resp, |id| {
+            self.questions.get(id).map(|(_, keys)| keys.as_slice())
+        })
+    }
+}
+
+fn contract_entry(question: &Question) -> (AnswerKind, Vec<String>) {
+    match question {
+        Question::Noul(_) => (AnswerKind::Noul, Vec::new()),
+        Question::Choice(choice) => (
+            AnswerKind::Choice,
+            choice.criteria.keys().cloned().collect(),
+        ),
+        Question::Score(_) => (AnswerKind::Score, Vec::new()),
+    }
+}
+
+fn answer_kind(answer: &Answer) -> AnswerKind {
+    match answer {
+        Answer::Noul(_) => AnswerKind::Noul,
+        Answer::Choice(_) => AnswerKind::Choice,
+        Answer::Score(_) => AnswerKind::Score,
     }
 }
 

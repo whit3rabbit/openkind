@@ -4,7 +4,6 @@
 //! > A `Question` is one of three types, set by its `type` field. All three
 //! > share `type` and `instructions`; each adds its own `criteria`.
 
-use std::borrow::Cow;
 use std::collections::HashMap;
 
 use schemars::JsonSchema;
@@ -21,6 +20,24 @@ pub enum Question {
     Choice(ChoiceQuestion),
     /// Ordinal rating evaluation rated along an ordered rubric of at least 2 levels.
     Score(ScoreQuestion),
+}
+
+#[derive(Deserialize)]
+#[serde(field_identifier, rename_all = "lowercase")]
+enum QuestionField {
+    Type,
+    Instructions,
+    Criteria,
+    #[serde(other)]
+    Other,
+}
+
+#[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum QuestionTag {
+    Noul,
+    Choice,
+    Score,
 }
 
 // Serde's internally-tagged derive buffers the entire object into `Content`
@@ -50,7 +67,7 @@ impl<'de> Deserialize<'de> for Question {
             where
                 A: MapAccess<'de>,
             {
-                let mut tag: Option<Cow<'de, str>> = None;
+                let mut tag: Option<QuestionTag> = None;
                 // `instructions` has the same shape in every variant, so it
                 // streams even before the tag is known. `criteria` differs
                 // per variant and is buffered as a JSON value if it arrives
@@ -61,30 +78,21 @@ impl<'de> Deserialize<'de> for Question {
                 let mut choice_criteria: Option<HashMap<String, Option<String>>> = None;
                 let mut score_criteria: Option<Vec<String>> = None;
 
-                while let Some(key) = map.next_key::<Cow<'de, str>>()? {
-                    match key.as_ref() {
-                        "type" => {
+                while let Some(key) = map.next_key::<QuestionField>()? {
+                    match key {
+                        QuestionField::Type => {
                             if tag.is_some() {
                                 return Err(A::Error::duplicate_field("type"));
                             }
-                            let value = map.next_value::<Cow<'de, str>>()?;
-                            tag = Some(match value.as_ref() {
-                                "noul" | "choice" | "score" => value,
-                                other => {
-                                    return Err(A::Error::unknown_variant(
-                                        other,
-                                        &["noul", "choice", "score"],
-                                    ))
-                                }
-                            });
+                            tag = Some(map.next_value()?);
                         }
-                        "instructions" => {
+                        QuestionField::Instructions => {
                             if instructions.is_some() {
                                 return Err(A::Error::duplicate_field("instructions"));
                             }
                             instructions = Some(map.next_value()?);
                         }
-                        "criteria" => {
+                        QuestionField::Criteria => {
                             let already_buffered = early_criteria.is_some()
                                 || noul_criteria.is_some()
                                 || choice_criteria.is_some()
@@ -92,17 +100,20 @@ impl<'de> Deserialize<'de> for Question {
                             if already_buffered {
                                 return Err(A::Error::duplicate_field("criteria"));
                             }
-                            match tag.as_deref() {
+                            match tag {
                                 None => early_criteria = Some(map.next_value()?),
-                                Some("noul") => {
+                                Some(QuestionTag::Noul) => {
                                     noul_criteria = Some(map.next_value::<Option<NoulCriteria>>()?)
                                 }
-                                Some("choice") => choice_criteria = Some(map.next_value()?),
-                                Some("score") => score_criteria = Some(map.next_value()?),
-                                Some(_) => unreachable!("tag matched one of the variants above"),
+                                Some(QuestionTag::Choice) => {
+                                    choice_criteria = Some(map.next_value()?)
+                                }
+                                Some(QuestionTag::Score) => {
+                                    score_criteria = Some(map.next_value()?)
+                                }
                             }
                         }
-                        _ => {
+                        QuestionField::Other => {
                             let _ = map.next_value::<IgnoredAny>()?;
                         }
                     }
@@ -111,8 +122,8 @@ impl<'de> Deserialize<'de> for Question {
                 let tag = tag.ok_or_else(|| A::Error::missing_field("type"))?;
                 let instructions =
                     instructions.ok_or_else(|| A::Error::missing_field("instructions"))?;
-                match tag.as_ref() {
-                    "noul" => Ok(Question::Noul(NoulQuestion {
+                match tag {
+                    QuestionTag::Noul => Ok(Question::Noul(NoulQuestion {
                         instructions,
                         criteria: match noul_criteria {
                             Some(criteria) => criteria,
@@ -122,7 +133,7 @@ impl<'de> Deserialize<'de> for Question {
                                 .flatten(),
                         },
                     })),
-                    "choice" => Ok(Question::Choice(ChoiceQuestion {
+                    QuestionTag::Choice => Ok(Question::Choice(ChoiceQuestion {
                         instructions,
                         criteria: match choice_criteria {
                             Some(criteria) => criteria,
@@ -130,7 +141,7 @@ impl<'de> Deserialize<'de> for Question {
                                 .ok_or_else(|| A::Error::missing_field("criteria"))?,
                         },
                     })),
-                    "score" => Ok(Question::Score(ScoreQuestion {
+                    QuestionTag::Score => Ok(Question::Score(ScoreQuestion {
                         instructions,
                         criteria: match score_criteria {
                             Some(criteria) => criteria,
@@ -138,7 +149,6 @@ impl<'de> Deserialize<'de> for Question {
                                 .ok_or_else(|| A::Error::missing_field("criteria"))?,
                         },
                     })),
-                    _ => unreachable!("tag validated against the variant list above"),
                 }
             }
         }

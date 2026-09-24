@@ -487,18 +487,16 @@ async fn read_chunked_body(conn: &mut Connection, max_body: usize) -> Result<Vec
 /// Read one CRLF-terminated line (returned without the terminator), or
 /// `None` on a clean EOF at a line boundary.
 async fn read_line(conn: &mut Connection) -> Result<Option<String>, FastError> {
-    let mut scanned = 0;
     loop {
         if let Some(pos) = conn.buffered().iter().position(|&b| b == b'\n') {
-            let mut line_end = scanned + pos;
+            let mut line_end = pos;
             if line_end > 0 && conn.buffered()[line_end - 1] == b'\r' {
                 line_end -= 1;
             }
             let line = String::from_utf8_lossy(&conn.buffered()[..line_end]).into_owned();
-            conn.start += scanned + pos + 1;
+            conn.start += pos + 1;
             return Ok(Some(line));
         }
-        scanned = conn.buffered().len();
         match conn.fill().await {
             Ok(0) => return Ok(None),
             Ok(_) => {}

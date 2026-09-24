@@ -18,7 +18,8 @@ use crate::retry::RetryPolicy;
 /// Settings resolve in priority order: explicit builder value →
 /// `OPENKIND_*` environment variable → `TYPESAFE_*` environment variable
 /// (for drop-in parity with the Python SDK) → SDK default. The API key is
-/// required; everything else has a default.
+/// required; everything else has a default. Cloudflare mode selects its own
+/// account URL and `typesafe/jev` model unless overridden explicitly.
 ///
 /// # Examples
 /// ```
@@ -31,7 +32,7 @@ use crate::retry::RetryPolicy;
 /// // Local daemon.
 /// let local = Client::builder()
 ///     .api_key("dev-key")
-///     .base_url("http://127.0.0.1:8080")
+///     .base_url("http://127.0.0.1:18080")
 ///     .build()?;
 /// # Ok(())
 /// # }
@@ -40,6 +41,7 @@ use crate::retry::RetryPolicy;
 pub struct ClientBuilder {
     api_key: Option<String>,
     base_url: Option<String>,
+    cloudflare_account: Option<String>,
     default_model: Option<String>,
     timeout: Option<Duration>,
     connect_timeout: Option<Duration>,
@@ -61,11 +63,20 @@ impl ClientBuilder {
         self
     }
 
-    /// API base URL, e.g. `http://127.0.0.1:8080`. Falls back to
+    /// API base URL, e.g. `http://127.0.0.1:18080`. Falls back to
     /// `OPENKIND_BASE_URL`, then `TYPESAFE_BASE_URL`, then
     /// [`DEFAULT_BASE_URL`].
     pub fn base_url(mut self, base_url: impl Into<String>) -> Self {
         self.base_url = Some(base_url.into());
+        self
+    }
+
+    /// Use Cloudflare Workers AI Jev through the account's `/ai/run` API.
+    /// The API token is supplied with [`api_key`](Self::api_key). An explicit
+    /// [`base_url`](Self::base_url) may override the Cloudflare host for a proxy
+    /// or test server. Cloudflare mode ignores base URL and model env defaults.
+    pub fn cloudflare_account(mut self, account_id: impl Into<String>) -> Self {
+        self.cloudflare_account = Some(account_id.into());
         self
     }
 
@@ -123,8 +134,20 @@ impl ClientBuilder {
             return Err(Error::Config("api_key contains control characters".into()));
         }
 
-        let base_url = resolve_setting(self.base_url, "OPENKIND_BASE_URL", "TYPESAFE_BASE_URL")
-            .unwrap_or_else(|| DEFAULT_BASE_URL.to_owned());
+        let cloudflare_account = self.cloudflare_account;
+        if let Some(id) = &cloudflare_account {
+            if id.is_empty() || !id.bytes().all(|byte| byte.is_ascii_alphanumeric()) {
+                return Err(Error::Config(
+                    "cloudflare account id must be alphanumeric".into(),
+                ));
+            }
+        }
+        let base_url = match (&self.base_url, &cloudflare_account) {
+            (Some(url), _) => url.clone(),
+            (None, Some(id)) => format!("https://api.cloudflare.com/client/v4/accounts/{id}"),
+            (None, None) => resolve_setting(None, "OPENKIND_BASE_URL", "TYPESAFE_BASE_URL")
+                .unwrap_or_else(|| DEFAULT_BASE_URL.to_owned()),
+        };
         let base_url = base_url.trim_end_matches('/').to_owned();
         if !(base_url.starts_with("http://") || base_url.starts_with("https://")) {
             return Err(Error::Config(format!(
@@ -132,12 +155,17 @@ impl ClientBuilder {
             )));
         }
 
-        let default_model = resolve_setting(
-            self.default_model,
-            "OPENKIND_DEFAULT_MODEL",
-            "TYPESAFE_DEFAULT_MODEL",
-        )
-        .unwrap_or_else(|| DEFAULT_MODEL.to_owned());
+        let default_model = if cloudflare_account.is_some() {
+            self.default_model
+                .unwrap_or_else(|| "typesafe/jev".to_owned())
+        } else {
+            resolve_setting(
+                self.default_model,
+                "OPENKIND_DEFAULT_MODEL",
+                "TYPESAFE_DEFAULT_MODEL",
+            )
+            .unwrap_or_else(|| DEFAULT_MODEL.to_owned())
+        };
 
         let timeout = self.timeout.unwrap_or(DEFAULT_TIMEOUT);
         if timeout.is_zero() {
@@ -211,9 +239,9 @@ impl ClientBuilder {
         ) {
             (true, Some(url), false) if url.scheme() == "http" => {
                 match (url.host_str(), url.port_or_known_default()) {
-                    (Some(host), Some(port)) => Some(tokio::sync::Mutex::new(
-                        super::http1::H1Pool::new(host, port, self.connect_timeout),
-                    )),
+                    (Some(host), Some(port)) => {
+                        Some(super::http1::H1Pool::new(host, port, self.connect_timeout))
+                    }
                     _ => None,
                 }
             }
@@ -223,8 +251,9 @@ impl ClientBuilder {
         Ok(Client {
             inner: Arc::new(ClientInner {
                 http,
-                urls: super::core::EndpointUrls::new(&base_url)?,
+                urls: super::core::EndpointUrls::new(&base_url, cloudflare_account.is_some())?,
                 base_url,
+                is_cloudflare: cloudflare_account.is_some(),
                 default_model,
                 timeout,
                 retry,

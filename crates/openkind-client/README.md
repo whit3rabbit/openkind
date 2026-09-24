@@ -1,6 +1,6 @@
 # openkind-client
 
-Async Rust client for the `openkindd` daemon and the TypeSafe Jev SystemOne HTTP API. Wire-compatible with `https://api.typesafe.ai`, so the same binary talks to the hosted service or a local daemon by swapping `base_url`.
+Async Rust client for the `openkindd` daemon and Jev's TypeSafe System One HTTP API. The common request subset also works through OpenRouter's System One endpoint and Cloudflare Workers AI. See the [field-by-field compatibility matrix](../../docs/JEV_COMPATIBILITY.md) for provider differences and current limits.
 
 Built on the shared `openkind-core` wire types (`SystemRequest`, `SystemResponse`, `Question`, `Answer`, ...), so request/response conformance with `jev-v1-request.json` / `jev-v1-response.json` is structural, not hand-maintained. Retry, rate-limit, and error conventions mirror the `typesafe_sdk` Python SDK.
 
@@ -15,7 +15,7 @@ use openkind_client::{question, Client};
 async fn main() -> Result<(), openkind_client::Error> {
     let client = Client::builder()
         .api_key("dev-key")
-        .base_url("http://127.0.0.1:8080") // default: https://api.typesafe.ai
+        .base_url("http://127.0.0.1:18080") // default: https://api.typesafe.ai
         .build()?;
 
     let response = client
@@ -35,6 +35,39 @@ async fn main() -> Result<(), openkind_client::Error> {
 ```
 
 For full control, build an `openkind_client::SystemRequest` and call `client.evaluate(request)`.
+
+## Provider setup
+
+```rust
+use openkind_client::Client;
+
+# fn clients() -> Result<(), openkind_client::Error> {
+let openrouter = Client::builder()
+    .api_key("openrouter-key")
+    .base_url("https://openrouter.ai/api")
+    .default_model("jev-1.13")
+    .build()?;
+
+let cloudflare = Client::builder()
+    .api_key("cloudflare-api-token")
+    .cloudflare_account("accountid")
+    .build()?;
+# let _ = (openrouter, cloudflare);
+# Ok(())
+# }
+```
+
+Both use `system_one` or `evaluate`. OpenRouter requires the `/api` base URL,
+since the client appends `/v1/systemone`. It adds `id`, `provider`, and
+`usage.cost` to responses; the current Rust `SystemResponse` decodes the
+decisions but discards those extra fields. OpenRouter's `/api/v1/models` has a
+different response shape, so `list_models` is not supported there.
+
+Cloudflare mode sends `{ "model": "typesafe/jev", "input": { "state": ..., "questions": ... } }`
+to the account's `/ai/run` endpoint, then reads the Jev response from `result`.
+`list_models` and `health` are unavailable in this mode. An explicit `base_url`
+can override the Cloudflare host for a proxy or local test server; it must end
+at the account prefix because the client appends `/ai/run`.
 
 ## Rate limiting, overload, and retries
 
@@ -105,12 +138,15 @@ match client.evaluate(request).await {
 | `default_model` | `OPENKIND_DEFAULT_MODEL` | `TYPESAFE_DEFAULT_MODEL` |
 
 Explicit builder values win; empty/whitespace env values are ignored.
+Cloudflare mode uses its account URL and `typesafe/jev` unless `base_url` or
+`default_model` is set explicitly on the builder.
 
 ## Endpoints
 
 | Method | Client API | Path |
 |---|---|---|
 | `POST` | `evaluate` / `evaluate_with` / `system_one` / `system_one_with` | `/v1/systemone` |
+| `POST` in Cloudflare mode | Same evaluation methods | `/ai/run` |
 | `GET` | `list_models` / `list_models_with` | `/v1/models` |
 | `GET` | `health` / `health_with` | `/health` (unauthenticated) |
 

@@ -89,6 +89,20 @@ fn bench_client(c: &mut Criterion) {
         b.to_async(&runtime)
             .iter(|| async { black_box(client.health().await.expect("request health")) });
     });
+    c.bench_function("client_http/health_parallel_4", |b| {
+        b.to_async(&runtime).iter(|| async {
+            let responses = tokio::join!(
+                client.health(),
+                client.health(),
+                client.health(),
+                client.health(),
+            );
+            black_box(responses.0.expect("first health request"));
+            black_box(responses.1.expect("second health request"));
+            black_box(responses.2.expect("third health request"));
+            black_box(responses.3.expect("fourth health request"));
+        });
+    });
 
     let mut group = c.benchmark_group("client_http_systemone");
     for question_count in QUESTION_COUNTS {

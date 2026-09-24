@@ -1,5 +1,7 @@
 //! `openkind-client`: an async Rust client for the `openkindd`
-//! daemon and the TypeSafe Jev SystemOne HTTP API.
+//! daemon and the TypeSafe Jev SystemOne HTTP API, including OpenRouter's
+//! System One route. Cloudflare Workers AI uses the same question types via
+//! [`ClientBuilder::cloudflare_account`].
 //!
 //! Built directly on the `openkind-core` wire types. Successful evaluation
 //! responses are validated against their originating requests, including
@@ -17,7 +19,7 @@
 //! # async fn demo() -> Result<(), openkind_client::Error> {
 //! let client = Client::builder()
 //!     .api_key("dev-key")
-//!     .base_url("http://127.0.0.1:8080")
+//!     .base_url("http://127.0.0.1:18080")
 //!     .build()?;
 //!
 //! let response = client

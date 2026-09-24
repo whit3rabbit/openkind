@@ -62,7 +62,7 @@ fn router_full(
     max_payload_bytes: usize,
     rate_limiter: crate::middleware::RateLimiter,
 ) -> Router {
-    Router::new()
+    let routes = Router::new()
         // POST /v1/systemone — canonical Jev decision evaluation endpoint.
         .route("/v1/systemone", post(systemone))
         // POST /v1/system_one — SDK alias for decision evaluation endpoint.
@@ -72,7 +72,18 @@ fn router_full(
         // GET /health — unauthenticated service liveness probe.
         .route("/health", get(health))
         // GET /metrics — Prometheus text-format scrape target.
-        .route("/metrics", get(prometheus_metrics))
+        .route("/metrics", get(prometheus_metrics));
+    // A disabled limiter has no observable effect. Leave its middleware
+    // off the router so it cannot allocate or dispatch on every request.
+    let routes = if rate_limiter.is_enabled() {
+        routes.layer(axum::middleware::from_fn_with_state(
+            rate_limiter,
+            crate::middleware::rate_limit_layer,
+        ))
+    } else {
+        routes
+    };
+    routes
         // Order matters: layers added LATER are OUTERMOST. We want
         // request_id outermost so it stamps the response on every code
         // path, including 401s from auth_layer and 429s from the rate
@@ -80,10 +91,6 @@ fn router_full(
         // fires). Authentication sits outside rate limiting so rejected
         // credentials cannot exhaust the budget shared by requests from
         // the same TCP peer (for example, a reverse proxy).
-        .layer(axum::middleware::from_fn_with_state(
-            rate_limiter,
-            crate::middleware::rate_limit_layer,
-        ))
         .layer(axum::middleware::from_fn_with_state(
             auth,
             crate::middleware::auth_layer,

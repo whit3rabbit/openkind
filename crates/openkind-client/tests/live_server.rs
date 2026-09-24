@@ -58,6 +58,38 @@ fn test_client(base_url: &str) -> Client {
 }
 
 #[tokio::test]
+async fn pooled_http_requests_can_overlap() {
+    let barrier = Arc::new(tokio::sync::Barrier::new(2));
+    let router = axum::Router::new().route(
+        "/health",
+        axum::routing::get({
+            let barrier = barrier.clone();
+            move || {
+                let barrier = barrier.clone();
+                async move {
+                    // Both handlers must arrive before either can reply.
+                    barrier.wait().await;
+                    axum::Json(serde_json::json!({"status": "ok"}))
+                }
+            }
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base_url = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    let client = test_client(&base_url);
+
+    let pair = tokio::time::timeout(Duration::from_secs(3), async {
+        tokio::join!(client.health(), client.health())
+    })
+    .await
+    .expect("concurrent requests must reach the server before either returns");
+    assert_eq!(pair.0.unwrap().status, "ok");
+    assert_eq!(pair.1.unwrap().status, "ok");
+    server.abort();
+}
+
+#[tokio::test]
 async fn system_one_round_trip_all_question_types() {
     let base_url = spawn_server(Some("test-key"), None).await;
     let client = test_client(&base_url);
