@@ -256,6 +256,7 @@ pub async fn spawn(
     let app = Router::new()
         .route("/v1/systemone", axum::routing::any(handle))
         .route("/v1/models", axum::routing::any(handle))
+        .route("/ai/run", axum::routing::any(handle))
         .with_state(state);
     let url = spawn_router(app).await;
     (url, requests)

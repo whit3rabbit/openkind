@@ -8,7 +8,8 @@ use serde::de::DeserializeOwned;
 
 use super::core::Client;
 use super::options::{
-    RequestOptions, HEALTH_PATH, MODELS_PATH, RETRY_COUNT_HEADER, SYSTEM_ONE_PATH,
+    RequestOptions, CLOUDFLARE_RUN_PATH, HEALTH_PATH, MODELS_PATH, RETRY_COUNT_HEADER,
+    SYSTEM_ONE_PATH,
 };
 use crate::error::{parse_retry_after, ApiError, Error, REQUEST_ID_HEADER};
 
@@ -42,6 +43,7 @@ impl Client {
         let policy = opts.retry.as_ref().unwrap_or(&self.inner.retry);
         let endpoint: &'static str = match path {
             SYSTEM_ONE_PATH => "POST /v1/systemone",
+            CLOUDFLARE_RUN_PATH => "POST /ai/run",
             MODELS_PATH => "GET /v1/models",
             HEALTH_PATH => "GET /health",
             _ => "GET /",
@@ -109,7 +111,6 @@ impl Client {
         // response falls through to the reqwest path below so the whole
         // chain is followed exactly as reqwest would.
         if let Some(pool) = self.inner.fast_h1.as_ref() {
-            let pool = pool.lock().await;
             let target = request_target(desc.url);
             let wire = super::http1::encode_request(
                 desc.method.as_str(),
@@ -119,7 +120,7 @@ impl Client {
                 desc.body.as_deref(),
                 (retries > 0).then_some(retries),
             );
-            match super::http1::exchange(&pool, &wire, MAX_RESPONSE_BODY_SIZE, desc.timeout).await {
+            match super::http1::exchange(pool, &wire, MAX_RESPONSE_BODY_SIZE, desc.timeout).await {
                 Ok(Ok(response)) => {
                     let retry_after = if (200..300).contains(&response.status) {
                         None

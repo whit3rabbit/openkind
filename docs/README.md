@@ -62,6 +62,9 @@ Project documentation and architectural references for `openkind`.
 
 ## Wire Schemas & Specifications
 
+The [Jev compatibility matrix](JEV_COMPATIBILITY.md) compares OpenKind, TypeSafe,
+OpenRouter, and Cloudflare field by field and records the Rust SDK's provider routes.
+
 | Schema | Format | Specification File | Description |
 |---|---|---|---|
 | **Jev Request** | JSON Schema (Draft 2020-12) | [`crates/openkind-core/schemas/jev-v1-request.json`](../crates/openkind-core/schemas/jev-v1-request.json) | Request schema: `state`, `model`, `questions` (`noul`, `choice`, `score`). |

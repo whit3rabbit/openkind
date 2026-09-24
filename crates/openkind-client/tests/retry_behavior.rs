@@ -196,6 +196,38 @@ async fn rejects_oversized_chunked_error_response_without_retrying() {
 }
 
 #[tokio::test]
+async fn chunk_size_line_can_span_socket_reads() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base_url = format!("http://{}", listener.local_addr().unwrap());
+    let server = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let mut request = [0_u8; 4096];
+        let received = stream.read(&mut request).await.unwrap();
+        assert!(received > 0);
+        let body = b"{\"status\":\"ok\"}";
+        stream
+            .write_all(
+                format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nTransfer-Encoding: chunked\r\n\r\n{:x}\r",
+                    body.len()
+                )
+                .as_bytes(),
+            )
+            .await
+            .unwrap();
+        // Force the size line's CRLF to cross reads.
+        tokio::time::sleep(Duration::from_millis(5)).await;
+        stream.write_all(b"\n").await.unwrap();
+        stream.write_all(body).await.unwrap();
+        stream.write_all(b"\r\n0\r\n\r\n").await.unwrap();
+    });
+
+    let client = fast_client(&base_url, RetryPolicy::new().max_retries(0));
+    assert_eq!(client.health().await.unwrap().status, "ok");
+    server.await.unwrap();
+}
+
+#[tokio::test]
 async fn retries_429_until_success_and_sends_retry_count_header() {
     let state = stub_state(2, 429, 1);
     let url = spawn_stub(state.clone()).await;

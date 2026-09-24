@@ -19,6 +19,7 @@ pub const DEFAULT_MODEL: &str = "jev-latest";
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub(crate) const SYSTEM_ONE_PATH: &str = "/v1/systemone";
+pub(crate) const CLOUDFLARE_RUN_PATH: &str = "/ai/run";
 pub(crate) const MODELS_PATH: &str = "/v1/models";
 pub(crate) const HEALTH_PATH: &str = "/health";
 

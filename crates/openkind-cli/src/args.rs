@@ -2,6 +2,7 @@ use std::ffi::OsString;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
+use smallvec::SmallVec;
 
 /// Top-level command-line argument parser for the `openkind` CLI.
 #[derive(Parser, Debug)]
@@ -74,7 +75,7 @@ impl Cli {
         I: IntoIterator<Item = T>,
         T: Into<OsString> + Clone,
     {
-        let argv: Vec<OsString> = itr.into_iter().map(Into::into).collect();
+        let argv: SmallVec<[OsString; 12]> = itr.into_iter().map(Into::into).collect();
         if let Some(cli) = fast_parse(&argv) {
             return Ok(cli);
         }
@@ -92,6 +93,8 @@ struct FlagSpec {
     default: Option<&'static str>,
 }
 
+type MatchedFlags<'a> = (SmallVec<[Option<String>; 4]>, SmallVec<[&'a str; 1]>);
+
 /// Match `rest` (the tokens after the subcommand) against the flag grammar.
 ///
 /// Returns the resolved value per spec (explicit flag value, then
@@ -105,10 +108,10 @@ fn match_flags<'a>(
     specs: &[FlagSpec],
     bool_flags: &[&'static str],
     max_positionals: usize,
-) -> Option<(Vec<Option<String>>, Vec<&'a str>)> {
-    let mut values: Vec<Option<String>> = specs.iter().map(|_| None).collect();
-    let mut seen_bools: Vec<&'a str> = Vec::new();
-    let mut positionals: Vec<&'a str> = Vec::new();
+) -> Option<MatchedFlags<'a>> {
+    let mut values: SmallVec<[Option<String>; 4]> = specs.iter().map(|_| None).collect();
+    let mut seen_bools: SmallVec<[&'a str; 2]> = SmallVec::new();
+    let mut positionals: SmallVec<[&'a str; 1]> = SmallVec::new();
 
     let mut index = 0;
     while index < rest.len() {
@@ -153,7 +156,7 @@ fn match_flags<'a>(
         index += 1;
     }
 
-    let resolved = values
+    let resolved: SmallVec<[Option<String>; 4]> = values
         .into_iter()
         .zip(specs)
         .map(|(seen, spec)| match seen {
@@ -173,7 +176,7 @@ fn match_flags<'a>(
 
 /// Streaming fast path over a UTF-8 argv. See [`Cli::try_parse_from`].
 fn fast_parse(argv: &[OsString]) -> Option<Cli> {
-    let args: Vec<&str> = argv.iter().map(|a| a.to_str()).collect::<Option<_>>()?;
+    let args: SmallVec<[&str; 12]> = argv.iter().map(|a| a.to_str()).collect::<Option<_>>()?;
     let [_, subcommand, rest @ ..] = args.as_slice() else {
         return None;
     };

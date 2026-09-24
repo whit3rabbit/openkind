@@ -11,7 +11,8 @@ use reqwest::Method;
 
 use super::builder::ClientBuilder;
 use super::options::{
-    Health, IntoState, RequestOptions, HEALTH_PATH, MODELS_PATH, SYSTEM_ONE_PATH,
+    Health, IntoState, RequestOptions, CLOUDFLARE_RUN_PATH, HEALTH_PATH, MODELS_PATH,
+    SYSTEM_ONE_PATH,
 };
 use crate::error::Error;
 use crate::retry::RetryPolicy;
@@ -29,13 +30,17 @@ pub(crate) struct EndpointUrls {
 }
 
 impl EndpointUrls {
-    pub(crate) fn new(base_url: &str) -> Result<Self, Error> {
+    pub(crate) fn new(base_url: &str, is_cloudflare: bool) -> Result<Self, Error> {
         let join = |path: &str| {
             reqwest::Url::parse(&format!("{base_url}{path}"))
                 .map_err(|e| Error::Config(format!("invalid base URL `{base_url}`: {e}")))
         };
         Ok(Self {
-            system_one: join(SYSTEM_ONE_PATH)?,
+            system_one: join(if is_cloudflare {
+                CLOUDFLARE_RUN_PATH
+            } else {
+                SYSTEM_ONE_PATH
+            })?,
             models: join(MODELS_PATH)?,
             health: join(HEALTH_PATH)?,
         })
@@ -45,6 +50,7 @@ impl EndpointUrls {
 pub(crate) struct ClientInner {
     pub(crate) http: reqwest::Client,
     pub(crate) base_url: String,
+    pub(crate) is_cloudflare: bool,
     pub(crate) urls: EndpointUrls,
     pub(crate) default_model: String,
     pub(crate) timeout: Duration,
@@ -53,7 +59,7 @@ pub(crate) struct ClientInner {
     /// Direct HTTP/1.1 pool used for plain-`http` base URLs. `None` keeps
     /// every request on the reqwest transport (https base URLs, caller
     /// supplied HTTP clients, or proxy environments).
-    pub(crate) fast_h1: Option<tokio::sync::Mutex<super::http1::H1Pool>>,
+    pub(crate) fast_h1: Option<super::http1::H1Pool>,
 }
 
 /// An async client for the SystemOne HTTP API.
@@ -112,17 +118,41 @@ impl Client {
     ) -> Result<SystemResponse, Error> {
         // Serialize once here; the transport sends the bytes directly so the
         // request is not serialized a second time inside the HTTP client.
-        let body = serde_json::to_vec(&request)
-            .map_err(|e| Error::Config(format!("request could not be serialized: {e}")))?;
-        let response = self
-            .send_json(
+        let body = if self.inner.is_cloudflare {
+            serde_json::to_vec(&serde_json::json!({
+                "model": &request.model,
+                "input": {"state": &request.state, "questions": &request.questions},
+            }))
+        } else {
+            serde_json::to_vec(&request)
+        }
+        .map_err(|e| Error::Config(format!("request could not be serialized: {e}")))?;
+        let path = if self.inner.is_cloudflare {
+            CLOUDFLARE_RUN_PATH
+        } else {
+            SYSTEM_ONE_PATH
+        };
+        let response = if self.inner.is_cloudflare {
+            let envelope: CloudflareResponse = self
+                .send_json(
+                    Method::POST,
+                    &self.inner.urls.system_one,
+                    path,
+                    Some(body),
+                    opts,
+                )
+                .await?;
+            envelope.result
+        } else {
+            self.send_json(
                 Method::POST,
                 &self.inner.urls.system_one,
-                SYSTEM_ONE_PATH,
+                path,
                 Some(body),
                 opts,
             )
-            .await?;
+            .await?
+        };
         validate_response_for_request(&response, &request)
             .map_err(|source| Error::InvalidResponse { source })?;
         Ok(response)
@@ -189,6 +219,11 @@ impl Client {
 
     /// [`list_models`](Self::list_models) with per-call [`RequestOptions`].
     pub async fn list_models_with(&self, opts: &RequestOptions) -> Result<ModelsResponse, Error> {
+        if self.inner.is_cloudflare {
+            return Err(Error::Config(
+                "list_models is unavailable for the Cloudflare Workers AI surface".into(),
+            ));
+        }
         self.send_json(
             Method::GET,
             &self.inner.urls.models,
@@ -207,6 +242,11 @@ impl Client {
 
     /// [`health`](Self::health) with per-call [`RequestOptions`].
     pub async fn health_with(&self, opts: &RequestOptions) -> Result<Health, Error> {
+        if self.inner.is_cloudflare {
+            return Err(Error::Config(
+                "health is unavailable for the Cloudflare Workers AI surface".into(),
+            ));
+        }
         self.send_json(
             Method::GET,
             &self.inner.urls.health,
@@ -216,4 +256,9 @@ impl Client {
         )
         .await
     }
+}
+
+#[derive(serde::Deserialize)]
+struct CloudflareResponse {
+    result: SystemResponse,
 }
