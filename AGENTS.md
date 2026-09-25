@@ -22,7 +22,7 @@ selected open-weight Qwen 3.5 profile described below.
 - [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md): benchmark methodology, harness usage, and recorded runs.
 - [`docs/MLX.md`](docs/MLX.md): MLX runtime contract, implementation guide, limitations, and enhancement path.
 - [`docs/RESEARCH.md`](docs/RESEARCH.md): empirical research and prior-art evidence.
-- [`docs/whitepaper/OpenKind_Whitepaper_v0.8.2.md`](docs/whitepaper/OpenKind_Whitepaper_v0.8.2.md): scientific rationale and measured results.
+- [`docs/whitepaper/WHITEPAPER.md`](docs/whitepaper/WHITEPAPER.md): scientific rationale and measured results.
 - Each crate's `AGENTS.md`: module-specific invariants and verification commands.
 
 If documentation and code disagree, do not silently choose one. Use executable

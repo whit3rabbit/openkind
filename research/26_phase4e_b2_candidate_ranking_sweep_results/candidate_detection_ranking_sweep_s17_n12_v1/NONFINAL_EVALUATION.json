@@ -1,0 +1,190 @@
+{
+  "cache_parity": [
+    {
+      "family": "joint",
+      "max_abs_logit_diff": 5.7220458984375e-06,
+      "max_abs_probability_diff": 1.548315168631298e-06,
+      "question_id": "contractnli:train:166:nda-1",
+      "same_action": true,
+      "source": "contractnli"
+    },
+    {
+      "family": "support",
+      "max_abs_logit_diff": 2.47955322265625e-05,
+      "max_abs_probability_diff": 2.860718901265269e-06,
+      "question_id": "contractnli:train:166:nda-1",
+      "same_action": true,
+      "source": "contractnli"
+    },
+    {
+      "family": "any_supported",
+      "max_abs_logit_diff": 9.5367431640625e-06,
+      "max_abs_probability_diff": 2.242272196695261e-06,
+      "question_id": "contractnli:train:166:nda-1",
+      "same_action": true,
+      "source": "contractnli"
+    },
+    {
+      "family": "joint",
+      "max_abs_logit_diff": 7.62939453125e-06,
+      "max_abs_probability_diff": 3.3085323365433794e-06,
+      "question_id": "qasper:validation:1806.04511:55139fcfe04ce90aad407e2e5a0067a45f31e07e",
+      "same_action": true,
+      "source": "qasper"
+    },
+    {
+      "family": "support",
+      "max_abs_logit_diff": 7.62939453125e-06,
+      "max_abs_probability_diff": 1.8985586692776835e-06,
+      "question_id": "qasper:validation:1806.04511:55139fcfe04ce90aad407e2e5a0067a45f31e07e",
+      "same_action": true,
+      "source": "qasper"
+    },
+    {
+      "family": "any_supported",
+      "max_abs_logit_diff": 5.7220458984375e-06,
+      "max_abs_probability_diff": 4.512862230021675e-07,
+      "question_id": "qasper:validation:1806.04511:55139fcfe04ce90aad407e2e5a0067a45f31e07e",
+      "same_action": true,
+      "source": "qasper"
+    }
+  ],
+  "final_opened": false,
+  "gate_by_source": {
+    "contractnli": {
+      "detector_diagnostics": {
+        "any_supported": {
+          "auroc": 0.6222029320987655,
+          "average_precision": 0.5472097235376441
+        },
+        "joint_z": {
+          "auroc": 0.7412229938271606,
+          "average_precision": 0.7353358706576374
+        },
+        "max_support": {
+          "auroc": 0.6948302469135803,
+          "average_precision": 0.5985713874193704
+        }
+      },
+      "gate_candidate_counts": {
+        "2": 204
+      },
+      "majority_baselines": {
+        "conditional_majority_accuracy": 0.7777777777777778,
+        "conditional_majority_n": 108,
+        "conditional_majority_position": 0,
+        "detector_majority_balanced_accuracy": 0.5,
+        "full_majority_accuracy": 0.4117647058823529,
+        "full_majority_balanced_accuracy": 0.3888888888888889,
+        "full_majority_predict_none": false
+      },
+      "order_average_winner_disagreement_n": 13,
+      "selected": {
+        "detector": "joint_z",
+        "ranker": "joint_order_average",
+        "threshold": 0.35
+      },
+      "selected_development_metrics": {
+        "accuracy": 0.6225490196078431,
+        "answerable_n": 121,
+        "balanced_accuracy": 0.6383052872647615,
+        "brier": 0.4953266114412159,
+        "conditional_ranking_accuracy": 0.8925619834710744,
+        "conditional_ranking_n": 121,
+        "conditional_ranking_nll": 0.4155450463051735,
+        "detector_balanced_accuracy": 0.671363138504431,
+        "false_none_rate": 0.3801652892561983,
+        "full_nll": 0.836950361173517,
+        "n": 204,
+        "none_n": 83,
+        "semantic_none_recall": 0.7228915662650602
+      },
+      "selected_gate_metrics": {
+        "accuracy": 0.6176470588235294,
+        "answerable_n": 108,
+        "balanced_accuracy": 0.625,
+        "brier": 0.48752625341681727,
+        "conditional_ranking_accuracy": 0.8703703703703703,
+        "conditional_ranking_n": 108,
+        "conditional_ranking_nll": 0.41683588921960313,
+        "detector_balanced_accuracy": 0.662037037037037,
+        "false_none_rate": 0.42592592592592593,
+        "full_nll": 0.8318702822498892,
+        "n": 204,
+        "none_n": 96,
+        "semantic_none_recall": 0.75
+      }
+    },
+    "qasper": {
+      "detector_diagnostics": {
+        "any_supported": {
+          "auroc": 0.8292682926829268,
+          "average_precision": 0.4053921568627451
+        },
+        "joint_z": {
+          "auroc": 0.8,
+          "average_precision": 0.3432126696832579
+        },
+        "max_support": {
+          "auroc": 0.8097560975609756,
+          "average_precision": 0.2959477124183006
+        }
+      },
+      "gate_candidate_counts": {
+        "1": 46
+      },
+      "majority_baselines": {
+        "detector_majority_balanced_accuracy": 0.5,
+        "full_majority_accuracy": 0.8913043478260869,
+        "full_majority_balanced_accuracy": 0.5,
+        "full_majority_predict_none": false
+      },
+      "selected": {
+        "detector": "max_support",
+        "ranker": "joint_original",
+        "threshold": 0.25
+      },
+      "selected_development_metrics": {
+        "accuracy": 0.8837209302325582,
+        "answerable_n": 38,
+        "balanced_accuracy": 0.5,
+        "brier": 0.20426468061411587,
+        "conditional_ranking_accuracy": null,
+        "conditional_ranking_n": 0,
+        "conditional_ranking_nll": null,
+        "detector_balanced_accuracy": 0.5,
+        "false_none_rate": 0.0,
+        "full_nll": 0.3540741156088103,
+        "n": 43,
+        "none_n": 5,
+        "semantic_none_recall": 0.0
+      },
+      "selected_gate_metrics": {
+        "accuracy": 0.8913043478260869,
+        "answerable_n": 41,
+        "balanced_accuracy": 0.5,
+        "brier": 0.1842252526520393,
+        "conditional_ranking_accuracy": null,
+        "conditional_ranking_n": 0,
+        "conditional_ranking_nll": null,
+        "detector_balanced_accuracy": 0.5,
+        "false_none_rate": 0.0,
+        "full_nll": 0.32400719778287823,
+        "n": 46,
+        "none_n": 5,
+        "semantic_none_recall": 0.0
+      }
+    }
+  },
+  "limits": [
+    "Exploratory nonfinal sweep; calibration gate was already exposed in previous work.",
+    "Only 12 states per source and split. No untouched confirmation or final split.",
+    "QASPER has one candidate, so no ranking metric applies.",
+    "Model suffix timing is host-specific; reference fallback kernels may be slower.",
+    "No release, service, production throughput, or general Jev parity claim."
+  ],
+  "run_label": "candidate_detection_ranking_sweep_s17_n12_v1",
+  "sample_n": 741,
+  "schema": "openkind-candidate-sweep-nonfinal/v1",
+  "selection_sha256": "d451329afc008befea44ff3d67e63ab4ec5a0dbd43a469db1936b410e491402a"
+}

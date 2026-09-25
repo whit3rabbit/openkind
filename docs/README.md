@@ -54,7 +54,7 @@ Project documentation and architectural references for `openkind`.
    - Checkpoint loading, continuation-state, and kernel architecture.
    - Current limitations, benchmark decision, correctness gates, and
      prioritized enhancements.
-7. **[`whitepaper/OpenKind_Whitepaper_v0.8.2.md`](./whitepaper/OpenKind_Whitepaper_v0.8.2.md)**:
+7. **[`whitepaper/WHITEPAPER.md`](./whitepaper/WHITEPAPER.md)**:
    Canonical scientific interpretation, evidence register, native CPU reference
    results, Phase 4B–4D closeout, and Phase 4E audit gate.
 

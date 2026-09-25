@@ -33,7 +33,7 @@ fi
 cd "${repo_root}"
 
 checkpoint_root=""
-reference_root="research/OpenKind_Phase3B_BackboneParity_20260920T152206Z"
+reference_root="research/14_phase3b_backbone_parity_results"
 head_bundle_root="crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8"
 output_dir=""
 scheduler_reps=""

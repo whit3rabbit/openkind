@@ -33,13 +33,13 @@ snapshot after process A had exited.
 ```bash
 cargo run --release --locked -p openkind-backends --example qwen35_parity_probe -- \
   <pinned-checkpoint-root> \
-  research/OpenKind_Phase3B_BackboneParity_20260920T152206Z \
+  research/14_phase3b_backbone_parity_results \
   persist-save target/verification/qwen35-persist-root-state.bin \
   --evidence-root target/verification/native-runs
 
 cargo run --release --locked -p openkind-backends --example qwen35_parity_probe -- \
   <pinned-checkpoint-root> \
-  research/OpenKind_Phase3B_BackboneParity_20260920T152206Z \
+  research/14_phase3b_backbone_parity_results \
   persist-replay target/verification/qwen35-persist-root-state.bin \
   crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8 \
   --evidence-root target/verification/native-runs

@@ -14,7 +14,7 @@ owned elsewhere and linked, not duplicated:
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — measurement-plan metric definitions
   (complete-request p50/p95, `T(Q)/T(1)`, state-prefill fraction, memory) and
   the landed execution-strategy contract.
-- [`whitepaper/OpenKind_Whitepaper_v0.8.2.md`](./whitepaper/OpenKind_Whitepaper_v0.8.2.md)
+- [`whitepaper/WHITEPAPER.md`](./whitepaper/WHITEPAPER.md)
   — canonical measured-results register for the native engine.
 - [`ROADMAP.md`](./ROADMAP.md) — open benchmark work: practical high-K latency,
   full restored head/decision replay, and queue-inclusive load/soak.
@@ -246,9 +246,9 @@ python3 scripts/native-service-gate.py \
   --repo . \
   --daemon target/native-service-gate/release/openkindd \
   --bundle-root crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8 \
-  --runtime-manifest research/OpenKind_Phase3B_BackboneParity_20260920T152206Z/bundle_probability_runtime/runtime.json \
+  --runtime-manifest research/14_phase3b_backbone_parity_results/bundle_probability_runtime/runtime.json \
   --checkpoint-root "$OPENKIND_QWEN35_CHECKPOINT" \
-  --tokenizer research/OpenKind_Phase3B_BackboneParity_20260920T152206Z/backbone_runtime/tokenizer/tokenizer.json \
+  --tokenizer research/14_phase3b_backbone_parity_results/backbone_runtime/tokenizer/tokenizer.json \
   --fixture crates/openkind-bench/fixtures/decisions_smoke.jsonl \
   --output-dir docs/verification/native-service-gate/run-YYYYMMDD \
   --build-source-record docs/verification/native-service-gate/run-YYYYMMDD/build-source.json \

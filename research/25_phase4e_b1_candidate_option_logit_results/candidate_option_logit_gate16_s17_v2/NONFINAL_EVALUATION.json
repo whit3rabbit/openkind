@@ -1,0 +1,112 @@
+{
+  "by_source": {
+    "contractnli": {
+      "candidate_count_distribution": {
+        "2": 272
+      },
+      "conditional_frozen_reference": {
+        "accuracy": 0.3108108108108108,
+        "n": 148,
+        "nll": 1.6763352044843394
+      },
+      "conditional_option_logit": {
+        "accuracy": 0.8783783783783784,
+        "n": 148,
+        "nll": 0.4217188433706784
+      },
+      "full_frozen_reference": {
+        "accuracy": 0.33088235294117646,
+        "answerable_n": 148,
+        "brier": 0.9431902845184585,
+        "false_none_rate": 0.28378378378378377,
+        "n": 272,
+        "nll": 1.7897573238884834,
+        "semantic_none_n": 124,
+        "semantic_none_recall": 0.4596774193548387
+      },
+      "full_option_logit_diagnostic": {
+        "accuracy": 0.47794117647058826,
+        "answerable_n": 148,
+        "brier": 0.7012104706058737,
+        "false_none_rate": 0.0,
+        "n": 272,
+        "nll": 1.2537988975250738,
+        "semantic_none_n": 124,
+        "semantic_none_recall": 0.0
+      },
+      "mean_primary_suffix_seconds": 0.16498812516176412,
+      "mean_reverse_suffix_seconds": 0.1603700735992708,
+      "mean_root_seconds_amortized": 0.06475960794117487,
+      "reverse_order_candidate_winner_disagreement_n": 18,
+      "reverse_order_max_option_probability_shift": 0.28651362300735217,
+      "reverse_order_multi_candidate_n": 272
+    },
+    "qasper": {
+      "candidate_count_distribution": {
+        "1": 53
+      },
+      "conditional_frozen_reference": {
+        "accuracy": null,
+        "n": 0,
+        "nll": null
+      },
+      "conditional_option_logit": {
+        "accuracy": null,
+        "n": 0,
+        "nll": null
+      },
+      "full_frozen_reference": {
+        "accuracy": 0.4339622641509434,
+        "answerable_n": 45,
+        "brier": 0.8217748651091279,
+        "false_none_rate": 0.6222222222222222,
+        "n": 53,
+        "nll": 1.4192024372527554,
+        "semantic_none_n": 8,
+        "semantic_none_recall": 0.75
+      },
+      "full_option_logit_diagnostic": {
+        "accuracy": 0.7735849056603774,
+        "answerable_n": 45,
+        "brier": 0.30726468139001134,
+        "false_none_rate": 0.13333333333333333,
+        "n": 53,
+        "nll": 0.469036123821325,
+        "semantic_none_n": 8,
+        "semantic_none_recall": 0.25
+      },
+      "mean_primary_suffix_seconds": 0.14249191126413588,
+      "mean_reverse_suffix_seconds": null,
+      "mean_root_seconds_amortized": 0.3458378875849155,
+      "reverse_order_candidate_winner_disagreement_n": 0,
+      "reverse_order_max_option_probability_shift": null,
+      "reverse_order_multi_candidate_n": 0
+    }
+  },
+  "cache_parity": [
+    {
+      "max_abs_logit_diff": 7.62939453125e-06,
+      "max_abs_probability_diff": 2.5505493301269944e-06,
+      "question_id": "contractnli:test:465:nda-1",
+      "same_action": true,
+      "source": "contractnli"
+    },
+    {
+      "max_abs_logit_diff": 1.9073486328125e-05,
+      "max_abs_probability_diff": 3.07335971005962e-07,
+      "question_id": "qasper:test:1708.05482:67c16ba64fe27838b1034d15194c07a9c98cdebe",
+      "same_action": true,
+      "source": "qasper"
+    }
+  ],
+  "limits": [
+    "Fixed 16-state-per-source exploratory sample, not the full calibration gate.",
+    "No prompt or threshold selection, training, final split, or independent review.",
+    "Reference and option-logit prompts differ; this is a method comparison on matched rows.",
+    "FP32 Colab timing is host-specific and excludes model load and service overhead.",
+    "Reference PyTorch causal convolution and DeltaNet fallbacks may make this host slower."
+  ],
+  "run_label": "candidate_option_logit_gate16_s17_v2",
+  "sample_n": 325,
+  "schema": "openkind-candidate-option-logit-nonfinal/v2"
+}
