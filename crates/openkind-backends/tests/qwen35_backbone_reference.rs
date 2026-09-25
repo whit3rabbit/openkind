@@ -8,7 +8,7 @@ use openkind_backends::qwen35::{
 };
 use serde::Deserialize;
 
-const PHASE3B_DIR: &str = "research/OpenKind_Phase3B_BackboneParity_20260920T152206Z";
+const PHASE3B_DIR: &str = "research/14_phase3b_backbone_parity_results";
 
 #[derive(Debug, Deserialize)]
 struct TokenFixtures {

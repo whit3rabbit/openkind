@@ -1,68 +1,71 @@
 # OpenKind
-## A Qwen-led path to compact, multi-question decision models
+## Shared-state decision inference: evidence, execution, and useful decisions
 
-**Document version:** 0.8.2 (22 September 2026)
+**Document version:** 0.8.2 (22 September 2026, evidence and strategy addenda through 24 September 2026)
 
 ### Abstract
-OpenKind treats decision inference as a scoring protocol rather than a text-generation task. A frozen Qwen3.5-4B-Base backbone produces features; small trained heads convert those features into typed answers and probability distributions. Completed Phases 2B–2G establish useful NLI and dynamic-candidate behavior, important rejection limits, and a strict-FP32 execution reference. Lossless prefix reuse and bounded FP16 attention-KV storage pass the reported sampled gates; four tested low-bit snapshot codecs do not. TF32-permitted batching offers a measured speed opportunity without full equivalence.
 
-On Phase 2G’s sampled non-financial CLINC panel, the set-linear model reaches 93.75% answerable accuracy but only 39.06% omitted-intent recall; separate author-OOS recall is 46.88%. The evidence therefore describes a narrowly adapted scorer, not the limit of a Qwen model trained for broader decisions. [E1–E7; R3]
+OpenKind investigates local decision inference over shared evidence. It returns
+typed answers and probability distributions without an autoregressive text
+generation loop. Its state-first Qwen reference reuses complete hybrid execution
+state across isolated question and candidate branches. Native CPU parity,
+fresh-process decision replay, and named-machine CPU service gates pass within
+their declared scope. Pinned-base MLX FP32 full, nested, and variable-length
+vectorized parity pass separately. Matched vectorized performance and MLX
+service promotion remain open. [E11–E13; RUST1–RUST11; §17.3]
 
-The research target is a compact model that answers several independent questions over one state. Phase 2H tests that direction without retraining: it validates and reuses saved fitting artifacts, then runs strict-FP32 and TF32-permitted final workers. The preselected support-example joint head reaches 78.91% raw pooled accuracy over 1,152 episodes from 320 messages, but only 63.67% on held-out Banking labels and 66.02% on held-out CLINC domains. An original-criteria joint-head control transfers better than the development-selected support arm, so the paper does not promote a new model after observing the final set.
+Useful natural-document decisions remain unresolved. Phase 4A–4D's learned
+StateQuery, applicability, head-only, and residual studies produce no promotable
+model. The cheap pooled-prefill probe also fails. Direct-logit experiments show
+candidate-ranking signal but inadequate rejection: the selected 4E-B.2
+ContractNLI arm ranks 94/108 answerable cases correctly, then falsely rejects
+46/108 as semantic none. QASPER's selected detector rejects no cases under its
+declared threshold grid. These are non-final diagnostics, not release evidence.
+[E14–E20; E26–E28]
 
-The selected model rejects all sampled author-OOS episodes, but it still makes omission and policy errors. TF32 preserves final argmax outcomes but fails the 0.005 numerical gate on two final episodes, with further drift in controlled contexts. These results call for broader supervision, representative transfer-aware selection, richer rejection, and genuine question sharing. They do not support more tuning against the exposed final set. The early smaller-Qwen/LoRA/compact-encoder comparisons, separate equivalence and quality tracks, and thin-service path remain priorities. [E8; E9; V2; R3; proposed program]
+The evidence audit separates source correctness, model-visible evidence, and
+model use. Full-paper adjudication does not establish evidence coverage within
+the 1,024-state-token feature input. A3 preserves a 51-row independent review,
+with six later non-independent follow-ups. A4 records bounded source-dataset
+alignment, but source-document equivalence and representation repair remain
+incomplete. The separate 27-case disposition does not change benchmark gold.
+[E14; E22–E25]
 
-The subsequent 2I/2J workbench tests the state-sharing mechanism on a real GPU. For synthetic Q = 2 and K = 2, hidden features pass their declared tolerances and the root remains unchanged. This result does not establish trained multi-question quality or compare models.
+The research direction is to repair that contract, establish useful
+question/candidate-conditioned decisions, and then lower their complete cost.
+A smaller Qwen or learned shared-query reader must earn its place through
+quality and resource evidence. The contribution is an auditable execution
+contract and a measured account of reuse, numerical behavior, evidence access,
+and rejection limits. No inference about Jev's private architecture, general
+calibration, or an inherently superior neural topology follows. [§§13.2–13.5,
+18.19; synthesis]
 
-The reviewed-study gate remains blocked by unsigned review, unspecified hardware and quality limits, and a stale review-protocol hash. Because the added-question fixture duplicates the first question, it cannot count as a distinct unrelated-question test. The next stage is reviewed protocol and data approval, followed by the planned comparisons. [E10; I0; V3]
+**Current work:** [ROADMAP.md](../ROADMAP.md) defines M0–M4 and their exit
+conditions. One frozen-profile MLX performance comparison can proceed alongside
+scope and evidence repair. New modeling waits for reviewed repairs. Final
+remains closed. The prior roadmap is retained in
+[ROADMAP_HISTORY.md](../ROADMAP_HISTORY.md), and the previous opening is
+preserved in [Appendix E](#appendix-e-historical-opening-before-the-september-refocus).
 
-Version 0.7 applies a pre-final selection rule to the completed `2ij.2.0` exploratory screen. Thirteen configured fit jobs completed, and 31 locked final profiles were evaluated. The rule selects Qwen3.5-4B-Base with a frozen backbone, state-first rendering, and the score-summary rejection head (profile `a047d6802c3f06f085b8`) as the provisional integration candidate.
-
-The held-out exploratory panel contains 320 question episodes from 56 source messages. It records 95.0% accuracy, 0.13006 NLL, 0.07319 Brier, and 0.01661 15-bin ECE. The natural MultiRC answer-correctness slice is harder at 83.33% accuracy and 0.40361 NLL, while the constructed families are near-saturated. This is a bounded pilot result, not a release-quality claim.
-
-A 0.98 policy accepted 214/320 episodes with one wrong accepted decision. The model-selection bundle later passed a clean A100 reload check with maximum probability delta 3.67e-6, zero selected-ID changes, and an independent NumPy/f64 head-algebra check. The exported reference bundle is now the implementation contract for Rust/native parity work. [E11]
-
-**Historical version 0.6 scope.** That revision built on v0.5.2, including its recovered-discussion traceability and conditional P2 tasks. It preserved the historical B–G and H-development numerical tables, added the completed `2h.1.2` continuation, and closed the bounded 2H-C1–C5 tasks. Detailed methods, all retained comparisons, rejection/policy behavior, numerical limits, reliability, primitive scores and resource measurements are in §13.1; the roadmap now keeps a concise closeout and next-work summary. V2 independently checks saved-output arithmetic and artifact lineage, not new model computation. No Qwen inference, retraining, new GPU benchmark, source-label adjudication, repository test or external-literature review was performed during this documentation revision. [E9; V2]
-
-**Version 0.7 scope.** This revision preserves all prior H and 2I/2J checkpoint evidence, adds the completed exploratory model comparison, final held-out pilot readout, multi-question execution measurements, and the A100-verified selected-model bundle. It does not convert the exploratory pilot into an independently reviewed release study, establish production acceptance limits, or claim Rust/Metal parity. The selected integration candidate remains provisional. [E11]
-
-**Version 0.7.1 external-benchmark update.** Two new public sources sharpen the execution roadmap without changing the selected integration profile. A community Qwen Parallel Constrained Decoding implementation shows one-prefill/batched-field mechanics and author-reported Apple-Silicon latency, but does not establish TypeSafe-style RLCD training or calibrated probabilities. A DGX Spark comparison reports substantially flatter Jev Q=1→4 latency than sequential local Qwen wrappers, while also showing task-dependent quality rankings, independent probability-quality variation and service repeatability differences. These results are treated as external benchmarks and architectural prompts, not OpenKind measurements or evidence of Jev internals. The immediate implementation emphasis therefore becomes native parity followed by branchable hybrid state, breadth-first batched question execution and explicit Q-amortization measurement. [P21; P22; recommendation]
-
-**Version 0.7.2 Phase 3A systems update.** Phase 3A run `20260920T024056Z` keeps selected profile `a047d6802c3f06f085b8` and its bundle unchanged and performs no training or reselection. It validates a corrected full-hybrid-state branching reference for Qwen3.5, passes the notebook's semantic batched-parity and high-K systems-parity gates, and records exact same-process repeatability in the saved run. Batched state sharing is slightly slower on the three short semantic Q=4 cases. As shared state length grows, it becomes much faster and consumes more memory.
-
-The result supports Rust `BranchableState` parity plus an adaptive scheduler. It does not support a model redesign or an “always share” optimization rule. The selected integration line is now publicly available at <https://huggingface.co/cowWhySo/OpenKind-Qwen3.5-4B-StateFirst>. Publication does not convert the exploratory profile into a release-quality model or establish Rust/Metal parity. [E12; PUB1]
-
-**Version 0.7.2 Phase 3B and Rust checkpoint.** Run `20260920T152206Z` keeps the same profile, bundle, and base revision. It records no training, model selection, or model modification. It exports four exact token-fixture records. Its 47 FP32 vectors comprise 34 trace stages, 10 full-sequence candidate features, and 3 continuation vectors. The largest fresh-feature difference is `4.9591064453125e-05`. Cached continuation differs from fresh full-sequence execution by at most `1.9073486328125e-05`.
-
-These values are Python self-consistency diagnostics under the notebook's `1e-4` guard. They are not new Rust acceptance tolerances. Rust now passes the selected head/probability, exact-token, full-sequence CPU backbone, and Qwen-specific cached-continuation gates. Across the native 34-stage trace, embedding is exact and final RMSNorm has maximum absolute error `5.8174e-05`. Across all 10 candidate sequences, maximum probability delta is `4.5869e-06`, with zero argmax or policy changes. The native cached candidate exactly matches the native full-sequence result while preserving the source root. [E13; RUST1–RUST3]
-
-**Version 0.8.0 scope: Native CPU reference engine through safe adaptive scheduling and direct registration.** This architectural milestone consolidates Phases 3.1–3.8 (RUST1–RUST7), then closes the review issues recorded in RUST8. RUST9 adds a clean, commit-stamped rerun of the complete workspace, native parity ladder, scheduler stress, and warm-process benchmark. RUST10 adds the named-Mac native follow-up campaign: bounded model-backed K=32/64/128/255 completion and memory stability, structural fresh-process persistence replay, native service lifecycle smoke, and the Rust 1.88 workspace floor. Full restored candidate-feature/decision replay, practical high-K latency, vectorized kernels, Metal, and production load/soak remain open. [E11–E13; RUST1–RUST10]
-
-**Version 0.8.1 scope: Phase 4A natural-document benchmark and completed non-final StateQuery sweep.** Phase 4A.0 locks a two-source corpus with 2,192 states, 15,368 questions, 25,687 options, 21,894 evidence rows, and 18 criteria before model predictions. Phase 4A.1's original B1 StateQuery checkpoint improves the historical candidate-conditioned reference on source-macro accuracy and proper-scoring metrics, but collapses QASPER semantic-none recall to 0.0 and yields negligible policy coverage. Phase 4A.2 now has completed, locked non-final results for the matched B0 control, balanced B1, factorized B2, refined B2R, and the B2 QASPER-weight-8 follow-on. B2 produces the strongest Phase 4A.2 source-macro proper scores among the architecture arms, while the weight-8 arm reaches the best source-macro balanced accuracy, macro F1, and semantic-none recall in that sweep; neither reaches the QASPER development recall floor. Phase 4B.2 then raises the configured weight cap to 12, which saturates at an effective weight of 8.5602. The selected epoch remains ineligible, QASPER gate none recall is 0.1556, and ContractNLI incurs a 0.3966 false-none rate. No Phase 4A/4B final label or prediction was opened, no promotion gate is satisfied, and no model is promoted in this revision. [E14–E16]
-
-**Version 0.8.2 scope: Phase 4B.2.1 through Phase 4D and the Phase 4E audit gate.** The source/class-stratified B2 objective improves QASPER operating-threshold recall to 0.2564 on policy development and 0.3111 on the calibration gate, but misses the 0.30 development floor and transfers to a gate policy cost of 0.11675 with 7 wrong among 32 accepted decisions. Pairwise applicability reaches 0.3451 QASPER development recall, yet its calibration-gate false-none rates rise to 0.2111 for ContractNLI and 0.2110 for QASPER, and gate policy cost remains above review-all at 0.10221. A head-only continuation worsens source-macro development NLL by 2.77% and Brier by 2.10%; an evidence-residual continuation gains only one QASPER none true positive (34 to 35 of 113) while worsening NLL by 6.08% and Brier by 6.60%. Every child is rejected, the stratified epoch-8 parent remains the diagnostic reference, and final stays unavailable and unopened. Phase 4E-A2 completes the repaired blinded QASPER error audit with full state text, validating all hashes, joins, and row counts (final unopened). Decided agreement is 66.4% (99/149) with 51 adjudication rows emitted. Disagreement is highly asymmetric: 44 cases challenge locked semantic-none labels (38 explicitly and 6 implicitly answerable; 28 with nonempty gold evidence attached), while 6 cases reflect state serialization deficits (omitted tables, captions without values, bibliography placeholders). The verdict establishes that raw state coverage does not guarantee answer-bearing representation coverage, and blocks Phase 4E-B training sweeps pending independent adjudication under a structured defect taxonomy and benchmark/representation repair. [E17–E22]
-
-**Version 0.6.1 scope.** This update uses the latest delivered v0.6 paper and roadmap as its editing bases, not the older v0.3 paper or pre-H roadmap also present in the conversation. It adds the first `2ij.1.0` workbench report, whose overall status is **blocked**: preparation and a Qwen4B/L4 synthetic feature-equivalence probe completed, but independent review and the selection contract are not approved. All historical B–G/H measurement tables and 2H closeout remain unchanged.
-
-Section 14 separates the probe from semantic quality, records a duplicate-question fixture mislabeled as unrelated-question addition, and identifies the exact review/target/manifest blockers. V3 checks saved records and source code without running the notebook or reading final-case annotations. No review is signed, no model is retrained and no Drive source is changed. [E10; I0; V3]
-
-**Evidence boundary.** E8 remains the unchanged failed `2h.1.1` attempt and fitting/development source. E9 is the completed continuation with final predictions and an artifact lock; it supersedes the old final-pending status without rewriting the original failure. Completion is separate from numerical acceptance, task generality and deployment readiness. The earlier revision scopes remain in the source and revision registers. [E8; E9]
-
-**Operational plan:** the synchronized [roadmap](OpenKind_ROADMAP_v0.8.2.md) keeps 2H-C1–C5 closed and preserves the blocked `2ij.1.0` review-gated checkpoint. E11–E13 remain the model-selection and Python/native handoff authorities; RUST1–RUST10 remain the native execution record. E14–E16 provide the locked Phase 4A corpus and completed architecture/scalar-weight sweep. E17–E20 add the stratified, pairwise, head-only, and evidence-residual applicability studies. Together they close four easy rescue routes: larger scalar weights, a pairwise term, isolated applicability-head fitting, and a small handcrafted-feature residual. Phase 4E-A2 establishes that data annotation incompleteness and serialization loss, not model weakness alone, drive errors. Independent adjudication of the 51 rows under a six-part defect taxonomy and benchmark/representation repair must precede any preregistered seed-17 representation-learning arm. Do not run seeds 42/123, open final, or promote a checkpoint before the audit and a newly preregistered non-final contract justify doing so. In parallel, pursue practical high-K latency and production service load/soak; full restored head/decision replay now passes on the named CPU host. CPU native parity does not imply Metal or accelerated parity. [E9–E22; RUST1–RUST10; P21–P23; recommendation]
-
-**Phase 2H reading guide:** [Completed continuation](#1318-completed-continuation-lineage-lock-and-evaluated-scope) · [Final quality and rejection](#1319-selected-model-final-quality-rejection-and-population-weighting) · [All comparison arms](#13110-all-retained-comparisons-the-development-winner-is-not-the-best-final-transfer-arm) · [Source archive and audit](#appendix-a-source-and-reproducibility-register).
-
-**New checkpoint reading guide:** [Workbench outcome](#14-phase-2i2j-workbench-preparation-mechanical-evidence-and-the-review-gate) · [Synthetic mechanics](#142-the-small-state-first-gpu-probe) · [Probe coverage correction](#143-coverage-correction-the-added-question-was-a-duplicate) · [Gate and continuation](#144-why-the-next-study-remains-blocked).
-
-**Phase 4A–4E reading guide:** [Scope and status](#181-scope-status-and-evidence-boundary) · [Corpus and cache lock](#182-phase-4a0-corpus-partitions-and-frozen-feature-identity) · [Completed comparison](#184-completed-non-final-comparison-aggregate-improvement-hides-a-qasper-collapse) · [Scalar-weight closeout](#188-phase-4b2-cap-12-closes-the-scalar-weight-sweep) · [Stratified objective](#189-phase-4b21-stratified-applicability-improves-recall-but-not-policy-transfer) · [Pairwise objective](#1810-phase-4b3-pairwise-applicability-passes-development-but-not-transfer) · [Head-only and residual continuations](#1811-phase-4c-head-only-continuation-is-rejected) · [Phase 4E gate](#1813-lessons-learned-and-phase-4e-gate) · [Phase 4E-A2 repaired audit](#1814-phase-4e-a2-repaired-qasper-error-audit-reveals-asymmetric-annotation-and-serialization-defects).
-
-**Next milestone:** close two independent tracks without mixing their evidence. On the model track, complete independent adjudication of the 51 emitted Phase 4E-A2 disagreement rows using the structured defect taxonomy, execute benchmark and state serialization repairs (table restoration, citation resolution, and evidence cleanup), and only then authorize a separately contracted Phase 4E-B token-level representation experiment; seed expansion and final remain blocked. On the systems track, complete full restored persistence/replay and the service-level Q-amortization report—rejection, calibration, useful automation coverage, complete-request latency, and peak memory on the named Mac. [E11–E22; RUST7–RUST10; P21–P23; proposed milestone]
+**Reading guide:** current interpretation in [§1](#1-executive-assessment),
+acceptance tracks and work order in [§13](#13-refocused-research-program-and-next-milestone),
+native evidence in [§17.3](#173-current-rust-boundary), and audit/model evidence
+in [§18](#18-phase-4a4e-locked-benchmark-applicability-experiments-and-audit-gate).
+Sections 4–10 and dated checkpoint/revision records retain their historical
+scope. Their original future-work language is not the current queue.
 
 ---
 
 # 1. Executive assessment
 
-**The central feasibility question has a positive, bounded answer:** a frozen Qwen backbone can support useful, non-generative decisions through small trained heads. The mechanism is simple: encode the input once, read a task-specific feature, and score typed alternatives without decoding answer text. The research does not establish an arbitrary-domain, fully Jev-compatible decision model. It establishes an experimental foundation and locates the main deployment risks and performance costs. [E1–E7]
+**The execution foundation is established within bounded contracts. Useful
+natural-document decision quality is the next unresolved milestone.** Frozen
+Qwen features support the measured NLI and candidate tasks, and complete hybrid
+state can be reused across isolated branches. Neither result establishes
+arbitrary-domain competence or validates a cheap state summary as a substitute
+for question-conditioned interaction. The detailed historical results below
+explain why source/input repair precedes another model intervention.
+[E1–E7; E11–E28; §17.3]
 
 A frozen text-only Qwen3.5-4B-Base backbone with last-token features and a linear head reached 87.67% matched and 87.33% mismatched accuracy in Phase 2B’s three-class MultiNLI experiment. Phase 2C selected the same head family across three training seeds and obtained 87.0% and 88.8% on new matched and mismatched test samples. These are sampled NLI results, not general decision accuracy, and separation from earlier experiments does not establish separation from Qwen’s pretraining corpus. [E1; E2]
 
@@ -98,11 +101,23 @@ These are different test constructions from earlier phases, not a measured deter
 | Is cache compression already beneficial? | FP16 KV storage passed FP32 sample gates; all four tested low-bit codecs failed. | Retain lossless as the baseline; evaluate FP16 storage by prefix length and full cost. |
 | Does persistent prefix reuse help? | Lossless FP32 savings were 13.91%/11.88% in F and 6.19% on G’s different expiry trace. | Benefits depend on workload and cache budget; no production or cross-question guarantee. |
 | Has H completed and selected a universally better model? | Required final/robustness/primitive/request workers completed; the development-selected support arm has weaker held-out transfer than a retained original-criteria control. | Close recovery; keep model selection, numerical acceptance and broader generality open. [E9] |
-| Have Phase 4A/4B solved multi-source question answering and semantic none? | No. The completed architecture and scalar-weight sweeps improve aggregate discrimination, but every arm misses the declared 0.30 QASPER none-recall floor. The cap-12 request saturates at effective weight 8.5602 and trades limited QASPER recovery for a 0.3966 ContractNLI false-none rate. | Keep final evaluation closed, stop scalar-weight tuning, and test one source/class-normalized applicability objective with an explicit false-none guardrail. [E14–E16] |
+| Have Phase 4A/4B solved multi-source question answering and semantic none? | No. The completed architecture and scalar-weight sweeps improve aggregate discrimination, but every arm misses the declared 0.30 QASPER none-recall floor. The cap-12 request saturates at effective weight 8.5602 and trades limited QASPER recovery for a 0.3966 ContractNLI false-none rate. | Keep final closed. Subsequent stratified, pairwise, head-only, and residual tests also failed the complete gate. Repair source/input evidence before another model intervention. [E14–E25] |
 
-**Revised direction after E11–E16 and RUST1–RUST10:** keep release confirmation open. E11 fixes a provisional state-first Qwen4B integration profile; E12 supplies the Python full-hybrid branching/batching reference; E13 and RUST1–RUST10 close the correctness-first CPU reference through bounded native service smoke. E14–E16 add a locked natural-document benchmark, complete the Phase 4A.2 architecture/weight comparison, and show that further scalar none weighting does not resolve source-specific applicability. The immediate modeling bottleneck is now objective design: answerable-only ranking plus a source/class-normalized applicability loss, judged against both recall floors and false-none ceilings. Full restored persistence, practical high-K latency, production load/soak, independent review, efficient external baselines, and Track S service work continue in parallel. [E9–E16; RUST1–RUST10; R3; RC; recommendation]
+**Current direction after E28:** preserve the immutable integration target and
+the completed CPU/MLX FP32 parity assets. Source/class-normalized applicability
+has already been fitted, and its policy transfer remains inadequate. Complete
+versioned evidence repair and independent review, then compare retained methods
+on common repaired inputs. If visible evidence is sufficient and Qwen still
+fails, test one bounded upstream-adaptation hypothesis with an attributable
+head-only control. A matched frozen-profile MLX performance study can proceed
+independently. [E17–E28; §17.3; proposed program]
 
-Bring matched frozen-head versus LoRA versus Qwen3.5-2B comparisons forward, with a compact bidirectional dynamic-candidate arm in the same early comparison program. Keep Qwen as the leading research path without assuming the 4B model must ship or that a smaller encoder is automatically adequate. Measure the useful quality/resource trade-off, not agreement with every historical answer. Model selection and implementation equivalence are different decisions; Section 13 makes their gates explicit. [R3; S3; proposed program]
+The exploratory 2I/2J screen already compared frozen heads, limited LoRA,
+Qwen3.5-2B, and ModernBERT. Its 4B selection is an integration reference, not a
+mandatory deployment model. After useful quality is established, 2B adaptation
+is the first smaller-model challenger unless measured question-continuation
+cost justifies a shared-query reader instead. Avoid a new architecture tournament
+before the task and evidence contract can distinguish causes. [E11; §§15, 18.19]
 
 Preserve strict FP32, lossless reuse, and bounded FP16-KV storage as execution references; keep TF32 as a separately versioned performance candidate and the tested low-bit configurations outside the accepted-equivalence set. Retain inspected G examples as regression data, not an untouched final test after tuning. When attributing an effect, do not change prompts, kernels, precision, heads, policies, and caching simultaneously. None of the revised priorities retroactively changes the F/G verdicts. [E3–E7; recommendation]
 
@@ -836,9 +851,13 @@ The subsequent architecture review broadens the response: retain that study, but
 
 A service should return model/engine and policy version identifiers with telemetry, and report truncation and unsupported inputs explicitly. Most untouched task-quality inputs use a maximum length of 256. Phase 2G adds controlled labeled contexts through a minimum 1,024 state tokens, but their six source messages and generated administrative notes do not establish reliable decisions on natural long operational documents. Keep the synthetic mechanics and labeled context controls distinct. [E2–E7]
 
-## 11.2 A Qwen-first extension, with a real compact-model comparator
+## 11.2 State-first Qwen and conditional model alternatives
 
-**Incremental Qwen path.** Move from candidate-only sharing toward nested state → question → candidate execution. Compare state-first rendering with the current instruction-first contract under matched training. Refit the affected heads and normalization rather than assuming the old readout is optimal after token reordering. This is an early research priority, not a semantics-preserving cache patch. [E2–E7; R3; proposal]
+**State-first Qwen path.** E11 selected state-first rendering, and §17.3 records
+native full-hybrid branching parity. Retain the following execution structure
+for the quality reference. Any new upstream adaptation or input repair changes
+the model/execution identity and requires its own readout, normalization,
+calibration, and quality record. [E11–E13; §17.3]
 
 ```text
 stable format + state → immutable shared root
@@ -852,17 +871,35 @@ stable format + state → immutable shared root
 
 Each question receives its own none/applicability calculation and distribution. Full-attention KV, recurrent state, and convolution state must all remain isolated at both fork levels. A block attention mask alone does not isolate independent questions concatenated into Qwen’s recurrent stream. Verify branch positions, finalized token IDs, root immutability, and equivalence to full execution of the **new** input contract before measuring reuse. [E4–E7; R3; proposed controls]
 
-**Compact bidirectional dynamic-candidate path.** Run a bounded joint-candidate encoder comparison in the same early model study as smaller Qwen and LoRA. It tests whether the task can be solved with much less model work, rather than committing to a second product architecture. It must pass the same held-out question/rubric and rejection tests; speed on a narrow classifier is not enough. Section 11.7 distinguishes a controlled model-family comparison from evaluating Laya’s released checkpoint as an external system. [R3; S3; proposal]
+**Compact bidirectional dynamic-candidate path.** E11 completed the exploratory
+ModernBERT comparison. It did not establish a release-quality smaller encoder.
+A further compact-model comparison is conditional on useful quality and an
+identified cost problem. A released external checkpoint remains a separate
+baseline with unmatched training history. [E11; §15.3]
 
-**Shared-representation/query-module path.** A purpose-trained shared encoder with isolated query modules remains a later architectural fork if the incremental paths miss the quality/resource target. Perceiver IO is a conceptual precedent, not an implementation of Jev or an automatic substitute for question-conditioned Qwen features. Do not start a large architectural rewrite before the simpler comparisons identify a need. [P11; R3; proposal]
+**Shared-representation/query-module path.** B1/B2 already tested learned access
+to frozen token-level state representations, including factorized applicability.
+They improved some aggregate metrics but missed complete quality/policy gates.
+A new reader must specify what input information or training changes relative
+to those arms. The later pooled-root failure does not rule out every learned
+query architecture. Perceiver IO remains a conceptual precedent. [P11; E14–E20;
+E26]
 
 No path should claim nearly flat question scaling from a candidate-only benchmark or a single batched call. Measure both Q and K, state length, complete latency, memory, and semantic isolation. [R3; proposed evaluation]
 
-**Implementation progress after Phase 3A.** The original E10 workbench supplied only an early Q=2/K=2 mechanics probe and contained the duplicate-added-question fixture documented in §14.3. E11 later corrected the distinct-question test and measured bounded semantic sharing. E12 now goes further: it validates the selected profile's complete Python hybrid-state fan-out/select path, breadth-first question/candidate batching, high-K systems parity and same-process repeatability. That closes the Python execution-reference question sufficiently for native engineering; independently reviewed semantic generality and natural-document quality remain separate promotion gates. [E10–E12; V3]
+**Implementation boundary.** E10's duplicate-added-question probe remains
+historical. E11 corrected the distinct-question mechanics, E12 established the
+Python branching reference, and native CPU plus separately gated MLX FP32
+execution now pass their stated fixtures. Preserve those assets while M1/M2
+establish reviewed evidence and useful decisions. [E10–E13; §17.3]
 
-## 11.3 Rust and Apple Silicon: define the parity ladder
+## 11.3 Rust and Apple Silicon: retain the parity ladder
 
-Saved head fixtures make a Rust port more tractable, but fixture export is not execution parity. The earlier exports and E/F/G head replays do not validate a Rust backbone. H contributes selected-head development fixtures and now completed CUDA final predictions and bounded same-mode parity results. They provide source material for the per-profile parity ladder, not a Rust/Metal implementation result. [E2; E3; E5–E9]
+The parity ladder remains the qualification method for new implementations.
+The selected profile now passes native CPU full/nested execution and fresh-process
+replay, plus separately qualified MLX FP32 full/nested/vectorized fixtures.
+BF16 remains outside its unchanged gate. Saved head fixtures alone would not
+establish these results. Section 17.3 and [MLX.md](../MLX.md) record their scope.
 
 The recommended ladder starts with deterministic head algebra: normalization, affine score, stable softmax, label masking, none features, and temperature. Next compare token IDs, masks, truncation, and position IDs. Then validate full-backbone hidden vectors and decisions. Only after that should the port introduce hybrid-cache branching, batched suffixes, alternative precision, and persistent cache storage.
 
@@ -896,9 +933,15 @@ Add a separate **state/evidence sufficiency** axis. Deliberately omitted candida
 
 For example, one security-event state could support a question about the affected asset, another about whether external communication is evidenced, and a third about which documented handling category applies. This is an illustrative training design, not a claim that the current model handles security workflows. Deterministic calculations and authorization remain in application code. The same-state examples make instruction sensitivity testable without confusing it with a change in underlying facts. [R3; proposed task construction]
 
-The seven-parameter none model is a useful ablation, not a universal answerability mechanism. It sees symmetric score summaries rather than all the semantic information in the already-computed hidden representations. Identical summaries necessarily yield identical none outputs; changing a none logit cannot repair the ordering of two offered candidates. Compare it with a small, permutation-aware applicability/rejection head that can consume candidate-conditioned features, without presuming that another backbone pass is necessary. Keep the refitted-constant control. [E3; R3; architectural inference and proposal]
+The seven-parameter none model remains a useful ablation. Symmetric score
+summaries cannot distinguish inputs with identical summaries, and changing a
+none logit cannot repair candidate ordering. Feature-aware and factorized
+alternatives have now been tested in Phase 4. Their incomplete transfer means
+that adding semantic features or separating losses is not by itself a solution.
+Retain the controls and investigate evidence/supervision before another head
+sweep. [E3; E14–E20]
 
-A candidate experimental factorization for a single-choice task is:
+The factorization tested by the B2 family separates applicability from ranking:
 
 ```text
 a = P(at least one offered option is valid | state, question, candidates)
@@ -910,19 +953,32 @@ P(candidate j) = a × r_j, with sum_j r_j = 1
 
 This factorization does not manufacture better evidence or calibration. Its value must come from supervision and representations that distinguish applicable candidates, omitted correct options, author-OOS inputs, and insufficient evidence. Keep those evaluation strata separate; application review remains a policy, not a semantic class. Specify how ambiguous or multiply valid alternatives are annotated before fitting a single-choice distribution. [R3; proposed model and annotation contract]
 
-In the matched study, fit frozen multi-task heads, adapt the same backbone with limited LoRA, and apply the same recipe to a smaller Qwen. Refit normalization and calibration when representations change. Match losses, pairs, update budgets, and selection criteria within causal comparisons; report unmatched pretrained systems separately. Use multiple seeds for leading configurations and reserve a new final evaluation after using G or completed H findings to design the next intervention. [R3; H0; proposal]
+After evidence repair, a limited-upstream-adaptation arm is a conditional
+causal test, not a claim that LoRA must work. Compare it with an attributable
+head-only control, matching input evidence, supervision, and optimization
+budgets. Refit normalization and calibration for changed features. Keep seed
+expansion conditional on a complete non-final pass, and reserve fresh final
+groups for the locked operating point. [E11; E17–E28; proposed experiment]
 
 ## 11.7 Lessons from compact encoders and teacher-to-student research
 
 **Laya: borrow a testable design, not its claimed generality.** The author model card describes a fully fine-tuned 395M ModernBERT-large backbone plus a decision head, approximately 421M parameters in total. Options are scored at marker positions within a per-question input, with a 512-token question/options/state budget. It reports multi-question batching and limits its calibration claims to the evaluated distributions. These are author descriptions, not OpenKind results or an independent checkpoint audit. [P19]
 
-The useful comparison is joint candidate scoring with a compact bidirectional model and broader task supervision. Put a freshly trained compact arm beside the current Qwen control, adapted Qwen, and smaller Qwen using common data and task definitions. Evaluate released Laya separately as an external baseline: its training history and budget are not matched. Do not treat batching as proof of state-once execution, silently truncate away evidence to meet its input budget, equate a confidence statistic with correctness, or import its training/calibration pipeline without evaluation. This revision adopts neither Jev-superiority claims nor a presumption that encoder size determines generality. [S3; P19; proposed comparison and interpretation]
+E11 already includes a bounded ModernBERT-style joint-candidate comparison.
+It supplies exploratory evidence about that treatment, not a verdict on all
+compact encoders or a matched evaluation of released Laya. Retain released
+checkpoints as fair, explicitly unmatched comparators when relevant to the
+supported workload. [E11; P19]
 
 **R4T: the transferable idea is offline supervision for a cheap student.** Retrieve-for-Train uses an RL-trained fan-out policy to produce objective-aligned supervision for a lightweight retrieval model; the paper’s application is set-valued retrieval, not typed decision calibration. Its diffusion retriever and reported retrieval speedups are not evidence that OpenKind should switch to diffusion or will obtain the same benefit. [P20]
 
-After establishing the supervised baseline, compare the same student trained on reviewed labels alone, labels plus reviewed teacher-generated examples, and an additional distribution-distillation treatment. Keep criteria, data splits, candidate ordering, none semantics, and budgets explicit; never replace independent final labels with teacher judgments. A 4B model is only a possible teacher, not automatically a better one. Evaluate student correctness, calibration, rejection, policy cost/coverage, and total resource use; agreement with an overconfident teacher is not enough. Direct supervised training remains first, and a large RL program needs a specific failure that simpler losses do not address. These are proposed OpenKind adaptations of the discussion, not results established by R4T. [R3; S3; proposal]
+Only after establishing a useful supervised baseline and demonstrating teacher quality on the supported task, compare the same student trained on reviewed labels alone, labels plus reviewed teacher-generated examples, and an additional distribution-distillation treatment. Keep criteria, data splits, candidate ordering, none semantics, and budgets explicit; never replace independent final labels with teacher judgments. The 4B numerical oracle is only a possible teacher. Its inadequate answerability and policy transfer do not justify treating its probabilities as semantic truth. Evaluate student correctness, calibration, rejection, policy cost/coverage, and total resource use; agreement with an overconfident teacher is not enough. Direct supervised training remains first, and a large RL program needs a specific failure that simpler losses do not address. These are proposed OpenKind adaptations of the discussion, not results established by R4T. [R3; S3; proposal]
 
-**Backlog traceability:** the compact comparison is an early **2J.1–2J.2** treatment, with released Laya evaluated separately under **2J.5**; the teacher/student comparison is the restored conditional **P2.3** study. The historical `OpenKind_Review_Followup_Traceability.md` review matrix retains their distinct tests and non-goals under RQ-06 and RQ-13. These are experimental commitments to compare, not commitments to replace Qwen or to deploy diffusion. [RC; RP2]
+**Backlog traceability:** the exploratory compact comparison under 2J.1–2J.2
+has run. The released-Laya comparator under 2J.5 and the conditional teacher/student
+study P2.3 remain distinct. The [roadmap crosswalk](../ROADMAP.md#historical-task-crosswalk)
+maps these IDs to M2–M4. Teacher quality and a measured cost problem must precede
+distillation. [E11; RC; RP2]
 
 ### 11.7.1 Parallel constrained decoding and external Q-scaling evidence
 
@@ -950,7 +1006,13 @@ For Qwen3.5, the root and every fork must include the full hybrid continuation s
 
 That benchmark also supports three methodological conclusions already present in OpenKind. First, architecture rankings are task-dependent: the tuned compact encoder leads the reported WANLI slice while Jev leads the reported BoolQ slice, so a fast encoder should not be promoted from one narrow benchmark. Second, probability quality must be evaluated independently: the study reports separate Brier and ECE values rather than treating typed output or maximum probability as calibration. Third, repeatability is an observable serving property: identical Jev API requests changed some choices and many WANLI probability vectors between campaigns. This does not identify the cause, but it motivates a pinned local repeatability campaign for OpenKind rather than assuming version labels imply identical numerical behavior. [P22]
 
-**Implication for the selected OpenKind profile.** Do not restart model selection. E11 already provides a fixed integration target and a verified bundle. The immediate systems experiment is now sharper: reproduce the profile natively, establish sequential nested parity, then evaluate a **batched question fork** where all compatible question suffixes advance breadth-first from one immutable state root. Candidate branches can be batched at the next level. Compare repeated-full, sequential-nested and batched-nested paths under the same model/profile and report `T(Q)/T(1)`, marginal latency per added question, questions/second, forward-call count, state-prefill share and peak branch-state bytes. External Jev ratios are reference context, not a predeclared OpenKind release threshold. [E11; P21; P22; recommendation]
+**Implication for the selected OpenKind profile.** Native CPU and pinned MLX
+FP32 parity are recorded in §17.3. The next frozen-profile systems comparison is
+matched MLX per-lane versus vectorized execution, including unequal suffix
+lengths. Measure complete request cost, `T(Q)/T(1)`, marginal question latency,
+forward calls, prefill share, and branch/process memory while retaining parity
+and isolation checks. External Jev ratios are context, not OpenKind release
+thresholds. [E11; P21; P22; §17.3]
 
 High-cardinality Choice should likewise be split into systems and semantic questions. P21 shows that a constrained-token implementation can mechanically handle 255 declared choices at useful latency on its own workload; it does not show 255-way dynamic semantic accuracy. OpenKind should first stress K=32/64/128/255 for memory, batching and scheduler behavior, then add a smaller reviewed high-K semantic panel with candidate descriptions and rejection cases. [P21; recommendation]
 
@@ -969,7 +1031,7 @@ Rust HTTP/gRPC boundary → EngineRegistry → bounded Qwen35DecisionEngine
                        → native tokenizer/backbone/head → validated typed response
 ```
 
-This direct adapter loads only explicit offline artifacts, defaults the current per-lane CPU backend to sequential sharing, bounds running plus queued requests, maps overload separately from invalid and backend failures, and fails unsupported shapes explicitly. The Python implementation remains a differential oracle. Cancellation after blocking model work starts, recovery, and queue-inclusive latency/soak remain open. [R3; RUST8]
+This direct adapter loads only explicit offline artifacts, defaults the current per-lane CPU backend to sequential sharing, bounds running plus queued requests, maps overload separately from invalid and backend failures, and fails unsupported shapes explicitly. The Python implementation remains a differential oracle. Cancellation/recovery and queue-inclusive CPU load/soak now have bounded named-machine evidence. MLX service qualification remains separate. [RUST8; RUST11; §17.3]
 
 Protected metrics, redaction of sensitive inputs, bounded request work, and explicit opt-in before unauthenticated non-loopback serving remain deployment requirements. Direct registration is not load/soak evidence, an audit, release promotion, or Metal parity. [R3; recommendation]
 
@@ -977,7 +1039,12 @@ Protected metrics, redaction of sensitive inputs, bounded request work, and expl
 
 The recovered review reported drift across agent instructions, roadmap phases, probability terminology and test-count snapshots. Version 0.5.1 synchronizes **this paper and the attached roadmap**, but does not edit or audit `AGENTS.md`, architecture files, Rust source or CI. The roadmap is the current task/status authority; this paper retains experiment interpretation and provenance. Repository instructions must adopt the same task IDs and supported contracts under Track S.1. Use commit-stamped CI results for current test counts rather than duplicated “at HEAD” prose. The supplied roadmap's 195-test snapshot has no exact commit and was not rerun here. [R3; R4; V1]
 
-Record H as **completed through a separately identified continuation**, with the original failed attempt preserved. The roadmap closes 2H-C1–C5 and keeps independent criteria review, richer applicability, multi-question work and the service bridge under their own task IDs. This does not mark `AGENTS.md`, repository CI, HTTP integration or native inference complete. Candidate probability remains distinct from the separate confidence statistic; all historical memory formulas retain their model-specific layer factors. [E8; E9; V2; roadmap coordination]
+H is completed through its separately identified continuation. The native
+CPU adapter, persistence replay, and named-machine service gates are also
+recorded. [ROADMAP.md](../ROADMAP.md) now owns M0–M4, while
+[ROADMAP_HISTORY.md](../ROADMAP_HISTORY.md) preserves prior phase IDs and their
+evidence register. Current test claims require commit-stamped verification.
+Candidate probability remains distinct from confidence. [E8; E9; RUST11]
 
 # 12. Research questions answered and still open
 
@@ -993,16 +1060,16 @@ Record H as **completed through a separately identified continuation**, with the
 | Is FP32 the most accurate model? | Not established generally. It is the most internally consistent tested reference; numerical and semantic quality are evaluated separately. |
 | Does TF32 permission preserve the decision contract? | Not fully. H’s selected profile has no final argmax/policy changes but two numeric-tolerance failures; additional controlled-context cross-mode failures remain. Historical G failures are unchanged. [E7; E9; V2] |
 | Can shared prefixes amortize work? | Yes, especially with longer prefixes and batched suffixes in the completed mechanical tests. |
-| Has state-once, arbitrary-question-many execution been demonstrated? | **Mechanically, in bounded Python and native Rust systems tests:** E11/E12 validate the reference graph; RUST5/RUST6 reproduce sequential and lane-topology Q/K execution exactly for the frozen fixtures. This is not independently reviewed arbitrary-question semantic competence or compute-vectorized forward evidence. [E11; E12; RUST5; RUST6] |
+| Has state-once, arbitrary-question-many execution been demonstrated? | **Mechanically, in bounded Python and native Rust systems tests:** E11/E12 validate the reference graph; RUST5/RUST6 reproduce sequential and lane-topology Q/K execution exactly for the frozen fixtures. The CPU evidence establishes lane topology. Separate MLX FP32 fixtures now cover vectorized forward. Neither establishes arbitrary-question semantic competence. [E11; E12; RUST5; RUST6; §17.3] |
 | Is TurboQuant already a win for this model? | Not under the frozen equivalence gate: all four tested snapshot codecs failed; short-prefix overhead also limited storage benefit. |
 | Does FP16 KV storage help? | It passed strict-FP32 fresh/context gates in G and earlier storage tests; it saved bytes but did not add a cache hit or beat lossless trace time in G. |
 | Does persistent prefix reuse help? | Yes on controlled single-worker traces: F and G show workload-dependent gains, with G exercising expiry; no production concurrency claim follows. |
 | Are clear criteria and calibrated rejection solved? | No. H’s completed support/refitting study still has held-out omission, context and policy limitations; independent criteria review was not performed. [E9] |
 | Does MTP speed up this decision path? | Not in its present no-output-decoding graph. |
-| Are Score, Noul, and API parity finished? | H’s bounded BoolQ and SST-5 final probes are complete. General binary/rubric semantics, insufficient-evidence handling and real-service/API parity remain open. [E9] |
-| Has Rust/Metal or a smaller Qwen been validated? | Rust CPU full-backbone and cached-continuation parity pass for the selected 4B profile. Metal and release-quality smaller-Qwen validation remain open; H's smaller-Qwen arm was disabled. [RUST3] |
+| Are Score, Noul, and API parity finished? | H’s bounded BoolQ and SST-5 final probes are complete. The native service and wire mapping are implemented. General binary/rubric semantics and insufficient-evidence competence remain open. [E9; RUST8; RUST11] |
+| Has Rust/Metal or a smaller Qwen been validated? | Rust CPU full-backbone and cached-continuation parity pass for the selected 4B profile. Pinned MLX FP32 full/nested/vectorized parity also passes. MLX service promotion and reviewed smaller-model quality remain open. H disabled smaller Qwen, but E11 later tested it exploratorily. [E11; §17.3] |
 | Has Jev’s RLCD been reproduced? | No. The project has a distinct, inspectable research path toward a similar software interface. |
-| Is the frozen 4B scorer the required deployment model? | No. It is the measured reference; matched adaptation and compact-model selection are now early priorities. |
+| Is the frozen 4B scorer the required deployment model? | No. It is the measured reference; evidence repair and useful decision quality precede another cost challenger. |
 | Must a newly trained model reproduce all old probabilities? | No. Same-model implementation equivalence and fresh new-model quality have separate gates. |
 | Does a batched multi-question call prove state-once computation? | No. Q-scaling, actual shared work, isolation, and semantic quality must be measured separately. |
 | Is there now a locked natural-document multi-question benchmark? | Yes, within the declared Phase 4A scope: ContractNLI and QASPER contribute 2,192 states and 15,368 questions under state/component-safe partitions, with hashes and model-feature identities locked before predictions. This is a benchmark asset, not proof of label quality or deployment representativeness. [E14] |
@@ -1020,13 +1087,29 @@ Record H as **completed through a separately identified continuation**, with the
 
 **Current 2I/2J status:** the original `2ij.1.0` reviewed-study path remains blocked by unsigned review, null promotion bounds and stale review metadata; separately, `2ij.2.0` completed an **exploratory** model-selection screen and exported a provisional integration profile. The pilot is sufficient to start native parity work but does not satisfy the independent-review/natural-data release gate. [E10; E11; I0]
 
-**Current Phase 4 status:** the corpus and every Phase 4A–4D run are locked, non-final records. Balanced B1, B2, B2R, both scalar-weight arms, stratified and pairwise objectives, the head-only continuation, and the evidence-residual continuation have all completed. None is eligible for promotion. Phase 4E-A is an error-audit checkpoint, not a model sweep: it must preserve the frozen thresholds and labels, generate a blinded QASPER review pack, and record adjudication before any representation-learning continuation is authorized. Any change in data, objective, gate, selection rule, or model identity requires a new variant rather than an overwritten result. [E14–E20]
+**Current Phase 4 status:** the natural-document architecture/objective studies
+and later direct-logit diagnostics have produced no promotable model. A3
+preserves the independent adjudication. A4 records bounded dataset alignment,
+while source-document equivalence, serializer/input repair, and independent
+review of corrections remain open. The separate 27-case disposition does not
+close that gate. Keep original labels, thresholds, and result locks unchanged.
+[E14–E28; §§18.15–18.19]
 
 # 13. Refocused research program and next milestone
 
-The revised objective remains a compact, instruction-sensitive, multi-question decision model rather than a permanently frozen 4B scorer. E11 and E12 change the sequencing, however: a provisional profile and Python execution reference now exist, so the next engineering budget moves to native/Rust parity and target-machine execution while reviewed model-promotion work proceeds independently. The accumulated Python numerical/branching evidence becomes the contract the native implementation must reproduce, not a reason to defer the port for another model-search cycle. [E11; E12; R3; proposed program]
+The current objective is useful, auditable decisions over shared evidence.
+State-first execution remains the foundation. Neither a small encoder nor a
+particular parameter count is the predetermined destination. Native CPU
+bring-up, persistence replay, and named-machine CPU service gates are recorded,
+as is separately qualified pinned-base MLX FP32 parity. The next model milestone
+is evidence repair followed by useful question-conditioned decisions.
+[E11–E28; §17.3]
 
-Phase 4 now supplies the natural-document modeling track that this program previously lacked. Its completed results change the immediate sequence: stop local weight/head/residual sweeps; audit the QASPER errors and evidence at the frozen policy thresholds; then, only if the audit supports the labels and reveals a representation gap, preregister a bounded token-level or limited-upstream-adaptation arm. Aggregate accuracy cannot substitute for this sequence because the best surviving parent still misses the QASPER development floor and its transferred policy is more expensive than review-all. [E14–E20]
+Phase 4's negative results require separating source correctness, input
+coverage, and model use. Preserve A3 adjudication and the bounded A4 alignment,
+then complete source/input repair and independent review. A new representation
+arm follows only when that contract can test a distinct hypothesis. Section
+18.19 interprets the evidence. The active roadmap owns the work sequence.
 
 ## 13.1 Phase 2H: completed continuation and retained development history
 
@@ -1394,9 +1477,18 @@ Both workers record approximately **16,043.69 MiB allocated immediately after mo
 
 The main learning is more specific than “training helped.” Rejection refitting and small readout adaptation improve paired final results relative to the historical control, but support-conditioned development selection did not choose the strongest final-transfer arm. Perfect author-OOS classification on this sample did not eliminate omitted-intent errors, policy risk or context sensitivity. TF32 offers a substantial batching speed benefit but still fails the unchanged combined equivalence gate. Bounded BoolQ/SST-5 evidence is now available without validating general primitives. [E9; V2; synthesis]
 
-The required H study is closed and the exploratory E11 comparison has already supplied the provisional implementation profile. The **immediate engineering priority is Phase 3 native parity** against that immutable profile and the E12 execution fixtures. In parallel, **2I.1–2I.2 and 2J.5–2J.6** remain the release-quality path: independent review, natural/held-out task evidence, explicit promotion bounds and fair external baselines. New model interventions still require fresh development/final data; H and E11 final sets are historical/regression evidence once they influence design. [E9; E11; E12; R3; RC]
+The required H study and exploratory E11 comparison are complete. Their
+exposed final sets remain historical/regression evidence. Native parity and
+bounded CPU service work subsequently completed within scope. Independent
+review, repaired natural inputs, declared limits, and fresh held-out confirmation
+remain necessary for model promotion under M0–M4. [E9; E11; §17.3]
 
-At the E9 checkpoint, state-first/nested Q sharing, independently reviewed natural documents and criteria, broad Noul/Score evidence, and the real Rust/resident-worker service remained open. RUST1–RUST8 later close the native CPU fixture path and direct adapter, and RUST9 verifies that boundary at a clean subject commit, while model-backed high-K and service load/soak remain open. The Laya comparator and later R4T-inspired teacher/student work remain captured in §11.7, P2.1–P2.3 and the traceability matrix. The refocus toward a compact, instruction-sensitive, multi-question engine is preserved; the 4B FP32 scorer is still a reference rather than a mandatory shipping model. [R3; RC; E9; RUST1–RUST9; proposed program]
+At the E9 checkpoint, state-first execution and the native service remained
+open. Later records close the bounded execution, replay, and CPU service gates.
+That history does not establish semantic generality, MLX service qualification,
+or teacher quality. The 4B profile remains an immutable numerical reference
+while the supported task determines which model should ship. [E9; RUST1–RUST11;
+§17.3]
 
 
 ## 13.2 Two acceptance tracks, not one universal parity rule
@@ -1410,29 +1502,27 @@ The historical 0.005 probability tolerance and no-outcome/no-policy-change requi
 
 ## 13.3 Priority order and synchronized roadmap
 
-The companion [ROADMAP.md](../ROADMAP.md) is the task/status authority; this paper is the experimental-evidence and interpretation authority. The same package IDs are used below. They separate the **actual H study and its closeout** from **new modeling and service proposals**. A notebook run cannot mark a service or a different model experiment complete. [R4; E8; proposed coordination contract]
+[ROADMAP.md](../ROADMAP.md) owns M0–M4 and all active exit conditions. The order
+is supported-workload definition, evidence repair, useful decisions, cost
+reduction, and independent preview confirmation. A single frozen-profile MLX
+performance experiment can run alongside scope/repair work. A new modeling
+hypothesis waits for the reviewed evidence gate. [E23–E28; proposed program]
 
-| Priority | Roadmap package | Decision it enables | Evidence required before promotion |
-|---|---|---|---|
-| Closed — required H scope | **2H-C1–C5: preservation, recovery, locked final evaluation and evidence handoff** | Adds complete final evidence without retraining or erasing the failed attempt | E9/V2; no automatic model, TF32 or deployment promotion |
-| Closed | **Phase 3.10: full restored persistence and replay; 3.9b bounded campaign complete** | Determines whether a persisted state preserves the complete decision contract | Passed on the named M4 Max: all 8 restored candidate features and full probability vectors match independent full-sequence execution, with zero argmax or policy changes [E12; E13; RUST8; RUST10; 22 September verification record] |
-| Closed — contract work | **S.1–S.3: runtime contracts, probability semantics, direct native adapter** | Prevents components from implementing different meanings | Runtime-owned contracts; explicit `__none__`; entropy confidence; direct bounded registration [RUST8] |
-| P1 — native optimization | **Measure vectorized forward and Metal candidates after correctness gates** — pinned-base FP32 full/nested and variable-length vectorized batch parity pass; the packed 3M.5 kernel remains opt-in after a same-host throughput regression; native BF16 full/nested Gate B fails the frozen probability tolerance | Establishes whether batched lane topology and fused kernels improve request throughput | Matched per-lane/vectorized timing, model parity, and named-Mac memory/latency; BF16 remains unpromoted |
-| P1 — release confirmation in parallel | **2I.1–2I.2 + 2J.5–2J.6** | Determines whether the provisional profile may be promoted beyond exploratory scope | Independent review, natural/held-out cases, explicit release limits, fair external baselines and fresh final evidence [E10; I0; E11] |
-| P1 — service validation in parallel | **S.4–S.5: direct native lifecycle and load/soak** | Validates queueing, cancellation, recovery, capability and resource limits | Cancellation/failure tests and queue-inclusive latency/memory |
-| P2 — conditional | **P2.1–P2.3: optimized-kernel, weight-precision and teacher/distillation studies** | Tests a specific remaining bottleneck after the native baseline | Verified runtime capabilities; fresh quality when behavior changes; same-model parity when equivalence is claimed |
+The scientific distinction is between a valid reusable computation and an
+adequate reusable decision representation. Full hybrid-state branching has
+execution evidence. A cheap pooled-state reader has failed, and learned
+StateQuery alternatives have not passed complete quality/policy gates. Further
+work must identify which evidence or supervision changes rather than rename a
+tested architecture. [E12–E20; E26]
 
-**Dependency order after RUST10 native follow-up.** Head/tokenizer/backbone, continuation, runtime-owned branch isolation, sequential sharing, lane-topology Q/K parity, measured scheduling, high-K admission, bounded model-backed K=32/64/128/255 completion, full fresh-process candidate-feature/decision replay, cache semantics, direct adapter, and native service smoke are implemented or recorded against the frozen profile. Practical high-K latency and queue-inclusive service load/soak are next. Independent review/natural-data work remains the release-quality gate. [E9; E11–E13; RUST1–RUST10; P21; P22]
+The historical crosswalk below explains earlier phase-name changes. It is
+retained for provenance. Use the active roadmap's
+[crosswalk](../ROADMAP.md#historical-task-crosswalk) for current disposition,
+including completed CPU service work and conditional model-cost studies.
 
-**Observed gate:** E10 has generated the review package but has not satisfied that dependency. Resolve the exact intake requirements in §14.4–§14.5 before starting new semantic model selection. Correct the duplicate/unrelated fixture under 2I.6 as separately versioned test work; this checkpoint does not justify closing the full isolation task. [E10; I0; V3]
+### 13.3.1 Historical phase-name collision and task migration
 
-The compact encoder belongs in the early model-selection round. A purpose-built shared-encoder/query-module redesign remains conditional on the simpler approaches missing the target. The actual H run disabled state-first, smaller-Qwen and LoRA arms; future use of their code must have an explicit new treatment/configuration rather than retroactively expanding H's scope. [E8; H0; S3]
-
-**Recovered-review audit trail:** the historical `OpenKind_Review_Followup_Traceability.md` file maps the recovered discussion to this priority table and to concrete roadmap tasks. Restored **P2.1** verifies optimized execution, **P2.2** evaluates weight precision for a selected profile, and **P2.3** tests offline teacher/student supervision after a supervised baseline. This restores earlier task detail without changing the priority order.
-
-### 13.3.1 Correct the phase-name collision without claiming work was done
-
-The uploaded roadmap calls Phase 2H “Contract Hardening, Criteria Review, Feature Rejection & Prototype Bridge” and marks it NEXT. The actual H notebook instead performed criteria/rejection-transfer fitting with bounded primitive probes. Both refer to useful work, but they are not the same milestone. The synchronized roadmap restores the experiment's name and relocates the open proposals explicitly. [R4; E8]
+The roadmap reviewed at the v0.5.1 checkpoint called Phase 2H “Contract Hardening, Criteria Review, Feature Rejection & Prototype Bridge” and marks it NEXT. The actual H notebook instead performed criteria/rejection-transfer fitting with bounded primitive probes. Both refer to useful work, but they are not the same milestone. The synchronized roadmap restores the experiment's name and relocates the open proposals explicitly. [R4; E8]
 
 | Previous roadmap task | Current location | Why it remains separate from H's saved results |
 |---|---|---|
@@ -1451,20 +1541,29 @@ These are task migrations, not erased requirements or executed improvements. The
 
 **The 2I/2J model milestone** requires reviewed task definitions, independent state/question/rubric holdouts, per-stratum rejection and distribution metrics, useful coverage and measured resource limits. Feature-aware rejection is an ablation against the constant and score-summary controls, not a preselected replacement. Actual parameter/memory accounting must replace the old roadmap's approximate halving of 4B memory for a 2B candidate. [R4; proposed comparison gate]
 
-**The Track S prototype** requires a real supported profile returning probabilities behind the existing service boundary, with bounded work and truthful capability errors. It may use the historical reference for integration without calling that model production-ready. The native Phase 3 gate applies to the selected model and backend's real capabilities; it neither requires every proposed backend nor imposes Qwen-specific hybrid-cache machinery on a different architecture. Historical fixture tolerances and prefix-storage observations are not universal new-model acceptance thresholds. [R4; proposed integration/native gates]
+**The Track S prototype** now has a directly registered native profile returning probabilities with bounded work and truthful capability errors. Its named-machine CPU service gates pass within their declared scope (§17.3). It may use the historical reference for integration without calling that model production-ready. The native Phase 3 gate applies to the selected model and backend's real capabilities; it neither requires every proposed backend nor imposes Qwen-specific hybrid-cache machinery on a different architecture. Historical fixture tolerances and prefix-storage observations are not universal new-model acceptance thresholds. [R4; proposed integration/native gates]
 
 
 ## 13.4 A concrete multi-question milestone
 
 Show several independently defined questions over one state through a real, versioned engine. Begin with supported Choice judgments and clearly bounded binary/rubric tasks rather than claiming all primitive semantics are solved. Use held-out question/rubric families to test transfer, and distinguish answering Q questions correctly from encoding their shared state once. Both properties matter; neither proves the other. [R3; proposed milestone]
 
+M0 now selects a bounded document workload before timing or model selection. The following earlier design grid remains illustrative and does not require a full sweep.
+
 A proposed initial scaling grid is **Q = 1, 4, 16** and **K = 2, 4, 8, 16**, over proposed state-length targets **64, 256 and 1,024 tokens** and supported question types. Actual finalized token counts include question/criteria/formatting overhead; these are initial protocol targets, not established limits. It is a design grid, not a completed benchmark or required maximum API size. Hold other dimensions fixed for causal comparisons and use representative subsets before an expensive full sweep. Test question-order changes, opaque-ID renaming, candidate permutation, and adding/removing unrelated questions. Separate expected changes from changing a candidate set from unintended cross-question influence. [R3; proposed protocol]
 
 Report correctness, NLL/Brier and reliability diagnostics, conditional rejection rates, accepted-answer error, coverage, and scenario-defined application cost. Report independent source-state counts alongside all expanded episode/question counts and use source-group-aware uncertainty. For performance, include complete latency, decisions/questions per second, peak and resident memory, model invocations, branch-state bytes, state-prefill share, **`T(Q)/T(1)` and marginal latency per added question**. Compare repeated-full, sequential-nested and batched-nested execution on the same profile. Separate startup, cold-state, warm-state/cache-hit, and queueing costs; do not mix L4 GPU measurements, DGX Spark measurements or hosted Jev timings with unmeasured Mac performance. [R3; P22; proposed measurement contract]
 
-The preferred selection criterion is **correct automated decisions per second subject to predeclared accepted-error, coverage, latency, and memory requirements**. Set the numerical requirements and target hardware before looking at the final comparison; this paper does not invent an evidence-free safety threshold or resource winner. Always reviewing is a cost baseline, not a useful high-throughput success. At zero accepted answers, conditional accepted-error is undefined. A model should advance only with an explicit task scope and enough evidence to support its stated operating region. [R3; proposed selection rule]
+The preferred selection criterion is **correct accepted decisions per second subject to predeclared accepted-error, coverage, latency, and memory requirements**. Set the numerical requirements and target hardware before looking at the final comparison; this paper does not invent an evidence-free safety threshold or resource winner. Always reviewing is a cost baseline, not a useful high-throughput success. At zero accepted answers, conditional accepted-error is undefined. A model should advance only with an explicit task scope and enough evidence to support its stated operating region. [R3; proposed selection rule]
 
 ## 13.5 Work to pause or keep conditional
+
+Keep one modeling hypothesis and one frozen-profile systems experiment active
+at a time. Pause nearby scalar-weight, shallow-head, pooled-root, and handcrafted
+residual sweeps without a materially different diagnosis. Distillation waits
+for demonstrated teacher quality. Preserve high-K correctness and admission
+fixtures, but make K=255 latency work conditional on supported-workload demand.
+Completed CPU bring-up and replay remain maintained assets. [E14–E28; §17.3]
 
 Pause further low-bit KV snapshot sweeps on the same short-prefix workloads. Keep lossless and bounded FP16-KV paths available as reference infrastructure, with the unsuccessful codecs preserved as negative results. Reopen compression only when a materially different workload, codec, or memory profile supplies a specific hypothesis. Failed snapshot quantization is not a verdict on model-weight quantization; they affect different tensors and require separate tests. [E6; E7; R3]
 
@@ -1924,7 +2023,7 @@ The current Rust implementation establishes eleven bounded results:
 
 10. The adaptive scheduler promotes all three strategies behind `run_strategy`/`run_repeated_full` with call and token accounting. The commit-stamped named M4 Max rerun measured five warm CPU workloads with feature parity asserted in every repetition. The CPU-default `NestedSequential` path beat `repeated_full` in every cell by 1.294×–2.018×; the per-lane `NestedBatched` topology stayed within 2.9% of sequential. `T(3)/T(1)` was 2.815 repeated versus 2.170 sequential and 2.233 batched, and post-benchmark peak resident memory was 10.968 GiB. The lowest measured token-work ratio remains `2.52`; the policy uses `LOWEST_MEASURED_SHARED_SAVINGS_RATIO = 2.52` instead of presenting 2.0 as measured. Admission separately exposes exact tensor payload, observed process peak, forward scratch, allocator headroom, hard process limits, and vectorized lane ceilings. [RUST7–RUST9]
 
-11. Phase 3.9a exercises K=32/64/128/255 and mixed Q/K through estimator/admission gates without allocating a naïve K-wide Qwen state fan-out. Phase 3.9b completes model-backed candidate continuations for K=32/64/128/255 on the named M4 Max with invariant root and constant memory footprint. `BranchStateCache` enforces tenant isolation, TTL, tensor-byte LRU eviction, and strict content keys. The Qwen snapshot format is atomic, versioned, envelope-digested, identity/layout checked, and strict-content verified; two separate processes pass structural fresh-process replay. `Qwen35DecisionEngine` loads the pinned tokenizer/backbone/head directly behind `EngineRegistry`, bounds concurrent plus queued requests, retains permits when a caller cancels already-running blocking work, returns overload distinctly, requires caller-visible `__none__`, preserves none mass, and derives confidence from normalized entropy. A real native request, overload rejection (HTTP 529), cancellation/recovery, clean shutdown, and 20 health probes pass in native service smoke. Full restored candidate-feature/decision replay, practical high-K latency, and production service load/soak remain open. [RUST8; RUST10]
+11. Phase 3.9a exercises K=32/64/128/255 and mixed Q/K through estimator/admission gates without allocating a naïve K-wide Qwen state fan-out. Phase 3.9b completes model-backed candidate continuations for K=32/64/128/255 on the named M4 Max with invariant root and constant memory footprint. `BranchStateCache` enforces tenant isolation, TTL, tensor-byte LRU eviction, and strict content keys. The Qwen snapshot format is atomic, versioned, envelope-digested, identity/layout checked, and strict-content verified; two separate processes pass structural fresh-process replay. `Qwen35DecisionEngine` loads the pinned tokenizer/backbone/head directly behind `EngineRegistry`, bounds concurrent plus queued requests, retains permits when a caller cancels already-running blocking work, returns overload distinctly, requires caller-visible `__none__`, preserves none mass, and derives confidence from normalized entropy. A real native request, overload rejection (HTTP 529), cancellation/recovery, clean shutdown, and 20 health probes pass in native service smoke. RUST10 records this bounded smoke checkpoint. The later full replay and named-machine CPU load/soak results are recorded below. Practical high-K latency remains conditional systems work. [RUST8; RUST10; RUST11]
 
 The `1e-5` absolute-logit tolerance remains the Phase 3.1 fixed-feature algebra gate. Phase 3B's own freshly exported candidate vectors replay against the earlier fixed-feature logit fixture with maximum absolute delta `9.6905e-05`; the native features reach `2.5652e-04` against that older fixture while preserving probabilities and discrete decisions. Therefore the backbone result is judged by the documented Phase 3B hidden diagnostics plus probability, argmax, and policy gates; no tolerance is widened or retroactively redefined. [E13; RUST1; RUST3]
 
@@ -1938,9 +2037,9 @@ The full restored candidate-feature and decision replay in Phase 3.10 now passes
 
 Phase 4A is the first OpenKind study in this record that combines many questions over the same natural document with a trained question-conditioned readout. It uses the selected state-first Qwen3.5-4B-Base identity from E11–E13, but it asks a new modeling question: whether one frozen state representation can support ContractNLI entailment judgments and QASPER answerability decisions without re-encoding each state for every question. [E14]
 
-The evidence cutoff for this revision is 22 September 2026. Nine statuses must remain distinct:
+The original v0.8.2 evidence cutoff is 22 September 2026. The 24 September addendum records later audit and probe evidence without changing the earlier model results. These statuses remain distinct:
 
-| Stage | Artifact status at v0.8.2 cutoff | Permitted interpretation |
+| Stage | Recorded artifact status | Permitted interpretation |
 |---|---|---|
 | Phase 4A.0 corpus/cache | Completed and hash-locked before model predictions | Reproducible benchmark and feature-cache identity |
 | Phase 4A.1 original B1 StateQuery | Training, non-final evaluation, checkpoint, and exploratory model lock completed | Completed non-final model result; no promotion |
@@ -1951,8 +2050,12 @@ The evidence cutoff for this revision is 22 September 2026. Nine statuses must r
 | Phase 4B.3 pairwise applicability | Training and non-final threshold transfer completed; selected epoch 9 | Development pass does not transfer; child rejected |
 | Phase 4C head-only continuation | Three child epochs evaluated against the frozen parent; epoch 0 retained | Isolated head refit rejected on proper scores |
 | Phase 4D evidence residual | Eight child epochs evaluated; zero-init epoch 0 retained | Small residual rejected; strict-JSON/NaN repair validated |
+| Phase 4E-A2/A3/A4 | Repaired audit, 51-row adjudication, and source-alignment preflight recorded | Review proposals and source candidates; no committed gold or serializer repair |
+| Later 4E-A 27-case disposition | Assistant-reviewed case and tie-policy lock frozen | Audit decision only; no independent release review or training authorization |
+| Exploratory 4E-B.0 prefill probe | Three seed-17 non-final arms evaluated; all gates fail; separate result lock absent | Reject this cheap readout only; final closed |
+| Exploratory 4E-B.1 option-logit audit | Fixed 325-question non-final sample, result lock and row metrics verified | Candidate-ranking signal, failed semantic-none behavior; no model promotion |
 
-No Phase 4 final label or prediction was opened for this documentation update. The original B1 lock has six unset promotion gates, later contracts declare the final split unavailable, and the Phase 4D result is `nonfinal_failed_final_unavailable`. Therefore this chapter records completed non-final comparisons and failure modes; it does not select or promote a Phase 4 model. Legacy Drive folders retain their historical `OpenDecision_...` names as immutable provenance even though the project and new artifacts now use OpenKind. [E14–E20]
+No Phase 4 final label or prediction was opened for this documentation update. The original B1 lock has six unset promotion gates, later contracts declare the final split unavailable, and the Phase 4D result is `nonfinal_failed_final_unavailable`. Therefore this chapter records completed non-final comparisons and failure modes; it does not select or promote a Phase 4 model. Legacy Drive folders retain their historical `OpenDecision_...` names as immutable provenance even though the project and new artifacts now use OpenKind. [E14–E27]
 
 ## 18.2 Phase 4A.0: corpus, partitions, and frozen feature identity
 
@@ -2132,7 +2235,7 @@ The completed Phase 4 program now supports these bounded conclusions:
 
 QASPER separability remains weak. For the retained stratified parent, policy-development ROC AUC/AP is 0.5903/0.1663 at prevalence 39/320 = 0.1219; calibration-gate ROC AUC/AP is 0.6173/0.1841 at prevalence 90/692 = 0.1301. These are above chance but too weak to support a safe thresholded policy. Repeating nearby weights, margins, shallow heads, or handcrafted residuals is unlikely to resolve the underlying representation/label boundary.
 
-Phase 4E therefore begins with **4E-A, a blinded QASPER error audit**, not model fitting. The audit must:
+These results led to **4E-A, a blinded QASPER error audit**. The original audit requirements were:
 
 1. reconstruct all 70 frozen-threshold policy-development errors (29 false negatives and 41 false positives);
 2. add a deterministic state-grouped calibration-gate sample of 30 false negatives and 30 false positives, plus 10 true-positive and 10 true-negative controls;
@@ -2141,7 +2244,7 @@ Phase 4E therefore begins with **4E-A, a blinded QASPER error audit**, not model
 5. write a strict-JSON manifest and result lock, preserving the immutable key separately; and
 6. keep final closed.
 
-Only after review completion and disagreement resolution may a new, separately contracted **4E-B** test token-level evidence access or limited upstream representation adaptation. That arm must reuse the non-final partitions, retain per-source recall and false-none gates, preserve proper-score and policy-cost constraints, run seed 17 first, and authorize seeds 42/123 only after a complete non-final pass. If the audit instead finds material ambiguity or label/evidence defects, data adjudication precedes new training. [E14–E20; P23]
+Sections 18.14–18.15 record the subsequent audit and adjudication. Source/input repair and independent review of proposed corrections remain the prerequisites for a new, separately contracted **4E-B** representation-learning arm. That arm must reuse the non-final partitions, retain per-source recall and false-none gates, preserve proper-score and policy-cost constraints, run seed 17 first, and authorize seeds 42/123 only after a complete non-final pass. If the audit instead finds material ambiguity or label/evidence defects, data adjudication precedes new training. [E14–E20; P23]
 
 ## 18.14 Phase 4E-A2: Repaired QASPER error audit reveals asymmetric annotation and serialization defects
 
@@ -2196,7 +2299,9 @@ Passing raw state-text character-length and string-hash checks does not ensure a
 
 ### Recommended next step: defect taxonomy and repair
 
-Phase 4E-B model training must remain blocked. The 51 rows require independent adjudication using a structured six-defect taxonomy:
+This was the required next step at the original 22 September cutoff. Section 18.15 records the later A3 adjudication and the source/repair work that remains open.
+
+At that cutoff, Phase 4E-B model training was blocked pending independent adjudication of 51 rows using this six-defect taxonomy:
 1. `incorrect_semantic_none`: ground-truth label should be answerable.
 2. `missing_incomplete_evidence`: answer is present but annotated gold spans are missing or partial.
 3. `table_serialization_loss`: answer was lost due to omitted table cells or figures.
@@ -2204,37 +2309,182 @@ Phase 4E-B model training must remain blocked. The 51 rows require independent a
 5. `genuine_underspecification`: question is unanswerable or contradictory even in full paper text.
 6. `primary_review_error`: primary reviewer erred in finding an answer.
 
-To preserve independence, final adjudication should be conducted by a fresh reviewer or isolated adjudication pass. A mixed repair (annotation cleanup and serialization enhancement) must precede any preregistered seed-17 representation model arm.
+A3 subsequently preserved the independent adjudication (§18.15). The remaining gate is source/input repair and review of proposed corrections independently of implementation before a new seed-17 representation-learning arm.
 
 ### Evidence artifacts
 - Adjudication Packet: [`AUDIT_ADJUDICATION_PACKET.csv`](https://drive.google.com/file/d/1eu6evYz9JzRQBSr9eJa5g_XpK6szIKE1/view) (SHA-256 `2d6b3be4dfa532de7c0c320d4e84b67d2be571ff4ddcc7f886b22f437e88edeb`)
 - Analysis JSON: [`AUDIT_ANALYSIS.json`](https://drive.google.com/file/d/1-UTO4L8gRy5NrbAracI7o2jGxJoXyGu4/view) (SHA-256 `858d1b7b08d2e3e9969f7de4bdc1780cbaf83a831c379b9529d4acfe2a84b25f`)
 - Result Lock: [`AUDIT_RESULT_LOCK.json`](https://drive.google.com/file/d/1n7Xb9Ye_ek9kyHt1t6yRqKi1GMgJXY_c/view) (Experiment SHA-256 `89d0e283a2b743efcb95de3f73189c6fb0157620c5f6252beea149a44d1ecefd`)
-- Local Directory: [`OpenKind_Phase4E_A2_QASPER_Audit_Repair_results/20260921T013558Z/qasper_error_audit_repair_s17/`](../../research/OpenKind_Phase4E_A2_QASPER_Audit_Repair_results/20260921T013558Z/qasper_error_audit_repair_s17/)
+- Local Directory: [`22_phase4e_a2_qasper_audit_repair_results/20260921T013558Z/qasper_error_audit_repair_s17/`](../../research/22_phase4e_a2_qasper_audit_repair_results/20260921T013558Z/qasper_error_audit_repair_s17/)
+
+## 18.15 Audit continuation and frozen 27-case disposition
+
+The A2 packet's 51 disagreement rows received an independent adjudication preserved by A3. A CSV float round-trip had changed the string representation of 87 source numeric cells; A3 reconstructed the first 20 columns of all 51 rows exactly from the frozen packet and changed only adjudication columns. Six low-confidence rows then received a **same-assistant** follow-up. These six are not additional independent votes. The corrected 51-row review distribution is 33 answerable, 13 semantic-none, and five ambiguous. These judgments are audit proposals, not QASPER gold changes. The 150-row packet is enriched for errors and cannot estimate population label quality. [E23]
+
+A3 identifies short, exact frozen-state span candidates and source leads for
+omitted table values and references. A4 preflight verifies 12 spans across seven
+policy-development questions and keeps one calibration-gate span diagnostic.
+Three unresolved evidence cases are quarantined. The later saved
+[alignment QA](../../research/24_phase4e_a4_qasper_source_alignment_results/20260921T013558Z/qasper_source_alignment_cpu_s17_v1/QASPER_SOURCE_ALIGNMENT_QA.json)
+and four-row alignment table record exact dataset-title, abstract, and paragraph
+coverage for four policy papers at QASPER revision
+`06806e4608976fc2fac0a090ac425d5b2b29caf4`, plus 40 caption candidates. The
+preliminary prose saying that source alignment has not run is stale relative
+to those outputs. PDF-version equivalence is unproven, recovered table values
+remain zero, and general table/reference serialization repair is incomplete.
+This checks saved output consistency, not a fresh upstream reproduction.
+Source leads are not benchmark gold or permission to paste answers into state.
+[E23; E24]
+
+A later, **separate** 27-case policy worklist received user-authorized assistant review and a frozen disposition lock. Its categories are 10 incomplete gold/evidence quarantines, 10 locked-label tie diagnostic quarantines, three question/answer-alignment quarantines, three insufficient-state-evidence quarantines, and one source-grounded representation candidate only. The 77 one-to-one original-annotation ties across 3,598 non-final questions remain a diagnostic stratum; their locked labels do not change. The NarrativeQA lead is a source-grounded representation candidate, not permission to insert the four original-answer scores into state. The LCF comparator mismatch remains quarantined. The lock records no change to labels, gold evidence, states, the A4 ledger, thresholds, or final data, and `phase4e_b_authorized` is false. This assistant-conducted disposition does not replace independent review of proposed benchmark corrections or the separate A3 51-row population. [E25]
+
+The next data gate is versioned source alignment and benchmark repair: verify the pinned source and document versions, recover exact table/caption/reference provenance, resolve or quarantine uncertain label/evidence proposals, and obtain review independent of implementation. The frozen benchmark stays intact until a new contract permits an overlay. [E23–E25]
+
+## 18.16 Exploratory prefill representation probe
+
+The seed-17 4E-B.0 probe asks a narrower question than Phase 3A/3B execution parity: can a frozen state-prefill **summary** support decisions through cheap text probes without candidate-conditioned Qwen continuation? It uses final-token and mean-pooled root descriptors, pooled frozen question/candidate token embeddings, and a read-only Phase 4D comparator. The fixed arms are `root_only`, `root_question`, and `root_question_candidate`; the first two cannot rank candidates and use uniform candidate probabilities. The contract selects thresholds on policy development, fits temperature on calibration fit, and evaluates on the non-final calibration gate. Final is forbidden and recorded unopened. This probe does not test a token-level cross-attention query module, a learned state encoder, or a router backed by full Qwen. [E26]
+
+| Arm | Non-final calibration-gate finding | Decision |
+|---|---|---|
+| `root_only` | Source-macro semantic-none recall 0; zero accepted requests | Fails both-source recall and useful coverage |
+| `root_question` | Source-macro raw semantic-none recall 0; zero accepted requests | Cheap question embedding does not recover a passing policy |
+| `root_question_candidate` | ContractNLI false-none 1.0; QASPER semantic-none recall 0; source-macro false-none 0.5; zero accepted requests | Candidate text pooling still fails both-source behavior and proper-score non-regression |
+
+All three `calibration_gate_pass` flags are false. The candidate-aware arm has no eligible operating point and worsens NLL/Brier against the frozen Phase 4D reference on both sources. The reported QASPER accuracy near 0.87 for root-only/root-question is an answerable-majority artifact: balanced accuracy is 0.50 and semantic-none recall is zero. The tested root summary plus pooled text embeddings therefore does not replace candidate-conditioned interaction. The result leaves prefill reuse and full hybrid-state branching intact as execution mechanisms. It does not test richer token-level interaction within this probe. Earlier B1/B2 studies did test learned state-query access, without passing their complete quality/policy gates. The Drive folder contains `NONFINAL_EVALUATION.json` and predictions, but no separate `NONFINAL_RESULT_LOCK.json`; record this as an exploratory non-final failure, not a formally locked release result or authority for another seed, sweep, final evaluation, or distillation study. [E26]
+
+## 18.17 Exploratory option-logit audit
+
+The separate 4E-B.1 audit asks whether one constrained next-token readout can use **full candidate-conditioned Qwen continuation** to score the frozen natural-document questions. It holds the Phase 4A Base checkpoint, FP32 precision, corpus, and question IDs fixed, but changes prompt serialization and readout relative to the historical Phase 4A head. The result is a matched-row method comparison, not a head-only ablation. One state prefill is reused across its questions. Sixteen calibration-gate states per source were selected by state-ID hash before scoring, yielding 272 ContractNLI and 53 QASPER questions. No training, temperature fit, prompt selection, threshold fit, or final evaluation occurred. The comparator is the historical Phase 4A reference, not the Phase 4D parent or a JevK5 checkpoint. [E27]
+
+| Scored task | Option logits | Frozen Phase 4A reference | Constraint |
+|---|---:|---:|---|
+| ContractNLI, answerable-only two-option accuracy | 130/148, 87.8% | 46/148, 31.1% | The `entailed` majority baseline is 125/148, 84.5%; option-logit balanced accuracy is 73.3% and `contradicted` recall is 12/23. |
+| ContractNLI, full decision accuracy | 130/272, 47.8% | 90/272, 33.1% | Explicit `Z` selects semantic none on 0/124 cases; majority-class full accuracy is 125/272, 46.0%. |
+| QASPER, one-option `answerable` versus `Z` | 41/53, 77.4% | 23/53, 43.4% | The answerable-majority baseline is 45/53, 84.9%; semantic-none recall is 2/8 versus 6/8 for the reference. No candidate-ranking task exists here. |
+
+Reversing ContractNLI's two candidates changes the candidate winner on 18/272 questions and shifts an option probability by up to 0.2865. Among answerable questions, reversed-order raw accuracy is 89.2% but balanced accuracy falls to 67.0%. The run therefore supports a narrow candidate-ranking signal on this sample while failing as a complete semantic-none decision path. Better full-decision NLL/Brier on these rows does not compensate for zero ContractNLI none recall. The previously exposed calibration-gate sample, small number of source states, and unresolved QASPER annotation/evidence defects prevent confirmation or promotion. No gate threshold was selected from these data. [E27]
+
+The result lock hashes match its contract, 325-row file, and report; independent row recomputation reproduces the stated counts and metrics. Cached and full-prompt logits agree on one question per source, with maximum absolute differences `7.63e-6` and `1.91e-5` and unchanged selected actions. This is a bounded execution check. The Colab run used slower reference PyTorch convolution/DeltaNet fallbacks and did not record a complete host identity, so its timings are not a reproducible throughput claim. The next model gate remains source-aligned benchmark repair and independent review. [E27]
+
+## 18.18 Exploratory candidate ranking and semantic-none sweep
+
+The 4E-B.2 notebook fixes three candidate rankers, three semantic-none detectors, and a five-value threshold grid before scoring. It fits a one-variable detector calibration on `calibration_fit`, selects the component pair and threshold on `policy_development`, and reports a 12-state-per-source sample of `calibration_gate`. The 741 non-final questions span 72 states. The selected gate states do not overlap 4E-B.1's gate sample, but the gate partition was already exposed by prior work, so this is a bounded diagnostic rather than untouched confirmation. The same pinned Qwen3.5-4B-Base FP32 text model and effective state input are used; the prompts and readouts still differ from the trained Phase 4D parent. Final remains unopened. [E28]
+
+| Source and development-selected arm | Sampled gate result | Boundary |
+|---|---:|---|
+| ContractNLI: order-averaged option logits for ranking, calibrated `Z` for none, threshold `0.35` | Candidate ranking 94/108 answerable (87.0%) versus 84/108 (77.8%) majority-position baseline; full decision 126/204 (61.8%); none recall 72/96 (75.0%); false-none 46/108 (42.6%) | False-none exceeds the Phase 4E ceiling of 0.20. Conditional ranking gets 84/84 entailed and 10/24 contradicted; after rejection, full-decision contradicted recall is only 3/24. |
+| QASPER: one candidate, calibrated strongest-candidate support for none, threshold `0.25` | Full decision 41/46 (89.1%), equal to the answerable-majority baseline; none recall 0/5 | All calibrated none probabilities are below `0.25` (maximum `0.2348`), so the declared grid cannot reject any development or gate question under this selected detector. One supplied candidate means there is no ranking comparison. |
+
+Order averaging changes the ContractNLI candidate winner on 13/204 sampled gate questions. Its answerable-only count is one higher than original-order logits (94 versus 93 of 108), while separate support scores 86/108. This is a narrow ranking signal. The selected ContractNLI full-action balanced accuracy is 0.6250, but its answerable rejection burden and contradicted collapse fail the complete decision task. QASPER's selected development arm also finds 0/5 none cases. The gate `Z` detector has AUROC 0.80 with only five positives; that small sample is insufficient to claim robust separation. An unlocked lower-threshold diagnostic selected `Z` at `0.175` on development (3/5 none, 6/38 false none) and, on the already exposed gate, finds 2/5 none with 9/41 false none. This post-hoc check explains the original grid's floor and is not a replacement locked selection. [E28]
+
+The contract, development selection, 741-row Parquet file, and report match the saved result-lock hashes. Independent row checks confirm unique questions, exact selected-state membership, no overlap with 4E-B.1 gate states, finite score fields, and the selected-arm counts. Six cached/full-prompt checks cover three prompt families on one question per source and stay within the declared tolerances. The lock records 72 state-part hashes; those individual parts were not independently downloaded in this review. This sweep satisfies neither the QASPER semantic-none objective nor the ContractNLI false-none guardrail, does not evaluate policy cost or a matched Phase 4D parent on these rows, and promotes no model. Source-aligned benchmark repair and independent review remain the next model gate. [E28]
+
+---
+
+## 18.19 Scientific interpretation after the evidence review
+
+**Reusable computation and a reusable decision representation are different
+results.** Complete hybrid-state branching preserves the tested numerical
+function. A root final-token or mean-pooled vector, formed before the question
+is known, is a different representation from the last token after full
+state/question/candidate interaction. The cheap-prefill failure rejects its
+specific shortcut. B1/B2's learned token-level access also failed complete
+quality/policy gates, but neither result establishes that all shared-query
+architectures fail. [E12–E20; E26]
+
+The severe terminal-token bottleneck and superior bidirectional-encoder claims
+in the historical roadmap remain hypotheses. Existing comparisons do not
+isolate those causes from missing/truncated evidence, annotation ambiguity,
+supervision, or readout training. A custom small encoder is therefore a
+conditional cost hypothesis rather than the project's predetermined destination.
+[E14–E28; interpretation]
+
+**Source correctness, input coverage, and model use need separate evidence.**
+The repaired audit's median full-paper length is 24,812 characters, while the
+Phase 4 cache caps state features at 1,024 tokens. A reviewer finding support in
+the paper does not establish that the model received it. The visibility ledger
+must trace source spans or table cells through serialization and truncation to
+finalized model input. Negative and ambiguous cases require explicit grounds,
+not fabricated positive spans. Report source-answerability and visible-input
+answerability separately. [E14; E22–E24]
+
+The 44 challenged semantic-none labels were audit disagreements, not 44
+independently confirmed gold errors. A3's 51-row adjudication, its six
+same-assistant follow-ups, and the separate 27-case disposition are different
+records. Their error-enriched populations cannot estimate overall label error.
+Retain original gold and use independently reviewed, versioned repairs or
+prediction-blind quarantine. A text-complete prototype subset is a new scope,
+not a retrospective pass of the original two-source gate. [E22–E25]
+
+**Ranking, applicability, and application review also need separate tests.**
+In 4E-B.2, ContractNLI candidate ranking reaches 94/108, yet full decisions reach
+126/204 and rejection removes 46/108 answerable cases. QASPER's one-candidate
+task has no ranking comparison. Its selected detector's maximum gate none
+probability, 0.2348, falls below the grid floor of 0.25. That procedure cannot
+reject those cases. A future threshold-selection procedure needs reachable
+operating points, deterministic ties, class-support checks, and all-answer/
+all-none controls fixed before gate evaluation. Post-hoc thresholds remain
+diagnostic. [E28]
+
+First evaluate full question/candidate-conditioned Qwen on repaired inputs,
+including a fixed direct-logit method. Compare it with the retained Phase 4D
+StateQuery parent and majority/prior controls on those same inputs. The pinned
+Base-model logit audits changed both prompts and readout.
+They are neither clean head-only ablations nor tests of JevK5's trained adapter.
+If visible evidence is sufficient and Qwen still fails, the preferred next
+modeling intervention is one bounded upstream-adaptation treatment with an
+attributable head-only control. Its contract must explain what changes relative
+to B0/B1/B2 and the earlier 2B LoRA pilot. This is a hypothesis, not a promised
+solution. [E11; E15; E20; E27–E28; proposed experiment]
+
+Reviewed evidence-window diagnostics can distinguish evidence access from
+supervision/model-use failures. A window that succeeds where the full input
+fails motivates representation/access work. Failure on both motivates revisiting
+the task and adaptation. Oracle windows do not measure deployable retrieval.
+Review policy is evaluated after the semantic distribution, with per-source
+proper scores, recall, false-none, cost, and coverage. Zero acceptance does not
+establish low accepted-error. [§13.4; proposed diagnostic]
+
+**Lower cost follows a useful operating point.** The exploratory screen's 4B
+95.0% aggregate includes saturated constructed families, while natural MultiRC
+is 83.33% across 24 source messages. The 2B state-first LoRA result of 91.56%
+makes it a credible first smaller-model challenger, not an accepted replacement.
+H's development/final transfer reversal argues for representative held-out
+question/rubric families and source-group uncertainty. [E9; E11]
+
+One matched MLX FP32 per-lane/vectorized study can proceed on the frozen
+integration profile while evidence repair continues. New learned cost
+challengers wait for useful quality. If a cheap reader cannot preserve the
+required trade-off, retain causal branching. The 4B numerical oracle has not
+earned semantic teacher status, so distillation also waits for demonstrated
+teacher quality. [§17.3; E17–E28; proposed sequence]
 
 ---
 
 # Conclusion
 
-OpenKind’s completed evidence supports a bounded mechanism: encode with Qwen, score typed decisions with small heads, and treat execution precision as part of the model contract. The evidence includes frozen-feature task results, dynamic candidate transfer, measured rejection trade-offs, cost-sensitive policies, strict-FP32 shared-prefix agreement, and bounded cache-compression and persistence findings. Phase 2G adds stronger execution evidence and clearer limits in rejection, criteria interpretation, and background reliability. These limits do not invalidate Qwen. They show that the narrowly fitted frozen scorer is not the finished model. [E1–E7; R3]
+OpenKind has a bounded execution foundation: typed decisions, complete
+hybrid-state reuse, native CPU parity and persistence replay, named-machine CPU
+service evidence, and separately qualified pinned MLX FP32 parity. Its strongest
+contribution is the joint contract for rendering, state isolation, numerical
+behavior, probabilities, and policy outputs, together with retained evidence
+of where optimizations and model shortcuts fail. [E11–E13; RUST1–RUST11; §17.3]
 
-**The revised direction keeps Qwen as the lead while preserving model comparison.** It requires better-defined judgments, richer answerability evidence, a credible smaller-Qwen challenger, and genuine independent questions over shared state. Completed H contributes transfer and rejection warnings. E11 adds the bounded matched model screen and fixes a state-first Qwen4B integration target.
+The natural-document experiments have not produced a promotable model.
+Candidate-ranking signal does not establish reliable applicability, and
+full-paper support does not establish evidence visibility in the actual input.
+Source-aligned repair, independent review of proposed corrections, and a useful
+question-conditioned quality reference come next. The shared-state foundation
+survives this refocus. A particular model size or neural topology is conditional
+on the resulting quality/resource comparison. [E14–E28; §18.19]
 
-The profile has now been reproduced natively on the correctness-first CPU path, verified at a clean subject commit, registered directly behind the service contract, exercised through bounded model-backed high-K, and structurally restored in a fresh process. The next engineering evidence is full restored candidate-feature/decision replay, practical high-K latency, and queue-inclusive production load/soak, followed by vectorized/Metal execution under the same parity gates. Independent reviewed and natural-data confirmation remains a separate promotion gate. [E9; E11; P21; P22; RUST1–RUST10]
-
-Phase 4A–4D now provides the first locked natural-document, many-question benchmark and a completed sequence of non-final architecture, weighting, objective, head-only, and residual tests for that modeling track. Stratified applicability is the best surviving diagnostic parent: its QASPER operating recall improves to 0.2564 on policy development and 0.3111 on the gate, but the gate policy costs 0.11675 versus 0.10 for review-all. Pairwise training clears development yet fails transfer; the head-only and evidence-residual children worsen proper scores for gains of only two and one QASPER true positives. Phase 4E-A2 audit results establish that 44 challenged missing-answer cases stem from annotation incompleteness and 6 from table/citation serialization loss. The honest conclusion is progress in benchmark construction, serialization diagnostics, and failure localization, not model promotion. Independent adjudication and benchmark repair must precede any representation-learning continuation, and final must remain closed until an eligible locked candidate and immutable promotion contract exist. [E14–E22; P23]
-
-The next defensible claim is neither “an open Jev clone” nor “the old FP32 scorer reproduced more precisely.” It is an open, auditable, versioned decision model. The model should answer several well-scoped questions over one state with measured quality, uncertainty, useful coverage, and resource cost. Preserve historical equivalence gates and evaluate new models on fresh quality gates. Those comparisons should determine what ships, not an assumed architecture or model size. [R3; proposed milestone]
-
-The first 2I/2J workbench invocation remains useful historical evidence of a blocked review gate and an early branching probe. The later exploratory screen supplies the trained comparison that the first invocation lacked, but does not retroactively approve the unsigned review package. Preserve both stages: use E11 for the provisional implementation target and E10/I0 for the still-open independent-review requirements. [E10; E11; I0; V3]
-
-The later `2ij.2.0` continuation completed the bounded comparison and fixed the provisional integration candidate. Phase 3A adds the Python execution reference. Its corrected cache-wide path supports complete hybrid-state fan-out and selection. Semantic and high-K parity gates pass, and the saved run repeats exactly in its recorded same-process check.
-
-Phase 3B adds exact tokens and stage-localized backbone vectors without changing the model. Rust now passes the head/probability, exact-token, CPU full-sequence backbone, Qwen-specific cached-continuation, backend-neutral branch-state, sequential nested execution, batched Q/K, and measured adaptive-scheduler gates for the frozen fixtures.
-
-The performance result is backend- and workload-dependent. Python Phase 3A short semantic Q=4 favored repeated-full execution, while every measured warm native CPU workload favored shared execution. The current per-lane CPU backend therefore uses the lowest measured ratio and prefers sequential sharing; breadth-first lane topology is not mislabeled as vectorized compute.
-
-The next implementation sequence is **model-backed high-K → fresh-process persistence/replay → production load/soak → vectorized/Metal optimization**. State/scheduler high-K admission, in-process cache semantics, explicit wire mapping, direct registration, and the commit-stamped CPU verification checkpoint are already implemented. Another model-architecture search is not the next step. A fresh independently reviewed confirmation remains required before a release-quality model claim. [E11–E13; RUST1–RUST9; PUB1]
+The roadmap organizes that work as M0–M4. One frozen-profile MLX performance
+comparison can run alongside evidence repair. New adaptation, smaller-model,
+query-reader, or distillation work must meet its stated prerequisites. Current
+non-final diagnostics and exposed exploratory finals cannot supply untouched
+confirmation. A scoped preview requires a locked operating point, fresh
+source-state groups, and evidence from the actual accelerated service.
+[§§13.2–13.5; proposed sequence]
 
 ---
 
@@ -2331,7 +2581,7 @@ H0 remains a historical design source. E8 records the original `2h.1.1` configur
 
 **E12: Phase 3A Python BranchableState and batched-Q systems reference.** Run `20260920T024056Z`, schema `openkind-phase3a-summary/v1`, source/result path `Google Drive / Colab Notebooks / OpenKind_Phase3A_results / 20260920T024056Z`. The run uses selected E11 profile `a047d6802c3f06f085b8` and bundle SHA-256 `4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332`; it records no model change, training or reselection. Saved headline gates: three semantic smoke cases, semantic batched parity all pass, high-K systems parity all pass, same-process repeatability maximum probability delta 0.0 and zero argmax changes. The benchmark rows retain repeated-full, nested-sequential, batched-cold and batched-warm timings and peak allocations over semantic Q=1/Q=4 cases and a mechanics grid through L=1024/Q=16. The corrected notebook uses complete-cache reindexing for hybrid fan-out/select after the generic Transformers repeat helper proved unsupported for Qwen3.5 linear-attention cache layers. `release_quality_claim` and `rust_metal_parity_claim` remain false. This whitepaper derives ratios only from the saved timing rows; it does not rerun Qwen.
 
-**E13: Phase 3B Python Qwen3.5 backbone-parity reference.** Run `20260920T152206Z` uses schema `openkind-phase3b-backbone-parity-summary/v1`. Its checked-in path is `research/OpenKind_Phase3B_BackboneParity_20260920T152206Z`. The run uses E11 profile `a047d6802c3f06f085b8`, bundle SHA-256 `4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332`, and base revision `1001bb4d826a52d1f399e183466143f4da7b741b`. It records no training, model selection, or model modification.
+**E13: Phase 3B Python Qwen3.5 backbone-parity reference.** Run `20260920T152206Z` uses schema `openkind-phase3b-backbone-parity-summary/v1`. Its checked-in path is `research/14_phase3b_backbone_parity_results`. The run uses E11 profile `a047d6802c3f06f085b8`, bundle SHA-256 `4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332`, and base revision `1001bb4d826a52d1f399e183466143f4da7b741b`. It records no training, model selection, or model modification.
 
 The E13 export contains 4 exact token records and 47 FP32 vectors. Those vectors cover 34 ordered trace stages, 10 full-sequence candidate features, and 3 continuation points. Maximum fresh-feature delta versus the earlier bundle is `4.9591064453125e-05`. Cached continuation versus fresh full sequence is `1.9073486328125e-05`. Both are Python self-consistency diagnostics under the notebook's `1e-4` guard. The saved summary explicitly sets `rust_parity_claim=false` and `metal_parity_claim=false`.
 
@@ -2351,9 +2601,36 @@ The E13 export contains 4 exact token records and 47 FP32 vectors. Those vectors
 
 **E20: Phase 4D evidence-aware residual.** Workbench `4d.0.0`, base run `20260921T013558Z`, run `b2_evidence_residual_s17`; [run folder](https://drive.google.com/drive/folders/1O-FLsm4zgfMvwBV4mE73JAhVQ4k8oa_W). Experiment SHA-256 is `70ac547c7a257d978cbc241f049fb2dbbc912b0d5801ca28080820d1e183d4c5`; retained epoch-0 checkpoint SHA-256 is `314d3a45009a51159bb74bebed9806af76d1df103a14eca9a38160d0dab0d972`; non-final evaluation SHA-256 is `9cc328dd3deeafb175aabaf18ba2daaf9914863b95879368a61416582c96680b`. A zero-initialized 19→64→1 residual adds 1,345 trainable parameters. The best trained child gains one QASPER true positive but worsens source-macro NLL/Brier by 6.08%/6.60%; all eight epochs are ineligible. The run validates strict JSON with unavailable values represented as `null`. Status is `nonfinal_failed_final_unavailable`; final is false.
 
-**E21: Phase 4E QASPER blinded error audit.** Workbench `4e.0.0`, base run `20260921T013558Z`, run `qasper_error_audit_s17`; [run folder](../../research/OpenKind_Phase4E_QASPER_Audit_results/20260921T013558Z/qasper_error_audit_s17/). Audit contract SHA-256 `40c6cacea0f197a1ab5ac76b7f5946ae9ad13a76a1a3c281e305e71ce8117b75`. Exported 150 blinded review rows across policy-development and calibration-gate errors and controls with cryptographically locked ground-truth key (`AUDIT_KEY.parquet`). Initial primary review revealed a high ambiguity rate (52.7%) due to missing full paper state text, requiring a repaired audit packet before adjudication. Status is `superseded_by_phase4e_a2`; final is false.
+**E21: Phase 4E QASPER blinded error audit.** Workbench `4e.0.0`, base run `20260921T013558Z`, run `qasper_error_audit_s17`; [run folder](../../research/21_phase4e_qasper_audit_results/20260921T013558Z/qasper_error_audit_s17/). Audit contract SHA-256 `40c6cacea0f197a1ab5ac76b7f5946ae9ad13a76a1a3c281e305e71ce8117b75`. Exported 150 blinded review rows across policy-development and calibration-gate errors and controls with cryptographically locked ground-truth key (`AUDIT_KEY.parquet`). Initial primary review revealed a high ambiguity rate (52.7%) due to missing full paper state text, requiring a repaired audit packet before adjudication. Status is `superseded_by_phase4e_a2`; final is false.
 
-**E22: Phase 4E-A2 QASPER repaired audit and adjudication packet.** Workbench `4e.a2.0`, base run `20260921T013558Z`, run `qasper_error_audit_repair_s17`; [run folder](../../research/OpenKind_Phase4E_A2_QASPER_Audit_Repair_results/20260921T013558Z/qasper_error_audit_repair_s17/). Audit experiment SHA-256 `89d0e283a2b743efcb95de3f73189c6fb0157620c5f6252beea149a44d1ecefd`; completed review SHA-256 `ca5e1ccbd31e575fce4ec97b07f93bc7c5e215ed6a796902f8eb2a1821eed4d8`; analysis SHA-256 `858d1b7b08d2e3e9969f7de4bdc1780cbaf83a831c379b9529d4acfe2a84b25f`; adjudication packet SHA-256 `2d6b3be4dfa532de7c0c320d4e84b67d2be571ff4ddcc7f886b22f437e88edeb`. Restored complete state text (median 24,812 chars, 100% hash match). Blinded primary review across 150 rows yielded 99/149 (66.4%) decided agreement and emitted 51 adjudication rows. Disagreement is highly asymmetric (44 challenged semantic-none, 6 representation/serialization losses). Result lock establishes `repaired_audit_primary_review_complete_adjudication_required`; Phase 4E-B is not automatically authorized (`phase4e_b_automatically_authorized: false`); final is false.
+**E22: Phase 4E-A2 QASPER repaired audit and adjudication packet.** Workbench `4e.a2.0`, base run `20260921T013558Z`, run `qasper_error_audit_repair_s17`; [run folder](../../research/22_phase4e_a2_qasper_audit_repair_results/20260921T013558Z/qasper_error_audit_repair_s17/). Audit experiment SHA-256 `89d0e283a2b743efcb95de3f73189c6fb0157620c5f6252beea149a44d1ecefd`; completed review SHA-256 `ca5e1ccbd31e575fce4ec97b07f93bc7c5e215ed6a796902f8eb2a1821eed4d8`; analysis SHA-256 `858d1b7b08d2e3e9969f7de4bdc1780cbaf83a831c379b9529d4acfe2a84b25f`; adjudication packet SHA-256 `2d6b3be4dfa532de7c0c320d4e84b67d2be571ff4ddcc7f886b22f437e88edeb`. Restored complete state text (median 24,812 chars, 100% hash match). Blinded primary review across 150 rows yielded 99/149 (66.4%) decided agreement and emitted 51 adjudication rows. Disagreement is highly asymmetric (44 challenged semantic-none, 6 representation/serialization losses). Result lock establishes `repaired_audit_primary_review_complete_adjudication_required`; Phase 4E-B is not automatically authorized (`phase4e_b_automatically_authorized: false`); final is false.
+
+**E23: Phase 4E-A3 51-row adjudication follow-up.** [Decision record](../../research/23_phase4e_a3_qasper_followup_results/20260921T013558Z/qasper_followup_cpu_s17_v1/PHASE4E_A3_DECISION_RECORD.md), [corrected report](../../research/23_phase4e_a3_qasper_followup_results/20260921T013558Z/qasper_followup_cpu_s17_v1/AUDIT_ADJUDICATION_REPORT_V2.json), and [lock](../../research/23_phase4e_a3_qasper_followup_results/20260921T013558Z/qasper_followup_cpu_s17_v1/PHASE4E_A3_LOCK.json). The corrected report references independent-adjudication SHA-256 `aaec70a8ae64deebc45c33945748480eafd472c0b00b467422f15a36e5278701` and identifies six same-assistant follow-ups as non-independent. The resulting 51-row distribution is 33 answerable, 13 semantic-none, five ambiguous. No source data or final split changed.
+
+**E24: Phase 4E-A4 preflight and bounded dataset alignment.** The
+[preliminary record](../../research/24_phase4e_a4_qasper_source_alignment_results/20260921T013558Z/qasper_source_alignment_cpu_s17_v1/PHASE4E_A4_PRELIMINARY_RECORD.md)
+and [preflight](../../research/24_phase4e_a4_qasper_source_alignment_results/20260921T013558Z/qasper_source_alignment_cpu_s17_v1/PHASE4E_A4_PREFLIGHT.json)
+confirm 12 policy-development spans across seven questions, one diagnostic gate
+span, and three unresolved quarantines. The later
+[alignment QA](../../research/24_phase4e_a4_qasper_source_alignment_results/20260921T013558Z/qasper_source_alignment_cpu_s17_v1/QASPER_SOURCE_ALIGNMENT_QA.json)
+and [row alignment](../../research/24_phase4e_a4_qasper_source_alignment_results/20260921T013558Z/qasper_source_alignment_cpu_s17_v1/QASPER_SOURCE_ROW_ALIGNMENT.csv)
+record four aligned policy papers and 40 caption candidates. QA SHA-256:
+`cf0706e5ee8d7b773727ad3a6f10520c3c0b5613087d494dd4dc8550a654a74b`.
+Row-table SHA-256:
+`2c1c2076039b4250b49f5bae2c01b4fb5c2597aed8e4c017c3ccf2f192b89311`.
+The four row counts and 40-caption inventory agree with the QA. PDF equivalence,
+table-value recovery, serializer repair, and review of corrections remain open.
+The saved flags record no test download, gold mutation, final opening, or
+automatic training authorization. No upstream dataset was downloaded again
+for this documentation check.
+
+**E25: Later Phase 4E-A 27-case disposition.** [Disposition lock](https://drive.google.com/file/d/1vbrJDGBxPx969eWznaaIXKGU9J4YgLYM/view?usp=drivesdk), [summary](https://drive.google.com/file/d/1OWV1UE6lOkFgxrtsu5u-MfABQxZMEsoR/view?usp=drivesdk), and [NarrativeQA representation candidate](https://drive.google.com/file/d/1Yj2e6iYx2lspPqEco19fw46XC-UpwndC/view?usp=drivesdk), created 24 September 2026. Assistant-conducted, user-authorized evidence review freezes 27 dispositions and the 77-tie diagnostic policy. Case CSV SHA-256 `eea9b77154f4a94eed356cbfd21b2d613006a8fb2c88c376b382bc14dab02d5d`; tie-policy SHA-256 `8aea66a1e80cc4b1cb8708aab2099f053c4c376f3b85d3fd368be56b3c0ae4bd`. The lock records `phase4e_b_authorized: false`, `final_opened: false`, and no mutation of gold, labels, states, A4 ledger, or thresholds. This is distinct from E23's 51-row population.
+
+**E26: Exploratory 4E-B.0 prefill representation probe.** [Experiment contract](https://drive.google.com/file/d/1wrzxdmV7Lxdfc6vpSle4qevv-cFLmaNa/view?usp=drivesdk) and [non-final evaluation](https://drive.google.com/file/d/1VX6BaBBJ8g9u4w5vcAya0a_ZVX1VuQYe/view?usp=drivesdk), run `prefill_representation_probe_s17_v1`, seed 17. Fixed arms: `root_only`, `root_question`, `root_question_candidate`, and the read-only Phase 4D reference. All three probe arms fail `calibration_gate_pass`, accept zero requests, and leave final unopened. The result folder lacks a separate `NONFINAL_RESULT_LOCK.json`; no model promotion or new-arm authorization follows.
+
+**E27: Exploratory 4E-B.1 candidate-conditioned option-logit audit.** [Notebook](https://drive.google.com/file/d/1vFKFXeSAZvkkYbIve0OS1P3zBxBNLXtY/view), [contract](https://drive.google.com/file/d/1mQqZ2K63MBP294S3H5zI6xmXmlUbyey6/view), [325 non-final rows](https://drive.google.com/file/d/1_hQY3B2twDgRnLvakQ-pmvQk54fDmkJy/view), [evaluation](https://drive.google.com/file/d/1DApZhZtxhgNV6b0JDd1S38QNLC84GAf1/view), and [result lock](https://drive.google.com/file/d/1jafTJgEUeN4iGh5f7oKpMmcERcnfd7Lw/view), run `candidate_option_logit_gate16_s17_v2`. Contract SHA-256 `01899f640d7692d639387d779eb2e8221b7d27e0bb71cb62acf62b655d597251`, row SHA-256 `3fff196e3e6507f536135abf5106bf1ab0c8ed36e882e1f8caf6308a40ea2447`, and evaluation SHA-256 `53cff1590988e66d43de7d779d47a6c62cf271a27ad187f8fe8367c91a6e30a6` were independently verified with row-level metric recomputation. The pinned Base model scores two ContractNLI candidates and one QASPER candidate plus a `Z` semantic-none action. ContractNLI answerable-only candidate accuracy is 130/148 but none recall is 0/124; QASPER none recall is 2/8. One cached/full-prompt check per source passes. This is an exploratory fixed-sample comparison, not a release-quality or throughput gate; final is false.
+
+**E28: Exploratory 4E-B.2 candidate-ranking and rejection sweep.** [Notebook](https://colab.research.google.com/drive/1LKpPR5zYFZHDEnWYX6898Hhvwkoqh0I3), [contract](https://drive.google.com/file/d/1Foj3pXRBnk7Im0daheP8RTCc9k3nEnwV/view), [development selection](https://drive.google.com/file/d/1uSWSPHxd1Xp6sP1oCOdb3H1UhxoFj8eF/view), [741 non-final rows](https://drive.google.com/file/d/1oZDuYud8WsySg8k4evEwSaBXzeNmSkH3/view), [evaluation](https://drive.google.com/file/d/1uuo-JxYYCPgvupqdJzPvv3ByXZxH72KL/view), and [result lock](https://drive.google.com/file/d/1hIwuvAFm2b5Kqep-1UYpNUwCxVa48obK/view), run `candidate_detection_ranking_sweep_s17_n12_v1`. Contract SHA-256 `897291b40209dbaa92e671f15119d7c9ce1f1a9f9469383f2ad706263559f8ae`, selection SHA-256 `d451329afc008befea44ff3d67e63ab4ec5a0dbd43a469db1936b410e491402a`, row SHA-256 `48755e082e4442d8f099434bbdc28a4bf814ba93860db2c51777e989960e5b83`, and evaluation SHA-256 `495bb051c99ef3213c03f817a541455ae4360c19701a85873e7821f80e59191a` were independently verified along with row coverage and selected-arm counts. ContractNLI selected ranking is 94/108 answerable, but false-none is 46/108; QASPER selected none recall is 0/5 because the threshold grid starts above every selected detector probability on development and gate. Six cached/full checks across prompt families pass. The gate partition was already exposed, the 72 state parts were not individually downloaded here, and final remains closed.
 
 **RUST1: Rust Phase 3.1/3.2 implementation checkpoint.** The repository adds `ModelExecutionProfile` in `openkind-engine`. `openkind-backends` adds the selected `qwen35` profile, head, tokenizer, and Phase 3B reference loader. Offline tests validate bundle and head hashes. They replay four original golden-feature cases and reproduce all four Phase 3B token records exactly.
 
@@ -2376,6 +2653,26 @@ The tests also validate the 47-vector contract and replay 10 Phase 3B candidate 
 **RUST9: Commit-stamped v0.8.0 verification.** [`../verification/2026-09-20-v0.8.0-35c481a.md`](../verification/2026-09-20-v0.8.0-35c481a.md) records the clean named-Mac run for subject commit `35c481a6e95a`. Workspace gates, zero-diff schema regeneration, scheduler stress, both checkpoint-shard digests, full/branch/nested/batched native parity, commit hygiene, and the canonical warm-process benchmark pass. The five-workload rerun measures `NestedSequential` at 1.294×–2.018× faster than repeated-full, `NestedBatched` within 2.9% of sequential, Q-amortization at 2.815 repeated versus 2.170/2.233 shared, and post-benchmark peak resident memory at 10.968 GiB. This does not close the RUST8 open gates or establish release promotion.
 
 **RUST10: Named-Mac native follow-up campaign.** [`../verification/2026-09-20-v0.8.0-native-follow-up-working-tree.md`](../verification/2026-09-20-v0.8.0-native-follow-up-working-tree.md) records the dirty-tree run anchored at `9d086107bb017bf721d815bb5bcb8ba516ce0e6e`. Rust 1.98.1 workspace tests, all-features tests, formatting, strict Clippy, and diff hygiene pass. Rust 1.88.0 is verified as the workspace MSRV floor and added to CI. Model-backed K=32/64/128/255 stress passes bounded completion, root immutability, and memory stability; two fresh processes pass structural persistence replay; and a real native daemon request, overload admission, cancellation/recovery, clean shutdown, and 20 health probes pass. A separate 22 September follow-up ([verification record](../verification/phase3.10-2026-09-22/README.md)) closes full restored candidate-feature/head/probability/argmax/policy replay on the named CPU host: 8 candidate features and complete probability vectors match the independent full path exactly, with zero argmax or policy changes. Practical high-K latency, production load/soak, Metal, and release promotion remain open.
+
+**RUST11: Named-machine native CPU service gate.** The
+[provenance and results](../verification/native-service-gate/2026-09-22-rerun2/README.md)
+record a release-mode daemon on the 36-GiB M4 Max, anchored at commit
+`a5a752ab50efccba2eff0345fc5435c01248d41e` with dirty-tree source fingerprints
+and executable identity. Lifecycle, queue-inclusive load/deadline/recovery,
+memory, and 30-minute soak checks pass for that artifact. The fixture has no
+reviewed labels. This is neither a clean-commit build nor model-quality,
+accelerated-service, or release-promotion evidence.
+
+**RUSTM1: Pinned-base MLX FP32 qualification and remaining promotion gates.**
+[MLX.md](../MLX.md) owns the operating contract. The
+[22 September follow-up](../verification/phase3m-2026-09-22/README.md)
+records full/nested and unequal-length vectorized parity, forced daemon
+execution, and bounded unified-memory admission/recovery on the named M4 Max
+with MLX 0.32.2, Xcode 27.0, and Metal 32023.921. Its dirty-tree base revision
+is `a5a752ab50efccba2eff0345fc5435c01248d41e`. BF16 fails the unchanged
+probability gate. The slower packed kernel stays opt-in. Matched vectorized
+performance, accelerated-service load/soak, and clean-commit promotion remain
+open. These observations are independent of CPU parity.
 
 **PUB1: Public OpenKind state-first reference repository.** <https://huggingface.co/cowWhySo/OpenKind-Qwen3.5-4B-StateFirst>. Project-owned publication of the selected state-first integration line. The repository URL is a public identity/reference surface; experiment identity remains pinned by profile ID, base-model revision, renderer/head/rejection contracts and bundle hash. Publication does not establish TypeSafe RLCD reproduction, release-quality promotion, or Rust/Metal parity.
 
@@ -2691,3 +2988,102 @@ No prior metric, failure, selection decision, native-parity result, or revision 
 | Provenance | Adds E17–E22 with direct run links and exact experiment/checkpoint/evaluation hashes; final remains unavailable and unopened |
 
 No prior metric, failure, selection decision, native-parity result, or revision history is removed. This revision runs no training or model inference, opens no Phase 4 final label or prediction, and promotes no model. It documents completed immutable results and creates a separate Phase 4E audit workbench; all prior result directories and locks remain unchanged.
+
+## 24 September 2026 evidence addendum to version 0.8.2
+
+Adds E23–E26 and §§18.15–18.16. A3 preserves the 51-row independent adjudication while identifying six later same-assistant follow-ups; A4 is a source-alignment preflight. A separate assistant-reviewed 27-case disposition freezes quarantine and the 77-tie diagnostic policy without modifying benchmark inputs. The seed-17 4E-B.0 cheap-prefill probe fails every non-final gate and has no separate result lock. Source-aligned repair, independent review of proposed corrections, conditional new model work, and final evaluation remain open. This addendum edits documentation only; it runs no model or notebook and promotes no checkpoint.
+
+## Later 24 September 2026 option-logit evidence addendum
+
+Adds E27 and §18.17 from the completed, separately locked 4E-B.1 Colab run. The direct-logit method improves candidate ranking on the sampled answerable ContractNLI rows but misses every ContractNLI semantic-none case; QASPER's one-option answerability result also falls below its majority baseline. The result does not satisfy the Phase 4E source-repair and independent-review gate, reopen final, or promote a checkpoint.
+
+## Later 24 September 2026 candidate-sweep evidence addendum
+
+Adds E28 and §18.18 from the locked 4E-B.2 Colab sweep. Development selection favors order-averaged ContractNLI ranking with calibrated `Z`, but the gate falsely rejects 46/108 answerable questions and retains only 3/24 contradicted full decisions. QASPER's selected threshold grid never predicts semantic none on development or gate. A lower-threshold check is explicitly post-hoc. The result neither closes the source-review gate nor opens final or promotes a model.
+
+## 24 September 2026 strategy and evidence-consistency addendum
+
+Refocuses the abstract, executive assessment, recommendations, and priority
+order around reviewed evidence and useful decisions before learned cost
+reduction. Section 18.19 distinguishes reuse from cheap representation, ranking
+from applicability, and full-source evidence from finalized-input visibility.
+Completed factorization/StateQuery and native CPU/MLX FP32 work are no longer
+presented as untried or uniformly pending. Teacher status remains conditional.
+
+The documentation review inspected local A3/A4 and runtime evidence, including
+the four-row A4 alignment table and 40-caption inventory. It also reread the
+Drive E28 report and result lock. The report hash matches the lock and its
+aggregate counts support the ranking/rejection account. This review did not
+repeat the earlier row-level recomputation or download the 72 state parts,
+rerun notebooks, train a model, or access final outcomes. Prior experiments and
+locks remain unchanged. The earlier opening is retained below as history.
+
+# Appendix E. Historical opening before the September refocus
+
+The following opening is preserved from the pre-refocus version 0.8.2 working
+copy. Its revision-scoped results remain historical evidence. Its priority,
+"next", "open", and proposed-architecture language is superseded by the current
+abstract, §§13.3 and 18.19, and the active roadmap. In particular, later A4
+outputs record bounded dataset alignment, and native CPU service plus pinned
+MLX FP32 parity are no longer universally pending.
+
+## Previous abstract and opening
+OpenKind treats decision inference as a scoring protocol rather than a text-generation task. A frozen Qwen3.5-4B-Base backbone produces features; small trained heads convert those features into typed answers and probability distributions. Completed Phases 2B–2G establish useful NLI and dynamic-candidate behavior, important rejection limits, and a strict-FP32 execution reference. Lossless prefix reuse and bounded FP16 attention-KV storage pass the reported sampled gates; four tested low-bit snapshot codecs do not. TF32-permitted batching offers a measured speed opportunity without full equivalence.
+
+On Phase 2G’s sampled non-financial CLINC panel, the set-linear model reaches 93.75% answerable accuracy but only 39.06% omitted-intent recall; separate author-OOS recall is 46.88%. The evidence therefore describes a narrowly adapted scorer, not the limit of a Qwen model trained for broader decisions. [E1–E7; R3]
+
+The research target is a compact model that answers several independent questions over one state. Phase 2H tests that direction without retraining: it validates and reuses saved fitting artifacts, then runs strict-FP32 and TF32-permitted final workers. The preselected support-example joint head reaches 78.91% raw pooled accuracy over 1,152 episodes from 320 messages, but only 63.67% on held-out Banking labels and 66.02% on held-out CLINC domains. An original-criteria joint-head control transfers better than the development-selected support arm, so the paper does not promote a new model after observing the final set.
+
+The selected model rejects all sampled author-OOS episodes, but it still makes omission and policy errors. TF32 preserves final argmax outcomes but fails the 0.005 numerical gate on two final episodes, with further drift in controlled contexts. These results call for broader supervision, representative transfer-aware selection, richer rejection, and genuine question sharing. They do not support more tuning against the exposed final set. The early smaller-Qwen/LoRA/compact-encoder comparisons, separate equivalence and quality tracks, and thin-service path remain priorities. [E8; E9; V2; R3; proposed program]
+
+The subsequent 2I/2J workbench tests the state-sharing mechanism on a real GPU. For synthetic Q = 2 and K = 2, hidden features pass their declared tolerances and the root remains unchanged. This result does not establish trained multi-question quality or compare models.
+
+The reviewed-study gate remains blocked by unsigned review, unspecified hardware and quality limits, and a stale review-protocol hash. Because the added-question fixture duplicates the first question, it cannot count as a distinct unrelated-question test. The next stage is reviewed protocol and data approval, followed by the planned comparisons. [E10; I0; V3]
+
+Version 0.7 applies a pre-final selection rule to the completed `2ij.2.0` exploratory screen. Thirteen configured fit jobs completed, and 31 locked final profiles were evaluated. The rule selects Qwen3.5-4B-Base with a frozen backbone, state-first rendering, and the score-summary rejection head (profile `a047d6802c3f06f085b8`) as the provisional integration candidate.
+
+The held-out exploratory panel contains 320 question episodes from 56 source messages. It records 95.0% accuracy, 0.13006 NLL, 0.07319 Brier, and 0.01661 15-bin ECE. The natural MultiRC answer-correctness slice is harder at 83.33% accuracy and 0.40361 NLL, while the constructed families are near-saturated. This is a bounded pilot result, not a release-quality claim.
+
+A 0.98 policy accepted 214/320 episodes with one wrong accepted decision. The model-selection bundle later passed a clean A100 reload check with maximum probability delta 3.67e-6, zero selected-ID changes, and an independent NumPy/f64 head-algebra check. The exported reference bundle is now the implementation contract for Rust/native parity work. [E11]
+
+**Historical version 0.6 scope.** That revision built on v0.5.2, including its recovered-discussion traceability and conditional P2 tasks. It preserved the historical B–G and H-development numerical tables, added the completed `2h.1.2` continuation, and closed the bounded 2H-C1–C5 tasks. Detailed methods, all retained comparisons, rejection/policy behavior, numerical limits, reliability, primitive scores and resource measurements are in §13.1; the roadmap now keeps a concise closeout and next-work summary. V2 independently checks saved-output arithmetic and artifact lineage, not new model computation. No Qwen inference, retraining, new GPU benchmark, source-label adjudication, repository test or external-literature review was performed during this documentation revision. [E9; V2]
+
+**Version 0.7 scope.** This revision preserves all prior H and 2I/2J checkpoint evidence, adds the completed exploratory model comparison, final held-out pilot readout, multi-question execution measurements, and the A100-verified selected-model bundle. It does not convert the exploratory pilot into an independently reviewed release study, establish production acceptance limits, or claim Rust/Metal parity. The selected integration candidate remains provisional. [E11]
+
+**Version 0.7.1 external-benchmark update.** Two new public sources sharpen the execution roadmap without changing the selected integration profile. A community Qwen Parallel Constrained Decoding implementation shows one-prefill/batched-field mechanics and author-reported Apple-Silicon latency, but does not establish TypeSafe-style RLCD training or calibrated probabilities. A DGX Spark comparison reports substantially flatter Jev Q=1→4 latency than sequential local Qwen wrappers, while also showing task-dependent quality rankings, independent probability-quality variation and service repeatability differences. These results are treated as external benchmarks and architectural prompts, not OpenKind measurements or evidence of Jev internals. The immediate implementation emphasis therefore becomes native parity followed by branchable hybrid state, breadth-first batched question execution and explicit Q-amortization measurement. [P21; P22; recommendation]
+
+**Version 0.7.2 Phase 3A systems update.** Phase 3A run `20260920T024056Z` keeps selected profile `a047d6802c3f06f085b8` and its bundle unchanged and performs no training or reselection. It validates a corrected full-hybrid-state branching reference for Qwen3.5, passes the notebook's semantic batched-parity and high-K systems-parity gates, and records exact same-process repeatability in the saved run. Batched state sharing is slightly slower on the three short semantic Q=4 cases. As shared state length grows, it becomes much faster and consumes more memory.
+
+The result supports Rust `BranchableState` parity plus an adaptive scheduler. It does not support a model redesign or an “always share” optimization rule. The selected integration line is now publicly available at <https://huggingface.co/cowWhySo/OpenKind-Qwen3.5-4B-StateFirst>. Publication does not convert the exploratory profile into a release-quality model or establish Rust/Metal parity. [E12; PUB1]
+
+**Version 0.7.2 Phase 3B and Rust checkpoint.** Run `20260920T152206Z` keeps the same profile, bundle, and base revision. It records no training, model selection, or model modification. It exports four exact token-fixture records. Its 47 FP32 vectors comprise 34 trace stages, 10 full-sequence candidate features, and 3 continuation vectors. The largest fresh-feature difference is `4.9591064453125e-05`. Cached continuation differs from fresh full-sequence execution by at most `1.9073486328125e-05`.
+
+These values are Python self-consistency diagnostics under the notebook's `1e-4` guard. They are not new Rust acceptance tolerances. Rust now passes the selected head/probability, exact-token, full-sequence CPU backbone, and Qwen-specific cached-continuation gates. Across the native 34-stage trace, embedding is exact and final RMSNorm has maximum absolute error `5.8174e-05`. Across all 10 candidate sequences, maximum probability delta is `4.5869e-06`, with zero argmax or policy changes. The native cached candidate exactly matches the native full-sequence result while preserving the source root. [E13; RUST1–RUST3]
+
+**Version 0.8.0 scope: Native CPU reference engine through safe adaptive scheduling and direct registration.** This architectural milestone consolidates Phases 3.1–3.8 (RUST1–RUST7), then closes the review issues recorded in RUST8. RUST9 adds a clean, commit-stamped rerun of the complete workspace, native parity ladder, scheduler stress, and warm-process benchmark. RUST10 adds the named-Mac native follow-up campaign: bounded model-backed K=32/64/128/255 completion and memory stability, structural fresh-process persistence replay, native service lifecycle smoke, and the Rust 1.88 workspace floor. Full restored candidate-feature/decision replay, practical high-K latency, vectorized kernels, Metal, and production load/soak remain open. [E11–E13; RUST1–RUST10]
+
+**Version 0.8.1 scope: Phase 4A natural-document benchmark and completed non-final StateQuery sweep.** Phase 4A.0 locks a two-source corpus with 2,192 states, 15,368 questions, 25,687 options, 21,894 evidence rows, and 18 criteria before model predictions. Phase 4A.1's original B1 StateQuery checkpoint improves the historical candidate-conditioned reference on source-macro accuracy and proper-scoring metrics, but collapses QASPER semantic-none recall to 0.0 and yields negligible policy coverage. Phase 4A.2 now has completed, locked non-final results for the matched B0 control, balanced B1, factorized B2, refined B2R, and the B2 QASPER-weight-8 follow-on. B2 produces the strongest Phase 4A.2 source-macro proper scores among the architecture arms, while the weight-8 arm reaches the best source-macro balanced accuracy, macro F1, and semantic-none recall in that sweep; neither reaches the QASPER development recall floor. Phase 4B.2 then raises the configured weight cap to 12, which saturates at an effective weight of 8.5602. The selected epoch remains ineligible, QASPER gate none recall is 0.1556, and ContractNLI incurs a 0.3966 false-none rate. No Phase 4A/4B final label or prediction was opened, no promotion gate is satisfied, and no model is promoted in this revision. [E14–E16]
+
+**Version 0.8.2 scope: Phase 4B.2.1 through Phase 4D and the Phase 4E audit gate.** The source/class-stratified B2 objective improves QASPER operating-threshold recall to 0.2564 on policy development and 0.3111 on the calibration gate, but misses the 0.30 development floor and transfers to a gate policy cost of 0.11675 with 7 wrong among 32 accepted decisions. Pairwise applicability reaches 0.3451 QASPER development recall, yet its calibration-gate false-none rates rise to 0.2111 for ContractNLI and 0.2110 for QASPER, and gate policy cost remains above review-all at 0.10221. A head-only continuation worsens source-macro development NLL by 2.77% and Brier by 2.10%; an evidence-residual continuation gains only one QASPER none true positive (34 to 35 of 113) while worsening NLL by 6.08% and Brier by 6.60%. Every child is rejected, the stratified epoch-8 parent remains the diagnostic reference, and final stays unavailable and unopened. Phase 4E-A2 completes the repaired blinded QASPER error audit with full state text, validating all hashes, joins, and row counts (final unopened). Decided agreement is 66.4% (99/149) with 51 adjudication rows emitted. Disagreement is highly asymmetric: 44 cases challenge locked semantic-none labels (38 explicitly and 6 implicitly answerable; 28 with nonempty gold evidence attached), while 6 cases reflect state serialization deficits (omitted tables, captions without values, bibliography placeholders). The verdict establishes that raw state coverage does not guarantee answer-bearing representation coverage, and blocks Phase 4E-B training sweeps pending independent adjudication under a structured defect taxonomy and benchmark/representation repair. [E17–E22]
+
+**24 September 2026 evidence addendum.** A3 preserves the independent 51-row adjudication and separates six later same-assistant follow-ups; A4 verifies frozen-state span candidates but has not completed source alignment or serializer repair. A separate user-authorized assistant review freezes a 27-case disposition and keeps 77 one-to-one annotation ties as locked-label diagnostics. No gold, state, evidence, A4 ledger, threshold, or final data changed. The exploratory seed-17 4E-B.0 probe tests a frozen root final-token/mean-pool descriptor with cheap pooled question and candidate embeddings. All three arms fail their non-final gates, with no accepted policy decisions and no separate result lock. This rejects that specific cheap-prefill readout, not prefill reuse as computation or every possible learned state-query architecture. Source-aligned repair and independent review of proposed corrections remain open before a new representation arm. [E23–E26; §18.15–18.16]
+
+**Later 24 September option-logit audit.** A separate, locked 4E-B.1 diagnostic tests a JevK5-style next-token answer-letter readout on the pinned Base checkpoint and 325 non-final questions. It improves sampled two-option ContractNLI ranking over the historical Phase 4A reference, but the explicit `Z` action misses all 124 ContractNLI semantic-none cases. QASPER has one offered candidate and therefore tests answerability, where `Z` catches only 2/8 none cases. This does not select a new model, prompt, or threshold, and it does not change the Phase 4E-A repair gate. [E27; §18.17]
+
+**Version 0.6.1 scope.** This update uses the latest delivered v0.6 paper and roadmap as its editing bases, not the older v0.3 paper or pre-H roadmap also present in the conversation. It adds the first `2ij.1.0` workbench report, whose overall status is **blocked**: preparation and a Qwen4B/L4 synthetic feature-equivalence probe completed, but independent review and the selection contract are not approved. All historical B–G/H measurement tables and 2H closeout remain unchanged.
+
+Section 14 separates the probe from semantic quality, records a duplicate-question fixture mislabeled as unrelated-question addition, and identifies the exact review/target/manifest blockers. V3 checks saved records and source code without running the notebook or reading final-case annotations. No review is signed, no model is retrained and no Drive source is changed. [E10; I0; V3]
+
+**Evidence boundary.** E8 remains the unchanged failed `2h.1.1` attempt and fitting/development source. E9 is the completed continuation with final predictions and an artifact lock; it supersedes the old final-pending status without rewriting the original failure. Completion is separate from numerical acceptance, task generality and deployment readiness. The earlier revision scopes remain in the source and revision registers. [E8; E9]
+
+**Operational plan:** the synchronized [roadmap](../ROADMAP.md) keeps 2H-C1–C5 closed and preserves the blocked `2ij.1.0` review-gated checkpoint. E11–E13 remain the model-selection and Python/native handoff authorities; RUST1–RUST11 remain the native CPU execution and service record. E14–E20 provide the locked Phase 4A corpus and completed architecture, objective, head-only, and evidence-residual studies. E21–E25 record the audit sequence and its separate 51-row and 27-case populations. E26 rejects the tested cheap-prefill readout on non-final data. E27 records a bounded direct-logit comparison with unresolved semantic-none behavior. E28 records the calibrated ranking/rejection sweep: ContractNLI ranks well but over-rejects, and QASPER remains at the answerable-majority decision. Finish source-aligned table/caption/reference repair and review of proposed label/evidence corrections under a new versioned contract before any new representation-learning arm. Do not run seeds 42/123, open final, or promote a checkpoint. Practical high-K latency and separate MLX qualification remain systems work. CPU native parity does not imply Metal or accelerated parity. [E9–E28; RUST1–RUST11; P21–P23; recommendation]
+
+**Phase 2H reading guide:** [Completed continuation](#1318-completed-continuation-lineage-lock-and-evaluated-scope) · [Final quality and rejection](#1319-selected-model-final-quality-rejection-and-population-weighting) · [All comparison arms](#13110-all-retained-comparisons-the-development-winner-is-not-the-best-final-transfer-arm) · [Source archive and audit](#appendix-a-source-and-reproducibility-register).
+
+**New checkpoint reading guide:** [Workbench outcome](#14-phase-2i2j-workbench-preparation-mechanical-evidence-and-the-review-gate) · [Synthetic mechanics](#142-the-small-state-first-gpu-probe) · [Probe coverage correction](#143-coverage-correction-the-added-question-was-a-duplicate) · [Gate and continuation](#144-why-the-next-study-remains-blocked).
+
+**Phase 4A–4E reading guide:** [Scope and status](#181-scope-status-and-evidence-boundary) · [Corpus and cache lock](#182-phase-4a0-corpus-partitions-and-frozen-feature-identity) · [Completed comparison](#184-completed-non-final-comparison-aggregate-improvement-hides-a-qasper-collapse) · [Scalar-weight closeout](#188-phase-4b2-cap-12-closes-the-scalar-weight-sweep) · [Stratified objective](#189-phase-4b21-stratified-applicability-improves-recall-but-not-policy-transfer) · [Pairwise objective](#1810-phase-4b3-pairwise-applicability-passes-development-but-not-transfer) · [Head-only and residual continuations](#1811-phase-4c-head-only-continuation-is-rejected) · [Phase 4E gate](#1813-lessons-learned-and-phase-4e-gate) · [Phase 4E-A2 repaired audit](#1814-phase-4e-a2-repaired-qasper-error-audit-reveals-asymmetric-annotation-and-serialization-defects) · [A3/A4 and 27-case disposition](#1815-audit-continuation-and-frozen-27-case-disposition) · [4E-B.0 prefill probe](#1816-exploratory-prefill-representation-probe) · [4E-B.1 option-logit audit](#1817-exploratory-option-logit-audit) · [4E-B.2 ranking/rejection sweep](#1818-exploratory-candidate-ranking-and-semantic-none-sweep).
+
+**Next milestone:** close two independent tracks without mixing their evidence. On the model track, preserve the A3 51-row independent adjudication and separate six-row follow-up, complete A4 source alignment and versioned benchmark/serialization repair, and review proposed corrections independently of implementation before authorizing a new representation arm. The separate 27-case disposition, failed 4E-B.0 probe, and diagnostic 4E-B.1/4E-B.2 direct-logit runs do not authorize retraining, seed expansion, or final evaluation. On the systems track, practical high-K latency and separate MLX qualification remain open after the named CPU persistence and service gates. [E23–E28; RUST10–RUST11; proposed milestone]
+
+---

@@ -32,7 +32,7 @@ BF16 status because the current rerun found a BF16 continuation defect.
   `tokenizer.json`:
   `87a7830d63fcf43bf241c3c5242e96e62dd3fdc29224ca26fed8ea333db72de4`.
 - Phase 3B reference root:
-  [`OpenKind_Phase3B_BackboneParity_20260920T152206Z/`](../../research/OpenKind_Phase3B_BackboneParity_20260920T152206Z/).
+  [`14_phase3b_backbone_parity_results/`](../../research/14_phase3b_backbone_parity_results/).
 - Head bundle:
   [`qwen35_statefirst_a047d6802c3f06f085b8/`](../../crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8/).
 

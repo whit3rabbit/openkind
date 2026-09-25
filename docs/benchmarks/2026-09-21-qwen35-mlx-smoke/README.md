@@ -27,7 +27,7 @@ strategy on a short-state fixture; quote ratios, not absolutes.
   load (~22–23 s per strategy instance, including weight materialization)
   excluded and reported separately
 - Digest-locked tokenizer: vendored Phase 3B copy
-  (`research/OpenKind_Phase3B_BackboneParity_20260920T152206Z/backbone_runtime/tokenizer/tokenizer.json`,
+  (`research/14_phase3b_backbone_parity_results/backbone_runtime/tokenizer/tokenizer.json`,
   SHA-256 `06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523`)
   — the HF checkpoint download's `tokenizer.json` is a different export and
   fails the engine's digest lock

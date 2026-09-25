@@ -14,6 +14,8 @@ The academically defensible way to characterize Jev today is:
 
 An open-source reproduction effort must explicitly distinguish three reproduction tiers:
 
+For a dated comparison of later open entrants, see [Jev-like decision systems (2026-09-24)](#jev-like-decision-systems-reviewed-2026-09-24).
+
 | Reproduction Target | Feasibility Today | Assessment |
 |---|:---:|---|
 | **1. Interface reproduction** | **High confidence** | Replicating `Choice`, `Score`, `Noul`, deterministic schemas, probability distributions, and a unified endpoint accepting many questions against one state is straightforward engineering. |
@@ -589,7 +591,7 @@ The evidence now supports a clear, grounded consensus:
 
 ## Phase 2B Empirical Benchmark: Qwen3.5-4B Decision Head & Baseline Readout (Run 20260917T205849Z)
 
-An empirical benchmark run was conducted on **September 17, 2026** (run ID: `20260917T205849Z`, archived in `research/openkind_phase2b_20260917T205849Z`) probing `Qwen/Qwen3.5-4B-Base` (commit `1001bb4d826a52d1f399e183466143f4da7b741b`) on an **NVIDIA L4 GPU** with native BF16 (`torch.bfloat16`). LoRA was disabled.
+An empirical benchmark run was conducted on **September 17, 2026** (run ID: `20260917T205849Z`, archived in `research/02_phase2b_benchmark_results`) probing `Qwen/Qwen3.5-4B-Base` (commit `1001bb4d826a52d1f399e183466143f4da7b741b`) on an **NVIDIA L4 GPU** with native BF16 (`torch.bfloat16`). LoRA was disabled.
 
 The primary finding is that a **frozen Qwen3.5-4B backbone coupled with a lightweight linear classification head** achieves **87.67% matched** and **87.33% mismatched** test accuracy on MultiNLI, trained on 2,400 examples. Recomputation of accuracy, negative log-likelihood (NLL), and Brier scores from the archived prediction tensors confirms the reported metrics.
 
@@ -717,7 +719,7 @@ Linear Projection (2560 -> 3 logits, 7,683 params)
 Softmax (in strict label order: [entailment, neutral, contradiction])
 ```
 
-Exported reference artifacts in `research/openkind_phase2b_20260917T205849Z/frozen_export/`:
+Exported reference artifacts in `research/02_phase2b_benchmark_results/frozen_export/`:
 - `manifest.json`: Architecture, tokenization, prompt segments, and label specifications.
 - `head.safetensors`: Serialized linear head weights and normalization buffers (~51.5 KB).
 - `golden_head_inputs.npz`: Reference input hidden states and expected output logits for Rust parity testing.
@@ -730,7 +732,7 @@ Exported reference artifacts in `research/openkind_phase2b_20260917T205849Z/froz
 ## Phase 2C Empirical Readout: Stability, Dynamic Choice, and Serving Gates
 
 Run `20260917T222948Z` was archived in
-`research/openkind_phase2c_20260917T222948Z/`. It used
+`research/03_phase2c_stability_results/`. It used
 `Qwen/Qwen3.5-4B-Base` on an NVIDIA L4 with native BF16. The report
 metrics were independently recomputed from the saved NLI predictions,
 dynamic predictions, and benchmark records. The dynamic stage completed;
@@ -868,7 +870,7 @@ shared-prefix branching, and Rust/Metal execution remain untested.
 ## Phase 2D Empirical Readout: Numerical Reference, Rejection Policy, and Complete Requests
 
 Run `20260917T234417Z` was archived in
-`research/openkind_phase2d_20260917T234417Z/`, using the Phase 2C
+`research/04_phase2d_numerics_results/`, using the Phase 2C
 checkpoint and frozen NLI and real-candidate heads. Only small `none` heads
 and the temperature option were fitted. The run did not implement KV
 branching, LoRA, quantization, Rust/Metal, or HTTP validation. The numerical
@@ -1026,19 +1028,19 @@ configuration even when the nominal weights are identical.
 Run `20260918T114914072764Z` completed on an NVIDIA L4 with separate FP32
 and BF16 workers. Both workers completed cache parity, policy agreement,
 component profiling, and complete-request benchmarks. The [expanded result
-archive](../research/openkind_phase2e_expanded_20260918T114914072764Z/)
-includes the [results README](../research/openkind_phase2e_expanded_20260918T114914072764Z/README_results.md),
+archive](../research/06_phase2e_expanded_parity_results/)
+includes the [results README](../research/06_phase2e_expanded_parity_results/README_results.md),
 saved raw rows, and machine-readable summaries. An independent
 reconstruction of 3,072 probability distributions from saved candidate
 scores and frozen `none`-head coefficients agreed with the report, including
 policy actions, parity counts, and timing aggregates. Qwen itself was not
 rerun for that reconstruction.
 
-The key machine-readable evidence is the [FP32 parity rows](../research/openkind_phase2e_expanded_20260918T114914072764Z/fp32_strict_math/parity_rows.json),
-[BF16 parity rows](../research/openkind_phase2e_expanded_20260918T114914072764Z/bf16_default/parity_rows.json),
-[FP32 request benchmarks](../research/openkind_phase2e_expanded_20260918T114914072764Z/fp32_strict_math/request_benchmarks.json),
-[FP32 component profiles](../research/openkind_phase2e_expanded_20260918T114914072764Z/fp32_strict_math/component_profiles.json),
-and [frozen export manifest](../research/openkind_phase2e_expanded_20260918T114914072764Z/frozen_export/phase2e_manifest.json).
+The key machine-readable evidence is the [FP32 parity rows](../research/06_phase2e_expanded_parity_results/fp32_strict_math/parity_rows.json),
+[BF16 parity rows](../research/06_phase2e_expanded_parity_results/bf16_default/parity_rows.json),
+[FP32 request benchmarks](../research/06_phase2e_expanded_parity_results/fp32_strict_math/request_benchmarks.json),
+[FP32 component profiles](../research/06_phase2e_expanded_parity_results/fp32_strict_math/component_profiles.json),
+and [frozen export manifest](../research/06_phase2e_expanded_parity_results/frozen_export/phase2e_manifest.json).
 
 The experiment contains eight distinct messages expanded into 128 factorial
 episodes. Archived examples were reused for execution regression, not new
@@ -1325,3 +1327,118 @@ is the mechanism.
    instead declares `offered_options_plus_semantic_none`
    (`openkind-engine` `ProbabilitySpace`); the explicit declaration, not
    the wording, is the borrow.
+
+## Jev-like Decision Systems (Reviewed 2026-09-24)
+
+The projects below try to reproduce Jev's typed-decision interface or its
+state-plus-questions execution pattern. They are independent systems, not
+reconstructions of TypeSafe's undisclosed architecture or RLCD training. This
+update uses the [JevBench v1.4.1 board](https://benchmarkheaven.com/jev-models)
+and [v1.4.1 release](https://github.com/fstandhartinger/jevbench/releases/tag/v1.4.1)
+as a dated external comparison, then checks each design against its author's
+repository or model card. The pasted comparative report supplied leads for
+this review; the linked primary sources support the claims below.
+
+### One benchmark snapshot, with its limits
+
+JevBench v1.4.1 was scored on 23 September 2026. It contains 534 public
+decisions and 308 sealed decisions reported only in aggregate. Its score is an
+equal-weight harmonic mean of Intelligence, Calibration, Speed, and Cost, with
+additional penalties for weak axes and a public-to-sealed accuracy gap over
+25 percentage points. Scores
+below are **that composite**, not accuracy, throughput, or a claim of
+production parity. The cost axis includes estimated hosted prices for some
+self-hosted models; requests were sent one at a time from Germany. The sealed
+set is unusually hard (29.3% chance baseline), English-only, and reported as
+aggregates, so it cannot establish performance on OpenKind's natural-document
+workloads. Scores from earlier JevBench versions are not directly comparable.
+[Method and limitations](https://benchmarkheaven.com/jev-models)
+
+| Tested system | Composite | Public accuracy | Sealed accuracy | Readout family |
+|---|---:|---:|---:|---|
+| [Jev 1.13.0](https://benchmarkheaven.com/jev-models) (reference) | 63.3 | 86.6% | 36.7% | Proprietary |
+| [JevK5 v0.2.0](https://github.com/allebee/jevk5) | 62.0 | 85.3% | 33.1% | Trained Qwen3.5-4B, option logits |
+| [Hopper](https://huggingface.co/HopitAI/hopper) | 59.4 | 82.3% | 34.1% | Trained Qwen3.5-4B, option logits |
+| [Winnow-12B Q8](https://huggingface.co/EldanRing/Winnow-12B) | 55.6 | 85.7% | 33.1% | Trained Gemma 4 12B, option logits |
+| [reflex 4B](https://github.com/kshetrajna12/reflex) | 54.0 | 79.2% | 28.2% | Benchmarked LoRA, option logits |
+| [djev](https://github.com/Davipar/djev-dev) | 52.2 | 84.0% | 29.9% | DiffusionGemma answer-slot read |
+| [Jev-Omni](https://huggingface.co/akhilaaa3/Jev-Omni) | 51.3 | 88.7% | 32.1% | Gemma 4 12B, decision head |
+| [SemIf](https://github.com/TheoLeeCJ/SemIf) | 47.7 | 81.0% | 26.3% | Frozen Qwen3.5-4B, option logits |
+
+The JevK5/Jev composite difference is 1.3 points under this scoring rule;
+both have large public-to-sealed drops (52.2 and 49.9 points, respectively).
+That is evidence of a close **operational benchmark score**, not comparable
+generalization or Jev-equivalent decisions. The board reports that its Hopper
+development consulted the public benchmark repeatedly. It also records that
+JevK5's unreleased teacher/replay corpora could not be independently checked
+for overlap, while JevK5's author says no JevBench item or Jev output was used
+for training, tuning, or selection. Keep those distinct from a verified
+no-contamination claim. [Board notes](https://benchmarkheaven.com/jev-models)
+
+### What the implementations actually share
+
+| System | Mechanism and useful boundary for OpenKind |
+|---|---|
+| [JevK5](https://github.com/allebee/jevk5) | Qwen3.5-4B plus a distilled LoRA; one forward and a temperature-scaled softmax over answer-letter logits for up to 16 options. The benchmarked v0.2.0 has that one-pass limit; newer 0.2.x releases add multi-pass menus. Its author reports 3,272 teacher and 3,272 human-labeled training questions. It accepts `noul`, `choice`, and `score`, but evaluates each question separately and serializes server requests on one GPU. Code and weights are Apache-2.0. A matching wire shape does not imply Jev's shared multi-question execution. |
+| [Hopper](https://huggingface.co/HopitAI/hopper) | Qwen3.5-4B LoRA, direct option-letter logits, and a fitted temperature per answer type. The author documents synthetic plus public training sources and a JevBench-style held-out calibration set. Serving code is Apache-2.0; the adapter weights are restricted to research/demo use because of training-data terms. Check the model card rather than the repository license alone. |
+| [Winnow-12B](https://huggingface.co/EldanRing/Winnow-12B) | Gemma 4 12B IT LoRA merged into BF16 and Q8 GGUF releases. Its llama.cpp server prefills state once, forks question branches, and reads answer logits; it also exposes chat and image input. The training mixture is private. The author's separate benchmark reports public-subset accuracy and multi-question throughput, which must not be substituted for JevBench's composite or for an OpenKind run. |
+| [reflex](https://github.com/kshetrajna12/reflex) | The current recommended `stable` setup uses frozen Qwen3.5-4B, a shared state cache, independent question branches, and two option orders averaged in one batched forward. The **54.0 board row used an earlier LoRA and calibration file**, not this current frozen setup. The author reports that several fine-tunes improved matched training tasks but hurt broader judgment. Compare configurations by checkpoint and readout, not project name. |
+| [djev](https://github.com/Davipar/djev-dev) / [OpenJev](https://github.com/razorback16/openjev) | DiffusionGemma reads constrained answer slots for typed decisions, including image inputs, without separately trained decision weights. This is a different backbone and inference mechanism from OpenKind's causal Qwen path. djev describes its probabilities as experimental and uncalibrated. JevBench used a hosted djev run for the earlier axes, then a self-hosted same-weight runtime for the v1.4 sealed tier while retaining earlier Speed/Cost, so its composite is less uniform than a single-run comparison. OpenJev is a separate project, and neither is the earlier NLI repository `AlexWortega/openjev` discussed above. |
+| [Jev-Omni](https://huggingface.co/akhilaaa3/Jev-Omni) | Gemma 4 12B IT with a trained decision head. Its model card reports text, image, audio, and video inputs and a 30,000-question fine-tune. The head accepts 256 options, but the author only establishes best support at 20 or fewer. The board row tests its text decision path; it does not validate all four modalities. |
+| [SemIf](https://github.com/TheoLeeCJ/SemIf) | An untrained direct-logit reference with explicit shared-prefix mechanics. The [pinned MLX review above](#prior-art-implementation-review-semif-mlx-backend-reviewed-2026-09-20) covers the concrete batching and hybrid-cache behavior. Its BF16 Qwen3.5-4B checkpoint is not OpenKind's selected FP32 Base checkpoint. |
+
+### Consequences for OpenKind
+
+1. **Test model quality separately from the interface.** All these projects
+   can serialize a finite answer distribution. That alone does not establish
+   calibrated probabilities or correct decisions on natural cases. The large
+   public-to-sealed gaps make independent, untouched, source-aligned evaluation
+   the release gate, as the [roadmap](ROADMAP.md) already requires.
+2. **Use direct logits as a controlled comparator.** JevK5, Hopper, reflex,
+   and SemIf make the option-letter readout a serious baseline for OpenKind's
+   trained candidate head. A fair OpenKind ablation would hold the checkpoint,
+   precision, prompts, candidates, and nonfinal data fixed, then compare
+   accuracy, proper scores, calibration, high-K behavior, and multi-question
+   latency. Their published Qwen3.5-4B instruction checkpoint results cannot
+   be transplanted to OpenKind's selected Qwen3.5-4B-Base FP32 profile.
+3. **Keep the probability space explicit.** An option-letter softmax conditions
+   on supplied labels. OpenKind's selected
+   `offered_options_plus_semantic_none` profile adds a learned semantic-none
+   path. A Jev-compatible JSON shape, or an explicit user-provided "none"
+   option, does not demonstrate that same rejection policy.
+4. **Measure shared-state behavior directly.** JevK5's per-question calls,
+   Winnow's forked prefix, reflex's batched question branches, and SemIf's
+   vectorized MLX path have different work and memory curves. JevBench's
+   one-request-at-a-time latency cannot settle OpenKind's practical high-K,
+   concurrent service, or CPU/Metal throughput gates.
+
+These are research comparisons and candidate ablations. They do not change
+the Phase 4E source-alignment and independent-review gates, reopen final
+data, or promote a new OpenKind model profile.
+
+### OpenKind option-logit audit, 24 September 2026
+
+The [4E-B.1 notebook](https://drive.google.com/file/d/1vFKFXeSAZvkkYbIve0OS1P3zBxBNLXtY/view) ran a fixed, zero-generation option-letter readout on the pinned **Qwen3.5-4B-Base FP32** profile. It sampled 16 calibration-gate states per source by state-ID hash, then scored all 325 choice questions in those states. It used the Phase 4A effective state text, one shared root prefill per state, a candidate-conditioned question suffix, and a constrained next-token softmax over answer letters plus `Z` for semantic none. The comparator is the frozen **Phase 4A historical reference** on identical question IDs, not the Phase 4D trained parent or JevK5's checkpoint. Prompts and readouts differ, so this is a matched-row method comparison, not a controlled head-only substitution. [Contract](https://drive.google.com/file/d/1mQqZ2K63MBP294S3H5zI6xmXmlUbyey6/view), [rows](https://drive.google.com/file/d/1_hQY3B2twDgRnLvakQ-pmvQk54fDmkJy/view), [report](https://drive.google.com/file/d/1DApZhZtxhgNV6b0JDd1S38QNLC84GAf1/view), [result lock](https://drive.google.com/file/d/1jafTJgEUeN4iGh5f7oKpMmcERcnfd7Lw/view).
+
+| Source and scored task | Option logits | Frozen Phase 4A reference | Reading |
+|---|---:|---:|---|
+| ContractNLI, answerable-only conditional candidate accuracy (148 questions, two options) | 130/148, 87.8% | 46/148, 31.1% | The option readout ranks the two candidates better on this sample. The majority `entailed` baseline is 125/148, 84.5%; option-logit balanced accuracy is 73.3%, with `contradicted` recall 12/23. |
+| ContractNLI, full decision accuracy (272 questions, including 124 semantic none) | 130/272, 47.8% | 90/272, 33.1% | `Z` wins on **0/124** semantic-none cases. The 46.0% majority-class full-decision baseline is close to the option-logit accuracy. |
+| QASPER, full `answerable` versus `Z` decision (53 questions, one explicit candidate) | 41/53, 77.4% | 23/53, 43.4% | This is answerability, not candidate ranking. `Z` catches 2/8 semantic-none cases versus 6/8 for the reference; the answerable-majority baseline is 45/53, 84.9%. |
+
+The ContractNLI candidate winner changes on 18/272 questions when option order is reversed; the largest option-probability shift is 0.2865. Reversed-order answerable accuracy rises to 89.2%, while balanced accuracy falls to 67.0%, so raw accuracy alone obscures the class and order trade-off. QASPER has only one supplied candidate and contributes no conditional ranking or order test. Full-decision NLL/Brier are numerically lower for option logits on both sampled sources, but their uncalibrated `Z` action fails the essential ContractNLI rejection behavior. The scores also use a small, previously exposed nonfinal gate sample with known QASPER annotation/evidence defects; they cannot promote a model or authorize threshold fitting on this gate.
+
+The contract, report, and 325-row Parquet file match the saved SHA-256 result lock. Independent row recomputation reproduced the counts and metrics above. Cached versus full-prompt checks agree on one question per source (maximum absolute logit differences `7.63e-6` and `1.91e-5`, with unchanged actions). Those are bounded correctness checks, not full hybrid-cache parity. Timing was recorded under slower reference PyTorch convolution/DeltaNet fallbacks without a complete host identity, so this run does not establish throughput. Final remains unopened. The practical conclusion is narrow: direct logits deserve further **candidate-ranking** comparison, while semantic-none handling and source-aligned review remain separate gates.
+
+### Candidate ranking and semantic-none sweep, 24 September 2026
+
+The [4E-B.2 notebook](https://colab.research.google.com/drive/1LKpPR5zYFZHDEnWYX6898Hhvwkoqh0I3) scores three fixed ContractNLI rankers (original option logits, order-averaged option logits, separate candidate-support logits) and three semantic-none detectors (`Z`, strongest-candidate support, and any-supported logits). A one-variable logistic calibration is fit on `calibration_fit`; a five-value threshold grid (`0.25`–`0.75`) and ranker/detector pair are selected on `policy_development`. The readout uses 12 states per source in each of those splits and in `calibration_gate`: 741 questions total, including 204 ContractNLI and 46 QASPER gate questions. The 24 gate states exclude all 4E-B.1 selected state IDs, but the gate partition was already exposed by earlier work. This is an exploratory diagnostic, not untouched confirmation. [Contract](https://drive.google.com/file/d/1Foj3pXRBnk7Im0daheP8RTCc9k3nEnwV/view), [development selection](https://drive.google.com/file/d/1uSWSPHxd1Xp6sP1oCOdb3H1UhxoFj8eF/view), [rows](https://drive.google.com/file/d/1oZDuYud8WsySg8k4evEwSaBXzeNmSkH3/view), [report](https://drive.google.com/file/d/1uuo-JxYYCPgvupqdJzPvv3ByXZxH72KL/view), [result lock](https://drive.google.com/file/d/1hIwuvAFm2b5Kqep-1UYpNUwCxVa48obK/view).
+
+| Gate source and selected arm | Candidate ranking | Full decision and applicability | Reading |
+|---|---:|---:|---|
+| ContractNLI: order-averaged ranker, calibrated `Z`, threshold `0.35` | 94/108 answerable questions (87.0%) versus 84/108 (77.8%) for the development-label majority position | 126/204 correct (61.8%); 72/96 semantic-none found (75.0%), but 46/108 answerable questions falsely rejected (42.6%) | Among answerable rows, ranking gets all 84 entailed cases but only 10/24 contradicted cases. After rejection, full-decision contradicted recall is 3/24. The false-none rate exceeds the 0.20 Phase 4E guardrail. |
+| QASPER: one candidate, calibrated strongest-candidate support, threshold `0.25` | Not applicable | 41/46 correct (89.1%), exactly the answerable-majority baseline; 0/5 semantic-none found | All 46 calibrated none probabilities are below `0.25` (maximum `0.2348`). Every threshold in the declared grid therefore predicts answerable for this selected detector. Five semantic-none cases are too few for a stable transfer claim. |
+
+The ContractNLI development selection scores 108/121 conditional rankings; the gate falls to 94/108. On the gate, original-order logits score 93/108 and separate support scores 86/108. Order averaging changes the candidate winner on 13/204 gate questions, but its one extra correct answerable choice over original order does not repair the full decision: the selected gate balanced accuracy is `0.6250` and false-none remains `0.4259`. QASPER's selected development arm also has 0/5 none recall. Its `Z` detector has gate AUROC `0.80`, but that estimate has only five positives. An **unlocked, post-hoc** lower-threshold check selected `Z` at `0.175` on development (3/5 none found, 6/38 false none); on the already exposed gate it finds 2/5 none and falsely rejects 9/41 answerable. This diagnoses the original grid's floor, not a replacement locked result or a passing operating point.
+
+The contract, selection, 741-row Parquet file, and report match the result-lock SHA-256 values. Independent row checks confirm unique question IDs, exact selected-state membership, no overlap with the earlier 4E-B.1 gate states, finite and complete logits, and the reported selected-arm counts. Six cached/full-prompt checks span the three prompt families on one question per source; all stay within the contract tolerances and preserve the action. The 72 individual state-part hashes are recorded by the lock but were not separately downloaded for this review. Source-aligned label/evidence repair, independent review, useful QASPER rejection, and the final split remain open.

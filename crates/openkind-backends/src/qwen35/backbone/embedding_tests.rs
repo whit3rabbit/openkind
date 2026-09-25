@@ -70,7 +70,7 @@ fn pinned_checkpoint_row_matches_phase3b_embedding_exactly() {
 
     let phase3b_root = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
-        .join("research/OpenKind_Phase3B_BackboneParity_20260920T152206Z");
+        .join("research/14_phase3b_backbone_parity_results");
     let reference = BackboneReference::load(phase3b_root).expect("load Phase 3B reference");
     let comparison = reference
         .compare("diagnostic.embedding", &actual)

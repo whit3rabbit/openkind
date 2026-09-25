@@ -95,55 +95,55 @@ cargo run -p openkind-backends --example qwen35_scheduler_stress
 # Requires an already-downloaded immutable base checkpoint. Never downloads.
 cargo run -p openkind-backends --example qwen35_parity_probe -- \
   path/to/checkpoint \
-  research/OpenKind_Phase3B_BackboneParity_20260920T152206Z \
+  research/14_phase3b_backbone_parity_results \
   trace
 
 cargo run --release -p openkind-backends --example qwen35_parity_probe -- \
   path/to/checkpoint \
-  research/OpenKind_Phase3B_BackboneParity_20260920T152206Z \
+  research/14_phase3b_backbone_parity_results \
   continuation
 
 # Two separate invocations form the checkpoint-gated fresh-process replay.
 cargo run --release -p openkind-backends --example qwen35_parity_probe -- \
   path/to/checkpoint \
-  research/OpenKind_Phase3B_BackboneParity_20260920T152206Z \
+  research/14_phase3b_backbone_parity_results \
   persist-save path/to/root-state.bin
 
 cargo run --release -p openkind-backends --example qwen35_parity_probe -- \
   path/to/checkpoint \
-  research/OpenKind_Phase3B_BackboneParity_20260920T152206Z \
+  research/14_phase3b_backbone_parity_results \
   persist-replay path/to/root-state.bin \
   crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8
 
 cargo run --release -p openkind-backends --example qwen35_parity_probe -- \
   path/to/checkpoint \
-  research/OpenKind_Phase3B_BackboneParity_20260920T152206Z \
+  research/14_phase3b_backbone_parity_results \
   branch
 
 cargo run --release -p openkind-backends --example qwen35_full_parity -- \
   path/to/checkpoint \
-  research/OpenKind_Phase3B_BackboneParity_20260920T152206Z \
+  research/14_phase3b_backbone_parity_results \
   crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8
 
 cargo run --release -p openkind-backends --example qwen35_nested_parity -- \
   path/to/checkpoint \
-  research/OpenKind_Phase3B_BackboneParity_20260920T152206Z \
+  research/14_phase3b_backbone_parity_results \
   crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8
 
 cargo run --release -p openkind-backends --example qwen35_batched_parity -- \
   path/to/checkpoint \
-  research/OpenKind_Phase3B_BackboneParity_20260920T152206Z \
+  research/14_phase3b_backbone_parity_results \
   crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8
 
 # Phase 3.8 measurement harness: roughly 35-45 minutes at default settings.
 cargo run --release -p openkind-backends --example qwen35_scheduler_bench -- \
   path/to/checkpoint \
-  research/OpenKind_Phase3B_BackboneParity_20260920T152206Z
+  research/14_phase3b_backbone_parity_results
 
 # Model-backed streaming stress. Requires the pinned checkpoint.
 cargo run --release -p openkind-backends --example qwen35_model_stress -- \
   path/to/checkpoint \
-  research/OpenKind_Phase3B_BackboneParity_20260920T152206Z
+  research/14_phase3b_backbone_parity_results
 ```
 
 The embedding-only probe hashes the complete 5.3 GB first shard. Decoder,

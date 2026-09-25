@@ -72,9 +72,9 @@ runner command in [`docs/BENCHMARKS.md`](../../../BENCHMARKS.md). Supply the
 digest-checked bundle fixture at
 `crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8`,
 the runtime manifest at
-`research/OpenKind_Phase3B_BackboneParity_20260920T152206Z/bundle_probability_runtime/runtime.json`,
+`research/14_phase3b_backbone_parity_results/bundle_probability_runtime/runtime.json`,
 and tokenizer at
-`research/OpenKind_Phase3B_BackboneParity_20260920T152206Z/backbone_runtime/tokenizer/tokenizer.json`.
+`research/14_phase3b_backbone_parity_results/backbone_runtime/tokenizer/tokenizer.json`.
 Use a new empty output directory for each run. The build command and report
 hashes identify the recorded artifact and inputs, but a reproducible source
 claim requires capturing the tracked diff before the build and confirming it

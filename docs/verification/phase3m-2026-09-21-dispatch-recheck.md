@@ -30,7 +30,7 @@ SDKROOT=$(xcrun --show-sdk-path) cargo run --release \
   --engine qwen35-mlx-fp32 \
   --bundle-root crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8 \
   --checkpoint-root <pinned-or-community-checkpoint> \
-  --tokenizer research/OpenKind_Phase3B_BackboneParity_20260920T152206Z/backbone_runtime/tokenizer/tokenizer.json \
+  --tokenizer research/14_phase3b_backbone_parity_results/backbone_runtime/tokenizer/tokenizer.json \
   --strategies repeated_full,nested_sequential,nested_batched,choose_strategy \
   --reps 1 --host "Mac16,5 Apple M4 Max 36 GiB (named Mac)" \
   --commit ddbc5dd7e46bb1318bb98af8b0d924d78d4452ee \
