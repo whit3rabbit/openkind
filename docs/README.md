@@ -57,6 +57,13 @@ Project documentation and architectural references for `openkind`.
 7. **[`whitepaper/WHITEPAPER.md`](./whitepaper/WHITEPAPER.md)**:
    Canonical scientific interpretation, evidence register, native CPU reference
    results, Phase 4B–4D closeout, and Phase 4E audit gate.
+8. **[`families/`](./families/README.md)** — Decision-model family catalogue:
+   - Architectural pattern per family, status (implemented vs surveyed), and
+     what blocks implementation.
+   - One page per family. Each page links to the canonical owner for every
+     quantitative or status claim and never duplicates facts from other docs.
+   - Use this index to scope new family selection work; do not invent a new
+     architecture pattern without first adding it here.
 
 ---
 
