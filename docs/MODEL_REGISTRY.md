@@ -36,6 +36,29 @@ repositories. Downloads and tests are separate: builds and tests never fetch
 model assets. A real Qwen pull and decision smoke test is an explicit,
 multi-gigabyte operator gate.
 
+## Publishing the public mirror
+
+OpenKind's checked-in `registry/v1` is the metadata source. The public
+[`whit3rabbit/openkind-model-registry`](https://github.com/whit3rabbit/openkind-model-registry)
+repository serves the same catalog over raw HTTPS and holds only the small
+profile bundle and tokenizer. It does not contain checkpoint shards.
+
+For a new profile, first commit its distributable assets to the public
+registry. Pin that asset commit, file sizes, and SHA-256 values in the OpenKind
+manifest, then update the catalog's manifest digest. The local parity fixtures
+and loader must pass before catalog publication. Copy and verify metadata with:
+
+```bash
+python3 scripts/sync-model-registry.py --mirror <registry-checkout> --write
+# Review and push the changes in <registry-checkout>.
+python3 scripts/sync-model-registry.py --mirror <registry-checkout> --remote
+```
+
+The script refuses a dirty mirror metadata tree, checks exact catalog and
+manifest bytes, hashes assets at their pinned Git commits, and, with
+`--remote`, checks their public HTTPS bytes. It never downloads source weights.
+Keep prior asset commits available so existing manifests remain reproducible.
+
 ## Family expansion
 
 The [roadmap](ROADMAP.md) owns M0–M4 and the evidence required for task support.
