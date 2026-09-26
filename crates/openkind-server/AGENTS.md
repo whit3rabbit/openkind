@@ -9,6 +9,7 @@
 - Observability initialization (`tracing_subscriber::fmt` with `EnvFilter`).
 - Prometheus metrics recorder installation (`openkind_api::http::install_metrics_recorder`).
 - Model engine instantiation and registration into `EngineRegistry` (supporting both `MockEngine` and `Qwen35DecisionEngine`).
+- Explicit startup loading of verified installations from `openkind-model-store`.
 - Concurrent HTTP (`axum::serve`) and gRPC (`tonic::transport::Server`) listeners.
 - Graceful shutdown orchestration on Unix `SIGINT` (Ctrl-C) or `SIGTERM`.
 
@@ -27,11 +28,12 @@
 
 ## Key Files & Types
 
-- [`src/main.rs`](./src/main.rs):
-  - `Args`: Clap argument parser defining:
+- [`src/args.rs`](./src/args.rs): Clap argument parser defining:
     - Server endpoints: `--http-addr`, `--grpc-addr`, `--api-key`, `--log-filter`.
-    - Model aliases: `--models`, `--qwen35-aliases`.
+    - Model aliases: `--models`, `--qwen35-aliases`, `--installed-models`,
+      and `--models-dir`.
     - Native Qwen3.5 parameters: `--qwen35-bundle-root`, `--qwen35-checkpoint-root`, `--qwen35-tokenizer`, `--qwen35-backend` / `OPENKIND_QWEN35_BACKEND` (`native-cpu` default, or feature-gated `mlx-fp32` on macOS arm64), `--qwen35-concurrency`, `--qwen35-queue`, `--qwen35-timeout-ms` (queue-inclusive, default 600000), `--qwen35-max-tensor-bytes`, `--qwen35-max-process-bytes`, `--qwen35-scratch-bytes`, `--qwen35-allocator-headroom-bytes`, `--qwen35-execution` (diagnostic plan override: `auto` default; bypasses the profitability policy only — admission ceilings and backend capabilities still apply).
+- [`src/main.rs`](./src/main.rs):
   - `main()`: Orchestrates logging, auth, Prometheus recorder, engine registration, and concurrent listener tasks via `tokio::join!`.
   - `shutdown_signal()`: Future selecting on `tokio::signal::ctrl_c()` and Unix `SIGTERM`.
 - [`benches/server.rs`](./benches/server.rs): Criterion coverage for the complete
@@ -39,7 +41,7 @@
 
 ## Engine Registration Architecture
 
-`openkindd` populates `EngineRegistry` dynamically based on `--models`:
+`openkindd` populates `EngineRegistry` from `--models` and `--installed-models`:
 1. **Native Engine Path**: If any alias in `--models` is listed in `--qwen35-aliases` (default `qwen35-native`):
    - Validates that `--qwen35-bundle-root`, `--qwen35-checkpoint-root`, and `--qwen35-tokenizer` are provided.
    - Instantiates `SchedulerConfig::for_pinned_profile` with `BackendCapabilities::per_lane()`. The MLX loader may advertise vectorized forward only for FP32 `ReferenceOps` when `--qwen35-execution nested-batched` is explicitly forced; automatic scheduling stays per-lane pending measured performance. MLX server startup requires the `mlx` crate feature and is available only on macOS arm64.
@@ -47,6 +49,12 @@
    - Loads `Qwen35DecisionEngine` with configured concurrency and queue semaphores.
    - Registers the shared engine under each matching alias.
 2. **Mock Engine Path**: Any alias not matching `--qwen35-aliases` registers an instance of `MockEngine`.
+3. **Installed Model Path**: Each name in `--installed-models` is read from
+   `--models-dir` or `OPENKIND_MODELS_DIR`, verified, matched to a compiled-in
+   loader, and registered under its immutable name. A serving lock remains
+   held until shutdown; missing profiles and alias collisions fail startup.
+   The public catalog is never fetched during daemon startup. See the
+   [registry guide](../../docs/MODEL_REGISTRY.md) for the mirror and sync flow.
 
 ## Critical Gotchas & Rules
 

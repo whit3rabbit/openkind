@@ -19,6 +19,7 @@ selected open-weight Qwen 3.5 profile described below.
 - [`README.md`](README.md): workspace overview and quickstart.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md): current milestone status and remaining work.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): crate boundaries and data flow.
+- [`docs/MODEL_REGISTRY.md`](docs/MODEL_REGISTRY.md): curated catalog, public mirror, and sync procedure.
 - [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md): benchmark methodology, harness usage, and recorded runs.
 - [`docs/MLX.md`](docs/MLX.md): MLX runtime contract, implementation guide, limitations, and enhancement path.
 - [`docs/RESEARCH.md`](docs/RESEARCH.md): empirical research and prior-art evidence.

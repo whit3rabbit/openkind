@@ -64,6 +64,11 @@ Project documentation and architectural references for `openkind`.
      quantitative or status claim and never duplicates facts from other docs.
    - Use this index to scope new family selection work; do not invent a new
      architecture pattern without first adding it here.
+9. **[`MODEL_REGISTRY.md`](./MODEL_REGISTRY.md)**: Curated model distribution:
+   - OpenKind owns catalog metadata and compiled-in loaders. The separate
+     public registry serves manifests and small pinned profile assets.
+   - CLI pull and explicit daemon serving commands, plus the
+     [`sync-model-registry.py`](../scripts/sync-model-registry.py) publication check.
 
 ---
 

@@ -7,6 +7,10 @@ uses its offline read and serving-lock path.
 
 - Only immutable, checked-in catalog entries with compiled-in loaders are
   installable. The catalog and manifest are separate from `EngineRegistry`.
+- OpenKind's `registry/v1` owns metadata. The public
+  `whit3rabbit/openkind-model-registry` repository mirrors that metadata and
+  hosts small profile assets. Use `scripts/sync-model-registry.py` from the
+  OpenKind root to copy and verify the mirror; it does not push changes.
 - Never download during construction, serving startup, builds, or tests.
   Downloads happen only under the explicit `openkind pull` command.
 - Verify artifact size and SHA-256 before making an installation visible.
