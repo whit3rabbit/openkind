@@ -6,6 +6,7 @@
 mod args;
 mod evaluate;
 mod inspect;
+mod models;
 mod serve;
 
 #[cfg(test)]
@@ -34,8 +35,22 @@ pub fn run(cli: Cli) -> Result<()> {
             http_addr,
             grpc_addr,
             models,
+            installed_models,
+            models_dir,
             api_key,
-        } => cmd_serve(http_addr, grpc_addr, models, api_key),
+        } => cmd_serve(
+            http_addr,
+            grpc_addr,
+            models,
+            installed_models,
+            models_dir,
+            api_key,
+        ),
+        Commands::Catalog => models::catalog(),
+        Commands::Pull { name, models_dir } => models::pull(&name, models_dir),
+        Commands::List { models_dir } => models::list(models_dir),
+        Commands::Show { name, models_dir } => models::show(&name, models_dir),
+        Commands::Rm { name, models_dir } => models::rm(&name, models_dir),
         Commands::Version => {
             println!("openkind {}", openkind_core::api_version());
             Ok(())
