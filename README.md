@@ -4,10 +4,16 @@
 
 The wire, service, and SDK layers are implemented. The selected Qwen 3.5 native path has passed Rust head, tokenizer, correctness-first CPU backbone, cached-continuation, backend-neutral branch-state, sequential nested execution, batched Q/K, measured adaptive-scheduler, and full restored persistence replay gates. State/scheduler high-K stress, process-peak admission, tenant-isolated state reuse, versioned/digest-checked state snapshots, cancellation-safe permit ownership, and a direct native `DecisionEngine` adapter are implemented. The named-machine follow-up completed bounded model-backed K=32/64/128/255 stress, fresh-process feature and decision replay, and native CPU service lifecycle, queue-inclusive load, and 30-minute soak gates ([RUST11 report](docs/verification/native-service-gate/2026-09-22-rerun2/README.md)). Practical high-K latency, reviewed model quality, and product-release promotion remain open. A feature-gated MLX/Metal parity backend (Phase 3M) passes the pinned-base full, nested, and variable-length vectorized FP32 fixture gates. The forced MLX daemon request path and bounded unified-memory admission/recovery measurements are recorded in the [Phase 3M follow-up](docs/verification/phase3m-2026-09-22/README.md). Native BF16 fails its frozen probability gate. The packed fused Metal kernel remains opt-in after a same-host throughput regression, and vectorized batch auto-selection remains disabled pending a matched performance comparison. An explicit adapter loads and executes the tested MLX-community export, but that artifact fails frozen-reference model parity.
 
-[Quickstart](#quickstart) | [Research dossier](docs/RESEARCH.md) | [Whitepaper](docs/whitepaper/WHITEPAPER.md) | [Roadmap](docs/ROADMAP.md) | [Architecture](docs/ARCHITECTURE.md) | [MLX backend](docs/MLX.md) | [Jev wire reference](https://docs.typesafe.ai/api)
+[Quickstart](#quickstart) | [Model registry](docs/MODEL_REGISTRY.md) | [Research dossier](docs/RESEARCH.md) | [Whitepaper](docs/whitepaper/WHITEPAPER.md) | [Roadmap](docs/ROADMAP.md) | [Architecture](docs/ARCHITECTURE.md) | [MLX backend](docs/MLX.md) | [Jev wire reference](https://docs.typesafe.ai/api)
 
 > [!IMPORTANT]
 > The daemon defaults to `MockEngine`. A native alias can be registered directly with explicit offline bundle, checkpoint, and tokenizer paths. The quickstart below still verifies the mock wire/service path, not model quality or native Qwen execution.
+
+Model catalog metadata is checked into this repository and published through
+the separate public [OpenKind model registry](https://github.com/whit3rabbit/openkind-model-registry).
+That repository holds the small pinned profile assets; checkpoint shards stay
+with their authors. See the [registry guide](docs/MODEL_REGISTRY.md) for pulls,
+explicit serving, and the script used to verify both repositories stay aligned.
 
 ## Quickstart
 
@@ -57,7 +63,7 @@ This repository carries the research behind the implementation, not only the imp
 | Phase 3B | Four exact token records and 47 FP32 vectors across 34 trace stages, candidates, and continuations | Backbone localization fixtures, not native execution |
 | Rust Phase 3.1 through 3.8 | Head, probability, tokenizer, state-first rendering, CPU backbone, cached continuation, branch-state contract, sequential nested execution, batched Q/K, and the measured adaptive scheduler | Frozen-fixture parity and warm-host measurements, not Metal or production service proof |
 
-Start with the [research dossier](docs/RESEARCH.md) for the study sequence and the [whitepaper](docs/whitepaper/WHITEPAPER.md) for methods, results, and interpretation. The [roadmap](docs/ROADMAP.md) is the current status authority. The public [Qwen 3.5 reference repository](https://huggingface.co/cowWhySo/OpenKind-Qwen3.5-4B-StateFirst) exposes the selected integration line.
+Start with the [research dossier](docs/RESEARCH.md) for the study sequence and the [whitepaper](docs/whitepaper/WHITEPAPER.md) for methods, results, and interpretation. The [roadmap](docs/ROADMAP.md) is the current status authority. The public [model registry](https://github.com/whit3rabbit/openkind-model-registry) distributes the selected Qwen profile bundle and exported tokenizer; the [bundle source note](https://github.com/whit3rabbit/openkind-model-registry/blob/main/assets/qwen35-state-first/a047d6802c3f06f085b8/bundle/SOURCE.md) records reference provenance.
 
 ### Locked native integration target
 

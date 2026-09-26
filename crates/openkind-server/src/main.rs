@@ -12,7 +12,9 @@
 
 mod args;
 
+use std::collections::HashSet;
 use std::net::SocketAddr;
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::{Context, Result};
@@ -22,6 +24,7 @@ use openkind_backends::qwen35::{
     Qwen35Backend, Qwen35DecisionEngine, Qwen35EngineConfig, SchedulerConfig,
 };
 use openkind_engine::{DecisionEngine, EngineRegistry, MockEngine};
+use openkind_model_store::{default_models_dir, ModelStore, QWEN35_STATE_FIRST_MODEL_NAME};
 use openkind_runtime::{peak_resident_bytes, BackendCapabilities};
 use tokio::net::TcpListener;
 use tonic::transport::Server;
@@ -38,9 +41,62 @@ fn backend_from_arg(backend: Qwen35BackendArg) -> Qwen35Backend {
     }
 }
 
+fn load_qwen(
+    args: &Args,
+    bundle_root: PathBuf,
+    checkpoint_root: PathBuf,
+    tokenizer_path: PathBuf,
+) -> Result<Arc<dyn DecisionEngine>> {
+    let mut scheduler = SchedulerConfig::for_pinned_profile(
+        SchedulerConfig::LOWEST_MEASURED_SHARED_SAVINGS_RATIO,
+        args.qwen35_max_tensor_bytes,
+    )
+    .with_backend_capabilities(BackendCapabilities::per_lane())
+    .with_forced_strategy(args.qwen35_execution.into());
+    if let Some(max_process_bytes) = args.qwen35_max_process_bytes {
+        scheduler =
+            scheduler.with_process_memory(openkind_backends::qwen35::ProcessMemoryEnvelope {
+                observed_resident_bytes: peak_resident_bytes()
+                    .context("read process peak RSS for native admission")?,
+                forward_scratch_bytes: args.qwen35_scratch_bytes,
+                allocator_headroom_bytes: args.qwen35_allocator_headroom_bytes,
+                max_process_bytes,
+            });
+    }
+    Ok(Arc::new(
+        Qwen35DecisionEngine::load(Qwen35EngineConfig {
+            bundle_root,
+            checkpoint_root,
+            tokenizer_path,
+            backend: backend_from_arg(args.qwen35_backend),
+            scheduler,
+            max_concurrent_requests: args.qwen35_concurrency,
+            max_queued_requests: args.qwen35_queue,
+            retry_after_ms: 1_000,
+            evaluation_timeout: Some(std::time::Duration::from_millis(args.qwen35_timeout_ms)),
+        })
+        .context("load native Qwen3.5 engine")?,
+    ))
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+
+    let mut aliases = HashSet::new();
+    for alias in &args.models {
+        if !aliases.insert(alias) {
+            anyhow::bail!("duplicate --models alias `{alias}`");
+        }
+    }
+    for name in &args.installed_models {
+        if !aliases.insert(name) {
+            if args.models.contains(name) {
+                anyhow::bail!("installed model alias `{name}` collides with --models");
+            }
+            anyhow::bail!("duplicate --installed-models alias `{name}`");
+        }
+    }
 
     init_tracing(&args.log_filter)?;
 
@@ -52,8 +108,8 @@ async fn main() -> Result<()> {
     )?
     .unwrap_or_else(|| "0.0.0.0:8080".parse().expect("valid default HTTP address"));
     let grpc_addr_value = resolve_alias(
-        args.grpc_addr,
-        args.legacy_grpc_addr,
+        args.grpc_addr.clone(),
+        args.legacy_grpc_addr.clone(),
         "OPENKIND_GRPC_ADDR",
         "OPENPICK_GRPC_ADDR",
     )?
@@ -62,8 +118,8 @@ async fn main() -> Result<()> {
         .context("invalid --grpc-addr (expected host:port, or `0` to disable)")?;
 
     let api_key = resolve_alias(
-        args.api_key.filter(|s| !s.is_empty()),
-        args.legacy_api_key.filter(|s| !s.is_empty()),
+        args.api_key.clone().filter(|s| !s.is_empty()),
+        args.legacy_api_key.clone().filter(|s| !s.is_empty()),
         "OPENKIND_API_KEY",
         "OPENPICK_API_KEY",
     )?;
@@ -110,36 +166,12 @@ async fn main() -> Result<()> {
             .qwen35_tokenizer
             .clone()
             .context("native alias requested but --qwen35-tokenizer is missing")?;
-        let mut scheduler = SchedulerConfig::for_pinned_profile(
-            SchedulerConfig::LOWEST_MEASURED_SHARED_SAVINGS_RATIO,
-            args.qwen35_max_tensor_bytes,
-        )
-        .with_backend_capabilities(BackendCapabilities::per_lane())
-        .with_forced_strategy(args.qwen35_execution.into());
-        if let Some(max_process_bytes) = args.qwen35_max_process_bytes {
-            scheduler =
-                scheduler.with_process_memory(openkind_backends::qwen35::ProcessMemoryEnvelope {
-                    observed_resident_bytes: peak_resident_bytes()
-                        .context("read process peak RSS for native admission")?,
-                    forward_scratch_bytes: args.qwen35_scratch_bytes,
-                    allocator_headroom_bytes: args.qwen35_allocator_headroom_bytes,
-                    max_process_bytes,
-                });
-        }
-        Some(Arc::new(
-            Qwen35DecisionEngine::load(Qwen35EngineConfig {
-                bundle_root,
-                checkpoint_root,
-                tokenizer_path,
-                backend: backend_from_arg(args.qwen35_backend),
-                scheduler,
-                max_concurrent_requests: args.qwen35_concurrency,
-                max_queued_requests: args.qwen35_queue,
-                retry_after_ms: 1_000,
-                evaluation_timeout: Some(std::time::Duration::from_millis(args.qwen35_timeout_ms)),
-            })
-            .context("load native Qwen3.5 engine")?,
-        ))
+        Some(load_qwen(
+            &args,
+            bundle_root,
+            checkpoint_root,
+            tokenizer_path,
+        )?)
     } else {
         None
     };
@@ -154,6 +186,41 @@ async fn main() -> Result<()> {
         };
         info!(alias, backend = engine.backend_id(), "registered model");
         registry.register(alias.clone(), engine);
+    }
+
+    // Keep each installation's shared lock alive until shutdown. A concurrent
+    // `openkind rm` then fails instead of removing files under a live engine.
+    let mut installed_guards = Vec::new();
+    if !args.installed_models.is_empty() {
+        let dir = match &args.models_dir {
+            Some(dir) => dir.clone(),
+            None => default_models_dir()?,
+        };
+        let store = ModelStore::new(dir)?;
+        for name in &args.installed_models {
+            let installed = store.acquire_serving(name)?;
+            let manifest = &installed.manifest;
+            if manifest.name != QWEN35_STATE_FIRST_MODEL_NAME
+                || manifest.loader_id != "qwen35-state-first"
+                || manifest.profile_id != openkind_backends::qwen35::PROFILE_ID
+            {
+                anyhow::bail!("unsupported installed model profile `{name}`");
+            }
+            let root = &installed.root;
+            let engine = load_qwen(
+                &args,
+                root.join("bundle"),
+                root.join("checkpoint"),
+                root.join("checkpoint/tokenizer.json"),
+            )?;
+            info!(
+                alias = name,
+                backend = engine.backend_id(),
+                "registered installed model"
+            );
+            registry.register(name.clone(), engine);
+            installed_guards.push(installed);
+        }
     }
 
     // Install metrics recorder once, shared across HTTP/gRPC.
