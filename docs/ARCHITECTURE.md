@@ -70,8 +70,11 @@ openkind/
 │   ├── openkind-cli/         # openkind binary
 │   ├── openkind-runtime/     # device/scheduler/state/cache lifecycle
 │   ├── openkind-backends/    # supported native model drivers
+│   ├── openkind-model-store/ # curated manifests and verified local installs
 │   ├── openkind-bench/       # offline scoring and timing benchmark harness
 │   └── openkind-gen-schemas/ # JSON Schema codegen
+├── registry/v1/             # checked-in catalog and profile manifests
+├── scripts/sync-model-registry.py # public mirror verification
 ├── proto/openkind.proto      # gRPC service definition
 ├── examples/                     # wire-format fixtures
 ├── docs/ARCHITECTURE.md          # this file
@@ -108,6 +111,13 @@ openkind/
 ```
 
 The public dependency direction remains one-way. `core` owns wire types; `engine` owns semantic/model contracts; `runtime` and `backends` implement execution; `api` exposes the service; `server/cli` compose those pieces; `bench` drives offline workloads through `DecisionEngine` for scoring and timing. Backends must not redefine public probability semantics merely because their internal execution graph differs.
+
+`openkind-model-store` is a separate distribution path used by the CLI and
+daemon. The CLI fetches the public catalog and pinned artifacts; the daemon
+reads only explicitly selected, verified local installations at startup. The
+public [model registry](https://github.com/whit3rabbit/openkind-model-registry)
+mirrors the metadata under `registry/v1` and hosts the small profile assets.
+See the [registry guide](MODEL_REGISTRY.md) for publication and sync commands.
 
 ---
 

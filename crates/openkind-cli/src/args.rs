@@ -51,9 +51,41 @@ pub enum Commands {
         /// Comma-separated model aliases to expose.
         #[arg(long, env = "OPENKIND_MODELS", default_value = "mock,jev-latest")]
         models: String,
+        /// Comma-separated installed model names to load at daemon startup.
+        #[arg(long, env = "OPENKIND_INSTALLED_MODELS", default_value = "")]
+        installed_models: String,
+        /// Directory shared by model commands and the daemon.
+        #[arg(long, env = "OPENKIND_MODELS_DIR")]
+        models_dir: Option<PathBuf>,
         /// Optional bearer token required for /v1/*.
         #[arg(long, env = "OPENKIND_API_KEY")]
         api_key: Option<String>,
+    },
+
+    /// List curated models available to pull.
+    Catalog,
+    /// Download and verify a curated model.
+    Pull {
+        name: String,
+        #[arg(long, env = "OPENKIND_MODELS_DIR")]
+        models_dir: Option<PathBuf>,
+    },
+    /// List installed models without network access.
+    List {
+        #[arg(long, env = "OPENKIND_MODELS_DIR")]
+        models_dir: Option<PathBuf>,
+    },
+    /// Show a local model's pinned identity and artifacts.
+    Show {
+        name: String,
+        #[arg(long, env = "OPENKIND_MODELS_DIR")]
+        models_dir: Option<PathBuf>,
+    },
+    /// Remove a local model that is not being served.
+    Rm {
+        name: String,
+        #[arg(long, env = "OPENKIND_MODELS_DIR")]
+        models_dir: Option<PathBuf>,
     },
 
     /// Print the openkind wire API version.
@@ -242,6 +274,16 @@ fn fast_parse(argv: &[OsString]) -> Option<Cli> {
                     default: Some("mock,jev-latest"),
                 },
                 FlagSpec {
+                    long: "installed-models",
+                    env: Some("OPENKIND_INSTALLED_MODELS"),
+                    default: Some(""),
+                },
+                FlagSpec {
+                    long: "models-dir",
+                    env: Some("OPENKIND_MODELS_DIR"),
+                    default: None,
+                },
+                FlagSpec {
                     long: "api-key",
                     env: Some("OPENKIND_API_KEY"),
                     default: None,
@@ -258,6 +300,8 @@ fn fast_parse(argv: &[OsString]) -> Option<Cli> {
                     http_addr: take().expect("default guarantees an http-addr value"),
                     grpc_addr: take().expect("default guarantees a grpc-addr value"),
                     models: take().expect("default guarantees a models value"),
+                    installed_models: take().unwrap_or_default(),
+                    models_dir: take().map(PathBuf::from),
                     api_key: take(),
                 },
             })
