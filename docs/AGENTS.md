@@ -12,6 +12,7 @@ The documentation suite maintains a strict division of responsibility across pro
 |---|---|
 | Current milestone phases, progress, and remaining work | [`ROADMAP.md`](ROADMAP.md) |
 | Landed crate boundaries, module topology, and data flow | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
+| Curated catalog, public mirror, and publication commands | [`MODEL_REGISTRY.md`](MODEL_REGISTRY.md) |
 | Benchmark methodology, harness usage, and recorded runs | [`BENCHMARKS.md`](BENCHMARKS.md) |
 | MLX runtime contract, implementation guide, limitations, and enhancement path | [`MLX.md`](MLX.md) |
 | Research dossier, background, and prior art | [`RESEARCH.md`](RESEARCH.md) |

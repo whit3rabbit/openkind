@@ -9,6 +9,12 @@ The wire, service, and SDK layers are implemented. The selected Qwen 3.5 native 
 > [!IMPORTANT]
 > The daemon defaults to `MockEngine`. A native alias can be registered directly with explicit offline bundle, checkpoint, and tokenizer paths. The quickstart below still verifies the mock wire/service path, not model quality or native Qwen execution.
 
+Model catalog metadata is checked into this repository and published through
+the separate public [OpenKind model registry](https://github.com/whit3rabbit/openkind-model-registry).
+That repository holds the small pinned profile assets; checkpoint shards stay
+with their authors. See the [registry guide](docs/MODEL_REGISTRY.md) for pulls,
+explicit serving, and the script used to verify both repositories stay aligned.
+
 ## Quickstart
 
 You need Rust 1.88 or newer and `protoc` for gRPC code generation.
@@ -57,7 +63,7 @@ This repository carries the research behind the implementation, not only the imp
 | Phase 3B | Four exact token records and 47 FP32 vectors across 34 trace stages, candidates, and continuations | Backbone localization fixtures, not native execution |
 | Rust Phase 3.1 through 3.8 | Head, probability, tokenizer, state-first rendering, CPU backbone, cached continuation, branch-state contract, sequential nested execution, batched Q/K, and the measured adaptive scheduler | Frozen-fixture parity and warm-host measurements, not Metal or production service proof |
 
-Start with the [research dossier](docs/RESEARCH.md) for the study sequence and the [whitepaper](docs/whitepaper/WHITEPAPER.md) for methods, results, and interpretation. The [roadmap](docs/ROADMAP.md) is the current status authority. The public [Qwen 3.5 reference repository](https://huggingface.co/cowWhySo/OpenKind-Qwen3.5-4B-StateFirst) exposes the selected integration line.
+Start with the [research dossier](docs/RESEARCH.md) for the study sequence and the [whitepaper](docs/whitepaper/WHITEPAPER.md) for methods, results, and interpretation. The [roadmap](docs/ROADMAP.md) is the current status authority. The public [model registry](https://github.com/whit3rabbit/openkind-model-registry) distributes the selected Qwen profile bundle and exported tokenizer; the [bundle source note](https://github.com/whit3rabbit/openkind-model-registry/blob/main/assets/qwen35-state-first/a047d6802c3f06f085b8/bundle/SOURCE.md) records reference provenance.
 
 ### Locked native integration target
 

@@ -38,25 +38,34 @@ multi-gigabyte operator gate.
 
 ## Publishing the public mirror
 
-OpenKind's checked-in `registry/v1` is the metadata source. The public
+OpenKind's checked-in [`registry/v1`](../registry/v1/) is the metadata source.
+The separate public
 [`whit3rabbit/openkind-model-registry`](https://github.com/whit3rabbit/openkind-model-registry)
 repository serves the same catalog over raw HTTPS and holds only the small
-profile bundle and tokenizer. It does not contain checkpoint shards.
+profile bundle and tokenizer. It does not contain checkpoint shards. The CLI's
+catalog URL points to that public repository, so OpenKind can stay private
+while anonymous pulls work. The [sync script](../scripts/sync-model-registry.py)
+lives in OpenKind; there is no automatic cross-repository push.
 
 For a new profile, first commit its distributable assets to the public
 registry. Pin that asset commit, file sizes, and SHA-256 values in the OpenKind
 manifest, then update the catalog's manifest digest. The local parity fixtures
-and loader must pass before catalog publication. Copy and verify metadata with:
+and loader must pass before catalog publication. From the OpenKind checkout,
+use a local checkout of the public registry at the script's default path:
 
 ```bash
-python3 scripts/sync-model-registry.py --mirror <registry-checkout> --write
-# Review and push the changes in <registry-checkout>.
-python3 scripts/sync-model-registry.py --mirror <registry-checkout> --remote
+python3 scripts/sync-model-registry.py --write
+# Review, commit, and push registry/v1 in the public registry checkout.
+python3 scripts/sync-model-registry.py --remote
 ```
 
-The script refuses a dirty mirror metadata tree, checks exact catalog and
-manifest bytes, hashes assets at their pinned Git commits, and, with
-`--remote`, checks their public HTTPS bytes. It never downloads source weights.
+Without flags, the script checks local copies. `--write` copies only catalog
+and manifest files, refuses a dirty mirror metadata tree, and never commits
+or pushes. After the public push, `--remote` checks exact catalog and manifest
+bytes and all pinned profile assets through public HTTPS. It does not fetch
+checkpoint shards. The default mirror checkout is
+`~/Documents/GitHub/openkind-model-registry`; pass `--mirror PATH` to each
+command if the public checkout is elsewhere.
 Keep prior asset commits available so existing manifests remain reproducible.
 
 ## Family expansion
