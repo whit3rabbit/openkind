@@ -185,6 +185,12 @@ compares pooled and per-field suffix forwards on a separate 4-bit checkpoint
 through Python MLX. Its positive timing result is a reference experiment, not
 an OpenKind request-path or Rust-backend result.
 
+The [Rust flat-field record](./benchmarks/2026-09-27-python-flat-field/)
+ports that shared-root field schedule to the pinned Qwen3.5 FP32 MLX backend.
+Paired fresh-process native compute runs find it slower than the current
+`nested_batched` traversal at Q2/K2 and Q8/K4. The flat path is diagnostic and
+does not change the service or automatic scheduler.
+
 ### Outputs
 
 - `summary-<engine>.json` — schema `openkind-bench/v1`: provenance
@@ -339,6 +345,7 @@ official release promotion remain separate.
 
 | Record | Engine | Status |
 |---|---|---|
+| [`benchmarks/2026-09-27-python-flat-field/`](./benchmarks/2026-09-27-python-flat-field/) | qwen35-mlx-fp32 | Negative diagnostic: Rust shared-root flat field batching was 6% to 64% slower than nested batching across paired Q2/K2 and Q8/K4 compute runs; no scheduler promotion |
 | [`benchmarks/2026-09-27-candidate-pooling/`](./benchmarks/2026-09-27-candidate-pooling/) | qwen35-mlx-fp32 | Negative diagnostic: pooled candidate lanes were slower than current batching at Q2/K2 and Q8/K4; no service or automatic-scheduler promotion |
 | [`benchmarks/2026-09-26-surveyed-families/`](./benchmarks/2026-09-26-surveyed-families/) | decoder-logit-letter, encoder-nli, encoder-instruct-label, decoder-logit-llm, kev, schema-scorer, qwen3guard, winnow, router-script | Complete — single-shot surveyed-family records on the standard shape777 workload; request-path timing only, no model-quality claim; see the section below for numbers and provenance |
 | [`benchmarks/2026-09-23-criterion-optimization/`](./benchmarks/2026-09-23-criterion-optimization/) | CLI, server, and client with MockEngine | Concluded same-host working-tree comparison; 11 of 15 existing cases meet 1.20x, and four sequential client cases remain below target |

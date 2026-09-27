@@ -23,9 +23,11 @@ use openkind_runtime::BatchForwardMode;
 use super::model::{BackboneState, Qwen35Backbone};
 use super::nested::{NestedQuestion, SequentialNestedExecutor};
 
+mod flat;
 mod pooled;
 mod types;
 
+pub use flat::{run_flat_batched_candidates, FlatBatchRun};
 pub use pooled::run_batched_nested_pooled;
 pub use types::*;
 

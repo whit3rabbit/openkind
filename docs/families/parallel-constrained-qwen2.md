@@ -43,6 +43,10 @@ against per-lane execution, as detailed in the
 [`Rust stage record`](../benchmarks/2026-09-27-candidate-pooling/README.md).
 The Rust vectorized path currently accepts 2 to 8 lanes.
 That is not a Rust port of this repository's Qwen2.5 model or readout.
+The separate [`Qwen3.5 flat-field diagnostic`](../benchmarks/2026-09-27-python-flat-field/README.md)
+ports the Python shared-root field traversal using the selected Qwen3.5
+backbone and readout. It is slower than OpenKind's current nested batching on
+both measured shapes.
 
 The Python implementation's reported `sequential_forward_passes: 1` counts
 the batched suffix forward but omits the prefill. On a first-token collision it
