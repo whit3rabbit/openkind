@@ -44,7 +44,7 @@ It defines:
   - `BackendCapabilities`: Advertises whether a backend supports vectorized question forwards, vectorized candidate forwards, and lane capacity limits.
 - [`src/digest.rs`](./src/digest.rs):
   - Role-domain-separated SHA-256 digests over fixed-width little-endian token IDs (never textual renderings). `ExecutionInputDigest` is order-sensitive (the reproducibility identity); `SemanticSetDigest` is order-independent (invariance/isolation testing).
-- [`src/evidence.rs`](./src/evidence.rs):
+- [`src/evidence/`](./src/evidence/):
   - `NativeRunWriter`: writes `RUN.json`/`PROFILE.json`/optional reports/`predictions.jsonl`/`checksums.json` under one run directory. Invocation records are structured and sanitized — raw `argv` is never recorded, run IDs outside `[A-Za-z0-9._-]` are rejected, and `contains_input_content`/`contains_sensitive_paths` flags state what was written.
 - [`src/branch/`](./src/branch/):
   - [`src/branch/state.rs`](./src/branch/state.rs):

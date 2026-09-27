@@ -4,7 +4,7 @@
 
 ## Crate Purpose & Boundaries
 
-`openkind-proto` contains the Protocol Buffers definition ([`proto/proto/openkind.proto`](proto/openkind.proto)) and build-time code generator (`build.rs`) for the `openkind.system_one.SystemOne` gRPC service.
+`openkind-proto` contains the Protocol Buffers definition ([`proto/proto/openkind.proto`](proto/openkind.proto)) and build-time code generator (`build.rs`) for the `openkind.SystemOne` gRPC service.
 
 It generates the Rust structs and client/server service traits consumed by `openkind-api::grpc`.
 

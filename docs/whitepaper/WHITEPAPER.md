@@ -1,7 +1,7 @@
 # OpenKind
 ## Shared-state decision inference: evidence, execution, and useful decisions
 
-**Document version:** 0.8.2 (22 September 2026, evidence and strategy addenda through 24 September 2026)
+**Document version:** 0.8.5 (26 September 2026; completed v0.6.0 source-label replay results saved approximately 19:29 UTC; documentation-only result update)
 
 ### Abstract
 
@@ -14,58 +14,86 @@ their declared scope. Pinned-base MLX FP32 full, nested, and variable-length
 vectorized parity pass separately. Matched vectorized performance and MLX
 service promotion remain open. [E11–E13; RUST1–RUST11; §17.3]
 
-Useful natural-document decisions remain unresolved. Phase 4A–4D's learned
-StateQuery, applicability, head-only, and residual studies produce no promotable
-model. The cheap pooled-prefill probe also fails. Direct-logit experiments show
-candidate-ranking signal but inadequate rejection: the selected 4E-B.2
-ContractNLI arm ranks 94/108 answerable cases correctly, then falsely rejects
-46/108 as semantic none. QASPER's selected detector rejects no cases under its
-declared threshold grid. These are non-final diagnostics, not release evidence.
-[E14–E20; E26–E28]
+Natural-document learning now has a bounded positive result, but no promotable
+multi-source model. The completed frozen J0/J1 two-budget comparison separates
+evidence visibility from semantic-none behavior. A matched rank-16 decision-LoRA
+pilot then improves ContractNLI accuracy from **56.86% to 81.37%** for Base and
+from **69.12% to 82.35%** for the post-trained checkpoint under common BF16
+execution. Contradiction and none decisions improve, but entailment recall and
+QASPER retention regress; both adapted arms fail the complete research screen.
+The result is useful task specialization, not a general decision-model upgrade.
+A completed follow-on adds short-premise SNLI replay with frozen-parent consistency.
+It improves probability scores relative to the specialists but does not meet joint
+preservation requirements; both guarded selectors retain the frozen parents.
+The completed source-label replay comparison then raises SNLI regression accuracy
+to **82.81% / 86.46%**, but worsens ContractNLI/QASPER probability scores relative
+to parent KL and still fails supported-entailment and QASPER preservation. Both
+new guarded selections also retain the frozen parents. [E29–E32; §§18.20–18.25]
 
 The evidence audit separates source correctness, model-visible evidence, and
-model use. Full-paper adjudication does not establish evidence coverage within
-the 1,024-state-token feature input. A3 preserves a 51-row independent review,
-with six later non-independent follow-ups. A4 records bounded source-dataset
-alignment, but source-document equivalence and representation repair remain
-incomplete. The separate 27-case disposition does not change benchmark gold.
-[E14; E22–E25]
+model use. New finalized-input diagnostics show substantial gains on fixed
+question subsets whose annotated evidence becomes visible at a larger budget.
+The LoRA pilot uses complete, source-record-checked ContractNLI training documents;
+it excludes rather than truncates over-cap documents. Stored-record consistency
+and annotation visibility do not establish independent semantic adjudication or
+complete source-document equivalence. Existing audit quarantines and benchmark
+labels remain unchanged. [E14; E22–E25; E29; E30]
 
-The research direction is to repair that contract, establish useful
-question/candidate-conditioned decisions, and then lower their complete cost.
-A smaller Qwen or learned shared-query reader must earn its place through
-quality and resource evidence. The contribution is an auditable execution
-contract and a measured account of reuse, numerical behavior, evidence access,
-and rejection limits. No inference about Jev's private architecture, general
-calibration, or an inherently superior neural topology follows. [§§13.2–13.5,
-18.19; synthesis]
+Behavior preservation, replay-task learning, and retained correctness have
+separate measured boundaries. Source-label replay substantially outperforms
+parent consistency on the exposed SNLI panel while worsening the original
+two-source probability scores. Its false-none behavior improves on SNLI but
+worsens on QASPER, so a uniform rejection-shift explanation is insufficient.
+The next proposed work targets the recurring supported-entailment regression
+using admissible complete-document training/development records and a retention
+scope that tests the intended operations. No corrective treatment is demonstrated
+by this update. Lower cost remains conditional on useful scoped quality. The
+contribution is an auditable execution contract and measured distinctions among
+reuse, evidence access, targeted learning, retention, and automation utility—not
+an inference about Jev's private architecture or a universally superior neural
+topology. [E29–E32; V6; §18.26; synthesis]
 
-**Current work:** [ROADMAP.md](../ROADMAP.md) defines M0–M4 and their exit
-conditions. One frozen-profile MLX performance comparison can proceed alongside
-scope and evidence repair. New modeling waits for reviewed repairs. Final
-remains closed. The prior roadmap is retained in
-[ROADMAP_HISTORY.md](../ROADMAP_HISTORY.md), and the previous opening is
-preserved in [Appendix E](#appendix-e-historical-opening-before-the-september-refocus).
+**Current work:** the frozen comparison, contract-only pilot, parent-KL follow-on,
+and source-label replay comparison have completed. None of the three tested
+adaptation recipes satisfies the full quality/retention exit. Preserve J0/J1
+controls, J2/J3 locked update-80 specialists, and J4–J7 diagnostic snapshots with
+their selected-zero outcomes. Diagnose supported-entailment and long-document
+retention before another bounded treatment; this is proposed work, not a new
+fit or authorization. Protected final and promotion remain closed.
+[ROADMAP.md](../ROADMAP.md) owns M0–M4 work items and is not edited by this revision.
+The historical roadmap remains in [ROADMAP_HISTORY.md](../ROADMAP_HISTORY.md), and
+the historical opening is retained in [Appendix E](#appendix-e-historical-opening-before-the-september-refocus).
+[E30–E32; V6]
 
 **Reading guide:** current interpretation in [§1](#1-executive-assessment),
 acceptance tracks and work order in [§13](#13-refocused-research-program-and-next-milestone),
 native evidence in [§17.3](#173-current-rust-boundary), and audit/model evidence
 in [§18](#18-phase-4a4e-locked-benchmark-applicability-experiments-and-audit-gate).
-Sections 4–10 and dated checkpoint/revision records retain their historical
+The [frozen comparison](#1820-m1-visibility-preparation-and-completed-m21-frozen-comparison),
+[matched LoRA pilot](#1821-m22-matched-decision-lora-pilot-in-domain-gains-failed-retention),
+[retention follow-on](#1823-retention-aware-replay-pilot-partial-recovery-no-eligible-adaptation),
+[source-label replay results](#1825-source-label-replay-pilot-stronger-snli-learning-failed-joint-preservation),
+and [current synthesis](#1826-current-synthesis-after-the-replay-target-comparison)
+are in §§18.20–18.26. Sections 4–10, the dated interpretations in
+§§18.19/18.22/18.24, and prior checkpoint/revision records retain their historical
 scope. Their original future-work language is not the current queue.
 
 ---
 
 # 1. Executive assessment
 
-**The execution foundation is established within bounded contracts. Useful
-natural-document decision quality is the next unresolved milestone.** Frozen
-Qwen features support the measured NLI and candidate tasks, and complete hybrid
-state can be reused across isolated branches. Neither result establishes
-arbitrary-domain competence or validates a cheap state summary as a substitute
-for question-conditioned interaction. The detailed historical results below
-explain why source/input repair precedes another model intervention.
-[E1–E7; E11–E28; §17.3]
+**The execution foundation is established within bounded contracts. Targeted
+natural-document learning is demonstrated; preservation across classes and tasks
+is the next unresolved model question.** The frozen two-budget comparison shows
+that evidence access and none-class behavior can move in opposite directions.
+The subsequent matched 4B joint-option LoRA pilot improves ContractNLI strongly,
+but fails entailment preservation, QASPER retention, and the complete research
+screen. The completed parent-KL follow-on partly recovers probability quality;
+source-label replay then improves SNLI strongly but worsens the main two-source
+probability scores relative to KL. Both follow-ons return frozen checkpoints
+under their guarded selectors. None of these results establishes arbitrary-domain
+competence, validates a cheap state summary, or qualifies a changed model for the
+existing native service. [E1–E7; E11–E32; §17.3; §§18.20–18.26]
 
 A frozen text-only Qwen3.5-4B-Base backbone with last-token features and a linear head reached 87.67% matched and 87.33% mismatched accuracy in Phase 2B’s three-class MultiNLI experiment. Phase 2C selected the same head family across three training seeds and obtained 87.0% and 88.8% on new matched and mismatched test samples. These are sampled NLI results, not general decision accuracy, and separation from earlier experiments does not establish separation from Qwen’s pretraining corpus. [E1; E2]
 
@@ -89,6 +117,34 @@ These are different test constructions from earlier phases, not a measured deter
 
 **Phase 4A converts the multi-question goal into a locked natural-document benchmark, but neither Phase 4A.2 nor the Phase 4B.2 scalar-weight follow-on produces a promotable model.** The corpus joins ContractNLI and QASPER under state/component-safe partitions and preserves final labels and predictions unopened. On the non-final calibration gate, the completed 4A.2 sweep shows that balanced B1 and factorized B2 improve source-macro discrimination, while QASPER semantic-none recall remains only 0.1000 and 0.1111. A QASPER-weight-8 B2 arm raises that recall to 0.1667 and reaches the best observed source-macro balanced accuracy/F1, 0.5872/0.5905. Phase 4B.2 then requests a cap of 12, but the empirical class ratio saturates the effective weight at 8.5602; QASPER none recall is still 0.1556 on the gate, while ContractNLI false-none rises to 0.3966. The scalar semantic-none-weight sweep is therefore closed as a negative result. [E14–E16]
 
+**M2.1 and the bounded M2.2 pilot are now completed, not future work.** The FP32
+frozen comparison supplies a conditional J1/4,096 quality challenger rather than
+a universal winner. The BF16 pilot then trains J2 (Base + LoRA) and J3
+(post-trained + LoRA), each for 120 attempted updates and both selected at update
+80 on ContractNLI development NLL. On the exposed calibration gate, J3 improves
+contradiction recall from 8/24 to 19/24 and none recall from 52/96 to 79/96,
+while entailment falls from 81/84 to 70/84 and QASPER accuracy from 37/46 to 34/46.
+J2 exhibits the same in-domain gain/retention-failure pattern. Preserve these as
+useful research specialists, not promoted multi-source models. [E29; E30]
+
+**The retention follow-on is also completed.** J4/J5 each train 120 updates, but
+both guarded selections choose zero. At fixed80, replay improves NLL/Brier over
+J2/J3 while each loses two ContractNLI decisions and gains one QASPER decision.
+Both still fail entailment and QASPER preservation. The old specialists outperform
+replay on the new SNLI diagnostic, limiting claims of general forgetting and of
+parent agreement as a correctness proxy. The later target-source comparison is
+now completed separately as E32; E31's outcomes and selected-zero identities remain
+unchanged. [E31; V5]
+
+**The source-label replay comparison is now completed as well.** J6/J7 each
+complete 120 updates and again select frozen0. At fixed80, replacing replay KL
+with source-label cross-entropy on the same inputs improves SNLI from 125/192 to
+159/192 and from 131/192 to 166/192. It does not preserve the original task scope:
+ContractNLI entailment is 70/84 and 69/84 against 81/84 for either frozen parent;
+QASPER is 29/46 and 35/46 against 36/46 and 35/46 for J4/J5, with worse NLL/Brier
+on both benchmark sources. Replay-domain learning and cross-task retention must
+not be collapsed into one success claim. [E32; V6; §18.25]
+
 | Question | Current evidence | Practical conclusion |
 |---|---|---|
 | Can Qwen make decisions without generating text? | Yes: trained NLI and candidate heads over frozen features. | Keep the decision-only path as a valid baseline. |
@@ -102,15 +158,23 @@ These are different test constructions from earlier phases, not a measured deter
 | Does persistent prefix reuse help? | Lossless FP32 savings were 13.91%/11.88% in F and 6.19% on G’s different expiry trace. | Benefits depend on workload and cache budget; no production or cross-question guarantee. |
 | Has H completed and selected a universally better model? | Required final/robustness/primitive/request workers completed; the development-selected support arm has weaker held-out transfer than a retained original-criteria control. | Close recovery; keep model selection, numerical acceptance and broader generality open. [E9] |
 | Have Phase 4A/4B solved multi-source question answering and semantic none? | No. The completed architecture and scalar-weight sweeps improve aggregate discrimination, but every arm misses the declared 0.30 QASPER none-recall floor. The cap-12 request saturates at effective weight 8.5602 and trades limited QASPER recovery for a 0.3966 ContractNLI false-none rate. | Keep final closed. Subsequent stratified, pairwise, head-only, and residual tests also failed the complete gate. Repair source/input evidence before another model intervention. [E14–E25] |
+| Has the matched frozen J0/J1 comparison completed? | Yes, in FP32 at 1,024/4,096-token state-prefix caps; effects differ by source and evidence stratum. | Keep both controls; common-renderer results are not a universal checkpoint ranking. [E29] |
+| Can bounded decision-LoRA improve natural-document decisions without damaging retention? | ContractNLI accuracy and contradiction/none recall improve substantially, but both adapters lose entailment and QASPER behavior. | Close the exact pilot as executed with failed full retention; test preservation, not automatic scale-up. [E30; V4] |
+| Did parent-consistency replay preserve the useful gains without regressions? | It partially recovers probability scores relative to specialists, but no nonzero checkpoint meets the joint preservation rules; both selectors choose frozen. | Keep the completed KL recipe and historical choices; E32 supplies the separate source-label comparison. [E31; E32] |
+| Did replacing parent KL with source-label replay repair retention? | SNLI accuracy/probability quality improve substantially, but supported entailment and QASPER retention still fail; both guarded selectors retain frozen0. | Close the exact source-label recipe; diagnose the recurring complete-document failure rather than equating a better replay proxy with retained scope. [E32; V6] |
 
-**Current direction after E28:** preserve the immutable integration target and
-the completed CPU/MLX FP32 parity assets. Source/class-normalized applicability
-has already been fitted, and its policy transfer remains inadequate. Complete
-versioned evidence repair and independent review, then compare retained methods
-on common repaired inputs. If visible evidence is sufficient and Qwen still
-fails, test one bounded upstream-adaptation hypothesis with an attributable
-head-only control. A matched frozen-profile MLX performance study can proceed
-independently. [E17–E28; §17.3; proposed program]
+**Current direction after E32:** retain the immutable integration reference,
+its CPU/MLX FP32 qualifications, J0/J1 controls, and all historical adapter and
+selection identities. The SNLI target-source comparison is completed, not an
+untried retention fix. Pause generic short-premise replay variants as the main
+response to long-document failure. First distinguish supported-to-none and
+supported-to-contradiction errors, hypothesis-family concentration, and evidence
+location using admissible training/development records; then specify one bounded
+preservation treatment and a task-appropriate retention panel. This is a proposed
+diagnosis, not proof of a cause or permission to train on inspected gate errors.
+Do not reselect historical checkpoints or relax constraints after reading these
+results. An immutable-profile MLX performance study remains separate systems work.
+[E17–E32; V6; §17.3; §18.26; proposed program]
 
 The exploratory 2I/2J screen already compared frozen heads, limited LoRA,
 Qwen3.5-2B, and ModernBERT. Its 4B selection is an integration reference, not a
@@ -184,12 +248,38 @@ Use Q for independent questions and K for the alternatives within one question. 
 | Phase 4A.1 original StateQuery B1 | Does a trained question-conditioned readout improve the historical candidate-conditioned reference? | Completed non-final training/evaluation and model lock. Aggregate metrics improve strongly, but QASPER collapses to majority-answerable behavior with 0.0 semantic-none recall; promotion gates are unset and final remains closed. [E14] |
 | Phase 4A.2 matched comparison | Do source balancing, semantic-none weighting, and matched B0/B1/B2/B2R contracts isolate the architecture and repair rejection? | Completed B0, balanced B1, factorized B2, refined B2R, and B2 QASPER-weight-8 arms. B2 weight 8 has the strongest source-macro balanced accuracy/F1 (0.5872/0.5905), but QASPER none recall is only 0.1667; every arm misses the 0.30 development/gate objective. [E15] |
 | Phase 4B.2 scalar-weight boundary | Does increasing the QASPER semantic-none cap beyond 8 repair applicability without unacceptable source transfer? | Completed seed-17 cap-12 request. The effective weight saturates at 8.5602, QASPER gate none recall is 0.1556, and ContractNLI false-none is 0.3966. Post-hoc threshold analysis confirms that meeting the recall floor would require excessive false-none. Scalar tuning is closed; final remains unopened. [E16] |
+| M1 / M2.1 frozen joint-option diagnostic | Separate source/input visibility from Base/post-trained and input-budget effects | `v0.3.2`, session `20260925T174531_575346Z`: 2,964 FP32 decisions, two checkpoints × two budgets, previously exposed non-final panel; no training or promotion. [E29] |
+| M2.2 matched decision-LoRA pilot | Improve ContractNLI contradiction/unsupported decisions while retaining QASPER | `v0.4.1`, session `20260925T232651_880064Z`: both fits finish 120 updates and select 80; all 3,964 BF16 model decisions complete; targeted in-domain gains, failed class/cross-task retention; no final opening or promotion. [E30] |
+| Retention-aware replay follow-on | Can fixed train-only replay with parent KL preserve targeted gains and other capabilities? | v0.5.0 completed; J4/J5 each fit 120 updates, both select frozen0; fixed80 probabilities improve versus specialists but joint retention fails. [E31] |
+| Source-label replay target comparison | Does source-label CE on the same replay inputs improve retained correctness relative to parent-only KL? | v0.6.0 completed, session `20260926T170047_182185Z`: both fits complete 120 updates and select frozen0; fixed80 SNLI gains do not preserve ContractNLI entailment or QASPER; no promotion. [E32; N1] |
 
-The completed measured sequence uses Qwen/Qwen3.5-4B-Base at revision `1001bb4d826a52d1f399e183466143f4da7b741b`. The text backbone has 4,205,751,296 parameters, hidden width 2,560, and 32 blocks. Its layer list contains 24 linear-attention and eight full-attention blocks. The core results were obtained on an NVIDIA L4. The saved environment includes Transformers 5.17.0; the expanded workers record PyTorch 2.11.0+cu128. Environment details should travel with results because kernel and precision behavior matter. [E1; E2; E5]
+The historical E1–E7 measured sequence uses Qwen/Qwen3.5-4B-Base at revision `1001bb4d826a52d1f399e183466143f4da7b741b`. The text backbone has 4,205,751,296 parameters, hidden width 2,560, and 32 blocks. Its layer list contains 24 linear-attention and eight full-attention blocks. The core results were obtained on an NVIDIA L4. The saved environment includes Transformers 5.17.0; the expanded workers record PyTorch 2.11.0+cu128. Environment details should travel with results because kernel and precision behavior matter. [E1; E2; E5]
 
 The notebook execution logs also report missing optimized causal-convolution and linear-attention kernels, with reference implementations used instead. Transformers documents these optimized versus reference paths. The recorded timings should therefore be treated as measurements of this particular stack, not the speed limit of Qwen on an L4. Installing faster kernels is a future experiment requiring both new timing and renewed probability/policy parity checks. [E5; E6; P16]
 
 ## 3.2 What was reviewed and what was not rerun
+
+**Version 0.8.5 boundary:** this revision uses the supplied v0.8.4 paper and E32
+result/contract/selection snapshots, and reruns the supplied v0.6.0 saved-output
+review on copies. Its 5,168 granular bookkeeping assertions pass, including all
+12 result-manifest hashes/sizes, 7,410 primary rows, 120 semantic-count rows,
+300 class rows, identity-policy arithmetic, both declared selections and both
+120-update logs. SNLI softmax, argmax, confidence, NLL/Brier and conditional ranking
+are reconstructed from 1,920 exported offered-outcome logit rows; the main benchmark
+CSV lacks full logits, so its NLL/Brier and all bootstrap intervals remain
+source-reported. Sixteen bundled source files match the recorded runtime hashes;
+that is not a separate runtime-source download. No model execution, calibration
+refit, threshold reselection, tensor-binary audit, label adjudication, original
+source rerender, or protected-final access occurs. Earlier numerical/native audits
+are not rerun. The document diff and preservation checks are separate from the
+saved-output assertions; neither count measures scientific replications. [E32; V6]
+
+**Version 0.8.4 boundary:** this revision reads E31's completed result, selection,
+data-contract, and review snapshots and reruns its supplied saved-output checker
+on copies (452 checks). It does not rerun E29/E30 numerical audits or E31 model
+computation. NLL/Brier, calibration, and interval values remain source-reported
+where raw logits were not reconstructed. New notebook tests are separately
+identified under N1 and do not supply new pretrained-model results. [V5]
 
 Earlier versions synthesized executed notebook snapshots, full result JSONs for Phases 2B–2F, summary documents, and relevant embedded source. Version 0.2 added the completed Phase 2F archive and matched its uploaded paste-back summary to Drive. That earlier audit reconstructed 1,664 Phase 2F probability/action comparisons, checked 384 storage records and 922 timing medians, and replayed 12 LRU traces under zero-expiry conditions; the expanded 2E outputs had also been re-aggregated. These historical audit scopes are retained rather than presented as new inference. [E5; E6]
 
@@ -221,6 +311,8 @@ For v0.8.1, the supplied v0.8.0 Markdown (SHA-256 `6ddb149e7c3229188e60a97399533
 
 For v0.8.2, the supplied v0.8.1 Markdown (SHA-256 `801ac783c4ef07d828d703f2658d7c3576e50e5b4d9adb73ef94a9a4467dd590`) is the editing authority. Later completed artifacts supersede only v0.8.1's progress statuses: balanced B1 and every Phase 4A–4D follow-on now have their recorded terminal reports/locks. This revision reads and reconciles those saved artifacts, but does not rerun training, modify result directories, adjudicate labels, or open final. [E15 amendment; E17–E20]
 
+For v0.8.3, the uploaded `WHITEPAPER.md` (SHA-256 `9579909e53dff0d0fd404632f763b416df78c05285ab600cabdc539c05b4656f`) is the editing authority. E29 and E30 are the completed frozen and matched-adaptation result authorities. This update reruns the included CPU-only readout scripts on local copies: six E29 result hashes and nine E30 result hashes match; seven E30 runtime-source hashes and the canonical data-lock identity match. Count, class, identity-policy, component separation, schedule, and selection checks are recorded in V4. The additional document-bootstrap accuracy intervals and exact policy-cost interpretation are review-derived, distinguished from source-reported probability scores and original intervals. No Qwen inference, fitting, raw-logit recalibration, new source adjudication, checkpoint-binary audit, repository/Drive mutation, or protected-final access is performed. Historical E0–E28 and native result records are retained rather than remeasured. [E29; E30; V4]
+
 ## 3.3 Evaluation units and leakage boundaries
 
 MultiNLI splits were separated using normalized premise groups, not only individual rows. Phase 2C excluded 4,021 prior groups from its newly selected splits and used 2,400 training rows, 300 development rows, 1,000 calibration-fit rows, 500 calibration-gate rows, and 1,000 rows in each new test. Training examples remained the saved Phase 2B training set rather than a larger corpus. [E2]
@@ -230,6 +322,8 @@ Banking77 results require a different denominator. Several candidate-set episode
 The 57/20 Banking label split withholds labels from candidate-head training, development selection, and calibration. It does not withhold them from Qwen’s pretraining. Those two label groups remain within banking; Phase 2G separately adds CLINC non-financial and author-OOS transfer panels. “Fresh” means new relative to the named recorded project-message manifests, not necessarily novel knowledge to the backbone. Repeating the same seeds reuses the same selected examples. [E2–E4; E7]
 
 Phase 2G excludes 2,912 normalized prior Banking message hashes and constructs 416 fresh episodes from 112 messages. Its 56 parity episodes come from 16 messages; 72 controlled-context episodes transform six selected messages; eight episodes are timed independently; repeated 48-request traces supply no new semantic observations. Those units are kept distinct throughout Section 10. Once these G examples have been inspected to choose the next modeling intervention, they belong to historical/regression evidence rather than another untouched final evaluation. [E7; R2; methodological implication]
+
+E29/E30 use the same previously exposed 741-question, 72-component natural-document panel. Its calibration gate has 204 ContractNLI questions from 12 contracts and 46 QASPER questions from 12 papers. E30's 128-component training pool, 12-component development pool, and evaluation components are recorded as disjoint. The full 960-exposure schedule visits 734 unique training questions; the selected update-80 checkpoint has seen 640 exposures and 538 unique questions. Repeated training exposures and code/order variants are not independent evidence. QASPER is held out of LoRA and checkpoint selection, not out of its existing calibration-fit/policy-development roles. Source `test` identifiers already assigned to the OpenKind exposed calibration gate are not the protected OpenKind final partition. [E29; E30; V4]
 
 # 4. Qwen as a decision backbone
 
@@ -849,13 +943,14 @@ The subsequent architecture review broadens the response: retain that study, but
 
 **Application policy:** choose accept, review, gather more information, or route elsewhere using an explicit cost model and authorization rules. This layer must not be mistaken for probability calibration or a semantic class. The E policy experiments and G transfer failures show why separating it is useful. [E2–E7; recommendation]
 
-A service should return model/engine and policy version identifiers with telemetry, and report truncation and unsupported inputs explicitly. Most untouched task-quality inputs use a maximum length of 256. Phase 2G adds controlled labeled contexts through a minimum 1,024 state tokens, but their six source messages and generated administrative notes do not establish reliable decisions on natural long operational documents. Keep the synthetic mechanics and labeled context controls distinct. [E2–E7]
+A service should return model/engine and policy version identifiers with telemetry, and report truncation and unsupported inputs explicitly. In the historical E2–E7 studies, most untouched task-quality inputs use a maximum length of 256. Phase 2G adds controlled labeled contexts through a minimum 1,024 state tokens, but their six source messages and generated administrative notes do not establish reliable decisions on natural long operational documents. Keep the synthetic mechanics and labeled context controls distinct. [E2–E7]
 
 ## 11.2 State-first Qwen and conditional model alternatives
 
 **State-first Qwen path.** E11 selected state-first rendering, and §17.3 records
 native full-hybrid branching parity. Retain the following execution structure
-for the quality reference. Any new upstream adaptation or input repair changes
+for the immutable candidate-branch integration reference. The newer joint-option
+quality graph is distinguished below. Any upstream adaptation or input repair changes
 the model/execution identity and requires its own readout, normalization,
 calibration, and quality record. [E11–E13; §17.3]
 
@@ -870,6 +965,30 @@ stable format + state → immutable shared root
 ```
 
 Each question receives its own none/applicability calculation and distribution. Full-attention KV, recurrent state, and convolution state must all remain isolated at both fork levels. A block attention mask alone does not isolate independent questions concatenated into Qwen’s recurrent stream. Verify branch positions, finalized token IDs, root immutability, and equivalence to full execution of the **new** input contract before measuring reuse. [E4–E7; R3; proposed controls]
+
+**Joint-option quality path.** E29/E30 place the question and all its offered
+semantic outcomes in one request, and score only the allowed answer-code rows at
+the final real input position. E30 trains that decision objective through the
+hybrid backbone with bounded LoRA; it does not train a head over a pooled state
+prefill. The measured graph is:
+
+```text
+state + question + all offered outcomes → full Qwen forward
+    → final answer-position representation → selected vocabulary-row logits
+    → semantic distribution → separate review policy
+```
+
+Both studies use full forwards per question, not newly qualified shared-cache
+execution. Sharing an immutable root across these question suffixes remains a
+systems extension that needs adapter-specific identity, branch isolation, and
+numerical/service checks. In-domain training gains do not qualify that extension
+or replace the older candidate-branch reference. [E29; E30]
+
+E31/E32 retain this full-forward quality path for their replay comparisons.
+Source-label replay's positive SNLI result and failed long-document retention do
+not test a new shared-state topology, decoder, evidence reader, or accelerated
+service. Preserve the distinction between a changed learning objective and a
+changed execution graph. [E31; E32]
 
 **Compact bidirectional dynamic-candidate path.** E11 completed the exploratory
 ModernBERT comparison. It did not establish a release-quality smaller encoder.
@@ -953,12 +1072,22 @@ P(candidate j) = a × r_j, with sum_j r_j = 1
 
 This factorization does not manufacture better evidence or calibration. Its value must come from supervision and representations that distinguish applicable candidates, omitted correct options, author-OOS inputs, and insufficient evidence. Keep those evaluation strata separate; application review remains a policy, not a semantic class. Specify how ambiguous or multiply valid alternatives are annotated before fitting a single-choice distribution. [R3; proposed model and annotation contract]
 
-After evidence repair, a limited-upstream-adaptation arm is a conditional
-causal test, not a claim that LoRA must work. Compare it with an attributable
-head-only control, matching input evidence, supervision, and optimization
-budgets. Refit normalization and calibration for changed features. Keep seed
-expansion conditional on a complete non-final pass, and reserve fresh final
-groups for the locked operating point. [E11; E17–E28; proposed experiment]
+E30 supplies measured in-domain gains under its complete-document contract but
+fails entailment/QASPER preservation. E31 executes parent-KL replay; E32 replaces
+that replay loss with original source-label CE on identical inputs. Source-label
+supervision improves SNLI substantially but still yields no nonzero candidate
+meeting all per-class development constraints and worsens benchmark probability
+scores relative to KL. Neither a frozen parent nor a better score on the replay
+task establishes preservation of the intended scope. [E30–E32]
+
+The proposed next work is a bounded complete-document training/development
+failure analysis: distinguish supported-to-none from supported-to-contradiction
+changes, question/hypothesis families, and evidence location before choosing one
+preservation intervention. A retention panel supporting answerability or
+long-document claims must exercise those operations. These are research
+requirements, not a measured remedy or a newly authorized fit. Preserve all
+historical selections and keep exposed QASPER/SNLI regression rows out of corrective
+training and checkpoint selection. [E32; V6; §18.26]
 
 ## 11.7 Lessons from compact encoders and teacher-to-student research
 
@@ -1044,17 +1173,23 @@ CPU adapter, persistence replay, and named-machine service gates are also
 recorded. [ROADMAP.md](../ROADMAP.md) now owns M0–M4, while
 [ROADMAP_HISTORY.md](../ROADMAP_HISTORY.md) preserves prior phase IDs and their
 evidence register. Current test claims require commit-stamped verification.
-Candidate probability remains distinct from confidence. [E8; E9; RUST11]
+Candidate probability remains distinct from confidence. This v0.8.5 update records
+completed model evidence through E32 and the proposed evidence-sensitive
+preservation diagnosis. It creates no new notebook and does not claim that the
+repository roadmap, agent instructions or architecture files were edited or
+synchronized. [E8; E9; E29–E32; V6; RUST11]
 
 # 12. Research questions answered and still open
 
 | Research question | Answer supported so far |
 |---|---|
 | Must useful decisions be generated as text? | No. Frozen features plus small heads work on the measured tasks. |
-| Does a base model suffice? | It suffices for these probes; Base versus Instruct was not controlled here. |
+| Does a base model suffice? | It suffices for bounded probes. E29 now compares Base/post-trained checkpoints under a common renderer; E30 compares matched frozen/adapted BF16 controls. Effects depend on task and neither adapted model passes full retention. This is not an independently optimized native-prompt comparison. [E29; E30] |
 | Is a linear head enough? | It is a strong selected NLI baseline. More complex heads were not consistently necessary in this setting. |
 | Do unseen candidate labels work? | Yes within bounded tests, but H’s preselected support arm has substantially weaker held-out than fitting-family results. Held-out omission remains distinct from the all-correct sampled author-OOS panel. [E9] |
 | Is calibration automatic after supervised fitting? | No. Post-hoc scaling can worsen held-out metrics, and risk changes under new costs and prevalence. |
+| Has 4B joint-option LoRA learned the targeted natural-document task? | Yes within E30's pilot: ContractNLI accuracy rises to 81.37%/82.35%, with better contradiction/none decisions. Entailment and QASPER retention fail, so the result is task specialization rather than a complete M2.2 pass. [E30] |
+| Do larger inputs and lower development NLL ensure preservation? | No. E29's fixed evidence-visible subsets improve with budget, but E30 loses some of that behavior; NLL-selected update 80 already loses development entailment recall. Preservation needs an explicit test. [E29; E30; V4] |
 | Can a tiny none model help? | Yes in controlled comparisons. H now adds final refitting/readout evidence, but score-summary rejection does not settle applicability, missing evidence or policy risk. [E3; E9] |
 | Does an isolated repeat prove deterministic deployment? | No. Padding, batching, precision, and cache chunking changed results. |
 | Is FP32 the most accurate model? | Not established generally. It is the most internally consistent tested reference; numerical and semantic quality are evaluated separately. |
@@ -1084,32 +1219,38 @@ Candidate probability remains distinct from confidence. [E8; E9; RUST11]
 | Should OpenKind switch to schema-first PCD? | No. Keep the selected state-first root for stronger question-set isolation; borrow breadth-first branch batching and constrained-token baselines where useful. [P21; E11] |
 | Does Laya establish a better replacement, or R4T establish a diffusion decision architecture? | No. They motivate bounded comparisons and a later distillation study, not completed OpenKind findings. |
 | Has Phase 2H completed? | Yes: both required `2h.1.2` continuation workers completed and 2H-C1–C5 are closed. The original `2h.1.1` failed attempt is unchanged; completion does not promote a model or arithmetic mode. [E8; E9] |
+| Does preservation of the frozen parent imply preservation of useful correctness? | No. E31 partly recovers benchmark probabilities but fails joint retention; E32 then exceeds parent-KL SNLI performance without preserving supported entailment or QASPER. Parent agreement, replay-task learning and retained scope are separate. [E31; E32] |
+| Did the source-label replay fit run, and can its fixed80 adapters be selected as upgrades? | Both fits complete 120 updates, but no evaluated nonzero candidate meets all development conditions. J6_selected = J0 and J7_selected = J1; the fixed80 results are diagnostics, not alternative selected winners. [E32; V6] |
 
 **Current 2I/2J status:** the original `2ij.1.0` reviewed-study path remains blocked by unsigned review, null promotion bounds and stale review metadata; separately, `2ij.2.0` completed an **exploratory** model-selection screen and exported a provisional integration profile. The pilot is sufficient to start native parity work but does not satisfy the independent-review/natural-data release gate. [E10; E11; I0]
 
-**Current Phase 4 status:** the natural-document architecture/objective studies
-and later direct-logit diagnostics have produced no promotable model. A3
-preserves the independent adjudication. A4 records bounded dataset alignment,
-while source-document equivalence, serializer/input repair, and independent
-review of corrections remain open. The separate 27-case disposition does not
-close that gate. Keep original labels, thresholds, and result locks unchanged.
-[E14–E28; §§18.15–18.19]
+**Current Phase 4/model status:** bounded frozen and adaptation diagnostics now
+include E29–E32. All three tested adaptation recipes miss the full retention exit.
+E32 demonstrates better short-premise SNLI learning but not a preserved complete
+scope; both source-label selectors retain frozen0. The complete-document training
+contract does not imply independent semantic correction or source-PDF equivalence.
+Existing labels, quarantines, thresholds, and result locks remain unchanged.
+The proposed next diagnosis targets supported-entailment and long-document
+retention, not another automatically authorized fit. [E14–E32; §§18.20–18.26]
 
 # 13. Refocused research program and next milestone
 
-The current objective is useful, auditable decisions over shared evidence.
-State-first execution remains the foundation. Neither a small encoder nor a
-particular parameter count is the predetermined destination. Native CPU
-bring-up, persistence replay, and named-machine CPU service gates are recorded,
-as is separately qualified pinned-base MLX FP32 parity. The next model milestone
-is evidence repair followed by useful question-conditioned decisions.
-[E11–E28; §17.3]
+The objective remains useful, auditable decisions over shared evidence. Native
+CPU and pinned-base MLX FP32 qualifications are bounded systems results. M2.1,
+the contract-only M2.2 pilot, parent-KL replay, and source-label replay are now
+completed model experiments; none of the adaptation recipes meets the full
+quality/retention exit. The source-label comparison establishes stronger SNLI
+learning, not a general retention solution. [E11–E32; §17.3; §18.25]
 
-Phase 4's negative results require separating source correctness, input
-coverage, and model use. Preserve A3 adjudication and the bounded A4 alignment,
-then complete source/input repair and independent review. A new representation
-arm follows only when that contract can test a distinct hypothesis. Section
-18.19 interprets the evidence. The active roadmap owns the work sequence.
+The next proposed work is a bounded diagnosis of the recurring supported-entailment
+regression on admissible complete-document training/development records, followed
+by one attributable preservation treatment and an appropriately scoped retention
+panel. No particular corrective loss or new dataset is validated here. Evidence
+coverage, semantic use, behavioral agreement, replay-task correctness, and retained
+scope remain separate. The historical interpretations in §§18.19/18.22/18.24 are
+retained; §§18.25–18.26 supply the completed result and current synthesis. The
+roadmap owns task management and is not modified by this documentation-only update.
+[E32; V6; proposed work]
 
 ## 13.1 Phase 2H: completed continuation and retained development history
 
@@ -1502,23 +1643,31 @@ The historical 0.005 probability tolerance and no-outcome/no-policy-change requi
 
 ## 13.3 Priority order and synchronized roadmap
 
-[ROADMAP.md](../ROADMAP.md) owns M0–M4 and all active exit conditions. The order
-is supported-workload definition, evidence repair, useful decisions, cost
-reduction, and independent preview confirmation. A single frozen-profile MLX
-performance experiment can run alongside scope/repair work. A new modeling
-hypothesis waits for the reviewed evidence gate. [E23–E28; proposed program]
+[ROADMAP.md](../ROADMAP.md) owns M0–M4 and all active exit conditions. This paper
+records the following evidence update without claiming a roadmap-file edit.
+Completed execution is not the same as satisfying a milestone's quality exit.
+[E29–E32]
 
-The scientific distinction is between a valid reusable computation and an
-adequate reusable decision representation. Full hybrid-state branching has
-execution evidence. A cheap pooled-state reader has failed, and learned
-StateQuery alternatives have not passed complete quality/policy gates. Further
-work must identify which evidence or supervision changes rather than rename a
-tested architecture. [E12–E20; E26]
+| Work item | Evidence status at this update | Consequence |
+|---|---|---|
+| M0/M1 scope, source and effective-input contract | Bounded source-record/visibility diagnostics and a complete-document ContractNLI training scope are available; independent semantic correction and general release scope remain open. | Preserve label/audit boundaries; do not treat the pilot as blanket benchmark repair. |
+| M2.1 frozen baseline | J0/J1 × 1,024/4,096 diagnostic completed in FP32. | Keep both checkpoint controls and evidence strata. [E29] |
+| M2.2 decision adaptation | Both matched BF16 fits and four-arm evaluation completed; both adapted arms fail full retention. | Preserve update-80 specialists and the failed complete-screen verdict; no automatic seed expansion. [E30] |
+| Retention-aware follow-on | Parent-KL replay and per-class selection completed; no evaluated nonzero candidate qualifies. | Keep J4/J5 fixed80 as diagnostics and selected-zero identities unchanged. [E31] |
+| Source-label replay follow-on | Completed J6/J7 fits; SNLI improves, but entailment/QASPER and complete screens fail; both select frozen0. | Close this exact recipe and preserve fixed80 diagnostics and selected-zero identities. [E32] |
+| Next bounded diagnosis | Proposed train/development-only investigation of supported-entailment failures and task-appropriate retention; no corrective treatment tested yet. | Separate supported-to-none/contradiction changes, hypothesis families and evidence-location effects before selecting one intervention; no gate-error training or automatic sweep. [V6; §18.26] |
+| M3 cost reduction | Immutable-profile MLX performance work remains separate; no adapter-specific native/cache/service qualification follows from fitting. | Defer learned compression or replacement until a useful scoped operating point survives quality/retention checks. |
+| M4 independent confirmation | No protected-final opening or promotion. | New exposed-panel success alone cannot supply independent confirmation. |
 
-The historical crosswalk below explains earlier phase-name changes. It is
-retained for provenance. Use the active roadmap's
-[crosswalk](../ROADMAP.md#historical-task-crosswalk) for current disposition,
-including completed CPU service work and conditional model-cost studies.
+Full hybrid-state branching remains valid reusable computation within its tested
+contract. The failed pooled reader and incomplete StateQuery studies are not
+erased; E30 adds a different positive learning result with a different failure
+boundary. Do not infer that all shared-query architectures fail or that
+post-trained initialization is universally superior after adaptation.
+[E12–E20; E26; E29; E30]
+
+The historical crosswalk below explains earlier phase-name changes and remains
+provenance, not evidence of a new current roadmap edit.
 
 ### 13.3.1 Historical phase-name collision and task migration
 
@@ -1561,9 +1710,15 @@ The preferred selection criterion is **correct accepted decisions per second sub
 Keep one modeling hypothesis and one frozen-profile systems experiment active
 at a time. Pause nearby scalar-weight, shallow-head, pooled-root, and handcrafted
 residual sweeps without a materially different diagnosis. Distillation waits
-for demonstrated teacher quality. Preserve high-K correctness and admission
-fixtures, but make K=255 latency work conditional on supported-workload demand.
-Completed CPU bring-up and replay remain maintained assets. [E14–E28; §17.3]
+for demonstrated teacher quality. E30's contract-only pilot is executed but not a
+full quality pass; neither more updates nor seed expansion is automatically
+justified. Parent-KL and source-label replay have now both completed and failed
+the full preservation contract. Pause generic short-premise replay variants as
+the main remedy while the repeated supported-entailment and long-document failures
+are diagnosed. Do not loosen class guards or retune inspected gates to obtain a
+pass. Preserve high-K correctness and admission fixtures, but keep K=255 latency
+work conditional on supported-workload demand. Completed CPU bring-up and replay
+remain maintained assets. [E14–E32; §17.3; §18.26]
 
 Pause further low-bit KV snapshot sweeps on the same short-prefix workloads. Keep lossless and bounded FP16-KV paths available as reference infrastructure, with the unsuccessful codecs preserved as negative results. Reopen compression only when a materially different workload, codec, or memory profile supplies a specific hypothesis. Failed snapshot quantization is not a verdict on model-weight quantization; they affect different tensors and require separate tests. [E6; E7; R3]
 
@@ -2037,7 +2192,7 @@ The full restored candidate-feature and decision replay in Phase 3.10 now passes
 
 Phase 4A is the first OpenKind study in this record that combines many questions over the same natural document with a trained question-conditioned readout. It uses the selected state-first Qwen3.5-4B-Base identity from E11–E13, but it asks a new modeling question: whether one frozen state representation can support ContractNLI entailment judgments and QASPER answerability decisions without re-encoding each state for every question. [E14]
 
-The original v0.8.2 evidence cutoff is 22 September 2026. The 24 September addendum records later audit and probe evidence without changing the earlier model results. These statuses remain distinct:
+The original v0.8.2 evidence cutoff is 22 September 2026; its 24 September addenda preserve later audit/probe evidence. Version 0.8.3 adds the 25–26 September frozen and matched-adaptation results in §§18.20–18.22. Version 0.8.4 adds the completed retention follow-on and the then-prospective source-label comparison in §§18.23–18.24. Version 0.8.5 records that comparison's completed result and current synthesis in §§18.25–18.26 without changing historical measurements or authorizations. These statuses remain distinct:
 
 | Stage | Recorded artifact status | Permitted interpretation |
 |---|---|---|
@@ -2054,6 +2209,11 @@ The original v0.8.2 evidence cutoff is 22 September 2026. The 24 September adden
 | Later 4E-A 27-case disposition | Assistant-reviewed case and tie-policy lock frozen | Audit decision only; no independent release review or training authorization |
 | Exploratory 4E-B.0 prefill probe | Three seed-17 non-final arms evaluated; all gates fail; separate result lock absent | Reject this cheap readout only; final closed |
 | Exploratory 4E-B.1 option-logit audit | Fixed 325-question non-final sample, result lock and row metrics verified | Candidate-ranking signal, failed semantic-none behavior; no model promotion |
+| Exploratory 4E-B.2 candidate sweep | Completed locked ranking/rejection comparison | Ranking signal with false-none/grid failures; no promotion. [E28] |
+| M1 / M2.1 finalized-input and frozen-checkpoint diagnostic | Completed v0.3.2 FP32 J0/J1 × two-budget comparison | Evidence access and none behavior remain separable; no broad checkpoint winner. [E29] |
+| M2.2 matched decision-LoRA pilot | Completed v0.4.1 BF16 J0/J1/J2/J3 experiment; both fits select update 80 | ContractNLI specialization improves; entailment/QASPER retention and complete screens fail; no promotion. [E30] |
+| Parent-KL retention follow-on | Completed v0.5.0 BF16 J4/J5 experiment; both fit120 and select frozen0 | Fixed80 probability recovery versus specialists does not satisfy joint preservation. [E31] |
+| Source-label target comparison | Completed v0.6.0 BF16 J6/J7 experiment; both fit120 and select frozen0 | Stronger exposed SNLI learning, failed entailment/QASPER preservation and complete screens; no promotion. [E32] |
 
 No Phase 4 final label or prediction was opened for this documentation update. The original B1 lock has six unset promotion gates, later contracts declare the final split unavailable, and the Phase 4D result is `nonfinal_failed_final_unavailable`. Therefore this chapter records completed non-final comparisons and failure modes; it does not select or promote a Phase 4 model. Legacy Drive folders retain their historical `OpenDecision_...` names as immutable provenance even though the project and new artifacts now use OpenKind. [E14–E27]
 
@@ -2383,6 +2543,11 @@ The contract, development selection, 741-row Parquet file, and report match the 
 
 ## 18.19 Scientific interpretation after the evidence review
 
+**Historical interpretation as of 24 September 2026.** The text below retains the
+pre-M2.1/M2.2 work order. Later bounded authorizations and completed experiments
+are recorded in §§18.20–18.21; the current interpretation is §18.22. Historical
+future-work language here is not an assertion that those later fits remain unrun.
+
 **Reusable computation and a reusable decision representation are different
 results.** Complete hybrid-state branching preserves the tested numerical
 function. A root final-token or mean-pooled vector, formed before the question
@@ -2461,6 +2626,888 @@ teacher quality. [§17.3; E17–E28; proposed sequence]
 
 ---
 
+## 18.20 M1 visibility preparation and completed M2.1 frozen comparison
+
+### 18.20.1 Scope and source/input boundary
+
+The completed `OpenKind_Source_Visibility_J0_J1_v0_3_2.ipynb` run closes the bounded frozen **Base versus post-trained checkpoint × state-prefix budget** diagnostic. The session is `20260925T174531_575346Z`, engine `da6e86349af2df1f`, under `OpenKind_M1_M21_Closeout_results/m1_m21_joint_option_v032_s17_fp32`. Its result manifest binds six result files. Execution completion does not close the wider M0/M1 release-review requirements or authorize promotion. [E29]
+
+The common panel contains **741 questions across 72 source states/components**: 244 calibration-fit questions, 247 policy-development questions, and 250 calibration-gate questions. The last group contains **204 ContractNLI questions from 12 contracts and 46 QASPER questions from 12 papers**. These are previously exposed non-final examples. Four comparison cells produce **2,964 unique `(arm, condition, question_id)` decisions**, not 2,964 independent observations. [E29; V4]
+
+J0 is the pinned Base checkpoint and J1 the pinned post-trained checkpoint. Both use the common state-first, joint-option, no-thinking answer-code renderer. The readout scores allowed vocabulary rows at the final answer position; it does not generate a text answer. This is a comparison under a common renderer, not a comparison of each checkpoint's independently optimized native prompt. The run uses FP32, a full forward per request, and state-prefix caps of **1,024 and 4,096 tokens**; the caps do not include all question, option, and formatting overhead. It is not a shared-cache, MLX, or service benchmark. [E29]
+
+The preceding M1 preparation separates stored-source integrity, annotated-string visibility, and semantic sufficiency. For example, its previously exposed full-panel QASPER accounting finds all known annotated strings retained on **12/119** annotated questions at 1,024 tokens and **79/119** at 4,096. The denominator excludes ten questions without usable annotated strings. At the larger cap, 24 annotated questions retain only some strings and 16 retain none. For ContractNLI, all strings are retained on **248/356** annotated questions at 1,024 and **356/356** at 4,096; another 256 questions have no usable annotated strings. These checks concern exact recorded annotations, not independently established answerability. [E29; V4]
+
+A hash match does not adjudicate labels. Retaining all annotated strings does not prove complete evidence sufficiency, and missing an annotated string does not prove semantic none. The separate 27-case disposition and annotation-tie policy retain their original labels and quarantine boundaries. Source-document/PDF equivalence, independent correction review, and reviewed oracle windows are not established by the new tokenization or stored-record checks. The later training pilot deliberately uses a narrower complete-document, source-record-checked ContractNLI scope rather than declaring the whole repaired benchmark independently approved. [E25; E29; E30]
+
+The historical threshold question also has a bounded closeout. Recomputing E28's selected QASPER detector on its **43 policy-development questions** gives a minimum score of **0.0615064535** and maximum **0.2030772089**, below every threshold in the old `0.25/0.35/0.50/0.65/0.75` grid. The grid represents one distinct decision policy; exact breakpoints and endpoints represent 44. This confirms grid non-reachability on those saved development scores. It does not reselect the detector or threshold, prove that an alternative passes transfer, or replace the distinct **0.2348 gate maximum** discussed in §18.19. [E28; E29]
+
+### 18.20.2 Frozen checkpoint and budget results
+
+Identity-calibration metrics on the **previously exposed calibration gate** follow. Lower NLL is better. Equal-source accuracy is the mean of the two source-level accuracies, not the pooled 250-question accuracy. [E29; V4]
+
+| Checkpoint / state-prefix cap | ContractNLI correct / 204 | QASPER correct / 46 | Equal-source accuracy | Equal-source NLL |
+|---|---:|---:|---:|---:|
+| J0 Base / 1,024 | 122 — 59.80% | 37 — 80.43% | 70.12% | 0.70238 |
+| J1 post-trained / 1,024 | 141 — 69.12% | 29 — 63.04% | 66.08% | 0.71484 |
+| J0 Base / 4,096 | 117 — 57.35% | 40 — 86.96% | 72.15% | 0.65009 |
+| J1 post-trained / 4,096 | 142 — 69.61% | 36 — 78.26% | 73.93% | 0.57138 |
+
+At 4,096 tokens, J1 gains **25** correct ContractNLI decisions but loses **four** QASPER decisions relative to J0. Its saved equal-source accuracy difference is **+1.78 percentage points**, with a descriptive component-bootstrap 95% interval of **−5.88 to +7.42 points**. The raw NLL difference is **−0.07870**, interval **[−0.14440, −0.00420]**. This supports retaining J1 as a research challenger, not a confirmed universal accuracy winner. These intervals are source-reported descriptive diagnostics on an exposed panel. [E29]
+
+### 18.20.3 Evidence visibility and aggregate cancellation
+
+The fixed `improved_to_all` stratum contains the same questions at both budgets: known annotated strings are not all retained at 1,024 but are all retained at 4,096. Membership is not reselected from each model's successes. [E29; V4]
+
+| Fixed question subset | J0: 1,024 → 4,096 correct | J1: 1,024 → 4,096 correct |
+|---|---:|---:|
+| ContractNLI, 32 questions | 23 → 30 | **17 → 30** |
+| QASPER, 25 questions | 19 → 22 | **14 → 21** |
+
+For J1 ContractNLI, the 76 questions with all annotations visible at both budgets remain at **59 correct**. Correct semantic-none decisions fall from **65/96 to 53/96**. Consequently, **+13** correct decisions on newly fully visible questions and **−12** on none-labeled questions produce only **+1** correct decision overall. Aggregate accuracy nearly conceals the evidence-budget gain. The `unestablished` ContractNLI visibility stratum here is the 96 none-labeled questions, not 96 newly demonstrated corrupt documents. [E29; V4]
+
+The larger prefix also adds other text, so the comparison does not isolate the causal contribution of an individual evidence span. It nevertheless demonstrates why evidence access and judgments of non-support require separate analysis. At 4,096 tokens, J1's conditional real-option ranking is **99/108**, while only **89/108** real-option targets receive a correct full semantic decision; eleven are assigned none. J1's ContractNLI class counts are 81/84 entailed, 8/24 contradicted, and 53/96 none. Those errors motivated the later targeted contradiction/unsupported training pilot. [E29; interpretation]
+
+The frozen J1/4,096 identity policy accepts **61/204 ContractNLI decisions, seven wrong**, with row-mean cost **0.10441**, above review-all at 0.1. On QASPER it accepts **11/46, zero wrong observed**, cost **0.07609**. Thus even the leading frozen quality challenger does not establish useful automation on both sources. Neither larger inputs nor post-training alone closes the complete decision contract. [E29]
+
+## 18.21 M2.2 matched decision-LoRA pilot: in-domain gains, failed retention
+
+### 18.21.1 Completed run and attributable comparison
+
+The `OpenKind_M22_Matched_Decision_LoRA_v0_4_1.ipynb` experiment completed as **`COMPLETED_MODEL_RESULTS`**. Its run is `m22_v041_s17_bf16_6b295d46b7436a52`, session `20260925T232651_880064Z`; the saved result artifacts are dated **26 September 2026, approximately 01:21 UTC**. This result answers a new, narrower hypothesis:
+
+> Can whole-document ContractNLI decision training improve contradiction and unsupported decisions while retaining QASPER behavior?
+
+The intervention and controls are explicit. [E30]
+
+| Arm | Starting checkpoint | Treatment |
+|---|---|---|
+| J0 | `Qwen/Qwen3.5-4B-Base`, revision `1001bb4d826a52d1f399e183466143f4da7b741b` | Frozen joint-option control |
+| J1 | `Qwen/Qwen3.5-4B`, revision `851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a` | Frozen joint-option control |
+| J2 | Same J0 Base identity | Decision-specific LoRA |
+| J3 | Same J1 post-trained identity | Matched decision-specific LoRA |
+
+All four arms are scored under the **same BF16 profile in this run**. The earlier FP32 values in §18.20 are not substituted as adaptation controls. The recorded hardware is an NVIDIA A100-SXM4-80GB with PyTorch `2.11.0+cu128` and Transformers `5.17.0`. Full forwards use no reusable state cache. SDPA math is pinned for original forward, activation-checkpoint recomputation, and backward; non-reentrant checkpointing retains RNG and metadata checks. The v0.4.0 backend-context failure and v0.4.1 repair are execution history, not failed semantic fits. This successful run does not qualify BF16 as interchangeable with the older strict-FP32 Rust/MLX reference. [E30]
+
+The common renderer applies J1's no-thinking template to both checkpoints, followed by an `Answer:` prefill. Training uses cross-entropy over the offered semantic outcomes, with gradients through the complete request and selected vocabulary-row projection. The **rank-16, alpha-32** adapters cover full-attention and Gated DeltaNet linear projections. Embeddings, vocabulary weights, MLPs, and normalization weights remain frozen. There is no separate shallow-head treatment in this pilot; it is not a clean LoRA-versus-head-only experiment or a controlled comparison with historical StateQuery B0/B1/B2. [E30]
+
+### 18.21.2 Training population, schedule, and selection
+
+The admitted training pool contains **128 complete ContractNLI document components and 2,176 questions**: 1,041 entailed, 274 contradicted, and 861 semantic-none targets. Development contains **12 components and 204 questions**: 112 entailed, 19 contradicted, and 73 none. Original source-record checks cover text, hypothesis, label, and annotated evidence; over-cap documents are excluded rather than truncated or relabeled. Source-record equivalence is not independent semantic adjudication. Recorded train, development, and evaluation components are disjoint. [E30; V4]
+
+The matched schedule contains **960 exposures per fit**, eight unpadded microbatches per optimizer update, for **120 attempted updates**. It combines **720 class-balanced exposures and 240 ordinary ContractNLI replay exposures** and visits 734 unique questions. This is in-domain replay, not broad instruction replay. Learning rate is `2e-5`, warmup 12 updates, gradient clipping 1.0, seed 17. Training randomizes answer-code assignments and option layout. The state cap is 4,096 and the total-input cap 8,192 tokens. [E30]
+
+QASPER enters neither LoRA supervision nor checkpoint selection. It remains a source/task-held-out retention diagnostic; its separately assigned calibration-fit and policy-development roles are retained for later probability/policy analysis. Raw identity-calibration results are the primary retention comparison. The fixed ContractNLI hypotheses across documents mean that even successful document transfer would not establish unseen-rubric competence. [E30]
+
+Checkpoint selection minimizes **ContractNLI full-document development group-mean NLL**, with earlier updates preferred on ties and frozen step zero eligible. Both fits select **update 80**, corresponding to **640 exposures, 538 unique questions, and 125 visited training groups**, although both runs continue through update 120. These counts distinguish eligible pool size, visited groups, unique questions, and repeated exposures; none is an epoch count. [E30; V4]
+
+| Update | J2 development group-mean NLL | J3 development group-mean NLL |
+|---|---:|---:|
+| 0 | 0.82290 | 0.71223 |
+| 40 | 0.59599 | 0.58424 |
+| **80 — selected** | **0.53375** | **0.52622** |
+| 120 | 0.57592 | 0.62944 |
+
+Selection follows the declared rule and does not use gate or QASPER labels. However, at update 80, development entailment recall is already **9.82 points lower for J2** and **7.14 points lower for J3** than at step zero. The NLL-only rule did not protect every class. Update 120 has worse NLL for both fits, although some class recalls recover. No QASPER comparison of updates 40/120 is established by this report; do not retroactively select another checkpoint using exposed retention outcomes. [E30; V4]
+
+### 18.21.3 Matched raw gate results and class trade-offs
+
+The evaluation executes **3,964 model decisions**: four arms each score 741 primary questions plus 250 code/order variants. The primary result table has **2,964 unique `(arm, question_id)` rows**, over the same 72-component non-final panel described above. The extra variants do not add independent examples. The optional 1,024-token gate stress evaluation is not run. [E30; V4]
+
+The following identity-calibration gate values use the common **4,096-token state-prefix condition**. Unlike admitted training documents, evaluation inputs can remain truncated diagnostic prefixes with locked original labels. NLL and Brier are saved evaluator values; Brier is the sum over all declared semantic outcomes, not divided by the number of classes. [E30]
+
+| Arm | Source | Correct / n | Accuracy | Balanced accuracy | NLL | Brier |
+|---|---|---:|---:|---:|---:|---:|
+| J0 | ContractNLI | 116/204 | 56.86% | 54.71% | 0.97272 | 0.56700 |
+| J1 | ContractNLI | 141/204 | 69.12% | 61.31% | 0.74811 | 0.42123 |
+| J2 | ContractNLI | 166/204 | **81.37%** | 77.93% | 0.55262 | 0.29263 |
+| J3 | ContractNLI | 168/204 | **82.35%** | 81.60% | 0.55134 | 0.29436 |
+| J0 | QASPER | 40/46 | 86.96% | 66.34% | 0.33376 | 0.20364 |
+| J1 | QASPER | 37/46 | 80.43% | 71.46% | 0.39921 | 0.26105 |
+| J2 | QASPER | 35/46 | **76.09%** | 86.59% | 0.66467 | 0.39704 |
+| J3 | QASPER | 34/46 | **73.91%** | 67.80% | 0.57011 | 0.34273 |
+
+J2 adds **50** correct ContractNLI decisions relative to J0, **+24.51 percentage points**: 59 repaired errors minus nine introduced errors. J3 adds **27**, **+13.24 points**: 40 repaired minus 13 introduced. On QASPER, J2 repairs three but introduces eight errors; J3 repairs none and introduces three. J3 is only two ContractNLI decisions better and one QASPER decision worse than J2; these results do not establish a universal adapted-checkpoint winner. [E30; V4]
+
+| ContractNLI gold class | J0 correct / total | J1 correct / total | J2 correct / total | J3 correct / total |
+|---|---:|---:|---:|---:|
+| Entailed | 81/84 | 81/84 | 73/84 | 70/84 |
+| Contradicted | 10/24 | 8/24 | 16/24 | 19/24 |
+| Semantic none | 25/96 | 52/96 | 77/96 | 79/96 |
+
+For J3 versus J1, **+27 none +11 contradiction −11 entailment = +27 correct decisions**. Contradiction recall improves from **33.33% to 79.17%**, while entailment recall falls from **96.43% to 83.33%**. J2's entailment loss is **9.52 points**. Both exceed the declared **five-point other-class non-regression allowance**. J3 reduces contradiction-to-entailment errors from seven to one, so the result is not adequately described as only predicting more none. Nevertheless, this single recipe does not isolate supervision, changed class exposure, representation adaptation, and code/option learning as causal mechanisms. [E30; V4; interpretation]
+
+Across all 108 real-option ContractNLI targets, J1 and J3 each make **89 correct full decisions**, and each has **100/108 correct conditional real-option rankings** in this BF16 run. Identical aggregate conditional ranking can therefore coexist with a substantial redistribution between entailment and contradiction. These counts must not be substituted for E29's FP32 conditional-ranking count of 99/108. [E29; E30]
+
+### 18.21.4 Retention and evidence-visibility regression
+
+| QASPER gate quantity | J0 | J1 | J2 | J3 |
+|---|---:|---:|---:|---:|
+| Correct none decisions / 5 | 2 | 3 | 5 | 3 |
+| False none on answerable targets / 41 | 3 | 7 | 11 | 10 |
+| False-none rate | 7.32% | 17.07% | **26.83%** | **24.39%** |
+
+Both adapters breach the **20% false-none cap**. Relative to their own frozen controls, QASPER accuracy falls **10.87 points for J2** and **6.52 points for J3**, exceeding the declared **three-point retention allowance**. J2's 100% none recall is based on five targets and does not override the eleven answerable cases assigned none. These are decisions against unchanged benchmark labels, not new adjudications of ambiguous or evidence-incomplete examples. [E30]
+
+The same direction appears on policy-development: J2/J0 QASPER correct counts are **25/43 versus 34/43**; J3/J1 counts are **30/43 versus 36/43**. The adapted false-none rates there are **39.47% and 31.58%**. Positive scalar temperature leaves semantic argmax unchanged. It improves some proper scores but does not eliminate QASPER non-regression failures: calibrated gate NLL is **0.58925 versus 0.34273** for J2/J0 and **0.50853 versus 0.40647** for J3/J1. QASPER differs in domain and decision structure; this is measured negative transfer on one held-out task, not proof of broad catastrophic forgetting or a unique forgetting mechanism. [E30; interpretation]
+
+The previously recovered evidence-sensitive subset also needs preservation. On the **same 32 ContractNLI questions** in E29's `improved_to_all` stratum, scored here at 4,096 tokens:
+
+| Arm | Correct / 32 | False-none decisions / 32 |
+|---|---:|---:|
+| J0 | 30 | 1 |
+| J1 | 30 | 0 |
+| J2 | 25 | 5 |
+| J3 | 25 | 5 |
+
+J3 improves the 76-question `both_all` stratum from J1's **59 to 64** correct, yet loses five correct decisions on the 32-question stratum whose annotations require the larger prefix. This is a fixed-stratum analysis of one budget, not a new budget intervention. Annotated coverage remains distinct from semantic sufficiency. The finding is that aggregate in-domain improvement does not guarantee preservation of previously useful evidence-sensitive behavior. [E29; E30; V4]
+
+### 18.21.5 Automation utility, weighting, and exact break-even
+
+Identity policies are selected on policy-development and transferred unchanged. Correct automation costs zero, a wrong accepted decision costs one, and review costs 0.1. The semantic distribution remains separate from the review action. [E30]
+
+| Arm / source | Accepted / n | Wrong accepted | Accepted error | Row-mean cost |
+|---|---:|---:|---:|---:|
+| J0 / ContractNLI | 34/204 | 5 | 14.71% | 0.10784 |
+| J1 / ContractNLI | 59/204 | 7 | 11.86% | 0.10539 |
+| J2 / ContractNLI | 46/204 | 2 | 4.35% | **0.08725** |
+| J3 / ContractNLI | 38/204 | 0 | 0% observed | **0.08137** |
+| J0 / QASPER | 14/46 | 0 | 0% observed | 0.06957 |
+| J1 / QASPER | 11/46 | 0 | 0% observed | 0.07609 |
+| J2 / QASPER | 10/46 | 1 | 10.00% | **0.10000 — exact break-even** |
+| J3 / QASPER | 4/46 | 1 | 25.00% | **0.11304** |
+
+J3's ContractNLI operating point is an observed in-domain benefit, with **18.63% coverage**. Zero wrong answers among 38 accepted, clustered cases does not establish zero future error. Its QASPER policy is worse than review-all and has only four accepted decisions. Global-temperature calibration does not rescue the full research screen. [E30]
+
+**Reporting correction, not a changed experiment.** E30 stores J2's QASPER row cost as `0.09999999999999995`. The evaluator's strict floating-point `< 0.1` test therefore passes one `policy_cost_below_review_all` subcheck. Exact count arithmetic gives:
+
+```text
+n = 46; accepted = 10; wrong = 1; reviewed = 36
+cost = (1 + 0.1 × 36) / 46 = 0.1
+```
+
+The correct interpretation is **break-even, not strictly below review-all**. For these costs, strict benefit is equivalently `wrong < 0.1 × accepted`, evaluated without floating-point tie error. V4 includes a proposed exact-fraction correction and focused tests. The original evaluator, saved flag, thresholds, selection, and result lock remain unchanged. Both adapted arms already fail the complete screen; correcting this subcheck adds a J2 failure but reverses no overall verdict. [E30; V4]
+
+**Weighting is a separate issue.** V4 recomputes the following gate summaries for the same frozen identity policies:
+
+| Arm | Pooled-question row cost | Equal-source mean row cost | Equal-source, equal-component cost |
+|---|---:|---:|---:|
+| J0 | 0.10080 | 0.08870 | 0.09055 |
+| J1 | 0.10000 | 0.09074 | 0.09280 |
+| J2 | 0.08960 | 0.09363 | **0.12193** |
+| J3 | 0.08720 | 0.09721 | **0.12610** |
+
+Pooled cost weights every question equally. The middle column averages source-level question means. The last column first averages question costs within each source component, then averages components within each source, then weights the two sources equally. This last weighting matches the policy-search objective. Adaptation looks beneficial in the row-pooled aggregate while both adapted component-weighted aggregates are worse than review-all. This is not another arithmetic defect: the summaries describe different populations. Preserve the declared per-source row-cost screen and report the selection-weight-aligned aggregate alongside it; do not substitute a new pass rule retrospectively. [E30; V4]
+
+### 18.21.6 Code/order sensitivity and uncertainty
+
+The 250-question gate transformation jointly changes code assignment and reverses option order. Semantic agreement is measured after remapping. It is not a pure order ablation, no inference ensemble is evaluated, and agreement alone is not correctness. [E30; V4]
+
+| Arm | ContractNLI agreement / 204 | QASPER agreement / 46 |
+|---|---:|---:|
+| J0 | 174 — 85.29% | 42 — 91.30% |
+| J1 | 196 — 96.08% | 42 — 91.30% |
+| J2 | 188 — 92.16% | 36 — 78.26% |
+| J3 | 193 — 94.61% | 41 — 89.13% |
+
+Randomized training does not establish invariance. J2 improves in-domain agreement but damages the held-out task; J3 remains below its own frozen control on both source agreement counts. Separate code-only and order-only tests would be new diagnostics, not explanations already supplied by this run. [E30; interpretation]
+
+V4 additionally computes paired gate accuracy differences using **10,000 document-cluster bootstrap draws, seed 17**, resampling the 12 documents per source. These are review-derived descriptive intervals, not the notebook's original source-macro intervals; calibration and selection are not refitted and there is no multiple-comparison adjustment. [V4]
+
+| Contrast | Source | Accuracy difference | Descriptive 95% interval |
+|---|---|---:|---:|
+| J2 − J0 | ContractNLI | +24.51 pp | +15.20 to +33.82 pp |
+| J3 − J1 | ContractNLI | +13.24 pp | +7.84 to +18.63 pp |
+| J2 − J0 | QASPER | −10.87 pp | −27.50 to 0.00 pp |
+| J3 − J1 | QASPER | −6.52 pp | −14.71 to 0.00 pp |
+
+There is one training seed, a small repeatedly exposed gate, only five QASPER none targets, and no independent general-purpose retention panel. Failing a declared observed non-regression screen and proving a population-level decline with statistical certainty are different claims. The substantial in-domain effects support this recipe's task-learning benefit within scope, but neither the small J3-versus-J2 difference nor the retention point estimates establish a universal model ranking. [E30; V4]
+
+### 18.21.7 Verdict, artifact status, and unrun work
+
+**Execution completed; the full improve-and-retain hypothesis did not pass.** Both arms fail QASPER false-none and proper-score non-regression checks on policy-development and gate, the gate entailment-preservation allowance, and the gate QASPER raw-accuracy retention allowance. J3 also fails gate QASPER policy cost; J2 is exactly break-even there and should not pass a strict-benefit subcheck. The contradiction-gain criterion does pass for both. Do not reduce this to either “LoRA failed to learn” or “the model is now ready.” [E30; V4]
+
+Retain J2/J3 at their locked **`step_000080`** identities as research specialists and J0/J1 as frozen controls. Their native OpenKind linear-LoRA safetensors and resumable optimizer snapshots are not a PEFT export, merged deployment model, quantized model, or MLX-qualified artifact. No protected-final opening, general retention certification, teacher calls, seed expansion, automatic sweep, or model promotion is recorded. Training completion does not qualify cache reuse for changed weights or transfer the old native-service evidence to the adapters. [E30]
+
+V4 checks nine result-file hashes, seven runtime-source hashes, canonical data-lock identity, 2,964 primary decision rows, 48 count-based metric records, 120 class records, 24 identity-policy records, eight visibility aggregate groups, 20 tie-stratum count/accuracy rows, and 1,000 code/order records. It reconciles recorded component separation, the shared exposure schedule, both continuous 120-update logs, and minimum-development-NLL selection. It does not inspect adapter/optimizer tensor binaries, rerun the backbone or gradients, re-adjudicate source documents, reconstruct NLL/Brier/calibration from raw logits, or independently recover every visibility-stratum membership. These limits apply equally to this documentation update. [V4]
+
+## 18.22 Current synthesis after M2.1 and the M2.2 pilot
+
+**Historical v0.8.3 synthesis, retained unchanged below.** The proposed
+parent-consistency replay and guarded selection were subsequently executed in
+E31 (§18.23). E32 (§18.25) now completes the subsequent source-label comparison;
+§18.26 provides the current synthesis. The future-work wording below remains
+historical, not the current status.
+
+The completed sequence now separates three bottlenecks that a headline accuracy could conflate:
+
+| Question | Measured answer | Remaining boundary |
+|---|---|---|
+| Does giving the frozen model more recorded evidence help? | Yes on the fixed newly fully visible subsets; aggregate none-class changes can nearly cancel the gain. [E29] | A larger prefix is not a gold-evidence-only intervention or proof of complete source sufficiency. |
+| Can the joint-option 4B model learn the targeted natural-document distinctions? | This matched LoRA recipe substantially improves ContractNLI contradiction and none decisions. [E30] | Class exposure, adaptation, and code learning are not isolated, and the hypotheses are fixed across documents. |
+| Does that improvement preserve the capabilities needed for a broader model? | Not in the tested pilot: entailment, QASPER, and parts of evidence-sensitive/code-order behavior regress. [E30] | One held-out task is not a general forgetting assessment; no universal negative result follows. |
+| Do better aggregate probabilities guarantee useful automation? | No. In-domain policy cost improves while held-out and component-weighted costs worsen. [E30; V4] | Metric weights, semantic outcomes, and the review action must remain explicit. |
+| Does a successful CUDA fit qualify the shared-state service? | No. The training/evaluation uses full forwards and a separately versioned BF16 profile. [E30] | Adapter-specific cache, native/MLX parity, load, and service qualification are unrun. |
+
+The current research conclusion is therefore **in-domain adaptation benefit with failed entailment/cross-task retention**, not a complete M2.2 exit or a general architectural victory. The smaller/faster-model question remains downstream of a useful, scoped quality operating point. The immutable CPU/MLX reference remains a maintained systems asset; the new adapters do not inherit its qualifications. [E29; E30; §17.3]
+
+**Proposed next hypothesis, not an executed intervention:** test whether a bounded retention-aware treatment can retain the observed contradiction/none gains without sacrificing supported entailment and a separate task. The preceding results review proposes fixed **train-only out-of-domain replay with a frozen-parent consistency objective** as one candidate treatment. The parent supplies a preservation target, not automatically correct semantic ground truth. No such replay/consistency treatment was executed in E30. Its supervision, resource budget, and attribution must be frozen in a new contract. [V4; proposal]
+
+A future selection rule should predeclare per-class preservation and a separate retention-development criterion while allowing the frozen checkpoint to win. This is a new rule, not a retroactive change to E30's NLL-only selection. Keep QASPER gate/audit errors out of training and checkpoint selection. Using QASPER training data in a later mixture would change its source-held-out role and require a separately defined retention task; current held-out results cannot silently become proof of retention after tuning on them. Independent correction review and genuinely held-out source/question/rubric families remain necessary for broader claims. [E25; E30; V4; proposed safeguards]
+
+Do not automatically continue the same fit, increase rank, expand seeds, replace the backbone, add a teacher, introduce an evidence reader, and alter calibration together. The evidence supports narrowing the next causal question, not launching a tournament. Correct the exact-break-even reporting test under a new evaluator identity and expose row-, source-, and component-weighted policy costs without changing the original result lock. The completed pilot, earlier negative studies, audit dispositions, and protected-final reservation all remain intact. [E14–E30; V4; proposed sequence]
+
+---
+
+## 18.23 Retention-aware replay pilot: partial recovery, no eligible adaptation
+
+**Completed evidence, not a proposed follow-on.** E31 records the v0.5.0 run
+`retention_v050_s17_bf16_a69ba45a76e74b63`, session
+`20260926T023951_020889Z`. Both new fits complete 120 optimizer updates. Neither
+has an eligible nonzero development checkpoint, so **J4_selected = J0** and
+**J5_selected = J1**. The fixed-update-80 adapters remain visible as diagnostics;
+they are not the selected model. The correct closeout is **partial probability-score
+recovery at a matched update count; joint entailment/cross-task preservation not
+achieved; frozen parents retained by the declared selector**. No protected final
+or deployment promotion follows. [E31; V5]
+
+### 18.23.1 Treatment, populations, and attribution
+
+J4 starts fresh from the pinned Base J0 and J5 from the pinned post-trained J1.
+Neither initializes from J2/J3 nor restores a historical optimizer. Rank 16,
+alpha 32, learning rate 2e-5, 12 warmup updates, 120 attempted updates, clipping
+1.0, BF16 backbone computation, FP32 adapters/loss, and the working math-SDPA
+activation-checkpoint policy remain matched to E30. The actual run records an
+A100-SXM4-40GB. This is a model-quality experiment using full forwards, not a
+shared-cache, MLX, or service-speed qualification. [E30; E31, experiment contract]
+
+The original eight ContractNLI inputs per update are unchanged. The added
+objective is:
+
+\[
+L_t = \operatorname{mean}_{x\in C_t}\mathrm{CE}(y_x,p_\theta(x))
++ 1.0\operatorname{mean}_{x\in R_t}\mathrm{KL}(p_{\mathrm{parent}}(x)\Vert p_\theta(x)),
+\qquad |C_t|=8,\ |R_t|=2.
+\]
+
+The consistency temperature is 1.0, separate from downstream calibration.
+Frozen-parent distributions over offered outcomes are numerical preservation
+targets, not generated rationales or calibrated ground truth. SNLI source labels
+stratify the sample and score development/diagnostic predictions; they do **not**
+enter this replay loss. Each complete fit has 960 ContractNLI exposures and 240
+SNLI replay exposures. At fixed80 the new treatment has 640 ContractNLI and 160
+SNLI exposures; the old specialist has the same 640 ContractNLI exposures without
+SNLI. Thus the fixed-dose contrast tests replay and consistency **together**, with
+extra computation, rather than isolating replay from its objective or matching
+compute budgets. [E31, contract and data lock]
+
+Only the pinned SNLI upstream train shard is used. Prediction-blind selection
+constructs 240 replay, 192 retention-development, and 192 retention-diagnostic
+examples, balanced across the three labels, with one representative per normalized
+exact-premise group. These 624 groups are disjoint across roles. This is not an
+image-family, paraphrase, or pretraining-contamination guarantee; the export does
+not supply the required image-family qualification. Neutral maps to the declared
+NLI neither-supported-nor-contradicted outcome, not a universal abstention label.
+QASPER remains outside gradients and checkpoint selection. The new SNLI panel is
+short-premise NLI, not broad instruction-following or long-document QA retention.
+[E31, retained source/data contract]
+
+The primary benchmark remains 741 questions across 72 source components. Its
+calibration gate has 204 ContractNLI questions from 12 contracts and 46 QASPER
+questions from 12 papers; it was exposed before this run. There are eight named
+reporting views but only six numerical checkpoint identities because the two
+selected views alias frozen parents. The 5,928 primary rows, 2,000 code/order
+variant summaries, and eight 192-example SNLI diagnostic views represent 9,464
+question views, **not 9,464 independent examples or necessarily that many distinct
+forward computations**. SNLI was a held-out diagnostic within E31; after this
+readout it is exposed regression evidence for subsequent work. [E31; V5]
+
+### 18.23.2 Matched fixed80 quality and the selected-fallback distinction
+
+The following results use identity calibration and the common BF16 4,096-token
+**state-prefix** condition. NLL is averaged within each source; lower is better.
+Historical FP32 E29 values are not substituted for these matched controls. [E31]
+
+| Numerical checkpoint | ContractNLI correct / accuracy | ContractNLI NLL | QASPER correct / accuracy | QASPER NLL |
+|---|---|---:|---|---:|
+| J0 frozen Base | 116/204 (56.86%) | 0.97272 | 40/46 (86.96%) | 0.33376 |
+| J1 frozen post-trained | 141/204 (69.12%) | 0.74811 | 37/46 (80.43%) | 0.39921 |
+| J2 locked80, contract-only | 166/204 (81.37%) | 0.55262 | 35/46 (76.09%) | 0.66467 |
+| J3 locked80, contract-only | 168/204 (82.35%) | 0.55134 | 34/46 (73.91%) | 0.57011 |
+| J4 fixed80, parent-KL replay | 164/204 (80.39%) | 0.51614 | 36/46 (78.26%) | 0.48680 |
+| J5 fixed80, parent-KL replay | 166/204 (81.37%) | 0.52210 | 35/46 (76.09%) | 0.49796 |
+
+Both new fixed80 models improve NLL and Brier relative to their corresponding
+contract-only specialists on both benchmark sources. Both lose two correct
+ContractNLI decisions and gain one correct QASPER decision. The saved-row
+reconstruction finds that J4 repairs two and breaks four ContractNLI decisions;
+J5 repairs none and breaks two. On QASPER, J4 repairs two and breaks one, whereas
+J5 repairs one and breaks none. These changes increase equal-source mean accuracy
+by about **0.597 percentage points**, while reducing pooled accuracy by one out
+of 250 decisions. The weighting must accompany either claim. [E31; V5]
+
+The source-reported paired, source-stratified component-bootstrap analysis uses
+1,000 draws. J4 minus J2 has an equal-source NLL difference of approximately
+−0.10717, with a descriptive 95% interval [−0.18708, −0.06254]; J5 minus J3 is
+−0.05070 [−0.10636, −0.02300]. The corresponding accuracy intervals include zero:
+[−1.471, +3.922] and [−0.980, +3.413] percentage points. These intervals were not
+reconstructed from raw logits in this documentation revision. They describe this
+one-seed, already-exposed panel, not independent confirmation or population-wide
+noninferiority. The stronger positive finding is probability-score recovery
+relative to specialists, not an established accuracy advantage. [E31; V5]
+
+The selected views instead reproduce J0/J1 exactly. That fallback satisfies the
+selection rule but does not prove successful learned retention or imply that the
+frozen models pass all semantic/policy screens. Fixed-dose and selected-pipeline
+results answer different questions and must not be pooled. [E31]
+
+### 18.23.3 Targeted gains persist; supported entailment remains the trade-off
+
+| Numerical checkpoint | Entailed correct / 84 | Contradicted correct / 24 | Semantic-none correct / 96 |
+|---|---:|---:|---:|
+| J0 | 81 | 10 | 25 |
+| J1 | 81 | 8 | 52 |
+| J2 locked80 | 73 | 16 | 77 |
+| J3 locked80 | 70 | 19 | 79 |
+| J4 fixed80 | 74 | 15 | 75 |
+| J5 fixed80 | 69 | 19 | 78 |
+
+These are complete semantic decisions, not real-option rankings conditional on
+removing none. J4 retains most of J2's contradiction/none gains; J5 retains all 19
+correct contradiction decisions and 78 of J3's 79 correct none decisions. Yet
+entailment recall is 8.33 percentage points below J0 for J4 and 14.29 points below
+J1 for J5, exceeding the five-point preservation allowance. J5 is also one
+entailed case worse than J3. Out-of-domain parent consistency therefore did not
+resolve the supported-entailment loss. [E31, class results]
+
+For the historical 32-question ContractNLI cohort whose annotated evidence became
+fully visible only with the larger prefix, both frozen controls score 30/32 at
+the current larger budget. J2/J3 score 25/32, J4 26/32, and J5 25/32. This is a
+stratification of the new 4,096-token results, not a new 1,024-versus-4,096 run.
+Annotation visibility remains distinct from semantic sufficiency. [E31, visibility
+strata; E29]
+
+### 18.23.4 Why both preservation selectors chose zero
+
+The prospective selector evaluates updates 0, 40, 80, and 120 on unchanged
+ContractNLI development data and a separate SNLI retention-development panel.
+Every ContractNLI and SNLI class must remain within five percentage points of
+its frozen recall; SNLI accuracy must remain within three points and NLL/Brier
+within 0.01, while ContractNLI group-mean NLL must improve by more than 0.01.
+Minimum ContractNLI NLL among eligible nonzero candidates wins, with earlier
+updates resolving ties; otherwise zero wins. No QASPER or retention-diagnostic
+outcome is eligible for selection. [E31, selections and contract]
+
+Both frozen ContractNLI development baselines correctly entail 106/112 cases.
+At the five-point allowance, at least 101 correct entails are required. [E31; V5]
+
+| Fit | Update | ContractNLI development NLL | Correct entailments / 112 | Failed selection checks |
+|---|---:|---:|---:|---|
+| J4 | 40 | 0.60769 | 90 | ContractNLI entailment |
+| J4 | 80 | 0.52247 | 96 | ContractNLI entailment |
+| J4 | 120 | 0.54869 | 97 | ContractNLI entailment |
+| J5 | 40 | 0.55499 | 90 | ContractNLI entailment |
+| J5 | 80 | 0.50181 | 99 | ContractNLI entailment; SNLI NLL/Brier |
+| J5 | 120 | 0.53541 | 102 | SNLI NLL/Brier |
+
+J4's SNLI-development checks pass at all evaluated nonzero updates. J5 at 120
+preserves the ContractNLI classes but has SNLI NLL about 0.76521 versus 0.73011
+frozen and Brier about 0.43258 versus 0.41594, beyond the 0.01 allowances. Thus
+no evaluated checkpoint satisfies all conditions simultaneously. This is not a
+failed training loop or grounds to relax the criteria retrospectively. It does
+not establish what untested intermediate checkpoints or different objectives
+would do. [E31; V5]
+
+### 18.23.5 Short-premise retention exposes task-dependent transfer
+
+The 192-example SNLI diagnostic is balanced at 64 per class and was not used for
+fitting or selection in E31. Results are uncalibrated. [E31]
+
+| Numerical checkpoint | Correct / 192 | Accuracy | NLL | Brier |
+|---|---:|---:|---:|---:|
+| J0 | 117 | 60.94% | 0.92107 | 0.54200 |
+| J1 | 132 | 68.75% | 0.72758 | 0.43185 |
+| J2 locked80 | 136 | 70.83% | 0.81815 | 0.45812 |
+| J3 locked80 | 141 | 73.44% | 0.69906 | 0.40497 |
+| J4 fixed80 | 125 | 65.10% | 0.89585 | 0.52519 |
+| J5 fixed80 | 131 | 68.23% | 0.80251 | 0.47444 |
+
+The contract-only specialists perform better here than both their frozen parents
+and their replay-trained counterparts. J4/J5 have 11/10 fewer correct predictions
+than J2/J3, respectively, with worse NLL and Brier. This directly limits a blanket
+interpretation that ContractNLI adaptation destroyed all out-of-domain capability:
+it damages QASPER while improving this tested SNLI population. Domain, question
+semantics, input length, and decision structure were not isolated. [E31]
+
+**Interpretation rather than demonstrated mechanism:** parent KL penalizes a
+departure from the parent's distribution whether that departure helps or harms
+source-label correctness. These results are consistent with anchoring limiting
+some useful changes. They do not demonstrate that copied parent errors caused
+all losses or that source-label replay will succeed. J4 meets the SNLI diagnostic
+preservation bounds versus J0 while still failing entailment and QASPER retention;
+J5 retains near-frozen SNLI accuracy but fails its probability-score bounds.
+Behavioral agreement, accuracy, proper scores, and cross-task utility are separate
+requirements. Short SNLI is not a sufficient sole proxy for broad retention.
+[E31; V5; inference]
+
+### 18.23.6 QASPER and policy limits remain binding
+
+Both new fixed80 models assign none to 9/41 answerable QASPER questions, or
+21.95%, above the 20% cap. J4 detects 4/5 none cases and scores 36/46 overall,
+four correct below J0; J5 detects 3/5 and scores 35/46, two below J1. These
+8.70- and 4.35-point losses exceed the three-point accuracy allowance. Probability
+scores still regress versus the matching frozen parent, including on policy
+development. These statements preserve locked benchmark labels and the existing
+annotation/visibility qualifications; they are not new effective-input adjudications.
+[E31]
+
+At the identity-policy thresholds selected on policy-development, J4 accepts
+38 ContractNLI decisions with one wrong and 12 QASPER decisions with one wrong.
+Its source row costs are 0.08627 and 0.09565. J5 accepts 59 ContractNLI decisions
+with one wrong and seven QASPER decisions with one wrong, for costs 0.07598 and
+0.10652. Review-all costs 0.1. Those acceptance counts are small and clustered;
+one observed low-error operating point is not a deployment guarantee. [E31]
+
+| Numerical checkpoint | Pooled-row gate cost | Equal-source/equal-component gate cost |
+|---|---:|---:|
+| J0 | 0.10080 | 0.09055 |
+| J1 | 0.10000 | 0.09280 |
+| J2 locked80 | 0.08960 | 0.12193 |
+| J3 locked80 | 0.08720 | 0.12610 |
+| J4 fixed80 | 0.08800 | 0.11970 |
+| J5 fixed80 | 0.08160 | 0.12046 |
+
+The weighting-aligned aggregate improves somewhat versus specialists but remains
+above review-all for both replay models. J4's two source row costs both beat
+review-all while its component-weighted aggregate does not. Reporting the weights
+is therefore part of the result, not optional presentation. E31 introduces the
+previously proposed exact-rational policy comparison: break-even is not a strict
+pass. It correctly records J2's QASPER cost and J1's pooled gate cost as exactly
+0.1 without changing E30's evaluator or lock. [E31; V5]
+
+The combined code-reassignment/option-reversal diagnostic improves QASPER
+semantic agreement from 36/46 for J2 to 38/46 for J4 and from 41/46 for J3 to
+43/46 for J5. ContractNLI agreement is 188/204 versus 188/204 and 193/204 versus
+194/204, respectively. Agreement is not correctness; the joint perturbation does
+not isolate pure order invariance. No inference ensemble is introduced. [E31; V5]
+
+### 18.23.7 Verification and scope of the documentation update
+
+**Historical v0.8.4 documentation-check scope, preserved below.** The v0.8.5
+source-label result and its separate saved-output recheck are E32/V6; no older
+model computation or audit is silently re-attributed to the present edit.
+
+The supplied CPU-only saved-output checker was rerun on a copy for this revision:
+452 checks pass, including all ten result-manifest hashes/sizes, 5,928 unique
+primary view rows, 48 identity semantic-summary rows, 240 class rows, 48
+identity-policy source rows, 24 identity-policy aggregate rows, selected/frozen
+identity reuse, and both development selections. Both training logs contain
+120 unique completed updates with finite recorded losses and gradients. Twelve
+supplied authoring-source files match hashes recorded by the runtime contract;
+this is not a fresh fetch/audit of every runtime source. [V5]
+
+No Qwen forward/backward, adapter/optimizer-binary audit, independent source
+adjudication, calibration refit, threshold reselection, raw-logit NLL/Brier
+reconstruction, or bootstrap rerun is performed by this saved-output checker.
+SNLI counts are reconciled with stored confusion summaries, not independently
+retrieved per-example predictions. Separate local tests of the next notebook
+are software evidence under N1, not new E31 model evidence. One seed, repeated
+exposure of the benchmark gate, small source groups, and incomplete source/semantic
+review remain material limits. [E31; V5; N1]
+
+---
+
+## 18.24 Current synthesis and the next source-label replay test
+
+**Historical interpretation at the v0.8.4 cutoff, before the v0.6.0 pretrained
+run.** The following proposal and unrun-status statements are retained as the
+prospective record. E32 and §18.25 supersede only its execution status; §18.26
+owns the current interpretation. N1 remains the preparation artifact, not the
+completed-result authority.
+
+The completed model sequence now distinguishes **access**, **targeted learning**,
+**behavior preservation**, and **retained correctness**. E29 shows that larger
+inputs can improve supported decisions while none-class behavior changes in the
+opposite direction. E30 shows substantial ContractNLI learning with failed
+entailment and QASPER retention. E31 recovers some probability quality relative
+to those specialists but finds no adaptation meeting the joint preservation
+contract. Its short-premise results show task-dependent transfer rather than a
+general forgetting verdict. [E29–E31]
+
+The active hypothesis is narrower: **does replacing parent-only KL replay with
+source-label supervision on the same train-only inputs improve retained
+correctness without losing the targeted gains?** The accompanying v0.6.0 notebook
+implements fresh J6/J7 fits from pinned J0/J1. It keeps the same 240 SNLI replay
+examples and order, ContractNLI exposures, rank, learning rate, update budget,
+renderer, arithmetic, and per-class development selector. The replacement loss is
+mean eight original ContractNLI CEs plus 1.0 times mean two SNLI source-label CEs;
+parent KL is absent. Source labels are traced through stored source rows and each
+input's semantic/code mapping before training. This changes supervision and the
+objective, not merely a coefficient. It is a prospective experiment with no new
+pretrained-model result in this whitepaper. [N1; proposed comparison]
+
+Primary fixed-dose comparisons are **J6_fixed80 versus J4_locked80** and
+**J7_fixed80 versus J5_locked80**. J2/J3 remain contract-only controls; selected
+J6/J7 views are evaluated against J0/J1. The old J4/J5 selected views remain zero
+and must not replace their actual fixed80 adapters in the objective comparison.
+Equal coefficient and matched examples do not imply equal gradient magnitude or
+wall-clock computation. Fixed-dose and selected-pipeline estimands remain distinct;
+source-label CE is not claimed to identify every mechanism behind the old KL
+trade-off. [N1]
+
+The same ContractNLI and SNLI-development preservation rules remain in force,
+including eligibility for the frozen fallback. The existing 192-example SNLI
+diagnostic is now explicitly **exposed regression evidence**, as is the reused
+QASPER gate; neither enters the optimizer or checkpoint selection. Reusing those
+panels allows paired regression comparisons, not fresh independent confirmation.
+The narrow experiment deliberately adds no new backbone, evidence reader,
+long-document dataset, hard-example mining, seed sweep, longer schedule, or
+teacher-generated targets. It therefore does not claim to solve the insufficiency
+of short SNLI as a broad retention panel. [E31; N1]
+
+A favorable source-label result would justify another bounded research decision,
+not release or a retroactive pass of E30/E31. Failure would further narrow the
+supervision/transfer hypothesis without proving that Qwen, LoRA, or replay is
+inherently unsuitable. Preserve historical selections and checkpoints; do not
+relax constraints after inspecting the gate or use its errors as training examples.
+A useful release scope still needs independently reviewed evidence, appropriate
+unseen source/question/rubric families, and actual adapter-specific accelerated
+execution qualification. The maintained native CPU/MLX FP32 reference does not
+confer those properties on new fits. [E25; E29–E31; N1; §17.3]
+
+---
+
+## 18.25 Source-label replay pilot: stronger SNLI learning, failed joint preservation
+
+**Completed experiment, not a proposed fit.** E32 is notebook v0.6.0, run
+`source_label_v060_s17_bf16_dbb5e724b5452f23`, session
+`20260926T170047_182185Z`, with result artifacts saved about 19:29 UTC on
+26 September 2026. Execution is `COMPLETED_MODEL_RESULTS`; neither the fixed80
+nor the selected view passes the complete research screen. Both new fits finish
+120 updates, and both guarded selectors retain frozen0. [E32; V6]
+
+The result resolves N1's execution question but gives a split scientific answer:
+**source-label replay learns the short-premise SNLI task substantially better
+than parent consistency, while failing to preserve supported entailment or
+QASPER and worsening the main two-source probability scores relative to KL.**
+A better replay-task score is not a retained-capability upgrade. [E32]
+
+### 18.25.1 Attributable treatment and unchanged evaluation boundaries
+
+J6 starts fresh from pinned J0 Base; J7 starts fresh from pinned J1 post-trained.
+Neither loads an old adapter as initialization or resumes a historical optimizer.
+The fixed80 primary comparisons are J6 versus actual J4 fixed80 and J7 versus
+actual J5 fixed80. The `J4_locked80` and `J5_locked80` names in E32 identify
+immutable diagnostic comparison snapshots, not changes to E31's selected-zero
+outcomes. J2/J3 retain their original selected80 specialist identities. [E32]
+
+Source-label cross-entropy **replaces**, rather than supplements, parent KL:
+
+```text
+E31: mean(8 original ContractNLI CE losses)
+     + 1.0 × mean(2 SNLI KL(frozen parent || student) losses)
+E32: mean(8 original ContractNLI CE losses)
+     + 1.0 × mean(2 SNLI source-label CE losses)
+```
+
+The same 240 SNLI replay examples, exposure order, original ContractNLI schedule,
+renderer and code mappings are retained. Rank 16, alpha 32, learning rate 2e-5,
+120 updates, the BF16-backbone/FP32-adapter-and-loss profile and math-attention
+checkpoint policy are unchanged. Each full fit has 960 ContractNLI exposures and
+240 replay exposures; update 80 has 640 and 160 respectively. Parent scores are
+diagnostic only in the new replay objective. Equal examples, dose and coefficient
+do not imply equal gradient magnitude, difficulty or wall-clock compute. This
+is a target-source comparison, not a gradient-matched or runtime-matched trial.
+[E32; N1]
+
+The source records an A100-SXM4-80GB with PyTorch 2.11.0+cu128 and Transformers
+5.17.0. These are execution provenance, not new speed or numerical-equivalence
+claims. Both training logs contain exactly 120 ordered updates with finite
+loss/gradient records. V6 checks the saved logs, not the underlying CUDA gradients.
+[E32; V6]
+
+The original 741 primary questions across 72 components remain non-final,
+previously exposed inputs. The gate has 204 ContractNLI questions from 12 contracts
+and 46 QASPER questions from 12 papers. QASPER stays outside the optimizer and
+checkpoint selector; its existing calibration-fit and policy-development roles
+remain downstream. The 192-example SNLI regression panel is disjoint from the
+240-example replay and 192-example retention-development roles within the recorded
+normalized-exact-premise grouping. It is already exposed, not fresh confirmation;
+image/near-duplicate-family and pretraining separation are not established.
+[E32; E31; V6]
+
+There are ten named reporting views but eight numerical checkpoint identities:
+7,410 primary rows, 2,500 code/order pair records and 1,920 SNLI rows. The declared
+11,830 question views include aliases and variants, not independent examples.
+`J6_selected = J0` and `J7_selected = J1` match exactly in primary and SNLI output
+rows. Zero selected-versus-parent differences are identity reuse, not a trained
+adapter achieving perfect preservation. [E32; V6]
+
+### 18.25.2 Positive replay-domain learning: SNLI
+
+All values below use raw offered-outcome probabilities on the 192-example,
+64-per-class **exposed regression panel**, not on replay training examples and
+not on the retention-development selector. The Brier convention is the sum over
+three declared semantic outcomes, not divided by class count. [E32]
+
+| Checkpoint | Correct / 192 | Accuracy | NLL ↓ | Brier ↓ |
+| --- | --- | --- | --- | --- |
+| J0 — frozen Base | 117 | 60.94% | 0.92107 | 0.54200 |
+| J1 — frozen post-trained | 132 | 68.75% | 0.72758 | 0.43185 |
+| J2 — contract-only, locked80 | 136 | 70.83% | 0.81815 | 0.45812 |
+| J3 — contract-only, locked80 | 141 | 73.44% | 0.69906 | 0.40497 |
+| J4 — parent KL, fixed80 | 125 | 65.10% | 0.89585 | 0.52519 |
+| J5 — parent KL, fixed80 | 131 | 68.23% | 0.80251 | 0.47444 |
+| J6 — source labels, fixed80 | 159 | 82.81% | 0.43881 | 0.24465 |
+| J7 — source labels, fixed80 | 166 | 86.46% | 0.40708 | 0.21611 |
+
+V6 reconstructs softmax, semantic argmax, confidence, NLL/Brier and conditional
+ranking from the exported per-example SNLI logits. All ten stored aggregate views,
+including the selected/frozen aliases, reconcile. [V6]
+
+Relative to J4, J6 repairs 46 SNLI decisions and introduces 12 errors, gaining
+34 correct decisions (**17.71 percentage points**). Relative to J5, J7 repairs
+40 and introduces five, gaining 35 (**18.23 points**). Relative to the older
+contract-only specialists, the gains are 23 and 25 correct decisions. These
+paired counts are saved-row reconstructions, not new inference. [E32; V6]
+
+This supports the narrow hypothesis that original source labels provide useful
+learning information beyond the tested frozen-parent distribution on this task.
+It does not prove that individual parent errors caused all earlier regressions,
+that source-label CE generally dominates consistency, or that the resulting
+adapters preserve other tasks. [E32; interpretation]
+
+### 18.25.3 Main benchmark quality: the replay gain does not transfer
+
+These are raw identity-calibration gate results, all under common BF16 execution
+and the same **4,096-state-token prefix cap**, not a total request length. The
+source-label comparison does not replace the old FP32 evidence with BF16 controls.
+The table retains original benchmark labels and every frozen/specialist/KL control.
+[E29; E32]
+
+| Checkpoint view | Source | Correct / n | Accuracy | NLL ↓ | Brier ↓ |
+| --- | --- | --- | --- | --- | --- |
+| J0 | contractnli | 116/204 | 56.86% | 0.97272 | 0.56700 |
+| J0 | qasper | 40/46 | 86.96% | 0.33376 | 0.20364 |
+| J1 | contractnli | 141/204 | 69.12% | 0.74811 | 0.42123 |
+| J1 | qasper | 37/46 | 80.43% | 0.39921 | 0.26105 |
+| J2_locked80 | contractnli | 166/204 | 81.37% | 0.55262 | 0.29263 |
+| J2_locked80 | qasper | 35/46 | 76.09% | 0.66467 | 0.39704 |
+| J3_locked80 | contractnli | 168/204 | 82.35% | 0.55134 | 0.29436 |
+| J3_locked80 | qasper | 34/46 | 73.91% | 0.57011 | 0.34273 |
+| J4_locked80 | contractnli | 164/204 | 80.39% | 0.51614 | 0.27979 |
+| J4_locked80 | qasper | 36/46 | 78.26% | 0.48680 | 0.29875 |
+| J5_locked80 | contractnli | 166/204 | 81.37% | 0.52210 | 0.28655 |
+| J5_locked80 | qasper | 35/46 | 76.09% | 0.49796 | 0.31847 |
+| J6_fixed80 | contractnli | 162/204 | 79.41% | 0.55277 | 0.30208 |
+| J6_fixed80 | qasper | 29/46 | 63.04% | 0.76052 | 0.48762 |
+| J7_fixed80 | contractnli | 165/204 | 80.88% | 0.54445 | 0.29752 |
+| J7_fixed80 | qasper | 35/46 | 76.09% | 0.67368 | 0.38878 |
+
+J6 versus J4 repairs four ContractNLI errors and introduces six, losing two correct
+decisions. On QASPER it repairs one and introduces eight, losing **seven of 46**.
+J7 versus J5 repairs three and introduces four ContractNLI errors; QASPER exchanges
+one repair for one new error, leaving accuracy unchanged. Both new models have
+**worse NLL and Brier on both sources** than their corresponding KL comparator.
+Main-benchmark probability scores remain source-reported because the primary
+CSV does not include full logits. [E32; V6]
+
+This comparison favors source-label replay for the tested SNLI task, but not for
+the original two-source retention objective. J7's unchanged QASPER accuracy must
+not conceal NLL increasing from 0.49796 to 0.67368 or the changed error mix. The
+ContractNLI point accuracies remain well above frozen, but that positive fact
+cannot substitute for per-class and cross-task requirements. [E32]
+
+### 18.25.4 Task-dependent semantic-none behavior
+
+| Checkpoint view | Correct none / 5 | False-none / 41 | False-none rate |
+| --- | --- | --- | --- |
+| J4_locked80 | 4/5 | 9/41 | 21.95% |
+| J6_fixed80 | 5/5 | 17/41 | 41.46% |
+| J5_locked80 | 3/5 | 9/41 | 21.95% |
+| J7_fixed80 | 4/5 | 10/41 | 24.39% |
+
+J6's 100% QASPER none recall is five correctly detected none cases accompanied by
+17 false-none errors. Both new false-none rates exceed the declared 20% ceiling.
+Policy-development shows the same limitation: J6 assigns none to 18/38 answerable
+questions and J7 to 15/38. These are semantic argmax outcomes, not errors repaired
+by choosing a different automation threshold. [E32; V6]
+
+On SNLI, false-none moves in the opposite direction: **26.56% to 7.03%** for
+J6 versus J4, and **20.31% to 7.81%** for J7 versus J5. The observed behavior is
+therefore not one uniform tendency to reject more everywhere. Domain, context
+length, question meaning, option structure and their interactions remain
+unisolated; this run does not identify a latent cause. Missing annotation spans
+are still not automatically negative evidence or permission to change a label.
+[E32; interpretation]
+
+### 18.25.5 Supported-entailment regression and the guarded selections
+
+Full ContractNLI semantic decisions, not conditional ranking with none removed:
+
+| Checkpoint view | Entailed correct / 84 | Contradicted correct / 24 | Semantic-none correct / 96 |
+| --- | --- | --- | --- |
+| J0 | 81 | 10 | 25 |
+| J1 | 81 | 8 | 52 |
+| J2_locked80 | 73 | 16 | 77 |
+| J3_locked80 | 70 | 19 | 79 |
+| J4_locked80 | 74 | 15 | 75 |
+| J5_locked80 | 69 | 19 | 78 |
+| J6_fixed80 | 70 | 15 | 77 |
+| J7_fixed80 | 69 | 17 | 79 |
+
+J6 loses 11 correct entailed cases relative to J0 (**13.10 percentage points**)
+and J7 loses 12 relative to J1 (**14.29 points**), exceeding the five-point
+preservation allowance. J7's 17/24 contradiction recall also falls two cases below
+J3's 19/24; the **8.33-point** loss misses the separate specialist-gain preservation
+bound. Strong none/contradiction gains over frozen do not make those losses vanish.
+[E32; V6]
+
+The selector rejects candidates using only declared development evidence, not
+these gate outcomes. Both frozen development baselines correctly entail 106/112
+ContractNLI cases and 62/64 SNLI cases. The five-point loss allowances require
+at least **101/112** and **59/64** correct entailments. [E32]
+
+| Fit | Update | ContractNLI entailments / 112 | SNLI entailments / 64 | Contract development NLL | Failed preservation constraints |
+| --- | --- | --- | --- | --- | --- |
+| J6 | 40 | 82/112 | 58/64 | 0.71836 | ContractNLI entailment; SNLI entailment |
+| J6 | 80 | 90/112 | 58/64 | 0.58564 | ContractNLI entailment; SNLI entailment |
+| J6 | 120 | 96/112 | 59/64 | 0.58138 | ContractNLI entailment |
+| J7 | 40 | 83/112 | 51/64 | 0.65127 | ContractNLI entailment; SNLI entailment |
+| J7 | 80 | 93/112 | 55/64 | 0.55550 | ContractNLI entailment; SNLI entailment |
+| J7 | 120 | 101/112 | 56/64 | 0.59305 | SNLI entailment |
+
+SNLI overall accuracy and proper-score preservation pass, but individual
+entailment preservation can still fail. At update 120, J7 meets the ContractNLI
+class constraints yet remains three correct SNLI entailments short of the minimum.
+No evaluated nonzero candidate passes all constraints at once; both selections
+are correctly frozen0. The regression panel's different class outcomes cannot
+be used to replace the development selection. This result says nothing about
+untested intermediate candidates and authorizes no retrospective reselection.
+[E32; V6]
+
+On the historical 32-question ContractNLI cohort whose annotated evidence became
+fully visible only with the larger prefix in E29, the current larger-prefix
+scores are 30/32 for either frozen control, 26/32 for J4, 25/32 for J5, **23/32 for
+J6 and 26/32 for J7**. These are small, fixed-membership diagnostic strata—not
+new two-budget inference, independent semantic-sufficiency checks, or proof that
+context length caused the regression. The recurring supported-entailment loss
+persists without a uniquely identified mechanism. [E29; E32]
+
+### 18.25.6 Uncertainty, policy utility and code/order diagnostics
+
+The primary intervals below are **source-reported**, using 1,000 paired,
+source-stratified component-bootstrap draws and 12 gate components per source.
+Accuracy is the equal-source mean, not pooled-question accuracy. Negative
+accuracy and positive NLL/Brier deltas favor the KL comparator. [E32]
+
+| Primary contrast | Equal-source accuracy delta [95% interval] | Equal-source NLL delta [95% interval] | Equal-source Brier delta [95% interval] |
+| --- | --- | --- | --- |
+| J6_fixed80 minus J4_locked80 | -8.10 pp [-14.08, -2.85] | +0.15517 [+0.11390, +0.22108] | +0.10558 [+0.07482, +0.14038] |
+| J7_fixed80 minus J5_locked80 | -0.25 pp [-3.81, +2.70] | +0.09904 [+0.04815, +0.20024] | +0.04064 [+0.01915, +0.07144] |
+
+The recorded NLL/Brier intervals favor KL on the main benchmark; Base-side accuracy
+is descriptively worse, while the post-trained accuracy interval includes zero.
+A single seed and repeated exposure prevent an independent-confirmation claim.
+No new interval or bootstrap is fitted for this documentation update. [E32; V6]
+
+At identity-policy thresholds fixed on policy-development, J6 accepts **33/204
+ContractNLI decisions with zero observed errors** and **8/46 QASPER decisions with
+one error**. The row costs are 0.08382 and 0.10435. J7 accepts **21/204 with zero
+observed errors** and **4/46 with one error**, costing 0.08971 and 0.11304.
+Review-all costs 0.1. A zero observed error count in a small, clustered acceptance
+sample does not establish zero future risk. [E32; V6]
+
+| Checkpoint view | Pooled-row cost | Equal-source / equal-component cost | Weighted status |
+| --- | --- | --- | --- |
+| J4_locked80 | 0.08800 | 0.11970 | ABOVE_REVIEW_ALL |
+| J5_locked80 | 0.08160 | 0.12046 | ABOVE_REVIEW_ALL |
+| J6_fixed80 | 0.08760 | 0.12177 | ABOVE_REVIEW_ALL |
+| J7_fixed80 | 0.09400 | 0.12940 | ABOVE_REVIEW_ALL |
+
+Both new weighted costs exceed review-all even when the pooled-row costs are
+lower. J7 accepts **zero QASPER policy-development questions** at its selected
+identity threshold; conditional accepted error is undefined, not zero, and the
+coverage requirement fails. V6 reconstructs exact identity-policy counts and
+row/component fractions without refitting or moving any threshold. Break-even
+is correctly treated as break-even, not a strict benefit. [E32; V6]
+
+Code reassignment plus option reversal produces mixed agreement: QASPER J6 is
+42/46 versus J4's 38/46, and J7 is 41/46 versus J5's 43/46. ContractNLI agreement
+is 188/204 versus 188/204 and 191/204 versus 194/204, respectively. This is combined
+code/order sensitivity, not pure permutation invariance or correctness, and no
+inference ensemble is applied. [E32; V6]
+
+### 18.25.7 Closeout and verification boundary
+
+**Close this exact recipe:** source-label replay substantially improves SNLI
+correctness and probability quality, but fails joint supported-entailment and
+QASPER preservation; frozen parents retained. Neither fixed80 research screen
+passes, and selected-zero aliases do not satisfy the adaptation-gain screens.
+Keep J6/J7 snapshots as diagnostic artifacts, not promoted models. Preserve J2/J3
+selected80 and J4/J5 selected0 history. [E32]
+
+The supplied read-only reviewer passes **5,168 granular bookkeeping assertions**
+when rerun on copies for v0.8.5. It verifies 12 manifest files, primary/shared-input
+identities and counts, 120 semantic-count metric rows, 300 class rows,
+identity-policy arithmetic, SNLI logits and aggregate scores, both selections
+and ordered training logs. Sixteen authored-bundle source files match hashes
+recorded by the runtime contract. These are assertions over saved data, not
+5,168 independent tests, replications or model executions. [V6]
+
+Not repeated: pretrained forward/backward execution, adapter/optimizer tensor
+inspection, original-source adjudication, complete effective-input rerender,
+main-benchmark NLL/Brier reconstruction from raw prediction caches, calibration
+or policy fitting, bootstrap computation, or native/accelerated-service
+qualification. Historical-preservation and source-read claims keep the run's
+reported scope except where the listed saved-file checks directly apply. [V6]
+
+## 18.26 Current synthesis after the replay-target comparison
+
+The completed sequence separates several questions. **E29** measures evidence access
+and full decisions; **E30** demonstrates targeted ContractNLI learning with failed
+preservation; **E31** tests behavioral anchoring and recovers some probability
+quality; **E32** shows that more useful supervision for the replay task can
+improve that task while worsening the original multi-source objective. Semantic
+accuracy, probability scores, per-class preservation, parent agreement and
+policy utility are not interchangeable success criteria. [E29–E32]
+
+The source-label proposal receives narrow support as an SNLI learning treatment,
+not as a general preservation solution. Nor does its failure imply that all
+source-label replay, all consistency training, Qwen or the joint-option graph
+is unsuitable. The studies do not isolate sampling pressure, source supervision
+coverage, domain, context length, rubric semantics or gradient interference.
+Changing the next model size, reader, replay weights and training schedule at
+once would not explain these observations. [E32; interpretation]
+
+**Proposed next work, not a completed intervention:** make the recurring
+supported-entailment regression the direct research target. First use admissible
+training/development records to separate supported-to-none from
+supported-to-contradiction changes, hypothesis-family concentration and
+evidence-location effects. Then define one evidence-sensitive preservation
+treatment on source-checked complete-document inputs. A retention panel meant to
+support long-document or answerability claims must test those operations; short
+SNLI alone has not protected them under either replay objective. No new loss,
+dataset, fit, checkpoint choice or success claim is introduced by this revision.
+[V6; proposed program]
+
+Pause generic SNLI replay variants as the main remedy. Do not merely increase a
+replay coefficient, extend an optimizer, add seeds or relax a class guard until a
+candidate passes. Such changes require an explicit prospective hypothesis and
+contract, not reinterpretation of E30–E32. The current QASPER and SNLI regression
+rows remain out of corrective training and checkpoint selection; future reuse is
+regression evidence, not untouched confirmation. A changed utility or application
+scope is also a prospective decision. [E30–E32; V6]
+
+The execution reference remains separate. Preserve the bounded CPU/MLX FP32
+qualifications and immutable hybrid-state assets; new adapters need their own
+cache identities, numerical parity, latency/memory and service tests. No retained
+fit inherits those qualifications or opens protected final. Existing independent
+source-review limitations, audit quarantines, label semantics and historical
+selection locks remain binding. [E25; E29–E32; §17.3]
+
+---
+
 # Conclusion
 
 OpenKind has a bounded execution foundation: typed decisions, complete
@@ -2470,27 +3517,171 @@ contribution is the joint contract for rendering, state isolation, numerical
 behavior, probabilities, and policy outputs, together with retained evidence
 of where optimizations and model shortcuts fail. [E11–E13; RUST1–RUST11; §17.3]
 
-The natural-document experiments have not produced a promotable model.
-Candidate-ranking signal does not establish reliable applicability, and
-full-paper support does not establish evidence visibility in the actual input.
-Source-aligned repair, independent review of proposed corrections, and a useful
-question-conditioned quality reference come next. The shared-state foundation
-survives this refocus. A particular model size or neural topology is conditional
-on the resulting quality/resource comparison. [E14–E28; §18.19]
+The natural-document record now includes a substantial, bounded positive
+learning result. M2.1 shows that improved evidence visibility can help while
+none-class behavior moves in the opposite direction. The matched M2.2 LoRA pilot
+improves ContractNLI accuracy, contradiction, and semantic-none decisions, but
+reduces entailment recall and QASPER retention; both adapted arms fail the
+complete research screen. The result is useful task specialization, not a
+promotable multi-source model, independent semantic adjudication, or a universal
+checkpoint/architecture winner. [E29; E30; V4; §§18.20–18.22]
 
-The roadmap organizes that work as M0–M4. One frozen-profile MLX performance
-comparison can run alongside evidence repair. New adaptation, smaller-model,
-query-reader, or distillation work must meet its stated prerequisites. Current
-non-final diagnostics and exposed exploratory finals cannot supply untouched
-confirmation. A scoped preview requires a locked operating point, fresh
-source-state groups, and evidence from the actual accelerated service.
-[§§13.2–13.5; proposed sequence]
+The completed parent-KL replay follow-on partly recovers probability quality
+relative to the contract-only specialists but produces no adaptation satisfying
+joint preservation. Both development selectors retain frozen parents. The
+contract-only specialists' stronger SNLI scores also show why task-dependent
+transfer should not be renamed general forgetting and why parent agreement is
+not the same as useful correctness. [E31; V5; §18.23]
+
+The source-label replay comparison is now completed. J6/J7 improve SNLI regression
+accuracy to 82.81%/86.46%, yet worsen ContractNLI/QASPER probability scores relative
+to parent KL and fail supported-entailment and QASPER preservation. Both guarded
+selectors again retain frozen0. Better replay-domain learning does not establish
+retention of the intended decision scope; opposite false-none changes on SNLI and
+QASPER make the task dependence explicit. Historical J2/J3 selected80 and J4–J7
+selected0 identities remain unchanged. [E32; V6; §18.25]
+
+The next proposed work directly diagnoses supported-entailment regressions on
+admissible complete-document training/development records before choosing one
+preservation intervention and a retention panel that exercises the required
+operations. Neither another generic SNLI replay variant nor a larger architecture
+is justified as the automatic next step. The causes remain unisolated, and no new
+corrective treatment or prospective contract is supplied by this paper update.
+Inspected gate/regression errors do not become training or selection examples.
+[E32; V6; §18.26; proposed program]
+
+The M0–M4 distinction between evidence, useful decisions, lower cost and
+independent confirmation remains. One immutable-profile MLX performance study
+can proceed as separate systems work. New adapters need their own numerical,
+cache, backend and service qualifications; no CUDA fitting result transfers
+those properties automatically. Independent correction review, held-out task/rubric
+families, protected final and accelerated-service evidence remain open. This is
+a documentation-only update, not a change to the roadmap, notebooks, historical
+selections, source labels, policy thresholds, authorizations or experiment
+artifacts. [§§13.2–13.5; §17.3; E25; E29–E32]
 
 ---
 
 # Appendix A. Source and reproducibility register
 
 The source IDs below identify the evidence behind the numbered sections. In the accompanying evidence manifest, local snapshot SHA-256 hashes distinguish the exact files reviewed from later Drive edits. Result paths are under `Google Drive / Colab Notebooks`. Timestamps embedded in run IDs are UTC.
+
+**Version 0.8.5 documentation boundary.** Editing base: the delivered v0.8.4
+`WHITEPAPER.md`, SHA-256
+`893fcbdcc49f2511d951e1f4764a8ed533b183521381ad8f7841b3afa34e277a`.
+This revision adds E32/V6 and §§18.25–18.26; it dates §18.24's former proposal,
+updates current status and synthesis, and preserves historical numeric sections,
+prior audit scopes, selections and Appendix E. N1 remains historical preparation
+provenance; E32 is the completed-run authority. The supplied v0.6.0 review archive
+is the evidence snapshot; its named Drive URLs are source locators, not a claim
+that every live file was newly fetched for this edit. Only new versioned
+whitepaper deliverables may be saved; existing experiment files are not modified.
+
+**E32: Completed source-label replay target comparison (v0.6.0).** Run
+`OpenKind_Source_Label_Replay_results/source_label_v060_s17_bf16_dbb5e724b5452f23`,
+session `20260926T170047_182185Z`; results saved about `2026-09-26T19:29Z`.
+[Run folder](https://drive.google.com/drive/folders/1EMrI0aaw3gqk2chHZOgtJ4fMFEtosOol),
+[report](https://drive.google.com/file/d/1YX6xJU9X2mQS9c8KfQ45JnwaQD7xOzIq/view),
+[full results](https://drive.google.com/file/d/19KCQ4m4QHPSvggrdl5a0WgBNO5kUn70i/view),
+[contract](https://drive.google.com/file/d/1hYmgYR3IxhToXYru-uTcXZyDAGCvv7oJ/view),
+[result manifest](https://drive.google.com/file/d/1MkDx45s9bI6DNOkAnXsDhXEWzf_wR4y0/view),
+[J6 selection](https://drive.google.com/file/d/1JeG68fgi82j0IYgJemcSkKiH8H2unWp9/view),
+[J7 selection](https://drive.google.com/file/d/1sgCVBjYnW8sfP_NlGDZl5fe7kk0A7q3s/view),
+and [SNLI per-example logits](https://drive.google.com/file/d/1ljIAm7bQ_iA-pjLUK-_GOj3f-lUX48wY/view).
+Report SHA-256
+`1584373f7969b23c7f4e4a8f26f9e5f82e8376a904f9faecf33433847d41695c`;
+full-results SHA-256
+`63f08096f307f8ac7d7c0a09f88a42ad6ea6d95399b2e0ffb8aedf2e639dcbd0`;
+primary-row SHA-256
+`cb39f56b3a2efcf630d8462b8ff311d92bfdd87312d44e689e6a986736cabc40`;
+SNLI-row SHA-256
+`60d924069f8ef48301b80be7bece638156918fab5227e7c5f4943eae296576fb`.
+Contract file SHA-256
+`4f799c7615e9aaefaacbb204c4e087df54de80d21428f566def1546eea2141c1`;
+J6/J7 selection-file SHA-256 values are
+`378188f94226764cddd25c7cd74589fe032c59d048ff0687bc04098a0d341c96`
+and `b5f730d0cfed2478f05eb0101701ca27c9bb3bd75ab6bc9350b84d5e74d19e0e`.
+The twelve-file result manifest binds the reports and tables. Source labels enter
+only the disjoint replay role's new loss; QASPER and SNLI regression do not enter
+the optimizer or selector. Both fit120 and select0. Fixed80 snapshots remain
+distinct diagnostic views; no historical selection is changed.
+
+**V6: v0.6.0 saved-output review and v0.8.5 documentation checks.** The supplied
+`OpenKind_Source_Label_v060_Completed_Run_Review.zip` contains `review.py`, exact
+source snapshots, `SOURCE_INDEX.json`, derived counts, selection reconstruction
+and explicit audit limits. Rerunning the standard-library script on copies passes
+5,168 granular assertions. These cover 12 result files, 7,410 primary rows,
+120 semantic-count metric rows, 300 class rows, exact identity-policy counts and
+fractions, 1,920 SNLI logit rows, both selectors and ordered 120-update logs.
+Sixteen bundled implementation files match hashes recorded in the execution
+contract; no independent runtime-source download is claimed. Main-benchmark
+NLL/Brier and all paired bootstrap intervals remain source-reported. The new
+paper's generated tables, retained historical sections, headings, source hashes
+and Appendix E are checked separately. No model execution, original-source
+adjudication, tensor-binary inspection, recalibration, threshold fitting,
+bootstrap rerun, protected-final access or systems qualification occurs.
+
+**Historical documentation records below.** Each earlier version's validation
+and preparation claims retain its original cutoff and scope. In particular,
+N1's unrun statements describe the v0.8.4 authoring stage, not the completed E32
+run recorded above.
+
+**Version 0.8.4 documentation boundary.** Editing base: the delivered v0.8.3
+`WHITEPAPER.md`, SHA-256 `407df614b4fd5a7a2350c515129413142ced3eed7f74e552b77dd471983ae95f`. This revision preserves its completed historical
+measurements, prior audit scopes, and Appendix E. It adds E31/V5, dates the former
+§18.22 synthesis, and updates active status/next-work language. N1 is a separately
+prepared experiment, not a new trained model. The accompanying diff and validation
+manifest identify every edit. No historical Drive experiment file is changed.
+
+**E31: Completed parent-KL retention follow-on (v0.5.0).** Run
+`OpenKind_Retention_Adaptation_results/retention_v050_s17_bf16_a69ba45a76e74b63`,
+session `20260926T023951_020889Z`; results saved about `2026-09-26T04:56Z`.
+[Report](https://drive.google.com/file/d/1YHm5PSVb6GTC3kNwLKboooJq-TQKlDMZ/view),
+[contract](https://drive.google.com/file/d/1KiQbNr5AO8iRzHZsxDMLLYRY_fdFdkPa/view),
+[result manifest](https://drive.google.com/file/d/1nxqd3lapZ1f8yZOCn66JDcBkPe1s1gfv/view),
+[J4 selection](https://drive.google.com/file/d/1_Bi9VbZiRD0XG4vY1u7t8hbIu3Wg1AbY/view),
+[J5 selection](https://drive.google.com/file/d/1oAHfkB5dcV7Z2MpDdVsxeDu1SSsM0KLw/view),
+and [retention data lock](https://drive.google.com/file/d/1epw_LpAV_Zw-N5f_oAFdrCDsckU-dD4v/view).
+The ten-file result manifest binds report SHA-256
+`63825573e576b30cde350e9cd25e71a056da6db6ebc01eca7d62d9831df8ed8b`,
+full-results `d324131026e9f1bf5f07fd6ac5aa6d0e6afcc3a0715c22535978fa5584374133`,
+and primary-decision rows `86bab451b5fb10580e718f8ddfd59e1e2be592dc886de2fc5de52aa044c71293`.
+Both fits attempt 120 updates, both selected views resolve to frozen0; fixed80
+remains a distinct diagnostic view. Stored source labels/roles are unchanged.
+
+**V5: v0.5.0 saved-output review and v0.8.4 documentation checks.** The supplied
+`OpenKind_Retention_v050_Completed_Run_Review.zip` contains source snapshots and
+`review_saved_outputs.py`. Rerunning it on a copy passes 452 checks with the scope
+in §18.23.7. The companion includes the executed report, source hash manifest,
+exact paper diff, and checks that historical result sections/tables and Appendix E
+remain unchanged. This does not revalidate CUDA gradients, reconstruct raw-logit
+proper scores, inspect saved tensor binaries, or re-adjudicate source evidence.
+Any older audit not rerun here keeps its historical attribution.
+
+**N1: Source-label replay comparison workbench (v0.6.0), not completed model
+results.** `OpenKind_Source_Label_Replay_v0_6_0.ipynb`, preregistration, source,
+tests, and release hashes are delivered separately. J6/J7 start fresh from J0/J1;
+the sole planned learning change versus J4/J5 is source-label CE instead of
+parent KL on the same SNLI replay schedule. The earlier 192-example diagnostic
+is explicitly regression evidence. Local checks comprise 99 unit/regression tests,
+nine tiny-CPU integration checks, and source/target/role reconciliation of 624
+retained source records. The authoring environment lacks CUDA, Transformers, and
+PyArrow; actual pinned-shard validation, tokenizer rerendering, Qwen CUDA preflight,
+and pretrained fitting/evaluation remain runtime checks. Neither these software
+checks nor the frozen controls establish a successful retention outcome.
+
+**N1 completion cross-reference (v0.8.5).** The historical preparation record
+above is unchanged. E32 now supplies completed pretrained fitting/evaluation,
+with both selected-zero outcomes and failed full retention; its result is not
+inferred from N1's local software checks.
+
+**Version 0.8.3 documentation boundary.** Editing base: supplied `WHITEPAPER.md`, SHA-256 `9579909e53dff0d0fd404632f763b416df78c05285ab600cabdc539c05b4656f`. Result timestamps determine the 25–26 September cutoff. The update adds E29/E30 and the V4 companion, updates current interpretation/status text, and preserves original numerical histories and prior approvals. All 15 newly used result-manifest entries and seven E30 source hashes are checked from supplied local snapshots. The scripts operate on copies; no live Drive notebook, result, checkpoint, source label, policy threshold, or protected-final artifact is changed. Probability scores remain source-reported where no raw-logit reconstruction is performed. The README, exact diff, revision manifest, and document checks accompany this Markdown.
+
+**E29: M1 preparation and completed M2.1 frozen two-budget diagnostic.** Run `OpenKind_M1_M21_Closeout_results/m1_m21_joint_option_v032_s17_fp32`, session `20260925T174531_575346Z`, engine `da6e86349af2df1f`. [Result folder](https://drive.google.com/drive/folders/1XpQFA256aAdc5S075zKUO2-XJoN00TVt), [report](https://drive.google.com/file/d/14QNUaQbTQtlnZctqDFneDilsjYyrA5Zb/view), [full results](https://drive.google.com/file/d/1C7Q15Qamds3bwW6RhXzmV5ETc4TRER6C/view), [decision rows](https://drive.google.com/file/d/1WYPE9l6rBVPSBIOmcK8gxrf75LHi_Jd2/view), and [result manifest](https://drive.google.com/file/d/1r6wtSUWujZhO84w79_D0VDdeZU4yTwle/view). Completed report SHA-256 `1f4b976f45686b0e2e30a7ef6b8e95f5b1653c99753070bd422612bfa2502a97`; full-results SHA-256 `343b4644046b3193f324f909810c5d129fe2b98a26512ddd410c73778a5052dd`; decision-rows SHA-256 `6f1f4251a53ddbe5158b27faada62a120ab11231fdbf9ef3fb4c7073d19e516d`. Six result files are bound by the manifest. The earlier v0.2 session `20260925T140444_525763Z` supplies the separately identified `CLOSEOUT.json` historical-score reconstruction and `EVIDENCE_VISIBILITY.csv` preparation diagnostics; its no-inference status is not the later v0.3.2 status. The v0.2 protocol that selected only 1,024-token inference is not presented as the completed v0.3.2 two-budget protocol. Local sources are retained in the revision companion.
+
+**E30: Completed M2.2 matched decision-LoRA pilot.** Run `OpenKind_M22_Decision_LoRA_results/m22_v041_s17_bf16_6b295d46b7436a52`, session `20260925T232651_880064Z`; results saved approximately `2026-09-26T01:21Z`. [Run folder](https://drive.google.com/drive/folders/1cpL0X1qIfJJCBxsD93PL3eJx5ui3q2pM), [report](https://drive.google.com/file/d/1Ov6794Pey5bkXrW8W73acGy2EylFhEQQ/view), [full results](https://drive.google.com/file/d/14DbznQQlYORTspE48hjS3dl5YmEosRgb/view), [contract](https://drive.google.com/file/d/1eWYvPEhcyNagNGt54pYBk1AWsTDYYroX/view), [data lock](https://drive.google.com/file/d/1c-qzDH9vcTJQ6KzPjf9SKWpTPQx33J1o/view), [J2 selection](https://drive.google.com/file/d/1-01oGgenUE14b8EDPpXLa-pKuqAKY6-y/view), [J3 selection](https://drive.google.com/file/d/1ELb_t9ulfQdkhKbya1YV75DOMQVKodp7/view), and [result manifest](https://drive.google.com/file/d/13Qk6Rpn1X93iU99rZzE5F8dPuyRLf_QF/view). Report SHA-256 `995d0807201cfec8217694b092d3f74374eff0392f0644d9a1af85a5f21d2aca`; full-results SHA-256 `2b15b867679c0c9b4c171d5bcd17d61a172ca0da262f1398a744a5d9b7b14bba`; primary-decision-rows SHA-256 `3f34d8ca83c270607c6a23927af3c21102b542ebcea4dc50f53a11a757122614`. Canonical data-lock SHA-256 `4d193807b9515ab24661d36ebb3a1bffe4a1b79b892a811fde631a6397cbd0d2`. J2 training identity `c5f70caa14fcafc69f0c71c457263b49aa956713b36747018110a957d0984128`; J3 identity `6449d8f47628f98f3b634977bd47c7e339f122e90a851299ce02bbbd28ba84b6`; both select `step_000080`. Nine result files and seven runtime sources are checked by V4. This is a separately authorized bounded pilot, not an edit of E25's historical no-training approval. Original source-record checks are not independent semantic adjudication. The metadata string `TOKENIZERS_READY_NO_WEIGHTS_LOADED` inside the contract is a tokenizer-stage status, not a claim that the later completed training/evaluation loaded no weights.
+
+**V4: M2.1/M2.2 saved-output reviews and v0.8.3 documentation checks.** Supplied companions `OpenKind_v032_Completed_Model_Readout.zip` and `OpenKind_M22_v041_Completed_Run_Review.zip` contain acquired source snapshots and CPU-only readout scripts. This update reruns those scripts on copies, checking the counts, arithmetic, selection, and explicit limits in §§3.2 and 18.21.7. E29 reconciles 2,964 unique decisions, 48 semantic-count rows, 24 identity-policy rows, and 64 fixed-visibility count/accuracy records. E30 reconciles 2,964 primary rows plus 1,000 code/order records, 120 class records, schedule/selection, and policy weighting. Its additional 10,000-draw document-bootstrap intervals are review-derived, not the original source-macro intervals. The exact-break-even policy patch remains **proposed/unapplied** to the original evaluator. This revision does not execute experiment modules, refit or reselect anything, inspect adapter/optimizer binaries, read protected final, or renew historical native/backend qualifications. The revision package supplies `WHITEPAPER_v0.8.2_to_v0.8.3.diff`, source/output hashes, and preservation checks; historical documentation claims retain their original audit scope.
 
 **Version 0.8.2 documentation boundary.** The editing base is `OpenKind_Whitepaper_v0.8.1.md`, SHA-256 `801ac783c4ef07d828d703f2658d7c3576e50e5b4d9adb73ef94a9a4467dd590`. E14–E20 were read directly from the named Drive artifacts. This revision preserves the v0.8.1 Phase 4A/4B tables and adds the completed stratified, pairwise, head-only, and evidence-residual contracts, reports, evaluations, and result locks. It reconciles their selected epochs, thresholds, reported counts, proper-score changes, policy costs, and artifact identities. It does not rerun training or model inference, adjudicate labels, or inspect final labels/predictions. The completed non-final locks remain the result authority; legacy `OpenDecision_...` folder names are retained as provenance rather than silently renamed.
 
@@ -2768,6 +3959,24 @@ Primary pages P1–P16 were checked for version 0.1 on 18 September 2026; their 
 
 **Partial run with retained fits:** a worker can save valid intermediate fitting artifacts and then fail during reporting. Retain both facts. A ZIP, a selected profile, an enabled `run_final` flag or a complete-looking summary is not proof of final evaluation. [E8]
 
+**Whole-document training versus prefix evaluation:** E30 admits only complete training documents within its cap; the diagnostic gate still uses prefix-capped inputs with locked original labels. Neither positive span retention nor missing annotations automatically determine semantic sufficiency. [E29; E30]
+
+**Training pool, exposure, and selection:** eligible questions are not the number actually visited. E30 has 2,176 eligible training questions, 960 exposures per full fit, 734 unique questions visited, and a selected update-80 snapshot after 640 exposures/538 unique questions. The selected checkpoint is not necessarily the last optimizer snapshot. [E30; V4]
+
+**Retention versus calibration:** holding QASPER out of LoRA and checkpoint selection is distinct from its continuing role in calibration-fit and policy-development. Raw semantic retention, proper-score calibration, and policy transfer must be reported separately. [E30]
+
+**Policy-cost weighting and strict benefit:** pooled-question, equal-source row-mean, and equal-source/equal-component costs are different estimands. With unit wrong cost and review cost 0.1, exact break-even is not a strict improvement, even if binary floating-point represents it slightly below 0.1. A documentation correction does not rewrite a frozen evaluator or selection. [E30; V4]
+
+**Fixed-dose versus selected view:** E31/E32 report fixed80 learning contrasts
+separately from guarded development selection. A selected-zero view aliases the
+frozen parent; repeated alias rows are not independent examples or a trained
+model with perfect retention. [E31; E32]
+
+**Replay-task learning versus retention:** a held-out-from-fit regression score on
+the replay domain can improve while another task or individual class regresses.
+E32 improves SNLI substantially without preserving QASPER or supported ContractNLI
+entailment. An already-exposed regression panel is not fresh confirmation. [E32]
+
 # Appendix D. Revision history
 
 ## Version 0.3: historical record
@@ -3017,6 +4226,64 @@ aggregate counts support the ranking/rejection account. This review did not
 repeat the earlier row-level recomputation or download the 72 state parts,
 rerun notebooks, train a model, or access final outcomes. Prior experiments and
 locks remain unchanged. The earlier opening is retained below as history.
+
+## Version 0.8.3: completed frozen comparison and matched decision-LoRA results
+
+This 25–26 September result update uses the uploaded `WHITEPAPER.md` as the
+editing authority. It adds E29/E30/V4 and §§18.20–18.22, and updates the abstract,
+executive assessment, chronology, audit/evaluation scope, architecture distinction,
+research questions, current work order, conclusion, and metric definitions.
+Historical experiment tables, prior revision entries, and Appendix E are retained.
+
+| Updated area | Recorded change |
+|---|---|
+| M1 / M2.1 | Finalized-input/visibility and raw historical-score diagnostics are distinguished from completed FP32 J0/J1 × two-budget inference; the frozen comparison is no longer future work. |
+| M2.2 execution | Both BF16 LoRA fits complete 120 updates and select update 80; all four matched arms and the code/order diagnostic complete. |
+| Main finding | ContractNLI accuracy and contradiction/none decisions improve substantially; entailment preservation and QASPER retention fail. No promotable multi-source model is selected. |
+| Policy accounting | The exact J2/QASPER break-even subcheck is documented as a floating-point reporting defect; weighting-aligned and row-pooled costs are reported separately. Original results remain immutable. |
+| Next hypothesis | Retention-aware training/selection is proposed, not executed; no automatic longer training, seed expansion, architecture sweep, compression, or final opening follows. |
+| Verification boundary | CPU-only supplied-snapshot readouts and document checks are rerun; no model, optimizer, source adjudication, historical native test, or protected-final evaluation is run. |
+
+The active roadmap, architecture files, source notebook, Drive results, labels,
+thresholds, checkpoint selections, and approvals are not changed by this update.
+The retained §18.19 interpretation is explicitly dated so its earlier future-work
+language cannot be confused with the completed later experiments.
+
+## 26 September 2026 — version 0.8.4 retention-result update
+
+Adds E31, V5, and §§18.23–18.24 for the completed parent-KL replay experiment.
+Updates abstract, executive conclusions, chronology, research questions, active
+model status, priority table, and conclusion. Records both selected-zero outcomes,
+fixed80 probability recovery, entailment and QASPER failures, stronger SNLI results
+for contract-only specialists, exact policy weighting, and the now-exposed
+retention-diagnostic boundary. Dates rather than erases the earlier §18.22 proposal.
+
+The companion N1 notebook prepares the source-label CE versus parent-KL comparison
+on unchanged inputs and with unchanged preservation checks. Its local software
+tests are not new pretrained results. Historical numeric tables and selections,
+E29 FP32 versus E30/E31 BF16 boundaries, original source labels/locks, and Appendix E
+are retained. No roadmap, old experiment notebook, historical optimizer, or
+protected-final artifact is edited or opened.
+
+## 26 September 2026 — version 0.8.5 source-label replay result update
+
+Adds E32/V6 and §§18.25–18.26 for the completed v0.6.0 J6/J7 experiment. Updates
+the abstract, executive assessment, chronology, research questions, current
+model status, proposed work, chapter status table and conclusion. Records strong
+SNLI source-label learning, worse original two-source probability scores versus
+parent KL, continued entailment/QASPER failures, both guarded-zero selections,
+policy weighting, code/order and visibility limits, and source-reported uncertainty.
+Dates rather than erases §18.24's pre-run proposal and preserves N1 as authoring
+provenance with an E32 completion cross-reference.
+
+The saved-output reviewer is rerun on copies, including SNLI reconstruction from
+exported logits; main-benchmark proper scores and bootstrap intervals remain
+source-reported. Historical numeric tables, E29 FP32 versus E30–E32 BF16 boundaries,
+J2/J3 selected80 and J4–J7 selected0 identities, prior audit/authorization scopes
+and Appendix E remain intact. No new notebook, model fit, data/label edit,
+threshold change, checkpoint reselection, roadmap edit, protected-final opening
+or model promotion is performed. The next evidence-sensitive preservation work
+remains proposed and causally unestablished.
 
 # Appendix E. Historical opening before the September refocus
 

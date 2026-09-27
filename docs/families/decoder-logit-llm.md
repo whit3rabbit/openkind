@@ -6,10 +6,30 @@
 
 ## Status in openkind
 
-**Surveyed.** No profile, no vendored parity fixtures, no daemon
-registration. Implementation would require a new profile id, new
-parity fixtures, llama.cpp linking decisions, and a fresh review
-through the active milestone sequence in [`../../ROADMAP.md`](../../ROADMAP.md).
+**Rust-loadable (prototype profile).** The pinned profile
+`465963d705b6f35d6208` loads `Qwen/Qwen2.5-0.5B-Instruct-GGUF` (q8_0) at
+`9217f5db79a29953eb74d5343926648285ec7e67` (Apache-2.0) through the candle
+quantized-runner binding, FP32 dequantization on CPU. It implements
+`DecisionEngine` behind the bounded family scaffold in
+[`families/decoder_logit_llm/`](../../crates/openkind-backends/src/families/decoder_logit_llm/mod.rs),
+registers in `openkindd` via `--decoder-llm-aliases` /
+`--decoder-llm-model-root`, and is benchmarked through
+`openkind-bench --engine decoder-llm`.
+
+**Binding decision.** The surveyed page left the binding open
+(`llama-cpp-2` versus a thin `libllama` wrapper). This profile resolves the
+open question by using candle's quantized GGUF runner: the GGUF checkpoint
+format is honored, the build surface stays inside the existing Rust
+dependency set, and the dequantization arithmetic is deterministic per
+checkpoint. The profile carries its own fitted calibration temperature; the
+q8_0 quantization shifts logits relative to the unquantized
+[`decoder-logit-letter`](decoder-logit-letter.md) profile, so the two
+profiles are not interchangeable.
+
+Probability space: `ConditionalOnOfferedOptions`; the readout never samples
+an output token; continuation state is KV cache only, cleared after every
+question. Parity fixtures replay the shared letter-family calibration
+workload within the frozen probability tolerance.
 
 ## Architectural shape
 

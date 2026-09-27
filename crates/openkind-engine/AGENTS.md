@@ -67,6 +67,8 @@
    When adding or modifying `EngineError` variants, ensure symmetric mapping exists in both `openkind-api::http` (`ApiError`) and `openkind-api::grpc` (`tonic::Status`).
 3. **Deterministic Mocking**:
    Tests that need predictable answer distributions should use `MockEngine`. Because it hashes question identifiers, identical questions receive identical answers across runs.
+4. **EngineRegistry Is Not an Artifact Loader**:
+   `EngineRegistry` routes operator aliases to pre-instantiated `Arc<dyn DecisionEngine>` engines. It does not load model weights or safetensors artifacts dynamically from disk; artifact verification and loader initialization belong in the caller (such as `openkindd` or harness binaries).
 
 ## Verification Commands
 

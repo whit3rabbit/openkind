@@ -6,9 +6,28 @@
 
 ## Status in openkind
 
-**Surveyed — contract mapping only.** No profile, no vendored parity
-fixtures, no daemon registration. See [`kev.md`](kev.md) for the
-broader rationale on contract-mapping families.
+**Rust-loadable (prototype profile, open-weights realization).** The pinned
+profile `5a7350af556f0ee66566` loads
+`cross-encoder/ms-marco-MiniLM-L-6-v2` at
+`233902d25c440f23af6f7d6e94d2946bac0bee0a` (Apache-2.0) through the candle
+`bert` implementation with the checkpoint's tanh pooler and single-logit
+classifier, FP32 on CPU. It implements `DecisionEngine` behind the bounded
+family scaffold in
+[`families/schema_scorer/`](../../crates/openkind-backends/src/families/schema_scorer/mod.rs),
+registers in `openkindd` via `--schema-scorer-aliases` /
+`--schema-scorer-model-root`, and is benchmarked through
+`openkind-bench --engine schema-scorer`.
+
+The upstream TypeSafe contract remains unowned by openkind; this profile
+pins the same *architecture shape* — one `(query, passage)` row per
+candidate through a scalar cross-encoder, per-question softmax — with the
+Jev schema rendering defined by the family module: the query side renders
+the state plus the question instruction, and each candidate criterion is
+the passage side. Probability space: `ConditionalOnOfferedOptions`; the
+fitted calibration temperature sharpens the scalar-logit differences
+strongly (the raw relevance head produces small gaps). No M0/M2
+reviewed-decision evidence exists; the recorded benchmark is request-path
+timing only.
 
 ## Architectural shape
 

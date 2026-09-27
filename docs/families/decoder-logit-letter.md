@@ -5,12 +5,23 @@
 
 ## Status in openkind
 
-**Surveyed.** No profile, no vendored parity fixtures, no daemon
-registration. Implementation would require a new profile id, new
-parity fixtures, and a fresh review through the active milestone sequence
-in [`../../ROADMAP.md`](../../ROADMAP.md). The on-disk exploration notes
-under `crates/openkind-backends/` mention a `decider` adapter as a
-design-only artefact; no Rust profile is registered against it.
+**Rust-loadable (prototype profile).** The pinned profile
+`5492c97dfcdaf3fe9439` loads `Qwen/Qwen2.5-0.5B-Instruct` at
+`7ae557604adf67be50417f59c2c2f167def9a775` (Apache-2.0) through the candle
+`qwen2` implementation, FP32 on CPU. It implements `DecisionEngine` behind
+the bounded family scaffold in
+[`families/decoder_logit_letter/`](../../crates/openkind-backends/src/families/decoder_logit_letter/mod.rs),
+registers in `openkindd` via `--decoder-letter-aliases` /
+`--decoder-letter-model-root`, and is benchmarked through
+`openkind-bench --engine decoder-letter`.
+
+The profile declares `ConditionalOnOfferedOptions` probability semantics: the
+distribution over offered options sums to one and the readout has no
+semantic-none mass of its own. A request that offers `__none__` gets it
+scored as an ordinary option. No M0/M2 reviewed-decision evidence exists for
+this profile; the recorded benchmark is request-path timing only, and the
+calibration temperature is fitted on the pinned synthetic calibration
+workload (see [`../BENCHMARKS.md`](../BENCHMARKS.md)).
 
 ## Architectural shape
 
