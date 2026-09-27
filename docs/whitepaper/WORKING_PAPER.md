@@ -1,22 +1,25 @@
 # OpenKind: Confirmed Results for Shared-State Decision Inference
 
-**Working paper · 26 September 2026 · Evidence through source-label replay v0.6.0**
+**Working paper · Revision 0.3 · 26 September 2026, America/Chicago**  
+**Evidence cutoff:** completed MoE follow-up `20260927T003918_481825Z` and all three arms of `20260927T015527_929864Z`, finalized 27 September 2026 at 03:06:39 UTC. The latter run is `EXPLORATORY_COMPLETE`; all 26 checksum entries match.
 
 ## Abstract
 
-OpenKind has demonstrated decision inference without answer generation, isolated reuse of a complete Qwen continuation state, and substantial speedups on some shared-state workloads. It has not yet demonstrated a model that satisfies the complete natural-document accuracy, rejection, and retention requirements. Decision-specific adaptation improves ContractNLI accuracy but damages supported entailment and QASPER behavior. Neither tested replay treatment resolves that trade-off. This paper records the measured results and the engineering requirements they support. The practical direction is to preserve the working execution reference, repair and measure evidence visibility, diagnose retention failures, and optimize complete request cost at an accepted quality level.
+OpenKind has demonstrated decision inference without answer generation, isolated reuse of a complete Qwen continuation state, and substantial speedups on some shared-state workloads. It has not yet demonstrated a model that satisfies the complete natural-document accuracy, rejection, and retention requirements. Decision-specific adaptation improves ContractNLI accuracy but damages supported entailment and QASPER behavior. Neither tested replay treatment resolves that trade-off. This paper records the measured results and the engineering requirements they support. The completed comparison favors the dense Qwen control: 80.73%/87.50% accuracy on the selected SNLI/authored panels at 49–53 ms, versus native MoE 57.29%/33.33% at about 1.8 seconds. These are system-profile results on an L4, not an isolated architectural comparison. No arm qualifies its acceptance policy or a cache path; FP32 routing does not repair the MoE failures. PrivateMode independently reports useful decisions from constrained option logits. Together these findings support the readout, while leaving calibrated automation, numerical equivalence and retained document competence as the immediate problems.
 
 ## 1. Scope and method
 
 “Jev-style” denotes this project's target: typed decisions and probability distributions for several questions over shared evidence, without generating a prose answer. It does not assert equivalence to Jev's private architecture, training procedure, accuracy, or latency.
 
-This is a synthesis of completed experiments, not a new model run. The latest training reports and class/SNLI tables were checked directly in Drive; Phase 3A timing aggregates were recomputed from its saved summary. Earlier cache, numerical, audit, and native-backend results retain their recorded scope in the supplied whitepaper [1–6]. “Confirmed” means observed in those tests, including negative results; it does not mean independently replicated or production-qualified.
+This is an evidence synthesis, not a new model run. All six final-panel counts, calibrated NLL/Brier scores and median timings in the completed prefill study were recomputed from saved predictions. Final item IDs, labels and options match across the three arms; state IDs do not cross dataset partitions [9]. The preceding MoE follow-up has 22 checked artifact hashes [8]. External work is explicitly attributed in §5; the supplied commentary is not itself experimental evidence. The latest training reports and class/SNLI tables were checked directly in Drive; Phase 3A timing aggregates were recomputed from its saved summary. Earlier cache, numerical, audit, and native-backend results retain their recorded scope in the supplied whitepaper [1–6]. “Confirmed” means observed in those tests, including negative results; it does not mean independently replicated or production-qualified.
 
 The recent natural-document calibration gate contains **204 ContractNLI questions from 12 contracts and 46 QASPER questions from 12 papers**. It was already exposed during research. Questions from one document are correlated. QASPER has only **five semantic-none cases** in this gate, and unresolved source/annotation limitations remain. The SNLI panel contains **192 examples** and is an exposed regression diagnostic. None is fresh release confirmation [2–5].
 
 ## 2. What computation is established
 
 Two decision readouts have run successfully: a learned scorer on candidate-conditioned hidden states, and direct scoring of the offered answer-code vocabulary rows. Both avoid answer-token generation. They are distinct model profiles; the later joint-option LoRA results do not validate the earlier branch scorer's semantic quality [1–5].
+
+The joint-option readout computes $p_i=\exp(z_i/T)/\sum_{j\in A}\exp(z_j/T)$ over the verified answer-code set $A$. This is conditional on the offered outcomes; it does not establish calibrated correctness. Supplying an answer prefix fixes the readout position. Reusing a state prefix instead saves earlier computation and has a separate equivalence requirement. A state-only pooled vector is a third, different design.
 
 The frozen Qwen3.5-4B-Base integration profile, `a047d6802c3f06f085b8`, supports the following execution topology [6]:
 
@@ -118,7 +121,74 @@ The 2F FP16-KV storage variant passed all **32/32** sampled FP32 codec gates; al
 
 Removing the output projection's use also does not remove its tied input-embedding weights: the measured **635,699,200** vocabulary weights have **zero marginal removable parameters** under that change. Avoiding answer generation saves computation; making the backbone smaller requires another intervention [1, §4.2].
 
-## 5. Requirements supported by these results
+### 4.3 MoE reductions save time without establishing useful decision quality
+
+The completed follow-up uses **Qwen1.5-MoE-A2.7B-Chat**, NF4 weights, BF16 compute and eager attention on an **NVIDIA L4**. It tests 96 authored questions from 32 states, balanced over yes/no/unknown; unknown is the explicit insufficient-evidence outcome for this task, not application review [8].
+
+| Arm | Correct / 96 | Unknown correct / 32 | Accepted; wrong | p50 | Peak allocation |
+|---|---:|---:|---:|---:|---:|
+| Native | 36 (37.50%) | 0 | 14; 9 | 2,022.49 ms | 7.8229 GiB |
+| Skip last six MoE blocks | 40 (41.67%) | 2 | 8; 3 | 1,535.78 ms | 7.8228 GiB |
+
+Skipping is **1.3169× faster**, with effectively unchanged allocation, but the research gate fails. Native predicts yes on 89/96 questions. Accepted error is 64.29% and 37.50%, respectively. Fitted temperatures of 10.13 and 13.53 soften probabilities without repairing these errors. Neither policy beats review-all at cost 0.10: observed costs are 0.17917 and 0.12292 per question [8].
+
+Split-prefill equivalence passes only **4/8** native probes and **2/8** NF4/FP32-linear-reference probes. Maximum probability differences are **0.119915** and **0.155268**, with one answer flip in each mode. Repetition, full-input cache-on checks, branch independence and root immutability pass their recorded controls. The FP32-linear control retains quantized weights and other lower-precision operations; it is not full-model FP32. The cause remains unresolved, and no cache speedup is accepted [8].
+
+A single instrumented full-input probe executes **1,437 expert calls**, averaging **59.875/60 experts per layer**. The earlier routing-fit panel similarly averaged 59.33/60 [7–8]. Four active experts per token therefore did not mean a small request-wide expert working set. No experiment streams expert weights. The later physical-removal memory table remains user-reported without its raw artifacts; it is not promoted into confirmed memory evidence. Old route-change percentages are also excluded: their observer reconstructed top-k from a separate top-(k+1) call rather than recording the model's actual selection.
+
+### 4.4 The completed comparison favors the dense control, with two gates still open
+
+Run `20260927T015527_929864Z` completed all three arms without recorded execution errors. **Qwen3-4B-Instruct-2507** uses BF16/SDPA without weight quantization; **Qwen1.5-MoE-A2.7B-Chat** uses NF4/BF16/eager, with native or FP32 router linear operations. All chose the concise prompt on development data. Each arm sees the same 192 SNLI questions/64 states and 96 authored questions/32 states. Model generation, tokenizer, architecture, quantization and attention implementation differ: this is a system comparison, not a causal test of dense versus MoE [9].
+
+| Profile | Panel | Correct | Unknown correct | Calibrated NLL | Scalar p50 |
+|---|---|---:|---:|---:|---:|
+| Dense Qwen3 4B | SNLI | 155/192 (80.73%) | 55/64 | 0.5694 | 49.28 ms |
+| Dense Qwen3 4B | Synthetic | 84/96 (87.50%) | 26/32 | 0.3317 | 52.74 ms |
+| Qwen1.5 MoE, native | SNLI | 110/192 (57.29%) | 18/64 | 0.8963 | 1,781.62 ms |
+| Qwen1.5 MoE, native | Synthetic | 32/96 (33.33%) | 2/32 | 1.0936 | 1,802.03 ms |
+| Qwen1.5 MoE, FP32 router | SNLI | 109/192 (56.77%) | 19/64 | 0.9077 | 1,788.45 ms |
+| Qwen1.5 MoE, FP32 router | Synthetic | 33/96 (34.38%) | 3/32 | 1.0937 | 1,811.44 ms |
+
+The native MoE profile's scalar median is **36.15× the dense median on SNLI and 34.17× on synthetic** in this runtime. Initial CUDA allocation is **7.4924 GiB dense versus 7.7919 GiB MoE**; these are loaded-runtime allocations, not isolated weight sizes or request peaks. This favors dense Qwen as the next research control, without establishing a serving-engine ceiling or general dense-over-MoE result. Public SNLI is a conditioned balanced subset and may overlap pretraining; authored fixtures do not establish production generalization [9].
+
+Calibration reduces dense raw NLL **3.1676 → 0.5694** and **1.2915 → 0.3317**. Dense false-unknown is **28/128** answerable SNLI cases and **0/64** synthetic cases. All six policies select the review-all sentinel because no development threshold satisfies the rule; the independent audits therefore qualify no automatic acceptance. Active coverage is **zero**, and accepted error is undefined. FP32 routing changes ten SNLI answers for a net loss of one correct answer, and three synthetic answers for a net gain of one: it is not a useful quality repair here [9].
+
+The policy rule requires ≥30 accepted source states and a one-sided 95% upper bound ≤10% on states containing any wrong accepted answer. Each source has only 32 policy-development states. A **post-hoc development-only diagnosis**, recomputed from the checkpoint, finds the dense model's largest zero-error threshold regions contain **11 questions from 10 states** on SNLI and **31 questions from 23 states** on synthetic. Neither reaches the required state count. This supports a better-powered, separately registered policy study; it neither changes the locked policy nor qualifies those thresholds on final data [9].
+
+| Profile | Variant | Passing groups / 8 | Maximum raw Δp | Groups with an answer change |
+|---|---|---:|---:|---:|
+| Dense Qwen3 4B | Full batch | 6 | 0.032107 | 0 |
+| Dense Qwen3 4B | Sequential prefix | 7 | 0.010099 | 0 |
+| Dense Qwen3 4B | Batched prefix | 6 | 0.019341 | 0 |
+| Qwen1.5 MoE, native | Full batch | 0 | 0.125998 | 1 |
+| Qwen1.5 MoE, native | Sequential prefix | 0 | 0.134924 | 2 |
+| Qwen1.5 MoE, native | Batched prefix | 0 | 0.110286 | 3 |
+| Qwen1.5 MoE, FP32 router | Full batch | 0 | 0.109553 | 1 |
+| Qwen1.5 MoE, FP32 router | Sequential prefix | 0 | 0.145594 | 1 |
+| Qwen1.5 MoE, FP32 router | Batched prefix | 0 | 0.099736 | 0 |
+
+Each group contains three questions. A passing mode must satisfy **maximum raw Δp ≤0.005 and identical decisions across all eight groups**. Every mode fails. Repetition, root immutability and branch-storage checks pass their sampled controls. Consequently the full latency sweeps, final cache comparisons and LRU traces are **not run**; their false/unqualified status must not be presented as additional failed measurements. No cold/warm cache speedup exists in this run. Dense failures preserve tested answers but exceed the probability tolerance; MoE variants also change answers [9].
+
+The corrected observer records actual selected expert IDs and leaves probabilities unchanged on its parity probe. On one **115-token input over 24 layers**, full-versus-split expert sets differ at **136/1,512 prefix token-layer positions** and **100/1,248 suffix positions** under native routing. With FP32 routing the corresponding counts are **109/1,512** and **101/1,248**. Observed exact boundary ties fall **158 → 0**, but routing differences and failed output parity persist. Router FP32 alone is therefore insufficient; these repeated positions are not independent examples or proof of a unique numerical cause [9].
+
+Cyclic option-order checks change **0/24** dense decisions and **9/24** in each MoE arm. Probability drift also occurs in the dense profile, so a MoE-router-only explanation cannot account for every failure. The next bounded experiment should diagnose dense execution precision and acceptance, while preserving document-retention requirements. No model or cache path is promoted [9].
+
+## 5. What PrivateMode corroborates—and what it does not
+
+PrivateMode's GLM-5.3-Flash implementation reads specified answer-index token log probabilities after a prefilled answer prefix, then normalizes over the options. It needs no task fine-tune [10–11]. This corroborates OpenKind's joint-option interface; it does not validate our checkpoints, training, or shared-state runtime.
+
+| External observation | Relationship to OpenKind |
+|---|---|
+| On 28 common text datasets, PrivateMode reports a median gap of 0.7 percentage points in Jev's favor; paired Wilcoxon p=0.64 [10,12]. | Retain a frozen joint-option baseline. Failure to detect a difference is not a statistical equivalence proof or a guarantee on our document tasks. |
+| TREC changes from 6 to 42 labels: GLM accuracy 91.2% → 79.6%; Jev 92.1% → 85.6% [14]. | Test option count and descriptions alongside state length. Finer labels also change semantic difficulty; do not attribute the change solely to K. |
+| Identical hosted requests change up to 3.5% of answers [10]. | Consistent with execution sensitivity in §§4.2–4.4, but not evidence of the same cause. Preserve our stricter, profile-specific parity gate. |
+| The methodology flags ambiguous Banking77 label pairs and warns that model agreement can share errors [13]. | Matches the need for source/annotation audits in §3.1. Consensus is an audit lead, never permission to rewrite gold or assert a universal accuracy ceiling. |
+
+Their list-price comparison is about **€62 versus €16 per million decisions**; geographic latency ordering reverses between Germany and the US [12]. Neither establishes FLOPs, local speed, or an expert-streaming advantage. Their repository describes confidence as distribution concentration, not a correctness guarantee [11]. Our zero-coverage dense result and poorly transferring MoE policy show why calibration and acceptance must be tested separately.
+
+**Engineering inference:** preserve the frozen joint-option control, improve task retention and qualify exact-prefix execution before introducing another neural head or expert-streaming architecture. PrivateMode's answer prefilling does not itself demonstrate reusable KV state. In our joint-option graph, K options occupy one question suffix; Q questions can create Q branches. There are not automatically Q×K candidate lanes to amortize expert I/O.
+
+## 6. Requirements supported by these results
 
 These are engineering consequences of the observations, not newly demonstrated remedies.
 
@@ -126,11 +196,11 @@ These are engineering consequences of the observations, not newly demonstrated r
 |---|---|---|
 | Accurate decisions | Preserve source-to-input provenance; measure visibility, per-class errors, and task retention. Diagnose supported-to-none and supported-to-contradiction errors before another bounded adaptation. | §3 |
 | Useful probabilities | Keep calibration and review policy separate from semantic none; select on development and report coverage, accepted error, NLL/Brier, and cost by source. | §3.3 |
-| Fast requests | Profile repeated-full, sequential sharing, and vectorized sharing on the actual Mac, including prefill, branching, suffix work, synchronization, and serialization. | §4.1 |
+| Fast requests | Resolve the dense BF16 execution disagreement on fixed development probes; then compare full batching, cold/warm sharing and real cache-hit traces against the fastest qualified uncached path. Port the accepted profile to Mac. | §§4.1, 4.4 |
 | Reliable reuse | Bind exact tokens, position, complete hybrid state, and model/runtime identity; retain root isolation, memory admission, and probability/decision parity checks. | §§2, 4.2 |
 | Lower memory | Measure weights, hybrid state, scratch, and process memory separately. Qualify any smaller or quantized model against the accepted quality point. | §4.2 |
 
-No reviewed result yet establishes a generally capable Jev replacement, a successful pooled-prefill decision model, an accepted smaller-model replacement, or a streaming-MoE advantage. Streaming experts was not evaluated in these experiments. The immediate model question is retention on supported document judgments; the immediate systems question is the MLX execution crossover. Their experiments can remain separate while the frozen integration reference stays intact.
+No reviewed result establishes a generally capable Jev replacement, a successful pooled-prefill model, or a streaming-MoE advantage. The next work is a bounded numerical/cache diagnosis plus policy and document-retention qualification. Streaming remains a conditional memory experiment: measure actual expert bytes, reuse, transfer stalls and complete latency before asserting a benefit. Preserve the frozen integration reference and all failed gates.
 
 ## References and reproducibility
 
@@ -140,3 +210,12 @@ No reviewed result yet establishes a generally capable Jev replacement, a succes
 4. **Parent-KL replay:** `retention_v050_s17_bf16_a69ba45a76e74b63`. [Results](https://drive.google.com/file/d/1YHm5PSVb6GTC3kNwLKboooJq-TQKlDMZ/view).
 5. **Source-label replay:** `source_label_v060_s17_bf16_dbb5e724b5452f23`. [Results](https://drive.google.com/file/d/1YX6xJU9X2mQS9c8KfQ45JnwaQD7xOzIq/view), [class counts](https://drive.google.com/file/d/1HwZ1hzdFuM2gLsp-CZosQSSUFC08pqzW/view), [SNLI results](https://drive.google.com/file/d/1DuEPUFyF-LDxJII5P3O8aLHAeCXVNnxI/view). These retain the earlier locked controls.
 6. **Phase 3A systems reference:** run `20260920T024056Z`. [Summary and timings](https://drive.google.com/file/d/1qXohe2YORrp3pCHHjFJ-fwSOIbLiKoXm/view), [runtime identity](https://drive.google.com/file/d/1qOrftZoKsxmtrwwfR7iibM5RzcyuYadZ/view). Profile `a047d6802c3f06f085b8`; bundle SHA-256 `4d9ffdee0aea5c71c666d0feae372cffe79a05934aedee2245012e3a53c23332`.
+
+7. **Initial MoE review:** [inspected run `20260926T224132_613995Z`](https://drive.google.com/drive/folders/1344_xljzgYaHEWJTUVEe7k3_2DXoM3Fi), [evidence review](https://drive.google.com/file/d/1BakLhcj4Xb6uLF1QC5V51ihflVSURtzs/view). The distinct pasted physical-removal run was not recovered.
+8. **Completed MoE follow-up:** [run `20260927T003918_481825Z`](https://drive.google.com/drive/folders/1gXwnF1sXhR5Yh4-7R2izDQ9TJXDl_Lf1), especially `manifest.json`, `summary.json`, `final_predictions.json`, `cache_numerics.json`, `expert_batch_shapes.csv` and `SHA256SUMS`. Model revision `ec052fda178e241c7c443468d2fa1db6618996be`; fresh data SHA-256 `59fabd2b2ae55553e136b2d636b645466591ac5ad5fc422f06ecdac7fcb4818d`. Old route-change observation code was also inspected.
+9. **Completed three-arm prefill study:** [run `20260927T015527_929864Z`](https://drive.google.com/drive/folders/14FsOosgKt9oJKK-Y8yPuKtkuaDClBgC3), [final summary](https://drive.google.com/file/d/1x6WPopdMqgma4PLUVNPYLP3S819oHmpo/view), [dense arm](https://drive.google.com/file/d/1B_xMTsp1S4VLDCjY5JzSzyOxM71Mgpkn/view), [native MoE](https://drive.google.com/file/d/1RnEU6QnAgrTPHwDFQSA2GOUfHTKOay5Z/view), [FP32-router MoE](https://drive.google.com/file/d/1IdQLpiukvtV0FuCSJTPVyyJVnLv4pDg7/view), [checkpoint](https://drive.google.com/file/d/1cVevE0d8OdltBKME60GlDSgT3r-eGWkJ/view). All 26 `SHA256SUMS` entries verified. Final summary SHA-256 `43cdf8d418733cecc8d9459802fffbfbf214f3fe94a4724260ce82f9b43d4399`; dense-arm hash remains `f566f3d999209efa150bd885e7a9387092db730b13d05289fde402130e37d4f8`. Model revisions: dense `cdbee75f17c01a7cc42f958dc650907174af0554`, MoE `ec052fda178e241c7c443468d2fa1db6618996be`. The completion manifest supersedes the earlier running snapshot. Policy-development threshold diagnostics are retrospective analysis of saved predictions, not a new run or revised selection.
+10. Hötter, J. and Rosenmüller, M. **[Turn GLM-5.3-Flash into a Jev-like System One model](https://www.privatemode.ai/blog/system-one-from-glm-flash)**. PrivateMode / Edgeless Systems, 24 September 2026. Read 27 September UTC. Vendor-authored external results, not independently rerun here.
+11. Edgeless Systems. **[privatemode-decisions](https://github.com/edgelesssys/privatemode-decisions)**, README. Token-specific log-probability readout, confidence semantics and explicit none-option requirement; live source read 27 September UTC.
+12. Edgeless Systems. **[privatemode-decisions-benchmark](https://github.com/edgelesssys/privatemode-decisions-benchmark)**, README. Comparison scope, repeated runs, separate latency probes and dated list-price accounting. The 28-dataset Germany medians and four-dataset geographic probe are different populations.
+13. Edgeless Systems. **[Benchmark methodology](https://github.com/edgelesssys/privatemode-decisions-benchmark/blob/main/METHODOLOGY.md)**. Label-audit cautions, source scope and reproducibility. Some planning prose differs from the completed suite; completed result tables control numerical claims.
+14. Edgeless Systems. **[Completed suite results](https://github.com/edgelesssys/privatemode-decisions-benchmark/blob/main/results/suite.md)**. TREC coarse/fine values are separate task granularities.
