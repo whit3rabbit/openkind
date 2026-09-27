@@ -205,6 +205,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 See the [`openkind-client` guide](crates/openkind-client/README.md) for configuration, authentication, retries, and request options.
 
+## TypeScript, Python, and Swift clients
+
+Source packages in [`bindings/`](bindings/README.md) call a running `openkindd` over the same System One HTTP API as the CLI. They cover evaluation, model listing, and health, with request-bound answer checks. Each also has a local process wrapper that can start and stop `openkindd`. See the package guides for platform limits and tests.
+
 ## Development
 
 Run the repository verification battery before submitting changes:
