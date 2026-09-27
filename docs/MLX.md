@@ -153,6 +153,13 @@ Consequently:
 - parity does not establish that vectorized execution is faster;
 - no measured vectorized-versus-per-lane throughput result is available yet.
 
+An opt-in [candidate pooling diagnostic](BENCHMARKS.md#candidate-pooling-diagnostic)
+can combine candidate lanes from different questions when their continuation
+positions match. It preserves question/candidate result order and falls back
+to one-lane execution where pooling is impossible. The service and automatic
+scheduler do not select this graph pending matched performance and parity
+evidence.
+
 ## Gated DeltaNet implementations
 
 The linear-attention recurrence has two implementations:
@@ -227,7 +234,7 @@ are localization diagnostics, not replacement acceptance tolerances.
 | Area | Current issue | Consequence |
 |---|---|---|
 | GPU concurrency | One process-wide lock and stream | Correct and race-resistant, but model requests do not overlap on the GPU |
-| Physical batching | Forced FP32 `ReferenceOps` lanes use one vectorized forward for 2–8 lanes; model parity is pending | Keep automatic capability disabled and make no throughput claim until the variable-length gate and comparison pass |
+| Physical batching | Forced FP32 `ReferenceOps` lanes use one vectorized forward for 2–8 lanes; the variable-length fixture gate passes | Keep automatic capability disabled and make no throughput claim until a matched comparison passes |
 | Packed Metal kernel | Correct but 14 to 28 percent slower in the smoke sweep | Remains opt-in |
 | Native BF16 reference path | 22 September full probability error `0.0060996`; nested probability error `0.0265808`; both have zero argmax/policy changes | Gate B fails at the frozen `0.005` tolerance; nested state and isolation checks pass, but BF16 remains unpromoted |
 | Native BF16 fused path | Model-backed probability error was about `0.0287` with one policy change | Runtime falls back to BF16 `ReferenceOps` |

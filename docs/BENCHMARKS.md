@@ -143,6 +143,36 @@ decision use even though the nested state checks complete. A community
 checkpoint can be passed as `--checkpoint-root` for throughput comparison,
 but its bench output is not a parity claim.
 
+### Candidate pooling diagnostic
+
+[`qwen35_candidate_pool_bench`](../crates/openkind-backends/examples/qwen35_candidate_pool_bench.rs)
+replays the pinned Phase 3B token suffixes through FP32 MLX. It reports
+prefill, question, candidate, and readout time, observed physical forward
+calls, padded token slots, and process/MLX peak memory. `Q=2` draws the two
+equal-position questions with unequal candidate lengths; `Q=3` includes the
+shorter question. Larger `Q` or `K` repeat fixture tokens as a load shape and
+have no semantic-quality interpretation.
+
+Run each strategy in a separate process on a quiet host, alternating the
+strategy order across paired repetitions:
+
+```bash
+SDKROOT=$(xcrun --show-sdk-path) cargo run --release -p openkind-backends \
+  --features mlx --example qwen35_candidate_pool_bench -- \
+  --checkpoint <pinned-checkpoint-dir> --q 2 --k 2 --iterations 5 \
+  --max-lanes 8 --strategy nested_sequential
+# Repeat with --strategy nested_batched and --strategy pooled.
+```
+
+The timed region includes backbone continuation and score-summary readout,
+but excludes request rendering, tokenization, wire validation, and model load.
+These stage measurements localize a bottleneck. Promotion requires paired
+fresh-process **full-request** `openkind-bench` runs, at least 10% median
+latency improvement, no material p95 or memory regression, and the frozen
+probability/selection/policy parity gates. The pooled runner is diagnostic
+until those results exist; the automatic scheduler and service path retain
+their current behavior.
+
 ### Outputs
 
 - `summary-<engine>.json` — schema `openkind-bench/v1`: provenance

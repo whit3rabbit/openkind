@@ -19,15 +19,15 @@ mod profile;
 mod tokenizer;
 
 pub use backbone::{
-    choose_strategy, run_batched_candidates, run_batched_nested, run_batched_questions,
-    run_repeated_full, run_sequential_nested, run_strategy, run_with_scheduler, BackboneOutput,
-    BackboneReference, BackboneState, BatchContinuation, BatchedCandidateResult, BatchedCandidates,
-    BatchedNestedRun, BatchedQuestionResult, BatchedQuestions, CountingExecutor, EmbeddingOutput,
-    ExecutionStrategy, FullSequenceRecord, Layer0Output, LayerKind, NestedCandidateResult,
-    NestedQuestion, NestedQuestionResult, NestedRun, ProcessMemoryEnvelope, Qwen35Backbone,
-    Qwen35BranchBatch, Qwen35Embedding, Qwen35Layer0, RetentionEstimates, SchedulerConfig,
-    SequentialNestedExecutor, StageComparison, StrategyDecision, StrategyEstimates, StrategyOutput,
-    StrategyRequest, TraceStage,
+    choose_strategy, run_batched_candidates, run_batched_nested, run_batched_nested_pooled,
+    run_batched_questions, run_repeated_full, run_sequential_nested, run_strategy,
+    run_with_scheduler, BackboneOutput, BackboneReference, BackboneState, BatchContinuation,
+    BatchedCandidateResult, BatchedCandidates, BatchedNestedRun, BatchedQuestionResult,
+    BatchedQuestions, CountingExecutor, EmbeddingOutput, ExecutionStrategy, FullSequenceRecord,
+    Layer0Output, LayerKind, NestedCandidateResult, NestedQuestion, NestedQuestionResult,
+    NestedRun, ProcessMemoryEnvelope, Qwen35Backbone, Qwen35BranchBatch, Qwen35Embedding,
+    Qwen35Layer0, RetentionEstimates, SchedulerConfig, SequentialNestedExecutor, StageComparison,
+    StrategyDecision, StrategyEstimates, StrategyOutput, StrategyRequest, TraceStage,
 };
 pub use engine::{Qwen35Backend, Qwen35DecisionEngine, Qwen35EngineConfig, SEMANTIC_NONE_OPTION};
 pub use evidence::{native_profile_record, BACKEND_IMPLEMENTATION};
