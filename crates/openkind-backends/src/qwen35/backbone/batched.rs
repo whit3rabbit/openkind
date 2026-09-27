@@ -23,8 +23,10 @@ use openkind_runtime::BatchForwardMode;
 use super::model::{BackboneState, Qwen35Backbone};
 use super::nested::{NestedQuestion, SequentialNestedExecutor};
 
+mod pooled;
 mod types;
 
+pub use pooled::run_batched_nested_pooled;
 pub use types::*;
 
 /// Fan one prefilled root into `plans.len()` isolated lanes and evaluate the
