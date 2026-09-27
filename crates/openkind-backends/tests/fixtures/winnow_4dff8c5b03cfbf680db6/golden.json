@@ -1,0 +1,70 @@
+{
+  "backbone": {
+    "id": "Qwen/Qwen2.5-0.5B-Instruct",
+    "revision": "7ae557604adf67be50417f59c2c2f167def9a775"
+  },
+  "calibration_temperature": 1.0,
+  "cases": [
+    {
+      "expected_label": "english",
+      "name": "english-incident",
+      "probabilities": [
+        0.9978820544747395,
+        0.002117945525260491
+      ],
+      "state": "Fictional incident record. Affected asset: application server. The asset operating system is Linux."
+    },
+    {
+      "expected_label": "english",
+      "name": "english-report",
+      "probabilities": [
+        0.9993617950096244,
+        0.0006382049903755657
+      ],
+      "state": "The quarterly report lists revenue by region and product line. No anomalies were recorded."
+    },
+    {
+      "expected_label": "english",
+      "name": "english-question",
+      "probabilities": [
+        0.9999560915770985,
+        0.000043908422901503564
+      ],
+      "state": "A user reported that the search bar stopped returning results after the latest deploy."
+    },
+    {
+      "expected_label": "multilingual",
+      "name": "russian-record",
+      "probabilities": [
+        0.00032881647122013795,
+        0.9996711835287799
+      ],
+      "state": "Сводка инцидента: затронутый актив — сервер приложений. Операционная система Linux."
+    },
+    {
+      "expected_label": "multilingual",
+      "name": "chinese-record",
+      "probabilities": [
+        0.008956279608615347,
+        0.9910437203913848
+      ],
+      "state": "事故记录：受影响资产为应用服务器。操作系统为Linux。文档记录的影响级别为2。"
+    },
+    {
+      "expected_label": "multilingual",
+      "name": "russian-journal",
+      "probabilities": [
+        0.000019506342974067796,
+        0.9999804936570259
+      ],
+      "state": "Журнал подключений: использовался SSH из внутренней подсети. Пароль не был скомпрометирован."
+    }
+  ],
+  "execution_arithmetic": "candle-cpu-fp32-qwen2-lora",
+  "probability_tolerance": 0.005,
+  "profile_id": "4dff8c5b03cfbf680db6",
+  "provenance": {
+    "adapter": "tests/fixtures/winnow_adapter/adapters.safetensors",
+    "generator": "gen-winnow-fixture"
+  }
+}

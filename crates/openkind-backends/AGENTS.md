@@ -14,6 +14,14 @@ It is responsible for:
 - Multi-lane execution strategies (`repeated_full`, `nested_sequential`, `nested_batched`) and adaptive scheduling.
 - `Qwen35DecisionEngine`: Wire adapter implementing `openkind_engine::DecisionEngine`.
 
+Before implementing a model profile or family, follow the
+[family integration guide](../../docs/families/NEW_FAMILY.md). A backend enum,
+checkpoint, or architecture page alone is not a Rust loader. Mark a profile
+Rust-loadable in the [family registry](../../docs/families/README.md) only
+after its artifacts are pinned and load locally, it has offline parity
+fixtures and a `DecisionEngine` adapter, and the daemon registers it under an
+alias. Keep task quality and release promotion as separate gates.
+
 ### Invariants & Non-Autoregressive Execution Model
 
 1. **No Autoregressive Text Generation**:
@@ -107,6 +115,15 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
     - [`full_attention.rs`](./src/qwen35/mlx/layers/full_attention.rs): Grouped-query attention, rotary embedding (`apply_rotary`), and per-head normalization.
     - [`ops.rs`](./src/qwen35/mlx/layers/ops.rs): MLX array operations, causal conv windowing, and tensor loading helpers.
     - [`differential_tests/`](./src/qwen35/mlx/layers/differential_tests/): Independent FP32 host reference and differential verification tests.
+- [`src/families/`](./src/families/): Surveyed-family model loaders, readouts, and engine adapters:
+  - [`mod.rs`](./src/families/mod.rs): Facade re-exporting `BoundedFamilyEngine`, `FamilyLimits`, `FamilyControl`, `FamilyEvaluator`, and wire answer unpacking.
+  - [`decoder_logit_letter/`](./src/families/decoder_logit_letter/): Qwen2.5-0.5B-Instruct letter readout (`5492c97dfcdaf3fe9439`). Evaluates single-token option letters over prompt-formatted choices.
+  - [`decoder_logit_llm/`](./src/families/decoder_logit_llm/): GGUF q8_0 letter readout (`465963d705b6f35d6208`). Offline GGUF checkpoint evaluation for letter-choice prompts.
+  - [`encoder_nli/`](./src/families/encoder_nli/): DistilBERT MNLI entailment readout (`1041a4c362338a61b820`). Maps premise-hypothesis entailment vs contradiction logits to decision distributions.
+  - [`schema_scorer/`](./src/families/schema_scorer/): MS MARCO cross-encoder scalar readout (`5a7350af556f0ee66566`). Evaluates query-passage relevance scores through sigmoid calibration.
+  - [`router_script/`](./src/families/router_script/): Composite routing engine dispatching across sibling engines by Unicode script or rule table (`ScriptRuleTable`).
+  - [`qwen3guard/`](./src/families/qwen3guard/): Guardrail safety classification profile and evaluation.
+  - [`support.rs`](./src/families/support.rs), [`wire.rs`](./src/families/wire.rs), [`calibration.rs`](./src/families/calibration.rs), [`letter_renderer.rs`](./src/families/letter_renderer.rs): Reusable scaffolding: admission bounds, temperature scaling, prompt generation, and wire answer conversions.
 - Multi-file examples:
   - [`examples/qwen35_mlx_qualify/`](./examples/qwen35_mlx_qualify/): Phase 3M.0 runtime qualification suite (`main.rs`, `gate.rs`, `fp32.rs`, `bf16.rs`, `helpers.rs`).
   - [`examples/qwen35_mlx_full_parity/`](./examples/qwen35_mlx_full_parity/): Phase 3M.2–3M.4 full-sequence parity gate (`main.rs`, `full.rs`, `trace.rs`, `fixtures.rs`).
@@ -170,7 +187,7 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
 # Check compilation across all targets
 cargo check -p openkind-backends
 
-# Run backends unit and parity test suites
+# Run backends unit and parity test suites (Qwen 3.5 reference and surveyed families)
 cargo test -p openkind-backends
 ```
 

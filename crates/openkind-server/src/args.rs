@@ -5,9 +5,15 @@ use anyhow::Result;
 use clap::Parser;
 use openkind_runtime::ExecutionPlan;
 
+use crate::families::FamilyArgs;
+
 #[derive(Parser, Debug)]
 #[command(name = "openkindd", about = "openkind inference daemon")]
 pub(crate) struct Args {
+    /// Surveyed-family engine configuration (aliases and artifact paths).
+    #[command(flatten)]
+    pub(crate) family_args: FamilyArgs,
+
     /// Address to bind the HTTP server on.
     #[arg(long, env = "OPENKIND_HTTP_ADDR")]
     pub(crate) http_addr: Option<SocketAddr>,

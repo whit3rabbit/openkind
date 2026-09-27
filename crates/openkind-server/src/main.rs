@@ -11,6 +11,7 @@
 //! - graceful shutdown on SIGINT/SIGTERM
 
 mod args;
+mod families;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -93,6 +94,15 @@ async fn main() -> Result<()> {
     // Engine registry.
     let mut registry = EngineRegistry::new();
     let mock = Arc::new(MockEngine::new());
+    args.family_args.validate()?;
+    let family_engines = args.family_args.load_requested(&args.models)?;
+    for (alias, engine) in &family_engines {
+        info!(
+            alias,
+            backend = engine.backend_id(),
+            "registered family engine"
+        );
+    }
     let native_requested = args
         .models
         .iter()
@@ -149,11 +159,69 @@ async fn main() -> Result<()> {
                 .as_ref()
                 .expect("native engine loaded when a native alias is requested")
                 .clone()
+        } else if let Some((_, family_engine)) = family_engines
+            .iter()
+            .find(|(family_alias, _)| family_alias == alias)
+        {
+            family_engine.clone()
         } else {
             mock.clone()
         };
         info!(alias, backend = engine.backend_id(), "registered model");
         registry.register(alias.clone(), engine);
+    }
+
+    // Winnow routers register after their siblings so they can hold handles
+    // to the registered engines.
+    for (alias, sibling_labels) in args.family_args.winnow_requested(&args.models)? {
+        let (model_root, adapter) = args.family_args.winnow_artifacts(&alias)?;
+        let mut siblings: Vec<(String, Arc<dyn DecisionEngine>)> = Vec::new();
+        for sibling_alias in &sibling_labels {
+            let engine = registry.get(sibling_alias).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "winnow alias `{alias}` references unregistered sibling `{sibling_alias}`"
+                )
+            })?;
+            siblings.push((sibling_alias.clone(), engine));
+        }
+        let engine = openkind_backends::families::winnow::WinnowEngine::load(
+            openkind_backends::families::winnow::WinnowEngineConfig {
+                model_root,
+                adapter_path: adapter,
+                limits: openkind_backends::families::support::FamilyLimits {
+                    max_concurrent_requests: args.family_args.family_concurrency,
+                    max_queued_requests: args.family_args.family_queue,
+                    retry_after_ms: 1_000,
+                    evaluation_timeout: Some(std::time::Duration::from_millis(
+                        args.family_args.family_timeout_ms,
+                    )),
+                },
+            },
+            siblings,
+        )
+        .map_err(|error| anyhow::anyhow!("compose winnow alias `{alias}`: {error}"))?;
+        info!(alias, backend = engine.backend_id(), "registered model");
+        registry.register(alias, Arc::new(engine));
+    }
+
+    // Router-script composites register after their siblings so they can
+    // hold handles to the registered engines.
+    for (alias, rules) in args.family_args.router_script_requested(&args.models)? {
+        let siblings: std::collections::HashMap<String, Arc<dyn DecisionEngine>> = rules
+            .referenced_aliases()
+            .into_iter()
+            .filter_map(|sibling_alias| {
+                registry
+                    .get(sibling_alias)
+                    .map(|engine| (sibling_alias.to_owned(), engine))
+            })
+            .collect();
+        let router = openkind_backends::families::router_script::RouterScriptEngine::new(
+            rules, &siblings,
+        )
+        .map_err(|error| anyhow::anyhow!("compose router-script alias `{alias}`: {error}"))?;
+        info!(alias, backend = router.backend_id(), "registered model");
+        registry.register(alias, Arc::new(router));
     }
 
     // Install metrics recorder once, shared across HTTP/gRPC.
