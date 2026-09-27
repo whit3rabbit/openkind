@@ -1,0 +1,146 @@
+{
+  "run": "20260927T151913_239807Z",
+  "run_key": "e15e1e9f7a64e464a38354c59b0c79805d59bc13d517f7e4fca66873e5d5ff2e",
+  "status": "EXPLORATORY_COMPLETE",
+  "url": "https://drive.google.com/drive/folders/1LIKE7JSmEcO2fvrhf8Qx4_ZJfv-heGwD",
+  "quality": [
+    {
+      "arm": "qwen35_4b",
+      "dataset": "snli",
+      "n": 288,
+      "states": 96,
+      "correct": 217,
+      "accuracy": 0.7534722222222222,
+      "unknown_recall": 0.7916666666666666,
+      "false_unknown": 0.2552083333333333,
+      "nll": 0.5791043742210022,
+      "brier": 0.3369336627754249,
+      "coverage": 0.0,
+      "accepted": 0,
+      "accepted_wrong": 0,
+      "accepted_error": null,
+      "accepted_states": 0,
+      "failed_accepted_states": 0,
+      "accepted_state_error_upper95": null,
+      "p50_ms": 63.10258799976509,
+      "p95_ms": 65.96204305017181,
+      "prompt_tokens_p50": 145.0,
+      "correct_accepted_per_second": 0.0,
+      "raw_nll": 0.5769805516790386,
+      "temperature": 1.02636520742157,
+      "policy_audit_passed": false
+    },
+    {
+      "arm": "qwen35_4b",
+      "dataset": "synthetic",
+      "n": 288,
+      "states": 96,
+      "correct": 218,
+      "accuracy": 0.7569444444444444,
+      "unknown_recall": 0.84375,
+      "false_unknown": 0.13541666666666666,
+      "nll": 0.4031365304486935,
+      "brier": 0.258144308996367,
+      "coverage": 0.5902777777777778,
+      "accepted": 170,
+      "accepted_wrong": 4,
+      "accepted_error": 0.023529411764705882,
+      "accepted_states": 96,
+      "failed_accepted_states": 4,
+      "accepted_state_error_upper95": 0.09281212153015525,
+      "p50_ms": 63.39832549997482,
+      "p95_ms": 67.27317344982566,
+      "prompt_tokens_p50": 189.5,
+      "correct_accepted_per_second": 9.029687235352089,
+      "raw_nll": 0.5322164331149941,
+      "temperature": 0.40928071658481213,
+      "policy_audit_passed": true
+    },
+    {
+      "arm": "qwen35_moe_int4",
+      "dataset": "snli",
+      "n": 288,
+      "states": 96,
+      "correct": 244,
+      "accuracy": 0.8472222222222222,
+      "unknown_recall": 0.90625,
+      "false_unknown": 0.17708333333333334,
+      "nll": 0.47543505006832476,
+      "brier": 0.24434335082377676,
+      "coverage": 0.0,
+      "accepted": 0,
+      "accepted_wrong": 0,
+      "accepted_error": null,
+      "accepted_states": 0,
+      "failed_accepted_states": 0,
+      "accepted_state_error_upper95": null,
+      "p50_ms": 126.32019349985057,
+      "p95_ms": 131.92070319998945,
+      "prompt_tokens_p50": 145.0,
+      "correct_accepted_per_second": 0.0,
+      "raw_nll": 0.5392381542057749,
+      "temperature": 1.6610079903944746,
+      "policy_audit_passed": false
+    },
+    {
+      "arm": "qwen35_moe_int4",
+      "dataset": "synthetic",
+      "n": 288,
+      "states": 96,
+      "correct": 267,
+      "accuracy": 0.9270833333333334,
+      "unknown_recall": 0.78125,
+      "false_unknown": 0.0,
+      "nll": 0.14976254176475723,
+      "brier": 0.08961233630010935,
+      "coverage": 0.8819444444444444,
+      "accepted": 254,
+      "accepted_wrong": 1,
+      "accepted_error": 0.003937007874015748,
+      "accepted_states": 96,
+      "failed_accepted_states": 1,
+      "accepted_state_error_upper95": 0.048462071705057154,
+      "p50_ms": 126.72733749991494,
+      "p95_ms": 130.74834345013642,
+      "prompt_tokens_p50": 189.5,
+      "correct_accepted_per_second": 6.913751311007693,
+      "raw_nll": 0.14961769734214078,
+      "temperature": 0.8327425560878131,
+      "policy_audit_passed": true
+    }
+  ],
+  "cache": {
+    "qwen35_4b": {
+      "qualified": {
+        "full_concurrent": false,
+        "cold_staged": false,
+        "warm_state": false
+      },
+      "option_order_changed": 8,
+      "option_order_n": 24
+    },
+    "qwen35_moe_int4": {
+      "qualified": {
+        "full_concurrent": false,
+        "cold_staged": false,
+        "warm_state": false
+      },
+      "option_order_changed": 3,
+      "option_order_n": 24
+    }
+  },
+  "diagnosis": {
+    "shared_prefix_tokens_range": [
+      59,
+      105
+    ],
+    "block_tokens": {
+      "qwen35_4b": 528,
+      "qwen35_moe_int4": 1056
+    },
+    "all_cached_tokens_zero": true,
+    "moe_repeat_cold_max_dp": 0.17599983596,
+    "dense_concurrent_max_dp": 0.03275461957,
+    "cause_not_isolated": "No actual cache reuse was exercised; MoE uncached probability instability remains a separate observation."
+  }
+}

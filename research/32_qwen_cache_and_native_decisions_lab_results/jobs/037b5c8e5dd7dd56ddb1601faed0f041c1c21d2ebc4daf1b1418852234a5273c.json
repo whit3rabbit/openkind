@@ -1,0 +1,2537 @@
+{
+  "key": "qwen35_moe_int4__standard/cache/2113",
+  "run_key": "7047c6b31436f8e9b5aa85a5dad9ea4378d16eaa0912ebba288fae273c7e12ae",
+  "session": "2026-09-27T16:49:45.999727+00:00",
+  "seconds": 14.264611118999937,
+  "value": {
+    "arm": "qwen35_moe_int4__standard",
+    "prefix_tokens": 2113,
+    "block_tokens": 1056,
+    "status": "MEASURED",
+    "rows": [
+      {
+        "arm": "qwen35_moe_int4__standard",
+        "mode": "cold_serial",
+        "prefix_tokens": 2113,
+        "block_tokens": 1056,
+        "q": 4,
+        "status": "UNQUALIFIED",
+        "reasons": [
+          "BASELINE_UNSTABLE_OR_NOT_COLD",
+          "DISTRIBUTION_OR_DECISION_DRIFT"
+        ],
+        "max_dp": 0.03921417294349361,
+        "decision_flips": 0,
+        "diagnostic_action_flips": 1,
+        "cached_tokens_min": 0,
+        "required_reuse_observed": true,
+        "request_p50_ms": 967.0150090000789,
+        "request_p95_ms": 984.0944047999983,
+        "prime_p50_ms": 0.0,
+        "total_with_prime_p50_ms": 967.0150090000789,
+        "speedup_including_prime": null,
+        "warm_only_speedup": null
+      },
+      {
+        "arm": "qwen35_moe_int4__standard",
+        "mode": "cold_concurrent",
+        "prefix_tokens": 2113,
+        "block_tokens": 1056,
+        "q": 4,
+        "status": "UNQUALIFIED",
+        "reasons": [
+          "BASELINE_UNSTABLE_OR_NOT_COLD",
+          "DISTRIBUTION_OR_DECISION_DRIFT"
+        ],
+        "max_dp": 0.021575666259425794,
+        "decision_flips": 0,
+        "diagnostic_action_flips": 2,
+        "cached_tokens_min": 0,
+        "required_reuse_observed": true,
+        "request_p50_ms": 490.2195649999612,
+        "request_p95_ms": 490.97489840005437,
+        "prime_p50_ms": 0.0,
+        "total_with_prime_p50_ms": 490.2195649999612,
+        "speedup_including_prime": null,
+        "warm_only_speedup": null
+      },
+      {
+        "arm": "qwen35_moe_int4__standard",
+        "mode": "cold_staged",
+        "prefix_tokens": 2113,
+        "block_tokens": 1056,
+        "q": 4,
+        "status": "UNQUALIFIED",
+        "reasons": [
+          "BASELINE_UNSTABLE_OR_NOT_COLD",
+          "DISTRIBUTION_OR_DECISION_DRIFT"
+        ],
+        "max_dp": 0.04541284801741885,
+        "decision_flips": 0,
+        "diagnostic_action_flips": 4,
+        "cached_tokens_min": 0,
+        "required_reuse_observed": true,
+        "request_p50_ms": 501.7022960000759,
+        "request_p95_ms": 504.44646480009396,
+        "prime_p50_ms": 0.0,
+        "total_with_prime_p50_ms": 501.7022960000759,
+        "speedup_including_prime": null,
+        "warm_only_speedup": null
+      },
+      {
+        "arm": "qwen35_moe_int4__standard",
+        "mode": "warm_prefix",
+        "prefix_tokens": 2113,
+        "block_tokens": 1056,
+        "q": 4,
+        "status": "UNQUALIFIED",
+        "reasons": [
+          "BASELINE_UNSTABLE_OR_NOT_COLD",
+          "DISTRIBUTION_OR_DECISION_DRIFT"
+        ],
+        "max_dp": 0.060419906606236196,
+        "decision_flips": 0,
+        "diagnostic_action_flips": 0,
+        "cached_tokens_min": 2112,
+        "required_reuse_observed": true,
+        "request_p50_ms": 265.8970039999531,
+        "request_p95_ms": 268.8888386001054,
+        "prime_p50_ms": 146.52700100009497,
+        "total_with_prime_p50_ms": 412.1150610001223,
+        "speedup_including_prime": null,
+        "warm_only_speedup": null
+      }
+    ],
+    "reference": {
+      "mode": "cold_serial",
+      "predictions": [
+        {
+          "id": "boundary-2113-0",
+          "gold": "zone_0",
+          "options": [
+            "zone_0",
+            "zone_1",
+            "zone_2"
+          ],
+          "decision": "zone_0",
+          "probabilities": [
+            0.8925823153297737,
+            0.10660375534221599,
+            0.0008139293280102748
+          ],
+          "logits": [
+            -2.258030414581299,
+            -4.383030414581299,
+            -9.258030891418457
+          ],
+          "request_ms": 244.64628500004437,
+          "prompt_tokens": 2187,
+          "cached_tokens": 0
+        },
+        {
+          "id": "boundary-2113-1",
+          "gold": "zone_1",
+          "options": [
+            "zone_0",
+            "zone_1",
+            "zone_2"
+          ],
+          "decision": "zone_1",
+          "probabilities": [
+            0.0005849327279839967,
+            0.9935074559934035,
+            0.005907611278612411
+          ],
+          "logits": [
+            -9.56768798828125,
+            -2.13018798828125,
+            -7.25518798828125
+          ],
+          "request_ms": 246.1800440000843,
+          "prompt_tokens": 2187,
+          "cached_tokens": 0
+        },
+        {
+          "id": "boundary-2113-2",
+          "gold": "zone_2",
+          "options": [
+            "zone_0",
+            "zone_1",
+            "zone_2"
+          ],
+          "decision": "zone_2",
+          "probabilities": [
+            0.0019042597572478765,
+            0.011664999671971732,
+            0.9864307405707803
+          ],
+          "logits": [
+            -8.405632019042969,
+            -6.593132495880127,
+            -2.155632257461548
+          ],
+          "request_ms": 249.2601310000282,
+          "prompt_tokens": 2187,
+          "cached_tokens": 0
+        },
+        {
+          "id": "boundary-2113-3",
+          "gold": "zone_0",
+          "options": [
+            "zone_0",
+            "zone_1",
+            "zone_2"
+          ],
+          "decision": "zone_0",
+          "probabilities": [
+            0.8301877730152177,
+            0.16347366511846573,
+            0.006338561866316715
+          ],
+          "logits": [
+            -2.4956674575805664,
+            -4.120667457580566,
+            -7.370667457580566
+          ],
+          "request_ms": 242.44762700004685,
+          "prompt_tokens": 2187,
+          "cached_tokens": 0
+        }
+      ],
+      "wall_ms": 982.6657560001877,
+      "prime_ms": 0.0,
+      "total_with_prime_ms": 982.6657560001877,
+      "cached_tokens": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "telemetry_complete": true,
+      "cold_verified": true,
+      "reuse_observed": true
+    },
+    "samples": [
+      {
+        "mode": "cold_staged",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.9234108007592909,
+              0.07579817430961969,
+              0.0007910249310894978
+            ],
+            "logits": [
+              -2.146066665649414,
+              -4.646066665649414,
+              -9.208566665649414
+            ],
+            "request_ms": 242.9480450000483,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.0007503532515651287,
+              0.9925618178266035,
+              0.006687828921831579
+            ],
+            "logits": [
+              -9.770731925964355,
+              -2.5832314491271973,
+              -7.583231449127197
+            ],
+            "request_ms": 256.61929400007466,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.0013958124309169815,
+              0.010313736355630338,
+              0.9882904512134527
+            ],
+            "logits": [
+              -9.276031494140625,
+              -7.276031494140625,
+              -2.713531494140625
+            ],
+            "request_ms": 257.13367299999845,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8756006210326366,
+              0.11849962979708911,
+              0.005899749170274244
+            ],
+            "logits": [
+              -2.6047728061676025,
+              -4.604773044586182,
+              -7.604773044586182
+            ],
+            "request_ms": 256.3409380002213,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          }
+        ],
+        "wall_ms": 501.2042860000747,
+        "prime_ms": 0.0,
+        "total_with_prime_ms": 501.2042860000747,
+        "cached_tokens": [
+          0,
+          2112,
+          2112,
+          2112
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 0,
+        "parity": {
+          "max_dp": 0.04541284801741885,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 1,
+          "passed": false
+        }
+      },
+      {
+        "mode": "warm_prefix",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8801329869449755,
+              0.11911306127346677,
+              0.0007539517815577176
+            ],
+            "logits": [
+              -1.9365721940994263,
+              -3.9365720748901367,
+              -8.999072074890137
+            ],
+            "request_ms": 266.45246799989764,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.0007976081921269183,
+              0.9911468305900895,
+              0.008055561217783835
+            ],
+            "logits": [
+              -9.256978988647461,
+              -2.1319785118103027,
+              -6.944478511810303
+            ],
+            "request_ms": 266.2154140000439,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.0013104837041817475,
+              0.010972545714975067,
+              0.9877169705808432
+            ],
+            "logits": [
+              -8.346680641174316,
+              -6.221680641174316,
+              -1.721680760383606
+            ],
+            "request_ms": 265.06022200010193,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.81021574848625,
+              0.1807835697145169,
+              0.00900068179923313
+            ],
+            "logits": [
+              -2.057884454727173,
+              -3.557884454727173,
+              -6.557884693145752
+            ],
+            "request_ms": 265.3663369999322,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          }
+        ],
+        "wall_ms": 267.5824289999582,
+        "prime_ms": 147.17714800008252,
+        "total_with_prime_ms": 414.75957700004074,
+        "cached_tokens": [
+          2112,
+          2112,
+          2112,
+          2112
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 0,
+        "parity": {
+          "max_dp": 0.019972024528967736,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 0,
+          "passed": false
+        }
+      },
+      {
+        "mode": "cold_concurrent",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8800901793522617,
+              0.11910728209378517,
+              0.000802538553953046
+            ],
+            "logits": [
+              -2.1498348712921143,
+              -4.149834632873535,
+              -9.149834632873535
+            ],
+            "request_ms": 365.1302749999559,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.0008480966220695479,
+              0.990034005410994,
+              0.009117897966936524
+            ],
+            "logits": [
+              -9.418242454528809,
+              -2.3557424545288086,
+              -7.043242454528809
+            ],
+            "request_ms": 489.21486999984154,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.0017877477768218123,
+              0.01240942327515414,
+              0.9858028289480241
+            ],
+            "logits": [
+              -8.916706085205078,
+              -6.979206562042236,
+              -2.6042063236236572
+            ],
+            "request_ms": 489.05104999994364,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8092459225022854,
+              0.1805671722873988,
+              0.010186905210315665
+            ],
+            "logits": [
+              -2.0645434856414795,
+              -3.5645434856414795,
+              -6.4395432472229
+            ],
+            "request_ms": 488.0844960000559,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          }
+        ],
+        "wall_ms": 490.8801040000981,
+        "prime_ms": 0.0,
+        "total_with_prime_ms": 490.8801040000981,
+        "cached_tokens": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 0,
+        "parity": {
+          "max_dp": 0.020941850512932292,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 0,
+          "passed": false
+        }
+      },
+      {
+        "mode": "cold_serial",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.9317964882732673,
+              0.06749909512284395,
+              0.0007044166038887035
+            ],
+            "logits": [
+              -2.255068063735962,
+              -4.880068302154541,
+              -9.442567825317383
+            ],
+            "request_ms": 243.2444870000836,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.0007493197652970491,
+              0.9911947297160312,
+              0.00805595051867185
+            ],
+            "logits": [
+              -9.429376602172852,
+              -2.2418761253356934,
+              -7.054376125335693
+            ],
+            "request_ms": 245.39827099988543,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.0016808794450544186,
+              0.01166761037469633,
+              0.9866515101802492
+            ],
+            "logits": [
+              -8.634724617004395,
+              -6.697225093841553,
+              -2.2597248554229736
+            ],
+            "request_ms": 245.8614459999353,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8619998925643592,
+              0.1321919964615634,
+              0.005808110974077419
+            ],
+            "logits": [
+              -2.2658655643463135,
+              -4.140865325927734,
+              -7.265865325927734
+            ],
+            "request_ms": 247.4424499998804,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          }
+        ],
+        "wall_ms": 982.0852640000339,
+        "prime_ms": 0.0,
+        "total_with_prime_ms": 982.0852640000339,
+        "cached_tokens": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 0,
+        "parity": {
+          "max_dp": 0.03921417294349361,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 1,
+          "passed": false
+        }
+      },
+      {
+        "mode": "warm_prefix",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8663066534221221,
+              0.13285242811309048,
+              0.0008409184647874453
+            ],
+            "logits": [
+              -2.3711581230163574,
+              -4.246158123016357,
+              -9.3086576461792
+            ],
+            "request_ms": 266.4879019998807,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.0009037125145246591,
+              0.9910415816798399,
+              0.00805470580563555
+            ],
+            "logits": [
+              -9.131190299987793,
+              -2.1311898231506348,
+              -6.943689823150635
+            ],
+            "request_ms": 267.66322299999956,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.0013917358677088903,
+              0.013204415970449478,
+              0.9854038481618416
+            ],
+            "logits": [
+              -8.597315788269043,
+              -6.347316265106201,
+              -2.034816026687622
+            ],
+            "request_ms": 266.8403820000549,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8631087993819611,
+              0.13236202131278665,
+              0.004529179305252195
+            ],
+            "logits": [
+              -2.1584506034851074,
+              -4.033450603485107,
+              -7.408450603485107
+            ],
+            "request_ms": 266.8578819998402,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          }
+        ],
+        "wall_ms": 269.21544100014216,
+        "prime_ms": 147.97513200005596,
+        "total_with_prime_ms": 417.1905730001981,
+        "cached_tokens": [
+          2112,
+          2112,
+          2112,
+          2112
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 1,
+        "parity": {
+          "max_dp": 0.03292102636674332,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 0,
+          "passed": false
+        }
+      },
+      {
+        "mode": "cold_serial",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8798896413247772,
+              0.11908011382565027,
+              0.0010302448495724376
+            ],
+            "logits": [
+              -2.372072219848633,
+              -4.372072219848633,
+              -9.122072219848633
+            ],
+            "request_ms": 245.69792600004803,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.0007500302801389017,
+              0.9921338839458482,
+              0.007116085774012956
+            ],
+            "logits": [
+              -9.319706916809082,
+              -2.132207155227661,
+              -7.06970739364624
+            ],
+            "request_ms": 245.10054300003503,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.0016796147312148494,
+              0.012410773391453352,
+              0.9859096118773317
+            ],
+            "logits": [
+              -8.519891738891602,
+              -6.519891262054443,
+              -2.1448915004730225
+            ],
+            "request_ms": 246.9554879999123,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8609686458553462,
+              0.13203381813966958,
+              0.006997536004984266
+            ],
+            "logits": [
+              -2.3829874992370605,
+              -4.2579874992370605,
+              -7.1954874992370605
+            ],
+            "request_ms": 246.70463600000403,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          }
+        ],
+        "wall_ms": 984.5966899999894,
+        "prime_ms": 0.0,
+        "total_with_prime_ms": 984.5966899999894,
+        "cached_tokens": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 1,
+        "parity": {
+          "max_dp": 0.03143984697879615,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 0,
+          "passed": false
+        }
+      },
+      {
+        "mode": "cold_staged",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.9039048931332792,
+              0.09527085209957858,
+              0.0008242547671423465
+            ],
+            "logits": [
+              -2.0373690128326416,
+              -4.287369251251221,
+              -9.037368774414062
+            ],
+            "request_ms": 244.47954500010383,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.0007039532362870452,
+              0.9912397285951782,
+              0.008056318168534821
+            ],
+            "logits": [
+              -9.491761207580566,
+              -2.2417614459991455,
+              -7.054261207580566
+            ],
+            "request_ms": 257.00117099995623,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.001578013353107291,
+              0.012412036464609585,
+              0.9860099501822831
+            ],
+            "logits": [
+              -8.476062774658203,
+              -6.413562774658203,
+              -2.0385630130767822
+            ],
+            "request_ms": 257.39168900008735,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8444449053855904,
+              0.14674252123549208,
+              0.00881257337891765
+            ],
+            "logits": [
+              -2.378887176513672,
+              -4.128887176513672,
+              -6.941387176513672
+            ],
+            "request_ms": 257.0123919999787,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          }
+        ],
+        "wall_ms": 503.123892000076,
+        "prime_ms": 0.0,
+        "total_with_prime_ms": 503.123892000076,
+        "cached_tokens": [
+          0,
+          2112,
+          2112,
+          2112
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 1,
+        "parity": {
+          "max_dp": 0.016731143882973643,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 1,
+          "passed": false
+        }
+      },
+      {
+        "mode": "cold_concurrent",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8925354622655156,
+              0.10659815954167925,
+              0.0008663781928050405
+            ],
+            "logits": [
+              -2.1505661010742188,
+              -4.275566101074219,
+              -9.088066101074219
+            ],
+            "request_ms": 489.45009699991715,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.0008494209807360949,
+              0.9915797722277685,
+              0.007570806791495495
+            ],
+            "logits": [
+              -9.417125701904297,
+              -2.354625940322876,
+              -7.229625701904297
+            ],
+            "request_ms": 364.58466099998077,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.0016720025341185186,
+              0.016886635446866385,
+              0.9814413620190151
+            ],
+            "logits": [
+              -8.972384452819824,
+              -6.659883975982666,
+              -2.597384214401245
+            ],
+            "request_ms": 488.121670000055,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.809745694036583,
+              0.18067868638988424,
+              0.009575619573532692
+            ],
+            "logits": [
+              -2.499636650085449,
+              -3.999636650085449,
+              -6.937136650085449
+            ],
+            "request_ms": 488.01972199999,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          }
+        ],
+        "wall_ms": 490.2195649999612,
+        "prime_ms": 0.0,
+        "total_with_prime_ms": 490.2195649999612,
+        "cached_tokens": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 1,
+        "parity": {
+          "max_dp": 0.020442078978634703,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 0,
+          "passed": false
+        }
+      },
+      {
+        "mode": "cold_serial",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8925354510158103,
+              0.10659817090558502,
+              0.0008663780786047055
+            ],
+            "logits": [
+              -1.83061683177948,
+              -3.9556167125701904,
+              -8.76811695098877
+            ],
+            "request_ms": 242.23232800000005,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.000962411453463428,
+              0.9914676397024578,
+              0.007569948844078966
+            ],
+            "logits": [
+              -9.637547492980957,
+              -2.7000479698181152,
+              -7.575047969818115
+            ],
+            "request_ms": 242.01394600004278,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.002026825513646888,
+              0.011663569963004189,
+              0.986309604523349
+            ],
+            "logits": [
+              -8.565911293029785,
+              -6.815911769866943,
+              -2.3784117698669434
+            ],
+            "request_ms": 240.32906499996898,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8121776779844694,
+              0.1812213353576545,
+              0.006600986657876156
+            ],
+            "logits": [
+              -2.282350540161133,
+              -3.782350540161133,
+              -7.094850540161133
+            ],
+            "request_ms": 242.30507999982365,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          }
+        ],
+        "wall_ms": 967.0150090000789,
+        "prime_ms": 0.0,
+        "total_with_prime_ms": 967.0150090000789,
+        "cached_tokens": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 2,
+        "parity": {
+          "max_dp": 0.018010095030748352,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 0,
+          "passed": false
+        }
+      },
+      {
+        "mode": "warm_prefix",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8660394971040086,
+              0.13281145836478378,
+              0.0011490445312075874
+            ],
+            "logits": [
+              -2.0495941638946533,
+              -3.9245941638946533,
+              -8.674593925476074
+            ],
+            "request_ms": 260.28657300003033,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.0007493199452541666,
+              0.9911947314427282,
+              0.008055948612017557
+            ],
+            "logits": [
+              -9.543169021606445,
+              -2.355668783187866,
+              -7.168169021606445
+            ],
+            "request_ms": 261.19350499993743,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.0013155990940232878,
+              0.007112058116957496,
+              0.9915723427890192
+            ],
+            "logits": [
+              -8.66912841796875,
+              -6.981628894805908,
+              -2.044128656387329
+            ],
+            "request_ms": 260.74272000005294,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8102157450089169,
+              0.180783568938619,
+              0.009000686052463994
+            ],
+            "logits": [
+              -2.4994571208953857,
+              -3.9994571208953857,
+              -6.999456882476807
+            ],
+            "request_ms": 260.3904660002172,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          }
+        ],
+        "wall_ms": 262.7932430000328,
+        "prime_ms": 144.5190049998928,
+        "total_with_prime_ms": 407.3122479999256,
+        "cached_tokens": [
+          2112,
+          2112,
+          2112,
+          2112
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 2,
+        "parity": {
+          "max_dp": 0.026542818225765097,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 0,
+          "passed": false
+        }
+      },
+      {
+        "mode": "cold_concurrent",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8925354618967902,
+              0.10659815949764129,
+              0.0008663786055685349
+            ],
+            "logits": [
+              -2.1485466957092285,
+              -4.2735466957092285,
+              -9.08604621887207
+            ],
+            "request_ms": 358.8170639998225,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.0009049591825877397,
+              0.9924082466500291,
+              0.006686794167383234
+            ],
+            "logits": [
+              -9.354228973388672,
+              -2.354228973388672,
+              -7.354228973388672
+            ],
+            "request_ms": 479.1444770000908,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.0016831870531798067,
+              0.010310770739590965,
+              0.9880060422072292
+            ],
+            "logits": [
+              -8.414121627807617,
+              -6.601621627807617,
+              -2.0391218662261963
+            ],
+            "request_ms": 479.8768929999824,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8460942569536001,
+              0.14702910050712786,
+              0.0068766425392720295
+            ],
+            "logits": [
+              -2.3808882236480713,
+              -4.13088846206665,
+              -7.19338846206665
+            ],
+            "request_ms": 479.13683499996296,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          }
+        ],
+        "wall_ms": 481.54887000009694,
+        "prime_ms": 0.0,
+        "total_with_prime_ms": 481.54887000009694,
+        "cached_tokens": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 2,
+        "parity": {
+          "max_dp": 0.016444564611337864,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 0,
+          "passed": false
+        }
+      },
+      {
+        "mode": "cold_staged",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.9039499944916929,
+              0.09527565117760864,
+              0.0007743543306984159
+            ],
+            "logits": [
+              -2.1469662189483643,
+              -4.396965980529785,
+              -9.209465980529785
+            ],
+            "request_ms": 243.27880700002424,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.0007509433733662079,
+              0.9933424266483771,
+              0.0059066299782566875
+            ],
+            "logits": [
+              -9.654698371887207,
+              -2.467197895050049,
+              -7.592197895050049
+            ],
+            "request_ms": 255.69957800007614,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.0014825470447322295,
+              0.012413220345952287,
+              0.9861042326093156
+            ],
+            "logits": [
+              -8.64287281036377,
+              -6.517872333526611,
+              -2.1428723335266113
+            ],
+            "request_ms": 256.23376600015035,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8291039656625976,
+              0.16326025079706266,
+              0.0076357835403398555
+            ],
+            "logits": [
+              -2.0555286407470703,
+              -3.6805286407470703,
+              -6.74302864074707
+            ],
+            "request_ms": 255.33927100013898,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          }
+        ],
+        "wall_ms": 500.61892100006844,
+        "prime_ms": 0.0,
+        "total_with_prime_ms": 500.61892100006844,
+        "cached_tokens": [
+          0,
+          2112,
+          2112,
+          2112
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 2,
+        "parity": {
+          "max_dp": 0.011367679161919164,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 1,
+          "passed": false
+        }
+      },
+      {
+        "mode": "warm_prefix",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8926263335196961,
+              0.10660901256529615,
+              0.00076465391500781
+            ],
+            "logits": [
+              -1.9348421096801758,
+              -4.059842109680176,
+              -8.997342109680176
+            ],
+            "request_ms": 265.0823629999195,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.0009037129450590376,
+              0.9910415812527765,
+              0.008054705802164587
+            ],
+            "logits": [
+              -9.242321968078613,
+              -2.2423219680786133,
+              -7.054821968078613
+            ],
+            "request_ms": 262.8671289999147,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.0015780137334110976,
+              0.01241203353741052,
+              0.9860099527291785
+            ],
+            "logits": [
+              -8.475494384765625,
+              -6.412994861602783,
+              -2.037994861602783
+            ],
+            "request_ms": 264.1230579999956,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.7911714179342486,
+              0.20003946152276356,
+              0.008789120542987824
+            ],
+            "logits": [
+              -1.959679126739502,
+              -3.334679126739502,
+              -6.459679126739502
+            ],
+            "request_ms": 263.20074799991744,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          }
+        ],
+        "wall_ms": 265.8970039999531,
+        "prime_ms": 144.46141300004456,
+        "total_with_prime_ms": 410.35841699999764,
+        "cached_tokens": [
+          2112,
+          2112,
+          2112,
+          2112
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 3,
+        "parity": {
+          "max_dp": 0.03901635508096912,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 0,
+          "passed": false
+        }
+      },
+      {
+        "mode": "cold_serial",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8662596449394568,
+              0.13284525080156206,
+              0.0008951042589811414
+            ],
+            "logits": [
+              -2.26213002204895,
+              -4.137129783630371,
+              -9.137129783630371
+            ],
+            "request_ms": 244.57883300010508,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.0007489313614681765,
+              0.9906800071726488,
+              0.008571061465883122
+            ],
+            "logits": [
+              -9.657869338989258,
+              -2.470369815826416,
+              -7.220369815826416
+            ],
+            "request_ms": 237.23892299994986,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.0022905658061094262,
+              0.014031416678332614,
+              0.983678017515558
+            ],
+            "logits": [
+              -8.43912124633789,
+              -6.626621246337891,
+              -2.3766214847564697
+            ],
+            "request_ms": 238.2433499999479,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8457191463500326,
+              0.14696395111278932,
+              0.007316902537178141
+            ],
+            "logits": [
+              -2.1606624126434326,
+              -3.9106624126434326,
+              -6.910662651062012
+            ],
+            "request_ms": 243.4338470000057,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          }
+        ],
+        "wall_ms": 963.6299290000352,
+        "prime_ms": 0.0,
+        "total_with_prime_ms": 963.6299290000352,
+        "cached_tokens": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 3,
+        "parity": {
+          "max_dp": 0.026322670390316882,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 0,
+          "passed": false
+        }
+      },
+      {
+        "mode": "cold_staged",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.9141844578181071,
+              0.08503242066158508,
+              0.0007831215203078803
+            ],
+            "logits": [
+              -2.4795982837677,
+              -4.854598045349121,
+              -9.542098045349121
+            ],
+            "request_ms": 244.4162540000434,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.0009619408979703992,
+              0.9909838227331282,
+              0.008054236368901506
+            ],
+            "logits": [
+              -9.521470069885254,
+              -2.5839695930480957,
+              -7.396469593048096
+            ],
+            "request_ms": 255.6327479999254,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.0017937213278531347,
+              0.009109268538765291,
+              0.9890970101333816
+            ],
+            "logits": [
+              -8.57442569732666,
+              -6.94942569732666,
+              -2.26192569732666
+            ],
+            "request_ms": 255.96867800004475,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8291039656625976,
+              0.16326025079706266,
+              0.0076357835403398555
+            ],
+            "logits": [
+              -2.497222900390625,
+              -4.122222900390625,
+              -7.184722900390625
+            ],
+            "request_ms": 255.6437780001488,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          }
+        ],
+        "wall_ms": 501.7022960000759,
+        "prime_ms": 0.0,
+        "total_with_prime_ms": 501.7022960000759,
+        "cached_tokens": [
+          0,
+          2112,
+          2112,
+          2112
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 3,
+        "parity": {
+          "max_dp": 0.021602142488333365,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 1,
+          "passed": false
+        }
+      },
+      {
+        "mode": "cold_concurrent",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.9040322724907869,
+              0.09528430049942897,
+              0.0006834270097842694
+            ],
+            "logits": [
+              -2.1466383934020996,
+              -4.3966383934021,
+              -9.334138870239258
+            ],
+            "request_ms": 489.8152470000241,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.001089316989277337,
+              0.9903425411975971,
+              0.00856814181312555
+            ],
+            "logits": [
+              -9.396554946899414,
+              -2.584054946899414,
+              -7.334054946899414
+            ],
+            "request_ms": 366.3992770000277,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.0019102406036399873,
+              0.008561100352797581,
+              0.9895286590435624
+            ],
+            "logits": [
+              -8.400948524475098,
+              -6.900949001312256,
+              -2.150949001312256
+            ],
+            "request_ms": 488.85215500013146,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8291039656625976,
+              0.16326025079706266,
+              0.0076357835403398555
+            ],
+            "logits": [
+              -2.165274143218994,
+              -3.790274143218994,
+              -6.852774143218994
+            ],
+            "request_ms": 488.33129300010114,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          }
+        ],
+        "wall_ms": 490.99859700004345,
+        "prime_ms": 0.0,
+        "total_with_prime_ms": 490.99859700004345,
+        "cached_tokens": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 3,
+        "parity": {
+          "max_dp": 0.011449957161013158,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 1,
+          "passed": false
+        }
+      },
+      {
+        "mode": "cold_serial",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8927065422041924,
+              0.10661859212656631,
+              0.0006748656692412883
+            ],
+            "logits": [
+              -2.0397486686706543,
+              -4.164748668670654,
+              -9.227248191833496
+            ],
+            "request_ms": 243.5595709998779,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.001023385909446042,
+              0.9904079087799683,
+              0.008568705310585602
+            ],
+            "logits": [
+              -9.810833930969238,
+              -2.935833692550659,
+              -7.685833930969238
+            ],
+            "request_ms": 239.74633299985726,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.0014813617961706956,
+              0.013203233969323708,
+              0.9853154042345056
+            ],
+            "logits": [
+              -8.871064186096191,
+              -6.683564186096191,
+              -2.3710641860961914
+            ],
+            "request_ms": 239.10619399998723,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8286958275063989,
+              0.1631799225341315,
+              0.008124249959469546
+            ],
+            "logits": [
+              -2.497732400894165,
+              -4.122732162475586,
+              -7.122732162475586
+            ],
+            "request_ms": 237.89735699983794,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          }
+        ],
+        "wall_ms": 960.4556040001171,
+        "prime_ms": 0.0,
+        "total_with_prime_ms": 960.4556040001171,
+        "cached_tokens": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 4,
+        "parity": {
+          "max_dp": 0.0030995472134351942,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 0,
+          "passed": true
+        }
+      },
+      {
+        "mode": "cold_concurrent",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.9141383248634869,
+              0.08502808908279019,
+              0.0008335860537228031
+            ],
+            "logits": [
+              -2.48197340965271,
+              -4.856973648071289,
+              -9.481973648071289
+            ],
+            "request_ms": 487.7955860001748,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.0010239174739214375,
+              0.9909223439071267,
+              0.008053738618951607
+            ],
+            "logits": [
+              -9.230298042297363,
+              -2.355297803878784,
+              -7.167797565460205
+            ],
+            "request_ms": 364.0038450000702,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.001792668562576622,
+              0.009691074688995452,
+              0.988516256748428
+            ],
+            "logits": [
+              -8.353363037109375,
+              -6.665863037109375,
+              -2.040863275527954
+            ],
+            "request_ms": 486.09591700005694,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8118320604659224,
+              0.18114421766539102,
+              0.007023721868686573
+            ],
+            "logits": [
+              -2.2740070819854736,
+              -3.7740070819854736,
+              -7.024007320404053
+            ],
+            "request_ms": 486.95161399996323,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          }
+        ],
+        "wall_ms": 488.93598299991936,
+        "prime_ms": 0.0,
+        "total_with_prime_ms": 488.93598299991936,
+        "cached_tokens": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 4,
+        "parity": {
+          "max_dp": 0.021575666259425794,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 1,
+          "passed": false
+        }
+      },
+      {
+        "mode": "warm_prefix",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8924855932114768,
+              0.10659220353253074,
+              0.0009222032559924546
+            ],
+            "logits": [
+              -2.2600488662719727,
+              -4.385048866271973,
+              -9.135048866271973
+            ],
+            "request_ms": 263.19881099993836,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.0007990325441426361,
+              0.9929160896664652,
+              0.006284877789392099
+            ],
+            "logits": [
+              -9.593608856201172,
+              -2.468609094619751,
+              -7.531108856201172
+            ],
+            "request_ms": 264.2160570001124,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.0021188709597076724,
+              0.02925012530153105,
+              0.9686310037387612
+            ],
+            "logits": [
+              -8.061684608459473,
+              -5.4366841316223145,
+              -1.936684250831604
+            ],
+            "request_ms": 263.41333099981057,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.7697678664089815,
+              0.22054218619500718,
+              0.009689947396011192
+            ],
+            "logits": [
+              -2.3924880027770996,
+              -3.6424880027770996,
+              -6.7674880027771
+            ],
+            "request_ms": 263.2825690000118,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          }
+        ],
+        "wall_ms": 265.5880600000273,
+        "prime_ms": 146.52700100009497,
+        "total_with_prime_ms": 412.1150610001223,
+        "cached_tokens": [
+          2112,
+          2112,
+          2112,
+          2112
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 4,
+        "parity": {
+          "max_dp": 0.060419906606236196,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 0,
+          "passed": false
+        }
+      },
+      {
+        "mode": "cold_staged",
+        "predictions": [
+          {
+            "id": "boundary-2113-0",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8925823149833519,
+              0.1066037553008418,
+              0.0008139297158062193
+            ],
+            "logits": [
+              -2.2574052810668945,
+              -4.3824052810668945,
+              -9.257405281066895
+            ],
+            "request_ms": 242.81710800005385,
+            "prompt_tokens": 2187,
+            "cached_tokens": 0
+          },
+          {
+            "id": "boundary-2113-1",
+            "gold": "zone_1",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_1",
+            "probabilities": [
+              0.0007496862130746093,
+              0.9916787548638984,
+              0.007571558923027061
+            ],
+            "logits": [
+              -9.20921802520752,
+              -2.0217182636260986,
+              -6.896718502044678
+            ],
+            "request_ms": 261.0010719999991,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-2",
+            "gold": "zone_2",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_2",
+            "probabilities": [
+              0.0016852281917240314,
+              0.00911025753166812,
+              0.9892045142766077
+            ],
+            "logits": [
+              -8.303805351257324,
+              -6.616305351257324,
+              -1.9288052320480347
+            ],
+            "request_ms": 260.63294400000814,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          },
+          {
+            "id": "boundary-2113-3",
+            "gold": "zone_0",
+            "options": [
+              "zone_0",
+              "zone_1",
+              "zone_2"
+            ],
+            "decision": "zone_0",
+            "probabilities": [
+              0.8106578178073747,
+              0.18088220871293614,
+              0.008459973479689192
+            ],
+            "logits": [
+              -2.273954391479492,
+              -3.773954391479492,
+              -6.836454391479492
+            ],
+            "request_ms": 260.36075599995456,
+            "prompt_tokens": 2187,
+            "cached_tokens": 2112
+          }
+        ],
+        "wall_ms": 504.77710800009845,
+        "prime_ms": 0.0,
+        "total_with_prime_ms": 504.77710800009845,
+        "cached_tokens": [
+          0,
+          2112,
+          2112,
+          2112
+        ],
+        "telemetry_complete": true,
+        "cold_verified": true,
+        "reuse_observed": true,
+        "repeat": 4,
+        "parity": {
+          "max_dp": 0.019529955207843064,
+          "decision_flips": 0,
+          "diagnostic_action_flips": 0,
+          "passed": false
+        }
+      }
+    ]
+  }
+}

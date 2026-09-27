@@ -43,6 +43,8 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 | **29** | [`29_qwen_moe_decision_lab.ipynb`](./29_qwen_moe_decision_lab.ipynb) | MoE Lab v0.2 (`20260926T224132_613995Z`) | NVIDIA L4 (NF4 / BF16 compute) | Qwen MoE decision inference, expert routing sparsity, top-k truncation, expert allowlisting, late MoE bypass, exact prefix state sharing, and physical weight residency | Prefill touches 98.7%–99.6% of experts (active params $\ne$ resident VRAM); top-1 routing cuts latency by 1.59x but drops accuracy by 15.6pp; late MoE skip preserves 53.1% acc (vs 56.3% native) at 1.32x speedup; direct selected readout achieves exact zero-delta parity; shared prefix state fails strict parity on MoE without full router isolation; physical pruning frees memory only when non-routed modules are deleted | [`29_qwen_moe_decision_lab_results/`](./29_qwen_moe_decision_lab_results) |
 | **30** | [`30_qwen_moe_quality_and_cache_followup.ipynb`](./30_qwen_moe_quality_and_cache_followup.ipynb) | MoE Follow-up v0.1 (`20260927T003918_481825Z`) | NVIDIA L4 (NF4 / BF16 compute) | Multi-split decision quality (252 Qs, 84 states), prompt selection, mass-matched top-k, late-block skip, FP32 linear reference cache numerics, option order diagnostics | Explicit three-way prompt won dev; `skip_last_6` selected on dev and evaluated on 96 fresh test cases (41.7% vs 37.5% native, 1.32x speedup, 8.3% coverage vs 14.6% native); native Unknown recall 0/32; mass-matched half-k beats raw half-k in NLL (2.038 vs 2.122); cache parity failed on both native ($\Delta p=0.120$) and FP32 linear reference ($\Delta p=0.155$); option order flips 25.0% of decisions ($\max \Delta p = 0.169$); research gate failed, promotion rejected | [Drive run](https://drive.google.com/drive/folders/1gXwnF1sXhR5Yh4-7R2izDQ9TJXDl_Lf1) / [`29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z) |
 | **31** | [`31_qwen_prefill_speed_accuracy_lab.ipynb`](./31_qwen_prefill_speed_accuracy_lab.ipynb) | MoE Prefill Speed & Accuracy Lab v0.2 (`e15e1e9f7a64e464a38354c59b0c79805d59bc13d517f7e4fca66873e5d5ff2e`) | NVIDIA A100-SXM4-40GB (vLLM 0.30.0, BF16 / GPTQ INT4) | Dense Qwen3.5-4B vs Qwen3.5-35B-A3B MoE INT4 prefill speed, exact-prefix caching, repeat/concurrency drift, and PrivateMode-style decision readout | Cache qualification failed (prefixes 59–105 tokens < 528/1,056 runtime blocks; 0 reused tokens); probability drift observed without cache reuse (MoE sequential repeat max $\Delta p = 17.60$ pp, concurrent vs seq $\max \Delta p = 11.92$ pp; 4B concurrent $\max \Delta p = 3.28$ pp); research gate failed, promotion rejected | [Drive run](https://drive.google.com/drive/folders/1LIKE7JSmEcO2fvrhf8Qx4_ZJfv-heGwD) / [`31_qwen_prefill_speed_accuracy_lab_results/`](./31_qwen_prefill_speed_accuracy_lab_results) |
+| **32** | [`32_qwen_cache_and_native_decisions_lab.ipynb`](./32_qwen_cache_and_native_decisions_lab.ipynb) | Qwen Cache & Native Decisions Lab (`7047c6b31436f8e9b5aa85a5dad9ea4378d16eaa0912ebba288fae273c7e12ae`) | NVIDIA A100-SXM4-40GB (vLLM 0.30.0 & llama.cpp `parallel-decision`) | Controlled prefix boundary sweep (527–2,113 tokens), vLLM repeatability (serial vs concurrent), batch-invariance launch, and native tree branching | vLLM repeatability passed 1/4 rows (4B serial passed with $\Delta p = 0.0$; concurrent and MoE serial/concurrent failed with drift up to 29.81 pp); cache boundary confirmed (0 hits below 528/1,056; 528/1,056/2,112 tokens reused when exceeding block boundaries); 6/40 cache rows qualified; batch-invariance and full llama GPU offload threw CapabilityError; no model/cache promoted | [`32_qwen_cache_and_native_decisions_lab_results/`](./32_qwen_cache_and_native_decisions_lab_results) |
+
 
 
 ---
@@ -841,6 +843,73 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 
 ---
 
+### 32. Phase 4 Qwen Cache & Native Decisions Lab: Microbatching Repeatability, Boundary Sweep & Native Trees
+* **File**: [`32_qwen_cache_and_native_decisions_lab.ipynb`](./32_qwen_cache_and_native_decisions_lab.ipynb)
+* **Run Key**: `7047c6b31436f8e9b5aa85a5dad9ea4378d16eaa0912ebba288fae273c7e12ae`
+* **Status**: **`PARTIAL`** (A completed study may contain failed scientific gates. No model, probability policy or cache path is promoted.)
+* **Target Hardware & Environment**: NVIDIA A100-SXM4-40GB (CUDA 13.0, PyTorch 2.13.0+cu130, vLLM 0.30.0, Transformers 5.17.0, Ninja, custom llama.cpp `parallel-decision` build commit `ad129b08d9f134cd298d1f8a85efc52b1b66e18e`)
+* **Evaluated Models & Profiles**:
+  - `qwen35_4b`: `Qwen/Qwen3.5-4B` (dense BF16, revision `851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a`)
+  - `qwen35_moe_int4`: `Qwen/Qwen3.5-35B-A3B-GPTQ-Int4` (MoE INT4 GPTQ/Marlin, revision `3af5ca2972faf6de1fd6f4efc4d8d319ca751e8b`)
+  - `native llama.cpp`: `bartowski/Qwen_Qwen3.5-4B-GGUF` (Q4_K_M, revision `4168f45a16a1290d65a4ec0fa312ae917a4c15d6`)
+* **What it Measured / Scope**:
+  - Focused follow-up to Notebook 31 separating cache reuse from numerical repeatability.
+  - **Repeatability Evaluation**: Measured serial vs concurrent (4-worker) request stability on cold namespaces with caching flags enabled across both models.
+  - **Controlled Prefix Boundary Sweep**: Systematically tested prefixes spanning block boundaries:
+    - 4B (block size 528): 527, 528, 529, 1,056, 1,057 tokens.
+    - MoE INT4 (block size 1,056): 1,055, 1,056, 1,057, 2,112, 2,113 tokens.
+    - Evaluated across 4 modes per length: `cold_serial`, `cold_concurrent`, `cold_staged`, `warm_prefix`.
+  - **Batch-Invariance Mode Probe**: Evaluated vLLM 0.30's `--batch-invariant` flag on Compute Capability 8.0 (A100).
+  - **Native llama.cpp Parallel Decision Branch**: Built and evaluated native branching with reserved sequence slots (1 vs 24 sequences) and padded vs unpadded inputs.
+* **Stage-by-Stage Findings & Audit Results**:
+  - **vLLM Repeatability (1/4 Rows Passed)**:
+
+    | Arm | Mode | N | Repeats | Passed | Max $\Delta p$ | Decision Flips | Action Flips | Cohort p50 (ms) |
+    |---|---|---|---|---|---|---|---|---|
+    | `qwen35_4b__standard` | serial | 24 | 5 | **True** | **0.00 pp** | 0 | 0 | 1,518.6 ms |
+    | `qwen35_4b__standard` | concurrent4 | 24 | 5 | **False** | **3.69 pp** | 4 | 5 | 775.0 ms |
+    | `qwen35_moe_int4__standard` | serial | 24 | 5 | **False** | **13.60 pp** | 5 | 4 | 3,099.2 ms |
+    | `qwen35_moe_int4__standard` | concurrent4 | 24 | 5 | **False** | **29.81 pp** | 3 | 4 | 1,533.2 ms |
+
+    - Dense 4B achieved bitwise identical repeatability under serial execution ($\max \Delta p = 0.0$).
+    - Client concurrency in 4B broke repeatability ($\max \Delta p = 3.69$ pp, 4 decision flips) because client concurrency alters GPU dynamic microbatching. Client concurrency does not fix the GPU microbatch.
+    - MoE INT4 failed repeatability even in serial mode ($\max \Delta p = 13.60$ pp, 5 decision flips), worsening to 29.81 pp under concurrency. This confirms that MoE INT4 instability is intrinsic to kernel execution/scheduling rather than client concurrency alone.
+  - **Empirical Verification of Mamba/Hybrid Block Boundaries (6/40 Rows Qualified)**:
+    - Below block boundaries (527 tokens on 4B, 1,055 tokens on MoE INT4): **0 cached tokens reported**. Negative controls confirmed.
+    - Exactly at block boundaries (528 tokens on 4B, 1,056 tokens on MoE INT4): **0 cached tokens reported** on warm prefix.
+    - Exceeding block boundary by 1 token:
+      - 4B at 529 tokens: `warm_prefix` reported **528 cached tokens**! `cold_staged` achieved **`QUALIFIED_MEASUREMENT`** status with $\max \Delta p = 4.37 \times 10^{-8}$ and a **1.92x speedup** (248.95 ms vs 478.44 ms baseline).
+      - 4B at 1,057 tokens: `warm_prefix` reported **1,056 cached tokens** (2 blocks).
+      - MoE INT4 at 1,057 tokens: `warm_prefix` reported **1,056 cached tokens** (1 block).
+      - MoE INT4 at 2,113 tokens: `warm_prefix` reported **2,112 cached tokens** (2 blocks).
+    - MoE INT4 failed all cache qualifications because its baseline sequential execution is unstable (`BASELINE_UNSTABLE_OR_NOT_COLD`, $\Delta p > 0.005$).
+  - **Capability Errors & Engine Guardrails**:
+    - `batch_invariant` engine launch: Both 4B and MoE INT4 failed to start with `CapabilityError: Engine exited` during `AsyncLLM.from_vllm_config` initialization on this vLLM 0.30 container.
+    - Native `llama.cpp` parallel decision: Built successfully on CPU/A100, but failed runtime qualification guard with `CapabilityError: Full GPU layer offload not verified in native engine log`.
+  - **Research Governance Outcome**:
+    - `model_promoted = false`, `cache_promoted = false`.
+    - No model, probability policy, or cache path is promoted.
+* **Supporting Directory & Key Artifacts**:
+  - Local Directory: [`32_qwen_cache_and_native_decisions_lab_results/`](./32_qwen_cache_and_native_decisions_lab_results)
+  - Key files:
+    - [`RUN_SUMMARY.md`](./32_qwen_cache_and_native_decisions_lab_results/RUN_SUMMARY.md)
+    - [`manifest.json`](./32_qwen_cache_and_native_decisions_lab_results/manifest.json)
+    - [`summary.json`](./32_qwen_cache_and_native_decisions_lab_results/summary.json)
+    - [`repeatability.csv`](./32_qwen_cache_and_native_decisions_lab_results/repeatability.csv)
+    - [`cache_boundaries.csv`](./32_qwen_cache_and_native_decisions_lab_results/cache_boundaries.csv)
+    - [`vllm_replay_quality.csv`](./32_qwen_cache_and_native_decisions_lab_results/vllm_replay_quality.csv)
+    - [`vllm_vs_standard.csv`](./32_qwen_cache_and_native_decisions_lab_results/vllm_vs_standard.csv)
+    - [`runtime_memory.csv`](./32_qwen_cache_and_native_decisions_lab_results/runtime_memory.csv)
+    - [`errors.json`](./32_qwen_cache_and_native_decisions_lab_results/errors.json)
+    - [`llama_build_identity.json`](./32_qwen_cache_and_native_decisions_lab_results/llama_build_identity.json)
+    - [`llama_build.log`](./32_qwen_cache_and_native_decisions_lab_results/llama_build.log)
+    - [`repeatability.png`](./32_qwen_cache_and_native_decisions_lab_results/repeatability.png)
+    - [`cache_latency.png`](./32_qwen_cache_and_native_decisions_lab_results/cache_latency.png)
+    - [`dataset.json`](./32_qwen_cache_and_native_decisions_lab_results/dataset.json)
+    - [`SHA256SUMS`](./32_qwen_cache_and_native_decisions_lab_results/SHA256SUMS)
+
+---
+
 ## Key Scientific Insights & Architectural Invariants
 
 1. **Strict FP32 Reference Boundary**:
@@ -888,3 +957,5 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
     Replacing quantized matrix-vector kernels with an explicit IEEE FP32 dequantized linear reference over NF4 weights fails to restore prefix-cache mathematical equivalence on MoE models ($\max \Delta p$ increased from 0.1199 to 0.1553, with 1 decision flip), proving that prefix-sliced divergence is not solely a low-bit GEMM batching artifact but stems from subtle attention position/mask dynamics and dynamic router assignments across split sequences. Furthermore, unprompted option letter presentation introduces severe ordering bias in MoE next-token scoring, flipping the winner in 25.0% of cases ($\max \Delta p = 0.1686$) unless neutralized by explicit permutation averaging.
 21. **Hybrid/Mamba Prefix Caching Block Boundaries & Quantized MoE Repeatability**:
     In hybrid DeltaNet/Mamba architectures (such as Qwen 3.5), vLLM automatic prefix caching falls back from `all` to `align` mode, resuming cached computation strictly at block boundaries (528 tokens for 4B, 1,056 tokens for MoE INT4). Prefixes shorter than a block boundary yield zero cached token reuse throughout. Furthermore, quantized MoE backends (e.g. GPTQ/Marlin) can exhibit severe probability drift (up to 17.60 pp sequential, 11.92 pp concurrent) even when zero cache reuse occurs. Repeatability with caching disabled must be verified across eager and compiled execution before evaluating prefix-cache speedups.
+22. **Microbatching Perturbation of Repeatability & Staged Prefix Qualification**:
+    While dense hybrid models (Qwen 3.5 4B) achieve bitwise deterministic outputs under serial execution ($\Delta p = 0.0$), concurrent client requests alter GPU dynamic microbatching, inducing measurable probability drift ($\Delta p = 0.0369$) and flipping decision winners (4/24 flips). Conversely, quantized MoE models (Qwen 3.5 MoE INT4) exhibit significant drift under serial execution ($\Delta p = 0.1360$), indicating kernel-level non-determinism independent of request concurrency. When shared prefixes exceed vLLM Mamba block boundaries (e.g. 529 tokens for a 528-token block), cold staged prefix reuse achieves strict numerical parity ($\Delta p = 4.37 \times 10^{-8}$) and a 1.92x speedup on dense 4B, proving that prefix caching is mathematically sound once block alignment thresholds are cleared.
