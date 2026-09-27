@@ -13,7 +13,7 @@ It uses `schemars` to inspect canonical Rust structs in `openkind-core` and writ
 1. **Schema Synchronization**:
    The committed JSON Schemas in `crates/openkind-core/schemas/` must exactly match the output derived from the Rust types.
 2. **Never Hand-Edit Schemas**:
-   Always modify the Rust struct definitions or docstrings in `openkind-core`, then run the generator with `--write`. Hand-edits will be overwritten or cause CI test failures in `tests/schema_sync.rs`.
+   Always modify the Rust struct definitions or docstrings in `openkind-core`, then use the [root verification command](../../AGENTS.md#verification) to regenerate them. Hand-edits will be overwritten or cause CI test failures in `tests/schema_sync.rs`.
 
 ## When to Run This Tool
 
@@ -24,19 +24,10 @@ You MUST run this binary whenever any struct, field, or doc comment changes in:
 - `crates/openkind-core/src/answer.rs`
 - `crates/openkind-core/src/state.rs`
 
-## How to Regenerate Schemas
+## Generated Schema Files
 
-Run the binary with `--write` to update the committed schema files in-place:
+The generator writes these committed schema files:
 
-```bash
-# Regenerate and write schemas directly to crates/openkind-core/schemas/
-cargo run -p openkind-gen-schemas -- --write
-
-# Verify diff on committed schemas:
-git diff crates/openkind-core/schemas/
-```
-
-The committed schema files are:
 - `crates/openkind-core/schemas/jev-v1-request.json`
 - `crates/openkind-core/schemas/jev-v1-response.json`
 

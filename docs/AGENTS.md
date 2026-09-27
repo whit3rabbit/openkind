@@ -60,10 +60,7 @@ The Rust types in `openkind-core` are the code authority for request and respons
 When changing a wire type:
 1. Update the Rust types and validation logic in `openkind-core`.
 2. Add or update conformance tests in `crates/openkind-core/tests/conformance/`.
-3. Regenerate JSON Schema files:
-   ```bash
-   cargo run -p openkind-gen-schemas -- --write
-   ```
+3. Regenerate JSON Schema files with the [root verification command](../AGENTS.md#verification), then inspect the generated diff.
 4. Update Protobuf (`proto/proto/openkind.proto`) and OpenAPI (`crates/openkind-api/openapi.yaml` / `docs/openapi.yaml`) if the same surface is exposed. Validate OpenAPI using `npx --yes @redocly/cli@1.34.5 lint docs/openapi.yaml`.
 5. Update SDK compatibility tests in `crates/openkind-api/tests/sdk_compat/`.
 
