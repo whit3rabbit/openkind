@@ -19,6 +19,8 @@ mod branch_tests;
 #[cfg(test)]
 mod embedding_tests;
 #[cfg(test)]
+mod flat_tests;
+#[cfg(test)]
 mod layer0_tests;
 #[cfg(test)]
 mod nested_tests;
@@ -33,8 +35,8 @@ mod test_support;
 
 pub use batched::{
     run_batched_candidates, run_batched_nested, run_batched_nested_pooled, run_batched_questions,
-    BatchedCandidateResult, BatchedCandidates, BatchedNestedRun, BatchedQuestionResult,
-    BatchedQuestions,
+    run_flat_batched_candidates, BatchedCandidateResult, BatchedCandidates, BatchedNestedRun,
+    BatchedQuestionResult, BatchedQuestions, FlatBatchRun,
 };
 pub use branch::Qwen35BranchBatch;
 pub use contract::LayerKind;

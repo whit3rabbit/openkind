@@ -16,9 +16,9 @@ mod supported {
         MlxPrecision, MlxQwen35Backbone, MlxRuntime, MlxRuntimeConfig,
     };
     use openkind_backends::qwen35::{
-        run_batched_nested, run_batched_nested_pooled, run_sequential_nested, BatchContinuation,
-        NestedQuestion, PrimitiveKind, Qwen35Error, ReferenceBundle, SequentialNestedExecutor,
-        BACKBONE_REVISION, PROFILE_ID,
+        run_batched_nested, run_batched_nested_pooled, run_flat_batched_candidates,
+        run_sequential_nested, BatchContinuation, NestedQuestion, PrimitiveKind, Qwen35Error,
+        ReferenceBundle, SequentialNestedExecutor, BACKBONE_REVISION, PROFILE_ID,
     };
     use openkind_runtime::branch::BranchableState;
     use openkind_runtime::{peak_resident_bytes, BatchForwardMode};
@@ -43,6 +43,7 @@ mod supported {
         prefill: Duration,
         question: Duration,
         candidate: Duration,
+        flat_suffix: Duration,
         physical_forwards: usize,
         padding_tokens: usize,
     }
@@ -50,6 +51,7 @@ mod supported {
     struct TimedExecutor<'a> {
         inner: &'a MlxQwen35Backbone,
         root_position: usize,
+        flat: bool,
         stats: RefCell<StageStats>,
     }
 
@@ -74,7 +76,9 @@ mod supported {
             let output = SequentialNestedExecutor::continue_from(self.inner, state, ids)?;
             let mut stats = self.stats.borrow_mut();
             let elapsed = started.elapsed();
-            if state.position() == self.root_position {
+            if self.flat {
+                stats.flat_suffix += elapsed;
+            } else if state.position() == self.root_position {
                 stats.question += elapsed;
             } else {
                 stats.candidate += elapsed;
@@ -93,7 +97,9 @@ mod supported {
                 SequentialNestedExecutor::continue_batch_from(self.inner, states, suffixes)?;
             let mut stats = self.stats.borrow_mut();
             let elapsed = started.elapsed();
-            if states[0].position() == self.root_position {
+            if self.flat {
+                stats.flat_suffix += elapsed;
+            } else if states[0].position() == self.root_position {
                 stats.question += elapsed;
             } else {
                 stats.candidate += elapsed;
@@ -179,7 +185,7 @@ mod supported {
         if q == 0 || iterations == 0 || !(2..=8).contains(&max_lanes) {
             return Err("q and iterations must be positive; max-lanes must be 2..=8".into());
         }
-        if !["nested_sequential", "nested_batched", "pooled"].contains(&strategy.as_str()) {
+        if !["nested_sequential", "nested_batched", "pooled", "flat"].contains(&strategy.as_str()) {
             return Err("unknown strategy".into());
         }
 
@@ -222,6 +228,7 @@ mod supported {
             let timed = TimedExecutor {
                 inner: &backbone,
                 root_position: root_ids.len(),
+                flat: strategy == "flat",
                 stats: RefCell::new(StageStats::default()),
             };
             let started = Instant::now();
@@ -246,7 +253,7 @@ mod supported {
                             .collect()
                     })
                     .collect::<Vec<Vec<Vec<f32>>>>(),
-                _ => run_batched_nested_pooled(&timed, root_ids, &plans, max_lanes)?
+                "pooled" => run_batched_nested_pooled(&timed, root_ids, &plans, max_lanes)?
                     .questions()
                     .iter()
                     .map(|q| {
@@ -256,6 +263,9 @@ mod supported {
                             .collect()
                     })
                     .collect::<Vec<Vec<Vec<f32>>>>(),
+                _ => run_flat_batched_candidates(&timed, root_ids, &plans, max_lanes)?
+                    .candidate_features()
+                    .to_vec(),
             };
             let readout_started = Instant::now();
             let decisions = features
@@ -273,6 +283,7 @@ mod supported {
                 "prefill_ms": ms(stats.prefill),
                 "question_ms": ms(stats.question),
                 "candidate_ms": ms(stats.candidate),
+                "flat_suffix_ms": ms(stats.flat_suffix),
                 "readout_ms": ms(readout),
                 "physical_forwards": stats.physical_forwards,
                 "padding_tokens": stats.padding_tokens,
