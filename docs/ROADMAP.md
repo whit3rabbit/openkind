@@ -1,15 +1,18 @@
 # OpenKind roadmap
 
-**Revision 0.12.0 — Qwen focus, 26 September 2026.**
+**Revision 0.14.0 — Qwen quality, calibrated automation and qualified prefill reuse.**  
+**26 September 2026, America/Chicago (27 September UTC).** The prefill study is complete: all three arms reviewed and all 26 checksum entries verified. Dense Qwen is the next research control; acceptance and cache qualification remain open.
 
-Build a local, auditable decision engine around **dense Qwen3.5-4B, a direct
-option-logit readout, calibrated probabilities, and shared-state Rust/MLX
-execution**. Start with document-evidence judgments. Earn generalization and
+Build a local, auditable decision engine around **a quality-qualified Qwen 4B
+profile, direct option logits, independently checked calibration and acceptance,
+and exact-prefix Rust/MLX execution**. Preserve Qwen3.5 document controls and
+add the measured Qwen3-4B-Instruct-2507 control; no deployment winner is selected. Start with document-evidence judgments. Earn generalization and
 supported-answer retention before optimizing the accepted operating point.
 
-The next model comparison is frozen Qwen controls plus one published Qwen 4B
-specialist. Test whether that specialist already solves the workload before
-funding another custom fine-tune. Keep a larger Qwen teacher, a 2B student, and
+The current frozen-Qwen comparison is complete. Spend the next Colab budget on
+dense numerical and policy controls; archive this slow, low-quality legacy MoE
+profile as diagnostic evidence. Then compare the frozen document controls with one published
+Qwen 4B specialist before funding another custom fine-tune. Keep a larger Qwen teacher, a 2B student, and
 a 9B capacity challenger conditional on a measured need. Broad family support
 moves out of the active program.
 
@@ -27,8 +30,8 @@ and measurement. Historical task IDs remain in the crosswalk below and
 
 ## Why this focus
 
-The supplied report describes JevBench **v1.4.1, 23 September 2026**. The publisher
-now identifies v1.4.2; ranks are moving. Preserve benchmark, model, adapter,
+The supplied report describes JevBench **v1.4.1, 23 September 2026**. At the 26 September source review, the publisher
+identified v1.4.2; this is a dated observation, not a current ranking claim. Preserve benchmark, model, adapter,
 hardware, and date together. Its composite blends quality with speed and cost;
 self-hosted cost estimates and timing adjustments are not local measurements. [X1]
 
@@ -45,6 +48,25 @@ reports retained phrase overlap with ContractNLI/SGD development or test text.
 Evaluate overlap against our actual partitions before making an independence
 claim. [X2]
 
+### What PrivateMode changes
+
+PrivateMode supplies an external constrained-logit baseline: a frozen model can
+make useful typed decisions without a custom head or task fine-tuning. [X6, X7]
+Keep this as **J_base** for every candidate: frozen weights, all options in one
+question prompt, verified answer tokens, no generated reasoning, with raw and
+separately calibrated distributions reported. E29 and the new dense arm already
+provide instances; they do not pass the complete deployment contract.
+
+The comparison supports the interface, not equivalence of models or backends.
+Its reported p=0.64 does not prove statistical equivalence. [X8] Its repeatability
+and option-granularity results motivate execution and K controls, not relaxed
+parity or a monotonic option-count law. [X6, X10] Treat proposed label corrections
+as independently reviewed evidence work; agreement among models is insufficient. [X9]
+
+Answer prefilling chooses where to read logits. State-prefix caching reuses
+computation. A pooled-state decision head changes the representation. Keep all
+three claims separate. The article supplies no streamed-expert benchmark.
+
 ## Confirmed starting point
 
 | Area | Recorded result | Next consequence |
@@ -54,6 +76,10 @@ claim. [X2]
 | Natural documents | E29 frozen comparison and E30–E32 adaptations are complete; no complete quality/retention pass. | Investigate supported-answer loss and test one attributable remedy if released specialists also fail. |
 | Evidence | A3 has 51 reviewed rows plus six non-independent follow-ups; A4 aligns four papers and 40 caption candidates. The separate 27-case disposition leaves gold unchanged. | Complete required source/PDF, table/reference and independent correction review. Existing visibility work is bounded, not full repair. |
 | Cheap readers | Pooled-root, learned StateQuery and factorized applicability studies miss complete quality/policy gates. | Keep causal execution available. A new encoder or bottleneck explanation is not established. |
+| MoE follow-up | Native 36/96 correct; late-six skip 40/96 and 1.3169× faster, with unknown recall 0/32 and 2/32. Peak allocation stays about 7.823 GiB. Both cache modes fail. [R1] | No pruning, cache or automation promotion; baseline quality is inadequate. |
+| Completed profile comparison | Dense: 155/192 SNLI and 84/96 synthetic, p50 49.28/52.74 ms. Native MoE: 110/192 and 32/96, p50 1,781.62/1,802.03 ms. FP32-router MoE: 109/192 and 33/96. All have zero qualified coverage. [R2] | Continue with the dense control for this workload. Generation, quantization and backend differ, so this does not establish an architecture-only advantage. |
+| Completed execution checks | Dense full batch / sequential prefix / batched prefix reach Δp 0.032107/0.010099/0.019341. Both MoE arms pass 0/8 groups in every mode, with answer changes in several variants. [R2] | All speed sweeps and final/LRU cache comparisons were skipped. Diagnose dense numerical paths before collecting a cache speed claim. |
+| Actual routing | Observer parity passes. FP32 router removes observed ties on one probe, but full/split expert-set differences persist. Each MoE arm changes 9/24 option-order decisions, versus dense 0/24. [R2] | Router precision alone did not repair quality or cache equivalence. Do not repeat this intervention as the next main experiment. |
 
 The critical retention result remains **J3 ContractNLI 141/204 → 168/204,
 entailed 81/84 → 70/84, QASPER 37/46 → 34/46**, using matched BF16 controls.
@@ -75,6 +101,8 @@ and [MLX follow-up](verification/phase3m-2026-09-22/README.md).
 |---|---|
 | Immutable integration reference | Existing `encoder-state-first` profile `a047d6802c3f06f085b8`: Qwen Base with candidate branches and the learned score-summary head. Preserve its fixtures; it is not the selected deployment winner. |
 | Frozen controls | J0 `Qwen/Qwen3.5-4B-Base`, revision `1001bb4d826a52d1f399e183466143f4da7b741b`; J1 `Qwen/Qwen3.5-4B`, revision `851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a`. E29 found no universal winner. |
+| New frozen execution control | `Qwen/Qwen3-4B-Instruct-2507`, revision `cdbee75f17c01a7cc42f958dc650907174af0554`: BF16/SDPA dense profile measured in R2. This is a different model from J1, not a replacement result on ContractNLI/QASPER. |
+| Sparse research control | `Qwen/Qwen1.5-MoE-A2.7B-Chat`, revision `ec052fda178e241c7c443468d2fa1db6618996be`: NF4/eager profile in R1/R2. Retain native routing; the FP32-router arm is diagnostic. |
 | First external candidate | **JevK5 4B v0.3**, subject to artifact, provenance and input-contract checks. Resolve immutable weight/runtime revisions before evaluation; never load moving `main` as an experiment identity. v0.2 is a historical reproduction option. |
 | Own adaptation | Start from J1 when a specific residual failure justifies training. Preserve J0 and the relevant completed adaptation controls. A base-model swap is a separate hypothesis. |
 | Cost challenger | Qwen 2B only after the 4B quality gate, with task-verified teacher supervision if needed. A released 2B model does not inherit its 4B sibling's results. |
@@ -107,8 +135,8 @@ optimizing it.
 |---|---|---|
 | **M0 — Workload** | Text document judgments, supported option/context ranges, target hardware, selection limits | Versioned scope and finite quality/resource bounds |
 | **M1 — Evidence** | Repaired input ledger, partitioned data and independent review record | Defects resolved or quarantined without model-driven eligibility |
-| **M2 — Qwen quality** | Frozen controls versus one released 4B specialist; one diagnosis-led adaptation only if necessary | Complete non-final quality, retention and policy pass |
-| **M3 — Cost** | Joint-option Rust/MLX profile, exact-prefix reuse, matched request measurements | Accepted quality at lower complete cost, within resource limits |
+| **M2 — Qwen quality** | Current controls complete; qualify dense acceptance and document retention; then one released 4B specialist or one justified adaptation | Complete non-final quality, retention and policy pass |
+| **M3 — Cost** | Dense numerical/cache diagnosis, qualified cold/warm comparisons, then joint-option Rust/MLX port | Accepted quality at lower complete cost, within resource limits |
 | **M4 — Preview** | Fresh confirmation, accelerated service qualification and reproducible manifest | All locked release limits pass |
 
 ### M0: Fix the task and success measure
@@ -162,6 +190,24 @@ legitimately available at deployment. Final remains closed.
 
 ### M2: Select a useful Qwen 4B decision model
 
+**Current evidence:** the new dense arm has useful raw accuracy but no policy
+qualification. The ≥30 accepted-state / ≤10% upper-bound screen is a declared
+research rule, not a production risk specification. Inspect per-state error
+clusters and risk/coverage on development data; if power is insufficient,
+register more independent source states. Do not relax the rule after reading
+final results or count three correlated questions as three independent states.
+Any revised selector needs fresh confirmation. R2 does not close the older
+ContractNLI/QASPER retention gate.
+
+The completed policies all fell back to review-all at development selection;
+this is not six measured zero-error automation policies. A retrospective
+development-only scan finds dense zero-error threshold regions containing
+11 questions / 10 states on SNLI and 31 questions / 23 states on synthetic,
+short of the 30-state requirement. Register enough independent policy-development
+and policy-audit groups for the intended coverage/risk before another test.
+Keep thresholds fixed during audit and retain a fresh final partition;
+do not lower the rule or promote those diagnostic thresholds after exposure.
+
 **First compare, then train if needed.** Prepare one pinned specialist candidate
 and the existing frozen controls. Run each native pipeline as a deployable
 system comparison, including its renderer and calibration. For claims about
@@ -173,7 +219,9 @@ score differences do not isolate a cause.
   the effect of trained weights from prompt and probability processing.
 - [ ] Evaluate document-level and source/family slices: full semantic accuracy,
   per-class recall, false-none, NLL/Brier, calibration and review risk/coverage.
-  Add option-order/code-permutation and unsupported-input checks. QASPER's
+  Add option-order/code-permutation, independently reviewed meaning-preserving
+  option-description variants, and unsupported-input checks. Renaming labels is
+  not a clean memorization test if it changes their meaning. QASPER's
   one-candidate task has no conditional-ranking metric.
 - [ ] Retain the registered research screen: source-specific recall floors,
   false-none ≤0.20, proper-score non-regression, and policy cost below review-all
@@ -219,6 +267,23 @@ basis. E30–E32 remain completed failed-preservation studies.
 
 ### M3: Make the accepted path fast on Rust/MLX
 
+**Completed Colab study and next numerical experiment:**
+
+- [x] Deliver the [prefill speed/accuracy notebook](https://colab.research.google.com/drive/1a3_k4ZbV459Hyr2OhXGjQpKrHHfZoe9L), with 864 questions across 288 states, budget/resume support and independent baseline quality when cache qualification fails.
+- [x] Close all three arms and verify all 26 checksum entries. No execution errors are recorded. Every alternative execution mode fails qualification; latency sweeps and final/LRU cache comparisons are skipped. [R2]
+- [x] Compare actual native and FP32-router MoE behavior. The precision change does not repair task quality or prefix equivalence. Retain this negative result; do not rerun the completed notebook merely to resume it.
+- [ ] On fixed development probes, compare dense BF16/SDPA with matched BF16/eager and, if memory permits, FP32. Pin TF32 and attention settings; change one factor at a time. Record full, batched and split outputs, raw probability drift, calibrated drift, decisions and policy actions. This isolates candidates for the mechanism; it does not assume SDPA, BF16 or routing is the cause.
+- [x] Capture actual selected expert IDs and verify observer parity. The new observation supersedes the old top-(k+1) reconstruction. On one 115-token probe, FP32 routing removes exact boundary ties but leaves expert-set disagreement. The FP32-router control remains distinct from R1's NF4/FP32-linear reference.
+- [ ] If a mode passes, measure cold and warm cache requests against the **fastest qualified uncached method**, including full-input batching. Include prefill, copies, tokenization, synchronization, policy and LRU hits/misses/evictions. If no mode passes, stop its sweep and retain scalar full input.
+
+The completed notebook planned prefix targets 256/768/1,536, Q=1/4/8 and
+three outcomes, but no timing-grid rows were collected because qualification
+failed. Do not claim measured behavior at these planned shapes. The broader K
+and natural-document study below is also still open. A code/precision change creates a new run identity;
+do not merge it into the current checkpoints. Use the 90-minute budget and
+checkpoints for useful measurements, not repeated unqualified sweeps.
+
+
 **Available now:** measure the existing pinned FP32 `ReferenceOps` per-lane and
 forced vectorized implementations on identical inputs. Compatible forced lanes
 currently span 2–8; automatic scheduling remains per-lane until measurements
@@ -236,7 +301,9 @@ needed for input lookup, so it does not remove their resident memory.
   changes the model input and requires quality evaluation.
 - [ ] Start with a declared grid of state caps 128/1,024/4,096, Q=1/4/8 and
   K=2/4/8/16 **total outcomes**, plus real traces and unequal suffixes. Include
-  full prompt lengths. These are proposed measurement points, not supported
+  full prompt lengths. Hold state, question and correct outcome fixed where
+  possible while adding reviewed distractors; keep taxonomy-granularity tests
+  separate. Measure accuracy, NLL/Brier, rejection, token count and memory by K. These are proposed measurement points, not supported
   performance claims.
 - [ ] Compare repeated-full, cold-shared and warm-shared requests. Measure
   p50/p95, `T(Q)/T(1)`, marginal question cost, correct accepted throughput,
@@ -296,10 +363,24 @@ previous broad F1–F5 rollout is deferred, with no automatic post-M4 commitment
 
 Defer non-Qwen encoders, diffusion, multimodal expansion, multi-engine routing,
 private RLCD reconstruction, and MTP for the no-decoding path. Reopen shallow-head,
-pooled-root or replay variants only with a new diagnosis. Streaming-MoE remains
-untested: consider it only for a demonstrated capacity need that resident dense
-Qwen cannot meet, measuring expert I/O, cold/warm latency, memory and quality.
-Weight streaming and KV compression address different costs.
+pooled-root or replay variants only with a new diagnosis. Actual expert streaming remains untested. The next bounded study, only after a
+quality-qualified model demonstrates a memory need, is **resident versus
+streamed execution of identical experts**, not another arbitrary allowlist.
+Keep attention, routers and shared experts resident; record expert bytes
+read, cache hits, transfer stalls/overlap, disk and OS-cache conditions,
+process memory, and complete cold/warm latency with output parity.
+
+R1 touched 59.875 of 60 experts per layer on one profiled request; broader
+prefill can erase the expected I/O benefit of per-token sparsity. Start with
+a trace-based transfer lower bound and compare against the accepted resident
+dense baseline before implementing streaming. Stop if memory savings do not
+justify the added request cost. Q-wide expert batching is a hypothesis: it
+may amortize reads while enlarging the working set and activation memory.
+Joint-option inference has one suffix per question; K changes that suffix,
+not an automatic Q×K lane multiplier. Expert-major execution and prediction
+must preserve native routing, with miss fallback rather than dropped experts.
+CUDA results do not qualify MLX/SSD behavior. Weight streaming, static
+pruning and KV compression address different costs.
 
 ## Historical task crosswalk
 
@@ -310,6 +391,8 @@ Weight streaming and KV compression address different costs.
 | 2I.3–2I.6, 3A/3B, 3.1–3.10 | Preserve rendering, branching, native parity, high-K and persistence evidence. M2 tests usefulness; M3 measures relevant cost. |
 | 2J.1–2J.4, 4A–4D, 4E-B.0/B.1/B.2 | Exploratory comparisons complete; no Phase 4 model accepted. |
 | E29–E32 | Frozen comparison, LoRA, KL and label replay complete. Preserve FP32/BF16 identities, selections, failed retention and fixed80 diagnostics. |
+| R1: MoE follow-up | Complete exploratory failure: speed gain, inadequate quality/acceptance, unqualified cache. No model promotion. |
+| R2: prefill accuracy lab | Complete, three arms, 26 verified hashes. No acceptance or cache qualification. Dense is the next research control; M2 owns policy/retention and M3 owns numerical diagnosis. |
 | 2J.5–2J.6 | M2 comparator selection; M4 fresh release confirmation. |
 | S.1–S.5, 3.11 | CPU contract/service evidence complete within scope; M4 owns accelerated-service qualification. |
 | 3M.0–3M.8 | Retain runtime/FP32 parity and bounded daemon/memory evidence. M3 measures cost; M4 owns promotion. |
@@ -318,7 +401,8 @@ Weight streaming and KV compression address different costs.
 
 ## External source register
 
-Primary sources checked **26 September 2026**. External measurements are
+X1–X5 retain the **26 September 2026** source review. X6–X10 and R1–R2
+were checked **27 September UTC / 26 September America/Chicago**. External measurements are
 publisher/author reports, not OpenKind replications. Preserve cited release
 versions in future experiment manifests; live pages can change.
 
@@ -336,3 +420,12 @@ For exact historical checkboxes and run identities, use
 [ROADMAP_HISTORY.md](ROADMAP_HISTORY.md). This revision changes priorities and
 planned comparisons. It runs no inference or training, opens no final outcomes,
 and promotes no model.
+
+
+- **X6:** Hötter and Rosenmüller, [PrivateMode: Turn GLM-5.3-Flash into a Jev-like System One model](https://www.privatemode.ai/blog/system-one-from-glm-flash), 24 September 2026. External vendor report; not rerun here.
+- **X7:** [PrivateMode Decisions README](https://github.com/edgelesssys/privatemode-decisions). For a future vLLM adapter, request every allowed code's log probability explicitly rather than relying on a top-N list; verify tokenizer IDs at the answer boundary and include semantic none when required. The local selected-row path already avoids missing-option top-N truncation.
+- **X8:** [PrivateMode benchmark README](https://github.com/edgelesssys/privatemode-decisions-benchmark). Paired comparisons, separate geographic latency probes and dated billing evidence; no local performance equivalence inferred.
+- **X9:** [PrivateMode methodology](https://github.com/edgelesssys/privatemode-decisions-benchmark/blob/main/METHODOLOGY.md). Useful audit controls; model consensus and altered label semantics are not ground truth or clean causal tests.
+- **X10:** [PrivateMode suite results](https://github.com/edgelesssys/privatemode-decisions-benchmark/blob/main/results/suite.md). Completed results control quantitative claims when planning prose differs.
+- **R1:** [MoE follow-up `20260927T003918_481825Z`](https://drive.google.com/drive/folders/1gXwnF1sXhR5Yh4-7R2izDQ9TJXDl_Lf1). 22 artifact hashes checked; 96 authored final questions / 32 states. No streamed execution. See WORKING_PAPER §§4.3, references 7–8.
+- **R2:** [Completed prefill study `20260927T015527_929864Z`](https://drive.google.com/drive/folders/14FsOosgKt9oJKK-Y8yPuKtkuaDClBgC3), [final summary](https://drive.google.com/file/d/1x6WPopdMqgma4PLUVNPYLP3S819oHmpo/view), [native MoE](https://drive.google.com/file/d/1RnEU6QnAgrTPHwDFQSA2GOUfHTKOay5Z/view), [FP32-router MoE](https://drive.google.com/file/d/1IdQLpiukvtV0FuCSJTPVyyJVnLv4pDg7/view). Completed at `2026-09-27T03:06:39.794435Z`; all 26 checksum entries verified. See WORKING_PAPER §4.4 and reference 9 for raw counts, probability drift, routing scope and reproducibility.
