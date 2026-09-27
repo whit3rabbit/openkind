@@ -161,6 +161,7 @@ it carries no model-quality claim.
 | [von](./von.md) | Encoder head trained against the published `von` contract | Blocked — external-reference-only (weights and contract unowned) |
 | [schema-scorer](./schema-scorer.md) | Single-logit cross-encoder for the Jev question schema | Rust-loadable (prototype profile, open-weights realization) |
 | [qwen3guard](./qwen3guard.md) | Decoder fine-tune for fixed-preset safety verdicts | Rust-loadable (Stream variant, prototype profile) |
+| [parallel-constrained-qwen2](./parallel-constrained-qwen2.md) | Shared-prefix Qwen2.5 decoder with batched field suffixes and token-logit readout | Surveyed only (no Rust MLX loader or Jev adapter) |
 
 ## Ownership and updates
 

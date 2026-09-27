@@ -714,7 +714,7 @@ Treat this repository as a public **OpenKind reference artifact** tied to the pr
 
 ### Parallel constrained decoding
 
-The public `harshatheg/Qwen-2.5-1B-RLCD` artifact is useful primarily as an inference pattern: shared prefill, cache broadcasting, constrained candidate-token logits, limited token-tree continuation, and host-side structured assembly. It is **not** treated here as evidence that TypeSafe's RLCD training procedure was reproduced, and normalized softmax outputs are not by themselves a calibration result.
+The public `harshatheg/Qwen-2.5-1B-RLCD` repository contains Python inference code, not model weights. It uses a separate MLX-community Qwen2.5-1.5B 4-bit checkpoint. Its inference pattern is shared prefill, cache broadcasting, constrained candidate-token logits, limited greedy continuation on first-token collisions, and host-side structured assembly. It is **not** evidence that TypeSafe's RLCD training procedure was reproduced. Its collision fallback probabilities are assigned heuristically rather than calibrated. The [family survey](./families/parallel-constrained-qwen2.md) records the support boundary.
 
 OpenKind adopts the execution lesson—**batch branches breadth-first**—while retaining its state-first root. A schema/question catalog placed before state would weaken the intended question-set isolation contract.
 
