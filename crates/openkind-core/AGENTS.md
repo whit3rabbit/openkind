@@ -21,7 +21,7 @@
    If you change wire types:
    - Bump `API_VERSION` in `crates/openkind-core/src/request.rs`.
    - Run `cargo test -p openkind-core`.
-   - Regenerate schemas: `cargo run -p openkind-gen-schemas -- --write`.
+   - Regenerate schemas with the [root verification command](../../AGENTS.md#verification).
    - Update `crates/openkind-core/schemas/jev-v1-{request,response}.json`.
    - Add a test case in `tests/conformance.rs`.
 
@@ -82,7 +82,4 @@
 ```bash
 # Run unit and conformance tests
 cargo test -p openkind-core
-
-# Verify and update JSON schema generation
-cargo run -p openkind-gen-schemas -- --write
 ```
