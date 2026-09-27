@@ -56,12 +56,22 @@ fn main() -> Result<()> {
             bundle_root,
             checkpoint_root,
             tokenizer,
+            model_root,
+            adapter,
             pretty,
         } => {
-            let strategy_specs: Vec<StrategySpec> = args::parse_strategies(strategies.as_deref())?;
+            let kind = EngineKind::from(engine);
+            let strategy_specs: Vec<StrategySpec> = if types_family_engine(kind) {
+                if strategies.is_some() {
+                    anyhow::bail!("--strategies does not apply to surveyed-family engines");
+                }
+                Vec::new()
+            } else {
+                args::parse_strategies(strategies.as_deref())?
+            };
             let score_args = ScoreArgs {
                 input,
-                engine: EngineKind::from(engine),
+                engine: kind,
                 output_dir,
                 strategies: strategy_specs,
                 reps,
@@ -72,6 +82,8 @@ fn main() -> Result<()> {
                 bundle_root,
                 checkpoint_root,
                 tokenizer_path: tokenizer,
+                model_root,
+                adapter,
             };
             let outcome = run_score(&score_args)
                 .with_context(|| format!("score run over {}", score_args.input.display()))?;
@@ -79,4 +91,8 @@ fn main() -> Result<()> {
             Ok(())
         }
     }
+}
+
+fn types_family_engine(kind: EngineKind) -> bool {
+    crate::score::is_family_engine_public(kind)
 }

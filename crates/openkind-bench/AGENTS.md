@@ -53,8 +53,9 @@ Methodology, timing scope, and recorded results are owned by
 - [`src/main.rs`](./src/main.rs): Entrypoint; `gen-workload` prints one JSON result line,
   `score` prints the summary JSON to stdout (progress goes to stderr).
 - [`src/args.rs`](./src/args.rs): Clap parser; `EngineArg` (`mock`, `qwen35`,
+  `decoder-letter`, `encoder-nli`, `decoder-llm`, `schema-scorer`, `router-script`,
   plus `qwen35-mlx-fp32`/`qwen35-mlx-bf16` behind the `mlx` feature),
-  `parse_strategies`.
+  `--model-root` for surveyed families, `parse_strategies`.
 - [`src/workload.rs`](./src/workload.rs): `WorkloadRow` (flattened `primitive` tag),
   `load_workload`/`parse_workload` (SHA-256 recorded), `state_groups`,
   `build_request`. Choice rows always carry a non-empty `__none__` criterion — one is
@@ -63,7 +64,12 @@ Methodology, timing scope, and recorded results are owned by
   noul rows), byte-identical for identical seeds.
 - [`src/score/mod.rs`](./src/score/mod.rs): `run_score`/`ScoreArgs`. Native engine sweeps run the
   scheduler's `forced_strategy` diagnostic override per strategy (admission still
-  enforced) and assert cross-strategy answer equality per workload.
+  enforced) and assert cross-strategy answer equality per workload. Surveyed-family engines
+  execute their single pinned plan without a strategy sweep.
+- [`src/score/types.rs`](./src/score/types.rs): `EngineKind`, `native_backend`, `family_identity`,
+  and `is_family_engine` helpers.
+- [`src/score/summary.rs`](./src/score/summary.rs): Provenance summary builder recording engine slug,
+  profile ID, and backbone revision in `openkind-bench/v1` records.
 - [`src/tests.rs`](./src/tests.rs): Offline tests (fixture parsing, grouping, `__none__`
   injection, generator determinism, mock end-to-end run).
 
@@ -75,8 +81,9 @@ Methodology, timing scope, and recorded results are owned by
 2. **Request Latency Is Not Row Latency**: In grouped mode, every row in a group reports
    its request's latency. Never sum those into per-decision latencies; use
    `decisions_per_second` from the strategy report instead.
-3. **Strategy Sweep Is Native-Only**: The mock engine ignores `--strategies` and reports
-   a single `mock` pass. `choose_strategy` lets the measured scheduler decide; concrete
+3. **Strategy Sweep Is Native-Only**: The mock and surveyed-family engines do not accept
+   a strategy sweep (`--strategies` is rejected for family engines, and ignored on mock).
+   On Qwen 3.5, `choose_strategy` lets the measured scheduler decide; concrete
    strategy names force the plan through `SchedulerConfig::with_forced_strategy`.
 4. **Attribution Is Mandatory for Published Numbers**: `--host` and `--commit` exist so
    recorded results can name their hardware and commit; summaries carry a default

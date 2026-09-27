@@ -123,6 +123,8 @@ fn mock_score_run_end_to_end_writes_summary_and_predictions() {
         bundle_root: None,
         checkpoint_root: None,
         tokenizer_path: None,
+        model_root: None,
+        adapter: None,
     };
 
     run_score(&args).expect("mock score run");

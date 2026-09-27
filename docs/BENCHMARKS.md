@@ -297,6 +297,7 @@ official release promotion remain separate.
 
 | Record | Engine | Status |
 |---|---|---|
+| [`benchmarks/2026-09-26-surveyed-families/`](./benchmarks/2026-09-26-surveyed-families/) | decoder-logit-letter, encoder-nli, encoder-instruct-label, decoder-logit-llm, kev, schema-scorer, qwen3guard, winnow, router-script | Complete — single-shot surveyed-family records on the standard shape777 workload; request-path timing only, no model-quality claim; see the section below for numbers and provenance |
 | [`benchmarks/2026-09-23-criterion-optimization/`](./benchmarks/2026-09-23-criterion-optimization/) | CLI, server, and client with MockEngine | Concluded same-host working-tree comparison; 11 of 15 existing cases meet 1.20x, and four sequential client cases remain below target |
 | [`benchmarks/2026-09-22-criterion-microbenchmarks/`](./benchmarks/2026-09-22-criterion-microbenchmarks/) | CLI, server, and client with MockEngine | Complete clean-commit Criterion timing baseline, 100 samples per case; component overhead only |
 | [`benchmarks/2026-09-20-mock-smoke/`](./benchmarks/2026-09-20-mock-smoke/) | mock | Complete — harness validation only; not performance evidence |
@@ -307,6 +308,70 @@ official release promotion remain separate.
 | [`verification/phase3m-2026-09-21-dispatch-recheck.md`](./verification/phase3m-2026-09-21-dispatch-recheck.md) | qwen35-native-cpu vs qwen35-mlx-fp32 | Complete — same fixture and four strategies; fresh CPU, pinned-base MLX, and community MLX recheck |
 | [`verification/phase3m-2026-09-21-working-tree.md`](./verification/phase3m-2026-09-21-working-tree.md) | qwen35-mlx-fp32 | Complete parity probe — dirty-tree, load-inclusive timing, not an `openkind-bench` throughput record |
 | [`verification/phase3m5-2026-09-21-working-tree.md`](./verification/phase3m5-2026-09-21-working-tree.md) | qwen35-mlx-fp32 kernel review | Complete working-tree comparison: serialized explicit stream, fused-kernel parity, and same-host default-versus-candidate smoke sweep; candidate not promoted |
+
+
+### Surveyed-family single-shot records (2026-09-26)
+
+One `openkind-bench score` run per family over the standard seeded workload
+(`gen-workload --states 37 --criteria 21 --seed 291607`, sha256
+`be397bfc48209c8f7379d0d76ccbe3d3e7dca3269724928f0868cf872f4c8b01`, 777 rows,
+37 state groups, `--reps 1` except router-script `--reps 3`). Host:
+Apple Silicon Mac, 14 cores, 38 GB RAM, macOS arm64; commit `67d8283` at run
+time; each engine loaded from its pinned, digest-verified checkpoint. These
+are **request-path timing records only** — none of the profiles has M2
+model-quality evidence, and the summaries carry no classification-accuracy
+claim.
+
+| Engine (profile) | Backbone | p50 request | Decisions/s | Peak RSS | Model load |
+|---|---|---|---|---|---|
+| `decoder-logit-letter` (`5492c97dfcdaf3fe9439`) | Qwen2.5-0.5B-Instruct fp32 | 107.55 s | 7.22 | 3.33 GB | 1.96 s |
+| `encoder-nli` (`1041a4c362338a61b820`) | typeform/distilbert-base-uncased-mnli fp32 | 22.11 s | 35.14 | 0.56 GB | 0.53 s |
+| `encoder-instruct-label` (`9fd68313a5606eca42f2`) | knowledgator/gliclass-modern-base-v3.0 fp32 (ModernBERT-base, hand-implemented) | 194.20 s | 4.00 | 1.27 GB | 1.23 s |
+| `kev` (`39d88c11faeb4ac165fa`) | jaredpalmer/kev-0.6b (LoRA on Qwen3-0.6B-Base, pointer head) fp32 | 160.39 s | 4.84 | 4.22 GB | 5.61 s |
+| `decoder-logit-llm` (`465963d705b6f35d6208`) | Qwen2.5-0.5B-Instruct-GGUF q8_0 (candle quantized runner) | 1836.70 s | 0.42 | 1.55 GB | 1.52 s |
+| `schema-scorer` (`5a7350af556f0ee66566`) | cross-encoder/ms-marco-MiniLM-L-6-v2 fp32 | 75.83 s | 10.25 | 0.26 GB | 0.22 s |
+| `qwen3guard` (`0fcf416cab16d94f933d`) | Qwen3Guard-Stream-0.6B fp32 | 156.26 s | 4.97 | 4.20 GB | 2.44 s |
+| `winnow` (`4dff8c5b03cfbf680db6`) | Qwen2.5-0.5B-Instruct fp32 + LoRA (routing pass only; mock siblings) | 3.99 s | 194.58 | 3.32 GB | 2.40 s |
+| `router-script` (rule table) | none — Unicode detector (mock siblings) | 1.10 ms | 704,336 | 0.01 GB | — |
+
+Notes:
+
+- The p50 request groups 21 binary questions per state document; per-question
+  cost is roughly p50 / 21 for the per-candidate families, and the letter
+  families run one forward pass per question.
+- `decoder-logit-llm` is the candle CPU quantized (q8_0) runner: the
+  dequantized matmul path is an order of magnitude slower per token than the
+  fp32 safetensors letter profile on the same host. The GGUF binding keeps
+  the checkpoint format; it is not an acceleration claim, and llama.cpp /
+  Metal execution remains unexplored.
+- `winnow` and `router-script` runs delegate answering to mock siblings, so
+  their numbers measure the routing pass (model forward or rule table) only.
+- Calibration temperatures for the scored profiles are fitted on the pinned
+  synthetic calibration workloads documented in each family module
+  (`families/calibration.rs` cases, stated-fact construction); the fits are
+  recorded in `docs/families/*.md` and in the frozen profile constants.
+- `encoder-instruct-label` was appended to this record set after its
+  unblocking push (still commit `67d8283`, dirty tree). Its temperature fit
+  minimized mean NLL over 15 stated-fact calibration cases with the exact
+  wire readout per primitive: optimum `T = 0.44530092168688412`, mean NLL
+  `0.151` (vs `0.194` at `T = 1`); an interior optimum, so unlike
+  `qwen3guard` the fit is not the degenerate sharpening case. The Rust
+  forward was validated against a PyTorch reference of the same checkpoint
+  to `<= 4.3e-6` maximum answer delta over the 15 golden cases.
+- `kev` was appended in the same push after the family's blocker lapsed
+  (the reference author published open-weight checkpoints, code, and
+  protocol under Apache-2.0). Its temperature fit is degenerate in the
+  `qwen3guard` sense — the merged model already assigns >= 0.95 to the
+  correct side of 14 of 15 stated-fact cases, so NLL sharpens to a hard
+  one-hot (`T -> 0.048`) without improving decisions — and `T = 1.0` is
+  pinned with that rationale. The Rust forward was validated against a
+  PyTorch reference with the same merged weights: probabilities agree to
+  `<= 3e-4` on 14 of 15 golden cases and `<= 1.9e-2` on the single
+  near-degenerate case (top-two logits within 1.4), with the argmax
+  preserved everywhere; the residual is fp32 GEMM accumulation-order
+  difference between Apple Accelerate (candle) and MKL (PyTorch), shown by
+  bit-identical merged weights and per-layer divergence that starts at the
+  first GEMM.
 
 ### Initial MLX dispatch recheck (historical)
 

@@ -17,6 +17,7 @@ pub struct Cli {
 }
 
 /// Subcommands supported by the `openkind-bench` benchmark harness CLI.
+#[allow(clippy::large_enum_variant)] // the Score variant legitimately carries the artifact paths
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     /// Generate a seeded deterministic state × criterion workload JSONL.
@@ -70,6 +71,12 @@ pub enum Commands {
         /// Digest-locked tokenizer JSON (native engine).
         #[arg(long)]
         tokenizer: Option<PathBuf>,
+        /// Family model root directory (surveyed-family engines).
+        #[arg(long)]
+        model_root: Option<PathBuf>,
+        /// LoRA adapter path (winnow engine).
+        #[arg(long)]
+        adapter: Option<PathBuf>,
         /// Write the summary as pretty JSON.
         #[arg(long)]
         pretty: bool,
@@ -83,6 +90,24 @@ pub enum EngineArg {
     Mock,
     /// Pinned Qwen3.5 native CPU engine; real scoring and timing.
     Qwen35,
+    /// Pinned decoder-logit-letter engine (Qwen2.5-0.5B-Instruct).
+    DecoderLetter,
+    /// Pinned encoder-nli engine (DistilBERT MNLI).
+    EncoderNli,
+    /// Pinned encoder-instruct-label engine (GLiClass label markers).
+    EncoderInstructLabel,
+    /// Pinned decoder-logit-llm engine (GGUF q8_0).
+    DecoderLlm,
+    /// Pinned schema-scorer engine (MS MARCO cross-encoder).
+    SchemaScorer,
+    /// Router-script composite over mock siblings; routing-overhead only.
+    RouterScript,
+    /// Pinned qwen3guard engine (Qwen3Guard-Stream 0.6B).
+    Qwen3Guard,
+    /// Pinned kev engine (Kev-0.6B pointer readout).
+    Kev,
+    /// Winnow learned router over mock siblings; router-cost only.
+    Winnow,
     /// Pinned Qwen3.5 MLX FP32 reference-ops engine; requires `--features mlx`.
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     Qwen35MlxFp32,
@@ -96,6 +121,15 @@ impl From<EngineArg> for EngineKind {
         match value {
             EngineArg::Mock => EngineKind::Mock,
             EngineArg::Qwen35 => EngineKind::Qwen35,
+            EngineArg::DecoderLetter => EngineKind::DecoderLetter,
+            EngineArg::EncoderNli => EngineKind::EncoderNli,
+            EngineArg::EncoderInstructLabel => EngineKind::EncoderInstructLabel,
+            EngineArg::DecoderLlm => EngineKind::DecoderLlm,
+            EngineArg::SchemaScorer => EngineKind::SchemaScorer,
+            EngineArg::RouterScript => EngineKind::RouterScript,
+            EngineArg::Qwen3Guard => EngineKind::Qwen3Guard,
+            EngineArg::Kev => EngineKind::Kev,
+            EngineArg::Winnow => EngineKind::Winnow,
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             EngineArg::Qwen35MlxFp32 => EngineKind::Qwen35MlxFp32,
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
