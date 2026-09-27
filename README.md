@@ -2,9 +2,16 @@
 
 `openkind` is an independent Rust decision-inference engine for typed `Noul`, `Choice`, and `Score` answers over Jev-compatible public interfaces. It is built to answer structured questions without depending on an autoregressive text-generation loop.
 
-The wire, service, and SDK layers are implemented. The selected Qwen 3.5 native path has passed Rust head, tokenizer, correctness-first CPU backbone, cached-continuation, backend-neutral branch-state, sequential nested execution, batched Q/K, measured adaptive-scheduler, and full restored persistence replay gates. State/scheduler high-K stress, process-peak admission, tenant-isolated state reuse, versioned/digest-checked state snapshots, cancellation-safe permit ownership, and a direct native `DecisionEngine` adapter are implemented. The named-machine follow-up completed bounded model-backed K=32/64/128/255 stress, fresh-process feature and decision replay, and native CPU service lifecycle, queue-inclusive load, and 30-minute soak gates ([RUST11 report](docs/verification/native-service-gate/2026-09-22-rerun2/README.md)). Practical high-K latency, reviewed model quality, and product-release promotion remain open. A feature-gated MLX/Metal parity backend (Phase 3M) passes the pinned-base full, nested, and variable-length vectorized FP32 fixture gates. The forced MLX daemon request path and bounded unified-memory admission/recovery measurements are recorded in the [Phase 3M follow-up](docs/verification/phase3m-2026-09-22/README.md). Native BF16 fails its frozen probability gate. The packed fused Metal kernel remains opt-in after a same-host throughput regression, and vectorized batch auto-selection remains disabled pending a matched performance comparison. An explicit adapter loads and executes the tested MLX-community export, but that artifact fails frozen-reference model parity.
+The selected Qwen 3.5 engine can reuse a prefilled state across question and
+candidate branches, then computes typed answers in Rust. Native CPU and FP32
+MLX pass their pinned implementation-parity gates.
 
-[Quickstart](#quickstart) | [Model registry](docs/MODEL_REGISTRY.md) | [Research dossier](docs/RESEARCH.md) | [Whitepaper](docs/whitepaper/WHITEPAPER.md) | [Roadmap](docs/ROADMAP.md) | [Architecture](docs/ARCHITECTURE.md) | [MLX backend](docs/MLX.md) | [Jev wire reference](https://docs.typesafe.ai/api)
+Reviewed model quality, practical accelerated request latency, and
+product-release promotion remain open. See
+[current status](#current-implementation-status) and the
+[roadmap](docs/ROADMAP.md).
+
+[Quickstart](#quickstart) | [Decision engine features](#decision-engine-features) | [Model registry](docs/MODEL_REGISTRY.md) | [Research dossier](docs/RESEARCH.md) | [Whitepaper](docs/whitepaper/WHITEPAPER.md) | [Roadmap](docs/ROADMAP.md) | [Architecture](docs/ARCHITECTURE.md) | [MLX backend](docs/MLX.md) | [Jev wire reference](https://docs.typesafe.ai/api)
 
 > [!IMPORTANT]
 > The daemon defaults to `MockEngine`. A native alias can be registered directly with explicit offline bundle, checkpoint, and tokenizer paths. The quickstart below still verifies the mock wire/service path, not model quality or native Qwen execution.
@@ -39,7 +46,69 @@ curl -sS -X POST http://127.0.0.1:18080/v1/systemone \
 
 The same service is available through gRPC at `openkind.SystemOne/Evaluate`.
 
-## What it provides
+## Decision engine features
+
+The selected Qwen 3.5 engine evaluates a state and its questions as decision
+work. It does not decode an answer document token by token:
+
+- **One shared state prefill:** State-first tokenization forms an immutable root
+  for the shared document. The nested strategies reuse that root across
+  questions, so adding a question does not change the document prefix.
+- **Question and candidate branches:** In nested execution, each question
+  advances from the root. Candidates then advance from that question state,
+  so the question suffix is computed once per question instead of once per
+  candidate. Every branch has its own attention KV, DeltaNet recurrent state,
+  convolution state, and position.
+- **Vectorized MLX continuation:** An explicitly forced FP32 `nested_batched`
+  run can advance compatible groups of 2–8 question or candidate lanes in one
+  right-padded MLX forward and restore each lane's true length. CPU batched
+  execution has the same branch topology but advances lanes separately.
+  Automatic MLX scheduling remains per-lane.
+- **Decision readout, then typed output:** Candidate-conditioned features feed
+  the score-summary head. Choice includes explicit `__none__` rejection mass;
+  Rust assembles `Noul`, `Choice`, or `Score` answers and their probabilities.
+  The model does not generate JSON keys, punctuation, or prose responses.
+- **Workload-aware execution:** The scheduler can choose independent full
+  evaluation or shared-root execution. It checks backend capabilities and
+  retained-state and process-memory limits. Queue and execution permits stay
+  with the running task through cancellation.
+
+These are execution and interface features, not a claim of better semantic
+accuracy than a token-logit classifier or a text-generating model. The
+[architecture guide](docs/ARCHITECTURE.md) covers the state graph and the
+[MLX guide](docs/MLX.md) covers physical batching.
+
+### Measured behavior
+
+- **CPU sharing:** On a 36-GiB M4 Max, warm-process FP32
+  `nested_sequential` was 1.294×–2.018× faster than `repeated_full` across
+  five pinned workloads. This is native compute evidence, not a service-wide
+  speedup or model-quality result ([commit-stamped run](docs/verification/2026-09-20-v0.8.0-35c481a.md)).
+- **FP32 MLX question batching:** In paired stage replay, forced vectorization
+  reduced question-stage time by 5.5%–6.1% at Q2 and 12.4%–15.3% at Q8.
+  Full, nested, and unequal-length vectorized parity pass at the pinned
+  `0.005` probability tolerance. The stage gain did not establish a complete
+  request speedup ([candidate-pooling record](docs/benchmarks/2026-09-27-candidate-pooling/README.md)).
+- **Cross-question candidate pooling:** In the same native compute replay,
+  pooling was 1.5% slower than existing nested batching at Q2/K2 and 7.8%
+  slower at Q8/K4. It remains a diagnostic
+  ([candidate-pooling record](docs/benchmarks/2026-09-27-candidate-pooling/README.md)).
+- **Flat field batching:** A diagnostic Rust port of shared-root field
+  traversal reduced physical forwards but was 6.0%–12.1% slower at Q2/K2 and
+  64.3%–64.5% slower at Q8/K4 than nested batching. It repeated question
+  tokens and increased padding; it is not in automatic scheduling
+  ([paired record](docs/benchmarks/2026-09-27-python-flat-field/README.md)).
+
+The MLX native compute timings include prefill, continuation, and readout on
+frozen token workloads. They exclude model load, rendering, tokenization,
+validation, transport, and queueing. Q8/K4 repeats fixture suffixes as a load
+shape.
+
+No Qwen 3.5 comparison against autoregressive JSON generation or complete
+request-path MLX speedup follows from these measurements. See the
+[benchmark guide](docs/BENCHMARKS.md) for methods and other recorded runs.
+
+### Public interfaces
 
 - Typed Jev request and response models with JSON Schema generation.
 - HTTP endpoints at `/v1/systemone` and `/v1/system_one`.
@@ -126,13 +195,13 @@ as `Qwen/Qwen3.5-4B` converted through an `mlx-vlm` fix branch, not the pinned
 | Native Qwen CPU embedding and decoder execution | Frozen Phase 3B parity gate passed |
 | Qwen-specific full-hybrid continuation state | Cached continuation gate passed |
 | Backend-neutral `BranchableState` | CPU and MLX structural gates pass; pinned-base variable-length FP32 vectorized batch parity passes in a forced diagnostic path |
-| MLX/Metal parity backend (Phase 3M, `--features mlx`) | Pinned-base FP32 full/nested/vectorized batch gates pass; BF16 Gate B fails probability tolerance; daemon request-path and bounded memory stress pass; packed kernel and automatic vectorized scheduling remain opt-in pending performance evidence |
+| MLX/Metal parity backend (Phase 3M, `--features mlx`) | Pinned-base FP32 full/nested/vectorized batch gates pass; BF16 Gate B fails probability tolerance; daemon request-path and bounded memory stress pass; packed kernel remains opt-in and automatic vectorized scheduling remains disabled after negative diagnostic comparisons |
 | Sequential nested execution (CPU) | Phase 3.5 gate passed |
 | Breadth-first batched Q/K execution (CPU) | Phase 3.6/3.7 gate passed; vectorized kernels open |
 | Adaptive scheduler (CPU, named Mac) | Phase 3.8 measured gate passed; 2.52 is the lowest measured boundary |
 | High-K state/scheduler stress and state reuse | K=32/64/128/255 bounded model-backed correctness/memory campaign passed; semantic quality and practical latency remain open |
 | Native CPU service lifecycle (Phase 3.11, S.4–S.5) | Named-machine release-mode endpoint, queue/load, deadline, recovery, memory, and 30-minute soak gates passed; reviewed quality and product-release promotion remain open |
-| Accelerated production and service validation | MLX FP32 parity, one forced daemon request, and bounded memory stress are recorded; matched batch/kernel performance, service load/soak, and production promotion remain open |
+| Accelerated production and service validation | MLX FP32 parity, one forced daemon request, bounded memory stress, and negative candidate-pooling/flat-field native compute comparisons are recorded; complete request-path performance, service load/soak, and production promotion remain open |
 
 Implementation equivalence and release promotion are different decisions. Passing a parity fixture does not establish model quality, hardware support, or production readiness.
 
