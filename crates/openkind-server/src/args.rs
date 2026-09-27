@@ -41,6 +41,14 @@ pub(crate) struct Args {
     )]
     pub(crate) models: Vec<String>,
 
+    /// Installed profile names loaded explicitly at startup.
+    #[arg(long, env = "OPENKIND_INSTALLED_MODELS", value_delimiter = ',')]
+    pub(crate) installed_models: Vec<String>,
+
+    /// Shared model store directory.
+    #[arg(long, env = "OPENKIND_MODELS_DIR")]
+    pub(crate) models_dir: Option<PathBuf>,
+
     /// Aliases in `--models` that should use the native Qwen3.5 engine.
     #[arg(
         long,
@@ -214,12 +222,30 @@ mod tests {
         assert_eq!(args.http_addr, None);
         assert_eq!(args.grpc_addr, None);
         assert_eq!(args.models, vec!["mock", "jev-latest"]);
+        assert!(args.installed_models.is_empty());
         assert_eq!(args.api_key, None);
         assert_eq!(args.rate_limit_rpm, 120);
         assert_eq!(args.log_filter, "info");
         assert_eq!(args.qwen35_execution, ExecutionArg::Auto);
         assert_eq!(args.qwen35_backend, Qwen35BackendArg::NativeCpu);
         assert_eq!(args.qwen35_timeout_ms, 600_000);
+    }
+
+    #[test]
+    fn installed_models_are_explicit_and_have_a_shared_store_root() {
+        let args = Args::try_parse_from([
+            "openkindd",
+            "--installed-models",
+            "fixture:v1,other:v2",
+            "--models-dir",
+            "/tmp/openkind-model-test",
+        ])
+        .unwrap();
+        assert_eq!(args.installed_models, vec!["fixture:v1", "other:v2"]);
+        assert_eq!(
+            args.models_dir.unwrap(),
+            PathBuf::from("/tmp/openkind-model-test")
+        );
     }
 
     #[test]

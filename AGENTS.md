@@ -19,6 +19,7 @@ selected open-weight Qwen 3.5 profile described below.
 - [`README.md`](README.md): workspace overview and quickstart.
 - [`docs/ROADMAP.md`](docs/ROADMAP.md): current milestone status and remaining work.
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): crate boundaries and data flow.
+- [`docs/MODEL_REGISTRY.md`](docs/MODEL_REGISTRY.md): curated catalog, public mirror, and sync procedure.
 - [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md): benchmark methodology, harness usage, and recorded runs.
 - [`docs/MLX.md`](docs/MLX.md): MLX runtime contract, implementation guide, limitations, and enhancement path.
 - [`docs/RESEARCH.md`](docs/RESEARCH.md): empirical research and prior-art evidence.
@@ -94,6 +95,7 @@ promotion remain open.
 | TypeScript, Python, and Swift HTTP clients and server wrappers | [`bindings/README.md`](bindings/README.md) |
 | Hardware and state lifecycle | [`crates/openkind-runtime/AGENTS.md`](crates/openkind-runtime/AGENTS.md) |
 | Model artifacts and readouts | [`crates/openkind-backends/AGENTS.md`](crates/openkind-backends/AGENTS.md) |
+| Curated model catalog and local installations | [`crates/openkind-model-store/AGENTS.md`](crates/openkind-model-store/AGENTS.md) |
 | Native decision-workload benchmark harness | [`crates/openkind-bench/AGENTS.md`](crates/openkind-bench/AGENTS.md) |
 | JSON Schema generation | [`crates/openkind-gen-schemas/AGENTS.md`](crates/openkind-gen-schemas/AGENTS.md) |
 | Protobuf contract | [`proto/AGENTS.md`](proto/AGENTS.md) |

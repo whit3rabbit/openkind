@@ -6,14 +6,17 @@
 mod args;
 mod evaluate;
 mod inspect;
+mod models;
+mod output;
 mod serve;
+mod status;
 
 #[cfg(test)]
 mod tests;
 
 use anyhow::Result;
 
-pub use args::{Cli, Commands};
+pub use args::{Cli, Commands, EvaluateFormat};
 pub use inspect::{parse_and_validate_request, MAX_CLI_INPUT_BYTES};
 
 use evaluate::cmd_evaluate;
@@ -29,13 +32,38 @@ pub fn run(cli: Cli) -> Result<()> {
             server,
             api_key,
             pretty,
-        } => cmd_evaluate(file, server, api_key, pretty),
+            format,
+            verbose,
+        } => cmd_evaluate(file, server, api_key, pretty, format, verbose),
         Commands::Serve {
             http_addr,
             grpc_addr,
             models,
+            installed_models,
+            models_dir,
             api_key,
-        } => cmd_serve(http_addr, grpc_addr, models, api_key),
+        } => cmd_serve(
+            http_addr,
+            grpc_addr,
+            models,
+            installed_models,
+            models_dir,
+            api_key,
+        ),
+        Commands::Catalog { json } => models::catalog(json),
+        Commands::Pull { name, models_dir } => models::pull(&name, models_dir),
+        Commands::List { models_dir, json } => models::list(models_dir, json),
+        Commands::Show {
+            name,
+            models_dir,
+            json,
+        } => models::show(&name, models_dir, json),
+        Commands::Rm { name, models_dir } => models::rm(&name, models_dir),
+        Commands::Status {
+            server,
+            api_key,
+            watch,
+        } => status::run(server, api_key, watch),
         Commands::Version => {
             println!("openkind {}", openkind_core::api_version());
             Ok(())
