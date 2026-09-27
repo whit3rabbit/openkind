@@ -1,11 +1,12 @@
 # Curated model registry
 
-`openkind catalog` lists the curated profiles available to this OpenKind
-release. `openkind pull NAME` downloads pinned artifacts and verifies every
-file before installation. `openkind list`, `show NAME`, and `rm NAME` operate
-on local installations without a daemon or network request. Pull progress
-reports bytes present for each artifact and the final line reports bytes
-actually downloaded in that invocation.
+`openkind catalog` lists curated profiles available to pull. `openkind pull
+NAME` downloads pinned artifacts and verifies every file before installation.
+Terminal output shows per-artifact transfer progress, rate, resumed bytes, and
+SHA-256 verification. Redirected output prints concise download and
+verification milestones. Pull progress stays on stderr. `openkind list`,
+`show NAME`, and `rm NAME` operate on local installations without a daemon or
+network request. Read commands accept `--json` for scripts.
 
 The initial entry is
 `qwen35-state-first:a047d6802c3f06f085b8`. It uses the pinned
@@ -24,8 +25,11 @@ openkind serve --installed-models qwen35-state-first:a047d6802c3f06f085b8
 
 The daemon loads explicitly named installations at startup. A new pull needs
 a restart to become available. `GET /v1/models` lists only aliases served by
-that process. The existing `--models` mock aliases and explicit `--qwen35-*`
-artifact-path configuration remain available. Name collisions fail startup.
+that process; `openkind status` displays those registered aliases. Catalog
+profiles are available to pull, installed profiles are local files, and
+registered aliases are active in the current daemon. The existing `--models`
+mock aliases and explicit `--qwen35-*` artifact-path configuration remain
+available. Name collisions fail startup.
 Use `--models-dir` or `OPENKIND_MODELS_DIR` to share a store location between
 the CLI and daemon. The default is the user's platform data directory.
 
