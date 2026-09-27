@@ -27,13 +27,19 @@
 
 ## Key Files & Types
 
-- [`src/main.rs`](./src/main.rs):
-  - `Args`: Clap argument parser defining:
+- [`src/main.rs`](./src/main.rs): Daemon entrypoint; orchestrates logging, auth, Prometheus recorder, engine registration (Qwen 3.5, surveyed families, router composites, and mock), and concurrent listener tasks via `tokio::join!`.
+- [`src/lib.rs`](./src/lib.rs): Library re-exports for daemon and benchmark integration.
+- [`src/args.rs`](./src/args.rs):
+  - `Args`: Root Clap argument parser defining:
     - Server endpoints: `--http-addr`, `--grpc-addr`, `--api-key`, `--log-filter`.
     - Model aliases: `--models`, `--qwen35-aliases`.
+    - Surveyed-family configuration: flattened `family_args: FamilyArgs`.
     - Native Qwen3.5 parameters: `--qwen35-bundle-root`, `--qwen35-checkpoint-root`, `--qwen35-tokenizer`, `--qwen35-backend` / `OPENKIND_QWEN35_BACKEND` (`native-cpu` default, or feature-gated `mlx-fp32` on macOS arm64), `--qwen35-concurrency`, `--qwen35-queue`, `--qwen35-timeout-ms` (queue-inclusive, default 600000), `--qwen35-max-tensor-bytes`, `--qwen35-max-process-bytes`, `--qwen35-scratch-bytes`, `--qwen35-allocator-headroom-bytes`, `--qwen35-execution` (diagnostic plan override: `auto` default; bypasses the profitability policy only — admission ceilings and backend capabilities still apply).
-  - `main()`: Orchestrates logging, auth, Prometheus recorder, engine registration, and concurrent listener tasks via `tokio::join!`.
   - `shutdown_signal()`: Future selecting on `tokio::signal::ctrl_c()` and Unix `SIGTERM`.
+- [`src/families.rs`](./src/families.rs):
+  - `FamilyArgs`: Flags and environment variables for surveyed-family loaders (`--decoder-letter-aliases`, `--decoder-letter-model-root`, `--encoder-nli-aliases`, `--encoder-nli-model-root`, `--decoder-llm-aliases`, `--decoder-llm-model-root`, `--schema-scorer-aliases`, `--schema-scorer-model-root`, `--router-script-aliases`, `--router-script-rules`).
+  - `FamilyAdmission`: Concurrency, queue, and timeout parameters for family engines (`--family-concurrency`, `--family-queue`, `--family-timeout-ms`).
+  - Fail-closed validation for duplicate or missing artifact configurations.
 - [`benches/server.rs`](./benches/server.rs): Criterion coverage for the complete
   authenticated in-memory Axum path with rate limiting disabled and MockEngine.
 
@@ -46,7 +52,15 @@
    - Optionally attaches a process-memory envelope if `--qwen35-max-process-bytes` is configured. The engine refreshes peak RSS after model load and immediately before each request, then divides remaining headroom across the concurrency limit.
    - Loads `Qwen35DecisionEngine` with configured concurrency and queue semaphores.
    - Registers the shared engine under each matching alias.
-2. **Mock Engine Path**: Any alias not matching `--qwen35-aliases` registers an instance of `MockEngine`.
+2. **Surveyed-Family Engine Path**: If any alias in `--models` matches `--decoder-letter-aliases`, `--encoder-nli-aliases`, `--decoder-llm-aliases`, or `--schema-scorer-aliases`:
+   - Validates that the corresponding `--<family>-model-root` is provided (fails fast on startup if omitted).
+   - Loads the respective engine adapter from `openkind_backends::families` with bounded `FamilyLimits`.
+   - Registers the shared engine under each matching alias.
+3. **Router-Script Composite Path**: If any alias in `--models` matches `--router-script-aliases`:
+   - Parses the routing rule table (`--router-script-rules`).
+   - Resolves sibling engine references registered under `--models`.
+   - Registers `RouterScriptEngine` dispatching across the sibling engines.
+4. **Mock Engine Path**: Any alias in `--models` not matching native, surveyed-family, or router-script configurations registers an instance of `MockEngine`.
 
 ## Critical Gotchas & Rules
 
@@ -62,6 +76,8 @@
    Native metrics use fixed outcome labels and durations only. HTTP spans exclude headers. Never log request IDs, auth headers, state/question/candidate content, token IDs, content fingerprints, or input digests.
 6. **Service Evidence Boundary**:
    The release-mode native CPU load/soak evidence is recorded in [`docs/verification/native-service-gate/2026-09-22/`](../../docs/verification/native-service-gate/2026-09-22/README.md). Its fixture has no reviewed labels and does not establish model quality, Metal behavior, or product-release promotion; use [`docs/BENCHMARKS.md`](../../docs/BENCHMARKS.md) for the canonical methodology.
+7. **Family Path Fail-Closed**:
+   Requesting a surveyed-family alias without its required `--<family>-model-root` or assigning the same alias to multiple families fails fast on daemon startup with a descriptive configuration error.
 
 ## Verification Commands
 

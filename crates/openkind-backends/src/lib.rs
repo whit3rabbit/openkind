@@ -4,8 +4,8 @@
 //! The [`branch`] module defines the backend-neutral branchable
 //! continuation-state contract. The [`qwen35`] module implements the selected
 //! profile's deterministic feature-to-probability readout and the FP32 CPU
-//! backbone/continuation path. Neither module registers a native
-//! [`openkind_engine::DecisionEngine`] today.
+//! backbone/continuation path. The [`families`] module hosts surveyed-family
+//! loaders and their bounded `DecisionEngine` adapters.
 
 #![warn(missing_docs)]
 
@@ -14,6 +14,9 @@ pub mod branch;
 
 /// Qwen 3.5 profile execution contracts, safetensors readout, and parity fixtures.
 pub mod qwen35;
+
+/// Surveyed-family model loaders, readouts, and engine adapters.
+pub mod families;
 
 use std::fmt;
 
