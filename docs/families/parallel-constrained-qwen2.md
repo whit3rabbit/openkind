@@ -33,6 +33,17 @@ feature Qwen3.5 profile. The existing
 already groups Qwen3.5 candidate lanes across questions. Its pinned FP32 MLX
 measurements did not support scheduler promotion.
 
+The field-suffix batching mechanics themselves are already in Rust:
+[`run_batched_questions`](../../crates/openkind-backends/src/qwen35/backbone/batched.rs)
+fans out a shared root, while
+[`continue_batch_vectorized`](../../crates/openkind-backends/src/qwen35/mlx/model.rs)
+right-pads unequal suffixes and gathers each last real token. The pinned
+Qwen3.5 question stage improves by 5.5% to 6.1% at Q2 and 12.4% to 15.3% at Q8
+against per-lane execution, as detailed in the
+[`Rust stage record`](../benchmarks/2026-09-27-candidate-pooling/README.md).
+The Rust vectorized path currently accepts 2 to 8 lanes.
+That is not a Rust port of this repository's Qwen2.5 model or readout.
+
 The Python implementation's reported `sequential_forward_passes: 1` counts
 the batched suffix forward but omits the prefill. On a first-token collision it
 greedily continues for at most four tokens, then may choose the first option
