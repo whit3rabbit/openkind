@@ -114,7 +114,8 @@ mod supported {
         duration.as_secs_f64() * 1000.0
     }
 
-    fn readout_primitive(record: &TokenRecord, k: usize) -> PrimitiveKind {
+    fn readout_primitive(record: &TokenRecord) -> PrimitiveKind {
+        let k = record.candidate_suffix_ids.len();
         match record.question_id.as_str() {
             "external" if k == 2 => PrimitiveKind::Noul,
             "urgency" if k >= 2 => PrimitiveKind::Score,
@@ -153,12 +154,15 @@ mod supported {
         (0..q)
             .map(|index| {
                 let mut record = records[order[index % 3]].clone();
-                record.candidate_suffix_ids = (0..k)
-                    .map(|candidate| {
-                        record.candidate_suffix_ids[candidate % record.candidate_suffix_ids.len()]
+                if k != 0 {
+                    record.candidate_suffix_ids = (0..k)
+                        .map(|candidate| {
+                            record.candidate_suffix_ids
+                                [candidate % record.candidate_suffix_ids.len()]
                             .clone()
-                    })
-                    .collect();
+                        })
+                        .collect();
+                }
                 record
             })
             .collect()
@@ -172,8 +176,8 @@ mod supported {
         let k: usize = option(&args, "--k")?.parse()?;
         let iterations: usize = option(&args, "--iterations")?.parse()?;
         let max_lanes: usize = option(&args, "--max-lanes")?.parse()?;
-        if q == 0 || k == 0 || iterations == 0 || !(2..=8).contains(&max_lanes) {
-            return Err("q, k, and iterations must be positive; max-lanes must be 2..=8".into());
+        if q == 0 || iterations == 0 || !(2..=8).contains(&max_lanes) {
+            return Err("q and iterations must be positive; max-lanes must be 2..=8".into());
         }
         if !["nested_sequential", "nested_batched", "pooled"].contains(&strategy.as_str()) {
             return Err("unknown strategy".into());
@@ -258,9 +262,7 @@ mod supported {
                 .iter()
                 .zip(&workload)
                 .map(|(question, record)| {
-                    bundle
-                        .head()
-                        .evaluate(readout_primitive(record, k), question)
+                    bundle.head().evaluate(readout_primitive(record), question)
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             let readout = readout_started.elapsed();
@@ -291,7 +293,7 @@ mod supported {
                 "k": k,
                 "max_lanes": max_lanes,
             "source_question_ids": workload.iter().map(|r| &r.question_id).collect::<Vec<_>>(),
-            "readout_primitives": workload.iter().map(|r| format!("{:?}", readout_primitive(r, k))).collect::<Vec<_>>(),
+            "readout_primitives": workload.iter().map(|r| format!("{:?}", readout_primitive(r))).collect::<Vec<_>>(),
                 "suffix_lengths": workload.iter().map(|r| r.candidate_suffix_ids.iter().map(Vec::len).collect::<Vec<_>>()).collect::<Vec<_>>(),
                 "samples": samples,
             }))?
