@@ -175,6 +175,11 @@ probability/selection/policy parity gates. The pooled runner is diagnostic
 until those results exist; the automatic scheduler and service path retain
 their current behavior.
 
+The [27 September candidate-pooling record](./benchmarks/2026-09-27-candidate-pooling/)
+reports paired FP32 MLX stage replays and a separate full-request baseline.
+Pooling missed the median target and was slower than the current batched
+runner on both measured shapes, so it was not promoted.
+
 ### Outputs
 
 - `summary-<engine>.json` — schema `openkind-bench/v1`: provenance
@@ -329,6 +334,7 @@ official release promotion remain separate.
 
 | Record | Engine | Status |
 |---|---|---|
+| [`benchmarks/2026-09-27-candidate-pooling/`](./benchmarks/2026-09-27-candidate-pooling/) | qwen35-mlx-fp32 | Negative diagnostic: pooled candidate lanes were slower than current batching at Q2/K2 and Q8/K4; no service or automatic-scheduler promotion |
 | [`benchmarks/2026-09-26-surveyed-families/`](./benchmarks/2026-09-26-surveyed-families/) | decoder-logit-letter, encoder-nli, encoder-instruct-label, decoder-logit-llm, kev, schema-scorer, qwen3guard, winnow, router-script | Complete — single-shot surveyed-family records on the standard shape777 workload; request-path timing only, no model-quality claim; see the section below for numbers and provenance |
 | [`benchmarks/2026-09-23-criterion-optimization/`](./benchmarks/2026-09-23-criterion-optimization/) | CLI, server, and client with MockEngine | Concluded same-host working-tree comparison; 11 of 15 existing cases meet 1.20x, and four sequential client cases remain below target |
 | [`benchmarks/2026-09-22-criterion-microbenchmarks/`](./benchmarks/2026-09-22-criterion-microbenchmarks/) | CLI, server, and client with MockEngine | Complete clean-commit Criterion timing baseline, 100 samples per case; component overhead only |

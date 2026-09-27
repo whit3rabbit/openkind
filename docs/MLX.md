@@ -21,8 +21,8 @@ The current production configuration is deliberately conservative:
   forward for 2–8 equal-start-position lanes, with right padding and each
   lane's true suffix length. The pinned-base variable-length model gate now
   passes for unequal question and candidate lengths. Automatic scheduling
-  remains per-lane until a matched performance comparison supports a useful
-  lane range.
+  remains per-lane. The measured candidate-pooling diagnostic did not justify
+  changing that choice.
 - The packed FP32 Metal reduction-tree kernel passes parity but remains opt-in
   because it is slower than `ReferenceOps` on the current smoke workload.
 - Native BF16 and the downloaded MLX-community checkpoint are unpromoted
@@ -145,13 +145,15 @@ explicitly forced `nested_batched` runner advances 2–8 lanes through a real
 vectorized suffix forward. It right-pads variable lengths and restores each
 lane's true position and state. The pinned fixture pair covers unequal
 question and candidate lengths. Automatic scheduling still advertises
-per-lane execution while the performance comparison is outstanding.
+per-lane execution. The candidate-pooling comparison did not meet its
+promotion threshold.
 Consequently:
 
 - `nested_sequential` remains the automatic shared-prefix plan;
 - forcing `nested_batched` exercises the vectorized FP32 path for diagnostics;
 - parity does not establish that vectorized execution is faster;
-- no measured vectorized-versus-per-lane throughput result is available yet.
+- the [candidate-pooling diagnostic](benchmarks/2026-09-27-candidate-pooling/)
+  found no latency win over current batching at Q2/K2 or Q8/K4.
 
 An opt-in [candidate pooling diagnostic](BENCHMARKS.md#candidate-pooling-diagnostic)
 can combine candidate lanes from different questions when their continuation
@@ -234,7 +236,7 @@ are localization diagnostics, not replacement acceptance tolerances.
 | Area | Current issue | Consequence |
 |---|---|---|
 | GPU concurrency | One process-wide lock and stream | Correct and race-resistant, but model requests do not overlap on the GPU |
-| Physical batching | Forced FP32 `ReferenceOps` lanes use one vectorized forward for 2–8 lanes; the variable-length fixture gate passes | Keep automatic capability disabled and make no throughput claim until a matched comparison passes |
+| Physical batching | Forced FP32 `ReferenceOps` lanes use one vectorized forward for 2–8 lanes; the variable-length fixture gate passes | The measured pooling diagnostic missed its promotion threshold; keep automatic capability disabled |
 | Packed Metal kernel | Correct but 14 to 28 percent slower in the smoke sweep | Remains opt-in |
 | Native BF16 reference path | 22 September full probability error `0.0060996`; nested probability error `0.0265808`; both have zero argmax/policy changes | Gate B fails at the frozen `0.005` tolerance; nested state and isolation checks pass, but BF16 remains unpromoted |
 | Native BF16 fused path | Model-backed probability error was about `0.0287` with one policy change | Runtime falls back to BF16 `ReferenceOps` |
