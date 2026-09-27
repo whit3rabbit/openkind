@@ -180,6 +180,11 @@ reports paired FP32 MLX stage replays and a separate full-request baseline.
 Pooling missed the median target and was slower than the current batched
 runner on both measured shapes, so it was not promoted.
 
+The [external Qwen2.5 MLX field-pooling record](./benchmarks/2026-09-27-qwen25-mlx-field-pool/)
+compares pooled and per-field suffix forwards on a separate 4-bit checkpoint
+through Python MLX. Its positive timing result is a reference experiment, not
+an OpenKind request-path or Rust-backend result.
+
 ### Outputs
 
 - `summary-<engine>.json` — schema `openkind-bench/v1`: provenance
