@@ -35,7 +35,8 @@ Methodology, timing scope, and recorded results are owned by
    `Qwen35DecisionEngine` request path as the CPU engine
    (`Qwen35Backend` selection in
    [`openkind-backends`](../openkind-backends/AGENTS.md)). Default
-   builds (no feature) expose only `mock` and `qwen35` and never link MLX.
+   builds (no feature) expose the CPU engines — `mock`, `qwen35`, and the
+   nine surveyed-family engines — and never link MLX.
    MLX runs use the same fixtures, strategy sweep, warmup, and parity
    assertions; their numbers are throughput evidence only — the frozen parity
    gates live in the parity examples. The pinned-base BF16 reference path fails
@@ -53,9 +54,11 @@ Methodology, timing scope, and recorded results are owned by
 - [`src/main.rs`](./src/main.rs): Entrypoint; `gen-workload` prints one JSON result line,
   `score` prints the summary JSON to stdout (progress goes to stderr).
 - [`src/args.rs`](./src/args.rs): Clap parser; `EngineArg` (`mock`, `qwen35`,
-  `decoder-letter`, `encoder-nli`, `decoder-llm`, `schema-scorer`, `router-script`,
+  `decoder-letter`, `encoder-nli`, `encoder-instruct-label`, `decoder-llm`,
+  `schema-scorer`, `router-script`, `qwen3-guard`, `kev`, `winnow`,
   plus `qwen35-mlx-fp32`/`qwen35-mlx-bf16` behind the `mlx` feature),
-  `--model-root` for surveyed families, `parse_strategies`.
+  `--model-root` for surveyed families, `--adapter` for the winnow router,
+  `parse_strategies`.
 - [`src/workload.rs`](./src/workload.rs): `WorkloadRow` (flattened `primitive` tag),
   `load_workload`/`parse_workload` (SHA-256 recorded), `state_groups`,
   `build_request`. Choice rows always carry a non-empty `__none__` criterion — one is

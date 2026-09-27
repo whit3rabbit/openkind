@@ -1326,7 +1326,7 @@ is the mechanism.
 3. **Evidence packaging converges.** Commit-pinned model manifests plus
    checksummed per-run result directories mirror the
    `openkind-native-run/v1` evidence format recorded in
-   `crates/openkind-runtime/src/evidence.rs`; their MLX-LM commit pinning
+   `crates/openkind-runtime/src/evidence/`; their MLX-LM commit pinning
    is why the native-run `PROFILE.json` records backend version/commit
    identity.
 4. **Probability wording.** SemIf states plainly that its probabilities are

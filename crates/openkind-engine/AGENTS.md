@@ -50,6 +50,7 @@
     - `UnknownModel(String)`: Unregistered model alias (mapped to HTTP 404).
     - `Overloaded { backend, retry_after_ms }`: Concurrency/admission limit exceeded (mapped to HTTP 529 / retry headers).
     - `Unsupported { backend, message }`: Unsupported feature for backend (mapped to HTTP 422).
+    - `DeadlineExceeded { backend, timeout_ms }`: Queue-inclusive evaluation deadline elapsed (mapped to HTTP 504).
     - `Backend { backend, message }`: Internal execution failure (mapped to HTTP 500).
   - `EngineResult<T>` type alias.
 - [`src/mock.rs`](./src/mock.rs):

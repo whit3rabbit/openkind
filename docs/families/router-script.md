@@ -44,11 +44,13 @@ and the router adds no admission control of its own.
 - No new parity fixtures are required: the router contract is a function
   of the input text and a fixed rule table, not of model output.
 
-## What blocks implementation
+## What remains open
 
-- The M0 supported workload in [`../../ROADMAP.md`](../../ROADMAP.md)
+- The M0 supported workload in [`../ROADMAP.md`](../ROADMAP.md)
   has not locked the languages or scripts the engine must serve. The
-  router rule table cannot be written before that decision.
+  shipped rule table is provisional (daemon default:
+  `latin`, `cyrillic`, and `default` lanes over decoder-letter and
+  encoder-nli siblings); M0 owns the final script scope.
 - Branching on script alone (Latin vs Cyrillic vs Han etc.) is
   sufficient for the multilingual decision but cannot tell the difference
   between, say, German and Turkish Latin-script text. The family is
@@ -57,13 +59,13 @@ and the router adds no admission control of its own.
   parity fixtures.
 - Routing decisions must never influence the wire semantics. The router
   sits behind the Jev wire contract documented in
-  [`../../JEV_COMPATIBILITY.md`](../../JEV_COMPATIBILITY.md); any
+  [`../JEV_COMPATIBILITY.md`](../JEV_COMPATIBILITY.md); any
   visible divergence between router branches would be a wire-level bug.
 
 ## Open questions
 
 - Which scripts and languages does the M0 workload actually require?
-  Owned by [`../../ROADMAP.md`](../../ROADMAP.md).
+  Owned by [`../ROADMAP.md`](../ROADMAP.md).
 - Does the router need to participate in the M2 reviewed-decision
   contract, or only in M3 lower-cost evaluation?
 - Where does the router live in the crate topology? The current
@@ -73,6 +75,7 @@ and the router adds no admission control of its own.
 
 ## What this page does not say
 
-No timings, no language coverage numbers, no error rates. The cited
+No language coverage numbers, no error rates. The cited
 comparison values belong to ollaya's `laya:latest` router page, not to
-`openkind`. `openkind` has no router implementation to measure.
+`openkind`. Routing-overhead measurements over mock siblings are recorded
+in [`../BENCHMARKS.md`](../BENCHMARKS.md).

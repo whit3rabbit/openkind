@@ -51,18 +51,17 @@ is provisional.
 - The router is small enough to be served alongside the main sibling
   family without doubling the latency budget.
 
-## What blocks implementation
+## What remains open
 
-- The M0 supported workload in [`../../ROADMAP.md`](../../ROADMAP.md)
-  has not selected the sibling families the router would dispatch to.
-  Choosing a router before its target set is locked would invert the
-  evidence order.
+- The sibling target set is locked for this profile (daemon default
+  `A=decoder-letter-native`, `B=encoder-nli-native`); the survey-era
+  prerequisite is resolved.
 - Learned routers are themselves decision models and need their own
   reviewed operating point. They cannot ride on the M2 gate inherited
-  from a sibling family.
-- The LoRA training data and license story for any candidate backbone
-  would have to be reviewed before the family could match the
-  off-the-shelf license posture in
+  from a sibling family; none has run for this router.
+- The LoRA training-data and license story was reviewed for this
+  profile: the corpus is synthetic and owned by this repository. Any
+  future backbone needs the same review against the license posture in
   [`../../crates/openkind-backends/AGENTS.md`](../../crates/openkind-backends/AGENTS.md).
 
 ## Open questions
@@ -72,12 +71,13 @@ is provisional.
   contract?
 - Can the router be served at the same cost as the script-based
   alternative? Cost methodology is owned by
-  [`../../BENCHMARKS.md`](../../BENCHMARKS.md).
+  [`../BENCHMARKS.md`](../BENCHMARKS.md).
 - Where does the router sit relative to the Jev wire contract documented
-  in [`../../JEV_COMPATIBILITY.md`](../../JEV_COMPATIBILITY.md)?
+  in [`../JEV_COMPATIBILITY.md`](../JEV_COMPATIBILITY.md)?
 
 ## What this page does not say
 
-No timings, no accuracy numbers, no routing error rates. The cited
+No model-quality or accuracy numbers, no routing error rates. The cited
 comparison values belong to ollaya's family page on `winnow`, not to
-`openkind`. `openkind` has no measurements to report.
+`openkind`. Routing-cost measurements over mock siblings are recorded in
+[`../BENCHMARKS.md`](../BENCHMARKS.md).

@@ -1,7 +1,7 @@
 # OpenKind
 ## Shared-state decision inference: evidence, execution, and useful decisions
 
-**Document version:** 0.8.5 model-research record with 27 September 2026 Rust/MLX systems addendum (completed v0.6.0 source-label replay results saved approximately 19:29 UTC on 26 September)
+**Document version:** 0.8.7 · 27 September 2026, America/Chicago. Consolidated training, Rust/MLX, modern-Qwen serving and native finite-decision evidence through completed readout/history run `20260927T192845_426758Z`.
 
 ### Abstract
 
@@ -55,7 +55,27 @@ reuse, evidence access, targeted learning, retention, and automation utility—n
 an inference about Jev's private architecture or a universally superior neural
 topology. [E29–E32; V6; §18.26; synthesis]
 
-**Current work:** the frozen comparison, contract-only pilot, parent-KL follow-on,
+The latest serving follow-up confirms a practical dependent-field improvement
+without closing the native reader's quality gap. Predicting five fields and
+deriving action in code raises field accuracy **78.47% → 82.55% Q4** and
+**78.56% → 83.51% BF16**, with 3.06%/3.59% lower median request time and no
+eligibility/action contradictions. Indexed readout improves some fields and
+probability scores but is not a uniform quality or speed improvement. Static
+instruction/catalogue reuse passes all **960 cold/warm pairs across eight
+profiles/shapes**, with zero observed probability drift and 1.24–2.75× request
+ratios. These are warm-request measurements; the recorded priming calls were
+already cache hits and do not establish cold-start amortization. [E39; V8; §20]
+
+Process-history and semantic-mapping stability remain unresolved. All four
+code-remapping cells change answers on 12/12 diagnostic cases. BF16 reduces
+history drift, but session-end versus fresh-reset probes still change one BF16
+answer; exact immediate repeats and local cache parity do not establish whole-
+session stability. Generated JSON retains higher field and whole-case accuracy.
+This is dense 4B evidence; the earlier Qwen3.5 MoE quality challenger remains a
+separate profile. No result replaces the implemented Rust reference or promotes
+an inference path. [E36–E39; V7; V8; §§19–20]
+
+**Current model-learning work:** the frozen comparison, contract-only pilot, parent-KL follow-on,
 and source-label replay comparison have completed. None of the three tested
 adaptation recipes satisfies the full quality/retention exit. Preserve J0/J1
 controls, J2/J3 locked update-80 specialists, and J4–J7 diagnostic snapshots with
@@ -66,6 +86,15 @@ fit or authorization. Protected final and promotion remain closed.
 The historical roadmap remains in [ROADMAP_HISTORY.md](../ROADMAP_HISTORY.md), and
 the historical opening is retained in [Appendix E](#appendix-e-historical-opening-before-the-september-refocus).
 [E30–E32; V6]
+
+**Current serving work:** the readout/history Colab has completed, including
+timed deterministic composition and full-panel cache checks. Retain those
+bounded gains; next isolate process-state drift, test the composed warm path
+as one measured system, correct cold-prime accounting, and evaluate fixed
+readouts on fresh task families. These next tests are proposals. The supplied
+architecture remains the working-code inventory; this revision changes the two
+papers only. Concise confirmed findings and discounted approaches are in
+[WORKING_PAPER.md](WORKING_PAPER.md). [E39; V8; §20]
 
 **Reading guide:** current interpretation in [§1](#1-executive-assessment),
 acceptance tracks and work order in [§13](#13-refocused-research-program-and-next-milestone),
@@ -79,6 +108,10 @@ and [current synthesis](#1826-current-synthesis-after-the-replay-target-comparis
 are in §§18.20–18.26. Sections 4–10, the dated interpretations in
 §§18.19/18.22/18.24, and prior checkpoint/revision records retain their historical
 scope. Their original future-work language is not the current queue.
+The modern serving, cache-boundary and native decision studies are in
+[§19](#19-modern-qwen-serving-prefix-reuse-and-native-finite-decisions);
+its disposition table records the E38 cutoff. The completed readout, composition,
+cache and history follow-up is in [§20](#20-readout-deterministic-composition-and-request-history-follow-up).
 
 ---
 
@@ -96,6 +129,16 @@ probability scores relative to KL. Both follow-ons return frozen checkpoints
 under their guarded selectors. None of these results establishes arbitrary-domain
 competence, validates a cheap state summary, or qualifies a changed model for the
 existing native service. [E1–E7; E11–E32; §17.3; §§18.20–18.26]
+
+**Serving evidence now separates a qualified cache gain from unresolved reader
+and process-state behavior.** The latest native study qualifies all eight
+static-prefix cells on the exposed 96-case panel; it measures a five-field-plus-
+rule accuracy and latency gain. JSON remains more accurate, integer indexes are
+not uniformly better, and all four native process profiles fail at least some
+session-end/reset probes. The BF16 control reduces drift without eliminating
+answer changes. These gains do not qualify arbitrary prefixes, all batch shapes
+or the Rust service. The earlier modern MoE comparison remains a distinct bounded
+quality challenger rather than an isolated architecture test. [E36–E39; V8; §20]
 
 A frozen text-only Qwen3.5-4B-Base backbone with last-token features and a linear head reached 87.67% matched and 87.33% mismatched accuracy in Phase 2B’s three-class MultiNLI experiment. Phase 2C selected the same head family across three training seeds and obtained 87.0% and 88.8% on new matched and mismatched test samples. These are sampled NLI results, not general decision accuracy, and separation from earlier experiments does not establish separation from Qwen’s pretraining corpus. [E1; E2]
 
@@ -160,12 +203,16 @@ not be collapsed into one success claim. [E32; V6; §18.25]
 | Does persistent prefix reuse help? | Lossless FP32 savings were 13.91%/11.88% in F and 6.19% on G’s different expiry trace. | Benefits depend on workload and cache budget; no production or cross-question guarantee. |
 | Has H completed and selected a universally better model? | Required final/robustness/primitive/request workers completed; the development-selected support arm has weaker held-out transfer than a retained original-criteria control. | Close recovery; keep model selection, numerical acceptance and broader generality open. [E9] |
 | Have Phase 4A/4B solved multi-source question answering and semantic none? | No. The completed architecture and scalar-weight sweeps improve aggregate discrimination, but every arm misses the declared 0.30 QASPER none-recall floor. The cap-12 request saturates at effective weight 8.5602 and trades limited QASPER recovery for a 0.3966 ContractNLI false-none rate. | Keep final closed. Subsequent stratified, pairwise, head-only, and residual tests also failed the complete gate. Repair source/input evidence before another model intervention. [E14–E25] |
+| Are modern Qwen MoE systems ruled out by the old control? | No. E36's modern MoE improves bounded accuracy over the dense vLLM control at approximately 2× latency. | Retain a separate quality challenger; do not attribute the difference solely to MoE. |
+| Is the native reader an equivalent faster JSON replacement? | No. E39 natural + host-rule accuracy is 82.55% Q4 / 83.51% BF16 versus JSON 90.45% / 88.89%; history and mapping failures persist. | Retain measured composition gains without claiming JSON-quality equivalence. [E39; V8] |
+| Is native prefix reuse established? | Yes: E39 qualifies 960 paired requests across eight cells, covering all 96 exposed cases, at zero observed Δp/flips. | Static-prefix warm savings are established locally; cold-start amortization and whole-session stability are not. [E39; V8] |
+| Does higher precision solve native request-history drift? | No. BF16 has seven failed end/reset probes out of 24, including one answer change. | Preserve a separate answer gate and diagnose process-state isolation. [E39; V8] |
 | Has the matched frozen J0/J1 comparison completed? | Yes, in FP32 at 1,024/4,096-token state-prefix caps; effects differ by source and evidence stratum. | Keep both controls; common-renderer results are not a universal checkpoint ranking. [E29] |
 | Can bounded decision-LoRA improve natural-document decisions without damaging retention? | ContractNLI accuracy and contradiction/none recall improve substantially, but both adapters lose entailment and QASPER behavior. | Close the exact pilot as executed with failed full retention; test preservation, not automatic scale-up. [E30; V4] |
 | Did parent-consistency replay preserve the useful gains without regressions? | It partially recovers probability scores relative to specialists, but no nonzero checkpoint meets the joint preservation rules; both selectors choose frozen. | Keep the completed KL recipe and historical choices; E32 supplies the separate source-label comparison. [E31; E32] |
 | Did replacing parent KL with source-label replay repair retention? | SNLI accuracy/probability quality improve substantially, but supported entailment and QASPER retention still fail; both guarded selectors retain frozen0. | Close the exact source-label recipe; diagnose the recurring complete-document failure rather than equating a better replay proxy with retained scope. [E32; V6] |
 
-**Current direction after E32:** retain the immutable integration reference,
+**Model-learning direction after E32, retained alongside the serving track:** retain the immutable integration reference,
 its CPU/MLX FP32 qualifications, J0/J1 controls, and all historical adapter and
 selection identities. The SNLI target-source comparison is completed, not an
 untried retention fix. Pause generic short-premise replay variants as the main
@@ -314,6 +361,29 @@ For v0.8.1, the supplied v0.8.0 Markdown (SHA-256 `6ddb149e7c3229188e60a97399533
 For v0.8.2, the supplied v0.8.1 Markdown (SHA-256 `801ac783c4ef07d828d703f2658d7c3576e50e5b4d9adb73ef94a9a4467dd590`) is the editing authority. Later completed artifacts supersede only v0.8.1's progress statuses: balanced B1 and every Phase 4A–4D follow-on now have their recorded terminal reports/locks. This revision reads and reconciles those saved artifacts, but does not rerun training, modify result directories, adjudicate labels, or open final. [E15 amendment; E17–E20]
 
 For v0.8.3, the uploaded `WHITEPAPER.md` (SHA-256 `9579909e53dff0d0fd404632f763b416df78c05285ab600cabdc539c05b4656f`) is the editing authority. E29 and E30 are the completed frozen and matched-adaptation result authorities. This update reruns the included CPU-only readout scripts on local copies: six E29 result hashes and nine E30 result hashes match; seven E30 runtime-source hashes and the canonical data-lock identity match. Count, class, identity-policy, component separation, schedule, and selection checks are recorded in V4. The additional document-bootstrap accuracy intervals and exact policy-cost interpretation are review-derived, distinguished from source-reported probability scores and original intervals. No Qwen inference, fitting, raw-logit recalibration, new source adjudication, checkpoint-binary audit, repository/Drive mutation, or protected-final access is performed. Historical E0–E28 and native result records are retained rather than remeasured. [E29; E30; V4]
+
+**Version 0.8.6 review boundary.** E33–E35 consolidate legacy serving findings
+from the supplied working-paper record; they were not rerun or freshly rehashed
+for this edit. E36 uses the inspected modern-run summary and manifest. E37 uses
+the completed standard-profile summaries and startup logs, preserving failed or
+unrun paths. E38/V7 independently recompute paired field/case correctness,
+case-bootstrap differences, cache telemetry, option-order and cross-stage
+comparisons, joint-pair results and the explicitly offline rule replay from
+archived output. Its 144 authored gold records are checked against their stated
+rules. Existing Rust/MLX implementation claims retain the supplied codebase
+records' scope; no fresh repository checkout, GPU inference, model fitting,
+protected-final evaluation, threshold change or source-label adjudication is
+performed for this revision.
+
+**Version 0.8.7 review boundary.** E39/V8 reconstruct the new archive's 2,544
+atomic jobs, 144 rule-derived gold records, semantic probability mappings,
+quality/latency aggregates, paired case-bootstrap intervals, cache telemetry,
+history episodes and fresh-reset comparisons. The review identifies already-
+warm priming calls and a BF16 whole-request drift failure hidden by the passing
+anchor-only endpoint. It reconciles saved outputs and source logic; it does not
+run new inference, independently adjudicate the authored dataset, rehash model
+weights, change code, or promote a profile. Earlier evidence retains its stated
+historical scope.
 
 ## 3.3 Evaluation units and leakage boundaries
 
@@ -1183,6 +1253,18 @@ preservation diagnosis. It creates no new notebook and does not claim that the
 repository roadmap, agent instructions or architecture files were edited or
 synchronized. [E8; E9; E29–E32; V6; RUST11]
 
+**27 September serving implication.** Keep the learned candidate-feature
+profile, indexed-token readout and constrained token-tree reader separately
+identified. Their probability semantics, conditioning graphs and implementation
+gates differ. Future integrations must distinguish static catalogue caching from
+state-first reuse, verify token IDs at the exact answer boundary, and test
+request-history as well as immediate replay. Deterministic derived fields must
+preserve their source distribution and declared rule semantics. These are
+requirements for proposed changes, not newly implemented Rust interfaces.
+E39 now demonstrates timed host composition externally and stronger local
+cache evidence, while retaining reset and mapping failures.
+[E36–E39; §§19–20; ARCHITECTURE.md]
+
 # 12. Research questions answered and still open
 
 | Research question | Answer supported so far |
@@ -1237,6 +1319,14 @@ Existing labels, quarantines, thresholds, and result locks remain unchanged.
 The proposed next diagnosis targets supported-entailment and long-document
 retention, not another automatically authorized fit. [E14–E32; §§18.20–18.26]
 
+**Current serving status:** E36's modern dense/MoE screen, E37's standard
+cache-boundary diagnostics, E38's native recovery, and E39's readout/history
+follow-up are completed within their scopes. vLLM batch-invariant startup
+failures remain unexecuted comparisons. Native static-prefix reuse now qualifies
+across the full exposed panel, and host composition has a timed gain. Complete
+reader quality, semantic-mapping stability and session-history equivalence
+remain unestablished. Sections 19–20 distinguish these outcomes.
+
 # 13. Refocused research program and next milestone
 
 The objective remains useful, auditable decisions over shared evidence. Native
@@ -1255,6 +1345,14 @@ scope remain separate. The historical interpretations in §§18.19/18.22/18.24 a
 retained; §§18.25–18.26 supply the completed result and current synthesis. The
 roadmap owns task management and is not modified by this documentation-only update.
 [E32; V6; proposed work]
+
+The separate serving track has now completed the indexed/natural comparison,
+A→intervening-request→A experiment, timed dependent-field composition, and
+full-panel cache checks (§20). The next proposed work isolates the reproducible
+session-end/reset failure, tests five-field composition and warm reuse together,
+measures a genuinely cold first prime, and evaluates fixed readouts on fresh
+task/rubric families. The working Rust checkpoint and scheduler remain unchanged;
+any port must qualify complete requests on its target host. [E39; V8; proposed work]
 
 ## 13.1 Phase 2H: completed continuation and retained development history
 
@@ -3569,6 +3667,601 @@ selection locks remain binding. [E25; E29–E32; §17.3]
 
 ---
 
+# 19. Modern Qwen serving, prefix reuse, and native finite decisions
+
+## 19.1 Scope and the comparison that supersedes the old MoE control
+
+The 26–27 September serving studies are separate from the frozen Rust
+integration profile and the J0–J7 document-learning experiments. They test
+different checkpoints, quantization, prompts, runtimes, hardware, and decision
+readouts. Their results must not be joined into a single architectural speedup.
+E33–E35 retain the reviewed legacy findings from the supplied working paper;
+E36–E38 add the modern-Qwen and native records. V7 distinguishes inherited
+evidence from newly inspected saved outputs. No inference or training was run
+for this documentation update.
+
+| Evidence | Run, UTC identifier | Executed scope | Outcome |
+|---|---|---|---|
+| E33 | `20260926T224132_613995Z` | Initial Qwen1.5 MoE routing/ablation review | Exploratory; distinct pasted physical-removal run not recovered |
+| E34 | `20260927T003918_481825Z` | Native versus late-block skipping; cache/numerics controls | Completed; quality/research gate false |
+| E35 | `20260927T015527_929864Z` | Qwen3 dense versus Qwen1.5 MoE, including FP32 router | Completed; no accepted policy or full cache mode |
+| E36 | `20260927T151913_239807Z` | Qwen3.5 dense/MoE, indexed-option vLLM readout | Completed; better MoE accuracy at about twice dense latency |
+| E37 | `20260927T164948_171382Z` | Standard vLLM repeatability and cache boundaries | Standard profiles completed; batch-invariant/native paths did not complete |
+| E38 | `20260927T173906_585234Z` | Native GGUF branch, cache, and paired JSON studies | Completed; all three native profiles; vLLM deliberately disabled |
+
+An `EXPLORATORY_COMPLETE` status denotes execution completion. It does not
+promote a model, cache path, calibration, or policy. `0/0` vLLM rows in E38 mean
+not run, rather than failed measurements or evidence that all caching fails.
+
+### The older MoE result remains a bounded negative control
+
+E34 used Qwen1.5-MoE-A2.7B-Chat with NF4 weights, BF16 compute, and eager
+attention on an L4. On 96 authored questions, native execution scored 36/96
+and skipping the last six MoE blocks scored 40/96. Median latency fell
+2,022.49 → 1,535.78 ms (1.3169×), while peak allocated memory stayed
+7.8229 → 7.8228 GiB. Accepted errors were 9/14 and 3/8; neither policy beat
+review-all at cost 0.10. This is a measured time saving with failed decision
+utility, not a qualified pruning recipe. [E34]
+
+Split-prefill parity passed only 4/8 native probes and 2/8 probes with the
+NF4/FP32-linear reference; maximum probability differences were 0.119915 and
+0.155268, with one answer flip each. The latter control retained quantized
+weights and other reduced-precision operations: it was not full-model FP32.
+The nearby bitsandbytes deprecation warning is not an explanation of the
+parity assertion. The numerical cause remains unisolated. [E34]
+
+The completed E35 comparison was:
+
+| System profile | Panel | Correct | Unknown recall | Calibrated NLL | Scalar p50 |
+|---|---|---:|---:|---:|---:|
+| Qwen3-4B-Instruct-2507, BF16/SDPA | SNLI | 155/192 | 55/64 | 0.5694 | 49.28 ms |
+| Same dense profile | Authored | 84/96 | 26/32 | 0.3317 | 52.74 ms |
+| Qwen1.5 MoE, NF4/BF16/eager | SNLI | 110/192 | 18/64 | 0.8963 | 1,781.62 ms |
+| Same MoE profile | Authored | 32/96 | 2/32 | 1.0936 | 1,802.03 ms |
+| Same MoE with FP32 router | SNLI | 109/192 | 19/64 | 0.9077 | 1,788.45 ms |
+| Same FP32-router profile | Authored | 33/96 | 3/32 | 1.0937 | 1,811.44 ms |
+
+All six policies selected review-all. All full-batch, sequential-prefix and
+batched-prefix modes failed the complete eight-group probability gate. Dense
+variants retained the sampled answers but exceeded tolerance; MoE variants
+also changed answers. Later latency/LRU sweeps were therefore not run. The
+old result favored the dense *system profile*, not dense architecture in
+general; E36 is the relevant modern MoE comparison. [E35]
+
+One E34 full-input probe invoked 1,437 experts across 24 layers, averaging
+59.875 of 60 experts per layer. Four selected experts per token did not imply
+a small expert set for the whole input. In E35, actual-selection instrumentation
+found full/split expert-set differences at 136/1,512 prefix and 100/1,248 suffix
+token-layer positions; FP32 routing reduced exact boundary ties from 158 to
+zero but left differences at 109/1,512 and 101/1,248. Router FP32 alone did not
+repair output parity. These positions are correlated diagnostics. [E34; E35]
+
+No recorded experiment streams expert weights. Lower top-k or masking does
+not by itself unload weights. The separate pasted physical-removal result
+(7.8194 → 4.8247 GiB) remains user-reported because its raw run was not recovered;
+it is excluded from confirmed memory claims. Older route-change percentages
+from an observer that reconstructed selection with a separate top-(k+1) call
+also remain excluded. [E33; E34]
+
+## 19.2 Modern Qwen3.5: a quality/latency trade-off, not MoE rejection
+
+E36 ran on an A100-SXM4-40GB with vLLM 0.30.0. It compared official
+Qwen3.5-4B BF16 and Qwen3.5-35B-A3B-GPTQ-Int4. Both used a verified numerical
+answer prefix and explicit option-token log probabilities. Timings include
+one generated answer-code token and localhost HTTP overhead. They are not
+comparable to earlier direct-forward PyTorch timings or Mac compute timings.
+Each panel contains 288 questions from 96 states. [E36]
+
+| Profile | Panel | Correct / 288 | Unknown recall | Calibrated NLL | Coverage | Wrong / accepted | p50 / p95, ms |
+|---|---|---:|---:|---:|---:|---:|---:|
+| Qwen3.5-4B BF16 | SNLI | 217 (75.35%) | 79.17% | 0.5791 | 0% | Undefined / 0 | 63.10 / 65.96 |
+| Qwen3.5-4B BF16 | Authored | 218 (75.69%) | 84.38% | 0.4031 | 59.03% | 4/170 (2.35%) | 63.40 / 67.27 |
+| Qwen3.5-35B-A3B GPTQ INT4 | SNLI | 244 (84.72%) | 90.62% | 0.4754 | 0% | Undefined / 0 | 126.32 / 131.92 |
+| Qwen3.5-35B-A3B GPTQ INT4 | Authored | 267 (92.71%) | 78.12% | 0.1498 | 88.19% | 1/254 (0.39%) | 126.73 / 130.75 |
+
+The modern MoE gains 9.38 percentage points on SNLI and 17.01 on authored
+questions at about 2× the dense latency. Both authored policies passed their
+recorded development/audit criteria, while both SNLI policies remained
+review-all. These bounded positive results supersede the blanket statement
+that no recent policy qualified; they do not establish production reliability.
+The final accepted-state error upper bounds were 9.28% dense and 4.85% MoE,
+distinct from per-question accepted-error point estimates. [E36]
+
+Public SNLI was conditioned on three-label premise groups; authored templates
+were shared across splits. There is no sealed production generalization test.
+Model size, dense/MoE structure, and quantization differ, so the quality gain
+cannot be attributed to architecture alone. Option rotations changed 8/24
+dense decisions and 3/24 MoE decisions. None of the initial full-concurrent,
+cold-staged, or warm-state qualification modes passed completely. [E36]
+
+## 19.3 vLLM follow-up: block boundaries and baseline stability
+
+E37 varied shared-prefix lengths around each recorded cache block: 527, 528,
+529, 1,056, 1,057 tokens for the dense profile (block 528), and 1,055, 1,056,
+1,057, 2,112, 2,113 for the MoE profile (block 1,056). These are measured
+runtime-specific boundaries, not universal Qwen block constants. [E37]
+
+| Repeatability mode | Dense max Δp / pass | MoE max Δp / pass |
+|---|---:|---:|
+| Serial, 24 decisions, five repeats | 0 / yes | 0.13605 / no |
+| Client concurrency four, same panel | 0.03691 / no | 0.29810 / no |
+
+Exactly one optimized dense cell qualified: **529-token prefix, Q=4,
+cold-staged execution**. Its p50 fell 478.44 → 248.95 ms (1.9218×), with
+maximum Δp 4.37×10⁻⁸ and zero decision or diagnostic-action flips. The first
+request starts cold; reuse is required on subsequent branches. The minimum
+cached-token count over the entire group is consequently zero, which must not
+be misread as no reuse. Five additional qualified dense rows are cold-serial
+baselines, not five more optimizations. No MoE cache cell qualified. [E37]
+
+Some failing cells observed reuse but exceeded the probability gate; others
+failed the reuse condition or had an unstable cold baseline. Cache hits,
+repeatability, numerical equivalence, and latency are distinct measurements.
+The passing dense shape does not qualify neighboring lengths or all warm
+requests. E36's aggregate failures are preserved; E37 narrows their scope.
+
+Both requested batch-invariant profiles failed during startup. The dense log
+identifies unsupported batch-invariant Gated DeltaNet execution; the MoE log
+fails in Humming/NVRTC preparation. These are unexecuted comparisons, not
+measured evidence that batch-invariant inference worsens quality. The initial
+native attempt also did not yield valid result rows. E38 is its separately
+identified completed native recovery, not a silent replacement of E37.
+
+## 19.4 Native finite-decision engine: identity and readout semantics
+
+E38 completed three native profiles with no recorded execution errors on the
+A100-SXM4-40GB. The model is **dense Qwen3.5-4B Q4_K_M**, not the 35B MoE.
+The GGUF is `bartowski/Qwen_Qwen3.5-4B-GGUF`, revision
+`4168f45a16a1290d65a4ec0fa312ae917a4c15d6`; the fork is pinned to
+`ad129b08d9f134cd298d1f8a85efc52b1b66e18e` with the archived instrumentation
+patch. This is an external C++/CUDA experiment, not the Rust/Candle/MLX
+integration profile or a backend already registered in OpenKind. [E38]
+
+The native schema-first prompt includes instructions and the complete field
+catalogue before the user context. Each field is scored through permitted
+token-tree branches and the host assembles the typed response. At each
+branching node, probabilities are normalized among allowed next tokens;
+path scores are combined and normalized over terminal values. These are
+**locally constrained token-policy probabilities**, not unrestricted string
+likelihoods or a calibrated probability of factual correctness.
+
+```mermaid
+flowchart TD
+    P["Instructions and full field catalogue"] --> R["Reusable prefix state"]
+    R --> C["Context trunk per request"]
+    C --> E["Eligibility token branches"]
+    C --> A["Action token branches"]
+    C --> F["Other field token branches"]
+    E --> H["Host assembles field distributions"]
+    A --> H
+    F --> H
+    H --> O["Typed response and consistency checks"]
+```
+
+*The tested native graph. Catalogue reuse across requests and context sharing
+within one request are different mechanisms. Adding or reordering catalogue
+choices changes model conditioning; this graph does not inherit the Rust
+state-first root's intended question-set isolation.*
+
+## 19.5 Native tree versus compact JSON: speed does not preserve quality
+
+The paired comparison uses 96 test cases, six fields each, with 48 separate
+calibration cases. Model, quantization, state, rules and allowed choices match;
+the required output and prompt format differ. One cold request per method per
+test case supplies the timing distribution. The authored templates are shared
+across calibration and test, so the 576 field decisions are neither independent
+cases nor a production generalization benchmark. [E38; V7]
+
+| Measure | Native tree, 24 sequences/padded | Compact JSON |
+|---|---:|---:|
+| Correct fields | 451/576 (78.30%) | 516/576 (89.58%) |
+| All six fields correct | 15/96 (15.63%) | 58/96 (60.42%) |
+| Eligibility/action inconsistencies | 29/96 | 1/96 |
+| Invalid JSON | Not applicable to host assembly | 0/96 |
+| Whole-request p50 | 112.29 ms | 495.16 ms |
+
+The median paired latency ratio is 4.41. Tree minus JSON field accuracy is
+−11.28 percentage points; a case-level bootstrap gives a 95% interval of
+[−15.63, −7.12] points (3,000 resamples, seed 17). The interval describes these
+authored cases, not uncertainty over unseen task families. Exact all-field
+agreement between the methods is 10/96; agreement and correctness are separate.
+This is a speed/quality trade-off, not an equivalent faster implementation.
+
+| Field | Native correct / 96 | JSON correct / 96 |
+|---|---:|---:|
+| Eligibility | 92 | 86 |
+| Next action | 65 | 85 |
+| Route | 46 | 64 |
+| Case state | 56 | 95 |
+| Retries | 96 | 96 |
+| Urgent | 96 | 90 |
+
+Native inference is not uniformly weaker. The main failures are concentrated:
+every native route contains `priority`, including all 44 nonurgent cases;
+all 36 ordinary `case closed` targets become `case closed duplicate`.
+Four open cases also become closed duplicates. Token auditing finds shared
+first-token paths for route and case-state choices and different results from
+separate versus boundary-aware tokenization in five of six fields. These
+observations motivate a controlled readout test; they do not prove that a
+particular tokenizer, branch-termination, or scoring defect caused the errors.
+
+## 19.6 Native batching and cache qualification have different verdicts
+
+The branch ablation uses 12 calibration cases and five repeats per profile.
+Within each repeated block, outputs are exact. Medians below are medians of
+per-case request medians. All profiles produce the same selected values on
+this panel and get 54/72 fields correct. [E38; V7]
+
+| Native profile | Request median | Total / scoring decode calls | Max Δp versus serial | Cases within 0.005 | Device used after load |
+|---|---:|---:|---:|---:|---:|
+| 3 reserved sequences, padded | 202.37 ms | 11 / 9 | 0 | 12/12 | 4.953 GiB |
+| 24 reserved sequences, padded | 107.37 ms | 3 / 1 | 0.03036 | 1/12 | 6.074 GiB |
+| 24 reserved sequences, unpadded | 136.32 ms | 3 / 1 | 0.03877 | 1/12 | 6.074 GiB |
+
+The faster profiles are not probability-equivalent to serial execution. There
+is no demonstrated argmax-accuracy loss from batching on these 12 cases, and
+removing padding does not repair the gate. Device-used memory is whole-device
+residency under the reservation, not weight-only storage or a per-request
+allocation peak. Decode-call counters count public engine calls, not GPU
+kernels or internal microbatches. One scoring call still follows prefix and
+context work; it is not one total model operation per request.
+
+In contrast, the **within-profile native cache comparison passes**. Every warm
+request reuses 315 instructions/catalogue tokens; cold requests report zero
+cached tokens. Five cold and five warm measurements per shape show zero
+observed probability difference and no decision changes. [E38; V7]
+
+| Contexts / fields per request | Cold p50 | Warm p50 | Cold / warm ratio |
+|---|---:|---:|---:|
+| 1 / 6 | 107.40 ms | 55.96 ms | 1.919× |
+| 4 / 24 | 235.94 ms | 181.44 ms | 1.300× |
+| 8 / 48 | 417.39 ms | 363.41 ms | 1.149× |
+
+The saving is approximately 51–55 ms per request, consistent with amortizing
+a fixed reusable prefix. Warm times omit the initial prefix-building cost;
+cold and warm must remain separate. Approximately 7.56 ms per field at four
+contexts is amortized throughput, not isolated field latency. These cache
+fixtures are not the full 96-case paired quality panel: combining the 55.96 ms
+warm median with JSON's 495.16 ms median would invent an unmeasured matched
+speed/quality comparison. Passing cache parity against the 24-sequence profile
+also does not repair that profile's failed parity against serial execution.
+
+## 19.7 Order, request history, joint constraints, and calibration
+
+**Order sensitivity.** Reversing all candidate lists changes at least one
+field in 4/12 cases: five field flips total, with aligned maximum Δp 0.47262.
+All 12 probability checks fail. Both the catalogue text and branch layout can
+change, so the probe does not isolate the responsible mechanism. A fixed
+production order is not evidence that semantic order invariance has been
+achieved. [E38]
+
+**Cross-stage repeatability.** Independent comparison of identical calibration
+fixtures in the ablation and later quality stages finds maximum Δp 0.076519,
+11/12 cases above tolerance, and one selected-field change. Comparing the
+ablation with later option-order baseline requests gives maximum Δp 0.068363
+and one selected-field change. The changed action on `native-calibration-9`
+is deny → grant, with grant the gold action. Exact immediate repetitions are
+therefore insufficient to establish stable behavior across request histories.
+The data do not identify whether chat interleaving, prior batch shapes, state
+cleanup, or another execution effect is responsible. [E38; V7]
+
+**Joint constraints.** Offering only valid eligibility/action pairs removes
+the three observed inconsistencies on the 12-case mechanics panel. Pair-only
+correctness improves 8/12 → 11/12. Whole-case correctness remains 2/12 because
+other fields still fail. The unchanged whole-case summary must not hide the
+bounded improvement in the targeted pair. [E38; V7]
+
+**Deterministic composition, offline replay only.** The fixture explicitly
+defines action as a function of eligibility. Replacing the recorded action
+prediction with this rule, without changing eligibility, increases correct
+fields 451 → 478 of 576 (78.30% → 82.99%) and all-correct cases 15 → 23 of 96.
+It removes eligibility/action contradictions by construction. This calculation
+does not measure inference time, validate a general policy engine, or add an
+implementation to the Rust codebase. Any derived action probability must come
+from the declared mapping of the eligibility distribution, not be replaced by
+confidence 1. [V7; proposed engineering application]
+
+**Calibration.** Field-specific temperatures fitted on 48 calibration cases
+reduce test route NLL 2.78843 → 1.25400 and case-state NLL 1.82913 → 0.88616,
+but worsen eligibility NLL 0.27056 → 0.41902. Eligibility Brier nevertheless
+improves, illustrating that proper scores can disagree on a small panel.
+Positive scalar temperature preserves the selected class; it cannot fix the
+route bias, action contradiction, or choice-order behavior. Calibration must
+be accepted per field/profile on a separate gate rather than presumed useful.
+
+**Cardinality.** K=4, 16 and 129 fixtures complete in tree/greedy/auto modes;
+each cell is a single explicit label-copying task, not K-way reasoning evidence.
+Tree mode returns all 129 probabilities at about 323 ms. Greedy is not always
+faster: at K=4 and K=16 it is slower than tree. Greedy/auto at K=129 return no
+full distribution. Missing probabilities must stay unavailable, not be
+fabricated as a one-hot vector or a calibrated fallback. [E38]
+
+## 19.8 Relationship to PrivateMode and the Rust implementation
+
+PrivateMode uses indexed choices, an answer prefix, explicit option-token
+log probabilities, and normalization over the offered options. Token IDs must
+be verified in the serving tokenizer; top-logprob truncation can omit choices.
+This supports a frozen indexed-readout control. It does not establish OpenKind
+quality, cached-state equivalence, or calibrated correctness. Its reported
+run-to-run variation motivates repeatability testing without relaxing our gates.
+[P24; P25]
+
+At the E38 cutoff, the proposed diagnostic was single-token indexes versus
+natural-label trees, nonoverlapping labels, semantic-ID-aligned remapping,
+cross-request history, precision and timed field composition. The [companion
+Colab notebook](https://colab.research.google.com/drive/110Ej_FjTxxIb2DrNiBWM6jC7l6ui1g3h)
+has now completed as E39. Section 20 records its new CUDA results: a measured
+composition gain, qualified full-panel static-prefix reuse, mixed indexed
+quality, and persistent mapping/session-history failures. The original E38
+measurements in this section remain unchanged.
+
+The Rust implementation retains its pinned Base checkpoint, candidate-conditioned
+features, score-summary rejection, state-first isolation, and existing CPU/MLX
+qualification boundaries. No E36–E39 profile replaces it automatically. The
+negative Mac flat-field/pooling results (§17.4) and positive CUDA native cache
+results can coexist: checkpoint, readout, graph, arithmetic, timing scope and
+hardware differ. Future ports need matched complete-request tests on the target
+machine. New quality profiles need their own accuracy/retention evaluation;
+execution-only substitutions need probability, answer, policy and state parity.
+
+## 19.9 Consolidated dispositions at the E38 cutoff
+
+Section 20.6 records the subsequent E39 evidence and current serving priorities.
+
+| Finding or approach | Disposition supported by the evidence |
+|---|---|
+| Complete hybrid-state reuse | Confirmed for named CPU/MLX reference fixtures and bounded CUDA experiments; qualify each profile and shape |
+| Indexed decision readout | Working serving baseline; no guarantee of calibrated or order-invariant decisions |
+| Native instructions/catalogue cache | Positive within-profile result: 315 reused tokens, zero observed drift, 1.15–1.92× cold/warm ratios |
+| Modern Qwen3.5 MoE | Retain as a quality challenger; stronger than the dense vLLM control on E36 at about 2× latency |
+| Native token-tree replacement for JSON | Not quality-equivalent: 4.41× faster with 11.28-point field-accuracy loss |
+| Automatic branch batching | Not promoted by E38; sampled answers match but probabilities fail serial equivalence |
+| Padding removal | Did not repair E38 equivalence; not a validated remedy |
+| Fewer forwards as a speed predictor | Discounted as a general rule by paired Mac flat-field and pooling tests |
+| Late MoE skipping / smaller top-k | Exploratory compute savings do not establish useful quality or resident-memory savings |
+| Router FP32 alone | Tested and insufficient in the legacy MoE study |
+| Generic short-premise replay as retention repair | Tested recipes fail the complete document-task preservation gates |
+| Cheap frozen pooled-prefill readout | Tested variants fail; richer learned state-query models remain open |
+| Low-bit hybrid-state codecs | Tested four variants fail complete equivalence; bounded FP16-KV storage has separate positive evidence |
+| Streaming MoE / TypeSafe RLCD reproduction | Unestablished; neither was demonstrated by these runs |
+
+
+# 20. Readout, deterministic composition, and request-history follow-up
+
+**Completed result:** run `20260927T192845_426758Z` finishes all primary panels
+with no recorded execution errors. Its status is `EXPLORATORY_COMPLETE`;
+`model_promoted` and `cache_promoted` remain false. The three tests proposed
+after E38 have now run. Deterministic action composition has a measured benefit;
+indexed readout has mixed effects; higher precision reduces but does not remove
+history dependence. Full-panel static-prefix reuse passes its local comparison.
+[E39; V8]
+
+## 20.1 Scope, controls, and evaluation units
+
+This is **dense Qwen3.5-4B**, not another MoE experiment. Q4_K_M and BF16 GGUFs
+come from the same pinned repository revision, served by the same instrumented
+native fork on an A100-SXM4-40GB. Both offload all 34 reported layers. The source
+commit, binary identities, model digests and executed Python/C++ sources are
+retained in E39. BF16 is a higher-precision **weight/backend profile**, not a
+strict-FP32 arithmetic control. Q8_0 appears in the configuration but was not run.
+
+The dataset reuses E38's 144 authored fixtures: 48 calibration cases and
+96 exposed test cases, with six fields per case. Each quality arm has two
+repeats: **192 observations of 96 cases, or 1,152 field observations**. Case order
+and arm order are shuffled reproducibly. The quality panel uses 24 reserved
+branch sequences and disables cache lookup. Six anchors supply the separate
+history diagnostic; 12 calibration cases supply mapping rotations. These are
+repeated, previously inspected templates, not independent production examples.
+
+The archive contains 2,544 completed atomic jobs: 384 quality jobs, each with
+six measured arms; 1,152 history episodes; 960 cold/warm pairs; and 48 mapping
+comparisons. All share one run identity and one session, with no resumed jobs.
+V8 reconstructs the rule-derived gold records, semantic decoding and reported
+metrics from saved outputs. It makes no new model calls. Request times include
+localhost HTTP and caller-side preparation/validation; composition timing also
+includes the host rule. Loading/building are excluded. JSON uses the same facts
+and rules but a different prompt/output graph and returns no complete option
+distribution. [E39; V8]
+
+## 20.2 Single-token indexes do not uniformly improve quality or speed
+
+Natural labels use the existing constrained token tree. Indexed fields map the
+same semantic options to integers; aliases use nonoverlapping output names for
+the four text-enum fields while retaining the natural integer/Boolean fields.
+Both alternatives explicitly describe their semantic mappings. Each indexed
+field has one scored divergence position, with verified digit token IDs
+15–18 as applicable. This is one decision position **per field**, not evidence
+that the complete six-field request executes in one model forward pass.
+
+| Measured arm | Q4 field accuracy | Q4 all-six accuracy | Q4 p50 ms | BF16 field accuracy | BF16 all-six accuracy | BF16 p50 ms |
+|---|---:|---:|---:|---:|---:|---:|
+| Natural labels | 78.47% | 15.10% | 111.13 | 78.56% | 16.67% | 79.97 |
+| Integer indexes | 78.04% | 28.12% | 131.18 | 81.68% | 26.56% | 94.89 |
+| Nonoverlapping aliases | 83.25% | 29.17% | 119.95 | 82.90% | 31.77% | 88.97 |
+| Natural, five fields + host action rule | 82.55% | 23.44% | 107.73 | 83.51% | 23.96% | 77.09 |
+| Indexed, five fields + host action rule | 80.64% | 25.52% | 126.63 | 81.86% | 24.48% | 91.32 |
+| Generated compact JSON | 90.45% | 64.58% | 494.99 | 88.89% | 56.25% | 578.76 |
+
+All-six accuracy counts a case observation correct only if every field is
+correct. The percentages above therefore do not treat six fields as six
+independent examples. The paired intervals below average repeats within each
+case, then bootstrap 96 cases with 2,000 draws, seed 571. They are exploratory,
+unadjusted intervals across several comparisons, not a new selection gate.
+Arms share a long-lived process with JSON interleaving. Because the separate
+history tests find drift, these contrasts describe the recorded execution;
+replication under fresh, isolated process histories remains open.
+
+| Contrast against natural labels | Q4 accuracy change, pp [95% interval] | BF16 accuracy change, pp [95% interval] |
+|---|---:|---:|
+| Integer indexes | −0.43 [−5.21, 4.60] | +3.13 [−1.13, 7.73] |
+| Nonoverlapping aliases | +4.77 [1.82, 7.90] | +4.34 [0.78, 7.99] |
+| Timed natural + host action rule | +4.08 [2.17, 6.08] | +4.95 [3.21, 6.77] |
+| Compact JSON | +11.98 [7.99, 16.15] | +10.33 [6.16, 14.50] |
+
+The indexes recover some overlapping-label errors: ordinary-closed accuracy
+rises from 0% to 63.89% Q4 / 83.33% BF16 on 36 cases repeated twice. Yet overall
+route accuracy remains only 46.35% / 50.00%, versus natural's 47.92% / 48.44%.
+Indexing also lowers retries from 100% to 89.06% / 85.42%, and urgency from 100%
+to 72.92% / 87.50%. Per-field improvement cannot be inferred from the aggregate.
+
+Indexed NLL improves from 0.9339 to 0.5076 Q4 and 0.9850 to 0.4950 BF16. That
+supports better probability scores on this panel, not calibrated correctness.
+Uncached indexed requests are **18.0% / 18.7% slower**. Their static prefix is
+508 tokens versus 315 for natural labels; changing readout also changes prompt
+work. The outcome neither proves an implementation bug in the tree nor supports
+indexing every field as a universal remedy. [E39; V8]
+
+**Mapping sensitivity remains substantial.** Rotating which semantic outcome
+each code denotes, while preserving the outcome set and decoding back to semantic
+IDs, changes at least one field in **all 12 cases** for every precision/readout.
+Indexed Q4/BF16 have 23/21 field flips and maximum Δp 0.7413/0.6805; aliases have
+34/36 flips and maxima 0.9994/0.9996. This is code-to-meaning remapping, not merely
+reordering serialized choices. Alias rotations can also oppose familiar word
+meanings. The result establishes fragility under the tested mappings, not a
+population failure rate or a uniquely identified tokenization cause.
+
+## 20.3 Dependent action fields: a measured, limited improvement
+
+E38's 78.30% → 82.99% result was an offline replay. E39 now actually requests
+five fields and derives the sixth in caller code. For natural labels, correct
+fields rise **904 → 951 of 1,152** in Q4 and **905 → 962** in BF16. Median request
+time falls **111.13 → 107.73 ms (3.06%)** and **79.97 → 77.09 ms (3.59%)**.
+Eligibility/action contradictions fall from 55/192 and 60/192 to zero by
+construction. These are newly timed implementation results in the Colab/native
+study, not an addition to the Rust service. [E39; V8]
+
+The fixture's rule is explicit: eligible → grant access; ineligible → deny
+access; undetermined → request missing information. The action distribution is
+the pushforward of the eligibility distribution:
+
+\[
+P(A=a)=\sum_{e:f(e)=a}P(E=e).
+\]
+
+It is not replaced with confidence 1. Correct composition can still propagate
+incorrect eligibility. Removing the action field also changes the catalogue
+and instruction, so other field predictions can change. The separate E39
+offline natural replay reaches 82.90% / 83.42% and has no measured latency;
+it must not be substituted for the timed arm. Natural-derived NLL worsens
+slightly, 0.9339 → 0.9633 and 0.9850 → 0.9966, despite the accuracy gain.
+For indexed readout, timed composition adds 2.60 points Q4 but only 0.17 BF16
+against its own indexed baseline. The confirmed gain is specific to the declared
+dependency and measured profile; it does not establish a general reasoning fix.
+
+## 20.4 Static-prefix caching qualifies across the exposed test panel
+
+All eight precision/readout/context-batch cells pass. Each covers all 96 test
+cases twice: 192 pairs at batch 1 or 48 request pairs at batch 4. Across all
+**960 pairs**, cold telemetry reports zero cached tokens, warm telemetry reports
+315 natural or 508 indexed tokens, and **maximum Δp and field flips are both
+zero**. Warm and cold accuracy agree within every cell. [E39; V8]
+
+| Profile | Contexts/request | Cold p50 ms | Warm p50 ms | Cold/warm ratio |
+|---|---:|---:|---:|---:|
+| Q4 natural | 1 | 109.90 | 55.21 | 1.991× |
+| Q4 indexed | 1 | 129.97 | 47.34 | 2.745× |
+| Q4 natural | 4 | 237.54 | 182.85 | 1.299× |
+| Q4 indexed | 4 | 237.17 | 153.94 | 1.541× |
+| BF16 natural | 1 | 77.89 | 44.52 | 1.750× |
+| BF16 indexed | 1 | 92.80 | 40.49 | 2.292× |
+| BF16 natural | 4 | 175.07 | 141.65 | 1.236× |
+| BF16 indexed | 4 | 182.42 | 130.06 | 1.403× |
+
+These are whole-request times, not per-field or per-context times. The reuse
+is of static instructions and the complete field catalogue, not arbitrary
+user-state prefixes. The cache panel tests six-field natural/indexed requests;
+**it does not test a combined warmed five-field-plus-rule arm**. Warm results
+cannot be combined with the separate derived-arm quality/latency as if measured
+together. Batch shapes are separate profiles: passing each cold/warm comparison
+does not establish batch-1/batch-4 equivalence. This result also does not change
+the earlier vLLM/MoE cache failures.
+
+**Priming-accounting correction.** All 960 recorded `prime` calls already report
+cached tokens. Static C++ inspection explains how this can occur: disabling
+lookup rebuilds and stores the prefix snapshot; it does not leave the engine
+without a reusable snapshot. Therefore `prime_p50_ms` and
+`warm_two_request_p50_ms` describe already-warm work, **not fresh-cache setup or
+cold-start amortization**. The valid within-profile warm-request ratios above
+survive this finding. No cache break-even claim should use the mislabeled priming
+series. A future amortization test must explicitly clear/replace the snapshot or
+start a fresh process and verify a zero-hit first prime. [E39 source; V8]
+
+## 20.5 Immediate repeatability and local cache parity miss longer history drift
+
+The history cross-product includes natural/indexed, cache on/off, one/four
+contexts, 3/24 reserved sequences, Q4/BF16, and no-op/unrelated/JSON interventions.
+All 1,152 episodes have exact immediate pre- and post-intervention anchor repeats.
+Only JSON-interleaved episodes show designated-anchor drift in this run:
+three Q4 episodes fail, with maximum Δp 0.040607 and one urgency flip. All
+576 BF16 designated-anchor episodes pass. This is localization to the tested
+history, not proof that JSON itself is the faulty component. [E39; V8]
+
+**The full request is a stricter endpoint than its designated anchor.** One BF16
+24-sequence/indexed/cache-on/four-context JSON episode passes for the anchor
+(Δp 0.003762) but fails on a companion context (whole-request maximum 0.005173,
+no flips). Q4's corresponding whole-request maximum reaches 0.047433. Thus even
+the apparently clean BF16 anchor table does not establish all-context stability.
+
+The fresh-process probes are more consequential. Each profile compares the same
+six anchors under two readouts, giving 12 probes. Initial fresh-process and
+post-session fresh-reset outputs agree exactly in all 48 comparisons. End-of-
+session outputs versus those reset outputs do not:
+
+| Profile | Failed probes / 12 | Maximum Δp | Changed fields | Changed actions |
+|---|---:|---:|---:|---:|
+| Q4, 3 reserved sequences | 12 | 0.096920 | 0 | 0 |
+| Q4, 24 reserved sequences | 12 | 0.097853 | 2 | 1 |
+| BF16, 3 reserved sequences | 4 | 0.008966 | 1 | 0 |
+| BF16, 24 reserved sequences | 3 | 0.011041 | 0 | 0 |
+
+The BF16 changed route on `native-calibration-10` has Δp **0.004696**, below
+the numerical threshold, but still fails because the selected answer changes.
+An answer gate is necessary alongside the probability tolerance. The Q4 action
+change is grant access at session end versus deny access after reset; the fixture
+gold is grant access. Drift is not always deterioration, but it breaks the
+unchanged-request contract.
+
+Fresh-reset recovery supports a process/execution-history effect. It does not
+identify stale recurrent state, graph reuse, sequence cleanup or arithmetic as
+the cause. Precision changes weights and execution kernels together. **BF16
+attenuates this drift but does not solve it**; disabling prefix lookup also fails
+to isolate all process state. None of these small, repeated-anchor counts is a
+deployment failure-rate estimate. [E39; V8]
+
+## 20.6 Speed, memory, external method, and resulting priorities
+
+For uncached native natural requests, BF16 is faster than Q4 on this A100
+(79.97 versus 111.13 ms); JSON reverses that relation (578.76 versus 494.99 ms).
+At the same 24-sequence reservation, device used memory after server startup is
+11.232 GiB BF16 versus 6.074 GiB Q4; the pre/post startup increments are
+10.727 and 5.568 GiB. These snapshots include the runtime's reservations, not
+request peaks or isolated cache storage. Higher precision therefore buys some
+native speed here while using more memory, and does not uniformly improve
+accuracy. Low-bit weights are not automatically the fastest backend profile.
+[E39 runtime records; V8]
+
+PrivateMode's method numbers outcomes, prefills the answer and reads the allowed
+index probabilities at one position. It motivates this control and complete
+option-probability retrieval. Our native field renderer, Qwen checkpoint,
+multi-field graph and fixtures differ from its GLM/vLLM study. The local results
+support the feasibility of indexed decisions, but not a universal accuracy,
+calibration or speed advantage. [P24; P25; E39]
+
+| Decision after this run | Evidence-backed scope or next test |
+|---|---|
+| Retain deterministic dependent-field composition | Timed natural-label gain and zero contradictions on the declared rule; qualify other dependencies separately |
+| Retain static-prefix reuse as a qualified local result | Eight cells, 960 exact paired comparisons; measure genuine cold setup before amortization claims |
+| Do not standardize all fields on indexes or aliases | Per-field trade-offs, prompt overhead and semantic-remapping failures remain |
+| Do not promote BF16 as the history fix | Smaller drift, but seven failed reset probes and one changed answer across its 24 probes |
+| Prioritize process-state isolation | Minimize A→JSON→A and session-end/reset reproductions; inspect every context, state cleanup and graph/kernel identity |
+| Test the combined useful path next | Five-field composition + warm static prefix under one measured profile, including reset/history gates and whole-request timing |
+| Validate useful quality on fresh task families | Lock rendering/code maps and rules before evaluating independently held-out rubrics; retain JSON and natural controls |
+
+These are dispositions and proposed investigations, not newly run repairs.
+No fresh training or MoE architecture claim follows. The Rust integration
+reference, historical checkpoint choices and protected-final boundary remain
+unchanged. Architecture and roadmap files are not edited by this revision.
+
 # Conclusion
 
 OpenKind has a bounded execution foundation: typed decisions, complete
@@ -3611,6 +4304,23 @@ corrective treatment or prospective contract is supplied by this paper update.
 Inspected gate/regression errors do not become training or selection examples.
 [E32; V6; §18.26; proposed program]
 
+The latest native study confirms two useful engineering results on exposed
+authored fixtures: deterministic dependent-field composition improves accuracy
+and modestly reduces request time, while static-prefix reuse saves request work
+with zero observed drift in 960 local comparisons. Their combined path has not
+yet been measured. Indexed answers improve selected fields but do not provide
+uniform quality or speed, and remapping changes answers in every tested case.
+BF16 reduces history drift but still changes an answer between session end and
+fresh reset. Immediate replay and cache parity therefore cannot stand in for
+whole-request, whole-session stability. The already-warm priming series also
+cannot establish cold-start amortization. [E39; V8; §20]
+
+PrivateMode supplies a useful indexed-readout reference, not validation of this
+checkpoint, renderer or cache. The next bounded serving work should isolate
+process-state drift, measure composition and reuse together, and validate fixed
+field readouts on fresh task families before a backend substitution is promoted.
+[P24; P25; E39; proposed work]
+
 The M0–M4 distinction between evidence, useful decisions, lower cost and
 independent confirmation remains. One immutable-profile MLX performance study
 can proceed as separate systems work. New adapters need their own numerical,
@@ -3626,6 +4336,146 @@ artifacts. [§§13.2–13.5; §17.3; E25; E29–E32]
 # Appendix A. Source and reproducibility register
 
 The source IDs below identify the evidence behind the numbered sections. In the accompanying evidence manifest, local snapshot SHA-256 hashes distinguish the exact files reviewed from later Drive edits. Result paths are under `Google Drive / Colab Notebooks`. Timestamps embedded in run IDs are UTC.
+
+**Version 0.8.7 documentation boundary.** Editing bases are the latest
+`WHITEPAPER(6).md` (SHA-256 `a36003c9556a4f22a03e6cd7fbdb5db78da64d4e4d5bc564cc8e5b7b92847a45`)
+and `WORKING_PAPER(2).md` (`2c7112493cb3f5379f136933bb7d5d3733148343c68720fd938f259510f97b31`).
+Only the two requested papers are updated. The revision adds §20, E39/V8 and
+current interpretation; it preserves historical measurements and selections.
+Architecture, roadmap, notebooks and experiment evidence are not modified.
+
+**E39: Completed native readout/history follow-up.**
+[Run `20260927T192845_426758Z`](https://drive.google.com/drive/folders/1N8fq_wSct874PWi-VPwuGWAKiYL39xUM),
+[complete archive](https://drive.google.com/file/d/1i-36AIKjpctxa-9GTpMSs40A3QyTJale/view),
+[summary](https://drive.google.com/file/d/1Z8QPnomGPByh5JiggdObP7D_CgcEi3zB/view),
+[manifest](https://drive.google.com/file/d/1Y-KrjjOHpxqcsfxrJMNE5Z4O71alSG_r/view),
+[measurement gates](https://drive.google.com/file/d/1jSEUyxGvjauNDGBkRlu9SmNxTLV5nWCi/view),
+[quality](https://drive.google.com/file/d/1xX-nWA5e9MgkKmnnTPZGOn4rcoiuAECR/view),
+[cache](https://drive.google.com/file/d/1CkLcDwLz3ynP6uS9aPpAbd5PkZoWFt_W/view),
+[history episodes](https://drive.google.com/file/d/11g4aR23y-q40XL912dmmSDtjejIEXOvz/view),
+[executed source](https://drive.google.com/file/d/1IBt9o9s14Zb9KJxLBNXwb1hW5C5ujS2B/view),
+and [instrumented C++](https://drive.google.com/file/d/1Td0_ZKeb0qKZRNa0qHCMUeeKRj0Cs8qs/view).
+Run key `ff6fd4996c079f53dee448296fb55a529d18418d8d849413a2e1ed0e42f6308a`.
+Archive inspection recovers 2,602 files, including all 2,544 raw atomic jobs.
+The run has one session, no resumed jobs or recorded errors, complete primary
+panels, and false promotion flags.
+
+The server uses source commit `ad129b08d9f134cd298d1f8a85efc52b1b66e18e`;
+patched C++ SHA-256 `8290372f03a3b5c43e6da24cdf6d47332e4292ada40b36a7f320049b32c95f8c`.
+GGUF repository `bartowski/Qwen_Qwen3.5-4B-GGUF`, revision
+`4168f45a16a1290d65a4ec0fa312ae917a4c15d6`, contains the dense 4B profiles.
+Recorded Q4 SHA-256 `13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983`
+(3,013,027,808 bytes) and BF16 SHA-256
+`714270d4eb1d336bca9a8dcf0446982e45721be0399d810586a6b82e727dfee5`
+(8,665,620,192 bytes) identify the executed weights. Model binaries are not
+rehydrated or independently rehashed for this documentation revision.
+Hardware/runtime: A100-SXM4-40GB, driver 580.82.07, CUDA compiler 12.8,
+Python 3.13.15. Source/model launch commands, token audits, startup logs and
+residency snapshots are archived.
+
+Reviewed source SHA-256 is
+`2580b65103bfa3ca78c22b5a0f9c45d947444bc9da0535d37ba87abbfd891942`;
+manifest `767f379b30d62284d0afa4d01fc14c0bbaf2c9a55433e2bfdef3403322e4b12e`;
+summary `1efe7877b42636757e179ef79a31188ffae8bcb87dab935078ed1425dc609f85`.
+Dataset file SHA-256 is
+`5d152fe7c2a52c1af665e0c983bfb878e8b5b2a862deb25dcbc3706873d4c250`;
+its canonical-JSON identity is
+`dae399a4c9108fddb3468dd013f2e47cba7d425fa815a2e91206ce7d2729706e`.
+These are different serialization hashes of the same parsed fixture set.
+
+**V8: Saved-output reconciliation for v0.8.7.** Independent CPU calculations
+check the run/source/data identities and all job-key hashes, reconstruct the
+144 authored gold records from their facts, decode native values and complete
+probability vectors into semantic IDs, and reproduce field/case correctness,
+NLL/Brier, inconsistencies, latency quantiles, offline rule replay and the
+2,000-draw paired case-bootstrap intervals. Raw cache records confirm 960 exact
+comparisons and 960 already-cached prime calls. All 1,152 history episodes are
+checked at both designated-anchor and entire-request scope; all 48 fresh-reset
+comparisons and 48 semantic-mapping rotations are reconciled. The review
+separates the BF16 anchor pass from a companion-context failure and preserves
+the BF16 answer flip below the numerical tolerance. Static source inspection
+establishes that a cache-lookup-disabled call can still store the prefix.
+These checks validate saved arithmetic and experimental scope, not new GPU
+timing, independent semantic adjudication, kernel root cause, calibration,
+held-out generalization or Rust implementation. Older records are retained
+without a new training, CPU/MLX or model-binary test campaign.
+
+**Version 0.8.6 documentation boundary.** Editing bases are the supplied
+`WHITEPAPER(5).md` (SHA-256 `397de22a2de793cb945b4389be256de2c342603eaffb133d5cefd01fe4e3d522`),
+`WORKING_PAPER(1).md` (`a97190d3e917c75b340416f16b1598653fa822af4fc2a638be842f64997e76d9`), and
+`ARCHITECTURE(4).md` (`7b154d4692a94cb96bbb09f1b8012cc43a9909954f2730c46d043d1cc98e762c`). The update
+adds §19, E33–E38/V7/P24–P26, current summaries and codebase/research distinctions.
+Historical model selections, measurements and original revision boundaries
+remain preserved. Only the three requested documents are replaced; experiment
+records, source code, notebooks and roadmap files are not changed.
+
+**E33: Initial legacy MoE evidence review.** [Run `20260926T224132_613995Z`](https://drive.google.com/drive/folders/1344_xljzgYaHEWJTUVEe7k3_2DXoM3Fi)
+and [review](https://drive.google.com/file/d/1BakLhcj4Xb6uLF1QC5V51ihflVSURtzs/view).
+Carried forward from working-paper revision 0.4. The distinct pasted physical
+expert-removal run was not recovered, and reconstructed top-(k+1) routing
+observer percentages are excluded from confirmed results.
+
+**E34: Completed legacy MoE follow-up.** [Run `20260927T003918_481825Z`](https://drive.google.com/drive/folders/1gXwnF1sXhR5Yh4-7R2izDQ9TJXDl_Lf1).
+The prior review checked 22 artifact hashes and read `manifest.json`,
+`summary.json`, `final_predictions.json`, `cache_numerics.json` and expert
+batch-shape records. Model revision `ec052fda178e241c7c443468d2fa1db6618996be`;
+data SHA-256 `59fabd2b2ae55553e136b2d636b645466591ac5ad5fc422f06ecdac7fcb4818d`.
+These inherited checks were not repeated for v0.8.6.
+
+**E35: Completed legacy three-arm prefill study.** [Run `20260927T015527_929864Z`](https://drive.google.com/drive/folders/14FsOosgKt9oJKK-Y8yPuKtkuaDClBgC3),
+[summary](https://drive.google.com/file/d/1x6WPopdMqgma4PLUVNPYLP3S819oHmpo/view).
+The working-paper review verified all 26 checksum entries and recomputed saved
+panel metrics. Summary SHA-256 `43cdf8d418733cecc8d9459802fffbfbf214f3fe94a4724260ce82f9b43d4399`.
+Dense revision `cdbee75f17c01a7cc42f958dc650907174af0554`; MoE revision as E34.
+The observed routing instrumentation is distinct from E33's excluded observer.
+Hash verification and model evaluation are inherited, not newly run here.
+
+**E36: Modern-Qwen indexed decision study.** [Run `20260927T151913_239807Z`](https://drive.google.com/drive/folders/1LIKE7JSmEcO2fvrhf8Qx4_ZJfv-heGwD),
+run key `e15e1e9f7a64e464a38354c59b0c79805d59bc13d517f7e4fca66873e5d5ff2e`.
+Inspected saved summary SHA-256 `94a424d366c9b8ace86f126c1e171e68f5f26465e1d214f4cc8f84d4eae1ecb2`.
+Dense revision `851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a`;
+MoE GPTQ revision `3af5ca2972faf6de1fd6f4efc4d8d319ca751e8b`.
+The manifest pins A100-SXM4-40GB, vLLM 0.30.0, Torch 2.13.0+cu130,
+Transformers 5.17.0 and the executed number-prefill readout. Letter-prefill was
+excluded after its answer-boundary check failed. A fresh port per model
+prevented an earlier stale-server port collision. Earlier startup attempts
+remain failures, not extra quality observations.
+
+**E37: Cache-boundary and repeatability follow-up.** [Run `20260927T164948_171382Z`](https://drive.google.com/drive/folders/15Uk86JTaBI4H_EPDyvsSCKLMiZVz1RPG),
+[dense standard summary](https://drive.google.com/file/d/1ue109jYswkMCbNyoIxa5ZzeUg6wwqbKi/view),
+[MoE standard summary](https://drive.google.com/file/d/12mOERstsYqU8nMWXGGORubwJYojIv1qO/view),
+[run summary](https://drive.google.com/file/d/1sVmJx_6iXQkW4PAwgVglFn3BOMt7fDzp/view).
+Standard-profile raw outputs, cache rows and batch-invariant startup logs were
+inspected. Five cold baselines plus one optimized dense cell qualify; no MoE
+cache cell qualifies. Incomplete native and failed startup paths do not
+invalidate saved independent standard-profile measurements.
+
+**E38: Completed native decision/cache recovery.** [Run `20260927T173906_585234Z`](https://drive.google.com/drive/folders/1NRnRKB6dXHuojcpJ-f77FhywM3-ZV_Hj),
+[summary](https://drive.google.com/file/d/1GI2p9SXrTfHGA70Wfs_658_dQQoXZs4u/view),
+[manifest](https://drive.google.com/file/d/1MEypr1dreWc4tO1VRxXvqDDL86evYXmH/view),
+[executed source](https://drive.google.com/file/d/1oLn_OvXz6IiBrAoWcglZgWAZuK6oc2BJ/view),
+[instrumented native source](https://drive.google.com/file/d/1XhXyUqGcQlus-bdOGO3zlgM3PyDbPLHD/view),
+[cases](https://drive.google.com/file/d/1ZWBLHfy4eNRBR5hC82HO5hrh-Z4f774V/view),
+[schema](https://drive.google.com/file/d/1m6wyzQ3s0QJb119GqUgF1Xvs1sBFRv_1/view).
+Run key `a38a21e5de5204045324e502dfa8603e739f6345d44bddb06710c95dfc108a53`;
+summary SHA-256 `2cf786255fa765bf179b7256a35472a72c3795520fea79645b4b3891a8bfa5e3`;
+instrumented C++ SHA-256 `8290372f03a3b5c43e6da24cdf6d47332e4292ada40b36a7f320049b32c95f8c`.
+GGUF SHA-256 `13c16f426047e2de38cd075bdade4a7bcbc8c774384876f677740cda65f8a983`,
+3,013,027,808 bytes; source repository/revisions are in §19.4 and the manifest.
+The model-binary digest is recorded by the experiment, not rehashed locally
+for this documentation revision. All three native profiles complete; errors
+are empty; vLLM is disabled. No promotion flags are set.
+
+**V7: Saved-output reconciliation for v0.8.6.** CPU-only analysis independently
+reconciles the E38 96-case/576-field paired comparison, per-field confusions,
+3,000-draw case bootstrap (seed 17), 144 rule-derived gold records, branch
+repeatability and serial comparisons, 315-token cache telemetry, option-order
+flips, cross-stage drift, joint-pair correctness, and offline deterministic
+action replay. E36 panel counts and recorded policy/calibration metrics and
+E37 qualification/status rows are reconciled with their summaries. These are
+saved-output calculations, not new model calls, latency measurements, root-cause
+proofs, source-data adjudication, or protected-final access. Existing CPU/MLX
+repository records are retained without a new code checkout or test campaign.
 
 **27 September 2026 systems addendum boundary.** RUSTM2 uses checked-in Rust
 source, raw paired-process JSON, checksums, and formal pinned-model parity
@@ -4003,6 +4853,24 @@ Primary pages P1–P16 were checked for version 0.1 on 18 September 2026; their 
 
 **P23.** Lee, T. *SemIf — Method.* Repository method note, reviewed 21 September 2026. It freezes prompts, IDs, labels, task semantics, revisions, and metrics before full evaluation; reports unlike task families separately; uses source-group bootstrap intervals; aligns perturbation probabilities by semantic option ID; and distinguishes shape-matched systems measurements from semantic or Jev head-to-head claims. OpenKind uses these as methodological checks for the Phase 4A record, not as Phase 4A measurements or evidence that the benchmarks are identical. [Method](https://github.com/TheoLeeCJ/SemIf/blob/master/docs/METHOD.md).
 
+**P24.** Hötter, J. and Rosenmüller, M. (24 September 2026).
+*[Turn GLM-5.3-Flash into a Jev-like System One model](https://www.privatemode.ai/blog/system-one-from-glm-flash).* PrivateMode / Edgeless Systems.
+Primary method description rechecked 27 September. Vendor benchmark results
+are external evidence, not OpenKind replication or statistical equivalence.
+
+**P25.** Edgeless Systems.
+*[privatemode-decisions](https://github.com/edgelesssys/privatemode-decisions).*
+Official implementation reference for indexed option-token readout. The
+[benchmark repository](https://github.com/edgelesssys/privatemode-decisions-benchmark)
+and methodology were cited in the supplied working paper; their full suite is
+not re-audited here and supplies no new OpenKind performance claim.
+
+**P26.** thecodacus.
+*[llama.cpp parallel-decision implementation](https://github.com/thecodacus/llama.cpp/tree/ad129b08d9f134cd298d1f8a85efc52b1b66e18e/tools/parallel-decision)*,
+pinned commit `ad129b08d9f134cd298d1f8a85efc52b1b66e18e`. E38's archived patched
+source is the authority for its measured execution/readout, rather than the
+moving branch or author-reported benchmark numbers.
+
 # Appendix C. Reading the metrics
 
 **NLL:** negative log-likelihood; lower is better. It penalizes confident wrong predictions and is sensitive to probability quality rather than only the winning class.
@@ -4057,6 +4925,31 @@ E32 improves SNLI substantially without preserving QASPER or supported ContractN
 entailment. An already-exposed regression panel is not fresh confirmation. [E32]
 
 # Appendix D. Revision history
+
+## Version 0.8.7: completed readout/history study and priming correction
+
+27 September 2026. Adds §20 and E39/V8 from the complete Drive archive. Records
+timed deterministic action composition, mixed natural/indexed/alias quality,
+960 passing within-profile cache pairs, code-remapping failures, and persistent
+end-of-session/reset drift under both Q4 and BF16. Corrects the interpretation
+of already-warm priming calls and reports the companion-context BF16 failure
+that the anchor-only summary misses. Updates current summaries and working
+paper revision 0.6; retains historical results, the Rust implementation
+boundary, roadmap, notebooks, checkpoint selections and protected final.
+
+## Version 0.8.6: modern serving, native cache, and consolidated lessons
+
+27 September 2026. Adds §19 and E33–E38/V7/P24–P26; integrates the legacy
+MoE controls, modern-Qwen quality/latency comparison, shape-specific vLLM
+qualification, and completed native recovery. Adds independently calculated
+all-field accuracy, systematic error patterns, cross-stage repeatability,
+joint-pair correctness and explicitly offline rule composition. Separates
+cache reuse from serial/batch probability equivalence and model quality.
+Updates current synthesis and the paired working-paper/architecture roles.
+Retains historical metrics, adapter selections, CPU/MLX qualifications and
+negative results. No model, notebook, experiment artifact, codebase or roadmap
+change is performed; no runtime or model is promoted.
+
 
 ## Version 0.3: historical record
 

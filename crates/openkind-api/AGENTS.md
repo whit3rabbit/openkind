@@ -50,8 +50,8 @@ It defines:
 - [`src/middleware/`](./src/middleware/):
   - Modular middleware stack:
     - [`src/middleware/request_id.rs`](./src/middleware/request_id.rs): `REQUEST_ID_HEADER = "x-typesafe-request-id"`, `request_id_layer` (checks for inbound client header, falls back to `Uuid::new_v4()`).
-    - [`src/middleware/auth.rs`](./src/middleware/auth.rs): `auth_layer` (constant-time bearer token check using `constant_time_eq`, supports `OPENKIND_API_KEY`, `TYPESAFE_API_KEY`, and deprecated fallback `OPENPICK_API_KEY`).
-    - [`src/middleware/rate_limit.rs`](./src/middleware/rate_limit.rs): `rate_limit_layer` (per-IP sliding window rate limiter emitting 429 status and retry headers).
+    - [`src/middleware/auth.rs`](./src/middleware/auth.rs): `auth_layer` (constant-time bearer token check: both tokens are SHA-256 hashed via `ring` and the digests compared with `subtle::ConstantTimeEq`; supports `OPENKIND_API_KEY`, `TYPESAFE_API_KEY`, and deprecated fallback `OPENPICK_API_KEY`).
+    - [`src/middleware/rate_limit.rs`](./src/middleware/rate_limit.rs): `rate_limit_layer` (per-IP fixed-window rate limiter emitting 429 status and retry headers).
     - [`src/middleware/tests/`](./src/middleware/tests/): Dedicated test suites (`request_id_tests.rs`, `auth_tests.rs`, `rate_limit_tests.rs`).
 - [`src/error.rs`](./src/error.rs):
   - `ApiError` enum and `IntoResponse` implementation:

@@ -43,5 +43,5 @@
 cargo test -p openkind-api
 ```
 
-This includes the 56-test `sdk_compat` suite verifying wire and header compatibility with the TypeSafe Python SDK, and gRPC roundtrip integration tests.
+This includes the 61-test `sdk_compat` suite verifying wire and header compatibility with the TypeSafe Python SDK, and gRPC roundtrip integration tests.
 

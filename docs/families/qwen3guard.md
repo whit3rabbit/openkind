@@ -40,6 +40,11 @@ reviewed-decision evidence exists for this profile.
 
 ## Architectural shape
 
+The shape below describes the **surveyed `gen` variant** — the ollaya
+`qwen3guard-gen-v1` pattern. The landed Rust-loadable profile is the
+**Stream variant** described under Status above: a token-level
+classification head, no generated text, no string parsing.
+
 | Aspect | Pattern |
 |---|---|
 | Backbone class | Decoder-only fine-tune of a small Qwen-3-class backbone, trained to emit a fixed safety-verdict text in a chat-template-bound format |
@@ -59,25 +64,27 @@ reviewed-decision evidence exists for this profile.
   classifier.
 - A guardrail-specialised head could be a smaller model than the
   current encoder-state-first profile and could serve as a candidate
-  for the M3 lower-cost gate in [`../../ROADMAP.md`](../../ROADMAP.md).
+  for the M3 lower-cost gate in [`../ROADMAP.md`](../ROADMAP.md).
 - The family ships as a fixed-preset model (the question schema is
   embedded), which simplifies the wire contract for the caller and
   removes the need for arbitrary-question prompt engineering.
 
-## What blocks implementation
+## What blocks the generated-verdict (`gen`) variant
 
+The Stream variant implemented above sidesteps every item here. They gate
+only a hypothetical `gen` profile that generates and parses verdict text:
 - `openkind`'s general architecture rule
-  ([`../../ARCHITECTURE.md`](../../ARCHITECTURE.md)) forbids
+  ([`../ARCHITECTURE.md`](../ARCHITECTURE.md)) forbids
   autoregressive text generation in the engine. Adopting this family
   would be a documented family-level exception, not a relaxation of
   the global rule; the exception would need its own review against
   the M0/M1/M2 milestone sequence in
-  [`../../ROADMAP.md`](../../ROADMAP.md).
+  [`../ROADMAP.md`](../ROADMAP.md).
 - The published upstream preset ignores arbitrary custom
   instructions; any profile here can answer only the embedded
   question schema. Questions outside the embedded schema must be
   rejected at the wire with a 422.
-- The M0 supported workload in [`../../ROADMAP.md`](../../ROADMAP.md)
+- The M0 supported workload in [`../ROADMAP.md`](../ROADMAP.md)
   has not selected guardrail decisions as in-scope, and no guardrail
   training or evaluation contract is owned by `openkind`.
 - The verdict is parsed back from generated text, which adds a
@@ -88,7 +95,7 @@ reviewed-decision evidence exists for this profile.
 ## Open questions
 
 - Does the M0 supported workload in
-  [`../../ROADMAP.md`](../../ROADMAP.md) authorize guardrail-shaped
+  [`../ROADMAP.md`](../ROADMAP.md) authorize guardrail-shaped
   decisions?
 - How would the family's guardrail class set interact with the
   `__none__` semantic-none contract owned by the implemented
@@ -99,7 +106,8 @@ reviewed-decision evidence exists for this profile.
 
 ## What this page does not say
 
-No timings, no accuracy numbers, no guardrail-class distributions. The
+No model-quality or accuracy numbers, no guardrail-class distributions. The
 cited comparison values belong to ollaya's family page on
-`qwen3guard-gen-v1`, not to `openkind`. `openkind` has no measurements
-to report.
+`qwen3guard-gen-v1`, not to `openkind`. Request-path timing and peak-RSS
+measurements for the pinned Stream profile are recorded in
+[`../BENCHMARKS.md`](../BENCHMARKS.md).

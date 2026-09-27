@@ -35,7 +35,7 @@
   - `Usage { input_tokens, output_tokens }`: Required on all responses.
 - [`src/models.rs`](./src/models.rs):
   - `ModelInfo { name, description, release_date }`
-  - `ModelsResponse { data: Vec<ModelInfo> }`
+  - `ModelsResponse { models: Vec<ModelInfo> }` (the wire key is `models`, not `data`)
 - [`src/question.rs`](./src/question.rs):
   - Tagged union enum `Question`:
     - `Noul(NoulQuestion)`: Yes/no probability; optional `NoulCriteria` (`r#true`, `r#false`).

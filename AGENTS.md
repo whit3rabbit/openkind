@@ -2,7 +2,7 @@
 
 > Repository map and architectural rules for agents working on `openkind`.
 >
-> Documentation baseline: v0.10.0, 26 September 2026.
+> Documentation baseline: v0.14.0, 26 September 2026.
 
 ## Project
 
@@ -32,6 +32,32 @@ selected open-weight Qwen 3.5 profile described below.
 
 If documentation and code disagree, do not silently choose one. Use executable
 contract tests to establish the current behavior, then update the stale source.
+
+## Public Model Registry
+
+This repository's `registry/v1` is the metadata source for curated model
+profiles. The external [OpenKind model registry](https://github.com/whit3rabbit/openkind-model-registry)
+is the public mirror used by `openkind catalog` and `openkind pull`. Its local
+checkout is a sibling of this repository at `../openkind-model-registry`.
+The mirror holds catalog metadata, pinned profile assets, and exported
+tokenizers; checkpoint weights remain at their authors' repositories.
+
+When a profile changes, put distributable assets in the external repository
+first, then pin their commit, sizes, and digests in this repository's manifest.
+Verify the sibling checkout with
+`python3 scripts/sync-model-registry.py --mirror ../openkind-model-registry`.
+Use `--write` only to copy catalog and manifest metadata into a clean mirror.
+After reviewing, committing, and pushing that mirror, use `--remote` to verify
+public HTTPS bytes. The script never commits, pushes, or copies checkpoint
+shards. See [the registry guide](docs/MODEL_REGISTRY.md) for the full sequence.
+
+## Release Names
+
+`openkind-cli` and `openkind-server` are the Cargo package names; their
+binaries are `openkind` and `openkindd`. Release archives and the Homebrew
+formula use `openkind`. Keep these names aligned in
+[the release workflow](.github/workflows/release.yml) and
+[formula template](packaging/homebrew/openkind.rb).
 
 ## Native Parity Boundary & Architecture
 

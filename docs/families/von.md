@@ -47,7 +47,7 @@ spec. `openkind` does not reproduce them here.
 Same blockers as [`kev.md`](kev.md): `openkind` does not own the
 weights, training pipeline, or evaluation contract, and reproducing the
 contract is out of scope. The architecture rules in
-[`../../ARCHITECTURE.md`](../../ARCHITECTURE.md) require explicit
+[`../ARCHITECTURE.md`](../ARCHITECTURE.md) require explicit
 ownership of every external contract.
 
 ## Open questions
@@ -55,7 +55,7 @@ ownership of every external contract.
 - Is the `von` contract a useful benchmark for the M2 reviewed-decision
   gate, or is it redundant with `kev`?
 - Can `openkind` evaluate against `von` without reproducing the
-  contract? Methodology is owned by [`../../BENCHMARKS.md`](../../BENCHMARKS.md).
+  contract? Methodology is owned by [`../BENCHMARKS.md`](../BENCHMARKS.md).
 
 ## What this page does not say
 

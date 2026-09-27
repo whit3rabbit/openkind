@@ -24,9 +24,9 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 | **10** | [`10_phase2ij_gated_workbench.ipynb`](./10_phase2ij_gated_workbench.ipynb) | Phase 2I/2J Workbench (`2ij.1.0`) | NVIDIA L4 / A100 | Multi-question reviewed study gate, state-first vs instruction-first GPU mechanics probe | Strict independent-review gate blocked unverified training; probe validated state-first prefill mechanics | [`10_phase2ij_gated_workbench_results/`](./10_phase2ij_gated_workbench_results) |
 | **11** | [`11_phase2ij_model_selection_screen.ipynb`](./11_phase2ij_model_selection_screen.ipynb) | Phase 2I/2J Screen (`2ij.2.0`) | NVIDIA L4 / A100 | 13 fit jobs, 31 evaluation profiles across Qwen 3.5 4B, Qwen 2.5 1.5B/2B, ModernBERT | Selected & locked profile `a047d6802c3f06f085b8` (Qwen3.5-4B state-first score-summary head) | [`11_phase2ij_model_selection_results/`](./11_phase2ij_model_selection_results) |
 | **12** | [`12_phase2ij_a100_bundle_export.ipynb`](./12_phase2ij_a100_bundle_export.ipynb) | Phase 2I/2J Continuation | NVIDIA A100 | Clean selected-model bundle export and checksum verification on high-memory GPU | Produced golden bundle `4d9ffdee...3332` with zero OOM risk; validated reference repo | Informs profile `a047d6802c3f06f085b8` |
-| **13** | [`13_phase3a_branchable_state_batched_q.ipynb`](./13_phase3a_branchable_state_batched_q.ipynb) | Phase 3A (`20260920T024056Z`) | NVIDIA L4 / A100 | Hybrid state branching (KV + DeltaNet + conv), batched-Q/K topologies, crossover behavior | Zero-leakage branch isolation confirmed; batched-Q faster for long state/high Q; informed Rust scheduler | [Whitepaper §15](../docs/whitepaper/WHITEPAPER.md#15-phase-3a-branchable-hybrid-state-and-batched-q-execution) |
+| **13** | [`13_phase3a_branchable_state_batched_q.ipynb`](./13_phase3a_branchable_state_batched_q.ipynb) | Phase 3A (`20260920T024056Z`) | NVIDIA L4 / A100 | Hybrid state branching (KV + DeltaNet + conv), batched-Q/K topologies, crossover behavior | Zero-leakage branch isolation confirmed; batched-Q faster for long state/high Q; informed Rust scheduler | [Whitepaper §16](../docs/whitepaper/WHITEPAPER.md#16-phase-3a-full-hybrid-branchablestate-batched-qk-execution-and-the-rust-handoff) |
 | **14** | [`14_phase3b_backbone_parity.ipynb`](./14_phase3b_backbone_parity.ipynb) | Phase 3B (`20260920T152206Z`) | GPU (FP32) | Layer-by-layer backbone traces, golden token fixtures, Rust handoff contract | Exported 47 FP32 vectors across 34 stages; maximum cached continuation drift $\le 1.91 \times 10^{-5}$ | [`14_phase3b_backbone_parity_results/`](./14_phase3b_backbone_parity_results) |
-| **15** | [`15_phase4a_statequery_workbench.ipynb`](./15_phase4a_statequery_workbench.ipynb) | Phase 4A.0 / 4A.1 (`20260921T013558Z`, v4a.0.2) | GPU (L4/A100) | Natural-document corpus lock (ContractNLI + QASPER) & StateQuery B1 representation probe | Locked 2,192 states / 15,368 Qs; B1 scored 0.7796 macro-acc but collapsed QASPER none-recall to 0.0 | [Whitepaper §18](../docs/whitepaper/WHITEPAPER.md#18-phase-4a-natural-document-multi-question-benchmark-and-statequery-readout) |
+| **15** | [`15_phase4a_statequery_workbench.ipynb`](./15_phase4a_statequery_workbench.ipynb) | Phase 4A.0 / 4A.1 (`20260921T013558Z`, v4a.0.2) | GPU (L4/A100) | Natural-document corpus lock (ContractNLI + QASPER) & StateQuery B1 representation probe | Locked 2,192 states / 15,368 Qs; B1 scored 0.7796 macro-acc but collapsed QASPER none-recall to 0.0 | [Whitepaper §18](../docs/whitepaper/WHITEPAPER.md#18-phase-4a4e-locked-benchmark-applicability-experiments-and-audit-gate) |
 | **16** | [`16_phase4a2_statequery_model_comparison.ipynb`](./16_phase4a2_statequery_model_comparison.ipynb) | Phase 4A.2 (`4a.2.0`) | GPU (L4/A100) | Matched B0 control, source-balanced B1, factorized B2 without reopening final splits | B0 matched collapse (0.0 none-recall); balanced B1 raised none-recall to 0.168 (gate threshold: 0.30) | [Whitepaper §18.4](../docs/whitepaper/WHITEPAPER.md#184-completed-non-final-comparison-aggregate-improvement-hides-a-qasper-collapse) |
 | **17** | [`17_phase4b2_statequery_model_comparison.ipynb`](./17_phase4b2_statequery_model_comparison.ipynb) | Phase 4B.2 (`4b.2.0` / `4b.2.1`) | GPU (L4/A100) | Scalar-weight saturation (cap 12) & source/class-stratified applicability | Realized weight saturated at 8.5602; stratified objective raised QASPER recall to 0.3111 gate, but gate policy cost failed (0.11675) | [`17_phase4b2_statequery_model_comparison_results/`](./17_phase4b2_statequery_model_comparison_results) |
 | **18** | [`18_phase4b3_applicability_ranking_sweep.ipynb`](./18_phase4b3_applicability_ranking_sweep.ipynb) | Phase 4B.3 (`4b.3.0`) | GPU (L4/A100) | Within-state pairwise applicability ranking loss ($w \in \{0.25, 0.50, 1.00\}$) | Cleared development recall (0.3451), but failed gate false-none (>0.21) and policy cost (0.10221); rejected | [Whitepaper §18.10](../docs/whitepaper/WHITEPAPER.md#1810-phase-4b3-pairwise-applicability-passes-development-but-not-transfer) |
@@ -38,8 +38,8 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 | **24** | [`24_phase4e_a4_qasper_source_alignment.ipynb`](./24_phase4e_a4_qasper_source_alignment.ipynb) | Phase 4E-A4 (`20260921T013558Z`, `qasper_source_alignment_cpu_s17_v1`) | CPU | QASPER upstream source alignment preflight, span partition verification, and audit ledger V2 | Verified 12 development candidate spans (7 Qs) and 1 gate diagnostic span; quarantined 3 unresolved evidence cases; aligned with upstream allenai/qasper (train/val only); final unopened; training remains unauthorized | [`24_phase4e_a4_qasper_source_alignment_results/`](./24_phase4e_a4_qasper_source_alignment_results) |
 | **25** | [`25_phase4e_b1_candidate_option_logit_audit.ipynb`](./25_phase4e_b1_candidate_option_logit_audit.ipynb) | Phase 4E-B.1 (`candidate_option_logit_gate16_s17_v2`) | GPU / CPU (FP32) | Constrained next-token candidate option readout and uncalibrated `Z` rejection over 16-state gate sample (N=325) | Answerable ContractNLI ranking improved (87.8% vs 31.1% StateQuery ref); uncalibrated `Z` failed semantic none (0/124 none recall); order reversal flipped winners on 6.6% of questions; QASPER accuracy 77.4% (below 84.9% majority baseline); model promotion rejected | [`25_phase4e_b1_candidate_option_logit_results/`](./25_phase4e_b1_candidate_option_logit_results) |
 | **26** | [`26_phase4e_b2_candidate_ranking_sweep.ipynb`](./26_phase4e_b2_candidate_ranking_sweep.ipynb) | Phase 4E-B.2 (`candidate_detection_ranking_sweep_s17_n12_v1`) | GPU / CPU (FP32) | Candidate ranking (3 rankers) and logistic-calibrated semantic-none detection (3 detectors) sweep across 12-state splits (N=741) | Cache parity verified ($\le 3.3 \times 10^{-6}$); order-averaged ranking hit 87.0% gate accuracy on ContractNLI; ContractNLI none recall hit 75.0% but gate false-none was 42.6% (violating $\le 0.20$ guardrail); QASPER selected grid collapsed to 0/5 none recall; cross-source calibration diverged; final closed | [`26_phase4e_b2_candidate_ranking_sweep_results/`](./26_phase4e_b2_candidate_ranking_sweep_results) |
-| **27** | [`27_m22_matched_decision_lora.ipynb`](./27_m22_matched_decision_lora.ipynb) | M2.2 (`openkind-m22-contract-only-lora/v1`, v0.4.1) | GPU (A100 BF16 / FP32 adapters) | Upstream matched decision-LoRA pilot across 4 arms (J0/J1 controls, J2/J3 rank-16 LoRA) under full-document ContractNLI supervision and QASPER transfer | Stable backward recomputation pinned to `SDPBackend.MATH`; gated on development NLL ($\ge$5-pt contradiction gain, $\le$5-pt other loss, $\le$3-pt QASPER loss); final remains closed | [Roadmap M2](../docs/ROADMAP.md#m2-establish-useful-decisions) |
-| **28** | [`28_source_label_replay.ipynb`](./28_source_label_replay.ipynb) | v0.6.0 (`source_label_v060_s17_bf16_dbb5e724b5452f23`) | NVIDIA A100 (BF16 / FP32 adapters) | Source-label cross-entropy replay vs parent-KL consistency on SNLI to test joint ContractNLI/QASPER preservation | SNLI accuracy & probability scores improved (+17.7pp J6 vs J4, +18.2pp J7 vs J5); ContractNLI entailment and QASPER false-none failed preservation bounds; frozen parents retained | [Roadmap M2](../docs/ROADMAP.md#m2-establish-useful-decisions) |
+| **27** | [`27_m22_matched_decision_lora.ipynb`](./27_m22_matched_decision_lora.ipynb) | M2.2 (`openkind-m22-contract-only-lora/v1`, v0.4.1) | GPU (A100 BF16 / FP32 adapters) | Upstream matched decision-LoRA pilot across 4 arms (J0/J1 controls, J2/J3 rank-16 LoRA) under full-document ContractNLI supervision and QASPER transfer | Stable backward recomputation pinned to `SDPBackend.MATH`; gated on development NLL ($\ge$5-pt contradiction gain, $\le$5-pt other loss, $\le$3-pt QASPER loss); final remains closed | [Roadmap M2](../docs/ROADMAP.md#m2-select-a-useful-qwen-4b-decision-model) |
+| **28** | [`28_source_label_replay.ipynb`](./28_source_label_replay.ipynb) | v0.6.0 (`source_label_v060_s17_bf16_dbb5e724b5452f23`) | NVIDIA A100 (BF16 / FP32 adapters) | Source-label cross-entropy replay vs parent-KL consistency on SNLI to test joint ContractNLI/QASPER preservation | SNLI accuracy & probability scores improved (+17.7pp J6 vs J4, +18.2pp J7 vs J5); ContractNLI entailment and QASPER false-none failed preservation bounds; frozen parents retained | [Roadmap M2](../docs/ROADMAP.md#m2-select-a-useful-qwen-4b-decision-model) |
 | **29** | [`29_qwen_moe_decision_lab.ipynb`](./29_qwen_moe_decision_lab.ipynb) | MoE Lab v0.2 (`20260926T224132_613995Z`) | NVIDIA L4 (NF4 / BF16 compute) | Qwen MoE decision inference, expert routing sparsity, top-k truncation, expert allowlisting, late MoE bypass, exact prefix state sharing, and physical weight residency | Prefill touches 98.7%–99.6% of experts (active params $\ne$ resident VRAM); top-1 routing cuts latency by 1.59x but drops accuracy by 15.6pp; late MoE skip preserves 53.1% acc (vs 56.3% native) at 1.32x speedup; direct selected readout achieves exact zero-delta parity; shared prefix state fails strict parity on MoE without full router isolation; physical pruning frees memory only when non-routed modules are deleted | [`29_qwen_moe_decision_lab_results/`](./29_qwen_moe_decision_lab_results) |
 | **30** | [`30_qwen_moe_quality_and_cache_followup.ipynb`](./30_qwen_moe_quality_and_cache_followup.ipynb) | MoE Follow-up v0.1 (`20260927T003918_481825Z`) | NVIDIA L4 (NF4 / BF16 compute) | Multi-split decision quality (252 Qs, 84 states), prompt selection, mass-matched top-k, late-block skip, FP32 linear reference cache numerics, option order diagnostics | Explicit three-way prompt won dev; `skip_last_6` selected on dev and evaluated on 96 fresh test cases (41.7% vs 37.5% native, 1.32x speedup, 8.3% coverage vs 14.6% native); native Unknown recall 0/32; mass-matched half-k beats raw half-k in NLL (2.038 vs 2.122); cache parity failed on both native ($\Delta p=0.120$) and FP32 linear reference ($\Delta p=0.155$); option order flips 25.0% of decisions ($\max \Delta p = 0.169$); research gate failed, promotion rejected | [Drive run](https://drive.google.com/drive/folders/1gXwnF1sXhR5Yh4-7R2izDQ9TJXDl_Lf1) / [`29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z) |
 | **31** | [`31_qwen_prefill_speed_accuracy_lab.ipynb`](./31_qwen_prefill_speed_accuracy_lab.ipynb) | MoE Prefill Speed & Accuracy Lab v0.2 (`e15e1e9f7a64e464a38354c59b0c79805d59bc13d517f7e4fca66873e5d5ff2e`) | NVIDIA A100-SXM4-40GB (vLLM 0.30.0, BF16 / GPTQ INT4) | Dense Qwen3.5-4B vs Qwen3.5-35B-A3B MoE INT4 prefill speed, exact-prefix caching, repeat/concurrency drift, and PrivateMode-style decision readout | Cache qualification failed (prefixes 59–105 tokens < 528/1,056 runtime blocks; 0 reused tokens); probability drift observed without cache reuse (MoE sequential repeat max $\Delta p = 17.60$ pp, concurrent vs seq $\max \Delta p = 11.92$ pp; 4B concurrent $\max \Delta p = 3.28$ pp); research gate failed, promotion rejected | [Drive run](https://drive.google.com/drive/folders/1LIKE7JSmEcO2fvrhf8Qx4_ZJfv-heGwD) / [`31_qwen_prefill_speed_accuracy_lab_results/`](./31_qwen_prefill_speed_accuracy_lab_results) |
@@ -114,7 +114,7 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - Without prefix caching, latency scaled linearly with $K$ (~25 ms per candidate), confirming the theoretical necessity of shared-prefix continuation caching.
 * **Supporting Directory**:
   - [`04_phase2d_numerics_results/`](./04_phase2d_numerics_results)
-  - Key files: [`openkind_phase2d_summary.md`](./04_phase2d_numerics_results/openkind_phase2d_summary.md), `layer_divergence.json`, `none_head_comparison.json`, `request_benchmarks.json`.
+  - Key files: [`openkind_phase2d_summary.md`](./04_phase2d_numerics_results/openkind_phase2d_summary.md), `numerics/layer_drift.csv`, `numerics/single_precision_drift.json`, `none_models.json`.
 
 ---
 
@@ -151,7 +151,7 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
     - Established that strict FP32 is the required mathematical parity reference for OpenKind engine verification.
 * **Supporting Directory**:
   - [`06_phase2e_expanded_parity_results/`](./06_phase2e_expanded_parity_results)
-  - Key files: [`README_results.md`](./06_phase2e_expanded_parity_results/README_results.md), `fp32_strict_math/parity_rows.json`, `bf16_default/parity_rows.json`, `component_profiles.json`.
+  - Key files: [`README_results.md`](./06_phase2e_expanded_parity_results/README_results.md), `fp32_strict_math/parity_rows.json`, `bf16_default/parity_rows.json`, `fp32_strict_math/component_profiles.json` (also under `bf16_default/`).
 
 ---
 
@@ -168,7 +168,7 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - Proved that low-bit quantization of continuation state cannot be applied without end-to-end retraining. Bounded lossless prefix caching was adopted.
 * **Supporting Directory**:
   - [`07_phase2f_cache_compression_results/`](./07_phase2f_cache_compression_results)
-  - Key files: [`README_results.md`](./07_phase2f_cache_compression_results/README_results.md), `codec_regression.json`, `lru_trace_results.json`, `storage_benchmarks.json`.
+  - Key files: [`README_results.md`](./07_phase2f_cache_compression_results/README_results.md), `fp32_strict_math/compression_parity.json`, `fp32_strict_math/compression_quality.json`, `fp32_strict_math/cross_request_summary.json`.
 
 ---
 
@@ -184,7 +184,7 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - **TF32 Trade-off**: TF32 halved latency ($K=4$: 265 ms $\to$ 132 ms; $K=16$: 1,118 ms $\to$ 518 ms), but caused 3 argmax flips across 416 episodes. TF32 is valuable for high-throughput serving but cannot be used as the reference parity authority.
 * **Supporting Directory**:
   - [`08_phase2g_fresh_evidence_results/`](./08_phase2g_fresh_evidence_results)
-  - Key files: [`README_results.md`](./08_phase2g_fresh_evidence_results/README_results.md), `fresh_quality_summary.json`, `tf32_comparison.json`, `cache_lifecycle_trace.json`.
+  - Key files: [`README_results.md`](./08_phase2g_fresh_evidence_results/README_results.md), `cross_precision_fp32_tf32_allowed.json`, `fp32_strict_math/fresh_rows.json`, `fp32_strict_math/traffic_summary.json`.
 
 ---
 
@@ -200,7 +200,7 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - **Methodological Victory**: The original-criteria control head transferred significantly better on held-out data (83.77% accuracy / 0.541 NLL) than the development-selected support-augmented head. Following pre-registration rules, the project did *not* retroactively swap winners, using this as motivation for architectural model selection in Phase 2I/2J.
 * **Supporting Directory**:
   - [`09_phase2h_criteria_rejection_results/`](./09_phase2h_criteria_rejection_results)
-  - Key files: [`README_results.md`](./09_phase2h_criteria_rejection_results/README_results.md), `final_quality_report.json`, `comparison_arms.json`.
+  - Key files: [`README_results.md`](./09_phase2h_criteria_rejection_results/README_results.md), `eval_qwen4b_strict/final_metrics.json`, `eval_qwen4b_strict/paired_final_contrasts.json`.
 
 ---
 
@@ -269,9 +269,9 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - **Workload Crossover Discovery**:
     - For short documents and small $Q$ ($Q \le 4$), `nested_sequential` is faster due to low kernel dispatch overhead.
     - As state length grows ($>500$ tokens) and $Q$ expands ($Q \ge 8$), `nested_batched` delivers massive speedups at the expense of peak VRAM.
-    - Directly informed the implementation of the capability-aware `choose_strategy` scheduler in `openkind-runtime`.
+    - Directly informed the implementation of the capability-aware `choose_strategy` scheduler in `openkind-backends` (`qwen35/backbone/strategy.rs`).
 * **Supporting Documentation**:
-  - [OpenKind Whitepaper §15](../docs/whitepaper/WHITEPAPER.md#15-phase-3a-branchable-hybrid-state-and-batched-q-execution).
+  - [OpenKind Whitepaper §16](../docs/whitepaper/WHITEPAPER.md#16-phase-3a-full-hybrid-branchablestate-batched-qk-execution-and-the-rust-handoff).
 
 ---
 
@@ -304,7 +304,7 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
   - StateQuery B1 improved source-macro accuracy (0.7796 vs 0.3766 for historical candidate reference) and reduced NLL (0.5427 vs 1.6734).
   - **Critical Failure Mode Discovered**: StateQuery B1 collapsed on QASPER semantic-none recall to **0.0** (defaulted to predicting answerable options). Proved that aggregate macro accuracy can obscure catastrophic rejection collapse. Model promotion was halted.
 * **Supporting Documentation**:
-  - [OpenKind Whitepaper §18](../docs/whitepaper/WHITEPAPER.md#18-phase-4a-natural-document-multi-question-benchmark-and-statequery-readout).
+  - [OpenKind Whitepaper §18](../docs/whitepaper/WHITEPAPER.md#18-phase-4a4e-locked-benchmark-applicability-experiments-and-audit-gate).
 
 ---
 
@@ -584,7 +584,7 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 * **Supporting Artifacts & Implementation References**:
   - Embedded scripts: `m22_train.py`, `m22_data.py`, `m22_eval.py`, `test_checkpoint_backend.py`.
   - Contracts & Registries: `EXPERIMENT_CONTRACT.json`, `SOURCE_REGISTRY.json`, `MODEL_PINS.json`, `ADAPTER_COVERAGE.json`.
-  - Roadmap Anchor: [Roadmap M2: Establish useful decisions](../docs/ROADMAP.md#m2-establish-useful-decisions).
+  - Roadmap Anchor: [Roadmap M2: Select a useful Qwen 4B decision model](../docs/ROADMAP.md#m2-select-a-useful-qwen-4b-decision-model).
 
 ---
 

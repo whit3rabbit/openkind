@@ -21,10 +21,10 @@
      `openkind-core`, `openkind-engine`, and `openkind-model-store` as workspace
      dependencies; the model store owns discovery and local installations.
 2. **Deterministic Exit Codes**:
-   - `inspect`: Returns exit code `0` when `validate_request` succeeds. Returns `1` on validation or JSON parse error, and `2` on file I/O error.
+   - `inspect`: Returns exit code `0` when `validate_request` succeeds. Returns `1` on validation, JSON parse, or file I/O errors (all propagate as `anyhow` errors out of `main`); exit code `2` is reserved for Clap usage errors.
    - `evaluate`: Returns exit code `0` on HTTP 2xx. Exits with code `1` if the server returns any non-2xx status code.
 3. **Input Guard**:
-   - `MAX_CLI_INPUT_BYTES` (64 MiB) bounds file reading to prevent unbounded memory allocation on corrupt input files.
+   - `MAX_CLI_INPUT_BYTES` (32 MB) bounds file reading to prevent unbounded memory allocation on corrupt input files.
 4. **Stdio Contract**:
    - Successful `evaluate` responses are JSON on stdout by default. HTTP status and error details go to stderr.
    - `--pretty` formats JSON using `serde_json::to_string_pretty`; `--format text` opts into typed answer rows.
