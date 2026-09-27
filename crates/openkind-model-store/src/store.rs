@@ -179,6 +179,10 @@ impl ModelStore {
 
     /// Pull only a model named in the repository-controlled catalog. The
     /// callback receives the artifact path, present bytes, and expected bytes.
+    /// For artifacts being pulled, it runs before remote requests and local
+    /// blob verification, then as downloaded bytes arrive, so callers can
+    /// report stalled transfers and verification work as well as byte
+    /// movement. The count can return to zero when partial data is discarded.
     pub async fn pull<F>(&self, name: &str, mut progress: F) -> Result<Manifest>
     where
         F: FnMut(&str, u64, u64),
@@ -223,8 +227,8 @@ impl ModelStore {
         for artifact in &manifest.artifacts {
             let blob = self.blob_path(&artifact.sha256);
             if blob.exists() {
-                verify_file(&blob, artifact.size, &artifact.sha256)?;
                 progress(&artifact.path, artifact.size, artifact.size);
+                verify_file(&blob, artifact.size, &artifact.sha256)?;
             } else {
                 self.download_artifact(artifact, &blob, &mut progress)
                     .await?;
@@ -323,15 +327,16 @@ impl ModelStore {
         let part = blob.with_extension("part");
         let mut present = part.metadata().map(|m| m.len()).unwrap_or(0);
         if present == artifact.size {
+            progress(&artifact.path, artifact.size, artifact.size);
             match verify_file(&part, artifact.size, &artifact.sha256) {
                 Ok(()) => {
                     fs::rename(part, blob)?;
-                    progress(&artifact.path, artifact.size, artifact.size);
                     return Ok(());
                 }
                 Err(Error::DigestMismatch(_)) => {
                     fs::remove_file(&part)?;
                     present = 0;
+                    progress(&artifact.path, present, artifact.size);
                 }
                 Err(error) => return Err(error),
             }
@@ -340,6 +345,7 @@ impl ModelStore {
             fs::remove_file(&part)?;
             present = 0;
         }
+        progress(&artifact.path, present, artifact.size);
         let mut request = self.client.get(url);
         if present > 0 {
             request = request.header(RANGE, format!("bytes={present}-"));

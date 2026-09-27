@@ -4,6 +4,12 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 use smallvec::SmallVec;
 
+#[derive(clap::ValueEnum, Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EvaluateFormat {
+    Json,
+    Text,
+}
+
 /// Top-level command-line argument parser for the `openkind` CLI.
 #[derive(Parser, Debug)]
 #[command(
@@ -38,6 +44,12 @@ pub enum Commands {
         /// Print the response as pretty JSON.
         #[arg(long)]
         pretty: bool,
+        /// Output format for successful responses.
+        #[arg(long, value_enum, default_value = "json")]
+        format: EvaluateFormat,
+        /// Include probabilities and request timing in text output.
+        #[arg(long)]
+        verbose: bool,
     },
 
     /// Launch the openkind inference daemon (executes openkindd).
@@ -63,7 +75,11 @@ pub enum Commands {
     },
 
     /// List curated models available to pull.
-    Catalog,
+    Catalog {
+        /// Print the catalog as JSON.
+        #[arg(long)]
+        json: bool,
+    },
     /// Download and verify a curated model.
     Pull {
         name: String,
@@ -74,18 +90,37 @@ pub enum Commands {
     List {
         #[arg(long, env = "OPENKIND_MODELS_DIR")]
         models_dir: Option<PathBuf>,
+        /// Print installed profiles as JSON.
+        #[arg(long)]
+        json: bool,
     },
     /// Show a local model's pinned identity and artifacts.
     Show {
         name: String,
         #[arg(long, env = "OPENKIND_MODELS_DIR")]
         models_dir: Option<PathBuf>,
+        /// Print the profile manifest as JSON.
+        #[arg(long)]
+        json: bool,
     },
     /// Remove a local model that is not being served.
     Rm {
         name: String,
         #[arg(long, env = "OPENKIND_MODELS_DIR")]
         models_dir: Option<PathBuf>,
+    },
+
+    /// Show daemon health and the model aliases registered by that daemon.
+    Status {
+        /// Server base URL.
+        #[arg(long, default_value = "http://127.0.0.1:8080")]
+        server: String,
+        /// Optional API key for bearer authentication.
+        #[arg(long, env = "OPENKIND_API_KEY")]
+        api_key: Option<String>,
+        /// Refresh daemon health and registered model aliases until quit.
+        #[arg(long)]
+        watch: bool,
     },
 
     /// Print the openkind wire API version.
@@ -235,8 +270,13 @@ fn fast_parse(argv: &[OsString]) -> Option<Cli> {
                     env: Some("OPENKIND_API_KEY"),
                     default: None,
                 },
+                FlagSpec {
+                    long: "format",
+                    env: None,
+                    default: Some("json"),
+                },
             ];
-            let (values, positionals) = match_flags(rest, &specs, &["pretty"], 1)?;
+            let (values, positionals) = match_flags(rest, &specs, &["pretty", "verbose"], 1)?;
             let [file] = positionals.as_slice() else {
                 return None; // the file positional is required
             };
@@ -246,13 +286,21 @@ fn fast_parse(argv: &[OsString]) -> Option<Cli> {
                 .flatten()
                 .expect("default guarantees a server value");
             let api_key = resolved.next().flatten();
+            let format = match resolved.next().flatten().as_deref() {
+                Some("json") => EvaluateFormat::Json,
+                Some("text") => EvaluateFormat::Text,
+                _ => return None,
+            };
             let pretty = rest.contains(&"--pretty");
+            let verbose = rest.contains(&"--verbose");
             Some(Cli {
                 command: Commands::Evaluate {
                     file: PathBuf::from(*file),
                     server,
                     api_key,
                     pretty,
+                    format,
+                    verbose,
                 },
             })
         }

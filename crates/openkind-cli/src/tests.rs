@@ -14,7 +14,7 @@ fn model_management_commands_parse_without_server() {
         Cli::try_parse_from(["openkind", "catalog"])
             .unwrap()
             .command,
-        Commands::Catalog
+        Commands::Catalog { .. }
     ));
     assert!(matches!(
         Cli::try_parse_from([
@@ -56,6 +56,29 @@ fn cli_parse_version() {
 }
 
 #[test]
+fn cli_parse_status_watch() {
+    let cli = Cli::try_parse_from(["openkind", "status"]).unwrap();
+    assert!(matches!(cli.command, Commands::Status { watch: false, .. }));
+
+    let cli = Cli::try_parse_from([
+        "openkind",
+        "status",
+        "--watch",
+        "--server",
+        "http://127.0.0.1:18080",
+    ])
+    .unwrap();
+    assert!(matches!(
+        cli.command,
+        Commands::Status {
+            server,
+            watch: true,
+            ..
+        } if server == "http://127.0.0.1:18080"
+    ));
+}
+
+#[test]
 fn cli_parse_inspect() {
     let cli = Cli::try_parse_from(["openkind", "inspect", "my_request.json"]).unwrap();
     match cli.command {
@@ -76,6 +99,7 @@ fn cli_parse_evaluate_defaults_and_flags() {
             server,
             api_key,
             pretty,
+            ..
         } => {
             assert_eq!(file, PathBuf::from("my_request.json"));
             assert_eq!(server, "http://127.0.0.1:8080");
@@ -100,6 +124,7 @@ fn cli_parse_evaluate_defaults_and_flags() {
             server,
             api_key,
             pretty,
+            ..
         } => {
             assert_eq!(file, PathBuf::from("req.json"));
             assert_eq!(server, "http://10.0.0.1:9090");
@@ -274,6 +299,7 @@ fn cli_parse_evaluate_with_api_key() {
             server,
             api_key,
             pretty,
+            ..
         } => {
             assert_eq!(file, PathBuf::from("req.json"));
             assert_eq!(server, "http://127.0.0.1:8080");

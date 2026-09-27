@@ -10,6 +10,7 @@
 - Launching the standalone `openkindd` server binary (`serve`).
 - Discovering and installing curated models (`catalog`, `pull`) and managing
   local installations without network access (`list`, `show`, `rm`).
+- Checking daemon health and registered model aliases (`status`).
 - Scripts and tooling checking the wire API compatibility version (`version`).
 
 ### Critical Invariants
@@ -25,7 +26,9 @@
 3. **Input Guard**:
    - `MAX_CLI_INPUT_BYTES` (64 MiB) bounds file reading to prevent unbounded memory allocation on corrupt input files.
 4. **Stdio Contract**:
-   - The `--pretty` flag formats response JSON using `serde_json::to_string_pretty`.
+   - Successful `evaluate` responses are JSON on stdout by default. HTTP status and error details go to stderr.
+   - `--pretty` formats JSON using `serde_json::to_string_pretty`; `--format text` opts into typed answer rows.
+   - Pull progress stays on stderr. Text output uses TTY detection and honors `NO_COLOR`.
 
 ## Key Files & Types
 
@@ -36,14 +39,18 @@
   - `Cli`: Root Clap parser.
   - `Commands`:
     - `Inspect { file }`: Validates a request JSON file against `openkind_core::validate_request`.
-    - `Evaluate { file, server, api_key, pretty }`: POSTs the raw JSON to `{server}/v1/systemone`.
+    - `Evaluate { file, server, api_key, pretty, format, verbose }`: POSTs the raw JSON to `{server}/v1/systemone`.
     - `Serve { ... }`: Launches `openkindd`, forwarding explicit installed
       models and the shared model store directory.
     - `Catalog`, `Pull`, `List`, `Show`, `Rm`: Curated discovery and local
-      installation management.
+      installation management, with JSON output flags for read commands.
+    - `Status { server, api_key, watch }`: Checks `/health` and lists aliases from `/v1/models`; `--watch` refreshes the view in a Bubble Tea terminal program.
     - `Version`: Prints `openkind_core::api_version()`.
 - [`src/inspect.rs`](./src/inspect.rs): `cmd_inspect` and input file validation bounds.
 - [`src/evaluate.rs`](./src/evaluate.rs): `cmd_evaluate` and `cmd_evaluate_async` HTTP execution.
+- [`src/output.rs`](./src/output.rs): Shared text tables, color policy, and pull progress rendering.
+- `status --watch` uses `bubbletea-rs` with Lipgloss styles; the normal status command stays a one-shot report.
+- [`src/status.rs`](./src/status.rs): One-shot health and model alias inspection, plus the live `--watch` screen.
 - [`src/serve.rs`](./src/serve.rs): `cmd_serve` process execution delegating to `openkindd`.
 - [`src/models.rs`](./src/models.rs): Online catalog and pull commands, plus
   offline installation reads and removal. See the
@@ -59,7 +66,7 @@
    Only an explicit `pull` contacts model hosts; `list`, `show`, and `rm` are
    local operations.
 2. **Standard Output Cleanliness**:
-   In `evaluate` and `inspect`, only JSON output (or formatted errors) should reach stdout so downstream scripts can pipe results to tools like `jq`.
+   Successful `evaluate` calls emit JSON to stdout by default. `--format text` opts into human-readable rows. HTTP errors and pull progress go to stderr. `inspect` retains its concise validation summary.
 
 ## Verification Commands
 
