@@ -151,7 +151,9 @@ prefill, question, candidate, and readout time, observed physical forward
 calls, padded token slots, and process/MLX peak memory. `Q=2` draws the two
 equal-position questions with unequal candidate lengths; `Q=3` includes the
 shorter question. Larger `Q` or `K` repeat fixture tokens as a load shape and
-have no semantic-quality interpretation.
+have no semantic-quality interpretation. `--q 3 --k 0` uses the three
+original fixture questions and their natural candidate counts for decision
+parity comparison.
 
 Run each strategy in a separate process on a quiet host, alternating the
 strategy order across paired repetitions:
