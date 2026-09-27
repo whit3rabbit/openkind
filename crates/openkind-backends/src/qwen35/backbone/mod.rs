@@ -25,13 +25,16 @@ mod nested_tests;
 #[cfg(test)]
 mod persistence_tests;
 #[cfg(test)]
+mod pooled_tests;
+#[cfg(test)]
 mod strategy_tests;
 #[cfg(test)]
 mod test_support;
 
 pub use batched::{
-    run_batched_candidates, run_batched_nested, run_batched_questions, BatchedCandidateResult,
-    BatchedCandidates, BatchedNestedRun, BatchedQuestionResult, BatchedQuestions,
+    run_batched_candidates, run_batched_nested, run_batched_nested_pooled, run_batched_questions,
+    BatchedCandidateResult, BatchedCandidates, BatchedNestedRun, BatchedQuestionResult,
+    BatchedQuestions,
 };
 pub use branch::Qwen35BranchBatch;
 pub use contract::LayerKind;
