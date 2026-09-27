@@ -60,6 +60,20 @@ evidence. Maximum pooled probability differences from sequential execution
 were `1.99e-5` for Q2/K2 and `7.59e-7` for Q8/K4, with unchanged selected
 indices.
 
+The external Qwen2.5 Python field-batching pattern has a direct counterpart
+in the existing Rust question stage: [`run_batched_questions`](../../../crates/openkind-backends/src/qwen35/backbone/batched.rs)
+forks the shared root and [`continue_batch_vectorized`](../../../crates/openkind-backends/src/qwen35/mlx/model.rs)
+right-pads unequal suffixes, executes one MLX graph, and gathers each last
+real token. The paired stage samples show that this question stage improved
+from `247.0` to `233.4` ms and `248.3` to `233.2` ms at Q2 (5.5% to 6.1%), and
+from `949.3` to `832.0` ms and `971.0` to `822.4` ms at Q8 (12.4% to 15.3%).
+The current Rust vectorized path accepts 2 to 8 lanes, so the Python Q28
+single-batch result does not transfer to this backend.
+Those timings are in [`stage_samples.json`](stage_samples.json). They cover
+the pinned Qwen3.5 FP32 Rust backend, not the separate quantized Qwen2.5
+checkpoint. The full-request results below do not establish a speedup from
+this question-stage gain.
+
 ## Full request baseline
 
 The [`q2k2.jsonl`](q2k2.jsonl) and [`q8k4.jsonl`](q8k4.jsonl) workloads
