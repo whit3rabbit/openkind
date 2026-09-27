@@ -9,9 +9,73 @@ use crate::inspect::{cmd_inspect, parse_and_validate_request, MAX_CLI_INPUT_BYTE
 static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[test]
+fn model_management_commands_parse_without_server() {
+    assert!(matches!(
+        Cli::try_parse_from(["openkind", "catalog"])
+            .unwrap()
+            .command,
+        Commands::Catalog { .. }
+    ));
+    assert!(matches!(
+        Cli::try_parse_from([
+            "openkind",
+            "pull",
+            "qwen35-state-first:a047d6802c3f06f085b8"
+        ])
+        .unwrap()
+        .command,
+        Commands::Pull { .. }
+    ));
+    assert!(matches!(
+        Cli::try_parse_from(["openkind", "list"]).unwrap().command,
+        Commands::List { .. }
+    ));
+    assert!(matches!(
+        Cli::try_parse_from(["openkind", "show", "fixture:v1"])
+            .unwrap()
+            .command,
+        Commands::Show { .. }
+    ));
+    assert!(matches!(
+        Cli::try_parse_from(["openkind", "rm", "fixture:v1"])
+            .unwrap()
+            .command,
+        Commands::Rm { .. }
+    ));
+    let cli =
+        Cli::try_parse_from(["openkind", "serve", "--installed-models", "fixture:v1"]).unwrap();
+    assert!(
+        matches!(cli.command, Commands::Serve { installed_models, .. } if installed_models == "fixture:v1")
+    );
+}
+
+#[test]
 fn cli_parse_version() {
     let cli = Cli::try_parse_from(["openkind", "version"]).unwrap();
     assert!(matches!(cli.command, Commands::Version));
+}
+
+#[test]
+fn cli_parse_status_watch() {
+    let cli = Cli::try_parse_from(["openkind", "status"]).unwrap();
+    assert!(matches!(cli.command, Commands::Status { watch: false, .. }));
+
+    let cli = Cli::try_parse_from([
+        "openkind",
+        "status",
+        "--watch",
+        "--server",
+        "http://127.0.0.1:18080",
+    ])
+    .unwrap();
+    assert!(matches!(
+        cli.command,
+        Commands::Status {
+            server,
+            watch: true,
+            ..
+        } if server == "http://127.0.0.1:18080"
+    ));
 }
 
 #[test]
@@ -35,6 +99,7 @@ fn cli_parse_evaluate_defaults_and_flags() {
             server,
             api_key,
             pretty,
+            ..
         } => {
             assert_eq!(file, PathBuf::from("my_request.json"));
             assert_eq!(server, "http://127.0.0.1:8080");
@@ -59,6 +124,7 @@ fn cli_parse_evaluate_defaults_and_flags() {
             server,
             api_key,
             pretty,
+            ..
         } => {
             assert_eq!(file, PathBuf::from("req.json"));
             assert_eq!(server, "http://10.0.0.1:9090");
@@ -183,6 +249,7 @@ fn cli_parse_serve_defaults_and_custom() {
             grpc_addr,
             models,
             api_key,
+            ..
         } => {
             assert_eq!(http_addr, "0.0.0.0:8080");
             assert_eq!(grpc_addr, "0.0.0.0:9090");
@@ -211,6 +278,7 @@ fn cli_parse_serve_defaults_and_custom() {
             grpc_addr,
             models,
             api_key,
+            ..
         } => {
             assert_eq!(http_addr, "127.0.0.1:18080");
             assert_eq!(grpc_addr, "127.0.0.1:19090");
@@ -231,6 +299,7 @@ fn cli_parse_evaluate_with_api_key() {
             server,
             api_key,
             pretty,
+            ..
         } => {
             assert_eq!(file, PathBuf::from("req.json"));
             assert_eq!(server, "http://127.0.0.1:8080");

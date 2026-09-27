@@ -1,8 +1,13 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::time::Instant;
 
 use anyhow::{Context, Result};
+use openkind_core::{Answer, SystemResponse};
 
+use crate::args::EvaluateFormat;
 use crate::inspect::MAX_CLI_INPUT_BYTES;
+use crate::output;
 
 /// Asynchronously evaluates a decision request against a remote openkind server.
 pub async fn cmd_evaluate_async(
@@ -10,6 +15,8 @@ pub async fn cmd_evaluate_async(
     server: String,
     api_key: Option<String>,
     pretty: bool,
+    format: EvaluateFormat,
+    verbose: bool,
 ) -> Result<()> {
     let raw = if file.as_os_str() == "-" {
         tokio::task::spawn_blocking(|| {
@@ -58,26 +65,154 @@ pub async fn cmd_evaluate_async(
         req_builder = req_builder.header("authorization", format!("Bearer {key}"));
     }
 
+    let started = Instant::now();
     let resp = req_builder
         .send()
         .await
         .with_context(|| format!("POST {url}"))?;
 
     let status = resp.status();
+    let request_id = resp
+        .headers()
+        .get("x-typesafe-request-id")
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_owned);
     let body = resp.text().await.context("read response body")?;
-    if pretty {
-        let v: serde_json::Value = serde_json::from_str(&body)
-            .unwrap_or_else(|_| serde_json::Value::String(format!("(invalid JSON: {body})")));
-        println!("HTTP {status}");
-        println!("{}", serde_json::to_string_pretty(&v)?);
-    } else {
-        println!("HTTP {status}");
-        println!("{body}");
-    }
+    let elapsed = started.elapsed();
     if !status.is_success() {
-        std::process::exit(1);
+        eprintln!("HTTP {status}");
+        if let Some(request_id) = request_id {
+            eprintln!("Request ID: {request_id}");
+        }
+        if !body.is_empty() {
+            eprintln!("{body}");
+        }
+        anyhow::bail!("evaluation request failed with HTTP {status}");
+    }
+
+    match format {
+        EvaluateFormat::Json => {
+            let value: serde_json::Value =
+                serde_json::from_str(&body).context("parse evaluation response JSON")?;
+            let verbose_response = if verbose {
+                Some(
+                    serde_json::from_str::<SystemResponse>(&body)
+                        .context("parse evaluation response")?,
+                )
+            } else {
+                None
+            };
+            if pretty {
+                println!("{}", serde_json::to_string_pretty(&value)?);
+            } else {
+                println!("{body}");
+            }
+            if let Some(response) = verbose_response {
+                eprintln!(
+                    "Evaluation completed in {:.1} ms ({} input tokens, {} output tokens)",
+                    elapsed.as_secs_f64() * 1000.0,
+                    response.usage.input_tokens,
+                    response.usage.output_tokens
+                );
+            }
+        }
+        EvaluateFormat::Text => {
+            let response: SystemResponse =
+                serde_json::from_str(&body).context("parse evaluation response JSON")?;
+            render_text_response(&response, elapsed, verbose);
+        }
     }
     Ok(())
+}
+
+fn render_text_response(response: &SystemResponse, elapsed: std::time::Duration, verbose: bool) {
+    output::print_heading("Evaluation");
+    output::print_key_value("Model", &response.model);
+    let mut answer_ids: Vec<&String> = response.answers.keys().collect();
+    answer_ids.sort();
+    let rows: Vec<Vec<String>> = answer_ids
+        .iter()
+        .map(|question_id| {
+            let answer = &response.answers[*question_id];
+            let (kind, value, confidence, details) = match answer {
+                Answer::Noul(answer) => (
+                    "Noul",
+                    format!("noul={:.3}", answer.noul),
+                    "not provided".to_owned(),
+                    if verbose {
+                        format!("p(noul)={:.3}", answer.noul)
+                    } else {
+                        String::new()
+                    },
+                ),
+                Answer::Choice(answer) => (
+                    "Choice",
+                    answer.choice.clone(),
+                    format!("{:.3}", answer.confidence),
+                    if verbose {
+                        format_probabilities(&answer.probabilities, None)
+                    } else {
+                        String::new()
+                    },
+                ),
+                Answer::Score(answer) => (
+                    "Score",
+                    format!("{:.3}", answer.score),
+                    format!("{:.3}", answer.confidence),
+                    if verbose {
+                        format_probabilities(&answer.probabilities, Some(&answer.legend))
+                    } else {
+                        String::new()
+                    },
+                ),
+            };
+            let mut row = vec![(*question_id).clone(), kind.to_owned(), value, confidence];
+            if verbose {
+                row.push(details);
+            }
+            row
+        })
+        .collect();
+    if verbose {
+        output::print_table(
+            "Answers",
+            &["QUESTION", "TYPE", "ANSWER", "CONFIDENCE", "PROBABILITIES"],
+            &rows,
+        );
+    } else {
+        output::print_table(
+            "Answers",
+            &["QUESTION", "TYPE", "ANSWER", "CONFIDENCE"],
+            &rows,
+        );
+    }
+    if verbose {
+        println!(
+            "Completed in {:.1} ms, {} input tokens, {} output tokens",
+            elapsed.as_secs_f64() * 1000.0,
+            response.usage.input_tokens,
+            response.usage.output_tokens
+        );
+    }
+}
+
+fn format_probabilities(
+    probabilities: &HashMap<String, f64>,
+    legend: Option<&HashMap<String, String>>,
+) -> String {
+    let mut entries: Vec<_> = probabilities.iter().collect();
+    entries.sort_by(|a, b| a.0.cmp(b.0));
+    entries
+        .into_iter()
+        .map(|(key, probability)| {
+            if let Some(description) = legend.and_then(|legend| legend.get(key)) {
+                format!("{key} ({description})={probability:.3}")
+            } else {
+                format!("{key}={probability:.3}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// Synchronous entrypoint for the `evaluate` CLI subcommand, executing within a fresh Tokio runtime.
@@ -86,9 +221,13 @@ pub fn cmd_evaluate(
     server: String,
     api_key: Option<String>,
     pretty: bool,
+    format: EvaluateFormat,
+    verbose: bool,
 ) -> Result<()> {
     let rt = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
-    rt.block_on(cmd_evaluate_async(file, server, api_key, pretty))
+    rt.block_on(cmd_evaluate_async(
+        file, server, api_key, pretty, format, verbose,
+    ))
 }

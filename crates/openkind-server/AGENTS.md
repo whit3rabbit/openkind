@@ -9,6 +9,7 @@
 - Observability initialization (`tracing_subscriber::fmt` with `EnvFilter`).
 - Prometheus metrics recorder installation (`openkind_api::http::install_metrics_recorder`).
 - Model engine instantiation and registration into `EngineRegistry` (supporting both `MockEngine` and `Qwen35DecisionEngine`).
+- Explicit startup loading of verified installations from `openkind-model-store`.
 - Concurrent HTTP (`axum::serve`) and gRPC (`tonic::transport::Server`) listeners.
 - Graceful shutdown orchestration on Unix `SIGINT` (Ctrl-C) or `SIGTERM`.
 
@@ -27,15 +28,15 @@
 
 ## Key Files & Types
 
-- [`src/main.rs`](./src/main.rs): Daemon entrypoint; orchestrates logging, auth, Prometheus recorder, engine registration (Qwen 3.5, surveyed families, router composites, and mock), and concurrent listener tasks via `tokio::join!`.
+- [`src/main.rs`](./src/main.rs):
+  - `main()`: Daemon entrypoint; orchestrates logging, auth, Prometheus recorder, engine registration (Qwen 3.5, installed models, surveyed families, router composites, and mock), and concurrent listener tasks via `tokio::join!`.
+  - `shutdown_signal()`: Future selecting on `tokio::signal::ctrl_c()` and Unix `SIGTERM`.
 - [`src/lib.rs`](./src/lib.rs): Library re-exports for daemon and benchmark integration.
-- [`src/args.rs`](./src/args.rs):
-  - `Args`: Root Clap argument parser defining:
+- [`src/args.rs`](./src/args.rs): Clap argument parser defining:
     - Server endpoints: `--http-addr`, `--grpc-addr`, `--api-key`, `--log-filter`.
-    - Model aliases: `--models`, `--qwen35-aliases`.
+    - Model aliases: `--models`, `--qwen35-aliases`, `--installed-models`, and `--models-dir`.
     - Surveyed-family configuration: flattened `family_args: FamilyArgs`.
     - Native Qwen3.5 parameters: `--qwen35-bundle-root`, `--qwen35-checkpoint-root`, `--qwen35-tokenizer`, `--qwen35-backend` / `OPENKIND_QWEN35_BACKEND` (`native-cpu` default, or feature-gated `mlx-fp32` on macOS arm64), `--qwen35-concurrency`, `--qwen35-queue`, `--qwen35-timeout-ms` (queue-inclusive, default 600000), `--qwen35-max-tensor-bytes`, `--qwen35-max-process-bytes`, `--qwen35-scratch-bytes`, `--qwen35-allocator-headroom-bytes`, `--qwen35-execution` (diagnostic plan override: `auto` default; bypasses the profitability policy only — admission ceilings and backend capabilities still apply).
-  - `shutdown_signal()`: Future selecting on `tokio::signal::ctrl_c()` and Unix `SIGTERM`.
 - [`src/families.rs`](./src/families.rs):
   - `FamilyArgs`: Flags and environment variables for surveyed-family loaders (`--decoder-letter-aliases`, `--decoder-letter-model-root`, `--encoder-nli-aliases`, `--encoder-nli-model-root`, `--decoder-llm-aliases`, `--decoder-llm-model-root`, `--schema-scorer-aliases`, `--schema-scorer-model-root`, `--router-script-aliases`, `--router-script-rules`).
   - `FamilyAdmission`: Concurrency, queue, and timeout parameters for family engines (`--family-concurrency`, `--family-queue`, `--family-timeout-ms`).
@@ -45,22 +46,28 @@
 
 ## Engine Registration Architecture
 
-`openkindd` populates `EngineRegistry` dynamically based on `--models`:
+`openkindd` populates `EngineRegistry` from `--models` and `--installed-models`:
 1. **Native Engine Path**: If any alias in `--models` is listed in `--qwen35-aliases` (default `qwen35-native`):
    - Validates that `--qwen35-bundle-root`, `--qwen35-checkpoint-root`, and `--qwen35-tokenizer` are provided.
    - Instantiates `SchedulerConfig::for_pinned_profile` with `BackendCapabilities::per_lane()`. The MLX loader may advertise vectorized forward only for FP32 `ReferenceOps` when `--qwen35-execution nested-batched` is explicitly forced; automatic scheduling stays per-lane pending measured performance. MLX server startup requires the `mlx` crate feature and is available only on macOS arm64.
    - Optionally attaches a process-memory envelope if `--qwen35-max-process-bytes` is configured. The engine refreshes peak RSS after model load and immediately before each request, then divides remaining headroom across the concurrency limit.
    - Loads `Qwen35DecisionEngine` with configured concurrency and queue semaphores.
    - Registers the shared engine under each matching alias.
-2. **Surveyed-Family Engine Path**: If any alias in `--models` matches `--decoder-letter-aliases`, `--encoder-nli-aliases`, `--decoder-llm-aliases`, or `--schema-scorer-aliases`:
+2. **Installed Model Path**: Each name in `--installed-models` is read from
+   `--models-dir` or `OPENKIND_MODELS_DIR`, verified, matched to a compiled-in
+   loader, and registered under its immutable name. A serving lock remains
+   held until shutdown; missing profiles and alias collisions fail startup.
+   The public catalog is never fetched during daemon startup. See the
+   [registry guide](../../docs/MODEL_REGISTRY.md) for the mirror and sync flow.
+3. **Surveyed-Family Engine Path**: If any alias in `--models` matches `--decoder-letter-aliases`, `--encoder-nli-aliases`, `--decoder-llm-aliases`, or `--schema-scorer-aliases`:
    - Validates that the corresponding `--<family>-model-root` is provided (fails fast on startup if omitted).
    - Loads the respective engine adapter from `openkind_backends::families` with bounded `FamilyLimits`.
    - Registers the shared engine under each matching alias.
-3. **Router-Script Composite Path**: If any alias in `--models` matches `--router-script-aliases`:
+4. **Router-Script Composite Path**: If any alias in `--models` matches `--router-script-aliases`:
    - Parses the routing rule table (`--router-script-rules`).
    - Resolves sibling engine references registered under `--models`.
    - Registers `RouterScriptEngine` dispatching across the sibling engines.
-4. **Mock Engine Path**: Any alias in `--models` not matching native, surveyed-family, or router-script configurations registers an instance of `MockEngine`.
+5. **Mock Engine Path**: Any alias in `--models` not matching native, surveyed-family, or router-script configurations registers an instance of `MockEngine`.
 
 ## Critical Gotchas & Rules
 

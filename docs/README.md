@@ -57,14 +57,20 @@ Project documentation and architectural references for `openkind`.
 7. **[`whitepaper/WHITEPAPER.md`](./whitepaper/WHITEPAPER.md)**:
    Canonical scientific interpretation, evidence register, native CPU reference
    results, Phase 4B–4D closeout, and Phase 4E audit gate.
-8. **[`families/`](./families/README.md)** — Model registry and family survey:
-   - The one native Rust-loadable profile, its pinned local artifacts, loader
-     entrypoint, and a Rust registration example.
-   - Surveyed architecture families that do not yet have Rust loaders.
-   - How the static catalogue differs from `EngineRegistry`, which routes
-     already-loaded engines by model alias.
+8. **[`families/`](./families/README.md)** — Decision-model family catalogue:
+   - Architectural pattern per family, status (implemented vs surveyed), and
+     what blocks implementation.
+   - One page per family. Each page links to the canonical owner for every
+     quantitative or status claim and never duplicates facts from other docs.
+   - Use this index to scope new family selection work; do not invent a new
+     architecture pattern without first adding it here.
    - [`families/NEW_FAMILY.md`](./families/NEW_FAMILY.md): family-specific
      evaluation gates and the Rust integration workflow.
+9. **[`MODEL_REGISTRY.md`](./MODEL_REGISTRY.md)**: Curated model distribution:
+   - OpenKind owns catalog metadata and compiled-in loaders. The separate
+     public registry serves manifests and small pinned profile assets.
+   - CLI pull and explicit daemon serving commands, plus the
+     [`sync-model-registry.py`](../scripts/sync-model-registry.py) publication check.
 
 ---
 
