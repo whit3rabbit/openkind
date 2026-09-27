@@ -265,6 +265,13 @@ Two open community implementations validate key mechanics:
 1. **`AlexWortega/openjev`**: A Qwen3.5-4B NLI cross-encoder trained with standard cross-entropy over 3 fixed labels (entailment, neutral, contradiction). It validates non-generative classification, but does not support dynamic arbitrary candidate sets or shared-state multi-query execution.
 2. **`monotykamary/LFM2.5-2.6B-RLCD` & `Qwen-2.5-1B-RLCD`**: Demonstrate shared-prefix KV-cache branching. The shared prompt is prefilled once, the cache is broadcast across question branches, candidate logits are computed in parallel, and JSON is assembled in host code. These are TypeSafe-inspired inference reproductions, not reproductions of RLCD training.
 
+OpenKind's [Qwen3.5 Rust flat-field diagnostic](benchmarks/2026-09-27-python-flat-field/)
+ports the shared-root field schedule while retaining its state-first prompt and
+candidate-feature readout. It passes the tested parity checks but is slower
+than nested batching at Q2/K2 and Q8/K4. The external Python speedup uses a
+different model, readout and baseline, so it is motivation rather than a
+transferable OpenKind throughput result.
+
 ### 8. Agent consumers and scoped authority
 
 [`safe-upgrade`](https://github.com/tenuo-ai/safe-upgrade) is an external example of a Jev-compatible decision consumer. Its [architecture](https://github.com/tenuo-ai/safe-upgrade/blob/main/docs/architecture.md) computes eligible workflow steps in trusted code, asks Jev to judge among them, and uses separate [Tenuo](https://github.com/tenuo-ai/tenuo) warrants to authorize worker tools. Deterministic checks determine the final result. This illustrates a consumer boundary; it is not an OpenKind integration or evidence of OpenKind model quality.

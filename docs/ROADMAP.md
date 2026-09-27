@@ -21,7 +21,7 @@ fresh confirmation. One frozen-profile MLX systems study can run alongside
 data preparation. This is an experiment plan; external results motivate it
 but do not become confirmed OpenKind findings.
 
-[WORKING_PAPER.md](WORKING_PAPER.md) owns confirmed lessons; the
+[WORKING_PAPER.md](whitepaper/WORKING_PAPER.md) owns confirmed lessons; the
 [whitepaper](whitepaper/WHITEPAPER.md) retains full research history.
 [ARCHITECTURE.md](ARCHITECTURE.md), [MLX.md](MLX.md), and
 [BENCHMARKS.md](BENCHMARKS.md) own implemented contracts, backend operations,
@@ -72,7 +72,7 @@ three claims separate. The article supplies no streamed-expert benchmark.
 | Area | Recorded result | Next consequence |
 |---|---|---|
 | CPU reference | Bounded frozen-profile parity, hybrid-state branching, high-K completion, persistence and named-machine lifecycle/load/soak pass. | Maintain the oracle; completed bring-up is not the next milestone. |
-| Apple Silicon | Pinned-base MLX FP32 full, nested and unequal-length vectorized parity pass. Forced execution and bounded memory recovery are recorded. BF16 fails the frozen equivalence gate; the packed kernel is slower and opt-in. | Measure useful vectorization. New checkpoint/readout profiles require their own reference and accelerated-service qualification. |
+| Apple Silicon | Pinned-base MLX FP32 full, nested and unequal-length vectorized parity pass. Forced execution and bounded memory recovery are recorded. Paired native compute diagnostics reject candidate pooling and flat-field batching on Q2/K2 and Q8/K4. BF16 fails the frozen equivalence gate; the packed kernel is slower and opt-in. | Retain current scheduling. Measure complete request and service cost for any next optimization. New checkpoint/readout profiles require their own reference and accelerated-service qualification. |
 | Natural documents | E29 frozen comparison and E30–E32 adaptations are complete; no complete quality/retention pass. | Investigate supported-answer loss and test one attributable remedy if released specialists also fail. |
 | Evidence | A3 has 51 reviewed rows plus six non-independent follow-ups; A4 aligns four papers and 40 caption candidates. The separate 27-case disposition leaves gold unchanged. | Complete required source/PDF, table/reference and independent correction review. Existing visibility work is bounded, not full repair. |
 | Cheap readers | Pooled-root, learned StateQuery and factorized applicability studies miss complete quality/policy gates. | Keep causal execution available. A new encoder or bottleneck explanation is not established. |
@@ -284,10 +284,15 @@ do not merge it into the current checkpoints. Use the 90-minute budget and
 checkpoints for useful measurements, not repeated unqualified sweeps.
 
 
-**Available now:** measure the existing pinned FP32 `ReferenceOps` per-lane and
-forced vectorized implementations on identical inputs. Compatible forced lanes
-currently span 2–8; automatic scheduling remains per-lane until measurements
-justify a useful range. This frozen systems study is separate from model selection.
+**Available now:** the pinned FP32 `ReferenceOps` native compute study has
+compared nested batching, same-position candidate pooling, and a Rust port of
+flat shared-root field batching on matched Q2/K2 and Q8/K4 token workloads.
+The [flat-field](benchmarks/2026-09-27-python-flat-field/) and
+[candidate-pooling](benchmarks/2026-09-27-candidate-pooling/) records reject
+those two diagnostic alternatives. Compatible forced vectorized lanes span
+2–8; automatic scheduling remains per-lane. Full request-path and
+queue-inclusive comparisons for a new candidate optimization still need
+their own paired runs. This systems study is separate from model selection.
 
 **Candidate profile:** implement the selected joint-option readout, its
 reference fixtures and direct projection onto allowed vocabulary rows. This
