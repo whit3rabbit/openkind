@@ -8,7 +8,7 @@ use openkind_backends::qwen35::PROFILE_ID;
 use openkind_runtime::peak_resident_bytes;
 use serde_json::{json, Value};
 
-use super::types::{native_backend, EngineKind, ScoreArgs};
+use super::types::{family_identity, native_backend, EngineKind, ScoreArgs};
 use crate::workload::Workload;
 
 pub(crate) fn build_summary(
@@ -18,16 +18,24 @@ pub(crate) fn build_summary(
     strategy_reports: &[Value],
     parity_clean: Option<bool>,
 ) -> Value {
-    let (engine_id, profile, model_revision, bundle_version) = if args.engine == EngineKind::Mock {
-        ("mock", Value::Null, Value::Null, Value::Null)
-    } else {
-        (
-            native_backend(args.engine).as_str(),
-            json!(PROFILE_ID),
-            model_revision(args),
-            bundle_version(args),
-        )
-    };
+    let (engine_id, profile, model_revision, bundle_version) =
+        if let Some((slug, family_profile, family_revision)) = family_identity(args.engine) {
+            (
+                slug,
+                json!(family_profile),
+                json!(family_revision),
+                Value::Null,
+            )
+        } else if args.engine == EngineKind::Mock {
+            ("mock", Value::Null, Value::Null, Value::Null)
+        } else {
+            (
+                native_backend(args.engine).as_str(),
+                json!(PROFILE_ID),
+                model_revision(args),
+                bundle_version(args),
+            )
+        };
     json!({
         "schema": "openkind-bench/v1",
         "engine": engine_id,

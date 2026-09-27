@@ -19,16 +19,30 @@ mod summary;
 mod types;
 
 use std::fs;
+use std::sync::Arc;
 use std::time::Instant;
 
 use anyhow::{Context, Result};
+use openkind_backends::families::decoder_logit_letter::{
+    DecoderLetterEngine, DecoderLetterEngineConfig,
+};
+use openkind_backends::families::decoder_logit_llm::{DecoderLlmEngine, DecoderLlmEngineConfig};
+use openkind_backends::families::encoder_instruct_label::{
+    EncoderInstructLabelEngine, EncoderInstructLabelEngineConfig,
+};
+use openkind_backends::families::encoder_nli::{EncoderNliEngine, EncoderNliEngineConfig};
+use openkind_backends::families::kev::{KevEngine, KevEngineConfig};
+use openkind_backends::families::qwen3guard::{Qwen3GuardEngine, Qwen3GuardEngineConfig};
+use openkind_backends::families::schema_scorer::{SchemaScorerEngine, SchemaScorerEngineConfig};
+use openkind_backends::families::support::FamilyLimits;
 use openkind_backends::qwen35::{Qwen35DecisionEngine, Qwen35EngineConfig, SchedulerConfig};
-use openkind_engine::EngineRegistry;
+use openkind_engine::{DecisionEngine, EngineRegistry};
 use serde_json::Value;
 
 pub(crate) use types::validate_strategy_selection;
 pub use types::{
-    EngineKind, ScoreArgs, ScoreOutcome, StrategySpec, DEFAULT_STRATEGIES, STRATEGY_HELP,
+    is_family_engine_public, EngineKind, ScoreArgs, ScoreOutcome, StrategySpec, DEFAULT_STRATEGIES,
+    STRATEGY_HELP,
 };
 
 use crate::workload;
@@ -80,6 +94,194 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
             },
         ))?;
         strategy_reports.push(report);
+        predictions_per_strategy.push(predictions);
+    } else if types::is_family_engine(args.engine) {
+        let needs_model_root =
+            !matches!(args.engine, EngineKind::RouterScript | EngineKind::Winnow);
+        let model_root = if needs_model_root {
+            Some(args.model_root.as_ref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "--model-root is required for the {} engine",
+                    types::engine_slug(args.engine)
+                )
+            })?)
+        } else {
+            None
+        };
+        let load_started = Instant::now();
+        let engine: Arc<dyn DecisionEngine> = match args.engine {
+            EngineKind::DecoderLetter => Arc::new(
+                DecoderLetterEngine::load(DecoderLetterEngineConfig {
+                    model_root: model_root.expect("gated").clone(),
+                    limits: FamilyLimits {
+                        max_concurrent_requests: 1,
+                        max_queued_requests: 0,
+                        retry_after_ms: 250,
+                        evaluation_timeout: None,
+                    },
+                })
+                .map_err(|error| anyhow::anyhow!("load decoder-letter engine: {error}"))?,
+            ),
+            EngineKind::EncoderNli => Arc::new(
+                EncoderNliEngine::load(EncoderNliEngineConfig {
+                    model_root: model_root.expect("gated").clone(),
+                    limits: FamilyLimits {
+                        max_concurrent_requests: 1,
+                        max_queued_requests: 0,
+                        retry_after_ms: 250,
+                        evaluation_timeout: None,
+                    },
+                })
+                .map_err(|error| anyhow::anyhow!("load encoder-nli engine: {error}"))?,
+            ),
+            EngineKind::EncoderInstructLabel => Arc::new(
+                EncoderInstructLabelEngine::load(EncoderInstructLabelEngineConfig {
+                    model_root: model_root.expect("gated").clone(),
+                    limits: FamilyLimits {
+                        max_concurrent_requests: 1,
+                        max_queued_requests: 0,
+                        retry_after_ms: 250,
+                        evaluation_timeout: None,
+                    },
+                })
+                .map_err(|error| anyhow::anyhow!("load encoder-instruct-label engine: {error}"))?,
+            ),
+            EngineKind::DecoderLlm => Arc::new(
+                DecoderLlmEngine::load(DecoderLlmEngineConfig {
+                    model_root: model_root.expect("gated").clone(),
+                    limits: FamilyLimits {
+                        max_concurrent_requests: 1,
+                        max_queued_requests: 0,
+                        retry_after_ms: 250,
+                        evaluation_timeout: None,
+                    },
+                })
+                .map_err(|error| anyhow::anyhow!("load decoder-llm engine: {error}"))?,
+            ),
+            EngineKind::SchemaScorer => Arc::new(
+                SchemaScorerEngine::load(SchemaScorerEngineConfig {
+                    model_root: model_root.expect("gated").clone(),
+                    limits: FamilyLimits {
+                        max_concurrent_requests: 1,
+                        max_queued_requests: 0,
+                        retry_after_ms: 250,
+                        evaluation_timeout: None,
+                    },
+                })
+                .map_err(|error| anyhow::anyhow!("load schema-scorer engine: {error}"))?,
+            ),
+            // The router composite is benchmarked over mock siblings: this
+            // run measures routing overhead only, not sibling throughput.
+            EngineKind::RouterScript => {
+                let rules = openkind_backends::families::router_script::ScriptRuleTable::parse(
+                    "latin=mock-latin,cyrillic=mock-cyrillic,default=mock-latin",
+                )
+                .map_err(|error| anyhow::anyhow!("parse bench router rules: {error}"))?;
+                let mut siblings: std::collections::HashMap<String, Arc<dyn DecisionEngine>> =
+                    std::collections::HashMap::new();
+                siblings.insert(
+                    "mock-latin".to_owned(),
+                    Arc::new(openkind_engine::MockEngine::new()),
+                );
+                siblings.insert(
+                    "mock-cyrillic".to_owned(),
+                    Arc::new(openkind_engine::MockEngine::new()),
+                );
+                Arc::new(
+                    openkind_backends::families::router_script::RouterScriptEngine::new(
+                        rules, &siblings,
+                    )
+                    .map_err(|error| anyhow::anyhow!("compose router-script engine: {error}"))?,
+                )
+            }
+            EngineKind::Qwen3Guard => Arc::new(
+                Qwen3GuardEngine::load(Qwen3GuardEngineConfig {
+                    model_root: model_root.expect("gated").clone(),
+                    limits: FamilyLimits {
+                        max_concurrent_requests: 1,
+                        max_queued_requests: 0,
+                        retry_after_ms: 250,
+                        evaluation_timeout: None,
+                    },
+                })
+                .map_err(|error| anyhow::anyhow!("load qwen3guard engine: {error}"))?,
+            ),
+            // The winnow router is benchmarked over mock siblings: this run
+            // measures the learned routing pass only, not sibling throughput.
+            EngineKind::Kev => {
+                let model_root = args.model_root.as_ref().ok_or_else(|| {
+                    anyhow::anyhow!("--model-root is required for the kev engine")
+                })?;
+                let base_root = args.checkpoint_root.as_ref().ok_or_else(|| {
+                    anyhow::anyhow!("--checkpoint-root is required for the kev engine")
+                })?;
+                Arc::new(
+                    KevEngine::load(KevEngineConfig {
+                        model_root: model_root.clone(),
+                        base_root: base_root.clone(),
+                        limits: FamilyLimits {
+                            max_concurrent_requests: 1,
+                            max_queued_requests: 0,
+                            retry_after_ms: 250,
+                            evaluation_timeout: None,
+                        },
+                    })
+                    .map_err(|error| anyhow::anyhow!("load kev engine: {error}"))?,
+                )
+            }
+            EngineKind::Winnow => {
+                let model_root = args.model_root.as_ref().ok_or_else(|| {
+                    anyhow::anyhow!("--model-root is required for the winnow engine")
+                })?;
+                let adapter = args.adapter.as_ref().ok_or_else(|| {
+                    anyhow::anyhow!("--adapter is required for the winnow engine")
+                })?;
+                let config = openkind_backends::families::winnow::WinnowEngineConfig {
+                    model_root: model_root.clone(),
+                    adapter_path: adapter.clone(),
+                    limits: FamilyLimits {
+                        max_concurrent_requests: 1,
+                        max_queued_requests: 0,
+                        retry_after_ms: 250,
+                        evaluation_timeout: None,
+                    },
+                };
+                let siblings = vec![
+                    (
+                        "mock-english".to_owned(),
+                        Arc::new(openkind_engine::MockEngine::new()) as Arc<dyn DecisionEngine>,
+                    ),
+                    (
+                        "mock-multilingual".to_owned(),
+                        Arc::new(openkind_engine::MockEngine::new()) as Arc<dyn DecisionEngine>,
+                    ),
+                ];
+                Arc::new(
+                    openkind_backends::families::winnow::WinnowEngine::load(config, siblings)
+                        .map_err(|error| anyhow::anyhow!("load winnow engine: {error}"))?,
+                )
+            }
+            other => anyhow::bail!("engine {} is not wired for family scoring", other as u32),
+        };
+        let model_load_seconds = load_started.elapsed().as_secs_f64();
+        let mut registry = EngineRegistry::new();
+        registry.register(types::BENCH_ALIAS, engine);
+        eprintln!(
+            "[bench] engine {} starting",
+            types::engine_slug(args.engine)
+        );
+        let (report, predictions) = runtime.block_on(execution::run_strategy_pass(
+            &registry,
+            &workload.rows,
+            &groups,
+            args,
+            execution::StrategyPass {
+                label: types::engine_slug(args.engine),
+                forced: None,
+                warmup: true,
+            },
+        ))?;
+        strategy_reports.push(execution::report_with_load(report, model_load_seconds));
         predictions_per_strategy.push(predictions);
     } else {
         let backend = types::native_backend(args.engine);
