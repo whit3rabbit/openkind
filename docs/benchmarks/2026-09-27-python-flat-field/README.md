@@ -52,6 +52,16 @@ The flat runner's mixed-length, chunking, ordering, and singleton fallback
 tests pass. These checks establish implementation parity on the tested
 inputs, not classification quality.
 
+The pinned formal full-sequence and nested MLX gates passed on commit
+`78b9e0cc4ed8e66fe04407b626eac29a358bfadd`. Maximum probability errors
+were `1.514845e-6` and `1.378739e-5`, respectively, with zero selection or
+policy changes. The nested gate also passed branch isolation, position,
+root-storage, and unequal-length vectorized checks. These are regression
+gates for the existing backbone. The flat path's model-backed equivalence is
+the direct paired comparison above. Reports are in
+[`full_parity.json`](full_parity.json) and
+[`nested_parity.json`](nested_parity.json).
+
 Q2/K2 peak active MLX memory is about 14.0 GiB nested versus 14.38 GiB flat.
 Q8/K4 is 16.49 GiB nested versus 15.43 GiB flat. Process peak RSS is mixed
 across pairs. With only two paired processes and two or three timed samples
@@ -60,7 +70,8 @@ ratio. The latency loss alone rejects promotion. Retain the flat runner as a
 diagnostic and keep the current scheduler choice.
 
 The raw paired runs are [`q2k2.json`](q2k2.json) and
-[`q8k4.json`](q8k4.json); their checksums are in [`SHA256SUMS`](SHA256SUMS).
+[`q8k4.json`](q8k4.json). All four evidence files have checksums in
+[`SHA256SUMS`](SHA256SUMS).
 
 ## Reproduce
 
