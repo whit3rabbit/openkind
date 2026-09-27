@@ -1,0 +1,3280 @@
+{
+  "source_run": "20260926T224132_613995Z",
+  "manifest": {
+    "notebook_version": "0.1",
+    "started_utc": "2026-09-26T22:41:35.296768+00:00",
+    "smoke_only": false,
+    "profile": "qwen15_moe",
+    "precision_requested": "nf4",
+    "seed": 17,
+    "max_input_tokens": 768,
+    "timing_repeats": 2,
+    "review_cost": 0.1,
+    "allowlist_fraction": 0.5,
+    "run_length_study": true,
+    "extra_context_tokens": [
+      0,
+      128,
+      512
+    ],
+    "python": "3.13.15 (main, Aug  6 2026, 11:06:22) [GCC 13.3.0]",
+    "platform": "Linux-6.6.122+-x86_64-with-glibc2.39",
+    "torch": "2.11.0+cu128",
+    "transformers": "4.57.1",
+    "cuda_runtime": "12.8",
+    "gpu": "NVIDIA L4",
+    "packages": {
+      "transformers": "4.57.1",
+      "accelerate": "1.10.1",
+      "numpy": "2.1.3",
+      "pandas": "2.2.3"
+    },
+    "model_id": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+    "model_revision": "ec052fda178e241c7c443468d2fa1db6618996be",
+    "config_sha256": "b3e9fc1ad643d12f6536dee80a66c5ea045b571856165a598252720b6f2c553e",
+    "data_kind": "authored_teaching_fixtures",
+    "data_sha256": "84780a9e936a9857d797ab33a683a4ecb300fb737a68034751aed9c340e91fa2",
+    "rows": 80,
+    "source_groups": 20,
+    "compute_dtype": "torch.bfloat16",
+    "attention_backend": "eager",
+    "moe_implementation_sha256": "c8da1248cfc5ebb10af8480aded989c4b168e379934e6428dff08dd3fcc6167e",
+    "architecture": {
+      "model": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+      "layers": 24,
+      "hidden": 2048,
+      "experts_per_moe_layer": 60,
+      "top_k": 4,
+      "shared_width": 5632,
+      "normalize_selected_router_weights": false
+    },
+    "native_router_normalization": false,
+    "loaded_memory": {
+      "cuda_allocated_gib": 7.783074855804443,
+      "cuda_reserved_gib": 10.546875,
+      "process_rss_gib": 1.8277359008789062
+    }
+  },
+  "rows": 80,
+  "split_counts": {
+    "routing_fit": 16,
+    "calibration": 16,
+    "policy_dev": 16,
+    "test": 32
+  },
+  "arms": [
+    {
+      "arm": "native",
+      "temperature": 4.999999999999999,
+      "review_threshold": 1.000001,
+      "n_test": 32,
+      "source_groups": 8,
+      "accuracy": 0.5625,
+      "nll": 0.9926279913021401,
+      "brier": 0.5870299825321474,
+      "ece_10_bins": 0.08845493634683153,
+      "none_recall": 0.0,
+      "false_none": 0.0,
+      "coverage": 0.0,
+      "accepted_error": null,
+      "review_cost": 0.1,
+      "raw_nll": 2.2205727642868887,
+      "raw_brier": 0.7508565252039745,
+      "raw_ece_10_bins": 0.33652855369632706,
+      "p50_ms": 1749.096650500178,
+      "p95_ms": 1808.1681606003258,
+      "test_timing_samples": 64,
+      "correct_accepted_per_s": 0.0,
+      "start_allocated_gib": 7.791985988616943,
+      "peak_allocated_gib": 7.819369792938232,
+      "peak_reserved_gib": 10.55078125,
+      "rss_snapshot_gib": 2.5447006225585938,
+      "smoke_only": false,
+      "lost_correct": 0,
+      "gained_correct": 0,
+      "changed_predictions": 0,
+      "correct_n": 18,
+      "families": {
+        "policy": {
+          "n": 8,
+          "correct": 6
+        },
+        "temporal": {
+          "n": 8,
+          "correct": 4
+        },
+        "composition": {
+          "n": 8,
+          "correct": 5
+        },
+        "arithmetic": {
+          "n": 8,
+          "correct": 3
+        }
+      },
+      "class_counts": {
+        "yes": {
+          "gold_n": 12,
+          "predicted_n": 23
+        },
+        "no": {
+          "gold_n": 12,
+          "predicted_n": 9
+        },
+        "unknown": {
+          "gold_n": 8,
+          "predicted_n": 0
+        }
+      },
+      "calibration_refit_diagnostic": {
+        "beta": 0.08667323799186812,
+        "temperature": 11.537586724218407,
+        "cal_nll_original_grid": 1.116758995699986,
+        "cal_nll_refit": 1.0705449355071661,
+        "test_nll_refit_posthoc": 1.009319173204729,
+        "uniform_test_nll": 1.0986122886681098
+      },
+      "decisions": [
+        {
+          "id": "test-document-17-q0",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q1",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-17-q2",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q2",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q0",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q0",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q0",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q2",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q3",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q2",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q0",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q1",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q1",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q1",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q3",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q1",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q3",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q3",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q2",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q2",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q3",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q3",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q0",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q0",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q3",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q2",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q2",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q0",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q1",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-17-q1",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-17-q3",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q1",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        }
+      ]
+    },
+    {
+      "arm": "half_topk",
+      "temperature": 4.999999999999999,
+      "review_threshold": 1.000001,
+      "n_test": 32,
+      "source_groups": 8,
+      "accuracy": 0.40625,
+      "nll": 1.0352902272540336,
+      "brier": 0.6228963647305028,
+      "ece_10_bins": 0.16706781703297446,
+      "none_recall": 0.0,
+      "false_none": 0.0,
+      "coverage": 0.0,
+      "accepted_error": null,
+      "review_cost": 0.1,
+      "raw_nll": 2.0026178755753703,
+      "raw_brier": 0.9143572463648755,
+      "raw_ece_10_bins": 0.452600908626885,
+      "p50_ms": 1537.2823969996716,
+      "p95_ms": 1575.133064749889,
+      "test_timing_samples": 64,
+      "correct_accepted_per_s": 0.0,
+      "start_allocated_gib": 7.791985988616943,
+      "peak_allocated_gib": 7.819180965423584,
+      "peak_reserved_gib": 10.55078125,
+      "rss_snapshot_gib": 2.5447158813476562,
+      "smoke_only": false,
+      "lost_correct": 5,
+      "gained_correct": 0,
+      "changed_predictions": 5,
+      "correct_n": 13,
+      "families": {
+        "policy": {
+          "n": 8,
+          "correct": 4
+        },
+        "temporal": {
+          "n": 8,
+          "correct": 2
+        },
+        "composition": {
+          "n": 8,
+          "correct": 4
+        },
+        "arithmetic": {
+          "n": 8,
+          "correct": 3
+        }
+      },
+      "class_counts": {
+        "yes": {
+          "gold_n": 12,
+          "predicted_n": 28
+        },
+        "no": {
+          "gold_n": 12,
+          "predicted_n": 4
+        },
+        "unknown": {
+          "gold_n": 8,
+          "predicted_n": 0
+        }
+      },
+      "calibration_refit_diagnostic": {
+        "beta": 0.11038328945990218,
+        "temperature": 9.059342269042089,
+        "cal_nll_original_grid": 1.0869080090047132,
+        "cal_nll_refit": 1.0659461419192133,
+        "test_nll_refit_posthoc": 1.037673225970102,
+        "uniform_test_nll": 1.0986122886681098
+      },
+      "decisions": [
+        {
+          "id": "test-document-17-q0",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q1",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-17-q2",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q2",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q0",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q0",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q0",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q2",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q3",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q2",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q0",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q1",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q1",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q1",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q3",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-13-q1",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-14-q3",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-15-q3",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q2",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q2",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q3",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q3",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q0",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q0",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q3",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q2",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q2",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q0",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q1",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-17-q1",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-17-q3",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q1",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        }
+      ]
+    },
+    {
+      "arm": "top1",
+      "temperature": 4.999999999999999,
+      "review_threshold": 0.6913717847056238,
+      "n_test": 32,
+      "source_groups": 8,
+      "accuracy": 0.40625,
+      "nll": 1.220523613794912,
+      "brier": 0.7548124760750747,
+      "ece_10_bins": 0.2312992260515936,
+      "none_recall": 0.0,
+      "false_none": 0.0,
+      "coverage": 0.21875,
+      "accepted_error": 0.7142857142857143,
+      "review_cost": 0.234375,
+      "raw_nll": 3.4385060408789196,
+      "raw_brier": 1.137278671889393,
+      "raw_ece_10_bins": 0.5890253833050931,
+      "p50_ms": 1099.3160730004092,
+      "p95_ms": 1153.7569075002466,
+      "test_timing_samples": 64,
+      "correct_accepted_per_s": 0.05694758945088418,
+      "start_allocated_gib": 7.791985988616943,
+      "peak_allocated_gib": 7.819074630737305,
+      "peak_reserved_gib": 10.55078125,
+      "rss_snapshot_gib": 2.5447235107421875,
+      "smoke_only": false,
+      "lost_correct": 5,
+      "gained_correct": 0,
+      "changed_predictions": 6,
+      "correct_n": 13,
+      "families": {
+        "policy": {
+          "n": 8,
+          "correct": 4
+        },
+        "temporal": {
+          "n": 8,
+          "correct": 2
+        },
+        "composition": {
+          "n": 8,
+          "correct": 5
+        },
+        "arithmetic": {
+          "n": 8,
+          "correct": 2
+        }
+      },
+      "class_counts": {
+        "yes": {
+          "gold_n": 12,
+          "predicted_n": 29
+        },
+        "no": {
+          "gold_n": 12,
+          "predicted_n": 3
+        },
+        "unknown": {
+          "gold_n": 8,
+          "predicted_n": 0
+        }
+      },
+      "calibration_refit_diagnostic": {
+        "beta": 0.06734866130106743,
+        "temperature": 14.848105080065649,
+        "cal_nll_original_grid": 1.1544860443702993,
+        "cal_nll_refit": 1.079268056596995,
+        "test_nll_refit_posthoc": 1.1027438914669876,
+        "uniform_test_nll": 1.0986122886681098
+      },
+      "decisions": [
+        {
+          "id": "test-document-17-q0",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q1",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-17-q2",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q2",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": false,
+          "changed": true
+        },
+        {
+          "id": "test-document-14-q0",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q0",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q0",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q2",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q3",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q2",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q0",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q1",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q1",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q1",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q3",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-13-q1",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-14-q3",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-15-q3",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-20-q2",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q2",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q3",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q3",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q0",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q0",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q3",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q2",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q2",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q0",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q1",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-17-q1",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-17-q3",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q1",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        }
+      ]
+    },
+    {
+      "arm": "allowlist_50pct",
+      "temperature": 4.999999999999999,
+      "review_threshold": 1.000001,
+      "n_test": 32,
+      "source_groups": 8,
+      "accuracy": 0.375,
+      "nll": 1.2342498951944492,
+      "brier": 0.7411686692307203,
+      "ece_10_bins": 0.18411770035334837,
+      "none_recall": 0.0,
+      "false_none": 0.0,
+      "coverage": 0.0,
+      "accepted_error": null,
+      "review_cost": 0.1,
+      "raw_nll": 2.9754133730488155,
+      "raw_brier": 1.0760005703037088,
+      "raw_ece_10_bins": 0.5341216257721108,
+      "p50_ms": 935.7723930002066,
+      "p95_ms": 958.656838349907,
+      "test_timing_samples": 64,
+      "correct_accepted_per_s": 0.0,
+      "start_allocated_gib": 7.79199743270874,
+      "peak_allocated_gib": 7.819434642791748,
+      "peak_reserved_gib": 10.55078125,
+      "rss_snapshot_gib": 2.5451278686523438,
+      "smoke_only": false,
+      "lost_correct": 6,
+      "gained_correct": 0,
+      "changed_predictions": 9,
+      "correct_n": 12,
+      "families": {
+        "policy": {
+          "n": 8,
+          "correct": 4
+        },
+        "temporal": {
+          "n": 8,
+          "correct": 2
+        },
+        "composition": {
+          "n": 8,
+          "correct": 4
+        },
+        "arithmetic": {
+          "n": 8,
+          "correct": 2
+        }
+      },
+      "class_counts": {
+        "yes": {
+          "gold_n": 12,
+          "predicted_n": 30
+        },
+        "no": {
+          "gold_n": 12,
+          "predicted_n": 2
+        },
+        "unknown": {
+          "gold_n": 8,
+          "predicted_n": 0
+        }
+      },
+      "calibration_refit_diagnostic": {
+        "beta": 0.0,
+        "temperature": null,
+        "cal_nll_original_grid": 1.2589768412754652,
+        "cal_nll_refit": 1.0986122886681098,
+        "test_nll_refit_posthoc": 1.0986122886681098,
+        "uniform_test_nll": 1.0986122886681098
+      },
+      "decisions": [
+        {
+          "id": "test-document-17-q0",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q1",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-17-q2",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q2",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q0",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q0",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q0",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q2",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": false,
+          "changed": true
+        },
+        {
+          "id": "test-document-19-q3",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q2",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q0",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q1",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q1",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q1",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q3",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-13-q1",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-14-q3",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-15-q3",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-20-q2",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": true
+        },
+        {
+          "id": "test-document-18-q2",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": false,
+          "changed": true
+        },
+        {
+          "id": "test-document-20-q3",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q3",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q0",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q0",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q3",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q2",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q2",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q0",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q1",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-17-q1",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-17-q3",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q1",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        }
+      ]
+    },
+    {
+      "arm": "skip_late_moe",
+      "temperature": 4.999999999999999,
+      "review_threshold": 1.000001,
+      "n_test": 32,
+      "source_groups": 8,
+      "accuracy": 0.53125,
+      "nll": 1.0570956075567197,
+      "brier": 0.6341524412537349,
+      "ece_10_bins": 0.14244783443252373,
+      "none_recall": 0.125,
+      "false_none": 0.0,
+      "coverage": 0.0,
+      "accepted_error": null,
+      "review_cost": 0.1,
+      "raw_nll": 1.8983747027147975,
+      "raw_brier": 0.8013834092788503,
+      "raw_ece_10_bins": 0.34964700330337034,
+      "p50_ms": 1326.3821605000885,
+      "p95_ms": 1343.6369318501875,
+      "test_timing_samples": 64,
+      "correct_accepted_per_s": 0.0,
+      "start_allocated_gib": 7.791985988616943,
+      "peak_allocated_gib": 7.819346904754639,
+      "peak_reserved_gib": 10.55078125,
+      "rss_snapshot_gib": 2.545166015625,
+      "smoke_only": false,
+      "lost_correct": 2,
+      "gained_correct": 1,
+      "changed_predictions": 4,
+      "correct_n": 17,
+      "families": {
+        "policy": {
+          "n": 8,
+          "correct": 4
+        },
+        "temporal": {
+          "n": 8,
+          "correct": 4
+        },
+        "composition": {
+          "n": 8,
+          "correct": 5
+        },
+        "arithmetic": {
+          "n": 8,
+          "correct": 4
+        }
+      },
+      "class_counts": {
+        "yes": {
+          "gold_n": 12,
+          "predicted_n": 24
+        },
+        "no": {
+          "gold_n": 12,
+          "predicted_n": 7
+        },
+        "unknown": {
+          "gold_n": 8,
+          "predicted_n": 1
+        }
+      },
+      "calibration_refit_diagnostic": {
+        "beta": 0.05531346567090616,
+        "temperature": 18.078780417586113,
+        "cal_nll_original_grid": 1.1405342895841413,
+        "cal_nll_refit": 1.091348621787236,
+        "test_nll_refit_posthoc": 1.070502903976275,
+        "uniform_test_nll": 1.0986122886681098
+      },
+      "decisions": [
+        {
+          "id": "test-document-17-q0",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q1",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-17-q2",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q2",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q0",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q0",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q0",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q2",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "unknown",
+          "predicted": "unknown",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": false,
+          "changed": true
+        },
+        {
+          "id": "test-document-19-q3",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q2",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q0",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q1",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q1",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q1",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q3",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q1",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-14-q3",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q3",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q2",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q2",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q3",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q3",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q0",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q0",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q3",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q2",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q2",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": true
+        },
+        {
+          "id": "test-document-19-q0",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q1",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-17-q1",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-17-q3",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q1",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        }
+      ]
+    },
+    {
+      "arm": "shared_only",
+      "temperature": 4.999999999999999,
+      "review_threshold": 1.000001,
+      "n_test": 32,
+      "source_groups": 8,
+      "accuracy": 0.34375,
+      "nll": 1.0992975200382606,
+      "brier": 0.6671286981631205,
+      "ece_10_bins": 0.014923210711292767,
+      "none_recall": 0.375,
+      "false_none": 0.4583333333333333,
+      "coverage": 0.0,
+      "accepted_error": null,
+      "review_cost": 0.1,
+      "raw_nll": 1.1400870496531499,
+      "raw_brier": 0.6951422927060958,
+      "raw_ece_10_bins": 0.19754780447325193,
+      "p50_ms": 77.1751694996965,
+      "p95_ms": 81.04032645005644,
+      "test_timing_samples": 64,
+      "correct_accepted_per_s": 0.0,
+      "start_allocated_gib": 7.791985988616943,
+      "peak_allocated_gib": 7.8184332847595215,
+      "peak_reserved_gib": 10.55078125,
+      "rss_snapshot_gib": 2.54522705078125,
+      "smoke_only": false,
+      "lost_correct": 12,
+      "gained_correct": 5,
+      "changed_predictions": 22,
+      "correct_n": 11,
+      "families": {
+        "policy": {
+          "n": 8,
+          "correct": 3
+        },
+        "temporal": {
+          "n": 8,
+          "correct": 5
+        },
+        "composition": {
+          "n": 8,
+          "correct": 1
+        },
+        "arithmetic": {
+          "n": 8,
+          "correct": 2
+        }
+      },
+      "class_counts": {
+        "yes": {
+          "gold_n": 12,
+          "predicted_n": 8
+        },
+        "no": {
+          "gold_n": 12,
+          "predicted_n": 10
+        },
+        "unknown": {
+          "gold_n": 8,
+          "predicted_n": 14
+        }
+      },
+      "calibration_refit_diagnostic": {
+        "beta": 0.0,
+        "temperature": null,
+        "cal_nll_original_grid": 1.1037186737825633,
+        "cal_nll_refit": 1.0986122886681098,
+        "test_nll_refit_posthoc": 1.0986122886681098,
+        "uniform_test_nll": 1.0986122886681098
+      },
+      "decisions": [
+        {
+          "id": "test-document-17-q0",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "yes",
+          "predicted": "unknown",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-14-q1",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "yes",
+          "predicted": "unknown",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-17-q2",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q2",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q0",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": false,
+          "changed": true
+        },
+        {
+          "id": "test-document-16-q0",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "yes",
+          "predicted": "no",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-18-q0",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": false,
+          "changed": true
+        },
+        {
+          "id": "test-document-19-q2",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "unknown",
+          "predicted": "unknown",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": false,
+          "changed": true
+        },
+        {
+          "id": "test-document-19-q3",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "no",
+          "predicted": "unknown",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": true
+        },
+        {
+          "id": "test-document-16-q2",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "unknown",
+          "predicted": "unknown",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": false,
+          "changed": true
+        },
+        {
+          "id": "test-document-20-q0",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "yes",
+          "predicted": "no",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-15-q1",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "no",
+          "predicted": "unknown",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": true
+        },
+        {
+          "id": "test-document-20-q1",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q1",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "no",
+          "predicted": "unknown",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": true
+        },
+        {
+          "id": "test-document-18-q3",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "no",
+          "predicted": "unknown",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-13-q1",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "no",
+          "predicted": "unknown",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-14-q3",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q3",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "no",
+          "predicted": "unknown",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-20-q2",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": true
+        },
+        {
+          "id": "test-document-18-q2",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "unknown",
+          "predicted": "unknown",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": false,
+          "changed": true
+        },
+        {
+          "id": "test-document-20-q3",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "yes",
+          "predicted": "no",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-13-q3",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q0",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "yes",
+          "predicted": "unknown",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-13-q0",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q3",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "yes",
+          "predicted": "no",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-15-q2",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q2",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": true
+        },
+        {
+          "id": "test-document-19-q0",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q1",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "no",
+          "predicted": "unknown",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-17-q1",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "no",
+          "predicted": "unknown",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": true,
+          "changed": true
+        },
+        {
+          "id": "test-document-17-q3",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q1",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        }
+      ]
+    },
+    {
+      "arm": "native_repeat",
+      "temperature": 4.999999999999999,
+      "review_threshold": 1.000001,
+      "n_test": 32,
+      "source_groups": 8,
+      "accuracy": 0.5625,
+      "nll": 0.9926279913021401,
+      "brier": 0.5870299825321474,
+      "ece_10_bins": 0.08845493634683153,
+      "none_recall": 0.0,
+      "false_none": 0.0,
+      "coverage": 0.0,
+      "accepted_error": null,
+      "review_cost": 0.1,
+      "raw_nll": 2.2205727642868887,
+      "raw_brier": 0.7508565252039745,
+      "raw_ece_10_bins": 0.33652855369632706,
+      "p50_ms": 1747.7046879998852,
+      "p95_ms": 1775.0820096999632,
+      "test_timing_samples": 64,
+      "correct_accepted_per_s": 0.0,
+      "start_allocated_gib": 7.791985988616943,
+      "peak_allocated_gib": 7.819369792938232,
+      "peak_reserved_gib": 10.55078125,
+      "rss_snapshot_gib": 2.545246124267578,
+      "smoke_only": false,
+      "lost_correct": 0,
+      "gained_correct": 0,
+      "changed_predictions": 0,
+      "correct_n": 18,
+      "families": {
+        "policy": {
+          "n": 8,
+          "correct": 6
+        },
+        "temporal": {
+          "n": 8,
+          "correct": 4
+        },
+        "composition": {
+          "n": 8,
+          "correct": 5
+        },
+        "arithmetic": {
+          "n": 8,
+          "correct": 3
+        }
+      },
+      "class_counts": {
+        "yes": {
+          "gold_n": 12,
+          "predicted_n": 23
+        },
+        "no": {
+          "gold_n": 12,
+          "predicted_n": 9
+        },
+        "unknown": {
+          "gold_n": 8,
+          "predicted_n": 0
+        }
+      },
+      "calibration_refit_diagnostic": {
+        "beta": 0.08667323799186812,
+        "temperature": 11.537586724218407,
+        "cal_nll_original_grid": 1.116758995699986,
+        "cal_nll_refit": 1.0705449355071661,
+        "test_nll_refit_posthoc": 1.009319173204729,
+        "uniform_test_nll": 1.0986122886681098
+      },
+      "decisions": [
+        {
+          "id": "test-document-17-q0",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q1",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-17-q2",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q2",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q0",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q0",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q0",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q2",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q3",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q2",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q0",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q1",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q1",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q1",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "no",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q3",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q1",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-14-q3",
+          "family": "temporal",
+          "state_id": "test-document-14",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q3",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q2",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q2",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "unknown",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-20-q3",
+          "family": "composition",
+          "state_id": "test-document-20",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q3",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q0",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q0",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q3",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-15-q2",
+          "family": "arithmetic",
+          "state_id": "test-document-15",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-13-q2",
+          "family": "policy",
+          "state_id": "test-document-13",
+          "gold": "unknown",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": false,
+          "native_correct": false,
+          "changed": false
+        },
+        {
+          "id": "test-document-19-q0",
+          "family": "arithmetic",
+          "state_id": "test-document-19",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-16-q1",
+          "family": "composition",
+          "state_id": "test-document-16",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-17-q1",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "no",
+          "predicted": "no",
+          "native_predicted": "no",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-17-q3",
+          "family": "policy",
+          "state_id": "test-document-17",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        },
+        {
+          "id": "test-document-18-q1",
+          "family": "temporal",
+          "state_id": "test-document-18",
+          "gold": "yes",
+          "predicted": "yes",
+          "native_predicted": "yes",
+          "correct": true,
+          "native_correct": true,
+          "changed": false
+        }
+      ]
+    }
+  ],
+  "source_hashes": {
+    "allowlist_50pct_predictions.json": "e2710adcd831a78553db6bad437504cf79d66e6cf4d987740e5f85ac5f31c0ed",
+    "allowlists.json": "02498671417b358fb8ef9cf83f4e4b83e01164886ea51bafccff83db7cc4ad18",
+    "arm_results.json": "a80727678e464bab11dd7ce5dcc6ac9fcffc94ef60a89098b90a4c4e28b2a077",
+    "arm_settings.json": "cea5f2890f62b766222e2d1d53b3f7db756b46efac5fadef4f475eb05368c9c2",
+    "decisions.jsonl": "84780a9e936a9857d797ab33a683a4ecb300fb737a68034751aed9c340e91fa2",
+    "half_topk_predictions.json": "1a37b31f11d9cfc38c834a1a8757157d142a2c824f2cc1599f7e229629589f11",
+    "length_study.json": "11ac6f54bacd7518eef26cc6d0110049542aa8bca7fa2892eac0e6fddef623b2",
+    "manifest.json": "9433b53663b91a0f5a3f279afd48a1ea8e8d3bf8f640ab71b803ab745de86a23",
+    "native_predictions.json": "8e97851abc98058f5eb4923e4dfb0b406bef66cf0571dc9d9641daf896a586ef",
+    "native_repeat_check.json": "fec07fd509d53e19f086bfc715ff72eb6eed244923f55f2eea76a30dc7cd4067",
+    "native_repeat_predictions.json": "608490ad2be4ede521fb4ca0d2a8ded400b1de34679c2b8083c080b37a48c0e5",
+    "observed_expert_work.csv": "cc92789530c1855a9b5b29f8ec742534556bfb8066a9c316352661e58a8ba603",
+    "readout_comparison.json": "2edb131cef194ee44ddcc7ed0915b85a1c0b4fa0d3755dedb2ce0d7205f04c58",
+    "routing_counts.json": "6fd779f67bca859581ceafb22175ae98818988bcff2a1659f0cc03cd9a2f2ffa",
+    "routing_trace.json": "d40e9f35d0021ac429c7252363d5bbdbb56c86cebd5d111b2d34332cd81e18c9",
+    "shared_only_predictions.json": "1b4d104f852898567883f4ff7595bfc2783b0db8abca16ebb0a9e03d3c4ef1c2",
+    "shared_prefix_parity.json": "c33b2e56213c2471d697e26ad7690bbf1e6a654a9197ac3658bb0ea511afc98a",
+    "skip_late_moe_predictions.json": "645949a46633a62bdcecfbfa4c40b2cce6d79e5882221f3cf83d2b5165385bd8",
+    "top1_predictions.json": "e4bf3a32faee2becbc72fdf215d3ac3023aa809912afd23e2b2ab30b7878ab6a"
+  },
+  "routing": {
+    "layer_requests": 384,
+    "mean_unique_experts": 59.333333333333336,
+    "minimum_unique_experts": 56,
+    "maximum_unique_experts": 60,
+    "mean_selected_mass": 0.3189759598656868,
+    "mean_token_expert_rows_per_expert": 7.977226326397037
+  },
+  "cache": {
+    "n": 8,
+    "fail_n": 4,
+    "decision_flips": 1,
+    "max_dp": 0.11991468596751387,
+    "checks": [
+      {
+        "id": "test-document-13-q0",
+        "max_dp": 0.00012014242660666585,
+        "decision_match": true,
+        "prefix_tokens": 69
+      },
+      {
+        "id": "test-document-13-q1",
+        "max_dp": 0.11991468596751387,
+        "decision_match": true,
+        "prefix_tokens": 69
+      },
+      {
+        "id": "test-document-13-q2",
+        "max_dp": 0.07358715835651236,
+        "decision_match": false,
+        "prefix_tokens": 69
+      },
+      {
+        "id": "test-document-13-q3",
+        "max_dp": 0.0008861187512386104,
+        "decision_match": true,
+        "prefix_tokens": 69
+      },
+      {
+        "id": "test-document-14-q0",
+        "max_dp": 1.4609179633540256e-05,
+        "decision_match": true,
+        "prefix_tokens": 72
+      },
+      {
+        "id": "test-document-14-q1",
+        "max_dp": 0.014099673687980527,
+        "decision_match": true,
+        "prefix_tokens": 72
+      },
+      {
+        "id": "test-document-14-q2",
+        "max_dp": 0.0,
+        "decision_match": true,
+        "prefix_tokens": 72
+      },
+      {
+        "id": "test-document-14-q3",
+        "max_dp": 0.04215085539442076,
+        "decision_match": true,
+        "prefix_tokens": 72
+      }
+    ]
+  },
+  "readout": {
+    "full": 1750.4855284996665,
+    "selected": 1754.5553635000033,
+    "checks": [
+      {
+        "id": "test-document-13-q0",
+        "max_dp": 0.0,
+        "decision_match": true
+      },
+      {
+        "id": "test-document-13-q0",
+        "max_dp": 0.0,
+        "decision_match": true
+      },
+      {
+        "id": "test-document-13-q1",
+        "max_dp": 0.0,
+        "decision_match": true
+      },
+      {
+        "id": "test-document-13-q1",
+        "max_dp": 0.0,
+        "decision_match": true
+      },
+      {
+        "id": "test-document-13-q2",
+        "max_dp": 0.0,
+        "decision_match": true
+      },
+      {
+        "id": "test-document-13-q2",
+        "max_dp": 0.0,
+        "decision_match": true
+      },
+      {
+        "id": "test-document-13-q3",
+        "max_dp": 0.0,
+        "decision_match": true
+      },
+      {
+        "id": "test-document-13-q3",
+        "max_dp": 0.0,
+        "decision_match": true
+      },
+      {
+        "id": "test-document-14-q0",
+        "max_dp": 0.0,
+        "decision_match": true
+      },
+      {
+        "id": "test-document-14-q0",
+        "max_dp": 0.0,
+        "decision_match": true
+      },
+      {
+        "id": "test-document-14-q1",
+        "max_dp": 0.0,
+        "decision_match": true
+      },
+      {
+        "id": "test-document-14-q1",
+        "max_dp": 0.0,
+        "decision_match": true
+      },
+      {
+        "id": "test-document-14-q2",
+        "max_dp": 0.0,
+        "decision_match": true
+      },
+      {
+        "id": "test-document-14-q2",
+        "max_dp": 0.0,
+        "decision_match": true
+      },
+      {
+        "id": "test-document-14-q3",
+        "max_dp": 0.0,
+        "decision_match": true
+      },
+      {
+        "id": "test-document-14-q3",
+        "max_dp": 0.0,
+        "decision_match": true
+      }
+    ]
+  },
+  "length_study": {
+    "measurements": [
+      {
+        "mode": "native",
+        "input_tokens": 117,
+        "extra_context_tokens_requested": 0,
+        "p50_ms": 1749.1889150001043,
+        "peak_allocated_gib": 7.818874835968018,
+        "native_mean_unique_experts": 59.208333333333336,
+        "native_mean_expert_fraction": 0.9868055555555556
+      },
+      {
+        "mode": "half_topk",
+        "input_tokens": 117,
+        "extra_context_tokens_requested": 0,
+        "p50_ms": 1506.3680570001452,
+        "peak_allocated_gib": 7.818714618682861,
+        "native_mean_unique_experts": 59.208333333333336,
+        "native_mean_expert_fraction": 0.9868055555555556
+      },
+      {
+        "mode": "native",
+        "input_tokens": 245,
+        "extra_context_tokens_requested": 128,
+        "p50_ms": 1781.3149264998174,
+        "peak_allocated_gib": 7.8243608474731445,
+        "native_mean_unique_experts": 59.708333333333336,
+        "native_mean_expert_fraction": 0.9951388888888889
+      },
+      {
+        "mode": "half_topk",
+        "input_tokens": 245,
+        "extra_context_tokens_requested": 128,
+        "p50_ms": 1636.1061759998847,
+        "peak_allocated_gib": 7.823945999145508,
+        "native_mean_unique_experts": 59.708333333333336,
+        "native_mean_expert_fraction": 0.9951388888888889
+      },
+      {
+        "mode": "native",
+        "input_tokens": 629,
+        "extra_context_tokens_requested": 512,
+        "p50_ms": 1785.0846895003087,
+        "peak_allocated_gib": 7.8670854568481445,
+        "native_mean_unique_experts": 59.75,
+        "native_mean_expert_fraction": 0.9958333333333333
+      },
+      {
+        "mode": "half_topk",
+        "input_tokens": 629,
+        "extra_context_tokens_requested": 512,
+        "p50_ms": 1670.9569905001445,
+        "peak_allocated_gib": 7.8670854568481445,
+        "native_mean_unique_experts": 59.75,
+        "native_mean_expert_fraction": 0.9958333333333333
+      }
+    ],
+    "rejected": [],
+    "scope": "synthetic filler on a routing-fit item; no quality claim"
+  }
+}

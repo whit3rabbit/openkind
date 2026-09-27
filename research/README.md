@@ -38,6 +38,10 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 | **24** | [`24_phase4e_a4_qasper_source_alignment.ipynb`](./24_phase4e_a4_qasper_source_alignment.ipynb) | Phase 4E-A4 (`20260921T013558Z`, `qasper_source_alignment_cpu_s17_v1`) | CPU | QASPER upstream source alignment preflight, span partition verification, and audit ledger V2 | Verified 12 development candidate spans (7 Qs) and 1 gate diagnostic span; quarantined 3 unresolved evidence cases; aligned with upstream allenai/qasper (train/val only); final unopened; training remains unauthorized | [`24_phase4e_a4_qasper_source_alignment_results/`](./24_phase4e_a4_qasper_source_alignment_results) |
 | **25** | [`25_phase4e_b1_candidate_option_logit_audit.ipynb`](./25_phase4e_b1_candidate_option_logit_audit.ipynb) | Phase 4E-B.1 (`candidate_option_logit_gate16_s17_v2`) | GPU / CPU (FP32) | Constrained next-token candidate option readout and uncalibrated `Z` rejection over 16-state gate sample (N=325) | Answerable ContractNLI ranking improved (87.8% vs 31.1% StateQuery ref); uncalibrated `Z` failed semantic none (0/124 none recall); order reversal flipped winners on 6.6% of questions; QASPER accuracy 77.4% (below 84.9% majority baseline); model promotion rejected | [`25_phase4e_b1_candidate_option_logit_results/`](./25_phase4e_b1_candidate_option_logit_results) |
 | **26** | [`26_phase4e_b2_candidate_ranking_sweep.ipynb`](./26_phase4e_b2_candidate_ranking_sweep.ipynb) | Phase 4E-B.2 (`candidate_detection_ranking_sweep_s17_n12_v1`) | GPU / CPU (FP32) | Candidate ranking (3 rankers) and logistic-calibrated semantic-none detection (3 detectors) sweep across 12-state splits (N=741) | Cache parity verified ($\le 3.3 \times 10^{-6}$); order-averaged ranking hit 87.0% gate accuracy on ContractNLI; ContractNLI none recall hit 75.0% but gate false-none was 42.6% (violating $\le 0.20$ guardrail); QASPER selected grid collapsed to 0/5 none recall; cross-source calibration diverged; final closed | [`26_phase4e_b2_candidate_ranking_sweep_results/`](./26_phase4e_b2_candidate_ranking_sweep_results) |
+| **27** | [`27_m22_matched_decision_lora.ipynb`](./27_m22_matched_decision_lora.ipynb) | M2.2 (`openkind-m22-contract-only-lora/v1`, v0.4.1) | GPU (A100 BF16 / FP32 adapters) | Upstream matched decision-LoRA pilot across 4 arms (J0/J1 controls, J2/J3 rank-16 LoRA) under full-document ContractNLI supervision and QASPER transfer | Stable backward recomputation pinned to `SDPBackend.MATH`; gated on development NLL ($\ge$5-pt contradiction gain, $\le$5-pt other loss, $\le$3-pt QASPER loss); final remains closed | [Roadmap M2](../docs/ROADMAP.md#m2-establish-useful-decisions) |
+| **28** | [`28_source_label_replay.ipynb`](./28_source_label_replay.ipynb) | v0.6.0 (`source_label_v060_s17_bf16_dbb5e724b5452f23`) | NVIDIA A100 (BF16 / FP32 adapters) | Source-label cross-entropy replay vs parent-KL consistency on SNLI to test joint ContractNLI/QASPER preservation | SNLI accuracy & probability scores improved (+17.7pp J6 vs J4, +18.2pp J7 vs J5); ContractNLI entailment and QASPER false-none failed preservation bounds; frozen parents retained | [Roadmap M2](../docs/ROADMAP.md#m2-establish-useful-decisions) |
+| **29** | [`29_qwen_moe_decision_lab.ipynb`](./29_qwen_moe_decision_lab.ipynb) | MoE Lab v0.2 (`20260926T224132_613995Z`) | NVIDIA L4 (NF4 / BF16 compute) | Qwen MoE decision inference, expert routing sparsity, top-k truncation, expert allowlisting, late MoE bypass, exact prefix state sharing, and physical weight residency | Prefill touches 98.7%–99.6% of experts (active params $\ne$ resident VRAM); top-1 routing cuts latency by 1.59x but drops accuracy by 15.6pp; late MoE skip preserves 53.1% acc (vs 56.3% native) at 1.32x speedup; direct selected readout achieves exact zero-delta parity; shared prefix state fails strict parity on MoE without full router isolation; physical pruning frees memory only when non-routed modules are deleted | [`29_qwen_moe_decision_lab_results/`](./29_qwen_moe_decision_lab_results) |
+| **30** | [`30_qwen_moe_quality_and_cache_followup.ipynb`](./30_qwen_moe_quality_and_cache_followup.ipynb) | MoE Follow-up v0.1 (`20260927T003918_481825Z`) | NVIDIA L4 (NF4 / BF16 compute) | Multi-split decision quality (252 Qs, 84 states), prompt selection, mass-matched top-k, late-block skip, FP32 linear reference cache numerics, option order diagnostics | Explicit three-way prompt won dev; `skip_last_6` selected on dev and evaluated on 96 fresh test cases (41.7% vs 37.5% native, 1.32x speedup, 8.3% coverage vs 14.6% native); native Unknown recall 0/32; mass-matched half-k beats raw half-k in NLL (2.038 vs 2.122); cache parity failed on both native ($\Delta p=0.120$) and FP32 linear reference ($\Delta p=0.155$); option order flips 25.0% of decisions ($\max \Delta p = 0.169$); research gate failed, promotion rejected | [Drive run](https://drive.google.com/drive/folders/1gXwnF1sXhR5Yh4-7R2izDQ9TJXDl_Lf1) / [`29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z) |
 
 ---
 
@@ -554,6 +558,223 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 
 ---
 
+### 27. M2.2: Matched Decision-LoRA Pilot
+* **File**: [`27_m22_matched_decision_lora.ipynb`](./27_m22_matched_decision_lora.ipynb)
+* **Run ID / Schema**: `openkind-m22-contract-only-lora/v1` (`m22_v041_...`, Version `0.4.1`, 25 September 2026; seed 17)
+* **Target HW**: GPU (NVIDIA A100 Colab runtime, BF16 arithmetic with FP32 adapter parameters and loss; SDPBackend.MATH; fallback/CPU autograd preflight)
+* **What it Measured / Goal**:
+  - Tests whether full-document ContractNLI decision supervision improves contradiction and unsupported/“not mentioned” decisions without damaging cross-task retention on QASPER.
+  - Implements the Roadmap Milestone M2 adaptation hypothesis ("Establish useful decisions"): testing one limited upstream adaptation hypothesis with an attributable head-only/frozen control.
+  - Deliberately narrower than joint QASPER/ContractNLI training: no QASPER supervision, no repaired-label guessing, no teacher calls, no new evidence selector, and no broad hyperparameter sweep.
+* **Four Matched Arms**:
+  - **J0**: Pinned Base (`Qwen/Qwen3.5-4B-Base`, revision `1001bb4d826a52d1f399e183466143f4da7b741b`), frozen control.
+  - **J1**: Pinned post-trained model, frozen control.
+  - **J2**: Pinned Base + rank-16 decision LoRA ($\alpha=32$, learning rate $2 \times 10^{-5}$, max 120 updates, gradient accumulation 8).
+  - **J3**: Pinned post-trained + matched rank-16 decision LoRA (identical data, exposure schedule, and optimizer budget).
+* **Key Methodology & Scientific Controls**:
+  - **SDPA Backward Stability (v0.4.1 Repair)**: Forward pass and activation-checkpoint backward recomputation are both strictly pinned to `SDPBackend.MATH`, preventing non-reentrant checkpoint backend switching and ensuring stable backward gradients across the complete microbatch.
+  - **Exposure & Data Schedule**: Training mixture is 75% class-balanced natural anchors + 25% ordinary natural-document replay within 4,096 state tokens and 8,192 total tokens. Longer documents are excluded, never relabeled as unsupported.
+  - **Selection Gate & Decision Criteria**: Development selection is strictly governed by ContractNLI development NLL evaluated at updates `[40, 80, 120]`—not training loss. Step-zero unadapted checkpoint is eligible to win.
+  - **Pre-Registered Screen**: Requires $\ge 5$-point contradiction-recall gain, $\le 5$-point loss in other ContractNLI classes, and $\le 3$-point QASPER accuracy loss versus the matched frozen control; retains false-none ceiling $\le 0.20$ and proper-score non-regression rule ($\le 0.01$).
+  - **Anti-Leakage Governance**: Protected final splits remain unopened (`final_opened: false`). No automatic model promotion or seed/sweep expansion.
+* **Supporting Artifacts & Implementation References**:
+  - Embedded scripts: `m22_train.py`, `m22_data.py`, `m22_eval.py`, `test_checkpoint_backend.py`.
+  - Contracts & Registries: `EXPERIMENT_CONTRACT.json`, `SOURCE_REGISTRY.json`, `MODEL_PINS.json`, `ADAPTER_COVERAGE.json`.
+  - Roadmap Anchor: [Roadmap M2: Establish useful decisions](../docs/ROADMAP.md#m2-establish-useful-decisions).
+
+---
+
+### 28. OpenKind v0.6.0: Source-Label Replay vs Parent Consistency
+* **File**: [`28_source_label_replay.ipynb`](./28_source_label_replay.ipynb)
+* **Run ID / Session**: `source_label_v060_s17_bf16_dbb5e724b5452f23` (Session `20260926T170047_182185Z`, Review Date 26 September 2026; seed 17)
+* **Target HW**: GPU (NVIDIA A100-SXM4-80GB Colab runtime, PyTorch 2.11.0+cu128, Transformers 5.17.0, BF16 backbone / FP32 adapters and loss; SDPBackend.MATH)
+* **What it Measured / Goal**:
+  - Tests whether replacing parent-KL replay consistency with **source-label cross-entropy** on auxiliary short-premise NLI (SNLI) resolves cross-task regression without sacrificing ContractNLI improvements.
+  - Compares two fresh fits:
+    - **J6**: Starts fresh from pinned frozen J0 Base, compared against J4 fixed update 80 (parent-KL replay).
+    - **J7**: Starts fresh from pinned frozen J1 post-trained, compared against J5 fixed update 80 (parent-KL replay).
+  - Main schedule retains 8 ContractNLI examples per optimizer update (960 complete-fit exposures / 640 at fixed 80) and 2 SNLI replay examples (coefficient 1.0; 240 complete-fit / 160 at fixed 80) across 120 updates.
+  - Maintains rank 16, alpha 32, lr $2 \times 10^{-5}$, BF16 backbone / FP32 adapters, source-preserving renderer, and math SDPA checkpointing policy.
+* **Key Findings & Outcomes**:
+  - **Local Source-Label Signal Is Strongly Positive**:
+    - On the 192-example SNLI regression panel, J6 reached **82.81% accuracy** (159/192, NLL 0.43881, Brier 0.24465), gaining **+17.71 pp (+34 net correct: 46 repairs vs 12 new errors)** over J4 (65.10%).
+    - J7 reached **86.46% accuracy** (166/192, NLL 0.40708, Brier 0.21611), gaining **+18.23 pp (+35 net correct: 40 repairs vs 5 new errors)** over J5 (68.23%).
+    - Proves that true source labels provide a substantially more effective learning signal for short-premise NLI than imitating imperfect frozen parent predictions.
+  - **Cross-Task Joint Preservation Failed**:
+    - **ContractNLI Entailment Loss**: J6 correct entailments dropped to 70/84 (-11 cases / -13.10 pp) vs J0 (81/84); J7 dropped to 69/84 (-12 cases / -14.29 pp) vs J1 (81/84). Both severely violated the $\le 5$-point class preservation tolerance.
+    - **QASPER Deterioration**: J6 lost 7 decisions vs J4 (accuracy 63.04% vs 78.26%, NLL 0.76052 vs 0.48680) with a catastrophic false-none rate of **41.46% (17/41)**. J7 had unchanged accuracy (76.09%) but masked worsened probability quality (NLL 0.67368 vs 0.49796) and excessive false-none rate of **24.39% (10/41)**, exceeding the $\le 20\%$ safety ceiling.
+    - **Bootstrap Uncertainty Favors KL**: Paired bootstrap comparisons (1,000 draws) show NLL degradation on the two-source gate for both J6 vs J4 ($+0.15517$ NLL) and J7 vs J5 ($+0.09904$ NLL).
+  - **Guarded Selector Behavior**:
+    - Neither evaluated non-zero candidate passed joint development constraints across updates 40, 80, or 120.
+    - Both selection locks correctly rejected adapted candidates and retained step-zero frozen parents: $J6_{\text{selected}} = J0$ and $J7_{\text{selected}} = J1$.
+  - **Research Conclusion**:
+    - Closed this specific recipe. Supervised replay improves short-premise NLI accuracy and calibration, but does not provide a general cross-task preservation solution for long-document understanding and answerability.
+    - Subsequent work must target the recurring supported-entailment regression directly on complete-document records rather than relying on short sentence-pair replay.
+* **Supporting Evidence & Verification**:
+  - Run ID: `source_label_v060_s17_bf16_dbb5e724b5452f23`
+  - Result path: `Colab Notebooks/OpenKind_Source_Label_Replay_results/source_label_v060_s17_bf16_dbb5e724b5452f23/results/`
+  - Reconciled and verified via standalone `review.py` passing 5,168 granular consistency assertions across 7,410 primary rows, 1,920 SNLI rows, and all manifest checksums.
+
+---
+
+### 29. Qwen MoE Decision Lab: Expert Routing, Selective Computation & Weight Residency
+* **File**: [`29_qwen_moe_decision_lab.ipynb`](./29_qwen_moe_decision_lab.ipynb)
+* **Run ID / Session**: `20260926T224132_613995Z` (Workbench v0.2, 26 September 2026; seed 17; profile `qwen15_moe`, model `Qwen/Qwen1.5-MoE-A2.7B-Chat` at revision `ec052fda178e241c7c443468d2fa1db6618996be`, NF4 precision with BF16 compute, eager attention)
+* **Target HW**: GPU (NVIDIA L4, Linux 6.6.122+, Python 3.13.15, PyTorch 2.11.0+cu128, Transformers 4.57.1, CUDA 12.8; allocated 7.78 GiB / peak 7.82 GiB / reserved 10.55 GiB)
+* **Evidence & Provenance**:
+  - Primary inspected run: [Drive run `20260926T224132_613995Z`](https://drive.google.com/drive/folders/1344_xljzgYaHEWJTUVEe7k3_2DXoM3Fi) (19 raw source files audited; dataset manifest verified against SHA-256 `84780a9e936a9857d797ab33a683a4ecb300fb737a68034751aed9c340e91fa2`).
+  - Separately attributed completed run: `20260926T232551_755243Z` (user-reported physical-removal results; raw removal/cache artifacts held separately).
+  - Population: 80 authored teaching questions across 20 source states.
+  - Split sizes: Routing fit 16; calibration 16; policy development 16; test 32.
+  - Test population: 8 states; 8 questions each across policy, temporal, arithmetic, and composition families.
+  - Gold classes: Yes 12; No 12; Unknown 8.
+* **What it Measured / Goal**:
+  - Investigates whether Mixture-of-Experts (MoE) architectures provide latency or resident memory advantages for non-autoregressive decision inference without text generation.
+  - Tests 7 experimental arms across the 32 test questions:
+    1. `native`: Full top-k=4 routing across 60 routed experts + shared expert (5,632 width).
+    2. `half_topk`: Truncated routing to top-k=2 active experts per token.
+    3. `top1`: Aggressive routing to single top-1 active expert per token.
+    4. `allowlist_50pct`: Static expert pruning retaining only top-50% most frequent experts (30/60 per layer) learned from `routing_fit`.
+    5. `skip_late_moe`: Bypassing MoE MLP layers in late transformer blocks (layers 18–23), retaining attention and early routing.
+    6. `shared_only`: Total bypass of all routed experts, routing solely through the dense shared expert.
+    7. `native_repeat`: Timing and numerical verification repeat of the native baseline.
+  - Evaluates direct decision readout projection (selected token IDs vs full vocabulary 151,936 tokens).
+  - Evaluates expert utilization footprint across prefill context lengths (117, 245, 629 tokens).
+  - Evaluates exact prefix state caching parity across independent questions.
+  - Evaluates physical module deletion vs logical router masking on resident GPU memory.
+* **Confirmed Measurements from Drive Run**:
+
+  | Arm | Correct / 32 | Accuracy | Calibrated NLL | Raw NLL | Brier | p50 (ms) | Speedup | Unknown Recall | Automatic Coverage | Disagree vs Native | Peak VRAM (GiB) |
+  |---|---|---|---|---|---|---|---|---|---|---|---|
+  | `native` | 18 | 56.25% | 0.9926 | 2.2206 | 0.5870 | 1,749.10 | 1.00x | 0/8 (0%) | 0.00% | 0.0% | 7.82 |
+  | `native_repeat` | 18 | 56.25% | 0.9926 | 2.2206 | 0.5870 | 1,747.70 | 1.00x | 0/8 (0%) | 0.00% | 0.0% | 7.82 |
+  | `skip_late_moe` | 17 | 53.13% | 1.0571 | 1.8984 | 0.6342 | 1,326.38 | 1.32x | 1/8 (12.5%) | 0.00% | 12.5% | 7.82 |
+  | `half_topk` | 13 | 40.63% | 1.0353 | 2.0026 | 0.6229 | 1,537.28 | 1.14x | 0/8 (0%) | 0.00% | 15.6% | 7.82 |
+  | `top1` | 13 | 40.63% | 1.2205 | 3.4385 | 0.7548 | 1,099.32 | 1.59x | 0/8 (0%) | 21.88% | 18.8% | 7.82 |
+  | `allowlist_50pct` | 12 | 37.50% | 1.2342 | 2.9754 | 0.7412 | 935.77 | 1.87x | 0/8 (0%) | 0.00% | 28.1% | 7.82 |
+  | `shared_only` | 11 | 34.38% | 1.0993 | 1.1401 | 0.6671 | 77.18 | 22.66x | 3/8 (37.5%) | 0.00% | 68.8% | 7.82 |
+
+  *Timing includes prompt rendering, tokenization, inference, synchronization, and CPU logit transfer (64 test timing observations per arm, from 2 measurements per question).*
+
+* **Key Findings, Audit Details & Engineering Diagnostics**:
+  - **Decision Quality and Abstention Failure**:
+    - The native model predicted Yes 23 times, No 9 times, and Unknown 0 times. Zero false-Unknown coexists with total failure of Unknown recall (0/8). On the 24 answerable questions, 18 were correct; all 8 unanswerable questions failed.
+    - The 50% allowlist drops to the 37.5% majority-class baseline, predicting Yes 30 times and No twice—losing 6 previously correct decisions with zero gains.
+    - Skipping late MoE blocks changes 4 predictions: 2 correct policy answers become wrong, 1 arithmetic Unknown becomes correct, and 1 wrong policy becomes another wrong answer. The net loss of 1 correct hides that internal mixture.
+    - The fitted review policy rejects every test answer in all arms except `top1`. In `top1`, it accepts 7 questions and gets 5 of those 7 wrong (`accepted_error = NaN` for other arms reflects zero accepted decisions, not zero error).
+  - **Boundary-Limited Calibration Ceiling**:
+    - All 7 arms selected $T=5$, the exact upper bound of the original search grid, establishing a boundary-limited fit rather than an optimal temperature.
+    - Post-hoc diagnostic refits on the calibration split allowing uniform probability selected $T \approx 11.54$ for native (calibration NLL fell from 1.1168 to 1.0705, but test NLL worsened from 0.9926 to 1.0093). Skip-late favored $T \approx 18.08$ (test NLL worsened from 1.0571 to 1.0705). Allowlist and shared-only calibration fits favored uniform distributions.
+  - **Per-Request Working Set Touches Nearly All Experts**:
+    - Across 384 layer-request observations from `routing_fit`, the mean unique experts touched was **59.33 / 60 (98.9%)**, ranging from 56 to 60, with ~8 token rows per touched expert.
+    - Length scaling confirms full working-set saturation: 59.21 experts at 117 tokens, 59.71 at 245 tokens, and 59.75 at 629 tokens.
+    - Per-token sparsity does NOT imply a sparse per-request weight working set, significantly weakening the viability of naive streaming expert caches during prefill.
+  - **Top-k Confound Confirmed (`norm_topk_prob=false`)**:
+    - `Qwen1.5-MoE-A2.7B-Chat` sets `norm_topk_prob=false`. Mean native selected probability mass in routing traces is ~0.319.
+    - Lowering $k$ simultaneously drops active experts and reduces total routed weight magnitude. Accuracy degradation cannot be attributed solely to missing expert identities.
+  - **Prefix-Cache Parity Failure & bitsandbytes Shape Numerics**:
+    - Prefix reuse failed 4 of 8 parity checks ($\max \Delta p = 0.119915$ vs $0.005$ tolerance; 1 question flipped its decision).
+    - `bitsandbytes` 0.48.1 dispatches single-row inputs to a dedicated 4-bit matrix-vector kernel and multi-row inputs to a general path. Splitting a prefill alters batch shapes dispatched to individual experts, presenting a strong shape-dependent numerical divergence hypothesis.
+  - **Physical Weight Removal (User-Reported Run `20260926T232551_755243Z`)**:
+    - Physically deleting unrouted modules from `ModuleList` reduced peak GPU allocation from 7.8194 to 4.8247 GiB (a reduction of 2.9947 GiB / **-38.3%**).
+    - Accuracy and NLL matched the masked allowlist arm; physical removal provided no observed execution speedup.
+* **Next Experiment Protocol (Quality, Scale Controls & Cache Isolation)**:
+  - **Scale & Splitting**: 252 fresh authored questions across 84 states (24 prompt-dev, 36 intervention-dev, 48 calibration, 48 policy-dev, 96 final). Each state contributes balanced 1 Yes, 1 No, 1 Unknown target.
+  - **Interventions**: Skip last 1, 2, 4, or 6 MoE blocks; compare raw half-$k$ against probability-mass-rescaled half-$k$ (rescaling retained weights to match the native selected sum).
+  - **Cache Diagnostics**: Independent branch storage, explicit position/attention masks, root state SHA-256 hashes, batch shape logging, and comparison against an on-demand FP32 linear reference over NF4 weights.
+  - **Persistent Evidence**: Automated Google Drive sync with manifests, locks, predictions, diagnostics, and SHA-256 checksums.
+  - **Execution & Follow-up**: Implemented and executed in [`30_qwen_moe_quality_and_cache_followup.ipynb`](./30_qwen_moe_quality_and_cache_followup.ipynb) yielding follow-up run [`20260927T003918_481825Z`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z), detailed in Section 30 below.
+* **Supporting Directory & Key Artifacts**:
+  - Local Directory: [`29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z)
+  - Key files: [`manifest.json`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/manifest.json), [`comparison.csv`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/comparison.csv), [`arm_results.json`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/arm_results.json), [`routing_counts.json`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/routing_counts.json), [`observed_expert_work.csv`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/observed_expert_work.csv), [`readout_comparison.json`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/readout_comparison.json), [`shared_prefix_parity.json`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/shared_prefix_parity.json), [`length_study.json`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/length_study.json), [`suffix_policy.json`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/suffix_policy.json), `routing_heatmap.png`, `quality_latency.png`, `length_study.png`.
+
+---
+
+### 30. Qwen MoE Quality and Cache Follow-Up: Controlled Interventions, Cache Numerics & Option-Order Diagnostics
+* **File**: [`30_qwen_moe_quality_and_cache_followup.ipynb`](./30_qwen_moe_quality_and_cache_followup.ipynb)
+* **Run ID / Session**: `20260927T003918_481825Z` (Workbench v0.1, 27 September 2026; seed 73129; profile `qwen15_moe`, model `Qwen/Qwen1.5-MoE-A2.7B-Chat` at revision `ec052fda178e241c7c443468d2fa1db6618996be`, NF4 precision with BF16 compute, eager attention)
+* **Target HW**: GPU (NVIDIA L4, Linux 6.6.122+, Python 3.13.15, PyTorch 2.11.0+cu128, Transformers 4.57.1, bitsandbytes 0.48.1, CUDA 12.8; allocated 7.78 GiB / peak 7.82 GiB / reserved 10.55 GiB)
+* **Evidence & Provenance**:
+  - Primary inspected run: [Drive run `20260927T003918_481825Z`](https://drive.google.com/drive/folders/1gXwnF1sXhR5Yh4-7R2izDQ9TJXDl_Lf1) (22 raw source file hashes verified against SHA-256; final metrics recomputed directly from saved predictions; non-fatal `FutureWarning` audited and verified non-causal for gate failure).
+  - Local Run Directory: [`29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z)
+  - Prior Evidence Audit: [`prior_evidence/`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/prior_evidence) (SHA-256 `7168962d24ea477dc4ed078757d6339e910118fe01cc8a4ad3285e1d205dbbc5`)
+  - Fresh Dataset: [`fresh_decisions.jsonl`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/fresh_decisions.jsonl) (SHA-256 `59fabd2b2ae55553e136b2d636b645466591ac5ad5fc422f06ecdac7fcb4818d`)
+  - Population: 252 authored teaching questions across 84 source states (balanced 1 Yes, 1 No, 1 Unknown per state).
+  - Split sizes:
+    - Prompt dev: 24 questions (8 states)
+    - Selection dev: 36 questions (12 states)
+    - Calibration: 48 questions (16 states)
+    - Policy dev: 48 questions (16 states)
+    - Final test: 96 questions (32 states: 32 Yes, 32 No, 32 Unknown)
+* **What it Measured / Scope**:
+  - Investigates the root causes behind the latency-quality trade-offs and cache divergences discovered in Notebook 29:
+    1. **Prompt & Boundary Diagnostics**: Evaluates legacy prompt vs explicit three-way prompt and verifies answer-boundary probability concentration on allowed tokens.
+    2. **Router Weight Scaling Confound**: Compares raw half-$k$ ($k=2$) against probability-mass-rescaled half-$k$ (rescaling retained weights to match native selected mass) to isolate structural expert loss from weight scaling magnitude in unnormalized MoEs (`norm_topk_prob=false`).
+    3. **Controlled Layer Skips**: Sweeps late-block bypasses (skipping 1, 2, 4, or 6 late MoE MLP layers).
+    4. **Cache Numerics Isolation**: Evaluates prefix-cache continuation with exact attention masks, position IDs, and isolated continuation buffers across two independent backends: native bitsandbytes NF4 GEMM and an on-demand FP32 dequantized linear reference over NF4 weights.
+    5. **Option Presentation Order Bias**: Measures decision stability under candidate option letter permutations.
+* **Stage-by-Stage Findings & Audit Results**:
+  - **Prompt Development & Answer-Boundary Audit**:
+    - Evaluated legacy prompt vs `explicit_three_way` prompt on 24 prompt-dev questions.
+    - `explicit_three_way` won: identical accuracy (45.83%, 11/24), but reduced NLL (2.3000 vs 3.0039) and lower Brier score (0.9079 vs 0.9733). Locked via `prompt_lock.json`.
+    - Direct readout projection achieved exact zero-delta parity ($\max \Delta p = 0.0$) against full-vocabulary softmax.
+    - Allowed token mass on $\{A, B, C\}$ was 98.36%–99.77% across audited examples, confirming clean token concentration at the decision boundary.
+  - **Intervention Selection on Development Split**:
+    - Evaluated 7 candidate configurations on 36 selection-dev questions:
+      - `native`: 36.11% acc, 0.0% none-recall, NLL 2.0983, p50 2,023.9 ms
+      - `skip_last_1`: 36.11% acc, 0.0% none-recall, NLL 3.0794, p50 1,948.1 ms
+      - `skip_last_2`: 38.89% acc, 0.0% none-recall, NLL 3.4700, p50 1,868.4 ms
+      - `skip_last_4`: 41.67% acc, 8.33% none-recall, NLL 2.6293, p50 1,700.9 ms
+      - `skip_last_6`: 38.89% acc, 0.0% none-recall, NLL 2.4208, p50 1,532.6 ms (1.32x speedup)
+      - `half_topk_raw`: 38.89% acc, 0.0% none-recall, NLL 2.1217, p50 1,869.3 ms
+      - `half_topk_mass_matched`: 38.89% acc, 0.0% none-recall, NLL 2.0377, p50 1,871.9 ms
+    - **Mass Matching Confirmed**: Rescaling retained expert weights to match native selected mass improved NLL from 2.1217 to 2.0377, confirming that weight-scaling magnitude is an active confound in unnormalized MoE top-k reduction.
+    - **Candidate Lock**: `skip_last_6` selected as the fastest arm clearing the development threshold ($\le 2$ pp accuracy loss, $\ge 1.1\times$ speedup). Locked via `selection_lock.json`.
+  - **Calibration & Policy Threshold Optimization**:
+    - Temperature calibration fitted on 48 calibration questions:
+      - `native`: inverse temperature $\beta = 0.0987$ ($T \approx 10.13$)
+      - `skip_last_6`: inverse temperature $\beta = 0.0739$ ($T \approx 13.53$)
+    - Review policy thresholds fitted on 48 policy-dev questions (cost ratio 0.10):
+      - `native`: threshold = 0.5071
+      - `skip_last_6`: threshold = 0.4720
+    - Both calibration fits softened overconfidence. Zero development error on small accepted sets (5 and 4 cases) did not generalize to final test cases.
+  - **Final Locked Evaluation on Fresh Test Cases (N=96, 32 States)**:
+
+    | Arm | Correct / 96 | Accuracy | Calibrated NLL | Raw NLL | Brier | p50 (ms) | Speedup | Unknown Recall | Automatic Coverage | Accepted Error | Peak VRAM (GiB) |
+    |---|---|---|---|---|---|---|---|---|---|---|---|
+    | `native` | 36 | 37.50% | 1.0836 | 2.3083 | 0.6564 | 2,022.49 | 1.00x | 0/32 (0.0%) | 14.58% (14/96) | 64.29% (9/14) | 7.823 |
+    | `skip_last_6` | 40 | 41.67% | 1.0909 | 2.3765 | 0.6612 | 1,535.78 | 1.32x | 2/32 (6.25%) | 8.33% (8/96) | 37.50% (3/8) | 7.823 |
+
+    - **Severe Baseline "Yes" Bias**: The native model predicted "Yes" on **89 of 96 questions (92.7%)**, completely failing on unknown detection (0/32). Explicit three-way prompts did not restore abstention.
+    - **Substantial Behavioral Shift in `skip_last_6`**: Skipping the last 6 MoE layers gained 9 correct answers and lost 5; its net accuracy gain (+4 decisions) came entirely from the policy question family.
+    - **Paired Nonparametric Bootstrap** (2,000 cluster draws over 32 states):
+      - Accuracy difference: **+4.17 pp** in favor of `skip_last_6` (95% CI: [0.00%, +10.42%]).
+      - The candidate cleared the speed requirement (1.32× vs 1.10× floor), but failed the accuracy ($\ge 80\%$), unknown-recall ($\ge 80\%$), coverage ($\ge 20\%$), and accepted-error ($\le 10\%$) gates.
+  - **Resident Memory & Expert Utilization**:
+    - Peak allocated VRAM remained **7.823 GiB**; skipping layers in software leaves inactive weights resident in memory unless physically deleted.
+    - In the single profiled request, **59.875 of 60 experts per layer** were touched (~99.8% active footprint). This saturating working set provides no empirical support for prefill expert streaming architectures.
+  - **Cache Numerics Diagnostics (Isolated from Quality Scoring)**:
+    - Repeated execution, branch reordering, and root-cache integrity all passed successfully.
+    - Input continuation splitting failed:
+      - `native` (bitsandbytes NF4 GEMM): 4 passed, 4 failed ($\max \Delta p = 0.119915$, 1 decision flip).
+      - `nf4_fp32_linear_reference` (dequantized weights in FP32): 2 passed, 6 failed ($\max \Delta p = 0.155268$, 1 decision flip).
+    - Replacing bitsandbytes 4-bit GEMM with an explicit FP32 dequantized linear reference worsened drift ($\Delta p \approx 0.155$), demonstrating that prefix cache divergence in MoE architectures involves attention position/mask state interactions and dynamic router expert assignments during prefill slicing rather than just GEMM batching differences.
+  - **Option Presentation Order Bias**:
+    - Tested 24 paired permutations reversing candidate letter presentations.
+    - `skip_last_6` flipped semantic answers on **5 of 12 option-order checks (41.7%)**, versus **1 of 12 (8.3%)** for native (6/24 flips total / 25.0%; $\max \Delta p = 0.1686$), demonstrating that late-layer bypass amplifies presentation bias.
+  - **Routing Diagnostic Implementation Limitation Identified**:
+    - The notebook's routing diagnostic reconstructs routes via `topk(k+1)` sliced to `k`. Because PyTorch's `torch.topk` does not guarantee stable index ordering when router logits tie ([PyTorch documentation](https://docs.pytorch.org/docs/2.14/generated/torch.topk.html)), route reconstructions during score ties require correction before supporting root-cause attribution. The independently measured cache parity failures and final quality metrics remain valid and unimpacted.
+* **Research Governance, Acceptance Gate & Recommendations**:
+  - Pre-registered gate criteria: accuracy $\ge 80\%$, unknown recall $\ge 80\%$, coverage $\ge 20\%$, accepted error $\le 10\%$.
+  - Realized outcome: `research_gate_passed = false`, `promotion_authorized = false`, `model_promoted = false`.
+  - Confirms exploratory completion (`EXPLORATORY_COMPLETE`). No MoE checkpoint promoted to production or Jev runtime serving.
+  - **Next Priorities**: Prioritize establishing a trustworthy three-way decision baseline and actual-route capture next. Keep late-layer skipping as an experimental candidate only; current findings do not support further pruning or making streaming the primary serving architecture.
+* **Supporting Directory & Key Artifacts**:
+  - Local Directory: [`29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z)
+  - Key files: [`RUN_SUMMARY.md`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/RUN_SUMMARY.md), [`manifest.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/manifest.json), [`summary.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/summary.json), [`final_results.csv`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/final_results.csv), [`final_results.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/final_results.json), [`development_results.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/development_results.json), [`prompt_development.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/prompt_development.json), [`prompt_lock.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/prompt_lock.json), [`selection_lock.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/selection_lock.json), [`cache_mode_summary.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/cache_mode_summary.json), [`cache_numerics.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/cache_numerics.json), [`option_order_diagnostic.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/option_order_diagnostic.json), [`expert_batch_shapes.csv`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/expert_batch_shapes.csv), `fresh_quality_and_coverage.png`, `cache_route_changes.png`.
+
+---
+
 ## Key Scientific Insights & Architectural Invariants
 
 1. **Strict FP32 Reference Boundary**:
@@ -589,3 +810,13 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
     When candidate options are rendered sequentially in a prompt prefix, autoregressive attention introduces measurable positional bias (winner changes in 6.6% of cases under reversed ordering, with probability shifts up to 0.2865). Order averaging (`joint_order_average`) across canonical and reversed permutations successfully neutralizes presentation artifacts, yielding robust conditional ranking accuracy.
 15. **Source Calibration Asymmetry and Grid Floor Dynamics**:
     Calibration curves and optimal rejection architectures differ fundamentally across document genres. While dense-none legal datasets (ContractNLI) achieve high none-recall with calibrated `Z` detectors at moderate thresholds (0.35) at the cost of high false-none penalties, sparse-none scientific QA (QASPER) places all calibrated probabilities below standard threshold floors ($<0.25$). A single universal rejection threshold across disparate document types collapses either into catastrophic over-rejection or total inaction.
+16. **SDPA Recomputation Backend Consistency in Activation Checkpointing**:
+    When training adapters or fine-tuning under activation checkpointing with forced SDPA kernels (e.g. `SDPBackend.MATH`), context managers must encompass both the initial forward evaluation and the activation recomputation phase during `.backward()`. Mismatched ambient attention kernels between forward execution and backward recomputation can trigger undefined operator replay, NaN gradients, or kernel dispatch failures.
+17. **Task-Specific Replay vs Long-Document Joint Preservation**:
+    Supervised replay with source-label cross-entropy on auxiliary short-premise NLI (SNLI) substantially repairs narrow regression benchmarks (+18 pp accuracy) and outperforms parent-KL consistency locally, but fails to prevent catastrophic drift on primary long-document tasks (ContractNLI entailment loss $>13$ pp, QASPER false-none rate $>24\%$). Replay on simple sentence pairs does not provide regularizing signal for long-context cross-document answerability; retention panels must directly evaluate the long-document reasoning and answerability boundaries being preserved.
+18. **MoE Active Parameter Sparsity vs Prefill Weight Residency**:
+    An MoE's active parameter count reflects only token-level floating-point operations, not memory residency. Even when per-token active routing selects only top-4 of 60 experts, document prefills of modest length (117 to 629 tokens) touch 98.7% to 99.6% of all resident experts across layers (mean 59.33 / 60 experts per layer). Consequently, runtime memory consumption remains governed by total model weights (7.82 GiB VRAM) rather than active parameter fractions unless unrouted experts are physically pruned from memory (-38.3% VRAM via structural module deletion).
+19. **Top-k Routed Weight Normalization Confound & Quantized Dispatch Numerics**:
+    In MoE architectures where router probabilities are unnormalized across selected experts (`norm_topk_prob=false`), truncating $k$ (e.g. top-4 to top-2 or top-1) reduces both active expert capacity and total routed weight magnitude ($\sum w_i < 1.0$), confounding routing selectivity with activation scaling. Furthermore, low-bit quantized backends (e.g. `bitsandbytes` NF4) often dispatch single-row and multi-row inputs through differing numerical kernel paths; prefill state splitting interacts with dynamic expert batch sizes, creating shape-dependent numerical drift ($\Delta p$ up to 0.12) that breaks prefix cache equivalence.
+20. **MoE Sliced Continuation Divergence Across Linear References & Option Presentation Order Bias**:
+    Replacing quantized matrix-vector kernels with an explicit IEEE FP32 dequantized linear reference over NF4 weights fails to restore prefix-cache mathematical equivalence on MoE models ($\max \Delta p$ increased from 0.1199 to 0.1553, with 1 decision flip), proving that prefix-sliced divergence is not solely a low-bit GEMM batching artifact but stems from subtle attention position/mask dynamics and dynamic router assignments across split sequences. Furthermore, unprompted option letter presentation introduces severe ordering bias in MoE next-token scoring, flipping the winner in 25.0% of cases ($\max \Delta p = 0.1686$) unless neutralized by explicit permutation averaging.

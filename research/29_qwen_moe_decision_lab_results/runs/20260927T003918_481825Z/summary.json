@@ -1,0 +1,95 @@
+{
+  "schema": "openkind-moe-quality-cache-followup/v1",
+  "status": "EXPLORATORY_COMPLETE",
+  "historical_drive_run": "20260926T224132_613995Z",
+  "historical_completed_run_available": false,
+  "profile": "qwen15_moe",
+  "model_id": "Qwen/Qwen1.5-MoE-A2.7B-Chat",
+  "model_revision": "ec052fda178e241c7c443468d2fa1db6618996be",
+  "prompt_lock": "explicit_three_way",
+  "selected_candidate": "skip_last_6",
+  "results": [
+    {
+      "arm": "native",
+      "n": 96,
+      "states": 32,
+      "accuracy": 0.375,
+      "nll": 1.0835824289631406,
+      "none_recall": 0.0,
+      "false_none": 0.0,
+      "brier": 0.6564479339636945,
+      "coverage": 0.14583333333333334,
+      "accepted_n": 14,
+      "accepted_error": 0.6428571428571429,
+      "review_cost": 0.17916666666666667,
+      "p50_ms": 2022.4895514998025,
+      "p95_ms": 2048.3601118003207,
+      "raw_nll": 2.308280670265257,
+      "inverse_temperature": 0.09868230955985909,
+      "review_threshold": 0.5071115674655294,
+      "peak_allocated_gib": 7.822868824005127,
+      "speedup_p50": 1.0
+    },
+    {
+      "arm": "skip_last_6",
+      "n": 96,
+      "states": 32,
+      "accuracy": 0.4166666666666667,
+      "nll": 1.0909149968368597,
+      "none_recall": 0.0625,
+      "false_none": 0.0,
+      "brier": 0.6612307131033776,
+      "coverage": 0.08333333333333333,
+      "accepted_n": 8,
+      "accepted_error": 0.375,
+      "review_cost": 0.12291666666666667,
+      "p50_ms": 1535.7818594998207,
+      "p95_ms": 1552.518131050192,
+      "raw_nll": 2.376493060633472,
+      "inverse_temperature": 0.07391618774118949,
+      "review_threshold": 0.4720123859807829,
+      "peak_allocated_gib": 7.82275390625,
+      "speedup_p50": 1.3169119943625942
+    }
+  ],
+  "cache_modes": [
+    {
+      "mode": "native",
+      "checked": 8,
+      "passed": 4,
+      "max_dp": 0.11991468596751387,
+      "split_decision_flips": 1,
+      "qualified_on_these_cases": false
+    },
+    {
+      "mode": "nf4_fp32_linear_reference",
+      "checked": 8,
+      "passed": 2,
+      "max_dp": 0.1552677129886702,
+      "split_decision_flips": 1,
+      "qualified_on_these_cases": false
+    }
+  ],
+  "cache_errors": [],
+  "cache_used_for_quality": false,
+  "research_gate_passed": false,
+  "model_promoted": false,
+  "paired_accuracy_interval": {
+    "unit": "source state",
+    "states": 32,
+    "repetitions": 2000,
+    "accuracy_difference": 0.041666666666666664,
+    "ci95": [
+      0.0,
+      0.10416666666666667
+    ],
+    "scope": "paired nonparametric interval on authored fixtures; not a production guarantee"
+  },
+  "limitations": [
+    "Fresh data are authored fixtures, not independent production/benchmark evidence",
+    "Historical Drive run is incomplete; the later pasted physical-removal result lacks raw Drive artifacts",
+    "NF4 FP32 linear reference retains NF4 weights and lower-precision surrounding operations",
+    "No actual expert streaming, distillation, weight pruning, or Qwen3.5 hybrid-cache execution",
+    "Hook/eager runtime is not a grouped-expert serving speed ceiling"
+  ]
+}
