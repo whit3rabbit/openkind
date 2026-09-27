@@ -77,7 +77,8 @@ types and behavior in their own module.
 ### 2. Implement the backend and engine
 
 - Put model-specific loading and forward execution under
-  `crates/openkind-backends/src/<family>/`. Keep hardware-neutral scheduling
+  `crates/openkind-backends/src/families/<family>/` (the native Qwen 3.5
+  profile sits directly under `src/qwen35/`). Keep hardware-neutral scheduling
   and state contracts in `openkind-runtime` and wire dispatch in
   `openkind-engine`.
 - Implement a concrete loader config and a `DecisionEngine` adapter. Loading
@@ -135,22 +136,24 @@ page.
 ## Plan for the surveyed families
 
 The roadmap queues this work after the active M0-M4 evidence sequence. It
-processes one family at a time and gives every current entry a gate. A family
-that cannot satisfy its gate remains unsupported; the plan does not waive
-license, wire, quality, or architecture requirements.
+processes one family at a time and gives every current entry a gate. Most
+entries have since landed Rust-loadable prototype loaders; the table records
+the current loading status and the gate that still stands. The plan does not
+waive license, wire, quality, or architecture requirements, and a
+Rust-loadable prototype still carries no model-quality claim.
 
-| Family | Gate before a Rust loader can be planned |
+| Family | Loading status and remaining gate |
 |---|---|
-| [`encoder-nli`](encoder-nli.md) | Select a commercially acceptable checkpoint, define per-candidate cost bounds, and show fitted calibration on the M2 task. |
-| [`encoder-instruct-label`](encoder-instruct-label.md) | Confirm the M0 option limit fits the label-marker context and resolve empty-criteria `Noul` semantics before profile design. |
-| [`decoder-logit-letter`](decoder-logit-letter.md) | Prove task utility and define the answer-slot token-to-option contract; use logits without sampling output tokens. |
-| [`decoder-logit-llm`](decoder-logit-llm.md) | Select an owned GGUF checkpoint and binding, settle platform/build support, then establish per-profile parity and calibration. |
-| [`kev`](kev.md) | Remains external-reference-only until OpenKind owns or has permission to use the weights, training pipeline, and evaluation contract. |
+| [`encoder-nli`](encoder-nli.md) | Rust-loadable prototype (DistilBERT MNLI). Task qualification through the M2 gates remains separate. |
+| [`encoder-instruct-label`](encoder-instruct-label.md) | Rust-loadable prototype (GLiClass label markers on ModernBERT). Task qualification remains separate. |
+| [`decoder-logit-letter`](decoder-logit-letter.md) | Rust-loadable prototype (Qwen2.5-0.5B letter logits; no sampled tokens). Task qualification remains separate. |
+| [`decoder-logit-llm`](decoder-logit-llm.md) | Rust-loadable prototype (candle GGUF q8_0 loader; no llama.cpp binding). Task qualification remains separate. |
+| [`kev`](kev.md) | Rust-loadable prototype over the published open checkpoint (unblocked 2026-09-26). Task qualification remains separate. |
 | [`von`](von.md) | Remains external-reference-only until contract, weights, training pipeline, and evaluation rights are available. |
-| [`schema-scorer`](schema-scorer.md) | Resolve ownership of weights and evaluation data, question-type rendering, and compatibility with Jev criteria and `__none__`. |
-| [`router-script`](router-script.md) | Lock language/script scope in M0 and have at least two supported sibling engines to route between. Routing must be deterministic and must not change wire semantics. |
-| [`winnow`](winnow.md) | Lock the sibling target set first; then review licensed training data and pass a separate M2 gate for routing decisions. |
-| [`qwen3guard`](qwen3guard.md) | Guardrail tasks must enter M0. The generated-verdict design also requires a separate decision on the current no-generation invariant, fixed-schema rejection, and parser failures. |
+| [`schema-scorer`](schema-scorer.md) | Rust-loadable prototype realized on open weights (MS MARCO MiniLM cross-encoder). Task qualification remains separate. |
+| [`router-script`](router-script.md) | Rust-loadable composite; deterministic Unicode-script rules over registered sibling engines. |
+| [`winnow`](winnow.md) | Rust-loadable learned router (in-house LoRA); sibling set locked to decoder-letter and encoder-nli. |
+| [`qwen3guard`](qwen3guard.md) | Rust-loadable prototype (Stream variant, token-level head). A generated-verdict variant would still need a separate decision on the no-generation invariant, fixed-schema rejection, and parser failures. |
 
 The family is Rust-loadable only after the code and offline qualification
 steps above land. Task support and release promotion are separate statuses.

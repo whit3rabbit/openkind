@@ -80,6 +80,7 @@ label scoring, Laya-style decision encoders, then decoder-logit profiles where
 the supported workload calls for them. Each needs its own checkpoint and
 tokenizer revision, renderer, readout, calibration, offline parity fixtures,
 and local loader. A language router requires two qualified target profiles.
-Kev, Von, and Qwen3Guard remain surveyed until rights, contract, and
-architecture blockers are resolved. A family page or catalog description does
+Kev and Qwen3Guard have since cleared their blockers as Rust-loadable
+prototype profiles; Von remains surveyed and external-reference-only.
+A family page or catalog description does
 not make a model runnable.

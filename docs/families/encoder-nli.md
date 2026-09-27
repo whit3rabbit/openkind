@@ -60,14 +60,14 @@ hypotheses.
 - Latency per question is comparable to encoder-state-first on small
   option sets and degrades predictably with option count.
 
-## What blocks implementation
+## What remains open
 
 - Cost scales linearly with the number of candidates per question, not
   with the number of questions. A 20-option choice question performs 20
   full forward passes; the same question under encoder-state-first is
   one forward pass per candidate suffix reusing the shared root.
 - Zero-shot checkpoints are over-confident; the M2 useful-decision gate
-  in [`../../ROADMAP.md`](../../ROADMAP.md) requires a retained useful
+  in [`../ROADMAP.md`](../ROADMAP.md) requires a retained useful
   operating point with calibrated probabilities. Implementing the family
   without a fitted temperature is known to fail downstream threshold
   reviews.
@@ -84,7 +84,7 @@ hypotheses.
   encoder-state-first on encoder-token-budget grounds while preserving
   the off-the-shelf license story?
 - Does a fitted temperature per label space survive natural-data
-  confirmation (M1/M2 in [`../../ROADMAP.md`](../../ROADMAP.md))?
+  confirmation (M1/M2 in [`../ROADMAP.md`](../ROADMAP.md))?
 - How does the family behave under the policy threshold when the state
   is shorter than the encoder's pretraining distribution? State
   truncation semantics are owned by
@@ -92,6 +92,7 @@ hypotheses.
 
 ## What this page does not say
 
-No timings, no accuracy numbers, no calibration error. The cited
+No model-quality or accuracy numbers, no calibration error. The cited
 comparison values belong to ollaya's family page on `nli`, not to
-`openkind`. `openkind` has no measurements to report.
+`openkind`. Request-path timing and peak-RSS measurements for the pinned
+profile are recorded in [`../BENCHMARKS.md`](../BENCHMARKS.md).

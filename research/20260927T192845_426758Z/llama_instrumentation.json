@@ -1,0 +1,37 @@
+[
+  {
+    "path": "tools/parallel-decision/decision-engine.h",
+    "old": "    result decide(const std::string & shared_text,",
+    "new": "    int last_decode_calls = 0, last_scoring_decode_calls = 0, last_scoring_rows = 0, last_real_scoring_rows = 0;\n\n    result decide(const std::string & shared_text,"
+  },
+  {
+    "path": "tools/parallel-decision/decision-engine.cpp",
+    "old": "    if (n_seqs < 3) {",
+    "new": "    if (std::getenv(\"OPENKIND_DISABLE_PADDING\") != nullptr && std::string(std::getenv(\"OPENKIND_DISABLE_PADDING\")) == \"1\") pad_branches = false;\n    if (n_seqs < 3) {"
+  },
+  {
+    "path": "tools/parallel-decision/decision-engine.cpp",
+    "old": "        const int rc = batch.n_tokens > 0 ? llama_decode(ctx, batch) : 0;",
+    "new": "        if (batch.n_tokens > 0) ++last_decode_calls;\n        const int rc = batch.n_tokens > 0 ? llama_decode(ctx, batch) : 0;"
+  },
+  {
+    "path": "tools/parallel-decision/decision-engine.cpp",
+    "old": "        const int rc = llama_decode(ctx, batch);",
+    "new": "        ++last_decode_calls; ++last_scoring_decode_calls; last_scoring_rows += batch.n_tokens;\n        for (size_t k = start; k < end; ++k) last_real_scoring_rows += (int) branches[order[k]].toks.size();\n        const int rc = llama_decode(ctx, batch);"
+  },
+  {
+    "path": "tools/parallel-decision/decision-engine.cpp",
+    "old": "    if (opt.mode != \"auto\" && opt.mode != \"tree\" && opt.mode != \"greedy\") {",
+    "new": "    last_decode_calls = last_scoring_decode_calls = last_scoring_rows = last_real_scoring_rows = 0;\n    if (opt.mode != \"auto\" && opt.mode != \"tree\" && opt.mode != \"greedy\") {"
+  },
+  {
+    "path": "tools/parallel-decision/decision-engine.cpp",
+    "old": "        f[\"tree\"]         = fr.tree;",
+    "new": "        f[\"tree\"]         = fr.tree;\n        common_json allowed = common_json::array(), probabilities = common_json::array();\n        for (const auto & v : sp.values) allowed.push_back(v);\n        for (float p : fr.probs) probabilities.push_back((double) p);\n        f[\"allowed_values\"] = allowed;\n        f[\"probabilities\"] = probabilities;"
+  },
+  {
+    "path": "tools/server/server-context.cpp",
+    "old": "        timings[\"rounds\"]     = b.rounds;",
+    "new": "        timings[\"rounds\"]     = b.rounds;\n        timings[\"decode_calls\"] = decision_engine->last_decode_calls;\n        timings[\"scoring_decode_calls\"] = decision_engine->last_scoring_decode_calls;\n        timings[\"scoring_input_rows_including_padding\"] = decision_engine->last_scoring_rows;\n        timings[\"scoring_real_input_rows\"] = decision_engine->last_real_scoring_rows;"
+  }
+]

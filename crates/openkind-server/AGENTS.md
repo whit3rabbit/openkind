@@ -29,16 +29,16 @@
 ## Key Files & Types
 
 - [`src/main.rs`](./src/main.rs):
-  - `main()`: Daemon entrypoint; orchestrates logging, auth, Prometheus recorder, engine registration (Qwen 3.5, installed models, surveyed families, router composites, and mock), and concurrent listener tasks via `tokio::join!`.
+  - `main()`: Daemon entrypoint; orchestrates logging, auth, Prometheus recorder, engine registration (Qwen 3.5, installed models, surveyed families, router-script and winnow composites, and mock), and concurrent listener tasks via `tokio::join!`.
   - `shutdown_signal()`: Future selecting on `tokio::signal::ctrl_c()` and Unix `SIGTERM`.
 - [`src/lib.rs`](./src/lib.rs): Library re-exports for daemon and benchmark integration.
 - [`src/args.rs`](./src/args.rs): Clap argument parser defining:
-    - Server endpoints: `--http-addr`, `--grpc-addr`, `--api-key`, `--log-filter`.
+    - Server endpoints: `--http-addr`, `--grpc-addr`, `--api-key`, `--rate-limit-rpm` (`OPENKIND_RATE_LIMIT_RPM`, default 120; `0` disables), `--log-filter`.
     - Model aliases: `--models`, `--qwen35-aliases`, `--installed-models`, and `--models-dir`.
     - Surveyed-family configuration: flattened `family_args: FamilyArgs`.
     - Native Qwen3.5 parameters: `--qwen35-bundle-root`, `--qwen35-checkpoint-root`, `--qwen35-tokenizer`, `--qwen35-backend` / `OPENKIND_QWEN35_BACKEND` (`native-cpu` default, or feature-gated `mlx-fp32` on macOS arm64), `--qwen35-concurrency`, `--qwen35-queue`, `--qwen35-timeout-ms` (queue-inclusive, default 600000), `--qwen35-max-tensor-bytes`, `--qwen35-max-process-bytes`, `--qwen35-scratch-bytes`, `--qwen35-allocator-headroom-bytes`, `--qwen35-execution` (diagnostic plan override: `auto` default; bypasses the profitability policy only — admission ceilings and backend capabilities still apply).
 - [`src/families.rs`](./src/families.rs):
-  - `FamilyArgs`: Flags and environment variables for surveyed-family loaders (`--decoder-letter-aliases`, `--decoder-letter-model-root`, `--encoder-nli-aliases`, `--encoder-nli-model-root`, `--decoder-llm-aliases`, `--decoder-llm-model-root`, `--schema-scorer-aliases`, `--schema-scorer-model-root`, `--router-script-aliases`, `--router-script-rules`).
+  - `FamilyArgs`: Flags and environment variables for surveyed-family loaders (`--decoder-letter-aliases`, `--decoder-letter-model-root`, `--encoder-nli-aliases`, `--encoder-nli-model-root`, `--encoder-instruct-label-aliases`, `--encoder-instruct-label-model-root`, `--kev-aliases`, `--kev-model-root`, `--kev-base-root`, `--decoder-llm-aliases`, `--decoder-llm-model-root`, `--schema-scorer-aliases`, `--schema-scorer-model-root`, `--router-script-aliases`, `--router-script-rules`, `--qwen3guard-aliases`, `--qwen3guard-model-root`, `--winnow-aliases`, `--winnow-model-root`, `--winnow-adapter`, `--winnow-siblings`).
   - `FamilyAdmission`: Concurrency, queue, and timeout parameters for family engines (`--family-concurrency`, `--family-queue`, `--family-timeout-ms`).
   - Fail-closed validation for duplicate or missing artifact configurations.
 - [`benches/server.rs`](./benches/server.rs): Criterion coverage for the complete
@@ -59,7 +59,7 @@
    held until shutdown; missing profiles and alias collisions fail startup.
    The public catalog is never fetched during daemon startup. See the
    [registry guide](../../docs/MODEL_REGISTRY.md) for the mirror and sync flow.
-3. **Surveyed-Family Engine Path**: If any alias in `--models` matches `--decoder-letter-aliases`, `--encoder-nli-aliases`, `--decoder-llm-aliases`, or `--schema-scorer-aliases`:
+3. **Surveyed-Family Engine Path**: If any alias in `--models` matches `--decoder-letter-aliases`, `--encoder-nli-aliases`, `--encoder-instruct-label-aliases`, `--kev-aliases`, `--decoder-llm-aliases`, `--schema-scorer-aliases`, or `--qwen3guard-aliases`:
    - Validates that the corresponding `--<family>-model-root` is provided (fails fast on startup if omitted).
    - Loads the respective engine adapter from `openkind_backends::families` with bounded `FamilyLimits`.
    - Registers the shared engine under each matching alias.
@@ -67,14 +67,17 @@
    - Parses the routing rule table (`--router-script-rules`).
    - Resolves sibling engine references registered under `--models`.
    - Registers `RouterScriptEngine` dispatching across the sibling engines.
-5. **Mock Engine Path**: Any alias in `--models` not matching native, surveyed-family, or router-script configurations registers an instance of `MockEngine`.
+5. **Winnow Composite Path**: If any alias in `--models` matches `--winnow-aliases`:
+   - Loads the pinned adapter from `--winnow-adapter` and resolves the sibling engines named by `--winnow-siblings` (`A=<alias>,B=<alias>`).
+   - Registers `WinnowEngine` dispatching across the two sibling engines.
+6. **Mock Engine Path**: Any alias in `--models` not matching native, surveyed-family, router-script, or winnow configurations registers an instance of `MockEngine`.
 
 ## Critical Gotchas & Rules
 
 1. **Native Path Fail-Closed**:
    If a user requests a native alias in `--models` but omits any of the required path flags (`bundle-root`, `checkpoint-root`, `tokenizer`), the daemon fails fast on startup with a contextual error.
 2. **Metrics Recorder Single-Init**:
-   `install_metrics_recorder()` panics if called more than once in the same process. It must be called strictly once during initialization.
+   `install_metrics_recorder()` is idempotent — a second call returns `Ok(())` if a recorder is already installed — but it should still be called exactly once during initialization, before binding HTTP routes.
 3. **Graceful Drain**:
    When orchestrating shutdown, drop guards ensure server tasks drain in-flight evaluations. Do not call `std::process::exit(0)` abruptly from signal handlers.
 4. **Cancellation Does Not Free Native Capacity Early**:

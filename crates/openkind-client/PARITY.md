@@ -4,7 +4,7 @@ Every test file in the TypeSafe Python SDK (`github.com/typesafe-ai/typesafe-sdk
 
 Status legend: **ported** (assertions live in Rust), **covered** (equivalent guarantee via a different mechanism), **N/A** (Python/platform-specific, reason given), **divergence** (deliberate behavioral difference, pinned by a test).
 
-## Retry — `tests/test_retry.py` → `tests/sdk_parity_retry.rs` + unit tests in `src/retry.rs`
+## Retry — `tests/test_retry.py` → `tests/sdk_parity_retry.rs` + unit tests in `src/retry/tests.rs`
 
 | Python test | Rust port |
 |---|---|
@@ -74,7 +74,7 @@ Status legend: **ported** (assertions live in Rust), **covered** (equivalent gua
 | `test_questions.py` discriminators/omitted defaults/reserved keys | ported — `question_discriminators_and_omitted_defaults` + `src/question.rs` unit tests |
 | `test_questions.py` construction-time validation | divergence — Rust structs don't validate at construction (server 422s; see `question_schema_validation_is_left_to_api`) |
 
-## Config — `tests/test_config.py` → `tests/sdk_parity_config.rs` + unit tests in `src/client.rs`
+## Config — `tests/test_config.py` → `tests/sdk_parity_config.rs` + unit tests in `src/client/tests.rs`
 
 | Python test | Rust port |
 |---|---|

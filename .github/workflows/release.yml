@@ -16,6 +16,9 @@ permissions:
   id-token: write
   attestations: write
 
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+
 jobs:
   publish-crates:
     name: publish to crates.io
@@ -23,6 +26,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
@@ -43,13 +48,15 @@ jobs:
         include:
           - os: macos-14
             target: aarch64-apple-darwin
-          - os: macos-13
+          - os: macos-15-intel
             target: x86_64-apple-darwin
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -61,18 +68,17 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y musl-tools
 
       - name: Build release binaries
-        run: cargo build --release --locked --target ${{ matrix.target }} --bin opendecision --bin opendecisiond
+        run: cargo build --release --locked --target ${{ matrix.target }} --bin openkind --bin openkindd
 
       - name: Package tarball and checksum
         shell: bash
         run: |
           set -euo pipefail
-          raw_tag="${GITHUB_REF_NAME:-${{ inputs.tag }}}"
-          tag="${raw_tag:-v0.1.0}"
+          tag="${RELEASE_TAG}"
           ver="${tag#v}"
-          name="opendecision-${ver}-${{ matrix.target }}"
+          name="openkind-${ver}-${{ matrix.target }}"
 
-          tar -C "target/${{ matrix.target }}/release" -czf "${name}.tar.gz" opendecision opendecisiond
+          tar -C "target/${{ matrix.target }}/release" -czf "${name}.tar.gz" openkind openkindd
 
           if command -v sha256sum >/dev/null 2>&1; then
             sha256sum "${name}.tar.gz" > "${name}.tar.gz.sha256"
@@ -80,9 +86,11 @@ jobs:
             shasum -a 256 "${name}.tar.gz" > "${name}.tar.gz.sha256"
           fi
 
-          echo "RELEASE_TAG=${tag}" >> "$GITHUB_ENV"
-          echo "ASSET=${name}.tar.gz" >> "$GITHUB_ENV"
-          echo "CHECKSUM=${name}.tar.gz.sha256" >> "$GITHUB_ENV"
+          {
+            echo "RELEASE_TAG=${tag}"
+            echo "ASSET=${name}.tar.gz"
+            echo "CHECKSUM=${name}.tar.gz.sha256"
+          } >> "$GITHUB_ENV"
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
@@ -110,8 +118,10 @@ jobs:
     needs: [build-binaries]
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout opendecision templates
+      - name: Checkout openkind templates
         uses: actions/checkout@v4
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Download all release artifacts
         uses: actions/download-artifact@v4
@@ -122,14 +132,13 @@ jobs:
       - name: Render formula from release checksums
         run: |
           set -euo pipefail
-          raw_tag="${GITHUB_REF_NAME:-${{ inputs.tag }}}"
-          tag="${raw_tag:-v0.1.0}"
+          tag="${RELEASE_TAG}"
           ver="${tag#v}"
           mkdir -p out
 
-          tgz_arm="opendecision-${ver}-aarch64-apple-darwin.tar.gz"
-          tgz_intel="opendecision-${ver}-x86_64-apple-darwin.tar.gz"
-          tgz_linux="opendecision-${ver}-x86_64-unknown-linux-musl.tar.gz"
+          tgz_arm="openkind-${ver}-aarch64-apple-darwin.tar.gz"
+          tgz_intel="openkind-${ver}-x86_64-apple-darwin.tar.gz"
+          tgz_linux="openkind-${ver}-x86_64-unknown-linux-musl.tar.gz"
 
           sha_arm=$(sha256sum "artifacts/${tgz_arm}" | cut -d' ' -f1)
           sha_intel=$(sha256sum "artifacts/${tgz_intel}" | cut -d' ' -f1)
@@ -139,7 +148,7 @@ jobs:
               -e "s/@@SHA_ARM_TGZ@@/${sha_arm}/g" \
               -e "s/@@SHA_INTEL_TGZ@@/${sha_intel}/g" \
               -e "s/@@SHA_LINUX_TGZ@@/${sha_linux}/g" \
-              packaging/homebrew/opendecision.rb > out/opendecision.rb
+              packaging/homebrew/openkind.rb > out/openkind.rb
 
           echo "TAG=${tag}" >> "$GITHUB_ENV"
 
@@ -154,10 +163,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p tap/Formula
-          cp out/opendecision.rb tap/Formula/opendecision.rb
+          cp out/openkind.rb tap/Formula/openkind.rb
           cd tap
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Formula/opendecision.rb
-          git commit -m "opendecision ${TAG}" || { echo "no changes to formula"; exit 0; }
+          git add Formula/openkind.rb
+          git commit -m "openkind ${TAG}" || { echo "no changes to formula"; exit 0; }
           git push

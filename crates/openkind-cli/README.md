@@ -18,7 +18,7 @@ Validates a JSON request file against the Jev request schema:
 
 ```bash
 openkind inspect examples/01_noul.json
-# Output: examples/01_noul.json is valid (model=jev-latest, 1 questions)
+# Output: examples/01_noul.json ✓ (model=jev-latest, 1 questions)
 ```
 
 Returns exit code `0` on success, non-zero with error context if JSON is malformed or violates schema validation rules (e.g. empty questions, missing instructions).

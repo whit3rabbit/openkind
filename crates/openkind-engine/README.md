@@ -12,7 +12,7 @@ HTTP (axum) / gRPC (tonic)
          ▼
 openkind_engine::dispatch(req, registry)
          │
-         ├── validate_request(&req)
+         ├── ResponseContract::from_request(&req)
          ├── registry.get(model_alias)
          ├── engine.estimate_input_tokens(&req)
          ├── engine.evaluate(req) ──► Arc<dyn DecisionEngine>

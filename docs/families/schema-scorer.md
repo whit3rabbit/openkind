@@ -31,6 +31,11 @@ timing only.
 
 ## Architectural shape
 
+The shape below describes the **surveyed upstream contract** (the
+TypeSafe-trained DeBERTa cross-encoder). The landed Rust-loadable profile
+realizes the same architecture shape on open weights — the MS MARCO
+MiniLM cross-encoder described under Status above.
+
 | Aspect | Pattern |
 |---|---|
 | Backbone class | DeBERTa-v3-large cross-encoder with a single scalar logit, fine-tuned against TypeSafe's published question schema |
@@ -60,11 +65,12 @@ The contract-level details are owned by the upstream family spec.
   on CPU-only Apple Silicon with the same latency profile as
   [`encoder-nli.md`](encoder-nli.md).
 
-## What blocks implementation
+## What remains open
 
-- `openkind` does not own the schema-scorer weights, training data, or
-  evaluation contract. Same blockers as [`kev.md`](kev.md) and
-  [`von.md`](von.md).
+- The upstream TypeSafe-trained schema-scorer weights, training data, and
+  evaluation contract remain unowned by `openkind`. The landed profile
+  realizes the same architecture shape on open weights instead; it is a
+  different checkpoint, not a reproduction of the upstream model.
 - The tokenization folds the rendered question schema into the
   hypothesis, which means the candidate encoding is question-type
   dependent. Maintaining the rendering in lockstep with the Jev wire
@@ -76,7 +82,7 @@ The contract-level details are owned by the upstream family spec.
   have to be reviewed against that contract; ollaya notes that list-
   valued choice criteria must round-trip without an Ollaya-side
   mapping layer, so the M0 wire contract in
-  [`../../ROADMAP.md`](../../ROADMAP.md) would have to approve the
+  [`../ROADMAP.md`](../ROADMAP.md) would have to approve the
   criterion-shape constraint before a profile could land.
 
 ## Open questions
@@ -85,15 +91,18 @@ The contract-level details are owned by the upstream family spec.
   compose cleanly with the existing `__none__` contract owned by the
   implemented family?
 - Would a schema-scorer profile be a candidate for the M3 lower-cost
-  gate in [`../../ROADMAP.md`](../../ROADMAP.md), or is its CPU cost
+  gate in [`../ROADMAP.md`](../ROADMAP.md), or is its CPU cost
   comparable to [`encoder-nli.md`](encoder-nli.md) (which is the
-  existing cross-encoder baseline)? No measurements exist.
+  existing cross-encoder baseline)? Request-path timings for both are
+  recorded in [`../BENCHMARKS.md`](../BENCHMARKS.md); the M3 comparison
+  has not run.
 - How does the upstream tokenizer's baked-in truncation interact with
   `openkind`'s state-length policy owned by
   [`../../crates/openkind-core/AGENTS.md`](../../crates/openkind-core/AGENTS.md)?
 
 ## What this page does not say
 
-No timings, no accuracy numbers, no schema-conformance rates. The cited
+No model-quality or accuracy numbers, no schema-conformance rates. The cited
 comparison values belong to ollaya's family page on `schema-scorer`, not
-to `openkind`. `openkind` has no measurements to report.
+to `openkind`. Request-path timing and peak-RSS measurements for the pinned
+profile are recorded in [`../BENCHMARKS.md`](../BENCHMARKS.md).

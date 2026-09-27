@@ -13,10 +13,10 @@ model alias. The pinned artifact revisions and a working Rust loading example
 are in the [model registry](./README.md#runnable-model-profiles) and its
 [Rust loading guide](./README.md#load-the-profile-from-rust). Status,
 milestones, and remaining work are owned
-by [`../../ROADMAP.md`](../../ROADMAP.md); landed contracts are owned by
-[`../../ARCHITECTURE.md`](../../ARCHITECTURE.md); MLX backend specifics are
-owned by [`../../MLX.md`](../../MLX.md); benchmark methodology is owned by
-[`../../BENCHMARKS.md`](../../BENCHMARKS.md).
+by [`../ROADMAP.md`](../ROADMAP.md); landed contracts are owned by
+[`../ARCHITECTURE.md`](../ARCHITECTURE.md); MLX backend specifics are
+owned by [`../MLX.md`](../MLX.md); benchmark methodology is owned by
+[`../BENCHMARKS.md`](../BENCHMARKS.md).
 
 Do not reproduce any quantitative claim from those documents on this page.
 If a measurement is missing from them, it is missing from `openkind`.
@@ -56,14 +56,14 @@ questions:
   [`decoder-logit-llm.md`](decoder-logit-llm.md).
 
 Selection rationale, prior-art comparisons, and the rejected alternatives
-are catalogued in [`../../RESEARCH.md`](../../RESEARCH.md) and the
-exploratory chapter of [`../../whitepaper/WHITEPAPER.md`](../../whitepaper/WHITEPAPER.md).
+are catalogued in [`../RESEARCH.md`](../RESEARCH.md) and the
+exploratory chapter of [`../whitepaper/WHITEPAPER.md`](../whitepaper/WHITEPAPER.md).
 This page does not republish that narrative.
 
 ## Open questions blocking promotion
 
 Inherited from the active milestone sequence in
-[`../../ROADMAP.md`](../../ROADMAP.md) and not specific to this family:
+[`../ROADMAP.md`](../ROADMAP.md) and not specific to this family:
 
 - A pinned reviewed workload (M0)
 - A repaired source-to-input evidence contract (M1)
@@ -84,8 +84,8 @@ before any release-quality claim:
 
 This page does not state timings, ECE, NLL, memory footprints, or any
 other quantitative claim. Those belong to
-[`../../BENCHMARKS.md`](../../BENCHMARKS.md) and the verification reports
-linked from [`../../ROADMAP.md`](../../ROADMAP.md). The pinned profile id,
+[`../BENCHMARKS.md`](../BENCHMARKS.md) and the verification reports
+linked from [`../ROADMAP.md`](../ROADMAP.md). The pinned profile id,
 backbone, bundle sha256, calibration temperature, policy threshold, and
 probability tolerance are documented in the parent
 [`../../README.md`](../../README.md) and

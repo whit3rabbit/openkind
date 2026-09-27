@@ -45,17 +45,17 @@ workload (see [`../BENCHMARKS.md`](../BENCHMARKS.md)).
   shapes uniformly; the family contract is small.
 - Decoder backbones are the strongest available open model class for
   longer-context decision tasks, which the M0 supported-workload
-  definition in [`../../ROADMAP.md`](../../ROADMAP.md) may eventually
+  definition in [`../ROADMAP.md`](../ROADMAP.md) may eventually
   require.
 
-## What blocks implementation
+## What remains open
 
 - Decoder backbones are slow on Apple Silicon CPU relative to the
   encoder families. The `decider` adapter design notes record roughly
   an order-of-magnitude latency increase over encoder-state-first on
-  the named M4 Max; measured numbers, if any, live in
-  [`../../BENCHMARKS.md`](../../BENCHMARKS.md).
-- The M3 lower-cost gate in [`../../ROADMAP.md`](../../ROADMAP.md) has
+  the named M4 Max; the recorded request-path numbers live in
+  [`../BENCHMARKS.md`](../BENCHMARKS.md).
+- The M3 lower-cost gate in [`../ROADMAP.md`](../ROADMAP.md) has
   the encoder-state-first operating point as the reference; the family
   would have to demonstrate competitive cost on the same reviewed
   workload before any release-quality claim is possible.
@@ -70,16 +70,18 @@ workload (see [`../BENCHMARKS.md`](../BENCHMARKS.md)).
 ## Open questions
 
 - Can the family hold the M2 reviewed-decision operating point at all?
-  No measured numbers exist.
+  No reviewed-accuracy numbers exist; the recorded benchmark is
+  request-path timing only.
 - Does the letter-logit readout produce calibrated probabilities on
   common inputs? Calibration methodology is owned by
-  [`../../BENCHMARKS.md`](../../BENCHMARKS.md).
+  [`../BENCHMARKS.md`](../BENCHMARKS.md).
 - Is there an MLX parity path for the relevant decoder backbone? The
-  landed MLX contract in [`../../MLX.md`](../../MLX.md) covers only
+  landed MLX contract in [`../MLX.md`](../MLX.md) covers only
   Qwen 3.5 4B; the family would need a separate parity study.
 
 ## What this page does not say
 
-No timings, no accuracy numbers, no memory numbers. The cited comparison
+No model-quality or accuracy numbers, no memory numbers. The cited comparison
 values belong to ollaya's family page on `decider`, not to `openkind`.
-`openkind` has no measurements to report.
+Request-path timing and peak-RSS measurements for the pinned profile are
+recorded in [`../BENCHMARKS.md`](../BENCHMARKS.md).

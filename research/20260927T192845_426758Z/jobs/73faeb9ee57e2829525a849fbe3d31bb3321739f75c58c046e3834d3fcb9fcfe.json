@@ -1,0 +1,714 @@
+{
+  "key": "Q4_K_M_seq24/cache/natural/1/native-test-59/0",
+  "run_key": "ff6fd4996c079f53dee448296fb55a529d18418d8d849413a2e1ed0e42f6308a",
+  "session": "2026-09-27T19:28:43.948748+00:00",
+  "seconds": 0.23419033400000444,
+  "value": {
+    "kind": "cache",
+    "precision": "Q4_K_M",
+    "seqs": 24,
+    "readout": "natural",
+    "batch": 1,
+    "repeat": 0,
+    "ids": [
+      "native-test-59"
+    ],
+    "order": [
+      "warm",
+      "cold"
+    ],
+    "prime": {
+      "items": [
+        {
+          "decision": {
+            "eligibility": "undetermined",
+            "next_action": "deny access",
+            "route": "routing beta priority",
+            "case_state": "case closed duplicate",
+            "retries": 3,
+            "urgent": true
+          },
+          "probabilities": {
+            "eligibility": {
+              "\"eligible\"": 0.0004448629333637655,
+              "\"ineligible\"": 0.023773610591888428,
+              "\"undetermined\"": 0.9757815003395081
+            },
+            "next_action": {
+              "\"grant access\"": 0.03290378302335739,
+              "\"deny access\"": 0.6369480490684509,
+              "\"request missing information\"": 0.33014819025993347
+            },
+            "route": {
+              "\"routing alpha\"": 0.0004961961531080306,
+              "\"routing alpha priority\"": 0.26545631885528564,
+              "\"routing beta\"": 0.0026115565560758114,
+              "\"routing beta priority\"": 0.7314359545707703
+            },
+            "case_state": {
+              "\"case open\"": 0.000718346273060888,
+              "\"case closed\"": 0.00011775586608564481,
+              "\"case closed duplicate\"": 0.9991639256477356
+            },
+            "retries": {
+              "0": 0.032004550099372864,
+              "1": 0.005331660155206919,
+              "2": 0.012552252039313316,
+              "3": 0.9501115083694458
+            },
+            "urgent": {
+              "true": 0.8340904116630554,
+              "false": 0.16590960323810577
+            }
+          },
+          "id": "native-test-59",
+          "split": "test",
+          "gold": {
+            "eligibility": "undetermined",
+            "next_action": "request missing information",
+            "route": "routing alpha priority",
+            "case_state": "case closed duplicate",
+            "retries": 3,
+            "urgent": true
+          }
+        }
+      ],
+      "request_ms": 58.45360800003618,
+      "http_ms": 57.959598000024926,
+      "reply": {
+        "object": "decision",
+        "results": [
+          {
+            "decision": {
+              "eligibility": "undetermined",
+              "next_action": "deny access",
+              "route": "routing beta priority",
+              "case_state": "case closed duplicate",
+              "retries": 3,
+              "urgent": true
+            },
+            "fields": {
+              "eligibility": {
+                "value": "undetermined",
+                "probability": 0.9757815003395081,
+                "scored_nodes": 1,
+                "tree": true,
+                "allowed_values": [
+                  "eligible",
+                  "ineligible",
+                  "undetermined"
+                ],
+                "probabilities": [
+                  0.0004448629333637655,
+                  0.023773610591888428,
+                  0.9757815003395081
+                ]
+              },
+              "next_action": {
+                "value": "deny access",
+                "probability": 0.6369480490684509,
+                "scored_nodes": 1,
+                "tree": true,
+                "allowed_values": [
+                  "grant access",
+                  "deny access",
+                  "request missing information"
+                ],
+                "probabilities": [
+                  0.03290378302335739,
+                  0.6369480490684509,
+                  0.33014819025993347
+                ]
+              },
+              "route": {
+                "value": "routing beta priority",
+                "probability": 0.7314359545707703,
+                "scored_nodes": 3,
+                "tree": true,
+                "allowed_values": [
+                  "routing alpha",
+                  "routing alpha priority",
+                  "routing beta",
+                  "routing beta priority"
+                ],
+                "probabilities": [
+                  0.0004961961531080306,
+                  0.26545631885528564,
+                  0.0026115565560758114,
+                  0.7314359545707703
+                ]
+              },
+              "case_state": {
+                "value": "case closed duplicate",
+                "probability": 0.9991639256477356,
+                "scored_nodes": 2,
+                "tree": true,
+                "allowed_values": [
+                  "case open",
+                  "case closed",
+                  "case closed duplicate"
+                ],
+                "probabilities": [
+                  0.000718346273060888,
+                  0.00011775586608564481,
+                  0.9991639256477356
+                ]
+              },
+              "retries": {
+                "interval_p10_p90": [
+                  3,
+                  3
+                ],
+                "value": 3,
+                "probability": 0.9501115083694458,
+                "scored_nodes": 1,
+                "tree": true,
+                "allowed_values": [
+                  0,
+                  1,
+                  2,
+                  3
+                ],
+                "probabilities": [
+                  0.032004550099372864,
+                  0.005331660155206919,
+                  0.012552252039313316,
+                  0.9501115083694458
+                ]
+              },
+              "urgent": {
+                "value": true,
+                "probability": 0.8340904116630554,
+                "scored_nodes": 1,
+                "tree": true,
+                "allowed_values": [
+                  true,
+                  false
+                ],
+                "probabilities": [
+                  0.8340904116630554,
+                  0.16590960323810577
+                ]
+              }
+            },
+            "usage": {
+              "context_tokens": 84,
+              "scored_rows": 57
+            }
+          }
+        ],
+        "model": "/root/.cache/huggingface/hub/models--bartowski--Qwen_Qwen3.5-4B-GGUF/snapshots/4168f45a16a1290d65a4ec0fa312ae917a4c15d6/Qwen_Qwen3.5-4B-Q4_K_M.gguf",
+        "created": 1790538567,
+        "usage": {
+          "prompt_tokens": 399,
+          "cached_tokens": 315,
+          "context_tokens": 84,
+          "scored_rows": 57
+        },
+        "timings": {
+          "prefill_ms": 24.750919,
+          "scoring_ms": 28.117785,
+          "total_ms": 52.868704,
+          "rounds": 1,
+          "decode_calls": 2,
+          "scoring_decode_calls": 1,
+          "scoring_input_rows_including_padding": 72,
+          "scoring_real_input_rows": 57,
+          "per_decision_ms": 52.868704
+        }
+      },
+      "payload_sha256": "8721b226c183687b2b51e149039941e51adb89a78033d08174a09d4902f77425",
+      "semantic_ids": [
+        "native-test-59"
+      ],
+      "cache_requested": true,
+      "readout": "natural",
+      "drop_action": false,
+      "rotation": 0,
+      "time_scope": "Host schema preparation + localhost HTTP + response validation + optional rule derivation; GPU already resident."
+    },
+    "warm": {
+      "items": [
+        {
+          "decision": {
+            "eligibility": "undetermined",
+            "next_action": "deny access",
+            "route": "routing beta priority",
+            "case_state": "case closed duplicate",
+            "retries": 3,
+            "urgent": true
+          },
+          "probabilities": {
+            "eligibility": {
+              "\"eligible\"": 0.0004448629333637655,
+              "\"ineligible\"": 0.023773610591888428,
+              "\"undetermined\"": 0.9757815003395081
+            },
+            "next_action": {
+              "\"grant access\"": 0.03290378302335739,
+              "\"deny access\"": 0.6369480490684509,
+              "\"request missing information\"": 0.33014819025993347
+            },
+            "route": {
+              "\"routing alpha\"": 0.0004961961531080306,
+              "\"routing alpha priority\"": 0.26545631885528564,
+              "\"routing beta\"": 0.0026115565560758114,
+              "\"routing beta priority\"": 0.7314359545707703
+            },
+            "case_state": {
+              "\"case open\"": 0.000718346273060888,
+              "\"case closed\"": 0.00011775586608564481,
+              "\"case closed duplicate\"": 0.9991639256477356
+            },
+            "retries": {
+              "0": 0.032004550099372864,
+              "1": 0.005331660155206919,
+              "2": 0.012552252039313316,
+              "3": 0.9501115083694458
+            },
+            "urgent": {
+              "true": 0.8340904116630554,
+              "false": 0.16590960323810577
+            }
+          },
+          "id": "native-test-59",
+          "split": "test",
+          "gold": {
+            "eligibility": "undetermined",
+            "next_action": "request missing information",
+            "route": "routing alpha priority",
+            "case_state": "case closed duplicate",
+            "retries": 3,
+            "urgent": true
+          }
+        }
+      ],
+      "request_ms": 63.569956000037564,
+      "http_ms": 63.070065999909275,
+      "reply": {
+        "object": "decision",
+        "results": [
+          {
+            "decision": {
+              "eligibility": "undetermined",
+              "next_action": "deny access",
+              "route": "routing beta priority",
+              "case_state": "case closed duplicate",
+              "retries": 3,
+              "urgent": true
+            },
+            "fields": {
+              "eligibility": {
+                "value": "undetermined",
+                "probability": 0.9757815003395081,
+                "scored_nodes": 1,
+                "tree": true,
+                "allowed_values": [
+                  "eligible",
+                  "ineligible",
+                  "undetermined"
+                ],
+                "probabilities": [
+                  0.0004448629333637655,
+                  0.023773610591888428,
+                  0.9757815003395081
+                ]
+              },
+              "next_action": {
+                "value": "deny access",
+                "probability": 0.6369480490684509,
+                "scored_nodes": 1,
+                "tree": true,
+                "allowed_values": [
+                  "grant access",
+                  "deny access",
+                  "request missing information"
+                ],
+                "probabilities": [
+                  0.03290378302335739,
+                  0.6369480490684509,
+                  0.33014819025993347
+                ]
+              },
+              "route": {
+                "value": "routing beta priority",
+                "probability": 0.7314359545707703,
+                "scored_nodes": 3,
+                "tree": true,
+                "allowed_values": [
+                  "routing alpha",
+                  "routing alpha priority",
+                  "routing beta",
+                  "routing beta priority"
+                ],
+                "probabilities": [
+                  0.0004961961531080306,
+                  0.26545631885528564,
+                  0.0026115565560758114,
+                  0.7314359545707703
+                ]
+              },
+              "case_state": {
+                "value": "case closed duplicate",
+                "probability": 0.9991639256477356,
+                "scored_nodes": 2,
+                "tree": true,
+                "allowed_values": [
+                  "case open",
+                  "case closed",
+                  "case closed duplicate"
+                ],
+                "probabilities": [
+                  0.000718346273060888,
+                  0.00011775586608564481,
+                  0.9991639256477356
+                ]
+              },
+              "retries": {
+                "interval_p10_p90": [
+                  3,
+                  3
+                ],
+                "value": 3,
+                "probability": 0.9501115083694458,
+                "scored_nodes": 1,
+                "tree": true,
+                "allowed_values": [
+                  0,
+                  1,
+                  2,
+                  3
+                ],
+                "probabilities": [
+                  0.032004550099372864,
+                  0.005331660155206919,
+                  0.012552252039313316,
+                  0.9501115083694458
+                ]
+              },
+              "urgent": {
+                "value": true,
+                "probability": 0.8340904116630554,
+                "scored_nodes": 1,
+                "tree": true,
+                "allowed_values": [
+                  true,
+                  false
+                ],
+                "probabilities": [
+                  0.8340904116630554,
+                  0.16590960323810577
+                ]
+              }
+            },
+            "usage": {
+              "context_tokens": 84,
+              "scored_rows": 57
+            }
+          }
+        ],
+        "model": "/root/.cache/huggingface/hub/models--bartowski--Qwen_Qwen3.5-4B-GGUF/snapshots/4168f45a16a1290d65a4ec0fa312ae917a4c15d6/Qwen_Qwen3.5-4B-Q4_K_M.gguf",
+        "created": 1790538567,
+        "usage": {
+          "prompt_tokens": 399,
+          "cached_tokens": 315,
+          "context_tokens": 84,
+          "scored_rows": 57
+        },
+        "timings": {
+          "prefill_ms": 30.250576000000002,
+          "scoring_ms": 28.057712,
+          "total_ms": 58.308288000000005,
+          "rounds": 1,
+          "decode_calls": 2,
+          "scoring_decode_calls": 1,
+          "scoring_input_rows_including_padding": 72,
+          "scoring_real_input_rows": 57,
+          "per_decision_ms": 58.308288000000005
+        }
+      },
+      "payload_sha256": "8721b226c183687b2b51e149039941e51adb89a78033d08174a09d4902f77425",
+      "semantic_ids": [
+        "native-test-59"
+      ],
+      "cache_requested": true,
+      "readout": "natural",
+      "drop_action": false,
+      "rotation": 0,
+      "time_scope": "Host schema preparation + localhost HTTP + response validation + optional rule derivation; GPU already resident."
+    },
+    "cold": {
+      "items": [
+        {
+          "decision": {
+            "eligibility": "undetermined",
+            "next_action": "deny access",
+            "route": "routing beta priority",
+            "case_state": "case closed duplicate",
+            "retries": 3,
+            "urgent": true
+          },
+          "probabilities": {
+            "eligibility": {
+              "\"eligible\"": 0.0004448629333637655,
+              "\"ineligible\"": 0.023773610591888428,
+              "\"undetermined\"": 0.9757815003395081
+            },
+            "next_action": {
+              "\"grant access\"": 0.03290378302335739,
+              "\"deny access\"": 0.6369480490684509,
+              "\"request missing information\"": 0.33014819025993347
+            },
+            "route": {
+              "\"routing alpha\"": 0.0004961961531080306,
+              "\"routing alpha priority\"": 0.26545631885528564,
+              "\"routing beta\"": 0.0026115565560758114,
+              "\"routing beta priority\"": 0.7314359545707703
+            },
+            "case_state": {
+              "\"case open\"": 0.000718346273060888,
+              "\"case closed\"": 0.00011775586608564481,
+              "\"case closed duplicate\"": 0.9991639256477356
+            },
+            "retries": {
+              "0": 0.032004550099372864,
+              "1": 0.005331660155206919,
+              "2": 0.012552252039313316,
+              "3": 0.9501115083694458
+            },
+            "urgent": {
+              "true": 0.8340904116630554,
+              "false": 0.16590960323810577
+            }
+          },
+          "id": "native-test-59",
+          "split": "test",
+          "gold": {
+            "eligibility": "undetermined",
+            "next_action": "request missing information",
+            "route": "routing alpha priority",
+            "case_state": "case closed duplicate",
+            "retries": 3,
+            "urgent": true
+          }
+        }
+      ],
+      "request_ms": 111.87551399984841,
+      "http_ms": 111.37902599989502,
+      "reply": {
+        "object": "decision",
+        "results": [
+          {
+            "decision": {
+              "eligibility": "undetermined",
+              "next_action": "deny access",
+              "route": "routing beta priority",
+              "case_state": "case closed duplicate",
+              "retries": 3,
+              "urgent": true
+            },
+            "fields": {
+              "eligibility": {
+                "value": "undetermined",
+                "probability": 0.9757815003395081,
+                "scored_nodes": 1,
+                "tree": true,
+                "allowed_values": [
+                  "eligible",
+                  "ineligible",
+                  "undetermined"
+                ],
+                "probabilities": [
+                  0.0004448629333637655,
+                  0.023773610591888428,
+                  0.9757815003395081
+                ]
+              },
+              "next_action": {
+                "value": "deny access",
+                "probability": 0.6369480490684509,
+                "scored_nodes": 1,
+                "tree": true,
+                "allowed_values": [
+                  "grant access",
+                  "deny access",
+                  "request missing information"
+                ],
+                "probabilities": [
+                  0.03290378302335739,
+                  0.6369480490684509,
+                  0.33014819025993347
+                ]
+              },
+              "route": {
+                "value": "routing beta priority",
+                "probability": 0.7314359545707703,
+                "scored_nodes": 3,
+                "tree": true,
+                "allowed_values": [
+                  "routing alpha",
+                  "routing alpha priority",
+                  "routing beta",
+                  "routing beta priority"
+                ],
+                "probabilities": [
+                  0.0004961961531080306,
+                  0.26545631885528564,
+                  0.0026115565560758114,
+                  0.7314359545707703
+                ]
+              },
+              "case_state": {
+                "value": "case closed duplicate",
+                "probability": 0.9991639256477356,
+                "scored_nodes": 2,
+                "tree": true,
+                "allowed_values": [
+                  "case open",
+                  "case closed",
+                  "case closed duplicate"
+                ],
+                "probabilities": [
+                  0.000718346273060888,
+                  0.00011775586608564481,
+                  0.9991639256477356
+                ]
+              },
+              "retries": {
+                "interval_p10_p90": [
+                  3,
+                  3
+                ],
+                "value": 3,
+                "probability": 0.9501115083694458,
+                "scored_nodes": 1,
+                "tree": true,
+                "allowed_values": [
+                  0,
+                  1,
+                  2,
+                  3
+                ],
+                "probabilities": [
+                  0.032004550099372864,
+                  0.005331660155206919,
+                  0.012552252039313316,
+                  0.9501115083694458
+                ]
+              },
+              "urgent": {
+                "value": true,
+                "probability": 0.8340904116630554,
+                "scored_nodes": 1,
+                "tree": true,
+                "allowed_values": [
+                  true,
+                  false
+                ],
+                "probabilities": [
+                  0.8340904116630554,
+                  0.16590960323810577
+                ]
+              }
+            },
+            "usage": {
+              "context_tokens": 84,
+              "scored_rows": 57
+            }
+          }
+        ],
+        "model": "/root/.cache/huggingface/hub/models--bartowski--Qwen_Qwen3.5-4B-GGUF/snapshots/4168f45a16a1290d65a4ec0fa312ae917a4c15d6/Qwen_Qwen3.5-4B-Q4_K_M.gguf",
+        "created": 1790538567,
+        "usage": {
+          "prompt_tokens": 399,
+          "cached_tokens": 0,
+          "context_tokens": 84,
+          "scored_rows": 57
+        },
+        "timings": {
+          "prefill_ms": 78.44855,
+          "scoring_ms": 28.102284,
+          "total_ms": 106.550834,
+          "rounds": 1,
+          "decode_calls": 3,
+          "scoring_decode_calls": 1,
+          "scoring_input_rows_including_padding": 72,
+          "scoring_real_input_rows": 57,
+          "per_decision_ms": 106.550834
+        }
+      },
+      "payload_sha256": "19e618ce729337616be0583bca360c0d2b4f0e92109e2c2ed18ed3258dc17645",
+      "semantic_ids": [
+        "native-test-59"
+      ],
+      "cache_requested": false,
+      "readout": "natural",
+      "drop_action": false,
+      "rotation": 0,
+      "time_scope": "Host schema preparation + localhost HTTP + response validation + optional rule derivation; GPU already resident."
+    },
+    "parity": {
+      "max_dp": 0.0,
+      "field_flips": 0,
+      "action_flips": 0,
+      "passed": true,
+      "details": []
+    },
+    "telemetry": {
+      "prime": {
+        "hit": true,
+        "cached_tokens": 315,
+        "prompt_tokens": 399,
+        "context_tokens": 84,
+        "timings": {
+          "prefill_ms": 24.750919,
+          "scoring_ms": 28.117785,
+          "total_ms": 52.868704,
+          "rounds": 1,
+          "decode_calls": 2,
+          "scoring_decode_calls": 1,
+          "scoring_input_rows_including_padding": 72,
+          "scoring_real_input_rows": 57,
+          "per_decision_ms": 52.868704
+        }
+      },
+      "warm": {
+        "hit": true,
+        "cached_tokens": 315,
+        "prompt_tokens": 399,
+        "context_tokens": 84,
+        "timings": {
+          "prefill_ms": 30.250576000000002,
+          "scoring_ms": 28.057712,
+          "total_ms": 58.308288000000005,
+          "rounds": 1,
+          "decode_calls": 2,
+          "scoring_decode_calls": 1,
+          "scoring_input_rows_including_padding": 72,
+          "scoring_real_input_rows": 57,
+          "per_decision_ms": 58.308288000000005
+        }
+      },
+      "cold": {
+        "hit": false,
+        "cached_tokens": 0,
+        "prompt_tokens": 399,
+        "context_tokens": 84,
+        "timings": {
+          "prefill_ms": 78.44855,
+          "scoring_ms": 28.102284,
+          "total_ms": 106.550834,
+          "rounds": 1,
+          "decode_calls": 3,
+          "scoring_decode_calls": 1,
+          "scoring_input_rows_including_padding": 72,
+          "scoring_real_input_rows": 57,
+          "per_decision_ms": 106.550834
+        }
+      }
+    },
+    "qualified": true,
+    "warm_excludes_prime": true,
+    "amortized_two_request_ms": 122.02356400007375
+  }
+}

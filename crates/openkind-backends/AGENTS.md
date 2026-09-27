@@ -119,14 +119,18 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
   - [`mod.rs`](./src/families/mod.rs): Facade re-exporting `BoundedFamilyEngine`, `FamilyLimits`, `FamilyControl`, `FamilyEvaluator`, and wire answer unpacking.
   - [`decoder_logit_letter/`](./src/families/decoder_logit_letter/): Qwen2.5-0.5B-Instruct letter readout (`5492c97dfcdaf3fe9439`). Evaluates single-token option letters over prompt-formatted choices.
   - [`decoder_logit_llm/`](./src/families/decoder_logit_llm/): GGUF q8_0 letter readout (`465963d705b6f35d6208`). Offline GGUF checkpoint evaluation for letter-choice prompts.
+  - [`encoder_instruct_label/`](./src/families/encoder_instruct_label/): GLiClass label-marker readout (`9fd68313a5606eca42f2`) on a hand-implemented ModernBERT encoder (knowledgator/gliclass-modern-base-v3.0).
   - [`encoder_nli/`](./src/families/encoder_nli/): DistilBERT MNLI entailment readout (`1041a4c362338a61b820`). Maps premise-hypothesis entailment vs contradiction logits to decision distributions.
+  - [`kev/`](./src/families/kev/): Kev-0.6B pointer readout (`39d88c11faeb4ac165fa`) over jaredpalmer/kev-0.6b (Qwen3-0.6B-Base plus adapter).
   - [`schema_scorer/`](./src/families/schema_scorer/): MS MARCO cross-encoder scalar readout (`5a7350af556f0ee66566`). Evaluates query-passage relevance scores through sigmoid calibration.
   - [`router_script/`](./src/families/router_script/): Composite routing engine dispatching across sibling engines by Unicode script or rule table (`ScriptRuleTable`).
-  - [`qwen3guard/`](./src/families/qwen3guard/): Guardrail safety classification profile and evaluation.
+  - [`qwen3guard/`](./src/families/qwen3guard/): Guardrail safety classification profile and evaluation (Qwen3Guard-Stream token-level head, `0fcf416cab16d94f933d`).
+  - [`winnow/`](./src/families/winnow/): Learned script router (`4dff8c5b03cfbf680db6`); Qwen2.5-0.5B-Instruct with a rank-8 LoRA adapter dispatching across two sibling engines.
   - [`support.rs`](./src/families/support.rs), [`wire.rs`](./src/families/wire.rs), [`calibration.rs`](./src/families/calibration.rs), [`letter_renderer.rs`](./src/families/letter_renderer.rs): Reusable scaffolding: admission bounds, temperature scaling, prompt generation, and wire answer conversions.
 - Multi-file examples:
   - [`examples/qwen35_mlx_qualify/`](./examples/qwen35_mlx_qualify/): Phase 3M.0 runtime qualification suite (`main.rs`, `gate.rs`, `fp32.rs`, `bf16.rs`, `helpers.rs`).
   - [`examples/qwen35_mlx_full_parity/`](./examples/qwen35_mlx_full_parity/): Phase 3M.2–3M.4 full-sequence parity gate (`main.rs`, `full.rs`, `trace.rs`, `fixtures.rs`).
+  - [`examples/qwen35_mlx_nested_parity/`](./examples/qwen35_mlx_nested_parity/): Phase 3M.4 sequential nested continuation parity gate (`main.rs`, `stage.rs`, `fixtures.rs`).
 
 ## Critical Gotchas & Rules
 

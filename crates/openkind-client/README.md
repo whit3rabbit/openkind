@@ -150,7 +150,7 @@ Cloudflare mode uses its account URL and `typesafe/jev` unless `base_url` or
 | `GET` | `list_models` / `list_models_with` | `/v1/models` |
 | `GET` | `health` / `health_with` | `/health` (unauthenticated) |
 
-Per-call overrides (`timeout`, `retry`, extra headers) are available on every `*_with` variant through [`RequestOptions`](src/client.rs).
+Per-call overrides (`timeout`, `retry`, extra headers) are available on every `*_with` variant through [`RequestOptions`](src/client/options.rs).
 
 ## Testing
 
