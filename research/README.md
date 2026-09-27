@@ -42,6 +42,8 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 | **28** | [`28_source_label_replay.ipynb`](./28_source_label_replay.ipynb) | v0.6.0 (`source_label_v060_s17_bf16_dbb5e724b5452f23`) | NVIDIA A100 (BF16 / FP32 adapters) | Source-label cross-entropy replay vs parent-KL consistency on SNLI to test joint ContractNLI/QASPER preservation | SNLI accuracy & probability scores improved (+17.7pp J6 vs J4, +18.2pp J7 vs J5); ContractNLI entailment and QASPER false-none failed preservation bounds; frozen parents retained | [Roadmap M2](../docs/ROADMAP.md#m2-establish-useful-decisions) |
 | **29** | [`29_qwen_moe_decision_lab.ipynb`](./29_qwen_moe_decision_lab.ipynb) | MoE Lab v0.2 (`20260926T224132_613995Z`) | NVIDIA L4 (NF4 / BF16 compute) | Qwen MoE decision inference, expert routing sparsity, top-k truncation, expert allowlisting, late MoE bypass, exact prefix state sharing, and physical weight residency | Prefill touches 98.7%–99.6% of experts (active params $\ne$ resident VRAM); top-1 routing cuts latency by 1.59x but drops accuracy by 15.6pp; late MoE skip preserves 53.1% acc (vs 56.3% native) at 1.32x speedup; direct selected readout achieves exact zero-delta parity; shared prefix state fails strict parity on MoE without full router isolation; physical pruning frees memory only when non-routed modules are deleted | [`29_qwen_moe_decision_lab_results/`](./29_qwen_moe_decision_lab_results) |
 | **30** | [`30_qwen_moe_quality_and_cache_followup.ipynb`](./30_qwen_moe_quality_and_cache_followup.ipynb) | MoE Follow-up v0.1 (`20260927T003918_481825Z`) | NVIDIA L4 (NF4 / BF16 compute) | Multi-split decision quality (252 Qs, 84 states), prompt selection, mass-matched top-k, late-block skip, FP32 linear reference cache numerics, option order diagnostics | Explicit three-way prompt won dev; `skip_last_6` selected on dev and evaluated on 96 fresh test cases (41.7% vs 37.5% native, 1.32x speedup, 8.3% coverage vs 14.6% native); native Unknown recall 0/32; mass-matched half-k beats raw half-k in NLL (2.038 vs 2.122); cache parity failed on both native ($\Delta p=0.120$) and FP32 linear reference ($\Delta p=0.155$); option order flips 25.0% of decisions ($\max \Delta p = 0.169$); research gate failed, promotion rejected | [Drive run](https://drive.google.com/drive/folders/1gXwnF1sXhR5Yh4-7R2izDQ9TJXDl_Lf1) / [`29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z) |
+| **31** | [`31_qwen_prefill_speed_accuracy_lab.ipynb`](./31_qwen_prefill_speed_accuracy_lab.ipynb) | MoE Prefill Speed & Accuracy Lab v0.2 (`e15e1e9f7a64e464a38354c59b0c79805d59bc13d517f7e4fca66873e5d5ff2e`) | NVIDIA A100-SXM4-40GB (vLLM 0.30.0, BF16 / GPTQ INT4) | Dense Qwen3.5-4B vs Qwen3.5-35B-A3B MoE INT4 prefill speed, exact-prefix caching, repeat/concurrency drift, and PrivateMode-style decision readout | Cache qualification failed (prefixes 59–105 tokens < 528/1,056 runtime blocks; 0 reused tokens); probability drift observed without cache reuse (MoE sequential repeat max $\Delta p = 17.60$ pp, concurrent vs seq $\max \Delta p = 11.92$ pp; 4B concurrent $\max \Delta p = 3.28$ pp); research gate failed, promotion rejected | [Drive run](https://drive.google.com/drive/folders/1LIKE7JSmEcO2fvrhf8Qx4_ZJfv-heGwD) / [`31_qwen_prefill_speed_accuracy_lab_results/`](./31_qwen_prefill_speed_accuracy_lab_results) |
+
 
 ---
 
@@ -775,6 +777,70 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 
 ---
 
+### 31. Phase 4 Prefill Speed and Accuracy Lab: Dense vs MoE Serving & Cache Qualification
+* **File**: [`31_qwen_prefill_speed_accuracy_lab.ipynb`](./31_qwen_prefill_speed_accuracy_lab.ipynb)
+* **Run Key**: `e15e1e9f7a64e464a38354c59b0c79805d59bc13d517f7e4fca66873e5d5ff2e`
+* **Target Hardware & Environment**: NVIDIA A100-SXM4-40GB (CUDA 13.0, PyTorch 2.13.0+cu130, vLLM 0.30.0, Transformers 5.17.0)
+* **Evaluated Models**:
+  - `qwen35_4b`: `Qwen/Qwen3.5-4B` (dense BF16, revision `851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a`)
+  - `qwen35_moe_int4`: `Qwen/Qwen3.5-35B-A3B-GPTQ-Int4` (MoE INT4 GPTQ/Marlin, revision `3af5ca2972faf6de1fd6f4efc4d8d319ca751e8b`)
+* **What it Measured / Scope**:
+  - Tested modern Qwen MoE against dense Qwen control using the same vLLM serving engine (v0.30.0).
+  - Adapted PrivateMode's constrained option-logprob readout method (`number_prefill`).
+  - Evaluated decision quality across SNLI (288 questions) and synthetic policy datasets (288 questions).
+  - Evaluated exact shared-state caching, sequential repeat stability, concurrent request invariance, and presentation order stability.
+* **Stage-by-Stage Findings & Audit Results**:
+  - **Evidence Inspection & Governance Outcome**:
+    - Inspected the [completed run](https://drive.google.com/drive/folders/1LIKE7JSmEcO2fvrhf8Qx4_ZJfv-heGwD). The saved evidence explains the failures.
+    - Model and cache promotion: **`false`** (`research_gate_passed = false`). A focused follow-up is needed to validate fixes.
+  - **Cache Tests Were Too Short to Exercise Caching**:
+
+    | Measurement | Qwen3.5 4B | MoE INT4 |
+    |---|---|---|
+    | Runtime cache-block size | 528 tokens | 1,056 tokens |
+    | Tested shared prefixes | 59–105 tokens | 59–105 tokens |
+    | Reported reused tokens | 0 throughout | 0 throughout |
+
+    - Both engines fell back from Mamba cache mode `all` to `align` (`WARNING: Hybrid or mamba-based model detected without support for prefix caching with Mamba cache 'all' mode: falling back to 'align' mode`). That mode resumes cached computation at block boundaries; these prefixes never reached one. This matches vLLM's documented behavior ([vLLM Automatic Prefix Caching](https://docs.vllm.ai/en/v0.30.0/features/automatic_prefix_caching/?utm_source=chatgpt.com)).
+    - That exposes a flaw in test design: failure on these short examples disabled cached modes in the later, longer-input benchmark. We therefore haven't established whether caching works correctly on sufficiently long inputs.
+  - **Probability Drift Even When Requests Report Zero Cache Reuse**:
+    - The allowed maximum difference was 0.5 percentage points ($\le 0.005$):
+
+    | Check | 4B maximum difference | MoE maximum difference |
+    |---|---|---|
+    | Repeated sequential requests | 0.00 pp | 17.60 pp |
+    | Concurrent requests versus sequential | 3.28 pp | 11.92 pp |
+
+    - The 4B concurrent test changed 1 of 24 answers.
+    - MoE sequential-repeat checks failed in 6 of 8 groups, despite unchanged winning answers.
+    - MoE staged execution also changed an answer and an acceptance decision.
+    - The server logs identify the MoE backend as GPTQ/Marlin (`Using 'MARLIN' WNA16 MoE backend`, `MarlinExperts`), but they don’t isolate whether the instability comes from that backend, another kernel, or execution scheduling. Calling this “cache corruption” would be premature.
+  - **Next Experiment Recommendations**:
+    - Establish repeatability with caching disabled, comparing compiled and eager execution.
+    - Test batching separately.
+    - Test cache reuse with prefixes exceeding the observed block boundaries (528 and 1,056 tokens), confirming actual hits before measuring speed.
+    - **Correction to Earlier Setup**: vLLM 0.30 documents batch-invariance support for compute capability 8.0+, including A100. The earlier $\ge 9.0$ guard was too restrictive. That setting deserves a controlled test, though this exact quantized model/backend still needs verification ([vLLM Batch Invariance](https://docs.vllm.ai/en/v0.30.0/features/batch_invariance/?utm_source=chatgpt.com)).
+    - The completed accuracy results remain recorded observations. We can retain them and run a smaller cache/repeatability experiment rather than repeat the entire quality study.
+* **Supporting Directory & Key Artifacts**:
+  - Completed Run (Google Drive): [Completed Run `1LIKE7JSmEcO2fvrhf8Qx4_ZJfv-heGwD`](https://drive.google.com/drive/folders/1LIKE7JSmEcO2fvrhf8Qx4_ZJfv-heGwD)
+  - Local Directory: [`31_qwen_prefill_speed_accuracy_lab_results/`](./31_qwen_prefill_speed_accuracy_lab_results)
+  - Key files:
+    - [`RUN_SUMMARY.md`](./31_qwen_prefill_speed_accuracy_lab_results/RUN_SUMMARY.md)
+    - [`manifest.json`](./31_qwen_prefill_speed_accuracy_lab_results/manifest.json)
+    - [`summary.json`](./31_qwen_prefill_speed_accuracy_lab_results/summary.json)
+    - [`quality.csv`](./31_qwen_prefill_speed_accuracy_lab_results/quality.csv)
+    - [`performance.csv`](./31_qwen_prefill_speed_accuracy_lab_results/performance.csv)
+    - [`accuracy.png`](./31_qwen_prefill_speed_accuracy_lab_results/accuracy.png)
+    - [`quality_latency.png`](./31_qwen_prefill_speed_accuracy_lab_results/quality_latency.png)
+    - [`qwen35_4b_cache_qualification.json`](./31_qwen_prefill_speed_accuracy_lab_results/qwen35_4b_cache_qualification.json)
+    - [`qwen35_4b_server.log`](./31_qwen_prefill_speed_accuracy_lab_results/qwen35_4b_server.log)
+    - [`qwen35_moe_int4_cache_qualification.json`](./31_qwen_prefill_speed_accuracy_lab_results/qwen35_moe_int4_cache_qualification.json)
+    - [`qwen35_moe_int4_server.log`](./31_qwen_prefill_speed_accuracy_lab_results/qwen35_moe_int4_server.log)
+    - [`dataset.json`](./31_qwen_prefill_speed_accuracy_lab_results/dataset.json)
+    - [`SHA256SUMS`](./31_qwen_prefill_speed_accuracy_lab_results/SHA256SUMS)
+
+---
+
 ## Key Scientific Insights & Architectural Invariants
 
 1. **Strict FP32 Reference Boundary**:
@@ -820,3 +886,5 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
     In MoE architectures where router probabilities are unnormalized across selected experts (`norm_topk_prob=false`), truncating $k$ (e.g. top-4 to top-2 or top-1) reduces both active expert capacity and total routed weight magnitude ($\sum w_i < 1.0$), confounding routing selectivity with activation scaling. Furthermore, low-bit quantized backends (e.g. `bitsandbytes` NF4) often dispatch single-row and multi-row inputs through differing numerical kernel paths; prefill state splitting interacts with dynamic expert batch sizes, creating shape-dependent numerical drift ($\Delta p$ up to 0.12) that breaks prefix cache equivalence.
 20. **MoE Sliced Continuation Divergence Across Linear References & Option Presentation Order Bias**:
     Replacing quantized matrix-vector kernels with an explicit IEEE FP32 dequantized linear reference over NF4 weights fails to restore prefix-cache mathematical equivalence on MoE models ($\max \Delta p$ increased from 0.1199 to 0.1553, with 1 decision flip), proving that prefix-sliced divergence is not solely a low-bit GEMM batching artifact but stems from subtle attention position/mask dynamics and dynamic router assignments across split sequences. Furthermore, unprompted option letter presentation introduces severe ordering bias in MoE next-token scoring, flipping the winner in 25.0% of cases ($\max \Delta p = 0.1686$) unless neutralized by explicit permutation averaging.
+21. **Hybrid/Mamba Prefix Caching Block Boundaries & Quantized MoE Repeatability**:
+    In hybrid DeltaNet/Mamba architectures (such as Qwen 3.5), vLLM automatic prefix caching falls back from `all` to `align` mode, resuming cached computation strictly at block boundaries (528 tokens for 4B, 1,056 tokens for MoE INT4). Prefixes shorter than a block boundary yield zero cached token reuse throughout. Furthermore, quantized MoE backends (e.g. GPTQ/Marlin) can exhibit severe probability drift (up to 17.60 pp sequential, 11.92 pp concurrent) even when zero cache reuse occurs. Repeatability with caching disabled must be verified across eager and compiled execution before evaluating prefix-cache speedups.
