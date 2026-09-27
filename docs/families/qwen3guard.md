@@ -8,10 +8,35 @@
 
 ## Status in openkind
 
-**Surveyed.** No profile, no vendored parity fixtures, no daemon
-registration. `openkind` does not adopt the upstream `qwen3guard` name
-as a commitment to any specific checkpoint; the name is preserved here
-so future selection work can pick up the family with the same vocabulary.
+**Rust-loadable (prototype profile, Stream variant).** The pinned profile
+`0fcf416cab16d94f933d` loads `Qwen/Qwen3Guard-Stream-0.6B` at
+`419364a715de9840d47b1457982f64ff37f90ed4` (Apache-2.0) through a
+hand-implemented Qwen3 dense architecture (per-head q/k RMSNorm, explicit
+head_dim, causal attention) in
+[`families/qwen3guard/`](../../crates/openkind-backends/src/families/qwen3guard/mod.rs),
+FP32 on CPU, verified token-level against the PyTorch reference. It
+implements `DecisionEngine`, registers in `openkindd` via
+`--qwen3guard-aliases` / `--qwen3guard-model-root`, and is benchmarked
+through `openkind-bench --engine qwen3-guard`.
+
+**Architecture-invariant resolution.** The surveyed `gen` variant parses a
+generated verdict string and is barred by the workspace no-generation rule.
+This profile implements the **Stream** variant instead: a token-level
+classification head produces the risk distribution directly from the hidden
+state — no token is ever sampled. The reference scores the user-turn
+position at the closing `<|im_end|>`; the profile renders
+`<|im_start|>user\n{state}<|im_end|>` and reads the query-side risk head.
+
+**Wire mapping.** `Noul` maps to the `Unsafe` class probability (the
+`Controversial` class is not surfaced in the scalar answer; serve a Choice
+question for the full distribution). `Choice` options map by label
+(`safe`/`unsafe`/`controversial`, case-insensitive) to their class logits,
+and the reserved `__none__` key maps to the `Controversial` class — the
+checkpoint's failure-to-decide mass; offering both `controversial` and
+`__none__` fails closed. `Score` questions are rejected: the fixed preset
+has no ordinal contract. Probability space:
+`ConditionalOnOfferedOptions` (softmax over offered class logits). No M0/M2
+reviewed-decision evidence exists for this profile.
 
 ## Architectural shape
 

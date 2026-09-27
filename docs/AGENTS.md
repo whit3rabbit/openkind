@@ -11,17 +11,31 @@ The documentation suite maintains a strict division of responsibility across pro
 | Subject | Canonical Owner |
 |---|---|
 | Current milestone phases, progress, and remaining work | [`ROADMAP.md`](ROADMAP.md) |
+| Static model-profile registry and family survey | [`families/README.md`](families/README.md) |
+| Procedure for adding a model or family | [`families/NEW_FAMILY.md`](families/NEW_FAMILY.md) |
 | Landed crate boundaries, module topology, and data flow | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | Benchmark methodology, harness usage, and recorded runs | [`BENCHMARKS.md`](BENCHMARKS.md) |
 | MLX runtime contract, implementation guide, limitations, and enhancement path | [`MLX.md`](MLX.md) |
 | Research dossier, background, and prior art | [`RESEARCH.md`](RESEARCH.md) |
 | Scientific rationale, theoretical grounding, and measured results | [`whitepaper/WHITEPAPER.md`](whitepaper/WHITEPAPER.md) |
+| Cross-provider Jev compatibility matrix and provider routes | [`JEV_COMPATIBILITY.md`](JEV_COMPATIBILITY.md) |
+| TypeScript, Python, and Swift HTTP clients and local server wrappers | [`../bindings/README.md`](../bindings/README.md) |
 | HTTP wire specification | [`../crates/openkind-api/openapi.yaml`](../crates/openkind-api/openapi.yaml) |
 | JSON Schema definitions | [`../crates/openkind-core/schemas/`](../crates/openkind-core/schemas/) |
 | Protobuf contract | [`../proto/proto/openkind.proto`](../proto/proto/openkind.proto) |
 | Module-specific rules and invariants | Each crate's `AGENTS.md` |
 
 - `ROADMAP.md` owns phase tracking and upcoming tasks.
+- `families/README.md` owns the static family-to-loader catalogue. Use
+  `families/NEW_FAMILY.md` for family evaluation gates and Rust integration.
+  Keep surveyed, Rust-loadable, task-qualified, and release-promoted as
+  separate states. A family is not Rust-loadable until its pinned profile
+  loads from local artifacts, has offline parity fixtures and a
+  `DecisionEngine` adapter, and is registered with the daemon. Model quality
+  and release promotion require their own roadmap gates.
+- `EngineRegistry` routes aliases to already-loaded engines. Do not describe
+  it as a generic artifact loader or use a registry entry alone as evidence
+  that a model family is implemented.
 - `ARCHITECTURE.md` documents what is currently landed in code, never speculative designs unless explicitly marked as proposals.
 - `MLX.md` is the operational guide for the landed MLX backend. It links to canonical benchmark and roadmap owners instead of replacing them.
 - Each crate's `AGENTS.md` serves as the developer guide and invariant boundary for that specific crate.

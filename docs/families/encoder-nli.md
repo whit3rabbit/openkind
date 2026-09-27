@@ -5,10 +5,37 @@
 
 ## Status in openkind
 
-**Surveyed.** No profile, no vendored parity fixtures, no daemon
-registration. Implementation would require a new profile id, new
-parity fixtures, and a fresh review through the active milestone sequence
-in [`../../ROADMAP.md`](../../ROADMAP.md).
+**Rust-loadable (prototype profile).** The pinned profile
+`1041a4c362338a61b820` loads `typeform/distilbert-base-uncased-mnli` at
+`cfa538a0fddbbd978fefe8966c1aeff7ad409c90` (Apache-2.0) through the candle
+`distilbert` implementation, FP32 on CPU. It implements `DecisionEngine`
+behind the bounded family scaffold in
+[`families/encoder_nli/`](../../crates/openkind-backends/src/families/encoder_nli/mod.rs),
+registers in `openkindd` via `--encoder-nli-aliases` /
+`--encoder-nli-model-root`, and is benchmarked through
+`openkind-bench --engine encoder-nli`.
+
+Profile readout contract (documented because the off-the-shelf checkpoint
+needs explicit Noul semantics):
+
+- `Choice`/`Score`: one premise–hypothesis pass per candidate; the
+  candidate-level distribution is a temperature-calibrated softmax over
+  log-entailment logits.
+- `Noul`: the hypothesis is the caller's `true` criterion when explicit
+  criteria are supplied, and the question instruction itself otherwise; the
+  answer is the entailment mass over decided (entailment vs contradiction)
+  mass. Interrogative hypotheses leave most mass in the neutral class, which
+  the ratio treats as undecided.
+- Probability space: `ConditionalOnOfferedOptions`. A offered `__none__` key
+  is scored as an ordinary candidate.
+
+No M0/M2 reviewed-decision evidence exists for this profile; the recorded
+benchmark is request-path timing only, and the calibration temperature is
+fitted on the pinned synthetic calibration workload (see
+[`../BENCHMARKS.md`](../BENCHMARKS.md)). The page-level concern below about
+uncalibrated zero-shot probabilities remains accurate: the fitted temperature
+softens rather than fixes weak entailment separations on rubric-like
+hypotheses.
 
 ## Architectural shape
 

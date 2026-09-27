@@ -2,7 +2,7 @@
 
 > Repository map and architectural rules for agents working on `openkind`.
 >
-> Documentation baseline: v0.8.0, 20 September 2026.
+> Documentation baseline: v0.10.0, 26 September 2026.
 
 ## Project
 
@@ -22,7 +22,11 @@ selected open-weight Qwen 3.5 profile described below.
 - [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md): benchmark methodology, harness usage, and recorded runs.
 - [`docs/MLX.md`](docs/MLX.md): MLX runtime contract, implementation guide, limitations, and enhancement path.
 - [`docs/RESEARCH.md`](docs/RESEARCH.md): empirical research and prior-art evidence.
+- [`docs/JEV_COMPATIBILITY.md`](docs/JEV_COMPATIBILITY.md): cross-provider Jev compatibility matrix and provider routes.
+- [`docs/families/README.md`](docs/families/README.md): static model-profile registry and family survey.
+- [`docs/families/NEW_FAMILY.md`](docs/families/NEW_FAMILY.md): family evaluation gates and Rust integration workflow.
 - [`docs/whitepaper/WHITEPAPER.md`](docs/whitepaper/WHITEPAPER.md): scientific rationale and measured results.
+- [`bindings/README.md`](bindings/README.md): TypeScript, Python, and Swift HTTP clients and local server wrappers.
 - Each crate's `AGENTS.md`: module-specific invariants and verification commands.
 
 If documentation and code disagree, do not silently choose one. Use executable
@@ -51,6 +55,8 @@ Profile `a047d6802c3f06f085b8` is the native integration target:
   - `--qwen35-execution` on `openkindd` forces one plan for diagnostics and reproducibility. It bypasses the profitability policy only — admission ceilings and real backend capabilities still apply.
 - **Daemon Registration**: `Qwen35DecisionEngine` integrates directly behind `DecisionEngine`
   and is registered by `openkindd` via `--qwen35-*` CLI flags and environment variables.
+  Surveyed-family engines (`openkind_backends::families`) and composite router scripts register via
+  `--<family>-*` CLI flags and environment variables.
 - **Execution Identity**: Finalized token sequences are the execution contract. Role-typed digests
   (`StateTokenDigest`, `QuestionTokenDigest`, `CandidateTokenDigest`, an order-sensitive
   `ExecutionInputDigest`, and an order-independent `SemanticSetDigest`) live in `openkind-runtime`
@@ -85,12 +91,42 @@ promotion remain open.
 | Daemon lifecycle | [`crates/openkind-server/AGENTS.md`](crates/openkind-server/AGENTS.md) |
 | Operator CLI | [`crates/openkind-cli/AGENTS.md`](crates/openkind-cli/AGENTS.md) |
 | Rust client SDK | [`crates/openkind-client/AGENTS.md`](crates/openkind-client/AGENTS.md) |
+| TypeScript, Python, and Swift HTTP clients and server wrappers | [`bindings/README.md`](bindings/README.md) |
 | Hardware and state lifecycle | [`crates/openkind-runtime/AGENTS.md`](crates/openkind-runtime/AGENTS.md) |
 | Model artifacts and readouts | [`crates/openkind-backends/AGENTS.md`](crates/openkind-backends/AGENTS.md) |
 | Native decision-workload benchmark harness | [`crates/openkind-bench/AGENTS.md`](crates/openkind-bench/AGENTS.md) |
 | JSON Schema generation | [`crates/openkind-gen-schemas/AGENTS.md`](crates/openkind-gen-schemas/AGENTS.md) |
 | Protobuf contract | [`proto/AGENTS.md`](proto/AGENTS.md) |
 | Project documentation | [`docs/AGENTS.md`](docs/AGENTS.md) |
+
+## HTTP Language and Server Bindings
+
+The source packages in `bindings/typescript`, `bindings/python`, and
+`bindings/swift` call a running `openkindd` over HTTP. They do not invoke the
+`openkind` CLI process. Each also has a process wrapper for starting a local
+`openkindd`; this does not embed Rust or load model weights in the host language.
+Keep them aligned with
+[`openkind-api/openapi.yaml`](crates/openkind-api/openapi.yaml):
+
+- Send an explicit `model` on the wire to `POST /v1/systemone`. Also support
+  `GET /v1/models` and the unauthenticated `GET /health` probe.
+- Preserve wire `f64` values and the tagged `noul`, `choice`, and `score`
+  shapes. A Noul answer has no confidence field. TypeScript and Swift state
+  numbers cannot represent integers above `2^53 - 1` exactly.
+- Check successful answers against the submitted question IDs and types.
+  Choice selections and probability keys must match the submitted criteria.
+  The caller still authorizes and verifies any action based on a decision.
+- Surface the HTTP error envelope and `x-typesafe-request-id` header. These
+  packages do not implement the Rust client's retries, gRPC, OpenRouter, or
+  Cloudflare transport.
+- Server wrappers own only the `openkindd` child they start, bind HTTP to an
+  explicit loopback port, disable gRPC, and pass API keys through the child
+  environment. The Swift server wrapper is macOS only; the TypeScript server
+  entrypoint requires Node.
+
+The [bindings guide](bindings/README.md) owns setup and language-specific test
+commands. Mock-daemon transport checks establish wire behavior, not native
+model quality, full API coverage, or release readiness.
 
 ## Benchmark Taxonomy
 
@@ -174,6 +210,14 @@ git diff --check
 ```
 
 After schema generation, confirm that unrelated schema files did not change.
+
+For changes under `bindings/`, also run the language-specific tests:
+
+```bash
+(cd bindings/typescript && npm install && npm test)
+(cd bindings/python && python3 -m unittest discover -s tests)
+(cd bindings/swift && swift test)
+```
 
 Optional MLX parity backend (macOS arm64 only): build with
 `SDKROOT=$(xcrun --show-sdk-path)` and `--features mlx` for

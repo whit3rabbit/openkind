@@ -6,9 +6,13 @@
 
 ## Status in openkind
 
-**Implemented.** This is the only family currently registered against the
-daemon. The provisional profile is `a047d6802c3f06f085b8` over
-`Qwen/Qwen3.5-4B-Base`. Status, milestones, and remaining work are owned
+**Implemented.** This is the only family with a native Rust decision-engine
+loader. The provisional profile is `a047d6802c3f06f085b8` over
+`Qwen/Qwen3.5-4B-Base`. A daemon registers a loaded instance under a configured
+model alias. The pinned artifact revisions and a working Rust loading example
+are in the [model registry](./README.md#runnable-model-profiles) and its
+[Rust loading guide](./README.md#load-the-profile-from-rust). Status,
+milestones, and remaining work are owned
 by [`../../ROADMAP.md`](../../ROADMAP.md); landed contracts are owned by
 [`../../ARCHITECTURE.md`](../../ARCHITECTURE.md); MLX backend specifics are
 owned by [`../../MLX.md`](../../MLX.md); benchmark methodology is owned by

@@ -5,10 +5,21 @@
 
 ## Status in openkind
 
-**Surveyed — internal routing primitive.** Not a standalone decision
-model; the family only routes between sibling families (for example
-between an English-only encoder and a multilingual encoder). Routing
-cost should be sub-millisecond and produce a deterministic branch.
+**Rust-loadable (prototype).** The router is implemented as a composite
+[`DecisionEngine`](../../crates/openkind-backends/src/families/router_script/engine.rs):
+Unicode script detection over the state plus question text, a fixed rule
+table, and delegation to registered sibling engines. It registers in
+`openkindd` via `--router-script-aliases` and
+`--router-script-rules "script=sibling,...,default=sibling"`; the rule table
+fails construction closed when a referenced sibling alias is not served
+through `--models`. It is benchmarked through `openkind-bench --engine
+router-script` (over mock siblings, recording routing overhead only).
+
+The rule table cannot distinguish languages sharing a script (German and
+Turkish Latin text both route as `latin`); that limit is inherent to script
+detection and is preserved rather than papered over. Routing never changes
+wire semantics: `request.model` and answer shapes are the routed sibling's,
+and the router adds no admission control of its own.
 
 ## Architectural shape
 

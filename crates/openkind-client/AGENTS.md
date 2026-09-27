@@ -4,7 +4,7 @@
 
 ## Crate Purpose & Boundaries
 
-`openkind-client` is the async Rust SDK for the SystemOne HTTP API. It is the Rust counterpart of the `typesafe_sdk` Python SDK: same endpoints, same retry taxonomy, same error envelope handling, same environment-variable resolution — usable against both a local `openkindd` daemon and `https://api.typesafe.ai`.
+`openkind-client` is the async Rust SDK for the SystemOne HTTP API. It is the Rust counterpart of the `typesafe_sdk` Python SDK: same endpoints, same retry taxonomy, same error envelope handling, same environment-variable resolution — usable against a local `openkindd` daemon, `https://api.typesafe.ai`, and supported providers (OpenRouter System One and Cloudflare Workers AI via [`ClientBuilder`](src/client/builder.rs)).
 
 ### Dependency Rules
 
@@ -16,7 +16,7 @@
 
 | Module | Responsibility |
 |---|---|
-| [`src/client/`](src/client/) | Modular client implementation: `mod.rs` (re-exports), [`options.rs`](src/client/options.rs) (`RequestOptions`, `IntoState`), [`builder.rs`](src/client/builder.rs) (`ClientBuilder`), [`core.rs`](src/client/core.rs) (`Client`, `Health`, request-bound response validation), [`transport.rs`](src/client/transport.rs) (retry send loop in `send_json`), and [`tests.rs`](src/client/tests.rs) |
+| [`src/client/`](src/client/) | Modular client implementation: `mod.rs` (re-exports), [`options.rs`](src/client/options.rs) (`RequestOptions`, `IntoState`), [`builder.rs`](src/client/builder.rs) (`ClientBuilder`, provider presets), [`core.rs`](src/client/core.rs) (`Client`, `Health`, request-bound response validation), [`http1.rs`](src/client/http1.rs) (socket-level HTTP/1.1 transport, chunked stream splitting, connection reuse), [`transport.rs`](src/client/transport.rs) (retry send loop in `send_json`), and [`tests.rs`](src/client/tests.rs) |
 | [`src/error/`](src/error/) | Modular error taxonomy: `mod.rs` (re-exports, `Error` enum including `InvalidResponse`), [`api_error.rs`](src/error/api_error.rs) (`ApiError`, `ApiErrorKind`), [`envelope.rs`](src/error/envelope.rs) (lenient error-envelope extraction), [`retry_after.rs`](src/error/retry_after.rs) (`parse_retry_after`), and [`tests.rs`](src/error/tests.rs) |
 | [`src/retry/`](src/retry/) | Modular retry policy: `mod.rs` (re-exports), [`policy.rs`](src/retry/policy.rs) (`RetryPolicy`, backoff computation, jitter), and [`tests.rs`](src/retry/tests.rs) |
 | [`src/question.rs`](src/question.rs) | Ergonomic `Question` / `State` constructors mirroring the Python SDK's `Noul`/`Choice`/`Score` sugar |
@@ -52,6 +52,7 @@
 - `tests/sdk_parity_retry.rs` (modularized into `tests/sdk_parity_retry/`): `status.rs`, `overrides.rs`, `delays.rs`, `exhaustion.rs`, and `concurrency.rs`.
 - `tests/sdk_parity_errors.rs`, `tests/sdk_parity_wire.rs`, `tests/sdk_parity_config.rs`: Ports of the TypeSafe Python SDK's test suite; [`PARITY.md`](PARITY.md) is the authoritative file-by-file mapping.
 - `tests/live_server.rs`: Real `openkind-api` server over TCP verifying wire conformance across all question types, auth, 404/422 envelopes, and the real rate limiter.
+- `tests/provider_surfaces.rs`: Provider routing checks for OpenRouter metadata/cost handling and Cloudflare Workers AI endpoints.
 - `tests/retry_behavior.rs`: Deterministic stub server for attempt counting, retry headers, precedence, and budget stops.
 - `tests/response_validation.rs`: Stub server checks for valid 2xx responses and nonretryable invalid responses.
 - `benches/client.rs`: Criterion benchmarks over a warmed localhost connection

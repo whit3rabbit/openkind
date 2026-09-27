@@ -1,81 +1,184 @@
-# openkind — Decision-model families
+# Model families and model registry
 
-> Catalogue of decision-model architectures considered by `openkind`. Each
-> family page describes one architectural approach to producing typed
-> `Noul` / `Choice` / `Score` answers from a shared state document without
-> autoregressive text generation, and records whether `openkind` has
-> implemented or evaluated it.
+This directory has two jobs: it lists the model profiles that the Rust code
+can load, and it records architecture families that have only been surveyed.
+The supported-model table is a static catalogue. Runtime model aliases are
+registered separately by `openkind-engine`.
 
-This directory is the **survey** of architectures that the `openkind` engine
-might host. It is intentionally broader than the current implementation.
+To add a model or family, use the [contributor guide](./NEW_FAMILY.md).
 
-## Canonical ownership rules
+## Runnable model profiles
 
-Per [`docs/AGENTS.md`](../AGENTS.md), this directory does not duplicate facts
-that already live elsewhere. Each family page links to the canonical owner
-for every claim it makes:
+| Family and profile | Base model | Profile bundle | Rust loader |
+|---|---|---|---|
+| [`encoder-state-first`](./encoder-state-first.md), `a047d6802c3f06f085b8` | `Qwen/Qwen3.5-4B-Base` at `1001bb4d826a52d1f399e183466143f4da7b741b` | `cowWhySo/OpenKind-Qwen3.5-4B-StateFirst` at `20974648aa087369645494e898351253248627a0` | [`Qwen35DecisionEngine::load`](../../crates/openkind-backends/src/qwen35/engine/mod.rs) |
+| [`decoder-logit-letter`](./decoder-logit-letter.md), `5492c97dfcdaf3fe9439` | `Qwen/Qwen2.5-0.5B-Instruct` at `7ae557604adf67be50417f59c2c2f167def9a775` | checkpoint direct (digest-verified in place) | [`DecoderLetterEngine::load`](../../crates/openkind-backends/src/families/decoder_logit_letter/mod.rs) |
+| [`encoder-nli`](./encoder-nli.md), `1041a4c362338a61b820` | `typeform/distilbert-base-uncased-mnli` at `cfa538a0fddbbd978fefe8966c1aeff7ad409c90` | checkpoint direct (digest-verified in place) | [`EncoderNliEngine::load`](../../crates/openkind-backends/src/families/encoder_nli/mod.rs) |
+| [`decoder-logit-llm`](./decoder-logit-llm.md), `465963d705b6f35d6208` | `Qwen/Qwen2.5-0.5B-Instruct-GGUF` (q8_0) at `9217f5db79a29953eb74d5343926648285ec7e67` | checkpoint direct (digest-verified in place) | [`DecoderLlmEngine::load`](../../crates/openkind-backends/src/families/decoder_logit_llm/mod.rs) |
+| [`schema-scorer`](./schema-scorer.md), `5a7350af556f0ee66566` | `cross-encoder/ms-marco-MiniLM-L-6-v2` at `233902d25c440f23af6f7d6e94d2946bac0bee0a` | checkpoint direct (digest-verified in place) | [`SchemaScorerEngine::load`](../../crates/openkind-backends/src/families/schema_scorer/mod.rs) |
+| [`qwen3guard`](./qwen3guard.md) (Stream), `0fcf416cab16d94f933d` | `Qwen/Qwen3Guard-Stream-0.6B` at `419364a715de9840d47b1457982f64ff37f90ed4` | checkpoint direct (digest-verified in place) | [`Qwen3GuardEngine::load`](../../crates/openkind-backends/src/families/qwen3guard/mod.rs) |
+| [`router-script`](./router-script.md) | none — Unicode script detector over registered siblings | no artifacts (rule table) | [`RouterScriptEngine::new`](../../crates/openkind-backends/src/families/router_script/mod.rs) |
+| [`winnow`](./winnow.md), `4dff8c5b03cfbf680db6` | `Qwen/Qwen2.5-0.5B-Instruct` at `7ae557604adf67be50417f59c2c2f167def9a775` + in-house LoRA (vendored) | adapter vendored, base checkpoint direct | [`WinnowEngine::load`](../../crates/openkind-backends/src/families/winnow/mod.rs) |
+
+The loader constants and bundle validation are in
+[`qwen35/mod.rs`](../../crates/openkind-backends/src/qwen35/mod.rs) and
+[`qwen35/profile.rs`](../../crates/openkind-backends/src/qwen35/profile.rs).
+The CPU backend is the default. The optional MLX backend and its parity limits
+are documented in [`../MLX.md`](../MLX.md). A loader being present does not
+mean the model has release promotion or reviewed model-quality evidence.
+
+## Load the profile from Rust
+
+Loading is offline. Prepare three local paths before calling Rust:
+
+- `bundle_root`: the profile bundle at the pinned revision above. It must
+  contain `BUNDLE_MANIFEST.json` and the manifest-covered profile and head
+  files.
+- `checkpoint_root`: the pinned base checkpoint directory with both
+  safetensors shards.
+- `tokenizer_path`: the pinned checkpoint's `tokenizer.json`.
+
+The loader checks the pinned bundle, model checkpoint, and tokenizer. It does
+not download missing files. For model acquisition and the checkpoint revision,
+see the [backend acquisition instructions](../../crates/openkind-backends/AGENTS.md#model-acquisition-explicit-opt-in).
+
+The selected profile bundle is also available at the pinned Hugging Face
+revision. Download both repositories as an explicit operator step:
+
+```bash
+MODEL_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/openkind"
+
+hf download Qwen/Qwen3.5-4B-Base \
+  --revision 1001bb4d826a52d1f399e183466143f4da7b741b \
+  --local-dir "$MODEL_ROOT/qwen35-base"
+
+hf download cowWhySo/OpenKind-Qwen3.5-4B-StateFirst \
+  --revision 20974648aa087369645494e898351253248627a0 \
+  --local-dir "$MODEL_ROOT/qwen35-statefirst"
+```
+
+Use the first directory as `checkpoint_root`, its `tokenizer.json` as
+`tokenizer_path`, and the second directory as `bundle_root`. The commands do
+not belong in builds or tests.
+
+This helper loads the CPU engine and registers it under an application-chosen
+alias. Supply a continuation-tensor limit chosen for the serving host.
+
+```rust
+use std::{path::PathBuf, sync::Arc, time::Duration};
+
+use openkind_backends::qwen35::{
+    Qwen35Backend, Qwen35DecisionEngine, Qwen35EngineConfig, Qwen35Error,
+    SchedulerConfig,
+};
+use openkind_engine::EngineRegistry;
+
+fn register_pinned_qwen35(
+    registry: &mut EngineRegistry,
+    alias: impl Into<String>,
+    bundle_root: PathBuf,
+    checkpoint_root: PathBuf,
+    tokenizer_path: PathBuf,
+    max_tensor_storage_bytes: usize,
+) -> Result<(), Qwen35Error> {
+    let scheduler = SchedulerConfig::for_pinned_profile(
+        SchedulerConfig::LOWEST_MEASURED_SHARED_SAVINGS_RATIO,
+        Some(max_tensor_storage_bytes),
+    );
+    let engine = Qwen35DecisionEngine::load(Qwen35EngineConfig {
+        bundle_root,
+        checkpoint_root,
+        tokenizer_path,
+        backend: Qwen35Backend::NativeCpu,
+        scheduler,
+        max_concurrent_requests: 1,
+        max_queued_requests: 2,
+        retry_after_ms: 1_000,
+        evaluation_timeout: Some(Duration::from_secs(600)),
+    })?;
+
+    registry.register(alias, Arc::new(engine));
+    Ok(())
+}
+
+fn register_models(
+    bundle_root: PathBuf,
+    checkpoint_root: PathBuf,
+    tokenizer_path: PathBuf,
+    max_tensor_storage_bytes: usize,
+) -> Result<EngineRegistry, Qwen35Error> {
+    let mut registry = EngineRegistry::new();
+    register_pinned_qwen35(
+        &mut registry,
+        "qwen35-native",
+        bundle_root,
+        checkpoint_root,
+        tokenizer_path,
+        max_tensor_storage_bytes,
+    )?;
+    Ok(registry)
+}
+```
+
+`max_tensor_storage_bytes` limits retained continuation tensors only. It does
+not cover mapped model weights, forward scratch, or allocator overhead. Use a
+process-memory envelope as well when the service needs a process-wide memory
+ceiling. The scheduler crossover is a measurement for this profile and host;
+see [`../BENCHMARKS.md`](../BENCHMARKS.md), and do not treat it as a throughput
+guarantee for other hosts.
+
+## Runtime alias registry
+
+[`EngineRegistry`](../../crates/openkind-engine/src/registry.rs) maps a model
+alias to an already-loaded `Arc<dyn DecisionEngine>`. Its `models()` and
+`list_models()` methods expose registered aliases and metadata, including the
+server's `GET /v1/models` response. It is not a lazy model loader or a mapping
+from a Hugging Face model ID to a backend.
+
+The daemon uses an alias for the native Qwen engine only when that alias is in
+both `--models` and `--qwen35-aliases`; other configured aliases use the mock
+engine. The default `--models` list does not include `qwen35-native`, so add it
+explicitly when serving the native profile. The generic `BackendType` enum in
+`openkind-backends` also does not provide loaders for its Candle, GGUF, or ONNX
+variants.
+
+## Surveyed families
+
+Each page records the architecture and, where a pinned profile exists, its
+Rust loader and registration status. A "Rust-loadable" entry is a prototype
+profile: it loads local artifacts offline and serves through the daemon, and
+it carries no model-quality claim.
+
+| Family | Backbone pattern | Rust loading status |
+|---|---|---|
+| [encoder-nli](./encoder-nli.md) | Encoder, one premise-hypothesis pass per candidate, entailment probabilities | Rust-loadable (prototype profile) |
+| [encoder-instruct-label](./encoder-instruct-label.md) | Instruction-tuned encoder with pooled label markers | Rust-loadable (prototype profile, hand-implemented ModernBERT backbone) |
+| [decoder-logit-letter](./decoder-logit-letter.md) | Decoder with next-token logits restricted to option-letter tokens | Rust-loadable (prototype profile) |
+| [decoder-logit-llm](./decoder-logit-llm.md) | Decoder with a label-logit readout | Rust-loadable (prototype profile) |
+| [router-script](./router-script.md) | Lightweight script detector that selects a sibling family | Rust-loadable (composite over registered siblings) |
+| [winnow](./winnow.md) | Decoder plus LoRA and a script-aware router | Rust-loadable (prototype profile, in-house trained) |
+| [kev](./kev.md) | Qwen base with a LoRA adapter and pointer head | Rust-loadable (prototype profile, published open checkpoint) |
+| [von](./von.md) | Encoder head trained against the published `von` contract | Blocked — external-reference-only (weights and contract unowned) |
+| [schema-scorer](./schema-scorer.md) | Single-logit cross-encoder for the Jev question schema | Rust-loadable (prototype profile, open-weights realization) |
+| [qwen3guard](./qwen3guard.md) | Decoder fine-tune for fixed-preset safety verdicts | Rust-loadable (Stream variant, prototype profile) |
+
+## Ownership and updates
+
+This index owns the catalogue of family-to-loader availability. It does not
+duplicate benchmark results, roadmap status, or architecture contracts. Their
+canonical owners are:
 
 | Subject | Canonical owner |
 |---|---|
-| Current implementation status, milestones, and remaining work | [`../ROADMAP.md`](../ROADMAP.md) |
-| Landed crate boundaries and module topology | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) |
-| Benchmark methodology and recorded numbers | [`../BENCHMARKS.md`](../BENCHMARKS.md) |
-| Landed MLX runtime contract and limitations | [`../MLX.md`](../MLX.md) |
-| Research dossier and prior-art evidence | [`../RESEARCH.md`](../RESEARCH.md) |
+| Current milestones and remaining work | [`../ROADMAP.md`](../ROADMAP.md) |
+| Landed crate boundaries and data flow | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) |
+| Benchmark methods and recorded results | [`../BENCHMARKS.md`](../BENCHMARKS.md) |
+| MLX runtime contract and limitations | [`../MLX.md`](../MLX.md) |
+| Research and prior-art evidence | [`../RESEARCH.md`](../RESEARCH.md) |
 | Scientific rationale and measured results | [`../whitepaper/WHITEPAPER.md`](../whitepaper/WHITEPAPER.md) |
-| Jev wire contract compatibility claims | [`../JEV_COMPATIBILITY.md`](../JEV_COMPATIBILITY.md) |
-| Wire types, JSON Schema, OpenAPI, Protobuf | [`../../crates/openkind-core/AGENTS.md`](../../crates/openkind-core/AGENTS.md), [`../../crates/openkind-api/openapi.yaml`](../../crates/openkind-api/openapi.yaml), [`../../proto/proto/openkind.proto`](../../proto/proto/openkind.proto) |
+| Jev wire compatibility | [`../JEV_COMPATIBILITY.md`](../JEV_COMPATIBILITY.md) |
 
-Family pages **never** republish benchmark numbers, roadmap status, or
-architecture contract text. They summarise each family, point at the
-canonical owner for every quantitative or status claim, and note the open
-questions that would need to be resolved before `openkind` could ship the
-family.
-
-## Family index
-
-| Family | Backbone pattern | Status in openkind |
-|---|---|---|
-| [encoder-state-first](./encoder-state-first.md) | Encoder backbone (BERT-style), state-first segmented tokenization, score-summary readout over candidate suffixes | **Implemented** — provisional profile `a047d6802c3f06f085b8` over `Qwen/Qwen3.5-4B-Base`; see `../ROADMAP.md` and `../ARCHITECTURE.md` |
-| [encoder-nli](./encoder-nli.md) | Encoder backbone, one premise–hypothesis forward pass per candidate, softmax over entailment probabilities | Surveyed — no Rust implementation, no parity fixtures |
-| [encoder-instruct-label](./encoder-instruct-label.md) | Instruction-tuned encoder, all candidate label markers in one sequence, span pooling, sigmoid per label | Surveyed — no Rust implementation, no parity fixtures |
-| [decoder-logit-letter](./decoder-logit-letter.md) | Decoder backbone, prompt with lettered options, next-token logits restricted to option-letter token ids | Surveyed — `decider` adapter design notes only |
-| [decoder-logit-llm](./decoder-logit-llm.md) | Decoder backbone (any chat/instruct GGUF), prompt with lettered options, label-logit readout via llama.cpp | Surveyed — design notes only; mirrors the `llm-logits-v1` common core |
-| [router-script](./router-script.md) | Lightweight language/script detector, no model forward pass; branches between sibling families | Surveyed — internal-only routing primitive |
-| [winnow](./winnow.md) | Decoder backbone + LoRA, script- and language-aware router via label-logit readout | Surveyed — design notes only |
-| [kev](./kev.md) | LoRA adapter + pointer head on a Qwen base, trained against the TypeSafe `kev` reference contract | Surveyed — contract mapping only |
-| [von](./von.md) | Encoder head trained against TypeSafe's published `von` reference contract | Surveyed — contract mapping only |
-| [schema-scorer](./schema-scorer.md) | DeBERTa-v3-large cross-encoder trained against the TypeSafe question schema, all three question types | Surveyed — contract mapping only |
-| [qwen3guard](./qwen3guard.md) | Decoder fine-tune, fixed-preset safety verdict, embedded question schema | Surveyed — no Rust implementation, no parity fixtures |
-
-The surveyed families are tracked as **evaluation backlog**. None has a
-pinned profile, parity fixtures, or implementation commitment. They appear
-here so that future selection work can pick up the survey with the same
-shape of evidence that the implemented family carries.
-
-## What "implemented" vs "surveyed" means
-
-- **Implemented** — A profile is registered against this family in
-  `openkind-engine`, parity fixtures are vendored in `crates/openkind-backends/`,
-  the daemon registers the engine, and recorded numbers exist in
-  `verification/`. Quantitative claims live in `../ROADMAP.md` and
-  `../BENCHMARKS.md`.
-- **Surveyed** — The architectural pattern is documented here and in the
-  research record, but no profile, no vendored fixtures, no daemon
-  registration, and no recorded numbers exist. Implementation would
-  require a new profile ID, new parity fixtures, and a fresh review
-  through M0–M2 of the active milestone sequence
-  (see `../ROADMAP.md`).
-
-## Adding a new family
-
-1. Add a `<family>.md` page to this directory using the existing pages as a
-   template.
-2. Add a row to the family index table above with the correct status.
-3. Do **not** add quantitative claims to the page. If you have measurements,
-   they belong in `../BENCHMARKS.md` or a verification report under
-   `../verification/`. Link to them.
-4. If the family is being considered for implementation, link to the
-   relevant `../ROADMAP.md` milestone rather than restating scope.
-5. Do not duplicate the canonical-ownership rules — link to
-   [`docs/AGENTS.md`](../AGENTS.md) instead.
+When adding a family, add its architecture page and a row in the surveyed
+table. Move it into the runnable-profile table only when a Rust loader and
+profile are implemented. Link to the relevant code and canonical evidence;
+do not copy benchmark results or roadmap milestones into these pages.

@@ -6,10 +6,29 @@
 
 ## Status in openkind
 
-**Surveyed.** No profile, no vendored parity fixtures, no daemon
-registration. Implementation would require a new profile id, new
-parity fixtures, and a fresh review through the active milestone sequence
-in [`../../ROADMAP.md`](../../ROADMAP.md).
+**Rust-loadable (prototype profile, trained in-house).** The pinned profile
+`4dff8c5b03cfbf680db6` fine-tunes `Qwen/Qwen2.5-0.5B-Instruct` at
+`7ae557604adf67be50417f59c2c2f167def9a775` (Apache-2.0) with a rank-8 LoRA
+(scale 20, last 8 layers, 300 iterations, Adam, lr 1e-4) trained with MLX on
+a synthetic 800-example English/multilingual routing corpus owned by this
+repository (validation loss 0.030). The adapter is vendored in-repo at
+[`tests/fixtures/winnow_adapter/adapters.safetensors`](../../crates/openkind-backends/tests/fixtures/winnow_adapter/adapters.safetensors)
+and digest-pinned; the Rust loader merges the LoRA delta into the base
+weights at load ([`families/winnow/`](../../crates/openkind-backends/src/families/winnow/mod.rs)),
+serves through `openkindd` via `--winnow-aliases` / `--winnow-model-root` /
+`--winnow-adapter` / `--winnow-siblings "A=<alias>,B=<alias>"`, and is
+benchmarked through `openkind-bench --engine winnow` (over mock siblings,
+measuring the learned routing pass only).
+
+The sibling target set locked for this profile: label `A` (english) and
+label `B` (multilingual) map to served sibling aliases at the daemon layer;
+the routing distribution is telemetry, and the routed sibling's answer is
+the wire answer. Routing runs one forward pass per request with the frozen
+trained prompt; no token is ever sampled. This resolves the page's
+prerequisite (a locked sibling target set exists across the surveyed-family
+profiles), and the licensed training data is synthetic and owned here. No
+M2 reviewed-decision gate has run for the router itself; its operating point
+is provisional.
 
 ## Architectural shape
 

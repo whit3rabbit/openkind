@@ -50,7 +50,7 @@ It defines:
 - [`src/middleware/`](./src/middleware/):
   - Modular middleware stack:
     - [`src/middleware/request_id.rs`](./src/middleware/request_id.rs): `REQUEST_ID_HEADER = "x-typesafe-request-id"`, `request_id_layer` (checks for inbound client header, falls back to `Uuid::new_v4()`).
-    - [`src/middleware/auth.rs`](./src/middleware/auth.rs): `auth_layer` (constant-time bearer token check using `constant_time_eq`, supports `OPENKIND_API_KEY` and `TYPESAFE_API_KEY`).
+    - [`src/middleware/auth.rs`](./src/middleware/auth.rs): `auth_layer` (constant-time bearer token check using `constant_time_eq`, supports `OPENKIND_API_KEY`, `TYPESAFE_API_KEY`, and deprecated fallback `OPENPICK_API_KEY`).
     - [`src/middleware/rate_limit.rs`](./src/middleware/rate_limit.rs): `rate_limit_layer` (per-IP sliding window rate limiter emitting 429 status and retry headers).
     - [`src/middleware/tests/`](./src/middleware/tests/): Dedicated test suites (`request_id_tests.rs`, `auth_tests.rs`, `rate_limit_tests.rs`).
 - [`src/error.rs`](./src/error.rs):
@@ -69,6 +69,7 @@ It defines:
     - [`contract_client.rs`](./tests/sdk_compat/contract_client.rs): Per-call headers, metadata merging, model overrides.
     - [`contract_types.rs`](./tests/sdk_compat/contract_types.rs): Jev questions and typed answer deserialization.
     - [`contract_errors.rs`](./tests/sdk_compat/contract_errors.rs): Retry header emission and error taxonomy.
+    - [`openapi.rs`](./tests/sdk_compat/openapi.rs): OpenAPI specification validation ensuring all paths, methods, and schemas match the live router.
 - [`tests/grpc_roundtrip.rs`](./tests/grpc_roundtrip.rs) & [`tests/grpc_roundtrip/`](./tests/grpc_roundtrip/):
   - End-to-end gRPC protocol tests modularized into:
     - [`helpers.rs`](./tests/grpc_roundtrip/helpers.rs): Ephemeral gRPC server and Protobuf fixtures.

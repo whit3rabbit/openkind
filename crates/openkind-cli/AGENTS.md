@@ -29,7 +29,7 @@
 - [`src/lib.rs`](./src/lib.rs): Benchmarkable library seam exposing parsed-command
   dispatch and pure request parse/validation.
 - [`src/args.rs`](./src/args.rs):
-  - `Cli`: Root Clap parser.
+  - `Cli`: Root Clap parser with a streaming fast path (`fast_parse` using `SmallVec`) skipping Clap machinery on common unambiguous invocations for sub-millisecond CLI startup.
   - `Commands`:
     - `Inspect { file }`: Validates a request JSON file against `openkind_core::validate_request`.
     - `Evaluate { file, server, api_key, pretty }`: POSTs the raw JSON to `{server}/v1/systemone`.
