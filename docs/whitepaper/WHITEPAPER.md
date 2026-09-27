@@ -1,7 +1,7 @@
 # OpenKind
 ## Shared-state decision inference: evidence, execution, and useful decisions
 
-**Document version:** 0.8.5 (26 September 2026; completed v0.6.0 source-label replay results saved approximately 19:29 UTC; documentation-only result update)
+**Document version:** 0.8.5 model-research record with 27 September 2026 Rust/MLX systems addendum (completed v0.6.0 source-label replay results saved approximately 19:29 UTC on 26 September)
 
 ### Abstract
 
@@ -11,8 +11,10 @@ generation loop. Its state-first Qwen reference reuses complete hybrid execution
 state across isolated question and candidate branches. Native CPU parity,
 fresh-process decision replay, and named-machine CPU service gates pass within
 their declared scope. Pinned-base MLX FP32 full, nested, and variable-length
-vectorized parity pass separately. Matched vectorized performance and MLX
-service promotion remain open. [E11–E13; RUST1–RUST11; §17.3]
+vectorized parity pass separately. Paired native compute tests reject the
+Python-style flat-field and cross-question candidate-pooling diagnostics on
+the tested shapes. Complete request-path performance and MLX service
+promotion remain open. [E11–E13; RUST1–RUST11; RUSTM2; §§17.3–17.4]
 
 Natural-document learning now has a bounded positive result, but no promotable
 multi-source model. The completed frozen J0/J1 two-budget comparison separates
@@ -1136,12 +1138,14 @@ For Qwen3.5, the root and every fork must include the full hybrid continuation s
 That benchmark also supports three methodological conclusions already present in OpenKind. First, architecture rankings are task-dependent: the tuned compact encoder leads the reported WANLI slice while Jev leads the reported BoolQ slice, so a fast encoder should not be promoted from one narrow benchmark. Second, probability quality must be evaluated independently: the study reports separate Brier and ECE values rather than treating typed output or maximum probability as calibration. Third, repeatability is an observable serving property: identical Jev API requests changed some choices and many WANLI probability vectors between campaigns. This does not identify the cause, but it motivates a pinned local repeatability campaign for OpenKind rather than assuming version labels imply identical numerical behavior. [P22]
 
 **Implication for the selected OpenKind profile.** Native CPU and pinned MLX
-FP32 parity are recorded in §17.3. The next frozen-profile systems comparison is
-matched MLX per-lane versus vectorized execution, including unequal suffix
-lengths. Measure complete request cost, `T(Q)/T(1)`, marginal question latency,
-forward calls, prefill share, and branch/process memory while retaining parity
-and isolation checks. External Jev ratios are context, not OpenKind release
-thresholds. [E11; P21; P22; §17.3]
+FP32 parity are recorded in §17.3. Matched stage replays and a Rust port of
+shared-root flat-field batching now test two possible vectorized execution
+graphs; neither beats the current nested batched graph on its measured shapes
+(§17.4). The remaining systems comparison is complete request cost, `T(Q)/T(1)`,
+marginal question latency, forward calls, prefill share, and branch/process
+memory on a useful workload while retaining parity and isolation checks.
+External Jev ratios and the Python Qwen2.5 benchmark do not transfer to this
+Qwen3.5 result. [E11; P21; P22; RUSTM2]
 
 High-cardinality Choice should likewise be split into systems and semantic questions. P21 shows that a constrained-token implementation can mechanically handle 255 declared choices at useful latency on its own workload; it does not show 255-way dynamic semantic accuracy. OpenKind should first stress K=32/64/128/255 for memory, batching and scheduler behavior, then add a smaller reviewed high-K semantic panel with candidate descriptions and rejection cases. [P21; recommendation]
 
@@ -2182,7 +2186,64 @@ The current Rust implementation establishes eleven bounded results:
 
 The `1e-5` absolute-logit tolerance remains the Phase 3.1 fixed-feature algebra gate. Phase 3B's own freshly exported candidate vectors replay against the earlier fixed-feature logit fixture with maximum absolute delta `9.6905e-05`; the native features reach `2.5652e-04` against that older fixture while preserving probabilities and discrete decisions. Therefore the backbone result is judged by the documented Phase 3B hidden diagnostics plus probability, argmax, and policy gates; no tolerance is widened or retroactively redefined. [E13; RUST1; RUST3]
 
-The full restored candidate-feature and decision replay in Phase 3.10 now passes. Phase 3.11's queue-inclusive native CPU service load, deadline, recovery, memory, and 30-minute soak gates also pass on the named M4 Max, with a release-mode daemon hash recorded in the [RUST11 evidence report](../verification/native-service-gate/2026-09-22-rerun2/README.md). The [22 September Phase 3M follow-up](../verification/phase3m-2026-09-22/README.md) records pinned-base FP32 variable-length vectorized parity, a forced daemon vectorized request, and bounded unified-memory admission/recovery evidence; native BF16 full/nested Gate B fails the frozen probability tolerance. Practical high-K latency, matched batch/kernel performance, reviewed task quality, MLX service load/soak, and official release promotion remain open. **CPU native parity and the separately gated pinned-base MLX FP32 parity path now pass; accelerated production promotion does not follow from either result.** Direct backend registration, wire-level semantic-none mapping, bounded high-K completion, full fresh-process persistence replay, and native CPU service gates are recorded as passed. [E12; E13; RUST4–RUST11; RUSTM1; 3M follow-up]
+The full restored candidate-feature and decision replay in Phase 3.10 now passes. Phase 3.11's queue-inclusive native CPU service load, deadline, recovery, memory, and 30-minute soak gates also pass on the named M4 Max, with a release-mode daemon hash recorded in the [RUST11 evidence report](../verification/native-service-gate/2026-09-22-rerun2/README.md). The [22 September Phase 3M follow-up](../verification/phase3m-2026-09-22/README.md) records pinned-base FP32 variable-length vectorized parity, a forced daemon vectorized request, and bounded unified-memory admission/recovery evidence; native BF16 full/nested Gate B fails the frozen probability tolerance. The subsequent flat-field and candidate-pooling diagnostics reject those two native compute graphs (§17.4). Practical high-K latency, full-request batch/kernel performance, reviewed task quality, MLX service load/soak, and official release promotion remain open. **CPU native parity and the separately gated pinned-base MLX FP32 parity path now pass; accelerated production promotion does not follow from either result.** Direct backend registration, wire-level semantic-none mapping, bounded high-K completion, full fresh-process persistence replay, and native CPU service gates are recorded as passed. [E12; E13; RUST4–RUST11; RUSTM1; RUSTM2; 3M follow-up]
+
+## 17.4 Ported flat-field execution and paired MLX comparison
+
+The public Python Qwen2.5 constrained-decoding implementation evaluates field
+suffixes from one shared prefix and reads answer-token logits. OpenKind ports
+that **execution traversal** to the selected Qwen3.5 FP32 Rust backend as an
+opt-in diagnostic: prefill one state-first root, concatenate each question and
+candidate suffix, fork a complete lane from the root, and evaluate right-padded
+groups of at most eight. The candidate-feature score-summary readout remains
+unchanged. The existing `nested_batched` path instead evaluates each question
+once and branches its candidates from the resulting question state. This is a
+comparison of execution schedules on one model and readout, not a Qwen2.5
+loader, a port of the Python token-logit decision rule, or a new Jev model.
+[P21; RUSTM2]
+
+The paired test used pinned `Qwen/Qwen3.5-4B-Base` revision
+`1001bb4d826a52d1f399e183466143f4da7b741b`, profile
+`a047d6802c3f06f085b8`, MLX 0.32.2 FP32 `ReferenceOps`, and the 36-GiB
+`Mac16,5` M4 Max. Each strategy ran in a fresh process in two reversed orders.
+The first sample per process was excluded; Q2/K2 retained three timed samples,
+Q8/K4 two. The timed region includes prefill, continuation, and readout but
+excludes model load, rendering, tokenization, validation, transport, and
+queueing. Q8/K4 repeats frozen token suffixes as a load shape. These are not
+natural-document quality or full-request service measurements. [RUSTM2]
+
+| Shape | Existing nested batched median, pairs 1 / 2 | Flat median, pairs 1 / 2 | Flat latency change |
+|---|---:|---:|---:|
+| Q2/K2 | 1.342 / 1.268 s | 1.422 / 1.421 s | +6.0% / +12.1% |
+| Q8/K4 | 5.005 / 5.005 s | 8.222 / 8.232 s | +64.3% / +64.5% |
+
+Flat execution reduces physical forward calls from **4 to 2** at Q2/K2 and
+**10 to 5** at Q8/K4. It repeats question tokens per candidate, while padded
+token slots rise from **0 to 2** and **14 to 104**, respectively. The flat
+suffix stage alone takes 868–875 ms at Q2/K2 and 7,594–7,598 ms at Q8/K4;
+the corresponding nested question plus candidate stages take 737–795 ms and
+4,434–4,436 ms. Fewer forwards therefore do not establish lower latency.
+Peak active MLX allocation is about 14.0 versus 14.38 GiB at Q2/K2 and
+16.49 versus 15.43 GiB at Q8/K4 (nested versus flat); peak process RSS is
+mixed across pairs. These few samples do not establish tail latency or a
+stable memory ratio. [RUSTM2]
+
+Selections match. The largest paired probability differences are `2.71e-6`
+at Q2/K2 and `8.08e-7` at Q8/K4, below the fixed `0.005` tolerance. Every
+top probability is at least `0.01099` from the `0.98` policy threshold, so
+the unchanged selections imply unchanged policy actions under the fixed rule.
+Formal pinned full-sequence and nested MLX gates independently pass, with
+maximum probability errors `1.514845e-6` and `1.378739e-5`, zero selection
+and policy changes, and complete nested isolation/position/unequal-length
+checks. The formal gates validate the existing backbone; the paired flat
+comparison supplies the direct flat-path parity evidence. [RUSTM2]
+
+The separate same-position cross-question candidate-pooling diagnostic is
+also slower than ordinary nested batching in its stage replay: **1.5%** at
+Q2/K2 and **7.8%** at Q8/K4. Its fresh-process full-request baseline drifts
+at Q8/K4 and does not establish a stable speedup. Neither diagnostic meets
+the promotion threshold. The service and automatic scheduler retain the
+current graph. [RUSTM2]
 
 ---
 
@@ -3566,6 +3627,13 @@ artifacts. [§§13.2–13.5; §17.3; E25; E29–E32]
 
 The source IDs below identify the evidence behind the numbered sections. In the accompanying evidence manifest, local snapshot SHA-256 hashes distinguish the exact files reviewed from later Drive edits. Result paths are under `Google Drive / Colab Notebooks`. Timestamps embedded in run IDs are UTC.
 
+**27 September 2026 systems addendum boundary.** RUSTM2 uses checked-in Rust
+source, raw paired-process JSON, checksums, and formal pinned-model parity
+reports. The Qwen3.5 benchmark measures native compute and readout on frozen
+token workloads, not model quality, full HTTP requests, or queue-inclusive
+latency. It does not rerun or revise E29–E32 model experiments, open protected
+final, change the Jev API, or promote the automatic scheduler.
+
 **Version 0.8.5 documentation boundary.** Editing base: the delivered v0.8.4
 `WHITEPAPER.md`, SHA-256
 `893fcbdcc49f2511d951e1f4764a8ed533b183521381ad8f7841b3afa34e277a`.
@@ -3861,9 +3929,20 @@ records full/nested and unequal-length vectorized parity, forced daemon
 execution, and bounded unified-memory admission/recovery on the named M4 Max
 with MLX 0.32.2, Xcode 27.0, and Metal 32023.921. Its dirty-tree base revision
 is `a5a752ab50efccba2eff0345fc5435c01248d41e`. BF16 fails the unchanged
-probability gate. The slower packed kernel stays opt-in. Matched vectorized
-performance, accelerated-service load/soak, and clean-commit promotion remain
-open. These observations are independent of CPU parity.
+probability gate. The slower packed kernel stays opt-in. Matched complete-request
+vectorized/per-lane performance, accelerated-service load/soak, and clean-commit
+promotion remain open. These observations are independent of CPU parity.
+
+**RUSTM2: Rust Qwen3.5 flat-field and candidate-pooling diagnostics.** The
+[flat-field record](../benchmarks/2026-09-27-python-flat-field/README.md)
+contains paired fresh-process FP32 MLX Q2/K2 and Q8/K4 runs, source and
+commands, raw timing/probability/memory JSON, checksums, and clean-commit
+formal full/nested parity reports for `78b9e0cc4ed8e66fe04407b626eac29a358bfadd`.
+The [candidate-pooling record](../benchmarks/2026-09-27-candidate-pooling/README.md)
+contains the earlier stage replay and distinct full-request baseline. The
+flat path is a Qwen3.5 Rust execution diagnostic with unchanged readout; the
+external Qwen2.5 Python result is a separate model and baseline. Neither
+diagnostic enters the service or automatic scheduler.
 
 **PUB1: Public OpenKind state-first reference repository.** <https://huggingface.co/cowWhySo/OpenKind-Qwen3.5-4B-StateFirst>. Project-owned publication of the selected state-first integration line. The repository URL is a public identity/reference surface; experiment identity remains pinned by profile ID, base-model revision, renderer/head/rejection contracts and bundle hash. Publication does not establish TypeSafe RLCD reproduction, release-quality promotion, or Rust/Metal parity.
 
@@ -4284,6 +4363,13 @@ and Appendix E remain intact. No new notebook, model fit, data/label edit,
 threshold change, checkpoint reselection, roadmap edit, protected-final opening
 or model promotion is performed. The next evidence-sensitive preservation work
 remains proposed and causally unestablished.
+
+## 27 September 2026 systems addendum to version 0.8.5
+
+Adds the Rust flat-field and candidate-pooling negative results to §§11.7.1,
+17.3–17.4 and source RUSTM2. The method, numerical parity, latency, memory,
+and request-path limits are tied to checked-in records. Historical model
+training, selection, quality and audit results retain their earlier cutoff.
 
 # Appendix E. Historical opening before the September refocus
 

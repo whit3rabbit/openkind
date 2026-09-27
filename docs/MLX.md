@@ -21,8 +21,8 @@ The current production configuration is deliberately conservative:
   forward for 2–8 equal-start-position lanes, with right padding and each
   lane's true suffix length. The pinned-base variable-length model gate now
   passes for unequal question and candidate lengths. Automatic scheduling
-  remains per-lane. The measured candidate-pooling diagnostic did not justify
-  changing that choice.
+  remains per-lane. The measured candidate-pooling and flat-field diagnostics
+  did not justify changing that choice.
 - The packed FP32 Metal reduction-tree kernel passes parity but remains opt-in
   because it is slower than `ReferenceOps` on the current smoke workload.
 - Native BF16 and the downloaded MLX-community checkpoint are unpromoted
@@ -145,15 +145,19 @@ explicitly forced `nested_batched` runner advances 2–8 lanes through a real
 vectorized suffix forward. It right-pads variable lengths and restores each
 lane's true position and state. The pinned fixture pair covers unequal
 question and candidate lengths. Automatic scheduling still advertises
-per-lane execution. The candidate-pooling comparison did not meet its
-promotion threshold.
+per-lane execution. The candidate-pooling and flat-field comparisons did not
+meet their promotion threshold.
 Consequently:
 
 - `nested_sequential` remains the automatic shared-prefix plan;
 - forcing `nested_batched` exercises the vectorized FP32 path for diagnostics;
 - parity does not establish that vectorized execution is faster;
 - the [candidate-pooling diagnostic](benchmarks/2026-09-27-candidate-pooling/)
-  found no latency win over current batching at Q2/K2 or Q8/K4.
+  found no latency win over current batching at Q2/K2 or Q8/K4;
+- the [flat-field diagnostic](benchmarks/2026-09-27-python-flat-field/)
+  ports the Python shared-root field schedule to Qwen3.5 with its unchanged
+  readout. Paired native compute runs find it 6% to 12% slower at Q2/K2 and
+  about 64% slower at Q8/K4 despite fewer physical forwards.
 
 An opt-in [candidate pooling diagnostic](BENCHMARKS.md#candidate-pooling-diagnostic)
 can combine candidate lanes from different questions when their continuation
@@ -161,6 +165,14 @@ positions match. It preserves question/candidate result order and falls back
 to one-lane execution where pooling is impossible. The service and automatic
 scheduler do not select this graph pending matched performance and parity
 evidence.
+
+[`run_flat_batched_candidates`](../crates/openkind-backends/src/qwen35/backbone/batched/flat.rs)
+is another opt-in diagnostic. It concatenates each question and candidate
+suffix into one lane from the state root and batches up to eight lanes. This
+repeats question tokens per candidate; the pinned paired record above rejects
+it for the tested shapes. It is absent from daemon dispatch and automatic
+scheduling. The measurements exclude rendering, tokenization, validation,
+transport and queueing, so they are not full-request throughput evidence.
 
 ## Gated DeltaNet implementations
 
