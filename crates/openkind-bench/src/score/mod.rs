@@ -4,7 +4,8 @@
 //! Timing scope follows `docs/BENCHMARKS.md`: the measured region covers
 //! request construction, validation, engine dispatch, and answer extraction.
 //! Model loading and result-file writes are excluded; model-load wall time is
-//! reported separately per strategy. Runs are warm-process.
+//! reported separately per strategy. An explicit no-warmup mode supports
+//! first-request and history probes.
 //!
 //! Execution paths mirror the prior-art systems benchmark mapping: fresh
 //! per-row requests (`--no-group`) correspond to repeated-full direct
@@ -38,6 +39,7 @@ use openkind_backends::families::support::FamilyLimits;
 use openkind_backends::qwen35::{Qwen35DecisionEngine, Qwen35EngineConfig, SchedulerConfig};
 use openkind_engine::{DecisionEngine, EngineRegistry};
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 pub(crate) use types::validate_strategy_selection;
 pub use types::{
@@ -56,7 +58,22 @@ use crate::workload;
 pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
     let workload = workload::load_workload(&args.input)?;
     eprintln!("[bench] workload {}: {}", args.input.display(), workload);
-    let groups = if args.group {
+    if args.history_aba {
+        anyhow::ensure!(
+            workload.rows.len() == 2,
+            "--history-aba requires exactly two rows"
+        );
+        anyhow::ensure!(!args.group, "--history-aba requires --no-group");
+        anyhow::ensure!(!args.warmup, "--history-aba requires --no-warmup");
+        anyhow::ensure!(args.reps == 1, "--history-aba requires --reps 1");
+        anyhow::ensure!(
+            args.strategies.len() == 1,
+            "--history-aba requires one strategy"
+        );
+    }
+    let groups = if args.history_aba {
+        vec![vec![0], vec![1], vec![0]]
+    } else if args.group {
         workload::state_groups(&workload.rows)?
     } else {
         (0..workload.rows.len()).map(|index| vec![index]).collect()
@@ -278,7 +295,7 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
             execution::StrategyPass {
                 label: types::engine_slug(args.engine),
                 forced: None,
-                warmup: true,
+                warmup: args.warmup,
             },
         ))?;
         strategy_reports.push(execution::report_with_load(report, model_load_seconds));
@@ -339,7 +356,7 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
                 execution::StrategyPass {
                     label: spec.name(),
                     forced: Some(spec),
-                    warmup: true,
+                    warmup: args.warmup,
                 },
             ))?;
             strategy_reports.push(execution::report_with_load(report, model_load_seconds));
@@ -364,7 +381,19 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
         }
     }
 
-    let summary = summary::build_summary(args, &workload, &groups, &strategy_reports, parity_clean);
+    let mut summary =
+        summary::build_summary(args, &workload, &groups, &strategy_reports, parity_clean);
+    let prediction_hashes: serde_json::Map<String, Value> = strategy_reports
+        .iter()
+        .zip(&predictions_per_strategy)
+        .map(|(report, predictions)| {
+            (
+                report["strategy"].as_str().unwrap_or("strategy").to_owned(),
+                Value::String(format!("{:x}", Sha256::digest(predictions.as_bytes()))),
+            )
+        })
+        .collect();
+    summary["prediction_sha256"] = Value::Object(prediction_hashes);
     fs::create_dir_all(&args.output_dir)
         .with_context(|| format!("create {}", args.output_dir.display()))?;
     let summary_path = args

@@ -50,11 +50,18 @@ pub(crate) fn build_summary(
         },
         "grouping": if args.group { "per-state" } else { "per-row" },
         "reps": args.reps,
+        "warmup": args.warmup && args.engine != EngineKind::Mock,
+        "history_aba": args.history_aba,
         "host": args.host.clone().unwrap_or_else(default_host),
         "commit": args.commit.clone(),
-        "timing_scope": "request construction, validation, dispatch, and answer extraction; \
-                         excludes model load (reported per strategy), result writes, and the \
-                         untimed warmup pass; warm process",
+        "timing_scope": if args.warmup && args.engine != EngineKind::Mock {
+            "request construction, validation, dispatch, and answer extraction; \
+             excludes model load (reported per strategy), result writes, and the \
+             untimed warmup pass; warm process"
+        } else {
+            "request construction, validation, dispatch, and answer extraction; \
+             excludes model load (reported per strategy) and result writes; no warmup pass"
+        },
         "peak_resident_bytes": peak_resident_bytes().ok(),
         "cross_strategy_answer_parity_clean": parity_clean,
         "strategies": strategy_reports,

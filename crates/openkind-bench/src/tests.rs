@@ -8,6 +8,7 @@ use std::path::PathBuf;
 
 use openkind_backends::qwen35::SEMANTIC_NONE_OPTION;
 use serde_json::Value;
+use sha2::Digest;
 
 use crate::gen::generate_workload;
 use crate::score::{run_score, EngineKind, ScoreArgs, StrategySpec};
@@ -117,6 +118,8 @@ fn mock_score_run_end_to_end_writes_summary_and_predictions() {
         strategies: vec![StrategySpec::ChooseStrategy],
         reps: 2,
         group: true,
+        warmup: true,
+        history_aba: false,
         host: Some("test-host".into()),
         commit: Some("0000000000000000000000000000000000000000".into()),
         pretty: false,
@@ -139,6 +142,7 @@ fn mock_score_run_end_to_end_writes_summary_and_predictions() {
     assert_eq!(summary["fixture"]["groups"], 4);
     assert_eq!(summary["grouping"], "per-state");
     assert_eq!(summary["cross_strategy_answer_parity_clean"], Value::Null);
+    assert_eq!(summary["warmup"], false, "mock has no warmup pass");
     assert!(summary["peak_resident_bytes"].is_null() || summary["peak_resident_bytes"].is_u64());
     let strategies = summary["strategies"].as_array().expect("strategies");
     assert_eq!(strategies.len(), 1);
@@ -150,6 +154,8 @@ fn mock_score_run_end_to_end_writes_summary_and_predictions() {
 
     let prediction_path = output_dir.join("predictions-mock-mock.jsonl");
     let predictions = fs::read_to_string(&prediction_path).expect("predictions");
+    let expected_digest = format!("{:x}", sha2::Sha256::digest(predictions.as_bytes()));
+    assert_eq!(summary["prediction_sha256"]["mock"], expected_digest);
     let lines: Vec<&str> = predictions.lines().collect();
     assert_eq!(lines.len(), 12, "one prediction row per decision");
     for line in &lines {
@@ -172,6 +178,52 @@ fn mock_score_run_end_to_end_writes_summary_and_predictions() {
     let _ = fs::remove_dir_all(dir);
     // Silence unused-variable lint when fixture constant changes shape.
     let _ = &input;
+}
+
+#[test]
+fn history_aba_repeats_the_identical_request() {
+    let dir = temp_dir("history-aba");
+    let input = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures/qwen_history_smoke.jsonl");
+    let output_dir = dir.join("out");
+    let args = ScoreArgs {
+        input,
+        engine: EngineKind::Mock,
+        output_dir: output_dir.clone(),
+        strategies: vec![StrategySpec::ChooseStrategy],
+        reps: 1,
+        group: false,
+        warmup: false,
+        history_aba: true,
+        host: Some("test-host".into()),
+        commit: None,
+        pretty: false,
+        bundle_root: None,
+        checkpoint_root: None,
+        tokenizer_path: None,
+        model_root: None,
+        adapter: None,
+    };
+    run_score(&args).expect("history run");
+    let summary: Value = serde_json::from_str(
+        &fs::read_to_string(output_dir.join("summary-mock.json")).expect("summary"),
+    )
+    .expect("summary JSON");
+    assert_eq!(summary["history_aba"], true);
+    assert_eq!(summary["strategies"][0]["rows"], 3);
+    let raw =
+        fs::read_to_string(output_dir.join("predictions-mock-mock.jsonl")).expect("predictions");
+    let rows: Vec<Value> = raw
+        .lines()
+        .map(|line| serde_json::from_str(line).expect("row"))
+        .collect();
+    assert_eq!(rows.len(), 3);
+    assert_eq!(rows[0]["id"], rows[2]["id"]);
+    assert_ne!(rows[0]["id"], rows[1]["id"]);
+    assert_eq!(rows[0]["sequence_index"], 0);
+    assert_eq!(rows[1]["sequence_index"], 1);
+    assert_eq!(rows[2]["sequence_index"], 2);
+    assert_eq!(rows[0]["answer"], rows[2]["answer"]);
+    let _ = fs::remove_dir_all(dir);
 }
 
 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
