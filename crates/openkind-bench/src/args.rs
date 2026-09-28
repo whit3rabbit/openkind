@@ -56,6 +56,12 @@ pub enum Commands {
         /// Disable state grouping (fresh per-row requests).
         #[arg(long)]
         no_group: bool,
+        /// Skip the untimed warmup pass. Used by cold and history probes.
+        #[arg(long)]
+        no_warmup: bool,
+        /// Execute the first of two rows again after the second, with the same request ID.
+        #[arg(long)]
+        history_aba: bool,
         /// Host attribution label recorded in the summary.
         #[arg(long)]
         host: Option<String>,

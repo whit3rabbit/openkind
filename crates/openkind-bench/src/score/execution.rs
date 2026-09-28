@@ -29,6 +29,7 @@ pub(crate) async fn run_strategy_pass(
     let mut last_request_latencies = vec![0.0_f64; rows.len()];
     let mut last_answers: Vec<Option<Value>> = vec![None; rows.len()];
     let mut last_group_sizes = vec![0_usize; rows.len()];
+    let mut history_predictions = String::new();
 
     if pass.warmup {
         for group in groups {
@@ -42,7 +43,7 @@ pub(crate) async fn run_strategy_pass(
 
     for rep in 0..args.reps {
         let rep_started = Instant::now();
-        for group in groups {
+        for (sequence_index, group) in groups.iter().enumerate() {
             let request = workload::build_request(BENCH_ALIAS, rows, group)?;
             let started = Instant::now();
             let response = dispatch(request, registry)
@@ -59,6 +60,21 @@ pub(crate) async fn run_strategy_pass(
                         Some(serde_json::to_value(answer).context("serialize answer")?);
                     last_request_latencies[index] = elapsed_ms;
                     last_group_sizes[index] = group.len();
+                    if args.history_aba {
+                        let line = json!({
+                            "id": rows[index].id,
+                            "strategy": pass.label,
+                            "sequence_index": sequence_index,
+                            "group_size": group.len(),
+                            "request_latency_ms": elapsed_ms,
+                            "answer": answer,
+                        });
+                        history_predictions.push_str(
+                            &serde_json::to_string(&line)
+                                .context("serialize history prediction")?,
+                        );
+                        history_predictions.push('\n');
+                    }
                 }
             }
         }
@@ -69,7 +85,11 @@ pub(crate) async fn run_strategy_pass(
         );
     }
 
-    let decisions = rows.len();
+    let decisions = if args.history_aba {
+        groups.len()
+    } else {
+        rows.len()
+    };
     let mut sorted_totals = rep_totals.clone();
     sorted_totals.sort_by(|left, right| left.total_cmp(right));
     let p50 = sorted_totals[sorted_totals.len() / 2];
@@ -91,6 +111,9 @@ pub(crate) async fn run_strategy_pass(
         "input_tokens_total": input_tokens_total,
     });
 
+    if args.history_aba {
+        return Ok((report, history_predictions));
+    }
     let mut predictions = String::with_capacity(decisions * 256);
     for (index, row) in rows.iter().enumerate() {
         let line = json!({
