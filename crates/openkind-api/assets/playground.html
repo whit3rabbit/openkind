@@ -1,0 +1,2008 @@
+<!doctype html>
+<!-- openkind playground: single-file app served by openkindd --playground on.
+     No external requests; talks only to the daemon that served this page. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>openkind playground</title>
+<style>
+:root {
+  --bg: #0c1114;
+  --panel: #12191d;
+  --panel-2: #172126;
+  --panel-3: #1e2a30;
+  --border: #2a373e;
+  --border-soft: #223038;
+  --text: #e7eaf0;
+  --muted: #96a0b3;
+  --faint: #91a0aa;
+  --accent: #b7ee81;
+  --accent-2: #78dcca;
+  --accent-grad: linear-gradient(110deg, #b7ee81, #78dcca);
+  --ok: #3dd68c;
+  --warn: #f5a623;
+  --err: #ff6b6b;
+  --none-opt: #9ba6af;
+  --radius: 10px;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13.5px;
+  line-height: 1.45;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  grid-template-columns: minmax(0, 1fr);
+}
+button { font-family: inherit; font-size: inherit; color: inherit; cursor: pointer; }
+input, select, textarea { font-family: inherit; font-size: inherit; color: var(--text); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #2a3140; border-radius: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------- header ---------- */
+.header {
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.brand { display: flex; align-items: baseline; gap: 9px; user-select: none; }
+.brand .logo {
+  font-weight: 700; font-size: 15px; letter-spacing: .2px;
+  background: var(--accent-grad);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.brand .sub { color: var(--muted); font-size: 12.5px; }
+.header .spacer { flex: 1; }
+.pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 4px 11px; border-radius: 999px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  color: var(--muted); font-size: 12px; white-space: nowrap;
+}
+.pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); flex: none; }
+.pill.ok .dot { background: var(--ok); box-shadow: 0 0 6px rgba(61,214,140,.55); }
+.pill.bad .dot { background: var(--err); }
+.iconbtn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 5px 11px; color: var(--muted);
+}
+.iconbtn:hover { color: var(--text); border-color: #33405a; }
+.iconbtn svg { width: 14px; height: 14px; fill: currentColor; }
+
+/* settings popover */
+.settings-anchor { position: relative; }
+.settings {
+  position: absolute; right: 0; top: calc(100% + 8px); z-index: 60;
+  width: 300px; padding: 14px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgba(0,0,0,.45);
+  display: none;
+}
+.settings.open { display: block; }
+.settings label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+.settings input[type="password"] {
+  width: 100%; padding: 7px 9px; border-radius: 8px;
+  background: var(--bg); border: 1px solid var(--border);
+}
+.settings .hint { color: var(--faint); font-size: 11.5px; margin-top: 8px; }
+
+/* ---------- layout ---------- */
+.layout {
+  display: grid;
+  grid-template-columns: 292px minmax(0, 1fr);
+  min-height: 0;
+}
+.sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--panel);
+  overflow-y: auto;
+  padding: 14px;
+}
+.content {
+  min-width: 0; overflow-y: auto; padding: 16px 20px 60px;
+}
+
+/* ---------- sidebar ---------- */
+.side-head {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .8px;
+  color: var(--faint); margin: 16px 0 8px;
+}
+.side-head:first-child { margin-top: 0; }
+.preset {
+  width: 100%; text-align: left;
+  background: var(--panel-2); border: 1px solid var(--border-soft);
+  border-radius: var(--radius); padding: 9px 11px; margin-bottom: 7px;
+}
+.preset:hover { border-color: #38445c; background: var(--panel-3); }
+.preset .name { font-weight: 600; font-size: 12.8px; }
+.preset .blurb { color: var(--muted); font-size: 11.8px; margin-top: 2px; }
+.preset .tags { margin-top: 6px; display: flex; gap: 5px; flex-wrap: wrap; }
+.tag {
+  font-size: 10px; padding: 1.5px 7px; border-radius: 999px;
+  background: rgba(139,124,246,.13); color: #b3a9ff; border: 1px solid rgba(139,124,246,.25);
+}
+.tag.none { background: rgba(255,255,255,.05); color: var(--muted); border-color: var(--border); }
+.saved-item {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--panel-2); border: 1px solid var(--border-soft);
+  border-radius: var(--radius); padding: 6px 7px 6px 11px; margin-bottom: 6px;
+}
+.saved-item .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+.saved-item .mini {
+  background: transparent; border: none; color: var(--faint);
+  padding: 3px 5px; border-radius: 6px; font-size: 12px;
+}
+.saved-item .mini:hover { color: var(--text); background: var(--panel-3); }
+.saved-item .mini.danger:hover { color: var(--err); }
+.save-row { display: flex; gap: 7px; }
+.save-row input {
+  flex: 1; min-width: 0; padding: 6px 9px; border-radius: 8px;
+  background: var(--bg); border: 1px solid var(--border);
+}
+.save-row button, .side-actions button {
+  padding: 6px 10px; border-radius: 8px;
+  background: var(--panel-3); border: 1px solid var(--border); color: var(--muted);
+}
+.save-row button:hover, .side-actions button:hover { color: var(--text); }
+.side-actions { display: flex; gap: 7px; margin-top: 8px; }
+.side-actions button { flex: 1; font-size: 12px; }
+.side-note { color: var(--faint); font-size: 11.5px; margin-top: 10px; }
+
+/* ---------- tabs ---------- */
+.tabs { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+.tab {
+  background: none; border: none; padding: 8px 14px 10px;
+  color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px;
+  font-weight: 600; font-size: 13px;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.panel-title {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .8px;
+  color: var(--faint); margin-bottom: 12px; display: flex; align-items: center; gap: 10px;
+}
+.panel-title .right { margin-left: auto; display: flex; gap: 8px; text-transform: none; letter-spacing: 0; }
+
+/* ---------- builder ---------- */
+.builder-grid { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 16px; }
+@media (max-width: 1100px) { .builder-grid { grid-template-columns: 1fr; } }
+.field { margin-bottom: 12px; }
+.field label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 5px; }
+.field select, .field input[type="text"], .field input[type="number"] {
+  width: 100%; padding: 7px 9px; border-radius: 8px;
+  background: var(--bg); border: 1px solid var(--border);
+}
+.field .desc { color: var(--faint); font-size: 11.5px; margin-top: 5px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button { background: var(--panel-2); border: none; padding: 4px 10px; color: var(--muted); font-size: 12px; }
+.seg button.active { background: var(--panel-3); color: var(--text); }
+textarea.code {
+  width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; font-family: var(--mono); font-size: 12.3px; resize: vertical;
+  min-height: 64px; color: var(--text);
+}
+textarea.code:focus, .field select:focus, .field input:focus { outline: 1px solid var(--accent); border-color: var(--accent); }
+.hint-err { color: var(--err); font-size: 11.5px; margin-top: 5px; white-space: pre-wrap; }
+
+/* question cards */
+.qcard {
+  background: var(--panel-2); border: 1px solid var(--border-soft); border-radius: var(--radius);
+  padding: 12px; margin-bottom: 10px;
+}
+.qhead { display: flex; gap: 8px; align-items: center; margin-bottom: 9px; }
+.qhead .qid { flex: 0 0 150px; }
+.qhead .qid input {
+  width: 100%; padding: 6px 9px; border-radius: 7px; font-family: var(--mono); font-size: 12.3px;
+  background: var(--bg); border: 1px solid var(--border);
+}
+.qhead select {
+  flex: 0 0 110px; padding: 6px 7px; border-radius: 7px;
+  background: var(--bg); border: 1px solid var(--border);
+}
+.qhead .remove {
+  margin-left: auto; background: none; border: none; color: var(--faint);
+  font-size: 15px; padding: 2px 8px; border-radius: 6px;
+}
+.qhead .remove:hover { color: var(--err); background: rgba(255,107,107,.09); }
+.qbody label { display: block; color: var(--muted); font-size: 11.5px; margin: 8px 0 4px; }
+.qbody textarea {
+  width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 7px;
+  padding: 6px 9px; font-size: 12.5px; min-height: 44px; resize: vertical;
+}
+.crit-row { display: grid; grid-template-columns: 150px 1fr 26px; gap: 7px; margin-bottom: 6px; align-items: center; }
+.crit-row input {
+  padding: 5px 8px; border-radius: 7px; background: var(--bg);
+  border: 1px solid var(--border); min-width: 0; font-size: 12.3px;
+}
+.crit-row input[disabled] { color: var(--none-opt); font-family: var(--mono); }
+.crit-row .del { background: none; border: none; color: var(--faint); font-size: 13px; padding: 2px; }
+.crit-row .del:hover { color: var(--err); }
+.crit-row.none-opt { background: rgba(255,255,255,.025); border-radius: 7px; padding: 3px; }
+.crit-row.none-opt .keybox { display: flex; align-items: center; gap: 6px; }
+.badge {
+  font-size: 9.5px; padding: 1px 6px; border-radius: 999px; white-space: nowrap;
+  background: rgba(255,255,255,.06); color: var(--muted); border: 1px solid var(--border);
+}
+.addbtn {
+  background: none; border: 1px dashed #313b4e; color: var(--muted); border-radius: 7px;
+  padding: 5px 11px; font-size: 12px;
+}
+.addbtn:hover { color: var(--text); border-color: #41506c; }
+.criteria-help { color: var(--faint); font-size: 11px; margin-top: 6px; }
+.levels-row { display: flex; gap: 7px; margin-bottom: 6px; align-items: center; }
+.levels-row .idx { color: var(--faint); font-family: var(--mono); font-size: 11.5px; width: 18px; text-align: right; }
+.levels-row input { flex: 1; padding: 5px 8px; border-radius: 7px; background: var(--bg); border: 1px solid var(--border); min-width: 0; }
+
+/* raw mode */
+.rawwrap textarea.code { min-height: 300px; }
+
+/* run bar */
+.runbar { display: flex; align-items: center; gap: 12px; }
+.btn-run {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--accent-grad); border: none; border-radius: 9px;
+  padding: 9px 22px; font-weight: 700; font-size: 13.5px; color: #0b0d11;
+}
+.btn-run:hover { filter: brightness(1.08); }
+.btn-run:disabled { opacity: .55; cursor: default; }
+.btn-run .play { width: 0; height: 0; border-left: 9px solid #0b0d11; border-top: 5.5px solid transparent; border-bottom: 5.5px solid transparent; }
+.btn-ghost {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 9px;
+  padding: 8px 14px; color: var(--muted);
+}
+.btn-ghost:hover { color: var(--text); }
+.btn-ghost:disabled { opacity: .5; cursor: default; }
+.elapsed { font-family: var(--mono); font-size: 13px; color: var(--accent-2); min-width: 90px; }
+.elapsed .unit { color: var(--faint); font-size: 11px; }
+.kbd {
+  font-family: var(--mono); font-size: 10.5px; color: var(--faint);
+  border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 5px; padding: 1px 5px;
+}
+.run-note { color: var(--faint); font-size: 11.5px; margin-left: auto; }
+
+/* spinner + progress */
+.spinner {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid rgba(11,13,17,.25); border-top-color: #0b0d11;
+  animation: spin .8s linear infinite; display: inline-block;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.progress {
+  height: 8px; border-radius: 99px; background: var(--panel-3); overflow: hidden;
+  border: 1px solid var(--border-soft);
+}
+.progress .fill {
+  height: 100%; width: 0%; background: var(--accent-grad);
+  transition: width .15s ease; border-radius: 99px;
+}
+.progress .fill.indeterminate {
+  width: 30% !important; animation: slide 1.1s ease-in-out infinite;
+}
+@keyframes slide { 0% { margin-left: -30%; } 100% { margin-left: 100%; } }
+
+/* ---------- results ---------- */
+.meta-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+.chip {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px;
+  padding: 3px 11px; font-size: 11.8px; color: var(--muted);
+}
+.chip b { color: var(--text); font-weight: 600; }
+.chip.lat { color: var(--accent-2); border-color: rgba(76,194,255,.3); }
+.chip.ok { color: var(--ok); border-color: rgba(61,214,140,.3); }
+.chip.err { color: var(--err); border-color: rgba(255,107,107,.3); }
+.empty { color: var(--faint); text-align: center; padding: 44px 0; font-size: 13px; }
+.empty .big { font-size: 30px; margin-bottom: 8px; opacity: .5; }
+.acard {
+  background: var(--panel-2); border: 1px solid var(--border-soft); border-radius: var(--radius);
+  padding: 13px 14px; margin-bottom: 10px;
+}
+.acard .acard-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.acard .qid { font-family: var(--mono); font-size: 12.5px; color: var(--text); }
+.typechip {
+  font-size: 10px; padding: 1.5px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .6px;
+  background: rgba(76,194,255,.12); color: var(--accent-2); border: 1px solid rgba(76,194,255,.25);
+}
+.typechip.noul { background: rgba(139,124,246,.13); color: #b3a9ff; border-color: rgba(139,124,246,.3); }
+.typechip.score { background: rgba(61,214,140,.1); color: var(--ok); border-color: rgba(61,214,140,.25); }
+.bignum { font-family: var(--mono); font-size: 21px; font-weight: 700; }
+.meter {
+  height: 10px; border-radius: 99px; background: var(--panel-3); overflow: hidden;
+  margin: 9px 0 4px; position: relative; border: 1px solid var(--border-soft);
+}
+.meter .fill { height: 100%; background: var(--accent-grad); border-radius: 99px; transition: width .4s ease; }
+.meter-ticks { display: flex; justify-content: space-between; color: var(--faint); font-size: 10.5px; font-family: var(--mono); }
+.bar-row { display: grid; grid-template-columns: minmax(90px, 170px) 1fr 64px; gap: 10px; align-items: center; margin-bottom: 7px; }
+.bar-row .blabel {
+  font-family: var(--mono); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bar-row .btrack { height: 16px; border-radius: 5px; background: var(--panel-3); overflow: hidden; }
+.bar-row .bfill { height: 100%; background: #45536e; border-radius: 5px; transition: width .45s ease; min-width: 0; }
+.bar-row.selected .bfill { background: var(--accent-grad); }
+.bar-row.selected .blabel { color: var(--text); font-weight: 700; }
+.bar-row .bpct { font-family: var(--mono); font-size: 11.8px; color: var(--muted); text-align: right; }
+.bar-row.none-opt .blabel { color: var(--none-opt); }
+.bar-row.none-opt .bfill { background: #3a4250; }
+.rowmeta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.conf { color: var(--faint); font-size: 11.5px; }
+.conf b { color: var(--muted); font-family: var(--mono); font-weight: 600; }
+.selected-chip {
+  font-size: 10px; padding: 1px 8px; border-radius: 999px;
+  background: rgba(61,214,140,.12); color: var(--ok); border: 1px solid rgba(61,214,140,.3);
+}
+.none-chip {
+  font-size: 10px; padding: 1px 8px; border-radius: 999px;
+  background: rgba(255,255,255,.05); color: var(--none-opt); border: 1px solid var(--border);
+}
+.errbox {
+  background: rgba(255,107,107,.06); border: 1px solid rgba(255,107,107,.3); border-radius: var(--radius);
+  padding: 13px 15px; margin-bottom: 10px;
+}
+.errbox .code { font-family: var(--mono); color: var(--err); font-weight: 700; font-size: 13px; }
+.errbox .msg { color: var(--text); margin-top: 5px; white-space: pre-wrap; font-size: 12.8px; }
+.errbox .fix { color: var(--muted); margin-top: 7px; font-size: 12px; }
+.rawresp { margin-top: 6px; }
+.rawresp summary { cursor: pointer; color: var(--faint); font-size: 12px; }
+.rawresp pre {
+  background: var(--bg); border: 1px solid var(--border-soft); border-radius: 8px;
+  padding: 10px; overflow: auto; font-size: 11.8px; font-family: var(--mono); max-height: 320px;
+}
+
+/* ---------- benchmark ---------- */
+.bench-config { display: flex; gap: 22px; align-items: flex-end; flex-wrap: wrap; }
+.bench-config .field { margin-bottom: 0; }
+.modelchecks { display: flex; flex-wrap: wrap; gap: 7px; }
+.mcheck {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px;
+  padding: 5px 13px 5px 10px; cursor: pointer; user-select: none;
+}
+.mcheck input { accent-color: var(--accent); }
+.mcheck.checked { border-color: rgba(139,124,246,.45); background: rgba(139,124,246,.08); }
+.bench-config input[type="number"] { width: 90px; padding: 7px 9px; border-radius: 8px; background: var(--bg); border: 1px solid var(--border); }
+.bench-config label { display: block; color: var(--muted); font-size: 12px; margin-bottom: 5px; }
+.bench-note { color: var(--faint); font-size: 11.5px; margin-top: 12px; }
+.bench-note code { font-family: var(--mono); color: var(--muted); font-size: 11px; }
+.bench-live { display: none; }
+.bench-live.on { display: block; }
+.bench-statusline { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.bench-statusline .model { font-weight: 600; font-size: 13px; }
+.bench-statusline .counts { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+.benchcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 12px; margin-top: 14px; }
+.bcard { background: var(--panel-2); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 13px; }
+.bcard .btop { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.bcard .bname { font-family: var(--mono); font-weight: 700; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bcard .bstate { margin-left: auto; font-size: 11px; color: var(--faint); white-space: nowrap; }
+.bcard .bstats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 10px 0; }
+.bcard .stat .v { font-family: var(--mono); font-size: 15px; font-weight: 700; }
+.bcard .stat .k { color: var(--faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: .5px; }
+.spark { display: block; width: 100%; height: 34px; }
+.bcard .berr { color: var(--err); font-size: 11.5px; margin-top: 6px; }
+table.cmp { width: 100%; border-collapse: collapse; font-size: 12.3px; }
+table.cmp th {
+  text-align: right; color: var(--faint); font-weight: 600; font-size: 11px;
+  text-transform: uppercase; letter-spacing: .5px; padding: 7px 10px;
+  border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+table.cmp th:first-child, table.cmp td:first-child { text-align: left; }
+table.cmp td { padding: 8px 10px; border-bottom: 1px solid var(--border-soft); text-align: right; font-family: var(--mono); font-size: 12px; white-space: nowrap; }
+table.cmp td:first-child { font-family: var(--mono); font-weight: 600; }
+table.cmp tr.best td { background: rgba(61,214,140,.05); }
+table.cmp tr.best td:first-child { color: var(--ok); }
+table.cmp .unit { color: var(--faint); font-size: 10px; }
+
+/* ---------- toasts ---------- */
+.toasts { position: fixed; bottom: 18px; right: 18px; z-index: 100; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  background: var(--panel-3); border: 1px solid var(--border); border-left: 3px solid var(--accent);
+  border-radius: 9px; padding: 10px 14px; font-size: 12.5px; color: var(--text);
+  box-shadow: 0 8px 22px rgba(0,0,0,.4); animation: pop .18s ease;
+  max-width: 340px;
+}
+.toast.err { border-left-color: var(--err); }
+.toast.ok { border-left-color: var(--ok); }
+@keyframes pop { from { transform: translateY(6px); opacity: 0; } }
+.hidden { display: none !important; }
+
+/* Quiet surfaces keep the request and its result easy to scan. */
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+button, input, select, textarea { transition: border-color .16s, background-color .16s, box-shadow .16s; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+.header { padding: 16px 22px; min-height: 65px; }
+.brand .logo { color: var(--text); background: none; font-size: 19px; letter-spacing: -.6px; }
+.brand .sub { border-left: 1px solid var(--border); padding-left: 12px; }
+.layout { grid-template-columns: 260px minmax(0, 1fr); }
+.sidebar { padding: 20px 16px; }
+.content { padding: 28px 28px 60px; background: radial-gradient(ellipse at 80% 0, #16272a 0, transparent 50%); }
+.intro { display: flex; justify-content: space-between; gap: 20px; align-items: center; margin: 0 0 24px; }
+.eyebrow { color: var(--accent); font: 10px var(--mono); letter-spacing: 1.6px; text-transform: uppercase; }
+h1 { font-size: clamp(24px, 3vw, 34px); font-weight: 550; letter-spacing: -1.1px; margin: 7px 0; }
+.intro p { margin: 0; color: var(--muted); }
+.intro-mark { color: var(--accent); font: 32px var(--mono); opacity: .7; }
+.panel { border-radius: 14px; padding: 20px; box-shadow: 0 4px 24px #0000000c; }
+.panel-title { color: var(--muted); font-size: 10px; letter-spacing: 1.2px; }
+.tab { padding: 10px 16px 13px; }
+.tab.active { color: var(--accent); }
+.btn-run { background: var(--accent); color: #142214; border: 1px solid transparent; box-shadow: none; }
+.btn-run:hover:not(:disabled) { background: #c8f7a1; box-shadow: 0 0 0 4px #b7ee8110; }
+.btn-run .play { border-left-color: #142214; }
+.runbar { flex-wrap: wrap; padding: 0 0 18px; margin-bottom: 18px; border-bottom: 1px solid var(--border-soft); }
+.run-note { flex: 1; min-width: 130px; }
+#request-panel { min-width: 0; }
+#request-panel .builder-grid { grid-template-columns: 1fr; }
+#state-box { min-height: 120px; }
+#results-panel { min-width: 0; align-self: start; }
+.results-title { justify-content: space-between; }
+.results-title .right { flex-wrap: wrap; }
+#results-status { text-transform: none; letter-spacing: 0; font-size: 12px; color: var(--muted); margin: 0 0 16px; }
+#results { min-height: 240px; }
+#results[aria-busy="true"] { opacity: .55; }
+#results[aria-busy="true"] .empty { animation: breathe 1.7s ease-in-out infinite; }
+.empty { padding: 48px 12px; line-height: 1.7; }
+.empty .big { color: var(--accent); opacity: 1; font: 24px var(--mono); margin-bottom: 18px; }
+.empty strong { display: block; font-size: 17px; color: var(--text); font-weight: 500; }
+.acard { padding: 18px; animation: arrive .26s ease-out both; }
+.acard .qid { overflow-wrap: anywhere; }
+.bignum { font-size: 30px; font-weight: 500; letter-spacing: -1px; }
+.bfill, .meter .fill { transform-origin: left; animation: fill-in .5s ease-out; }
+.bar-row { grid-template-columns: minmax(80px, 1fr) minmax(50px, 1fr) 54px; gap: 8px; }
+.bar-row .blabel { overflow-wrap: anywhere; white-space: normal; overflow: visible; }
+.bar-row.selected .bfill { background: var(--accent-grad); }
+.choice-winner { font: 18px var(--mono); color: var(--accent); margin: 0 0 14px; overflow-wrap: anywhere; }
+.model-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.model-toolbar .side-head { margin: 0; }
+.model-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-bottom: 9px; background: var(--panel-2); }
+.model-card.selected { border-color: #94c66d88; background: #b7ee8108; }
+.model-card h3 { font: 12px var(--mono); margin: 0; overflow-wrap: anywhere; }
+.model-card p { color: var(--muted); font-size: 11px; margin: 8px 0; line-height: 1.5; }
+.model-state { font-size: 10px; display: flex; gap: 6px; align-items: center; margin: 8px 0; color: var(--muted); }
+.model-state::before { content: ''; width: 5px; height: 5px; border-radius: 100%; background: var(--faint); }
+.model-state.loaded { color: var(--accent); }
+.model-state.loaded::before { background: var(--accent); }
+.model-actions { display: flex; gap: 6px; }
+.model-actions button { flex: 1; font-size: 11px; padding: 6px 8px; }
+.model-message { font-size: 12px; color: var(--muted); margin: 10px 0; overflow-wrap: anywhere; }
+.model-message.error { color: var(--err); }
+.model-note { color: var(--faint); font-size: 11px; margin: 10px 0 24px; line-height: 1.6; }
+.model-note code { color: var(--text); }
+.preset { padding: 10px 12px; }
+.preset.active { border-color: #94c66d88; }
+.preset .tags { display: none; }
+.tag, .typechip.noul { color: var(--accent); border-color: #b7ee8133; background: #b7ee810b; }
+.qcard { background: transparent; }
+.qhead { background: var(--panel-2); }
+.crit-row { grid-template-columns: minmax(70px, .8fr) minmax(80px, 1.2fr) 24px; }
+.crit-row input { min-width: 0; }
+.qhead .qid { min-width: 0; }
+pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+#sidebar-toggle { display: none; }
+#request-error { margin: 0 0 14px; }
+@keyframes arrive { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+@keyframes fill-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes breathe { 50% { opacity: .45; } }
+@media (min-width: 1200px) {
+  #view-play { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  #results-panel { position: sticky; top: 0; max-height: calc(100vh - 110px); overflow-y: auto; }
+}
+@media (max-width: 760px) {
+  body { height: auto; min-height: 100dvh; }
+  .header { position: sticky; top: 0; z-index: 40; padding: 12px; gap: 8px; flex-wrap: wrap; }
+  .brand .sub, #models-pill { display: none; }
+  #sidebar-toggle { display: inline-flex; font-size: 0; }
+  #sidebar-toggle::after { content: "Models"; font-size: 12px; }
+  .settings-anchor > button { font-size: 0; gap: 0; padding: 7px; }
+  .layout { display: block; }
+  .sidebar { display: none; }
+  .sidebar.mobile-open { display: block; position: fixed; z-index: 30; top: 65px; bottom: 0; left: 0; width: min(340px, 94vw); box-shadow: 30px 0 80px #000a; }
+  .content { overflow: visible; padding: 22px 12px 40px; }
+  .panel { padding: 16px; }
+  .intro-mark { display: none; }
+  .panel-title { gap: 6px; }
+  .settings { position: fixed; top: 64px; right: 12px; width: min(300px, calc(100vw - 24px)); }
+  .bench-config { grid-template-columns: 1fr; }
+  .toasts { max-width: calc(100vw - 24px); }
+  .bar-row { grid-template-columns: minmax(65px, 1fr) minmax(40px, 1fr) 48px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="brand">
+    <span class="logo">openkind</span>
+    <span class="sub">playground</span>
+  </div>
+  <div class="spacer"></div>
+  <button class="iconbtn" id="sidebar-toggle" aria-label="Models and examples" aria-expanded="false" aria-controls="sidebar">Models &amp; examples</button>
+  <div class="pill" id="health-pill" role="status"><span class="dot"></span><span id="health-text">connecting…</span></div>
+  <div class="pill" id="models-pill"><span id="models-text">– models</span></div>
+  <div class="settings-anchor">
+    <button class="iconbtn" id="settings-btn" title="Daemon settings" aria-label="Settings">
+      <svg viewBox="0 0 16 16"><path d="M9.4 1l.3 1.9c.4.15.78.35 1.13.6l1.8-.8 1.6 2.8-1.5 1.2c.03.23.05.46.05.7s-.02.47-.05.7l1.5 1.2-1.6 2.8-1.8-.8c-.35.25-.73.45-1.13.6L9.4 15H6.6l-.3-1.9c-.4-.15-.78-.35-1.13-.6l-1.8.8-1.6-2.8 1.5-1.2C3.22 9.07 3.2 8.84 3.2 8.6s.02-.47.05-.7L1.77 6.7l1.6-2.8 1.8.8c.35-.25.73-.45 1.13-.6L6.6 1h2.8zM8 10.6a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/></svg>
+      Settings
+    </button>
+    <div class="settings" id="settings">
+      <label for="api-key">API key (bearer token)</label>
+      <input type="password" id="api-key" placeholder="only if the daemon requires one" autocomplete="off">
+      <div class="hint">Kept in memory until this page is closed and sent as <code>Authorization: Bearer</code> to the daemon that served this page.</div>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar" id="sidebar" aria-label="Models and examples">
+    <div class="model-toolbar"><div class="side-head">Local models</div><button class="btn-ghost" id="refresh-models" title="Refresh local models" aria-label="Refresh models">Refresh</button></div>
+    <div id="model-message" class="model-message" role="status" aria-live="polite">Discovering local models...</div>
+    <div id="model-library"></div>
+    <div class="model-note">Load a local installation to use it here. Install models with <code>openkind pull &lt;name&gt;</code>. Unload releases weights after active work finishes. Files stay installed and protected until daemon exit.</div>
+    <div class="side-head">Presets</div>
+    <div id="presets"></div>
+    <div class="side-head">Saved examples</div>
+    <div class="save-row">
+      <input type="text" id="save-name" placeholder="name this example" maxlength="60">
+      <button id="save-btn" title="Save the current request">Save</button>
+    </div>
+    <div id="saved-list" style="margin-top:8px"></div>
+    <div class="side-actions">
+      <button id="export-btn" title="Download all saved examples as JSON">Export all</button>
+      <button id="import-btn" title="Load examples from a JSON file">Import…</button>
+      <input type="file" id="import-file" accept=".json,application/json" class="hidden">
+    </div>
+    <div class="side-note">Saved examples live in this browser's localStorage. Export downloads them as JSON you can re-import or keep in git.</div>
+  </aside>
+
+  <main class="content">
+    <div class="intro"><div><div class="eyebrow">Local decision lab</div><h1>From input to decision.</h1><p>Build a request. Inspect every answer.</p></div><div class="intro-mark" aria-hidden="true">{&nbsp;}</div></div>
+    <div class="tabs">
+      <button class="tab active" id="tab-play" data-tab="play">Playground</button>
+      <button class="tab" id="tab-bench" data-tab="bench">Benchmark</button>
+    </div>
+
+    <!-- ============ PLAYGROUND TAB ============ -->
+    <section id="view-play">
+      <div class="panel" id="request-panel">
+        <div class="panel-title">
+          Request
+          <span class="right">
+            <span class="seg" id="mode-seg">
+              <button data-mode="form" class="active">Form</button>
+              <button data-mode="raw">Raw JSON</button>
+            </span>
+          </span>
+        </div>
+
+        <div class="hint-err hidden" id="request-error" role="alert"></div>
+        <div class="runbar">
+          <button class="btn-run" id="run-btn"><span class="play"></span><span id="run-label">Run request</span></button>
+          <button class="btn-ghost hidden" id="cancel-run">Stop waiting</button>
+          <div class="elapsed hidden" id="elapsed"></div>
+          <span class="kbd">⌘⏎</span>
+          <span class="run-note">One request, typed answers.</span>
+        </div>
+
+        <div id="builder-form">
+          <div class="builder-grid">
+            <div>
+              <div class="field">
+                <label for="model-select">Model</label>
+                <select id="model-select"></select>
+                <div class="desc" id="model-desc"></div>
+              </div>
+              <div class="field">
+                <label for="state-box">State <span style="color:var(--faint)" id="state-kind">(text)</span></label>
+                <textarea class="code" id="state-box" rows="5" placeholder="The input the decisions are made over…"></textarea>
+                <div class="seg" style="margin-top:6px">
+                  <button data-state="text" class="active" id="st-text">Text</button>
+                  <button data-state="json" id="st-json">JSON</button>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="field" style="margin-bottom:6px">
+                <label>Questions <span style="color:var(--faint)">:  one decision per question</span></label>
+              </div>
+              <div id="questions"></div>
+              <button class="addbtn" id="add-question">+ question</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="builder-raw" class="rawwrap hidden">
+          <div class="field">
+            <label for="raw-box">SystemRequest JSON</label>
+            <textarea class="code" id="raw-box" spellcheck="false"></textarea>
+            <div class="hint-err hidden" id="raw-err"></div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn-ghost" id="raw-format">Format</button>
+            <button class="btn-ghost" id="raw-copy">Copy</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="results-panel">
+        <div class="panel-title results-title">Output <span class="right"><button class="btn-ghost" id="copy-response" disabled>Copy JSON</button><button class="btn-ghost" id="download-response" disabled>Export</button></span></div>
+        <div id="results-status" role="status" aria-live="polite">Ready when you are.</div>
+        <div id="results" aria-busy="false">
+          <div class="empty"><div class="big" aria-hidden="true">{ }</div><strong>A decision, with the details.</strong>Run your request to inspect typed answers,<br>probability distributions, and timing.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ BENCHMARK TAB ============ -->
+    <section id="view-bench" class="hidden">
+      <div class="panel">
+        <div class="panel-title">Speed benchmark</div>
+        <div class="bench-config">
+          <div class="field">
+            <label>Models</label>
+            <div class="modelchecks" id="bench-models"></div>
+          </div>
+          <div class="field">
+            <label for="bench-reps">Reps per model</label>
+            <input type="number" id="bench-reps" min="1" max="200" value="10">
+          </div>
+          <div class="field">
+            <label>&nbsp;</label>
+            <button class="btn-run" id="bench-run"><span class="play"></span><span>Run benchmark</span></button>
+          </div>
+          <div class="field">
+            <label>&nbsp;</label>
+            <button class="btn-ghost hidden" id="bench-stop">Stop after request</button>
+          </div>
+        </div>
+        <div class="bench-note">
+          Sequential wall-clock round trips measured in this browser (1 untimed warmup, then N timed reps) using the
+          request built on the Playground tab. Includes HTTP overhead. For pinned, recorded measurements use
+          <code>openkind-bench score</code> :  see <code>docs/BENCHMARKS.md</code>.
+        </div>
+      </div>
+
+      <div class="panel bench-live" id="bench-live">
+        <div class="panel-title">Progress</div>
+        <div class="bench-statusline">
+          <span class="spinner" id="bench-spinner"></span>
+          <span class="model" id="bench-curmodel">–</span>
+          <span class="counts" id="bench-counts">0 / 0</span>
+        </div>
+        <div class="progress"><div class="fill" id="bench-fill"></div></div>
+        <div class="benchcards" id="bench-cards"></div>
+      </div>
+
+      <div class="panel hidden" id="bench-summary-panel">
+        <div class="panel-title">Comparison <span class="right" style="color:var(--faint);font-size:11px;text-transform:none;letter-spacing:0">sorted by p50</span></div>
+        <div style="overflow-x:auto">
+          <table class="cmp" id="bench-table"></table>
+        </div>
+        <div class="bench-note" id="bench-abort" style="display:none"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* ========================= constants ========================= */
+const NONE_KEY = "__none__";
+const LS_SAVED = "openkind.playground.saved.v1";
+const LS_SESSION = "openkind.playground.session.v1";
+const LS_APIKEY = "openkind.playground.apiKey.v1";
+
+const PRESETS = [
+  {
+    name: "Support triage :  choice",
+    blurb: "Route a payout-failure ticket to a team",
+    tags: ["choice"],
+    request: {
+      state: "Help! My payouts have been failing for 3 days.",
+      model: "jev-latest",
+      questions: {
+        department: {
+          type: "choice",
+          instructions: "Which team should handle this?",
+          criteria: {
+            billing: "Payments, invoicing, refunds",
+            technical: "Bugs, outages, integrations",
+            sales: "Pricing, upgrades, new accounts"
+          }
+        }
+      }
+    }
+  },
+  {
+    name: "Urgency :  noul",
+    blurb: "Binary read with true/false criteria",
+    tags: ["noul"],
+    request: {
+      state: "Help! My payouts have been failing for 3 days.",
+      model: "jev-latest",
+      questions: {
+        is_urgent: {
+          type: "noul",
+          instructions: "Does this convey urgency?",
+          criteria: { true: "Explicitly time-sensitive", false: "No urgency expressed" }
+        }
+      }
+    }
+  },
+  {
+    name: "Frustration :  score",
+    blurb: "Three-level ordered scale",
+    tags: ["score"],
+    request: {
+      state: "Help! My payouts have been failing for 3 days.",
+      model: "jev-latest",
+      questions: {
+        frustration: {
+          type: "score",
+          instructions: "How frustrated is the customer?",
+          criteria: ["Calm", "Frustrated", "Very angry"]
+        }
+      }
+    }
+  },
+  {
+    name: "Mixed batch",
+    blurb: "noul + choice + score in one request",
+    tags: ["noul", "choice", "score"],
+    request: {
+      state: "Help! My payouts have been failing for 3 days.",
+      model: "jev-latest",
+      questions: {
+        is_urgent: { type: "noul", instructions: "Does this convey urgency?" },
+        department: {
+          type: "choice",
+          instructions: "Which team should handle this?",
+          criteria: {
+            billing: "Payments, invoicing, refunds",
+            technical: "Bugs, outages, integrations",
+            sales: "Pricing, upgrades, new accounts"
+          }
+        },
+        frustration: {
+          type: "score",
+          instructions: "How frustrated is the customer?",
+          criteria: ["Calm", "Frustrated", "Very angry"]
+        }
+      }
+    }
+  },
+  {
+    name: "Structured state",
+    blurb: "Object state + null option criteria",
+    tags: ["choice"],
+    request: {
+      state: { user: { id: 123, messages: [] }, logs: [], diff: "…" },
+      model: "jev-latest",
+      questions: {
+        tier: {
+          type: "choice",
+          instructions: "Which support tier should respond?",
+          criteria: { t1: null, t2: "Specialist escalation", t3: "Engineering escalation" }
+        }
+      }
+    }
+  },
+  {
+    name: "Routing with semantic none",
+    blurb: "Explicit __none__ option :  required by qwen35-native",
+    tags: ["choice", "__none__"],
+    request: {
+      state: "My card was charged twice for the same invoice and I need this fixed today.",
+      model: "jev-latest",
+      questions: {
+        route: {
+          type: "choice",
+          instructions: "Which workflow owns this issue?",
+          criteria: {
+            refunds: "Duplicate charge repayment",
+            disputes: "Fraudulent or contested charge",
+            billing: "Invoice and payment plumbing",
+            __none__: "None of the listed options applies."
+          }
+        }
+      }
+    }
+  }
+];
+
+/* ========================= state ========================= */
+// Native Choice requires an explicit semantic-none option in every starter.
+for (const preset of PRESETS) for (const question of Object.values(preset.request.questions)) {
+  if (question.type === "choice" && !Object.hasOwn(question.criteria, NONE_KEY)) question.criteria[NONE_KEY] = "None of the listed options applies.";
+}
+
+const S = {
+  models: [],
+  library: [],
+  modelBusy: null,
+  refreshId: 0,
+  lastResponse: null,
+  runController: null,
+  selectedModel: "",
+  apiKey: "",
+  mode: "form",            // form | raw
+  stateMode: "text",       // text | json
+  questions: [],           // [{id, type, instructions, ...type-specific}]
+  running: false,
+  runStart: 0,
+  raf: 0,
+  bench: { running: false, stop: false, reps: 10, chosen: new Set(), runs: null, aborted: null },
+  saved: [],
+};
+
+/* ========================= dom helpers ========================= */
+const $ = (id) => document.getElementById(id);
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") node.className = v;
+    else if (k === "text") node.textContent = v;
+    else if (k.startsWith("on")) node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, v);
+  }
+  if (tag === "button" && attrs.title && /(?:remove|del|mini)/.test(attrs.class || "") && !attrs["aria-label"]) node.setAttribute("aria-label", attrs.title);
+  for (const c of children) if (c != null) node.append(c);
+  return node;
+}
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function toast(msg, kind = "") {
+  const t = el("div", { class: "toast " + kind, text: msg });
+  $("toasts").append(t);
+  setTimeout(() => t.remove(), 3400);
+}
+function fmtMs(ms) {
+  if (ms >= 1000) return (ms / 1000).toFixed(2) + " s";
+  if (ms >= 10) return ms.toFixed(0) + " ms";
+  return ms.toFixed(1) + " ms";
+}
+function pct(x) { return (x * 100).toFixed(1) + "%"; }
+function deepCopy(v) { return v == null ? v : JSON.parse(JSON.stringify(v)); }
+
+/* ========================= storage ========================= */
+function loadSaved() {
+  try { S.saved = JSON.parse(localStorage.getItem(LS_SAVED) || "[]"); if (!Array.isArray(S.saved)) S.saved = []; S.saved = S.saved.filter(x => x && typeof x.name === "string" && x.request && typeof x.request === "object"); }
+  catch { S.saved = []; }
+}
+function persistSaved() { try { localStorage.setItem(LS_SAVED, JSON.stringify(S.saved)); } catch { toast("Browser storage is unavailable. Export examples to keep them.", "err"); } }
+function persistSession() {
+  try {
+    localStorage.setItem(LS_SESSION, JSON.stringify({ mode: S.mode, raw: $("raw-box").value,
+      draft: { questions: S.questions, model: S.selectedModel, state: $("state-box").value, stateMode: S.stateMode } }));
+  } catch { /* A full or disabled store must not prevent evaluation. */ }
+}
+function buildRequestBestEffort() {
+  try { return buildRequestBody(); } catch { return null; }
+}
+
+/* ========================= api ========================= */
+function apiHeaders() {
+  const h = { "content-type": "application/json" };
+  if (S.apiKey) h["authorization"] = "Bearer " + S.apiKey;
+  return h;
+}
+async function api(path, opts = {}) {
+  return fetch(path, { headers: apiHeaders(), ...opts });
+}
+async function refreshHealth() {
+  const pill = $("health-pill"), text = $("health-text");
+  try {
+    const r = await fetch("/health", { signal: AbortSignal.timeout(5000) });
+    if (!r.ok) throw new Error("health " + r.status);
+    pill.classList.add("ok"); pill.classList.remove("bad");
+    text.textContent = "daemon up";
+  } catch {
+    pill.classList.add("bad"); pill.classList.remove("ok");
+    text.textContent = "daemon down";
+  }
+}
+async function refreshModels() {
+  const generation = ++S.refreshId;
+  $("refresh-models").disabled = true;
+  try {
+    const r = await api("/v1/models", { signal: AbortSignal.timeout(10000) });
+    if (!r.ok) throw new Error(r.status === 401 ? "API key required. Open Settings to connect." : "Could not fetch models (HTTP " + r.status + ").");
+    const body = await r.json();
+    const libraryResponse = await api("/playground/api/models", { signal: AbortSignal.timeout(10000) });
+    const library = await libraryResponse.json().catch(() => null);
+    if (generation !== S.refreshId) return;
+    S.models = body.models || [];
+    S.library = libraryResponse.ok ? library.models : S.models.map(m => ({ ...m, loaded: true, manageable: false, source: "startup" }));
+    modelMessage(libraryResponse.ok ? (S.library.length ? "Choose what runs locally." : "No local models found. Install one with the CLI.") : "Model controls unavailable. " + (library?.error?.message || "Restart with an updated daemon."), !libraryResponse.ok);
+    $("models-text").textContent = S.models.length + " loaded";
+    S.bench.chosen = new Set([...S.bench.chosen].filter(name => S.models.some(m => m.name === name)));
+    renderModelSelect(); renderModelLibrary(); renderBenchModels();
+  } catch (e) {
+    if (generation !== S.refreshId) return;
+    S.models = []; S.library = []; S.bench.chosen.clear();
+    $("models-text").textContent = "unavailable";
+    modelMessage(e.message, true);
+    renderModelSelect(); renderModelLibrary(); renderBenchModels();
+  } finally {
+    if (generation === S.refreshId) { $("refresh-models").disabled = false; syncControls(); }
+  }
+}
+function modelMessage(text, error = false) {
+  $("model-message").textContent = text;
+  $("model-message").classList.toggle("error", error);
+}
+function syncControls() {
+  const busy = S.running || S.bench.running || !!S.modelBusy;
+  $("run-btn").disabled = busy || (S.mode === "form" && !S.models.some(m => m.name === S.selectedModel));
+  $("bench-run").disabled = busy || !S.models.length;
+  $("model-select").disabled = busy;
+  document.querySelectorAll(".model-actions button").forEach(b => { b.disabled = busy || b.dataset.selected === "true"; });
+}
+function selectModel(name) {
+  if (S.mode === "raw") {
+    try { const request = JSON.parse($("raw-box").value); request.model = name; $("raw-box").value = JSON.stringify(request, null, 2); }
+    catch { toast("Fix the raw JSON before changing its model.", "err"); return; }
+  }
+  S.selectedModel = name;
+  renderModelSelect(); renderModelLibrary(); schedulePersist(); syncControls();
+}
+function renderModelSelect() {
+  const sel = $("model-select");
+  sel.replaceChildren();
+  if (!S.selectedModel && S.models.length) S.selectedModel = S.models.find(m => m.name === "mock")?.name || S.models[0].name;
+  if (!S.models.some(m => m.name === S.selectedModel)) sel.append(el("option", { value: S.selectedModel, text: S.selectedModel ? S.selectedModel + " (not loaded)" : "Load a model to begin" }));
+  for (const m of S.models) sel.append(el("option", { value: m.name, text: m.name }));
+  sel.value = S.selectedModel;
+  updateModelDesc();
+}
+function updateModelDesc() {
+  const model = S.library.find(m => m.name === S.selectedModel) || S.models.find(m => m.name === S.selectedModel);
+  $("model-desc").textContent = model?.description || "Choose a loaded model in the local model panel.";
+}
+function renderModelLibrary() {
+  const root = $("model-library"); root.replaceChildren();
+  for (const model of S.library) {
+    const active = model.loaded && model.name === S.selectedModel;
+    const card = el("div", { class: "model-card" + (active ? " selected" : "") });
+    card.append(el("h3", { text: model.name }), el("div", { class: "model-state" + (model.loaded ? " loaded" : ""), text: (model.loaded ? "Loaded" : "Unloaded") + " · " + (model.source === "mock" ? "Demo engine" : model.source === "installed" ? "Installed locally" : "Startup configuration") }));
+    card.append(el("p", { text: model.description }));
+    const actions = el("div", { class: "model-actions" });
+    if (model.loaded) actions.append(el("button", { class: "btn-ghost", text: active ? "Selected" : "Use model", "data-selected": String(active), "aria-label": "Use " + model.name, onclick: () => selectModel(model.name) }));
+    if (model.manageable) actions.append(el("button", { class: "btn-ghost", text: S.modelBusy === model.name ? (model.loaded ? "Unloading..." : "Loading...") : model.loaded ? "Unload" : "Load model", "aria-label": (model.loaded ? "Unload " : "Load ") + model.name, onclick: () => changeModel(model) }));
+    card.append(actions); root.append(card);
+  }
+  syncControls();
+}
+async function changeModel(model) {
+  if (S.modelBusy || S.running || S.bench.running) return;
+  S.modelBusy = model.name; renderModelLibrary();
+  modelMessage((model.loaded ? "Unloading " : "Verifying and loading ") + model.name + "...");
+  try {
+    const response = await api("/playground/api/models", { method: "POST", headers: { ...apiHeaders(), "x-openkind-playground": "1" }, body: JSON.stringify({ name: model.name, loaded: !model.loaded }) });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(body?.error?.message || "Model change failed (HTTP " + response.status + ").");
+    if (!model.loaded) S.selectedModel = model.name;
+    await refreshModels();
+    if (!model.loaded) selectModel(model.name);
+    toast(model.name + (model.loaded ? " unloaded" : " loaded"), "ok");
+  } catch (e) {
+    await refreshModels();
+    modelMessage(e.message + " Refresh to check the daemon state.", true);
+  } finally { S.modelBusy = null; renderModelLibrary(); }
+}
+
+/* ========================= question editors ========================= */
+function newQuestion(type = "noul") {
+  const q = { id: uniqueQid(type), type, instructions: "" };
+  applyTypeDefaults(q, type);
+  return q;
+}
+function uniqueQid(type) {
+  const base = { noul: "is_", choice: "pick_", score: "rate_" }[type] || "q";
+  let i = 1, id = base + i;
+  while (S.questions.some((q) => q.id === id)) id = base + ++i;
+  return id;
+}
+function applyTypeDefaults(q, type) {
+  q.type = type;
+  if (type === "noul") { q.criteriaTrue = ""; q.criteriaFalse = ""; }
+  if (type === "choice") { q.options = [{ key: "option_a", desc: "" }, { key: NONE_KEY, desc: "None of the listed options applies.", isNone: true }]; }
+  if (type === "score") { q.levels = ["Low", "High"]; }
+}
+function loadRequestIntoForm(req) {
+  S.questions = [];
+  const qs = (req && req.questions) || {};
+  for (const [id, q] of Object.entries(qs)) {
+    const nq = { id, type: q.type || "noul", instructions: q.instructions == null ? "" : q.instructions };
+    if (typeof nq.instructions !== "string") nq.instructions = JSON.stringify(nq.instructions);
+    if (nq.type === "noul") {
+      nq.criteriaTrue = q.criteria && typeof q.criteria.true === "string" ? q.criteria.true : "";
+      nq.criteriaFalse = q.criteria && typeof q.criteria.false === "string" ? q.criteria.false : "";
+    } else if (nq.type === "choice") {
+      nq.options = [];
+      for (const [k, v] of Object.entries(q.criteria || {})) {
+        nq.options.push({ key: k, desc: v == null ? "" : v, isNone: k === NONE_KEY });
+      }
+      if (nq.options.length === 0) nq.options.push({ key: "option_a", desc: "" });
+    } else if (nq.type === "score") {
+      nq.levels = Array.isArray(q.criteria) ? q.criteria.map(String) : ["Low", "High"];
+      if (nq.levels.length < 2) nq.levels = ["Low", "High"];
+    }
+    S.questions.push(nq);
+  }
+  // state
+  const st = req ? req.state : "";
+  if (typeof st === "string") { S.stateMode = "text"; $("state-box").value = st; }
+  else { S.stateMode = "json"; $("state-box").value = JSON.stringify(st == null ? "" : st, null, 2); }
+  syncStateSeg();
+  if (req?.model) S.selectedModel = req.model;
+  renderModelSelect(); renderModelLibrary();
+  renderQuestions();
+}
+function syncStateSeg() {
+  $("state-kind").textContent = "(" + S.stateMode + ")";
+  document.querySelectorAll(".seg button[data-state]").forEach((b) => {
+    b.classList.toggle("active", b.dataset.state === S.stateMode);
+    b.setAttribute("aria-pressed", String(b.dataset.state === S.stateMode));
+  });
+}
+
+function renderQuestions() {
+  const wrap = $("questions");
+  wrap.innerHTML = "";
+  for (const q of S.questions) wrap.append(questionCard(q));
+}
+
+function questionCard(q) {
+  const card = el("div", { class: "qcard" });
+
+  const qidInput = el("input", { type: "text", value: q.id, spellcheck: "false", "aria-label": "Question ID" });
+  qidInput.addEventListener("input", () => { q.id = qidInput.value.trim(); schedulePersist(); });
+
+  const typeSel = el("select", { "aria-label": "Question type" });
+  for (const t of ["noul", "choice", "score"]) typeSel.append(el("option", { value: t, text: t }));
+  typeSel.value = q.type;
+  typeSel.addEventListener("change", () => {
+    applyTypeDefaults(q, typeSel.value);
+    renderQuestions(); schedulePersist();
+  });
+
+  const head = el("div", { class: "qhead" },
+    el("div", { class: "qid" }, qidInput),
+    typeSel,
+    el("button", { class: "remove", title: "Remove question", onclick: () => { S.questions = S.questions.filter((x) => x !== q); renderQuestions(); schedulePersist(); } }, "✕")
+  );
+  card.append(head);
+
+  const body = el("div", { class: "qbody" });
+  body.append(el("label", { text: "Instructions" }));
+  const ins = el("textarea", { rows: "2", placeholder: "What should the model decide?", "aria-label": "Instructions" });
+  ins.value = q.instructions;
+  ins.addEventListener("input", () => { q.instructions = ins.value; schedulePersist(); });
+  body.append(ins);
+
+  if (q.type === "noul") {
+    body.append(el("label", { text: "Criteria (optional) :  what “true” and “false” mean here" }));
+    const grid = el("div");
+    for (const [prop, label] of [["criteriaTrue", "true"], ["criteriaFalse", "false"]]) {
+      const row = el("div", { class: "crit-row", style: "grid-template-columns:44px 1fr" });
+      row.append(el("div", { class: "keybox" }, el("span", { class: "badge", text: label })));
+      const inp = el("input", { type: "text", placeholder: label === "true" ? "e.g. Explicitly time-sensitive" : "e.g. No urgency expressed" });
+      inp.value = q[prop] || "";
+      inp.addEventListener("input", () => { q[prop] = inp.value; schedulePersist(); });
+      row.append(inp);
+      grid.append(row);
+    }
+    body.append(grid);
+  }
+
+  if (q.type === "choice") {
+    body.append(el("label", { text: "Options :  key plus an optional description" }));
+    const rows = el("div");
+    const render = () => {
+      rows.innerHTML = "";
+      q.options.forEach((opt, idx) => {
+        const row = el("div", { class: "crit-row" + (opt.isNone ? " none-opt" : "") });
+        if (opt.isNone) {
+          row.append(el("div", { class: "keybox" },
+            el("input", { type: "text", value: NONE_KEY, disabled: "disabled" }),
+            el("span", { class: "badge", text: "semantic none" })));
+        } else {
+          const key = el("input", { type: "text", value: opt.key, placeholder: "key", spellcheck: "false" });
+          key.addEventListener("input", () => { opt.key = key.value.trim(); schedulePersist(); });
+          row.append(key);
+        }
+        const desc = el("input", { type: "text", placeholder: "description (optional)", value: opt.desc || "" });
+        desc.addEventListener("input", () => { opt.desc = desc.value; schedulePersist(); });
+        row.append(desc);
+        row.append(el("button", { class: "del", title: "Remove option", onclick: () => { q.options.splice(idx, 1); renderQuestions(); schedulePersist(); } }, "✕"));
+        rows.append(row);
+      });
+    };
+    render();
+    body.append(rows);
+    const actions = el("div", { style: "display:flex;gap:8px;margin-top:4px" });
+    actions.append(el("button", {
+      class: "addbtn", text: "+ option", onclick: () => {
+        q.options.push({ key: "option_" + String.fromCharCode(97 + q.options.length), desc: "" });
+        renderQuestions(); schedulePersist();
+      }
+    }));
+    if (!q.options.some((o) => o.isNone)) {
+      actions.append(el("button", {
+        class: "addbtn", text: "+ __none__", title: "Add the explicit semantic-none option (required by qwen35-native)", onclick: () => {
+          q.options.push({ key: NONE_KEY, desc: "None of the listed options applies.", isNone: true });
+          renderQuestions(); schedulePersist();
+        }
+      }));
+    }
+    body.append(actions);
+    if (q.options.some((o) => o.isNone)) {
+      body.append(el("div", { class: "criteria-help", text: "“" + NONE_KEY + "” is reported as the semantic-none probability mass. qwen35-native requires this option explicitly." }));
+    }
+  }
+
+  if (q.type === "score") {
+    body.append(el("label", { text: "Levels :  ordered scale, low to high (min 2)" }));
+    const rows = el("div");
+    const render = () => {
+      rows.innerHTML = "";
+      q.levels.forEach((lvl, idx) => {
+        const row = el("div", { class: "levels-row" },
+          el("span", { class: "idx", text: String(idx) }));
+        const inp = el("input", { type: "text", value: lvl, placeholder: "level " + idx });
+        inp.addEventListener("input", () => { q.levels[idx] = inp.value; schedulePersist(); });
+        row.append(inp);
+        row.append(el("button", { class: "del", title: "Remove level", onclick: () => { if (q.levels.length > 2) { q.levels.splice(idx, 1); renderQuestions(); schedulePersist(); } } }, "✕"));
+        rows.append(row);
+      });
+    };
+    render();
+    body.append(rows);
+    body.append(el("button", { class: "addbtn", text: "+ level", onclick: () => { q.levels.push("level " + q.levels.length); renderQuestions(); schedulePersist(); } }));
+  }
+
+  card.append(body);
+  return card;
+}
+
+/* ========================= request build/validate ========================= */
+function buildRequest() {
+  // state
+  let state;
+  const raw = $("state-box").value;
+  if (S.stateMode === "json") {
+    try { state = JSON.parse(raw || '""'); } catch (e) { throw new Error("State JSON is invalid: " + e.message); }
+    if (typeof state === "number" || typeof state === "boolean" || state === null) {
+      throw new Error("State must be a string, object, or array (numbers/booleans/null are rejected).");
+    }
+  } else {
+    state = raw;
+  }
+  if (typeof state === "string" && state.trim() === "") throw new Error("State is empty :  give the model something to decide over.");
+  if (state !== null && typeof state === "object" && Object.keys(state).length === 0 && !Array.isArray(state)) {
+    // allow empty object? wire accepts it; keep permissive
+  }
+
+  // questions
+  if (S.questions.length === 0) throw new Error("Add at least one question.");
+  const questions = Object.create(null);
+  const seen = new Set();
+  for (const q of S.questions) {
+    const id = q.id.trim();
+    if (!id) throw new Error("Every question needs an id.");
+    if (seen.has(id)) throw new Error("Duplicate question id “" + id + "”.");
+    seen.add(id);
+    const question = { type: q.type, instructions: q.instructions };
+    if (q.type === "noul") {
+      if ((q.criteriaTrue || "").trim() || (q.criteriaFalse || "").trim()) {
+        question.criteria = { true: q.criteriaTrue, false: q.criteriaFalse };
+      }
+    } else if (q.type === "choice") {
+      const criteria = Object.create(null);
+      const keys = new Set();
+      for (const opt of q.options) {
+        const key = opt.key.trim();
+        if (!key) throw new Error("Question “" + id + "” has an option with an empty key.");
+        if (keys.has(key)) throw new Error("Question “" + id + "” repeats option key “" + key + "”.");
+        keys.add(key);
+        criteria[key] = opt.desc === "" ? null : opt.desc;
+      }
+      if (Object.keys(criteria).length === 0) throw new Error("Choice question “" + id + "” needs at least one option.");
+      question.criteria = criteria;
+    } else {
+      const levels = [...q.levels];
+      if (levels.length < 2) throw new Error("Score question “" + id + "” needs at least two levels.");
+      if (levels.some((l) => l === "")) throw new Error("Score question “" + id + "” has an empty level.");
+      question.criteria = levels;
+    }
+    questions[id] = question;
+  }
+
+  if (!S.selectedModel) throw new Error("No model selected :  is one registered on the daemon?");
+  return { state, model: S.selectedModel, questions };
+}
+
+/* raw mode sync */
+function enterRaw() {
+  try { $("raw-box").value = JSON.stringify(buildRequest(), null, 2); $("raw-err").classList.add("hidden"); return true; }
+  catch (e) { showRequestError(e.message); return false; }
+}
+/* The body to actually send: the raw JSON verbatim in raw mode, the
+   form-built request otherwise. Raw mode must honor exactly what the
+   user typed (e.g. a model alias the daemon may not even know). */
+function buildRequestBody() {
+  if (S.mode !== "raw") return buildRequest();
+  let parsed;
+  try { parsed = JSON.parse($("raw-box").value); } catch (e) { throw new Error("Raw JSON is invalid: " + e.message); }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw new Error("Request must be a JSON object.");
+  if (!parsed.model || typeof parsed.model !== "string") throw new Error("Request needs a string `model` field.");
+  if (!parsed.questions || typeof parsed.questions !== "object" || Array.isArray(parsed.questions) || Object.keys(parsed.questions).length === 0) {
+    throw new Error("Request needs a non-empty `questions` map.");
+  }
+  if (parsed.state === undefined) throw new Error("Request needs a `state` field.");
+  return parsed;
+}
+function validateFormRequest(req) {
+  const fail = () => { throw new Error("This request contains fields the form cannot preserve. Keep editing it in Raw JSON."); };
+  const keysOnly = (object, keys) => object && typeof object === "object" && !Array.isArray(object) && Object.keys(object).every(k => keys.includes(k));
+  if (!keysOnly(req, ["model", "state", "questions"]) || typeof req.model !== "string" || !req.questions || typeof req.questions !== "object" || Array.isArray(req.questions)) fail();
+  if (typeof req.state !== "string" && (!req.state || typeof req.state !== "object")) fail();
+  for (const [id, q] of Object.entries(req.questions)) {
+    if (id.trim() !== id || !keysOnly(q, ["type", "instructions", "criteria"]) || typeof q.instructions !== "string") fail();
+    if (q.type === "noul") {
+      if (q.criteria !== undefined && (!keysOnly(q.criteria, ["true", "false"]) || typeof q.criteria.true !== "string" || typeof q.criteria.false !== "string" || (!q.criteria.true.trim() && !q.criteria.false.trim()))) fail();
+    } else if (q.type === "choice") {
+      if (!q.criteria || typeof q.criteria !== "object" || Array.isArray(q.criteria) || !Object.keys(q.criteria).length || Object.entries(q.criteria).some(([key,v]) => key.trim() !== key || (v !== null && (typeof v !== "string" || v === "")))) fail();
+    } else if (q.type === "score") {
+      if (!Array.isArray(q.criteria) || q.criteria.length < 2 || q.criteria.some(v => typeof v !== "string")) fail();
+    } else fail();
+  }
+}
+function showRequestError(message) {
+  $("request-error").textContent = message;
+  $("request-error").classList.remove("hidden");
+}
+function adoptRequest(request) {
+  // Saved wire payloads can contain structured instructions the form cannot edit.
+  try { validateFormRequest(request); loadRequestIntoForm(deepCopy(request)); S.mode = "form"; }
+  catch { $("raw-box").value = JSON.stringify(request, null, 2); S.mode = "raw"; }
+  updateMode(); schedulePersist();
+}
+
+function applyRawToForm() {
+  const text = $("raw-box").value;
+  if (text.trim() === "") return true; // nothing to apply
+  try {
+    const req = JSON.parse(text);
+    if (typeof req !== "object" || req === null) throw new Error("request must be a JSON object");
+    validateFormRequest(req);
+    loadRequestIntoForm(req);
+    $("raw-err").classList.add("hidden");
+    return true;
+  } catch (e) {
+    const box = $("raw-err");
+    box.textContent = e.message;
+    box.classList.remove("hidden");
+    return false;
+  }
+}
+
+/* ========================= run ========================= */
+function setRunning(on) {
+  S.running = on;
+  const btn = $("run-btn");
+  syncControls();
+  $("cancel-run").classList.toggle("hidden", !on);
+  $("results").setAttribute("aria-busy", String(on));
+  $("run-label").textContent = on ? "Running" : "Run request";
+  const play = btn.querySelector(".play");
+  if (on) {
+    play?.replaceWith(el("span", { class: "spinner" }));
+  } else {
+    btn.querySelector(".spinner")?.replaceWith(el("span", { class: "play" }));
+    cancelAnimationFrame(S.raf);
+  }
+  const elapsed = $("elapsed");
+  if (on) {
+    elapsed.classList.remove("hidden");
+    S.runStart = performance.now();
+    const tick = () => {
+      elapsed.innerHTML = esc(fmtMs(performance.now() - S.runStart)).replace(/ (ms|s)$/, ' <span class="unit">$1</span>');
+      S.raf = requestAnimationFrame(tick);
+    };
+    tick();
+  } else {
+    elapsed.classList.add("hidden");
+  }
+}
+
+async function runRequest() {
+  if (S.running || S.bench.running || S.modelBusy) return;
+  let body;
+  try {
+    body = buildRequestBody();
+  } catch (e) {
+    showRequestError(e.message);
+    return;
+  }
+  $("request-error").classList.add("hidden");
+  S.runController = new AbortController();
+  $("results-status").textContent = "Evaluating " + body.model + "... Previous output stays visible until this request finishes.";
+  setRunning(true);
+  const t0 = performance.now();
+  try {
+    const resp = await api("/v1/systemone", { method: "POST", body: JSON.stringify(body), signal: S.runController.signal });
+    const rid = resp.headers.get("x-typesafe-request-id") || "";
+    const json = await resp.json().catch(() => null);
+    const ms = performance.now() - t0;
+    if (!resp.ok) {
+      renderErrorResult(resp.status, json, rid, ms, body);
+    } else {
+      if (!json || !json.answers) throw new Error("Daemon returned an invalid response.");
+      renderResults(json, ms, rid, body);
+    }
+  } catch (e) {
+    if (e.name === "AbortError") { $("results-status").textContent = "Stopped waiting. The daemon may still be finishing this request."; return; }
+    renderErrorResult(0, { error: { code: "network_error", message: String(e) } }, "", performance.now() - t0, body);
+  } finally {
+    S.runController = null;
+    setRunning(false);
+  }
+}
+
+function setResponse(value) {
+  S.lastResponse = value;
+  $("copy-response").disabled = !value;
+  $("download-response").disabled = !value;
+}
+/* ========================= results render ========================= */
+function chip(html, cls) { return `<span class="chip ${cls || ""}">${html}</span>`; }
+function metaChipsHtml(chips) {
+  const d = el("div", { class: "meta-chips" });
+  d.innerHTML = chips.filter(Boolean).map(([h, c]) => chip(h, c)).join("");
+  return d;
+}
+
+function renderResults(resp, ms, rid, req) {
+  setResponse(resp);
+  $("results-status").textContent = "Completed in " + fmtMs(ms) + " · " + req.model;
+  const root = $("results");
+  root.innerHTML = "";
+
+  const usage = resp.usage || {};
+  const nAnswers = Object.keys(resp.answers || {}).length;
+  root.append(el("div", {}, metaChipsHtml([
+    [`<b>200</b> OK`, "ok"],
+    [`latency <b>${esc(fmtMs(ms))}</b>`, "lat"],
+    [`model <b>${esc(resp.model || "")}</b>`, ""],
+    [`${nAnswers} answer${nAnswers === 1 ? "" : "s"}`, ""],
+    [`in <b>${esc(usage.input_tokens ?? "–")}</b> / out <b>${esc(usage.output_tokens ?? "–")}</b> tokens`, ""],
+    rid ? [`req <b>${esc(rid.slice(0, 8))}</b>`, ""] : null,
+  ])));
+
+  const ids = Object.keys(resp.answers || {}).sort();
+  for (const id of ids) root.append(answerCard(id, resp.answers[id], (req && req.questions) || {}));
+
+  const details = el("details", { class: "rawresp" });
+  details.append(el("summary", { text: "Raw response JSON" }));
+  details.append(el("pre", { text: JSON.stringify(resp, null, 2) }));
+  root.append(details);
+
+}
+
+function answerCard(qid, answer, reqQuestions) {
+  const card = el("div", { class: "acard" });
+  const head = el("div", { class: "acard-head" },
+    el("span", { class: "qid", text: qid }),
+    el("span", { class: "typechip " + (answer.type || ""), text: answer.type || "?" })
+  );
+  card.append(head);
+
+  if (answer.type === "noul") {
+    const v = typeof answer.noul === "number" ? answer.noul : 0;
+    card.append(el("div", { class: "bignum", text: v.toFixed(3) }));
+    card.append(el("div", { class: "meter" }, el("div", { class: "fill", style: `width:${Math.max(0, Math.min(1, v)) * 100}%` })));
+    card.append(el("div", { class: "meter-ticks" }, el("span", { text: "0.0" }), el("span", { text: "Probability of true" }), el("span", { text: "1.0" })));
+    const q = reqQuestions[qid];
+    const crit = q && q.criteria ? q.criteria : null;
+    if (crit) {
+      card.append(el("div", { class: "conf", style: "margin-top:6px" }, `criteria · true: ${crit.true || "Not specified"} · false: ${crit.false || "Not specified"}`));
+    }
+  }
+
+  if (answer.type === "choice") {
+    card.append(el("div", { class: "choice-winner", text: answer.choice === NONE_KEY ? "None of the listed options" : answer.choice }));
+    const probs = Object.entries(answer.probabilities || {}).sort((a, b) => b[1] - a[1]);
+    for (const [key, p] of probs) {
+      const isSel = key === answer.choice;
+      const isNone = key === NONE_KEY;
+      const row = el("div", { class: "bar-row" + (isSel ? " selected" : "") + (isNone ? " none-opt" : "") });
+      const label = el("div", { class: "blabel", title: key, text: key });
+      if (isNone) label.append(" ", el("span", { class: "none-chip", text: "semantic none" }));
+      if (isSel) label.append(" ", el("span", { class: "selected-chip", text: "selected" }));
+      row.append(label);
+      row.append(el("div", { class: "btrack" }, el("div", { class: "bfill", style: `width:${Math.max(0, Math.min(1, p)) * 100}%` })));
+      row.append(el("span", { class: "bpct", text: pct(p) }));
+      card.append(row);
+    }
+    if (typeof answer.confidence === "number") {
+      const conf = el("div", { class: "conf", style: "margin-top:8px" }, "confidence ");
+      conf.append(el("b", { text: answer.confidence.toFixed(3) }));
+      card.append(conf);
+    }
+  }
+
+  if (answer.type === "score") {
+    const probs = Object.entries(answer.probabilities || {}).sort((a, b) => Number(a[0]) - Number(b[0]));
+    const legend = answer.legend || {};
+    const expected = typeof answer.score === "number" ? answer.score : 0;
+    const conf = el("span", { class: "conf" }, "confidence ");
+    if (typeof answer.confidence === "number") conf.append(el("b", { text: answer.confidence.toFixed(3) }));
+    card.append(el("div", { class: "rowmeta" },
+      el("span", { class: "bignum", text: expected.toFixed(2) }),
+      el("span", { class: "conf", text: "expected level" }),
+      conf
+    ));
+    for (const [idx, p] of probs) {
+      const row = el("div", { class: "bar-row" });
+      row.append(el("div", { class: "blabel", title: legend[idx] || idx, text: `${idx} · ${legend[idx] || ""}` }));
+      row.append(el("div", { class: "btrack" }, el("div", { class: "bfill", style: `width:${Math.max(0, Math.min(1, p)) * 100}%` })));
+      row.append(el("span", { class: "bpct", text: pct(p) }));
+      card.append(row);
+    }
+  }
+  return card;
+}
+
+const FIX_HINTS = {
+  401: "Add the daemon's API key in Settings (top right).",
+  429: "Rate limited. Restart the daemon with --rate-limit-rpm 0, or launch it via `openkind playground`.",
+  529: "The engine is overloaded :  retry shortly.",
+  404: "This alias is not registered on the daemon. Check --models on openkindd.",
+};
+function renderErrorResult(status, json, rid, ms, req) {
+  setResponse(json);
+  $("results-status").textContent = "Request failed · " + (req?.model || "unknown model");
+  const root = $("results");
+  root.innerHTML = "";
+  const code = json && json.error ? json.error.code : "http_" + status;
+  const msg = json && json.error ? json.error.message : (status ? "HTTP " + status : "request failed");
+  const box = el("div", { class: "errbox" });
+  box.append(el("div", { class: "code", text: `${status || " Network"} · ${code}` }));
+  box.append(el("div", { class: "msg", text: msg }));
+  if (FIX_HINTS[status]) box.append(el("div", { class: "fix", text: FIX_HINTS[status] }));
+  root.append(box);
+  root.append(metaChipsHtml([
+    [`latency <b>${esc(fmtMs(ms))}</b>`, "lat"],
+    rid ? [`req <b>${esc(rid.slice(0, 8))}</b>`, ""] : null,
+  ].filter(Boolean)));
+  if (json) {
+    const details = el("details", { class: "rawresp" });
+    details.append(el("summary", { text: "Raw error body" }));
+    details.append(el("pre", { text: JSON.stringify(json, null, 2) }));
+    root.append(details);
+  }
+}
+
+/* ========================= benchmark ========================= */
+function renderBenchModels() {
+  const wrap = $("bench-models");
+  wrap.innerHTML = "";
+  if (!S.models.length) { wrap.append(el("span", { class: "side-note", text: "no models registered" })); return; }
+  for (const m of S.models) {
+    const cb = el("input", { type: "checkbox" });
+    cb.checked = S.bench.chosen.has(m.name);
+    const lbl = el("label", { class: "mcheck" + (cb.checked ? " checked" : "") }, cb, el("span", { text: m.name }));
+    cb.addEventListener("change", () => {
+      if (cb.checked) S.bench.chosen.add(m.name); else S.bench.chosen.delete(m.name);
+      lbl.classList.toggle("checked", cb.checked);
+    });
+    if (!S.bench.chosen.size && m.name === S.selectedModel) { cb.checked = true; S.bench.chosen.add(m.name); lbl.classList.add("checked"); }
+    wrap.append(lbl);
+  }
+}
+
+function percentile(sorted, q) {
+  if (!sorted.length) return NaN;
+  const idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil(q * sorted.length) - 1));
+  return sorted[idx];
+}
+function statsFor(latencies) {
+  const sorted = [...latencies].sort((a, b) => a - b);
+  const n = sorted.length;
+  if (!n) return null;
+  const sum = sorted.reduce((a, b) => a + b, 0);
+  return {
+    n,
+    mean: sum / n,
+    p50: percentile(sorted, 0.5),
+    p95: percentile(sorted, 0.95),
+    min: sorted[0],
+    max: sorted[n - 1],
+    sum,
+  };
+}
+
+async function benchPost(body) {
+  const t0 = performance.now();
+  const resp = await api("/v1/systemone", { method: "POST", body: JSON.stringify(body), signal: AbortSignal.timeout(660000) });
+  if (resp.status === 429) {
+    const json = await resp.json().catch(() => null);
+    throw { rateLimited: true, status: 429, retryAfterMs: Number(resp.headers.get("retry-after-ms") || (json && json.error && 0) || 0) };
+  }
+  const json = await resp.json().catch(() => null);
+  return { ok: resp.ok && !!json?.answers, status: resp.status, ms: performance.now() - t0, json };
+}
+
+async function runBenchmark() {
+  if (S.bench.running || S.running || S.modelBusy) return;
+  const models = [...S.bench.chosen].filter(name => S.models.some(m => m.name === name));
+  if (!models.length) { toast("Check at least one model to benchmark.", "err"); return; }
+  let base;
+  try {
+    base = buildRequestBody();
+  } catch (e) { toast(e.message, "err"); return; }
+
+  const reps = Math.max(1, Math.min(200, Math.floor(Number($("bench-reps").value)) || 10));
+  const nQ = Object.keys(base.questions).length;
+
+  S.bench.running = true; S.bench.stop = false; S.bench.aborted = null;
+  S.bench.runs = Object.fromEntries(models.map((m) => [m, { latencies: [], tokensIn: 0, tokensOut: 0, errors: 0, done: 0, warm: false }]));
+  syncControls();
+  $("bench-stop").classList.remove("hidden");
+  $("bench-live").classList.add("on");
+  $("bench-spinner").style.display = "";
+  $("bench-summary-panel").classList.add("hidden");
+  $("bench-abort").style.display = "none";
+  renderBenchCards(models, reps);
+
+  const totalReqs = models.length * (reps + 1);
+  let completed = 0;
+  const tRunStart = performance.now();
+
+  try {
+    for (const m of models) {
+      if (S.bench.stop) break;
+      $("bench-curmodel").textContent = m;
+      const run = S.bench.runs[m];
+      // untimed warmup
+      const warmBody = { ...deepCopy(base), model: m };
+      const warm = await benchPost(warmBody);
+      completed++; run.warm = true;
+      updateBenchProgress(completed, totalReqs, tRunStart);
+      if (!warm.ok) { run.errors++; run.done = 0; renderBenchCards(models, reps); throw new Error("Warmup failed for " + m + " (HTTP " + warm.status + "). " + (warm.json?.error?.message || "")); }
+      renderBenchCards(models, reps);
+
+      for (let i = 0; i < reps; i++) {
+        if (S.bench.stop) break;
+        $("bench-counts").textContent = `${run.done} / ${reps}`;
+        let r;
+        try {
+          r = await benchPost({ ...deepCopy(base), model: m });
+        } catch (e) {
+          if (e && e.rateLimited) {
+            S.bench.aborted = "Stopped early: HTTP 429 rate limited. The daemon's default is 120 req/min on /v1/* :  launch it via `openkind playground` or pass --rate-limit-rpm 0.";
+            S.bench.stop = true;
+            break;
+          }
+          run.errors++; r = null;
+        }
+        completed++; run.done++;
+        if (r) {
+          if (r.ok) {
+            run.latencies.push(r.ms);
+            if (r.json && r.json.usage) { run.tokensIn += r.json.usage.input_tokens || 0; run.tokensOut += r.json.usage.output_tokens || 0; }
+          } else { run.errors++; }
+        }
+        updateBenchProgress(completed, totalReqs, tRunStart);
+        renderBenchCards(models, reps);
+      }
+    }
+  } catch (e) {
+    S.bench.aborted = e.rateLimited ? "Stopped: rate limited during warmup. Wait and retry." : "Stopped: " + e.message;
+  } finally {
+    if (S.bench.stop && !S.bench.aborted) S.bench.aborted = "Stopped by you. Statistics include completed timed requests only.";
+    S.bench.running = false;
+    syncControls();
+    $("bench-stop").classList.add("hidden");
+    $("bench-spinner").style.display = "none";
+    renderBenchSummary(models, reps, nQ);
+  }
+}
+
+function updateBenchProgress(completed, total, t0) {
+  const frac = total ? completed / total : 0;
+  $("bench-fill").style.width = (frac * 100).toFixed(1) + "%";
+  $("bench-counts").textContent = `${completed} / ${total} · ${((performance.now() - t0) / 1000).toFixed(1)} s`;
+}
+
+function renderBenchCards(models, reps) {
+  const wrap = $("bench-cards");
+  wrap.innerHTML = "";
+  for (const m of models) {
+    const run = S.bench.runs[m];
+    const st = statsFor(run.latencies);
+    const card = el("div", { class: "bcard" });
+    card.append(el("div", { class: "btop" },
+      el("span", { class: "bname", text: m }),
+      el("span", { class: "bstate", text: run.warm ? (run.done + "/" + reps + " done") : "warming" })));
+
+    const grid = el("div", { class: "bstats" });
+    const put = (v, k) => grid.append(el("div", { class: "stat" }, el("div", { class: "v", text: v }), el("div", { class: "k", text: k })));
+    put(st ? fmtMs(st.p50) : "–", "p50");
+    put(st ? fmtMs(st.p95) : "–", "p95");
+    put(st && st.mean ? (1000 / st.mean).toFixed(1) : "–", "req/s");
+    card.append(grid);
+    card.append(sparkline(run.latencies));
+    if (run.errors) card.append(el("div", { class: "berr", text: run.errors + " error" + (run.errors === 1 ? "" : "s") }));
+    wrap.append(card);
+  }
+}
+
+function sparkline(latencies) {
+  const w = 260, h = 34, n = Math.min(latencies.length, 60);
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "spark");
+  svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  svg.setAttribute("preserveAspectRatio", "none");
+  if (!n) return svg;
+  const vals = latencies.slice(-n);
+  const max = Math.max(...vals, 0.0001);
+  const bw = w / n;
+  vals.forEach((v, i) => {
+    const bh = Math.max(2, (v / max) * (h - 4));
+    const r = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+    r.setAttribute("x", (i * bw + bw * 0.15).toFixed(2));
+    r.setAttribute("y", (h - bh).toFixed(2));
+    r.setAttribute("width", Math.max(1, bw * 0.7).toFixed(2));
+    r.setAttribute("height", bh.toFixed(2));
+    r.setAttribute("rx", "1");
+    r.setAttribute("fill", i === vals.length - 1 ? "#4cc2ff" : "#45536e");
+    svg.append(r);
+  });
+  return svg;
+}
+
+function renderBenchSummary(models, reps, nQ) {
+  const rows = models
+    .map((m) => {
+      const run = S.bench.runs[m];
+      const st = statsFor(run.latencies);
+      const seconds = st ? st.sum / 1000 : 0;
+      return {
+        m, st, run, reps,
+        decisionsPerSec: seconds > 0 && run.done ? (st.n * nQ) / seconds : null,
+        tokOutPerSec: seconds > 0 ? run.tokensOut / seconds : null,
+      };
+    })
+    .filter((r) => r.st && r.st.n > 0)
+    .sort((a, b) => a.st.p50 - b.st.p50);
+
+  const table = $("bench-table");
+  const head = `<tr><th>model</th><th>reps</th><th>errors</th><th>p50</th><th>p95</th><th>mean</th><th>min</th><th>max</th><th>req/s</th><th>decisions/s</th><th>out tok/s</th></tr>`;
+  const body = rows.map((r, i) => {
+    const cls = i === 0 ? ' class="best"' : "";
+    return `<tr${cls}><td>${esc(r.m)}</td><td>${r.st.n}</td><td>${r.run.errors || 0}</td>` +
+      `<td><b>${fmtMs(r.st.p50)}</b></td><td>${fmtMs(r.st.p95)}</td><td>${fmtMs(r.st.mean)}</td>` +
+      `<td>${fmtMs(r.st.min)}</td><td>${fmtMs(r.st.max)}</td>` +
+      `<td>${(1000 / r.st.mean).toFixed(1)}</td>` +
+      `<td>${r.decisionsPerSec != null ? r.decisionsPerSec.toFixed(1) : "–"}</td>` +
+      `<td>${r.tokOutPerSec != null ? r.tokOutPerSec.toFixed(0) : "–"}</td></tr>`;
+  }).join("");
+  if (!rows.length) {
+    table.innerHTML = `<thead>${head}</thead><tbody><tr><td colspan="11" style="text-align:center;color:var(--faint);padding:20px">No successful timed requests.</td></tr></tbody>`;
+  } else {
+    table.innerHTML = `<thead>${head}</thead><tbody>${body}</tbody>`;
+  }
+  $("bench-summary-panel").classList.remove("hidden");
+  if (S.bench.aborted) {
+    const note = $("bench-abort");
+    note.textContent = S.bench.aborted;
+    note.style.display = "block";
+  }
+}
+
+/* ========================= presets & saved ========================= */
+function renderPresets() {
+  const wrap = $("presets");
+  wrap.innerHTML = "";
+  for (const p of PRESETS) {
+    const card = el("button", { class: "preset", title: "Load this preset" });
+    card.append(el("div", { class: "name", text: p.name }));
+    card.append(el("div", { class: "blurb", text: p.blurb }));
+    const tags = el("div", { class: "tags" });
+    for (const t of p.tags) tags.append(el("span", { class: "tag" + (t === "__none__" ? " none" : ""), text: t }));
+    card.append(tags);
+    card.addEventListener("click", () => {
+      adoptRequest({ ...deepCopy(p.request), model: S.selectedModel || p.request.model });
+      document.querySelectorAll(".preset").forEach(x => x.classList.toggle("active", x === card));
+      schedulePersist();
+      toast('Loaded preset "' + p.name + '"');
+    });
+    wrap.append(card);
+  }
+}
+
+function renderSaved() {
+  const wrap = $("saved-list");
+  wrap.innerHTML = "";
+  if (!S.saved.length) {
+    wrap.append(el("div", { class: "side-note", text: "Nothing saved yet." }));
+    return;
+  }
+  for (const item of S.saved) {
+    const row = el("div", { class: "saved-item" });
+    row.append(el("span", { class: "name", title: item.name, text: item.name }));
+    row.append(el("button", { class: "mini", title: "Load", onclick: () => {
+      adoptRequest(deepCopy(item.request));
+      schedulePersist();
+      toast('Loaded "' + item.name + '"');
+    } }, "↧"));
+    row.append(el("button", { class: "mini", title: "Overwrite with the current request", onclick: () => {
+      try {
+        const req = buildRequestBody();
+        item.request = req; item.savedAt = new Date().toISOString();
+        persistSaved(); renderSaved(); toast('Updated "' + item.name + '"', "ok");
+      } catch (e) { toast(String(e.message || e), "err"); }
+    } }, "⟳"));
+    row.append(el("button", { class: "mini", title: "Download as JSON", onclick: () => downloadJson(item.name.replace(/[^\w.-]+/g, "_") + ".json", item.request) }, "⤓"));
+    row.append(el("button", { class: "mini danger", title: "Delete", onclick: () => {
+      S.saved = S.saved.filter((x) => x !== item);
+      persistSaved(); renderSaved();
+    } }, "✕"));
+    wrap.append(row);
+  }
+}
+
+function downloadJson(filename, value) {
+  const blob = new Blob([JSON.stringify(value, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = el("a", { href: url, download: filename });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+}
+
+/* ========================= mode switching & persistence ========================= */
+let persistTimer = 0;
+function schedulePersist() {
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(persistSession, 400);
+}
+function switchMode(mode) {
+  if (mode === S.mode) return;
+  if (mode === "raw") {
+    if (!enterRaw()) return;
+    S.mode = "raw";
+  } else {
+    if (!applyRawToForm()) return; // stay in raw until JSON parses
+    S.mode = "form";
+    schedulePersist();
+  }
+  updateMode(); schedulePersist();
+}
+function updateMode() {
+  syncControls();
+  document.querySelectorAll("#mode-seg button").forEach((b) => { b.classList.toggle("active", b.dataset.mode === S.mode); b.setAttribute("aria-pressed", String(b.dataset.mode === S.mode)); });
+  $("builder-form").classList.toggle("hidden", S.mode !== "form");
+  $("builder-raw").classList.toggle("hidden", S.mode !== "raw");
+}
+function switchTab(tab) {
+  document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === tab));
+  $("view-play").classList.toggle("hidden", tab !== "play");
+  $("view-bench").classList.toggle("hidden", tab !== "bench");
+}
+
+function restoreSession() {
+  try {
+    const session = JSON.parse(localStorage.getItem(LS_SESSION) || "null");
+    if (session?.draft && Array.isArray(session.draft.questions)) {
+      S.questions = session.draft.questions; S.selectedModel = session.draft.model || "";
+      S.stateMode = session.draft.stateMode === "json" ? "json" : "text";
+      $("state-box").value = session.draft.state || "";
+      $("raw-box").value = session.raw || "";
+      S.mode = session.mode === "raw" ? "raw" : "form";
+      renderQuestions(); renderModelSelect(); renderModelLibrary(); syncStateSeg(); updateMode(); return true;
+    }
+    if (session?.request) { adoptRequest(session.request); return true; }
+  } catch { /* Invalid saved drafts fall back to the starter preset. */ }
+  return false;
+}
+
+/* ========================= boot ========================= */
+function wireEvents() {
+  $("refresh-models").addEventListener("click", refreshModels);
+  $("cancel-run").addEventListener("click", () => S.runController?.abort());
+  $("copy-response").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(JSON.stringify(S.lastResponse, null, 2)); toast("Copied response JSON", "ok"); }
+    catch { toast("Clipboard unavailable. Export the response instead.", "err"); }
+  });
+  $("download-response").addEventListener("click", () => downloadJson("openkind-response.json", S.lastResponse));
+  $("raw-box").addEventListener("input", schedulePersist);
+  $("sidebar-toggle").addEventListener("click", () => {
+    const open = $("sidebar").classList.toggle("mobile-open");
+    $("sidebar-toggle").setAttribute("aria-expanded", String(open));
+  });
+  window.addEventListener("pagehide", persistSession);
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") { $("settings").classList.remove("open"); $("sidebar").classList.remove("mobile-open"); $("sidebar-toggle").setAttribute("aria-expanded", "false"); }
+  });
+  $("run-btn").addEventListener("click", runRequest);
+  document.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && !S.bench.running) {
+      e.preventDefault();
+      runRequest();
+    }
+  });
+
+  document.querySelectorAll("#mode-seg button").forEach((b) => b.addEventListener("click", () => switchMode(b.dataset.mode)));
+  document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => switchTab(t.dataset.tab)));
+
+  document.querySelectorAll(".seg button[data-state]").forEach((b) => b.addEventListener("click", () => {
+    const next = b.dataset.state;
+    if (next === S.stateMode) return;
+    const box = $("state-box");
+    if (next === "json") {
+      try {
+        const v = JSON.parse(box.value);
+        if (typeof v === "number" || typeof v === "boolean" || v === null) { toast("State must be a string, object, or array.", "err"); return; }
+        box.value = JSON.stringify(v, null, 2);
+      } catch {
+        box.value = JSON.stringify(box.value, null, 2);
+      }
+      S.stateMode = "json";
+    } else {
+      try {
+        const v = JSON.parse(box.value);
+        box.value = typeof v === "string" ? v : JSON.stringify(v, null, 2);
+      } catch { /* keep text as-is */ }
+      S.stateMode = "text";
+    }
+    syncStateSeg();
+    schedulePersist();
+  }));
+  $("state-box").addEventListener("input", schedulePersist);
+
+  $("model-select").addEventListener("change", () => {
+    selectModel($("model-select").value);
+  });
+
+  $("add-question").addEventListener("click", () => {
+    S.questions.push(newQuestion());
+    renderQuestions();
+    schedulePersist();
+  });
+
+  $("raw-format").addEventListener("click", () => {
+    try {
+      $("raw-box").value = JSON.stringify(JSON.parse($("raw-box").value), null, 2);
+      $("raw-err").classList.add("hidden");
+    } catch (e) {
+      const box = $("raw-err");
+      box.textContent = e.message;
+      box.classList.remove("hidden");
+    }
+  });
+  $("raw-copy").addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText($("raw-box").value); toast("Copied request JSON", "ok"); }
+    catch { toast("Clipboard unavailable", "err"); }
+  });
+
+  // settings
+  $("settings-btn").addEventListener("click", (e) => { e.stopPropagation(); $("settings").classList.toggle("open"); });
+  document.addEventListener("click", (e) => {
+    const s = $("settings");
+    if (s.classList.contains("open") && !s.contains(e.target) && e.target !== $("settings-btn")) s.classList.remove("open");
+  });
+  $("api-key").addEventListener("input", () => {
+    S.apiKey = $("api-key").value.trim();
+    clearTimeout(S.keyTimer);
+    S.keyTimer = setTimeout(refreshModels, 500);
+  });
+
+  // save / load
+  $("save-btn").addEventListener("click", () => {
+    const name = $("save-name").value.trim();
+    if (!name) { toast("Give the example a name first.", "err"); return; }
+    let req;
+    try {
+      req = buildRequestBody();
+    } catch (e) { toast(String(e.message || e), "err"); return; }
+    const existing = S.saved.find((x) => x.name === name);
+    if (existing) {
+      existing.request = req; existing.savedAt = new Date().toISOString();
+      toast('Updated "' + name + '"', "ok");
+    } else {
+      S.saved.unshift({ name, request: req, savedAt: new Date().toISOString() });
+      toast('Saved "' + name + '"', "ok");
+    }
+    persistSaved(); renderSaved();
+    $("save-name").value = "";
+  });
+  $("export-btn").addEventListener("click", () => {
+    if (!S.saved.length) { toast("Nothing saved to export yet.", "err"); return; }
+    downloadJson("openkind-playground-examples.json", {
+      format: "openkind-playground-examples",
+      version: 1,
+      exported_at: new Date().toISOString(),
+      examples: S.saved.map(({ name, request }) => ({ name, request })),
+    });
+  });
+  $("import-btn").addEventListener("click", () => $("import-file").click());
+  $("import-file").addEventListener("change", async () => {
+    const file = $("import-file").files[0];
+    $("import-file").value = "";
+    if (!file) return;
+    if (file.size > 1024 * 1024) { toast("Import is limited to 1 MB.", "err"); return; }
+    try {
+      const parsed = JSON.parse(await file.text());
+      let added = 0;
+      if (parsed && parsed.format === "openkind-playground-examples" && Array.isArray(parsed.examples)) {
+        for (const ex of parsed.examples) {
+          if (!ex || typeof ex.name !== "string" || !ex.name || !ex.request || typeof ex.request !== "object") continue;
+          S.saved = S.saved.filter((x) => x.name !== ex.name);
+          S.saved.unshift({ name: ex.name, request: ex.request, savedAt: new Date().toISOString() });
+          added++;
+        }
+      } else if (parsed && parsed.state !== undefined && parsed.model !== undefined && parsed.questions) {
+        const name = file.name.replace(/\.json$/i, "");
+        S.saved = S.saved.filter((x) => x.name !== name);
+        S.saved.unshift({ name, request: parsed, savedAt: new Date().toISOString() });
+        added++;
+      } else {
+        throw new Error("expected a request JSON or an exported examples bundle");
+      }
+      persistSaved(); renderSaved();
+      toast("Imported " + added + " example" + (added === 1 ? "" : "s"), "ok");
+    } catch (e) {
+      toast("Import failed: " + (e.message || e), "err");
+    }
+  });
+
+  // benchmark
+  $("bench-run").addEventListener("click", runBenchmark);
+  $("bench-stop").addEventListener("click", () => { S.bench.stop = true; });
+  $("bench-reps").addEventListener("change", () => {
+    S.bench.reps = Math.max(1, Math.min(200, Math.floor(Number($("bench-reps").value)) || 10));
+    $("bench-reps").value = S.bench.reps;
+  });
+}
+
+async function boot() {
+  S.apiKey = "";
+  try { localStorage.removeItem(LS_APIKEY); } catch {}
+  $("api-key").value = S.apiKey;
+  loadSaved();
+  renderPresets();
+  renderSaved();
+  renderQuestions();
+  wireEvents();
+  await refreshModels();
+  if (!restoreSession()) {
+    loadRequestIntoForm({ ...deepCopy(PRESETS[0].request), model: S.selectedModel || PRESETS[0].request.model });
+  }
+  syncControls();
+  persistSession();
+  refreshHealth();
+  setInterval(refreshHealth, 10000);
+}
+boot();
+</script>
+</body>
+</html>

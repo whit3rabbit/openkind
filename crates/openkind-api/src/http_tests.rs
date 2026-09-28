@@ -18,6 +18,18 @@ fn app() -> Router {
     router(reg)
 }
 
+fn playground_app(auth: AuthConfig) -> Router {
+    let mut reg = EngineRegistry::new();
+    reg.register("mock", Arc::new(MockEngine::new()));
+    router_daemon(
+        AppState::new(reg),
+        auth,
+        MAX_PAYLOAD_SIZE_BYTES,
+        crate::middleware::RateLimiter::disabled(),
+        true,
+    )
+}
+
 #[tokio::test]
 async fn health_endpoint_returns_ok() {
     let resp = app()
@@ -66,6 +78,77 @@ async fn metrics_endpoint_returns_prometheus_text() {
     assert!(!body.is_empty());
     let text = String::from_utf8(body.to_vec()).unwrap();
     assert!(text.starts_with('#') || text.contains("openkind"));
+}
+
+#[tokio::test]
+async fn playground_route_is_absent_by_default() {
+    let resp = app()
+        .oneshot(
+            Request::builder()
+                .uri("/playground")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn playground_route_serves_the_embedded_page_when_enabled() {
+    let resp = playground_app(AuthConfig::default())
+        .oneshot(
+            Request::builder()
+                .uri("/playground")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(
+        resp.headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok()),
+        Some("text/html; charset=utf-8")
+    );
+    // no-store so an upgraded daemon never leaves a stale UI in the cache.
+    assert_eq!(
+        resp.headers()
+            .get("cache-control")
+            .and_then(|v| v.to_str().ok()),
+        Some("no-store")
+    );
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    let text = std::str::from_utf8(&body).unwrap();
+    assert!(text.contains("openkind playground"), "marker missing");
+}
+
+#[tokio::test]
+async fn playground_page_bypasses_auth_while_v1_stays_gated() {
+    let gated = playground_app(AuthConfig::new(Some("topsecret".into())));
+    let resp = gated
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/playground")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let resp = gated
+        .oneshot(
+            Request::builder()
+                .uri("/v1/models")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
@@ -239,4 +322,113 @@ async fn rejected_auth_does_not_consume_rate_limit_budget() {
         .await
         .unwrap();
     assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn playground_model_controls_require_opt_in_auth_and_explicit_header() {
+    use crate::playground::{PlaygroundModel, PlaygroundModels};
+    struct Controls(Arc<EngineRegistry>);
+    #[async_trait::async_trait]
+    impl PlaygroundModels for Controls {
+        async fn list(&self) -> Result<Vec<PlaygroundModel>, ApiError> {
+            Ok(vec![PlaygroundModel {
+                name: "mock".into(),
+                description: "Demo".into(),
+                source: "mock".into(),
+                loaded: self.0.get("mock").is_some(),
+                manageable: true,
+            }])
+        }
+        async fn set_loaded(&self, name: String, loaded: bool) -> Result<(), ApiError> {
+            if loaded {
+                self.0.register_if_absent(name, Arc::new(MockEngine::new()));
+            } else {
+                self.0.unregister(&name);
+            }
+            Ok(())
+        }
+    }
+    let mut registry = EngineRegistry::new();
+    registry.register("mock", Arc::new(MockEngine::new()));
+    let mut state = AppState::new(registry);
+    state.playground_models = Some(Arc::new(Controls(state.registry.clone())));
+    let disabled = router_daemon(
+        state.clone(),
+        AuthConfig::default(),
+        MAX_PAYLOAD_SIZE_BYTES,
+        crate::RateLimiter::disabled(),
+        false,
+    );
+    let resp = disabled
+        .oneshot(
+            Request::builder()
+                .uri("/playground/api/models")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    let router = router_daemon(
+        state.clone(),
+        AuthConfig::new(Some("secret".into())),
+        MAX_PAYLOAD_SIZE_BYTES,
+        crate::RateLimiter::disabled(),
+        true,
+    );
+    let resp = router
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/playground/api/models")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    assert!(resp.headers().contains_key("x-typesafe-request-id"));
+    for (header, site, expected) in [
+        ("", "same-origin", StatusCode::UNAUTHORIZED),
+        ("1", "cross-site", StatusCode::UNAUTHORIZED),
+        ("1", "same-origin", StatusCode::OK),
+    ] {
+        let resp = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/playground/api/models")
+                    .header("authorization", "Bearer secret")
+                    .header("content-type", "application/json")
+                    .header("x-openkind-playground", header)
+                    .header("sec-fetch-site", site)
+                    .body(Body::from(r#"{"name":"mock","loaded":false}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), expected);
+        assert!(resp.headers().contains_key("x-typesafe-request-id"));
+        if expected != StatusCode::OK {
+            assert!(state.registry.get("mock").is_some());
+        }
+    }
+    assert!(state.registry.get("mock").is_none());
+    let resp = router
+        .oneshot(
+            Request::builder()
+                .uri("/playground/api/models")
+                .header("authorization", "Bearer secret")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.headers()["cache-control"], "no-store");
+    let body = resp.into_body().collect().await.unwrap().to_bytes();
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&body).unwrap()["models"][0]["loaded"],
+        false
+    );
 }

@@ -24,12 +24,23 @@ openkind serve --installed-models qwen35-state-first:a047d6802c3f06f085b8
 ```
 
 The daemon loads explicitly named installations at startup. A new pull needs
-a restart to become available. `GET /v1/models` lists only aliases served by
-that process; `openkind status` displays those registered aliases. Catalog
+a restart or an explicit **Load model** action in the opt-in playground.
+`GET /v1/models` lists only aliases served by that process; `openkind status` displays those registered aliases. Catalog
 profiles are available to pull, installed profiles are local files, and
 registered aliases are active in the current daemon. The existing `--models`
 mock aliases and explicit `--qwen35-*` artifact-path configuration remain
 available. Name collisions fail startup.
+
+With `--playground on`, the local model panel lists installed profiles and
+configured aliases. It can load verified supported installations and load or
+unload mock aliases. Native engines configured with artifact-path flags and
+composite engines still require a restart. Loading never downloads assets.
+
+Unloading stops new requests; accepted work keeps its engine until completion.
+Installation file locks remain until daemon exit because native tasks can
+outlive a request timeout. Stop the daemon before using `openkind rm` on these
+installations. Playground controls use the configured bearer key.
+
 Use `--models-dir` or `OPENKIND_MODELS_DIR` to share a store location between
 the CLI and daemon. The default is the user's platform data directory.
 

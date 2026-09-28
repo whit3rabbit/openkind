@@ -142,9 +142,27 @@ pub(crate) struct Args {
     #[arg(long, env = "OPENKIND_RATE_LIMIT_RPM", default_value_t = 120)]
     pub(crate) rate_limit_rpm: u32,
 
+    /// Serve the embedded playground and authenticated local model controls.
+    #[arg(
+        long,
+        env = "OPENKIND_PLAYGROUND",
+        value_enum,
+        default_value_t = PlaygroundArg::Off
+    )]
+    pub(crate) playground: PlaygroundArg,
+
     /// Log filter. Standard `tracing_subscriber::EnvFilter` syntax.
     #[arg(long, env = "RUST_LOG", default_value = "info")]
     pub(crate) log_filter: String,
+}
+
+/// CLI surface for `--playground`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub(crate) enum PlaygroundArg {
+    /// Serve the playground UI and explicit model load/unload controls.
+    On,
+    /// Do not serve the playground route.
+    Off,
 }
 
 /// Native backbone choices exposed by the daemon.
@@ -225,10 +243,32 @@ mod tests {
         assert!(args.installed_models.is_empty());
         assert_eq!(args.api_key, None);
         assert_eq!(args.rate_limit_rpm, 120);
+        assert_eq!(args.playground, PlaygroundArg::Off);
         assert_eq!(args.log_filter, "info");
         assert_eq!(args.qwen35_execution, ExecutionArg::Auto);
         assert_eq!(args.qwen35_backend, Qwen35BackendArg::NativeCpu);
         assert_eq!(args.qwen35_timeout_ms, 600_000);
+    }
+
+    #[test]
+    fn playground_flag_parses_and_environment_alias_is_declared() {
+        let args = Args::try_parse_from(["openkindd", "--playground", "on"]).unwrap();
+        assert_eq!(args.playground, PlaygroundArg::On);
+
+        let off = Args::try_parse_from(["openkindd", "--playground", "off"]).unwrap();
+        assert_eq!(off.playground, PlaygroundArg::Off);
+
+        let error = Args::try_parse_from(["openkindd", "--playground", "maybe"])
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("invalid value 'maybe'"), "{error}");
+
+        let command = Args::command();
+        let arg = command
+            .get_arguments()
+            .find(|arg| arg.get_long() == Some("playground"))
+            .expect("--playground argument");
+        assert_eq!(arg.get_env(), Some(OsStr::new("OPENKIND_PLAYGROUND")));
     }
 
     #[test]

@@ -33,13 +33,16 @@ It defines:
   - Linked at `docs/openapi.yaml` and documented for TypeSafe Python SDK compatibility (`https://docs.typesafe.ai/sdk/python/api`).
   - Validated via `npx --yes @redocly/cli@1.34.5 lint docs/openapi.yaml`.
 - [`src/http.rs`](./src/http.rs):
-  - `router(registry)` / `router_with_auth(registry, auth)` / `router_with_state(state, auth)`.
+  - `router(registry)` / `router_with_auth(registry, auth)` / `router_with_state(state, auth)` / `router_daemon(state, auth, limit, rate_limiter, playground)`.
   - Routes:
     - `POST /v1/systemone` (aliased to `/v1/system_one`)
     - `GET  /v1/models`
     - `GET  /health`
     - `GET  /metrics`
+    - `GET  /playground` — only when the daemon passes `playground = true` (`openkindd --playground on`)
   - Metrics initialization via `install_metrics_recorder()`.
+- [`src/playground.rs`](./src/playground.rs) & [`assets/playground.html`](./assets/playground.html):
+  - The embedded web playground: a single self-contained HTML file (inline CSS/JS, no external requests) served verbatim with `no-store`. Evaluation uses `/v1/systemone` and `/v1/models`. Opt-in `GET/POST /playground/api/models` delegates local model controls to the daemon through `PlaygroundModels`, outside the TypeSafe wire contract. Only the exact HTML route is public; model controls use the bearer gate and mutations require `x-openkind-playground: 1`.
 - [`src/http_tests.rs`](./src/http_tests.rs):
   - Unit tests for HTTP routes, handler dispatch, model listing, and error response formatting.
 - [`src/models.rs`](./src/models.rs):
@@ -84,13 +87,18 @@ It defines:
 2. **Overload Header Symmetry (529)**:
    When `EngineError::Overloaded` occurs, the API layer emits status 529 and both `Retry-After` (seconds) and `retry-after-ms` (milliseconds) headers.
 3. **Public Endpoints**:
-   `/health` and `/metrics` must never be wrapped with `auth_layer`. Automated health probes and Prometheus scrapers must access them unauthenticated.
+   `/health` and `/metrics` must never be wrapped with `auth_layer`. Automated health probes and Prometheus scrapers must access them unauthenticated. The exact path `/playground` is exempt the same way: it is an inert HTML shell, and evaluation and model-control data still flow through gated routes (the UI collects an optional bearer key for those).
+4. **Playground Is Not in `openapi.yaml`** (deliberate):
+   `GET /playground` is a flag-gated developer UI asset, not part of the TypeSafe wire contract, so it is intentionally absent from `openapi.yaml` and from the `tests/sdk_compat/openapi.rs` parity assertions. If you touch the playground route, keep that boundary: wire API changes belong in the spec; playground changes do not.
 
 ## Verification Commands
 
 ```bash
 # Validate OpenAPI specification syntax and semantic rules
 npx --yes @redocly/cli@1.34.5 lint docs/openapi.yaml
+
+# Check embedded playground request and lifecycle UI regressions (Node 18+)
+node --test crates/openkind-api/tests/playground.test.cjs
 
 # Run all API tests (unit tests, grpc roundtrip, and sdk compat)
 cargo test -p openkind-api

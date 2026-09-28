@@ -64,7 +64,10 @@ impl AuthConfig {
 
 /// Stackable middleware function: gate `/v1/*` requests on a bearer
 /// token when one is configured. `/health` and `/metrics` are always
-/// open so probes and scrapers don't need credentials.
+/// open so probes and scrapers don't need credentials. `/playground` is
+/// likewise open when the route is enabled: it serves an inert HTML shell,
+/// and evaluation plus `/playground/api/*` model controls remain gated
+/// (the UI collects an optional API key for those calls).
 pub async fn auth_layer(
     State(auth): State<AuthConfig>,
     req: Request<Body>,
@@ -74,6 +77,7 @@ pub async fn auth_layer(
     if !auth.is_required()
         || path == "/health"
         || path == "/metrics"
+        || path == "/playground"
         || req.method() == axum::http::Method::OPTIONS
     {
         return next.run(req).await;

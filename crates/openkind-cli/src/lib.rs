@@ -8,6 +8,7 @@ mod evaluate;
 mod inspect;
 mod models;
 mod output;
+mod playground;
 mod serve;
 mod status;
 
@@ -49,6 +50,21 @@ pub fn run(cli: Cli) -> Result<()> {
             installed_models,
             models_dir,
             api_key,
+        ),
+        Commands::Playground {
+            http_addr,
+            models,
+            installed_models,
+            models_dir,
+            api_key,
+            no_open,
+        } => playground::cmd_playground(
+            http_addr,
+            models,
+            installed_models,
+            models_dir,
+            api_key,
+            no_open,
         ),
         Commands::Catalog { json } => models::catalog(json),
         Commands::Pull { name, models_dir } => models::pull(&name, models_dir),

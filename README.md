@@ -57,7 +57,7 @@ JSON
 
 The response contains a `billing` answer with a `noul` probability.  For native `Choice` questions, include a non-empty `__none__` criterion so the model can report that none of the offered options fit.
 
-Use `openkind status --server http://127.0.0.1:18080` to see the aliases active in the daemon.  A new pull becomes available only after restarting it.  The [model registry guide](docs/MODEL_REGISTRY.md) covers the store location and verification lifecycle.
+Use `openkind status --server http://127.0.0.1:18080` to see the aliases active in the daemon.  A new pull becomes available after restarting it or explicitly loading it in the playground.  The [model registry guide](docs/MODEL_REGISTRY.md) covers the store location and verification lifecycle.
 
 To try the wire API without downloading a model, stop the daemon above and use the checked-in fixture:
 
@@ -68,6 +68,18 @@ openkind evaluate examples/04_mixed.json --server http://127.0.0.1:18080 --prett
 ```
 
 `jev-latest` runs the mock engine in this setup.  Its answers check integration behaviour, not model quality.
+
+## Playground
+
+The daemon ships an embedded web playground for poking at the wire API and eyeballing speed locally.  It is off by default. Evaluation uses `POST /v1/systemone`; authentication and rate limits still apply. The local model panel can explicitly load supported installations and unload them without removing their files. See the [model lifecycle](docs/MODEL_REGISTRY.md) for limits.
+
+```bash
+openkind playground                       # spawns a loopback-only daemon and opens the browser
+openkind playground --no-open --models mock,jev-latest
+openkindd --playground on                 # manual: adds GET /playground to a running daemon
+```
+
+`openkind playground` binds `127.0.0.1` only, disables the gRPC listener, and turns off the per-IP rate limit so benchmark bursts are not throttled; Ctrl-C stops it.  If a daemon is already listening on the target address it checks that the playground is enabled before opening it.  API keys stay in page memory until the page closes. The page offers preset and saved requests (saved examples live in the browser's `localStorage`), a form or raw-JSON editor, typed answer cards with probability bars, and a benchmark tab that measures client-side round trips across selected models.  Those timings are informational; recorded measurements come from `openkind-bench score` ([benchmarks](docs/BENCHMARKS.md)).
 
 ## Features
 
