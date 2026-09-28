@@ -265,6 +265,10 @@ pub struct ScoreArgs {
     pub reps: usize,
     /// Group rows sharing one state into one request (default).
     pub group: bool,
+    /// Run the untimed warmup pass before measured requests.
+    pub warmup: bool,
+    /// Execute two workload rows as A, B, A with identical first and last requests.
+    pub history_aba: bool,
     /// Attribution label for the host, recorded in the summary.
     pub host: Option<String>,
     /// Commit hash under measurement, recorded in the summary.

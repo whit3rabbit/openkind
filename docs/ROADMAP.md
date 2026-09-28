@@ -139,6 +139,12 @@ optimizing it.
 | **M3 — Cost** | Dense numerical/cache diagnosis, qualified cold/warm comparisons, then joint-option Rust/MLX port | Accepted quality at lower complete cost, within resource limits |
 | **M4 — Preview** | Fresh confirmation, accelerated service qualification and reproducible manifest | All locked release limits pass |
 
+The benchmark harness now supports an unwarmed exact A/B/A run and a separate
+non-final Choice quality/history report (see [BENCHMARKS.md](BENCHMARKS.md#non-final-choice-qualification)).
+A synthetic checkpoint probe is only a bounded history observation. Document
+quality, specialist comparison, broader history and production limits remain
+open. The selected profile and daemon defaults are unchanged.
+
 ### M0: Fix the task and success measure
 
 - [ ] Specify document sources, question/rubric families, option descriptions,
