@@ -36,7 +36,7 @@
     - `async fn evaluate(&self, req: SystemRequest) -> EngineResult<SystemResponse>`: Async execution entry point.
     - `fn estimate_input_tokens(&self, req: &SystemRequest) -> u32`: Heuristic or tokenizer-based input token estimate.
 - [`src/registry.rs`](./src/registry.rs):
-  - `pub struct EngineRegistry`: Stores `HashMap<String, Arc<dyn DecisionEngine>>`; registry construction/mutation happens before it is wrapped in shared app state, and query results are sorted deterministically.
+  - `pub struct EngineRegistry`: Shares a lock-protected alias map across clones. Startup registration uses `register`; explicit lifecycle controls use `register_if_absent` and `unregister`. Lookups clone engine handles before releasing the lock, so accepted requests survive unloading. Query results are sorted deterministically.
 - [`src/dispatch.rs`](./src/dispatch.rs):
   - `pub async fn dispatch(req, registry) -> EngineResult<SystemResponse>`:
     - Captures and validates `openkind_core::ResponseContract` from the request.

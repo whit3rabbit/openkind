@@ -12,6 +12,7 @@
 
 mod args;
 mod families;
+mod playground;
 
 use std::collections::HashSet;
 use std::net::SocketAddr;
@@ -32,7 +33,7 @@ use tonic::transport::Server;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
-use crate::args::{parse_grpc_addr, resolve_alias, Args, Qwen35BackendArg};
+use crate::args::{parse_grpc_addr, resolve_alias, Args, PlaygroundArg, Qwen35BackendArg};
 
 fn backend_from_arg(backend: Qwen35BackendArg) -> Qwen35Backend {
     match backend {
@@ -144,6 +145,7 @@ async fn main() -> Result<()> {
         http = %http_addr,
         grpc = ?grpc_addr,
         models = ?args.models,
+        playground = matches!(args.playground, PlaygroundArg::On),
         "starting openkindd"
     );
 
@@ -294,7 +296,15 @@ async fn main() -> Result<()> {
     // Install metrics recorder once, shared across HTTP/gRPC.
     openkind_api::http::install_metrics_recorder().context("metrics recorder")?;
 
-    let state = AppState::new(registry);
+    let args = Arc::new(args);
+    let mut state = AppState::new(registry);
+    if matches!(args.playground, PlaygroundArg::On) {
+        state.playground_models = Some(Arc::new(playground::LocalModels::new(
+            args.clone(),
+            state.registry.clone(),
+            _installed_guards,
+        )?));
+    }
 
     // Build shutdown coordination channels.
     let (shutdown_tx, mut shutdown_rx_http) = tokio::sync::watch::channel(false);
@@ -319,12 +329,14 @@ async fn main() -> Result<()> {
     } else {
         openkind_api::RateLimiter::disabled()
     };
+    let playground_enabled = matches!(args.playground, PlaygroundArg::On);
     let http_handle = tokio::spawn(async move {
-        let router = http::router_with_state_auth_rate_limit(
+        let router = http::router_daemon(
             http_state,
             http_auth,
             openkind_api::http::MAX_PAYLOAD_SIZE_BYTES,
             rate_limiter,
+            playground_enabled,
         );
         let listener = match TcpListener::bind(http_addr).await {
             Ok(l) => l,

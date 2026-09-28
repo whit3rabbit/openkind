@@ -4,6 +4,7 @@
 //! `openkind-api` provides dual transport interfaces for `openkind`:
 //! - **HTTP/REST Transport** ([`http`]): Axum 0.8 router serving `POST /v1/systemone` (canonical),
 //!   `POST /v1/system_one` (SDK alias), `GET /v1/models`, `GET /health`, and `GET /metrics`.
+//!   `GET /playground` ([`playground`]) serves an embedded web UI when the daemon opts in.
 //! - **gRPC Transport** ([`grpc`]): Tonic 0.14 service implementing `openkind.SystemOne/Evaluate`.
 //!
 //! Both transports route evaluation requests through `openkind_engine::dispatch`, decoupling transport
@@ -27,9 +28,11 @@ pub mod http;
 pub mod middleware;
 /// Model metadata structures and descriptors.
 pub mod models;
+/// Embedded web playground served at `GET /playground` (opt-in).
+pub mod playground;
 
 pub use error::ApiError;
-pub use http::{router, router_with_auth, router_with_state};
+pub use http::{router, router_daemon, router_with_auth, router_with_state};
 pub use middleware::{AuthConfig, RateLimitConfig, RateLimiter, REQUEST_ID_HEADER};
 pub use models::{ModelInfo, ModelsResponse};
 
@@ -42,6 +45,8 @@ use openkind_engine::EngineRegistry;
 pub struct AppState {
     /// Thread-safe registry mapping model aliases to their decision engine instances.
     pub registry: Arc<EngineRegistry>,
+    /// Optional daemon-owned local model lifecycle for the playground.
+    pub playground_models: Option<Arc<dyn playground::PlaygroundModels>>,
 }
 
 impl AppState {
@@ -49,6 +54,7 @@ impl AppState {
     pub fn new(registry: EngineRegistry) -> Self {
         Self {
             registry: Arc::new(registry),
+            playground_models: None,
         }
     }
 }

@@ -5,6 +5,7 @@
 //! - `GET  /health`        → liveness
 //! - `GET  /v1/models`     → list available model aliases (Jev shape)
 //! - `GET  /metrics`       → Prometheus scrape
+//! - `GET  /playground`    → embedded web UI, only with `--playground on`
 //!
 //! Every response is stamped with `x-typesafe-request-id` (the SDK reads
 //! this to log per-request correlation), and `/v1/*` is gated by an
@@ -43,6 +44,7 @@ pub fn router_with_state_and_limit(
         auth,
         max_payload_bytes,
         crate::middleware::RateLimiter::new(crate::middleware::RateLimitConfig::default()),
+        false,
     )
 }
 
@@ -53,7 +55,20 @@ pub fn router_with_state_auth_rate_limit(
     max_payload_bytes: usize,
     rate_limiter: crate::middleware::RateLimiter,
 ) -> Router {
-    router_full(state, auth, max_payload_bytes, rate_limiter)
+    router_full(state, auth, max_payload_bytes, rate_limiter, false)
+}
+
+/// Build the daemon HTTP router: explicit payload size limit, rate limiting,
+/// and the embedded playground UI when `playground` is set
+/// (`openkindd --playground on`).
+pub fn router_daemon(
+    state: AppState,
+    auth: AuthConfig,
+    max_payload_bytes: usize,
+    rate_limiter: crate::middleware::RateLimiter,
+    playground: bool,
+) -> Router {
+    router_full(state, auth, max_payload_bytes, rate_limiter, playground)
 }
 
 fn router_full(
@@ -61,6 +76,7 @@ fn router_full(
     auth: AuthConfig,
     max_payload_bytes: usize,
     rate_limiter: crate::middleware::RateLimiter,
+    playground: bool,
 ) -> Router {
     let routes = Router::new()
         // POST /v1/systemone — canonical Jev decision evaluation endpoint.
@@ -73,6 +89,19 @@ fn router_full(
         .route("/health", get(health))
         // GET /metrics — Prometheus text-format scrape target.
         .route("/metrics", get(prometheus_metrics));
+    // GET /playground — embedded web UI. Opt-in because it is a developer
+    // convenience outside the wire contract. The HTML shell is public;
+    // model lifecycle routes stay behind auth.
+    let routes = if playground {
+        routes
+            .route("/playground", get(crate::playground::playground_page))
+            .route(
+                "/playground/api/models",
+                get(crate::playground::list_models).post(crate::playground::change_model),
+            )
+    } else {
+        routes
+    };
     // A disabled limiter has no observable effect. Leave its middleware
     // off the router so it cannot allocate or dispatch on every request.
     let routes = if rate_limiter.is_enabled() {

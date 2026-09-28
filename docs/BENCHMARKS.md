@@ -99,6 +99,12 @@ the warm-process benchmark table.
 `p50` is the median repetition total; `p95` is the `ceil(0.95·n)−1` sample;
 sample counts ship alongside as `samples_seconds`.
 
+The web playground's benchmark tab is **not** a harness. It measures
+browser-side wall-clock round trips (including HTTP) against a daemon, which
+is useful for interactive comparison but not comparable to the numbers above
+and never recorded as evidence. Pinned numbers come from `openkind-bench
+score` alone.
+
 ### Commands
 
 ```bash

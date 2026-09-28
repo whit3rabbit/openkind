@@ -42,6 +42,12 @@
     - `Evaluate { file, server, api_key, pretty, format, verbose }`: POSTs the raw JSON to `{server}/v1/systemone`.
     - `Serve { ... }`: Launches `openkindd`, forwarding explicit installed
       models and the shared model store directory.
+    - `Playground { ... }`: Opens the daemon's web playground. Connects to an
+      already-healthy daemon at `--http-addr` (default `127.0.0.1:8080`,
+      loopback); otherwise spawns `openkindd` with `--playground on`,
+      `--grpc-addr 0`, and `--rate-limit-rpm 0`, waits for `/health`, opens
+      the browser (or prints the URL with `--no-open`), and supervises the
+      child like `serve`.
     - `Catalog`, `Pull`, `List`, `Show`, `Rm`: Curated discovery and local
       installation management, with JSON output flags for read commands.
     - `Status { server, api_key, watch }`: Checks `/health` and lists aliases from `/v1/models`; `--watch` refreshes the view in a Bubble Tea terminal program.
@@ -52,6 +58,8 @@
 - `status --watch` uses `bubbletea-rs` with Lipgloss styles; the normal status command stays a one-shot report.
 - [`src/status.rs`](./src/status.rs): One-shot health and model alias inspection, plus the live `--watch` screen.
 - [`src/serve.rs`](./src/serve.rs): `cmd_serve` process execution delegating to `openkindd`.
+- [`src/playground.rs`](./src/playground.rs): `cmd_playground` — health probe,
+  daemon spawn/supervise, and the per-platform browser opener.
 - [`src/models.rs`](./src/models.rs): Online catalog and pull commands, plus
   offline installation reads and removal. See the
   [registry guide](../../docs/MODEL_REGISTRY.md) for public mirror ownership.

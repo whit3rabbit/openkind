@@ -398,3 +398,26 @@ fn token_estimation_handles_text_object_and_array_states() {
     };
     assert!(engine.estimate_input_tokens(&req_arr) > 0);
 }
+
+#[tokio::test]
+async fn registry_unload_preserves_accepted_handles_and_updates_clones() {
+    let mut registry = EngineRegistry::new();
+    let engine: Arc<dyn DecisionEngine> = Arc::new(MockEngine::new());
+    let weak = Arc::downgrade(&engine);
+    registry.register("model", engine);
+    let grpc_registry = registry.clone();
+    let accepted = grpc_registry.get("model").unwrap();
+    assert!(!registry.register_if_absent("model".into(), Arc::new(MockEngine::new())));
+    drop(registry.unregister("model"));
+    assert!(grpc_registry.models().is_empty());
+    assert!(matches!(
+        dispatch(make_test_request("model"), &grpc_registry).await,
+        Err(EngineError::UnknownModel(_))
+    ));
+    assert!(accepted.evaluate(make_test_request("model")).await.is_ok());
+    assert!(weak.upgrade().is_some());
+    drop(accepted);
+    assert!(weak.upgrade().is_none());
+    assert!(registry.register_if_absent("model".into(), Arc::new(MockEngine::new())));
+    assert!(grpc_registry.get("model").is_some());
+}

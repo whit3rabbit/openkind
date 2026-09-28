@@ -74,6 +74,30 @@ pub enum Commands {
         api_key: Option<String>,
     },
 
+    /// Launch the local web playground. Connects to a running daemon when
+    /// one is healthy at the target address; otherwise spawns a loopback-only
+    /// `openkindd` with the playground route enabled.
+    Playground {
+        /// Address for the playground daemon (loopback by default).
+        #[arg(long, env = "OPENKIND_HTTP_ADDR", default_value = "127.0.0.1:8080")]
+        http_addr: String,
+        /// Comma-separated model aliases to expose.
+        #[arg(long, env = "OPENKIND_MODELS", default_value = "mock,jev-latest")]
+        models: String,
+        /// Comma-separated installed model names to load at daemon startup.
+        #[arg(long, env = "OPENKIND_INSTALLED_MODELS", default_value = "")]
+        installed_models: String,
+        /// Directory shared by model commands and the daemon.
+        #[arg(long, env = "OPENKIND_MODELS_DIR")]
+        models_dir: Option<PathBuf>,
+        /// Optional API key for bearer authentication (spawned daemon only).
+        #[arg(long, env = "OPENKIND_API_KEY")]
+        api_key: Option<String>,
+        /// Print the playground URL instead of opening a browser.
+        #[arg(long)]
+        no_open: bool,
+    },
+
     /// List curated models available to pull.
     Catalog {
         /// Print the catalog as JSON.

@@ -290,6 +290,56 @@ fn cli_parse_serve_defaults_and_custom() {
 }
 
 #[test]
+fn cli_parse_playground_defaults_and_custom() {
+    let _guard = ENV_LOCK
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let cli = Cli::try_parse_from(["openkind", "playground"]).unwrap();
+    match cli.command {
+        Commands::Playground {
+            http_addr,
+            models,
+            installed_models,
+            api_key,
+            no_open,
+            ..
+        } => {
+            // Loopback by default: the playground is a local testing tool.
+            assert_eq!(http_addr, "127.0.0.1:8080");
+            assert_eq!(models, "mock,jev-latest");
+            assert_eq!(installed_models, "");
+            assert_eq!(api_key, None);
+            assert!(!no_open);
+        }
+        _ => panic!("expected Playground"),
+    }
+
+    let cli_custom = Cli::try_parse_from([
+        "openkind",
+        "playground",
+        "--http-addr",
+        "127.0.0.1:18080",
+        "--models",
+        "mock",
+        "--no-open",
+    ])
+    .unwrap();
+    match cli_custom.command {
+        Commands::Playground {
+            http_addr,
+            models,
+            no_open,
+            ..
+        } => {
+            assert_eq!(http_addr, "127.0.0.1:18080");
+            assert_eq!(models, "mock");
+            assert!(no_open);
+        }
+        _ => panic!("expected Playground"),
+    }
+}
+
+#[test]
 fn cli_parse_evaluate_with_api_key() {
     let cli =
         Cli::try_parse_from(["openkind", "evaluate", "req.json", "--api-key", "my-key"]).unwrap();
