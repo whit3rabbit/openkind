@@ -1,0 +1,613 @@
+{
+  "backbone": {
+    "id": "convaiinnovations/laya",
+    "revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851"
+  },
+  "calibration": {
+    "source": "shipped rl_agent_config.json temperature tables with the reference [0.5, 5.0] clamp",
+    "temperature": [
+      1.6369030475616455,
+      1.2514300346374512,
+      1.983399510383606
+    ]
+  },
+  "cases": [
+    {
+      "name": "choice-two",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "Linux": null,
+              "Windows": null
+            },
+            "instructions": "Which option is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": "Fictional incident record. The asset operating system is Windows. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "Windows",
+            "confidence": 0.7775256909810437,
+            "probabilities": {
+              "Linux": 0.035754141882062614,
+              "Windows": 0.9642458581179374
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 46,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "choice-described",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "BSD": "a Berkeley Unix descendant",
+              "Linux": "a freely licensed kernel family",
+              "Windows": "a proprietary Microsoft operating system",
+              "macOS": "Apple's desktop operating system"
+            },
+            "instructions": "Which option is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": "Fictional incident record. The asset operating system is Windows. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "Windows",
+            "confidence": 0.8405242663144389,
+            "probabilities": {
+              "BSD": 0.011690775595055282,
+              "Linux": 0.016403953572557937,
+              "Windows": 0.957742541722375,
+              "macOS": 0.014162729110011507
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 75,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "choice-none",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "Linux": null,
+              "Windows": null,
+              "__none__": "none of the listed options is recorded"
+            },
+            "instructions": "Which option is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": "Fictional incident record. The asset operating system is Windows. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "Windows",
+            "confidence": 0.7066811409961011,
+            "probabilities": {
+              "Linux": 0.016626479320835722,
+              "Windows": 0.9190293733093657,
+              "__none__": 0.06434414736979857
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 58,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "choice-twelve",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "account": null,
+              "billing": null,
+              "facilities": null,
+              "legal": null,
+              "marketing": null,
+              "other": null,
+              "partnerships": null,
+              "payments": null,
+              "returns": null,
+              "security": null,
+              "shipping": null,
+              "tech": null
+            },
+            "instructions": "Which option is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": "Fictional incident record. The affected queue is billing. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "billing",
+            "confidence": 0.9999664192509466,
+            "probabilities": {
+              "account": 3.495257553914853e-8,
+              "billing": 0.9999939755626246,
+              "facilities": 4.4409803994885776e-8,
+              "legal": 4.272270825373525e-8,
+              "marketing": 1.8378068116616177e-7,
+              "other": 9.278427164520786e-8,
+              "partnerships": 5.345622496187573e-9,
+              "payments": 4.815019682684005e-6,
+              "returns": 2.693547188212282e-7,
+              "security": 2.4697455241361915e-8,
+              "shipping": 3.3310036662019475e-9,
+              "tech": 5.080388517142306e-7
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 65,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "choice-head-overflow",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "authentication state": "the recorded two-factor state of the affected account with full provenance detail",
+              "connection protocol": "the recorded protocol the observed connection used with full provenance detail",
+              "deployment region": "the recorded cloud region the affected deployment runs in with full provenance detail",
+              "export approval": "the recorded approval state of any data export with full provenance detail",
+              "impact level": "the recorded severity of the documented impact with full provenance detail",
+              "incident status": "the recorded lifecycle status of the incident with full provenance detail",
+              "operating system": "the recorded platform family of the affected asset with full provenance detail",
+              "owning team": "the recorded owner of record for the incident with full provenance detail"
+            },
+            "instructions": "Which option is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": "Fictional incident record. The asset operating system is Windows and the affected deployment runs in us-east-1. The observed connection used SSH from an external destination. The owner of record is the platform team. The incident status is investigating. The documented impact level is moderate. Two-factor authentication was enabled on the affected account. No data export was approved during the window. The patch level is current as of the report date. These statements are the full evidence record; do not infer missing facts. Background: the record was opened by the on-call rotation after an automated alert fired twice within ten minutes. Initial triage confirmed the alert source, correlated the timeline, and attached the raw telemetry excerpts below. The excerpts include connection metadata, authentication traces, and a short narrative from the responding engineer. Nothing in this paragraph changes any fact stated above."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "impact level",
+            "confidence": 0.32470843089199464,
+            "probabilities": {
+              "authentication state": 0.15390241489686138,
+              "connection protocol": 0.0072477854236552095,
+              "deployment region": 0.023727038217672556,
+              "export approval": 0.005043374484036924,
+              "impact level": 0.3893337822507477,
+              "incident status": 0.34567137714475077,
+              "operating system": 0.014061702284280993,
+              "owning team": 0.06101252529799431
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 326,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "score-four",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": [
+              "minor",
+              "moderate",
+              "major",
+              "critical"
+            ],
+            "instructions": "What is the documented impact level?",
+            "type": "score"
+          }
+        },
+        "state": "Fictional incident record. The documented impact level is moderate. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "confidence": 0.7064324561837207,
+            "legend": {
+              "0": "minor",
+              "1": "moderate",
+              "2": "major",
+              "3": "critical"
+            },
+            "probabilities": {
+              "0": 0.0997150565027831,
+              "1": 0.8856741946720651,
+              "2": 0.011304754706584154,
+              "3": 0.0033059941185677746
+            },
+            "score": 0.9182016864409367,
+            "type": "score"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 60,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "score-six",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": [
+              "negligible",
+              "minor",
+              "moderate",
+              "major",
+              "severe",
+              "critical"
+            ],
+            "instructions": "What is the documented impact level?",
+            "type": "score"
+          }
+        },
+        "state": "Fictional incident record. The documented impact level is major. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "confidence": 0.4100925173621083,
+            "legend": {
+              "0": "negligible",
+              "1": "minor",
+              "2": "moderate",
+              "3": "major",
+              "4": "severe",
+              "5": "critical"
+            },
+            "probabilities": {
+              "0": 0.004837311988727155,
+              "1": 0.07650813863911829,
+              "2": 0.24099394511364314,
+              "3": 0.6140593040421367,
+              "4": 0.0588420243585212,
+              "5": 0.004759275857853415
+            },
+            "score": 2.6598384177161662,
+            "type": "score"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 70,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "noul-default",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "instructions": "Does the record explicitly state that an external destination was observed?",
+            "type": "noul"
+          }
+        },
+        "state": "Fictional incident record. An external destination was observed in the connection logs. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "noul": 0.7930034817267226,
+            "type": "noul"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 67,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "noul-explicit",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "false": "the record names no external destination",
+              "true": "the record names an external destination"
+            },
+            "instructions": "Does the record explicitly state that an external destination was observed?",
+            "type": "noul"
+          }
+        },
+        "state": "Fictional incident record. The record does not mention external destinations. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "noul": 0.18557916784734907,
+            "type": "noul"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 65,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "state-object",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "Linux": null,
+              "Windows": null,
+              "macOS": null
+            },
+            "instructions": "Which option is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": {
+          "asset": {
+            "os": "Windows",
+            "region": "us-east-1"
+          },
+          "open": true,
+          "record": "fictional incident summary",
+          "tags": [
+            "infra",
+            "tier-2"
+          ]
+        }
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "Windows",
+            "confidence": 0.41750546849993475,
+            "probabilities": {
+              "Linux": 0.15972878935021173,
+              "Windows": 0.786169113890118,
+              "macOS": 0.05410209675967006
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 68,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "state-array",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "billing": "the discussion concerns invoices or charges",
+              "other": "the discussion concerns another topic",
+              "tech": "the discussion concerns technical defects"
+            },
+            "instructions": "Which option is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": [
+          "Conversation turn one: the customer asks about the invoice total.",
+          "Conversation turn two: the customer repeats the billing question.",
+          "Conversation turn three: the customer reports the invoice total is wrong.",
+          "Conversation turn four: the customer requests a correction of the billing error."
+        ]
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "billing",
+            "confidence": 0.9089038279155265,
+            "probabilities": {
+              "billing": 0.9825397699596599,
+              "other": 0.00849982403953774,
+              "tech": 0.00896040600080244
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 101,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "state-long",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "Linux": null,
+              "Windows": null
+            },
+            "instructions": "Which option is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": "Fictional incident record. The asset operating system is Windows and the affected deployment runs in us-east-1. The observed connection used SSH from an external destination. The owner of record is the platform team. The incident status is investigating. The documented impact level is moderate. Two-factor authentication was enabled on the affected account. No data export was approved during the window. The patch level is current as of the report date. These statements are the full evidence record; do not infer missing facts. Background: the record was opened by the on-call rotation after an automated alert fired twice within ten minutes. Initial triage confirmed the alert source, correlated the timeline, and attached the raw telemetry excerpts below. The excerpts include connection metadata, authentication traces, and a short narrative from the responding engineer. Nothing in this paragraph changes any fact stated above."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "Windows",
+            "confidence": 0.14795270941955774,
+            "probabilities": {
+              "Linux": 0.27751833419342087,
+              "Windows": 0.7224816658065792
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 193,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "mask-literal",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "instructions": "Is the patch level described as current?",
+            "type": "noul"
+          }
+        },
+        "state": "Fictional incident record. The token [MASK] appears literally in the state text and the patch level is current. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "noul": 0.6779183926047079,
+            "type": "noul"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 70,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "non-latin",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "Linux": null,
+              "Windows": null,
+              "macOS": null
+            },
+            "instructions": "Which option is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": "Fiktiver Vorfallbericht. Das Betriebssystem der Anlage ist Windows. Diese Angaben sind der vollständige Befund; keine fehlenden Fakten ableiten."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "Windows",
+            "confidence": 0.8867266946448863,
+            "probabilities": {
+              "Linux": 0.01260093787406636,
+              "Windows": 0.9771952487493514,
+              "macOS": 0.010203813376582405
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 70,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "cyrillic",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "billing": null,
+              "other": null,
+              "tech": null
+            },
+            "instructions": "Which option is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": "Вымышленный отчёт об инциденте. Операционная система актива — Windows. Эти утверждения являются полным отчётом; не выводите отсутствующие факты."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "tech",
+            "confidence": 0.06330165567299695,
+            "probabilities": {
+              "billing": 0.35220966582679675,
+              "other": 0.1773756337102919,
+              "tech": 0.4704147004629113
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 98,
+          "output_tokens": 0
+        }
+      }
+    }
+  ],
+  "execution_arithmetic": "candle-cpu-fp32-laya",
+  "probability_tolerance": 0.005,
+  "profile_id": "c8ea29bf1e33a343c4b7",
+  "provenance": {
+    "case_construction": "correct option stated verbatim in the state document; readout-surface cases shared across profiles",
+    "generator": "gen-laya-fixture"
+  }
+}

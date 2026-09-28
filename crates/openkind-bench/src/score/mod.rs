@@ -28,6 +28,9 @@ use openkind_backends::families::decoder_logit_letter::{
     DecoderLetterEngine, DecoderLetterEngineConfig,
 };
 use openkind_backends::families::decoder_logit_llm::{DecoderLlmEngine, DecoderLlmEngineConfig};
+use openkind_backends::families::decoder_logit_qwen35::{
+    DecoderLogitQwen35Engine, DecoderLogitQwen35EngineConfig,
+};
 use openkind_backends::families::encoder_instruct_label::{
     EncoderInstructLabelEngine, EncoderInstructLabelEngineConfig,
 };
@@ -139,6 +142,46 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
                 })
                 .map_err(|error| anyhow::anyhow!("load decoder-letter engine: {error}"))?,
             ),
+            EngineKind::DecoderLogitQwen35 => Arc::new(
+                DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
+                    model_root: model_root.expect("gated").clone(),
+                    limits: FamilyLimits {
+                        max_concurrent_requests: 1,
+                        max_queued_requests: 0,
+                        retry_after_ms: 250,
+                        evaluation_timeout: None,
+                    },
+                })
+                .map_err(|error| anyhow::anyhow!("load decoder-logit-qwen35 engine: {error}"))?,
+            ),
+            EngineKind::LayaEnglish
+            | EngineKind::LayaMultilingual
+            | EngineKind::LayaTypedDecisions => {
+                let profile = match args.engine {
+                    EngineKind::LayaEnglish => &openkind_backends::families::laya::LAYA_ENGLISH,
+                    EngineKind::LayaMultilingual => {
+                        &openkind_backends::families::laya::LAYA_MULTILINGUAL
+                    }
+                    _ => &openkind_backends::families::laya::LAYA_TYPED_DECISIONS,
+                };
+                Arc::new(
+                    openkind_backends::families::laya::LayaEngine::load(
+                        openkind_backends::families::laya::LayaEngineConfig {
+                            profile,
+                            model_root: model_root.expect("gated").clone(),
+                            limits: FamilyLimits {
+                                max_concurrent_requests: 1,
+                                max_queued_requests: 0,
+                                retry_after_ms: 250,
+                                evaluation_timeout: None,
+                            },
+                        },
+                    )
+                    .map_err(|error| {
+                        anyhow::anyhow!("load {} engine: {error}", profile.loader_id)
+                    })?,
+                )
+            }
             EngineKind::EncoderNli => Arc::new(
                 EncoderNliEngine::load(EncoderNliEngineConfig {
                     model_root: model_root.expect("gated").clone(),

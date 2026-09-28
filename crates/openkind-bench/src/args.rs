@@ -112,6 +112,14 @@ pub enum EngineArg {
     Qwen3Guard,
     /// Pinned kev engine (Kev-0.6B pointer readout).
     Kev,
+    /// Pinned decoder-logit-qwen35 engine (JevK5 letter-logit readout).
+    DecoderLogitQwen35,
+    /// Pinned laya-english engine (English ModernBERT-large decision encoder).
+    LayaEnglish,
+    /// Pinned laya-multilingual engine (mmBERT-base decision encoder).
+    LayaMultilingual,
+    /// Pinned laya-typed-decisions engine (fine-tuned ModernBERT-large).
+    LayaTypedDecisions,
     /// Winnow learned router over mock siblings; router-cost only.
     Winnow,
     /// Pinned Qwen3.5 MLX FP32 reference-ops engine; requires `--features mlx`.
@@ -135,6 +143,10 @@ impl From<EngineArg> for EngineKind {
             EngineArg::RouterScript => EngineKind::RouterScript,
             EngineArg::Qwen3Guard => EngineKind::Qwen3Guard,
             EngineArg::Kev => EngineKind::Kev,
+            EngineArg::DecoderLogitQwen35 => EngineKind::DecoderLogitQwen35,
+            EngineArg::LayaEnglish => EngineKind::LayaEnglish,
+            EngineArg::LayaMultilingual => EngineKind::LayaMultilingual,
+            EngineArg::LayaTypedDecisions => EngineKind::LayaTypedDecisions,
             EngineArg::Winnow => EngineKind::Winnow,
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             EngineArg::Qwen35MlxFp32 => EngineKind::Qwen35MlxFp32,

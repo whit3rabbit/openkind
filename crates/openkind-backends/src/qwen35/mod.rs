@@ -30,6 +30,7 @@ pub use backbone::{
     SequentialNestedExecutor, StageComparison, StrategyDecision, StrategyEstimates, StrategyOutput,
     StrategyRequest, TraceStage,
 };
+pub(crate) use backbone::{EmbeddingLayout, TextBackbone};
 pub use engine::{Qwen35Backend, Qwen35DecisionEngine, Qwen35EngineConfig, SEMANTIC_NONE_OPTION};
 pub use evidence::{native_profile_record, BACKEND_IMPLEMENTATION};
 pub use head::{HeadEvaluation, PolicyAction, PrimitiveKind, ScoreSummaryHead, FEATURE_WIDTH};

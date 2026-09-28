@@ -92,6 +92,9 @@ the supported workload calls for them. Each needs its own checkpoint and
 tokenizer revision, renderer, readout, calibration, offline parity fixtures,
 and local loader. A language router requires two qualified target profiles.
 Kev and Qwen3Guard have since cleared their blockers as Rust-loadable
-prototype profiles; Von remains surveyed and external-reference-only.
+prototype profiles; the Laya-style decision encoders landed 2026-09-27 as
+three registry-installable rust-loadable profiles (`laya-english`,
+`laya-multilingual`, `laya-typed-decisions`) with reference-parity fixtures;
+Von remains surveyed and external-reference-only.
 A family page or catalog description does
 not make a model runnable.

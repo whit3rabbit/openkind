@@ -11,10 +11,13 @@
 pub mod calibration;
 pub mod decoder_logit_letter;
 pub mod decoder_logit_llm;
+pub mod decoder_logit_qwen35;
 pub mod encoder_instruct_label;
 pub mod encoder_nli;
 pub mod kev;
+pub mod laya;
 pub(crate) mod letter_renderer;
+pub(crate) mod modernbert;
 pub mod qwen3guard;
 pub mod router_script;
 pub mod schema_scorer;

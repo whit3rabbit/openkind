@@ -15,11 +15,17 @@ use openkind_backends::families::decoder_logit_letter::{
     DecoderLetterEngine, DecoderLetterEngineConfig,
 };
 use openkind_backends::families::decoder_logit_llm::{DecoderLlmEngine, DecoderLlmEngineConfig};
+use openkind_backends::families::decoder_logit_qwen35::{
+    DecoderLogitQwen35Engine, DecoderLogitQwen35EngineConfig,
+};
 use openkind_backends::families::encoder_instruct_label::{
     EncoderInstructLabelEngine, EncoderInstructLabelEngineConfig,
 };
 use openkind_backends::families::encoder_nli::{EncoderNliEngine, EncoderNliEngineConfig};
 use openkind_backends::families::kev::{KevEngine, KevEngineConfig};
+use openkind_backends::families::laya::{
+    LayaEngine, LayaEngineConfig, LAYA_ENGLISH, LAYA_MULTILINGUAL, LAYA_TYPED_DECISIONS,
+};
 use openkind_backends::families::qwen3guard::{Qwen3GuardEngine, Qwen3GuardEngineConfig};
 use openkind_backends::families::router_script::ScriptRuleTable;
 use openkind_backends::families::schema_scorer::{SchemaScorerEngine, SchemaScorerEngineConfig};
@@ -205,6 +211,67 @@ pub(crate) struct FamilyArgs {
         default_value = "A=decoder-letter-native,B=encoder-nli-native"
     )]
     pub(crate) winnow_siblings: Vec<String>,
+
+    /// Aliases in `--models` that should use the pinned
+    /// decoder-logit-qwen35 engine (JevK5 letter-logit readout on the
+    /// Qwen3.5 hybrid backbone).
+    #[arg(
+        long,
+        env = "OPENKIND_DECODER_LOGIT_QWEN35_ALIASES",
+        value_delimiter = ',',
+        default_value = "jevk5-native"
+    )]
+    pub(crate) decoder_logit_qwen35_aliases: Vec<String>,
+
+    /// Model root with the pinned `model.safetensors`, `config.json`,
+    /// `jevk5_config.json`, and `tokenizer.json` required by
+    /// decoder-logit-qwen35 aliases.
+    #[arg(long, env = "OPENKIND_DECODER_LOGIT_QWEN35_MODEL_ROOT")]
+    pub(crate) decoder_logit_qwen35_model_root: Option<PathBuf>,
+
+    /// Aliases in `--models` that should use the pinned laya-english engine
+    /// (English ModernBERT-large decision encoder).
+    #[arg(
+        long,
+        env = "OPENKIND_LAYA_ENGLISH_ALIASES",
+        value_delimiter = ',',
+        default_value = "laya-english-native"
+    )]
+    pub(crate) laya_english_aliases: Vec<String>,
+
+    /// Model root with the pinned `model.safetensors`, `encoder/`,
+    /// `tokenizer/`, and `rl_agent_config.json` required by laya-english
+    /// aliases.
+    #[arg(long, env = "OPENKIND_LAYA_ENGLISH_MODEL_ROOT")]
+    pub(crate) laya_english_model_root: Option<PathBuf>,
+
+    /// Aliases in `--models` that should use the pinned laya-multilingual
+    /// engine (mmBERT-base decision encoder, 100+ languages).
+    #[arg(
+        long,
+        env = "OPENKIND_LAYA_MULTILINGUAL_ALIASES",
+        value_delimiter = ',',
+        default_value = "laya-multilingual-native"
+    )]
+    pub(crate) laya_multilingual_aliases: Vec<String>,
+
+    /// Model root with the pinned multilingual laya artifacts.
+    #[arg(long, env = "OPENKIND_LAYA_MULTILINGUAL_MODEL_ROOT")]
+    pub(crate) laya_multilingual_model_root: Option<PathBuf>,
+
+    /// Aliases in `--models` that should use the pinned
+    /// laya-typed-decisions engine (fine-tuned ModernBERT-large).
+    #[arg(
+        long,
+        env = "OPENKIND_LAYA_TYPED_DECISIONS_ALIASES",
+        value_delimiter = ',',
+        default_value = "laya-typed-decisions-native"
+    )]
+    pub(crate) laya_typed_decisions_aliases: Vec<String>,
+
+    /// Model root with the pinned typed-decisions laya artifacts.
+    #[arg(long, env = "OPENKIND_LAYA_TYPED_DECISIONS_MODEL_ROOT")]
+    pub(crate) laya_typed_decisions_model_root: Option<PathBuf>,
 
     /// Maximum concurrent model evaluations per surveyed-family engine.
     #[arg(long, env = "OPENKIND_FAMILY_CONCURRENCY", default_value_t = 1)]
@@ -398,6 +465,82 @@ impl FamilyArgs {
             }
         }
 
+        let decoder_logit_qwen35: Vec<_> = self
+            .decoder_logit_qwen35_aliases
+            .iter()
+            .filter(|alias| models.contains(alias))
+            .collect();
+        if !decoder_logit_qwen35.is_empty() {
+            let model_root = self
+                .decoder_logit_qwen35_model_root
+                .clone()
+                .context(
+                    "decoder-logit-qwen35 alias requested but                      --decoder-logit-qwen35-model-root is missing",
+                )?;
+            let engine: Arc<dyn DecisionEngine> = Arc::new(
+                DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
+                    model_root,
+                    limits: admission.limits(),
+                })
+                .map_err(|error| anyhow::anyhow!("load decoder-logit-qwen35 engine: {error}"))?,
+            );
+            for alias in decoder_logit_qwen35 {
+                engines.push((alias.to_string(), Arc::clone(&engine)));
+            }
+        }
+
+        let mut laya_requested: Vec<(
+            Vec<&String>,
+            PathBuf,
+            &openkind_backends::families::laya::LayaProfile,
+            &str,
+        )> = Vec::new();
+        for (aliases, model_root, profile, name) in [
+            (
+                &self.laya_english_aliases,
+                self.laya_english_model_root.clone(),
+                &LAYA_ENGLISH,
+                "laya-english",
+            ),
+            (
+                &self.laya_multilingual_aliases,
+                self.laya_multilingual_model_root.clone(),
+                &LAYA_MULTILINGUAL,
+                "laya-multilingual",
+            ),
+            (
+                &self.laya_typed_decisions_aliases,
+                self.laya_typed_decisions_model_root.clone(),
+                &LAYA_TYPED_DECISIONS,
+                "laya-typed-decisions",
+            ),
+        ] {
+            let requested: Vec<_> = aliases
+                .iter()
+                .filter(|alias| models.contains(alias))
+                .collect();
+            if requested.is_empty() {
+                continue;
+            }
+            let model_root = model_root.context(format!(
+                "{name} alias requested but --{name}-model-root is missing"
+            ))?;
+            laya_requested.push((requested, model_root, profile, name));
+        }
+        for (requested, model_root, profile, name) in laya_requested {
+            let engine: Arc<dyn DecisionEngine> = Arc::new(
+                LayaEngine::load(LayaEngineConfig {
+                    profile,
+                    model_root,
+                    limits: admission.limits(),
+                })
+                .map_err(|error| anyhow::anyhow!("load {name} engine: {error}"))?,
+            );
+            for alias in requested {
+                engines.push((alias.to_string(), Arc::clone(&engine)));
+            }
+        }
+
         Ok(engines)
     }
 
@@ -484,6 +627,10 @@ impl FamilyArgs {
             .chain(&self.qwen3guard_aliases)
             .chain(&self.winnow_aliases)
             .chain(&self.kev_aliases)
+            .chain(&self.decoder_logit_qwen35_aliases)
+            .chain(&self.laya_english_aliases)
+            .chain(&self.laya_multilingual_aliases)
+            .chain(&self.laya_typed_decisions_aliases)
         {
             if !seen.insert(alias.as_str()) {
                 bail!("alias `{alias}` is assigned to more than one family engine");

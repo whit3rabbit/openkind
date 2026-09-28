@@ -12,9 +12,14 @@ use thiserror::Error;
 
 /// The production catalog is a static file in this repository. Catalog entries
 /// point to immutable profile manifests whose bytes are checked by SHA-256.
-pub const CATALOG_URL: &str =
-    "https://raw.githubusercontent.com/whit3rabbit/openkind-model-registry/main/registry/v1/catalog.json";
+pub const CATALOG_URL: &str = "https://raw.githubusercontent.com/whit3rabbit/openkind-model-registry/main/registry/v1/catalog.json";
 pub const QWEN35_STATE_FIRST_MODEL_NAME: &str = "qwen35-state-first:a047d6802c3f06f085b8";
+/// Pinned laya English decision-encoder model name.
+pub const LAYA_ENGLISH_MODEL_NAME: &str = "laya-english:c8ea29bf1e33a343c4b7";
+/// Pinned laya multilingual decision-encoder model name.
+pub const LAYA_MULTILINGUAL_MODEL_NAME: &str = "laya-multilingual:f4064eb56fb7f7d325e1";
+/// Pinned laya typed-decisions model name.
+pub const LAYA_TYPED_DECISIONS_MODEL_NAME: &str = "laya-typed-decisions:9d28cfa9567902801ed1";
 
 #[derive(Debug, Error)]
 pub enum Error {

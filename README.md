@@ -71,12 +71,43 @@ openkind evaluate examples/04_mixed.json --server http://127.0.0.1:18080 --prett
 
 ## Playground
 
-The daemon ships an embedded web playground for poking at the wire API and eyeballing speed locally.  It is off by default. Evaluation uses `POST /v1/systemone`; authentication and rate limits still apply. The local model panel can explicitly load supported installations and unload them without removing their files. See the [model lifecycle](docs/MODEL_REGISTRY.md) for limits.
+The daemon ships an embedded web playground for poking at the wire API and eyeballing speed locally.  It is off by default. Evaluation uses `POST /v1/systemone`; authentication and rate limits still apply.
+
+### Quick start
+
+To start the playground with mock models (no weights download required):
 
 ```bash
-openkind playground                       # spawns a loopback-only daemon and opens the browser
-openkind playground --no-open --models mock,jev-latest
-openkindd --playground on                 # manual: adds GET /playground to a running daemon
+openkind playground
+```
+
+This spawns a loopback-only daemon at `http://127.0.0.1:8080`, disables the gRPC listener and rate limits, and automatically opens the playground in your browser.
+
+### Start and load a model from CLI
+
+To launch the playground with an installed model pre-loaded and ready for evaluation, pass `--installed-models`:
+
+```bash
+# Pull the model if not already downloaded:
+openkind pull qwen35-state-first:a047d6802c3f06f085b8
+
+# Launch the playground with the model loaded at startup:
+openkind playground --installed-models qwen35-state-first:a047d6802c3f06f085b8
+```
+
+You can also dynamically load or unload any installed profile at runtime from the **Local Models** panel in the web interface without restarting. See the [model lifecycle](docs/MODEL_REGISTRY.md) for limits.
+
+### Options and existing daemons
+
+```bash
+# Print the URL without opening a browser:
+openkind playground --no-open
+
+# Bind to a custom port or specify mock models:
+openkind playground --http-addr 127.0.0.1:18080 --models mock,jev-latest
+
+# Enable the playground route on a manually started daemon:
+openkindd --playground on
 ```
 
 `openkind playground` binds `127.0.0.1` only, disables the gRPC listener, and turns off the per-IP rate limit so benchmark bursts are not throttled; Ctrl-C stops it.  If a daemon is already listening on the target address it checks that the playground is enabled before opening it.  API keys stay in page memory until the page closes. The page offers preset and saved requests (saved examples live in the browser's `localStorage`), a form or raw-JSON editor, typed answer cards with probability bars, and a benchmark tab that measures client-side round trips across selected models.  Those timings are informational; recorded measurements come from `openkind-bench score` ([benchmarks](docs/BENCHMARKS.md)).

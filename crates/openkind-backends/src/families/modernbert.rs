@@ -1,9 +1,8 @@
 //! Minimal ModernBERT architecture for the candle CPU path.
 //!
-//! Hand-implemented for the pinned GLiClass uni-encoder checkpoint; candle
-//! 0.8.0 ships no ModernBERT. The forward implements exactly the semantics
-//! verified against the HuggingFace reference on short and
-//! beyond-window inputs:
+//! Hand-implemented for pinned checkpoints; candle 0.8.0 ships no
+//! ModernBERT. The forward implements exactly the semantics verified against
+//! the HuggingFace reference on short and beyond-window inputs:
 //!
 //! - word embeddings plus a weight-only LayerNorm; positions come from RoPE
 //!   only (the checkpoint stores no absolute position tensor);
@@ -16,27 +15,33 @@
 //!   band of half-width `local_attention / 2` on the others;
 //! - gated GELU MLP (`Wi` produces 2×`intermediate_size`, chunked into
 //!   input and gate), and a weight-only final norm.
+//!
+//! Shared by every family whose backbone is a ModernBERT-shaped encoder
+//! (`encoder_instruct_label`'s GLiClass uni-encoder base, the laya
+//! decision-encoder checkpoints). Weight names follow the HuggingFace
+//! `ModernBertModel` layout (`embeddings.tok_embeddings`, `layers.N.attn.Wqkv`,
+//! …); each family pins its own [`ModernBertConfig`] from checkpoint values.
 
 use candle_core::{DType, Device, IndexOp, Result, Tensor, D};
 use candle_nn::{linear_no_bias, Activation, LayerNorm, Linear, Module, VarBuilder};
 
 /// Pinned ModernBERT configuration (subset used by the forward path).
 #[derive(Debug, Clone)]
-pub struct ModernBertConfig {
-    pub vocab_size: usize,
-    pub hidden_size: usize,
-    pub num_attention_heads: usize,
-    pub num_hidden_layers: usize,
-    pub intermediate_size: usize,
+pub(crate) struct ModernBertConfig {
+    pub(crate) vocab_size: usize,
+    pub(crate) hidden_size: usize,
+    pub(crate) num_attention_heads: usize,
+    pub(crate) num_hidden_layers: usize,
+    pub(crate) intermediate_size: usize,
     /// Local (sliding) attention window; the band half-width is half of it.
-    pub local_attention: usize,
+    pub(crate) local_attention: usize,
     /// Every layer whose index divides this runs full attention.
-    pub global_attn_every_n_layers: usize,
-    pub global_rope_theta: f64,
-    pub local_rope_theta: f64,
-    pub norm_eps: f64,
+    pub(crate) global_attn_every_n_layers: usize,
+    pub(crate) global_rope_theta: f64,
+    pub(crate) local_rope_theta: f64,
+    pub(crate) norm_eps: f64,
     /// Maximum sequence length the rope tables are built for.
-    pub max_sequence_tokens: usize,
+    pub(crate) max_sequence_tokens: usize,
 }
 
 /// RoPE tables for one layer type: `cos`/`sin` shaped `(seq, head_dim)` with
@@ -236,7 +241,7 @@ impl Layer {
 }
 
 /// The pinned ModernBERT encoder body: embeddings, layers, final norm.
-pub struct ModernBertModel {
+pub(crate) struct ModernBertModel {
     tok_embeddings: candle_nn::Embedding,
     embedding_norm: LayerNorm,
     layers: Vec<Layer>,
@@ -244,7 +249,7 @@ pub struct ModernBertModel {
 }
 
 impl ModernBertModel {
-    pub fn load(cfg: &ModernBertConfig, vb: VarBuilder) -> Result<Self> {
+    pub(crate) fn load(cfg: &ModernBertConfig, vb: VarBuilder) -> Result<Self> {
         let tok_embeddings = candle_nn::embedding(
             cfg.vocab_size,
             cfg.hidden_size,
@@ -266,7 +271,7 @@ impl ModernBertModel {
 
     /// Forward one unpadded sequence and return every final-norm hidden
     /// state as `(seq, hidden_size)`.
-    pub fn forward(&self, token_ids: &[u32], device: &Device) -> Result<Tensor> {
+    pub(crate) fn forward(&self, token_ids: &[u32], device: &Device) -> Result<Tensor> {
         let input = Tensor::new(token_ids, device)?.unsqueeze(0)?;
         let mut xs = self
             .embedding_norm
@@ -275,22 +280,5 @@ impl ModernBertModel {
             xs = layer.forward(&xs)?;
         }
         self.final_norm.forward(&xs)?.squeeze(0)
-    }
-}
-
-/// Build the configuration from the pinned checkpoint values.
-pub fn config_from_pinned(max_sequence_tokens: usize) -> ModernBertConfig {
-    ModernBertConfig {
-        vocab_size: 50_370,
-        hidden_size: 768,
-        num_attention_heads: 12,
-        num_hidden_layers: 22,
-        intermediate_size: 1_152,
-        local_attention: 128,
-        global_attn_every_n_layers: 3,
-        global_rope_theta: 160_000.0,
-        local_rope_theta: 10_000.0,
-        norm_eps: 1e-5,
-        max_sequence_tokens,
     }
 }

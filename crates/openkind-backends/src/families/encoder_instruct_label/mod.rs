@@ -31,7 +31,6 @@
 //!   `Score`) and probabilities are only defined under that order.
 //! - Continuation state: none; every question is one full forward pass.
 
-mod arch;
 mod engine;
 #[doc(hidden)]
 pub mod model;

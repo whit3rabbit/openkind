@@ -31,9 +31,10 @@ and measurement. Historical task IDs remain in the crosswalk below and
 ## Why this focus
 
 The supplied report describes JevBench **v1.4.1, 23 September 2026**. At the 26 September source review, the publisher
-identified v1.4.2; this is a dated observation, not a current ranking claim. Preserve benchmark, model, adapter,
+identified v1.4.2; the 27 September [v1.4.2.2 board](https://benchmarkheaven.com/jev-models)
+now ranks imajev-4b first. Preserve benchmark, model, adapter,
 hardware, and date together. Its composite blends quality with speed and cost;
-self-hosted cost estimates and timing adjustments are not local measurements. [X1]
+self-hosted cost estimates and timing adjustments are not local measurements. [X1, X11]
 
 | External evidence | Roadmap implication |
 |---|---|
@@ -41,6 +42,7 @@ self-hosted cost estimates and timing adjustments are not local measurements. [X
 | JevK5 uses a Qwen3.5-4B LoRA and option-letter logits. Its newer v0.3 has 17,408 teacher questions plus 30,052 public replay items, but author-reported accuracy on a separate 4,723-question mix is 66.3%, versus 66.5% for v0.2. [X2] | Test released weights first. More data or a newer version does not establish preservation or transfer. Keep the v0.2 benchmark row separate from v0.3 evaluation. |
 | The author's correction identifies 940 MMLU-Pro test items in the v0.2/2B training recipe. v0.3 changes the data recipe. [X3] | Audit source splits, overlap and rights before importing a checkpoint or corpus. This disclosure is not evidence of JevBench item leakage. |
 | JevK5 reports about 13 ms on an H100 short-input path; SemIf documents a Qwen3.5 MLX implementation with direct readout and prefix reuse. [X4, X5] | Use these as implementation references. Measure our full Mac request path, including realistic documents, multiple questions, synchronization and service overhead. |
+| Imajev-4B phase 3 leads the official v1.4.2.2 composite at 67.37 with one option order and fitted calibration, but its Intelligence axis is below Jev's and both reach about 37% sealed accuracy. The selected checkpoint failed its own unknown-case and calibration gates under an explicit owner override. [X11–X13] | Screen this same-base J1 specialist before choosing the M2 external comparison. Preserve one-order/four-order, abstention, calibration, full-input, and source-transfer evidence as separate results. |
 
 The model choice is Qwen for deployed inference. JevK5 v0.3's teacher data
 includes both Qwen and GPT outputs; preserve that provenance. Its card also
@@ -103,7 +105,7 @@ and [MLX follow-up](verification/phase3m-2026-09-22/README.md).
 | Frozen controls | J0 `Qwen/Qwen3.5-4B-Base`, revision `1001bb4d826a52d1f399e183466143f4da7b741b`; J1 `Qwen/Qwen3.5-4B`, revision `851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a`. E29 found no universal winner. |
 | New frozen execution control | `Qwen/Qwen3-4B-Instruct-2507`, revision `cdbee75f17c01a7cc42f958dc650907174af0554`: BF16/SDPA dense profile measured in R2. This is a different model from J1, not a replacement result on ContractNLI/QASPER. |
 | Sparse research control | `Qwen/Qwen1.5-MoE-A2.7B-Chat`, revision `ec052fda178e241c7c443468d2fa1db6618996be`: NF4/eager profile in R1/R2. Retain native routing; the FP32-router arm is diagnostic. |
-| First external candidate | **JevK5 4B v0.3**, subject to artifact, provenance and input-contract checks. Resolve immutable weight/runtime revisions before evaluation; never load moving `main` as an experiment identity. v0.2 is a historical reproduction option. |
+| External candidate screen | Compare **imajev-4b phase 3** and **JevK5 4B v0.3** on artifact identity, provenance and the document input contract, then select one for the M2 system comparison. Imajev shares J1's base revision but requires at least two declared Choice options; settle the one-candidate QASPER mapping before selection. Resolve immutable weight/runtime revisions; never load moving `main` as an experiment identity. JevK5 v0.2 is a historical reproduction option. |
 | Own adaptation | Start from J1 when a specific residual failure justifies training. Preserve J0 and the relevant completed adaptation controls. A base-model swap is a separate hypothesis. |
 | Cost challenger | Qwen 2B only after the 4B quality gate, with task-verified teacher supervision if needed. A released 2B model does not inherit its 4B sibling's results. |
 | Capacity / teacher | One 9B Qwen challenger if 4B quality is insufficient and memory permits; a larger Qwen teacher is an offline option after a task-quality check. No mandatory larger-model runtime dependency. |
@@ -371,6 +373,10 @@ The Qwen direct-logit profile is now the family-integration priority. The survey
 in [families/README.md](families/README.md) and integration checklist in
 [families/NEW_FAMILY.md](families/NEW_FAMILY.md) remain reference material; the
 previous broad F1–F5 rollout is deferred, with no automatic post-M4 commitment.
+One bounded exception landed 2026-09-27: the `laya` decision-encoder family
+(three rust-loadable profiles with reference-parity readout, benchmarked and
+installable through the registry) was implemented per the registry guide's
+expansion order; it does not reopen the broad rollout.
 
 Defer non-Qwen encoders, diffusion, multimodal expansion, multi-engine routing,
 private RLCD reconstruction, and MTP for the no-decoding path. Reopen shallow-head,
@@ -415,7 +421,8 @@ pruning and KV compression address different costs.
 X1–X5 retain the **26 September 2026** source review. X6–X10 and R1–R2
 were checked **27 September UTC / 26 September America/Chicago**. External measurements are
 publisher/author reports, not OpenKind replications. Preserve cited release
-versions in future experiment manifests; live pages can change.
+versions in future experiment manifests; live pages can change. X11–X13 are
+the 27 September imajev/board review.
 
 - **X1:** [Benchmark Heaven alternatives and methodology](https://benchmarkheaven.com/jev-models/alternatives).
   The user's v1.4.1 report is a dated snapshot, not the current rank list.
@@ -426,17 +433,20 @@ versions in future experiment manifests; live pages can change.
 - **X4:** [JevK5 implementation](https://github.com/allebee/jevk5) and
   [prompt/readout contract](https://github.com/allebee/jevk5/blob/main/jevk5/prompt.py).
 - **X5:** [SemIf MLX implementation notes](https://github.com/TheoLeeCJ/SemIf-OpenJev/blob/master/docs/MLX.md).
-
-For exact historical checkboxes and run identities, use
-[ROADMAP_HISTORY.md](ROADMAP_HISTORY.md). This revision changes priorities and
-planned comparisons. It runs no inference or training, opens no final outcomes,
-and promotes no model.
-
-
 - **X6:** Hötter and Rosenmüller, [PrivateMode: Turn GLM-5.3-Flash into a Jev-like System One model](https://www.privatemode.ai/blog/system-one-from-glm-flash), 24 September 2026. External vendor report; not rerun here.
 - **X7:** [PrivateMode Decisions README](https://github.com/edgelesssys/privatemode-decisions). For a future vLLM adapter, request every allowed code's log probability explicitly rather than relying on a top-N list; verify tokenizer IDs at the answer boundary and include semantic none when required. The local selected-row path already avoids missing-option top-N truncation.
 - **X8:** [PrivateMode benchmark README](https://github.com/edgelesssys/privatemode-decisions-benchmark). Paired comparisons, separate geographic latency probes and dated billing evidence; no local performance equivalence inferred.
 - **X9:** [PrivateMode methodology](https://github.com/edgelesssys/privatemode-decisions-benchmark/blob/main/METHODOLOGY.md). Useful audit controls; model consensus and altered label semantics are not ground truth or clean causal tests.
 - **X10:** [PrivateMode suite results](https://github.com/edgelesssys/privatemode-decisions-benchmark/blob/main/results/suite.md). Completed results control quantitative claims when planning prose differs.
+- **X11:** [JevBench v1.4.2.2 official board](https://benchmarkheaven.com/jev-models),
+  scored 27 September 2026. Composite and axes are board results, not OpenKind replications.
+- **X12:** [imajev phase-3 model card](https://github.com/mohit67890/imajev/blob/6ee8a2c555ca6a3d1de9eceb33f1bd1cfeb268a2/model-cards/imajev-4b.md)
+  and [technical report](https://mohit67890.github.io/imajev/report/#top). The report's section 6 retains the older rank-16/255-code recipe.
+- **X13:** [imajev phase-3 selection and failed gates](https://github.com/mohit67890/imajev/blob/6ee8a2c555ca6a3d1de9eceb33f1bd1cfeb268a2/results/phase3/final-comparison.md)
+  and [merged DecisionBench result](https://github.com/Hanno-Labs/decision-bench-results/pull/68).
 - **R1:** [MoE follow-up `20260927T003918_481825Z`](https://drive.google.com/drive/folders/1gXwnF1sXhR5Yh4-7R2izDQ9TJXDl_Lf1). 22 artifact hashes checked; 96 authored final questions / 32 states. No streamed execution. See WORKING_PAPER §§4.3, references 7–8.
 - **R2:** [Completed prefill study `20260927T015527_929864Z`](https://drive.google.com/drive/folders/14FsOosgKt9oJKK-Y8yPuKtkuaDClBgC3), [final summary](https://drive.google.com/file/d/1x6WPopdMqgma4PLUVNPYLP3S819oHmpo/view), [native MoE](https://drive.google.com/file/d/1RnEU6QnAgrTPHwDFQSA2GOUfHTKOay5Z/view), [FP32-router MoE](https://drive.google.com/file/d/1IdQLpiukvtV0FuCSJTPVyyJVnLv4pDg7/view). Completed at `2026-09-27T03:06:39.794435Z`; all 26 checksum entries verified. See WORKING_PAPER §4.4 and reference 9 for raw counts, probability drift, routing scope and reproducibility.
+
+For exact historical checkboxes and run identities, use
+[ROADMAP_HISTORY.md](ROADMAP_HISTORY.md). This documentation review runs no
+inference or training, opens no final outcomes, and promotes no model.

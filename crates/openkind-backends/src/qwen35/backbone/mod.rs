@@ -10,6 +10,7 @@ mod nested;
 mod persistence;
 mod reference;
 mod strategy;
+mod text;
 mod types;
 
 #[cfg(test)]
@@ -40,6 +41,7 @@ pub use batched::{
 };
 pub use branch::Qwen35BranchBatch;
 pub use contract::LayerKind;
+pub(crate) use embedding::EmbeddingLayout;
 pub use embedding::{EmbeddingOutput, Qwen35Embedding};
 // MLX parity-backend weight loading reuses the Candle oracle's verified
 // shard path helper.
@@ -60,4 +62,5 @@ pub use strategy::{
     ExecutionStrategy, ProcessMemoryEnvelope, RetentionEstimates, SchedulerConfig,
     StrategyDecision, StrategyEstimates, StrategyOutput, StrategyRequest,
 };
+pub(crate) use text::TextBackbone;
 pub use types::{FullSequenceRecord, StageComparison, TraceStage};
