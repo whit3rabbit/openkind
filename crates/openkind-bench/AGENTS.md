@@ -9,6 +9,7 @@ timing harness over JSONL decision workloads. It exists to:
 
 - Score decision workloads end to end through a real engine path (`score`), recording
   per-row predictions and a provenance summary (`openkind-bench/v1`).
+- Allow an explicit `--no-warmup` pass and `--history-aba` exact-request sequence for history probes.
 - Generate seeded, deterministic shape-matched workloads (`gen-workload`).
 - Keep service-level queue/HTTP measurements in [`scripts/native-service-gate.py`](../../scripts/native-service-gate.py), not in this in-process harness.
 
@@ -58,7 +59,7 @@ Methodology, timing scope, and recorded results are owned by
   `schema-scorer`, `router-script`, `qwen3-guard`, `kev`, `winnow`,
   plus `qwen35-mlx-fp32`/`qwen35-mlx-bf16` behind the `mlx` feature),
   `--model-root` for surveyed families, `--adapter` for the winnow router,
-  `parse_strategies`.
+  `--no-warmup`, `--history-aba`, and `parse_strategies`.
 - [`src/workload.rs`](./src/workload.rs): `WorkloadRow` (flattened `primitive` tag),
   `load_workload`/`parse_workload` (SHA-256 recorded), `state_groups`,
   `build_request`. Choice rows always carry a non-empty `__none__` criterion — one is

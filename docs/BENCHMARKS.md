@@ -93,6 +93,9 @@ extraction (for the native engine this spans render/tokenize, backbone
 execution, and readout). Excluded: model load, result-file writes, and the
 untimed warmup pass over every group that precedes timing; model load is
 reported separately per strategy (`model_load_seconds`). Warm process.
+`--no-warmup` skips that pass for cold and execution-history probes; its
+summary records `warmup: false`. Do not compare those first-request times to
+the warm-process benchmark table.
 `p50` is the median repetition total; `p95` is the `ceil(0.95·n)−1` sample;
 sample counts ship alongside as `samples_seconds`.
 
@@ -130,6 +133,65 @@ SDKROOT=$(xcrun --show-sdk-path) cargo run --release -p openkind-bench \
 Every published number must carry `--host` and `--commit` attribution;
 summaries default to an "unattributed" host label that must be replaced before
 results are quoted anywhere.
+
+### Non-final Choice qualification
+
+`scripts/qwen-qualification.py choice` joins a `score` prediction file to a
+locked Choice workload and gold JSONL. Each gold row declares `id`,
+`source_id`, `split`, `family`, `gold`, and the complete `options` list including
+`__none__`. The tool checks exact row/option coverage, normalized probability
+vectors, the workload digest in the benchmark summary, and source isolation
+between declared splits. Group each source document and its generated or
+paraphrased relatives under one `source_id`; the tool cannot detect undeclared
+near duplicates. New benchmark summaries also bind each prediction file by
+SHA-256. It refuses rows marked `final`. It reports accuracy, per-class
+recall, false-none, NLL, Brier, `__none__` Brier, and fixed 10-bin top-label
+calibration with bin counts. On small slices, the bins are diagnostic. A
+previously fixed `--policy-threshold` adds accepted error and coverage. Zero acceptance
+has null accepted error. NLL is null with a zero-probability gold label, and
+the report counts those rows rather than clipping the infinite loss. An optional
+locked reference summary and predictions
+add paired correct-answer retention and supported-answer loss to none. Reports
+are non-final and do not select a threshold.
+
+```bash
+python3 scripts/qwen-qualification.py choice \
+  --workload <locked-choice-workload.jsonl> --gold <locked-gold.jsonl> \
+  --summary <summary-engine.json> --predictions <predictions-engine-strategy.jsonl> \
+  --output <report.json>
+```
+
+Add `--reference-summary` and `--reference-predictions` together for a paired
+control, and `--policy-threshold` only when that threshold was fixed before
+evaluating the supplied split.
+
+`scripts/qwen-qualification.py history` runs two separate `openkind-bench`
+processes against a two-row Choice workload: exact request A, unrelated request
+B, A again, then A after a fresh process. `score --history-aba` reuses the
+first workload row and its question ID; prediction rows retain sequence indices.
+It compares the full probability
+vectors, selected answers, and the pinned Choice policy from the bundle.
+Both processes use `--no-warmup`, one repetition, one strategy, and local
+artifacts only. Use the checked-in synthetic
+[`qwen_history_smoke.jsonl`](../crates/openkind-bench/fixtures/qwen_history_smoke.jsonl)
+to exercise mechanics. A pass is a bounded stability observation on that
+workload and backend, not a quality or release result.
+
+```bash
+cargo build --release -p openkind-bench
+python3 scripts/qwen-qualification.py history \
+  --workload crates/openkind-bench/fixtures/qwen_history_smoke.jsonl \
+  --bench-bin target/release/openkind-bench --engine qwen35 \
+  --bundle-root <profile-bundle-dir> --checkpoint-root <pinned-checkpoint-dir> \
+  --tokenizer <digest-locked-tokenizer.json> --host "<host label>" \
+  --commit <hash> --output <history-report.json>
+```
+
+On macOS arm64, build the harness with `SDKROOT=$(xcrun --show-sdk-path)` and
+`--features mlx`, then use `qwen35-mlx-fp32` to test that backend separately.
+The script accepts `qwen35-mlx-bf16` only as a distinct candidate profile;
+its frozen equivalence gate still fails. New serving profiles need their own
+adapter and identity before the history result can be treated as theirs.
 
 The `qwen35-mlx-fp32` and `qwen35-mlx-bf16` engines (behind the harness's
 `mlx` feature) run the identical request path as `qwen35` — render,
@@ -195,6 +257,7 @@ does not change the service or automatic scheduler.
 
 - `summary-<engine>.json` — schema `openkind-bench/v1`: provenance
   (profile id, model revision, bundle version, fixture digest, host, commit),
+  per-strategy prediction SHA-256 and warmup flag,
   per-strategy `samples_seconds` / `p50_seconds` / `p95_seconds` /
   `decisions_per_second` / `input_tokens_total`, peak resident bytes, and
   `cross_strategy_answer_parity_clean`.

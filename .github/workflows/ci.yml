@@ -30,6 +30,9 @@ jobs:
       - name: Run workspace tests
         run: env -u RUST_LOG cargo test --workspace
 
+      - name: Check offline qualification tooling
+        run: python3 -m unittest discover -s scripts/tests -p 'test_qwen_qualification.py'
+
       - name: Smoke-test Criterion benchmarks
         run: env -u RUST_LOG cargo test --workspace --benches --locked
 
