@@ -33,6 +33,18 @@ The current production configuration is deliberately conservative:
   recovery runs are recorded. Service load/soak and a clean-commit promotion
   record remain open.
 
+## External MLX decision profile
+
+[`Jev-Style-2B-Decision-v3-MLX`](./families/jev-style.md) is a separate
+surveyed profile at Hub revision
+`b86e4cbc6f420f5d7d1691299d62db272934ebf4`. It includes BF16 and affine 8-bit
+weights plus a custom Python scoring runtime pinned to `mlx-lm==0.31.3`. That
+runtime implements block-causal attention, a yes/no logit-difference readout,
+and exact FP32 norm sidecar weights. The OpenKind Qwen3.5-4B loader does not
+load this 2B profile. Both upstream precision folders were hash-verified and
+ran a local decision smoke on the M4 Max; same-host timing comparisons are in
+[`BENCHMARKS.md`](BENCHMARKS.md#jev-style-2b-mlx-survey).
+
 ## Pinned runtime and model identity
 
 | Component | Identity |

@@ -50,6 +50,11 @@ pub enum FamilyError {
     #[error("native family tensor execution failed: {0}")]
     Candle(#[from] candle_core::Error),
 
+    /// The shared native Qwen3.5 backbone failed during a survey-profile
+    /// forward.
+    #[error("qwen35 native backbone failure: {0}")]
+    Qwen35(#[from] crate::qwen35::Qwen35Error),
+
     /// A pinned contract field did not match the loaded artifact.
     #[error("reference contract mismatch for `{field}`: expected `{expected}`, found `{actual}`")]
     ContractMismatch {

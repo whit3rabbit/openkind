@@ -43,6 +43,37 @@ fn backend_from_arg(backend: Qwen35BackendArg) -> Qwen35Backend {
     }
 }
 
+/// Map an installed-model manifest to its pinned laya profile, mirroring the
+/// `supported_profile` allowlist in `openkind-model-store`.
+fn laya_profile_for(
+    manifest: &openkind_model_store::Manifest,
+) -> Option<&'static openkind_backends::families::laya::LayaProfile> {
+    use openkind_backends::families::laya::{
+        LAYA_ENGLISH, LAYA_MULTILINGUAL, LAYA_TYPED_DECISIONS,
+    };
+    use openkind_model_store::{
+        LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME, LAYA_TYPED_DECISIONS_MODEL_NAME,
+    };
+    match (manifest.name.as_str(), manifest.loader_id.as_str()) {
+        (LAYA_ENGLISH_MODEL_NAME, "laya-english")
+            if manifest.profile_id == LAYA_ENGLISH.profile_id =>
+        {
+            Some(&LAYA_ENGLISH)
+        }
+        (LAYA_MULTILINGUAL_MODEL_NAME, "laya-multilingual")
+            if manifest.profile_id == LAYA_MULTILINGUAL.profile_id =>
+        {
+            Some(&LAYA_MULTILINGUAL)
+        }
+        (LAYA_TYPED_DECISIONS_MODEL_NAME, "laya-typed-decisions")
+            if manifest.profile_id == LAYA_TYPED_DECISIONS.profile_id =>
+        {
+            Some(&LAYA_TYPED_DECISIONS)
+        }
+        _ => None,
+    }
+}
+
 fn load_qwen(
     args: &Args,
     bundle_root: PathBuf,
@@ -270,25 +301,44 @@ async fn main() -> Result<()> {
         for name in &args.installed_models {
             let installed = store.acquire_serving(name)?;
             let manifest = &installed.manifest;
-            if manifest.name != QWEN35_STATE_FIRST_MODEL_NAME
-                || manifest.loader_id != "qwen35-state-first"
-                || manifest.profile_id != openkind_backends::qwen35::PROFILE_ID
+            let root = &installed.root;
+            if manifest.name == QWEN35_STATE_FIRST_MODEL_NAME
+                && manifest.loader_id == "qwen35-state-first"
+                && manifest.profile_id == openkind_backends::qwen35::PROFILE_ID
             {
+                let engine = load_qwen(
+                    &args,
+                    root.join("bundle"),
+                    root.join("checkpoint"),
+                    root.join("checkpoint/tokenizer.json"),
+                )?;
+                info!(
+                    alias = name,
+                    backend = engine.backend_id(),
+                    "registered installed model"
+                );
+                registry.register(name.clone(), engine);
+            } else if let Some(profile) = laya_profile_for(manifest) {
+                let engine: Arc<dyn DecisionEngine> = Arc::new(
+                    openkind_backends::families::laya::LayaEngine::load(
+                        openkind_backends::families::laya::LayaEngineConfig::new(
+                            profile,
+                            root.clone(),
+                        ),
+                    )
+                    .map_err(|error| {
+                        anyhow::anyhow!("load installed laya model `{name}`: {error}")
+                    })?,
+                );
+                info!(
+                    alias = name,
+                    backend = engine.backend_id(),
+                    "registered installed model"
+                );
+                registry.register(name.clone(), engine);
+            } else {
                 anyhow::bail!("unsupported installed model profile `{name}`");
             }
-            let root = &installed.root;
-            let engine = load_qwen(
-                &args,
-                root.join("bundle"),
-                root.join("checkpoint"),
-                root.join("checkpoint/tokenizer.json"),
-            )?;
-            info!(
-                alias = name,
-                backend = engine.backend_id(),
-                "registered installed model"
-            );
-            registry.register(name.clone(), engine);
             _installed_guards.push(installed);
         }
     }

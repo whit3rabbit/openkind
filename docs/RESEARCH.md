@@ -1423,6 +1423,148 @@ These are research comparisons and candidate ablations. They do not change
 the Phase 4E source-alignment and independent-review gates, reopen final
 data, or promote a new OpenKind model profile.
 
+### Imajev-4B and the newer JevBench board (reviewed 2026-09-27)
+
+The [official JevBench v1.4.2.2 board](https://benchmarkheaven.com/jev-models)
+scores [imajev-4b](https://github.com/mohit67890/imajev) **67.37, first of 91
+ranked systems**, against Jev 1.13.0 at 63.3. This is a four-axis composite:
+imajev's Intelligence is 52.2 versus Jev's 53.1, while Calibration, Speed,
+and Cost are 80.4/90.6/59.7 versus 76.3/83.3/52.0. Public accuracy is
+86.1% versus 86.6%; sealed accuracy is 37.0% versus 36.7%, a 49.1-point
+public-to-sealed drop for imajev. The board ran its phase-3 adapter with **one
+option order plus calibration**, `fla-core` 0.5.2 and `causal-conv1d` 1.7.0;
+its [calibration file](https://github.com/mohit67890/imajev/blob/6ee8a2c555ca6a3d1de9eceb33f1bd1cfeb268a2/results/phase3/imajev-4b/calibration.json)
+uses one temperature (1.305) fitted on 150 authored items. Its self-hosted
+cost is estimated from a base-model provider price, not a measured GPU bill.
+The author's [four-order public-hard run](https://github.com/mohit67890/imajev/blob/6ee8a2c555ca6a3d1de9eceb33f1bd1cfeb268a2/results/phase3/benchmarks.md)
+is a different configuration (72.1% on 111 text items) and is not the
+official composite or a sealed-set result. Neither benchmark measures
+OpenKind's document-evidence acceptance contract.
+
+The [phase-3 model card](https://github.com/mohit67890/imajev/blob/6ee8a2c555ca6a3d1de9eceb33f1bd1cfeb268a2/model-cards/imajev-4b.md)
+identifies Qwen3.5-4B at the same base revision as OpenKind's frozen J1
+control, with a trained rank-64 language LoRA, frozen vision tower, and
+256-code decision readout (up to 255 declared options plus a learned
+`unknown`). Its training adds image/text decisions, teacher-filtered hard
+cases, soft probability targets, option permutation, and failure-targeted
+continuations. These are a **combined recipe**, not isolated proof that any
+one component caused the board result. Its `choice` API requires at least
+two declared options; OpenKind's one-candidate QASPER task needs an explicit,
+pre-registered adaptation before comparison. Imajev exposes a conditional
+distribution over declared options and a separate `unknown_probability`;
+OpenKind's selected profile declares one joint
+`offered_options_plus_semantic_none` space. Compare reconstructed joint
+probabilities and abstention decisions, not the conditional option
+probabilities alone. [Scoring and wire code](https://github.com/mohit67890/imajev/blob/6ee8a2c555ca6a3d1de9eceb33f1bd1cfeb268a2/src/vision_decision/jev_api.py)
+
+The repo also shows why the headline needs qualification. The phase-3
+[selection record](https://github.com/mohit67890/imajev/blob/6ee8a2c555ca6a3d1de9eceb33f1bd1cfeb268a2/results/phase3/final-comparison.md)
+marks the chosen checkpoint unshippable under its own rules: it got 11/14
+unknown cases in a prior held-out panel, below the 14/14 gate, and missed its
+JevBench hard-accuracy and calibration targets. The owner explicitly overrode
+the gate. Its [accepted full DecisionBench result](https://github.com/Hanno-Labs/decision-bench-results/pull/68)
+rose from 77.5% to 79.7%, but the newer
+256-code readout and longer input limit also changed coverage from 97.75% to
+100%; ECE worsened from 0.024 to 0.069. The [technical report](https://mohit67890.github.io/imajev/report/#top)
+still describes the earlier rank-16/255-code 4B recipe in section 6; use the
+phase-3 card and results for the board adapter. The [PyTorch server](https://github.com/mohit67890/imajev/blob/6ee8a2c555ca6a3d1de9eceb33f1bd1cfeb268a2/scripts/playground/server.py)
+recomputes each question and option order, while the [MLX path](https://github.com/mohit67890/imajev/blob/6ee8a2c555ca6a3d1de9eceb33f1bd1cfeb268a2/src/vision_decision/backend.py)
+forks a shared prefix. Do not infer multi-question state reuse from its H100
+leaderboard latency.
+
+The author's ImajevBench v2.0-lite reports 83.9% on 279 questions, including
+18/21 correct `unknown` answers and 9 false abstentions on 258 answerable
+questions. Its [evaluation notes](https://mohit67890.github.io/imajev/report/#top)
+say the image overlap check used byte hashes but no perceptual hashes. Treat
+this as author-run, small-set image evidence, not an independent image-quality
+gate for OpenKind.
+
+For OpenKind, imajev is a useful **pinned J1 specialist comparator** after
+input-contract checks. Measure its native text-only pipeline against frozen
+J1 and the existing JevK5 candidate on the same document groups, with
+one-order and four-order results, identity and fitted calibration, unknown
+recall/false abstention, proper scores, accepted error/coverage, and full
+request latency. Its image benchmark motivates a separate multimodal workload
+study; it does not add image support or quality evidence to OpenKind.
+
+### Gestalt Jeff 1 and Laya (reviewed 2026-09-27)
+
+**Leaderboard identity matters.** The JevBench v1.4.2.2
+["jeff" row](https://benchmarkheaven.com/jev-models) is
+[Logan Markewich's GLiFormer 400M project](https://github.com/logan-markewich/jeff),
+ranked #42. It is **not** [Gestalt-Lab's Jeff 1](https://github.com/Gestalt-Lab/jeff),
+which has no row in that board release. The board's
+[Laya row](https://benchmarkheaven.com/jev-models) is #43 overall (30.3
+composite, 58.4% public and 30.8% sealed accuracy). Its Cost axis is 86.2,
+but the $0.0029 per 1,000 decisions is an estimate from a comparable encoder
+provider, not a measured hosting bill. The board ran the English ModernBERT
+checkpoint on CPU; its 512-token per-question budget cut long hard-tier states.
+Neither linked project leads the overall board.
+
+**Gestalt Jeff 1.** The [released model card](https://github.com/Gestalt-Lab/jeff/blob/14ee67e2814a19ebd0a67f508ac1b0f424ba1ebc/MODEL_CARD_JEFF1.md)
+describes an 11.8M-parameter LoRA on `Qwen3-4B-Instruct-2507`, the same base
+family as OpenKind's dense execution control, but a separate adapter and
+readout. It trains on 12,119 Choice/Score/Noul rows. The
+[readout](https://github.com/Gestalt-Lab/jeff/blob/14ee67e2814a19ebd0a67f508ac1b0f424ba1ebc/jev_clf/readout.py)
+softmaxes distinct first label-token logits; when first tokens collide, it
+scores each full label sequence with an extra model pass per label. Each
+question is scored separately. On the author's paired 9,730-row human-labeled
+fact-checking set, Jeff reached 81.83% accuracy, Brier 0.2839, and max-class
+ECE 0.0807; live Jev 1.13.0 reached 82.83%, 0.2750, and 0.0932. Lower ECE
+does not offset Jeff's worse accuracy and Brier. Its `not_enough_info` recall
+was 0.578 versus Jev's 0.712, and the author reports unsupported positive
+verdicts. The 9,730 rows informed error analysis, so they cannot serve as an
+untouched future holdout; the separate 199-row test is too small to rank the
+models. No release latency or multi-question throughput benchmark is reported.
+For OpenKind, Jeff is a useful **dense-Qwen fact-checking comparator**, subject
+to an immutable adapter/base revision, evidence-source overlap audit, our
+semantic-none contract, and a fresh document-group evaluation. Its fact-check
+result cannot be transferred to ContractNLI or QASPER without that test.
+
+**Laya.** Its [implementation](https://github.com/NandhaKishorM/laya/blob/9d955671415fc19f069b9cc998928075c1f255ec/laya/common.py)
+uses a bidirectional ModernBERT or mmBERT encoder, question-type embedding,
+transformer decision head, and learned scores at option markers. The
+[request path](https://github.com/NandhaKishorM/laya/blob/9d955671415fc19f069b9cc998928075c1f255ec/laya/agent.py)
+packs one state-plus-question row per question into a batched forward; it
+reuses state tokenization, but repeats state encoding across those rows. Its
+[router](https://github.com/NandhaKishorM/laya/blob/9d955671415fc19f069b9cc998928075c1f255ec/laya/router.py)
+selects English or multilingual checkpoints by language, with the specialized
+typed-decisions checkpoint requiring explicit task selection or opt-in
+auto-detection. Its [fine-tuning guide](https://github.com/NandhaKishorM/laya/blob/9d955671415fc19f069b9cc998928075c1f255ec/README.md#fine-tuning)
+uses proper-scoring-rule rewards with a GRPO-style policy gradient, followed
+by temperature fitting. The author's [benchmark report](https://github.com/NandhaKishorM/laya/blob/9d955671415fc19f069b9cc998928075c1f255ec/BENCHMARKS.md)
+reports 32.8 ms for one multilingual-checkpoint question on a T4, but its Jev
+figures come from other studies with different prompts and samples. Those are
+not a paired speed or quality win. Its fine-tuned typed-decisions checkpoint
+reports 0.766 accuracy on 2,000 decisions; the base English checkpoint gets
+0.362 on that set. JevBench tested the English checkpoint, not the specialist.
+The reported 0.081 ECE follows domain temperature fitting, while the
+fine-tuned checkpoint's raw ECE is 0.213. The fine-tuning guide warns that its
+notebook fits temperatures on training items, so that path needs a separate
+held-out calibration check. At default budgets, the
+author reports Banking77 accuracy of 0.425 on 77 options versus a separately
+published Jev 0.870 on 72 options. Its fixed option-token budget can collapse
+label text, and its opt-in confidence threshold flags low confidence rather
+than learning OpenKind's semantic-none decision. Laya is useful prior art for
+an encoder/marker-head and language-routing **research control**. It supplies
+no evidence to switch OpenKind's current Qwen profile or relax the independent
+quality, calibration, high-K, and full-request latency gates.
+
+### Additional JevBench architectures from the supplied overview (reviewed 2026-09-28)
+
+The supplied 25-row overview is useful for discovering model variants, but its scores are not a current leaderboard snapshot. JevBench v1.4.2.2 was scored on 27 September 2026 and lists both an official composite rank and a Jev-class Capability rank, which averages Intelligence and Calibration. In that release, Plumb is official #2 / Capability #3, Cygnet #6 / #5, Jobe #14 / #16, and Mapika decider-35b-a3b #21 / #12. Keep each metric and release version attached to its number.
+
+The overview's TypeSafe Jev public accuracy of 96.3% is not supported by the current board snapshot, which reports 86.6%; the overview does not identify a comparable task set for 96.3%. Its Phi-4 mini entry says 151M parameters, but Microsoft's model card describes Phi-4-mini-instruct as 3.8B. The 151M model in the overview is the separate ModernBERT-based Verdict system.
+
+| Model and current board position | Architecture and distinctive approach | Evidence boundary |
+|---|---|---|
+| [Plumb-4B](https://huggingface.co/crh225/plumb-4b), [training and runtime code](https://github.com/crh225/plumb), official #2 / Capability #3 | Qwen3.5-4B fine-tuned from JevK5 v0.2 with LoRA. A Qwen3.8-27B teacher writes and checks hard decision cases; training uses cross-entropy on option-letter logits, followed by one temperature fitted on held-out decisions. Inference returns probabilities for 2 to 16 choices from one forward pass without generated tokens. | The author reports 89/111 on the public hard tier versus 82/111 for the starting JevK5 checkpoint. The model card says no JevBench item was used for training, tuning, checkpoint selection, or calibration, while aggregate public results did inform later recipe decisions. Treat this as exposed benchmark feedback, not an untouched confirmation. |
+| [Cygnet](https://www.benchmarkheaven.com/jev-models/cygnet), [inference recipe](https://github.com/Blockbrain-ai/cygnet-recipe), official #6 / Capability #5 | Frozen Gemma 4 12B run through stock vLLM. A small shim encodes answer choices as label tokens, masks the logits to those choices, and applies a single temperature. It demonstrates that a useful decision interface can come from a general model without decision fine-tuning. | The temperature was fitted on the author's own items. The board row evaluates its text decision path; it does not validate every modality supported by the Gemma base. |
+| [Jobe Qwen3.5-4B](https://www.benchmarkheaven.com/jev-models/jobe-qwen3.5-4b), [GitHub source](https://github.com/MantisShrimpdev/jobe), official #14 / Capability #16 | Frozen Qwen3.5-4B with native option-logit scoring. The published row reports no trained adapter, calibration fit, or option-order ensemble. This is a clean direct-logit baseline against trained LoRA and decision-head approaches. | The board score belongs to this exact frozen configuration. It does not establish how a fine-tuned Qwen checkpoint or shared multi-question execution would perform. |
+| [Mapika decider-35b-a3b](https://huggingface.co/Mapika/decider-35b-a3b), [model and training code](https://github.com/Mapika/decider), official #21 / Capability #12 | A Qwen3.5-35B-A3B hybrid MoE with 34.7B total and 3B active parameters: 256 routed experts, top-8 routing plus a shared expert, 10 full-attention layers, and 30 Gated DeltaNet layers. It uses a one-pass typed-decision readout and supervised training with routed experts frozen. This tests whether more total model capacity helps when only a small fraction is active per token. | The model card's broader validation figures are author-reported. Do not treat its JevBench row as a result on OpenKind's document evidence or semantic-none contract. |
+
+Two lower-ranked models from the overview are useful architecture contrasts, not members of the current official top 25: [Decision 2B v59](https://huggingface.co/flymy-ai/decision-2b-preview) uses a structural-token pointer head over a MiniCPM5 base; its page labels the package a research evaluation preview, not an official JevBench result, and records unresolved training-source conditions. [OpenJev Verdict 1.4](https://github.com/Heman10x-NGU/Verdict-open-jev) uses a 151M ModernBERT/GLiClass encoder with calibrated uncertainty and non-autoregressive output; the current board places it at official #60. These broaden the design space beyond decoder-only option logits, but their ranks and evaluation scope should remain explicit.
+
 ### OpenKind option-logit audit, 24 September 2026
 
 The [4E-B.1 notebook](https://drive.google.com/file/d/1vFKFXeSAZvkkYbIve0OS1P3zBxBNLXtY/view) ran a fixed, zero-generation option-letter readout on the pinned **Qwen3.5-4B-Base FP32** profile. It sampled 16 calibration-gate states per source by state-ID hash, then scored all 325 choice questions in those states. It used the Phase 4A effective state text, one shared root prefill per state, a candidate-conditioned question suffix, and a constrained next-token softmax over answer letters plus `Z` for semantic none. The comparator is the frozen **Phase 4A historical reference** on identical question IDs, not the Phase 4D trained parent or JevK5's checkpoint. Prompts and readouts differ, so this is a matched-row method comparison, not a controlled head-only substitution. [Contract](https://drive.google.com/file/d/1mQqZ2K63MBP294S3H5zI6xmXmlUbyey6/view), [rows](https://drive.google.com/file/d/1_hQY3B2twDgRnLvakQ-pmvQk54fDmkJy/view), [report](https://drive.google.com/file/d/1DApZhZtxhgNV6b0JDd1S38QNLC84GAf1/view), [result lock](https://drive.google.com/file/d/1jafTJgEUeN4iGh5f7oKpMmcERcnfd7Lw/view).
@@ -1449,3 +1591,78 @@ The [4E-B.2 notebook](https://colab.research.google.com/drive/1LKpPR5zYFZHDEnWYX
 The ContractNLI development selection scores 108/121 conditional rankings; the gate falls to 94/108. On the gate, original-order logits score 93/108 and separate support scores 86/108. Order averaging changes the candidate winner on 13/204 gate questions, but its one extra correct answerable choice over original order does not repair the full decision: the selected gate balanced accuracy is `0.6250` and false-none remains `0.4259`. QASPER's selected development arm also has 0/5 none recall. Its `Z` detector has gate AUROC `0.80`, but that estimate has only five positives. An **unlocked, post-hoc** lower-threshold check selected `Z` at `0.175` on development (3/5 none found, 6/38 false none); on the already exposed gate it finds 2/5 none and falsely rejects 9/41 answerable. This diagnoses the original grid's floor, not a replacement locked result or a passing operating point.
 
 The contract, selection, 741-row Parquet file, and report match the result-lock SHA-256 values. Independent row checks confirm unique question IDs, exact selected-state membership, no overlap with the earlier 4E-B.1 gate states, finite and complete logits, and the reported selected-arm counts. Six cached/full-prompt checks span the three prompt families on one question per source; all stay within the contract tolerances and preserve the action. The 72 individual state-part hashes are recorded by the lock but were not separately downloaded for this review. Source-aligned label/evidence repair, independent review, useful QASPER rejection, and the final split remain open.
+
+## Twenty-five leading models and their design lineages
+
+**Reviewed 2026-09-27.** There is no stable universal “top 25”: benchmark suites, agent harnesses, inference effort, and price change the ordering. The [Artificial Analysis Intelligence Index](https://artificialanalysis.ai/evaluations/artificial-analysis-intelligence-index) is one public checkpoint. Its [22 September 2026 report](https://artificialanalysis.ai/articles/claude-opus-5-5) places Claude Opus 5.5 at the top of that index at maximum effort, with a score of 58, and shows that leaders vary by evaluation. The 25 entries below combine current frontier systems with open-weight models that expose useful architecture or training choices. They are grouped by approach, not ranked 1 to 25.
+
+JevBench is a separate, task-specific comparison of typed decision systems. Its state-plus-rubric workload and Intelligence, Calibration, Speed, and Cost axes do not measure the same target as the general model index above. See [Jev-like Decision Systems](#jev-like-decision-systems-reviewed-2026-09-24) for its dated board snapshots and decision-model architecture comparisons.
+
+For closed models, “GitHub” links point to official API clients or product cookbooks, not model source. For open-weight systems, links point to author repositories or, where stated, third-party implementations. Open weights, open training code, and an open license are separate properties. Descriptions follow the linked model cards, papers, and vendor materials. Vendor benchmark claims are not independent replications.
+
+### Frontier API models
+
+1. **[Claude Opus 5.5](https://www.anthropic.com/claude/opus)**. **GitHub:** [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python). Anthropic’s highest-capability public model emphasizes agentic knowledge work and coding. It exposes five reasoning-effort settings and a one-million-token text-and-image context window. Anthropic does not publish its topology or weights, so its inspectable distinctions are effort controls, context, tool behavior, and measured task results rather than a reproducible internal architecture.
+
+2. **[GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra)**. **GitHub:** [OpenAI Python SDK](https://github.com/openai/openai-python). OpenAI positions Astra for difficult reasoning and agent tasks, with configurable reasoning effort, tool use, and long context. Product and safety material describes training and evaluations but not internal layer topology or weights. The SDK exposes an API surface, not the model implementation.
+
+3. **[Claude Fable 5.1](https://www.anthropic.com/claude/fable)**. **GitHub:** [Anthropic Python SDK](https://github.com/anthropics/anthropic-sdk-python). Fable targets long-running coding and professional workflows, including recovery, self-checking, and repeated tool use. It was among the top systems on several reasoning and coding tasks before Opus 5.5. Anthropic does not disclose its architecture; comparisons should account for effort settings and token use because stronger results can spend substantially more inference compute.
+
+4. **[Grok 4.7](https://x.ai/news/grok-4-7)**. **GitHub:** [xAI Python SDK](https://github.com/xai-org/xai-sdk-python). xAI describes a larger base and longer reinforcement-learning runs on difficult, multi-hour tasks, with training aimed at its agent harness. The public distinction is sustained tool-driven work and a strong cost/performance position in the [September 2026 Artificial Analysis benchmark](https://artificialanalysis.ai/articles/benchmarking-grok-4-7). Weight layout, routing, and attention details remain undisclosed.
+
+5. **[Gemini 3.1 Pro](https://deepmind.google/models/model-cards/gemini-3-1-pro/)**. **GitHub:** [Google Gen AI SDK](https://github.com/googleapis/python-genai). This is Google’s high-capability multimodal model for complex reasoning and tool-mediated work. Google’s [Gemini 3 Pro model card](https://deepmind.google/models/model-cards/gemini-3-pro/) describes a sparse mixture-of-experts Transformer and native text, image, audio, and video inputs; the 3.1 card documents the later release. Public cards describe training and safety evaluation more than implementation, so exact expert layout and routing are not reproducible from them.
+
+6. **[Gemini 3.8 Flash](https://deepmind.google/models/model-cards/gemini-3-8-flash/)**. **GitHub:** [Google Gen AI SDK](https://github.com/googleapis/python-genai). Flash is the lower-latency, lower-cost branch for high-volume and agentic work. Its interface exposes effort controls so users can trade latency for deeper reasoning; it accepts multimodal inputs and long context. This makes inference-budget control a product-level design choice. Google has not published enough detail to compare its exact topology with Pro.
+
+7. **[Muse Spark 1.3](https://ai.meta.com/llama/)**. **GitHub:** [Meta Model Cookbook](https://github.com/meta-models/meta-model-cookbook). Meta’s model line stresses native multimodal perception, tool use, visual reasoning, and multi-agent coordination. The released interface and cookbook make those interaction patterns inspectable, while weights and detailed architecture are not public. The cookbook is integration code, not a training or model-source repository.
+
+8. **[GPT-6 Sol](https://developers.openai.com/api/docs/models/gpt-6-sol)**. **GitHub:** [OpenAI Python SDK](https://github.com/openai/openai-python). Sol is the cost-efficient GPT-6 counterpart to Astra, with the same broad API and tool-oriented design at a different quality/price point. [Artificial Analysis reports](https://artificialanalysis.ai/articles/gpt-6-sol-and-luna-push-the-cost-efficiency-frontier) about half the cost per task of GPT-5.6 Sol, with index-level performance broadly level and mixed benchmark changes. Its exact architecture is not public.
+
+9. **[GPT-6 Luna](https://developers.openai.com/api/docs/models/gpt-6-luna)**. **GitHub:** [OpenAI Python SDK](https://github.com/openai/openai-python). Luna takes the same efficiency strategy further for fast, inexpensive tasks. [Artificial Analysis reports](https://artificialanalysis.ai/articles/gpt-6-sol-and-luna-push-the-cost-efficiency-frontier) about 60% lower cost per task than GPT-5.6 Luna, with a 2-point regression on the Coding Agent Index. This shows how a model family can differentiate on serving economics and inference budget as well as capability. Public API documentation and the SDK expose invocation behavior, not model internals.
+
+### Open-weight models and disclosed architecture choices
+
+10. **[GLM-5.3](https://github.com/zai-org/GLM-5)**. **Weights:** [Hugging Face](https://huggingface.co/zai-org/GLM-5.3). Z.ai states that 5.3 uses the same base model as 5.2 and that its gains come from post-training, especially for complex coding and long-horizon work. This is a useful example of capability changing without a new backbone. It is a 744B-total, 40B-active sparse model; published performance claims are vendor-reported.
+
+11. **[GLM-5.3-Flash](https://github.com/zai-org/GLM-5)**. **Weights:** [Hugging Face](https://huggingface.co/zai-org/GLM-5.3-Flash). Unlike GLM-5.3, Flash starts from a newly trained base. Z.ai describes hybrid sparse and linear attention, Manifold-Constrained Hyper-Connections, and a 30T-token multimodal pretraining corpus. Its 320B total / 18B active size aims to reduce long-context serving cost while retaining precise attention where needed. This is an architecture and training change, not just a smaller checkpoint.
+
+12. **[Qwen3.8-2.4T-A95B](https://huggingface.co/Qwen/Qwen3.8-2.4T-A95B)**. **GitHub:** [Qwen3.8 model repository](https://github.com/QwenLM/Qwen3.8), with a [vLLM-Ascend architecture and deployment reference](https://github.com/vllm-project/vllm-ascend/blob/main/docs/source/tutorials/models/Qwen3.8-2.4T-A95B.md). The public materials place 3.8 on the Qwen3.5 hybrid foundation. The [Transformers Qwen3.5 reference](https://github.com/huggingface/transformers/blob/main/docs/source/en/model_doc/qwen3_5.md) describes three Gated DeltaNet linear-attention layers for each full-attention layer; sparse experts provide far more total capacity than the 95B parameters active for a token. The family’s open implementations and multimodal support make it a useful comparison point. Use the 3.8 model card for its exact configuration rather than inferring it from an earlier release.
+
+13. **[Kimi K3](https://huggingface.co/moonshotai/Kimi-K3)**. **GitHub:** [Moonshot Kimi K3](https://github.com/MoonshotAI/Kimi-K3). Moonshot describes a 2.8T-total / 104B-active model that combines 69 Kimi Delta Attention layers with 24 Gated Multi-head Latent Attention layers, plus sparse experts and a million-token context. The mix uses compact recurrent state for most sequence processing and full attention at selected layers, while latent attention reduces cache cost. Moonshot also adds attention residuals and stable latent routing; those are its reported contributions, not generic properties of MoE.
+
+14. **[DeepSeek V4 Pro](https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro)**. **GitHub reference implementation:** [Transformers V4 implementation](https://github.com/huggingface/transformers/blob/main/docs/source/en/model_doc/deepseek_v4.md). DeepSeek describes a 1.6T-total / 49B-active MoE built for million-token context. Its disclosed design replaces V3’s Multi-head Latent Attention with hybrid local and long-range attention, adds Manifold-Constrained Hyper-Connections, and uses a static token-to-expert mapping to reduce routing overhead. The GitHub link is a community implementation reference, not DeepSeek training source.
+
+15. **[DeepSeek V3.2](https://huggingface.co/deepseek-ai/DeepSeek-V3.2)**. **GitHub code and kernels:** [DeepSeek V3](https://github.com/deepseek-ai/DeepSeek-V3) and [FlashMLA](https://github.com/deepseek-ai/FlashMLA). V3.2’s defining direction is DeepSeek Sparse Attention: a learned indexer selects relevant tokens instead of attending densely across the entire history. This reduces long-context attention work while retaining content-based retrieval. FlashMLA is the vendor’s public attention-kernel code; it does not disclose the full model training pipeline.
+
+16. **[DeepSeek R1](https://github.com/deepseek-ai/DeepSeek-R1)**. **Paper:** [DeepSeek-R1](https://arxiv.org/abs/2501.12948). R1’s key contribution is post-training, not a new backbone: R1-Zero applies reinforcement learning directly to a base model and shows that reasoning behavior can emerge without a supervised reasoning warm-up. The released R1 recipe adds cold-start data and later supervised/RL stages. The team also distills reasoning traces into smaller Qwen and Llama models, directly transferring behavior across model families.
+
+17. **[MiMo-V2.5-Pro](https://huggingface.co/XiaomiMiMo/MiMo-V2.5-Pro)**. **GitHub:** [Xiaomi MiMo project](https://github.com/XiaomiMiMo/MiMo), with an [vLLM deployment recipe](https://github.com/vllm-project/recipes/blob/main/models/XiaomiMiMo/MiMo-V2.5-Pro.yaml). Its published configuration is a 1.02T-total / 45.6B-active MoE with 384 experts, top-8 routing, hybrid local/sliding and full attention, and multi-token prediction. The combination targets long-context agentic coding and reasoning while limiting active compute per token. The vLLM recipe is serving support, not independent validation of Xiaomi’s benchmark claims.
+
+18. **[Mistral Medium 3.5 128B](https://huggingface.co/mistralai/Mistral-Medium-3.5-128B)**. **GitHub inference code:** [Mistral Inference](https://github.com/mistralai/mistral-inference). Medium 3.5 is a dense 128B model with image input and 256K context. Mistral presents it as a unified model for instruction following, reasoning, and coding, with configurable reasoning effort rather than separate specialist checkpoints. Its dense design is a counterpoint to frontier MoE systems: it runs the full network for each token, trading serving cost for a simpler execution path.
+
+19. **[Nemotron 3 Ultra](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B-BF16)**. **GitHub:** [NVIDIA NeMo Nemotron recipes and code](https://github.com/NVIDIA-NeMo/Nemotron). NVIDIA describes a 550B-total / 55B-active LatentMoE that interleaves Mamba-2, MoE, and selected attention layers, with multi-token prediction and up to one-million-token context. Its training materials publish data and recipe details alongside weights, making it one of the more inspectable large-model stacks. The design combines compressed latent expert computation with recurrent sequence processing and selective attention.
+
+20. **[Llama 4 Maverick](https://github.com/meta-llama/llama-models/blob/main/models/llama4/MODEL_CARD.md)**. **GitHub:** [Meta Llama models](https://github.com/meta-llama/llama-models). Maverick is a 400B-total / 17B-active MoE with a large expert pool and early multimodal fusion. Meta routes tokens through a subset of experts to keep active inference smaller than total capacity suggests. Its weights are available under Meta’s community license, which has use conditions; open-weight does not mean an unrestricted OSI open-source license.
+
+21. **[Gemma 4 26B-A4B](https://deepmind.google/models/gemma/gemma-4/)**. **GitHub:** [Gemma 4 implementation](https://github.com/google-deepmind/gemma/blob/main/gemma/gm/nn/gemma4/_gemma4.py). This compact MoE has 26B total parameters with about 4B active per token. The family supports image and audio tasks and combines local and global attention patterns. Google’s goal is strong capability per active parameter for local or constrained deployments, while sharing research lineage with Gemini. The weights and code aid inspection, but do not amount to a reproducible Gemini training stack.
+
+22. **[MiniMax M2.5](https://huggingface.co/MiniMaxAI/MiniMax-M2.5)**. **GitHub:** [MiniMax M2.5](https://github.com/MiniMax-AI/MiniMax-M2.5), plus a [vLLM serving recipe](https://github.com/vllm-project/recipes/blob/main/models/MiniMaxAI/MiniMax-M2.5.yaml). It is a 230B-total / 10B-active MoE trained with reinforcement learning across real-world tool and agent environments. MiniMax emphasizes task decomposition, parallel tool use, and sustained coding work, making the agent action loop and training environments central to its design story. The model card’s modified MIT terms should be checked before redistribution or commercial use.
+
+23. **[Mistral Large 3](https://mistral.ai/news/mistral-3/)**. **GitHub inference recipe:** [vLLM Mistral Large 3 recipe](https://github.com/vllm-project/recipes/blob/main/Mistral/Mistral-Large-3.md). Large 3 is an open-weight multimodal MoE with 675B total / 41B active parameters, released under Apache 2.0. It pushes broad capacity while limiting per-token compute, and makes a top-tier model available to self-host. The public recipe supports deployment; it is not the model’s training code.
+
+24. **[OLMo 3 32B Think](https://huggingface.co/allenai/Olmo-3-32B-Think)**. **GitHub:** [OLMo core training code](https://github.com/allenai/OLMo-core). OLMo’s distinguishing contribution is openness across the research process: checkpoints, data documentation, training scripts, and evaluation materials are published together. The 32B Think variant adds reasoning-oriented post-training to a dense Transformer. It may not lead every current benchmark, but it is a strong reference for studying which data and training stages produced a model’s behavior.
+
+25. **[Phi-4 Reasoning Vision 15B](https://github.com/microsoft/Phi-4-reasoning-vision-15B)**. **GitHub:** [Microsoft model and inference repository](https://github.com/microsoft/Phi-4-reasoning-vision-15B). This 15B multimodal model pairs Phi’s compact reasoning focus with image understanding for diagrams, science, and screen-like inputs. Its differentiator is useful visual reasoning at a scale suitable for more constrained hardware. The repository and report expose more implementation detail than a hosted API, though the training-data and compute picture is less complete than OLMo’s.
+
+### What these models share, and where the branches split
+
+This family tree maps reusable ideas. It does not claim that every model copied the same code or checkpoint. Direct inheritance is called out above where authors document it, such as GLM-5.3 from GLM-5.2 and DeepSeek R1 from the V3 base. Most other relationships are conceptual: teams reuse a design pattern, then combine it with different data, routing, hardware, and post-training.
+
+- **Decoder-only Transformer language modeling** remains the common base. The model predicts a sequence of tokens; reasoning traces, tool calls, and structured answers are learned behaviors and interface conventions layered onto it.
+- **Sparse expert routing** increases total model capacity while activating only selected feed-forward experts per token. The influential [Switch Transformer paper](https://arxiv.org/abs/2101.03961) demonstrated a simple sparse routing design at scale. DeepSeek, GLM, Qwen, Kimi, Llama, MiniMax, MiMo, Mistral Large, and Gemma use related MoE ideas, with different expert counts, shared experts, routing, and communication patterns. The common label does not make their routers interchangeable.
+- **Long-context efficiency has several branches.** Full attention’s compute grows roughly with the square of sequence length, and its key-value cache grows with context. Grouped-query and latent attention reduce cache size. Sparse attention learns which tokens to retrieve. State-space and Delta-rule layers carry a compact recurrent state. Hybrid stacks alternate those cheaper sequence mixers with full attention. Research roots include [Multi-head Latent Attention in DeepSeek-V2](https://arxiv.org/abs/2405.04434), [Mamba](https://arxiv.org/abs/2312.00752), and [Gated Delta Networks](https://arxiv.org/abs/2412.06464). These are related tradeoffs, not one mechanism: recurrent layers compress history into state, while sparse attention retrieves selected token representations.
+- **Reasoning is often a training and inference strategy, not a new backbone.** Reinforcement learning can teach a model to spend more steps, call tools, check work, or optimize a verifiable reward. DeepSeek R1 made this recipe unusually visible and demonstrated distillation into other families. Frontier APIs expose effort settings so callers can spend more inference compute. A long thinking trace alone does not establish an architecture or prove correctness.
+- **Multimodality adds encoders, tokenizers, and fusion choices.** Models may all accept images yet fuse them differently. Gemini describes native multimodal training; Llama 4 emphasizes early fusion; Qwen and Kimi integrate vision into families that also use sparse and hybrid sequence processing. These are overlapping design axes: modality support sits alongside Transformer, MoE, and attention choices.
+- **Training openness is its own axis.** OLMo publishes a broad research trail; Nemotron exposes substantial data and recipe detail; many other open-weight projects publish checkpoints and inference support but not a full reproducible training pipeline. A GitHub serving implementation should not be mistaken for training-code disclosure.
+
+The useful comparison is therefore multi-axis. Total parameters describe stored capacity, active parameters approximate per-token network work, and neither alone predicts latency or memory. Attention and cache design determine context cost; routing determines expert communication; post-training and tool harnesses determine how well a model uses long inference budgets. Compare pinned versions with matched prompts, harnesses, reasoning budgets, and declared hardware. For OpenKind’s decision workload, general rankings do not substitute for task-specific labeled evaluation, semantic-none behavior, and runtime measurement.

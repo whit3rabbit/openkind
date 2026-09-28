@@ -19,6 +19,10 @@ To add a model or family, use the [contributor guide](./NEW_FAMILY.md).
 | [`schema-scorer`](./schema-scorer.md), `5a7350af556f0ee66566` | `cross-encoder/ms-marco-MiniLM-L-6-v2` at `233902d25c440f23af6f7d6e94d2946bac0bee0a` | checkpoint direct (digest-verified in place) | [`SchemaScorerEngine::load`](../../crates/openkind-backends/src/families/schema_scorer/mod.rs) |
 | [`qwen3guard`](./qwen3guard.md) (Stream), `0fcf416cab16d94f933d` | `Qwen/Qwen3Guard-Stream-0.6B` at `419364a715de9840d47b1457982f64ff37f90ed4` | checkpoint direct (digest-verified in place) | [`Qwen3GuardEngine::load`](../../crates/openkind-backends/src/families/qwen3guard/mod.rs) |
 | [`kev`](./kev.md), `39d88c11faeb4ac165fa` | `jaredpalmer/kev-0.6b` at `dece6dba8d43f0f7ded45e9f5b9df12474d90843` over `Qwen/Qwen3-0.6B-Base` at `da87bfb608c14b7cf20ba1ce41287e8de496c0cd` | adapter checkpoint direct; base checkpoint direct (digest-verified in place) | [`KevEngine::load`](../../crates/openkind-backends/src/families/kev/mod.rs) |
+| [`decoder-logit-qwen35`](./decoder-logit-qwen35.md), `415bcf4a064e6dadcf85` | `alibiserikbay/JevK5` at `c4f7fdb3aeab5582336406e78d3bef11bf98833d` (merged Qwen3.5-4B weights) | checkpoint direct (digest-verified in place) | [`DecoderLogitQwen35Engine::load`](../../crates/openkind-backends/src/families/decoder_logit_qwen35/mod.rs) |
+| [`laya`](./laya.md) `laya-english` `c8ea29bf1e33a343c4b7` | `convaiinnovations/laya` at `55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851` | checkpoint direct (digest-verified in place) | [`LayaEngine::load`](../../crates/openkind-backends/src/families/laya/mod.rs) |
+| [`laya`](./laya.md) `laya-multilingual` `f4064eb56fb7f7d325e1` | `convaiinnovations/laya-multilingual` at `e4e9ddf21a7b1903b7acffd8814ad4307bf63a67` | checkpoint direct (digest-verified in place) | [`LayaEngine::load`](../../crates/openkind-backends/src/families/laya/mod.rs) |
+| [`laya`](./laya.md) `laya-typed-decisions` `9d28cfa9567902801ed1` | `convaiinnovations/laya-typed-decisions` at `1a793eb568e6718f15941d08f85432581df534e3` | checkpoint direct (digest-verified in place) | [`LayaEngine::load`](../../crates/openkind-backends/src/families/laya/mod.rs) |
 | [`router-script`](./router-script.md) | none — Unicode script detector over registered siblings | no artifacts (rule table) | [`RouterScriptEngine::new`](../../crates/openkind-backends/src/families/router_script/mod.rs) |
 | [`winnow`](./winnow.md), `4dff8c5b03cfbf680db6` | `Qwen/Qwen2.5-0.5B-Instruct` at `7ae557604adf67be50417f59c2c2f167def9a775` + in-house LoRA (vendored) | adapter vendored, base checkpoint direct | [`WinnowEngine::load`](../../crates/openkind-backends/src/families/winnow/mod.rs) |
 
@@ -160,10 +164,17 @@ it carries no model-quality claim.
 | [router-script](./router-script.md) | Lightweight script detector that selects a sibling family | Rust-loadable (composite over registered siblings) |
 | [winnow](./winnow.md) | Decoder plus LoRA and a script-aware router | Rust-loadable (prototype profile, in-house trained) |
 | [kev](./kev.md) | Qwen base with a LoRA adapter and pointer head | Rust-loadable (prototype profile, published open checkpoint) |
+| [decoder-logit-qwen35](./decoder-logit-qwen35.md) | Qwen3.5 hybrid decoder with a letter next-token-logit readout and knockout combination | Rust-loadable (prototype profile, published open checkpoint) |
+| [laya](./laya.md) | ModernBERT-family encoder with a typed-decision marker head and shipped temperature calibration | Rust-loadable (three prototype profiles, reference-parity readout) |
 | [von](./von.md) | Encoder head trained against the published `von` contract | Blocked — external-reference-only (weights and contract unowned) |
 | [schema-scorer](./schema-scorer.md) | Single-logit cross-encoder for the Jev question schema | Rust-loadable (prototype profile, open-weights realization) |
 | [qwen3guard](./qwen3guard.md) | Decoder fine-tune for fixed-preset safety verdicts | Rust-loadable (Stream variant, prototype profile) |
 | [parallel-constrained-qwen2](./parallel-constrained-qwen2.md) | Shared-prefix Qwen2.5 decoder with batched field suffixes and token-logit readout | Surveyed only (no Rust MLX loader or Jev adapter) |
+| [jev-style](./jev-style.md) | Qwen3.5-2B with block-causal attention and a yes/no logit-difference readout | Surveyed only; upstream MLX runtime verified locally, no OpenKind Rust loader or installable catalog entry |
+| [gemma4-decision](./gemma4-decision.md) | Gemma 4 unified decoders with trained decision heads (JevBench ranks 6, 8, 11, 16) | Surveyed only (two checkpoints Hub-gated; no Gemma 4 backbone implementation) |
+| [qwen35-slot-readout](./qwen35-slot-readout.md) | Qwen3.5-4B fine-tunes with trained hidden-state readout heads (JevBench ranks 1, 3, 7, 9, 12, 18, 21) | Surveyed only (backbone reusable from the native path; readouts not implemented) |
+| [reranker-logit](./reranker-logit.md) | Dense Qwen3 4B yes/no or letter next-token-logit scorers (JevBench ranks 20, 22, 24) | Surveyed only (0.6B-scale Qwen3 exists in kev; 4B not implemented) |
+| [diffusion-decision](./diffusion-decision.md) | Diffusion-decoder decision scorers (JevBench rank 10, djev) | Blocked — ranked checkpoint unpublished; base DiffusionGemma surveyed |
 
 ## Ownership and updates
 

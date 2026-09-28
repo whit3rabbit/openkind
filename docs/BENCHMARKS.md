@@ -410,10 +410,62 @@ artifact. This evidence closes the native CPU service gate only. The profile
 manifest remains `production_ready: false`, so model-quality review and
 official release promotion remain separate.
 
+### Laya decision-encoder single-shot records (2026-09-27)
+
+One `openkind-bench score` run per pinned laya profile over the standard
+seeded workload (same shape777 fixture, sha256
+`be397bfc48209c8f7379d0d76ccbe3d3e7dca3269724928f0868cf872f4c8b01`, 777
+rows, 37 state groups, `--reps 1`). Same host and attribution as the
+surveyed-family records; commit `d80c685` at run time. The readout was
+qualified against the Python reference (`laya` 0.3.21, CPU fp32) to
+`<= 5.3e-5` max probability delta with zero selection flips over the shared
+15-case fixture set; these runs are still **request-path timing records
+only** — no M2 model-quality evidence, and the upstream model card itself
+reports the base checkpoints near chance zero-shot on typed decisions.
+
+| Engine (profile) | Backbone | p50 request | Decisions/s | Peak RSS | Model load |
+|---|---|---|---|---|---|
+| `laya-english` (`c8ea29bf1e33a343c4b7`) | convaiinnovations/laya (ModernBERT-large, typed-decision head) fp32 | 353.80 s | 2.20 | 2.56 GB | 1.83 s |
+| `laya-multilingual` (`f4064eb56fb7f7d325e1`) | convaiinnovations/laya-multilingual (mmBERT-base, typed-decision head) fp32 | 151.51 s | 5.13 | 2.61 GB | 1.81 s |
+| `laya-typed-decisions` (`9d28cfa9567902801ed1`) | convaiinnovations/laya-typed-decisions (fine-tuned ModernBERT-large) fp32 | 327.84 s | 2.37 | 2.57 GB | 1.80 s |
+
+The large-checkpoint profiles sit between `encoder-instruct-label`
+(ModernBERT-base, 4.00 dec/s) and `decoder-logit-llm` (0.42 dec/s) on the
+same workload; the mmBERT-base profile is the fastest full-precision encoder
+record at 5.13 dec/s. Peak RSS covers the fp16-shard mmap upcast to fp32
+weights plus forward scratch.
+
+### Decoder-logit-qwen35 smoke record (2026-09-27)
+
+One `openkind-bench score` run for the pinned
+[`decoder-logit-qwen35`](./families/decoder-logit-qwen35.md) profile
+(`415bcf4a064e6dadcf85`, `alibiserikbay/JevK5` at
+`c4f7fdb3aeab5582336406e78d3bef11bf98833d`). This is a **smoke-scale,
+single-sample record, not comparable to the shape777 family table**: the
+standard 37-state workload costs a 4B-parameter fp32 CPU forward per
+question over ~3,200-token prompts (two orders of magnitude more compute
+than the 0.5B-0.6B records), so the run uses a generated 1-state × 21-criteria
+reduction of the same seeded generator (sha256
+`a5539013310ea996c6aee1ba5f9d1f782230cd58572cb69e2aab091b62f4592e`, 21 rows,
+`--reps 1`). Host and attribution match the surveyed-family records; commit
+`d80c685` at run time.
+
+| Engine (profile) | Backbone | Workload total | Decisions/s | Peak RSS | Model load |
+|---|---|---|---|---|---|
+| `decoder-logit-qwen35` (`415bcf4a064e6dadcf85`) | alibiserikbay/JevK5 (merged LoRA on Qwen3.5-4B, letter-logit readout) fp32 | 130.20 s | 0.161 | 8.04 GB | 15.19 s |
+
+Readout evidence (recorded with the profile, not a quality claim): rendered
+prompt bytes are token-identical to the reference `jevk5` runtime, and an
+fp32 PyTorch cross-check (`jevk5` 0.3, CPU) agrees with the native readout
+to `<= 1e-6` maximum probability delta over the nine-case golden fixture,
+including a 17-option knockout question and a JSON-object evidence payload.
+
 ## Recorded runs
 
 | Record | Engine | Status |
 |---|---|---|
+| [`benchmarks/2026-09-27-decoder-logit-qwen35/`](./benchmarks/2026-09-27-decoder-logit-qwen35/) | decoder-logit-qwen35 | Complete — smoke-scale single-state record for the JevK5 profile with reference-parity fixture; request-path timing only, no model-quality claim; see the smoke-record section above |
+| [`benchmarks/2026-09-27-laya/`](./benchmarks/2026-09-27-laya/) | laya-english, laya-multilingual, laya-typed-decisions | Complete — single-shot decision-encoder records on the standard shape777 workload with reference-parity fixtures; request-path timing only, no model-quality claim; see the laya section below |
 | [`benchmarks/2026-09-27-python-flat-field/`](./benchmarks/2026-09-27-python-flat-field/) | qwen35-mlx-fp32 | Negative diagnostic: Rust shared-root flat field batching was 6% to 64% slower than nested batching across paired Q2/K2 and Q8/K4 compute runs; no scheduler promotion |
 | [`benchmarks/2026-09-27-candidate-pooling/`](./benchmarks/2026-09-27-candidate-pooling/) | qwen35-mlx-fp32 | Negative diagnostic: pooled candidate lanes were slower than current batching at Q2/K2 and Q8/K4; no service or automatic-scheduler promotion |
 | [`benchmarks/2026-09-26-surveyed-families/`](./benchmarks/2026-09-26-surveyed-families/) | decoder-logit-letter, encoder-nli, encoder-instruct-label, decoder-logit-llm, kev, schema-scorer, qwen3guard, winnow, router-script | Complete — single-shot surveyed-family records on the standard shape777 workload; request-path timing only, no model-quality claim; see the section below for numbers and provenance |
@@ -611,6 +663,23 @@ high-K latency or production throughput benchmarks.
 
 Queue-inclusive HTTP service latency and long-duration soak remain deferred
 roadmap work; the harness measures the in-process request path only.
+
+## Jev-Style 2B MLX survey
+
+The pinned upstream MLX runtime for
+[`Jev-Style-2B-Decision-v3-MLX`](./families/jev-style.md) passed manifest
+verification and local decision smoke on an Apple M4 Max. Three-call p50
+timings were 0.291 / 0.568 s for one / ten questions at 878 state tokens,
+1.207 / 1.552 s at 3,950 tokens, and 9.040 / 9.591 s at 24,436 tokens in
+BF16. The 8-bit folder was slower in these local cells and used less MLX
+memory. Same-host OpenKind Qwen3.5-4B timings and the upstream M1 Max reference
+are recorded in the
+[benchmark report](./benchmarks/2026-09-27-jev-style-2b-mlx/README.md).
+
+The OpenKind 4B protocol accepts only 1,792 tokens per full candidate
+sequence, so it cannot supply a matched long-context comparison. These
+measurements establish local execution and request-path timing only; they do
+not reproduce model parity or task quality.
 
 ## External evaluation and submission
 

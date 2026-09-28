@@ -31,6 +31,14 @@ pub enum EngineKind {
     Qwen3Guard,
     /// Pinned kev engine (Kev-0.6B pointer readout).
     Kev,
+    /// Pinned decoder-logit-qwen35 engine (JevK5 letter-logit readout).
+    DecoderLogitQwen35,
+    /// Pinned laya-english engine (English ModernBERT-large decision encoder).
+    LayaEnglish,
+    /// Pinned laya-multilingual engine (mmBERT-base decision encoder).
+    LayaMultilingual,
+    /// Pinned laya-typed-decisions engine (fine-tuned ModernBERT-large).
+    LayaTypedDecisions,
     /// Winnow learned router over mock siblings; router-cost only.
     Winnow,
     /// Pinned Qwen3.5 MLX FP32 reference-ops engine (`mlx` feature).
@@ -58,7 +66,11 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
         | EngineKind::RouterScript
         | EngineKind::Qwen3Guard
         | EngineKind::Winnow
-        | EngineKind::Kev => {
+        | EngineKind::Kev
+        | EngineKind::DecoderLogitQwen35
+        | EngineKind::LayaEnglish
+        | EngineKind::LayaMultilingual
+        | EngineKind::LayaTypedDecisions => {
             panic!("the mock and surveyed-family engines have no Qwen35 native backend")
         }
         EngineKind::Qwen35 => Qwen35Backend::NativeCpu,
@@ -84,7 +96,11 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
         | EngineKind::RouterScript
         | EngineKind::Qwen3Guard
         | EngineKind::Winnow
-        | EngineKind::Kev => {
+        | EngineKind::Kev
+        | EngineKind::DecoderLogitQwen35
+        | EngineKind::LayaEnglish
+        | EngineKind::LayaMultilingual
+        | EngineKind::LayaTypedDecisions => {
             panic!("the mock and surveyed-family engines have no Qwen35 native backend")
         }
         EngineKind::Qwen35 => Qwen35Backend::NativeCpu,
@@ -108,6 +124,10 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
             EngineKind::RouterScript => "router-script",
             EngineKind::Qwen3Guard => "qwen3guard",
             EngineKind::Kev => "kev",
+            EngineKind::DecoderLogitQwen35 => "decoder-logit-qwen35",
+            EngineKind::LayaEnglish => "laya-english",
+            EngineKind::LayaMultilingual => "laya-multilingual",
+            EngineKind::LayaTypedDecisions => "laya-typed-decisions",
             EngineKind::Winnow => "winnow",
             EngineKind::Qwen35MlxFp32 => "qwen35-mlx-fp32",
             EngineKind::Qwen35MlxBf16 => "qwen35-mlx-bf16",
@@ -126,6 +146,10 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
             EngineKind::RouterScript => "router-script",
             EngineKind::Qwen3Guard => "qwen3guard",
             EngineKind::Kev => "kev",
+            EngineKind::DecoderLogitQwen35 => "decoder-logit-qwen35",
+            EngineKind::LayaEnglish => "laya-english",
+            EngineKind::LayaMultilingual => "laya-multilingual",
+            EngineKind::LayaTypedDecisions => "laya-typed-decisions",
             EngineKind::Winnow => "winnow",
         }
     }
@@ -144,6 +168,10 @@ pub fn is_family_engine_public(engine: EngineKind) -> bool {
             | EngineKind::Qwen3Guard
             | EngineKind::Winnow
             | EngineKind::Kev
+            | EngineKind::DecoderLogitQwen35
+            | EngineKind::LayaEnglish
+            | EngineKind::LayaMultilingual
+            | EngineKind::LayaTypedDecisions
     )
 }
 
@@ -200,8 +228,34 @@ pub(crate) fn family_identity(
             openkind_backends::families::kev::PROFILE_ID,
             openkind_backends::families::kev::BACKBONE_REVISION,
         )),
+        EngineKind::DecoderLogitQwen35 => Some((
+            openkind_backends::families::decoder_logit_qwen35::FAMILY_SLUG,
+            openkind_backends::families::decoder_logit_qwen35::PROFILE_ID,
+            openkind_backends::families::decoder_logit_qwen35::BACKBONE_REVISION,
+        )),
+        EngineKind::LayaEnglish => Some(laya_identity(
+            &openkind_backends::families::laya::LAYA_ENGLISH,
+        )),
+        EngineKind::LayaMultilingual => Some(laya_identity(
+            &openkind_backends::families::laya::LAYA_MULTILINGUAL,
+        )),
+        EngineKind::LayaTypedDecisions => Some(laya_identity(
+            &openkind_backends::families::laya::LAYA_TYPED_DECISIONS,
+        )),
         _ => None,
     }
+}
+
+/// `(family slug, profile id, backbone revision)` provenance for one pinned
+/// laya profile.
+fn laya_identity(
+    profile: &openkind_backends::families::laya::LayaProfile,
+) -> (&'static str, &'static str, &'static str) {
+    (
+        openkind_backends::families::laya::FAMILY_SLUG,
+        profile.profile_id,
+        profile.backbone_revision,
+    )
 }
 
 /// One entry of the `--strategies` sweep.

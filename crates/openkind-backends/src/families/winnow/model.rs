@@ -139,7 +139,7 @@ impl WinnowModel {
                 other => {
                     return Err(FamilyError::InvalidInput(format!(
                         "unexpected adapter tensor kind `{other}` in {name}"
-                    )))
+                    )));
                 }
             }
         }

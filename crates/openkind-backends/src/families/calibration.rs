@@ -69,13 +69,23 @@ pub fn calibration_cases() -> Vec<CalibrationCase> {
         choice_case(
             "asset-a",
             "Fictional incident record. Affected asset: application server. The asset operating system is Linux. These statements are the full evidence record; do not infer missing facts.",
-            &["workstation", "network appliance", "application server", "database cluster"],
+            &[
+                "workstation",
+                "network appliance",
+                "application server",
+                "database cluster",
+            ],
             2,
         ),
         choice_case(
             "asset-b",
             "Fictional incident record. Affected asset: storage array. These statements are the full evidence record; do not infer missing facts.",
-            &["workstation", "router", "application server", "storage array"],
+            &[
+                "workstation",
+                "router",
+                "application server",
+                "storage array",
+            ],
             3,
         ),
         choice_case(
@@ -93,13 +103,23 @@ pub fn calibration_cases() -> Vec<CalibrationCase> {
         choice_case(
             "owner-a",
             "Fictional incident record. The owner of record is the platform team. These statements are the full evidence record; do not infer missing facts.",
-            &["security team", "platform team", "external vendor", "data team"],
+            &[
+                "security team",
+                "platform team",
+                "external vendor",
+                "data team",
+            ],
             1,
         ),
         choice_case(
             "owner-b",
             "Fictional incident record. The owner of record is an external vendor. These statements are the full evidence record; do not infer missing facts.",
-            &["security team", "platform team", "external vendor", "data team"],
+            &[
+                "security team",
+                "platform team",
+                "external vendor",
+                "data team",
+            ],
             2,
         ),
         choice_case(

@@ -11,8 +11,11 @@ fn curated_qwen_manifest_matches_the_pinned_local_bundle() {
     let catalog_bytes = std::fs::read(repo.join("registry/v1/catalog.json")).unwrap();
     let catalog: Catalog = serde_json::from_slice(&catalog_bytes).unwrap();
     catalog.validate().unwrap();
-    assert_eq!(catalog.models.len(), 1);
-    let entry = &catalog.models[0];
+    let entry = catalog
+        .models
+        .iter()
+        .find(|entry| entry.name == "qwen35-state-first:a047d6802c3f06f085b8")
+        .expect("curated catalog carries the qwen35-state-first profile");
     let manifest_bytes =
         std::fs::read(repo.join("registry/v1").join(&entry.manifest_path)).unwrap();
     assert_eq!(

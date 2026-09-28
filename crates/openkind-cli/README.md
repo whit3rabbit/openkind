@@ -68,7 +68,25 @@ Use `--api-key` or `OPENKIND_API_KEY` when the daemon protects `/v1/models`. Reg
 
 `--watch` opens a live terminal view, refreshes every five seconds, and exits with `q`, `Esc`, or `Ctrl-C`. It requires an interactive terminal.
 
-### 5. `version`
+### 5. `playground`
+
+Launches the local web playground. Connects to an existing running daemon if one is already healthy at the target address; otherwise spawns a loopback-only `openkindd` with the playground route enabled:
+
+```bash
+openkind playground
+openkind playground --installed-models qwen35-state-first:a047d6802c3f06f085b8
+openkind playground --no-open --http-addr 127.0.0.1:18080
+```
+
+Flags:
+- `--http-addr <ADDR>`: Loopback address to bind or connect to (default: `127.0.0.1:8080`).
+- `--installed-models <MODELS>`: Comma-separated installed models to load at daemon startup.
+- `--models <ALIASES>`: Comma-separated model aliases to expose (default: `mock,jev-latest`).
+- `--no-open`: Print the playground URL instead of opening a browser.
+- `--models-dir <PATH>`: Directory shared by model commands and the daemon.
+- `--api-key <KEY>`: Optional API key for bearer authentication.
+
+### 6. `version`
 Prints the wire API contract version:
 
 ```bash

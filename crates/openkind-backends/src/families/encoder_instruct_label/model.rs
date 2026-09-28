@@ -7,8 +7,26 @@ use candle_nn::{linear, Activation, Linear, Module};
 
 use crate::families::support::{verify_digest, FamilyError};
 
-use super::arch::{config_from_pinned, ModernBertModel};
+use crate::families::modernbert::{ModernBertConfig, ModernBertModel};
+
 use super::{pinned_config, CHECKPOINT_SHA256, CONFIG_JSON_SHA256, TOKENIZER_JSON_SHA256};
+
+/// Build the ModernBERT-base configuration from the pinned checkpoint values.
+fn config_from_pinned(max_sequence_tokens: usize) -> ModernBertConfig {
+    ModernBertConfig {
+        vocab_size: 50_370,
+        hidden_size: 768,
+        num_attention_heads: 12,
+        num_hidden_layers: 22,
+        intermediate_size: 1_152,
+        local_attention: 128,
+        global_attn_every_n_layers: 3,
+        global_rope_theta: 160_000.0,
+        local_rope_theta: 10_000.0,
+        norm_eps: 1e-5,
+        max_sequence_tokens,
+    }
+}
 
 /// The pinned label-marker model: ModernBERT body plus the GLiClass
 /// projector pair and dot-product scorer.
