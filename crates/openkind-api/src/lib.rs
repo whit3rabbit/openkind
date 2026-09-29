@@ -32,6 +32,8 @@ pub mod middleware;
 pub mod models;
 /// Embedded web playground served at `GET /playground` (opt-in).
 pub mod playground;
+/// Optional proxy-cache hook consulted by the evaluation handlers.
+pub mod proxy;
 
 pub use arrow::{arrow_batch, ArrowBatchRequest, ARROW_CONTENT_TYPE};
 pub use error::ApiError;
@@ -40,6 +42,7 @@ pub use http::{
 };
 pub use middleware::{AuthConfig, RateLimitConfig, RateLimiter, REQUEST_ID_HEADER};
 pub use models::{ModelInfo, ModelsResponse};
+pub use proxy::{ProxyOutcome, ProxySource, SystemProxy};
 
 use std::sync::Arc;
 
@@ -52,6 +55,8 @@ pub struct AppState {
     pub registry: Arc<EngineRegistry>,
     /// Optional daemon-owned local model lifecycle for the playground.
     pub playground_models: Option<Arc<dyn playground::PlaygroundModels>>,
+    /// Optional proxy-cache hook (installed by the daemon in proxy mode).
+    pub proxy: Option<Arc<dyn proxy::SystemProxy>>,
 }
 
 impl AppState {
@@ -60,6 +65,7 @@ impl AppState {
         Self {
             registry: Arc::new(registry),
             playground_models: None,
+            proxy: None,
         }
     }
 }

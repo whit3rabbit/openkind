@@ -161,6 +161,111 @@ pub(crate) struct Args {
     )]
     pub(crate) arrow: ArrowArg,
 
+    /// Upstream Jev-compatible API base URL. Setting this enables proxy
+    /// cache mode: proxied aliases are answered from the distilling cache
+    /// when confident and forwarded upstream otherwise.
+    #[arg(long, env = "OPENKIND_PROXY_CACHE_UPSTREAM")]
+    pub(crate) proxy_cache_upstream: Option<String>,
+
+    /// Model aliases the proxy cache intercepts. Aliases listed here are
+    /// served by the cache (or forwarded upstream), not by local engines.
+    #[arg(
+        long,
+        env = "OPENKIND_PROXY_CACHE_MODELS",
+        value_delimiter = ',',
+        default_value = "jev-latest"
+    )]
+    pub(crate) proxy_cache_models: Vec<String>,
+
+    /// Embedding model for the proxy cache. `hash` needs no weights;
+    /// anything else is an `openkind pull` name (regular or MLX profile).
+    #[arg(long, env = "OPENKIND_PROXY_CACHE_ENCODER", default_value = "hash")]
+    pub(crate) proxy_cache_encoder: String,
+
+    /// Proxy-cache encoder backend. `mlx-fp32` requires the daemon's `mlx`
+    /// feature on macOS arm64.
+    #[arg(
+        long,
+        env = "OPENKIND_PROXY_CACHE_ENCODER_BACKEND",
+        value_enum,
+        default_value_t = ProxyCacheEncoderBackendArg::Cpu
+    )]
+    pub(crate) proxy_cache_encoder_backend: ProxyCacheEncoderBackendArg,
+
+    /// Proxy-cache state directory (task stores, student versions, key salt).
+    #[arg(long, env = "OPENKIND_PROXY_CACHE_DATA_DIR")]
+    pub(crate) proxy_cache_data_dir: Option<PathBuf>,
+
+    /// Bearer key used for upstream calls instead of the caller's own key.
+    #[arg(long, env = "OPENKIND_PROXY_CACHE_UPSTREAM_KEY")]
+    pub(crate) proxy_cache_upstream_key: Option<String>,
+
+    /// Per-attempt upstream timeout in milliseconds.
+    #[arg(
+        long,
+        env = "OPENKIND_PROXY_CACHE_UPSTREAM_TIMEOUT_MS",
+        default_value_t = 9_000
+    )]
+    pub(crate) proxy_cache_upstream_timeout_ms: u64,
+
+    /// Target agreement for every task: the cache tolerates at most
+    /// `1 - agreement` probability mass of answered-and-disagreed.
+    #[arg(
+        long,
+        env = "OPENKIND_PROXY_CACHE_TARGET_AGREEMENT",
+        default_value_t = 0.98
+    )]
+    pub(crate) proxy_cache_target_agreement: f64,
+
+    /// Store request text in the cache's training rows. Disable to keep only
+    /// salted hashes and embeddings.
+    #[arg(long, env = "OPENKIND_PROXY_CACHE_STORE_TEXT", default_value_t = true)]
+    pub(crate) proxy_cache_store_text: bool,
+
+    /// Requests a new task must observe before an engine is created.
+    #[arg(long, env = "OPENKIND_PROXY_CACHE_ADMISSION_MIN", default_value_t = 50)]
+    pub(crate) proxy_cache_admission_min: usize,
+
+    /// Teacher-labelled train rows required before the first fit.
+    #[arg(
+        long,
+        env = "OPENKIND_PROXY_CACHE_MIN_TRAIN_SAMPLES",
+        default_value_t = 1000
+    )]
+    pub(crate) proxy_cache_min_train_samples: usize,
+
+    /// Teacher-labelled calibration rows required before the first fit.
+    #[arg(
+        long,
+        env = "OPENKIND_PROXY_CACHE_MIN_CALIB_SAMPLES",
+        default_value_t = 500
+    )]
+    pub(crate) proxy_cache_min_calib_samples: usize,
+
+    /// Shadow observations required before a candidate is judged.
+    #[arg(
+        long,
+        env = "OPENKIND_PROXY_CACHE_SHADOW_MIN_SAMPLES",
+        default_value_t = 1000
+    )]
+    pub(crate) proxy_cache_shadow_min_samples: usize,
+
+    /// Fraction of teacher-answered requests reserved for calibration.
+    #[arg(
+        long,
+        env = "OPENKIND_PROXY_CACHE_CALIB_FRACTION",
+        default_value_t = 0.2
+    )]
+    pub(crate) proxy_cache_calib_fraction: f64,
+
+    /// New teacher answers that trigger a retrain of the production student.
+    #[arg(
+        long,
+        env = "OPENKIND_PROXY_CACHE_MIN_NEW_SAMPLES",
+        default_value_t = 2000
+    )]
+    pub(crate) proxy_cache_min_new_samples: usize,
+
     /// Log filter. Standard `tracing_subscriber::EnvFilter` syntax.
     #[arg(long, env = "RUST_LOG", default_value = "info")]
     pub(crate) log_filter: String,
@@ -182,6 +287,16 @@ pub(crate) enum ArrowArg {
     On,
     /// Do not serve the Arrow endpoint.
     Off,
+}
+
+/// Proxy-cache encoder backend choices exposed by the daemon.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub(crate) enum ProxyCacheEncoderBackendArg {
+    /// Candle FP32 CPU reference backend.
+    Cpu,
+    /// MLX FP32 backend on macOS arm64 when the optional feature is enabled.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    MlxFp32,
 }
 
 /// Native backbone choices exposed by the daemon.

@@ -48,6 +48,7 @@ configure them with the artifact-path flags documented on their family pages.
 | [`encoder-nli`](families/encoder-nli.md) | DistilBERT encoder (entailment-probability readout) | [typeform/distilbert-base-uncased-mnli](https://huggingface.co/typeform/distilbert-base-uncased-mnli) | — | `1041a4c362338a61b820` | [family page](families/encoder-nli.md) |
 | [`encoder-instruct-label`](families/encoder-instruct-label.md) | GLiClass uni-encoder over ModernBERT-base (label markers) | [knowledgator/gliclass-modern-base-v3.0](https://huggingface.co/knowledgator/gliclass-modern-base-v3.0) | 149M | `9fd68313a5606eca42f2` | [family page](families/encoder-instruct-label.md) |
 | [`schema-scorer`](families/schema-scorer.md) | MiniLM-L-6 cross-encoder (single-logit schema score) | [cross-encoder/ms-marco-MiniLM-L-6-v2](https://huggingface.co/cross-encoder/ms-marco-MiniLM-L-6-v2) | — | `5a7350af556f0ee66566` | [family page](families/schema-scorer.md) |
+| [`encoder-embedding`](families/encoder-embedding.md) | BGE-small BERT sentence encoder, CLS pooling (proxy-cache student embedder) | [BAAI/bge-small-en-v1.5](https://huggingface.co/BAAI/bge-small-en-v1.5) | 33M | `8d9498269ef05d95d93c` | `openkind pull encoder-embedding:8d9498269ef05d95d93c` |
 | [`router-script`](families/router-script.md) | Unicode script detector over registered siblings | none — fixed rule table | — | — | no artifacts |
 
 All profiles are prototype status: they load pinned local artifacts offline

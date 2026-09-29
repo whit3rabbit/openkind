@@ -18,6 +18,9 @@ pub mod qwen35;
 /// Surveyed-family model loaders, readouts, and engine adapters.
 pub mod families;
 
+/// Proxy-cache subsystem: distilling cache in front of a remote Jev API.
+pub mod proxy_cache;
+
 use std::fmt;
 
 /// Backend engine provider types supported by openkind.

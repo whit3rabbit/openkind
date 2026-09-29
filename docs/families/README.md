@@ -25,6 +25,7 @@ To add a model or family, use the [contributor guide](./NEW_FAMILY.md).
 | [`laya`](./laya.md) `laya-typed-decisions` `9d28cfa9567902801ed1` | `convaiinnovations/laya-typed-decisions` at `1a793eb568e6718f15941d08f85432581df534e3` | checkpoint direct (digest-verified in place) | [`LayaEngine::load`](../../crates/openkind-backends/src/families/laya/mod.rs) |
 | [`router-script`](./router-script.md) | none — Unicode script detector over registered siblings | no artifacts (rule table) | [`RouterScriptEngine::new`](../../crates/openkind-backends/src/families/router_script/mod.rs) |
 | [`winnow`](./winnow.md), `4dff8c5b03cfbf680db6` | `Qwen/Qwen2.5-0.5B-Instruct` at `7ae557604adf67be50417f59c2c2f167def9a775` + in-house LoRA (vendored) | adapter vendored, base checkpoint direct | [`WinnowEngine::load`](../../crates/openkind-backends/src/families/winnow/mod.rs) |
+| [`encoder-embedding`](./encoder-embedding.md), `8d9498269ef05d95d93c` | `BAAI/bge-small-en-v1.5` at `5c38ec7c405ec4b44b94cc5a9bb96e735b38267a` | checkpoint direct (digest-verified in place) | [`BertEmbedder::load`](../../crates/openkind-backends/src/proxy_cache/bert_encoder.rs); MLX: [`MlxBertEmbedder::load`](../../crates/openkind-backends/src/proxy_cache/mlx_bert_encoder.rs) |
 
 The loader constants and bundle validation are in
 [`qwen35/mod.rs`](../../crates/openkind-backends/src/qwen35/mod.rs) and
@@ -169,6 +170,7 @@ it carries no model-quality claim.
 | [von](./von.md) | Encoder head trained against the published `von` contract | Blocked — external-reference-only (weights and contract unowned) |
 | [schema-scorer](./schema-scorer.md) | Single-logit cross-encoder for the Jev question schema | Rust-loadable (prototype profile, open-weights realization) |
 | [qwen3guard](./qwen3guard.md) | Decoder fine-tune for fixed-preset safety verdicts | Rust-loadable (Stream variant, prototype profile) |
+| [encoder-embedding](./encoder-embedding.md) | Frozen BERT sentence encoder (CLS pooling, L2-normalized) feeding the proxy-cache distilling student | Rust-loadable (prototype profile; candle CPU + optional MLX) |
 | [parallel-constrained-qwen2](./parallel-constrained-qwen2.md) | Shared-prefix Qwen2.5 decoder with batched field suffixes and token-logit readout | Surveyed only (no Rust MLX loader or Jev adapter) |
 | [jev-style](./jev-style.md) | Qwen3.5-2B with block-causal attention and a yes/no logit-difference readout | Surveyed only; upstream MLX runtime verified locally, no OpenKind Rust loader or installable catalog entry |
 | [gemma4-decision](./gemma4-decision.md) | Gemma 4 unified decoders with trained decision heads (JevBench ranks 6, 8, 11, 16) | Surveyed only (two checkpoints Hub-gated; no Gemma 4 backbone implementation) |

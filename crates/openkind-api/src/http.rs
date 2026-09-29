@@ -201,8 +201,9 @@ pub use router_with_state as build_router_with_state;
 /// Canonical evaluation handler for POST `/v1/systemone` and `/v1/system_one`.
 async fn systemone(
     State(state): State<Arc<AppState>>,
+    headers: axum::http::HeaderMap,
     req: Result<Json<SystemRequest>, axum::extract::rejection::JsonRejection>,
-) -> Result<Json<openkind_core::SystemResponse>, ApiError> {
+) -> Result<axum::response::Response, ApiError> {
     let Json(req) = match req {
         Ok(j) => j,
         Err(rejection) => match rejection {
@@ -220,14 +221,66 @@ async fn systemone(
             }
         },
     };
+    // Proxy-cache mode: the hook decides whether this alias is proxied and
+    // answers from the distilling cache or forwards upstream with the
+    // caller's own credentials. Everything else dispatches locally.
+    if let Some(proxy) = &state.proxy {
+        if proxy.wants(&req) {
+            let caller_key = bearer_of(&headers);
+            let outcome = proxy.evaluate(req, caller_key).await?;
+            let mut response = (axum::http::StatusCode::OK, Json(outcome.response)).into_response();
+            let headers = response.headers_mut();
+            if let Ok(value) = axum::http::HeaderValue::from_str(outcome.source.as_str()) {
+                headers.insert(
+                    axum::http::HeaderName::from_static("x-openkind-cache"),
+                    value,
+                );
+            }
+            if let Some(detail) = &outcome.detail {
+                if let Ok(text) = serde_json::to_string(detail) {
+                    if let Ok(value) = axum::http::HeaderValue::from_str(&text) {
+                        headers.insert(
+                            axum::http::HeaderName::from_static("x-openkind-cache-detail"),
+                            value,
+                        );
+                    }
+                }
+            }
+            return Ok(response);
+        }
+    }
     let resp = dispatch(req, &state.registry).await?;
-    Ok(Json(resp))
+    Ok((axum::http::StatusCode::OK, Json(resp)).into_response())
+}
+
+/// Extract the caller's bearer credential (the upstream Jev key) without
+/// logging or storing it beyond the proxy's salted hash.
+fn bearer_of(headers: &axum::http::HeaderMap) -> Option<String> {
+    let value = headers.get(axum::http::header::AUTHORIZATION)?;
+    let value = value.to_str().ok()?;
+    let token = value
+        .strip_prefix("Bearer ")
+        .or_else(|| value.strip_prefix("bearer "))?;
+    let token = token.trim();
+    if token.is_empty() {
+        None
+    } else {
+        Some(token.to_owned())
+    }
 }
 
 /// Model listing handler for GET `/v1/models`.
-async fn list_models(State(state): State<Arc<AppState>>) -> Json<ModelsResponse> {
+async fn list_models(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    // In proxy mode the upstream listing is authoritative for proxied
+    // aliases; fall back to the local registry when the upstream cannot be
+    // reached.
+    if let Some(proxy) = &state.proxy {
+        if let Some(models) = proxy.models().await {
+            return Json(models).into_response();
+        }
+    }
     let models = state.registry.list_models();
-    Json(ModelsResponse::new(models))
+    Json(ModelsResponse::new(models)).into_response()
 }
 
 /// Service liveness probe handler for GET `/health`.
