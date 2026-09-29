@@ -66,7 +66,13 @@ Project documentation and architectural references for `openkind`.
      architecture pattern without first adding it here.
    - [`families/NEW_FAMILY.md`](./families/NEW_FAMILY.md): family-specific
      evaluation gates and the Rust integration workflow.
-9. **[`MODEL_REGISTRY.md`](./MODEL_REGISTRY.md)**: Curated model distribution:
+9. **[`PROXY_CACHE.md`](./PROXY_CACHE.md)**: Proxy-cache daemon mode:
+   - Distilling cache in front of a remote Jev API: routing, confidence
+     calibration, and the disagreement budget.
+   - CLI flag surface, encoder profiles (hash vs pinned bge), and on-disk
+     layout.
+   - Guarantees, limits, and the test inventory.
+10. **[`MODEL_REGISTRY.md`](./MODEL_REGISTRY.md)**: Curated model distribution:
    - OpenKind owns catalog metadata and compiled-in loaders. The separate
      public registry serves manifests and small pinned profile assets.
    - CLI pull and explicit daemon serving commands, plus the

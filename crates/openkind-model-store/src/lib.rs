@@ -20,6 +20,8 @@ pub const LAYA_ENGLISH_MODEL_NAME: &str = "laya-english:c8ea29bf1e33a343c4b7";
 pub const LAYA_MULTILINGUAL_MODEL_NAME: &str = "laya-multilingual:f4064eb56fb7f7d325e1";
 /// Pinned laya typed-decisions model name.
 pub const LAYA_TYPED_DECISIONS_MODEL_NAME: &str = "laya-typed-decisions:9d28cfa9567902801ed1";
+/// Pinned BGE-small sentence-embedding encoder for the proxy-cache student.
+pub const ENCODER_EMBEDDING_MODEL_NAME: &str = "encoder-embedding:8d9498269ef05d95d93c";
 
 #[derive(Debug, Error)]
 pub enum Error {

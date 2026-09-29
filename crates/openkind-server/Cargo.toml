@@ -28,17 +28,25 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 clap = { workspace = true }
 humantime-serde = { workspace = true }
+openkind-client = { version = "0.1.0", path = "../openkind-client" }
+sha2.workspace = true
 
 [features]
 mlx = ["openkind-backends/mlx"]
 
 [dev-dependencies]
 criterion = { workspace = true }
+openkind-client = { path = "../openkind-client" }
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls"] }
 tempfile = "3"
 
 [[bin]]
 name = "openkindd"
 path = "src/main.rs"
+
+[[test]]
+name = "proxy_cache_e2e"
+harness = false
 
 [[bench]]
 name = "server"
