@@ -20,6 +20,7 @@ The documentation suite maintains a strict division of responsibility across pro
 | MLX runtime contract, implementation guide, limitations, and enhancement path | [`MLX.md`](MLX.md) |
 | Research dossier, background, and prior art | [`RESEARCH.md`](RESEARCH.md) |
 | Supported environment variables across binaries, SDKs, and bindings | [`ENV.md`](ENV.md) |
+| Proxy-cache daemon mode: flags, lifecycle, and guarantees | [`PROXY_CACHE.md`](PROXY_CACHE.md) |
 | Scientific rationale, theoretical grounding, and measured results | [`whitepaper/WHITEPAPER.md`](whitepaper/WHITEPAPER.md) |
 | Cross-provider Jev compatibility matrix and provider routes | [`JEV_COMPATIBILITY.md`](JEV_COMPATIBILITY.md) |
 | TypeScript, Python, and Swift HTTP clients and local server wrappers | [`../bindings/README.md`](../bindings/README.md) |

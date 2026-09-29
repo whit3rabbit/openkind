@@ -47,6 +47,9 @@ It defines:
   - Unit tests for HTTP routes, handler dispatch, model listing, and error response formatting.
 - [`src/models.rs`](./src/models.rs):
   - Model response construction and metadata projection helpers.
+- [`src/proxy.rs`](./src/proxy.rs):
+  - The optional `SystemProxy` hook (`AppState.proxy`). When the daemon runs in proxy-cache mode (`openkindd --proxy-cache-upstream`, see [`docs/PROXY_CACHE.md`](../../docs/PROXY_CACHE.md)), the `systemone` handler consults the hook before dispatching: `wants` gates by model alias, `evaluate` answers from the distilling cache or forwards upstream with the caller's bearer key, and `models` may replace the `GET /v1/models` listing. Responses add `x-openkind-cache` and `x-openkind-cache-detail` headers on the existing `/v1/systemone` route; the wire schema is unchanged, so `openapi.yaml` does not grow proxy routes.
+  - `ApiError::BadGateway` (HTTP 502, `bad_gateway`) carries upstream forwarding failures.
 - [`src/grpc.rs`](./src/grpc.rs):
   - `SystemOneService`: Implements `openkind::system_one_server::SystemOne`.
   - Converts Protobuf types $\leftrightarrow$ `openkind_core` types (`pb_state_to_core`, `pb_questions_to_core`, `core_to_pb_response`).

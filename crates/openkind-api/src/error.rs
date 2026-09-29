@@ -63,6 +63,11 @@ pub enum ApiError {
     #[error("engine error: {0}")]
     Engine(#[from] EngineError),
 
+    /// Upstream (proxied) service failed or was unreachable
+    /// (HTTP 502 Bad Gateway, `bad_gateway`).
+    #[error("bad gateway: {0}")]
+    BadGateway(String),
+
     /// Unexpected internal server error (HTTP 500 Internal Server Error, `internal_error`).
     #[error("internal error: {0}")]
     Internal(String),
@@ -93,6 +98,7 @@ impl ApiError {
             ApiError::Engine(EngineError::Backend { .. }) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "backend_error")
             }
+            ApiError::BadGateway(_) => (StatusCode::BAD_GATEWAY, "bad_gateway"),
             ApiError::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "internal_error"),
         }
     }
