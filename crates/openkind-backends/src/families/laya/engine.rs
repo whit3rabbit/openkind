@@ -49,7 +49,7 @@ fn temp_bucket(type_name: &str, options: usize) -> String {
     format!("{type_name}:{size}")
 }
 
-fn resolve_temperature(
+pub(crate) fn resolve_temperature(
     profile: &LayaProfile,
     type_name: &str,
     qtype: usize,
@@ -68,7 +68,7 @@ fn resolve_temperature(
 /// Serialize the wire state as the reference's `json.dumps` payload:
 /// compact separators `", "` / `": "`, non-ASCII kept, keys in the parsed
 /// map's (sorted) order. Strings pass through untouched.
-fn laya_state_text(state: &State) -> Result<String, FamilyError> {
+pub(crate) fn laya_state_text(state: &State) -> Result<String, FamilyError> {
     match state {
         State::Text(text) => Ok(text.clone()),
         State::Object(_) | State::Array(_) => {
@@ -138,15 +138,20 @@ fn write_python_json(value: &serde_json::Value, out: &mut String) {
 
 /// One question's rendering inputs: type name, type-embedding row, and the
 /// rendered option texts in candidate order.
-struct RenderedQuestionInputs {
-    type_name: &'static str,
-    qtype: usize,
-    options: Vec<String>,
+pub(crate) struct RenderedQuestionInputs {
+    /// Reference question-type name driving the render template.
+    pub(crate) type_name: &'static str,
+    /// Type-embedding row index for `type_name`.
+    pub(crate) qtype: usize,
+    /// Rendered option texts in candidate order.
+    pub(crate) options: Vec<String>,
 }
 
 /// Render laya option texts from the raw wire question, mirroring the
 /// reference's `render_options` (including its noul criteria defaults).
-fn render_question_inputs(question: &Question) -> Result<RenderedQuestionInputs, FamilyError> {
+pub(crate) fn render_question_inputs(
+    question: &Question,
+) -> Result<RenderedQuestionInputs, FamilyError> {
     match question {
         Question::Choice(choice) => {
             // Candidate order is the shared wire contract (sorted labels,

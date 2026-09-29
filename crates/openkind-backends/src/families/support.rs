@@ -50,6 +50,11 @@ pub enum FamilyError {
     #[error("native family tensor execution failed: {0}")]
     Candle(#[from] candle_core::Error),
 
+    /// The MLX execution backend failed (feature `mlx`, macOS arm64).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[error("family MLX execution failed: {0}")]
+    Mlx(String),
+
     /// The shared native Qwen3.5 backbone failed during a survey-profile
     /// forward.
     #[error("qwen35 native backbone failure: {0}")]

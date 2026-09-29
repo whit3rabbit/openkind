@@ -80,6 +80,28 @@ fn explicit_empty_env_names_every_variable_in_error() {
 }
 
 // ---------------------------------------------------------------------
+// test_api_key_whitespace — padded builder keys are trimmed on the wire
+// ---------------------------------------------------------------------
+#[tokio::test]
+async fn padded_builder_api_keys_are_trimmed_before_the_wire() {
+    for padding in ["", "\n", "\r\n", " \t\r\n "] {
+        let key = format!("{padding}test-key{padding}");
+        let (url, requests) = spawn(move |_| Outcome::success(json!({"models": []}))).await;
+        let built = Client::builder()
+            .api_key(key)
+            .base_url(&url)
+            .retry(no_retries())
+            .build()
+            .unwrap();
+        built.list_models().await.unwrap();
+        assert_eq!(
+            requests.last().unwrap().header("authorization"),
+            Some("Bearer test-key")
+        );
+    }
+}
+
+// ---------------------------------------------------------------------
 // test_invalid_timeout — zero timeout rejected at build
 // ---------------------------------------------------------------------
 #[test]

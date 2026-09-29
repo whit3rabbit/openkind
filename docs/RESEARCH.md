@@ -1550,20 +1550,180 @@ an encoder/marker-head and language-routing **research control**. It supplies
 no evidence to switch OpenKind's current Qwen profile or relax the independent
 quality, calibration, high-K, and full-request latency gates.
 
-### Additional JevBench architectures from the supplied overview (reviewed 2026-09-28)
+### Von: option-marker encoder and chain-of-options (reviewed 2026-09-28)
 
-The supplied 25-row overview is useful for discovering model variants, but its scores are not a current leaderboard snapshot. JevBench v1.4.2.2 was scored on 27 September 2026 and lists both an official composite rank and a Jev-class Capability rank, which averages Intelligence and Calibration. In that release, Plumb is official #2 / Capability #3, Cygnet #6 / #5, Jobe #14 / #16, and Mapika decider-35b-a3b #21 / #12. Keep each metric and release version attached to its number.
+[Von](https://github.com/wfzyx/von) accepts text or JSON state and returns
+Choice, Noul, or Score answers through a TypeSafe-compatible `/v1/systemone`
+route, with Python and TypeScript `von-sdk` packages. The SDK advertises CPU
+(OpenVINO), CUDA, ROCm, and Apple MPS execution. Its [1.2 model
+card](https://huggingface.co/wfzyx/von) describes a 395M-parameter
+ModernBERT-large encoder: state and described options share one sequence, and
+an option-marker head reads each option's `[MASK]` position in one forward pass
+without generating tokens. [Independent option attention and reset position
+IDs](https://github.com/wfzyx/von/blob/6f9b0af03189788e4f3078a402d6d41a526688a7/src/von/models/option_marker.py)
+make each logit depend on the state and that option, not option order. The
+author reports zero answer flips across four orderings of 111 public hard
+items. The [training code](https://github.com/wfzyx/von/blob/6f9b0af03189788e4f3078a402d6d41a526688a7/training/train_option_marker.py)
+uses listwise cross-entropy plus Brier loss; its data builders include
+operational decisions and [synthetic two-hop](https://github.com/wfzyx/von/blob/6f9b0af03189788e4f3078a402d6d41a526688a7/training/generate_synthetic_decisions.py)
+and [numeric](https://github.com/wfzyx/von/blob/6f9b0af03189788e4f3078a402d6d41a526688a7/training/generate_numeric_decisions.py)
+cases. The fitted
+temperature map depends on input features and was fit on public JevBench
+items, so the model card's calibration figures are in-sample. The Doom run in
+the [README](https://github.com/wfzyx/von/blob/6f9b0af03189788e4f3078a402d6d41a526688a7/README.md)
+uses the shipped weights zero-shot, without Doom-specific training.
 
-The overview's TypeSafe Jev public accuracy of 96.3% is not supported by the current board snapshot, which reports 86.6%; the overview does not identify a comparable task set for 96.3%. Its Phi-4 mini entry says 151M parameters, but Microsoft's model card describes Phi-4-mini-instruct as 3.8B. The 151M model in the overview is the separate ModernBERT-based Verdict system.
+The [chain runtime](https://github.com/wfzyx/von/blob/6f9b0af03189788e4f3078a402d6d41a526688a7/src/von/chains/runner.py)
+is a separate, bounded computation layer. Regexes propose typed spans from the
+state; TOML chains for deadlines, proration, cumulative limits, and other
+calculations bind slots, using Von Choice calls for ambiguous spans, then run
+fixed date, time-zone, or arithmetic operators. Derived datetimes can feed
+another round. Defaults cap work at three rounds, 12 facts, and 16 model
+sub-decisions (`VON_CHAINS_MAX_CALLS`).
 
-| Model and current board position | Architecture and distinctive approach | Evidence boundary |
-|---|---|---|
-| [Plumb-4B](https://huggingface.co/crh225/plumb-4b), [training and runtime code](https://github.com/crh225/plumb), official #2 / Capability #3 | Qwen3.5-4B fine-tuned from JevK5 v0.2 with LoRA. A Qwen3.8-27B teacher writes and checks hard decision cases; training uses cross-entropy on option-letter logits, followed by one temperature fitted on held-out decisions. Inference returns probabilities for 2 to 16 choices from one forward pass without generated tokens. | The author reports 89/111 on the public hard tier versus 82/111 for the starting JevK5 checkpoint. The model card says no JevBench item was used for training, tuning, checkpoint selection, or calibration, while aggregate public results did inform later recipe decisions. Treat this as exposed benchmark feedback, not an untouched confirmation. |
-| [Cygnet](https://www.benchmarkheaven.com/jev-models/cygnet), [inference recipe](https://github.com/Blockbrain-ai/cygnet-recipe), official #6 / Capability #5 | Frozen Gemma 4 12B run through stock vLLM. A small shim encodes answer choices as label tokens, masks the logits to those choices, and applies a single temperature. It demonstrates that a useful decision interface can come from a general model without decision fine-tuning. | The temperature was fitted on the author's own items. The board row evaluates its text decision path; it does not validate every modality supported by the Gemma base. |
-| [Jobe Qwen3.5-4B](https://www.benchmarkheaven.com/jev-models/jobe-qwen3.5-4b), [GitHub source](https://github.com/MantisShrimpdev/jobe), official #14 / Capability #16 | Frozen Qwen3.5-4B with native option-logit scoring. The published row reports no trained adapter, calibration fit, or option-order ensemble. This is a clean direct-logit baseline against trained LoRA and decision-head approaches. | The board score belongs to this exact frozen configuration. It does not establish how a fine-tuned Qwen checkpoint or shared multi-question execution would perform. |
-| [Mapika decider-35b-a3b](https://huggingface.co/Mapika/decider-35b-a3b), [model and training code](https://github.com/Mapika/decider), official #21 / Capability #12 | A Qwen3.5-35B-A3B hybrid MoE with 34.7B total and 3B active parameters: 256 routed experts, top-8 routing plus a shared expert, 10 full-attention layers, and 30 Gated DeltaNet layers. It uses a one-pass typed-decision readout and supervised training with routed experts frozen. This tests whether more total model capacity helps when only a small fraction is active per token. | The model card's broader validation figures are author-reported. Do not treat its JevBench row as a result on OpenKind's document evidence or semantic-none contract. |
+In `bindall` mode, computable structure triggers chains
+without reading question wording; a lone date does not trigger one. A matching
+Choice can be returned directly, several computed candidates are arbitrated by
+Von, and otherwise the model sees the original state plus provenance-bearing
+facts. This path uses multiple encoder calls, despite generating no tokens.
+The direct-match path assigns a fixed 0.9 probability to its choice, so that
+number is not established as a calibrated probability. The pinned
+[runtime source](https://github.com/wfzyx/von/blob/6f9b0af03189788e4f3078a402d6d41a526688a7/src/von/backends/option_marker_backend.py)
+identifies its current default as `von-1.3.0`; the model card and latency
+artifacts cited here are labeled 1.2.
 
-Two lower-ranked models from the overview are useful architecture contrasts, not members of the current official top 25: [Decision 2B v59](https://huggingface.co/flymy-ai/decision-2b-preview) uses a structural-token pointer head over a MiniCPM5 base; its page labels the package a research evaluation preview, not an official JevBench result, and records unresolved training-source conditions. [OpenJev Verdict 1.4](https://github.com/Heman10x-NGU/Verdict-open-jev) uses a 151M ModernBERT/GLiClass encoder with calibrated uncertainty and non-autoregressive output; the current board places it at official #60. These broaden the design space beyond decoder-only option logits, but their ranks and evaluation scope should remain explicit.
+For the supplied 111-item public hard-tier comparison, chains changed
+42/111 correct to 49/111, with two regressions and nine gains. Exact paired
+McNemar gives `p = 0.065`; the [gate's](https://github.com/wfzyx/von/blob/6f9b0af03189788e4f3078a402d6d41a526688a7/benchmarks/stat_gate.py)
+80%-power minimum detectable effect is about 12.9 percentage points at this
+baseline, so the 6.3-point change is **UNRESOLVABLE**, not a demonstrated win.
+The supplied run reports no changed answers on easy, standard, or jabr v2.
+The source tree has the [comparison runner](https://github.com/wfzyx/von/blob/6f9b0af03189788e4f3078a402d6d41a526688a7/benchmarks/gate_standard.py)
+but no checked-in item-level output for this claim at the pinned revision.
+Recorded hard-tier p50
+latency with chains is [4.25 s on a four-vCPU c7i.xlarge CPU](https://github.com/wfzyx/von/blob/6f9b0af03189788e4f3078a402d6d41a526688a7/results/speed/latency_cpu_chains.json)
+and [0.45 s on an A10G](https://github.com/wfzyx/von/blob/6f9b0af03189788e4f3078a402d6d41a526688a7/results/speed/latency_gpu_chains.json).
+Von is useful prior art for option-marker scoring and bounded arithmetic over
+structured state. Its public results do not establish OpenKind's semantic-none
+behavior, source-aligned document quality, or full-request latency.
+
+### Indecis: small trained encoder with fixed and open decisions (reviewed 2026-09-29)
+
+[Indecis](https://github.com/Bornholm/indecis/tree/9930c7db1913818db7cee68c1b42a384f59592e3)
+is an experimental, CPU-only Go library and server for Choice, Noul, and Score.
+Its tested default backbone is the multilingual `bekko-embedding-v1-a8m`, a
+four-layer ModernBERT with 7.7M parameters outside its much larger embedding
+table. Unlike a frozen embedding wrapper, Indecis [fully fine-tunes the
+encoder](https://github.com/Bornholm/indecis/blob/9930c7db1913818db7cee68c1b42a384f59592e3/docs/architecture.md)
+in Go, using sparse Adam for the embedding table. A fixed schema gives each
+question its own [head](https://github.com/Bornholm/indecis/blob/9930c7db1913818db7cee68c1b42a384f59592e3/heads.go):
+binary logistic loss for Noul, categorical cross-entropy for Choice, and
+ordered thresholds for Score. One encoder pass answers all learned questions.
+[Calibration](https://github.com/Bornholm/indecis/blob/9930c7db1913818db7cee68c1b42a384f59592e3/fit.go)
+fits one temperature per question by held-out negative log-likelihood. Its
+[data tools](https://github.com/Bornholm/indecis/blob/9930c7db1913818db7cee68c1b42a384f59592e3/docs/data.md)
+combine real labels, templates, and LLM teacher consensus, with family-level
+splits to check generalization beyond template wording.
+
+The [decision adapter](https://github.com/Bornholm/indecis/blob/9930c7db1913818db7cee68c1b42a384f59592e3/decision/decision.go)
+routes a known question ID to its trained head without reading the request's
+instructions. New IDs use [open mode](https://github.com/Bornholm/indecis/blob/9930c7db1913818db7cee68c1b42a384f59592e3/docs/open-categories.md):
+cosine similarity between text and request-time option descriptions and
+examples, optionally improved by contrastive encoder training. Option vectors
+can be cached, but each open question takes its own text-embedding pass. The
+similarity softmax is **uncalibrated**; the author recommends a tuned cosine or
+margin threshold to reject unmatched options. Open Noul without explicit
+criteria compares the instruction with a fixed "Something else" anchor and is
+weak on the author's tests. This does not establish OpenKind's learned
+semantic-none probability. The server exposes `/v1/systemone`, but its
+[Noul wire answer](https://github.com/Bornholm/indecis/blob/9930c7db1913818db7cee68c1b42a384f59592e3/decision/server.go)
+also emits `confidence`, unlike OpenKind's `NoulAnswer`; protocol parity needs
+an explicit conformance check.
+
+The author's [inference measurements](https://github.com/Bornholm/indecis/blob/9930c7db1913818db7cee68c1b42a384f59592e3/docs/inference.md)
+use an int8 prompt-injection model on one Core Ultra 7 265U CPU core: 1.5 ms
+for 15 tokens, 23 ms for 256 tokens, and 18 to 30 MB of model memory depending
+on compaction. These are task- and hardware-specific, not full System One
+request throughput. The guide's [24 hand-written support
+messages](https://github.com/Bornholm/indecis/blob/9930c7db1913818db7cee68c1b42a384f59592e3/docs/creating-a-model.md)
+give 75.0% topic accuracy, 58.3% urgency accuracy, and 75.0% human-agent
+accuracy after training on four templates. Longer-text quality and OpenKind's
+document-evidence and semantic-none contracts remain unmeasured. Indecis is a
+useful edge-CPU control for the fixed-schema versus request-time option tradeoff,
+not evidence to replace OpenKind's current profile.
+
+### JevBench v1.4.2.2 top 25: architecture and lineage (reviewed 2026-09-28)
+
+The supplied overview concerns JevBench, so this is the current JevBench roster. The
+[official v1.4.2.2 board](https://benchmarkheaven.com/jev-models) and its
+[machine-readable artifact](https://benchmarkheaven.com/api/jevbench/v1.4.2.2)
+were scored on 27 September 2026. This table follows the artifact's official
+four-axis composite rank: Intelligence, Calibration, Speed, and Cost each have
+equal weight. The board has 91 ranked systems over 534 public and 308 sealed
+decisions. The score is not accuracy, and it is not the separate Capability
+ordering shown in some board views. Hosted services and unmodified baselines
+appear alongside fine-tuned models, so “top 25” here means ranked systems.
+
+| Official rank | System and score | Model and source code | Architecture and differentiator |
+|---:|---|---|---|
+| 1 | Imajev-4B, 67.37 | [weights](https://huggingface.co/mohit67890/imajev-4b) · [code and results](https://github.com/mohit67890/imajev) | Qwen3.5-4B-Base with a rank-64 LoRA and a trained 256-code decision readout (255 options plus `unknown`). Hard-example mining, soft targets, option permutation, and image/text training extend the choice-logit pattern to visual decisions. The board configuration uses one option order; the row measures text decisions, not image quality. |
+| 2 | Plumb-4B, 65.84 | [weights](https://huggingface.co/crh225/plumb-4b) · [training and runtime](https://github.com/crh225/plumb) | Qwen3.5-4B fine-tuned from JevK5 v0.2. A Qwen3.8-27B teacher supplies difficult decision cases; one forward pass reads option-letter logits and applies temperature 2.07. This is the clearest weight lineage in the top ranks: SemIf's readout influenced JevK5, and Plumb then fine-tuned JevK5. Its reported 89/111 hard-set result is author-run and separate from this board score. |
+| 3 | Mapika decider-4b v2, 64.13 | [weights](https://huggingface.co/Mapika/decider-4b) · [training and serving code](https://github.com/Mapika/decider) | Qwen3.5-4B-Base with supervised typed-decision training and a later hard-case LoRA stage. It reads fixed option logits in one pass and calibrates by answer type. The project's training mixture uses public data and a local Qwen teacher; the authors say it was not distilled from Jev. This row is the board's v2 configuration, so pin the model tag before comparing newer releases. |
+| 4 | Jev 1.13.0, 63.29 | [TypeSafe product and API documentation](https://docs.typesafe.ai); no public weights or codebase | The original proprietary System One decision service uses calibrated typed outputs and is described by TypeSafe as trained with RLCD. Parameter count, backbone, and training corpus are not public. It has the top Intelligence axis among these 25, while its composite rank also reflects calibration, speed, and cost. |
+| 5 | JevK5 v0.2.0, 62.04 | [weights and model card](https://huggingface.co/alibiserikbay/JevK5) · [runtime and training code](https://github.com/allebee/jevk5) | Qwen3.5-4B plus a distilled LoRA. The benchmarked v0.2 readout converts next-token option-letter logits to probabilities in one pass. Its open runtime exposes the System One request shape, though it evaluates questions individually and serializes GPU requests. Later releases have different multi-question behavior, so keep the board's v0.2 pin. |
+| 6 | Cygnet, 61.76 | [Gemma 4 12B base](https://huggingface.co/google/gemma-4-12B-it) · [inference recipe](https://github.com/blockbrain-ai/cygnet-recipe) | Frozen Gemma 4 12B IT served through vLLM. A small adapter maps options to one-token labels, masks all other vocabulary logits, and applies a fitted temperature. This tests how far a general model plus constrained scoring can go without decision fine-tuning. |
+| 7 | Hopper, 59.43 | [model card and adapter](https://huggingface.co/HopitAI/hopper) · [training and serving code](https://github.com/hopit-ai/hopper) | Qwen3.5-4B with a HopitAI LoRA, scored through native option-letter logits. The author documents synthetic and public training sources and separate temperatures by answer type. Its recipe is a trained sibling of JevK5, not a JevK5 checkpoint. |
+| 8 | Winnow-12B Q8, 55.58 | [weights](https://huggingface.co/EldanRing/Winnow-12B) · [inference server](https://github.com/EldanRing/winnow-inference) | Gemma 4 12B IT LoRA merged and exported as Q8 GGUF. A modified llama.cpp server prefills shared state once, forks question branches, and reads answer logits; the project also serves chat and image input. Its training mixture is private, and the board tested the text decision path. |
+| 9 | reflex 4B, 53.99 | [adapter](https://huggingface.co/kshetrajna12/reflex-qwen3.5-4b-lora) · [code and configuration history](https://github.com/kshetrajna12/reflex) | The board's row is a Qwen3.5-4B LoRA with calibration. The repository's current `stable` configuration instead freezes Qwen3.5-4B and averages two option orders in a batched forward pass. Treat these as different checkpoints and recipes; the current stable design is an explicit test of whether inference-time order averaging can replace task fine-tuning. |
+| 10 | djev, 52.23 | [DiffusionGemma base](https://huggingface.co/google/diffusiongemma-26b-a4b-it) · [decision runtime](https://github.com/Davipar/djev-dev) | An inference method over DiffusionGemma 26B-A4B, not a separately trained decision checkpoint. The model denoises a structured answer canvas and the runtime reads probabilities for allowed labels. It carries the typed-output idea into a diffusion language model and supports native image input. |
+| 11 | Jev-Omni, 51.34 | [model card and weights](https://huggingface.co/akhilaaa3/Jev-Omni) | Fine-tuned Gemma 4 12B IT with a trained 256-way decision head. The author describes text, image, audio, and video inputs, but this JevBench row evaluates the text decision path. The published model card is the available primary implementation source; do not infer board-tested multimodal quality from the base model's modalities. |
+| 12 | metask-jev-4b, 47.78 | [weights](https://huggingface.co/wayfind/metask-jev-4b-policy-mix) · [training and serving code](https://github.com/metask-ai/metask-jev) | Qwen3.5-4B with a merged rank-16 LoRA and candidate-logit readout. The project explores a policy-mix training recipe and a single-pass calibrated interface. Its README's 80.1% on a 231-item test is an author-reported result, not this board's 47.78 composite; preserve the evaluation and metric with each claim. |
+| 13 | SemIf, formerly OpenJev, 47.69 | [Qwen3.5-4B base](https://huggingface.co/Qwen/Qwen3.5-4B) · [SemIf implementation](https://github.com/TheoLeeCJ/SemIf) | Frozen BF16 Qwen3.5-4B read through candidate-token logits. SemIf is a useful prompt-and-readout reference for the dominant one-pass design; its MLX implementation also explores shared-prefix execution. It has no task-trained decision head in the board configuration. |
+| 14 | Jobe Qwen3.5-4B, 46.94 | [Qwen3.5-4B base](https://huggingface.co/Qwen/Qwen3.5-4B) · [implementation](https://github.com/MantisShrimpdev/jobe) | Frozen BF16 Qwen3.5-4B with native option-logit scoring. The submitted configuration has no trained adapter, fitted calibration, or option-order ensemble. It is a clean control for the value of the base model and prompt alone. |
+| 15 | local-jev Qwen3.5-4B, 46.80 | [Qwen3.5-4B base](https://huggingface.co/Qwen/Qwen3.5-4B) · [local server](https://github.com/amithgc/local-jev) | The ranked model is a zero-shot Qwen3.5-4B text model read at next-token option probabilities. Its server can prefill a state once and isolate question branches, then calibrate per model. The project also offers NLI and ensemble backends, but those are not the board row's configuration. |
+| 16 | system-one-open, 45.11 | [Gemma 4 E2B base](https://huggingface.co/google/gemma-4-E2B-it) · [training and serving code](https://github.com/mithalouni/system-one-open) | Gemma 4 E2B with an attention LoRA, trained to produce calibrated typed choices in one forward pass. The author reports a broad public-data mixture with held-out task types. The board used the author's hosted API, so sealed item text reached that endpoint; use the row's exposure note when comparing it with locally evaluated checkpoints. |
+| 17 | Open Spark Jev spark-s1-4b-v6, 44.62 | [weights](https://huggingface.co/abhishek085/spark-s1-4b-v6) · [training and inference code](https://github.com/abhishek085/open-spark-jev) | Qwen3.5-4B with a LoRA trained on code- and model-labeled decision tasks. The v6 recipe spans 49 task packs and randomizes option order; inference restricts the first-token readout to allowed labels and calibrates it. The project emphasizes local serving and tool-policy outputs, while marking its release as experimental. |
+| 18 | Malkuth-4B, 44.45 | [weights](https://huggingface.co/dhtocks/malkuth-4b) · [model project](https://github.com/newfull5/malkuth) · [Kev runtime](https://github.com/jaredpalmer/kev) | Post-trained from Kev on Qwen3.5-4B-Base, with a multilingual classification focus that includes Korean. It reuses Kev's typed-decision serving and supports choice, yes/no, and ordinal score questions. The author marks these weights research-only because some training sources have non-commercial terms. |
+| 19 | jqv Qwen3-32B, 44.35 | [Qwen3-32B base](https://huggingface.co/Qwen/Qwen3-32B) · [inference code](https://github.com/Octalab-Inc/jqv) | Unmodified BF16 Qwen3-32B with direct option-letter logits and a fitted temperature. The implementation prefills state once, isolates each question behind a block attention mask, and reads only the answer-token rows. It is an inference-architecture experiment on a stock model, rather than a fine-tune. |
+| 20 | Qwen3-Reranker-4B, 43.49 | [model and card](https://huggingface.co/Qwen/Qwen3-Reranker-4B) · [Qwen3 reranker code](https://github.com/QwenLM/Qwen3-Embedding) | An instruction-aware 4B cross-encoder trained for relevance ranking. The board's neutral adapter scores candidate options as query/document pairs and calibrates the resulting scores; it is a retrieval model repurposed for decisions, not a native typed-decision head. |
+| 21 | Mapika decider-35b-a3b, 41.18 | [weights](https://huggingface.co/Mapika/decider-35b-a3b) · [training and serving code](https://github.com/Mapika/decider) | Qwen3.5-35B-A3B hybrid MoE with 34.7B total and 3B active parameters. The card describes 256 routed experts with top-8 routing plus a shared expert, 10 full-attention layers and 30 Gated DeltaNet layers. A supervised decision readout is trained while routed experts stay frozen. Its rank shows how the large MoE capacity trades against speed and estimated cost. |
+| 22 | Raw Qwen3 4B Instruct 2507, 40.95 | [base weights](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507) · [Qwen3 code](https://github.com/QwenLM/Qwen3) | Untuned BF16 Qwen3-4B-Instruct with the next-token option logits read directly. It has no specialized decision head or fitted calibration in this row. The low Calibration axis (29.1) makes it a useful warning: a finite softmax is a valid shape, but not automatically a reliable probability. |
+| 23 | OpenSourceJev Qwen3.5-4B Q4_K_M, 40.87 | [Qwen3.5-4B base](https://huggingface.co/Qwen/Qwen3.5-4B) · [llama.cpp integration](https://github.com/sabeel111/OpenSourceJev) | Quantized Qwen3.5-4B served by llama.cpp, with constrained candidate-logit extraction and a calibration map. It shows a deployment-focused route: keep the base weights, lower memory with Q4_K_M, and fit the output probabilities rather than training a new network. |
+| 24 | ZeroEntropy zerank-2, 40.21 | [model card and weights](https://huggingface.co/zeroentropy/zerank-2-reranker) · [zELO paper](https://arxiv.org/abs/2509.12541) | Qwen3-4B-derived cross-encoder trained for query/document relevance with an Elo-style ranking objective. The board adapts relevance scores to the option set and calibrates them. Like Qwen3-Reranker, it brings retrieval training into decision selection without claiming a native Jev head. |
+| 25 | decision-machine-1, 39.94 | [hosted service](https://www.milliseconds.ai); no public weights or codebase | Closed decision API with no public architecture, training, or checkpoint details. The benchmark can measure its response behavior, speed, and estimated cost, but its internals cannot be compared from public sources. |
+
+The arrows below show backbone or weight lineage. The dotted edge marks readout reuse rather than inherited weights.
+
+```mermaid
+flowchart TB
+    q35[Qwen3.5-4B base] --> semif[SemIf frozen logits]
+    q35 --> j5[JevK5 LoRA]
+    semif -.->|readout pattern| j5
+    j5 --> plumb[Plumb fine-tune]
+    q35 --> direct["Frozen or quantized readers: Jobe, local-jev, OpenSourceJev"]
+    q35 --> loras["Other LoRAs: Hopper, reflex, metask, Spark"]
+    q35 --> heads["Trained readouts: Imajev, Mapika decider-4B"]
+    q35 --> kev["Kev decision-model family"]
+    kev --> malkuth[Malkuth]
+    q35moe[Qwen3.5-35B-A3B] --> decider35[Mapika decider-35B-A3B]
+    gemma12[Gemma 4 12B IT] --> cygnet[Cygnet: frozen + constrained logits]
+    gemma12 --> winnow[Winnow: LoRA + branched server]
+    gemma12 --> omni[Jev-Omni: 256-way head]
+    gemmaE2B[Gemma 4 E2B IT] --> s1open[system-one-open LoRA]
+    qwen32[Qwen3-32B] --> jqv[jqv direct logits]
+    qwenrerank[Qwen3-4B reranker family] --> qwenrank[Qwen3-Reranker]
+    qwenrerank --> zerank[zerank-2]
+    diffusion[DiffusionGemma] --> djev[djev denoised answer read]
+    qweninst[Qwen3-4B Instruct] --> raw[Raw-logit control]
+```
+
+The main inheritance paths are visible in the rows. Qwen3.5-4B is the shared base behind many leading systems, but those systems test distinct changes: frozen direct logits (SemIf, Jobe, and local-jev), LoRA adaptation (JevK5, Hopper, reflex, metask, and Spark), teacher- or hard-case training (Plumb and decider), and a dedicated output head (Imajev). The strongest documented weight lineage is SemIf's readout pattern into JevK5, then JevK5 weights into Plumb. Mapika's decider family shares the Qwen backbone but uses its own public-data and teacher-labeled recipe, with no Jev distillation.
+
+Gemma 4 produces a second useful comparison: Cygnet freezes Gemma 4 12B and changes only the scoring wrapper; Winnow fine-tunes the same size and changes the serving runtime; Jev-Omni fine-tunes it with a 256-way decision head. system-one-open tests a smaller Gemma 4 E2B with a LoRA. djev changes the generation family entirely by reading a denoised answer canvas from DiffusionGemma. The two rerankers instead score each option against the prompt as a relevance pair. These branches share the finite-answer contract, but their probability spaces, training objectives, and runtime costs differ.
+
+Do not read this composite as a pure accuracy order. Jev has the highest Intelligence axis in this roster (53.1), while Imajev leads the composite through its balance across all four axes; Plumb has the next-highest Intelligence (53.0) and a higher composite than Jev. The board's API rows received sealed item text without answer keys, while local rows kept that text on the evaluator's machine. Check the release and exposure note before interpreting any particular row. These scores also do not establish quality on OpenKind's document-evidence workload or its semantic-none contract.
+
+The supplied overview is not a reliable current rank table. It reports Jev public accuracy as 96.3%, while the [current board](https://benchmarkheaven.com/jev-models) reports 86.6%; assigns [Phi-4-mini](https://huggingface.co/microsoft/Phi-4-mini-instruct) 151M parameters and rank 25, while Microsoft's model card gives 3.8B parameters and the current board places raw Phi-4-mini at #27; and places [OpenJev Verdict](https://github.com/Heman10x-NGU/Verdict-open-jev) among the top 25, while the current board ranks this 151M ModernBERT/GLiClass model at #60. [Decision 2B](https://huggingface.co/flymy-ai/decision-2b-preview) is #31 in the current official composite. Keep those systems as design references, but outside this top-25 roster.
 
 ### OpenKind option-logit audit, 24 September 2026
 
@@ -1592,7 +1752,7 @@ The ContractNLI development selection scores 108/121 conditional rankings; the g
 
 The contract, selection, 741-row Parquet file, and report match the result-lock SHA-256 values. Independent row checks confirm unique question IDs, exact selected-state membership, no overlap with the earlier 4E-B.1 gate states, finite and complete logits, and the reported selected-arm counts. Six cached/full-prompt checks span the three prompt families on one question per source; all stay within the contract tolerances and preserve the action. The 72 individual state-part hashes are recorded by the lock but were not separately downloaded for this review. Source-aligned label/evidence repair, independent review, useful QASPER rejection, and the final split remain open.
 
-## Twenty-five leading models and their design lineages
+## Twenty-five leading general-purpose models: design lineages
 
 **Reviewed 2026-09-27.** There is no stable universal “top 25”: benchmark suites, agent harnesses, inference effort, and price change the ordering. The [Artificial Analysis Intelligence Index](https://artificialanalysis.ai/evaluations/artificial-analysis-intelligence-index) is one public checkpoint. Its [22 September 2026 report](https://artificialanalysis.ai/articles/claude-opus-5-5) places Claude Opus 5.5 at the top of that index at maximum effort, with a score of 58, and shows that leaders vary by evaluation. The 25 entries below combine current frontier systems with open-weight models that expose useful architecture or training choices. They are grouped by approach, not ranked 1 to 25.
 

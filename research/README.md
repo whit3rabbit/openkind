@@ -44,6 +44,8 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 | **30** | [`30_qwen_moe_quality_and_cache_followup.ipynb`](./30_qwen_moe_quality_and_cache_followup.ipynb) | MoE Follow-up v0.1 (`20260927T003918_481825Z`) | NVIDIA L4 (NF4 / BF16 compute) | Multi-split decision quality (252 Qs, 84 states), prompt selection, mass-matched top-k, late-block skip, FP32 linear reference cache numerics, option order diagnostics | Explicit three-way prompt won dev; `skip_last_6` selected on dev and evaluated on 96 fresh test cases (41.7% vs 37.5% native, 1.32x speedup, 8.3% coverage vs 14.6% native); native Unknown recall 0/32; mass-matched half-k beats raw half-k in NLL (2.038 vs 2.122); cache parity failed on both native ($\Delta p=0.120$) and FP32 linear reference ($\Delta p=0.155$); option order flips 25.0% of decisions ($\max \Delta p = 0.169$); research gate failed, promotion rejected | [Drive run](https://drive.google.com/drive/folders/1gXwnF1sXhR5Yh4-7R2izDQ9TJXDl_Lf1) / [`29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z) |
 | **31** | [`31_qwen_prefill_speed_accuracy_lab.ipynb`](./31_qwen_prefill_speed_accuracy_lab.ipynb) | MoE Prefill Speed & Accuracy Lab v0.2 (`e15e1e9f7a64e464a38354c59b0c79805d59bc13d517f7e4fca66873e5d5ff2e`) | NVIDIA A100-SXM4-40GB (vLLM 0.30.0, BF16 / GPTQ INT4) | Dense Qwen3.5-4B vs Qwen3.5-35B-A3B MoE INT4 prefill speed, exact-prefix caching, repeat/concurrency drift, and PrivateMode-style decision readout | Cache qualification failed (prefixes 59–105 tokens < 528/1,056 runtime blocks; 0 reused tokens); probability drift observed without cache reuse (MoE sequential repeat max $\Delta p = 17.60$ pp, concurrent vs seq $\max \Delta p = 11.92$ pp; 4B concurrent $\max \Delta p = 3.28$ pp); research gate failed, promotion rejected | [Drive run](https://drive.google.com/drive/folders/1LIKE7JSmEcO2fvrhf8Qx4_ZJfv-heGwD) / [`31_qwen_prefill_speed_accuracy_lab_results/`](./31_qwen_prefill_speed_accuracy_lab_results) |
 | **32** | [`32_qwen_cache_and_native_decisions_lab.ipynb`](./32_qwen_cache_and_native_decisions_lab.ipynb) | Qwen Cache & Native Decisions Lab (`7047c6b31436f8e9b5aa85a5dad9ea4378d16eaa0912ebba288fae273c7e12ae`) | NVIDIA A100-SXM4-40GB (vLLM 0.30.0 & llama.cpp `parallel-decision`) | Controlled prefix boundary sweep (527–2,113 tokens), vLLM repeatability (serial vs concurrent), batch-invariance launch, and native tree branching | vLLM repeatability passed 1/4 rows (4B serial passed with $\Delta p = 0.0$; concurrent and MoE serial/concurrent failed with drift up to 29.81 pp); cache boundary confirmed (0 hits below 528/1,056; 528/1,056/2,112 tokens reused when exceeding block boundaries); 6/40 cache rows qualified; batch-invariance and full llama GPU offload threw CapabilityError; no model/cache promoted | [`32_qwen_cache_and_native_decisions_lab_results/`](./32_qwen_cache_and_native_decisions_lab_results) |
+| **33** | [`33_qwen_readout_rules_history_lab.ipynb`](./33_qwen_readout_rules_history_lab.ipynb) | Readout, Rules & History (`20260927T192845_426758Z`, run key `ff6fd499...308a`) | NVIDIA A100-SXM4-40GB (Q4_K_M vs BF16) | Single-token integer codes vs natural labels, deterministic host action derivation (5-field + rule vs 6-field), exact-prefix caching, sequence reservation (24 vs 3), batch shapes (1 vs 4 contexts), request history / state leakage | 5-field + rule eliminated eligibility/action contradictions and lowered NLL; all 8 cache conditions passed exact parity ($\Delta p = 0.0$, 1.24–2.75x speedup); isolated native history passed, but JSON interleaving and sequence reservation interactions caused drift; model/cache not promoted | [`20260927T192845_426758Z/`](./20260927T192845_426758Z) / [Drive run](https://drive.google.com/drive/folders/1N8fq_wSct874PWi-VPwuGWAKiYL39xUM) |
+| **34** | [`34_qwen35_9b_t4_l4_open_questions_lab.ipynb`](./34_qwen35_9b_t4_l4_open_questions_lab.ipynb) | 9B T4/L4 Open Questions (`20260928T220142_110595Z_1192c8`) | NVIDIA Tesla T4 16GB (Qwen3.5-9B Q4_K_M, 34/34 offloaded) | Qwen3.5-9B Q4 feasibility on T4; 5 arms (A: 6 fields recomputed, B: 5 fields + rule recomputed, C: 6 fields warm prefix, D: 5 fields + rule warm prefix, E: JSON); exact prefix reuse; genuine first-use cold trace; JSON interleaving history drift; sequence reservation (8 vs 3); risk coverage; offline deterministic route replay | T4 feasibility demonstrated (6.30 GiB peak VRAM); Arm D delivered 2.29–2.35x speedup over A (339.38 ms median) with 56% lower mean latency from prefix reuse and 0 eligibility/action contradictions; prefix cache passed 330/330 pairs ($\Delta p = 0$); JSON interleaving failed history gate ($\max \Delta p = 0.095$, 4 flips); 3 reserved sequences caused drift ($\Delta p = 0.059$); D showed two systematic errors (plain closed $\to$ duplicate; priority suffix appended); route replay healed route errors (93.8% field acc, 62.5% all-six); complete service not qualified | Review writeup `OpenKind_9B_T4_Results_Review_20260928.md` / [Drive run](https://drive.google.com/file/d/1Q-t2VhbH7qYUbkDodlg4IPgpNK8ySBa3/view) |
 
 
 
@@ -910,6 +912,101 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 
 ---
 
+### 33. Phase 4 Qwen Readout Codes, Deterministic Rule Composition, and Request History Lab
+* **File**: [`33_qwen_readout_rules_history_lab.ipynb`](./33_qwen_readout_rules_history_lab.ipynb)
+* **Run Key**: `ff6fd4996c079f53dee448296fb55a529d18418d8d849413a2e1ed0e42f6308a` (`20260927T192845_426758Z`)
+* **Status**: **`EXPLORATORY_COMPLETE`** (All primary panels complete; `model_promoted = false`, `cache_promoted = false`.)
+* **Target Hardware & Environment**: NVIDIA A100-SXM4-40GB (CUDA 12.8, Driver 580.82.07, Python 3.13.15, llama.cpp `parallel-decision` commit `ad129b08d9f134cd298d1f8a85efc52b1b66e18e`)
+* **Evaluated Models & Profiles**:
+  - `Q4_K_M`: `bartowski/Qwen_Qwen3.5-4B-GGUF` (revision `4168f45a`, SHA256 `13c16f42...a983`, 3.01 GB)
+  - `BF16`: `bartowski/Qwen_Qwen3.5-4B-GGUF` (revision `4168f45a`, SHA256 `714270d4...ee5`, 8.67 GB)
+* **What it Measured / Scope**:
+  - Controlled comparison of single-token integer codes vs natural label readouts across 96 authored decision cases (2 technical repeats, 192 observations).
+  - Deterministic host action composition (deriving action from eligibility in code vs independent model prediction) across 6-field and 5-field paths.
+  - Exact prefix cache reuse across sequence reservation sizes (24 vs 3 sequences) and batch contexts (1 vs 4 contexts).
+  - Request history and process state leakage: evaluating whether prior requests (JSON generation, unrelated queries, noop) induce probability drift in subsequent native decisions.
+* **Stage-by-Stage Findings & Audit Results**:
+  - **Readout & Rule Composition**:
+    - Deriving action deterministically (5-field + rule) completely eliminated the 28.6% (Q4) / 31.2% (BF16) inconsistency rate between eligibility and action.
+    - Field accuracy improved from 78.47% to 82.55% (Q4 natural) and 78.56% to 83.51% (BF16 natural), with all-fields accuracy rising from 15.10% to 23.44% (Q4) and 16.67% to 23.96% (BF16).
+    - Aliases / integer codes reduced NLL (0.435 vs 0.934 on Q4) and improved field accuracy (83.25% vs 78.47%).
+    - Compact JSON achieved higher all-fields accuracy (64.58% Q4, 56.25% BF16) but required ~4.5–7x higher latency (495 ms vs 108 ms).
+  - **Cache Parity**:
+    - All 8 full-panel cache conditions passed parity with **$\max \Delta p = 0.0$** and 0 field flips across 960 requests.
+    - Qualified speedups: 1-context Q4 showed 2.75x speedup (47.3 ms warm vs 130.0 ms cold); 4-context Q4 showed 1.54x speedup (153.9 ms vs 237.2 ms).
+    - BF16 showed 2.29x speedup on 1-context (40.5 ms warm vs 92.8 ms cold) and 1.40x on 4-context (130.1 ms vs 182.4 ms).
+  - **Request History & State Leakage**:
+    - Isolated native calls and noop interventions passed with $\Delta p = 0.0$.
+    - However, interleaved JSON generation and tight sequence reservations (3 sequences with 4 contexts) introduced minor drift ($\Delta p \le 0.0040$), signaling that process state and memory layout can subtly interact with continuation state.
+* **Supporting Directory & Key Artifacts**:
+  - Local Directory: [`20260927T192845_426758Z/`](./20260927T192845_426758Z)
+  - Key files:
+    - [`REPORT.md`](./20260927T192845_426758Z/REPORT.md)
+    - [`manifest.json`](./20260927T192845_426758Z/manifest.json)
+    - [`setup.json`](./20260927T192845_426758Z/setup.json)
+    - [`quality_summary.csv`](./20260927T192845_426758Z/quality_summary.csv)
+    - [`cache_summary.csv`](./20260927T192845_426758Z/cache_summary.csv)
+    - [`history_summary.csv`](./20260927T192845_426758Z/history_summary.csv)
+    - [`measurement_gates.json`](./20260927T192845_426758Z/measurement_gates.json)
+    - [`quality_latency.png`](./20260927T192845_426758Z/quality_latency.png)
+    - [`cache_timings.png`](./20260927T192845_426758Z/cache_timings.png)
+    - [`history_drift.png`](./20260927T192845_426758Z/history_drift.png)
+
+---
+
+### 34. Phase 4 Qwen 9B T4/L4 Open Questions Lab: Rule Composition, Prefix Cache & Serving History
+* **File**: [`34_qwen35_9b_t4_l4_open_questions_lab.ipynb`](./34_qwen35_9b_t4_l4_open_questions_lab.ipynb)
+* **Run ID**: `20260928T220142_110595Z_1192c8`
+* **Status**: **`EXPLORATORY_EVALUATED`** (Reconciled across 39 planned blocks + 3 replay blocks; research gates distinguish outcomes; complete service not qualified due to JSON history leakage and semantic readout errors; `model_promoted = false`, `cache_promoted = false`.)
+* **Target Hardware & Environment**: NVIDIA Tesla T4 (15.0 GiB reported VRAM, CUDA runtime, native engine commit `ad129b08d9f134cd298d1f8a85efc52b1b66e18e`)
+* **Evaluated Model**: Qwen3.5-9B Q4 (Q4_K_M, 33 stored blocks, 1 auxiliary NextN/MTP block disabled, 32 backbone blocks, hidden size 4096, 34/34 layers offloaded to GPU)
+* **What it Measured / Scope**:
+  - Evaluation of Qwen3.5-9B Q4 feasibility on commodity 16GB GPU (Tesla T4).
+  - Controlled 5-arm comparison across two panels: previously exposed continuity panel (96 cases, 2 repeats) and new synthetic diagnostic panel (36 cases, 2 repeats):
+    - **Arm A**: Six native model-predicted fields; prefix lookup disabled (recomputed prefix).
+    - **Arm B**: Five native fields + host-derived action; prefix lookup disabled.
+    - **Arm C**: Six native model-predicted fields; verified warm prefix.
+    - **Arm D**: Five native fields + host-derived action; verified warm prefix.
+    - **Arm E**: Generated compact JSON (separate quality sessions).
+  - Genuine first-use cold-start traces measuring cumulative time from process startup.
+  - Dedicated cache telemetry and mathematical parity across 330 paired requests.
+  - Process history stability: native vs JSON-interleaved execution, reset efficacy, and mitigation attempts (padding, CUDA graphs).
+  - Sequence reservation sensitivity (8 vs 3 sequences) and confidence / risk-coverage gating.
+  - Diagnostic separate-field requests and offline deterministic route replay.
+* **Stage-by-Stage Findings & Audit Results**:
+  - **T4 Feasibility Confirmed**:
+    - Qwen3.5-9B Q4 fits comfortably within T4 VRAM: 6.27 GiB whole-device baseline usage, 6.30 GiB sampled peak usage under 4-context Arm D workload, with 34/34 layers offloaded.
+  - **Combined Rule & Cache Path (Arm D)**:
+    - **Speedup**: Arm D achieves **339.38 ms median request latency** on 96 cases (2.35x faster than Arm A at 798.68 ms, and 11.5x faster than Arm E JSON at 3,910.68 ms). Prefix reuse drives a 56% latency reduction over Arm B (763.67 ms). On the 36-case panel, Arm D hits 352.47 ms (2.29x over A, 55% over B).
+    - **Accuracy**: Arm D improves field accuracy over Arm A by +5.38 pp (86.11% vs 80.73%, 95% CI: [3.82, 7.12]) on continuity, and +2.78 pp (86.11% vs 83.33%, 95% CI: [0.93, 5.09]) on synthetic. All-six accuracy increases from 22.92% to 32.29% (continuity) and 30.56% to 33.33% (synthetic).
+  - **Deterministic Action Composition**:
+    - Solves a severe model contradiction: In Arm A, eligibility is correct in 94/96 cases, but the independently predicted action is wrong in 27/96 cases.
+    - Arms B and D derive action deterministically (`eligible -> grant access`, `ineligible -> deny access`, `undetermined -> request missing information`), completely eliminating contradictions (0/96) and reducing mean NLL from 0.900 to 0.655 (continuity) and 0.731 to 0.624 (synthetic). Action probability distribution is carried forward directly from eligibility.
+  - **Concentrated Semantic Failure Modes in Arm D**:
+    - Arm D achieves 100% accuracy on eligibility, action, retries, and urgency. Every single remaining error belongs to only two systematic failure modes:
+      1. *Plain "closed" becomes "closed duplicate"*: All 36 plain-closed cases on continuity and all 12 on synthetic are predicted as duplicate (0% plain-closed recall).
+      2. *Routing always appends "priority" suffix*: All 44 nonurgent continuity and 18 nonurgent synthetic cases receive the priority suffix despite the separate urgency field being correctly predicted as false.
+    - *Deterministic Routing Replay*: Post-hoc CPU replay deriving route priority from predicted urgency (`route = base_route + (" priority" if predicted_urgent else "")`) eliminated all routing errors, boosting D field accuracy to **93.75%** (continuity) / **94.44%** (synthetic) and all-six accuracy to **62.50%** / **66.67%**, surpassing generated JSON.
+    - *Readout Diagnostics*: Separate field-only requests on 24 calibration cases raised route accuracy from 50.0% to 87.5% and case-state from 66.7% to 100.0%, proving that the underlying model has the representational capability if prompted/formatted without catalogue interference.
+  - **Exact Prefix Cache Parity & First-Use Accounting**:
+    - Reconstructed 330 dedicated paired requests: **$\max \Delta p = 0.0$** and 0 flips across 5/6 fields and 1/4 contexts. Dedicated cache ratio: 2.27x for 1-context (772.70 ms -> 340.69 ms), 1.31x for 4-context (1,780.29 ms -> 1,358.72 ms).
+    - Fresh-process cold trace (Arm D): First request takes 881 ms (~4.98 s including process startup/warmup); cumulative mean per request drops to 611 ms (2 reqs), 468 ms (4 reqs), 395 ms (8 reqs), and 360 ms (16 reqs; 5.75 s execution, ~9.85 s total). Warm savings withstand true cold-start accounting.
+  - **Serving Instability: JSON Interleaving**:
+    - Native-only controls pass history checks ($\Delta p = 0.0$).
+    - Interleaving JSON generation in the same process causes significant probability drift ($\max \Delta p = 0.080$ to $0.095$) and flips up to 4 action decisions in 4-context runs. Session end vs fresh reset fails on 64/90 checks.
+    - Disabling padding ($\max \Delta p = 0.067$) or requesting CUDA graphs disabled ($\max \Delta p = 0.080$) failed to remediate the drift. Native and JSON execution require process separation.
+  - **Sequence Reservation Constraint**:
+    - 8 reserved sequences preserve probabilities exactly ($\Delta p = 0.0$) when expanding from 1 to 4 contexts.
+    - Dropping reservation to 3 sequences causes numerical drift ($\Delta p = 0.0589$) and fails numerical gates. The 8-sequence profile must be retained.
+  - **Confidence & Risk-Coverage Limitations**:
+    - Filtering by minimum predicted probability threshold (0.90, 0.95) does not filter out errors because the model is overconfident on its systematic semantic traps (at 0.95 threshold, 30.0% of accepted continuity and 77.78% of synthetic cases remain wrong). Rejection thresholds cannot substitute for architectural repair.
+* **Supporting Review Artifacts**:
+  - Review Document: `OpenKind_9B_T4_Results_Review_20260928.md`
+  - Reconciliation Archive: `OpenKind_9B_T4_Review_and_Reconciliation_20260928.zip` (Run: `20260928T220142_110595Z_1192c8`)
+  - Recorded Evidence Gates: [measurement_gates](https://drive.google.com/file/d/1CIvInA1CTO83ST5BnOWn8XCm1rTr8jm7/view), [COMPLETE](https://drive.google.com/file/d/1Q-t2VhbH7qYUbkDodlg4IPgpNK8ySBa3/view), [quality_summary](https://drive.google.com/file/d/1qyA-UtigDfyThVsjT4SUqjP85lfJyNhb/view), [history_summary](https://drive.google.com/file/d/1U5oYFS1cr4UMgwLqPp7NzUauOb0-Te8l/view)
+
+---
+
 ## Key Scientific Insights & Architectural Invariants
 
 1. **Strict FP32 Reference Boundary**:
@@ -959,3 +1056,13 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
     In hybrid DeltaNet/Mamba architectures (such as Qwen 3.5), vLLM automatic prefix caching falls back from `all` to `align` mode, resuming cached computation strictly at block boundaries (528 tokens for 4B, 1,056 tokens for MoE INT4). Prefixes shorter than a block boundary yield zero cached token reuse throughout. Furthermore, quantized MoE backends (e.g. GPTQ/Marlin) can exhibit severe probability drift (up to 17.60 pp sequential, 11.92 pp concurrent) even when zero cache reuse occurs. Repeatability with caching disabled must be verified across eager and compiled execution before evaluating prefix-cache speedups.
 22. **Microbatching Perturbation of Repeatability & Staged Prefix Qualification**:
     While dense hybrid models (Qwen 3.5 4B) achieve bitwise deterministic outputs under serial execution ($\Delta p = 0.0$), concurrent client requests alter GPU dynamic microbatching, inducing measurable probability drift ($\Delta p = 0.0369$) and flipping decision winners (4/24 flips). Conversely, quantized MoE models (Qwen 3.5 MoE INT4) exhibit significant drift under serial execution ($\Delta p = 0.1360$), indicating kernel-level non-determinism independent of request concurrency. When shared prefixes exceed vLLM Mamba block boundaries (e.g. 529 tokens for a 528-token block), cold staged prefix reuse achieves strict numerical parity ($\Delta p = 4.37 \times 10^{-8}$) and a 1.92x speedup on dense 4B, proving that prefix caching is mathematically sound once block alignment thresholds are cleared.
+23. **Deterministic Output Composition vs Unconstrained Neural Prediction**:
+    When domain dependencies between fields are logically rigid (e.g. eligibility strictly dictating action: eligible $\to$ grant access, ineligible $\to$ deny access, undetermined $\to$ request missing info; or urgency determining route priority), asking the model to predict dependent fields independently causes severe cross-field inconsistency (up to 28%–31% contradiction rate in 4B and 27/96 contradictions in 9B). Deriving dependent outputs in host code deterministically eliminates cross-field contradictions, cuts unnecessary prediction latency, and significantly improves overall request-level accuracy (+5.38 pp field accuracy on 9B).
+24. **Process-Level State Pollution from Interleaved Autoregressive Generation**:
+    While consecutive native decision requests and exact prefix reuse achieve bitwise mathematical parity ($\Delta p = 0.0$), deliberately interleaving autoregressive text or JSON generation within the same process alters subsequent native forward passes ($\max \Delta p$ up to 0.095, flipping selected decisions). Neither prompt padding nor disabling CUDA graphs resolves the drift, and session-end states fail reset parity against fresh runs. Recomputing a prompt prefix is not equivalent to resetting dirty process state; complete process isolation is required when mixing native decision paths with freeform text generation.
+25. **Systematic Semantic Traps and the Failure of Raw Confidence Gating**:
+    Catalogue formatting and compound label naming can induce extreme, systematic semantic confusion in high-capacity models (e.g. Qwen3.5-9B Q4 collapsing plain "closed" into "closed duplicate" with 0% recall, and appending the "priority" suffix to every single routing label regardless of urgency). Because the model is highly confident in these erroneous classifications, filtering decisions by minimum probability thresholds ($p \ge 0.90$ or $0.95$) fails to remove them (30% to 78% of accepted cases remain wrong). Confidence thresholding cannot substitute for addressing catalogue interference, decomposing readouts, or applying deterministic post-hoc dependency rules.
+26. **Sequence Slot Reservation Guardrails under Batched Execution**:
+    Reducing runtime sequence slot reservations below the batch workload requirement (e.g. configuring 3 sequence slots for a 4-context batched request) introduces substantial numerical drift ($\Delta p \approx 0.059$) and fails numerical parity gates, even when discrete argmax winners happen to match. Runtime sequence reservations must be provisioned to cover maximum batch concurrency rather than trimmed for superficial VRAM savings.
+27. **T4 Viability of 9B Quantized Decision Inference**:
+    Large dense models (Qwen 3.5 9B) quantized to 4 bits (Q4_K_M) fit comfortably within commodity 16GB GPUs (Tesla T4), utilizing only 6.30 GiB peak VRAM under 4-context batched workloads with full 34/34 layer GPU offload. Combining 5-field prediction, deterministic action derivation, and verified prefix cache reuse delivers a 2.35x latency speedup (339 ms median vs 798 ms baseline) and an 11.5x speedup over generated JSON (3,910 ms), demonstrating that production-speed structured decision serving is feasible on low-cost hardware once readout traps and process-history gates are resolved.

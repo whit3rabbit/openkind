@@ -41,7 +41,7 @@ public struct NoulCriteria: Codable {
     }
 }
 
-public enum Question: Encodable {
+public enum Question: Codable {
     case noul(instructions: JSONValue, criteria: NoulCriteria? = nil)
     case choice(instructions: JSONValue, criteria: [String: String?])
     case score(instructions: JSONValue, criteria: [String])
@@ -65,9 +65,24 @@ public enum Question: Encodable {
             try container.encode(criteria, forKey: .criteria)
         }
     }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let instructions = try container.decode(JSONValue.self, forKey: .instructions)
+        switch try container.decode(String.self, forKey: .type) {
+        case "noul":
+            self = .noul(instructions: instructions, criteria: try container.decodeIfPresent(NoulCriteria.self, forKey: .criteria))
+        case "choice":
+            self = .choice(instructions: instructions, criteria: try container.decode([String: String?].self, forKey: .criteria))
+        case "score":
+            self = .score(instructions: instructions, criteria: try container.decode([String].self, forKey: .criteria))
+        default:
+            throw DecodingError.dataCorruptedError(forKey: .type, in: container, debugDescription: "unknown question type")
+        }
+    }
 }
 
-public struct SystemRequest: Encodable {
+public struct SystemRequest: Codable {
     public let state: JSONValue
     public let model: String
     public let questions: [String: Question]
@@ -79,7 +94,7 @@ public struct SystemRequest: Encodable {
     }
 }
 
-public enum Answer: Decodable {
+public enum Answer: Codable {
     case noul(Double)
     case choice(selected: String, probabilities: [String: Double], confidence: Double)
     case score(value: Double, legend: [String: String], probabilities: [String: Double], confidence: Double)
@@ -108,14 +123,34 @@ public enum Answer: Decodable {
             throw DecodingError.dataCorruptedError(forKey: .type, in: container, debugDescription: "unknown answer type")
         }
     }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .noul(let value):
+            try container.encode("noul", forKey: .type)
+            try container.encode(value, forKey: .noul)
+        case .choice(let selected, let probabilities, let confidence):
+            try container.encode("choice", forKey: .type)
+            try container.encode(selected, forKey: .choice)
+            try container.encode(probabilities, forKey: .probabilities)
+            try container.encode(confidence, forKey: .confidence)
+        case .score(let value, let legend, let probabilities, let confidence):
+            try container.encode("score", forKey: .type)
+            try container.encode(value, forKey: .score)
+            try container.encode(legend, forKey: .legend)
+            try container.encode(probabilities, forKey: .probabilities)
+            try container.encode(confidence, forKey: .confidence)
+        }
+    }
 }
 
-public struct Usage: Decodable {
+public struct Usage: Codable {
     public let input_tokens: UInt32
     public let output_tokens: UInt32
 }
 
-public struct SystemResponse: Decodable {
+public struct SystemResponse: Codable {
     public let model: String
     public let answers: [String: Answer]
     public let usage: Usage
@@ -129,6 +164,18 @@ public struct ModelMetadata: Decodable {
 
 public struct ModelsResponse: Decodable { public let models: [ModelMetadata] }
 public struct Health: Decodable { public let status: String }
+
+public struct LocalModel: Decodable, Identifiable {
+    public let name: String
+    public let description: String
+    public let source: String
+    public let loaded: Bool
+    public let manageable: Bool
+    public var id: String { name }
+}
+
+public struct LocalModelsResponse: Decodable { public let models: [LocalModel] }
+private struct LocalModelActionResponse: Decodable { let ok: Bool }
 
 public struct ApiResult<Value> {
     public let data: Value
@@ -173,11 +220,14 @@ public final class OpenKindClient {
         self.session = session
     }
 
-    private func send<Value: Decodable>(_ path: String, method: String, body: Data? = nil) async throws -> ApiResult<Value> {
+    private func send<Value: Decodable>(
+        _ path: String, method: String, body: Data? = nil, localModelAction: Bool = false,
+        requestTimeout: TimeInterval? = nil
+    ) async throws -> ApiResult<Value> {
         let relative = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         var request = URLRequest(url: baseURL.appendingPathComponent(relative))
         request.httpMethod = method
-        request.timeoutInterval = timeout
+        request.timeoutInterval = requestTimeout ?? timeout
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         if let body {
             request.httpBody = body
@@ -185,6 +235,9 @@ public final class OpenKindClient {
         }
         if path != "/health", let apiKey {
             request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        }
+        if localModelAction {
+            request.setValue("1", forHTTPHeaderField: "x-openkind-playground")
         }
         let (data, urlResponse) = try await session.data(for: request)
         guard let response = urlResponse as? HTTPURLResponse else { throw ClientError.nonHTTPResponse }
@@ -199,7 +252,9 @@ public final class OpenKindClient {
     }
 
     public func evaluate(_ request: SystemRequest) async throws -> ApiResult<SystemResponse> {
-        let result: ApiResult<SystemResponse> = try await send("/v1/systemone", method: "POST", body: JSONEncoder().encode(request))
+        let result: ApiResult<SystemResponse> = try await send(
+            "/v1/systemone", method: "POST", body: JSONEncoder().encode(request),
+            requestTimeout: 600)
         try validate(result.data, for: request)
         return result
     }
@@ -214,6 +269,19 @@ public final class OpenKindClient {
 
     public func health() async throws -> ApiResult<Health> {
         try await send("/health", method: "GET")
+    }
+
+    /// Local daemon controls are outside the public TypeSafe wire contract.
+    public func listLocalModels() async throws -> ApiResult<LocalModelsResponse> {
+        try await send("/playground/api/models", method: "GET")
+    }
+
+    public func setLocalModelLoaded(_ name: String, loaded: Bool) async throws {
+        let body = try JSONSerialization.data(withJSONObject: ["name": name, "loaded": loaded])
+        let result: ApiResult<LocalModelActionResponse> = try await send(
+            "/playground/api/models", method: "POST", body: body,
+            localModelAction: true, requestTimeout: 600)
+        guard result.data.ok else { throw ClientError.invalidResponse("model action was not applied") }
     }
 }
 

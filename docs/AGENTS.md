@@ -15,9 +15,11 @@ The documentation suite maintains a strict division of responsibility across pro
 | Procedure for adding a model or family | [`families/NEW_FAMILY.md`](families/NEW_FAMILY.md) |
 | Landed crate boundaries, module topology, and data flow | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 | Curated catalog, public mirror, and publication commands | [`MODEL_REGISTRY.md`](MODEL_REGISTRY.md) |
+| Loadable-model index: types, backends, pull names, sizes, and measured runs | [`MODELS.md`](MODELS.md) |
 | Benchmark methodology, harness usage, and recorded runs | [`BENCHMARKS.md`](BENCHMARKS.md) |
 | MLX runtime contract, implementation guide, limitations, and enhancement path | [`MLX.md`](MLX.md) |
 | Research dossier, background, and prior art | [`RESEARCH.md`](RESEARCH.md) |
+| Supported environment variables across binaries, SDKs, and bindings | [`ENV.md`](ENV.md) |
 | Scientific rationale, theoretical grounding, and measured results | [`whitepaper/WHITEPAPER.md`](whitepaper/WHITEPAPER.md) |
 | Cross-provider Jev compatibility matrix and provider routes | [`JEV_COMPATIBILITY.md`](JEV_COMPATIBILITY.md) |
 | TypeScript, Python, and Swift HTTP clients and local server wrappers | [`../bindings/README.md`](../bindings/README.md) |
@@ -32,7 +34,12 @@ The documentation suite maintains a strict division of responsibility across pro
   Keep surveyed, Rust-loadable, task-qualified, and release-promoted as
   separate states. A family is not Rust-loadable until its pinned profile
   loads from local artifacts, has offline parity fixtures and a
-  `DecisionEngine` adapter, and is registered with the daemon. Model quality
+  `DecisionEngine` adapter, and is registered with the daemon.
+- `MODELS.md` mirrors the catalog and the runnable-profile catalogue for
+  operators. Update its model names, backends, and benchmark links in the
+  same change that edits `registry/v1` or lands a loadable profile. It
+  summarizes measured runs and links to their `benchmarks/` records; it does
+  not replace `BENCHMARKS.md` methodology or campaign records. Model quality
   and release promotion require their own roadmap gates.
 - `EngineRegistry` routes aliases to already-loaded engines. Do not describe
   it as a generic artifact loader or use a registry entry alone as evidence

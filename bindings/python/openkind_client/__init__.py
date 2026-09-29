@@ -3,12 +3,37 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
 from dataclasses import dataclass
 from typing import Generic, Literal, NotRequired, TypeVar, TypedDict, Union
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
+
+
+logger = logging.getLogger("openkind_client")
+logger.addHandler(logging.NullHandler())
+
+# Mirrors the typesafe-sdk Python SDK's TYPESAFE_LOG_LEVEL handling: the named
+# levels are applied once at import and unknown values are ignored.
+LOG_LEVELS = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warn": logging.WARNING,
+    "warning": logging.WARNING,
+    "error": logging.ERROR,
+    "off": logging.CRITICAL + 1,
+}
+
+
+def _apply_log_level_env() -> None:
+    value = (os.getenv("OPENKIND_LOG_LEVEL") or os.getenv("TYPESAFE_LOG_LEVEL") or "").strip().lower()
+    if value in LOG_LEVELS:
+        logger.setLevel(LOG_LEVELS[value])
+
+
+_apply_log_level_env()
 
 
 JSONValue = Union[None, bool, int, float, str, list["JSONValue"], dict[str, "JSONValue"]]
@@ -198,6 +223,7 @@ class Client:
         self.timeout = timeout
 
     def _send(self, path: str, method: str, body: object = None) -> ApiResult[object]:
+        logger.debug("%s %s", method, path)
         headers = {"Accept": "application/json"}
         if self.api_key and path != "/health":
             headers["Authorization"] = f"Bearer {self.api_key}"

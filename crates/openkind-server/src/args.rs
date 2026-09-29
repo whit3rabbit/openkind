@@ -175,6 +175,16 @@ pub(crate) enum Qwen35BackendArg {
     MlxFp32,
 }
 
+/// Laya decision-encoder backend choices exposed by the daemon.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub(crate) enum LayaBackendArg {
+    /// Candle FP32 CPU reference backend.
+    NativeCpu,
+    /// MLX FP32 backend on macOS arm64 when the optional feature is enabled.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    MlxFp32,
+}
+
 /// CLI surface for `--qwen35-execution`: the three execution plans plus the
 /// adaptive `auto` default.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
@@ -322,6 +332,38 @@ mod tests {
             .find(|arg| arg.get_long() == Some("qwen35-backend"))
             .expect("--qwen35-backend argument");
         assert_eq!(arg.get_env(), Some(OsStr::new("OPENKIND_QWEN35_BACKEND")));
+    }
+
+    #[test]
+    fn laya_backend_cli_values_and_diagnostics() {
+        let default = Args::try_parse_from(["openkindd"]).unwrap();
+        assert_eq!(default.family_args.laya_backend, LayaBackendArg::NativeCpu);
+
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        {
+            let args = Args::try_parse_from(["openkindd", "--laya-backend", "mlx-fp32"]).unwrap();
+            assert_eq!(args.family_args.laya_backend, LayaBackendArg::MlxFp32);
+        }
+
+        #[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
+        {
+            let error = Args::try_parse_from(["openkindd", "--laya-backend", "mlx-fp32"])
+                .unwrap_err()
+                .to_string();
+            assert!(error.contains("native-cpu"), "{error}");
+        }
+
+        let error = Args::try_parse_from(["openkindd", "--laya-backend", "mlx-bf16"])
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("invalid value 'mlx-bf16'"), "{error}");
+
+        let command = Args::command();
+        let arg = command
+            .get_arguments()
+            .find(|arg| arg.get_long() == Some("laya-backend"))
+            .expect("--laya-backend argument");
+        assert_eq!(arg.get_env(), Some(OsStr::new("OPENKIND_LAYA_BACKEND")));
     }
 
     #[test]

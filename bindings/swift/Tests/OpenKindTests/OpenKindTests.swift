@@ -32,6 +32,17 @@ private final class StubProtocol: URLProtocol {
             payload = #"{"models":[{"name":"mock","description":"Mock engine","release_date":"2026-01-01"}]}"#
         case "/health":
             payload = request.value(forHTTPHeaderField: "Authorization") == nil ? #"{"status":"ok"}"# : #"{"status":"unexpected auth"}"#
+        case "/playground/api/models":
+            if request.httpMethod == "POST" {
+                if request.value(forHTTPHeaderField: "x-openkind-playground") == "1" {
+                    payload = #"{"ok":true}"#
+                } else {
+                    status = 401
+                    payload = #"{"error":{"code":"unauthorized","message":"missing local header"}}"#
+                }
+            } else {
+                payload = #"{"models":[{"name":"mock","description":"Mock","source":"mock","loaded":true,"manageable":true}]}"#
+            }
         default:
             status = 404
             payload = #"{"error":{"code":"not_found","message":"missing"}}"#
@@ -85,6 +96,22 @@ final class OpenKindTests: XCTestCase {
             XCTAssertEqual(error.code, "rate_limited")
             XCTAssertEqual(error.requestID, "request-123")
         }
+    }
+
+    func testRawRequestDecodesAndLocalModelControls() async throws {
+        StubProtocol.mode = "good"
+        let raw = #"{"state":{"message":"hello"},"model":"mock","questions":{"team":{"type":"choice","instructions":"Which team?","criteria":{"billing":null,"sales":null}}}}"#
+        let request = try JSONDecoder().decode(SystemRequest.self, from: Data(raw.utf8))
+        let client = makeClient()
+        let result = try await client.evaluate(request)
+        XCTAssertEqual(result.requestID, "request-123")
+        let pretty = JSONEncoder()
+        pretty.outputFormatting = [.prettyPrinted, .sortedKeys]
+        XCTAssertTrue(String(decoding: try pretty.encode(result.data), as: UTF8.self).contains("billing"))
+        let models = try await client.listLocalModels()
+        XCTAssertEqual(models.data.models.first?.name, "mock")
+        XCTAssertTrue(models.data.models.first?.manageable == true)
+        try await client.setLocalModelLoaded("mock", loaded: false)
     }
 
     func testLiveDaemonWhenConfigured() async throws {
@@ -222,7 +249,8 @@ final class OpenKindTests: XCTestCase {
         guard let binary = ProcessInfo.processInfo.environment["OPENKIND_TEST_BINARY"] else { return }
         let server = try OpenKindServer(binary: binary,
                                         httpAddress: "127.0.0.1:\(freePort())",
-                                        models: ["mock"], apiKey: "dev-key")
+                                        models: ["mock"], apiKey: "dev-key",
+                                        extraArguments: ["--playground", "on"])
         try await server.start()
         do {
             let health = try await server.client.health()
@@ -234,6 +262,14 @@ final class OpenKindTests: XCTestCase {
             )
             if case .some(.noul) = result.data.answers["billing"] { }
             else { XCTFail("expected Noul answer") }
+            let local = try await server.client.listLocalModels()
+            XCTAssertTrue(local.data.models.contains(where: { $0.name == "mock" && $0.manageable && $0.loaded }))
+            try await server.client.setLocalModelLoaded("mock", loaded: false)
+            let unloaded = try await server.client.listLocalModels()
+            XCTAssertTrue(unloaded.data.models.contains(where: {
+                $0.name == "mock" && !$0.loaded
+            }))
+            try await server.client.setLocalModelLoaded("mock", loaded: true)
         } catch {
             await server.stop()
             throw error

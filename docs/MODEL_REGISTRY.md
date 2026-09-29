@@ -45,11 +45,39 @@ Use `--models-dir` or `OPENKIND_MODELS_DIR` to share a store location between
 the CLI and daemon. The default is the user's platform data directory.
 
 The versioned catalog and manifests live under [`../registry/v1/`](../registry/v1/).
+The operator-facing model index that mirrors them is
+[`MODELS.md`](MODELS.md); update both together when the catalog changes.
 Manifests identify a compiled-in loader and immutable source revisions; they
 cannot provide executable code. Source weights remain on their authors'
 repositories. Downloads and tests are separate: builds and tests never fetch
 model assets. A real Qwen pull and decision smoke test is an explicit,
 multi-gigabyte operator gate.
+
+## Execution backends and benchmark evidence per registry model
+
+Each catalog model records which execution backends can serve it on Apple
+silicon and where the measured evidence lives. An MLX conversion of a
+backbone that openkind cannot load is not an executable equivalent; the
+registry model is only as fast as the loaders in this repository.
+
+| Registry model | Executable backends | Preferred on Apple silicon | Evidence |
+|---|---|---|---|
+| `qwen35-state-first:a047d6802c3f06f085b8` | Candle CPU fp32 (`--engine qwen35`), MLX FP32 (`--engine qwen35-mlx-fp32`, `--features mlx`), MLX BF16 candidate (unqualified) | `qwen35-mlx-fp32` — a parity-qualified MLX path | [BENCHMARKS.md](BENCHMARKS.md) records and the [2026-09-28 registry campaign](benchmarks/2026-09-28-registry-mlx-campaign/README.md) |
+| `laya-english:c8ea29bf1e33a343c4b7` | Candle CPU fp32 (`--engine laya-english`), MLX FP32 (`--engine laya-english-mlx-fp32`, `--features mlx`; daemon `--laya-backend mlx-fp32`) | `laya-english-mlx-fp32` — golden-fixture parity gates on the same pinned shard (max probability drift 6.5e-6, zero selection flips) | [BENCHMARKS.md](BENCHMARKS.md) records, the [2026-09-28 registry campaign](benchmarks/2026-09-28-registry-mlx-campaign/README.md), and the [2026-09-28 laya MLX campaign](benchmarks/2026-09-28-laya-mlx-campaign/README.md) |
+| `laya-multilingual:f4064eb56fb7f7d325e1` | Candle CPU fp32 (`--engine laya-multilingual`), MLX FP32 (`--engine laya-multilingual-mlx-fp32`, `--features mlx`) | `laya-multilingual-mlx-fp32` — same encoder MLX path (max probability drift 7.2e-6, zero selection flips) | [2026-09-28 laya MLX campaign](benchmarks/2026-09-28-laya-mlx-campaign/README.md) |
+| `laya-typed-decisions:9d28cfa9567902801ed1` | Candle CPU fp32 (`--engine laya-typed-decisions`), MLX FP32 (`--engine laya-typed-decisions-mlx-fp32`, `--features mlx`) | `laya-typed-decisions-mlx-fp32` — same encoder MLX path (max probability drift 2.5e-6, zero selection flips) | [2026-09-28 laya MLX campaign](benchmarks/2026-09-28-laya-mlx-campaign/README.md) |
+
+Benchmark summaries carry the machine-readable comparison data
+(`host_hardware`, `context`, per-strategy `cpu_time_seconds` /
+`avg_cpu_percent`, peak resident bytes, decisions per second, input tokens
+per second) and
+[`scripts/build-recommendation-data.py`](../scripts/build-recommendation-data.py)
+aggregates them for model-recommendation work. The laya encoder MLX backend
+is its own family module (`families/laya/mlx/`) over the same digest-locked
+checkpoint contract, with frozen golden-fixture parity gates
+(`tests/laya_parity.rs`, module `mlx_replay`); a new MLX backend for any
+other encoder family still needs the same structure before a catalog entry
+may claim it.
 
 ## Publishing the public mirror
 
