@@ -71,6 +71,11 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"]
 metrics = "0.24"
 metrics-exporter-prometheus = { version = "0.18", default-features = false, features = ["http-listener"] }
 
+# Pin the unofficial bulk endpoint dependencies to the qualified Arrow release.
+arrow-array = "=60.0.0"
+arrow-ipc = { version = "=60.0.0", default-features = false }
+arrow-schema = "=60.0.0"
+
 # Crypto / TLS
 rustls = { version = "0.23", default-features = false, features = ["std", "logging", "aws_lc_rs", "tls12"] }
 rustls-pki-types = "1"

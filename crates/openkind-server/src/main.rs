@@ -33,7 +33,9 @@ use tonic::transport::Server;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
-use crate::args::{parse_grpc_addr, resolve_alias, Args, PlaygroundArg, Qwen35BackendArg};
+use crate::args::{
+    parse_grpc_addr, resolve_alias, Args, ArrowArg, PlaygroundArg, Qwen35BackendArg,
+};
 
 fn backend_from_arg(backend: Qwen35BackendArg) -> Qwen35Backend {
     match backend {
@@ -380,13 +382,15 @@ async fn main() -> Result<()> {
         openkind_api::RateLimiter::disabled()
     };
     let playground_enabled = matches!(args.playground, PlaygroundArg::On);
+    let arrow_enabled = matches!(args.arrow, ArrowArg::On);
     let http_handle = tokio::spawn(async move {
-        let router = http::router_daemon(
+        let router = http::router_daemon_with_arrow(
             http_state,
             http_auth,
             openkind_api::http::MAX_PAYLOAD_SIZE_BYTES,
             rate_limiter,
             playground_enabled,
+            arrow_enabled,
         );
         let listener = match TcpListener::bind(http_addr).await {
             Ok(l) => l,

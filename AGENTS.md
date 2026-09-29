@@ -19,7 +19,7 @@ curated open-weight Qwen 3.5 profile documented in
 - [`docs/ROADMAP.md`](docs/ROADMAP.md) owns milestone status. [`docs/RESEARCH.md`](docs/RESEARCH.md) and [`docs/whitepaper/WHITEPAPER.md`](docs/whitepaper/WHITEPAPER.md) own research evidence and scientific interpretation.
 - [`docs/MODEL_REGISTRY.md`](docs/MODEL_REGISTRY.md), [`docs/families/README.md`](docs/families/README.md), and [`docs/families/NEW_FAMILY.md`](docs/families/NEW_FAMILY.md) cover profiles, the catalog, and family qualification.
 - [`docs/MODELS.md`](docs/MODELS.md) indexes every loadable profile: model type, backbone, catalog pull names, backends, and measured runs. When a change edits `registry/v1` or lands a new loadable profile, update that page's model names and tables in the same change.
-- [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md), [`docs/MLX.md`](docs/MLX.md), and [`docs/JEV_COMPATIBILITY.md`](docs/JEV_COMPATIBILITY.md) cover measurement, MLX operations, and provider routes.
+- [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md), [`docs/MLX.md`](docs/MLX.md), and [`docs/JEV_COMPATIBILITY.md`](docs/JEV_COMPATIBILITY.md) cover measurement, MLX operations, and provider routes. [`docs/ARROW.md`](docs/ARROW.md) owns the unofficial, opt-in Arrow bulk endpoint; it is outside the TypeSafe wire contract.
 - [`bindings/README.md`](bindings/README.md) covers the TypeScript, Python, and Swift HTTP clients and server wrappers. Crate-specific instructions are linked in the workspace map below.
 
 Test the contract. If documentation disagrees with code, establish current

@@ -151,6 +151,16 @@ pub(crate) struct Args {
     )]
     pub(crate) playground: PlaygroundArg,
 
+    /// Serve the unofficial bulk Arrow IPC endpoint (`POST /v1/arrow`).
+    /// Outside the TypeSafe wire contract; see `docs/ARROW.md`.
+    #[arg(
+        long,
+        env = "OPENKIND_ARROW",
+        value_enum,
+        default_value_t = ArrowArg::Off
+    )]
+    pub(crate) arrow: ArrowArg,
+
     /// Log filter. Standard `tracing_subscriber::EnvFilter` syntax.
     #[arg(long, env = "RUST_LOG", default_value = "info")]
     pub(crate) log_filter: String,
@@ -162,6 +172,15 @@ pub(crate) enum PlaygroundArg {
     /// Serve the playground UI and explicit model load/unload controls.
     On,
     /// Do not serve the playground route.
+    Off,
+}
+
+/// CLI surface for `--arrow`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub(crate) enum ArrowArg {
+    /// Serve the unofficial `POST /v1/arrow` bulk Arrow IPC endpoint.
+    On,
+    /// Do not serve the Arrow endpoint.
     Off,
 }
 
@@ -254,6 +273,7 @@ mod tests {
         assert_eq!(args.api_key, None);
         assert_eq!(args.rate_limit_rpm, 120);
         assert_eq!(args.playground, PlaygroundArg::Off);
+        assert_eq!(args.arrow, ArrowArg::Off);
         assert_eq!(args.log_filter, "info");
         assert_eq!(args.qwen35_execution, ExecutionArg::Auto);
         assert_eq!(args.qwen35_backend, Qwen35BackendArg::NativeCpu);
@@ -279,6 +299,22 @@ mod tests {
             .find(|arg| arg.get_long() == Some("playground"))
             .expect("--playground argument");
         assert_eq!(arg.get_env(), Some(OsStr::new("OPENKIND_PLAYGROUND")));
+    }
+
+    #[test]
+    fn arrow_flag_parses_and_environment_alias_is_declared() {
+        let args = Args::try_parse_from(["openkindd", "--arrow", "on"]).unwrap();
+        assert_eq!(args.arrow, ArrowArg::On);
+
+        let off = Args::try_parse_from(["openkindd", "--arrow", "off"]).unwrap();
+        assert_eq!(off.arrow, ArrowArg::Off);
+
+        let command = Args::command();
+        let arg = command
+            .get_arguments()
+            .find(|arg| arg.get_long() == Some("arrow"))
+            .expect("--arrow argument");
+        assert_eq!(arg.get_env(), Some(OsStr::new("OPENKIND_ARROW")));
     }
 
     #[test]

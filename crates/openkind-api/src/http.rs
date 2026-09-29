@@ -6,6 +6,8 @@
 //! - `GET  /v1/models`     → list available model aliases (Jev shape)
 //! - `GET  /metrics`       → Prometheus scrape
 //! - `GET  /playground`    → embedded web UI, only with `--playground on`
+//! - `POST /v1/arrow`      → unofficial bulk Arrow IPC endpoint, only with
+//!   `--arrow on`; outside the TypeSafe wire contract (see [`crate::arrow`])
 //!
 //! Every response is stamped with `x-typesafe-request-id` (the SDK reads
 //! this to log per-request correlation), and `/v1/*` is gated by an
@@ -45,6 +47,7 @@ pub fn router_with_state_and_limit(
         max_payload_bytes,
         crate::middleware::RateLimiter::new(crate::middleware::RateLimitConfig::default()),
         false,
+        false,
     )
 }
 
@@ -55,7 +58,7 @@ pub fn router_with_state_auth_rate_limit(
     max_payload_bytes: usize,
     rate_limiter: crate::middleware::RateLimiter,
 ) -> Router {
-    router_full(state, auth, max_payload_bytes, rate_limiter, false)
+    router_full(state, auth, max_payload_bytes, rate_limiter, false, false)
 }
 
 /// Build the daemon HTTP router: explicit payload size limit, rate limiting,
@@ -68,7 +71,34 @@ pub fn router_daemon(
     rate_limiter: crate::middleware::RateLimiter,
     playground: bool,
 ) -> Router {
-    router_full(state, auth, max_payload_bytes, rate_limiter, playground)
+    router_full(
+        state,
+        auth,
+        max_payload_bytes,
+        rate_limiter,
+        playground,
+        false,
+    )
+}
+
+/// Build the daemon router with the unofficial Arrow endpoint explicitly enabled.
+/// `arrow = false` has the same behavior as [`router_daemon`].
+pub fn router_daemon_with_arrow(
+    state: AppState,
+    auth: AuthConfig,
+    max_payload_bytes: usize,
+    rate_limiter: crate::middleware::RateLimiter,
+    playground: bool,
+    arrow: bool,
+) -> Router {
+    router_full(
+        state,
+        auth,
+        max_payload_bytes,
+        rate_limiter,
+        playground,
+        arrow,
+    )
 }
 
 fn router_full(
@@ -77,6 +107,7 @@ fn router_full(
     max_payload_bytes: usize,
     rate_limiter: crate::middleware::RateLimiter,
     playground: bool,
+    arrow: bool,
 ) -> Router {
     let routes = Router::new()
         // POST /v1/systemone — canonical Jev decision evaluation endpoint.
@@ -99,6 +130,14 @@ fn router_full(
                 "/playground/api/models",
                 get(crate::playground::list_models).post(crate::playground::change_model),
             )
+    } else {
+        routes
+    };
+    // POST /v1/arrow: unofficial bulk Arrow IPC endpoint. Opt-in like the
+    // playground because it is outside the TypeSafe wire contract; it still
+    // sits behind the /v1 auth gate and rate limiter.
+    let routes = if arrow {
+        routes.route("/v1/arrow", post(crate::arrow::arrow_batch))
     } else {
         routes
     };

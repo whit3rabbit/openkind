@@ -76,6 +76,7 @@ Each variable also has an `OPENKIND_*` primary name: `OPENKIND_API_KEY`,
 | `OPENKIND_API_KEY` | Bearer token required for `/v1/*`; unset disables auth | unset |
 | `OPENKIND_RATE_LIMIT_RPM` | Per-client-IP request budget per minute on `/v1/*`; `0` disables | `120` |
 | `OPENKIND_PLAYGROUND` | Serve the embedded playground and local model controls (`on`/`off`) | `off` |
+| `OPENKIND_ARROW` | Serve the unofficial [Arrow bulk endpoint](ARROW.md) (`on`/`off`) | `off` |
 | `RUST_LOG` | Log filter, `tracing_subscriber::EnvFilter` syntax | `info` |
 
 ### Native Qwen3.5 engine

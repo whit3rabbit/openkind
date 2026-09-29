@@ -33,14 +33,25 @@ It defines:
   - Linked at `docs/openapi.yaml` and documented for TypeSafe Python SDK compatibility (`https://docs.typesafe.ai/sdk/python/api`).
   - Validated via `npx --yes @redocly/cli@1.34.5 lint docs/openapi.yaml`.
 - [`src/http.rs`](./src/http.rs):
-  - `router(registry)` / `router_with_auth(registry, auth)` / `router_with_state(state, auth)` / `router_daemon(state, auth, limit, rate_limiter, playground)`.
+  - `router(registry)` / `router_with_auth(registry, auth)` / `router_with_state(state, auth)` / `router_daemon(state, auth, limit, rate_limiter, playground)` / `router_daemon_with_arrow(state, auth, limit, rate_limiter, playground, arrow)`.
   - Routes:
     - `POST /v1/systemone` (aliased to `/v1/system_one`)
     - `GET  /v1/models`
     - `GET  /health`
     - `GET  /metrics`
     - `GET  /playground` — only when the daemon passes `playground = true` (`openkindd --playground on`)
+    - `POST /v1/arrow` — only when the daemon passes `arrow = true` (`openkindd --arrow on`)
   - Metrics initialization via `install_metrics_recorder()`.
+- [`src/arrow.rs`](./src/arrow.rs) & [`src/arrow_tests.rs`](./src/arrow_tests.rs):
+  - The unofficial bulk Arrow IPC endpoint (`POST /v1/arrow`), flag-gated and
+    outside the TypeSafe wire contract. JSON request (`model`, `states`,
+    `questions`) runs one sequential `dispatch` per state and encodes one row per
+    state as a schema-first Arrow IPC stream; [`docs/ARROW.md`](../../docs/ARROW.md)
+    owns the wire mapping and fixed byte/time limits. `src/arrow_columns.rs` builds numeric columns without retaining per-row
+    response text. `src/arrow_decoder.rs` validates schema and values.
+    `answers_from_batch` is the reference decoder that
+    reconstructs Jev answers from a batch; its round-trip tests are the
+    executable definition of the column mapping.
 - [`src/playground.rs`](./src/playground.rs) & [`assets/playground.html`](./assets/playground.html):
   - The embedded web playground: a single self-contained HTML file (inline CSS/JS, no external requests) served verbatim with `no-store`. Evaluation uses `/v1/systemone` and `/v1/models`. Opt-in `GET/POST /playground/api/models` delegates local model controls to the daemon through `PlaygroundModels`, outside the TypeSafe wire contract. Only the exact HTML route is public; model controls use the bearer gate and mutations require `x-openkind-playground: 1`.
 - [`src/http_tests.rs`](./src/http_tests.rs):
@@ -90,6 +101,16 @@ It defines:
    `/health` and `/metrics` must never be wrapped with `auth_layer`. Automated health probes and Prometheus scrapers must access them unauthenticated. The exact path `/playground` is exempt the same way: it is an inert HTML shell, and evaluation and model-control data still flow through gated routes (the UI collects an optional bearer key for those).
 4. **Playground Is Not in `openapi.yaml`** (deliberate):
    `GET /playground` is a flag-gated developer UI asset, not part of the TypeSafe wire contract, so it is intentionally absent from `openapi.yaml` and from the `tests/sdk_compat/openapi.rs` parity assertions. If you touch the playground route, keep that boundary: wire API changes belong in the spec; playground changes do not.
+5. **Arrow Endpoint Is Unofficial and Opt-In** (deliberate):
+   `POST /v1/arrow` shares the playground's boundary discipline: flag-gated
+   (`openkindd --arrow on`), absent from `openapi.yaml` and the OpenAPI parity
+   assertions, and never referenced by `tests/sdk_compat.rs`. It reuses the
+   `/v1/*` auth, rate-limit, and request-ID middleware, and maps errors through
+   the standard `ApiError` taxonomy: a failing bulk request must surface as the
+   usual JSON error envelope, never a partial Arrow stream. Wire mapping details
+   (column order, sorted labels, uint8 choice cap, metadata keys) are owned by
+   [`docs/ARROW.md`](../../docs/ARROW.md); keep `src/arrow.rs` and that page in
+   lockstep.
 
 ## Verification Commands
 
@@ -102,6 +123,9 @@ node --test crates/openkind-api/tests/playground.test.cjs
 
 # Run all API tests (unit tests, grpc roundtrip, and sdk compat)
 cargo test -p openkind-api
+
+# Run just the unofficial Arrow endpoint tests
+cargo test -p openkind-api --lib arrow
 
 # Run just the SDK compatibility contract
 cargo test -p openkind-api --test sdk_compat

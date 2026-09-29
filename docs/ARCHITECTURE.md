@@ -623,6 +623,9 @@ Two transports share the same validated engine behavior:
   - `GET /v1/models`
   - `GET /health`
   - `GET /metrics`
+  - `POST /v1/arrow` unofficial bulk Arrow IPC endpoint, opt-in via
+    `openkindd --arrow on` and documented in [`ARROW.md`](ARROW.md); it is
+    outside the TypeSafe wire contract
 - **gRPC** (`src/grpc.rs`)
   - one evaluate RPC through the same engine registry and semantic contract.
 
