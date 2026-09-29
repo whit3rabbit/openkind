@@ -63,6 +63,9 @@ pub(crate) fn build_summary(
              excludes model load (reported per strategy) and result writes; no warmup pass"
         },
         "peak_resident_bytes": peak_resident_bytes().ok(),
+        "host_hardware": serde_json::to_value(openkind_runtime::host_hardware())
+            .unwrap_or(Value::Null),
+        "context": context_limits(args.engine),
         "cross_strategy_answer_parity_clean": parity_clean,
         "strategies": strategy_reports,
         "notes": {
@@ -70,6 +73,9 @@ pub(crate) fn build_summary(
                             small rep counts are reported alongside as samples_seconds",
             "request_latency_ms": "latency is per request; grouped rows share their \
                                    request's latency and are not independent timings",
+            "cpu_time_seconds": "process-wide user+system CPU time diff across the timed \
+                                 region, excluding warmup and model load; \
+                                 avg_cpu_percent exceeds 100 when multiple threads run",
         },
     })
 }
@@ -82,6 +88,48 @@ pub(crate) fn write_json(path: &Path, value: &Value, pretty: bool) -> Result<()>
     };
     fs::write(path, body).with_context(|| format!("write {}", path.display()))?;
     Ok(())
+}
+
+/// Context-token limits the engine accepts, so request-path evidence can be
+/// compared across profiles with different frozen input budgets.
+fn context_limits(engine: EngineKind) -> Value {
+    match engine {
+        EngineKind::Qwen35 => json!({
+            "max_candidate_sequence_tokens": openkind_backends::qwen35::MAX_SEQUENCE_TOKENS,
+        }),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::Qwen35MlxFp32 | EngineKind::Qwen35MlxBf16 => json!({
+            "max_candidate_sequence_tokens": openkind_backends::qwen35::MAX_SEQUENCE_TOKENS,
+        }),
+        EngineKind::LayaEnglish => laya_context(&openkind_backends::families::laya::LAYA_ENGLISH),
+        EngineKind::LayaMultilingual => {
+            laya_context(&openkind_backends::families::laya::LAYA_MULTILINGUAL)
+        }
+        EngineKind::LayaTypedDecisions => {
+            laya_context(&openkind_backends::families::laya::LAYA_TYPED_DECISIONS)
+        }
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::LayaEnglishMlxFp32 => {
+            laya_context(&openkind_backends::families::laya::LAYA_ENGLISH)
+        }
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::LayaMultilingualMlxFp32 => {
+            laya_context(&openkind_backends::families::laya::LAYA_MULTILINGUAL)
+        }
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::LayaTypedDecisionsMlxFp32 => {
+            laya_context(&openkind_backends::families::laya::LAYA_TYPED_DECISIONS)
+        }
+        _ => Value::Null,
+    }
+}
+
+/// Frozen per-sequence input budgets of one laya profile.
+fn laya_context(profile: &openkind_backends::families::laya::LayaProfile) -> Value {
+    json!({
+        "max_sequence_tokens": profile.max_sequence_tokens,
+        "head_max_len_tokens": profile.head_max_len,
+    })
 }
 
 fn model_revision(args: &ScoreArgs) -> Value {

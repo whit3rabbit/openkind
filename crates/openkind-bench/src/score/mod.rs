@@ -52,6 +52,48 @@ pub use types::{
 
 use crate::workload;
 
+/// Load the pinned laya engine for one `EngineKind`, choosing the MLX
+/// backend for the `-mlx-fp32` kinds (feature `mlx`, macOS arm64) and the
+/// candle CPU backend otherwise.
+fn load_laya_engine(
+    engine: EngineKind,
+    model_root: std::path::PathBuf,
+    limits: FamilyLimits,
+) -> Result<Arc<dyn DecisionEngine>> {
+    use openkind_backends::families::laya;
+    let (profile, mlx) = match engine {
+        EngineKind::LayaEnglish => (&laya::LAYA_ENGLISH, false),
+        EngineKind::LayaMultilingual => (&laya::LAYA_MULTILINGUAL, false),
+        EngineKind::LayaTypedDecisions => (&laya::LAYA_TYPED_DECISIONS, false),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::LayaEnglishMlxFp32 => (&laya::LAYA_ENGLISH, true),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::LayaMultilingualMlxFp32 => (&laya::LAYA_MULTILINGUAL, true),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::LayaTypedDecisionsMlxFp32 => (&laya::LAYA_TYPED_DECISIONS, true),
+        _ => unreachable!("non-laya engine reached the laya loader"),
+    };
+    if mlx {
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        return Ok(Arc::new(
+            laya::LayaMlxEngine::load(laya::LayaMlxEngineConfig {
+                profile,
+                model_root,
+                limits,
+            })
+            .map_err(|error| anyhow::anyhow!("load {} mlx engine: {error}", profile.loader_id))?,
+        ) as Arc<dyn DecisionEngine>);
+    }
+    Ok(Arc::new(
+        laya::LayaEngine::load(laya::LayaEngineConfig {
+            profile,
+            model_root,
+            limits,
+        })
+        .map_err(|error| anyhow::anyhow!("load {} engine: {error}", profile.loader_id))?,
+    ))
+}
+
 /// Execute one scoring run.
 ///
 /// # Errors
@@ -154,33 +196,32 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
                 })
                 .map_err(|error| anyhow::anyhow!("load decoder-logit-qwen35 engine: {error}"))?,
             ),
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::LayaEnglishMlxFp32
+            | EngineKind::LayaMultilingualMlxFp32
+            | EngineKind::LayaTypedDecisionsMlxFp32
+            | EngineKind::LayaEnglish
+            | EngineKind::LayaMultilingual
+            | EngineKind::LayaTypedDecisions => {
+                let limits = FamilyLimits {
+                    max_concurrent_requests: 1,
+                    max_queued_requests: 0,
+                    retry_after_ms: 250,
+                    evaluation_timeout: None,
+                };
+                load_laya_engine(args.engine, model_root.expect("gated").clone(), limits)?
+            }
+            #[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
             EngineKind::LayaEnglish
             | EngineKind::LayaMultilingual
             | EngineKind::LayaTypedDecisions => {
-                let profile = match args.engine {
-                    EngineKind::LayaEnglish => &openkind_backends::families::laya::LAYA_ENGLISH,
-                    EngineKind::LayaMultilingual => {
-                        &openkind_backends::families::laya::LAYA_MULTILINGUAL
-                    }
-                    _ => &openkind_backends::families::laya::LAYA_TYPED_DECISIONS,
+                let limits = FamilyLimits {
+                    max_concurrent_requests: 1,
+                    max_queued_requests: 0,
+                    retry_after_ms: 250,
+                    evaluation_timeout: None,
                 };
-                Arc::new(
-                    openkind_backends::families::laya::LayaEngine::load(
-                        openkind_backends::families::laya::LayaEngineConfig {
-                            profile,
-                            model_root: model_root.expect("gated").clone(),
-                            limits: FamilyLimits {
-                                max_concurrent_requests: 1,
-                                max_queued_requests: 0,
-                                retry_after_ms: 250,
-                                evaluation_timeout: None,
-                            },
-                        },
-                    )
-                    .map_err(|error| {
-                        anyhow::anyhow!("load {} engine: {error}", profile.loader_id)
-                    })?,
-                )
+                load_laya_engine(args.engine, model_root.expect("gated").clone(), limits)?
             }
             EngineKind::EncoderNli => Arc::new(
                 EncoderNliEngine::load(EncoderNliEngineConfig {

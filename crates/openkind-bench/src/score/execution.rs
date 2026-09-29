@@ -41,6 +41,10 @@ pub(crate) async fn run_strategy_pass(
         eprintln!("[bench] strategy {} warmup complete", pass.label);
     }
 
+    // CPU accounting starts after warmup so the measured region excludes
+    // setup work, matching the timing scope.
+    let cpu_started = openkind_runtime::cpu_time_seconds().ok();
+
     for rep in 0..args.reps {
         let rep_started = Instant::now();
         for (sequence_index, group) in groups.iter().enumerate() {
@@ -94,6 +98,13 @@ pub(crate) async fn run_strategy_pass(
     sorted_totals.sort_by(|left, right| left.total_cmp(right));
     let p50 = sorted_totals[sorted_totals.len() / 2];
     let p95 = sorted_totals[(0.95 * sorted_totals.len() as f64).ceil() as usize - 1];
+    let timed_wall_seconds: f64 = rep_totals.iter().sum();
+    let cpu_time_seconds = cpu_started
+        .zip(openkind_runtime::cpu_time_seconds().ok())
+        .map(|(started, ended)| (ended - started).max(0.0));
+    let avg_cpu_percent = cpu_time_seconds
+        .filter(|_| timed_wall_seconds > 0.0)
+        .map(|cpu| 100.0 * cpu / timed_wall_seconds);
     let forced = pass.forced.map(|spec| match spec {
         StrategySpec::ChooseStrategy => json!({ "strategy": "choose_strategy" }),
         StrategySpec::Forced(strategy) => json!({ "strategy": strategy.as_str() }),
@@ -109,6 +120,9 @@ pub(crate) async fn run_strategy_pass(
         "p95_seconds": p95,
         "decisions_per_second": decisions as f64 / p50,
         "input_tokens_total": input_tokens_total,
+        "input_tokens_per_second": input_tokens_total as f64 / p50,
+        "cpu_time_seconds": cpu_time_seconds,
+        "avg_cpu_percent": avg_cpu_percent,
     });
 
     if args.history_aba {

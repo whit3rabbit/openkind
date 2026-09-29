@@ -128,6 +128,13 @@ public final class OpenKindServer {
         }
     }
 
+    /// Synchronous quit hook for an app that is already terminating.
+    public func terminate() {
+        guard let child = process else { return }
+        process = nil
+        if child.isRunning { Darwin.kill(child.processIdentifier, SIGTERM) }
+    }
+
     private static func portIsFree(_ port: UInt16) -> Bool {
         let descriptor = Darwin.socket(AF_INET, SOCK_STREAM, 0)
         guard descriptor >= 0 else { return false }

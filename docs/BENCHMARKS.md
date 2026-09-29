@@ -265,8 +265,15 @@ does not change the service or automatic scheduler.
   (profile id, model revision, bundle version, fixture digest, host, commit),
   per-strategy prediction SHA-256 and warmup flag,
   per-strategy `samples_seconds` / `p50_seconds` / `p95_seconds` /
-  `decisions_per_second` / `input_tokens_total`, peak resident bytes, and
-  `cross_strategy_answer_parity_clean`.
+  `decisions_per_second` / `input_tokens_total` / `cpu_time_seconds` /
+  `avg_cpu_percent`, peak resident bytes, a `host_hardware` block
+  (model identifier, CPU brand, logical cores, total memory), a `context`
+  block with the engine's frozen per-sequence token budgets, and
+  `cross_strategy_answer_parity_clean`. CPU fields diff process-wide
+  user+system time across the timed region only; percentages exceed 100
+  when multiple threads run. `scripts/build-recommendation-data.py`
+  aggregates summaries into the recommendation dataset used by
+  model-recommendation work.
 - `predictions-<engine>-<strategy>.jsonl` — one row per decision: id,
   strategy, group size, request latency, and the full typed answer
   (probabilities are wire-precision `f64`).
@@ -435,6 +442,75 @@ same workload; the mmBERT-base profile is the fastest full-precision encoder
 record at 5.13 dec/s. Peak RSS covers the fp16-shard mmap upcast to fp32
 weights plus forward scratch.
 
+### Laya MLX encoder-backend records (2026-09-28)
+
+First campaign for the laya family's MLX/Metal backend
+(`families/laya/mlx/`, feature `mlx`): the same digest-locked pinned
+checkpoints executed as mlx-rs FP32 arrays, with the candle CPU engines
+re-run in the same binary so both backends share one telemetry schema
+(including per-strategy `input_tokens_per_second`). Standard shape777
+workload (same sha256, 777 rows, 37 state groups, `--reps 1`, warm
+process); host and attribution match the records above; commit `b8c80ae`
+at run time. Parity is frozen in `tests/laya_parity.rs` module
+`mlx_replay`: golden-fixture replay per profile with zero selection flips
+and maximum probability drift 2.5–7.2e-6 (budget 0.005).
+
+| Engine | p50 request | Decisions/s | Input tokens/s | Peak RSS | Model load |
+|---|---:|---:|---:|---:|---:|
+| `laya-english` (candle CPU fp32) | 348.16 s | 2.23 | 455 | 2.75 GB | 1.84 s |
+| `laya-english-mlx-fp32` | 31.93 s | 24.34 | 4,964 | 2.12 GB | 2.77 s |
+| `laya-multilingual` (candle CPU fp32) | 146.64 s | 5.30 | 1,075 | 2.80 GB | 1.95 s |
+| `laya-multilingual-mlx-fp32` | 13.78 s | 56.37 | 11,431 | 2.94 GB | 3.54 s |
+| `laya-typed-decisions` (candle CPU fp32) | 333.72 s | 2.33 | 475 | 2.76 GB | 1.83 s |
+| `laya-typed-decisions-mlx-fp32` | 32.68 s | 23.77 | 4,849 | 2.13 GB | 2.87 s |
+
+The MLX backend is ~10.2–10.9× faster than the candle CPU path on every
+profile at equal or lower peak RSS, with sub-one-core average CPU
+utilization (66.9–90.4%) while the GPU computes. Context budgets are
+backend-independent (512/192 and 1024/256). Request-path timing only —
+task quality is not claimed, and the parity gates cover readout agreement
+with the CPU oracle, not decision accuracy. Recorded in
+[`benchmarks/2026-09-28-laya-mlx-campaign/`](./benchmarks/2026-09-28-laya-mlx-campaign/README.md).
+
+### Registry MLX-preferred campaign (2026-09-28)
+
+One `openkind-bench score` campaign over all four
+[`registry/v1`](../registry/v1/catalog.json) catalog models on the standard
+shape777 workload, choosing a parity-qualified MLX path where one exists and
+CPU otherwise; runs 13:40–19:00 on the same host as the records above. This
+campaign introduced the summary telemetry the tables below now carry:
+per-strategy `cpu_time_seconds` / `avg_cpu_percent` (timed region only), a
+`host_hardware` block, and per-engine `context` token budgets. Full tables,
+the cross-strategy parity investigation, and the machine-readable
+[`recommendation-data.json`](./benchmarks/2026-09-28-registry-mlx-campaign/recommendation-data.json)
+are in the campaign README. Early summaries carry a `d80c685` commit label
+from a stale snapshot; the actual HEAD at run time was `b8c80ae` (the
+campaign README carries the correction).
+
+`qwen35-state-first` (`a047d6802c3f06f085b8`), pinned
+`Qwen/Qwen3.5-4B-Base` @ `1001bb4d…`:
+
+| Backend / strategy | p50 request | Decisions/s | Avg CPU % | Peak RSS | Model load |
+|---|---:|---:|---:|---:|---:|
+| `qwen35-mlx-fp32` `nested_batched` (qualified) | 314.20 s | 2.473 | 98.7 | 12.09 GB | 20.69 s |
+| `qwen35-mlx-fp32` `choose_strategy` (qualified) | 316.10 s | 2.458 | 82.0 | 12.09 GB | 20.74 s |
+| `qwen35-mlx-fp32` `repeated_full` (qualified) | 2411.66 s | 0.322 | 130.3 | 12.09 GB | 22.48 s |
+| `qwen35-mlx-bf16` `repeated_full` (unqualified candidate) | 2184.99 s | 0.356 | 121.0 | 4.86 GB | 19.26 s |
+| `qwen35-native-cpu` `choose_strategy` | 3531.83 s | 0.220 | 103.9 | 18.62 GB | 16.51 s |
+
+The qualified MLX FP32 path is ~11.2× faster than the CPU oracle on the same
+workload and strategy decision (316.10 s vs 3531.83 s `choose_strategy`) at
+12.09 GB against 18.62 GB peak RSS. The BF16 candidate adds little fresh
+scoring speed (~1.10×) but holds 2.5× less memory; it remains gated out of
+decision use. The MLX sweep's cross-strategy wire comparison is not
+byte-exact: maximum scalar/probability delta 3.12e-05 over all 777 answers
+with zero argmax and zero selected-option changes — the bounded numerical
+divergence documented in the 21 September smoke record, not a parity-gate
+failure. The laya rows (CPU from this campaign, MLX from the concurrent laya
+campaign above) and the per-model MLX verdicts are in the campaign README.
+Recorded in
+[`benchmarks/2026-09-28-registry-mlx-campaign/`](./benchmarks/2026-09-28-registry-mlx-campaign/README.md).
+
 ### Decoder-logit-qwen35 smoke record (2026-09-27)
 
 One `openkind-bench score` run for the pinned
@@ -464,6 +540,8 @@ including a 17-option knockout question and a JSON-object evidence payload.
 
 | Record | Engine | Status |
 |---|---|---|
+| [`benchmarks/2026-09-28-laya-mlx-campaign/`](./benchmarks/2026-09-28-laya-mlx-campaign/) | laya-english-mlx-fp32, laya-multilingual-mlx-fp32, laya-typed-decisions-mlx-fp32 (+ candle CPU re-runs) | Complete — first MLX encoder-backend campaign on the standard shape777 workload with frozen golden-fixture parity gates (max probability drift 7.2e-6, zero selection flips); request-path timing only, no model-quality claim; see the laya section below |
+| [`benchmarks/2026-09-28-registry-mlx-campaign/`](./benchmarks/2026-09-28-registry-mlx-campaign/) | qwen35-mlx-fp32, qwen35-mlx-bf16 (unqualified candidate), qwen35-native-cpu, laya CPU ×3 | Complete — registry-wide MLX-preferred campaign over all four catalog models on the standard shape777 workload with the new CPU/host/context telemetry and recommendation dataset; see the registry-campaign section above |
 | [`benchmarks/2026-09-27-decoder-logit-qwen35/`](./benchmarks/2026-09-27-decoder-logit-qwen35/) | decoder-logit-qwen35 | Complete — smoke-scale single-state record for the JevK5 profile with reference-parity fixture; request-path timing only, no model-quality claim; see the smoke-record section above |
 | [`benchmarks/2026-09-27-laya/`](./benchmarks/2026-09-27-laya/) | laya-english, laya-multilingual, laya-typed-decisions | Complete — single-shot decision-encoder records on the standard shape777 workload with reference-parity fixtures; request-path timing only, no model-quality claim; see the laya section below |
 | [`benchmarks/2026-09-27-python-flat-field/`](./benchmarks/2026-09-27-python-flat-field/) | qwen35-mlx-fp32 | Negative diagnostic: Rust shared-root flat field batching was 6% to 64% slower than nested batching across paired Q2/K2 and Q8/K4 compute runs; no scheduler promotion |

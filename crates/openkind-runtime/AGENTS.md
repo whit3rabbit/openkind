@@ -36,6 +36,9 @@ It defines:
   - `DeviceType`: `Cpu`, `Metal { device_id }`, `Cuda { device_id }`.
   - `RuntimeConfig`: Configuration for target device, memory limits, and worker thread pool.
   - `detect_available_devices()`: Enumerates host acceleration targets.
+- [`src/hardware.rs`](./src/hardware.rs):
+  - `host_hardware()`: macOS `sysctl` host observation (model identifier, CPU brand, logical cores, total memory) recorded with benchmark evidence.
+  - `cpu_time_seconds()`: cumulative process-wide user+system CPU time; callers diff two observations around a measured region.
 - [`src/memory.rs`](./src/memory.rs):
   - `peak_resident_bytes()`: Queries the OS `getrusage` high-water mark. macOS reports bytes; other Unix targets are converted from KiB. It is peak RSS, not current RSS.
 - [`src/execution.rs`](./src/execution.rs):

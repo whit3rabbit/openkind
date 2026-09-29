@@ -168,17 +168,31 @@ async fn models_response_shape_and_unknown_fields() {
 // ---------------------------------------------------------------------
 #[tokio::test]
 async fn invalid_models_response_is_decode_error() {
-    for body in [
-        json!({}),                                 // missing "models"
-        json!({"models": [{"description": "x"}]}), // missing "name"
-        json!({"models": {"name": "x"}}),          // wrong shape
-        json!({"models": [{"name": 1}]}),          // wrong type
+    // (body, expected message fragment) — the fragment pins which field the
+    // decode error names, the closest Rust behavior to the Python SDK's
+    // `test_nested_missing_field_path` field-path assertion.
+    for (body, message_fragment) in [
+        (json!({}), None), // missing "models"
+        (
+            json!({"models": [{"description": "x"}]}),
+            Some("missing field `name`"),
+        ), // missing "name"
+        (json!({"models": {"name": "x"}}), None), // wrong shape
+        (json!({"models": [{"name": 1}]}), None), // wrong type
     ] {
         let expected = body.clone();
         let (url, _requests) = spawn(move |_| Outcome::success(expected.clone())).await;
         let client = client(&url, no_retries());
         match client.list_models().await.unwrap_err() {
-            Error::Decode { status, .. } => assert_eq!(status, 200),
+            err @ Error::Decode { status, .. } => {
+                assert_eq!(status, 200);
+                if let Some(fragment) = message_fragment {
+                    assert!(
+                        err.to_string().contains(fragment),
+                        "expected `{fragment}` in {err}"
+                    );
+                }
+            }
             other => panic!("expected Decode for {body}, got {other:?}"),
         }
     }

@@ -1,0 +1,490 @@
+{
+  "schema": "openkind-recommendation-data/v1",
+  "campaign": "2026-09-28-registry-mlx-campaign",
+  "scope": "request-path timing, memory, CPU, and context evidence per registry profile and executable backend; no model-quality claim",
+  "host_hardware": {
+    "cpu_brand": "Apple M4 Max",
+    "logical_cores": 14,
+    "model": "Mac16,5",
+    "total_memory_bytes": 38654705664
+  },
+  "models": [
+    {
+      "engine": "qwen35-mlx-fp32",
+      "profile_id": "a047d6802c3f06f085b8",
+      "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+      "support_label": "parity-qualified",
+      "summary_file": "docs/benchmarks/2026-09-28-registry-mlx-campaign/summary-qwen35-mlx-fp32.json",
+      "commit": "d80c685",
+      "host": "openkind-mac-arm64-local",
+      "host_hardware": {
+        "cpu_brand": "Apple M4 Max",
+        "logical_cores": 14,
+        "model": "Mac16,5",
+        "total_memory_bytes": 38654705664
+      },
+      "context": {
+        "max_candidate_sequence_tokens": 1792
+      },
+      "workload": {
+        "sha256": "be397bfc48209c8f7379d0d76ccbe3d3e7dca3269724928f0868cf872f4c8b01",
+        "rows": 777,
+        "groups": 37
+      },
+      "grouping": "per-state",
+      "reps": 1,
+      "peak_resident_bytes": 12089131008,
+      "primary": {
+        "strategy": "choose_strategy",
+        "p50_seconds": 316.096522291,
+        "p95_seconds": 316.096522291,
+        "decisions_per_second": 2.4581099291079513,
+        "input_tokens_total": 47753,
+        "cpu_time_seconds": 259.1514389999993,
+        "avg_cpu_percent": 81.98490673726022,
+        "model_load_seconds": 20.741536583
+      },
+      "strategies": [
+        {
+          "strategy": "repeated_full",
+          "p50_seconds": 2411.660613625,
+          "p95_seconds": 2411.660613625,
+          "decisions_per_second": 0.32218463726207336,
+          "input_tokens_total": 47753,
+          "cpu_time_seconds": 3142.7664700000005,
+          "avg_cpu_percent": 130.31545368550283,
+          "model_load_seconds": 22.478842042
+        },
+        {
+          "strategy": "nested_sequential",
+          "p50_seconds": 316.775396917,
+          "p95_seconds": 316.775396917,
+          "decisions_per_second": 2.4528420059200045,
+          "input_tokens_total": 47753,
+          "cpu_time_seconds": 258.4869780000008,
+          "avg_cpu_percent": 81.5994488573645,
+          "model_load_seconds": 20.926944042
+        },
+        {
+          "strategy": "nested_batched",
+          "p50_seconds": 314.197553541,
+          "p95_seconds": 314.197553541,
+          "decisions_per_second": 2.4729664226956127,
+          "input_tokens_total": 47753,
+          "cpu_time_seconds": 309.9702260000013,
+          "avg_cpu_percent": 98.65456382668903,
+          "model_load_seconds": 20.689434625
+        },
+        {
+          "strategy": "choose_strategy",
+          "p50_seconds": 316.096522291,
+          "p95_seconds": 316.096522291,
+          "decisions_per_second": 2.4581099291079513,
+          "input_tokens_total": 47753,
+          "cpu_time_seconds": 259.1514389999993,
+          "avg_cpu_percent": 81.98490673726022,
+          "model_load_seconds": 20.741536583
+        }
+      ],
+      "registry_name": "qwen35-state-first:a047d6802c3f06f085b8"
+    },
+    {
+      "engine": "qwen35-mlx-bf16",
+      "profile_id": "a047d6802c3f06f085b8",
+      "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+      "support_label": "unqualified-candidate",
+      "summary_file": "docs/benchmarks/2026-09-28-registry-mlx-campaign/summary-qwen35-mlx-bf16.json",
+      "commit": "b8c80ae",
+      "host": "openkind-mac-arm64-local",
+      "host_hardware": {
+        "cpu_brand": "Apple M4 Max",
+        "logical_cores": 14,
+        "model": "Mac16,5",
+        "total_memory_bytes": 38654705664
+      },
+      "context": {
+        "max_candidate_sequence_tokens": 1792
+      },
+      "workload": {
+        "sha256": "be397bfc48209c8f7379d0d76ccbe3d3e7dca3269724928f0868cf872f4c8b01",
+        "rows": 777,
+        "groups": 37
+      },
+      "grouping": "per-state",
+      "reps": 1,
+      "peak_resident_bytes": 4856348672,
+      "primary": {
+        "strategy": "repeated_full",
+        "p50_seconds": 2184.987395875,
+        "p95_seconds": 2184.987395875,
+        "decisions_per_second": 0.35560845864231755,
+        "input_tokens_total": 47753,
+        "cpu_time_seconds": 2643.5079800000003,
+        "avg_cpu_percent": 120.98504481035603,
+        "model_load_seconds": 19.259615042
+      },
+      "strategies": [
+        {
+          "strategy": "repeated_full",
+          "p50_seconds": 2184.987395875,
+          "p95_seconds": 2184.987395875,
+          "decisions_per_second": 0.35560845864231755,
+          "input_tokens_total": 47753,
+          "cpu_time_seconds": 2643.5079800000003,
+          "avg_cpu_percent": 120.98504481035603,
+          "model_load_seconds": 19.259615042
+        }
+      ],
+      "registry_name": "qwen35-state-first:a047d6802c3f06f085b8"
+    },
+    {
+      "engine": "qwen35-native-cpu",
+      "profile_id": "a047d6802c3f06f085b8",
+      "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+      "support_label": "recorded",
+      "summary_file": "docs/benchmarks/2026-09-28-registry-mlx-campaign/summary-qwen35.json",
+      "commit": "d80c685",
+      "host": "openkind-mac-arm64-local",
+      "host_hardware": {
+        "cpu_brand": "Apple M4 Max",
+        "logical_cores": 14,
+        "model": "Mac16,5",
+        "total_memory_bytes": 38654705664
+      },
+      "context": {
+        "max_candidate_sequence_tokens": 1792
+      },
+      "workload": {
+        "sha256": "be397bfc48209c8f7379d0d76ccbe3d3e7dca3269724928f0868cf872f4c8b01",
+        "rows": 777,
+        "groups": 37
+      },
+      "grouping": "per-state",
+      "reps": 1,
+      "peak_resident_bytes": 18624626688,
+      "primary": {
+        "strategy": "choose_strategy",
+        "p50_seconds": 3531.829095167,
+        "p95_seconds": 3531.829095167,
+        "decisions_per_second": 0.21999932020019222,
+        "input_tokens_total": 47753,
+        "cpu_time_seconds": 3670.4682489999996,
+        "avg_cpu_percent": 103.92542079747615,
+        "model_load_seconds": 16.509975541
+      },
+      "strategies": [
+        {
+          "strategy": "choose_strategy",
+          "p50_seconds": 3531.829095167,
+          "p95_seconds": 3531.829095167,
+          "decisions_per_second": 0.21999932020019222,
+          "input_tokens_total": 47753,
+          "cpu_time_seconds": 3670.4682489999996,
+          "avg_cpu_percent": 103.92542079747615,
+          "model_load_seconds": 16.509975541
+        }
+      ],
+      "registry_name": "qwen35-state-first:a047d6802c3f06f085b8"
+    },
+    {
+      "engine": "laya",
+      "profile_id": "c8ea29bf1e33a343c4b7",
+      "model_revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+      "support_label": "reference-parity-readout",
+      "summary_file": "docs/benchmarks/2026-09-28-registry-mlx-campaign/summary-laya-english.json",
+      "commit": "d80c685",
+      "host": "openkind-mac-arm64-local",
+      "host_hardware": {
+        "cpu_brand": "Apple M4 Max",
+        "logical_cores": 14,
+        "model": "Mac16,5",
+        "total_memory_bytes": 38654705664
+      },
+      "context": {
+        "head_max_len_tokens": 192,
+        "max_sequence_tokens": 512
+      },
+      "workload": {
+        "sha256": "be397bfc48209c8f7379d0d76ccbe3d3e7dca3269724928f0868cf872f4c8b01",
+        "rows": 777,
+        "groups": 37
+      },
+      "grouping": "per-state",
+      "reps": 1,
+      "peak_resident_bytes": 2749235200,
+      "primary": {
+        "strategy": "laya-english",
+        "p50_seconds": 313.674564375,
+        "p95_seconds": 313.674564375,
+        "decisions_per_second": 2.477089596181256,
+        "input_tokens_total": 158475,
+        "cpu_time_seconds": 385.24618699999996,
+        "avg_cpu_percent": 122.81715853104228,
+        "model_load_seconds": 1.761535708
+      },
+      "strategies": [
+        {
+          "strategy": "laya-english",
+          "p50_seconds": 313.674564375,
+          "p95_seconds": 313.674564375,
+          "decisions_per_second": 2.477089596181256,
+          "input_tokens_total": 158475,
+          "cpu_time_seconds": 385.24618699999996,
+          "avg_cpu_percent": 122.81715853104228,
+          "model_load_seconds": 1.761535708
+        }
+      ],
+      "registry_name": "laya-english:c8ea29bf1e33a343c4b7"
+    },
+    {
+      "engine": "laya",
+      "profile_id": "f4064eb56fb7f7d325e1",
+      "model_revision": "e4e9ddf21a7b1903b7acffd8814ad4307bf63a67",
+      "support_label": "reference-parity-readout",
+      "summary_file": "docs/benchmarks/2026-09-28-registry-mlx-campaign/summary-laya-multilingual.json",
+      "commit": "d80c685",
+      "host": "openkind-mac-arm64-local",
+      "host_hardware": {
+        "cpu_brand": "Apple M4 Max",
+        "logical_cores": 14,
+        "model": "Mac16,5",
+        "total_memory_bytes": 38654705664
+      },
+      "context": {
+        "head_max_len_tokens": 256,
+        "max_sequence_tokens": 1024
+      },
+      "workload": {
+        "sha256": "be397bfc48209c8f7379d0d76ccbe3d3e7dca3269724928f0868cf872f4c8b01",
+        "rows": 777,
+        "groups": 37
+      },
+      "grouping": "per-state",
+      "reps": 1,
+      "peak_resident_bytes": 2801057792,
+      "primary": {
+        "strategy": "laya-multilingual",
+        "p50_seconds": 133.447166542,
+        "p95_seconds": 133.447166542,
+        "decisions_per_second": 5.822529021292137,
+        "input_tokens_total": 157566,
+        "cpu_time_seconds": 156.39673600000003,
+        "avg_cpu_percent": 117.19749474843822,
+        "model_load_seconds": 1.784356291
+      },
+      "strategies": [
+        {
+          "strategy": "laya-multilingual",
+          "p50_seconds": 133.447166542,
+          "p95_seconds": 133.447166542,
+          "decisions_per_second": 5.822529021292137,
+          "input_tokens_total": 157566,
+          "cpu_time_seconds": 156.39673600000003,
+          "avg_cpu_percent": 117.19749474843822,
+          "model_load_seconds": 1.784356291
+        }
+      ],
+      "registry_name": "laya-multilingual:f4064eb56fb7f7d325e1"
+    },
+    {
+      "engine": "laya",
+      "profile_id": "9d28cfa9567902801ed1",
+      "model_revision": "1a793eb568e6718f15941d08f85432581df534e3",
+      "support_label": "reference-parity-readout",
+      "summary_file": "docs/benchmarks/2026-09-28-registry-mlx-campaign/summary-laya-typed-decisions.json",
+      "commit": "d80c685",
+      "host": "openkind-mac-arm64-local",
+      "host_hardware": {
+        "cpu_brand": "Apple M4 Max",
+        "logical_cores": 14,
+        "model": "Mac16,5",
+        "total_memory_bytes": 38654705664
+      },
+      "context": {
+        "head_max_len_tokens": 256,
+        "max_sequence_tokens": 1024
+      },
+      "workload": {
+        "sha256": "be397bfc48209c8f7379d0d76ccbe3d3e7dca3269724928f0868cf872f4c8b01",
+        "rows": 777,
+        "groups": 37
+      },
+      "grouping": "per-state",
+      "reps": 1,
+      "peak_resident_bytes": 2759262208,
+      "primary": {
+        "strategy": "laya-typed-decisions",
+        "p50_seconds": 313.346111792,
+        "p95_seconds": 313.346111792,
+        "decisions_per_second": 2.4796861067029123,
+        "input_tokens_total": 158475,
+        "cpu_time_seconds": 385.12968700000005,
+        "avg_cpu_percent": 122.9087173916012,
+        "model_load_seconds": 1.780980834
+      },
+      "strategies": [
+        {
+          "strategy": "laya-typed-decisions",
+          "p50_seconds": 313.346111792,
+          "p95_seconds": 313.346111792,
+          "decisions_per_second": 2.4796861067029123,
+          "input_tokens_total": 158475,
+          "cpu_time_seconds": 385.12968700000005,
+          "avg_cpu_percent": 122.9087173916012,
+          "model_load_seconds": 1.780980834
+        }
+      ],
+      "registry_name": "laya-typed-decisions:9d28cfa9567902801ed1"
+    },
+    {
+      "engine": "laya",
+      "profile_id": "c8ea29bf1e33a343c4b7",
+      "model_revision": "55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851",
+      "support_label": "reference-parity-readout",
+      "summary_file": "docs/benchmarks/2026-09-28-laya-mlx-campaign/summary-laya-english-mlx-fp32.json",
+      "commit": "b8c80ae",
+      "host": "openkind-mac-arm64-local",
+      "host_hardware": {
+        "cpu_brand": "Apple M4 Max",
+        "logical_cores": 14,
+        "model": "Mac16,5",
+        "total_memory_bytes": 38654705664
+      },
+      "context": {
+        "head_max_len_tokens": 192,
+        "max_sequence_tokens": 512
+      },
+      "workload": {
+        "sha256": "be397bfc48209c8f7379d0d76ccbe3d3e7dca3269724928f0868cf872f4c8b01",
+        "rows": 777,
+        "groups": 37
+      },
+      "grouping": "per-state",
+      "reps": 1,
+      "peak_resident_bytes": 2123366400,
+      "primary": {
+        "strategy": "laya-english-mlx-fp32",
+        "p50_seconds": 31.926868833,
+        "p95_seconds": 31.926868833,
+        "decisions_per_second": 24.33686823672741,
+        "input_tokens_total": 158475,
+        "cpu_time_seconds": 21.364201,
+        "avg_cpu_percent": 66.91605466151351,
+        "model_load_seconds": 2.772958417
+      },
+      "strategies": [
+        {
+          "strategy": "laya-english-mlx-fp32",
+          "p50_seconds": 31.926868833,
+          "p95_seconds": 31.926868833,
+          "decisions_per_second": 24.33686823672741,
+          "input_tokens_total": 158475,
+          "cpu_time_seconds": 21.364201,
+          "avg_cpu_percent": 66.91605466151351,
+          "model_load_seconds": 2.772958417
+        }
+      ],
+      "registry_name": "laya-english:c8ea29bf1e33a343c4b7"
+    },
+    {
+      "engine": "laya",
+      "profile_id": "f4064eb56fb7f7d325e1",
+      "model_revision": "e4e9ddf21a7b1903b7acffd8814ad4307bf63a67",
+      "support_label": "reference-parity-readout",
+      "summary_file": "docs/benchmarks/2026-09-28-laya-mlx-campaign/summary-laya-multilingual-mlx-fp32.json",
+      "commit": "b8c80ae",
+      "host": "openkind-mac-arm64-local",
+      "host_hardware": {
+        "cpu_brand": "Apple M4 Max",
+        "logical_cores": 14,
+        "model": "Mac16,5",
+        "total_memory_bytes": 38654705664
+      },
+      "context": {
+        "head_max_len_tokens": 256,
+        "max_sequence_tokens": 1024
+      },
+      "workload": {
+        "sha256": "be397bfc48209c8f7379d0d76ccbe3d3e7dca3269724928f0868cf872f4c8b01",
+        "rows": 777,
+        "groups": 37
+      },
+      "grouping": "per-state",
+      "reps": 1,
+      "peak_resident_bytes": 2942009344,
+      "primary": {
+        "strategy": "laya-multilingual-mlx-fp32",
+        "p50_seconds": 13.783757958,
+        "p95_seconds": 13.783757958,
+        "decisions_per_second": 56.37069385341567,
+        "input_tokens_total": 157566,
+        "cpu_time_seconds": 12.465422,
+        "avg_cpu_percent": 90.43558395310586,
+        "model_load_seconds": 3.542408333
+      },
+      "strategies": [
+        {
+          "strategy": "laya-multilingual-mlx-fp32",
+          "p50_seconds": 13.783757958,
+          "p95_seconds": 13.783757958,
+          "decisions_per_second": 56.37069385341567,
+          "input_tokens_total": 157566,
+          "cpu_time_seconds": 12.465422,
+          "avg_cpu_percent": 90.43558395310586,
+          "model_load_seconds": 3.542408333
+        }
+      ],
+      "registry_name": "laya-multilingual:f4064eb56fb7f7d325e1"
+    },
+    {
+      "engine": "laya",
+      "profile_id": "9d28cfa9567902801ed1",
+      "model_revision": "1a793eb568e6718f15941d08f85432581df534e3",
+      "support_label": "reference-parity-readout",
+      "summary_file": "docs/benchmarks/2026-09-28-laya-mlx-campaign/summary-laya-typed-decisions-mlx-fp32.json",
+      "commit": "b8c80ae",
+      "host": "openkind-mac-arm64-local",
+      "host_hardware": {
+        "cpu_brand": "Apple M4 Max",
+        "logical_cores": 14,
+        "model": "Mac16,5",
+        "total_memory_bytes": 38654705664
+      },
+      "context": {
+        "head_max_len_tokens": 256,
+        "max_sequence_tokens": 1024
+      },
+      "workload": {
+        "sha256": "be397bfc48209c8f7379d0d76ccbe3d3e7dca3269724928f0868cf872f4c8b01",
+        "rows": 777,
+        "groups": 37
+      },
+      "grouping": "per-state",
+      "reps": 1,
+      "peak_resident_bytes": 2126200832,
+      "primary": {
+        "strategy": "laya-typed-decisions-mlx-fp32",
+        "p50_seconds": 32.683280167,
+        "p95_seconds": 32.683280167,
+        "decisions_per_second": 23.773623578472076,
+        "input_tokens_total": 158475,
+        "cpu_time_seconds": 26.542356999999996,
+        "avg_cpu_percent": 81.21081135179193,
+        "model_load_seconds": 2.8717937080000002
+      },
+      "strategies": [
+        {
+          "strategy": "laya-typed-decisions-mlx-fp32",
+          "p50_seconds": 32.683280167,
+          "p95_seconds": 32.683280167,
+          "decisions_per_second": 23.773623578472076,
+          "input_tokens_total": 158475,
+          "cpu_time_seconds": 26.542356999999996,
+          "avg_cpu_percent": 81.21081135179193,
+          "model_load_seconds": 2.8717937080000002
+        }
+      ],
+      "registry_name": "laya-typed-decisions:9d28cfa9567902801ed1"
+    }
+  ]
+}

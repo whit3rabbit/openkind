@@ -47,6 +47,15 @@ pub enum EngineKind {
     /// Pinned Qwen3.5 MLX native-BF16 candidate engine (`mlx` feature).
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     Qwen35MlxBf16,
+    /// Pinned laya-english MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    LayaEnglishMlxFp32,
+    /// Pinned laya-multilingual MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    LayaMultilingualMlxFp32,
+    /// Pinned laya-typed-decisions MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    LayaTypedDecisionsMlxFp32,
 }
 
 /// Native backend bound to a non-mock [`EngineKind`].
@@ -70,7 +79,10 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
         | EngineKind::DecoderLogitQwen35
         | EngineKind::LayaEnglish
         | EngineKind::LayaMultilingual
-        | EngineKind::LayaTypedDecisions => {
+        | EngineKind::LayaTypedDecisions
+        | EngineKind::LayaEnglishMlxFp32
+        | EngineKind::LayaMultilingualMlxFp32
+        | EngineKind::LayaTypedDecisionsMlxFp32 => {
             panic!("the mock and surveyed-family engines have no Qwen35 native backend")
         }
         EngineKind::Qwen35 => Qwen35Backend::NativeCpu,
@@ -131,6 +143,9 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
             EngineKind::Winnow => "winnow",
             EngineKind::Qwen35MlxFp32 => "qwen35-mlx-fp32",
             EngineKind::Qwen35MlxBf16 => "qwen35-mlx-bf16",
+            EngineKind::LayaEnglishMlxFp32 => "laya-english-mlx-fp32",
+            EngineKind::LayaMultilingualMlxFp32 => "laya-multilingual-mlx-fp32",
+            EngineKind::LayaTypedDecisionsMlxFp32 => "laya-typed-decisions-mlx-fp32",
         }
     }
     #[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
@@ -157,6 +172,15 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
 
 /// Surveyed-family engines that load from a `--model-root` directory.
 pub fn is_family_engine_public(engine: EngineKind) -> bool {
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    if matches!(
+        engine,
+        EngineKind::LayaEnglishMlxFp32
+            | EngineKind::LayaMultilingualMlxFp32
+            | EngineKind::LayaTypedDecisionsMlxFp32
+    ) {
+        return true;
+    }
     matches!(
         engine,
         EngineKind::DecoderLetter
@@ -240,6 +264,18 @@ pub(crate) fn family_identity(
             &openkind_backends::families::laya::LAYA_MULTILINGUAL,
         )),
         EngineKind::LayaTypedDecisions => Some(laya_identity(
+            &openkind_backends::families::laya::LAYA_TYPED_DECISIONS,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::LayaEnglishMlxFp32 => Some(laya_identity(
+            &openkind_backends::families::laya::LAYA_ENGLISH,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::LayaMultilingualMlxFp32 => Some(laya_identity(
+            &openkind_backends::families::laya::LAYA_MULTILINGUAL,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::LayaTypedDecisionsMlxFp32 => Some(laya_identity(
             &openkind_backends::families::laya::LAYA_TYPED_DECISIONS,
         )),
         _ => None,

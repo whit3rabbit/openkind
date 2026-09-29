@@ -128,6 +128,15 @@ pub enum EngineArg {
     /// Pinned Qwen3.5 MLX native-BF16 candidate engine; requires `--features mlx`.
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     Qwen35MlxBf16,
+    /// Pinned laya-english MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    LayaEnglishMlxFp32,
+    /// Pinned laya-multilingual MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    LayaMultilingualMlxFp32,
+    /// Pinned laya-typed-decisions MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    LayaTypedDecisionsMlxFp32,
 }
 
 impl From<EngineArg> for EngineKind {
@@ -152,6 +161,12 @@ impl From<EngineArg> for EngineKind {
             EngineArg::Qwen35MlxFp32 => EngineKind::Qwen35MlxFp32,
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             EngineArg::Qwen35MlxBf16 => EngineKind::Qwen35MlxBf16,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::LayaEnglishMlxFp32 => EngineKind::LayaEnglishMlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::LayaMultilingualMlxFp32 => EngineKind::LayaMultilingualMlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::LayaTypedDecisionsMlxFp32 => EngineKind::LayaTypedDecisionsMlxFp32,
         }
     }
 }

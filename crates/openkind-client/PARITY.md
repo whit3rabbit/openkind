@@ -1,6 +1,6 @@
 # SDK Test Parity Map — typesafe-sdk-python → openkind-client
 
-Every test file in the TypeSafe Python SDK (`github.com/typesafe-ai/typesafe-sdk-python`, `tests/`), mapped to its Rust counterpart. Reference clone: `/tmp/typesafe-sdk-python`.
+Every test file in the TypeSafe Python SDK (`github.com/typesafe-ai/typesafe-sdk-python`, `tests/`), mapped to its Rust counterpart. Reference: SDK v0.7.2 (commit `f078f1e208a0d885154dc758344ae4fce77ac168`); clone that commit into `/tmp/typesafe-sdk-python` when re-auditing.
 
 Status legend: **ported** (assertions live in Rust), **covered** (equivalent guarantee via a different mechanism), **N/A** (Python/platform-specific, reason given), **divergence** (deliberate behavioral difference, pinned by a test).
 
@@ -67,11 +67,20 @@ Status legend: **ported** (assertions live in Rust), **covered** (equivalent gua
 | `test_types.py` array/object/None states | ported — `array_and_object_states_wire_through`; `None`-state N/A (no optional state in the wire schema) |
 | `test_str_subclasses_fallback_to_strings` | N/A — Rust has no str subclassing |
 | `test_responses.py` malformed bodies | ported — `malformed_responses_are_decode_errors` |
+| `test_nested_missing_field_path` | divergence — `invalid_models_response_is_decode_error` pins the user-visible field name (`missing field \`name\``); serde errors do not carry the `models[1]` index path |
+| `test_response_carries_request_id` | divergence — success responses decode to plain data structs; the request id is surfaced on errors via `Error::request_id` |
+| `test_response_carries_raw_http_response` / `test_response_serialization_excludes_http_metadata` / `test_copied_response_preserves_metadata` / `test_missing_raw_raises_on_access` / `test_missing_request_id_raises_on_access` | N/A — no raw-HTTP-response wrapper; decoded structs carry data only |
 | `test_responses.py` unknown extra fields | ported — `unknown_extra_fields_tolerated` |
+| `test_public_response_types_ignore_unknown_fields` | ported — `unknown_extra_fields_tolerated` |
 | `test_responses.py` unknown answer type ignored | divergence — `unknown_answer_type_is_strict` (fail closed instead of dropping judgments) |
 | `test_responses.py` answer/request correspondence | divergence — `response_validation.rs` rejects a decoded 2xx response with missing or extra answer IDs, a mismatched answer type, or an out-of-list Choice; transport-only stubs return answers matching the submitted questions |
+| `test_response_preserves_nested_json` | divergence — the SDK's `JSONContent` typing admits arbitrary JSON in legend entries; openkind pins the live-OpenAPI shape (string labels), covered by the round trip |
 | `test_responses.py` typed attributes / frozen / cached groups | ported/covered — typed matches in round trip; mutability/caching N/A (plain data structs) |
 | `test_questions.py` discriminators/omitted defaults/reserved keys | ported — `question_discriminators_and_omitted_defaults` + `src/question.rs` unit tests |
+| `test_normalization_preserves_objects` | ported — `question_discriminators_and_omitted_defaults` (same wire JSON: omitted noul criteria, `null`-valued choice criteria, score criteria arrays) |
+| `test_normalization_preserves_raw_questions` / `test_raw_questions_require_structural_keys` | covered — no raw-dict path exists; typed structs are the passthrough (see `test_raw_question_passthrough`), and the wire deserializer tolerates unknown question fields like the SDK (`IgnoredAny` in `openkind-core/src/question.rs`) |
+| `test_optional_noul_criteria` | ported — `question_discriminators_and_omitted_defaults` (criteria omitted unless set; reserved `true`/`false` keys when set) |
+| `test_covariant_question_mappings` | N/A — mapping covariance is a Python typing property; `HashMap<String, Question>` is the fixed surface |
 | `test_questions.py` construction-time validation | divergence — Rust structs don't validate at construction (server 422s; see `question_schema_validation_is_left_to_api`) |
 
 ## Config — `tests/test_config.py` → `tests/sdk_parity_config.rs` + unit tests in `src/client/tests.rs`
@@ -82,6 +91,9 @@ Status legend: **ported** (assertions live in Rust), **covered** (equivalent gua
 | `test_model_override` | ported — `model_override_beats_client_default` |
 | `test_resolution` | ported — unit `resolve_lookup_precedence` (explicit → `OPENKIND_*` → `TYPESAFE_*`) |
 | `test_missing_key` | ported — `explicit_empty_env_names_every_variable_in_error` + `tests/live_server.rs::missing_api_key_fails_at_build_time` |
+| `test_api_key_whitespace` | ported — unit `api_key_resolution_matches_python_sdk` (all four paddings, both sources) + `padded_builder_api_keys_are_trimmed_before_the_wire` (`Bearer test-key` asserted on the wire) |
+| `test_invalid_explicit_key_does_not_fall_back_to_env` | ported — unit `api_key_resolution_matches_python_sdk` (explicit empty/NUL keys error even with a valid env key present) |
+| `test_invalid_api_key` | ported — unit `api_key_resolution_matches_python_sdk` (8 characters × both sources; the error text never echoes the credential) |
 | `test_empty_env_unset` | ported — unit `clean_env_value` assertions |
 | `test_invalid_timeout` | ported — `invalid_settings_rejected_at_build` |
 | `test_timeout_object` / per-dimension timeouts | N/A — reqwest exposes a single per-request `Duration` |
@@ -90,6 +102,7 @@ Status legend: **ported** (assertions live in Rust), **covered** (equivalent gua
 
 - `test_docs.py`, `test_release_notes.py` — docstring/changelog linting.
 - `test_typing.py`, `tests/typing/` — mypy negative typing; Rust's type system covers this at compile time.
-- `test_logging.py` — logging-module specifics; the client emits `tracing` events instead.
-- `test_public_api_surface.py` / `test_public_sync.py` — import-surface mechanics; covered by `sdk_constants_match_python_defaults`, `request_builders_compose_without_network`, and doc tests.
+- `test_logging.py` — `logging`-module plumbing and log-filter redaction. The Rust client never logs headers or bodies (only `tracing` events without credentials), and `client_debug_does_not_leak_api_key` pins the `Debug` surface.
+- `test_public_api_surface.py` — import-surface mechanics; covered by `sdk_constants_match_python_defaults`, `request_builders_compose_without_network`, and doc tests.
+- `test_public_sync.py` — SDK-repo release tooling (signing, snapshotting, GitHub push); not client behavior.
 - `test_pydantic_response_models.py`, `test_integration.py` (live `api.typesafe.ai` calls requiring a real key) — the live-server suite runs the same contracts against a real local `openkindd` router instead.

@@ -184,6 +184,7 @@ canonical owners are:
 
 | Subject | Canonical owner |
 |---|---|
+| Loadable-model index for operators: types, pull names, backends, sizes, measured runs | [`../MODELS.md`](../MODELS.md) |
 | Current milestones and remaining work | [`../ROADMAP.md`](../ROADMAP.md) |
 | Landed crate boundaries and data flow | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) |
 | Benchmark methods and recorded results | [`../BENCHMARKS.md`](../BENCHMARKS.md) |

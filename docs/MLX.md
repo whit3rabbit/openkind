@@ -45,6 +45,26 @@ load this 2B profile. Both upstream precision folders were hash-verified and
 ran a local decision smoke on the M4 Max; same-host timing comparisons are in
 [`BENCHMARKS.md`](BENCHMARKS.md#jev-style-2b-mlx-survey).
 
+## Encoder family backend: laya (2026-09-28)
+
+The laya decision-encoder family has a second execution backend:
+`families/laya/mlx/` runs the same digest-locked pinned checkpoints through
+mlx-rs FP32 arrays mirroring the candle encoder arithmetic (weight-only
+norms, per-layer-type RoPE, sliding-window bands, gated GELU, pre-norm head).
+It is the first MLX path for an encoder family and follows the same
+discipline as the Qwen3.5 backend: one process-wide serialized stream via
+`MlxRuntime::execute`, weights verified in place and read without temporary
+copies, and the candle CPU path as the correctness oracle.
+
+Parity gates are frozen in `tests/laya_parity.rs` (module `mlx_replay`):
+golden-fixture replay per profile with zero selection flips and a 0.005
+probability-drift budget; measured drift is 2.5–7.2e-6 across the three
+profiles. Unlike the Qwen3.5 continuation backend there is no recurrent
+state, so the qualification surface is the single-forward contract. BF16
+execution is not offered for this family. Evidence and request-path
+benchmarks live in
+[`benchmarks/2026-09-28-laya-mlx-campaign/`](benchmarks/2026-09-28-laya-mlx-campaign/README.md).
+
 ## Pinned runtime and model identity
 
 | Component | Identity |

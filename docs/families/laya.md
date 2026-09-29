@@ -27,9 +27,19 @@ budgets, temperature tables, and encoder dimensions:
 Each implements `DecisionEngine` behind the bounded family scaffold,
 registers in `openkindd` via `--laya-english-aliases` /
 `--laya-english-model-root` (and the per-profile equivalents), and is
-benchmarked through `openkind-bench --engine laya-english` (and siblings).
-All three are installable through `openkind pull` (registry manifests under
-`registry/v1/manifests/laya-*.json`).
+benchmark-eligible through `openkind-bench --engine laya-english` (and
+siblings). All three are installable through `openkind pull` (registry
+manifests under `registry/v1/manifests/laya-*.json`).
+
+**MLX backend (2026-09-28).** The same pinned checkpoints also run on the
+MLX/Metal backend (feature `mlx`, macOS arm64): `openkindd --laya-backend
+mlx-fp32` and `openkind-bench --engine laya-english-mlx-fp32` (and
+siblings). The MLX loader reads the identical digest-verified shard — the
+third-party MLX conversions on the Hub (`aac6fef/laya-*-mlx`, created
+2026-09-19) proved the weights transport unchanged (byte-identical tensors
+under a small rename map) but openkind does not depend on them. Execution
+arithmetic is `mlx-gpu-fp32-laya`; the candle CPU path remains the
+correctness oracle.
 
 ## Architectural shape
 
@@ -65,6 +75,13 @@ All three are installable through `openkind pull` (registry manifests under
   order is not preserved.
 - The shards store fp16 and are upcast to FP32 at load (mmap in place);
   execution arithmetic is `candle-cpu-fp32-laya`.
+- The MLX engine (`families/laya/mlx/`) mirrors the candle arithmetic op for
+  op in mlx-rs FP32 arrays: weight-only norms, NeoX rotate-half RoPE with
+  per-layer-type tables, symmetric sliding-window band masks, gated GELU
+  MLP, and the bias-carrying pre-norm head. Weights are pre-transposed at
+  load so every forward matmul consumes `(input, output)` weights. All MLX
+  work runs under the process-wide `MlxRuntime` serialized stream, per
+  [`../MLX.md`](../MLX.md).
 - The reference's Python loader rewrites `tokenizer/tokenizer_config.json`
   in place for older-transformers compatibility (the multilingual
   checkpoint's list-valued `extra_special_tokens`); openkind digest-pins the
@@ -90,17 +107,67 @@ All three are installable through `openkind pull` (registry manifests under
   checkpoints are near chance zero-shot on typed decisions (0.362 against a
   0.318 random baseline) and describes Laya as "a fast base to specialise".
   M2 labeled-dataset qualification is a separate gate.
+- **MLX backend parity (2026-09-28).** The golden fixtures replay through
+  the MLX engine (env-gated tests in
+  `crates/openkind-backends/tests/laya_parity.rs`, module `mlx_replay`,
+  enabled by `--features mlx` plus the `OPENKIND_LAYA_<PROFILE>_MODEL_ROOT`
+  variables) with zero selection flips and maximum calibrated-probability
+  drift **7.2e-6** (`laya-multilingual`), **6.5e-6** (`laya-english`), and
+  **2.5e-6** (`laya-typed-decisions`) against the committed fixtures — far
+  inside the workspace MLX gate of 0.005 and consistent with the
+  independent conversion evidence published with the `aac6fef/laya-*-mlx`
+  Hub repos (FP32 max error 2.7e-6, 63/63 argmax agreements, on M3 Max).
+
+## Upstream optimization survey (unsloth Studio PRs, 2026-09-28)
+
+Unsloth's Studio backend serves the same three checkpoints; their
+merged/open PRs were surveyed for portable techniques:
+
+- **[#12202](https://github.com/unslothai/unsloth/pull/12202) (merged) —
+  vendor laya + fp16 weight storage.** openkind already stores the pinned
+  shards fp16 and upcasts to FP32 at load, so the storage half is already
+  the openkind shape. Their fp16 *compute* path stays a CUDA/x86 serving
+  trade; on their own CPU numbers fp16 was slower than fp32 (77 ms vs
+  65 ms, AVX512-FP16), and openkind keeps the FP32 CPU oracle.
+- **[#12210](https://github.com/unslothai/unsloth/pull/12210) (merged) —
+  skip the random vocab-embedding init at load** (peak host RAM 4.49 →
+  2.38 GB). Not applicable: candle loads tensors straight from the
+  digest-verified mmap, so no random initialization ever exists to skip.
+- **[#12224](https://github.com/unslothai/unsloth/pull/12224) (open) —
+  marker-only head + CUDA graphs.** The marker-only head (queries, residual,
+  FFN only at option markers; K/V span all tokens; matches laya's forward to
+  2e-6) applies only to the *last* head layer — layer 1 output is still
+  needed at every position as layer 2's K/V input. In openkind's
+  single-row request path the two head layers are ~3% of encoder cost
+  (2 layers × ≤256 head tokens vs 22–28 layers × 512–1024 encoder tokens),
+  so the portable win is ~1%, below the divergence risk it adds. CUDA
+  graphs, the numpy collate, and their batched-serving wins are
+  torch/CUDA-specific. Their int8 dynamic-quantization experiment was
+  rejected by unsloth itself (30/36 answers flipped) and is not reconsidered
+  here; BF16 serving fails openkind's frozen parity gates.
 
 ## Benchmark record
 
 `openkind-bench score` over the standard shape777 workload (777 rows):
-`laya-english` 2.20 decisions/s, 2.56 GB peak RSS, 1.83 s model load;
-`laya-multilingual` 5.13 decisions/s, 2.61 GB, 1.81 s;
-`laya-typed-decisions` 2.37 decisions/s, 2.57 GB, 1.80 s. Recorded in
-[`../BENCHMARKS.md`](../BENCHMARKS.md) and
-[`benchmarks/2026-09-27-laya/`](../benchmarks/2026-09-27-laya/).
-Request-path timing only; the upstream model-card accuracies belong to the
-reference's own evaluation suites and are not `openkind` measurements.
+
+| Engine | Decisions/s | Input tokens/s | Peak RSS | Model load |
+|---|---:|---:|---:|---:|
+| `laya-english` (CPU) | 2.20 | — | 2.56 GB | 1.83 s |
+| `laya-multilingual` (CPU) | 5.13 | — | 2.61 GB | 1.81 s |
+| `laya-typed-decisions` (CPU) | 2.37 | — | 2.57 GB | 1.80 s |
+| `laya-english-mlx-fp32` | 24.34 | 4,964 | 2.12 GB | 2.77 s |
+| `laya-multilingual-mlx-fp32` | 56.37 | 11,431 | 2.94 GB | 3.54 s |
+| `laya-typed-decisions-mlx-fp32` | 23.77 | 4,849 | 2.13 GB | 2.87 s |
+
+CPU rows are the 2026-09-27 record
+([`../benchmarks/2026-09-27-laya/`](../benchmarks/2026-09-27-laya/)); MLX
+rows (and same-schema CPU re-runs measuring ~2.2–5.3 dec/s and 455–1,075
+tok/s) are the 2026-09-28 MLX campaign
+([`../benchmarks/2026-09-28-laya-mlx-campaign/`](../benchmarks/2026-09-28-laya-mlx-campaign/README.md)),
+which measures the MLX backend at **~10.2–10.9×** the CPU path with equal or
+lower peak RSS. Also in [`../BENCHMARKS.md`](../BENCHMARKS.md). Request-path
+timing only; the upstream model-card accuracies belong to the reference's
+own evaluation suites and are not `openkind` measurements.
 
 ## Limits
 

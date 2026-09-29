@@ -1,7 +1,7 @@
 # OpenKind
 ## Shared-state decision inference: evidence, execution, and useful decisions
 
-**Document version:** 0.8.7 · 27 September 2026, America/Chicago. Consolidated training, Rust/MLX, modern-Qwen serving and native finite-decision evidence through completed readout/history run `20260927T192845_426758Z`.
+**Document version:** 0.8.8 · 28 September 2026, America/Chicago. Consolidated training, Rust/MLX, modern-Qwen serving and native finite-decision evidence through completed 9B/T4 run `20260928T220142_110595Z_1192c8` (protocol `openkind-qwen35-9b-t4l4/v2.0.2`).
 
 ### Abstract
 
@@ -55,25 +55,28 @@ reuse, evidence access, targeted learning, retention, and automation utility—n
 an inference about Jev's private architecture or a universally superior neural
 topology. [E29–E32; V6; §18.26; synthesis]
 
-The latest serving follow-up confirms a practical dependent-field improvement
-without closing the native reader's quality gap. Predicting five fields and
-deriving action in code raises field accuracy **78.47% → 82.55% Q4** and
-**78.56% → 83.51% BF16**, with 3.06%/3.59% lower median request time and no
-eligibility/action contradictions. Indexed readout improves some fields and
-probability scores but is not a uniform quality or speed improvement. Static
-instruction/catalogue reuse passes all **960 cold/warm pairs across eight
-profiles/shapes**, with zero observed probability drift and 1.24–2.75× request
-ratios. These are warm-request measurements; the recorded priming calls were
-already cache hits and do not establish cold-start amortization. [E39; V8; §20]
+The latest serving result is actual **Qwen3.5-9B Q4 inference on a Tesla T4**.
+The measured combined path—five model-predicted fields, host-derived action,
+and verified warm static prefix—raises continuity-panel field accuracy
+**80.73% → 86.11%** while lowering median request time **798.68 → 339.38 ms**.
+The separate 36-case synthetic panel reaches 86.11% at 352.47 ms. All **330
+dedicated cache pairs** and **528 isolated quality-arm cache comparisons** are
+exact; fresh-process, zero-hit-first-request traces now measure genuine first-use
+cost. These are bounded request-path results, not a controlled 4B-to-9B gain,
+state-first Rust qualification, or independent policy-family confirmation.
+[E40; V9; §21]
 
-Process-history and semantic-mapping stability remain unresolved. All four
-code-remapping cells change answers on 12/12 diagnostic cases. BF16 reduces
-history drift, but session-end versus fresh-reset probes still change one BF16
-answer; exact immediate repeats and local cache parity do not establish whole-
-session stability. Generated JSON retains higher field and whole-case accuracy.
-This is dense 4B evidence; the earlier Qwen3.5 MoE quality challenger remains a
-separate profile. No result replaces the implemented Rust reference or promotes
-an inference path. [E36–E39; V7; V8; §§19–20]
+The service remains unqualified. Native-only controls pass, but every planned
+JSON-interleaving condition fails the unchanged probability/answer gate.
+Padding-off and requested CUDA-graph-disable replays do not repair the reproduced
+failure. Generated JSON remains more accurate, and D's all-six correctness is
+only **32.29% / 33.33%**. Its errors concentrate in priority suffixes and plain
+closed versus closed-duplicate labels; separate field-only requests improve
+these distinctions on 24 exposed calibration cases. Confidence thresholds do not
+validate low-risk automation. The routing-rule replay is separately labeled
+**post-hoc arithmetic**, never substituted for measured D results. Earlier 4B,
+MoE, BF16, CPU and MLX results retain their own identities and limits.
+[E36–E40; V8; V9; §§19–21]
 
 **Current model-learning work:** the frozen comparison, contract-only pilot, parent-KL follow-on,
 and source-label replay comparison have completed. None of the three tested
@@ -87,14 +90,15 @@ The historical roadmap remains in [ROADMAP_HISTORY.md](../ROADMAP_HISTORY.md), a
 the historical opening is retained in [Appendix E](#appendix-e-historical-opening-before-the-september-refocus).
 [E30–E32; V6]
 
-**Current serving work:** the readout/history Colab has completed, including
-timed deterministic composition and full-panel cache checks. Retain those
-bounded gains; next isolate process-state drift, test the composed warm path
-as one measured system, correct cold-prime accounting, and evaluate fixed
-readouts on fresh task families. These next tests are proposals. The supplied
+**Current serving work:** the 9B/T4 study completed all 39 planned blocks and
+three conditional replays. Combined composition/cache performance and genuine
+first-use accounting are measured, no longer merely proposed. Retain those
+local gains; next test matched process isolation/reset and focused
+field/dependency formulations with new confirmation cases. No specific state
+or kernel cause is proven, and no model or service is promoted. The supplied
 architecture remains the working-code inventory; this revision changes the two
-papers only. Concise confirmed findings and discounted approaches are in
-[WORKING_PAPER.md](WORKING_PAPER.md). [E39; V8; §20]
+papers only. Concise findings and discounted approaches are in
+[WORKING_PAPER.md](WORKING_PAPER.md). [E40; V9; §21]
 
 **Reading guide:** current interpretation in [§1](#1-executive-assessment),
 acceptance tracks and work order in [§13](#13-refocused-research-program-and-next-milestone),
@@ -112,6 +116,10 @@ The modern serving, cache-boundary and native decision studies are in
 [§19](#19-modern-qwen-serving-prefix-reuse-and-native-finite-decisions);
 its disposition table records the E38 cutoff. The completed readout, composition,
 cache and history follow-up is in [§20](#20-readout-deterministic-composition-and-request-history-follow-up).
+The current 9B/T4 composition, first-use, history, and field-diagnostic results
+are in [§21](#21-qwen35-9b-on-t4-measured-composition-and-reuse-failed-mixed-request-stability).
+Sections 19–20 retain their earlier evidence cutoffs; their proposed next tests
+are not the current completion status.
 
 ---
 
@@ -130,15 +138,18 @@ under their guarded selectors. None of these results establishes arbitrary-domai
 competence, validates a cheap state summary, or qualifies a changed model for the
 existing native service. [E1–E7; E11–E32; §17.3; §§18.20–18.26]
 
-**Serving evidence now separates a qualified cache gain from unresolved reader
-and process-state behavior.** The latest native study qualifies all eight
-static-prefix cells on the exposed 96-case panel; it measures a five-field-plus-
-rule accuracy and latency gain. JSON remains more accurate, integer indexes are
-not uniformly better, and all four native process profiles fail at least some
-session-end/reset probes. The BF16 control reduces drift without eliminating
-answer changes. These gains do not qualify arbitrary prefixes, all batch shapes
-or the Rust service. The earlier modern MoE comparison remains a distinct bounded
-quality challenger rather than an isolated architecture test. [E36–E39; V8; §20]
+**Serving evidence now measures the combined useful path without qualifying
+mixed-request execution.** E40's 9B Q4/T4 path combines action derivation and
+static-prefix reuse: 86.11% field accuracy at 339.38 ms on the 96-case continuity
+panel, versus 80.73% at 798.68 ms for six-field recomputation. Local cache parity
+and genuine first-use traces pass. Native-only controls remain stable, but
+JSON-interleaved continuations and the lower three-sequence/four-context shape
+fail. Every remaining D field error on both primary panels is a route-priority
+or plain-closed distinction; field-only diagnostics improve those decisions
+without establishing a complete replacement. JSON and confidence comparisons
+retain important quality/reliability limits. These CUDA results do not replace
+the immutable Rust profile or prove a general architecture or size ranking.
+[E40; V9; §21]
 
 A frozen text-only Qwen3.5-4B-Base backbone with last-token features and a linear head reached 87.67% matched and 87.33% mismatched accuracy in Phase 2B’s three-class MultiNLI experiment. Phase 2C selected the same head family across three training seeds and obtained 87.0% and 88.8% on new matched and mismatched test samples. These are sampled NLI results, not general decision accuracy, and separation from earlier experiments does not establish separation from Qwen’s pretraining corpus. [E1; E2]
 
@@ -204,8 +215,10 @@ not be collapsed into one success claim. [E32; V6; §18.25]
 | Has H completed and selected a universally better model? | Required final/robustness/primitive/request workers completed; the development-selected support arm has weaker held-out transfer than a retained original-criteria control. | Close recovery; keep model selection, numerical acceptance and broader generality open. [E9] |
 | Have Phase 4A/4B solved multi-source question answering and semantic none? | No. The completed architecture and scalar-weight sweeps improve aggregate discrimination, but every arm misses the declared 0.30 QASPER none-recall floor. The cap-12 request saturates at effective weight 8.5602 and trades limited QASPER recovery for a 0.3966 ContractNLI false-none rate. | Keep final closed. Subsequent stratified, pairwise, head-only, and residual tests also failed the complete gate. Repair source/input evidence before another model intervention. [E14–E25] |
 | Are modern Qwen MoE systems ruled out by the old control? | No. E36's modern MoE improves bounded accuracy over the dense vLLM control at approximately 2× latency. | Retain a separate quality challenger; do not attribute the difference solely to MoE. |
-| Is the native reader an equivalent faster JSON replacement? | No. E39 natural + host-rule accuracy is 82.55% Q4 / 83.51% BF16 versus JSON 90.45% / 88.89%; history and mapping failures persist. | Retain measured composition gains without claiming JSON-quality equivalence. [E39; V8] |
-| Is native prefix reuse established? | Yes: E39 qualifies 960 paired requests across eight cells, covering all 96 exposed cases, at zero observed Δp/flips. | Static-prefix warm savings are established locally; cold-start amortization and whole-session stability are not. [E39; V8] |
+| Is the native reader an equivalent faster JSON replacement? | No. E40 combined D has 86.11% field accuracy and 32.29% / 33.33% all-six correctness versus JSON 92.01% / 92.13% and 56.25% / 55.56%; mixed-history gates fail. | Retain the measured speed/quality trade-off, not a JSON-equivalent or promoted service. [E40; V9] |
+| Is native prefix reuse established? | Yes: E40 adds 330 exact dedicated pairs, 528 exact A↔C/B↔D quality comparisons, and zero-hit-first-request traces to E39's historical 960 pairs. | Combined five-field reuse and bounded first-use accounting are now measured; arbitrary mixed-history stability is not. [E39; E40; V9] |
+| Can the tested 9B Q4 profile run on T4? | Yes: actual full-offload execution and a separate four-context D workload record about 6.30 GiB sampled whole-device peak on a 15.0 GiB T4. | Keep the exact workload/profile; no L4, long-input, concurrency, or exact-allocation-peak claim. [E40] |
+| Do field-only requests repair every complete request? | They improve route 50.00% → 87.50% and case state 66.67% → 100.00% on 24 exposed calibration cases. | This is a readout diagnostic, not a timed, selected all-six replacement or proof of tokenizer causation. [E40; V9] |
 | Does higher precision solve native request-history drift? | No. BF16 has seven failed end/reset probes out of 24, including one answer change. | Preserve a separate answer gate and diagnose process-state isolation. [E39; V8] |
 | Has the matched frozen J0/J1 comparison completed? | Yes, in FP32 at 1,024/4,096-token state-prefix caps; effects differ by source and evidence stratum. | Keep both controls; common-renderer results are not a universal checkpoint ranking. [E29] |
 | Can bounded decision-LoRA improve natural-document decisions without damaging retention? | ContractNLI accuracy and contradiction/none recall improve substantially, but both adapters lose entailment and QASPER behavior. | Close the exact pilot as executed with failed full retention; test preservation, not automatic scale-up. [E30; V4] |
@@ -301,12 +314,28 @@ Use Q for independent questions and K for the alternatives within one question. 
 | M2.2 matched decision-LoRA pilot | Improve ContractNLI contradiction/unsupported decisions while retaining QASPER | `v0.4.1`, session `20260925T232651_880064Z`: both fits finish 120 updates and select 80; all 3,964 BF16 model decisions complete; targeted in-domain gains, failed class/cross-task retention; no final opening or promotion. [E30] |
 | Retention-aware replay follow-on | Can fixed train-only replay with parent KL preserve targeted gains and other capabilities? | v0.5.0 completed; J4/J5 each fit 120 updates, both select frozen0; fixed80 probabilities improve versus specialists but joint retention fails. [E31] |
 | Source-label replay target comparison | Does source-label CE on the same replay inputs improve retained correctness relative to parent-only KL? | v0.6.0 completed, session `20260926T170047_182185Z`: both fits complete 120 updates and select frozen0; fixed80 SNLI gains do not preserve ContractNLI entailment or QASPER; no promotion. [E32; N1] |
+| Dense 4B native readout/history follow-up | Compare readouts, host action derivation, prefix reuse, and process history | Completed `20260927T192845_426758Z`; timed composition and local cache gains, already-warm priming ambiguity, mapping/history failures. [E39; V8] |
+| 9B/T4 combined-path and open-question study | Measure five-field derivation plus caching, genuine first use, history, shapes, and focused readouts | Completed `20260928T220142_110595Z_1192c8`, protocol v2.0.2: 39 planned + 3 conditional blocks; combined quality/speed and cache/first-use gates pass, mixed-history/low-sequence gates fail; no promotion. [E40; V9] |
 
 The historical E1–E7 measured sequence uses Qwen/Qwen3.5-4B-Base at revision `1001bb4d826a52d1f399e183466143f4da7b741b`. The text backbone has 4,205,751,296 parameters, hidden width 2,560, and 32 blocks. Its layer list contains 24 linear-attention and eight full-attention blocks. The core results were obtained on an NVIDIA L4. The saved environment includes Transformers 5.17.0; the expanded workers record PyTorch 2.11.0+cu128. Environment details should travel with results because kernel and precision behavior matter. [E1; E2; E5]
 
 The notebook execution logs also report missing optimized causal-convolution and linear-attention kernels, with reference implementations used instead. Transformers documents these optimized versus reference paths. The recorded timings should therefore be treated as measurements of this particular stack, not the speed limit of Qwen on an L4. Installing faster kernels is a future experiment requiring both new timing and renewed probability/policy parity checks. [E5; E6; P16]
 
 ## 3.2 What was reviewed and what was not rerun
+
+**Version 0.8.8 review boundary.** The two attached papers are the editing
+bases; E40 is the completed 9B/T4 result authority. This revision reruns the
+supplied read-only reconciliation and separately labeled routing replay on
+local archive copies. The archive/summary marker hashes, 22 source/asset hashes,
+42 completed block result/trace receipts, 180 authored rule labels, ten primary
+quality rows, 56 paired-bootstrap rows, 330 dedicated cache pairs, 528 isolated
+quality-arm cache comparisons, 20 trace milestones, six readout rows and 32
+confidence rows reconcile. The checker also verifies raw request/reply mappings
+and history/reset contrasts. These are repeated integrity/arithmetic assertions,
+not independent model trials. No Qwen inference, training, model-weight hashing,
+new timing, calibration fitting, semantic adjudication, protected-final access,
+notebook/backend change, or Drive evidence mutation occurs. Historical studies
+retain their original scope rather than being re-audited. [E40; V9]
 
 **Version 0.8.5 boundary:** this revision uses the supplied v0.8.4 paper and E32
 result/contract/selection snapshots, and reruns the supplied v0.6.0 saved-output
@@ -1265,6 +1294,16 @@ E39 now demonstrates timed host composition externally and stronger local
 cache evidence, while retaining reset and mapping failures.
 [E36–E39; §§19–20; ARCHITECTURE.md]
 
+**28 September 9B/T4 implication.** E40 now measures composition and warm
+static-prefix reuse together and provides genuine first-use traces. It also
+localizes two output distinctions and reproduces JSON-interleaving instability.
+Retain action composition and within-profile reuse, but version sequence shape,
+readout, and mixed-request behavior separately. Route-priority composition from
+predicted urgency is still an offline proposal; separate field requests are a
+bounded diagnostic, not a new Rust execution graph. No architecture, scheduler,
+repository instruction, roadmap, or service implementation changes in this
+revision. [E40; V9; §21]
+
 # 12. Research questions answered and still open
 
 | Research question | Answer supported so far |
@@ -1307,6 +1346,13 @@ cache evidence, while retaining reset and mapping failures.
 | Has Phase 2H completed? | Yes: both required `2h.1.2` continuation workers completed and 2H-C1–C5 are closed. The original `2h.1.1` failed attempt is unchanged; completion does not promote a model or arithmetic mode. [E8; E9] |
 | Does preservation of the frozen parent imply preservation of useful correctness? | No. E31 partly recovers benchmark probabilities but fails joint retention; E32 then exceeds parent-KL SNLI performance without preserving supported entailment or QASPER. Parent agreement, replay-task learning and retained scope are separate. [E31; E32] |
 | Did the source-label replay fit run, and can its fixed80 adapters be selected as upgrades? | Both fits complete 120 updates, but no evaluated nonzero candidate meets all development conditions. J6_selected = J0 and J7_selected = J1; the fixed80 results are diagnostics, not alternative selected winners. [E32; V6] |
+| Has the 9B five-field-plus-rule warm path actually been measured? | Yes. E40 D improves over A on both primary panels, with 86.11% field accuracy at 339.38 / 352.47 ms; local parity passes but mixed-history qualification fails. [E40] |
+| Is genuine first-use prefix accounting still unrun? | No. E40's four fresh-process traces have zero-hit first requests and measured cumulative costs. They do not establish a universal production break-even point. [E40] |
+| Does the 9B/T4 model fit? | The tested Q4 profile fully offloads and completes; sampled whole-device peak is 6.30 GiB on the separate four-context D workload. Other hardware, precisions, full-length inputs, and concurrency remain unmeasured. [E40] |
+| Do padding-off or CUDA-graph-disable fix mixed-request history? | No in E40's matched separate replays. Control graph capture was not measured, and the root cause remains unproven. [E40] |
+| Are the remaining fast-path errors diffuse? | No on these panels. D's remaining errors are priority suffixes and plain closed → closed duplicate; single-field diagnostic requests improve both affected fields. [E40; V9] |
+| Does a higher confidence threshold validate automation? | No. At minimum-field probability 0.95, measured D still has 3/10 wrong accepted continuity cases and 7/9 synthetic cases. No calibration or production threshold is fitted. [E40] |
+| Has routing-rule replay produced a confirmed new inference result? | No. The 93.75% / 94.44% figures are post-hoc saved-prediction field accuracy, without new timing, corrected probabilities, or independent confirmation. [V9; §21.8.2] |
 
 **Current 2I/2J status:** the original `2ij.1.0` reviewed-study path remains blocked by unsigned review, null promotion bounds and stale review metadata; separately, `2ij.2.0` completed an **exploratory** model-selection screen and exported a provisional integration profile. The pilot is sufficient to start native parity work but does not satisfy the independent-review/natural-data release gate. [E10; E11; I0]
 
@@ -1319,13 +1365,14 @@ Existing labels, quarantines, thresholds, and result locks remain unchanged.
 The proposed next diagnosis targets supported-entailment and long-document
 retention, not another automatically authorized fit. [E14–E32; §§18.20–18.26]
 
-**Current serving status:** E36's modern dense/MoE screen, E37's standard
-cache-boundary diagnostics, E38's native recovery, and E39's readout/history
-follow-up are completed within their scopes. vLLM batch-invariant startup
-failures remain unexecuted comparisons. Native static-prefix reuse now qualifies
-across the full exposed panel, and host composition has a timed gain. Complete
-reader quality, semantic-mapping stability and session-history equivalence
-remain unestablished. Sections 19–20 distinguish these outcomes.
+**Current serving status:** E36–E39 remain completed historical profiles.
+E40 completes actual 9B Q4/T4 execution, the combined action/cache arm, genuine
+first-use accounting, and focused readout/shape diagnostics. Static-prefix
+parity and relative quality/speed gates pass. Every planned JSON-interleaving
+condition fails; neither conditional intervention repairs the matched trace.
+Absolute reader quality, calibrated risk, independent task-family confirmation,
+and Rust/MLX service qualification remain open. Sections 19–20 retain their
+cutoffs; §21 supplies current serving results. [E40; V9]
 
 # 13. Refocused research program and next milestone
 
@@ -1346,13 +1393,15 @@ retained; §§18.25–18.26 supply the completed result and current synthesis. T
 roadmap owns task management and is not modified by this documentation-only update.
 [E32; V6; proposed work]
 
-The separate serving track has now completed the indexed/natural comparison,
-A→intervening-request→A experiment, timed dependent-field composition, and
-full-panel cache checks (§20). The next proposed work isolates the reproducible
-session-end/reset failure, tests five-field composition and warm reuse together,
-measures a genuinely cold first prime, and evaluates fixed readouts on fresh
-task/rubric families. The working Rust checkpoint and scheduler remain unchanged;
-any port must qualify complete requests on its target host. [E39; V8; proposed work]
+The separate serving track now includes E40's completed 9B/T4 combined
+five-field composition/cache path, first-use traces, and field-only/indexed
+readout diagnostics (§21). The next proposed work is a matched isolation/reset
+comparison for the reproduced JSON-history failure and a fixed dependency/
+readout comparison for route priority and plain-closed semantics. Confirm any
+new complete path on fresh cases and measure its actual request cost; do not
+combine offline routing gains with existing D latency. The working Rust
+checkpoint, scheduler, historical training selections and gates remain unchanged.
+[E40; V9; proposed work]
 
 ## 13.1 Phase 2H: completed continuation and retained development history
 
@@ -1759,6 +1808,7 @@ Completed execution is not the same as satisfying a milestone's quality exit.
 | Source-label replay follow-on | Completed J6/J7 fits; SNLI improves, but entailment/QASPER and complete screens fail; both select frozen0. | Close this exact recipe and preserve fixed80 diagnostics and selected-zero identities. [E32] |
 | Next bounded diagnosis | Proposed train/development-only investigation of supported-entailment failures and task-appropriate retention; no corrective treatment tested yet. | Separate supported-to-none/contradiction changes, hypothesis families and evidence-location effects before selecting one intervention; no gate-error training or automatic sweep. [V6; §18.26] |
 | M3 cost reduction | Immutable-profile MLX performance work remains separate; no adapter-specific native/cache/service qualification follows from fitting. | Defer learned compression or replacement until a useful scoped operating point survives quality/retention checks. |
+| Separate 9B/T4 serving track | E40 completes combined composition/reuse and first-use accounting; mixed-history and low-sequence gates fail. | Retain scoped components; test matched isolation and focused field/dependency formulations rather than treating these measured components as unrun. [E40; V9] |
 | M4 independent confirmation | No protected-final opening or promotion. | New exposed-panel success alone cannot supply independent confirmation. |
 
 Full hybrid-state branching remains valid reusable computation within its tested
@@ -3669,6 +3719,10 @@ selection locks remain binding. [E25; E29–E32; §17.3]
 
 # 19. Modern Qwen serving, prefix reuse, and native finite decisions
 
+**Historical E33–E38 record.** The comparisons below retain their original
+identities and dispositions. E39 follows in §20; the current 9B/T4 result is
+E40 in §21. No cross-study hardware, size, or architecture effect is inferred.
+
 ## 19.1 Scope and the comparison that supersedes the old MoE control
 
 The 26–27 September serving studies are separate from the frozen Rust
@@ -4028,6 +4082,12 @@ Section 20.6 records the subsequent E39 evidence and current serving priorities.
 
 # 20. Readout, deterministic composition, and request-history follow-up
 
+**Historical E39 cutoff: 27 September 2026.** Its measurements and prospective
+requirements below are preserved. E40 (§21) subsequently measures the combined
+five-field warm path and genuine first-use traces on a separate 9B/T4 profile;
+those questions are no longer unrun. E39's failed history and mapping outcomes
+remain unchanged.
+
 **Completed result:** run `20260927T192845_426758Z` finishes all primary panels
 with no recorded execution errors. Its status is `EXPLORATORY_COMPLETE`;
 `model_promoted` and `cache_promoted` remain false. The three tests proposed
@@ -4262,6 +4322,436 @@ No fresh training or MoE architecture claim follows. The Rust integration
 reference, historical checkpoint choices and protected-final boundary remain
 unchanged. Architecture and roadmap files are not edited by this revision.
 
+# 21. Qwen3.5-9B on T4: measured composition and reuse, failed mixed-request stability
+
+**Completed result:** `20260928T220142_110595Z_1192c8`, protocol
+`openkind-qwen35-9b-t4l4/v2.0.2`, has status `EXPLORATORY_COMPLETE`.
+All **39 planned blocks and three conditional replay blocks** completed. The
+completion marker's archive and summary hashes agree with the reviewed files.
+This is actual **9B Q4 inference on a Tesla T4**, not the earlier dense 4B/A100
+study and not a successful relabeling of either failed setup attempt. Execution
+completion and scientific acceptance remain separate. [E40; V9]
+
+The new result closes two previously open measurement questions: five-field
+prediction plus deterministic action and warm-prefix reuse are now measured as
+one request path; genuinely first-use prefixes are now measured in fresh-process
+traces. It does not close mixed JSON/native history stability, JSON-equivalent
+quality, calibration, or service qualification. No model or service is promoted.
+
+## 21.1 Identity, execution scope, and evaluation units
+
+The selected publisher artifact is `bartowski/Qwen_Qwen3.5-9B-GGUF`, revision
+`2dcd842c59ea5eb119267064550a7a4c592b16c3`, file
+`Qwen_Qwen3.5-9B-Q4_K_M.gguf`. The runtime records 6,169,341,984 bytes and
+SHA-256 `d784ce9eda1a5a7b51e8f705a9e6310844bf4f173654d115823c775fdea56d43`.
+It is a publisher-imatrix deployment profile. The publisher's exact parent
+weight revision is not independently verified; this is not the unexecuted
+locally converted BF16/Q4 pair and not a controlled 4B-versus-9B comparison.
+No weight file is downloaded or rehashed during this documentation update.
+[E40, `model_identity.json`; V9]
+
+The observed metadata confirms **33 stored blocks minus one auxiliary
+NextN/MTP block = 32 backbone blocks**, hidden size 4,096, 442 tensors, and a
+present output head. Auxiliary MTP tensors are stored, but MTP speculation is
+not enabled. This converts the earlier metadata-repair hypothesis into an
+observed artifact-structure result, not an MTP speed result. The native fork
+remains at `ad129b08d9f134cd298d1f8a85efc52b1b66e18e`, with separately
+identified control and token-audit binaries. [E40]
+
+The run records Tesla T4, 15.0 GiB reported VRAM, CUDA compiler 12.8,
+driver 580.82.07, Python 3.13.15, and CMake 3.31.10. The primary profile reserves
+8,192 context tokens, batch/microbatch 512/128, eight decision sequences, and
+one HTTP-serving slot. Four contexts means four cases in one request, not four
+independent questions over one shared user state. A reserved context capacity
+is not evidence of an actual 8,192-token semantic workload. [E40]
+
+The 180-record fixture inventory contains the inherited 48 calibration and
+96 exposed continuity cases plus 36 new authored synthetic diagnostic cases.
+Primary quality reports **96 continuity and 36 synthetic cases separately**,
+each with two technical repeats: 264 request observations per arm and 1,320
+across five arms, over the same 132 cases. The readout diagnostic uses the
+first 24 exposed calibration cases, twice per condition. The synthetic cases
+share three templates. Neither panel is independent real-world policy-family
+confirmation, and technical repeats, fields, history probes, and new renderings
+do not create new independent cases. [E40; V9]
+
+Control-binary measurements and trace-heavy audit diagnostics remain distinct.
+Quality arms run in separate process sessions with counterbalanced repeats;
+generated JSON does not intentionally intervene in native quality sessions.
+The deliberate mixed-history suite tests that intervention separately. Request
+times exclude model loading and server startup; host composition is included.
+JSON has no complete option-probability vector. These boundaries differ from
+E39's interleaved quality history and prevent an isolated model-size or hardware
+attribution across the two studies. [E40; §§20.1–20.2]
+
+## 21.2 Completed blocks and scientific gates
+
+| Recorded gate or question | E40 result | Permitted conclusion |
+|---|---|---|
+| Planned execution | 39/39; three conditional replays also complete | Close this run's execution bookkeeping; never reuse its completed ID |
+| Token/instrumentation and JSON renderer checks | Pass | The measured request/readout contracts pass their bounded preflight |
+| Dedicated prefix-cache execution parity | Pass | Recompute and verified-hit outputs agree on the tested request pairs |
+| Genuine first-use traces | Pass | First requests are zero-hit; later telemetry and within-trace parity meet the contract |
+| D versus A field-accuracy noninferiority | Pass on both panels | Relative, one-percentage-point-margin comparison, not an absolute quality qualification |
+| D versus B speed criterion | Pass on both panels | Upper paired mean-latency-ratio interval is below one |
+| Overall history / combined-D history | **Fail / fail** | Neither native path qualifies for arbitrary tested mixed JSON/native histories |
+| Batch/sequence sensitivity | **Fail for three sequences/four contexts** | Lower reservation is not an interchangeable numerical optimization |
+| Full GPU residency | Observed | This particular 9B Q4 workload fits the recorded T4 profile |
+| Exact request peak memory | Not measured | Nominal 0.2-second whole-device samples are not exact allocation peaks |
+| Model / service promotion | **False / false** | Execution completion does not promote a model, backend, or service |
+
+The history contract remains **maximum absolute probability drift ≤ 0.005 and
+zero selected-field/action changes**. A numerical pass cannot excuse an answer
+flip; unchanged answers cannot excuse a numerical failure. No threshold is
+relaxed after inspecting E40. [E40, `measurement_gates.json`; V9]
+
+## 21.3 Measured A–E quality and complete-request latency
+
+| Arm | Requested computation | Prefix behavior |
+|---|---|---|
+| A | Six native model-predicted fields | Lookup disabled; recompute |
+| B | Five native fields; host-derived action | Lookup disabled; recompute |
+| C | Six native model-predicted fields | Verified warm static prefix |
+| D | Five native fields; host-derived action | Verified warm static prefix |
+| E | Generated compact JSON | Separate recorded generation session/policy |
+
+Lookup-disabled requests are not fresh-process cold starts. Static reuse is
+of instructions and the declared field catalogue, not arbitrary dynamic user
+state and not the state-first Rust root. [E40; §§11.7.1, 20.4]
+
+### 21.3.1 Continuity panel: 96 cases, two technical repeats
+
+| Arm | Field accuracy | All six correct | Request p50, ms | Request p95, ms |
+|---|---:|---:|---:|---:|
+| A | 80.73% | 22.92% | 798.68 | 845.62 |
+| B | 86.11% | 32.29% | 763.67 | 835.04 |
+| C | 80.73% | 22.92% | 357.94 | 398.57 |
+| **D** | **86.11%** | **32.29%** | **339.38** | **368.75** |
+| E | 92.01% | 56.25% | 3,910.68 | 4,072.16 |
+
+### 21.3.2 Synthetic diagnostic panel: 36 cases, two technical repeats
+
+| Arm | Field accuracy | All six correct | Request p50, ms | Request p95, ms |
+|---|---:|---:|---:|---:|
+| A | 83.33% | 30.56% | 807.34 | 834.78 |
+| B | 86.11% | 33.33% | 784.77 | 844.52 |
+| C | 83.33% | 30.56% | 374.98 | 402.87 |
+| **D** | **86.11%** | **33.33%** | **352.47** | **375.47** |
+| E | 92.13% | 55.56% | 3,986.14 | 4,097.69 |
+
+Source: E40 `quality_summary.csv`, independently reconstructed by V9 from
+completed-block records and checked against raw replies. All-six correctness
+requires every field to be correct. The measured D path therefore remains wrong
+on roughly two-thirds of complete requests despite its 86.11% field accuracy.
+
+D improves field accuracy over A by **5.38 percentage points** on continuity,
+descriptive paired 95% interval **[3.82, 7.12]**, and **2.78 points** on synthetic,
+interval **[0.93, 5.09]**. All-six gains are **9.38 points [4.17, 15.63]** and
+**2.78 points [0.00, 8.33]**, respectively. The prespecified D-versus-A
+noninferiority margin is one field-accuracy point. Passing it is a relative
+result; it cannot establish sufficient absolute correctness. [E40; V9]
+
+A/D median-latency ratios are **2.35× / 2.29×**, favoring D. The separately
+specified speed statistic is the **ratio of mean case latencies**, averaging
+technical repeats within case. D/B is **0.439695 [0.435308, 0.443665]** on
+continuity and **0.448588 [0.443219, 0.454170]** on synthetic: about **56.03% /
+55.14% lower mean request latency**. These ratios are not ratios of medians.
+Most of the combined savings come from static-prefix reuse; dropping action
+alone is a smaller gain. [E40, `quality_paired.csv`; V9]
+
+All paired intervals use the recorded 2,000 case-bootstrap draws, seed 170927,
+and are conditional on the authored panels. They do not cover independent
+policy-family variation, all session-level timing variation, or uncertainty
+from choosing a future readout. The tests measure a real speed/quality trade-off
+but the failed dedicated history suite leaves the complete service unqualified.
+[E40; V9]
+
+## 21.4 Why the deterministic action improves the measured result
+
+A gets eligibility correct in **94/96** continuity cases but action correct in
+only **67/96**. In **27/96**, eligibility is right while the independently
+predicted action is wrong. On synthetic cases eligibility is correct in all
+36, but action is wrong in six. B and D get both fields correct throughout
+both panels and remove eligibility/action contradictions by construction.
+[E40, `dependency_decomposition.csv`, `quality_per_field.csv`]
+
+The declared function remains eligible → grant access; ineligible → deny access;
+undetermined → request missing information. The action distribution is the
+pushforward of eligibility through that rule, as in §20.3, not confidence 1.
+Correct composition can still propagate an incorrect parent prediction on
+other cases. [E40; V9]
+
+Removing a requested field changes its catalogue and input, not only output
+postprocessing. On continuity, the measured gain is **31 extra correct fields
+per 576 case-weighted fields: 29 action corrections and two eligibility
+corrections**. The other four fields retain their aggregate accuracy. On
+synthetic, the six additional correct fields are action corrections. These
+counts must not be attributed entirely to a rule applied to unchanged A outputs.
+Mean NLL improves **0.89998 → 0.65458** and **0.73105 → 0.62361**;
+Brier improves **0.33297 → 0.25246** and **0.33769 → 0.28266**. E39's slight
+NLL regression remains its own historical result, not an E40 finding. Better
+proper scores are not a calibration certification. [E39; E40; V9]
+
+## 21.5 Exact static-prefix comparisons and genuine first-use traces
+
+All **330 dedicated request pairs** pass with maximum observed Δp **zero** and
+no field or action changes. Each one-context condition covers 132 cases once;
+each four-context condition covers the same cases in 33 request pairs. The
+reused static prefixes contain **315 tokens for six fields and 302 for five**.
+Independent quality sessions supply **528 additional exact A↔C/B↔D
+comparisons**, covering two contrasts × 132 cases × two repeats. These are
+additional comparisons, not additional independent cases. [E40; V9]
+
+| Dedicated cache condition | Pairs | Recomputed-prefix p50, ms | Warm-prefix p50, ms | Ratio of medians |
+|---|---:|---:|---:|---:|
+| Six fields, one context | 132 | 799.41 | 354.36 | 2.26× |
+| Five fields, one context | 132 | 772.70 | 340.69 | 2.27× |
+| Six fields, four contexts | 33 | 1,875.67 | 1,425.81 | 1.32× |
+| Five fields, four contexts | 33 | 1,780.29 | 1,358.72 | 1.31× |
+
+Times are per request, not per field or per case. These dedicated cache timings
+are a separate panel from the primary A–E latency tables. Cache parity does not
+establish cross-shape equivalence, complete process reset, or semantic quality.
+[E40; V9]
+
+E40 addresses E39's already-warm priming ambiguity with **four fresh-process
+first-use traces**. Each first request reports zero cached tokens, subsequent
+requests satisfy the declared lookup policy, and within-trace probability and
+answer comparisons pass. For five fields plus derived action, cache enabled:
+
+| Requests completed | Cumulative trace time, ms | Amortized trace time per request, ms |
+|---|---:|---:|
+| 1 | 881.03 | 881.03 |
+| 2 | 1,222.77 | 611.39 |
+| 4 | 1,872.41 | 468.10 |
+| 8 | 3,162.14 | 395.27 |
+| 16 | 5,753.90 | 359.62 |
+
+The first useful request itself takes **878.19 ms**; adding recorded startup
+gives **4,980.45 ms** for startup plus the first trace point. At 16 requests,
+startup plus trace totals **9,853.32 ms**. The separate five-field
+lookup-disabled trace averages **783.42 ms/request** at 16 requests. These
+are directly recorded repeated-anchor totals, not sums of unrelated medians.
+[E40, `cold_trace_summary.json`; V9]
+
+This closes the bounded first-use accounting question, not universal cache
+break-even. There is one trace per configuration, with a repeated anchor rather
+than production traffic. Trace wall time includes token bookkeeping and local
+evidence writes; request time is retained separately. Model loading and backend
+warmup are not independently isolated inside startup. Eviction, concurrency,
+different prefix populations, and startup variability remain unmeasured here.
+
+## 21.6 Mixed JSON/native history remains a reproducible failure
+
+The four primary one-context no-op/native-intervention controls pass exactly,
+covering both A-like six-field recomputation and D's five-field cached path.
+**Every planned JSON-interleaving condition fails**. The earliest failing
+checkpoint in each failed planned block follows one intervening JSON request,
+after the declared priming/reference probes. This is the shortest tested
+checkpoint, not a globally minimized reproduction. [E40; V9]
+
+| Path / contexts / reserved sequences | Intervening work | Max Δp | Field-flip occurrences | Action-flip occurrences | Result |
+|---|---|---:|---:|---:|---|
+| Six fields / 1 / 8 | Native | 0 | 0 | 0 | Pass |
+| Combined D / 1 / 8 | Native | 0 | 0 | 0 | Pass |
+| Six fields / 1 / 8 | JSON | 0.080189 | 0 | 0 | Fail |
+| Combined D / 1 / 8 | JSON | 0.056226 | 0 | 0 | Fail |
+| Six fields / 4 / 8 | JSON | 0.091246 | 4 | 4 | Fail |
+| Combined D / 4 / 8 | JSON | 0.094815 | 3 | 0 | Fail |
+| Six fields / 1 / 3 | JSON | 0.052904 | 0 | 0 | Fail |
+| Six fields / 4 / 3 | JSON | 0.064108 | 1 | 1 | Fail |
+| Combined D / 1 / 3 | JSON | 0.058376 | 0 | 0 | Fail |
+| Combined D / 4 / 3 | JSON | 0.069345 | 1 | 0 | Fail |
+
+Field/action counts sum repeated comparisons and can count the same case more
+than once. They are not distinct-case or deployment failure rates. Every
+comparison inspects all fields and contexts, not only a designated anchor.
+[E40, `history_summary.csv`; V9]
+
+| Reset comparison | Failed / comparisons | Max Δp | Field flips |
+|---|---:|---:|---:|
+| History start versus fresh reset, including conditional replays | 0/90 | 0 | 0 |
+| History end versus fresh reset, including conditional replays | 64/90 | 0.080189 | 2 |
+| Isolated quality start versus fresh reset | 0/60 | 0 | 0 |
+| Isolated quality end versus fresh reset | 0/60 | 0 | 0 |
+| Cache-panel start/end versus fresh reset | 0/48 | 0 | 0 |
+
+Restricting history end/reset to the 12 planned blocks yields **46/72 failures**;
+64/90 includes the three conditional replays. JSON quality sentinels compare
+selected fields only because no complete JSON option vector exists; a numeric
+zero there must not be presented as measured JSON-distribution equivalence.
+[E40, `RESET_SUMMARY.md`; V9]
+
+Stable initial/fresh-reset references, stable native-only controls, and failed
+JSON-interleaved continuations support an execution-history effect. They do
+not identify stale recurrence, convolution state, sequence cleanup, allocation,
+graph capture, or a particular arithmetic kernel as its cause. Local cache
+parity and full process stability remain separate contracts. Prefix recomputation
+alone does not imply a reset of all continuation state. [E40; interpretation]
+
+### 21.6.1 Two conditional interventions did not repair the reproduced trace
+
+| Matched replay | Max Δp | Outcome |
+|---|---:|---|
+| Original control | 0.080189 | Failure reproduced |
+| Branch padding disabled | 0.066532 | Failure persists |
+| CUDA graphs requested disabled | 0.080189 | Failure persists |
+
+Actual graph capture in the control was not measured. Thus the graph-disable
+result establishes no successful repair and does not conclusively exclude
+all graph-related mechanisms. Neither treatment is promoted. Independent native
+and JSON processes, or a fully specified execution-context reset, remain
+**proposed isolation tests**, not confirmed remedies. [E40,
+`conditional_interventions.json`; V9]
+
+## 21.7 Sequence reservation is part of the tested numerical identity
+
+The shape diagnostic uses 24 cases in fresh sessions. At **eight reserved
+sequences**, moving from one to four contexts preserves probabilities exactly.
+At **three reserved sequences/four contexts**, maximum Δp reaches **0.058907**,
+with no selected-field/action changes. The latter fails the unchanged 0.005
+probability gate even though argmax is stable. These are three tested profiles,
+not a full factorial study. Retain the eight-sequence reference; neither lower
+reservation nor a claim of universal batch invariance is qualified. [E40,
+`shape_summary.json`; V9]
+
+## 21.8 Remaining semantic errors are concentrated, not diffuse
+
+D gets eligibility, action, retries, and urgency correct throughout both primary
+panels. Every remaining field error belongs to route or case state:
+
+| Error pattern in measured D | Continuity, 96 cases | Synthetic, 36 cases |
+|---|---:|---:|
+| Plain `case closed` predicted as `case closed duplicate` | All 36 plain-closed cases | All 12 plain-closed cases |
+| Nonurgent route predicted with `priority` suffix | All 44 nonurgent cases | All 18 nonurgent cases |
+
+Open and genuinely duplicate cases are correct. The alpha/beta base route is
+correct, but every route receives the priority suffix even though the separate
+urgent field is correct. Plain-closed recall is zero. A reported zero
+eligibility/action inconsistency rate therefore does **not** establish complete
+cross-field consistency. These two error patterns account for all D's remaining
+field errors and explain its weak all-six score. [E40,
+`quality_per_field.csv`, `quality_confusions.csv`; V9]
+
+### 21.8.1 Field-only requests provide a bounded positive readout diagnostic
+
+| Readout on 24 exposed calibration cases | Route accuracy | Case-state accuracy | Route NLL | Case-state NLL |
+|---|---:|---:|---:|---:|
+| Natural labels, full catalogue | 50.00% | 66.67% | 1.77025 | 2.77332 |
+| Indexes for route/case state only | 54.17% | 87.50% | 0.96557 | 0.26553 |
+| Separate field-only requests | **87.50%** | **100.00%** | **0.41875** | **0.12688** |
+
+Each condition has two counterbalanced technical repeats and passes its recorded
+history/reset checks. This supports investigating the requested formulation
+before attributing failure to insufficient backbone capacity. It does not isolate
+a tokenizer cause: field-only requests change the catalogue, prompt, and workload
+together. Nor do the audit timings establish the latency or all-six accuracy
+of a complete field-only replacement. No readout is selected or promoted from
+these 24 exposed cases. [E40, `readout_diagnostic_summary.csv`; V9]
+
+### 21.8.2 Post-hoc routing replay: confirmed arithmetic, not a confirmed inference arm
+
+The preceding results review proposes an additional dependency using only the
+saved predicted base route and predicted urgency:
+
+```python
+base_route = predicted_route.removesuffix(" priority")
+route = base_route + (" priority" if predicted_urgent else "")
+```
+
+Gold labels score the replay; they do not determine its revised answer. Since
+those two predicted components are correct on these panels, this removes every
+recorded route error:
+
+| Panel | Measured D field accuracy | Offline replay field accuracy | Measured D all-six | Offline replay all-six |
+|---|---:|---:|---:|---:|
+| 96 continuity cases | 86.11% | 93.75% | 32.29% | 62.50% |
+| 36 synthetic cases | 86.11% | 94.44% | 33.33% | 66.67% |
+
+**These are post-hoc saved-prediction calculations, not newly timed model
+results, an original A–E arm, or independent confirmation.** V9 reproduces the
+arithmetic separately. No corrected probability vector or field-independence
+assumption is introduced. The replay leaves all plain-closed errors and the
+mixed-history failure unresolved. It motivates a new preregistered dependency
+comparison with measured complete-request timing and fresh cases; it must never
+be substituted for D's measured 86.11% field accuracy. [V9, offline replay only]
+
+## 21.9 JSON quality and confidence remain separate limits
+
+Generated JSON remains the stronger **measured** quality control: continuity
+field/all-six accuracy is **92.01%/56.25%** versus D's **86.11%/32.29%**;
+synthetic is **92.13%/55.56%** versus **86.11%/33.33%**. D is approximately
+**11.52×/11.31× faster by median request time**, not quality-equivalent. JSON gets
+case state correct on both panels but still has routing and some eligibility/action
+errors. No invalid JSON outputs are recorded in the primary quality panel, so
+these errors are not merely serialization failures. [E40; V9]
+
+Paired D-minus-E field-accuracy intervals are below zero on both panels:
+**−5.90 points [−9.03, −2.78]** and **−6.02 points [−12.04, −0.46]**.
+The synthetic all-six difference has interval **[−50.00, +2.78] points**,
+including zero despite its lower D point estimate. No population-wide quality
+ranking or independence from authored-template effects follows. [E40; V9]
+
+The confidence diagnostic uses minimum selected-field probability, **not
+P(all six correct)**. Measured D yields:
+
+| Panel | Threshold | Accepted cases | Coverage | All-six error among accepted |
+|---|---:|---:|---:|---:|
+| Continuity | 0.90 | 38/96 | 39.58% | 47.37% |
+| Continuity | 0.95 | 10/96 | 10.42% | 30.00% |
+| Synthetic | 0.90 | 16/36 | 44.44% | 75.00% |
+| Synthetic | 0.95 | 9/36 | 25.00% | 77.78% |
+
+These exposed diagnostics do not validate an autonomous acceptance threshold;
+higher scores can accompany the systematic errors. No calibration is fitted
+and no production threshold is selected. In `risk_coverage_diagnostic.csv`,
+`all_observed_history_gates_passed=True` refers to the source **quality-block
+sentinels**, not the failed dedicated mixed-history suite. The main scientific
+gates remain false. This is a documented interpretation boundary, not a rewrite
+of the original CSV. [E40; V9]
+
+## 21.10 T4 feasibility and the remaining resource boundary
+
+All 81 recorded launches report Tesla T4 and full 34/34 layer offload. That
+backend offload counter must not be confused with the 32-backbone-block metadata.
+A separate instrumented four-context D workload records **6.2695 GiB
+whole-device use after startup and 6.3008 GiB sampled peak**, at nominal
+0.2-second sampling. The pre-start device snapshot is 0.4365 GiB. These are
+whole-device residency/sampling observations, not isolated weight/cache bytes
+or exact request allocation peaks. [E40, `memory_summary.json`; V9]
+
+This profile's actual T4 execution replaces the earlier estimate of feasibility.
+It does not qualify an L4 run, Q8, BF16/strict-FP32 arithmetic, arbitrary
+concurrency, a full-length 8,192-token workload, or the Rust/MLX implementation.
+No controlled size or hardware speedup is inferred by comparing E39's 4B/A100
+numbers with these 9B/T4 measurements. Training was not run, and independently
+held-out real policy families remain untested. [E39; E40]
+
+## 21.11 Confirmed dispositions and the remaining work
+
+| Question after E39 | E40 disposition | Remaining boundary |
+|---|---|---|
+| Can the selected 9B Q4 profile execute on T4? | **Observed yes** within the stated workload | No L4, other-precision, concurrency, or long-input qualification |
+| Do action composition and warm reuse work together? | **Measured yes**: D quality/speed and local cache gates pass | D's mixed-history gate fails; absolute quality remains weak |
+| Can genuine first-use cost be measured? | **Measured yes** with zero-hit first requests and complete traces | No universal workload break-even or independently isolated load/warmup |
+| Does mixed JSON/native history preserve answers and probabilities? | **No** on every planned JSON-interleaved condition | Specific process/state/kernel cause not proven |
+| Do padding-off or graph-disable repair the reproduced trace? | **No** in the tested separate replays | Other interventions remain untested; actual control graph capture unknown |
+| Can reservation be reduced without changing the numerical function? | **Not for the three-sequence/four-context profile** | Same answers do not erase its probability failure |
+| Is the native quality problem localized? | **Yes** on these panels: priority suffix and plain-closed errors | Mechanism and transfer beyond these authored cases remain unproven |
+| Does field-only prompting help? | **Yes** for route/case-state on 24 exposed cases | No selected full-request replacement or independent confirmation |
+| Does the routing replay establish a 94%-accurate fast service? | **No**: only offline decision arithmetic is verified | New actual inference/timing/probability and fresh-case evaluation required |
+| Do confidence thresholds establish low-risk automation? | **No** for the diagnostic score and cases | Separate calibration, risk/coverage, and fresh confirmation remain open |
+
+The proposed serving sequence is now **matched process isolation/reset diagnosis**
+and **localized field/dependency comparisons**, not another claim that combined
+caching or cold-prefix measurement is still unrun. Preserve the failing JSON
+trace and native-only controls. Preregister route-priority composition and
+fixed single/grouped/disjoint readouts, with separate confirmation cases and
+complete-request timing. Test any fitted calibration only on its reserved data.
+These are implications of measured failures, not executed repairs or training
+authorization. Historical model-learning outcomes in §18 and the immutable
+Rust/MLX profile in §17 are unchanged. [E40; V9; proposed work]
+
 # Conclusion
 
 OpenKind has a bounded execution foundation: typed decisions, complete
@@ -4304,22 +4794,28 @@ corrective treatment or prospective contract is supplied by this paper update.
 Inspected gate/regression errors do not become training or selection examples.
 [E32; V6; §18.26; proposed program]
 
-The latest native study confirms two useful engineering results on exposed
-authored fixtures: deterministic dependent-field composition improves accuracy
-and modestly reduces request time, while static-prefix reuse saves request work
-with zero observed drift in 960 local comparisons. Their combined path has not
-yet been measured. Indexed answers improve selected fields but do not provide
-uniform quality or speed, and remapping changes answers in every tested case.
-BF16 reduces history drift but still changes an answer between session end and
-fresh reset. Immediate replay and cache parity therefore cannot stand in for
-whole-request, whole-session stability. The already-warm priming series also
-cannot establish cold-start amortization. [E39; V8; §20]
+The latest native study now supplies actual 9B Q4/T4 measurements. Action
+composition and static-prefix reuse work together: continuity field accuracy
+is 86.11% at 339.38 ms versus 80.73% at 798.68 ms for six-field recomputation.
+All 330 dedicated cache pairs and 528 cross-session quality cache comparisons
+are exact, and fresh-process first-use traces have measured zero-hit starts.
+These close the earlier measurement gaps without rewriting E39's historical
+4B results. [E40; V9; §21]
 
-PrivateMode supplies a useful indexed-readout reference, not validation of this
-checkpoint, renderer or cache. The next bounded serving work should isolate
-process-state drift, measure composition and reuse together, and validate fixed
-field readouts on fresh task families before a backend substitution is promoted.
-[P24; P25; E39; proposed work]
+The full path still fails qualification. JSON interleaving changes later native
+probabilities and sometimes answers; padding-off and requested graph-disable
+do not repair the matched trace. D's remaining quality errors concentrate in
+route priority and plain-closed labels, while generated JSON remains more
+accurate and the confidence diagnostic does not establish low-risk automation.
+Field-only requests provide a positive exposed diagnostic. The additional
+routing dependency is only a post-hoc decision replay, not a timed new arm or
+an independently confirmed 94%-accurate service. [E40; V9]
+
+The supported next serving work is matched process isolation/reset and focused
+field/dependency evaluation under fixed profiles and fresh confirmation cases.
+T4 feasibility is observed for this workload, not other precisions, concurrency,
+or the Mac implementation. No demonstrated kernel cause, general architecture
+winner, or new training authorization follows. [E40; proposed work]
 
 The M0–M4 distinction between evidence, useful decisions, lower cost and
 independent confirmation remains. One immutable-profile MLX performance study
@@ -4336,6 +4832,80 @@ artifacts. [§§13.2–13.5; §17.3; E25; E29–E32]
 # Appendix A. Source and reproducibility register
 
 The source IDs below identify the evidence behind the numbered sections. In the accompanying evidence manifest, local snapshot SHA-256 hashes distinguish the exact files reviewed from later Drive edits. Result paths are under `Google Drive / Colab Notebooks`. Timestamps embedded in run IDs are UTC.
+
+**Version 0.8.8 documentation boundary.** The editing authorities are the
+attached `WHITEPAPER(6).md` (SHA-256 `10fcd54e7702853b9e65d3f1923a647aae255c37fcc64d45fba3030956e28395`)
+and `WORKING_PAPER(2).md` (`6f1ac314b51d2a6f9644cdd2257d618a306b479bafdf8fd29171920de9142baa`).
+Only these two papers are revised, to whitepaper 0.8.8 and working paper 0.7.
+Section 21 and E40/V9 add the confirmed 9B/T4 findings, including failures;
+current summaries and prospective work are updated accordingly. Historical
+results, selections, source registers, and dated interpretations remain intact.
+The artifact bundle contains document diffs and separate saved-output validation.
+No Drive evidence, notebook, roadmap, architecture, policy, or backend is changed.
+
+**E40: Completed 9B/T4 composition, history, and open-question study.**
+[Run `20260928T220142_110595Z_1192c8`](https://drive.google.com/drive/folders/18mtxLUnbb45MUJYr2dc5taZrrODsA_wu),
+[archive](https://drive.google.com/file/d/164E3znGu4tMOJ9DTxmk8soIEHtK3hSWY/view),
+[completion marker](https://drive.google.com/file/d/1Q-t2VhbH7qYUbkDodlg4IPgpNK8ySBa3/view),
+[manifest](https://drive.google.com/file/d/1twVMWtRcgrA2hK9lTv3JKlcZ5JuJNNhL/view),
+[summary](https://drive.google.com/file/d/1qpYV69qCp2V5Wl8oTS5hlVDi8Nk0dZ0b/view),
+[scientific gates](https://drive.google.com/file/d/1CIvInA1CTO83ST5BnOWn8XCm1rTr8jm7/view),
+[quality](https://drive.google.com/file/d/1qyA-UtigDfyThVsjT4SUqjP85lfJyNhb/view),
+[paired contrasts](https://drive.google.com/file/d/1W2wkQx5kd6_giLadW7g4tvl-7R2ixk3-/view),
+[readout diagnostics](https://drive.google.com/file/d/100dF1yHgmohJcyykzPO2BADIvyzA8K5z/view),
+[history](https://drive.google.com/file/d/1U5oYFS1cr4UMgwLqPp7NzUauOb0-Te8l/view),
+[reset summary](https://drive.google.com/file/d/1aH8JWIY9rG3L2XfbI-iBo9IBHRLee5UH/view),
+and [model identity](https://drive.google.com/file/d/1IWisc1lbq8pKLmTZG4okrL1uKw1JjGup/view).
+Protocol `openkind-qwen35-9b-t4l4/v2.0.2`; run key
+`4113522833b4cd35556307c205c602dd3a2c4ebe45e04766dfd5783b0e656559`.
+Archive SHA-256 `e5f22eea3856dc104ca3af781e81ead6a53fc354aaf0ff9e467e5abf5a3abef4`;
+summary `4ef8e11beac2b4cd164738a43fcb57a7ce83ec42eafdd4e63d3003134d360269`.
+The archive contains 2,040 members and 42 complete block receipts: 39 planned
+plus three conditional history replays. It reports one session, exploratory
+completion, failed history gates, and false model/service promotion.
+
+Runtime model: publisher `bartowski/Qwen_Qwen3.5-9B-GGUF`, revision
+`2dcd842c59ea5eb119267064550a7a4c592b16c3`, Q4_K_M, 6,169,341,984 bytes;
+recorded model SHA-256
+`d784ce9eda1a5a7b51e8f705a9e6310844bf4f173654d115823c775fdea56d43`.
+Reference tokenizer/config revision
+`c202236235762e1c871ad0ccb60c8ee5ba337b9a`; exact parent weight revision
+independently unverified. Native commit
+`ad129b08d9f134cd298d1f8a85efc52b1b66e18e`. The **E40** recorded control/audit
+binary digests are respectively
+`22f819d060cf9865fec40f18f8c9c8e246441c2db8def91839e56d70e15db335` and
+`139c1270c72798d6402e187205971b852385295632a9dac847e82f5164ae7b75`;
+earlier setup-run binary identities are not substituted. Tesla T4,
+15.0 GiB, compute capability 7.5, driver 580.82.07, CUDA compiler 12.8,
+Python 3.13.15. Actual GGUF structure is 33 stored/one auxiliary/32 backbone
+blocks, width 4,096; MTP speculation remains disabled. All precision, memory,
+and performance claims retain §21's scope.
+
+**V9: 9B/T4 saved-output reconciliation and v0.8.8 paper update.** The supplied
+`OpenKind_9B_T4_Review_and_Reconciliation_20260928.zip` has SHA-256
+`12e6c5ae8bba3b344d7d9d1f2b522f921a33fc75a46c14a1bd2d15999cba98a6`.
+Its checker is rerun on the exact E40 archive, with outputs isolated from that
+archive. All checked assertions pass: completion hashes; 22 source/asset hashes;
+42 block result/trace receipts; 180 rule-label checks; 3,273 request-body hashes;
+raw reply/semantic mappings; 29,928 repeated vector checks; 2,498 derived-action
+distribution checks; 840 probability/answer comparisons; 330 cache pairs;
+528 A↔C/B↔D comparisons; ten quality aggregates; 56 paired-bootstrap rows;
+20 first-use milestones; six readout rows; and 32 risk/coverage rows. Counts are
+bookkeeping assertions over shared observations, not scientific replications.
+
+The separate decision-only routing replay is also rerun, reproducing 93.75% /
+94.44% field accuracy and 62.50% / 66.67% all-six correctness on exposed saved D
+predictions. It remains post-hoc arithmetic with **no new timing or probability
+vector**, not a confirmed experimental arm. The confidence CSV's history flag
+is explicitly scoped to quality-block sentinels, not the failed dedicated
+suite. No model/backend execution, model-binary rehash, independent gold
+adjudication, kernel diagnosis, calibration fit, or protected-final access
+occurs. Older E0–E39 numerical audits are not rerun. See the bundled
+[validation receipt and reproduction instructions](verification/9b-t4-v088/README.md).
+Document preservation/diff checks are separate from saved-evidence checks.
+
+Historical documentation boundaries below retain the filenames and review
+scopes recorded at those revisions; the current editing hashes are above.
 
 **Version 0.8.7 documentation boundary.** Editing bases are the latest
 `WHITEPAPER(6).md` (SHA-256 `a36003c9556a4f22a03e6cd7fbdb5db78da64d4e4d5bc564cc8e5b7b92847a45`)
@@ -4925,6 +5495,22 @@ E32 improves SNLI substantially without preserving QASPER or supported ContractN
 entailment. An already-exposed regression panel is not fresh confirmation. [E32]
 
 # Appendix D. Revision history
+
+## Version 0.8.8: confirmed 9B/T4 combined path and failed mixed-history qualification
+
+28 September 2026, America/Chicago. Adds §21 and E40/V9 for completed run
+`20260928T220142_110595Z_1192c8`. Records actual T4 full-offload execution,
+measured A–E composition/cache/JSON contrasts, 330 dedicated and 528 isolated
+quality cache comparisons, genuine zero-hit-first-request traces, mixed-history
+and three-sequence shape failures, unsuccessful padding/graph interventions,
+localized route/case-state errors, field-only diagnostics, and confidence limits.
+Keeps route-priority replay explicitly post-hoc and untimed. Updates abstract,
+executive assessment, research answers, serving priorities, conclusion, provenance,
+and working paper revision 0.7. Sections 19–20 retain their historical cutoffs.
+Reruns saved-output reconciliation on copies and separately checks document
+preservation. No notebook, model, backend, roadmap, architecture, experiment
+record, historical selection, policy threshold, or protected final is modified.
+
 
 ## Version 0.8.7: completed readout/history study and priming correction
 

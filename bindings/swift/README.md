@@ -1,6 +1,18 @@
-# Swift client
+# Swift library
 
-Swift Package Manager library for macOS 12+ and iOS 15+. Add `bindings/swift` as a local package in Xcode or SwiftPM. Run `swift test` from this directory for local contract tests. The package is not published as a remote Swift package.
+Swift Package Manager library for macOS 12+ and iOS 15+. The repository root and `bindings/swift` both expose the `OpenKind` product and `OpenKind` module. Use the repository root as a package dependency from another checkout. Run `swift test` from this directory for the local contract tests. The package is not published to a Swift package registry.
+
+For the sibling TurboSpark checkout, add the OpenKind package and product to `swift/TurboSparkApp/Package.swift`:
+
+```swift
+.package(path: "../../../openkind")
+```
+
+```swift
+.product(name: "OpenKind", package: "openkind")
+```
+
+The relative path assumes `openkind` and `turbospark` are sibling directories. For a remote dependency, use the public Git repository URL and a semantic version tag. The repository URL and first release tag are not set in this checkout yet.
 
 ```swift
 import Foundation

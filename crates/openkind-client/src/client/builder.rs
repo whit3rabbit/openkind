@@ -122,17 +122,7 @@ impl ClientBuilder {
 
     /// Validate settings and construct the [`Client`].
     pub fn build(self) -> Result<Client, Error> {
-        let api_key = resolve_setting(self.api_key, "OPENKIND_API_KEY", "TYPESAFE_API_KEY")
-            .ok_or_else(|| {
-                Error::Config(
-                    "no API key provided; pass ClientBuilder::api_key or set \
-                     OPENKIND_API_KEY (or TYPESAFE_API_KEY)"
-                        .into(),
-                )
-            })?;
-        if api_key.chars().any(|c| c.is_control()) {
-            return Err(Error::Config("api_key contains control characters".into()));
-        }
+        let api_key = resolve_api_key(self.api_key, non_empty_env).map_err(Error::Config)?;
 
         let cloudflare_account = self.cloudflare_account;
         if let Some(id) = &cloudflare_account {
@@ -285,6 +275,31 @@ pub(crate) fn resolve_lookup(
 
 fn non_empty_env(name: &str) -> Option<String> {
     clean_env_value(std::env::var(name).ok()?)
+}
+
+/// Resolve and validate the API key like the Python SDK's
+/// `resolve_and_validate_api_key`: an explicit key wins even when invalid
+/// (trimmed, never falling back to the environment), environment values are
+/// trimmed and must be non-empty, and the survivor must be printable ASCII
+/// without whitespace.
+pub(crate) fn resolve_api_key(
+    explicit: Option<String>,
+    lookup: impl Fn(&str) -> Option<String>,
+) -> Result<String, String> {
+    let resolved = match explicit {
+        Some(value) => Some(value.trim().to_owned()),
+        None => lookup("OPENKIND_API_KEY").or_else(|| lookup("TYPESAFE_API_KEY")),
+    }
+    .filter(|key| !key.is_empty());
+    match resolved {
+        Some(key) if key.chars().all(|c| matches!(c, '!'..='~')) => Ok(key),
+        Some(_) => {
+            Err("API key must contain only printable ASCII characters without whitespace".into())
+        }
+        None => Err("no API key provided; pass ClientBuilder::api_key or set \
+             OPENKIND_API_KEY (or TYPESAFE_API_KEY)"
+            .into()),
+    }
 }
 
 /// Trim and drop empty/whitespace environment values, matching the Python

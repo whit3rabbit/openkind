@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::args::LayaBackendArg;
 use anyhow::{bail, Context, Result};
 use clap::Parser;
 use openkind_backends::families::decoder_logit_letter::{
@@ -26,6 +27,8 @@ use openkind_backends::families::kev::{KevEngine, KevEngineConfig};
 use openkind_backends::families::laya::{
     LayaEngine, LayaEngineConfig, LAYA_ENGLISH, LAYA_MULTILINGUAL, LAYA_TYPED_DECISIONS,
 };
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+use openkind_backends::families::laya::{LayaMlxEngine, LayaMlxEngineConfig};
 use openkind_backends::families::qwen3guard::{Qwen3GuardEngine, Qwen3GuardEngineConfig};
 use openkind_backends::families::router_script::ScriptRuleTable;
 use openkind_backends::families::schema_scorer::{SchemaScorerEngine, SchemaScorerEngineConfig};
@@ -272,6 +275,16 @@ pub(crate) struct FamilyArgs {
     /// Model root with the pinned typed-decisions laya artifacts.
     #[arg(long, env = "OPENKIND_LAYA_TYPED_DECISIONS_MODEL_ROOT")]
     pub(crate) laya_typed_decisions_model_root: Option<PathBuf>,
+
+    /// Laya decision-encoder backend. `mlx-fp32` is available on macOS arm64
+    /// with the daemon's `mlx` feature enabled.
+    #[arg(
+        long,
+        env = "OPENKIND_LAYA_BACKEND",
+        value_enum,
+        default_value_t = LayaBackendArg::NativeCpu
+    )]
+    pub(crate) laya_backend: LayaBackendArg,
 
     /// Maximum concurrent model evaluations per surveyed-family engine.
     #[arg(long, env = "OPENKIND_FAMILY_CONCURRENCY", default_value_t = 1)]
@@ -528,14 +541,25 @@ impl FamilyArgs {
             laya_requested.push((requested, model_root, profile, name));
         }
         for (requested, model_root, profile, name) in laya_requested {
-            let engine: Arc<dyn DecisionEngine> = Arc::new(
-                LayaEngine::load(LayaEngineConfig {
-                    profile,
-                    model_root,
-                    limits: admission.limits(),
-                })
-                .map_err(|error| anyhow::anyhow!("load {name} engine: {error}"))?,
-            );
+            let engine: Arc<dyn DecisionEngine> = match self.laya_backend {
+                LayaBackendArg::NativeCpu => Arc::new(
+                    LayaEngine::load(LayaEngineConfig {
+                        profile,
+                        model_root,
+                        limits: admission.limits(),
+                    })
+                    .map_err(|error| anyhow::anyhow!("load {name} engine: {error}"))?,
+                ),
+                #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                LayaBackendArg::MlxFp32 => Arc::new(
+                    LayaMlxEngine::load(LayaMlxEngineConfig {
+                        profile,
+                        model_root,
+                        limits: admission.limits(),
+                    })
+                    .map_err(|error| anyhow::anyhow!("load {name} mlx engine: {error}"))?,
+                ),
+            };
             for alias in requested {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }

@@ -325,3 +325,156 @@ fn golden_replay_matches_laya_multilingual() {
 fn golden_replay_matches_laya_typed_decisions() {
     replay_golden(&PROFILES[2]);
 }
+
+/// MLX backend golden replay (feature `mlx`, macOS arm64). The candle CPU
+/// engine is the correctness oracle: the MLX engine must reproduce the same
+/// committed fixture answers with unchanged selections and bounded
+/// probability drift, per the workspace MLX parity gates.
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+mod mlx_replay {
+    use super::*;
+
+    use openkind_backends::families::laya::{LayaMlxEngine, LayaMlxEngineConfig};
+
+    /// Absolute drift budget on calibrated probabilities (the workspace MLX
+    /// gate for FP32 backend parity).
+    const MLX_PROBABILITY_TOLERANCE: f64 = 0.005;
+
+    struct MlxParity {
+        max_probability_error: f64,
+        selection_flips: usize,
+    }
+
+    fn measure_answer(
+        label: &str,
+        actual: &serde_json::Value,
+        expected: &serde_json::Value,
+        parity: &mut MlxParity,
+    ) {
+        if actual["type"] != expected["type"] {
+            panic!("{label}: answer type drifted on the MLX backend");
+        }
+        match expected["type"].as_str().expect("tagged answer") {
+            "noul" => {
+                let actual = actual["noul"].as_f64().expect("noul");
+                let expected = expected["noul"].as_f64().expect("noul");
+                parity.max_probability_error =
+                    parity.max_probability_error.max((actual - expected).abs());
+            }
+            "choice" => {
+                let actual_selection = actual["choice"].as_str().expect("choice selection");
+                let expected_selection = expected["choice"].as_str().expect("choice selection");
+                if actual_selection != expected_selection {
+                    parity.selection_flips += 1;
+                    eprintln!(
+                        "{label}: MLX selection flip {actual_selection} vs {expected_selection}"
+                    );
+                }
+                for (key, expected_probability) in expected["probabilities"]
+                    .as_object()
+                    .expect("probabilities")
+                {
+                    let actual_probability = actual["probabilities"][key]
+                        .as_f64()
+                        .unwrap_or_else(|| panic!("{label}: missing MLX probability {key}"));
+                    parity.max_probability_error = parity
+                        .max_probability_error
+                        .max((actual_probability - expected_probability.as_f64().unwrap()).abs());
+                }
+            }
+            "score" => {
+                for (key, expected_probability) in expected["probabilities"]
+                    .as_object()
+                    .expect("probabilities")
+                {
+                    let actual_probability = actual["probabilities"][key]
+                        .as_f64()
+                        .unwrap_or_else(|| panic!("{label}: missing MLX level {key}"));
+                    parity.max_probability_error = parity
+                        .max_probability_error
+                        .max((actual_probability - expected_probability.as_f64().unwrap()).abs());
+                }
+            }
+            other => panic!("{label}: unexpected answer type {other}"),
+        }
+    }
+
+    fn replay_golden_mlx(spec: &ProfileSpec) {
+        let Some(root) = model_root(spec) else {
+            eprintln!("skipping: {} is not set", spec.env_var);
+            return;
+        };
+        let golden: Golden = serde_json::from_slice(
+            &fs::read(fixture_dir(spec).join("golden.json")).expect("read golden fixture"),
+        )
+        .expect("decode golden fixture");
+        let engine = LayaMlxEngine::load(LayaMlxEngineConfig {
+            profile: spec.profile,
+            model_root: root,
+            limits: limits(),
+        })
+        .expect("load pinned MLX engine");
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+
+        let mut parity = MlxParity {
+            max_probability_error: 0.0,
+            selection_flips: 0,
+        };
+        let mut answers = 0_usize;
+        for case in &golden.cases {
+            let response = runtime
+                .block_on(engine.evaluate(case.request.clone()))
+                .unwrap_or_else(|error| panic!("mlx case {}: {error}", case.name));
+            for (question_id, expected) in &case.response.answers {
+                let actual = response.answers.get(question_id).unwrap_or_else(|| {
+                    panic!("mlx case {}: missing answer {question_id}", case.name)
+                });
+                let actual = serde_json::to_value(actual).expect("serialize answer");
+                measure_answer(
+                    &format!("mlx {}: {question_id}", case.name),
+                    &actual,
+                    expected,
+                    &mut parity,
+                );
+                answers += 1;
+            }
+            assert_eq!(
+                response.usage.input_tokens, case.response.usage.input_tokens,
+                "mlx {}: usage drifted",
+                case.name
+            );
+        }
+        assert_eq!(
+            parity.selection_flips, 0,
+            "MLX backend changed {} selections",
+            parity.selection_flips
+        );
+        assert!(
+            parity.max_probability_error <= MLX_PROBABILITY_TOLERANCE,
+            "MLX probability drift {} exceeds {MLX_PROBABILITY_TOLERANCE}",
+            parity.max_probability_error
+        );
+        eprintln!(
+            "mlx {} parity: {answers} answers, max |Δp| = {:.3e}, selection flips = {}",
+            spec.profile.loader_id, parity.max_probability_error, parity.selection_flips
+        );
+    }
+
+    #[test]
+    fn mlx_golden_replay_matches_laya_english() {
+        replay_golden_mlx(&PROFILES[0]);
+    }
+
+    #[test]
+    fn mlx_golden_replay_matches_laya_multilingual() {
+        replay_golden_mlx(&PROFILES[1]);
+    }
+
+    #[test]
+    fn mlx_golden_replay_matches_laya_typed_decisions() {
+        replay_golden_mlx(&PROFILES[2]);
+    }
+}

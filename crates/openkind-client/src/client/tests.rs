@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use super::builder::{clean_env_value, resolve_lookup};
+use super::builder::{clean_env_value, resolve_api_key, resolve_lookup};
 use super::core::Client;
 use super::transport::is_user_overridable;
 use crate::error::Error;
@@ -48,6 +48,50 @@ fn resolve_lookup_precedence() {
         clean_env_value("  real-value  ".into()),
         Some("real-value".into())
     );
+}
+
+/// Ports of the Python SDK's `test_api_key_whitespace`,
+/// `test_invalid_explicit_key_does_not_fall_back_to_env`, and
+/// `test_invalid_api_key` parametrizations, using an injected lookup so no
+/// process-global environment state is touched.
+#[test]
+fn api_key_resolution_matches_python_sdk() {
+    // The injected lookup composes clean_env_value exactly like the
+    // production `non_empty_env`, so the env source arrives trimmed.
+    let env_key = |_: &str| clean_env_value("  env-key  ".to_owned());
+
+    // Explicit keys are trimmed before use (constructor source).
+    for padding in ["", "\n", "\r\n", " \t\r\n "] {
+        let key = resolve_api_key(Some(format!("{padding}test-key{padding}")), |_| None).unwrap();
+        assert_eq!(key, "test-key");
+    }
+    // Environment keys are trimmed too (env source).
+    assert_eq!(resolve_api_key(None, env_key).unwrap(), "env-key");
+
+    // An explicit empty or invalid key errors instead of falling back to
+    // the environment, and the error never echoes the env credential.
+    for key in ["", " \t\r\n ", "\0private", "private\0"] {
+        let err = resolve_api_key(Some(key.to_owned()), env_key).unwrap_err();
+        assert!(!err.contains("env-key"), "{err}");
+    }
+
+    // Non-printable, whitespace, and non-ASCII characters are rejected from
+    // both sources without echoing the credential.
+    for character in ["\n", "\r", "\t", "\u{1f}", "\u{7f}", " ", "é", "\u{200b}"] {
+        let explicit = resolve_api_key(Some(format!("ts_live_private{character}suffix")), |_| None)
+            .unwrap_err();
+        let from_env = resolve_api_key(None, |_| Some(format!("ts_live_private{character}suffix")))
+            .unwrap_err();
+        for err in [explicit, from_env] {
+            assert!(err.contains("printable ASCII"), "{err}");
+            assert!(!err.contains("ts_live_private"), "{err}");
+        }
+    }
+
+    // No key anywhere names both variables (test_missing_key).
+    let err = resolve_api_key(None, |_| None).unwrap_err();
+    assert!(err.contains("OPENKIND_API_KEY"), "{err}");
+    assert!(err.contains("TYPESAFE_API_KEY"), "{err}");
 }
 
 #[test]

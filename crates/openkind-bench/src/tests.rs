@@ -151,6 +151,26 @@ fn mock_score_run_end_to_end_writes_summary_and_predictions() {
     assert_eq!(strategies[0]["reps"], 2);
     assert!(strategies[0]["p50_seconds"].as_f64().expect("p50") > 0.0);
     assert!(strategies[0]["decisions_per_second"].as_f64().expect("dps") > 0.0);
+    // CPU telemetry and host hardware are recorded with every summary.
+    assert!(
+        strategies[0]["cpu_time_seconds"].as_f64().is_some(),
+        "cpu_time_seconds must be present (null when the OS query fails)"
+    );
+    assert!(
+        strategies[0]["avg_cpu_percent"].as_f64().is_some(),
+        "avg_cpu_percent must be present (null when the OS query fails)"
+    );
+    let hardware = &summary["host_hardware"];
+    assert!(
+        hardware.is_object(),
+        "host_hardware block is always present"
+    );
+    assert!(
+        hardware["logical_cores"].is_null() || hardware["logical_cores"].as_u64().unwrap_or(0) > 0
+    );
+    // The mock engine has no context budget contract; other engines record
+    // their frozen per-sequence token limits here.
+    assert!(summary["context"].is_null() || summary["context"].is_object());
 
     let prediction_path = output_dir.join("predictions-mock-mock.jsonl");
     let predictions = fs::read_to_string(&prediction_path).expect("predictions");

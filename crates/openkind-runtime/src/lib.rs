@@ -20,6 +20,8 @@ pub mod digest;
 pub mod evidence;
 /// Backend capabilities and generic execution-plan vocabulary.
 pub mod execution;
+/// Host hardware discovery and process CPU-time observations.
+pub mod hardware;
 /// Process-memory observations for admission calibration.
 pub mod memory;
 
@@ -33,6 +35,7 @@ pub use evidence::{
     CHECKSUMS_SCHEMA, NATIVE_RUN_SCHEMA,
 };
 pub use execution::{BackendCapabilities, BatchForwardMode, ExecutionPlan};
+pub use hardware::{cpu_time_seconds, host_hardware, HostHardware};
 pub use memory::peak_resident_bytes;
 
 use std::fmt;
