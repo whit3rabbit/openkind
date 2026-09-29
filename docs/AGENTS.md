@@ -18,6 +18,7 @@ The documentation suite maintains a strict division of responsibility across pro
 | Loadable-model index: types, backends, pull names, sizes, and measured runs | [`MODELS.md`](MODELS.md) |
 | Benchmark methodology, harness usage, and recorded runs | [`BENCHMARKS.md`](BENCHMARKS.md) |
 | MLX runtime contract, implementation guide, limitations, and enhancement path | [`MLX.md`](MLX.md) |
+| Unofficial Arrow bulk endpoint: mapping, limits, and usage | [`ARROW.md`](ARROW.md) |
 | Research dossier, background, and prior art | [`RESEARCH.md`](RESEARCH.md) |
 | Supported environment variables across binaries, SDKs, and bindings | [`ENV.md`](ENV.md) |
 | Scientific rationale, theoretical grounding, and measured results | [`whitepaper/WHITEPAPER.md`](whitepaper/WHITEPAPER.md) |

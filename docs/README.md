@@ -71,6 +71,10 @@ Project documentation and architectural references for `openkind`.
      public registry serves manifests and small pinned profile assets.
    - CLI pull and explicit daemon serving commands, plus the
      [`sync-model-registry.py`](../scripts/sync-model-registry.py) publication check.
+10. **[`ARROW.md`](./ARROW.md)**: Unofficial Arrow bulk endpoint:
+   - Opt-in `POST /v1/arrow` for many states per request with an Arrow IPC
+     stream response, outside the TypeSafe wire contract.
+   - Column mapping, metadata keys, limits, and client usage.
 
 ---
 

@@ -18,6 +18,8 @@
 
 #![warn(missing_docs)]
 
+/// Unofficial bulk Arrow IPC endpoint (`POST /v1/arrow`, opt-in).
+pub mod arrow;
 /// HTTP error mapping and Axum response conversion.
 pub mod error;
 /// Tonic gRPC service implementation for `openkind.SystemOne`.
@@ -31,8 +33,11 @@ pub mod models;
 /// Embedded web playground served at `GET /playground` (opt-in).
 pub mod playground;
 
+pub use arrow::{arrow_batch, ArrowBatchRequest, ARROW_CONTENT_TYPE};
 pub use error::ApiError;
-pub use http::{router, router_daemon, router_with_auth, router_with_state};
+pub use http::{
+    router, router_daemon, router_daemon_with_arrow, router_with_auth, router_with_state,
+};
 pub use middleware::{AuthConfig, RateLimitConfig, RateLimiter, REQUEST_ID_HEADER};
 pub use models::{ModelInfo, ModelsResponse};
 

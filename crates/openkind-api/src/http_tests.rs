@@ -432,3 +432,394 @@ async fn playground_model_controls_require_opt_in_auth_and_explicit_header() {
         false
     );
 }
+
+// ---------- Unofficial Arrow bulk endpoint (`POST /v1/arrow`) ----------
+
+fn arrow_questions() -> serde_json::Value {
+    json!({
+        "urgency": {
+            "type": "score",
+            "instructions": "How urgent is this?",
+            "criteria": ["Can wait", "Within a few days", "Today"]
+        },
+        "refund": {
+            "type": "noul",
+            "instructions": "Is a refund being requested?"
+        },
+        "department": {
+            "type": "choice",
+            "instructions": "Which department?",
+            "criteria": {
+                "billing": "Payments, refunds",
+                "shipping": null,
+                "other": null
+            }
+        }
+    })
+}
+
+fn arrow_request_body(states: serde_json::Value) -> serde_json::Value {
+    json!({
+        "model": "mock",
+        "states": states,
+        "questions": arrow_questions()
+    })
+}
+
+fn arrow_app(auth: AuthConfig) -> Router {
+    let mut reg = EngineRegistry::new();
+    reg.register("mock", Arc::new(MockEngine::new()));
+    router_daemon_with_arrow(
+        AppState::new(reg),
+        auth,
+        MAX_PAYLOAD_SIZE_BYTES,
+        crate::middleware::RateLimiter::disabled(),
+        false,
+        true,
+    )
+}
+
+async fn post_arrow(
+    router: Router,
+    body: serde_json::Value,
+) -> axum::http::Response<axum::body::Body> {
+    router
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/arrow")
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::to_vec(&body).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap()
+}
+
+/// Decode the response body as a schema-first Arrow IPC stream and assert
+/// the stream is well-formed (exactly one batch, then end-of-stream).
+async fn decode_arrow_response(
+    resp: axum::http::Response<axum::body::Body>,
+) -> (
+    std::sync::Arc<arrow_schema::Schema>,
+    arrow_array::RecordBatch,
+) {
+    use arrow_ipc::reader::StreamReader;
+    use std::io::Cursor;
+
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let mut reader = StreamReader::try_new(Cursor::new(bytes.to_vec()), None).unwrap();
+    let schema = reader.schema().clone();
+    let batch = reader.next().unwrap().unwrap();
+    assert!(reader.next().is_none(), "stream must end after one batch");
+    (schema, batch)
+}
+
+#[tokio::test]
+async fn arrow_route_is_absent_by_default() {
+    let resp = app()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/arrow")
+                .header("content-type", "application/json")
+                .body(Body::from("{}"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn arrow_route_serves_ipc_stream_with_row_per_state() {
+    let (schema, batch) = decode_arrow_response(
+        post_arrow(
+            arrow_app(AuthConfig::default()),
+            arrow_request_body(json!(["Where is my parcel?", "Please refund the shoes."])),
+        )
+        .await,
+    )
+    .await;
+
+    assert_eq!(batch.num_rows(), 2);
+    // Columns follow the sorted question ids.
+    let names: Vec<String> = schema
+        .fields()
+        .iter()
+        .map(|f| f.name().to_string())
+        .collect();
+    assert_eq!(names, ["department", "refund", "urgency"]);
+
+    let metadata = schema.metadata();
+    assert_eq!(
+        metadata.get(crate::arrow::META_ARROW_VERSION).unwrap(),
+        crate::arrow::ARROW_MAPPING_VERSION
+    );
+    assert_eq!(metadata.get(crate::arrow::META_MODEL).unwrap(), "mock");
+    // The mock fills usage from the dispatch estimator: deterministic per
+    // (state, questions), so the aggregate is exactly twice one evaluation.
+    let input: u64 = metadata
+        .get(crate::arrow::META_USAGE_INPUT_TOKENS)
+        .unwrap()
+        .parse()
+        .unwrap();
+    let output: u64 = metadata
+        .get(crate::arrow::META_USAGE_OUTPUT_TOKENS)
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!(input > 0, "aggregate input tokens must be present");
+    assert!(output > 0, "aggregate output tokens must be present");
+}
+
+#[tokio::test]
+async fn arrow_rows_match_systemone_answers() {
+    use crate::arrow::answers_from_batch;
+
+    let questions = arrow_questions();
+    let single_state = json!({
+        "model": "mock",
+        "state": "Where is my parcel?",
+        "questions": questions
+    });
+    let resp = app()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/systemone")
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::to_vec(&single_state).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let single: serde_json::Value =
+        serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
+
+    let (_, batch) = decode_arrow_response(
+        post_arrow(
+            arrow_app(AuthConfig::default()),
+            arrow_request_body(json!(["Where is my parcel?", "Please refund the shoes."])),
+        )
+        .await,
+    )
+    .await;
+    let rows = answers_from_batch(&batch).unwrap();
+
+    // The mock engine seeds answers per (question id, instructions), so the
+    // bulk row and the single-state answer must be the same object. Floats
+    // are compared with ulp-scale tolerance: serde_json's decimal parser can
+    // drift one ulp on a JSON round-trip, while the Arrow path itself is
+    // bit-exact end to end.
+    for id in ["refund", "department", "urgency"] {
+        let bulk = serde_json::to_value(&rows[0][id]).unwrap();
+        assert_json_ulp_close(
+            &bulk,
+            &single["answers"][id],
+            &format!("row 0 answer `{id}`"),
+        );
+    }
+    // Noul answers carry no confidence, on the bulk path either.
+    let noul = serde_json::to_value(&rows[0]["refund"]).unwrap();
+    assert!(noul.get("confidence").is_none());
+}
+
+/// Structural JSON equality with ulp-scale tolerance on floats, so Arrow
+/// answers can be diffed against a JSON response that serde_json's parser
+/// may have nudged by one ulp.
+fn assert_json_ulp_close(left: &serde_json::Value, right: &serde_json::Value, context: &str) {
+    match (left, right) {
+        (serde_json::Value::Number(a), serde_json::Value::Number(b)) => {
+            let a = a.as_f64().unwrap();
+            let b = b.as_f64().unwrap();
+            assert!(
+                (a - b).abs() <= a.abs().max(b.abs()) * 1e-15,
+                "{context}: {a} vs {b}"
+            );
+        }
+        (serde_json::Value::Array(a), serde_json::Value::Array(b)) => {
+            assert_eq!(a.len(), b.len(), "{context}");
+            for (index, (x, y)) in a.iter().zip(b.iter()).enumerate() {
+                assert_json_ulp_close(x, y, &format!("{context}[{index}]"));
+            }
+        }
+        (serde_json::Value::Object(a), serde_json::Value::Object(b)) => {
+            assert_eq!(a.len(), b.len(), "{context}");
+            for (key, x) in a {
+                assert_json_ulp_close(x, &b[key], &format!("{context}.{key}"));
+            }
+        }
+        _ => assert_eq!(left, right, "{context}"),
+    }
+}
+
+#[tokio::test]
+async fn arrow_usage_metadata_equals_sum_of_systemone_calls() {
+    let state_text = "Where is my parcel?";
+    let questions = arrow_questions();
+    let single = json!({
+        "model": "mock",
+        "state": state_text,
+        "questions": questions
+    });
+    let resp = app()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/systemone")
+                .header("content-type", "application/json")
+                .body(Body::from(serde_json::to_vec(&single).unwrap()))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let single: serde_json::Value =
+        serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
+
+    let (schema, _) = decode_arrow_response(
+        post_arrow(
+            arrow_app(AuthConfig::default()),
+            arrow_request_body(json!([state_text, state_text])),
+        )
+        .await,
+    )
+    .await;
+    let metadata = schema.metadata();
+    let expected_input: u64 = 2 * single["usage"]["input_tokens"].as_u64().unwrap();
+    let expected_output: u64 = 2 * single["usage"]["output_tokens"].as_u64().unwrap();
+    assert_eq!(
+        metadata
+            .get(crate::arrow::META_USAGE_INPUT_TOKENS)
+            .map(String::as_str),
+        Some(expected_input.to_string()).as_deref()
+    );
+    assert_eq!(
+        metadata
+            .get(crate::arrow::META_USAGE_OUTPUT_TOKENS)
+            .map(String::as_str),
+        Some(expected_output.to_string()).as_deref()
+    );
+}
+
+#[tokio::test]
+async fn arrow_route_is_gated_by_auth() {
+    let router = arrow_app(AuthConfig::new(Some("secret".into())));
+    let resp = post_arrow(router.clone(), arrow_request_body(json!(["s"]))).await;
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    assert!(resp.headers().contains_key("x-typesafe-request-id"));
+
+    let resp = router
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/v1/arrow")
+                .header("authorization", "Bearer secret")
+                .header("content-type", "application/json")
+                .body(Body::from(
+                    serde_json::to_vec(&arrow_request_body(json!(["s"]))).unwrap(),
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+}
+
+#[tokio::test]
+async fn arrow_rejects_empty_questions_and_bad_bodies_with_error_envelopes() {
+    for (body, expected_status, expected_code) in [
+        (
+            json!({"model": "mock", "states": ["s"], "questions": {}}),
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "invalid_body",
+        ),
+        (
+            // Score rubrics need at least two levels (core validation).
+            json!({"model": "mock", "states": ["s"], "questions": {"one": {"type": "score", "instructions": "x", "criteria": ["only one level"]}}}),
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "invalid_body",
+        ),
+        (
+            json!({"model": "mock", "questions": {"q": {"type": "noul", "instructions": "x"}}}),
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "invalid_body",
+        ),
+    ] {
+        let resp = post_arrow(arrow_app(AuthConfig::default()), body).await;
+        assert_eq!(resp.status(), expected_status);
+        let value: serde_json::Value =
+            serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
+        assert_eq!(value["error"]["code"], expected_code, "{value}");
+    }
+}
+
+#[tokio::test]
+async fn arrow_choice_over_256_options_is_unprocessable() {
+    let mut criteria = serde_json::Map::new();
+    for i in 0..257 {
+        criteria.insert(format!("option-{i:03}"), serde_json::Value::Null);
+    }
+    let body = json!({
+        "model": "mock",
+        "states": ["s"],
+        "questions": {
+            "wide": {"type": "choice", "instructions": "pick", "criteria": criteria}
+        }
+    });
+    let resp = post_arrow(arrow_app(AuthConfig::default()), body).await;
+    assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let value: serde_json::Value =
+        serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(value["error"]["code"], "invalid_body");
+    assert!(
+        value["error"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("uint8"),
+        "{value}"
+    );
+}
+
+#[tokio::test]
+async fn arrow_unknown_model_fails_as_json_error_not_stream() {
+    let mut body = arrow_request_body(json!(["s"]));
+    body["model"] = json!("does-not-exist");
+    let resp = post_arrow(arrow_app(AuthConfig::default()), body).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    assert_eq!(
+        resp.headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok()),
+        Some("application/json")
+    );
+    let value: serde_json::Value =
+        serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(value["error"]["code"], "unknown_model");
+}
+
+#[tokio::test]
+async fn arrow_empty_states_yield_zero_row_stream() {
+    let (schema, batch) = decode_arrow_response(
+        post_arrow(
+            arrow_app(AuthConfig::default()),
+            arrow_request_body(json!([])),
+        )
+        .await,
+    )
+    .await;
+    assert_eq!(batch.num_rows(), 0);
+    assert_eq!(schema.fields().len(), 3);
+    assert_eq!(
+        schema.metadata().get(crate::arrow::META_MODEL).unwrap(),
+        "mock"
+    );
+    assert_eq!(
+        schema
+            .metadata()
+            .get(crate::arrow::META_USAGE_INPUT_TOKENS)
+            .unwrap(),
+        "0"
+    );
+}
