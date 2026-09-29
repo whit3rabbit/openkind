@@ -115,6 +115,14 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
     - [`full_attention.rs`](./src/qwen35/mlx/layers/full_attention.rs): Grouped-query attention, rotary embedding (`apply_rotary`), and per-head normalization.
     - [`ops.rs`](./src/qwen35/mlx/layers/ops.rs): MLX array operations, causal conv windowing, and tensor loading helpers.
     - [`differential_tests/`](./src/qwen35/mlx/layers/differential_tests/): Independent FP32 host reference and differential verification tests.
+- [`src/proxy_cache/`](./src/proxy_cache/): Distilling proxy-cache subsystem (used by the daemon's `--proxy-cache-upstream` mode; see [`docs/PROXY_CACHE.md`](../../docs/PROXY_CACHE.md)):
+  - [`task.rs`](./src/proxy_cache/task.rs): task identity (order-insensitive fingerprint over canonical instructions+criteria), config knobs, routing reasons, and IID channel rules.
+  - [`encoder.rs`](./src/proxy_cache/encoder.rs): the `TextEmbedder` contract and the dependency-free hash embedder; [`bert_encoder.rs`](./src/proxy_cache/bert_encoder.rs) (candle CPU, pinned `encoder-embedding:8d9498269ef05d95d93c`) and [`mlx_bert_encoder.rs`](./src/proxy_cache/mlx_bert_encoder.rs) (feature `mlx`) implement the same L2-normalized CLS-pooling contract.
+  - [`student.rs`](./src/proxy_cache/student.rs): multinomial logistic student, full-batch Adam with early stopping, safetensors round-trip.
+  - [`ood.rs`](./src/proxy_cache/ood.rs): kNN cosine gate with a leave-one-out threshold from training data only.
+  - [`calibrate.rs`](./src/proxy_cache/calibrate.rs): fixed threshold grid, Clopper-Pearson bound over all calibration rows, fixed-sequence scan.
+  - [`store.rs`](./src/proxy_cache/store.rs) / [`registry.rs`](./src/proxy_cache/registry.rs): per-task SQLite sample store and immutable `student-vN` version directories.
+  - [`engine.rs`](./src/proxy_cache/engine.rs): route/record/train/shadow/promote/monitor lifecycle with audit drift monitoring and teacher lineage; [`manager.rs`](./src/proxy_cache/manager.rs): task registry, admission, and the background training worker.
 - [`src/families/`](./src/families/): Surveyed-family model loaders, readouts, and engine adapters:
   - [`mod.rs`](./src/families/mod.rs): Facade re-exporting `BoundedFamilyEngine`, `FamilyLimits`, `FamilyControl`, `FamilyEvaluator`, and wire answer unpacking.
   - [`decoder_logit_letter/`](./src/families/decoder_logit_letter/): Qwen2.5-0.5B-Instruct letter readout (`5492c97dfcdaf3fe9439`). Evaluates single-token option letters over prompt-formatted choices.

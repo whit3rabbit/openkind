@@ -12,8 +12,9 @@ use tokio::io::AsyncWriteExt;
 
 use crate::manifest::{sha256, valid_name, valid_relative_path, valid_sha256};
 use crate::{
-    Catalog, CatalogEntry, Error, Manifest, Result, CATALOG_URL, LAYA_ENGLISH_MODEL_NAME,
-    LAYA_MULTILINGUAL_MODEL_NAME, LAYA_TYPED_DECISIONS_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME,
+    Catalog, CatalogEntry, Error, Manifest, Result, CATALOG_URL, ENCODER_EMBEDDING_MODEL_NAME,
+    LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME, LAYA_TYPED_DECISIONS_MODEL_NAME,
+    QWEN35_STATE_FIRST_MODEL_NAME,
 };
 
 const MAX_METADATA_BYTES: u64 = 4 * 1024 * 1024;
@@ -21,6 +22,7 @@ const PINNED_QWEN_PROFILE: &str = "a047d6802c3f06f085b8";
 const PINNED_LAYA_ENGLISH_PROFILE: &str = "c8ea29bf1e33a343c4b7";
 const PINNED_LAYA_MULTILINGUAL_PROFILE: &str = "f4064eb56fb7f7d325e1";
 const PINNED_LAYA_TYPED_DECISIONS_PROFILE: &str = "9d28cfa9567902801ed1";
+const PINNED_ENCODER_EMBEDDING_PROFILE: &str = "8d9498269ef05d95d93c";
 
 fn supported_profile(manifest: &Manifest) -> bool {
     (manifest.name == QWEN35_STATE_FIRST_MODEL_NAME
@@ -35,6 +37,9 @@ fn supported_profile(manifest: &Manifest) -> bool {
         || (manifest.name == LAYA_TYPED_DECISIONS_MODEL_NAME
             && manifest.loader_id == "laya-typed-decisions"
             && manifest.profile_id == PINNED_LAYA_TYPED_DECISIONS_PROFILE)
+        || (manifest.name == ENCODER_EMBEDDING_MODEL_NAME
+            && manifest.loader_id == "encoder-embedding"
+            && manifest.profile_id == PINNED_ENCODER_EMBEDDING_PROFILE)
         || (cfg!(test)
             && manifest.loader_id == "test-loader"
             && manifest.profile_id == "test-profile")

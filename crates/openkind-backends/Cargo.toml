@@ -24,6 +24,9 @@ tracing = { workspace = true }
 metrics = { workspace = true }
 async-trait = { workspace = true }
 tokio = { workspace = true }
+fastrand = { workspace = true }
+ndarray = "0.16"
+rusqlite = { version = "0.37", features = ["bundled"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 candle-core = { workspace = true, features = ["accelerate"] }
@@ -42,3 +45,6 @@ mlx = ["dep:mlx-rs", "dep:mlx-sys", "dep:half"]
 
 [lib]
 path = "src/lib.rs"
+
+[dev-dependencies]
+tempfile = "3.27.0"

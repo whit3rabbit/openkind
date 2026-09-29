@@ -13,6 +13,7 @@
 mod args;
 mod families;
 mod playground;
+mod proxy;
 
 use std::collections::HashSet;
 use std::net::SocketAddr;
@@ -345,11 +346,91 @@ async fn main() -> Result<()> {
         }
     }
 
+    // Proxy cache mode: resolve the encoder (one explicit pull attempt when
+    // the model is not installed), build the manager, and install the proxy
+    // hook. Proxied aliases forward over gRPC through the same service.
+    let mut _proxy_encoder_guard: Option<openkind_model_store::InstalledModel> = None;
+    let proxy_service: Option<Arc<proxy::ProxyService>> = match &args.proxy_cache_upstream {
+        Some(upstream) => {
+            if !(0.0..1.0).contains(&args.proxy_cache_target_agreement) {
+                anyhow::bail!(
+                    "--proxy-cache-target-agreement must be in (0, 1), got {}",
+                    args.proxy_cache_target_agreement
+                );
+            }
+            let (embedder, guard) = proxy::resolve_encoder(
+                &args.proxy_cache_encoder,
+                args.proxy_cache_encoder_backend,
+                args.models_dir.as_deref(),
+            )
+            .await?;
+            _proxy_encoder_guard = guard;
+            let task_config = openkind_backends::proxy_cache::TaskConfig {
+                store_text: args.proxy_cache_store_text,
+                min_train_samples: args.proxy_cache_min_train_samples,
+                min_calib_samples: args.proxy_cache_min_calib_samples,
+                shadow_min_samples: args.proxy_cache_shadow_min_samples,
+                calib_fraction: args.proxy_cache_calib_fraction,
+                min_new_samples: args.proxy_cache_min_new_samples,
+                ..Default::default()
+            };
+            let data_dir = match &args.proxy_cache_data_dir {
+                Some(dir) => dir.clone(),
+                None => proxy::default_proxy_cache_dir()
+                    .map_err(|error| anyhow::anyhow!("proxy cache data dir: {error}"))?,
+            };
+            let manager = openkind_backends::proxy_cache::ProxyCacheManager::new(
+                openkind_backends::proxy_cache::ProxyCacheManagerConfig {
+                    data_dir,
+                    task_config,
+                    target_agreement: args.proxy_cache_target_agreement,
+                    confidence_floor: None,
+                    admission_min_requests: args.proxy_cache_admission_min,
+                    ..Default::default()
+                },
+                embedder,
+            )
+            .map_err(|error| anyhow::anyhow!("proxy cache manager: {error}"))?;
+            let service = Arc::new(proxy::ProxyService::new(
+                manager,
+                proxy::ProxyCacheServiceConfig {
+                    upstream: upstream.clone(),
+                    upstream_key: args.proxy_cache_upstream_key.clone(),
+                    upstream_timeout_ms: args.proxy_cache_upstream_timeout_ms,
+                    proxied_models: args.proxy_cache_models.clone(),
+                },
+            ));
+            for alias in &args.proxy_cache_models {
+                registry.register(
+                    alias.clone(),
+                    Arc::new(proxy::ProxyForwardEngine::new(
+                        service.clone(),
+                        alias.clone(),
+                    )),
+                );
+                info!(
+                    alias,
+                    backend = "proxy-cache/upstream-forward",
+                    "registered proxied model (gRPC forwards upstream; HTTP answers via the cache hook)"
+                );
+            }
+            info!(
+                upstream = %upstream,
+                encoder = %args.proxy_cache_encoder,
+                models = ?args.proxy_cache_models,
+                "proxy cache enabled"
+            );
+            Some(service)
+        }
+        None => None,
+    };
+
     // Install metrics recorder once, shared across HTTP/gRPC.
     openkind_api::http::install_metrics_recorder().context("metrics recorder")?;
 
     let args = Arc::new(args);
     let mut state = AppState::new(registry);
+    state.proxy = proxy_service.map(|service| service as Arc<dyn openkind_api::SystemProxy>);
     if matches!(args.playground, PlaygroundArg::On) {
         state.playground_models = Some(Arc::new(playground::LocalModels::new(
             args.clone(),
