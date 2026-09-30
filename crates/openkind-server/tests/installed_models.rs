@@ -4,12 +4,12 @@ use std::time::{Duration, Instant};
 
 fn startup_error(args: &[&str]) -> String {
     let dir = tempfile::tempdir().unwrap();
-    let mut child = Command::new(env!("CARGO_BIN_EXE_openkindd"))
-        .args(args)
-        .arg("--models-dir")
-        .arg(dir.path())
-        .arg("--grpc-addr")
-        .arg("0")
+    let mut command = Command::new(env!("CARGO_BIN_EXE_openkindd"));
+    command.args(args).arg("--models-dir").arg(dir.path());
+    if !args.contains(&"--grpc-addr") {
+        command.args(["--grpc-addr", "0"]);
+    }
+    let mut child = command
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
@@ -23,7 +23,7 @@ fn startup_error(args: &[&str]) -> String {
         }
         if Instant::now() >= deadline {
             child.kill().unwrap();
-            panic!("daemon did not fail startup for invalid installed model");
+            panic!("daemon did not fail startup for invalid configuration");
         }
         thread::sleep(Duration::from_millis(20));
     }
@@ -45,4 +45,52 @@ fn installed_alias_cannot_shadow_a_mock_alias() {
 fn duplicate_installed_alias_fails_before_loading() {
     let stderr = startup_error(&["--installed-models", "fixture:v1,fixture:v1"]);
     assert!(stderr.contains("duplicate --installed-models"), "{stderr}");
+}
+
+#[test]
+fn router_script_self_reference_fails_instead_of_binding_a_mock() {
+    let stderr = startup_error(&[
+        "--models",
+        "router-script",
+        "--router-script-rules",
+        "default=router-script",
+    ]);
+    assert!(stderr.contains("unregistered sibling"), "{stderr}");
+}
+
+#[test]
+fn unresolved_router_script_dependency_fails_instead_of_binding_a_mock() {
+    let stderr = startup_error(&[
+        "--models",
+        "first,second",
+        "--router-script-aliases",
+        "first,second",
+        "--router-script-rules",
+        "default=second;default=first",
+    ]);
+    assert!(stderr.contains("unregistered sibling"), "{stderr}");
+}
+
+#[test]
+fn native_family_collision_fails_before_loading_artifacts() {
+    let stderr = startup_error(&[
+        "--models",
+        "decoder-letter-native",
+        "--qwen35-aliases",
+        "decoder-letter-native",
+    ]);
+    assert!(
+        stderr.contains("assigned to more than one family engine"),
+        "{stderr}"
+    );
+}
+
+#[test]
+fn listener_bind_failures_stop_the_other_protocol() {
+    let occupied = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = occupied.local_addr().unwrap().to_string();
+    let http_error = startup_error(&["--http-addr", &address, "--grpc-addr", "127.0.0.1:0"]);
+    assert!(http_error.contains("bind http"), "{http_error}");
+    let grpc_error = startup_error(&["--http-addr", "127.0.0.1:0", "--grpc-addr", &address]);
+    assert!(grpc_error.contains("grpc serve"), "{grpc_error}");
 }

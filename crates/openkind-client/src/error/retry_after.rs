@@ -50,8 +50,7 @@ where
 
 /// Parse a header value as a finite, non-negative number and scale it to
 /// milliseconds (`multiplier` is the value's unit in milliseconds). An empty
-/// value parses as zero, matching the Python SDK (`float(raw or "0")`); any
-/// other unparseable value returns `None`.
+/// or unparseable value returns `None`.
 fn finite_millis(raw: &str, multiplier: f64) -> Option<Duration> {
     if raw.is_empty() {
         return None;
@@ -76,19 +75,36 @@ fn parse_http_date(raw: &str) -> Option<Duration> {
     let mut fields = rest.split_ascii_whitespace();
     let day: i64 = fields.next()?.parse().ok()?;
     let month = month_number(fields.next()?)?;
-    let year: i64 = fields.next()?.parse().ok()?;
+    let raw_year = fields.next()?;
+    if raw_year.len() != 4 || !raw_year.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    let year: i64 = raw_year.parse().ok()?;
     let mut clock = fields.next()?.split(':');
     let hour: i64 = clock.next()?.parse().ok()?;
     let minute: i64 = clock.next()?.parse().ok()?;
     let second: i64 = clock.next()?.parse().ok()?;
-    if !(1..=31).contains(&day) || hour > 23 || minute > 59 || second > 60 {
+    let max_day = match month {
+        2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
+        2 => 28,
+        4 | 6 | 9 | 11 => 30,
+        _ => 31,
+    };
+    if !(1..=max_day).contains(&day)
+        || !(0..=23).contains(&hour)
+        || !(0..=59).contains(&minute)
+        || !(0..=60).contains(&second)
+        || clock.next().is_some()
+        || fields.next()? != "GMT"
+        || fields.next().is_some()
+    {
         return None;
     }
     let target = days_from_civil(year, month, day) * 86_400 + hour * 3600 + minute * 60 + second;
-    let now = SystemTime::now().duration_since(UNIX_EPOCH).ok()?.as_secs() as i64;
+    let now = i64::try_from(SystemTime::now().duration_since(UNIX_EPOCH).ok()?.as_secs()).ok()?;
     // Dates in the past mean "retry now" (clamped to zero), matching the
     // Python SDK's `max(0.0, delta)`.
-    let delta = (target - now).max(0);
+    let delta = target.saturating_sub(now).max(0);
     Some(Duration::from_secs(delta as u64))
 }
 

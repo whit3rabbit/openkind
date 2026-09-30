@@ -7,7 +7,7 @@
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, ExitStatus, Stdio};
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Context, Result};
@@ -57,62 +57,174 @@ pub fn cmd_playground(
         return Ok(());
     }
 
-    let mut child = spawn_daemon(
+    let mut signals = {
+        let _entered = rt.enter();
+        ShutdownSignals::new()?
+    };
+    let mut child = ChildGuard(Some(spawn_daemon(
         &addr,
         &models,
         &installed_models,
         models_dir.as_deref(),
         api_key.as_deref(),
-    )?;
+    )?));
 
     println!("waiting for openkindd at {origin} …");
-    let start = Instant::now();
-    let mut ready = false;
-    while start.elapsed() < HEALTH_TIMEOUT {
-        if let Some(status) = child.try_wait().context("poll openkindd")? {
-            bail!("openkindd exited before becoming healthy (status {status})");
-        }
-        if rt.block_on(health_probe(&origin, HEALTH_POLL_INTERVAL)) {
-            ready = true;
-            break;
-        }
-        std::thread::sleep(HEALTH_POLL_INTERVAL);
-    }
-    if !ready {
-        let _ = child.kill();
-        let _ = child.wait();
-        bail!(
-            "openkindd did not answer /health within {} s",
-            HEALTH_TIMEOUT.as_secs()
-        );
+    if rt.block_on(wait_until_ready(
+        child.0.as_mut().unwrap(),
+        &origin,
+        &mut signals,
+    ))? {
+        println!("openkind playground: {url}");
+        println!("Ctrl-C stops the daemon.");
+        open_browser(&url, no_open);
     }
 
-    println!("openkind playground: {url}");
-    println!("Ctrl-C stops the daemon.");
-    open_browser(&url, no_open);
-
-    let status = child.wait().context("wait for openkindd")?;
+    let status = rt.block_on(wait_for_exit(child.0.as_mut().unwrap(), &mut signals))?;
+    child.0 = None;
     if !status.success() {
         std::process::exit(status.code().unwrap_or(1));
     }
     Ok(())
 }
 
-/// Probe `{origin}/health`; `true` when a daemon answers with a success status.
+struct ChildGuard(Option<Child>);
+
+impl Drop for ChildGuard {
+    fn drop(&mut self) {
+        // Startup, probe, or supervision failures must not orphan a daemon.
+        // Normal and signal-driven exits are reaped before reaching this guard.
+        if let Some(child) = self.0.as_mut() {
+            if !matches!(child.try_wait(), Ok(Some(_))) {
+                let _ = child.kill();
+                let _ = child.wait();
+            }
+        }
+    }
+}
+
+struct ShutdownSignals {
+    #[cfg(unix)]
+    interrupt: tokio::signal::unix::Signal,
+    #[cfg(unix)]
+    terminate: tokio::signal::unix::Signal,
+}
+
+impl ShutdownSignals {
+    fn new() -> Result<Self> {
+        Ok(Self {
+            #[cfg(unix)]
+            interrupt: tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
+                .context("install SIGINT handler")?,
+            #[cfg(unix)]
+            terminate: tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                .context("install SIGTERM handler")?,
+        })
+    }
+
+    async fn recv(&mut self) -> Result<i32> {
+        #[cfg(unix)]
+        {
+            tokio::select! {
+                value = self.interrupt.recv() => value.context("SIGINT stream closed").map(|_| libc::SIGINT),
+                value = self.terminate.recv() => value.context("SIGTERM stream closed").map(|_| libc::SIGTERM),
+            }
+        }
+        #[cfg(not(unix))]
+        std::future::pending().await
+    }
+}
+
+fn forward_shutdown(child: &mut Child, signal: i32) -> Result<()> {
+    #[cfg(unix)]
+    {
+        let pid = libc::pid_t::try_from(child.id()).context("invalid daemon PID")?;
+        // The child remains owned and unreaped here, preventing PID reuse.
+        // kill is async-signal-safe; Tokio delivers signals outside the handler.
+        if unsafe { libc::kill(pid, signal) } != 0 {
+            let error = std::io::Error::last_os_error();
+            if error.raw_os_error() != Some(libc::ESRCH) {
+                return Err(error).context("forward shutdown to openkindd");
+            }
+        }
+        Ok(())
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = signal;
+        child.kill().context("stop openkindd")
+    }
+}
+
+async fn wait_until_ready(
+    child: &mut Child,
+    origin: &str,
+    signals: &mut ShutdownSignals,
+) -> Result<bool> {
+    let start = Instant::now();
+    while start.elapsed() < HEALTH_TIMEOUT {
+        if let Some(status) = child.try_wait().context("poll openkindd")? {
+            bail!("openkindd exited before becoming healthy (status {status})");
+        }
+        tokio::select! {
+            signal = signals.recv() => {
+                forward_shutdown(child, signal?)?;
+                return Ok(false);
+            }
+            healthy = health_probe(origin, HEALTH_POLL_INTERVAL) => {
+                if healthy { return Ok(true); }
+            }
+        }
+        tokio::select! {
+            signal = signals.recv() => {
+                forward_shutdown(child, signal?)?;
+                return Ok(false);
+            }
+            _ = tokio::time::sleep(HEALTH_POLL_INTERVAL) => {}
+        }
+    }
+    bail!(
+        "openkindd did not answer /health within {} s",
+        HEALTH_TIMEOUT.as_secs()
+    )
+}
+
+async fn wait_for_exit(child: &mut Child, signals: &mut ShutdownSignals) -> Result<ExitStatus> {
+    loop {
+        if let Some(status) = child.try_wait().context("wait for openkindd")? {
+            return Ok(status);
+        }
+        tokio::select! {
+            signal = signals.recv() => forward_shutdown(child, signal?)?,
+            _ = tokio::time::sleep(HEALTH_POLL_INTERVAL) => {}
+        }
+    }
+}
+
+/// Probe `{origin}/health`; `true` when the target daemon reports healthy.
 async fn health_probe(origin: &str, timeout: Duration) -> bool {
-    let client = match reqwest::Client::builder().timeout(timeout).build() {
+    let client = match reqwest::Client::builder()
+        .timeout(timeout)
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+    {
         Ok(c) => c,
         Err(_) => return false,
     };
-    matches!(
-        client.get(format!("{origin}/health")).send().await,
-        Ok(resp) if resp.status().is_success()
-    )
+    let Ok(response) = client.get(format!("{origin}/health")).send().await else {
+        return false;
+    };
+    response.status().is_success()
+        && response
+            .json::<serde_json::Value>()
+            .await
+            .is_ok_and(|body| body.get("status").and_then(|status| status.as_str()) == Some("ok"))
 }
 
 async fn playground_probe(origin: &str) -> bool {
     let Ok(client) = reqwest::Client::builder()
         .timeout(EXISTING_PROBE_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none())
         .build()
     else {
         return false;
@@ -146,9 +258,7 @@ fn spawn_daemon(
         .arg("0")
         .arg("--models")
         .arg(models);
-    if !installed_models.is_empty() {
-        cmd.arg("--installed-models").arg(installed_models);
-    }
+    cmd.arg("--installed-models").arg(installed_models);
     if let Some(dir) = models_dir {
         cmd.arg("--models-dir").arg(dir);
     }
@@ -217,6 +327,40 @@ fn playground_url(origin: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn health_requires_the_daemon_status_body() {
+        use std::io::{Read, Write};
+        for (status, body, expected) in [
+            ("200 OK", r#"{"status":"ok"}"#, true),
+            ("200 OK", r#"{"status":"failed"}"#, false),
+            ("200 OK", "unrelated application", false),
+            ("503 Service Unavailable", r#"{"status":"ok"}"#, false),
+        ] {
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+            let origin = format!("http://{}", listener.local_addr().unwrap());
+            let worker = std::thread::spawn(move || {
+                let (mut socket, _) = listener.accept().unwrap();
+                socket
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap();
+                let mut buffer = [0; 2048];
+                let size = socket.read(&mut buffer).unwrap();
+                assert!(String::from_utf8_lossy(&buffer[..size]).starts_with("GET /health "));
+                write!(
+                    socket,
+                    "HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                )
+                .unwrap();
+            });
+            assert_eq!(
+                health_probe(&origin, Duration::from_secs(2)).await,
+                expected
+            );
+            worker.join().unwrap();
+        }
+    }
 
     #[tokio::test]
     async fn existing_daemon_must_serve_the_playground_asset() {

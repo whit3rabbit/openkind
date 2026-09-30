@@ -129,8 +129,11 @@ For changes under `bindings/`, also run the language-specific tests:
 (cd bindings/swift && swift test)
 ```
 
-The optional MLX backend is for macOS arm64. Follow [`docs/MLX.md`](docs/MLX.md)
-for feature-build and toolchain qualification details. Use
+The optional MLX backends — the Qwen3.5 engine and the surveyed families
+whose backbones have a qualified MLX path (laya, encoder-instruct-label,
+decoder-logit-qwen35) — are for macOS arm64. Follow
+[`docs/MLX.md`](docs/MLX.md) for feature-build, the serialized-stream
+discipline, and toolchain qualification details. Use
 [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md) for warm throughput commands and
 recorded runs. BF16 comparisons must use `--strategies repeated_full` until
 nested continuation is qualified.

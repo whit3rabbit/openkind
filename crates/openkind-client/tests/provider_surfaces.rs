@@ -86,6 +86,32 @@ async fn cloudflare_wraps_input_and_unwraps_result() {
     assert!(matches!(client.list_models().await, Err(Error::Config(_))));
 }
 
+#[tokio::test]
+async fn cloudflare_failure_envelope_cannot_return_a_valid_looking_result() {
+    let (url, requests) = spawn(|_| {
+        Outcome::success(json!({
+            "success": false,
+            "result": {
+                "model": "jev-1.13.0",
+                "answers": {"refund": {"type": "noul", "noul": 0.95}},
+                "usage": {"input_tokens": 426, "output_tokens": 73}
+            }
+        }))
+    })
+    .await;
+    let client = Client::builder()
+        .api_key("test")
+        .cloudflare_account("account")
+        .base_url(url)
+        .build()
+        .unwrap();
+    let result = client
+        .system_one("state", [("refund", question::noul("Refund?"))])
+        .await;
+    assert!(matches!(result, Err(Error::Decode { .. })));
+    assert_eq!(requests.len(), 1);
+}
+
 #[test]
 fn cloudflare_account_must_be_one_path_segment() {
     assert!(Client::builder()

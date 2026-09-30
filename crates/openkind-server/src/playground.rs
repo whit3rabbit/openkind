@@ -6,12 +6,11 @@ use std::sync::Arc;
 use openkind_api::playground::{PlaygroundModel, PlaygroundModels};
 use openkind_api::ApiError;
 use openkind_engine::{EngineRegistry, MockEngine};
-use openkind_model_store::{
-    default_models_dir, InstalledModel, ModelStore, QWEN35_STATE_FIRST_MODEL_NAME,
-};
+use openkind_model_store::{default_models_dir, InstalledModel, ModelStore};
 use tokio::sync::Mutex;
 
 use crate::args::Args;
+use crate::installed::{installed_kind, load_installed_engine};
 
 pub(crate) struct LocalModels {
     args: Arc<Args>,
@@ -76,10 +75,8 @@ impl PlaygroundModels for LocalModels {
             .map_err(invalid)?;
         let mut models = BTreeMap::new();
         for manifest in installed {
+            let manageable = installed_kind(&manifest).is_some();
             let name = manifest.name;
-            let manageable = name == QWEN35_STATE_FIRST_MODEL_NAME
-                && manifest.loader_id == "qwen35-state-first"
-                && manifest.profile_id == openkind_backends::qwen35::PROFILE_ID;
             models.insert(
                 name.clone(),
                 PlaygroundModel {
@@ -143,20 +140,11 @@ impl PlaygroundModels for LocalModels {
             } else {
                 let installed = store.acquire_serving(&name).map_err(invalid)?;
                 let manifest = &installed.manifest;
-                if manifest.name != QWEN35_STATE_FIRST_MODEL_NAME
-                    || manifest.loader_id != "qwen35-state-first"
-                    || manifest.profile_id != openkind_backends::qwen35::PROFILE_ID
-                {
-                    return Err(invalid("Unsupported installed model profile"));
-                }
-                let root = &installed.root;
-                let engine = crate::load_qwen(
-                    &args,
-                    root.join("bundle"),
-                    root.join("checkpoint"),
-                    root.join("checkpoint/tokenizer.json"),
-                )
-                .map_err(invalid)?;
+                let kind = installed_kind(manifest)
+                    .ok_or_else(|| invalid("Unsupported installed model profile"))?;
+                let root = installed.root.clone();
+                let engine =
+                    load_installed_engine(&args, kind, &root, &registry).map_err(invalid)?;
                 leases.insert(name.clone(), installed);
                 engine
             };

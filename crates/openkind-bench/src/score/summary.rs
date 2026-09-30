@@ -8,7 +8,7 @@ use openkind_backends::qwen35::PROFILE_ID;
 use openkind_runtime::peak_resident_bytes;
 use serde_json::{json, Value};
 
-use super::types::{family_identity, native_backend, EngineKind, ScoreArgs};
+use super::types::{engine_slug, family_identity, native_backend, EngineKind, ScoreArgs};
 use crate::workload::Workload;
 
 pub(crate) fn build_summary(
@@ -39,6 +39,12 @@ pub(crate) fn build_summary(
     json!({
         "schema": "openkind-bench/v1",
         "engine": engine_id,
+        "engine_variant": engine_slug(args.engine),
+        "measurement_scope": match args.engine {
+            EngineKind::RouterScript | EngineKind::Winnow => "routing_overhead_with_mock_siblings",
+            EngineKind::Mock => "mock_request_path",
+            _ => "model_request_path",
+        },
         "profile_id": profile,
         "model_revision": model_revision,
         "bundle_version": bundle_version,
@@ -72,7 +78,10 @@ pub(crate) fn build_summary(
             "percentiles": "p50 is the median rep total and p95 is the ceil(0.95*n)-1 sample; \
                             small rep counts are reported alongside as samples_seconds",
             "request_latency_ms": "latency is per request; grouped rows share their \
-                                   request's latency and are not independent timings",
+                                   request's latency and are not independent timings; \
+                                   includes request construction through answer extraction",
+            "input_tokens_per_second": "total input tokens across all timed repetitions \
+                                        divided by their total wall time",
             "cpu_time_seconds": "process-wide user+system CPU time diff across the timed \
                                  region, excluding warmup and model load; \
                                  avg_cpu_percent exceeds 100 when multiple threads run",

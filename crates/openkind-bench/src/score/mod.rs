@@ -31,8 +31,16 @@ use openkind_backends::families::decoder_logit_llm::{DecoderLlmEngine, DecoderLl
 use openkind_backends::families::decoder_logit_qwen35::{
     DecoderLogitQwen35Engine, DecoderLogitQwen35EngineConfig,
 };
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+use openkind_backends::families::decoder_logit_qwen35::{
+    DecoderLogitQwen35MlxEngine, DecoderLogitQwen35MlxEngineConfig,
+};
 use openkind_backends::families::encoder_instruct_label::{
     EncoderInstructLabelEngine, EncoderInstructLabelEngineConfig,
+};
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+use openkind_backends::families::encoder_instruct_label::{
+    EncoderInstructLabelMlxEngine, EncoderInstructLabelMlxEngineConfig,
 };
 use openkind_backends::families::encoder_nli::{EncoderNliEngine, EncoderNliEngineConfig};
 use openkind_backends::families::kev::{KevEngine, KevEngineConfig};
@@ -112,8 +120,10 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
         anyhow::ensure!(!args.warmup, "--history-aba requires --no-warmup");
         anyhow::ensure!(args.reps == 1, "--history-aba requires --reps 1");
         anyhow::ensure!(
-            args.strategies.len() == 1,
-            "--history-aba requires one strategy"
+            args.engine == EngineKind::Mock
+                || types::is_family_engine(args.engine)
+                || args.strategies.len() == 1,
+            "--history-aba requires one native execution strategy"
         );
     }
     let groups = if args.history_aba {
@@ -195,6 +205,36 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
                     },
                 })
                 .map_err(|error| anyhow::anyhow!("load decoder-logit-qwen35 engine: {error}"))?,
+            ),
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::EncoderInstructLabelMlxFp32 => Arc::new(
+                EncoderInstructLabelMlxEngine::load(EncoderInstructLabelMlxEngineConfig {
+                    model_root: model_root.expect("gated").clone(),
+                    limits: FamilyLimits {
+                        max_concurrent_requests: 1,
+                        max_queued_requests: 0,
+                        retry_after_ms: 250,
+                        evaluation_timeout: None,
+                    },
+                })
+                .map_err(|error| {
+                    anyhow::anyhow!("load encoder-instruct-label mlx engine: {error}")
+                })?,
+            ),
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::DecoderLogitQwen35MlxFp32 => Arc::new(
+                DecoderLogitQwen35MlxEngine::load(DecoderLogitQwen35MlxEngineConfig {
+                    model_root: model_root.expect("gated").clone(),
+                    limits: FamilyLimits {
+                        max_concurrent_requests: 1,
+                        max_queued_requests: 0,
+                        retry_after_ms: 250,
+                        evaluation_timeout: None,
+                    },
+                })
+                .map_err(|error| {
+                    anyhow::anyhow!("load decoder-logit-qwen35 mlx engine: {error}")
+                })?,
             ),
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             EngineKind::LayaEnglishMlxFp32

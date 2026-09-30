@@ -137,6 +137,12 @@ pub enum EngineArg {
     /// Pinned laya-typed-decisions MLX FP32 engine; requires `--features mlx`.
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     LayaTypedDecisionsMlxFp32,
+    /// Pinned encoder-instruct-label MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    EncoderInstructLabelMlxFp32,
+    /// Pinned decoder-logit-qwen35 MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    DecoderLogitQwen35MlxFp32,
 }
 
 impl From<EngineArg> for EngineKind {
@@ -167,6 +173,10 @@ impl From<EngineArg> for EngineKind {
             EngineArg::LayaMultilingualMlxFp32 => EngineKind::LayaMultilingualMlxFp32,
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             EngineArg::LayaTypedDecisionsMlxFp32 => EngineKind::LayaTypedDecisionsMlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::EncoderInstructLabelMlxFp32 => EngineKind::EncoderInstructLabelMlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::DecoderLogitQwen35MlxFp32 => EngineKind::DecoderLogitQwen35MlxFp32,
         }
     }
 }
@@ -185,10 +195,14 @@ pub fn parse_strategies(spec: Option<&str>) -> anyhow::Result<Vec<StrategySpec>>
         if token.is_empty() {
             continue;
         }
-        strategies.push(
-            StrategySpec::parse(token)
-                .map_err(|error| anyhow::anyhow!("{error} (accepted: {STRATEGY_HELP}, auto)"))?,
+        let strategy = StrategySpec::parse(token)
+            .map_err(|error| anyhow::anyhow!("{error} (accepted: {STRATEGY_HELP}, auto)"))?;
+        anyhow::ensure!(
+            !strategies.contains(&strategy),
+            "duplicate execution strategy `{}`",
+            strategy.name()
         );
+        strategies.push(strategy);
     }
     if strategies.is_empty() {
         anyhow::bail!("--strategies listed no strategies (accepted: {STRATEGY_HELP}, auto)");

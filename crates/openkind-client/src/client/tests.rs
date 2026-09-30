@@ -122,6 +122,20 @@ fn invalid_base_url_rejected_at_build() {
 }
 
 #[test]
+fn base_url_rejects_components_that_hide_endpoint_paths_or_credentials() {
+    for url in [
+        "http://example.test?query=1",
+        "http://example.test/#fragment",
+        "http://user:password@example.test",
+    ] {
+        assert!(matches!(
+            Client::builder().api_key("k").base_url(url).build(),
+            Err(Error::Config(_))
+        ));
+    }
+}
+
+#[test]
 fn base_url_with_invalid_port_rejected_at_build() {
     // Passes the http(s) prefix check but fails URL parsing, so endpoint
     // resolution must reject it at construction time instead of per request.
@@ -147,6 +161,9 @@ fn protected_headers_are_not_user_overridable() {
         "x-typesafe-sdk",
         "x-typesafe-runtime",
         "x-typesafe-retry-count",
+        "host",
+        "content-length",
+        "transfer-encoding",
     ] {
         assert!(!is_user_overridable(name, false), "{name} with no body");
         assert!(!is_user_overridable(name, true), "{name} with body");

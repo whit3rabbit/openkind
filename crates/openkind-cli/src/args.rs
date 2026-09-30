@@ -247,10 +247,9 @@ fn match_flags<'a>(
         index += 1;
     }
 
-    let resolved: SmallVec<[Option<String>; 4]> = values
-        .into_iter()
-        .zip(specs)
-        .map(|(seen, spec)| match seen {
+    let mut resolved = SmallVec::new();
+    for (seen, spec) in values.into_iter().zip(specs) {
+        let value = match seen {
             Some(value) => Some(value),
             None => match spec.env.and_then(std::env::var_os) {
                 Some(raw) => {
@@ -260,8 +259,9 @@ fn match_flags<'a>(
                 }
                 None => spec.default.map(str::to_owned),
             },
-        })
-        .collect();
+        };
+        resolved.push(value);
+    }
     Some((resolved, positionals))
 }
 

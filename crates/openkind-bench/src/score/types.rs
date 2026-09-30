@@ -56,6 +56,12 @@ pub enum EngineKind {
     /// Pinned laya-typed-decisions MLX FP32 engine (`mlx` feature).
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     LayaTypedDecisionsMlxFp32,
+    /// Pinned encoder-instruct-label MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    EncoderInstructLabelMlxFp32,
+    /// Pinned decoder-logit-qwen35 MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    DecoderLogitQwen35MlxFp32,
 }
 
 /// Native backend bound to a non-mock [`EngineKind`].
@@ -82,7 +88,9 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
         | EngineKind::LayaTypedDecisions
         | EngineKind::LayaEnglishMlxFp32
         | EngineKind::LayaMultilingualMlxFp32
-        | EngineKind::LayaTypedDecisionsMlxFp32 => {
+        | EngineKind::LayaTypedDecisionsMlxFp32
+        | EngineKind::EncoderInstructLabelMlxFp32
+        | EngineKind::DecoderLogitQwen35MlxFp32 => {
             panic!("the mock and surveyed-family engines have no Qwen35 native backend")
         }
         EngineKind::Qwen35 => Qwen35Backend::NativeCpu,
@@ -146,6 +154,8 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
             EngineKind::LayaEnglishMlxFp32 => "laya-english-mlx-fp32",
             EngineKind::LayaMultilingualMlxFp32 => "laya-multilingual-mlx-fp32",
             EngineKind::LayaTypedDecisionsMlxFp32 => "laya-typed-decisions-mlx-fp32",
+            EngineKind::EncoderInstructLabelMlxFp32 => "encoder-instruct-label-mlx-fp32",
+            EngineKind::DecoderLogitQwen35MlxFp32 => "decoder-logit-qwen35-mlx-fp32",
         }
     }
     #[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
@@ -178,6 +188,8 @@ pub fn is_family_engine_public(engine: EngineKind) -> bool {
         EngineKind::LayaEnglishMlxFp32
             | EngineKind::LayaMultilingualMlxFp32
             | EngineKind::LayaTypedDecisionsMlxFp32
+            | EngineKind::EncoderInstructLabelMlxFp32
+            | EngineKind::DecoderLogitQwen35MlxFp32
     ) {
         return true;
     }
@@ -277,6 +289,18 @@ pub(crate) fn family_identity(
         #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
         EngineKind::LayaTypedDecisionsMlxFp32 => Some(laya_identity(
             &openkind_backends::families::laya::LAYA_TYPED_DECISIONS,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::EncoderInstructLabelMlxFp32 => Some((
+            openkind_backends::families::encoder_instruct_label::FAMILY_SLUG,
+            openkind_backends::families::encoder_instruct_label::PROFILE_ID,
+            openkind_backends::families::encoder_instruct_label::BACKBONE_REVISION,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::DecoderLogitQwen35MlxFp32 => Some((
+            openkind_backends::families::decoder_logit_qwen35::FAMILY_SLUG,
+            openkind_backends::families::decoder_logit_qwen35::PROFILE_ID,
+            openkind_backends::families::decoder_logit_qwen35::BACKBONE_REVISION,
         )),
         _ => None,
     }
@@ -409,6 +433,15 @@ pub(crate) fn validate_strategy_selection(
     }
     if engine != EngineKind::Mock && strategies.is_empty() {
         bail!("native benchmark runs require at least one execution strategy");
+    }
+    if engine != EngineKind::Mock {
+        for (index, strategy) in strategies.iter().enumerate() {
+            // Strategy names also identify result files and digest keys.
+            // Repeated aliases would overwrite evidence within one run.
+            if strategies[..index].contains(strategy) {
+                bail!("duplicate execution strategy `{}`", strategy.name());
+            }
+        }
     }
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     if engine == EngineKind::Qwen35MlxBf16

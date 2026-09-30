@@ -44,6 +44,8 @@ pub(crate) struct FastResponse {
     headers: Vec<(String, String)>,
     /// Decoded body bytes.
     pub(crate) body: Vec<u8>,
+    /// Whether response framing and protocol version permit connection reuse.
+    reusable: bool,
 }
 
 impl FastResponse {
@@ -109,6 +111,12 @@ impl Connection {
     async fn read_head(&mut self) -> io::Result<usize> {
         loop {
             if let Some(pos) = find_double_crlf(self.buffered()) {
+                if pos + 4 > MAX_HEAD_BYTES {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "HTTP response head exceeded 64 KiB",
+                    ));
+                }
                 return Ok(pos);
             }
             if self.buf.len() - self.start > MAX_HEAD_BYTES {
@@ -148,10 +156,21 @@ pub(crate) struct H1Pool {
 impl H1Pool {
     /// Build a pool for `host:port`. Connections are created lazily.
     pub(crate) fn new(host: &str, port: u16, connect_timeout: Option<Duration>) -> Self {
-        let authority = if port == 80 {
-            host.to_string()
+        // URLs bracket IPv6 literals, while socket address resolution needs
+        // the literal without brackets. Keep brackets in the Host header.
+        let host = host
+            .strip_prefix('[')
+            .and_then(|host| host.strip_suffix(']'))
+            .unwrap_or(host);
+        let authority_host = if host.contains(':') {
+            format!("[{host}]")
         } else {
-            format!("{host}:{port}")
+            host.to_owned()
+        };
+        let authority = if port == 80 {
+            authority_host
+        } else {
+            format!("{authority_host}:{port}")
         };
         Self {
             authority,
@@ -247,8 +266,12 @@ pub(crate) fn encode_request(
     }
     let mut bytes = head.into_bytes();
     for (name, value) in headers {
-        // Content-Length is computed above; skip any caller-supplied copy.
-        if name.as_str() == "content-length" {
+        // Framing is owned by this transport; a second Host or JSON type is ambiguous.
+        if matches!(
+            name.as_str(),
+            "content-length" | "host" | "transfer-encoding"
+        ) || (body.is_some() && name.as_str() == "content-type")
+        {
             continue;
         }
         bytes.extend_from_slice(name.as_str().as_bytes());
@@ -288,7 +311,7 @@ async fn exchange_inner(
     // into `Error::Timeout` by `classify_fast_error`.
     let mut conn = pool.acquire().await.map_err(FastError::Io)?;
     let result = exchange_on(&mut conn, request, max_body).await;
-    if result.as_ref().is_ok_and(response_keep_alive) {
+    if result.as_ref().is_ok_and(response_keep_alive) && conn.buffered().is_empty() {
         pool.release(conn).await;
     }
     result
@@ -306,11 +329,25 @@ async fn exchange_on(
         return Err(FastError::Io(e));
     }
 
-    let head_len = conn.read_head().await.map_err(FastError::Io)?;
-    let head = conn.buffered()[..head_len].to_vec();
-    conn.start += head_len + 4;
-
-    let (status, headers) = parse_head(&head).map_err(FastError::Io)?;
+    // Informational heads precede the final response and never frame a body.
+    let ResponseHead {
+        status,
+        headers,
+        http11,
+    } = loop {
+        let head_len = conn.read_head().await.map_err(FastError::Io)?;
+        let parsed = parse_head(&conn.buffered()[..head_len]).map_err(FastError::Io)?;
+        conn.start += head_len + 4;
+        if parsed.status == 101 {
+            return Err(FastError::Io(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "HTTP protocol switching is unsupported",
+            )));
+        }
+        if !(100..200).contains(&parsed.status) {
+            break parsed;
+        }
+    };
 
     if (300..400).contains(&status) && header_lookup(&headers, "location").is_some() {
         // The body is not consumed; the connection is dropped rather than
@@ -318,12 +355,59 @@ async fn exchange_on(
         return Err(FastError::Redirect);
     }
 
-    let chunked = header_lookup(&headers, "transfer-encoding")
-        .is_some_and(|v| v.to_ascii_lowercase().contains("chunked"));
-    let content_length =
-        header_lookup(&headers, "content-length").and_then(|v| v.trim().parse::<usize>().ok());
+    let mut transfers = headers
+        .iter()
+        .filter(|(name, _)| name == "transfer-encoding")
+        .flat_map(|(_, value)| value.split(',').map(str::trim));
+    let chunked = if let Some(encoding) = transfers.next() {
+        if !encoding.eq_ignore_ascii_case("chunked") || transfers.next().is_some() {
+            return Err(FastError::Io(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "unsupported transfer encoding",
+            )));
+        }
+        true
+    } else {
+        false
+    };
+    let mut content_length = None;
+    for (_, value) in headers.iter().filter(|(name, _)| name == "content-length") {
+        for raw in value.split(',').map(str::trim) {
+            if raw.is_empty() || !raw.bytes().all(|byte| byte.is_ascii_digit()) {
+                return Err(FastError::Io(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "malformed content length",
+                )));
+            }
+            let length = raw.parse::<usize>().map_err(|_| {
+                FastError::Io(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "malformed content length",
+                ))
+            })?;
+            if content_length.is_some_and(|previous| previous != length) {
+                return Err(FastError::Io(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "conflicting content lengths",
+                )));
+            }
+            content_length = Some(length);
+        }
+    }
+    let no_body = matches!(status, 204 | 304) || request.starts_with(b"HEAD ");
+    let framed = no_body || chunked || content_length.is_some();
+    let connection_has = |token: &str| {
+        headers
+            .iter()
+            .filter(|(name, _)| name == "connection")
+            .flat_map(|(_, value)| value.split(','))
+            .any(|value| value.trim().eq_ignore_ascii_case(token))
+    };
+    let reusable = framed && !connection_has("close") && (http11 || connection_has("keep-alive"));
 
-    let body = if chunked {
+    let body = if no_body {
+        Vec::new()
+    } else if chunked {
         read_chunked_body(conn, max_body).await?
     } else if let Some(length) = content_length {
         if length > max_body {
@@ -341,13 +425,12 @@ async fn exchange_on(
         status,
         headers,
         body,
+        reusable,
     })
 }
 
 fn response_keep_alive(response: &FastResponse) -> bool {
-    !response
-        .header("connection")
-        .is_some_and(|v| v.to_ascii_lowercase().contains("close"))
+    response.reusable
 }
 
 fn header_lookup<'a>(headers: &'a [(String, String)], name: &str) -> Option<&'a str> {
@@ -358,7 +441,13 @@ fn header_lookup<'a>(headers: &'a [(String, String)], name: &str) -> Option<&'a 
 }
 
 /// Parse a status line plus header block.
-fn parse_head(head: &[u8]) -> io::Result<(u16, Vec<(String, String)>)> {
+struct ResponseHead {
+    status: u16,
+    headers: Vec<(String, String)>,
+    http11: bool,
+}
+
+fn parse_head(head: &[u8]) -> io::Result<ResponseHead> {
     let text = std::str::from_utf8(head)
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "non-UTF-8 response head"))?;
     let mut lines = text.split("\r\n");
@@ -367,28 +456,42 @@ fn parse_head(head: &[u8]) -> io::Result<(u16, Vec<(String, String)>)> {
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "empty response head"))?;
     let mut parts = status_line.splitn(3, ' ');
     let version = parts.next().unwrap_or_default();
-    if !version.starts_with("HTTP/1.") {
+    if !matches!(version, "HTTP/1.0" | "HTTP/1.1") {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             format!("unsupported HTTP version in `{status_line}`"),
         ));
     }
-    let status: u16 = parts.next().unwrap_or_default().parse().map_err(|_| {
+    let raw_status = parts.next().unwrap_or_default();
+    let status: u16 = raw_status.parse().map_err(|_| {
         io::Error::new(
             io::ErrorKind::InvalidData,
             format!("malformed status line `{status_line}`"),
         )
     })?;
+    if raw_status.len() != 3 || !(100..600).contains(&status) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "invalid HTTP status code",
+        ));
+    }
     let mut headers = Vec::new();
     for line in lines {
         if line.is_empty() {
             continue;
         }
-        if let Some((name, value)) = line.split_once(':') {
-            headers.push((name.trim().to_ascii_lowercase(), value.trim().to_string()));
-        }
+        let (name, value) = line
+            .split_once(':')
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "malformed HTTP header"))?;
+        let name = reqwest::header::HeaderName::from_bytes(name.as_bytes())
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid HTTP header name"))?;
+        headers.push((name.as_str().to_owned(), value.trim().to_string()));
     }
-    Ok((status, headers))
+    Ok(ResponseHead {
+        status,
+        headers,
+        http11: version == "HTTP/1.1",
+    })
 }
 
 async fn read_exact_body(conn: &mut Connection, length: usize) -> Result<Vec<u8>, FastError> {
@@ -418,7 +521,7 @@ async fn read_until_eof(conn: &mut Connection, max_body: usize) -> Result<Vec<u8
     loop {
         let available = conn.buffered().len();
         if available > 0 {
-            if body.len() + available > max_body {
+            if available > max_body - body.len() {
                 return Err(FastError::TooLarge);
             }
             body.extend_from_slice(conn.buffered());
@@ -455,10 +558,19 @@ async fn read_chunked_body(conn: &mut Connection, max_body: usize) -> Result<Vec
         })?;
         if size == 0 {
             // Trailer section: consume lines until the empty line.
+            let mut trailer_bytes: usize = 0;
             loop {
                 match read_line(conn).await? {
                     Some(trailer) if trailer.is_empty() => return Ok(body),
-                    Some(_) => continue,
+                    Some(trailer) => {
+                        trailer_bytes += trailer.len() + 2;
+                        if trailer_bytes > MAX_HEAD_BYTES {
+                            return Err(FastError::Io(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                "chunked trailers exceeded 64 KiB",
+                            )));
+                        }
+                    }
                     None => {
                         return Err(FastError::Io(io::Error::new(
                             io::ErrorKind::UnexpectedEof,
@@ -468,7 +580,7 @@ async fn read_chunked_body(conn: &mut Connection, max_body: usize) -> Result<Vec
                 }
             }
         }
-        if body.len() + size > max_body {
+        if size > max_body - body.len() {
             return Err(FastError::TooLarge);
         }
         let chunk = read_exact_body(conn, size).await?;
@@ -489,13 +601,28 @@ async fn read_chunked_body(conn: &mut Connection, max_body: usize) -> Result<Vec
 async fn read_line(conn: &mut Connection) -> Result<Option<String>, FastError> {
     loop {
         if let Some(pos) = conn.buffered().iter().position(|&b| b == b'\n') {
-            let mut line_end = pos;
-            if line_end > 0 && conn.buffered()[line_end - 1] == b'\r' {
-                line_end -= 1;
+            if pos == 0 || conn.buffered()[pos - 1] != b'\r' {
+                return Err(FastError::Io(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "HTTP chunk line requires CRLF",
+                )));
+            }
+            let line_end = pos - 1;
+            if line_end > MAX_HEAD_BYTES {
+                return Err(FastError::Io(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "HTTP chunk line exceeded 64 KiB",
+                )));
             }
             let line = String::from_utf8_lossy(&conn.buffered()[..line_end]).into_owned();
             conn.start += pos + 1;
             return Ok(Some(line));
+        }
+        if conn.buffered().len() > MAX_HEAD_BYTES + 1 {
+            return Err(FastError::Io(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "HTTP chunk line exceeded 64 KiB",
+            )));
         }
         match conn.fill().await {
             Ok(0) => return Ok(None),
@@ -516,3 +643,7 @@ pub(crate) fn classify_fast_error(error: FastError, timeout: Duration, max_body:
         FastError::Io(e) => Error::Connection(Box::new(e)),
     }
 }
+
+#[cfg(test)]
+#[path = "http1_tests.rs"]
+mod tests;

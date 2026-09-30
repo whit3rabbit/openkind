@@ -238,6 +238,17 @@ fn cmd_inspect_rejects_oversized_file() {
 }
 
 #[test]
+fn bounded_input_rejects_a_valid_prefix_with_trailing_bytes() {
+    use crate::inspect::read_bounded_input;
+
+    assert_eq!(read_bounded_input(&b"{}"[..], 2).unwrap(), "{}");
+    assert_eq!(read_bounded_input(&b"{}"[..], 3).unwrap(), "{}");
+    let error = read_bounded_input(&b"{} "[..], 2).unwrap_err();
+    assert!(error.to_string().contains("exceeds maximum allowed size"));
+    assert!(read_bounded_input(&b"\xff"[..], 2).is_err());
+}
+
+#[test]
 fn cli_parse_serve_defaults_and_custom() {
     let _guard = ENV_LOCK
         .lock()

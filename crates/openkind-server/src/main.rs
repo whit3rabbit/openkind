@@ -12,6 +12,7 @@
 
 mod args;
 mod families;
+mod installed;
 mod playground;
 mod proxy;
 
@@ -27,7 +28,7 @@ use openkind_backends::qwen35::{
     Qwen35Backend, Qwen35DecisionEngine, Qwen35EngineConfig, SchedulerConfig,
 };
 use openkind_engine::{DecisionEngine, EngineRegistry, MockEngine};
-use openkind_model_store::{default_models_dir, ModelStore, QWEN35_STATE_FIRST_MODEL_NAME};
+use openkind_model_store::{default_models_dir, ModelStore};
 use openkind_runtime::{peak_resident_bytes, BackendCapabilities};
 use tokio::net::TcpListener;
 use tonic::transport::Server;
@@ -43,37 +44,6 @@ fn backend_from_arg(backend: Qwen35BackendArg) -> Qwen35Backend {
         Qwen35BackendArg::NativeCpu => Qwen35Backend::NativeCpu,
         #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
         Qwen35BackendArg::MlxFp32 => Qwen35Backend::MlxFp32,
-    }
-}
-
-/// Map an installed-model manifest to its pinned laya profile, mirroring the
-/// `supported_profile` allowlist in `openkind-model-store`.
-fn laya_profile_for(
-    manifest: &openkind_model_store::Manifest,
-) -> Option<&'static openkind_backends::families::laya::LayaProfile> {
-    use openkind_backends::families::laya::{
-        LAYA_ENGLISH, LAYA_MULTILINGUAL, LAYA_TYPED_DECISIONS,
-    };
-    use openkind_model_store::{
-        LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME, LAYA_TYPED_DECISIONS_MODEL_NAME,
-    };
-    match (manifest.name.as_str(), manifest.loader_id.as_str()) {
-        (LAYA_ENGLISH_MODEL_NAME, "laya-english")
-            if manifest.profile_id == LAYA_ENGLISH.profile_id =>
-        {
-            Some(&LAYA_ENGLISH)
-        }
-        (LAYA_MULTILINGUAL_MODEL_NAME, "laya-multilingual")
-            if manifest.profile_id == LAYA_MULTILINGUAL.profile_id =>
-        {
-            Some(&LAYA_MULTILINGUAL)
-        }
-        (LAYA_TYPED_DECISIONS_MODEL_NAME, "laya-typed-decisions")
-            if manifest.profile_id == LAYA_TYPED_DECISIONS.profile_id =>
-        {
-            Some(&LAYA_TYPED_DECISIONS)
-        }
-        _ => None,
     }
 }
 
@@ -186,7 +156,7 @@ async fn main() -> Result<()> {
     // Engine registry.
     let mut registry = EngineRegistry::new();
     let mock = Arc::new(MockEngine::new());
-    args.family_args.validate()?;
+    args.family_args.validate(&args.qwen35_aliases)?;
     let family_engines = args.family_args.load_requested(&args.models)?;
     for (alias, engine) in &family_engines {
         info!(
@@ -222,6 +192,13 @@ async fn main() -> Result<()> {
         None
     };
     for alias in &args.models {
+        // A composite must resolve real registered siblings. Mock placeholders
+        // would let self-references and unresolved composites silently serve demos.
+        if args.family_args.winnow_aliases.contains(alias)
+            || args.family_args.router_script_aliases.contains(alias)
+        {
+            continue;
+        }
         let engine: Arc<dyn DecisionEngine> = if args.qwen35_aliases.contains(alias) {
             native
                 .as_ref()
@@ -301,47 +278,39 @@ async fn main() -> Result<()> {
             None => default_models_dir()?,
         };
         let store = ModelStore::new(dir)?;
+        // Winnow routers register after every other installation so they can
+        // hold handles to sibling engines registered earlier in this loop.
+        let mut deferred_winnow = Vec::new();
         for name in &args.installed_models {
             let installed = store.acquire_serving(name)?;
-            let manifest = &installed.manifest;
-            let root = &installed.root;
-            if manifest.name == QWEN35_STATE_FIRST_MODEL_NAME
-                && manifest.loader_id == "qwen35-state-first"
-                && manifest.profile_id == openkind_backends::qwen35::PROFILE_ID
-            {
-                let engine = load_qwen(
-                    &args,
-                    root.join("bundle"),
-                    root.join("checkpoint"),
-                    root.join("checkpoint/tokenizer.json"),
-                )?;
-                info!(
-                    alias = name,
-                    backend = engine.backend_id(),
-                    "registered installed model"
-                );
-                registry.register(name.clone(), engine);
-            } else if let Some(profile) = laya_profile_for(manifest) {
-                let engine: Arc<dyn DecisionEngine> = Arc::new(
-                    openkind_backends::families::laya::LayaEngine::load(
-                        openkind_backends::families::laya::LayaEngineConfig::new(
-                            profile,
-                            root.clone(),
-                        ),
-                    )
-                    .map_err(|error| {
-                        anyhow::anyhow!("load installed laya model `{name}`: {error}")
-                    })?,
-                );
-                info!(
-                    alias = name,
-                    backend = engine.backend_id(),
-                    "registered installed model"
-                );
-                registry.register(name.clone(), engine);
-            } else {
-                anyhow::bail!("unsupported installed model profile `{name}`");
+            let kind = installed::installed_kind(&installed.manifest)
+                .with_context(|| format!("unsupported installed model profile `{name}`"))?;
+            if matches!(kind, installed::InstalledKind::Winnow) {
+                deferred_winnow.push((name.clone(), installed));
+                continue;
             }
+            let engine = installed::load_installed_engine(&args, kind, &installed.root, &registry)?;
+            info!(
+                alias = name,
+                backend = engine.backend_id(),
+                "registered installed model"
+            );
+            registry.register(name.clone(), engine);
+            _installed_guards.push(installed);
+        }
+        for (name, installed) in deferred_winnow {
+            let engine = installed::load_installed_engine(
+                &args,
+                installed::InstalledKind::Winnow,
+                &installed.root,
+                &registry,
+            )?;
+            info!(
+                alias = name,
+                backend = engine.backend_id(),
+                "registered installed model"
+            );
+            registry.register(name, engine);
             _installed_guards.push(installed);
         }
     }
@@ -465,6 +434,7 @@ async fn main() -> Result<()> {
     let playground_enabled = matches!(args.playground, PlaygroundArg::On);
     let arrow_enabled = matches!(args.arrow, ArrowArg::On);
     let http_handle = tokio::spawn(async move {
+        let _shutdown = ShutdownOnDrop(http_tx);
         let router = http::router_daemon_with_arrow(
             http_state,
             http_auth,
@@ -473,15 +443,11 @@ async fn main() -> Result<()> {
             playground_enabled,
             arrow_enabled,
         );
-        let listener = match TcpListener::bind(http_addr).await {
-            Ok(l) => l,
-            Err(e) => {
-                let _ = http_tx.send(true);
-                return Err(anyhow::anyhow!("bind http {http_addr}: {e}"));
-            }
-        };
-        info!(%http_addr, "http listening");
-        let res = axum::serve(
+        let listener = TcpListener::bind(http_addr)
+            .await
+            .with_context(|| format!("bind http {http_addr}"))?;
+        info!(http_addr = %listener.local_addr()?, "http listening");
+        axum::serve(
             listener,
             router.into_make_service_with_connect_info::<SocketAddr>(),
         )
@@ -489,9 +455,7 @@ async fn main() -> Result<()> {
             let _ = shutdown_rx_http.wait_for(|&v| v).await;
         })
         .await
-        .context("http serve");
-        let _ = http_tx.send(true);
-        res
+        .context("http serve")
     });
 
     // Spawn gRPC server (unless disabled with `--grpc-addr 0`).
@@ -500,16 +464,15 @@ async fn main() -> Result<()> {
     let grpc_handle = if let Some(grpc_addr) = grpc_addr {
         let svc = grpc::service_with_auth((*grpc_state.registry).clone(), auth.clone());
         Some(tokio::spawn(async move {
+            let _shutdown = ShutdownOnDrop(grpc_tx);
             info!(%grpc_addr, "grpc listening");
-            let res = Server::builder()
+            Server::builder()
                 .add_service(svc)
                 .serve_with_shutdown(grpc_addr, async move {
                     let _ = shutdown_rx_grpc.wait_for(|&v| v).await;
                 })
                 .await
-                .context("grpc serve");
-            let _ = grpc_tx.send(true);
-            res
+                .context("grpc serve")
         }))
     } else {
         info!("grpc disabled (--grpc-addr 0)");
@@ -530,6 +493,16 @@ async fn main() -> Result<()> {
 
     info!("openkindd exited cleanly");
     Ok(())
+}
+
+struct ShutdownOnDrop(tokio::sync::watch::Sender<bool>);
+
+impl Drop for ShutdownOnDrop {
+    fn drop(&mut self) {
+        // A panicking listener must also wake its peer so join! can finish
+        // and main can propagate the listener task failure.
+        let _ = self.0.send(true);
+    }
 }
 
 fn init_tracing(filter: &str) -> Result<()> {
@@ -563,5 +536,24 @@ async fn shutdown_signal() {
     tokio::select! {
         _ = ctrl_c => info!("received SIGINT"),
         _ = terminate => info!("received SIGTERM"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn listener_panic_notifies_peer_shutdown() {
+        let (tx, mut rx) = tokio::sync::watch::channel(false);
+        let listener = tokio::spawn(async move {
+            let _shutdown = ShutdownOnDrop(tx);
+            panic!("simulated listener failure");
+        });
+        assert!(listener.await.unwrap_err().is_panic());
+        tokio::time::timeout(std::time::Duration::from_secs(1), rx.wait_for(|&v| v))
+            .await
+            .unwrap()
+            .unwrap();
     }
 }

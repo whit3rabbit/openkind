@@ -184,6 +184,21 @@ fn backoff_extreme_values() {
     );
 }
 
+#[test]
+fn durations_wider_than_u64_nanoseconds_saturate_instead_of_wrapping() {
+    let wide = Duration::from_secs(u64::MAX / 1_000_000_000 + 1);
+    let policy = RetryPolicy::new()
+        .backoff_initial(wide)
+        .backoff_max(wide)
+        .backoff_jitter(0.0);
+    assert_eq!(policy.backoff_delay(0), Duration::from_nanos(u64::MAX));
+    let policy = RetryPolicy::new()
+        .backoff_initial(Duration::from_nanos(1))
+        .backoff_max(Duration::MAX)
+        .backoff_jitter(0.0);
+    assert_eq!(policy.backoff_delay(64), Duration::from_nanos(u64::MAX));
+}
+
 /// Port of `test_retry_policy_custom_statuses`: a replacing status set
 /// plus `retry_server_errors(false)` retries only the listed codes.
 #[test]

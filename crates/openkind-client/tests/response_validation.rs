@@ -94,3 +94,19 @@ async fn client_accepts_matching_choice_response() {
     assert_eq!(response.answers.len(), 1);
     assert_eq!(requests.len(), 1);
 }
+
+#[tokio::test]
+async fn per_call_configuration_is_rejected_before_any_request() {
+    let (url, requests) = spawn(|captured| Outcome::success(result_for(captured))).await;
+    let client = client(&url, RetryPolicy::new().max_retries(0));
+    for options in [
+        openkind_client::RequestOptions::new().timeout(std::time::Duration::ZERO),
+        openkind_client::RequestOptions::new().retry(RetryPolicy::new().backoff_jitter(f64::NAN)),
+    ] {
+        assert!(matches!(
+            client.evaluate_with(evaluate_request(), &options).await,
+            Err(Error::Config(_))
+        ));
+    }
+    assert_eq!(requests.len(), 0);
+}
