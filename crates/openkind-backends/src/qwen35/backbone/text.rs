@@ -58,18 +58,33 @@ impl TextBackbone {
     /// The tied output embedding is intentionally NOT applied: survey-profile
     /// readouts select their own output rows through
     /// [`Self::embedding_rows`].
+    #[allow(dead_code)]
     pub(crate) fn forward_hidden(&self, input_ids: &[u32]) -> Result<Vec<f32>, Qwen35Error> {
+        self.forward_hidden_with_check(input_ids, || Ok(()))
+    }
+
+    pub(crate) fn forward_hidden_with_check<E>(
+        &self,
+        input_ids: &[u32],
+        mut check: impl FnMut() -> Result<(), E>,
+    ) -> Result<Vec<f32>, E>
+    where
+        E: From<Qwen35Error>,
+    {
+        check()?;
         if input_ids.is_empty() {
             return Err(Qwen35Error::InvalidInput(
                 "text backbone input must contain at least one token".to_owned(),
-            ));
+            )
+            .into());
         }
         if self.shards.is_empty() {
             return Err(Qwen35Error::InvalidInput(
                 "text backbone requires at least one verified shard".to_owned(),
-            ));
+            )
+            .into());
         }
-        let embedding = self.embedding.embed(input_ids)?;
+        let embedding = self.embedding.embed(input_ids).map_err(E::from)?;
         let token_count = embedding.token_count();
         let mut hidden = embedding.values().to_vec();
         let device = Device::Cpu;
@@ -85,19 +100,27 @@ impl TextBackbone {
                     .collect::<Vec<_>>(),
                 DType::F32,
                 &device,
-            )?
+            )
+            .map_err(Qwen35Error::from)
+            .map_err(E::from)?
         }
         .pp("model")
         .pp("language_model");
         let layers = variables.pp("layers");
         for layer_index in 0..self.layer_count {
-            let layer = DecoderLayer::load(&layers, layer_index, &device)?;
-            hidden = layer.forward(&hidden, token_count, layer_index)?;
+            check()?;
+            let layer = DecoderLayer::load(&layers, layer_index, &device).map_err(E::from)?;
+            hidden = layer
+                .forward(&hidden, token_count, layer_index)
+                .map_err(E::from)?;
+            check()?;
         }
         let norm = variables
-            .get(HIDDEN_SIZE, "norm.weight")?
-            .flatten_all()?
-            .to_vec1::<f32>()?;
+            .get(HIDDEN_SIZE, "norm.weight")
+            .and_then(|value| value.flatten_all())
+            .and_then(|value| value.to_vec1::<f32>())
+            .map_err(Qwen35Error::from)
+            .map_err(E::from)?;
         let final_values = rms_norm_zero_centered(&hidden, token_count, HIDDEN_SIZE, &norm);
         if let Some((index, value)) = final_values
             .iter()
@@ -107,8 +130,10 @@ impl TextBackbone {
         {
             return Err(Qwen35Error::Numerical(format!(
                 "text backbone final_norm output element {index} is not finite: {value}"
-            )));
+            ))
+            .into());
         }
+        check()?;
         Ok(final_values)
     }
 

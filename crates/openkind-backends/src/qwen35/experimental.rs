@@ -1,9 +1,13 @@
 //! Offline joint-option readout experiment, never registered by the daemon.
 //!
 //! The baseline replays the frozen state-first renderer and fitted head with
-//! independent full forwards. The alternative changes both prompt and readout:
-//! all options share one prompt, and tied output rows score single-token letters.
-//! Neither temperature nor rejection thresholds are fitted on evaluation cases.
+//! independent full forwards. The joint alternatives share one prompt over all
+//! options and score tied single-token letter rows. The catalogue alternative
+//! keeps the fitted head and frozen temperature but shows every option's
+//! description in each candidate prompt. Position and code layouts separate
+//! text order from output-code assignment, and calibration applies a locked
+//! positive temperature and none-logit offset to raw joint logits. No
+//! temperature, offset, or rejection threshold is fitted on evaluation cases.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -22,11 +26,29 @@ use super::{
 /// Renderer identity separate from the frozen state-first model profile.
 pub const JOINT_RENDERER_ID: &str = "joint_option_letter/v1";
 
-/// Prepared prompts in canonical label order, with an explicit reversed pass.
+/// Renderer identity of the catalogue variant, which keeps the fitted head and
+/// frozen temperature but adds all option descriptions to every candidate
+/// prompt. Distinct from both the frozen `state_first` and joint identities.
+pub const CATALOGUE_RENDERER_ID: &str = "catalogue_state_first/v1";
+
+/// One rendered joint prompt: token ids plus each option's output-code slot.
+///
+/// Slots index the gathered letter rows: `0..MAX_CANDIDATES` render the
+/// space-prefixed letters `A..P`, and `MAX_CANDIDATES` renders `Z`.
+#[derive(Debug, Clone)]
+pub struct JointRender {
+    ids: Vec<u32>,
+    code_of: Vec<usize>,
+}
+
+/// Prepared prompts for one Choice question, in canonical label order.
 pub struct PreparedChoice {
     independent_ids: Vec<Vec<u32>>,
-    forward_ids: Vec<u32>,
-    reverse_ids: Vec<u32>,
+    catalogue_ids: Vec<Vec<u32>>,
+    forward: JointRender,
+    reverse: JointRender,
+    text_rotate: JointRender,
+    code_rotate: JointRender,
     labels: Vec<String>,
 }
 
@@ -65,7 +87,7 @@ impl ProbeBackbone {
     }
 }
 
-/// One locally verified checkpoint shared by both experimental scoring paths.
+/// One locally verified checkpoint shared by every experimental scoring path.
 pub struct Qwen35ScoringProbe {
     tokenizer: Qwen35Tokenizer,
     head: ScoreSummaryHead,
@@ -125,7 +147,7 @@ impl Qwen35ScoringProbe {
         }
     }
 
-    /// Backend used by both paths.
+    /// Backend used by every path.
     pub fn backend(&self) -> Qwen35Backend {
         self.backend
     }
@@ -141,8 +163,102 @@ impl Qwen35ScoringProbe {
 
     /// Frozen fitted head over independent candidate prompts (`repeated_full`).
     pub fn independent(&self, input: &PreparedChoice) -> Result<ScoringResult, Qwen35Error> {
-        let features = input
-            .independent_ids
+        self.fitted_scores(&input.independent_ids, input)
+    }
+
+    /// Frozen fitted head over independent candidate prompts that also carry a
+    /// full option catalogue in the question branch. The head and temperature
+    /// are unchanged; only the renderer gains rival descriptions.
+    pub fn catalogue(&self, input: &PreparedChoice) -> Result<ScoringResult, Qwen35Error> {
+        self.fitted_scores(&input.catalogue_ids, input)
+    }
+
+    /// One joint prompt and raw softmax over letter rows at temperature 1.0.
+    ///
+    /// `reversed` selects the recorded reversal, which changes text order and
+    /// letter assignment together and keeps the none option last.
+    pub fn joint(
+        &self,
+        input: &PreparedChoice,
+        reversed: bool,
+    ) -> Result<ScoringResult, Qwen35Error> {
+        let render = if reversed {
+            &input.reverse
+        } else {
+            &input.forward
+        };
+        self.score_render(input, render)
+    }
+
+    /// Joint render with rotated text order and each option's forward code.
+    ///
+    /// The full displayed list, including the none option, rotates by one
+    /// position; letter codes stay bound to their options.
+    pub fn joint_text_rotate(&self, input: &PreparedChoice) -> Result<ScoringResult, Qwen35Error> {
+        self.score_render(input, &input.text_rotate)
+    }
+
+    /// Joint render with forward text order and rotated letter codes.
+    ///
+    /// Display positions are unchanged; each option, including the none
+    /// option, takes the next letter slot in the used set.
+    pub fn joint_code_rotate(&self, input: &PreparedChoice) -> Result<ScoringResult, Qwen35Error> {
+        self.score_render(input, &input.code_rotate)
+    }
+
+    /// Raw letter logits of one recorded joint render: real options in sorted
+    /// label order, then the semantic-none logit last.
+    pub fn joint_logits(
+        &self,
+        input: &PreparedChoice,
+        reversed: bool,
+    ) -> Result<Vec<f64>, Qwen35Error> {
+        let render = if reversed {
+            &input.reverse
+        } else {
+            &input.forward
+        };
+        self.render_logits(render)
+    }
+
+    /// Softmax over raw joint logits with a positive temperature and an
+    /// additive offset on the semantic-none logit, applied before the softmax.
+    ///
+    /// A temperature alone preserves the winning class; the none offset can
+    /// change rejection. Both parameters must be locked on a separate
+    /// calibration partition before any gate evaluation.
+    pub fn calibrated_probabilities(
+        logits: &[f64],
+        temperature: f64,
+        none_offset: f64,
+    ) -> Result<Vec<f64>, Qwen35Error> {
+        if logits.len() < 2 {
+            return Err(Qwen35Error::InvalidInput(
+                "calibration requires at least one real option and the none logit".into(),
+            ));
+        }
+        if !temperature.is_finite() || temperature <= 0.0 {
+            return Err(Qwen35Error::InvalidInput(
+                "calibration temperature must be finite and greater than zero".into(),
+            ));
+        }
+        if !none_offset.is_finite() {
+            return Err(Qwen35Error::InvalidInput(
+                "none offset must be finite".into(),
+            ));
+        }
+        let mut scaled: Vec<f64> = logits.iter().map(|logit| logit / temperature).collect();
+        let last = scaled.len() - 1;
+        scaled[last] += none_offset / temperature;
+        stable_softmax(&scaled, 1.0)
+    }
+
+    fn fitted_scores(
+        &self,
+        ids: &[Vec<u32>],
+        input: &PreparedChoice,
+    ) -> Result<ScoringResult, Qwen35Error> {
+        let features = ids
             .iter()
             .map(|ids| self.backbone.final_feature(ids))
             .collect::<Result<Vec<_>, _>>()?;
@@ -157,50 +273,54 @@ impl Qwen35ScoringProbe {
             SEMANTIC_NONE_OPTION.into(),
             evaluation
                 .none_probability()
-                .ok_or_else(|| Qwen35Error::Numerical("baseline omitted none mass".into()))?,
+                .ok_or_else(|| Qwen35Error::Numerical("fitted head omitted none mass".into()))?,
         );
         Ok(ScoringResult {
             probabilities,
-            input_tokens: input.independent_ids.iter().map(Vec::len).sum(),
-            forwards: input.independent_ids.len(),
+            input_tokens: ids.iter().map(Vec::len).sum(),
+            forwards: ids.len(),
         })
     }
 
-    /// One joint prompt and raw softmax over letters A..P plus semantic-none Z.
-    pub fn joint(
+    fn score_render(
         &self,
         input: &PreparedChoice,
-        reversed: bool,
+        render: &JointRender,
     ) -> Result<ScoringResult, Qwen35Error> {
-        let ids = if reversed {
-            &input.reverse_ids
-        } else {
-            &input.forward_ids
-        };
-        let hidden = self.backbone.final_feature(ids)?;
-        let mut logits = self
-            .output_rows
-            .as_chunks::<FEATURE_WIDTH>()
-            .0
-            .iter()
-            .take(input.labels.len())
-            .map(|row| project(&hidden, row))
-            .collect::<Result<Vec<_>, _>>()?;
-        logits.push(project(
-            &hidden,
-            &self.output_rows[MAX_CANDIDATES * FEATURE_WIDTH..],
-        )?);
-        let probabilities = stable_softmax(&logits, 1.0)?;
+        let probabilities = self.render_probabilities(render)?;
         let mut labels = input.labels.clone();
-        if reversed {
-            labels.reverse();
-        }
         labels.push(SEMANTIC_NONE_OPTION.into());
         Ok(ScoringResult {
             probabilities: labels.into_iter().zip(probabilities).collect(),
-            input_tokens: ids.len(),
+            input_tokens: render.ids.len(),
             forwards: 1,
         })
+    }
+
+    fn render_probabilities(&self, render: &JointRender) -> Result<Vec<f64>, Qwen35Error> {
+        let hidden = self.backbone.final_feature(&render.ids)?;
+        let logits = self.render_logits(render)?;
+        let _ = hidden;
+        stable_softmax(&logits, 1.0)
+    }
+
+    fn render_logits(&self, render: &JointRender) -> Result<Vec<f64>, Qwen35Error> {
+        let hidden = self.backbone.final_feature(&render.ids)?;
+        render
+            .code_of
+            .iter()
+            .map(|&slot| {
+                let start = slot
+                    .checked_mul(FEATURE_WIDTH)
+                    .ok_or_else(|| Qwen35Error::InvalidInput("letter row offset overflow".into()))?;
+                let row = self.output_rows.get(start..start + FEATURE_WIDTH).ok_or_else(
+                    || Qwen35Error::InvalidInput(format!(
+                        "letter slot {slot} is outside the {MAX_CANDIDATES}-option and none action rows"
+                    )),
+                )?;
+                project(&hidden, row)
+            })
+            .collect()
     }
 }
 
@@ -248,39 +368,139 @@ fn prepare(
         .collect();
     let state = state_text(state);
     let instruction = instruction_text(question)?;
-    let independent = tokenizer.encode_state_first(&state, &instruction, &candidates)?;
     let none = choice.criteria[SEMANTIC_NONE_OPTION]
         .as_deref()
         .expect("validated none");
-    let forward_ids = render_joint(tokenizer, &state, &instruction, &candidates, none)?;
-    let reversed: Vec<_> = candidates.into_iter().rev().collect();
-    let reverse_ids = render_joint(tokenizer, &state, &instruction, &reversed, none)?;
+    let independent = tokenizer.encode_state_first(&state, &instruction, &candidates)?;
+    let catalogue = tokenizer.encode_state_first_catalogue(
+        &state,
+        &instruction,
+        &catalogue_block(&labels, &criteria, none),
+        &candidates,
+    )?;
+    let count = labels.len();
+    let (display, codes) = forward_layout(count);
+    let forward = render_layout(tokenizer, &state, &instruction, &labels, &criteria, none, &display, &codes)?;
+    let (display, codes) = reverse_layout(count);
+    let reverse = render_layout(tokenizer, &state, &instruction, &labels, &criteria, none, &display, &codes)?;
+    let (display, codes) = text_rotate_layout(count);
+    let text_rotate =
+        render_layout(tokenizer, &state, &instruction, &labels, &criteria, none, &display, &codes)?;
+    let (display, codes) = code_rotate_layout(count);
+    let code_rotate =
+        render_layout(tokenizer, &state, &instruction, &labels, &criteria, none, &display, &codes)?;
     Ok(PreparedChoice {
         independent_ids: independent.full_candidate_ids().to_vec(),
-        forward_ids,
-        reverse_ids,
+        catalogue_ids: catalogue.full_candidate_ids().to_vec(),
+        forward,
+        reverse,
+        text_rotate,
+        code_rotate,
         labels,
     })
 }
 
-fn render_joint(
+/// Canonical option catalogue added to every catalogue-variant prompt: all
+/// real options in sorted label order plus the semantic-none description, with
+/// the same letter formatting as the joint renderer.
+fn catalogue_block(labels: &[String], criteria: &[String], none: &str) -> String {
+    let mut block = String::from("\nOptions:\n");
+    for (index, (label, criterion)) in labels.iter().zip(criteria).enumerate() {
+        block.push_str(&format!("{}. {}: {}\n", letter_char(index), label, criterion));
+    }
+    block.push_str(&format!("{}. {none}\n", letter_char(MAX_CANDIDATES)));
+    block
+}
+
+fn letter_char(slot: usize) -> char {
+    if slot == MAX_CANDIDATES {
+        'Z'
+    } else {
+        (b'A' + slot as u8) as char
+    }
+}
+
+/// Forward render: options in sorted order, letter codes bound to positions,
+/// and the none option last with `Z`. Identical to the recorded joint prompt.
+fn forward_layout(count: usize) -> (Vec<usize>, Vec<usize>) {
+    let display = (0..=count).collect();
+    let code_of = (0..count).chain([MAX_CANDIDATES]).collect();
+    (display, code_of)
+}
+
+/// Recorded reversal: text order reverses and letter codes follow the new
+/// positions, so order and codes change together and `Z` stays last.
+fn reverse_layout(count: usize) -> (Vec<usize>, Vec<usize>) {
+    let display = (0..count).rev().chain([count]).collect();
+    let code_of = (0..count).rev().chain([MAX_CANDIDATES]).collect();
+    (display, code_of)
+}
+
+/// Text-rotation render: the full displayed list, including the none option,
+/// rotates by one position while every option keeps its forward letter code.
+fn text_rotate_layout(count: usize) -> (Vec<usize>, Vec<usize>) {
+    let display = (1..=count).chain([0]).collect();
+    let code_of = (0..count).chain([MAX_CANDIDATES]).collect();
+    (display, code_of)
+}
+
+/// Code-rotation render: text order is unchanged while letter codes rotate by
+/// one over the used set, moving the none option off `Z`.
+fn code_rotate_layout(count: usize) -> (Vec<usize>, Vec<usize>) {
+    let display = (0..=count).collect();
+    let code_of = (0..count)
+        .map(|option| (option + 1) % (count + 1))
+        .chain([0])
+        .collect();
+    (display, code_of)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn render_layout(
     tokenizer: &Qwen35Tokenizer,
     state: &str,
     instruction: &str,
-    candidates: &[CandidateText<'_>],
+    labels: &[String],
+    criteria: &[String],
     none: &str,
-) -> Result<Vec<u32>, Qwen35Error> {
-    let mut ids = tokenizer.encode(&format!("Context:\n{state}\n\n"))?;
-    let mut suffix = format!("Question: {instruction}\nChoose the single best option supported by the context. Choose Z if none is supported.\n");
-    for (index, candidate) in candidates.iter().enumerate() {
-        suffix.push_str(&format!(
-            "{}. {}: {}\n",
-            (b'A' + index as u8) as char,
-            candidate.label,
-            candidate.criteria
+    display: &[usize],
+    code_of: &[usize],
+) -> Result<JointRender, Qwen35Error> {
+    let total = labels.len() + 1;
+    if display.len() != total || code_of.len() != total {
+        return Err(Qwen35Error::InvalidInput(
+            "joint layout must cover every real option and none exactly once".into(),
         ));
     }
-    suffix.push_str(&format!("Z. {none}\nAnswer:"));
+    let mut seen = [false; MAX_CANDIDATES + 1];
+    for slot in code_of {
+        if *slot > MAX_CANDIDATES || seen[*slot] {
+            return Err(Qwen35Error::InvalidInput(format!(
+                "joint layout code slot {slot} is repeated or outside the verified letter rows"
+            )));
+        }
+        seen[*slot] = true;
+    }
+    if display.iter().copied().collect::<std::collections::BTreeSet<_>>().len() != total {
+        return Err(Qwen35Error::InvalidInput(
+            "joint layout display order repeats an option".into(),
+        ));
+    }
+    let none_letter = letter_char(code_of[labels.len()]);
+    let mut ids = tokenizer.encode(&format!("Context:\n{state}\n\n"))?;
+    let mut suffix = format!("Question: {instruction}\nChoose the single best option supported by the context. Choose {none_letter} if none is supported.\n");
+    for &option in display {
+        let letter = letter_char(code_of[option]);
+        if option == labels.len() {
+            suffix.push_str(&format!("{letter}. {none}\n"));
+        } else {
+            suffix.push_str(&format!(
+                "{letter}. {}: {}\n",
+                labels[option], criteria[option]
+            ));
+        }
+    }
+    suffix.push_str("Answer:");
     ids.extend(tokenizer.encode(&suffix)?);
     if ids.len() > MAX_SEQUENCE_TOKENS {
         return Err(Qwen35Error::InvalidInput(format!(
@@ -288,7 +508,10 @@ fn render_joint(
             ids.len()
         )));
     }
-    Ok(ids)
+    Ok(JointRender {
+        ids,
+        code_of: code_of.to_vec(),
+    })
 }
 
 fn letter_ids(tokenizer: &Qwen35Tokenizer) -> Result<Vec<u32>, Qwen35Error> {
