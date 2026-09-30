@@ -11,24 +11,41 @@ fn stdout_color_enabled() -> bool {
     std::io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none()
 }
 
+/// Escape control characters before including untrusted text in terminal output.
+///
+/// JSON output deliberately retains the original values. Human-readable output uses this
+/// representation so C0/C1 controls cannot be interpreted as ANSI, OSC, or cursor commands.
+pub fn terminal_safe(value: &str) -> String {
+    value.chars().fold(String::new(), |mut safe, character| {
+        if character.is_control() {
+            safe.extend(character.escape_default());
+        } else {
+            safe.push(character);
+        }
+        safe
+    })
+}
+
 /// Render text in bold if terminal styling is supported on stdout.
 pub fn style_bold(value: &str) -> String {
+    let value = terminal_safe(value);
     if stdout_color_enabled() {
-        Style::new().bold(true).render(value)
+        Style::new().bold(true).render(&value)
     } else {
-        value.to_owned()
+        value
     }
 }
 
 /// Render a section heading in bold color if terminal styling is supported on stdout.
 pub fn style_heading(value: &str) -> String {
+    let value = terminal_safe(value);
     if stdout_color_enabled() {
         Style::new()
             .bold(true)
             .foreground(Color::from("6"))
-            .render(value)
+            .render(&value)
     } else {
-        value.to_owned()
+        value
     }
 }
 
@@ -38,34 +55,37 @@ fn stderr_color_enabled() -> bool {
 
 /// Render muted secondary text if terminal styling is supported on stdout.
 pub fn style_muted(value: &str) -> String {
+    let value = terminal_safe(value);
     if stdout_color_enabled() {
-        Style::new().foreground(Color::from("8")).render(value)
+        Style::new().foreground(Color::from("8")).render(&value)
     } else {
-        value.to_owned()
+        value
     }
 }
 
 /// Render success indicator text in bold green if terminal styling is supported on stdout.
 pub fn style_success(value: &str) -> String {
+    let value = terminal_safe(value);
     if stdout_color_enabled() {
         Style::new()
             .bold(true)
             .foreground(Color::from("10"))
-            .render(value)
+            .render(&value)
     } else {
-        value.to_owned()
+        value
     }
 }
 
 /// Render error text in bold red if terminal styling is supported on stdout.
 pub fn style_error(value: &str) -> String {
+    let value = terminal_safe(value);
     if stdout_color_enabled() {
         Style::new()
             .bold(true)
             .foreground(Color::from("9"))
-            .render(value)
+            .render(&value)
     } else {
-        value.to_owned()
+        value
     }
 }
 
@@ -94,6 +114,7 @@ pub fn render_table(headers: &[&str], rows: &[Vec<String>]) -> String {
         .map(|column| {
             rows.iter()
                 .filter_map(|row| row.get(column))
+                .map(|value| terminal_safe(value))
                 .map(|value| UnicodeWidthStr::width(value.as_str()))
                 .fold(UnicodeWidthStr::width(headers[column]), usize::max)
         })
@@ -125,10 +146,12 @@ fn render_row(values: &[String], widths: &[usize]) -> String {
         if index > 0 {
             line.push_str("  ");
         }
-        let value = values.get(index).map(String::as_str).unwrap_or("");
-        line.push_str(value);
+        let value = terminal_safe(values.get(index).map(String::as_str).unwrap_or(""));
+        line.push_str(&value);
         if index + 1 < widths.len() {
-            line.push_str(&" ".repeat(width.saturating_sub(UnicodeWidthStr::width(value))));
+            line.push_str(
+                &" ".repeat(width.saturating_sub(UnicodeWidthStr::width(value.as_str()))),
+            );
         }
     }
     line
@@ -136,7 +159,7 @@ fn render_row(values: &[String], widths: &[usize]) -> String {
 
 /// Print a key-value label pair with bold styling on the key.
 pub fn print_key_value(label: &str, value: &str) {
-    println!("{}: {value}", style_bold(label));
+    println!("{}: {}", style_bold(label), terminal_safe(value));
 }
 
 /// Format a byte count into a human-readable string with binary prefixes (e.g. KiB, MiB, GiB).
@@ -344,7 +367,7 @@ impl PullProgress {
 
 #[cfg(test)]
 mod tests {
-    use super::render_table;
+    use super::{render_table, terminal_safe};
     use unicode_width::UnicodeWidthStr;
 
     #[test]
@@ -362,5 +385,32 @@ mod tests {
             UnicodeWidthStr::width(&lines[2][..first_value_start]),
             UnicodeWidthStr::width(&lines[3][..second_value_start])
         );
+    }
+
+    #[test]
+    fn terminal_text_escapes_control_sequences() {
+        let malicious = "model\u{1b}]52;c;T1BFTktJTkQ=\u{7}\nnext\u{85}line";
+        let safe = terminal_safe(malicious);
+
+        assert_eq!(
+            safe,
+            "model\\u{1b}]52;c;T1BFTktJTkQ=\\u{7}\\nnext\\u{85}line"
+        );
+        assert!(!safe.chars().any(char::is_control));
+    }
+
+    #[test]
+    fn table_escapes_controls_before_measuring_columns() {
+        let rows = vec![
+            vec!["bad\u{1b}[2J".to_owned(), "first".to_owned()],
+            vec!["ok".to_owned(), "second".to_owned()],
+        ];
+
+        let rendered = render_table(&["ALIAS", "VALUE"], &rows);
+
+        assert!(rendered.contains("bad\\u{1b}[2J"));
+        assert!(!rendered.contains('\u{1b}'));
+        let lines: Vec<_> = rendered.lines().collect();
+        assert_eq!(lines[2].find("first"), lines[3].find("second"));
     }
 }
