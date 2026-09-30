@@ -7,6 +7,8 @@ use crate::{Error, Result};
 
 pub const CATALOG_SCHEMA: &str = "openkind-catalog/v1";
 pub const MANIFEST_SCHEMA: &str = "openkind-model/v1";
+/// Upper bound for all artifacts in one model installation.
+pub const MAX_MODEL_BYTES: u64 = 16 * 1024 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -153,6 +155,7 @@ impl Manifest {
             return Err(Error::Invalid("invalid question types".into()));
         }
         let mut paths: HashSet<&str> = HashSet::new();
+        let mut total_size = 0_u64;
         for artifact in &self.artifacts {
             // The metadata write must not alias a linked blob on case-insensitive filesystems.
             let metadata_alias = artifact
@@ -170,6 +173,14 @@ impl Manifest {
                 return Err(Error::Invalid(format!(
                     "invalid artifact {}",
                     artifact.path
+                )));
+            }
+            total_size = total_size
+                .checked_add(artifact.size)
+                .ok_or_else(|| Error::Invalid("model artifact size overflow".into()))?;
+            if total_size > MAX_MODEL_BYTES {
+                return Err(Error::Invalid(format!(
+                    "model artifacts exceed the {MAX_MODEL_BYTES}-byte installation limit"
                 )));
             }
         }
@@ -288,6 +299,33 @@ mod tests {
             );
         }
         manifest.artifacts = vec![artifact("bundle"), artifact("bundle/head.bin")];
+        assert!(manifest.validate().is_err());
+    }
+
+    #[test]
+    fn rejects_models_over_the_installation_size_limit() {
+        let artifact = |path: &str, size| Artifact {
+            path: path.into(),
+            size,
+            sha256: "a".repeat(64),
+            source: Source {
+                kind: "github".into(),
+                repository: "example/models".into(),
+                revision: "b".repeat(40),
+                path: "source.bin".into(),
+            },
+        };
+        let manifest = Manifest {
+            schema: MANIFEST_SCHEMA.into(),
+            name: "fixture:v1".into(),
+            profile_id: "test-profile".into(),
+            loader_id: "test-loader".into(),
+            description: "fixture".into(),
+            release_date: "2026-09-25".into(),
+            support_status: "rust-loadable".into(),
+            question_types: vec!["choice".into()],
+            artifacts: vec![artifact("one.bin", MAX_MODEL_BYTES), artifact("two.bin", 1)],
+        };
         assert!(manifest.validate().is_err());
     }
 }
