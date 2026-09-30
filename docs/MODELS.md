@@ -17,7 +17,7 @@ profile, update the tables here in the same change.
 
 ## Pull a catalog model
 
-Thirteen profiles are catalog-installable: every Rust-loadable profile
+Fourteen profiles are catalog-installable: every Rust-loadable profile
 except `router-script`, which needs no artifacts. `openkind pull NAME`
 downloads pinned artifacts, verifies every digest, and installs them for the
 daemon:
@@ -112,6 +112,10 @@ Reading notes:
 - The `qwen35-mlx-bf16` engine is an unqualified candidate: it fails the
   frozen probability tolerance (see [`MLX.md`](MLX.md)) and exists as a
   throughput probe only.
+- This decision-path table does not include `encoder-embedding`, a BGE
+  sentence encoder used by the proxy cache rather than a `DecisionEngine`.
+  Its component benchmark and CPU/MLX parity record are listed separately
+  below.
 - Engines run through `openkind-bench score --engine NAME` (`qwen35`,
   `qwen35-mlx-fp32`, `decoder-letter`, `encoder-nli`, `encoder-instruct-label`,
   `decoder-llm`, `schema-scorer`, `qwen3-guard`, `kev`,
@@ -122,3 +126,20 @@ Reading notes:
   `--encoder-instruct-label-backend mlx-fp32`, and
   `--decoder-logit-qwen35-backend mlx-fp32` for the MLX
   paths). Family pages document per-family artifact-path flags.
+
+## Proxy-cache BGE embedding benchmark
+
+`encoder-embedding` is a catalog profile for the proxy-cache state embedder,
+not a standalone decision model. Its component benchmark times the same
+single-text encode path used per request, including tokenization and excluding
+model load. It is separate from the 777-decision `openkind-bench score` table
+above.
+
+| Backend | p50 | p95 | Embeddings/s | Peak RSS |
+|---|---:|---:|---:|---:|
+| Candle CPU FP32 | 26.06 ms | 29.49 ms | 40.52 | 261.2 MiB |
+| MLX FP32 | 4.30 ms | 5.69 ms | 220.36 | 261.2 MiB |
+
+These are one dirty-tree M4 Max component run, not semantic quality results.
+The [recorded run](benchmarks/2026-09-30-encoder-embedding/README.md) has
+checkpoint identity, input digest, CPU/MLX parity, and reproduction commands.

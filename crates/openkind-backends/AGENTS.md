@@ -88,6 +88,17 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
 - [`src/qwen35/tokenizer.rs`](./src/qwen35/tokenizer.rs):
   - `Qwen35Tokenizer`: Digest-locked offline tokenizer loading.
   - `encode_state_first()`: Segmented encoding producing shared root IDs, question IDs, and candidate suffix IDs.
+  - `encode_state_first_catalogue()`: Experimental catalogue variant that inserts an all-option block into the question branch only; the shared root and candidate continuations stay byte-identical to the frozen renderer.
+- [`src/qwen35/experimental.rs`](./src/qwen35/experimental.rs): Offline joint-option
+  scoring probe, never registered by the daemon. `Qwen35ScoringProbe` serves the
+  frozen independent control, the `catalogue_state_first/v1` catalogue arm (fitted
+  head + frozen temperature over catalogue prompts), and the
+  `joint_option_letter/v1` joint arms (forward, reversal, text-rotation with fixed
+  codes, code-rotation at fixed positions, plus raw `joint_logits` for post-hoc
+  calibration). Ensembles and probability averaging preserve semantic-none mass.
+  Methodology, commands, and recorded evidence live in
+  [`docs/BENCHMARKS.md`](../../docs/BENCHMARKS.md) and
+  [`docs/benchmarks/`](../../docs/benchmarks/).
 - [`src/qwen35/backbone/`](./src/qwen35/backbone/):
   - [`embedding.rs`](./src/qwen35/backbone/embedding.rs) & [`embedding/layout.rs`](./src/qwen35/backbone/embedding/layout.rs): Checkpoint embedding lookup, index validation, and BF16-to-FP32 widening.
   - [`layer0.rs`](./src/qwen35/backbone/layer0.rs), [`layer0/linear_attention.rs`](./src/qwen35/backbone/layer0/linear_attention.rs), [`layer0/full_attention.rs`](./src/qwen35/backbone/layer0/full_attention.rs): 24 DeltaNet recurrent layers, 8 grouped-query attention layers, and final RMSNorm in FP32.

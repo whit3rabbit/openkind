@@ -75,4 +75,12 @@ Unit-level contract checks always run (shapes, normalization, encoder-id
 stability). The golden-path replay
 (`proxy_cache::bert_encoder::tests::embeds_text_with_pinned_checkpoint_when_env_gated`)
 runs only when `OPENKIND_ENCODER_EMBEDDING_MODEL_ROOT` points at a verified
-installation; tests never download model assets.
+installation; tests never download model assets. The MLX replay compares three
+checkpoint-backed embeddings with Candle CPU and passes with maximum absolute
+element delta `2.980e-7` and minimum cosine `0.999999881`. It also covers the
+Safetensors `__metadata__` header field.
+
+The measured component benchmark and exact host/checkpoint details are in the
+[BGE benchmark record](../benchmarks/2026-09-30-encoder-embedding/README.md).
+This establishes numerical parity and local execution performance, not
+embedding or proxy-cache quality.

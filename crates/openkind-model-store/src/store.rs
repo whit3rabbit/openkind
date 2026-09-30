@@ -644,6 +644,49 @@ mod tests {
         }
     }
 
+    #[test]
+    fn checked_in_catalog_and_manifests_match_compiled_profiles() {
+        let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let registry = repo.join("registry/v1");
+        let catalog_bytes = fs::read(registry.join("catalog.json")).unwrap();
+        assert_eq!(sha256(&catalog_bytes), CATALOG_SHA256);
+        let catalog: Catalog = serde_json::from_slice(&catalog_bytes).unwrap();
+        catalog.validate().unwrap();
+
+        let expected: HashSet<_> = SUPPORTED_PROFILES.iter().copied().collect();
+        let actual: HashSet<_> = catalog
+            .models
+            .iter()
+            .map(|entry| {
+                (
+                    entry.name.as_str(),
+                    entry.loader_id.as_str(),
+                    entry.profile_id.as_str(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            actual, expected,
+            "catalog entries must have compiled loaders"
+        );
+
+        for entry in &catalog.models {
+            let manifest_bytes = fs::read(registry.join(&entry.manifest_path)).unwrap();
+            assert_eq!(
+                sha256(&manifest_bytes),
+                entry.manifest_sha256,
+                "{}",
+                entry.name
+            );
+            let manifest: Manifest = serde_json::from_slice(&manifest_bytes).unwrap();
+            manifest.validate().unwrap();
+            assert_eq!(manifest.name, entry.name);
+            assert_eq!(manifest.loader_id, entry.loader_id);
+            assert_eq!(manifest.profile_id, entry.profile_id);
+            assert!(supported_profile(&manifest), "{}", entry.name);
+        }
+    }
+
     fn fixture_manifest(name: &str, bytes: &[u8]) -> Manifest {
         Manifest {
             schema: "openkind-model/v1".into(),

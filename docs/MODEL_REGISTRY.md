@@ -8,11 +8,12 @@ verification milestones. Pull progress stays on stderr. `openkind list`,
 `show NAME`, and `rm NAME` operate on local installations without a daemon or
 network request. Read commands accept `--json` for scripts.
 
-Thirteen profiles are catalog-installable: the native Qwen3.5 state-first
+Fourteen profiles are catalog-installable: the native Qwen3.5 state-first
 profile, the three laya decision encoders, and the surveyed-family
 prototypes (`decoder-logit-letter`, `encoder-nli`, `encoder-instruct-label`,
 `decoder-logit-llm`, `schema-scorer`, `qwen3guard`, `kev`,
-`decoder-logit-qwen35`, `winnow`). Every manifest pins each artifact's
+`decoder-logit-qwen35`, `winnow`), plus the proxy-cache `encoder-embedding`
+sentence encoder. Every manifest pins each artifact's
 source revision, byte size, and SHA-256; `rust-loadable` status describes
 implementation and parity coverage, not reviewed task quality or release
 approval. Two small derived assets that no upstream publishes — kev's
@@ -80,6 +81,7 @@ registry model is only as fast as the loaders in this repository.
 | `kev:39d88c11faeb4ac165fa` | Candle CPU fp32 (`--engine kev`; daemon `--kev-aliases` / `--kev-model-root` / `--kev-base-root`) | CPU fp32 — no MLX path | [summary](benchmarks/2026-09-26-surveyed-families/summary-kev.json) |
 | `decoder-logit-qwen35:415bcf4a064e6dadcf85` | Candle CPU fp32 over BF16 checkpoint (`--engine decoder-logit-qwen35`; daemon `--decoder-logit-qwen35-aliases` / `--decoder-logit-qwen35-model-root` / `--decoder-logit-qwen35-backend mlx-fp32`), MLX FP32 over the same BF16 checkpoint widened on load (`--engine decoder-logit-qwen35-mlx-fp32`, `--features mlx`) | `decoder-logit-qwen35-mlx-fp32` — golden-fixture parity gates through the Qwen3.5 MLX backbone (max probability drift 1.003e-6, zero selection flips) | [BENCHMARKS.md](BENCHMARKS.md) records, the [2026-09-29 mlx counterparts campaign](benchmarks/2026-09-29-mlx-counterparts/README.md), and the CPU [summary](benchmarks/2026-09-27-decoder-logit-qwen35/summary-decoder-logit-qwen35.json) |
 | `winnow:4dff8c5b03cfbf680db6` | Candle CPU fp32 router over registered siblings (daemon `--winnow-aliases` / `--winnow-model-root` / `--winnow-adapter`) | CPU fp32 — no MLX path; installed winnow binds label `A` to the installed `decoder-logit-letter` profile and label `B` to `encoder-nli` (falling back to the `--models` aliases) | [summary](benchmarks/2026-09-26-surveyed-families/summary-winnow.json) |
+| `encoder-embedding:8d9498269ef05d95d93c` | Candle CPU fp32 and MLX FP32 (`--proxy-cache-encoder-backend mlx-fp32`, macOS arm64); embedding only, not a `DecisionEngine` | MLX FP32 measured 5.4x CPU throughput in one M4 Max component run; CPU remains the numerical oracle | [encoder parity and component benchmark](benchmarks/2026-09-30-encoder-embedding/README.md) |
 
 Benchmark summaries carry the machine-readable comparison data
 (`host_hardware`, `context`, per-strategy `cpu_time_seconds` /

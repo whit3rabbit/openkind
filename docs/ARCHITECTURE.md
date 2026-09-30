@@ -2,7 +2,7 @@
 
 > An open-source decision-inference engine in Rust targeting the Jev wire contract, with independently designed model and runtime internals.
 >
-> **Document revision 0.8.4 · 29 September 2026 · Current Rust implementation through named-machine CPU service gates and separately qualified pinned-base MLX FP32 parity. Local joint-option diagnostics add an offline scoring comparison; the fitted scoring profile and service defaults remain unchanged. Reviewed model quality, complete-request MLX performance, broader accelerated-service evidence and product-release promotion remain open.**
+> **Document revision 0.8.5 · 30 September 2026 · Current Rust implementation through named-machine CPU service gates and separately qualified pinned-base MLX FP32 parity. Local joint-option diagnostics add an offline scoring comparison; the 2026-09-29 proposal runs add a catalogue-context renderer, position/code separation and locked post-hoc calibration as experimental probe paths — the fitted scoring profile and service defaults remain unchanged. Reviewed model quality, complete-request MLX performance, broader accelerated-service evidence and product-release promotion remain open.**
 >
 > Wire spec: https://docs.typesafe.ai/api
 > Reference client SDK target: https://docs.typesafe.ai/sdk/python/api
@@ -82,14 +82,23 @@ latency tie-breaker. Selection was locked before final evaluation. The
 owns the comparison and its provisional quality boundary.
 
 The [`Qwen35ScoringProbe`](../crates/openkind-backends/src/qwen35/experimental.rs)
-loads the same pinned Base checkpoint for two paths. Its independent control
-replays the frozen renderer, fitted head and temperature. Its joint path puts
-all options into one question prompt and projects the final normalized hidden
+loads the same pinned Base checkpoint for several offline paths. Its independent
+control replays the frozen renderer, fitted head and temperature. Its joint path
+puts all options into one question prompt and projects the final normalized hidden
 vector onto selected tied vocabulary rows for single-token answer letters,
-including none. It performs no autoregressive generation. The
+including none, in four layouts: canonical order, the recorded reversal, a text
+rotation with codes bound to their options, and a letter-code permutation at
+fixed positions. Its catalogue path inserts a canonical all-option block into
+each candidate prompt's question branch under the separate
+`catalogue_state_first/v1` identity while keeping the fitted head and frozen
+temperature. Raw joint logits are exposed for post-hoc calibration. The probe
+performs no autoregressive generation. The
 [`compare-choice` harness](BENCHMARKS.md#experimental-joint-option-comparison)
-evaluates canonical order, reversed order and the mean of their distributions
-after mapping letters back to caller option IDs.
+maps letters back to caller option IDs, evaluates all nine methods including
+fixed ensembles, and the
+[`calibrate-choice` harness](BENCHMARKS.md#experimental-joint-distribution-calibration)
+fits and locks post-hoc parameters on one partition before scoring a disjoint
+gate.
 
 The [local test record](benchmarks/2026-09-29-joint-choice/README.md) owns the
 fixtures, scores, host and artifact identities. Balanced rule cases test facts,
@@ -118,6 +127,44 @@ The fitted profile remains the reproducible integration reference, not a proven
 quality winner. A replacement needs a separately identified profile and its own
 quality, rejection, calibration and request-performance gates. See the
 [next local research comparisons](RESEARCH.md#next-local-scoring-comparisons-proposed).
+
+#### Outcomes of the 2026-09-29 proposal runs
+
+The [proposal-run record](benchmarks/2026-09-29-joint-choice-proposals/README.md)
+owns the three follow-up comparisons. On the authored panels, all nine
+comparison methods agree across CPU and MLX FP32 within 1.07e-5 with zero
+selection changes.
+
+- **Catalogue context improves the fitted head.** With a canonical all-option
+  catalogue in the question branch and the fitted head and temperature
+  unchanged, the 96-case panel reaches 93/96 with NLL 0.144 and ECE 0.080
+  (control: 71/96, 0.636, 0.157), and the reference-card panel rises from
+  0/24 to 18/24 while never selecting the forbidden reference option
+  (control: 23/24). It is the first probe path that improves rejection,
+  proper scores and ECE together without replacing the head. Cost: about
+  1.9x the scored input tokens and 2.3x the warm full-forward seconds of the
+  control on these panels; production prefix reuse would amortize the
+  catalogue once per question branch, which is unmeasured.
+- **Text position dominates letter-code bias in the joint readout.** With
+  codes fixed, rotating position flips 7/96 selections; with positions fixed,
+  permuting codes flips 0/96 (the card panel splits 7/9). Fixed ensembles
+  never beat the single forward render, so none is adopted and `joint_forward`
+  remains the representative joint path.
+- **A locked temperature passes its gate; the none offset does not.** Fitted
+  on a disjoint 64-case calibration partition and locked, T = 0.3985 improves
+  the 64-case gate from NLL 0.178 to 0.035 and ECE 0.143 to 0.025 with zero
+  selection changes, and extends zero-error accepted coverage at threshold
+  0.9 from 27/64 to 47/64. The none offset loses one none case and is not
+  adopted. The same locked temperature degrades on the gate's reversed render
+  (NLL 0.381 versus raw 0.332), so the fitted value is render-specific
+  evidence, not a portable constant.
+
+The catalogue arm is the surviving candidate. It stays an experimental probe
+path: the rejection head was fitted without catalogue context and its none
+behavior is inconsistent across panels (24/24 none recall on the rule panel,
+0/6 on the card panel), so a catalogue-specific profile would need its own
+fitted rejection head, natural-task quality gates, and complete request-path
+timing before any replacement of the fitted profile.
 
 ### Execution requirements reinforced by the latest tests
 
