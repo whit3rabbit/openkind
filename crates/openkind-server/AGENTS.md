@@ -72,10 +72,11 @@
    held until shutdown; missing profiles and alias collisions fail startup.
    The public catalog is never fetched during daemon startup. See the
    [registry guide](../../docs/MODEL_REGISTRY.md) for the mirror and sync flow.
-3. **Surveyed-Family Engine Path**: If any alias in `--models` matches `--decoder-letter-aliases`, `--encoder-nli-aliases`, `--encoder-instruct-label-aliases`, `--kev-aliases`, `--decoder-llm-aliases`, `--schema-scorer-aliases`, `--qwen3guard-aliases`, `--decoder-logit-qwen35-aliases`, `--laya-english-aliases`, `--laya-multilingual-aliases`, or `--laya-typed-decisions-aliases`:
+3. **Surveyed-Family Engine Path**: If any alias in `--models` matches `--decoder-letter-aliases`, `--encoder-nli-aliases`, `--encoder-instruct-label-aliases`, `--kev-aliases`, `--jeeves-aliases`, `--decoder-llm-aliases`, `--schema-scorer-aliases`, `--qwen3guard-aliases`, `--decoder-logit-qwen35-aliases`, `--laya-english-aliases`, `--laya-multilingual-aliases`, or `--laya-typed-decisions-aliases`:
    - Validates that the corresponding `--<family>-model-root` is provided (fails fast on startup if omitted).
    - Loads the respective engine adapter from `openkind_backends::families` with bounded `FamilyLimits`. For laya, encoder-instruct-label, and decoder-logit-qwen35 aliases, the family's `--<family>-backend` flag picks `native-cpu` (default) or feature-gated `mlx-fp32`; requesting `mlx-fp32` without the daemon's `mlx` feature fails startup.
    - Registers the shared engine under each matching alias.
+   - Jeeves requires `--jeeves-model-root` and the `mlx` feature on macOS arm64. Its default alias is `jeeves-native`; it runs the pinned affine4/FP32 no-thinking profile without a Python process. It shares the family admission and deadline controls.
 4. **Router-Script Composite Path**: If any alias in `--models` matches `--router-script-aliases`:
    - Parses the routing rule table (`--router-script-rules`).
    - Resolves sibling engine references registered under `--models`.

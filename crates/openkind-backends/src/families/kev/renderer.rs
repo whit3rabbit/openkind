@@ -33,6 +33,15 @@ pub struct KevRenderer {
 /// Rewrite `<|name|>` to `<¦name¦>` so caller text can never produce a
 /// delimiter token (the fast tokenizer ignores split-special settings).
 fn escape_specials(text: &str) -> String {
+    escape_controls(text, true)
+}
+
+/// Jeeves' control regex requires at least one ASCII name character.
+pub(crate) fn escape_named_specials(text: &str) -> String {
+    escape_controls(text, false)
+}
+
+fn escape_controls(text: &str, allow_empty_name: bool) -> String {
     let bytes = text.as_bytes();
     let mut out = String::with_capacity(text.len());
     let mut index = 0;
@@ -51,7 +60,7 @@ fn escape_specials(text: &str) -> String {
                     break;
                 }
             }
-            if let Some(name_end) = name_end {
+            if let Some(name_end) = name_end.filter(|end| allow_empty_name || *end > index + 2) {
                 out.push_str("<¦");
                 out.push_str(&text[index + 2..name_end]);
                 out.push_str("¦>");

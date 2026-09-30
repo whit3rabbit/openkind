@@ -20,6 +20,8 @@ pub mod decoder_logit_qwen35;
 pub mod encoder_instruct_label;
 /// Encoder natural language inference (NLI) readout family adapter.
 pub mod encoder_nli;
+/// Jeeves fused Qwen3.5-9B pointer-head decisions (optional native MLX).
+pub mod jeeves;
 /// KEV family model loader and decision engine adapter.
 pub mod kev;
 /// Laya encoder decision readout family adapter.

@@ -143,6 +143,9 @@ pub enum EngineArg {
     /// Pinned decoder-logit-qwen35 MLX FP32 engine; requires `--features mlx`.
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     DecoderLogitQwen35MlxFp32,
+    /// Pinned Jeeves affine-4 weights with FP32 pointer readout; no thinking.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    JeevesMlxAffine4,
 }
 
 impl From<EngineArg> for EngineKind {
@@ -177,6 +180,8 @@ impl From<EngineArg> for EngineKind {
             EngineArg::EncoderInstructLabelMlxFp32 => EngineKind::EncoderInstructLabelMlxFp32,
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             EngineArg::DecoderLogitQwen35MlxFp32 => EngineKind::DecoderLogitQwen35MlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::JeevesMlxAffine4 => EngineKind::JeevesMlxAffine4,
         }
     }
 }

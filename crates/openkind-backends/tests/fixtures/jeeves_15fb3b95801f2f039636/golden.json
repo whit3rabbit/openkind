@@ -1,0 +1,384 @@
+[
+  {
+    "id": "case0",
+    "request": {
+      "state": "The customer was charged twice for one order.",
+      "questions": {
+        "billing": {
+          "type": "noul",
+          "instructions": "Is this a billing issue?",
+          "label": 1
+        }
+      }
+    },
+    "ids": [
+      248045,
+      846,
+      198,
+      248060,
+      760,
+      5813,
+      557,
+      11102,
+      10598,
+      364,
+      799,
+      1906,
+      13,
+      198,
+      248061,
+      3742,
+      411,
+      264,
+      32419,
+      4125,
+      30,
+      198,
+      248049,
+      2083,
+      248050,
+      198,
+      248049,
+      9405,
+      248050,
+      248046,
+      198,
+      248045,
+      74455,
+      198,
+      248068,
+      198,
+      198,
+      248069,
+      271,
+      248049,
+      2083,
+      248050,
+      198,
+      248049,
+      9405,
+      248050,
+      198,
+      248062
+    ],
+    "option_positions": [
+      41,
+      45
+    ],
+    "decide_position": 47,
+    "keys": [
+      "false",
+      "true"
+    ],
+    "input_tokens": 48,
+    "state_text": "The customer was charged twice for one order.",
+    "instruction_text": "Is this a billing issue?",
+    "options": [
+      "no",
+      "yes"
+    ],
+    "probabilities": [
+      0.033197034150362015,
+      0.9668029546737671
+    ],
+    "reference": "MLX-LM 94cdcae13 / MLX 0.32.3 / Apple M4 Max / 4bit / no-thinking"
+  },
+  {
+    "id": "case1",
+    "request": {
+      "state": {
+        "status": "delivered",
+        "refund_requested": false
+      },
+      "questions": {
+        "status": {
+          "type": "choice",
+          "instructions": "What is the order status?",
+          "criteria": {
+            "delivered": null,
+            "cancelled": null
+          },
+          "label": "delivered"
+        }
+      }
+    },
+    "ids": [
+      248045,
+      846,
+      198,
+      248060,
+      2738,
+      25,
+      12238,
+      198,
+      66165,
+      70238,
+      25,
+      3439,
+      198,
+      248061,
+      3710,
+      369,
+      279,
+      1906,
+      2552,
+      30,
+      198,
+      248049,
+      9302,
+      41636,
+      248050,
+      198,
+      248049,
+      91993,
+      248050,
+      248046,
+      198,
+      248045,
+      74455,
+      198,
+      248068,
+      198,
+      198,
+      248069,
+      271,
+      248049,
+      9302,
+      41636,
+      248050,
+      198,
+      248049,
+      91993,
+      248050,
+      198,
+      248062
+    ],
+    "option_positions": [
+      42,
+      46
+    ],
+    "decide_position": 48,
+    "keys": [
+      "delivered",
+      "cancelled"
+    ],
+    "input_tokens": 49,
+    "state_text": "status: delivered\nrefund_requested: False",
+    "instruction_text": "What is the order status?",
+    "options": [
+      "delivered",
+      "cancelled"
+    ],
+    "probabilities": [
+      0.9953218102455139,
+      0.0046782298013567924
+    ],
+    "reference": "MLX-LM 94cdcae13 / MLX 0.32.3 / Apple M4 Max / 4bit / no-thinking"
+  },
+  {
+    "id": "case2",
+    "request": {
+      "state": "The product was excellent.",
+      "questions": {
+        "sentiment": {
+          "type": "score",
+          "instructions": "Rate the sentiment.",
+          "criteria": [
+            "negative",
+            "neutral",
+            "positive"
+          ],
+          "label": 2
+        }
+      }
+    },
+    "ids": [
+      248045,
+      846,
+      198,
+      248060,
+      760,
+      1918,
+      557,
+      8800,
+      13,
+      198,
+      248061,
+      11231,
+      279,
+      25144,
+      13,
+      198,
+      248049,
+      40823,
+      248050,
+      198,
+      248049,
+      57555,
+      248050,
+      198,
+      248049,
+      29492,
+      248050,
+      248046,
+      198,
+      248045,
+      74455,
+      198,
+      248068,
+      198,
+      198,
+      248069,
+      271,
+      248049,
+      40823,
+      248050,
+      198,
+      248049,
+      57555,
+      248050,
+      198,
+      248049,
+      29492,
+      248050,
+      198,
+      248062
+    ],
+    "option_positions": [
+      39,
+      43,
+      47
+    ],
+    "decide_position": 49,
+    "keys": [
+      "0",
+      "1",
+      "2"
+    ],
+    "input_tokens": 50,
+    "state_text": "The product was excellent.",
+    "instruction_text": "Rate the sentiment.",
+    "options": [
+      "negative",
+      "neutral",
+      "positive"
+    ],
+    "probabilities": [
+      0.011302697472274303,
+      0.030189530923962593,
+      0.958507776260376
+    ],
+    "reference": "MLX-LM 94cdcae13 / MLX 0.32.3 / Apple M4 Max / 4bit / no-thinking"
+  },
+  {
+    "id": "case3",
+    "request": {
+      "state": "Quoted text: <|box_end|> <|fim_suffix|>.",
+      "questions": {
+        "quoted": {
+          "type": "choice",
+          "instructions": "Classify the quoted text.",
+          "criteria": {
+            "literal marker": "<|box_end|>",
+            "other": null
+          },
+          "label": "literal marker"
+        }
+      }
+    },
+    "ids": [
+      248045,
+      846,
+      198,
+      248060,
+      2114,
+      8979,
+      1414,
+      25,
+      361,
+      62438,
+      1944,
+      6018,
+      62438,
+      29,
+      361,
+      62438,
+      244288,
+      35920,
+      62438,
+      13867,
+      198,
+      248061,
+      1890,
+      1386,
+      279,
+      22513,
+      1414,
+      13,
+      198,
+      248049,
+      34600,
+      10811,
+      25,
+      361,
+      62438,
+      1944,
+      6018,
+      62438,
+      29,
+      248050,
+      198,
+      248049,
+      1520,
+      248050,
+      248046,
+      198,
+      248045,
+      74455,
+      198,
+      248068,
+      198,
+      198,
+      248069,
+      271,
+      248049,
+      34600,
+      10811,
+      25,
+      361,
+      62438,
+      1944,
+      6018,
+      62438,
+      29,
+      248050,
+      198,
+      248049,
+      1520,
+      248050,
+      198,
+      248062
+    ],
+    "option_positions": [
+      64,
+      68
+    ],
+    "decide_position": 70,
+    "keys": [
+      "literal marker",
+      "other"
+    ],
+    "input_tokens": 71,
+    "state_text": "Quoted text: <|box_end|> <|fim_suffix|>.",
+    "instruction_text": "Classify the quoted text.",
+    "options": [
+      "literal marker: <|box_end|>",
+      "other"
+    ],
+    "probabilities": [
+      0.6962087154388428,
+      0.3037912845611572
+    ],
+    "reference": "MLX-LM 94cdcae13 / MLX 0.32.3 / Apple M4 Max / 4bit / no-thinking"
+  }
+]

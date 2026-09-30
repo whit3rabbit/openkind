@@ -147,3 +147,8 @@ results and attribution requirements.
 Use the opt-in download commands in the repository
 [`README.md`](../../README.md) to obtain the pinned local checkpoint. Do not add
 model downloads to this harness or to its tests.
+
+Jeeves uses `--engine jeeves-mlx-affine4 --model-root DIR` on macOS arm64
+with `--features mlx`. It has one independent no-thinking pass per question;
+Qwen strategy overrides do not apply. Its profile and revision are recorded
+in summaries, and its benchmark evidence lives in `docs/BENCHMARKS.md`.

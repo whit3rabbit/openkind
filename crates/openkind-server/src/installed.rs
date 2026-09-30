@@ -54,7 +54,7 @@ use openkind_engine::{DecisionEngine, EngineRegistry};
 use openkind_model_store::{
     Manifest, DECODER_LOGIT_LETTER_MODEL_NAME, DECODER_LOGIT_LLM_MODEL_NAME,
     DECODER_LOGIT_QWEN35_MODEL_NAME, ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME,
-    KEV_MODEL_NAME, LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME,
+    JEEVES_MODEL_NAME, KEV_MODEL_NAME, LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME,
     LAYA_TYPED_DECISIONS_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME, QWEN3GUARD_MODEL_NAME,
     SCHEMA_SCORER_MODEL_NAME, WINNOW_MODEL_NAME,
 };
@@ -75,6 +75,7 @@ pub(crate) enum InstalledKind {
     DecoderLlm,
     SchemaScorer,
     Qwen3Guard,
+    Jeeves,
     Kev,
     DecoderLogitQwen35,
     Winnow,
@@ -124,6 +125,11 @@ pub(crate) fn installed_kind(manifest: &Manifest) -> Option<InstalledKind> {
         }
         (QWEN3GUARD_MODEL_NAME, "qwen3guard") if profile == QWEN3GUARD_PROFILE => {
             Some(InstalledKind::Qwen3Guard)
+        }
+        (JEEVES_MODEL_NAME, "jeeves")
+            if profile == openkind_backends::families::jeeves::PROFILE_ID =>
+        {
+            Some(InstalledKind::Jeeves)
         }
         (KEV_MODEL_NAME, "kev") if profile == KEV_PROFILE => Some(InstalledKind::Kev),
         (DECODER_LOGIT_QWEN35_MODEL_NAME, "decoder-logit-qwen35")
@@ -245,6 +251,21 @@ pub(crate) fn load_installed_engine(
             })
             .map_err(|error| anyhow!("load qwen3guard engine: {error}"))?,
         ),
+        InstalledKind::Jeeves => {
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            {
+                use openkind_backends::families::jeeves::{JeevesEngine, JeevesEngineConfig};
+                Arc::new(
+                    JeevesEngine::load(JeevesEngineConfig {
+                        model_root: root.join("checkpoint"),
+                        limits,
+                    })
+                    .map_err(|error| anyhow!("load installed jeeves mlx engine: {error}"))?,
+                )
+            }
+            #[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
+            anyhow::bail!("installed Jeeves requires --features mlx on macOS arm64")
+        }
         InstalledKind::Kev => Arc::new(
             KevEngine::load(KevEngineConfig {
                 model_root: root.join("adapter"),
@@ -317,6 +338,54 @@ mod tests {
             Ok(_) => panic!("empty model directory must fail loading"),
             Err(error) => error.to_string(),
         }
+    }
+
+    #[test]
+    fn installed_jeeves_requires_the_exact_pinned_identity_and_assets() {
+        let mut manifest: Manifest = serde_json::from_str(include_str!(
+            "../../../registry/v1/manifests/jeeves-15fb3b95801f2f039636.json"
+        ))
+        .unwrap();
+        assert!(matches!(
+            installed_kind(&manifest),
+            Some(InstalledKind::Jeeves)
+        ));
+        for (name, bytes, digest) in openkind_backends::families::jeeves::artifacts::FILES {
+            let artifact = manifest
+                .artifacts
+                .iter()
+                .find(|a| a.path == format!("checkpoint/{name}"))
+                .unwrap();
+            assert_eq!(artifact.size, *bytes);
+            assert_eq!(artifact.sha256, *digest);
+            assert_eq!(
+                artifact.source.repository,
+                openkind_backends::families::jeeves::MODEL_ID
+            );
+            assert_eq!(
+                artifact.source.revision,
+                openkind_backends::families::jeeves::MODEL_REVISION
+            );
+            assert_eq!(artifact.source.path, *name);
+        }
+        manifest.profile_id = "0".repeat(20);
+        assert!(installed_kind(&manifest).is_none());
+    }
+
+    #[test]
+    fn installed_jeeves_fails_closed_without_a_supported_build_or_artifacts() {
+        let args = Args::parse_from(["openkindd"]);
+        let error = empty_model_error(&args, InstalledKind::Jeeves);
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        assert!(
+            error.starts_with("load installed jeeves mlx engine:"),
+            "{error}"
+        );
+        #[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
+        assert_eq!(
+            error,
+            "installed Jeeves requires --features mlx on macOS arm64"
+        );
     }
 
     #[test]

@@ -182,6 +182,22 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
         };
         let load_started = Instant::now();
         let engine: Arc<dyn DecisionEngine> = match args.engine {
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::JeevesMlxAffine4 => {
+                use openkind_backends::families::jeeves::{JeevesEngine, JeevesEngineConfig};
+                Arc::new(
+                    JeevesEngine::load(JeevesEngineConfig {
+                        model_root: model_root.expect("gated").clone(),
+                        limits: FamilyLimits {
+                            max_concurrent_requests: 1,
+                            max_queued_requests: 0,
+                            retry_after_ms: 250,
+                            evaluation_timeout: None,
+                        },
+                    })
+                    .map_err(|error| anyhow::anyhow!("load jeeves mlx engine: {error}"))?,
+                )
+            }
             EngineKind::DecoderLetter => Arc::new(
                 DecoderLetterEngine::load(DecoderLetterEngineConfig {
                     model_root: model_root.expect("gated").clone(),
