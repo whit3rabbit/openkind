@@ -8,6 +8,7 @@
 
 mod args;
 mod gen;
+mod quality;
 mod score;
 mod workload;
 
@@ -23,6 +24,29 @@ use crate::score::{run_score, EngineKind, ScoreArgs, StrategySpec};
 fn main() -> Result<()> {
     let cli = Cli::parse();
     match cli.command {
+        Commands::CompareChoice {
+            input,
+            bundle_root,
+            checkpoint_root,
+            tokenizer,
+            backend,
+            output_dir,
+            host,
+            commit,
+        } => {
+            let summary = quality::run(&quality::CompareArgs {
+                input,
+                bundle_root,
+                checkpoint_root,
+                tokenizer,
+                backend: backend.into(),
+                output_dir,
+                host,
+                commit,
+            })?;
+            println!("{}", serde_json::to_string_pretty(&summary)?);
+            Ok(())
+        }
         Commands::GenWorkload {
             states,
             criteria,

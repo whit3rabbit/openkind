@@ -77,6 +77,8 @@ JSONL, one decision per row, flattened primitive tag:
 | Fixture | Contents | SHA-256 |
 |---|---|---|
 | [`crates/openkind-bench/fixtures/decisions_smoke.jsonl`](../crates/openkind-bench/fixtures/decisions_smoke.jsonl) | 4 support tickets × 3 primitives (noul, choice, score) = 12 rows; mock-testable | `3a673e843690b942658b4c9de6cc594770185756098d356e78dcd3efd5cffeeb` |
+| [`joint_choice_diagnostic.jsonl`](../crates/openkind-bench/fixtures/joint_choice_diagnostic.jsonl) | 96 labeled Choice cases, 4 tasks, 24 source groups; balanced real-option and none labels; [panel contract](../crates/openkind-bench/fixtures/joint_choice_diagnostic.md) | `279dc6285bf65f61e8c3a81d136c9aeb4fed4ceea1943202a62d1c8d7593a45a` |
+| [`joint_reference_card_diagnostic.jsonl`](../crates/openkind-bench/fixtures/joint_reference_card_diagnostic.jsonl) | 24 labeled card interventions, 6 source groups; only the reference option changes within each group; [panel contract](../crates/openkind-bench/fixtures/joint_reference_card_diagnostic.md) | `c1edcb1161c3e8eb6ec833ae3b3071d14b8f5ea8747c69d8bc97b5cb910224af` |
 
 Larger shape-matched workloads are **generated, not vendored**:
 `openkind-bench gen-workload` produces a seeded ticket × binary-criterion
@@ -144,6 +146,50 @@ SDKROOT=$(xcrun --show-sdk-path) cargo run --release -p openkind-bench \
 Every published number must carry `--host` and `--commit` attribution;
 summaries default to an "unattributed" host label that must be replaced before
 results are quoted anywhere.
+
+### Experimental joint-option comparison
+
+`compare-choice` compares the current fitted state-first scorer against one
+joint prompt that contains all real options and an explicit none option. It
+reads only the tied output rows for single-token letters A..P and Z, with raw
+temperature 1.0 and no generated text. It also evaluates reversed option order
+and averages the remapped probability distributions. The same verified base
+checkpoint and FP32 arithmetic serve every method. This is an offline probe;
+it does not register a model or change daemon defaults.
+
+```bash
+SDKROOT=$(xcrun --show-sdk-path) cargo run --release -p openkind-bench \
+  --features mlx -- compare-choice \
+  crates/openkind-bench/fixtures/joint_choice_diagnostic.jsonl \
+  --bundle-root crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8 \
+  --checkpoint-root <pinned-base-checkpoint-dir> \
+  --tokenizer research/14_phase3b_backbone_parity_results/backbone_runtime/tokenizer/tokenizer.json \
+  --backend mlx-fp32 --host "<host label>" --commit <hash> \
+  --output-dir bench-output/joint-choice
+```
+
+For CPU, omit `--features mlx` and use `--backend cpu`. Custom workloads use
+the usual Choice row schema plus `gold`, `task`, and `source_group`. They must
+offer at least two real options and supply a non-empty `__none__` description.
+An optional `split` identifying a final partition is rejected. Group related
+source documents, generated cases, and paraphrases under one `source_group`.
+Every prompt must fit 1,792 tokens in both renderers; no truncation is allowed.
+
+The report includes full accuracy, answerable ranking accuracy, macro recall
+over task/label pairs, NLL (probability floor `1e-15`), multiclass Brier,
+fixed 10-bin ECE, none recall, false-none rate, and fixed risk/coverage points.
+Paired accuracy/NLL/Brier deltas use 2,000 source-group bootstrap samples with
+seed 29160717. Per-row predictions, the workload digest, executable digest,
+backend, arithmetic identity, checkpoint revision, host, and commit accompany
+the summary. Methods alternate execution order across rows after one warmup.
+
+These times cover full-forward scoring and readout, excluding prompt preparation,
+model load, admission, wire conversion, and file writes. The averaged method
+costs both joint passes. Its independent baseline uses `repeated_full`, so these
+times do not compare against the production scheduler's prefix reuse. The
+experiment changes prompt and readout together; an improvement cannot be
+attributed to joint context alone. The authored panel tests mechanisms and
+does not establish broad task quality or production promotion.
 
 ### Non-final Choice qualification
 

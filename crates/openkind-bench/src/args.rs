@@ -20,6 +20,27 @@ pub struct Cli {
 #[allow(clippy::large_enum_variant)] // the Score variant legitimately carries the artifact paths
 #[derive(Subcommand, Debug)]
 pub enum Commands {
+    /// Compare the fitted scorer with experimental joint-option scoring on labeled Choice rows.
+    CompareChoice {
+        /// JSONL workload with gold, task, and source_group fields on every row.
+        input: PathBuf,
+        #[arg(long)]
+        bundle_root: PathBuf,
+        #[arg(long)]
+        checkpoint_root: PathBuf,
+        #[arg(long)]
+        tokenizer: PathBuf,
+        #[arg(long, value_enum, default_value_t = ProbeBackendArg::Cpu)]
+        backend: ProbeBackendArg,
+        #[arg(long, default_value = "bench-output/joint-choice")]
+        output_dir: PathBuf,
+        /// Hardware attribution, required for quality and latency evidence.
+        #[arg(long)]
+        host: String,
+        /// Commit hash under measurement (record dirty source separately).
+        #[arg(long)]
+        commit: String,
+    },
     /// Generate a seeded deterministic state × criterion workload JSONL.
     GenWorkload {
         /// Number of distinct states.
@@ -87,6 +108,24 @@ pub enum Commands {
         #[arg(long)]
         pretty: bool,
     },
+}
+
+/// FP32 arithmetic paths supported by the paired readout experiment.
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum ProbeBackendArg {
+    Cpu,
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    MlxFp32,
+}
+
+impl From<ProbeBackendArg> for openkind_backends::qwen35::Qwen35Backend {
+    fn from(value: ProbeBackendArg) -> Self {
+        match value {
+            ProbeBackendArg::Cpu => Self::NativeCpu,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            ProbeBackendArg::MlxFp32 => Self::MlxFp32,
+        }
+    }
 }
 
 /// Engine choices accepted on the command line.

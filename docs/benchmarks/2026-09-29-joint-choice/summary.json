@@ -1,0 +1,1812 @@
+{
+  "arithmetic_id": "mlx-core-0.32.2/fp32/reference-ops;checkpoint=qwen35-base-safetensors;toolchain=xcode=Xcode 27.0|Build version 27A266a;metal=Apple metal version 32023.921 (metalfe-32023.921.6)|Target: air64-apple-darwin25.6.0|Thread model: posix|InstalledDir: /private/var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v27.1.266.1.vSBe6u/Metal.xctoolchain/usr/metal/current/bin",
+  "backbone": "Qwen/Qwen3.5-4B-Base",
+  "backbone_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+  "backend": "qwen35-mlx-fp32",
+  "baseline_profile": "a047d6802c3f06f085b8",
+  "baseline_temperature": 1.8186799910442777,
+  "commit": "ebf2b06d493a17e9f7bd4a50ddbc769ef2356f24+joint-choice-working-tree",
+  "ece_bins": 10,
+  "evidence_scope": "paired diagnostic quality on supplied labeled Choice rows; prompt and readout both change; no temperature or threshold fit; no production promotion",
+  "executable_sha256": "3484e98187ec5f43a6384ba893d49504df7758432c6a059b18c361d8ecc3cc89",
+  "host": "Apple M4 Max, Mac16,5, 14 logical cores, 36 GiB, macOS arm64",
+  "joint_renderer": "joint_option_letter/v1",
+  "joint_temperature": 1.0,
+  "load_seconds": 20.966882709,
+  "nll_probability_floor": 1e-15,
+  "order_sensitivity": {
+    "count": 96,
+    "max_probability_shift": 0.31192114849774943,
+    "selection_flips": 9
+  },
+  "overall": {
+    "independent_fitted": {
+      "accuracy": 0.7395833333333334,
+      "answerable_count": 72,
+      "answerable_ranking_accuracy": 0.9861111111111112,
+      "balanced_accuracy": 0.7395833333333333,
+      "brier": 0.3171512001231714,
+      "count": 96,
+      "decisions_per_second": 1.0310282768807282,
+      "ece_10_bins": 0.15724194830496313,
+      "false_none_rate": 0.1388888888888889,
+      "forwards": 288,
+      "input_tokens": 19980,
+      "mean_scoring_ms": 969.9055034895832,
+      "nll": 0.6362306775193955,
+      "none_count": 24,
+      "none_recall": 0.4166666666666667,
+      "per_class_recall": [
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 0.6666666666666666,
+          "task": "negation"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 0.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 0.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 1.0,
+          "task": "threshold"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 0.0,
+          "task": "threshold"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 0.16666666666666666,
+          "task": "threshold"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 1.0,
+          "task": "threshold"
+        }
+      ],
+      "risk_coverage": [
+        {
+          "accepted": 73,
+          "coverage": 0.7604166666666666,
+          "error_rate": 0.1643835616438356,
+          "threshold": 0.5
+        },
+        {
+          "accepted": 62,
+          "coverage": 0.6458333333333334,
+          "error_rate": 0.03225806451612903,
+          "threshold": 0.75
+        },
+        {
+          "accepted": 58,
+          "coverage": 0.6041666666666666,
+          "error_rate": 0.0,
+          "threshold": 0.9
+        },
+        {
+          "accepted": 34,
+          "coverage": 0.3541666666666667,
+          "error_rate": 0.0,
+          "threshold": 0.98
+        }
+      ],
+      "scoring_seconds": 93.11092833499998
+    },
+    "joint_average": {
+      "accuracy": 1.0,
+      "answerable_count": 72,
+      "answerable_ranking_accuracy": 1.0,
+      "balanced_accuracy": 1.0,
+      "brier": 0.093029206297732,
+      "count": 96,
+      "decisions_per_second": 0.8248892144082594,
+      "ece_10_bins": 0.1920133571947852,
+      "false_none_rate": 0.0,
+      "forwards": 192,
+      "input_tokens": 21352,
+      "mean_scoring_ms": 1212.2840043645833,
+      "nll": 0.24111046521787505,
+      "none_count": 24,
+      "none_recall": 1.0,
+      "per_class_recall": [
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 1.0,
+          "task": "threshold"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "threshold"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 1.0,
+          "task": "threshold"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 1.0,
+          "task": "threshold"
+        }
+      ],
+      "risk_coverage": [
+        {
+          "accepted": 66,
+          "coverage": 0.6875,
+          "error_rate": 0.0,
+          "threshold": 0.5
+        },
+        {
+          "accepted": 60,
+          "coverage": 0.625,
+          "error_rate": 0.0,
+          "threshold": 0.75
+        },
+        {
+          "accepted": 26,
+          "coverage": 0.2708333333333333,
+          "error_rate": 0.0,
+          "threshold": 0.9
+        },
+        {
+          "accepted": 0,
+          "coverage": 0.0,
+          "error_rate": null,
+          "threshold": 0.98
+        }
+      ],
+      "scoring_seconds": 116.379264419
+    },
+    "joint_forward": {
+      "accuracy": 1.0,
+      "answerable_count": 72,
+      "answerable_ranking_accuracy": 1.0,
+      "balanced_accuracy": 1.0,
+      "brier": 0.08105235877390947,
+      "count": 96,
+      "decisions_per_second": 1.6157611269443568,
+      "ece_10_bins": 0.18505576497426393,
+      "false_none_rate": 0.0,
+      "forwards": 96,
+      "input_tokens": 10676,
+      "mean_scoring_ms": 618.9033659270834,
+      "nll": 0.22572616275732926,
+      "none_count": 24,
+      "none_recall": 1.0,
+      "per_class_recall": [
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 1.0,
+          "task": "threshold"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "threshold"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 1.0,
+          "task": "threshold"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 1.0,
+          "task": "threshold"
+        }
+      ],
+      "risk_coverage": [
+        {
+          "accepted": 67,
+          "coverage": 0.6979166666666666,
+          "error_rate": 0.0,
+          "threshold": 0.5
+        },
+        {
+          "accepted": 60,
+          "coverage": 0.625,
+          "error_rate": 0.0,
+          "threshold": 0.75
+        },
+        {
+          "accepted": 30,
+          "coverage": 0.3125,
+          "error_rate": 0.0,
+          "threshold": 0.9
+        },
+        {
+          "accepted": 0,
+          "coverage": 0.0,
+          "error_rate": null,
+          "threshold": 0.98
+        }
+      ],
+      "scoring_seconds": 59.41472312900001
+    },
+    "joint_reverse": {
+      "accuracy": 0.90625,
+      "answerable_count": 72,
+      "answerable_ranking_accuracy": 1.0,
+      "balanced_accuracy": 0.90625,
+      "brier": 0.11642769173216809,
+      "count": 96,
+      "decisions_per_second": 1.6852588966050819,
+      "ece_10_bins": 0.13065800169633654,
+      "false_none_rate": 0.06944444444444445,
+      "forwards": 96,
+      "input_tokens": 10676,
+      "mean_scoring_ms": 593.3806384374999,
+      "nll": 0.2657845905986934,
+      "none_count": 24,
+      "none_recall": 0.8333333333333334,
+      "per_class_recall": [
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 0.3333333333333333,
+          "task": "threshold"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 0.16666666666666666,
+          "task": "threshold"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 1.0,
+          "task": "threshold"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 1.0,
+          "task": "threshold"
+        }
+      ],
+      "risk_coverage": [
+        {
+          "accepted": 66,
+          "coverage": 0.6875,
+          "error_rate": 0.0,
+          "threshold": 0.5
+        },
+        {
+          "accepted": 58,
+          "coverage": 0.6041666666666666,
+          "error_rate": 0.0,
+          "threshold": 0.75
+        },
+        {
+          "accepted": 27,
+          "coverage": 0.28125,
+          "error_rate": 0.0,
+          "threshold": 0.9
+        },
+        {
+          "accepted": 0,
+          "coverage": 0.0,
+          "error_rate": null,
+          "threshold": 0.98
+        }
+      ],
+      "scoring_seconds": 56.964541289999985
+    }
+  },
+  "paired_delta_from_independent": {
+    "joint_average": {
+      "bootstrap_replicates": 2000,
+      "bootstrap_seed": 29160717,
+      "candidate_minus_baseline": {
+        "accuracy": {
+          "ci_95": [
+            0.19791666666666666,
+            0.3229166666666667
+          ],
+          "delta": 0.2604166666666667
+        },
+        "brier": {
+          "ci_95": [
+            -0.276065174043008,
+            -0.17158780587096867
+          ],
+          "delta": -0.2241219938254394
+        },
+        "nll": {
+          "ci_95": [
+            -0.5491266291829328,
+            -0.2531460191723692
+          ],
+          "delta": -0.3951202123015205
+        }
+      },
+      "source_groups": 24
+    },
+    "joint_forward": {
+      "bootstrap_replicates": 2000,
+      "bootstrap_seed": 29160717,
+      "candidate_minus_baseline": {
+        "accuracy": {
+          "ci_95": [
+            0.19791666666666666,
+            0.3229166666666667
+          ],
+          "delta": 0.2604166666666667
+        },
+        "brier": {
+          "ci_95": [
+            -0.2880818075230473,
+            -0.18079350278267903
+          ],
+          "delta": -0.23609884134926187
+        },
+        "nll": {
+          "ci_95": [
+            -0.5603188660938042,
+            -0.27098760862787263
+          ],
+          "delta": -0.4105045147620663
+        }
+      },
+      "source_groups": 24
+    },
+    "joint_reverse": {
+      "bootstrap_replicates": 2000,
+      "bootstrap_seed": 29160717,
+      "candidate_minus_baseline": {
+        "accuracy": {
+          "ci_95": [
+            0.125,
+            0.20833333333333334
+          ],
+          "delta": 0.16666666666666666
+        },
+        "brier": {
+          "ci_95": [
+            -0.2573746510475222,
+            -0.143218128401079
+          ],
+          "delta": -0.2007235083910033
+        },
+        "nll": {
+          "ci_95": [
+            -0.5323320234638199,
+            -0.2226186536816411
+          ],
+          "delta": -0.370446086920702
+        }
+      },
+      "source_groups": 24
+    }
+  },
+  "per_task": {
+    "negation": {
+      "independent_fitted": {
+        "accuracy": 0.9166666666666666,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 0.9166666666666666,
+        "brier": 0.10677983060875328,
+        "count": 24,
+        "decisions_per_second": 1.1768482155214453,
+        "ece_10_bins": 0.11961144821696396,
+        "false_none_rate": 0.0,
+        "forwards": 72,
+        "input_tokens": 4536,
+        "mean_scoring_ms": 849.7272518333333,
+        "nll": 0.19971460391901794,
+        "none_count": 6,
+        "none_recall": 0.6666666666666666,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 0.6666666666666666,
+            "task": "negation"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "negation"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 1.0,
+            "task": "negation"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 1.0,
+            "task": "negation"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 13,
+            "coverage": 0.5416666666666666,
+            "error_rate": 0.0,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 20.393454044
+      },
+      "joint_average": {
+        "accuracy": 1.0,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.04392662923228435,
+        "count": 24,
+        "decisions_per_second": 1.0156652093524754,
+        "ece_10_bins": 0.1467983454291221,
+        "false_none_rate": 0.0,
+        "forwards": 48,
+        "input_tokens": 4704,
+        "mean_scoring_ms": 984.5764045,
+        "nll": 0.16551832859987617,
+        "none_count": 6,
+        "none_recall": 1.0,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 1.0,
+            "task": "negation"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "negation"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 1.0,
+            "task": "negation"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 1.0,
+            "task": "negation"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 12,
+            "coverage": 0.5,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 23.629833708
+      },
+      "joint_forward": {
+        "accuracy": 1.0,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.06173866502409109,
+        "count": 24,
+        "decisions_per_second": 2.0252224082983723,
+        "ece_10_bins": 0.1632927281000877,
+        "false_none_rate": 0.0,
+        "forwards": 24,
+        "input_tokens": 2352,
+        "mean_scoring_ms": 493.77292879166674,
+        "nll": 0.19180123925561496,
+        "none_count": 6,
+        "none_recall": 1.0,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 1.0,
+            "task": "negation"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "negation"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 1.0,
+            "task": "negation"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 1.0,
+            "task": "negation"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 12,
+            "coverage": 0.5,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 11.850550291000001
+      },
+      "joint_reverse": {
+        "accuracy": 1.0,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.031526938672639816,
+        "count": 24,
+        "decisions_per_second": 2.03747538372011,
+        "ece_10_bins": 0.13030396275815667,
+        "false_none_rate": 0.0,
+        "forwards": 24,
+        "input_tokens": 2352,
+        "mean_scoring_ms": 490.8034757083333,
+        "nll": 0.14223730040447805,
+        "none_count": 6,
+        "none_recall": 1.0,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 1.0,
+            "task": "negation"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "negation"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 1.0,
+            "task": "negation"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 1.0,
+            "task": "negation"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 12,
+            "coverage": 0.5,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 11.779283416999998
+      }
+    },
+    "option_reference": {
+      "independent_fitted": {
+        "accuracy": 0.75,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 0.75,
+        "brier": 0.3872860810838241,
+        "count": 24,
+        "decisions_per_second": 0.8798019038355921,
+        "ece_10_bins": 0.19381852434615962,
+        "false_none_rate": 0.0,
+        "forwards": 72,
+        "input_tokens": 5976,
+        "mean_scoring_ms": 1136.6194999583329,
+        "nll": 1.0739891596702449,
+        "none_count": 6,
+        "none_recall": 0.0,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 0.0,
+            "task": "option_reference"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "option_reference"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 1.0,
+            "task": "option_reference"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 1.0,
+            "task": "option_reference"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 24,
+            "coverage": 1.0,
+            "error_rate": 0.25,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 20,
+            "coverage": 0.8333333333333334,
+            "error_rate": 0.1,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 12,
+            "coverage": 0.5,
+            "error_rate": 0.0,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 27.278867998999992
+      },
+      "joint_average": {
+        "accuracy": 1.0,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.014450429300239894,
+        "count": 24,
+        "decisions_per_second": 0.7194122869233822,
+        "ece_10_bins": 0.08560502238940552,
+        "false_none_rate": 0.0,
+        "forwards": 48,
+        "input_tokens": 6048,
+        "mean_scoring_ms": 1390.0235208333334,
+        "nll": 0.09011761020174625,
+        "none_count": 6,
+        "none_recall": 1.0,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 1.0,
+            "task": "option_reference"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "option_reference"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 1.0,
+            "task": "option_reference"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 1.0,
+            "task": "option_reference"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 8,
+            "coverage": 0.3333333333333333,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 33.3605645
+      },
+      "joint_forward": {
+        "accuracy": 1.0,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.017534537258632736,
+        "count": 24,
+        "decisions_per_second": 1.4465860783459479,
+        "ece_10_bins": 0.09159626427915517,
+        "false_none_rate": 0.0,
+        "forwards": 24,
+        "input_tokens": 3024,
+        "mean_scoring_ms": 691.2827483750001,
+        "nll": 0.09702864743736667,
+        "none_count": 6,
+        "none_recall": 1.0,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 1.0,
+            "task": "option_reference"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "option_reference"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 1.0,
+            "task": "option_reference"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 1.0,
+            "task": "option_reference"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 6,
+            "coverage": 0.25,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 16.590785961
+      },
+      "joint_reverse": {
+        "accuracy": 1.0,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.01476230460682853,
+        "count": 24,
+        "decisions_per_second": 1.4311459119263448,
+        "ece_10_bins": 0.07961378049965602,
+        "false_none_rate": 0.0,
+        "forwards": 24,
+        "input_tokens": 3024,
+        "mean_scoring_ms": 698.7407724583333,
+        "nll": 0.08407976201594884,
+        "none_count": 6,
+        "none_recall": 1.0,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 1.0,
+            "task": "option_reference"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "option_reference"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 1.0,
+            "task": "option_reference"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 1.0,
+            "task": "option_reference"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 7,
+            "coverage": 0.2916666666666667,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 16.769778539
+      }
+    },
+    "state_fact": {
+      "independent_fitted": {
+        "accuracy": 0.75,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 0.75,
+        "brier": 0.30071278912821386,
+        "count": 24,
+        "decisions_per_second": 1.2633231489741086,
+        "ece_10_bins": 0.19519409216546246,
+        "false_none_rate": 0.0,
+        "forwards": 72,
+        "input_tokens": 4314,
+        "mean_scoring_ms": 791.5631094166665,
+        "nll": 0.5035030728708233,
+        "none_count": 6,
+        "none_recall": 0.0,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 0.0,
+            "task": "state_fact"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "state_fact"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 1.0,
+            "task": "state_fact"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 1.0,
+            "task": "state_fact"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 24,
+            "coverage": 1.0,
+            "error_rate": 0.25,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 17,
+            "coverage": 0.7083333333333334,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 9,
+            "coverage": 0.375,
+            "error_rate": 0.0,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 18.997514625999997
+      },
+      "joint_average": {
+        "accuracy": 1.0,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.01965129086594293,
+        "count": 24,
+        "decisions_per_second": 1.0593296942603196,
+        "ece_10_bins": 0.09914108555632728,
+        "false_none_rate": 0.0,
+        "forwards": 48,
+        "input_tokens": 4620,
+        "mean_scoring_ms": 943.9931736249999,
+        "nll": 0.10540071926002896,
+        "none_count": 6,
+        "none_recall": 1.0,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 1.0,
+            "task": "state_fact"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "state_fact"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 1.0,
+            "task": "state_fact"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 1.0,
+            "task": "state_fact"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 6,
+            "coverage": 0.25,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 22.655836166999997
+      },
+      "joint_forward": {
+        "accuracy": 1.0,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.02498608011061232,
+        "count": 24,
+        "decisions_per_second": 2.1368010050410766,
+        "ece_10_bins": 0.10244421819015374,
+        "false_none_rate": 0.0,
+        "forwards": 24,
+        "input_tokens": 2310,
+        "mean_scoring_ms": 467.98929691666666,
+        "nll": 0.11034706998180932,
+        "none_count": 6,
+        "none_recall": 1.0,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 1.0,
+            "task": "state_fact"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "state_fact"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 1.0,
+            "task": "state_fact"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 1.0,
+            "task": "state_fact"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 12,
+            "coverage": 0.5,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 11.231743126
+      },
+      "joint_reverse": {
+        "accuracy": 1.0,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.018972949953158336,
+        "count": 24,
+        "decisions_per_second": 2.100823226304815,
+        "ece_10_bins": 0.09583795292250079,
+        "false_none_rate": 0.0,
+        "forwards": 24,
+        "input_tokens": 2310,
+        "mean_scoring_ms": 476.0038767083333,
+        "nll": 0.101753161336466,
+        "none_count": 6,
+        "none_recall": 1.0,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 1.0,
+            "task": "state_fact"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "state_fact"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 1.0,
+            "task": "state_fact"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 1.0,
+            "task": "state_fact"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 18,
+            "coverage": 0.75,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 8,
+            "coverage": 0.3333333333333333,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 11.424093040999999
+      }
+    },
+    "threshold": {
+      "independent_fitted": {
+        "accuracy": 0.5416666666666666,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 0.9444444444444444,
+        "balanced_accuracy": 0.5416666666666667,
+        "brier": 0.4738260996718942,
+        "count": 24,
+        "decisions_per_second": 0.9076781058499583,
+        "ece_10_bins": 0.27854419116669205,
+        "false_none_rate": 0.5555555555555556,
+        "forwards": 72,
+        "input_tokens": 5154,
+        "mean_scoring_ms": 1101.71215275,
+        "nll": 0.7677158736174962,
+        "none_count": 6,
+        "none_recall": 1.0,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 1.0,
+            "task": "threshold"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 0.0,
+            "task": "threshold"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 0.16666666666666666,
+            "task": "threshold"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 1.0,
+            "task": "threshold"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 7,
+            "coverage": 0.2916666666666667,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 6,
+            "coverage": 0.25,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 5,
+            "coverage": 0.20833333333333334,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 26.441091666000002
+      },
+      "joint_average": {
+        "accuracy": 1.0,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.29408847579246095,
+        "count": 24,
+        "decisions_per_second": 0.6533629262615153,
+        "ece_10_bins": 0.43650897540428596,
+        "false_none_rate": 0.0,
+        "forwards": 48,
+        "input_tokens": 5980,
+        "mean_scoring_ms": 1530.5429185000003,
+        "nll": 0.6034052028098487,
+        "none_count": 6,
+        "none_recall": 1.0,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 1.0,
+            "task": "threshold"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "threshold"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 1.0,
+            "task": "threshold"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 1.0,
+            "task": "threshold"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 12,
+            "coverage": 0.5,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 6,
+            "coverage": 0.25,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 36.733030044
+      },
+      "joint_forward": {
+        "accuracy": 1.0,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.2199501527023017,
+        "count": 24,
+        "decisions_per_second": 1.215704239358706,
+        "ece_10_bins": 0.38288984932765885,
+        "false_none_rate": 0.0,
+        "forwards": 24,
+        "input_tokens": 2990,
+        "mean_scoring_ms": 822.5684896249996,
+        "nll": 0.5037276943545265,
+        "none_count": 6,
+        "none_recall": 1.0,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 1.0,
+            "task": "threshold"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "threshold"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 1.0,
+            "task": "threshold"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 1.0,
+            "task": "threshold"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 13,
+            "coverage": 0.5416666666666666,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 6,
+            "coverage": 0.25,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 19.74164375099999
+      },
+      "joint_reverse": {
+        "accuracy": 0.625,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 0.625,
+        "brier": 0.4004485736960457,
+        "count": 24,
+        "decisions_per_second": 1.4124803936620145,
+        "ece_10_bins": 0.21687631060503273,
+        "false_none_rate": 0.2777777777777778,
+        "forwards": 24,
+        "input_tokens": 2990,
+        "mean_scoring_ms": 707.9744288750002,
+        "nll": 0.7350681386378812,
+        "none_count": 6,
+        "none_recall": 0.3333333333333333,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 0.3333333333333333,
+            "task": "threshold"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 0.16666666666666666,
+            "task": "threshold"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 1.0,
+            "task": "threshold"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 1.0,
+            "task": "threshold"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 12,
+            "coverage": 0.5,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 4,
+            "coverage": 0.16666666666666666,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 16.991386293
+      }
+    }
+  },
+  "schema": "openkind-choice-comparison/v1",
+  "timing_scope": "warm full-forward scorer only; excludes load, preparation, warmup, admission, wire mapping and writes; average costs both joint passes; methods interleaved per row",
+  "tokenizer_sha256": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+  "workload_sha256": "279dc6285bf65f61e8c3a81d136c9aeb4fed4ceea1943202a62d1c8d7593a45a"
+}

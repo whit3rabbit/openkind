@@ -79,7 +79,7 @@ impl StateFirstSegments {
 
 /// Offline tokenizer for the frozen Qwen 3.5 profile.
 pub struct Qwen35Tokenizer {
-    inner: Tokenizer,
+    pub(super) inner: Tokenizer,
 }
 
 impl Qwen35Tokenizer {
@@ -152,7 +152,7 @@ impl Qwen35Tokenizer {
         })
     }
 
-    fn encode(&self, text: &str) -> Result<Vec<u32>, Qwen35Error> {
+    pub(crate) fn encode(&self, text: &str) -> Result<Vec<u32>, Qwen35Error> {
         self.inner
             .encode(text, false)
             .map(|encoding| encoding.get_ids().to_vec())

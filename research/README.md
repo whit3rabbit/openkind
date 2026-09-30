@@ -16,6 +16,41 @@ and reserved evaluation groups. See the [dataset rationale and run guide](./loca
 Status: authored and locally checked with tiny models; full 4B CUDA training and
 Mac qualification are unrun. It does not reopen historical final splits.
 
+## Orthrus adoption decision
+
+**Decision:** Do not adopt Orthrus in the native decision engine.
+
+The [Orthrus paper](https://arxiv.org/html/2605.12825v2) describes trained
+diffusion modules that propose future token blocks and verify them through the
+frozen autoregressive model, with both paths reusing the historical KV cache.
+OpenKind's candidates are already known. Its native Qwen3.5 path processes their
+suffixes through a score-summary readout, without an output-token generation loop.
+
+Source review on 29 September 2026, against
+[upstream commit `4dceab6`](https://github.com/chiennv2000/orthrus/tree/4dceab65156b3dfb5dadbb11181a0e65d0ad314d):
+
+- No matching public Rust port was found in upstream, the default branches of
+  its 23 public forks, GitHub Rust repository searches, or crates.io. The
+  similarly named Rust crates are unrelated. Upstream provides PyTorch and
+  Python MLX implementations; this search does not establish that no port exists.
+- The [published model zoo](https://github.com/chiennv2000/orthrus/blob/4dceab65156b3dfb5dadbb11181a0e65d0ad314d/README.md#model-zoo)
+  contains Orthrus-Qwen3-1.7B, Orthrus-Qwen3-4B, and Orthrus-Qwen3-8B.
+  No released Orthrus-Qwen3.5 checkpoint was found in the author's model listing.
+- The newer [Qwen3.5 implementation](https://github.com/chiennv2000/orthrus/blob/4dceab65156b3dfb5dadbb11181a0e65d0ad314d/src/models/modeling_orthrus_qwen3_5.py#L663)
+  adds training support. Its block-generation helper recomputes the full prefix;
+  it does not supply a cached hybrid continuation path for OpenKind.
+- Lossless generation preserves the base model's generated-token distribution.
+  It does not establish better Jev decision quality or parity for OpenKind's
+  calibrated probabilities. Reported generation speedups are not OpenKind
+  request-latency measurements.
+
+This is a source assessment, with no new runtime measurements, decision-quality
+evaluation, or backend qualification. The
+[architecture boundary](../docs/ARCHITECTURE.md#orthrus-block-token-generation)
+explains the execution decision. The
+[benchmark guide](../docs/BENCHMARKS.md#candidate-pooling-diagnostic) owns native
+latency evidence and optimization promotion gates.
+
 ---
 
 ## Chronological Experiment Index

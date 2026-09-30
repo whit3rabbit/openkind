@@ -109,6 +109,10 @@ impl BackboneState {
 }
 
 impl Qwen35Backbone {
+    pub(crate) fn embedding_rows(&self, ids: &[u32]) -> Result<Vec<f32>, Qwen35Error> {
+        Ok(self.embedding.embed(ids)?.values().to_vec())
+    }
+
     /// Load and verify both shards of the immutable base-model revision.
     pub fn load(checkpoint_root: impl AsRef<Path>) -> Result<Self, Qwen35Error> {
         let checkpoint_root = checkpoint_root.as_ref();

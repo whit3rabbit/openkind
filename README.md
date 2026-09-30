@@ -1,12 +1,19 @@
 # openkind
 
-`openkind` is a Rust decision engine that scores candidate answers and returns typed `Noul` (yes/no probability), `Choice`, and `Score` results through the Jev System One API.  It reuses a state prefix across questions and assembles JSON responses directly, without generating answer text token by token.
+`openkind` runs local AI models for classification, routing, and scoring. Use the CLI, serve a TypeSafe-compatible API, or embed its Rust libraries in your application.
 
-The current native model is a pinned Qwen3.5-4B-Base research profile.  CPU implementation parity has passed its frozen fixtures, but reviewed task quality and release approval remain open.  See the [roadmap](docs/ROADMAP.md) before using its decisions in an application.
+Give it a message, document, or JSON state and ask typed questions. It returns answers and probabilities directly, without generating response text token by token.
+
+Alongside existing open models, OpenKind researches a custom Qwen3.5 decision model and a Rust inference engine that shares input processing across questions.
+
+[![CI](https://github.com/whit3rabbit/openkind/actions/workflows/ci.yml/badge.svg)](https://github.com/whit3rabbit/openkind/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+Models are research prototypes. Implementation parity is tested, but task quality and production readiness still need review. Test the model on your own workflows before relying on its decisions.
 
 ## Install
 
-**From source, available now.**  You need Rust 1.88 or newer and `protoc`.  The build creates both `openkind` (CLI) and `openkindd` (daemon); keep them together on `PATH` because `openkind serve` starts `openkindd`.
+Build from source with Rust 1.88 or newer and the Protocol Buffers compiler (`protoc`):
 
 ```bash
 git clone https://github.com/whit3rabbit/openkind.git
@@ -16,158 +23,213 @@ export PATH="$PWD/target/release:$PATH"
 openkind version
 ```
 
-Homebrew and crates.io distribution are planned.  Once published, the intended commands are `brew install whit3rabbit/tap/openkind` or `cargo install openkind-cli` plus `cargo install openkind-server`.  Until then, use the source build above.
+This builds `openkind`, the CLI, and `openkindd`, the local server. Keep both on `PATH`: `openkind serve` starts the server. The default build runs models on the CPU; Apple silicon users can enable [MLX](#apple-silicon-and-mlx).
 
 ## Run a model
 
-The curated catalog has one Rust-loadable profile.  `pull` downloads its pinned checkpoint, tokenizer, and readout bundle, then verifies the files.  This is an explicit multi-gigabyte download; normal builds and tests do not fetch weights.
+Browse the catalog, pull a profile, and serve it locally. This example uses the Laya English decision encoder:
 
 ```bash
 openkind catalog
-openkind pull qwen35-state-first:a047d6802c3f06f085b8
-openkind list
+openkind pull laya-english:c8ea29bf1e33a343c4b7
 openkind serve \
-  --installed-models qwen35-state-first:a047d6802c3f06f085b8 \
+  --installed-models laya-english:c8ea29bf1e33a343c4b7 \
   --http-addr 127.0.0.1:18080 \
   --grpc-addr 0
 ```
 
-In another terminal, submit a request.  The `model` field names the installed profile explicitly; the daemon also registers mock aliases by default.
+`pull` downloads pinned model files and verifies their SHA-256 digests. Builds and tests do not download weights. See the [model guide](docs/MODELS.md) for download sizes, memory requirements, and available backends.
+
+In another terminal, save a request as `request.json`:
+
+```json
+{
+  "state": "My card was charged twice. Please refund the extra payment.",
+  "model": "laya-english:c8ea29bf1e33a343c4b7",
+  "questions": {
+    "department": {
+      "type": "choice",
+      "instructions": "Which team should handle this request?",
+      "criteria": {
+        "billing": "Payments, charges, and refunds",
+        "technical": "Bugs, outages, and integrations",
+        "__none__": "None of these teams"
+      }
+    },
+    "refund_requested": {
+      "type": "noul",
+      "instructions": "Is the customer asking for a refund?"
+    },
+    "frustration": {
+      "type": "score",
+      "instructions": "How frustrated is the customer?",
+      "criteria": ["Calm", "Frustrated", "Very angry"]
+    }
+  }
+}
+```
+
+Submit it with the CLI:
+
+```bash
+openkind evaluate request.json --server http://127.0.0.1:18080 --format text --verbose
+```
+
+The output shows each answer and its available probabilities. Omit `--format text --verbose` to get JSON for scripts.
+
+| Question | Returns | Example use |
+|---|---|---|
+| `choice` | A selected option and probability distribution | Route a ticket to a team |
+| `noul` | A yes/no probability | Detect a refund request |
+| `score` | A numeric score against an ordered rubric | Rate urgency or frustration |
+
+Native Qwen Choice questions require a non-empty `__none__` option. Keeping it in your requests gives that model a way to reject the offered choices.
+
+<details>
+<summary>Try the API without downloading a model</summary>
+
+From the checkout, start a mock server:
+
+```bash
+openkindd --models jev-latest --http-addr 127.0.0.1:18080 --grpc-addr 0
+```
+
+In another terminal:
+
+```bash
+openkind evaluate examples/04_mixed.json --server http://127.0.0.1:18080 --pretty
+```
+
+Stop any server already using that port first. In this setup, `jev-latest` returns deterministic mock answers for integration testing.
+
+</details>
+
+## CLI and playground
+
+Manage local models and inspect the running server:
+
+```bash
+openkind list
+openkind show laya-english:c8ea29bf1e33a343c4b7
+openkind status --server http://127.0.0.1:18080
+openkind inspect request.json
+```
+
+For a browser interface, start the playground with an installed model:
+
+```bash
+openkind playground --installed-models laya-english:c8ea29bf1e33a343c4b7
+```
+
+It opens a local page where you can edit requests, inspect probabilities, and load or unload installed models. Running `openkind playground` alone uses mock models. See the [CLI guide](crates/openkind-cli/README.md) for commands and the [registry guide](docs/MODEL_REGISTRY.md) for model storage and lifecycle.
+
+## Use from Rust
+
+Use [`openkind-client`](crates/openkind-client/README.md) to call the local server. For an application beside the cloned `openkind` directory, add these dependencies to `Cargo.toml`:
+
+```toml
+[dependencies]
+openkind-client = { path = "../openkind/crates/openkind-client" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+```
+
+With the Laya server above running, put this in `src/main.rs` and run `cargo run`:
+
+```rust
+use std::time::Duration;
+
+use openkind_client::{question, Client, RetryPolicy};
+
+#[tokio::main]
+async fn main() -> Result<(), openkind_client::Error> {
+    let client = Client::builder()
+        .api_key("local") // The client requires a key; this local server has auth disabled.
+        .base_url("http://127.0.0.1:18080")
+        .default_model("laya-english:c8ea29bf1e33a343c4b7")
+        .timeout(Duration::from_secs(600))
+        .retry(RetryPolicy::new().total_timeout(Some(Duration::from_secs(600))))
+        .build()?;
+
+    let response = client
+        .system_one(
+            "My card was charged twice. Please refund the extra payment.",
+            [(
+                "refund_requested",
+                question::noul("Is the customer asking for a refund?"),
+            )],
+        )
+        .await?;
+
+    println!("{:?}", response.answers);
+    Ok(())
+}
+```
+
+For inference inside your Rust process, use [`openkind-backends`](crates/openkind-backends/README.md) through the [`DecisionEngine` interface](crates/openkind-engine/README.md). [`openkind-core`](crates/openkind-core/README.md) provides the shared request types and validation. The HTTP client connects to a server; the backend crates load and execute models.
+
+TypeScript, Python, and Swift HTTP clients and local server wrappers are also available. See the [bindings guide](bindings/README.md).
+
+## API compatibility
+
+`openkindd` serves Jev's typed `Noul`, `Choice`, and `Score` contract over HTTP and gRPC. The HTTP API includes `POST /v1/systemone` and `GET /v1/models`. The same request works with `curl`:
 
 ```bash
 curl -sS http://127.0.0.1:18080/v1/systemone \
   -H 'Content-Type: application/json' \
-  --data-binary @- <<'JSON'
-{
-  "state": "A customer says their payment failed twice and asks for help.",
-  "model": "qwen35-state-first:a047d6802c3f06f085b8",
-  "questions": {
-    "billing": {
-      "type": "noul",
-      "instructions": "Is this a billing issue?",
-      "criteria": {
-        "true": "The issue concerns a payment or charge.",
-        "false": "The issue does not concern a payment or charge."
-      }
-    }
-  }
-}
-JSON
+  --data-binary @request.json
 ```
 
-The response contains a `billing` answer with a `noul` probability.  For native `Choice` questions, include a non-empty `__none__` criterion so the model can report that none of the offered options fit.
+Existing TypeSafe clients can target the local server with a supported request and a registered model name. The Rust client also supports TypeSafe, OpenRouter System One, and Cloudflare Workers AI. Accepted fields and provider routes differ; the [compatibility matrix](docs/JEV_COMPATIBILITY.md) records those limits.
 
-Use `openkind status --server http://127.0.0.1:18080` to see the aliases active in the daemon.  A new pull becomes available after restarting it or explicitly loading it in the playground.  The [model registry guide](docs/MODEL_REGISTRY.md) covers the store location and verification lifecycle.
+API compatibility does not imply the same predictions as TypeSafe's Jev. OpenKind implements its own models and inference paths. Your application still decides which actions an answer may trigger.
 
-To try the wire API without downloading a model, stop the daemon above and use the checked-in fixture:
+## Apple silicon and MLX
+
+Enable the optional MLX/Metal backend on macOS arm64 to run supported models on the GPU:
 
 ```bash
-openkind serve --models jev-latest --http-addr 127.0.0.1:18080 --grpc-addr 0
-# In another terminal:
-openkind evaluate examples/04_mixed.json --server http://127.0.0.1:18080 --pretty
+export SDKROOT=$(xcrun --show-sdk-path)
+cargo build --release --locked -p openkind-cli -p openkind-server --features openkind-server/mlx
+openkindd \
+  --installed-models laya-english:c8ea29bf1e33a343c4b7 \
+  --laya-backend mlx-fp32 \
+  --http-addr 127.0.0.1:18080 \
+  --grpc-addr 0
 ```
 
-`jev-latest` runs the mock engine in this setup.  Its answers check integration behaviour, not model quality.
+Stop the CPU server before starting this one on the same port. FP32 MLX paths are available for the native Qwen3.5 profile, the three Laya profiles, GLiClass (`encoder-instruct-label`), and JevK5 (`decoder-logit-qwen35`). Other profiles use the CPU backend.
 
-## Playground
+The [MLX guide](docs/MLX.md) covers build requirements and parity checks. The [model guide](docs/MODELS.md) lists measured performance and memory use. BF16 Qwen execution remains experimental and has not passed the FP32 probability tolerance.
 
-The daemon ships an embedded web playground for poking at the wire API and eyeballing speed locally.  It is off by default. Evaluation uses `POST /v1/systemone`; authentication and rate limits still apply.
+## Models and research
 
-### Quick start
+The catalog includes Laya decision encoders, NLI and GLiClass classifiers, Qwen-based decision decoders, and the native `qwen35-state-first` research profile. Use `openkind catalog` for pull names and the [model guide](docs/MODELS.md) for each profile's purpose and limits.
 
-To start the playground with mock models (no weights download required):
+OpenKind's custom model work explores learned decision readouts and training recipes over open Qwen backbones. Its native Rust engine can process shared state once, then branch question and candidate work while isolating attention and recurrent state. The research tests calibration, precision, cache reuse, and whether those changes preserve decisions.
 
-```bash
-openkind playground
-```
+The new mixed-task Qwen3.5 decision LoRA trainer has been checked with tiny models; full 4B training and Mac qualification are still unrun. Fixture parity and throughput measurements establish specific implementation behavior. They do not establish general task accuracy.
 
-This spawns a loopback-only daemon at `http://127.0.0.1:8080`, disables the gRPC listener and rate limits, and automatically opens the playground in your browser.
-
-### Start and load a model from CLI
-
-To launch the playground with an installed model pre-loaded and ready for evaluation, pass `--installed-models`:
-
-```bash
-# Pull the model if not already downloaded:
-openkind pull qwen35-state-first:a047d6802c3f06f085b8
-
-# Launch the playground with the model loaded at startup:
-openkind playground --installed-models qwen35-state-first:a047d6802c3f06f085b8
-```
-
-You can also dynamically load or unload any installed profile at runtime from the **Local Models** panel in the web interface without restarting. See the [model lifecycle](docs/MODEL_REGISTRY.md) for limits.
-
-### Options and existing daemons
-
-```bash
-# Print the URL without opening a browser:
-openkind playground --no-open
-
-# Bind to a custom port or specify mock models:
-openkind playground --http-addr 127.0.0.1:18080 --models mock,jev-latest
-
-# Enable the playground route on a manually started daemon:
-openkindd --playground on
-```
-
-`openkind playground` binds `127.0.0.1` only, disables the gRPC listener, and turns off the per-IP rate limit so benchmark bursts are not throttled; Ctrl-C stops it.  If a daemon is already listening on the target address it checks that the playground is enabled before opening it.  API keys stay in page memory until the page closes. The page offers preset and saved requests (saved examples live in the browser's `localStorage`), a form or raw-JSON editor, typed answer cards with probability bars, and a benchmark tab that measures client-side round trips across selected models.  Those timings are informational; recorded measurements come from `openkind-bench score` ([benchmarks](docs/BENCHMARKS.md)).
-
-## Features
-
-- **Typed decisions.**  `Noul` returns a yes/no probability, `Choice` returns an offered option and its distribution, and `Score` uses an ordered rubric.  The [wire contract](crates/openkind-api/openapi.yaml) defines the request and response shapes.
-- **Shared state execution.**  The native runner can prefill a document once, then branch question and candidate work from it.  It tracks attention, DeltaNet, and convolution state when branching.  The [architecture guide](docs/ARCHITECTURE.md) explains the execution plans.
-- **Local model lifecycle.**  The CLI lists curated profiles, verifies downloads, inspects local installations, and starts explicitly selected models.  There is no implicit model download or hot reload.
-- **Service and clients.**  The daemon serves HTTP and gRPC.  Rust, TypeScript, Python, and Swift clients are available in this repository; the latter three call the HTTP API.  Clients check returned answers against submitted question IDs and options.
-- **Optional Apple MLX backend.**  It is feature gated and has separate parity and performance evidence.  The normal source build above uses the CPU backend.  See the [MLX guide](docs/MLX.md) for its current limits.
-
-The native profile's fixture parity and measured execution behaviour do not establish general classification accuracy or production readiness.  See [benchmarks](docs/BENCHMARKS.md) for what each run measures.
-
-## Set up a client
-
-The Python client requires Python 3.11 or newer.  It installs from this checkout and calls the running daemon over HTTP.  Start the model as shown above, then, from the repository root:
-
-```bash
-python3 -m pip install ./bindings/python
-python3 - <<'PY'
-from openkind_client import Client
-
-client = Client(base_url="http://127.0.0.1:18080", timeout=600)
-result = client.system_one(
-    "A customer says their payment failed twice and asks for help.",
-    {"billing": {"type": "noul", "instructions": "Is this a billing issue?"}},
-    model="qwen35-state-first:a047d6802c3f06f085b8",
-)
-print(result.data["answers"]["billing"])
-PY
-```
-
-For Rust, use [`openkind-client`](crates/openkind-client/README.md) and set its base URL, default model, and request timeout for local CPU inference.  The [bindings guide](bindings/README.md) has TypeScript, Python, and Swift setup and local server wrappers.
-
-These clients submit requests; they do not load weights in the application process.  Check a model's output against your own allowed actions before acting on it.
-
-## Crates
-
-| Crate | Role |
+| Read more | What it covers |
 |---|---|
-| [`openkind-core`](crates/openkind-core/README.md) | Jev wire types, validation, and schema definitions. |
-| [`openkind-engine`](crates/openkind-engine/README.md) | Engine interface, registry, mock engine, and execution profiles. |
-| [`openkind-runtime`](crates/openkind-runtime/README.md) | Hardware limits, branch state, scheduling, and run evidence. |
-| [`openkind-backends`](crates/openkind-backends/README.md) | Native Qwen execution and decision readouts. |
-| [`openkind-model-store`](crates/openkind-model-store/Cargo.toml) | Curated manifests and verified local model installations. |
-| [`openkind-api`](crates/openkind-api/README.md) | HTTP and gRPC routes. |
-| [`openkind-server`](crates/openkind-server/README.md) | `openkindd` process, model registration, and service lifecycle. |
-| [`openkind-cli`](crates/openkind-cli/README.md) | `openkind` commands for models, requests, status, and serving. |
-| [`openkind-client`](crates/openkind-client/README.md) | Async Rust HTTP client. |
-| [`openkind-bench`](crates/openkind-bench/Cargo.toml) | Native request-path scoring and timing harness. |
-| [`openkind-gen-schemas`](crates/openkind-gen-schemas/README.md) | JSON Schema generator. |
-| [`openkind-proto`](proto/Cargo.toml) | Protobuf service and message definitions. |
+| [Architecture](docs/ARCHITECTURE.md) | Rust crates, inference paths, and shared-state execution |
+| [Research dossier](docs/RESEARCH.md) | Evidence, related systems, and reproduction limits |
+| [Whitepaper](docs/whitepaper/WHITEPAPER.md) | Methods and measured results |
+| [Research notebooks](research/README.md) | Experiments, training recipe, and supporting artifacts |
+| [Benchmarks](docs/BENCHMARKS.md) | Measurement methods and recorded runs |
+| [Roadmap](docs/ROADMAP.md) | Current milestones and remaining qualification work |
 
-## Design and evidence
+## Development
 
-Start with the [research dossier](docs/RESEARCH.md) for the experiment sequence and the [whitepaper](docs/whitepaper/WHITEPAPER.md) for methods and measured results.  The [working paper](docs/whitepaper/WORKING_PAPER.md) records newer open questions.
+Start with the [architecture guide](docs/ARCHITECTURE.md) and [family integration guide](docs/families/NEW_FAMILY.md). The repository's [agent guide](AGENTS.md#verification) lists the full verification battery.
 
-Developers can use the [architecture guide](docs/ARCHITECTURE.md), [family integration guide](docs/families/NEW_FAMILY.md), and [roadmap](docs/ROADMAP.md) to trace design choices, supported profiles, and remaining gates.
+```bash
+cargo fmt --check
+cargo clippy --workspace --all-targets -- -D warnings
+env -u RUST_LOG cargo test --workspace
+```
+
+Report bugs or propose changes through [GitHub issues](https://github.com/whit3rabbit/openkind/issues).
 
 ## License
 
-See the [MIT license text](LICENSE).  Cargo metadata currently declares `MIT OR Apache-2.0`.
+See the [MIT license](LICENSE). Cargo metadata declares `MIT OR Apache-2.0`. Each model retains its own license, recorded in the [model catalog](registry/v1/catalog.json) and linked manifests.
