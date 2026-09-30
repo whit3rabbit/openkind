@@ -19,6 +19,8 @@ implements `DecisionEngine`, registers in `openkindd` via
 `--qwen3guard-aliases` / `--qwen3guard-model-root`, and is benchmarked
 through `openkind-bench --engine qwen3-guard`.
 
+It is catalog-installable offline-first: `openkind pull qwen3guard:0fcf416cab16d94f933d` downloads the pinned artifacts, verifies every SHA-256, and installs them for `--installed-models` (see [`../MODELS.md`](../MODELS.md)).
+
 **Architecture-invariant resolution.** The surveyed `gen` variant parses a
 generated verdict string and is barred by the workspace no-generation rule.
 This profile implements the **Stream** variant instead: a token-level

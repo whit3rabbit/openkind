@@ -2,13 +2,13 @@
   "schema": "openkind-catalog/v1",
   "models": [
     {
-      "name": "encoder-embedding:8d9498269ef05d95d93c",
-      "profile_id": "8d9498269ef05d95d93c",
-      "loader_id": "encoder-embedding",
-      "description": "Pinned BGE-small-en-v1.5 sentence-embedding encoder (BERT, MIT) for the proxy-cache student; CLS pooling, 384 dims",
+      "name": "qwen35-state-first:a047d6802c3f06f085b8",
+      "profile_id": "a047d6802c3f06f085b8",
+      "loader_id": "qwen35-state-first",
+      "description": "Pinned Qwen3.5-4B state-first decision profile; research status",
       "support_status": "rust-loadable",
-      "manifest_path": "manifests/encoder-embedding-8d9498269ef05d95d93c.json",
-      "manifest_sha256": "43a82d28c0a593089d005eae3a8225a720c4437d9b6ef973a3b3d25d4a0d203a"
+      "manifest_path": "manifests/qwen35-state-first-a047d6802c3f06f085b8.json",
+      "manifest_sha256": "02867461c565fe0399157f1093ecefa29def5f8d737cd077fc9c79c1282d5d6a"
     },
     {
       "name": "laya-english:c8ea29bf1e33a343c4b7",
@@ -38,13 +38,94 @@
       "manifest_sha256": "84ddbbcfe1ba6909008bf6c1f8115c73bd2e147b5acf01a1a82d76b04d955417"
     },
     {
-      "name": "qwen35-state-first:a047d6802c3f06f085b8",
-      "profile_id": "a047d6802c3f06f085b8",
-      "loader_id": "qwen35-state-first",
-      "description": "Pinned Qwen3.5-4B state-first decision profile; research status",
+      "name": "decoder-logit-letter:5492c97dfcdaf3fe9439",
+      "profile_id": "5492c97dfcdaf3fe9439",
+      "loader_id": "decoder-logit-letter",
+      "description": "Pinned Qwen2.5-0.5B-Instruct letter-logit decision decoder (Apache-2.0); prototype readout, research status",
       "support_status": "rust-loadable",
-      "manifest_path": "manifests/qwen35-state-first-a047d6802c3f06f085b8.json",
-      "manifest_sha256": "02867461c565fe0399157f1093ecefa29def5f8d737cd077fc9c79c1282d5d6a"
+      "manifest_path": "manifests/decoder-logit-letter-5492c97dfcdaf3fe9439.json",
+      "manifest_sha256": "051bd19aa6eba6bc842d0d863bbef541b903a4c0d9de3c28edea7333ddea99a1"
+    },
+    {
+      "name": "encoder-nli:1041a4c362338a61b820",
+      "profile_id": "1041a4c362338a61b820",
+      "loader_id": "encoder-nli",
+      "description": "Pinned DistilBERT MNLI zero-shot entailment decision encoder (Apache-2.0); prototype readout, research status",
+      "support_status": "rust-loadable",
+      "manifest_path": "manifests/encoder-nli-1041a4c362338a61b820.json",
+      "manifest_sha256": "cea2699177102a1ccc0cd77faaa7904f5dcb027fa253d5191d5eb6b31dc198c4"
+    },
+    {
+      "name": "encoder-instruct-label:9fd68313a5606eca42f2",
+      "profile_id": "9fd68313a5606eca42f2",
+      "loader_id": "encoder-instruct-label",
+      "description": "Pinned GLiClass uni-encoder over ModernBERT-base with label markers (Apache-2.0); prototype readout, research status",
+      "support_status": "rust-loadable",
+      "manifest_path": "manifests/encoder-instruct-label-9fd68313a5606eca42f2.json",
+      "manifest_sha256": "584a3d4197ca2c2a0a43d876e07675dde02e5dd85f7d64421f38b3cd7b8c8604"
+    },
+    {
+      "name": "decoder-logit-llm:465963d705b6f35d6208",
+      "profile_id": "465963d705b6f35d6208",
+      "loader_id": "decoder-logit-llm",
+      "description": "Pinned Qwen2.5-0.5B-Instruct GGUF q8_0 label-logit decoder (Apache-2.0); prototype readout, research status",
+      "support_status": "rust-loadable",
+      "manifest_path": "manifests/decoder-logit-llm-465963d705b6f35d6208.json",
+      "manifest_sha256": "c868ee2504e7695534a7524e4b1a79a724cf67ebf3f803027a4e97a509a40a10"
+    },
+    {
+      "name": "schema-scorer:5a7350af556f0ee66566",
+      "profile_id": "5a7350af556f0ee66566",
+      "loader_id": "schema-scorer",
+      "description": "Pinned MS MARCO MiniLM-L-6 cross-encoder with single-logit schema score (Apache-2.0); prototype readout, research status",
+      "support_status": "rust-loadable",
+      "manifest_path": "manifests/schema-scorer-5a7350af556f0ee66566.json",
+      "manifest_sha256": "4278f0781f3178b1d893e753183e861a80f1e826270befca5a5786df0e9a1359"
+    },
+    {
+      "name": "qwen3guard:0fcf416cab16d94f933d",
+      "profile_id": "0fcf416cab16d94f933d",
+      "loader_id": "qwen3guard",
+      "description": "Pinned Qwen3Guard-Stream-0.6B safety-verdict decision decoder (Apache-2.0); prototype readout, research status",
+      "support_status": "rust-loadable",
+      "manifest_path": "manifests/qwen3guard-0fcf416cab16d94f933d.json",
+      "manifest_sha256": "f5b7cdd9814bf60f459cab3b82ab27b8eeb5fdec0abe4beb3e191bd3e02df453"
+    },
+    {
+      "name": "kev:39d88c11faeb4ac165fa",
+      "profile_id": "39d88c11faeb4ac165fa",
+      "loader_id": "kev",
+      "description": "Pinned kev-0.6b LoRA decision decoder with pointer head over Qwen3-0.6B-Base (Apache-2.0); prototype readout, research status",
+      "support_status": "rust-loadable",
+      "manifest_path": "manifests/kev-39d88c11faeb4ac165fa.json",
+      "manifest_sha256": "ed4b3e6f491e4ae37d9a2ce599454bce5a5dc0574baed9b7f1d4bd70fb883e9a"
+    },
+    {
+      "name": "decoder-logit-qwen35:415bcf4a064e6dadcf85",
+      "profile_id": "415bcf4a064e6dadcf85",
+      "loader_id": "decoder-logit-qwen35",
+      "description": "Pinned JevK5 merged Qwen3.5-4B letter-logit decision decoder (Apache-2.0); prototype readout, research status",
+      "support_status": "rust-loadable",
+      "manifest_path": "manifests/decoder-logit-qwen35-415bcf4a064e6dadcf85.json",
+      "manifest_sha256": "c14a9b8caf6b2821aeb06962b78f32ea1bf3862cd15496207040b36e54e4303b"
+    },
+    {
+      "name": "winnow:4dff8c5b03cfbf680db6",
+      "profile_id": "4dff8c5b03cfbf680db6",
+      "loader_id": "winnow",
+      "description": "Pinned in-house Winnow script-aware router over Qwen2.5-0.5B-Instruct (Apache-2.0 base); prototype router, research status",
+      "support_status": "rust-loadable",
+      "manifest_path": "manifests/winnow-4dff8c5b03cfbf680db6.json",
+      "manifest_sha256": "11c1fc6425f889ef797270b5b1c8c7146f61af9aeacc85793ad6071e08a8ffa3"
+    },
+    {
+      "name": "encoder-embedding:8d9498269ef05d95d93c",
+      "profile_id": "8d9498269ef05d95d93c",
+      "loader_id": "encoder-embedding",
+      "description": "Pinned BGE-small-en-v1.5 sentence-embedding encoder (BERT, MIT) for the proxy-cache student; CLS pooling, 384 dims",
+      "support_status": "rust-loadable",
+      "manifest_path": "manifests/encoder-embedding-8d9498269ef05d95d93c.json",
+      "manifest_sha256": "43a82d28c0a593089d005eae3a8225a720c4437d9b6ef973a3b3d25d4a0d203a"
     }
   ]
 }

@@ -19,6 +19,20 @@ PyTorch reference of the same checkpoint to `<= 4.3e-6` maximum answer delta
 over the golden fixture, and digest-checked parity fixtures live under
 `crates/openkind-backends/tests/fixtures/encoder_instruct_label_9fd68313a5606eca42f2/`.
 
+It is catalog-installable offline-first: `openkind pull encoder-instruct-label:9fd68313a5606eca42f2` downloads the pinned artifacts, verifies every SHA-256, and installs them for `--installed-models` (see [`../MODELS.md`](../MODELS.md)).
+
+**MLX backend (2026-09-29).** The same pinned checkpoint also runs on the
+MLX/Metal backend (feature `mlx`, macOS arm64): `openkindd
+--encoder-instruct-label-backend mlx-fp32` and `openkind-bench --engine
+encoder-instruct-label-mlx-fp32`. No MLX conversion of the checkpoint exists
+on the Hub (surveyed 2026-09-29), so the backend reads the identical
+digest-verified FP32 shard directly; the arithmetic identity is
+`mlx-gpu-fp32-gliclass-modern-base`. The MLX body is the parity-proven
+shared ModernBERT implementation
+([`families/mlx_modernbert.rs`](../../crates/openkind-backends/src/families/mlx_modernbert.rs),
+extracted from the laya backend) behind the GLiClass projector pair and
+dot-product scorer; the candle CPU path remains the correctness oracle.
+
 How the two former blockers were resolved:
 
 1. **Backbone availability.** The original blocker named
@@ -100,13 +114,22 @@ frame.
 ## Benchmark record
 
 `openkind-bench score` over the standard shape777 workload (777 rows):
-4.00 decisions/s, 1.27 GB peak RSS, 1.23 s model load; recorded in
-[`../BENCHMARKS.md`](../BENCHMARKS.md) and
-[`benchmarks/2026-09-26-surveyed-families/`](../benchmarks/2026-09-26-surveyed-families/).
+4.73 decisions/s, 1.27 GB peak RSS, 1.23 s model load (candle CPU,
+2026-09-29 re-run) and 75.42 decisions/s, 1.02 GB peak RSS, 1.46 s model
+load (MLX FP32); recorded in [`../BENCHMARKS.md`](../BENCHMARKS.md) and
+[`../benchmarks/2026-09-29-mlx-counterparts/`](../benchmarks/2026-09-29-mlx-counterparts/).
 One forward pass carries all 21 criteria of a grouped request. The backbone
 still has roughly 8× the per-token compute of the encoder-nli DistilBERT,
-hence the lower throughput. Request-path timing only; no model-quality
+hence the lower CPU throughput. Request-path timing only; no model-quality
 claim.
+
+MLX backend parity (2026-09-29): the golden fixtures replay through the MLX
+engine (env-gated test in
+`crates/openkind-backends/tests/encoder_instruct_label_parity.rs`, module
+`mlx_replay`, enabled by `--features mlx` plus
+`OPENKIND_ENCODER_INSTRUCT_LABEL_MODEL_ROOT`): 15 answers, max probability
+drift 4.487e-6, zero selection flips — inside the workspace MLX gate of
+0.005.
 
 ## What this page does not say
 

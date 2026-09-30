@@ -15,6 +15,8 @@ registers in `openkindd` via `--encoder-nli-aliases` /
 `--encoder-nli-model-root`, and is benchmarked through
 `openkind-bench --engine encoder-nli`.
 
+It is catalog-installable offline-first: `openkind pull encoder-nli:1041a4c362338a61b820` downloads the pinned artifacts, verifies every SHA-256, and installs them for `--installed-models` (see [`../MODELS.md`](../MODELS.md)).
+
 Profile readout contract (documented because the off-the-shelf checkpoint
 needs explicit Noul semantics):
 

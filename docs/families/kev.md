@@ -16,6 +16,8 @@ or granted. Apache-2.0 grants the implementation and redistribution rights,
 and the published `head.pt` / `training_config.json` / `provenance.json`
 make the contract readable instead of invented.
 
+It is catalog-installable offline-first: `openkind pull kev:39d88c11faeb4ac165fa` downloads the pinned artifacts, verifies every SHA-256, and installs them for `--installed-models` (see [`../MODELS.md`](../MODELS.md)).
+
 The pinned profile is the small member, `jaredpalmer/kev-0.6b` at revision
 `dece6dba8d43f0f7ded45e9f5b9df12474d90843` on `Qwen/Qwen3-0.6B-Base` at
 `da87bfb608c14b7cf20ba1ce41287e8de496c0cd` (the exact base revision the

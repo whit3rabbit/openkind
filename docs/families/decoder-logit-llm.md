@@ -17,6 +17,8 @@ registers in `openkindd` via `--decoder-llm-aliases` /
 `--decoder-llm-model-root`, and is benchmarked through
 `openkind-bench --engine decoder-llm`.
 
+It is catalog-installable offline-first: `openkind pull decoder-logit-llm:465963d705b6f35d6208` downloads the pinned artifacts, verifies every SHA-256, and installs them for `--installed-models` (see [`../MODELS.md`](../MODELS.md)).
+
 **Binding decision.** The surveyed page left the binding open
 (`llama-cpp-2` versus a thin `libllama` wrapper). This profile resolves the
 open question by using candle's quantized GGUF runner: the GGUF checkpoint

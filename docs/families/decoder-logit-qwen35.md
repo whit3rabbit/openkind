@@ -24,6 +24,19 @@ It serves through `openkindd` via
 `--decoder-logit-qwen35-aliases` / `--decoder-logit-qwen35-model-root` and is
 benchmarked through `openkind-bench score --engine decoder-logit-qwen35`.
 
+It is catalog-installable offline-first: `openkind pull decoder-logit-qwen35:415bcf4a064e6dadcf85` downloads the pinned artifacts, verifies every SHA-256, and installs them for `--installed-models` (see [`../MODELS.md`](../MODELS.md)).
+
+**MLX backend (2026-09-29).** The same pinned artifacts also run on the
+MLX/Metal backend (feature `mlx`, macOS arm64): `openkindd
+--decoder-logit-qwen35-backend mlx-fp32` and `openkind-bench --engine
+decoder-logit-qwen35-mlx-fp32`. No MLX conversion of JevK5 exists on the Hub
+(surveyed 2026-09-29), so the backend reads the identical digest-verified
+single-file BF16 checkpoint through the parity-verified Qwen3.5 MLX
+backbone (survey-checkpoint descriptor; BF16 widened to FP32 exactly on
+load, tied embedding kept host-resident for the letter readout). The
+arithmetic identity is `mlx-gpu-fp32-jevk5`; the candle CPU path remains
+the correctness oracle.
+
 Profile semantics: `ConditionalOnOfferedOptions` (an offered `__none__` key
 is scored as an ordinary option); no state is retained across questions or
 requests — every pass is an independent full-sequence forward; no token is
@@ -75,10 +88,26 @@ Qwen3.5 rebuilds on the leaderboard.
   is surveyed but not loaded.
 - No M2 reviewed-decision gate has run for this profile; its operating point
   is provisional and it carries no model-quality claim.
-- Native FP32 CPU execution costs seconds per pass on the reference host; no
-  accelerated backend is claimed for this family.
+- Native FP32 CPU execution costs seconds per pass on the reference host;
+  the MLX backend removes most of that cost for this family's shapes, but
+  neither backend carries a model-quality claim.
 - The `jevk5_config.json` digest pins the served temperatures; a new
   upstream revision that refits them is a new profile, not a silent update.
+
+## Benchmark record
+
+Shape777 MLX record (2026-09-29, single sample): 0.43 decisions/s, 117
+input tok/s, 6.98 GB peak RSS, 20.2 s model load — roughly 2.7× the
+family's recorded smoke-scale CPU row (0.16 decisions/s), with the gain
+bounded by full-forward-per-pass compute and 1–2.5k-token JSON payloads:
+[`../benchmarks/2026-09-29-mlx-counterparts/`](../benchmarks/2026-09-29-mlx-counterparts/).
+MLX parity (2026-09-29): the golden fixtures replay through the MLX engine
+(env-gated test in
+`crates/openkind-backends/tests/decoder_logit_qwen35_parity.rs`, module
+`mlx_replay`, enabled by `--features mlx` plus
+`OPENKIND_DECODER_LOGIT_QWEN35_MODEL_ROOT`): 9 answers, max probability
+drift 1.003e-6, zero selection flips — inside the workspace MLX gate of
+0.005.
 
 ## What this page does not say
 
