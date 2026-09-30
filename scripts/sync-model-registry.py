@@ -17,7 +17,13 @@ PUBLIC_BASE = f"https://raw.githubusercontent.com/{PUBLIC_REPOSITORY}/main/regis
 
 
 def files_below(root: Path) -> dict[Path, Path]:
-    return {path.relative_to(root): path for path in root.rglob("*") if path.is_file()}
+    files = {}
+    for path in root.rglob("*"):
+        if path.is_symlink():
+            raise ValueError(f"registry metadata must not contain symlinks: {path}")
+        if path.is_file():
+            files[path.relative_to(root)] = path
+    return files
 
 
 def git(mirror: Path, *args: str) -> bytes:
