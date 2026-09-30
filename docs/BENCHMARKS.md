@@ -541,10 +541,42 @@ fp32 PyTorch cross-check (`jevk5` 0.3, CPU) agrees with the native readout
 to `<= 1e-6` maximum probability delta over the nine-case golden fixture,
 including a 17-option knockout question and a JSON-object evidence payload.
 
+## Jeeves native MLX smoke campaign (2026-09-29)
+
+The [Jeeves campaign](benchmarks/2026-09-29-jeeves-native/REPORT.md) records
+native Rust request-path measurements for the pinned affine4/g64, FP32,
+no-thinking profile `15fb3b95801f2f039636` on an M4 Max with 36 GiB.
+Each workload uses two fresh processes, a full untimed warmup, and three
+timed repetitions per process. The mixed fixture covers Noul, Choice, and
+Score; the generated 1-state × 21-criteria fixture measures a larger request.
+These are smoke-scale records, outside the shape777 comparison table.
+Mixed-fixture throughput is 0.91–0.92 decisions/s; the 21-question workload
+measures 0.71–0.74 decisions/s. Peak RSS is 9.18 GB and peak physical memory
+footprint is 5.74 GB in all four processes.
+Model loading includes local artifact verification and is reported separately.
+No task-quality or matched cross-engine speed claim follows from these runs.
+
+```bash
+SDKROOT="$(xcrun --show-sdk-path)" cargo build --release --locked \
+  -p openkind-bench --features mlx
+# JEEVES_ROOT is an acquired package root or an installation's checkpoint directory.
+target/release/openkind-bench score \
+  crates/openkind-bench/fixtures/decisions_smoke.jsonl \
+  --engine jeeves-mlx-affine4 --model-root "$JEEVES_ROOT" \
+  --reps 3 --host "<host label>" --commit "$(git rev-parse HEAD)" \
+  --output-dir bench-output/jeeves --pretty
+```
+
+The engine performs one fresh hybrid-backbone pass per question; Qwen
+strategy overrides do not apply. Summaries pin the checkpoint revision,
+profile, context limits, quantization, and arithmetic. The campaign also
+records a public catalog pull and installed-model HTTP smoke.
+
 ## Recorded runs
 
 | Record | Engine | Status |
 |---|---|---|
+| [`benchmarks/2026-09-29-jeeves-native/REPORT.md`](benchmarks/2026-09-29-jeeves-native/REPORT.md) | jeeves-mlx-affine4 | Native no-thinking smoke campaign: two fresh processes per workload, three timed repetitions each, mixed 12-decision and seeded 21-question workloads; request-path timing and memory, no task-quality claim |
 | [`benchmarks/2026-09-29-mlx-counterparts/`](./benchmarks/2026-09-29-mlx-counterparts/) | encoder-instruct-label-mlx-fp32, decoder-logit-qwen35-mlx-fp32 (+ encoder-instruct-label CPU re-run) | Complete — first MLX backends for the GLiClass and JevK5 surveyed families on the standard shape777 workload with frozen golden-fixture parity gates (max probability drift 4.487e-6 / 1.003e-6, zero selection flips); request-path timing only, no model-quality claim; see the survey-family backends section in [`MLX.md`](MLX.md) |
 | [`benchmarks/2026-09-28-laya-mlx-campaign/`](./benchmarks/2026-09-28-laya-mlx-campaign/) | laya-english-mlx-fp32, laya-multilingual-mlx-fp32, laya-typed-decisions-mlx-fp32 (+ candle CPU re-runs) | Complete — first MLX encoder-backend campaign on the standard shape777 workload with frozen golden-fixture parity gates (max probability drift 7.2e-6, zero selection flips); request-path timing only, no model-quality claim; see the laya section below |
 | [`benchmarks/2026-09-28-registry-mlx-campaign/`](./benchmarks/2026-09-28-registry-mlx-campaign/) | qwen35-mlx-fp32, qwen35-mlx-bf16 (unqualified candidate), qwen35-native-cpu, laya CPU ×3 | Complete — registry-wide MLX-preferred campaign over all four catalog models on the standard shape777 workload with the new CPU/host/context telemetry and recommendation dataset; see the registry-campaign section above |

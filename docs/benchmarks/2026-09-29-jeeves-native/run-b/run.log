@@ -1,0 +1,27 @@
+[bench] workload crates/openkind-bench/fixtures/decisions_smoke.jsonl: 12 rows (sha256 3a673e843690b942658b4c9de6cc594770185756098d356e78dcd3efd5cffeeb)
+[bench] 4 groups over 12 rows (grouping=true)
+[bench] engine jeeves-mlx-affine4 starting
+[bench] strategy jeeves-mlx-affine4 warmup complete
+[bench] strategy jeeves-mlx-affine4 rep 0: 13.214 s
+[bench] strategy jeeves-mlx-affine4 rep 1: 13.169 s
+[bench] strategy jeeves-mlx-affine4 rep 2: 13.039 s
+[bench] summary docs/benchmarks/2026-09-29-jeeves-native/run-b/summary-jeeves-mlx-affine4.json
+{"bundle_version":null,"commit":"5c9105864b74ff47ee9bc21833cf4bbf5080de7b","context":{"activation_dtype":"fp32","max_questions_per_request":64,"max_sequence_tokens":4096,"thinking":false,"weight_quantization":"affine4-g64"},"cross_strategy_answer_parity_clean":null,"engine":"jeeves","engine_variant":"jeeves-mlx-affine4","fixture":{"groups":4,"path":"crates/openkind-bench/fixtures/decisions_smoke.jsonl","rows":12,"sha256":"3a673e843690b942658b4c9de6cc594770185756098d356e78dcd3efd5cffeeb"},"grouping":"per-state","history_aba":false,"host":"openkind-m4-max-36g-jeeves-native","host_hardware":{"cpu_brand":"Apple M4 Max","logical_cores":14,"model":"Mac16,5","total_memory_bytes":38654705664},"measurement_scope":"model_request_path","model_revision":"6f4220a267a94c5279b3fcbc5499de734b9a55b0","notes":{"cpu_time_seconds":"process-wide user+system CPU time diff across the timed region, excluding warmup and model load; avg_cpu_percent exceeds 100 when multiple threads run","input_tokens_per_second":"total input tokens across all timed repetitions divided by their total wall time","percentiles":"p50 is the median rep total and p95 is the ceil(0.95*n)-1 sample; small rep counts are reported alongside as samples_seconds","request_latency_ms":"latency is per request; grouped rows share their request's latency and are not independent timings; includes request construction through answer extraction"},"peak_resident_bytes":9182298112,"prediction_sha256":{"jeeves-mlx-affine4":"05a9b6d72261fd90952b3a3dfc68a02255be5e529b910a5ddb9eb8398ef73a26"},"profile_id":"15fb3b95801f2f039636","reps":3,"schema":"openkind-bench/v1","strategies":[{"avg_cpu_percent":69.21803420661045,"backend_id":"jeeves/mlx-affine4-fp32","cpu_time_seconds":27.287358000000005,"decisions_per_second":0.9112350065409109,"forced":null,"groups":4,"input_tokens_per_second":151.28483893831887,"input_tokens_total":5964,"model_load_seconds":10.413772584,"p50_seconds":13.168940958,"p95_seconds":13.214028334,"reps":3,"rows":12,"samples_seconds":[13.039355125,13.168940958,13.214028334],"strategy":"jeeves-mlx-affine4"}],"timing_scope":"request construction, validation, dispatch, and answer extraction; excludes model load (reported per strategy), result writes, and the untimed warmup pass; warm process","warmup":true}
+       62.98 real        36.95 user         9.39 sys
+          9182298112  maximum resident set size
+                   0  average shared memory size
+                   0  average unshared data size
+                   0  average unshared stack size
+              573185  page reclaims
+                 823  page faults
+                   0  swaps
+                   0  block input operations
+                   0  block output operations
+                   0  messages sent
+                   0  messages received
+                   0  signals received
+                  57  voluntary context switches
+              823165  involuntary context switches
+        611679742953  instructions retired
+        169976617164  cycles elapsed
+          5738909584  peak memory footprint

@@ -81,6 +81,8 @@ SDKROOT="$(xcrun --show-sdk-path)" cargo run -p openkind-backends \
 
 The [native evidence report](../verification/jeeves-native/2026-09-29/REPORT.md)
 separates reference parity, HTTP behavior, and remaining qualification gates.
+The [benchmark campaign](../benchmarks/2026-09-29-jeeves-native/REPORT.md)
+records release-build request timing, process memory, and catalog installation.
 
 ## Download and run the reference
 

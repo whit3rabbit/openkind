@@ -65,8 +65,8 @@ checkpoint's own model-card accuracies belong to its authors, not to
 CPU fp32 (candle) runs everywhere for the profiles that implement it. Jeeves
 has a native MLX path only. The MLX
 backend runs the Metal GPU on Apple silicon (macOS arm64, `--features mlx`;
-see [`MLX.md`](MLX.md)); it is parity-qualified for the profiles below and
-does not exist for the others. There is no CUDA or ROCm backend.
+see [`MLX.md`](MLX.md)). Parity coverage is recorded per profile below.
+There is no CUDA or ROCm backend.
 
 | Profile | Backend | Download | Peak RSS | Decisions/s | Input tok/s | Model load | Evidence |
 |---|---|---:|---:|---:|---:|---:|---|
@@ -76,7 +76,7 @@ does not exist for the others. There is no CUDA or ROCm backend.
 | `decoder-logit-qwen35` | CPU fp32 | 8.43 GB | 8.04 GB | 0.16 | — | 15.2 s | [summary](benchmarks/2026-09-27-decoder-logit-qwen35/summary-decoder-logit-qwen35.json) |
 | `decoder-logit-qwen35` | MLX fp32 (qualified) | same | 6.98 GB | 0.43 | — | 20.2 s | [mlx counterparts campaign](benchmarks/2026-09-29-mlx-counterparts/README.md) |
 | `kev` | CPU fp32 | 1.25 GB | 4.22 GB | 4.84 | — | 5.6 s | [summary](benchmarks/2026-09-26-surveyed-families/summary-kev.json) |
-| `jeeves` | MLX affine4 weights / FP32 arithmetic | 5.07 GB execution files | — | — | — | — | [native parity and HTTP smoke](verification/jeeves-native/2026-09-29/REPORT.md); no throughput campaign |
+| `jeeves` | MLX affine4 weights / FP32 arithmetic (mixed12) | 5.07 GB | 9.18 GB | 0.91–0.92 | 151–152 | 10.0–10.4 s | [native campaign](benchmarks/2026-09-29-jeeves-native/REPORT.md) |
 | `qwen3guard` | CPU fp32 | 1.21 GB | 4.20 GB | 4.97 | — | 2.4 s | [summary](benchmarks/2026-09-26-surveyed-families/summary-qwen3guard.json) |
 | `decoder-logit-letter` | CPU fp32 | 0.99 GB | 3.33 GB | 7.22 | — | 2.0 s | [summary](benchmarks/2026-09-26-surveyed-families/summary-decoder-letter.json) |
 | `decoder-logit-llm` | CPU fp32 (GGUF q8_0 weights) | 0.68 GB | 1.55 GB | 0.42 | — | 1.5 s | [summary](benchmarks/2026-09-26-surveyed-families/summary-decoder-llm.json) |
@@ -98,12 +98,16 @@ Reading notes:
 - Download is the manifest-pinned artifact total for catalog models; a dash
   means the checkpoint downloads directly from the linked repository and no
   size is pinned here.
-- All measured cells are single-sample `--reps 1` runs of the seeded shape777
-  workload (`be397bfc…`, 777 decisions, grouped by state, warm process) on
+- Except Jeeves, measured cells are single-sample `--reps 1` runs of the
+  seeded shape777 workload (`be397bfc…`, 777 decisions, grouped by state, warm process) on
   `openkind-mac-arm64-local` — an Apple M4 Max, 14 logical cores, fp32,
   request-path timing with model load reported separately. Peak RSS is the
   process high-water mark including mapped weights and runtime scratch, so it
   is not per-request memory.
+- Jeeves uses the mixed 12-decision fixture, two fresh processes, and three
+  timed repetitions each. Its row is outside the shape777 comparison; peak
+  RSS includes loading, while peak physical footprint is 5.74 GB. See its
+  campaign for the separate seeded 21-question record.
 - `qwen35-state-first` CPU and MLX rows are `choose_strategy` (the scheduler
   picks a nested plan); fresh `repeated_full` scoring on MLX costs 0.32
   decisions/s. Peak RSS is shared across strategies of one process.
@@ -118,7 +122,7 @@ Reading notes:
   throughput probe only.
 - Engines run through `openkind-bench score --engine NAME` (`qwen35`,
   `qwen35-mlx-fp32`, `decoder-letter`, `encoder-nli`, `encoder-instruct-label`,
-  `decoder-llm`, `schema-scorer`, `qwen3-guard`, `kev`,
+  `decoder-llm`, `schema-scorer`, `qwen3-guard`, `kev`, `jeeves-mlx-affine4`,
   `decoder-logit-qwen35`, `laya-english`, `laya-multilingual`,
   `laya-typed-decisions`, `winnow`, `router-script`, and the `*-mlx-fp32`
   variants) or through the daemon (`--installed-models` for catalog profiles,

@@ -37,6 +37,7 @@ ENGINE_QUALIFICATION = {
     "laya-multilingual": "reference-parity-readout",
     "laya-typed-decisions": "reference-parity-readout",
     "laya": "reference-parity-readout",
+    "jeeves": "limited-reference-parity-no-thinking",
     "mock": "not-a-model",
 }
 
@@ -135,6 +136,7 @@ def main(argv: list[str]) -> int:
         "c8ea29bf1e33a343c4b7": "laya-english:c8ea29bf1e33a343c4b7",
         "f4064eb56fb7f7d325e1": "laya-multilingual:f4064eb56fb7f7d325e1",
         "9d28cfa9567902801ed1": "laya-typed-decisions:9d28cfa9567902801ed1",
+        "15fb3b95801f2f039636": "jeeves:15fb3b95801f2f039636",
     }
     for entry in entries:
         entry["registry_name"] = registry_names.get(entry.get("profile_id"))
