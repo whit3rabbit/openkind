@@ -123,7 +123,7 @@ impl Model for StatusWatch {
             String::new(),
         ];
         if let Some(config) = &self.config {
-            lines.push(format!("Server: {}", config.server));
+            lines.push(format!("Server: {}", output::terminal_safe(&config.server)));
         } else {
             lines.push("Server: connecting...".to_owned());
         }
@@ -206,12 +206,18 @@ async fn fetch_status(
     let health_status = health.status();
     let health_body = health.text().await.context("read health response")?;
     if !health_status.is_success() {
-        anyhow::bail!("GET {health_url} returned HTTP {health_status}: {health_body}");
+        anyhow::bail!(
+            "GET {health_url} returned HTTP {health_status}: {}",
+            output::terminal_safe(&health_body)
+        );
     }
     let health_json: serde_json::Value =
         serde_json::from_str(&health_body).context("parse health response JSON")?;
     if health_json.get("status").and_then(|value| value.as_str()) != Some("ok") {
-        anyhow::bail!("GET {health_url} returned an unexpected health response: {health_body}");
+        anyhow::bail!(
+            "GET {health_url} returned an unexpected health response: {}",
+            output::terminal_safe(&health_body)
+        );
     }
 
     let models_url = format!("{server}/v1/models");
@@ -237,9 +243,12 @@ async fn fetch_status(
     let body = response.text().await.context("read model-list response")?;
     if !status.is_success() {
         let request_id = request_id
-            .map(|id| format!(" (request id {id})"))
+            .map(|id| format!(" (request id {})", output::terminal_safe(&id)))
             .unwrap_or_default();
-        anyhow::bail!("GET {models_url} returned HTTP {status}{request_id}: {body}");
+        anyhow::bail!(
+            "GET {models_url} returned HTTP {status}{request_id}: {}",
+            output::terminal_safe(&body)
+        );
     }
     serde_json::from_str(&body).context("parse model-list response")
 }
