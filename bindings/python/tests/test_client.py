@@ -56,6 +56,33 @@ class Handler(BaseHTTPRequestHandler):
             self.respond(404, {"error": {"code": "not_found", "message": "missing"}})
 
 
+class RedirectTargetHandler(BaseHTTPRequestHandler):
+    calls = []
+
+    def log_message(self, _format, *_args):
+        pass
+
+    def do_GET(self):
+        self.calls.append((self.command, self.headers.get("Authorization")))
+        self.send_response(200)
+        self.end_headers()
+
+
+class RedirectHandler(BaseHTTPRequestHandler):
+    target_url = ""
+
+    def log_message(self, _format, *_args):
+        pass
+
+    def redirect(self):
+        self.send_response(302)
+        self.send_header("Location", self.target_url)
+        self.end_headers()
+
+    do_GET = redirect
+    do_POST = redirect
+
+
 class ClientTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -99,6 +126,33 @@ class ClientTests(unittest.TestCase):
             ("/v1/models", "Bearer test-key", None),
             ("/health", None, None),
         ])
+
+    def test_does_not_follow_redirects_with_api_key(self):
+        target = ThreadingHTTPServer(("127.0.0.1", 0), RedirectTargetHandler)
+        redirect = ThreadingHTTPServer(("127.0.0.1", 0), RedirectHandler)
+        target_thread = threading.Thread(target=target.serve_forever, daemon=True)
+        redirect_thread = threading.Thread(target=redirect.serve_forever, daemon=True)
+        RedirectTargetHandler.calls.clear()
+        RedirectHandler.target_url = f"http://127.0.0.1:{target.server_port}/stolen"
+        target_thread.start()
+        redirect_thread.start()
+        client = Client(f"http://127.0.0.1:{redirect.server_port}", api_key="secret")
+        try:
+            for operation in (
+                client.list_models,
+                lambda: client.system_one("ticket", {"team": QUESTION}, model="mock"),
+            ):
+                with self.assertRaises(ApiError) as caught:
+                    operation()
+                self.assertEqual(caught.exception.status, 302)
+            self.assertEqual(RedirectTargetHandler.calls, [])
+        finally:
+            redirect.shutdown()
+            target.shutdown()
+            redirect.server_close()
+            target.server_close()
+            redirect_thread.join()
+            target_thread.join()
 
     @unittest.skipUnless(os.getenv("OPENKIND_TEST_URL"), "set OPENKIND_TEST_URL for a live daemon")
     def test_live_daemon(self):
