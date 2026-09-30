@@ -35,9 +35,7 @@ pub fn cmd_playground(
         bail!("--http-addr needs a fixed, non-zero port so the playground can open it");
     }
     if !addr.ip().is_loopback() {
-        eprintln!(
-            "warning: --http-addr {http_addr} is not loopback; the playground page will be reachable from the network"
-        );
+        bail!("--http-addr must be loopback because the playground can change loaded models");
     }
     let origin = format!("http://{addr}");
     let url = playground_url(&origin);

@@ -131,7 +131,7 @@ For a browser interface, start the playground with an installed model:
 openkind playground --installed-models laya-english:c8ea29bf1e33a343c4b7
 ```
 
-It opens a local page where you can edit requests, inspect probabilities, and load or unload installed models. Running `openkind playground` alone uses mock models. See the [CLI guide](crates/openkind-cli/README.md) for commands and the [registry guide](docs/MODEL_REGISTRY.md) for model storage and lifecycle.
+It opens a local page where you can edit requests, inspect probabilities, and load or unload installed models. Running `openkind playground` alone uses mock models. The daemon rejects `--playground on` unless its HTTP listener is bound to a loopback address, keeping model lifecycle controls local even when inference authentication is disabled or an API key is shared. See the [CLI guide](crates/openkind-cli/README.md) for commands and the [registry guide](docs/MODEL_REGISTRY.md) for model storage and lifecycle.
 
 ## Use from Rust
 
