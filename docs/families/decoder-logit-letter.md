@@ -15,6 +15,8 @@ registers in `openkindd` via `--decoder-letter-aliases` /
 `--decoder-letter-model-root`, and is benchmarked through
 `openkind-bench --engine decoder-letter`.
 
+It is catalog-installable offline-first: `openkind pull decoder-logit-letter:5492c97dfcdaf3fe9439` downloads the pinned artifacts, verifies every SHA-256, and installs them for `--installed-models` (see [`../MODELS.md`](../MODELS.md)).
+
 The profile declares `ConditionalOnOfferedOptions` probability semantics: the
 distribution over offered options sums to one and the readout has no
 semantic-none mass of its own. A request that offers `__none__` gets it

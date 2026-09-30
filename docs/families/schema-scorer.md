@@ -18,6 +18,8 @@ registers in `openkindd` via `--schema-scorer-aliases` /
 `--schema-scorer-model-root`, and is benchmarked through
 `openkind-bench --engine schema-scorer`.
 
+It is catalog-installable offline-first: `openkind pull schema-scorer:5a7350af556f0ee66566` downloads the pinned artifacts, verifies every SHA-256, and installs them for `--installed-models` (see [`../MODELS.md`](../MODELS.md)).
+
 The upstream TypeSafe contract remains unowned by openkind; this profile
 pins the same *architecture shape* — one `(query, passage)` row per
 candidate through a scalar cross-encoder, per-question softmax — with the

@@ -65,6 +65,37 @@ execution is not offered for this family. Evidence and request-path
 benchmarks live in
 [`benchmarks/2026-09-28-laya-mlx-campaign/`](benchmarks/2026-09-28-laya-mlx-campaign/README.md).
 
+## Survey-family MLX backends: gliclass and jevk5 (2026-09-29)
+
+Two surveyed families gained MLX execution backends behind their frozen
+family contracts, both following the laya discipline (candle CPU oracle,
+golden-fixture replay gates, one process-wide serialized stream):
+
+- **`encoder-instruct-label/mlx-fp32`** — the GLiClass uni-encoder. The
+  ModernBERT body moved into a shared implementation
+  ([`families/mlx_modernbert.rs`](../crates/openkind-backends/src/families/mlx_modernbert.rs))
+  extracted from the laya backend, so every ModernBERT-shaped encoder family
+  executes one numerical path; the family module adds only the projector
+  pair and dot-product scorer. Parity: max probability drift `4.487e-6`,
+  zero selection flips over the 15 golden answers.
+- **`decoder-logit-qwen35/mlx-fp32`** — the JevK5 letter-logit decoder runs
+  the pinned single-file BF16 checkpoint through the parity-verified
+  Qwen3.5 MLX backbone via a survey-checkpoint descriptor
+  ([`MlxSurveyCheckpoint`](../crates/openkind-backends/src/qwen35/mlx/weights/checkpoint.rs)):
+  the family verifies its own pinned digests, the backbone streams the shard
+  in place and widens BF16 to FP32 exactly, and the letter readout dots the
+  final-token feature vector with host-read tied-embedding rows — the same
+  arithmetic as the CPU family code. Parity: max probability drift
+  `1.003e-6`, zero selection flips over the 9 golden answers.
+
+Backend selection: `openkindd --encoder-instruct-backend mlx-fp32` /
+`--decoder-logit-qwen35-backend mlx-fp32`, and
+`openkind-bench --engine encoder-instruct-label-mlx-fp32` /
+`decoder-logit-qwen35-mlx-fp32`. The remaining surveyed families (Qwen2.5
+and Qwen3 dense decoders, DistilBERT, MiniLM) have no MLX execution path;
+Hub MLX conversions of their backbones exist but no openkind loader reads
+them, and a conversion is not a backend.
+
 ## Pinned runtime and model identity
 
 | Component | Identity |

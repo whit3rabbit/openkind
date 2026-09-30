@@ -124,11 +124,16 @@ Family token variables are prefixed `OPENKIND_`, for example
 `OPENKIND_FAMILY_CONCURRENCY` (default `1`), `OPENKIND_FAMILY_QUEUE`
 (default `2`), `OPENKIND_FAMILY_TIMEOUT_MS` (default `600000`).
 
-### Laya decision-encoder backend
+### Surveyed-family execution backends
+
+Families with an MLX path take a backend selector: `native-cpu` default, or
+`mlx-fp32` on macOS arm64 when the daemon's `mlx` feature is enabled.
 
 | Variable | Meaning | Default |
 |---|---|---|
-| `OPENKIND_LAYA_BACKEND` | Backend for every served laya alias: `native-cpu`, or `mlx-fp32` on macOS arm64 with the `mlx` feature | `native-cpu` |
+| `OPENKIND_LAYA_BACKEND` | Backend for every served laya alias | `native-cpu` |
+| `OPENKIND_ENCODER_INSTRUCT_LABEL_BACKEND` | Backend for served encoder-instruct-label aliases | `native-cpu` |
+| `OPENKIND_DECODER_LOGIT_QWEN35_BACKEND` | Backend for served decoder-logit-qwen35 aliases | `native-cpu` |
 
 ## CLI (`openkind`)
 

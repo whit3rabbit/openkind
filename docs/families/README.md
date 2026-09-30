@@ -6,6 +6,8 @@ The supported-model table is a static catalogue. Runtime model aliases are
 registered separately by `openkind-engine`.
 
 To add a model or family, use the [contributor guide](./NEW_FAMILY.md).
+Most pinned profiles are also catalog-installable through `openkind pull`;
+[`../MODELS.md`](../MODELS.md) owns the operator-facing pull names.
 
 ## Runnable model profiles
 
@@ -160,11 +162,13 @@ it carries no model-quality claim.
 |---|---|---|
 | [encoder-nli](./encoder-nli.md) | Encoder, one premise-hypothesis pass per candidate, entailment probabilities | Rust-loadable (prototype profile) |
 | [encoder-instruct-label](./encoder-instruct-label.md) | Instruction-tuned encoder with pooled label markers | Rust-loadable (prototype profile, hand-implemented ModernBERT backbone) |
+| [encoder-multitask-heads](./encoder-multitask-heads.md) | Small encoder with one trained head per named question, plus a separate open-option embedding path | Surveyed only (Indecis reference; no Rust loader or pinned trained profile) |
 | [decoder-logit-letter](./decoder-logit-letter.md) | Decoder with next-token logits restricted to option-letter tokens | Rust-loadable (prototype profile) |
 | [decoder-logit-llm](./decoder-logit-llm.md) | Decoder with a label-logit readout | Rust-loadable (prototype profile) |
 | [router-script](./router-script.md) | Lightweight script detector that selects a sibling family | Rust-loadable (composite over registered siblings) |
 | [winnow](./winnow.md) | Decoder plus LoRA and a script-aware router | Rust-loadable (prototype profile, in-house trained) |
 | [kev](./kev.md) | Qwen base with a LoRA adapter and pointer head | Rust-loadable (prototype profile, published open checkpoint) |
+| [jeeves](./jeeves.md) | Qwen3.5-9B with a pointer head and optional generated reasoning | Surveyed; pinned external CUDA download/launch helper, no Rust loader or catalog entry |
 | [decoder-logit-qwen35](./decoder-logit-qwen35.md) | Qwen3.5 hybrid decoder with a letter next-token-logit readout and knockout combination | Rust-loadable (prototype profile, published open checkpoint) |
 | [laya](./laya.md) | ModernBERT-family encoder with a typed-decision marker head and shipped temperature calibration | Rust-loadable (three prototype profiles, reference-parity readout) |
 | [von](./von.md) | Encoder head trained against the published `von` contract | Blocked — external-reference-only (weights and contract unowned) |

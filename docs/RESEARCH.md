@@ -2,9 +2,9 @@
 
 ## Executive Summary & Reproduction Boundaries
 
-As of **September 17, 2026**, the central conclusion regarding TypeSafe AI's Jev is straightforward:
+With public evidence reviewed through **September 29, 2026**, the central conclusion regarding TypeSafe AI's Jev is:
 
-> **The exact Jev architecture is not reproducible from public information as of September 17, 2026. A functionally Jev-like open-source system is reproducible, however, and most of its publicly visible behavior can be implemented with known techniques.**
+> **The exact Jev architecture is not reproducible from public information. A functionally Jev-like open-source system is reproducible, and most of its publicly visible behavior can be implemented with known techniques.**
 
 TypeSafe has disclosed the **contract** of Jev much more clearly than its internals: one shared state, multiple typed questions, probability distributions rather than prose, Choice/Score/Noul primitives, independent/parallel evaluation, deterministic schema-safe serialization, and a training method called **Reinforcement Learning for Calibrated Decisions (RLCD)**. It has *not* publicly disclosed the model topology, parameter count, training corpus, reward formulation, calibration loss, sampler implementation, or sufficient details to independently reproduce RLCD. TypeSafe explicitly markets Jev as a "new model architecture" with a "parallel sampler" and RLCD, but those remain proprietary descriptions rather than reproducible specifications. Founder Diogo Almeida—an author on OpenAI's InstructGPT paper (Ouyang et al., 2022)—has indicated that the architecture is being kept "close to the chest" and suggested that the curation of training data may be more significant than the network topology itself.
 
@@ -15,6 +15,8 @@ The academically defensible way to characterize Jev today is:
 An open-source reproduction effort must explicitly distinguish three reproduction tiers:
 
 For a dated comparison of later open entrants, see [Jev-like decision systems (2026-09-24)](#jev-like-decision-systems-reviewed-2026-09-24).
+For API probes, published calibration data, and independently implemented
+mechanisms, see [Archer Hume's reconstruction](#archer-humes-api-reconstruction-reviewed-2026-09-29).
 
 | Reproduction Target | Feasibility Today | Assessment |
 |---|:---:|---|
@@ -33,12 +35,12 @@ For a dated comparison of later open entrants, see [Jev-like decision systems (2
 | Are published SalesRL performance figures reliable evidence of Jev-like capability? | **No, not without a leakage-free rerun.** The public environment exposes target outcome, initializes probability history with ground-truth trajectories, and reuses full-conversation embeddings across earlier turns. | High |
 | Is the author's second 2025 paper "exactly" Jev? | **No.** It describes confidence-aware model routing across local models, retrieval, and humans, not a parallel typed decision model. | High |
 | Is Jev non-autoregressive internally? | TypeSafe confirms **output sampling** is non-autoregressive (parallel rather than token-by-token). Whether the entire internal network is technically non-autoregressive remains undisclosed. | Medium |
-| Does Jev's public evidence prove calibrated probabilities? | **No.** Calibration is claimed as an RLCD objective, but no reproducible calibration study, reliability diagrams, or RLCD specifications are public. | High |
+| Does Jev's public evidence establish calibrated probabilities? | **For a tested sample, there is inspectable evidence.** Hume publishes item-level predictions and reliability bins; they do not establish calibration under deployment shift or disclose RLCD. See the [evidence review](#archer-humes-api-reconstruction-reviewed-2026-09-29). | High |
 | Can an open Jev-like system be built now? | **Yes at the API, systems, and behavioral level; no at exact architectural parity.** | High |
 
 ### Independent Validation: The Every Experiment
 
-The strongest independent empirical validation of Jev to date was conducted by Taylor Majewski and Dan Shipper at *Every*:
+An independent editorial-task test was conducted by Taylor Majewski and Dan Shipper at *Every*:
 - **Throughput & Amortization**: Majewski ran 21 judgments across 37 documents (777 total decisions) in under **0.7 seconds**, incurring an estimated cost of roughly **$0.0025** (~quarter-cent).
 - **Quality vs. Frontier LLMs**: In a controlled test on 12 passages with seven deliberately planted defects, Jev identified **six of seven**, while Claude Fable 5.1 identified all seven.
 - **Latency Comparison**: Jev achieved a median per-passage latency of **~0.35 seconds**, compared to **8.83 seconds** for Claude Fable 5.1 (~25× wall-clock speedup and ~580× estimated cost reduction).
@@ -101,12 +103,12 @@ TypeSafe documentation exposes both probabilities and a `confidence` metric for 
 
 In TypeSafe's API:
 - **`Noul`** returns a single probability $p \in [0.0, 1.0]$ and **has no separate confidence field**.
-- **`Choice`** and **`Score`** confidence values are mathematical statistics derived from how concentrated the probability mass is across candidates (e.g. normalized entropy or margin between top candidates).
+- **`Choice`** and **`Score`** confidence values summarize concentration. The [official adapter at `fb52b103`](https://github.com/typesafe-ai/system-one-adapter-python/blob/fb52b1030b7fc1f4f1cf39910afa5da54f9835e3/src/system_one_adapter/_utils/confidence_metrics.py) normalizes the distribution, then computes Choice confidence as $(p_{\max}-1/K)/(1-1/K)$ for $K>1$ (and 1 for $K=1$). Score confidence uses expected distance from the modal level, normalized by a uniform-distribution reference. This verifies the adapter's formulas; production internals remain private.
 - TypeSafe explicitly warns in its documentation that a confidence of 1.0 does not guarantee correctness and advises developers to establish domain-specific thresholds.
 
 ### 3. Dynamic Query & Candidate Encoding (Up to 255 Options)
 
-`Choice` alternatives are provided dynamically by the caller at runtime, including natural-language descriptions, supporting up to **255 options**. A traditional fixed classification head (`Linear(hidden_size, num_classes)`) cannot satisfy this requirement. The model must semantically encode questions and candidate criteria at inference time.
+`Choice` alternatives are provided dynamically by the caller at runtime, including natural-language descriptions, supporting up to **255 options**. A head tied to fixed semantic labels cannot cover arbitrary caller labels. A fixed **option-slot** head can: encode the complete question and candidate list, score occupied slots, and map those slots back to caller keys. A pointer-style readout over candidate representations is another possibility. The API's option cap does not distinguish these designs or reveal the head's width.
 
 Furthermore, TypeSafe's description of its Wikiracing benchmark reveals that high-cardinality decisions can employ a **two-stage process**—independent scoring followed by explicit choice selection. This indicates that "all outputs in parallel" does not necessarily require a single indivisible tensor operation for every request.
 
@@ -114,7 +116,7 @@ Furthermore, TypeSafe's description of its Wikiracing benchmark reveals that hig
 
 TypeSafe's documentation mandates that multiple questions evaluated against the same state are executed **in isolation against the same state**. In TypeSafe's GDPR benchmark cookbook, evaluating thirteen mixed questions together produced answers that did not deviate from evaluating each question individually beyond standard floating-point variance.
 
-This rules out unrestricted bidirectional self-attention across the combined sequence `[State, Q1, Q2, ...]`. Instead, the computational graph requires an attention mask where question branches attend to the shared state representation but are masked from attending to one another:
+The contract requires behavioral isolation. A shared-prefix tree mask with separate question branches is one implementation; independent model calls or other information-flow controls can also satisfy it. Hume's [visibility probe](https://archerhume.com/research/jev/evidence.json) supports that boundary without identifying a particular attention mask. The diagram below represents a compatible design:
 
 ```text
                  ┌──────── Question A / candidates A ────────► Answer A
@@ -134,13 +136,13 @@ TypeSafe emphasizes that adding questions "barely changes" response time. Howeve
 C_{\text{Jev-like}} \approx C_{\text{state}} + \sum_{q=1}^{Q} C_{\text{query}, q} + \sum_{q=1}^{Q} C_{\text{candidate-head}, q}
 \]
 
-rather than the quadratic cost of $Q$ independent forward passes:
+rather than repeatedly encoding the state for every question-candidate pair:
 
 \[
 C_{\text{naive cross-encoder}} \approx \sum_{q=1}^{Q} \sum_{k=1}^{K_q} C_{\text{state} + \text{query} + \text{candidate}}
 \]
 
-Latency remains nearly flat only while the shared state dominates total FLOPs and the GPU has sufficient execution units to schedule the query branches concurrently. Once candidate evaluation or batch dimensions saturate hardware capacity, latency scales linearly with query volume.
+Latency can remain nearly flat while state reuse and available hardware capacity absorb the added question work. Hume's [latency sweep](https://archerhume.com/research/jev/latency-rerun.json) shows rising service time at larger question counts. Queueing and scheduling also affect the curve; it is not an isolated measure of model compute.
 
 ## Audit of Prior Art Claims: Reddit Discussion & SalesRLAgent
 
@@ -289,7 +291,7 @@ OpenKind can validate that a response uses the requested question types and `Cho
 | **Latency** | 70–500 ms; selected vendor benchmarks claim up to 193.6× speedup. | 85 ms on CPU vs. 3,450 ms for GPT-4 on sales task. | 777 judgments in <0.7 s; median 0.35 s/passage vs. 8.83 s for Fable. | Qwen PCD reports multi-fold speedups; SALSA eliminates multi-token decode latency. |
 | **Cost** | $0.042 / MTok input; no separate output charge; up to 444× cheaper. | Local CPU inference compute cost. | ~$0.0025 for 777 judgments; ~580× cheaper than Claude Fable in passage test. | Compute-bound by chosen backbone (0.5B–4B parameter models). |
 | **Accuracy** | Comparable "System One" intelligence claimed; references are model consensus. | Claims 96.7% conversion accuracy; target/temporal leakage invalidates figure. | Identified 6/7 planted defects; Fable identified 7/7. | Task-dependent; requires domain-specific benchmark evaluation. |
-| **Calibration** | Explicitly claimed via RLCD, but no public curves or methodology disclosed. | Predicts scalar probabilities; no ECE/Brier calibration curves provided. | Every did not evaluate calibration metrics. | Guo: neural nets miscalibrated, temperature scaling helps; Kuleshov: structured calibration. |
+| **Calibration** | Hume publishes sample-specific reliability bins and ECE; RLCD's recipe and deployment calibration remain unverified. | Predicts scalar probabilities; no ECE/Brier calibration curves provided. | Every did not evaluate calibration metrics. | Guo: neural nets miscalibrated, temperature scaling helps; Kuleshov: structured calibration. |
 | **Schema Validity** | Guaranteed by host contract; "0% type error" is structural, not semantic accuracy. | Scalar action inherently bounded by Gym continuous action space. | Output conformed strictly to requested schema. | Deterministic host serialization trivially achieves 100% schema validity. |
 | **Generalization** | Dynamic caller-supplied questions and options without task retraining. | Specialized to sales-conversation state and action dynamics. | Evaluated diverse editorial and styling judgments. | SALSA: fixed tokens; Dynamic-head models: generalized zero-shot scoring. |
 | **Evidence Quality** | High-utility commercial API; architecture, weights, and RLCD proprietary. | Public code and paper; evaluation code exhibits severe data leakage. | Independent empirical test on small sample; non-calibration focused. | Peer-reviewed foundations establish individual components, not proprietary integration. |
@@ -572,6 +574,7 @@ flowchart TD
 | **[26]** | [TypeSafe AI Homepage](https://typesafe.ai/) | Current product claims: $0.042/MTok, 70–500 ms latency, and zero output token pricing. |
 
 ### Additional Foundational & Ecosystem References
+- **Jev API reconstruction**: [Archer Hume, "Jev's Architecture Unmasked"](https://archerhume.com/posts/jevs-architecture-unmasked) (17 September 2026), with [probe and benchmark evidence](https://archerhume.com/research/jev/evidence.json), [item-level calibration data](https://archerhume.com/research/jev/calibration.json), and [controlled follow-up requests](https://archerhume.com/research/jev/followup-trials.json). See the [claim and implementation review](#archer-humes-api-reconstruction-reviewed-2026-09-29).
 - **TypeSafe Python Adapter**: [GitHub `typesafe-ai/system-one-adapter-python`](https://github.com/typesafe-ai/system-one-adapter-python) — Drop-in client backed by LLM APIs for reproducible benchmarking.
 - **SalesRL PyPI Distribution**: [PyPI `deepmost`](https://pypi.org/project/deepmost/) — Released May 24, 2025.
 - **Calibration Decision Loss (CDL)**: [Hu & Wu (arXiv:2402.04260)](https://arxiv.org/abs/2402.04260) — Metric quantifying the economic cost of miscalibration in decision-making workflows.
@@ -1613,13 +1616,13 @@ behavior, source-aligned document quality, or full-request latency.
 is an experimental, CPU-only Go library and server for Choice, Noul, and Score.
 Its tested default backbone is the multilingual `bekko-embedding-v1-a8m`, a
 four-layer ModernBERT with 7.7M parameters outside its much larger embedding
-table. Unlike a frozen embedding wrapper, Indecis [fully fine-tunes the
+table. Indecis [fully fine-tunes the
 encoder](https://github.com/Bornholm/indecis/blob/9930c7db1913818db7cee68c1b42a384f59592e3/docs/architecture.md)
 in Go, using sparse Adam for the embedding table. A fixed schema gives each
 question its own [head](https://github.com/Bornholm/indecis/blob/9930c7db1913818db7cee68c1b42a384f59592e3/heads.go):
 binary logistic loss for Noul, categorical cross-entropy for Choice, and
 ordered thresholds for Score. One encoder pass answers all learned questions.
-[Calibration](https://github.com/Bornholm/indecis/blob/9930c7db1913818db7cee68c1b42a384f59592e3/fit.go)
+The [`Calibrate` step](https://github.com/Bornholm/indecis/blob/9930c7db1913818db7cee68c1b42a384f59592e3/fit.go)
 fits one temperature per question by held-out negative log-likelihood. Its
 [data tools](https://github.com/Bornholm/indecis/blob/9930c7db1913818db7cee68c1b42a384f59592e3/docs/data.md)
 combine real labels, templates, and LLM teacher consensus, with family-level
@@ -1630,15 +1633,17 @@ routes a known question ID to its trained head without reading the request's
 instructions. New IDs use [open mode](https://github.com/Bornholm/indecis/blob/9930c7db1913818db7cee68c1b42a384f59592e3/docs/open-categories.md):
 cosine similarity between text and request-time option descriptions and
 examples, optionally improved by contrastive encoder training. Option vectors
-can be cached, but each open question takes its own text-embedding pass. The
-similarity softmax is **uncalibrated**; the author recommends a tuned cosine or
-margin threshold to reject unmatched options. Open Noul without explicit
-criteria compares the instruction with a fixed "Something else" anchor and is
-weak on the author's tests. This does not establish OpenKind's learned
+can be cached, but each open question takes its own text-embedding pass.
+
+The similarity softmax is **uncalibrated**; the author recommends a tuned
+cosine or margin threshold to reject unmatched options. Open Noul without
+explicit criteria compares the instruction with a fixed "Something else"
+anchor. Its documented 0.5 threshold yields 50 to 65% accuracy on email and
+prompt-injection questions. This does not establish OpenKind's learned
 semantic-none probability. The server exposes `/v1/systemone`, but its
 [Noul wire answer](https://github.com/Bornholm/indecis/blob/9930c7db1913818db7cee68c1b42a384f59592e3/decision/server.go)
-also emits `confidence`, unlike OpenKind's `NoulAnswer`; protocol parity needs
-an explicit conformance check.
+also emits `confidence`, while [OpenKind's `NoulAnswer`](../crates/openkind-core/src/answer.rs)
+has only `noul`; protocol parity needs an explicit conformance check.
 
 The author's [inference measurements](https://github.com/Bornholm/indecis/blob/9930c7db1913818db7cee68c1b42a384f59592e3/docs/inference.md)
 use an int8 prompt-injection model on one Core Ultra 7 265U CPU core: 1.5 ms
@@ -1651,6 +1656,68 @@ accuracy after training on four templates. Longer-text quality and OpenKind's
 document-evidence and semantic-none contracts remain unmeasured. Indecis is a
 useful edge-CPU control for the fixed-schema versus request-time option tradeoff,
 not evidence to replace OpenKind's current profile.
+
+### Jeeves: reasoning before a typed decision (reviewed 2026-09-29)
+
+[Jeeves](https://github.com/PostHog/jeeves/tree/f04ec5567301450dcaae0210dd54deeb4f647f87)
+is a text-only, CUDA-served Jev-like system built on the **post-trained
+`Qwen/Qwen3.5-9B`** hybrid Gated DeltaNet/attention model, a rank-16 LoRA,
+and a learned pointer head. The [Qwen model card](https://huggingface.co/Qwen/Qwen3.5-9B)
+describes a vision-language base, but Jeeves' [request parser](https://github.com/PostHog/jeeves/blob/f04ec5567301450dcaae0210dd54deeb4f647f87/inference/api.py)
+renders text state and questions; the repository does not establish image
+decision support. Its base and training differ from OpenKind's [frozen
+`Qwen/Qwen3.5-4B-Base` integration profile](ARCHITECTURE.md#openkind-engine).
+[Kev-9B](https://github.com/jaredpalmer/kev/blob/0fe8fc97c2bcc247fa3efb6e5c32af4e99770e91/README.md#how-it-works)
+uses a `Qwen3.5-9B-Base` LoRA and pointer head for a direct decision. Jeeves
+adds generated reasoning, CISPO training, and the diffusion drafter on a
+different, post-trained 9B base.
+
+Jeeves puts state, one question, and its option descriptions into the Qwen
+chat template, **generates a reasoning chain**, then repeats the question and
+options before a `<decide>` marker. The [pointer head](https://github.com/PostHog/jeeves/blob/f04ec5567301450dcaae0210dd54deeb4f647f87/model/head.py)
+compares the final hidden state with each option-end hidden state and softmaxes
+the scores. One fitted temperature scales the logits. [Inference](https://github.com/PostHog/jeeves/blob/f04ec5567301450dcaae0210dd54deeb4f647f87/inference/engine.py)
+shares the common state prefix, isolates and batches question branches, and
+uses a block-4 diffusion drafter to speed up **reasoning-token generation**.
+The [server](https://github.com/PostHog/jeeves/blob/f04ec5567301450dcaae0210dd54deeb4f647f87/inference/serve.py)
+exposes `/v1/systemone` for Noul, Choice, and Score, with optional thinking
+controls, and serializes requests on one GPU. Its internal reasoning chain is
+autoregressive; OpenKind's current path returns decisions without generating
+one. Jeeves accepts up to 255 caller-supplied Choice labels. Its [Choice
+softmax](https://github.com/PostHog/jeeves/blob/f04ec5567301450dcaae0210dd54deeb4f647f87/inference/api.py)
+is conditional on those labels and supplies no learned semantic-none mass
+comparable to OpenKind's selected probability space.
+
+The [training recipe](https://github.com/PostHog/jeeves/blob/f04ec5567301450dcaae0210dd54deeb4f647f87/README.md#training)
+reports SFT on 19,126 questions, then CISPO on 9,992 questions with eight
+sampled chains each. The [RL reward](https://github.com/PostHog/jeeves/blob/f04ec5567301450dcaae0210dd54deeb4f647f87/trainer.py)
+is the probability assigned to the correct option, reduced for long chains;
+the loss also includes rollout and anchor cross-entropy. The [single
+temperature](https://github.com/PostHog/jeeves/blob/f04ec5567301450dcaae0210dd54deeb4f647f87/predictor.py)
+is fitted on dev rows without generated chains. This public CISPO recipe is
+not evidence of reproducing TypeSafe's undisclosed RLCD.
+
+The author's [results](https://github.com/PostHog/jeeves/blob/f04ec5567301450dcaae0210dd54deeb4f647f87/README.md#results)
+claim 0.889 test accuracy versus Kev-9B's 0.822 and Jev's 0.857, while noting
+that those external results used **different items from the same sources**.
+[Kev's published table](https://github.com/jaredpalmer/kev/blob/0fe8fc97c2bcc247fa3efb6e5c32af4e99770e91/README.md#models)
+identifies 0.822 and 0.857 as development-set figures, so this is not a
+paired test-set win.
+The same Jeeves checkpoint scores 0.840 with thinking versus 0.804 without it
+on the author's 2,962-question test split. On an older **231-item public-only**
+JevBench subset, it reports 0.935 accuracy versus Jev's 0.866, including
+0.865 versus 0.730 on 111 hard items; it trails Jev on MMLU and MMLU-Pro.
+These are author-run accuracy results, not the v1.4.2.2 board's four-axis
+composite below or sealed-set evidence. On 325 dev questions, the [reported](https://github.com/PostHog/jeeves/blob/f04ec5567301450dcaae0210dd54deeb4f647f87/README.md#options)
+H100 median/p90 is 3.3/17.1 s with full thinking versus about 0.3 s without
+thinking. The repository checks in a [data manifest](https://github.com/PostHog/jeeves/blob/f04ec5567301450dcaae0210dd54deeb4f647f87/data/manifest.json)
+and reconstruction scripts, rather than generated train/dev/test JSONL files.
+
+For OpenKind, Jeeves is a useful **reasoning-budget comparator**: measure
+paired quality, calibration, semantic-none behavior, memory, and full-request
+latency on untouched document groups at fixed question counts and chain caps.
+Its public gains do not establish the same source-evidence behavior or justify
+replacing the current profile without those gates.
 
 ### JevBench v1.4.2.2 top 25: architecture and lineage (reviewed 2026-09-28)
 

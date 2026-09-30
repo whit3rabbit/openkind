@@ -99,6 +99,11 @@ the warm-process benchmark table.
 `p50` is the median repetition total; `p95` is the `ceil(0.95·n)−1` sample;
 sample counts ship alongside as `samples_seconds`.
 
+For the existing runs linked below, `request_latency_ms` times dispatch and
+validation, excluding request construction and answer extraction. The current
+timer includes both. Quoted token rates use one repetition and are unaffected
+by the correction to token accounting across repetitions.
+
 The web playground's benchmark tab is **not** a harness. It measures
 browser-side wall-clock round trips (including HTTP) against a daemon, which
 is useful for interactive comparison but not comparable to the numbers above
@@ -540,6 +545,7 @@ including a 17-option knockout question and a JSON-object evidence payload.
 
 | Record | Engine | Status |
 |---|---|---|
+| [`benchmarks/2026-09-29-mlx-counterparts/`](./benchmarks/2026-09-29-mlx-counterparts/) | encoder-instruct-label-mlx-fp32, decoder-logit-qwen35-mlx-fp32 (+ encoder-instruct-label CPU re-run) | Complete — first MLX backends for the GLiClass and JevK5 surveyed families on the standard shape777 workload with frozen golden-fixture parity gates (max probability drift 4.487e-6 / 1.003e-6, zero selection flips); request-path timing only, no model-quality claim; see the survey-family backends section in [`MLX.md`](MLX.md) |
 | [`benchmarks/2026-09-28-laya-mlx-campaign/`](./benchmarks/2026-09-28-laya-mlx-campaign/) | laya-english-mlx-fp32, laya-multilingual-mlx-fp32, laya-typed-decisions-mlx-fp32 (+ candle CPU re-runs) | Complete — first MLX encoder-backend campaign on the standard shape777 workload with frozen golden-fixture parity gates (max probability drift 7.2e-6, zero selection flips); request-path timing only, no model-quality claim; see the laya section below |
 | [`benchmarks/2026-09-28-registry-mlx-campaign/`](./benchmarks/2026-09-28-registry-mlx-campaign/) | qwen35-mlx-fp32, qwen35-mlx-bf16 (unqualified candidate), qwen35-native-cpu, laya CPU ×3 | Complete — registry-wide MLX-preferred campaign over all four catalog models on the standard shape777 workload with the new CPU/host/context telemetry and recommendation dataset; see the registry-campaign section above |
 | [`benchmarks/2026-09-27-decoder-logit-qwen35/`](./benchmarks/2026-09-27-decoder-logit-qwen35/) | decoder-logit-qwen35 | Complete — smoke-scale single-state record for the JevK5 profile with reference-parity fixture; request-path timing only, no model-quality claim; see the smoke-record section above |

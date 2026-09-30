@@ -8,12 +8,17 @@ verification milestones. Pull progress stays on stderr. `openkind list`,
 `show NAME`, and `rm NAME` operate on local installations without a daemon or
 network request. Read commands accept `--json` for scripts.
 
-The initial entry is
-`qwen35-state-first:a047d6802c3f06f085b8`. It uses the pinned
-`Qwen/Qwen3.5-4B-Base` checkpoint plus the exact exported tokenizer and
-score-summary bundle required by the existing Rust loader. Its
-`rust-loadable` status describes implementation and parity coverage, not
-reviewed task quality or release approval.
+Thirteen profiles are catalog-installable: the native Qwen3.5 state-first
+profile, the three laya decision encoders, and the surveyed-family
+prototypes (`decoder-logit-letter`, `encoder-nli`, `encoder-instruct-label`,
+`decoder-logit-llm`, `schema-scorer`, `qwen3guard`, `kev`,
+`decoder-logit-qwen35`, `winnow`). Every manifest pins each artifact's
+source revision, byte size, and SHA-256; `rust-loadable` status describes
+implementation and parity coverage, not reviewed task quality or release
+approval. Two small derived assets that no upstream publishes — kev's
+converted `head.safetensors` and the in-house winnow LoRA adapter — are
+pinned as `github` assets in the public mirror at the commit recorded in
+their manifests.
 
 ```bash
 openkind catalog
@@ -66,18 +71,31 @@ registry model is only as fast as the loaders in this repository.
 | `laya-english:c8ea29bf1e33a343c4b7` | Candle CPU fp32 (`--engine laya-english`), MLX FP32 (`--engine laya-english-mlx-fp32`, `--features mlx`; daemon `--laya-backend mlx-fp32`) | `laya-english-mlx-fp32` — golden-fixture parity gates on the same pinned shard (max probability drift 6.5e-6, zero selection flips) | [BENCHMARKS.md](BENCHMARKS.md) records, the [2026-09-28 registry campaign](benchmarks/2026-09-28-registry-mlx-campaign/README.md), and the [2026-09-28 laya MLX campaign](benchmarks/2026-09-28-laya-mlx-campaign/README.md) |
 | `laya-multilingual:f4064eb56fb7f7d325e1` | Candle CPU fp32 (`--engine laya-multilingual`), MLX FP32 (`--engine laya-multilingual-mlx-fp32`, `--features mlx`) | `laya-multilingual-mlx-fp32` — same encoder MLX path (max probability drift 7.2e-6, zero selection flips) | [2026-09-28 laya MLX campaign](benchmarks/2026-09-28-laya-mlx-campaign/README.md) |
 | `laya-typed-decisions:9d28cfa9567902801ed1` | Candle CPU fp32 (`--engine laya-typed-decisions`), MLX FP32 (`--engine laya-typed-decisions-mlx-fp32`, `--features mlx`) | `laya-typed-decisions-mlx-fp32` — same encoder MLX path (max probability drift 2.5e-6, zero selection flips) | [2026-09-28 laya MLX campaign](benchmarks/2026-09-28-laya-mlx-campaign/README.md) |
+| `decoder-logit-letter:5492c97dfcdaf3fe9439` | Candle CPU fp32 (`--engine decoder-letter`; daemon `--decoder-letter-aliases` / `--decoder-letter-model-root`) | CPU fp32 — no MLX path | [summary](benchmarks/2026-09-26-surveyed-families/summary-decoder-letter.json) |
+| `encoder-nli:1041a4c362338a61b820` | Candle CPU fp32 (`--engine encoder-nli`; daemon `--encoder-nli-aliases` / `--encoder-nli-model-root`) | CPU fp32 — no MLX path | [summary](benchmarks/2026-09-26-surveyed-families/summary-encoder-nli.json) |
+| `encoder-instruct-label:9fd68313a5606eca42f2` | Candle CPU fp32 (`--engine encoder-instruct-label`; daemon `--encoder-instruct-label-aliases` / `--encoder-instruct-label-model-root` / `--encoder-instruct-label-backend mlx-fp32`), MLX FP32 (`--engine encoder-instruct-label-mlx-fp32`, `--features mlx`) | `encoder-instruct-label-mlx-fp32` — golden-fixture parity gates on the same pinned FP32 shard (max probability drift 4.487e-6, zero selection flips) | [BENCHMARKS.md](BENCHMARKS.md) records and the [2026-09-29 mlx counterparts campaign](benchmarks/2026-09-29-mlx-counterparts/README.md) |
+| `decoder-logit-llm:465963d705b6f35d6208` | Candle CPU fp32 over GGUF q8_0 weights (`--engine decoder-llm`; daemon `--decoder-llm-aliases` / `--decoder-llm-model-root`) | CPU fp32 — no MLX path | [summary](benchmarks/2026-09-26-surveyed-families/summary-decoder-llm.json) |
+| `schema-scorer:5a7350af556f0ee66566` | Candle CPU fp32 (`--engine schema-scorer`; daemon `--schema-scorer-aliases` / `--schema-scorer-model-root`) | CPU fp32 — no MLX path | [summary](benchmarks/2026-09-26-surveyed-families/summary-schema-scorer.json) |
+| `qwen3guard:0fcf416cab16d94f933d` | Candle CPU fp32 (`--engine qwen3-guard`; daemon `--qwen3guard-aliases` / `--qwen3guard-model-root`) | CPU fp32 — no MLX path | [summary](benchmarks/2026-09-26-surveyed-families/summary-qwen3guard.json) |
+| `kev:39d88c11faeb4ac165fa` | Candle CPU fp32 (`--engine kev`; daemon `--kev-aliases` / `--kev-model-root` / `--kev-base-root`) | CPU fp32 — no MLX path | [summary](benchmarks/2026-09-26-surveyed-families/summary-kev.json) |
+| `decoder-logit-qwen35:415bcf4a064e6dadcf85` | Candle CPU fp32 over BF16 checkpoint (`--engine decoder-logit-qwen35`; daemon `--decoder-logit-qwen35-aliases` / `--decoder-logit-qwen35-model-root` / `--decoder-logit-qwen35-backend mlx-fp32`), MLX FP32 over the same BF16 checkpoint widened on load (`--engine decoder-logit-qwen35-mlx-fp32`, `--features mlx`) | `decoder-logit-qwen35-mlx-fp32` — golden-fixture parity gates through the Qwen3.5 MLX backbone (max probability drift 1.003e-6, zero selection flips) | [BENCHMARKS.md](BENCHMARKS.md) records, the [2026-09-29 mlx counterparts campaign](benchmarks/2026-09-29-mlx-counterparts/README.md), and the CPU [summary](benchmarks/2026-09-27-decoder-logit-qwen35/summary-decoder-logit-qwen35.json) |
+| `winnow:4dff8c5b03cfbf680db6` | Candle CPU fp32 router over registered siblings (daemon `--winnow-aliases` / `--winnow-model-root` / `--winnow-adapter`) | CPU fp32 — no MLX path; installed winnow binds label `A` to the installed `decoder-logit-letter` profile and label `B` to `encoder-nli` (falling back to the `--models` aliases) | [summary](benchmarks/2026-09-26-surveyed-families/summary-winnow.json) |
 
 Benchmark summaries carry the machine-readable comparison data
 (`host_hardware`, `context`, per-strategy `cpu_time_seconds` /
 `avg_cpu_percent`, peak resident bytes, decisions per second, input tokens
 per second) and
 [`scripts/build-recommendation-data.py`](../scripts/build-recommendation-data.py)
-aggregates them for model-recommendation work. The laya encoder MLX backend
-is its own family module (`families/laya/mlx/`) over the same digest-locked
-checkpoint contract, with frozen golden-fixture parity gates
-(`tests/laya_parity.rs`, module `mlx_replay`); a new MLX backend for any
-other encoder family still needs the same structure before a catalog entry
-may claim it.
+aggregates them for model-recommendation work. Surveyed-family MLX backends
+are family modules over the same digest-locked checkpoint contract
+(`families/laya/mlx/`, `families/encoder_instruct_label/mlx/`,
+`families/decoder_logit_qwen35/mlx/`), with frozen golden-fixture parity
+gates (each family's parity test, module `mlx_replay`). The ModernBERT
+encoder families share one MLX body
+(`families/mlx_modernbert.rs`); the JevK5 decoder reuses the parity-verified
+Qwen3.5 MLX backbone through the `MlxSurveyCheckpoint` descriptor. A new MLX
+backend for any other family still needs the same structure before a catalog
+entry may claim it.
 
 ## Publishing the public mirror
 

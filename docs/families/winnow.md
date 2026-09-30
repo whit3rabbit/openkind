@@ -20,6 +20,8 @@ serves through `openkindd` via `--winnow-aliases` / `--winnow-model-root` /
 benchmarked through `openkind-bench --engine winnow` (over mock siblings,
 measuring the learned routing pass only).
 
+It is catalog-installable offline-first: `openkind pull winnow:4dff8c5b03cfbf680db6` downloads the pinned artifacts, verifies every SHA-256, and installs them for `--installed-models` (see [`../MODELS.md`](../MODELS.md)).
+
 The sibling target set locked for this profile: label `A` (english) and
 label `B` (multilingual) map to served sibling aliases at the daemon layer;
 the routing distribution is telemetry, and the routed sibling's answer is
