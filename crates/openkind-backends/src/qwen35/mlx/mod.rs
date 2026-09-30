@@ -40,7 +40,7 @@ pub use runtime::{
     MlxMemorySnapshot, MlxRuntime, MlxRuntimeConfig, SharedMlxRuntime,
     DEFAULT_INACTIVE_CACHE_LIMIT_BYTES, MLX_CORE_VERSION,
 };
-pub use weights::{MlxCheckpointFormat, MlxWeightLoadReport, MlxWeightStore};
+pub use weights::{MlxCheckpointFormat, MlxSurveyCheckpoint, MlxWeightLoadReport, MlxWeightStore};
 
 /// Execution precision of the MLX backend.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -142,89 +142,105 @@ impl FamilyEvaluator for EncoderInstructLabelEngine {
         request: SystemRequest,
         control: &FamilyControl,
     ) -> Result<SystemResponse, FamilyError> {
-        control.check()?;
-        let state = match &request.state {
-            State::Text(text) => text.clone(),
-            State::Object(map) => serde_json::to_string_pretty(map).map_err(|error| {
-                FamilyError::InvalidInput(format!("state serialization failed: {error}"))
-            })?,
-            State::Array(items) => serde_json::to_string_pretty(items).map_err(|error| {
-                FamilyError::InvalidInput(format!("state serialization failed: {error}"))
-            })?,
-        };
-        if state.trim().is_empty() {
-            return Err(FamilyError::InvalidInput(
-                "state must contain non-whitespace text".to_owned(),
-            ));
-        }
-        let mut question_ids: Vec<_> = request.questions.keys().cloned().collect();
-        question_ids.sort();
-        if question_ids.is_empty() {
-            return Err(FamilyError::InvalidInput(
-                "request contains no questions".to_owned(),
-            ));
-        }
-
-        let mut answers = std::collections::HashMap::<
-            String,
-            openkind_core::Answer,
-            openkind_core::WireHashState,
-        >::with_capacity_and_hasher(
-            question_ids.len(), Default::default()
-        );
-        let mut input_tokens: u64 = 0;
-        for id in &question_ids {
-            control.check()?;
-            let question = request
-                .questions
-                .get(id)
-                .expect("question id came from the request map");
-            let unpacked = crate::families::wire::unpack_question(id, question)?;
-            if unpacked.criteria.len() > MAX_CANDIDATES {
-                return Err(FamilyError::InvalidInput(format!(
-                    "question `{id}` offers {} candidates but the profile accepts at most {MAX_CANDIDATES}",
-                    unpacked.criteria.len()
-                )));
-            }
-            let instruction = crate::families::wire::instruction_text(question)?;
-            let explicit_noul_criteria = noul_criteria_are_explicit(question);
-            let markers: Vec<String> = match unpacked.primitive {
-                crate::families::wire::QuestionPrimitive::Noul => {
-                    vec![noul_marker(&unpacked, &instruction, explicit_noul_criteria)]
-                }
-                crate::families::wire::QuestionPrimitive::Choice
-                | crate::families::wire::QuestionPrimitive::Score => unpacked.criteria.clone(),
-            };
-            let (logits, tokens) = self.inner.candidate_logits(&markers, &state)?;
-            input_tokens = input_tokens.saturating_add(tokens as u64);
-            let answer = match unpacked.primitive {
-                crate::families::wire::QuestionPrimitive::Noul => {
-                    let support = calibrated_sigmoid(logits[0], CALIBRATION_TEMPERATURE)?;
-                    openkind_core::Answer::Noul(openkind_core::NoulAnswer { noul: support })
-                }
-                crate::families::wire::QuestionPrimitive::Choice => {
-                    let supports = logits
-                        .iter()
-                        .map(|logit| calibrated_sigmoid(*logit, CALIBRATION_TEMPERATURE))
-                        .collect::<Result<Vec<f64>, FamilyError>>()?;
-                    let probabilities = renormalize(&supports)?;
-                    crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?
-                }
-                crate::families::wire::QuestionPrimitive::Score => {
-                    let probabilities = temperature_softmax(&logits, CALIBRATION_TEMPERATURE)?;
-                    crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?
-                }
-            };
-            answers.insert(id.clone(), answer);
-        }
-        control.check()?;
-        Ok(SystemResponse {
-            model: request.model,
-            answers,
-            usage: Usage {
-                input_tokens: u32::try_from(input_tokens).unwrap_or(u32::MAX),
-                output_tokens: 0,
-            },
-        })
+        evaluate_with_logits(
+            &|markers: &[String], state: &str| self.inner.candidate_logits(markers, state),
+            request,
+            control,
+        )
     }
+}
+
+/// Model-agnostic evaluation shared by every execution backend: the
+/// backend-specific `candidate_logits` source is the only input, so both
+/// backends apply the identical wire mapping and calibration.
+pub(crate) fn evaluate_with_logits<L>(
+    logits_source: &L,
+    request: SystemRequest,
+    control: &FamilyControl,
+) -> Result<SystemResponse, FamilyError>
+where
+    L: Fn(&[String], &str) -> Result<(Vec<f64>, usize), FamilyError>,
+{
+    control.check()?;
+    let state = match &request.state {
+        State::Text(text) => text.clone(),
+        State::Object(map) => serde_json::to_string_pretty(map).map_err(|error| {
+            FamilyError::InvalidInput(format!("state serialization failed: {error}"))
+        })?,
+        State::Array(items) => serde_json::to_string_pretty(items).map_err(|error| {
+            FamilyError::InvalidInput(format!("state serialization failed: {error}"))
+        })?,
+    };
+    if state.trim().is_empty() {
+        return Err(FamilyError::InvalidInput(
+            "state must contain non-whitespace text".to_owned(),
+        ));
+    }
+    let mut question_ids: Vec<_> = request.questions.keys().cloned().collect();
+    question_ids.sort();
+    if question_ids.is_empty() {
+        return Err(FamilyError::InvalidInput(
+            "request contains no questions".to_owned(),
+        ));
+    }
+
+    let mut answers = std::collections::HashMap::<
+        String,
+        openkind_core::Answer,
+        openkind_core::WireHashState,
+    >::with_capacity_and_hasher(question_ids.len(), Default::default());
+    let mut input_tokens: u64 = 0;
+    for id in &question_ids {
+        control.check()?;
+        let question = request
+            .questions
+            .get(id)
+            .expect("question id came from the request map");
+        let unpacked = crate::families::wire::unpack_question(id, question)?;
+        if unpacked.criteria.len() > MAX_CANDIDATES {
+            return Err(FamilyError::InvalidInput(format!(
+                "question `{id}` offers {} candidates but the profile accepts at most {MAX_CANDIDATES}",
+                unpacked.criteria.len()
+            )));
+        }
+        let instruction = crate::families::wire::instruction_text(question)?;
+        let explicit_noul_criteria = noul_criteria_are_explicit(question);
+        let markers: Vec<String> = match unpacked.primitive {
+            crate::families::wire::QuestionPrimitive::Noul => {
+                vec![noul_marker(&unpacked, &instruction, explicit_noul_criteria)]
+            }
+            crate::families::wire::QuestionPrimitive::Choice
+            | crate::families::wire::QuestionPrimitive::Score => unpacked.criteria.clone(),
+        };
+        let (logits, tokens) = logits_source(&markers, &state)?;
+        input_tokens = input_tokens.saturating_add(tokens as u64);
+        let answer = match unpacked.primitive {
+            crate::families::wire::QuestionPrimitive::Noul => {
+                let support = calibrated_sigmoid(logits[0], CALIBRATION_TEMPERATURE)?;
+                openkind_core::Answer::Noul(openkind_core::NoulAnswer { noul: support })
+            }
+            crate::families::wire::QuestionPrimitive::Choice => {
+                let supports = logits
+                    .iter()
+                    .map(|logit| calibrated_sigmoid(*logit, CALIBRATION_TEMPERATURE))
+                    .collect::<Result<Vec<f64>, FamilyError>>()?;
+                let probabilities = renormalize(&supports)?;
+                crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?
+            }
+            crate::families::wire::QuestionPrimitive::Score => {
+                let probabilities = temperature_softmax(&logits, CALIBRATION_TEMPERATURE)?;
+                crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?
+            }
+        };
+        answers.insert(id.clone(), answer);
+    }
+    control.check()?;
+    Ok(SystemResponse {
+        model: request.model,
+        answers,
+        usage: Usage {
+            input_tokens: u32::try_from(input_tokens).unwrap_or(u32::MAX),
+            output_tokens: 0,
+        },
+    })
 }

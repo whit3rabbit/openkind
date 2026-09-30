@@ -238,13 +238,26 @@ impl BoundedFamilyEngine {
         cancelled: Arc<AtomicBool>,
     ) -> EngineResult<SystemResponse> {
         let backend = self.backend_id();
-        let deadline = self
-            .evaluation_timeout
-            .and_then(|timeout| started.checked_add(timeout));
         let record = |outcome: &'static str| {
             metrics::histogram!("openkind_family_request_seconds")
                 .record(started.elapsed().as_secs_f64());
             metrics::counter!("openkind_family_requests_total", "outcome" => outcome).increment(1);
+        };
+        let deadline = match self.evaluation_timeout {
+            Some(timeout) => match started.checked_add(timeout) {
+                Some(deadline) => Some(deadline),
+                None => {
+                    // An unrepresentable configured deadline must not turn
+                    // into an unbounded evaluation.
+                    record("invalid");
+                    return Err(EngineError::Unsupported {
+                        backend,
+                        message: "family evaluation timeout is outside the monotonic clock range"
+                            .into(),
+                    });
+                }
+            },
+            None => None,
         };
 
         let admission = self
@@ -544,6 +557,29 @@ mod tests {
         assert_eq!(engine.backend_id(), "test-family");
         let response = engine.evaluate(request()).await.expect("evaluate");
         assert_eq!(response.model, "test");
+    }
+
+    #[tokio::test]
+    async fn unrepresentable_timeout_does_not_disable_the_deadline() {
+        let engine = BoundedFamilyEngine::new(
+            Arc::new(evaluator("test-family")),
+            FamilyLimits {
+                max_concurrent_requests: 1,
+                max_queued_requests: 0,
+                retry_after_ms: 1,
+                evaluation_timeout: Some(Duration::MAX),
+            },
+        );
+        let error = engine
+            .evaluate(request())
+            .await
+            .expect_err("an invalid timeout must fail closed");
+        assert!(matches!(
+            error,
+            EngineError::Unsupported { message, .. } if message.contains("monotonic clock range")
+        ));
+        assert_eq!(engine.execution_slots.available_permits(), 1);
+        assert_eq!(engine.admission_slots.available_permits(), 1);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

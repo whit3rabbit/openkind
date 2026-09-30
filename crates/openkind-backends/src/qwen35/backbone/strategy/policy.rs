@@ -235,24 +235,27 @@ impl StrategyRequest {
 /// sequential shared path; (4) otherwise repeat full sequences.
 #[must_use]
 pub fn choose_strategy(config: &SchedulerConfig, request: &StrategyRequest) -> StrategyDecision {
-    let shared_tokens = request.root_tokens
-        + request.question_tokens.iter().sum::<usize>()
-        + request
-            .suffix_tokens
-            .iter()
-            .map(|suffixes| suffixes.iter().sum::<usize>())
-            .sum::<usize>();
+    let shared_tokens = request
+        .question_tokens
+        .iter()
+        .chain(request.suffix_tokens.iter().flatten())
+        .fold(request.root_tokens, |tokens, &count| {
+            tokens.saturating_add(count)
+        });
     let repeated_tokens: usize = request
         .question_tokens
         .iter()
         .zip(&request.suffix_tokens)
-        .map(|(&question, suffixes)| {
-            suffixes
-                .iter()
-                .map(|&suffix| request.root_tokens + question + suffix)
-                .sum::<usize>()
-        })
-        .sum();
+        .fold(0_usize, |tokens, (&question, suffixes)| {
+            suffixes.iter().fold(tokens, |tokens, &suffix| {
+                tokens.saturating_add(
+                    request
+                        .root_tokens
+                        .saturating_add(question)
+                        .saturating_add(suffix),
+                )
+            })
+        });
     let savings_ratio = if shared_tokens == 0 {
         0.0
     } else {
@@ -269,17 +272,20 @@ pub fn choose_strategy(config: &SchedulerConfig, request: &StrategyRequest) -> S
     let mut sequential_bytes = root_state_bytes;
     let mut batched_question_bytes = 0_usize;
     for (&question_tokens, suffixes) in request.question_tokens.iter().zip(&request.suffix_tokens) {
-        let question_position = request.root_tokens + question_tokens;
+        let question_position = request.root_tokens.saturating_add(question_tokens);
         let question_state_bytes = request.state_bytes(config, question_position);
-        sequential_bytes += question_state_bytes;
-        batched_question_bytes += question_state_bytes;
+        sequential_bytes = sequential_bytes.saturating_add(question_state_bytes);
+        batched_question_bytes = batched_question_bytes.saturating_add(question_state_bytes);
         for &suffix in suffixes {
-            let candidate_bytes = request.state_bytes(config, question_position + suffix);
-            sequential_bytes += candidate_bytes;
-            batched_question_bytes += candidate_bytes;
+            let candidate_bytes =
+                request.state_bytes(config, question_position.saturating_add(suffix));
+            sequential_bytes = sequential_bytes.saturating_add(candidate_bytes);
+            batched_question_bytes = batched_question_bytes.saturating_add(candidate_bytes);
         }
     }
-    let batched_bytes = root_state_bytes * (1 + questions) + batched_question_bytes;
+    let batched_bytes = root_state_bytes
+        .saturating_mul(questions.saturating_add(1))
+        .saturating_add(batched_question_bytes);
     // The repeated-full executor returns every candidate state in its output,
     // so admission must account for all of those states rather than only the
     // largest one. Use saturating arithmetic so an unrepresentable aggregate
@@ -484,4 +490,52 @@ where
         )));
     }
     Ok((decision, output))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_plan_rejects_unrepresentable_retention() {
+        let request = StrategyRequest {
+            root_tokens: 1,
+            question_tokens: vec![1],
+            suffix_tokens: vec![vec![1, 1]],
+        };
+        let mut config = SchedulerConfig::for_pinned_profile(2.52, Some(usize::MAX - 1));
+        config.state_fixed_tensor_bytes = usize::MAX / 2 + 1;
+        config.state_tensor_bytes_per_token = 0;
+        for strategy in [
+            ExecutionStrategy::RepeatedFull,
+            ExecutionStrategy::NestedSequential,
+            ExecutionStrategy::NestedBatched,
+        ] {
+            config.forced_strategy = Some(strategy);
+            let decision = choose_strategy(&config, &request);
+            assert!(!decision.admitted, "{strategy:?} must fail closed");
+            assert_eq!(decision.retention.repeated_full_tensor_bytes, usize::MAX);
+            assert_eq!(
+                decision.retention.nested_sequential_tensor_bytes,
+                usize::MAX
+            );
+            assert_eq!(decision.retention.nested_batched_tensor_bytes, usize::MAX);
+        }
+    }
+
+    #[test]
+    fn unrepresentable_positions_and_token_work_saturate() {
+        let request = StrategyRequest {
+            root_tokens: usize::MAX,
+            question_tokens: vec![1],
+            suffix_tokens: vec![vec![1, 1]],
+        };
+        let mut config = SchedulerConfig::for_pinned_profile(2.52, Some(usize::MAX - 1));
+        config.state_fixed_tensor_bytes = 0;
+        config.state_tensor_bytes_per_token = 1;
+        let decision = choose_strategy(&config, &request);
+        assert_eq!(decision.estimates.repeated_tokens, usize::MAX);
+        assert_eq!(decision.estimates.shared_tokens, usize::MAX);
+        assert!(!decision.admitted);
+    }
 }

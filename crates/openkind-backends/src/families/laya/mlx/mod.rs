@@ -20,7 +20,7 @@ use crate::families::support::{
     temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
     FamilyLimits,
 };
-use crate::qwen35::mlx::{MlxError, MlxRuntime, MlxRuntimeConfig};
+use crate::qwen35::mlx::{MlxRuntime, MlxRuntimeConfig};
 
 use super::engine::{laya_state_text, render_question_inputs, resolve_temperature};
 use super::model::{mask_token_of, VerifiedArtifacts};
@@ -32,12 +32,6 @@ pub(super) mod model;
 /// Arithmetic/device identity of the laya MLX execution path: FP16-stored
 /// shards upcast to FP32 arrays computed on the Metal GPU.
 pub const MLX_EXECUTION_ARITHMETIC_ID: &str = "mlx-gpu-fp32-laya";
-
-impl From<MlxError> for FamilyError {
-    fn from(error: MlxError) -> Self {
-        FamilyError::Mlx(error.to_string())
-    }
-}
 
 /// Loaded pinned laya engine backed by MLX.
 pub struct LayaMlxEngine {

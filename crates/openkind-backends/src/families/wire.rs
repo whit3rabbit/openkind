@@ -152,6 +152,19 @@ pub fn answer_from_probabilities(
     question: &UnpackedQuestion,
     probabilities: &[f64],
 ) -> Result<Answer, FamilyError> {
+    let valid_candidate_count = match question.primitive {
+        QuestionPrimitive::Noul => question.labels.len() == 2,
+        QuestionPrimitive::Choice => !question.labels.is_empty(),
+        QuestionPrimitive::Score => question.labels.len() >= 2,
+    };
+    if !valid_candidate_count {
+        return Err(FamilyError::InvalidInput(format!(
+            "question `{}` has an invalid {:?} candidate count: {}",
+            question.id,
+            question.primitive,
+            question.labels.len()
+        )));
+    }
     if probabilities.len() != question.labels.len() {
         return Err(FamilyError::InvalidInput(format!(
             "question `{}` expected {} candidate probabilities, found {}",
@@ -160,9 +173,21 @@ pub fn answer_from_probabilities(
             probabilities.len()
         )));
     }
-    if probabilities.iter().any(|p| !p.is_finite() || *p < 0.0) {
+    if probabilities
+        .iter()
+        .any(|p| !p.is_finite() || !(0.0..=1.0).contains(p))
+    {
         return Err(FamilyError::Numerical(format!(
-            "question `{}` produced a non-finite or negative candidate probability",
+            "question `{}` produced a non-finite or out-of-range candidate probability",
+            question.id
+        )));
+    }
+    // Reject malformed model output at the backend boundary using the wire
+    // contract's sum tolerance. Renormalizing here would hide a readout bug.
+    let sum: f64 = probabilities.iter().sum();
+    if (sum - 1.0).abs() > 1e-3 {
+        return Err(FamilyError::Numerical(format!(
+            "question `{}` produced candidate probabilities that sum to {sum}, expected 1",
             question.id
         )));
     }
@@ -390,5 +415,29 @@ mod tests {
         let unpacked = unpack_question("q1", &question).expect("unpack");
         assert!(answer_from_probabilities(&unpacked, &[0.5]).is_err());
         assert!(answer_from_probabilities(&unpacked, &[0.5, f64::NAN]).is_err());
+        assert!(answer_from_probabilities(&unpacked, &[-0.1, 1.1]).is_err());
+        assert!(answer_from_probabilities(&unpacked, &[0.0, 0.0]).is_err());
+        assert!(answer_from_probabilities(&unpacked, &[0.6, 0.6]).is_err());
+    }
+
+    #[test]
+    fn rejects_invalid_unpacked_cardinality_without_panicking() {
+        for (primitive, labels, probabilities) in [
+            (QuestionPrimitive::Choice, vec![], vec![]),
+            (QuestionPrimitive::Noul, vec!["true".into()], vec![1.0]),
+            (QuestionPrimitive::Score, vec!["0".into()], vec![1.0]),
+        ] {
+            let question = UnpackedQuestion {
+                id: "q1".into(),
+                primitive,
+                criteria: labels.clone(),
+                labels,
+                ordered: primitive == QuestionPrimitive::Score,
+            };
+            assert!(matches!(
+                answer_from_probabilities(&question, &probabilities),
+                Err(FamilyError::InvalidInput(_))
+            ));
+        }
     }
 }
