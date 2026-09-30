@@ -96,6 +96,12 @@ and Qwen3 dense decoders, DistilBERT, MiniLM) have no MLX execution path;
 Hub MLX conversions of their backbones exist but no openkind loader reads
 them, and a conversion is not a backend.
 
+The proxy-cache BGE sentence encoder also has a macOS arm64 MLX FP32 path. Its
+checkpoint-backed CPU/MLX replay passed with max element delta `2.980e-7` and
+minimum cosine `0.999999881`; its single-host component timings are recorded
+in [`benchmarks/2026-09-30-encoder-embedding/`](benchmarks/2026-09-30-encoder-embedding/README.md).
+This profile embeds proxy-cache state and is not a `DecisionEngine`.
+
 ## Pinned runtime and model identity
 
 | Component | Identity |

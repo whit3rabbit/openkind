@@ -48,6 +48,19 @@ An independent editorial-task test was conducted by Taylor Majewski and Dan Ship
 
 This test independently confirms that the low-latency, low-cost execution envelope is real, while illustrating that speed must not be conflated with frontier reasoning capabilities.
 
+### External IMDb Classification Evaluation (Raschka, 2026-09-29)
+
+Sebastian Raschka reports running Jev over 25,000 IMDb test reviews. The reported
+Choice run reached **96.47% accuracy** (24,117 correct) in 22 minutes 24 seconds
+at $0.6492; the Noul run reached **96.20%** (24,050 correct) in 23 minutes 3
+seconds at $0.6345. The post reports slight variation on a repeated Choice run
+and says it is unknown whether the test set appeared in Jev's training data.
+
+These are author-reported API results without published item-level predictions
+or a leakage-controlled rerun. Treat them as a useful single-task observation,
+not evidence of clean generalization, calibration, or comparable latency against
+a locally hosted classifier. See [Raschka's evaluation](https://magazine.sebastianraschka.com/p/classifier-history-and-jev).
+
 ---
 
 ## What Jev Actually Reveals About Its Architecture
@@ -223,8 +236,10 @@ change prompt and readout together and do not qualify a production replacement.
 
 The local diagnostics make option interaction worth pursuing, but leave
 context visibility, output-slot bias and rejection as separate questions.
-These comparisons can use the locally pinned checkpoint and existing harness;
-none has been run or adopted as a default:
+These comparisons can use the locally pinned checkpoint and existing harness.
+All three were run on 2026-09-29 against the pinned checkpoint; outcomes are
+recorded below and in the [proposal-run record](benchmarks/2026-09-29-joint-choice-proposals/README.md).
+None changed a runtime default:
 
 1. **All-options context with the fitted head.** Add a canonical option catalogue
    to each question's instructions before its candidate continuation, retaining
@@ -252,6 +267,51 @@ natural tasks; keep historical final partitions closed. Freeze the chosen
 renderer, code mapping, ensemble and calibration before the gate. Publish
 complete offered-option distributions, including none. Only a surviving
 candidate warrants complete request-path timing against the current scheduler.
+
+#### Outcomes of the 2026-09-29 runs
+
+The [recorded runs](benchmarks/2026-09-29-joint-choice-proposals/README.md) use
+the 96-case and reference-card panels, plus two new disjoint authored
+partitions (64-case calibration, 64-case gate) and the four-case CPU/MLX
+parity subset. All nine comparison methods agree across CPU and MLX FP32
+within 1.07e-5 with zero selection changes.
+
+1. **Catalogue context improves; implemented as an experimental renderer.**
+   `catalogue_state_first/v1` keeps the fitted head and frozen temperature and
+   adds a canonical all-option catalogue to each candidate prompt. On the
+   96-case panel it reaches 93/96 with NLL 0.144, Brier 0.066, and ECE 0.080
+   (baseline: 71/96, 0.636, 0.317, 0.157), with paired NLL -0.492 [-0.600,
+   -0.382]; on the reference-card panel it rises from 0/24 to 18/24 correct
+   and selects the forbidden reference option 0/24 times (baseline 23/24). It
+   is the first method that both fixes rejection and improves ECE while
+   keeping the fitted head. Cost: about 1.9x the scored input tokens and 2.3x
+   the warm scorer seconds of the independent control. It is not registered
+   and does not change daemon defaults; promotion still needs natural-task
+   gates and request-path timing on these terms.
+2. **Position dominates code bias; no ensemble adopted.** With codes fixed,
+   rotating text position flips 7/96 selections; with positions fixed,
+   permuting letter codes flips 0/96. The card panel splits 7 and 9 flips, so
+   letter identity is not universally negligible. The fixed four-render
+   ensemble scores worse proper scores than the single forward render on the
+   rule panel (NLL 0.248 versus 0.226 at four times the forwards) and
+   collapses to 4/24 on the card panel. `joint_forward` remains the
+   representative single joint render; the probe methods and per-factor
+   reporting stay available.
+3. **Locked temperature passes its gate; the none offset does not.** Fitted on
+   the calibration partition and locked (T = 0.3985), temperature scaling
+   improves the disjoint gate NLL from 0.178 to 0.035 and ECE from 0.143 to
+   0.025 with zero selection changes, and extends zero-error accepted
+   coverage from 27/64 to 47/64 at threshold 0.9. The none offset (b =
+   -0.787) changes nothing on accuracy, drops none recall to 15/16, and is
+   not adopted. The same locked temperature degrades on the gate's reversed
+   render (NLL 0.381 versus raw 0.332), so the fitted value is render-specific
+   evidence, not a portable constant, and no calibration constant becomes a
+   runtime default. The `calibrate-choice` fit/lock/gate protocol is
+   implemented for future partitions.
+
+The catalogue arm is the surviving candidate. Per the standing rule, only it
+warrants complete request-path timing against the current scheduler, on
+natural-task panels, before any replacement is considered.
 
 ## Audit of Prior Art Claims: Reddit Discussion & SalesRLAgent
 
@@ -363,6 +423,15 @@ Searches for RLCD encounter a prior unrelated academic acronym:
 > **TypeSafe's RLCD ("Reinforcement Learning for Calibrated Decisions") is unrelated to the earlier RLCD acronym "Reinforcement Learning from Contrastive Distillation" (Yang et al., 2023).**
 
 Yang et al.'s method creates preference pairs from contrasting prompts for LLM alignment. TypeSafe's RLCD refers to calibration-oriented decision optimization.
+
+A separate, related public method is **RLCR** (Reinforcement Learning with
+Calibration Rewards) [28]. It adds a Brier-score term to a binary answer-
+correctness reward and trains a reasoning model to emit a confidence estimate.
+The paper reports improved calibration while maintaining task accuracy on its
+in-domain and out-of-domain QA evaluations. This is a useful calibration-aware
+RL baseline to consider, but there is no evidence that TypeSafe's RLCD uses
+RLCR. RLCR's generated answer-plus-confidence setup does not establish Jev's
+typed multi-question interface or parallel sampler.
 
 ### 6. SALSA: Single-Pass Structured Classification (arXiv 2510.22691)
 
@@ -645,13 +714,13 @@ flowchart TD
 
 ### 4. The Central Research Question
 
-> **The key research question is not whether an open model can emit probabilities quickly, but whether TypeSafe's undisclosed RLCD produces materially better out-of-domain calibration, selective-risk behavior, or downstream decision utility than NLL/Brier training plus ordinary post-hoc calibration.**
+> **The key research question is not whether an open model can emit probabilities quickly, but whether TypeSafe's undisclosed RLCD produces materially better out-of-domain calibration, selective-risk behavior, or downstream decision utility than NLL/Brier training, RLCR-style calibration-aware RL, and ordinary post-hoc calibration.**
 
 ---
 
 ## Primary and High-Value Sources Register
 
-### Canonical Citations Register (1–26)
+### Canonical Citations Register (1–28)
 
 | # | Reference / Canonical Resource | Focus / Description |
 |:---:|---|---|
@@ -681,6 +750,8 @@ flowchart TD
 | **[24]** | [Yang et al. — "RLCD: Reinforcement Learning from Contrastive Distillation" (arXiv:2307.12950)](https://arxiv.org/abs/2307.12950) | Establishes the distinct earlier RLCD acronym for contrastive preference distillation (unrelated to TypeSafe RLCD). |
 | **[25]** | [TypeSafe Documentation — `Score` Primitive](https://docs.typesafe.ai/primitives/score) | Canonical rules for ordered rubric levels, score calculation from categorical distributions, and confidence statistics. |
 | **[26]** | [TypeSafe AI Homepage](https://typesafe.ai/) | Current product claims: $0.042/MTok, 70–500 ms latency, and zero output token pricing. |
+| **[27]** | [Sebastian Raschka — "Language Models for Text Classification: From Bag-of-Words to Jev"](https://magazine.sebastianraschka.com/p/classifier-history-and-jev) | External IMDb API evaluation: reported Choice/Noul accuracy, runtime, and cost, with nondeterminism and possible training-set exposure caveats. |
+| **[28]** | [Damani et al. — "Beyond Binary Rewards: Training LMs to Reason About Their Uncertainty" (arXiv:2507.16806)](https://arxiv.org/abs/2507.16806) | Primary source for RLCR, a Brier-augmented correctness reward for reasoning models that report confidence; a related calibration-aware RL baseline, not evidence about TypeSafe's RLCD. |
 
 ### Additional Foundational & Ecosystem References
 

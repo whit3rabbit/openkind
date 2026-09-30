@@ -47,6 +47,31 @@ fn main() -> Result<()> {
             println!("{}", serde_json::to_string_pretty(&summary)?);
             Ok(())
         }
+        Commands::CalibrateChoice {
+            calibration,
+            gate,
+            bundle_root,
+            checkpoint_root,
+            tokenizer,
+            backend,
+            output_dir,
+            host,
+            commit,
+        } => {
+            let summary = quality::run_calibration(&quality::CalibrateArgs {
+                calibration,
+                gate,
+                bundle_root,
+                checkpoint_root,
+                tokenizer,
+                backend: backend.into(),
+                output_dir,
+                host,
+                commit,
+            })?;
+            println!("{}", serde_json::to_string_pretty(&summary)?);
+            Ok(())
+        }
         Commands::GenWorkload {
             states,
             criteria,

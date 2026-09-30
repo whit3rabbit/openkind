@@ -145,6 +145,28 @@ struct RawTensor {
     data_offsets: [u64; 2],
 }
 
+fn decode_tensor_header(
+    header: &[u8],
+) -> Result<std::collections::BTreeMap<String, RawTensor>, MlxError> {
+    // Safetensors metadata is a free-form string map, so remove it before
+    // decoding the stricter tensor entries.
+    let mut raw_header: std::collections::BTreeMap<String, serde_json::Value> =
+        serde_json::from_slice(header).map_err(|error| {
+            MlxError::InvalidState(format!("decode safetensors header: {error}"))
+        })?;
+    raw_header.remove("__metadata__");
+    raw_header
+        .into_iter()
+        .map(|(name, value)| {
+            serde_json::from_value(value)
+                .map(|tensor| (name.clone(), tensor))
+                .map_err(|error| {
+                    MlxError::InvalidState(format!("decode safetensors tensor `{name}`: {error}"))
+                })
+        })
+        .collect()
+}
+
 /// Sequential reader over the FP32 shard.
 struct Shard {
     file: std::fs::File,
@@ -167,11 +189,7 @@ impl Shard {
         let mut header = vec![0_u8; header_len as usize];
         file.read_exact(&mut header)
             .map_err(|error| MlxError::InvalidState(format!("read safetensors header: {error}")))?;
-        let mut tensors: std::collections::BTreeMap<String, RawTensor> =
-            serde_json::from_slice(&header).map_err(|error| {
-                MlxError::InvalidState(format!("decode safetensors header: {error}"))
-            })?;
-        tensors.remove("__metadata__");
+        let tensors = decode_tensor_header(&header)?;
         Ok(Self {
             file,
             data_base: 8 + header_len,
@@ -577,5 +595,89 @@ impl TextEmbedder for MlxBertEmbedder {
 
     fn backend_id(&self) -> &str {
         "encoder-embedding/mlx-fp32"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::proxy_cache::bert_encoder::BertEmbedder;
+
+    const MAX_ABSOLUTE_ERROR: f32 = 1e-5;
+    const MIN_COSINE_SIMILARITY: f32 = 0.99999;
+
+    #[test]
+    fn safetensors_header_skips_free_form_metadata() {
+        let header = br#"{"__metadata__":{"format":"pt"},"embeddings.word_embeddings.weight":{"dtype":"F32","shape":[2,3],"data_offsets":[0,24]}}"#;
+        let tensors = decode_tensor_header(header).expect("decode tensor header");
+        assert_eq!(tensors.len(), 1);
+        let tensor = tensors
+            .get("embeddings.word_embeddings.weight")
+            .expect("word embedding tensor");
+        assert_eq!(tensor.dtype, "F32");
+        assert_eq!(tensor.shape, [2, 3]);
+        assert_eq!(tensor.data_offsets, [0, 24]);
+    }
+
+    fn model_root() -> Option<std::path::PathBuf> {
+        std::env::var_os("OPENKIND_ENCODER_EMBEDDING_MODEL_ROOT")
+            .map(std::path::PathBuf::from)
+            .filter(|root| root.is_dir())
+    }
+
+    /// Compare the pinned MLX implementation against the Candle CPU oracle.
+    /// The checkpoint is opt-in so default tests never fetch or require model assets.
+    #[test]
+    fn mlx_embeddings_match_candle_for_pinned_checkpoint_when_env_gated() {
+        let Some(root) = model_root() else {
+            eprintln!("skipping: OPENKIND_ENCODER_EMBEDDING_MODEL_ROOT not set");
+            return;
+        };
+
+        let artifacts = BertEmbedderArtifacts::from_model_root(&root, "BAAI/bge-small-en-v1.5");
+        let candle = BertEmbedder::load(&artifacts).expect("load BGE checkpoint on Candle");
+        let mlx = MlxBertEmbedder::load(&artifacts).expect("load BGE checkpoint on MLX");
+        let texts = vec![
+            "{\"customer\":\"Acme\",\"issue\":\"Invoice total differs from the purchase order\",\"ticket_id\":\"T-1042\"}".to_owned(),
+            "{\"customer\":\"Northwind\",\"issue\":\"The account owner cannot sign in after enabling the new identity provider. The error appears after the redirect, and the previous password reset did not change the result.\",\"ticket_id\":\"T-2088\"}".to_owned(),
+            "{\"customer\":\"Contoso\",\"issue\":\"A billing administrator needs a copy of the tax invoice for the April renewal. They have confirmed the workspace, renewal date, and invoice number, but the billing page shows only the payment receipt.\",\"ticket_id\":\"T-3317\"}".to_owned(),
+        ];
+
+        let candle_rows = candle.encode(&texts).expect("encode with Candle");
+        let mlx_rows = mlx.encode(&texts).expect("encode with MLX");
+        assert_eq!(candle_rows.len(), texts.len());
+        assert_eq!(mlx_rows.len(), texts.len());
+
+        let mut max_absolute_error = 0.0_f32;
+        let mut min_cosine_similarity = 1.0_f32;
+        for (candle_row, mlx_row) in candle_rows.iter().zip(&mlx_rows) {
+            assert_eq!(candle_row.len(), candle.dim());
+            assert_eq!(mlx_row.len(), mlx.dim());
+            assert_eq!(candle_row.len(), mlx_row.len());
+            let dot = candle_row
+                .iter()
+                .zip(mlx_row)
+                .map(|(left, right)| left * right)
+                .sum::<f32>();
+            let error = candle_row
+                .iter()
+                .zip(mlx_row)
+                .map(|(left, right)| (left - right).abs())
+                .fold(0.0_f32, f32::max);
+            max_absolute_error = max_absolute_error.max(error);
+            min_cosine_similarity = min_cosine_similarity.min(dot);
+        }
+
+        eprintln!(
+            "BGE Candle/MLX parity: max |Δ|={max_absolute_error:.3e}, min cosine={min_cosine_similarity:.9}"
+        );
+        assert!(
+            max_absolute_error <= MAX_ABSOLUTE_ERROR,
+            "max |Δ| {max_absolute_error:.6e} exceeds {MAX_ABSOLUTE_ERROR:.6e}"
+        );
+        assert!(
+            min_cosine_similarity >= MIN_COSINE_SIMILARITY,
+            "minimum cosine {min_cosine_similarity:.9} is below {MIN_COSINE_SIMILARITY:.9}"
+        );
     }
 }

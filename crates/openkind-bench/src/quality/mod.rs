@@ -1,10 +1,13 @@
 //! Paired labeled Choice comparison, separate from synthetic timing workloads.
 
+mod calibrate;
 mod metrics;
 mod report;
 
 #[cfg(test)]
 mod tests;
+
+pub(crate) use calibrate::{run as run_calibration, CalibrateArgs};
 
 use std::collections::BTreeMap;
 use std::fs::{self, File};
@@ -20,6 +23,49 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::workload::{parse_workload, WorkloadRow};
+
+/// Every scoring method recorded by one paired comparison, in output order.
+pub(crate) const COMPARISON_METHODS: [&str; 9] = [
+    "independent_fitted",
+    "catalogue_fitted",
+    "joint_forward",
+    "joint_reverse",
+    "joint_text_rotate",
+    "joint_code_rotate",
+    "joint_average",
+    "joint_pair_text",
+    "joint_ensemble_four",
+];
+
+/// How each comparison method is produced from the shared prepared inputs.
+pub(crate) const METHOD_DEFINITIONS: [(&str, &str, &[&str]); 9] = [
+    ("independent_fitted", "single", &[]),
+    ("catalogue_fitted", "single", &[]),
+    ("joint_forward", "single", &[]),
+    ("joint_reverse", "single", &[]),
+    ("joint_text_rotate", "single", &[]),
+    ("joint_code_rotate", "single", &[]),
+    (
+        "joint_average",
+        "ensemble",
+        &["joint_forward", "joint_reverse"],
+    ),
+    (
+        "joint_pair_text",
+        "ensemble",
+        &["joint_forward", "joint_text_rotate"],
+    ),
+    (
+        "joint_ensemble_four",
+        "ensemble",
+        &[
+            "joint_forward",
+            "joint_reverse",
+            "joint_text_rotate",
+            "joint_code_rotate",
+        ],
+    ),
+];
 
 pub struct CompareArgs {
     pub input: PathBuf,
@@ -146,26 +192,58 @@ pub fn run(args: &CompareArgs) -> Result<serde_json::Value> {
         .map(|row| Ok(probe.prepare(&row.row.state, &row.row.question()?)?))
         .collect::<Result<Vec<_>>>()?;
     probe.independent(&prepared[0])?;
+    probe.catalogue(&prepared[0])?;
     probe.joint(&prepared[0], false)?;
     probe.joint(&prepared[0], true)?;
+    probe.joint_text_rotate(&prepared[0])?;
+    probe.joint_code_rotate(&prepared[0])?;
     fs::create_dir_all(&args.output_dir)?;
     let mut writer = BufWriter::new(File::create(args.output_dir.join("predictions.jsonl"))?);
     let mut records = Vec::new();
     for (index, (row, input)) in rows.iter().zip(&prepared).enumerate() {
-        let (independent, forward, reverse) = if index % 2 == 0 {
-            (
-                timed(|| probe.independent(input))?,
-                timed(|| probe.joint(input, false))?,
-                timed(|| probe.joint(input, true))?,
-            )
-        } else {
-            let reverse = timed(|| probe.joint(input, true))?;
-            let forward = timed(|| probe.joint(input, false))?;
-            (timed(|| probe.independent(input))?, forward, reverse)
+        // Rotate execution order across rows after the shared warmup so no
+        // method systematically runs first or last.
+        let mut computed: BTreeMap<&'static str, TimedScore> = BTreeMap::new();
+        let names: [&'static str; 6] = [
+            "independent_fitted",
+            "catalogue_fitted",
+            "joint_forward",
+            "joint_reverse",
+            "joint_text_rotate",
+            "joint_code_rotate",
+        ];
+        for step in 0..6 {
+            let slot = (step + index) % 6;
+            let score = match slot {
+                0 => timed(|| probe.independent(input))?,
+                1 => timed(|| probe.catalogue(input))?,
+                2 => timed(|| probe.joint(input, false))?,
+                3 => timed(|| probe.joint(input, true))?,
+                4 => timed(|| probe.joint_text_rotate(input))?,
+                _ => timed(|| probe.joint_code_rotate(input))?,
+            };
+            computed.insert(names[slot], score);
+        }
+        let mut take = |name: &str| computed.remove(name).expect("computed method recorded");
+        let independent = take("independent_fitted");
+        let catalogue = take("catalogue_fitted");
+        let forward = take("joint_forward");
+        let reverse = take("joint_reverse");
+        let text_rotate = take("joint_text_rotate");
+        let code_rotate = take("joint_code_rotate");
+        let ensemble = |members: [&TimedScore; 2]| -> Result<TimedScore> {
+            Ok(TimedScore {
+                score: average_orders(&members[0].score, &members[1].score)?,
+                elapsed_ms: members[0].elapsed_ms + members[1].elapsed_ms,
+            })
         };
-        let average = TimedScore {
-            score: average_orders(&forward.score, &reverse.score)?,
-            elapsed_ms: forward.elapsed_ms + reverse.elapsed_ms,
+        let joint_average = ensemble([&forward, &reverse])?;
+        let joint_pair_text = ensemble([&forward, &text_rotate])?;
+        let upper = ensemble([&forward, &reverse])?;
+        let lower = ensemble([&text_rotate, &code_rotate])?;
+        let joint_ensemble_four = TimedScore {
+            score: average_orders(&upper.score, &lower.score)?,
+            elapsed_ms: upper.elapsed_ms + lower.elapsed_ms,
         };
         let record = Record {
             id: row.row.id.clone(),
@@ -174,9 +252,14 @@ pub fn run(args: &CompareArgs) -> Result<serde_json::Value> {
             source_group: row.source_group.clone(),
             methods: [
                 ("independent_fitted".into(), independent),
+                ("catalogue_fitted".into(), catalogue),
                 ("joint_forward".into(), forward),
                 ("joint_reverse".into(), reverse),
-                ("joint_average".into(), average),
+                ("joint_text_rotate".into(), text_rotate),
+                ("joint_code_rotate".into(), code_rotate),
+                ("joint_average".into(), joint_average),
+                ("joint_pair_text".into(), joint_pair_text),
+                ("joint_ensemble_four".into(), joint_ensemble_four),
             ]
             .into_iter()
             .collect(),

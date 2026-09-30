@@ -41,6 +41,30 @@ pub enum Commands {
         #[arg(long)]
         commit: String,
     },
+    /// Fit post-hoc calibration on a calibration partition and evaluate locked
+    /// parameters on a disjoint gate partition over joint letter logits.
+    CalibrateChoice {
+        /// JSONL calibration partition with gold, task, and source_group fields.
+        calibration: PathBuf,
+        /// JSONL gate partition whose source groups and row ids are disjoint.
+        gate: PathBuf,
+        #[arg(long)]
+        bundle_root: PathBuf,
+        #[arg(long)]
+        checkpoint_root: PathBuf,
+        #[arg(long)]
+        tokenizer: PathBuf,
+        #[arg(long, value_enum, default_value_t = ProbeBackendArg::Cpu)]
+        backend: ProbeBackendArg,
+        #[arg(long, default_value = "bench-output/joint-calibration")]
+        output_dir: PathBuf,
+        /// Hardware attribution, required for quality and latency evidence.
+        #[arg(long)]
+        host: String,
+        /// Commit hash under measurement (record dirty source separately).
+        #[arg(long)]
+        commit: String,
+    },
     /// Generate a seeded deterministic state × criterion workload JSONL.
     GenWorkload {
         /// Number of distinct states.

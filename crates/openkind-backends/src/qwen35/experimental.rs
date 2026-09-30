@@ -52,6 +52,13 @@ pub struct PreparedChoice {
     labels: Vec<String>,
 }
 
+impl PreparedChoice {
+    /// Canonical real-option labels in sorted order, matching logit order.
+    pub fn labels(&self) -> &[String] {
+        &self.labels
+    }
+}
+
 /// Complete option probabilities and actual forward-work accounting.
 #[derive(Debug, Clone, Serialize)]
 pub struct ScoringResult {
@@ -85,6 +92,15 @@ impl ProbeBackbone {
             Self::Mlx(backbone) => Ok(backbone.embedding_rows(ids)?),
         }
     }
+}
+
+/// Raw letter logits of one recorded joint render, ready for post-hoc
+/// calibration: real options in sorted label order, none logit last.
+pub struct JointLogits {
+    /// Raw logits, real options in sorted label order, none last.
+    pub values: Vec<f64>,
+    /// Prompt positions processed by the single full forward.
+    pub input_tokens: usize,
 }
 
 /// One locally verified checkpoint shared by every experimental scoring path.
@@ -212,13 +228,17 @@ impl Qwen35ScoringProbe {
         &self,
         input: &PreparedChoice,
         reversed: bool,
-    ) -> Result<Vec<f64>, Qwen35Error> {
+    ) -> Result<JointLogits, Qwen35Error> {
         let render = if reversed {
             &input.reverse
         } else {
             &input.forward
         };
-        self.render_logits(render)
+        let values = self.render_logits(render)?;
+        Ok(JointLogits {
+            values,
+            input_tokens: render.ids.len(),
+        })
     }
 
     /// Softmax over raw joint logits with a positive temperature and an

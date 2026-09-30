@@ -58,7 +58,8 @@ Methodology, timing scope, and recorded results are owned by
 ## Key Files & Types
 
 - [`src/main.rs`](./src/main.rs): Entrypoint; `gen-workload` prints one JSON result line,
-  `score` prints the summary JSON to stdout (progress goes to stderr).
+  `score` and the paired `compare-choice` / `calibrate-choice` diagnostics print
+  the summary JSON to stdout (progress goes to stderr).
 - [`src/args.rs`](./src/args.rs): Clap parser; `EngineArg` mirrors
   `EngineKind` one-for-one: `mock`, `qwen35`, the surveyed-family engines
   (`decoder-letter`, `encoder-nli`, `encoder-instruct-label`, `decoder-llm`,
@@ -69,6 +70,23 @@ Methodology, timing scope, and recorded results are owned by
   `encoder-instruct-label-mlx-fp32`, `decoder-logit-qwen35-mlx-fp32`).
   `--model-root` is required for surveyed families, `--adapter` for the
   winnow router; plus `--no-warmup`, `--history-aba`, and `parse_strategies`.
+- [`src/quality/`](./src/quality/): Offline paired Choice diagnostics over the
+  pinned Qwen3.5 probe, separate from timing workloads. [`mod.rs`](./src/quality/mod.rs)
+  runs `compare-choice` (nine methods: fitted independent and catalogue
+  renderers, four joint renders including the position/code separation arms,
+  and three fixed ensembles); [`metrics.rs`](./src/quality/metrics.rs) owns
+  proper scores, none recall/false-none, ECE and fixed risk/coverage points;
+  [`report.rs`](./src/quality/report.rs) owns source-group bootstrap deltas and
+  per-factor order sensitivity; [`calibrate.rs`](./src/quality/calibrate.rs)
+  runs `calibrate-choice` (deterministic grid + golden-section NLL fit of a
+  temperature and none-logit offset on a calibration partition, locked before
+  a disjoint gate is scored; refuses partitions that share source groups or
+  row ids). Fixture contracts live in
+  [`fixtures/`](./fixtures/) (`joint_choice_diagnostic.jsonl`,
+  `joint_reference_card_diagnostic.jsonl`, and the disjoint
+  `joint_calibration_diagnostic.jsonl` / `joint_gate_diagnostic.jsonl`
+  pair). See [`docs/BENCHMARKS.md`](../../docs/BENCHMARKS.md) for the commands
+  and [`docs/benchmarks/`](../../docs/benchmarks/) for recorded runs.
 - [`src/workload.rs`](./src/workload.rs): `WorkloadRow` (flattened `primitive` tag),
   `load_workload`/`parse_workload` (SHA-256 recorded), `state_groups`,
   `build_request`. Choice rows always carry a non-empty `__none__` criterion — one is

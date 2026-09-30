@@ -11,6 +11,9 @@ repetitions, percentiles, execution-strategy sweep, parity assertions), the
 harness-run records under [`benchmarks/`](./benchmarks/). Related material is
 owned elsewhere and linked, not duplicated:
 
+- [`MODELS.md`](./MODELS.md) owns the per-profile backend and performance
+  index. This page owns measurement methodology and individual run records;
+  it is not a consolidated model ranking table.
 - [`ARCHITECTURE.md`](./ARCHITECTURE.md) — measurement-plan metric definitions
   (complete-request p50/p95, `T(Q)/T(1)`, state-prefill fraction, memory) and
   the landed execution-strategy contract.
@@ -152,10 +155,22 @@ results are quoted anywhere.
 `compare-choice` compares the current fitted state-first scorer against one
 joint prompt that contains all real options and an explicit none option. It
 reads only the tied output rows for single-token letters A..P and Z, with raw
-temperature 1.0 and no generated text. It also evaluates reversed option order
-and averages the remapped probability distributions. The same verified base
-checkpoint and FP32 arithmetic serve every method. This is an offline probe;
-it does not register a model or change daemon defaults.
+temperature 1.0 and no generated text. The same verified base checkpoint and
+FP32 arithmetic serve every method. This is an offline probe; it does not
+register a model or change daemon defaults.
+
+The comparison records nine methods. `independent_fitted` replays the frozen
+renderer and head. `catalogue_fitted` keeps the fitted head and frozen
+temperature but inserts a canonical all-option catalogue into every candidate
+prompt's question branch under the separate `catalogue_state_first/v1`
+renderer identity. `joint_forward`, `joint_reverse`, `joint_text_rotate`, and
+`joint_code_rotate` are single joint renders: forward, the recorded reversal
+(order and codes changed together, none last), a rotation of the full
+displayed list with codes kept bound to their options, and a letter-code
+permutation at fixed positions that moves the none option off `Z`. The
+ensembles `joint_average` (forward plus reversal), `joint_pair_text` (forward
+plus text rotation), and `joint_ensemble_four` (all four joint renders)
+average the remapped distributions and cost the sum of their member passes.
 
 ```bash
 SDKROOT=$(xcrun --show-sdk-path) cargo run --release -p openkind-bench \
@@ -173,23 +188,60 @@ the usual Choice row schema plus `gold`, `task`, and `source_group`. They must
 offer at least two real options and supply a non-empty `__none__` description.
 An optional `split` identifying a final partition is rejected. Group related
 source documents, generated cases, and paraphrases under one `source_group`.
-Every prompt must fit 1,792 tokens in both renderers; no truncation is allowed.
+Every prompt must fit 1,792 tokens in every renderer; no truncation is allowed.
 
 The report includes full accuracy, answerable ranking accuracy, macro recall
 over task/label pairs, NLL (probability floor `1e-15`), multiclass Brier,
 fixed 10-bin ECE, none recall, false-none rate, and fixed risk/coverage points.
 Paired accuracy/NLL/Brier deltas use 2,000 source-group bootstrap samples with
-seed 29160717. Per-row predictions, the workload digest, executable digest,
-backend, arithmetic identity, checkpoint revision, host, and commit accompany
-the summary. Methods alternate execution order across rows after one warmup.
+seed 29160717. Order sensitivity is reported for the coupled forward/reversal
+change and separately for the position factor (fixed codes) and the code
+factor (fixed positions). Per-row predictions, the workload digest, executable
+digest, backend, arithmetic identity, checkpoint revision, host, and commit
+accompany the summary. Execution order rotates across rows after one warmup.
 
 These times cover full-forward scoring and readout, excluding prompt preparation,
-model load, admission, wire conversion, and file writes. The averaged method
-costs both joint passes. Its independent baseline uses `repeated_full`, so these
-times do not compare against the production scheduler's prefix reuse. The
-experiment changes prompt and readout together; an improvement cannot be
-attributed to joint context alone. The authored panel tests mechanisms and
-does not establish broad task quality or production promotion.
+model load, admission, wire conversion, and file writes. Ensemble methods cost
+the sum of their member passes. The independent baseline uses `repeated_full`,
+so these times do not compare against the production scheduler's prefix reuse.
+The joint arms change prompt and readout together; an improvement cannot be
+attributed to joint context alone. The catalogue arm isolates that context but
+shifts the head's input distribution. The authored panels test mechanisms and
+do not establish broad task quality or production promotion.
+
+### Experimental joint-distribution calibration
+
+`calibrate-choice` fits post-hoc calibration for the forward joint letter
+distribution on one labeled partition and evaluates the locked parameters on a
+disjoint gate partition. Three arms are fitted by deterministic NLL
+minimization (grid search plus golden-section refinement, no randomness): a
+positive temperature, a semantic-none logit offset, and a coordinate-descent
+combination of both. A temperature alone preserves the winning class; the none
+offset can change rejection but cannot supply missing evidence. The raw
+distribution is scored alongside as the unlocked control. The tool refuses
+partitions that share source groups or row ids, and records the fitted
+parameters, in-sample metrics, gate metrics (NLL, Brier, ECE, none recall,
+false-none rate, fixed risk/coverage points), paired deltas, and the same
+locked parameters applied to the gate's reversed render as an order-transfer
+check. This is an offline diagnostic; it does not register a model or change
+daemon defaults.
+
+```bash
+SDKROOT=$(xcrun --show-sdk-path) cargo run --release -p openkind-bench \
+  --features mlx -- calibrate-choice \
+  crates/openkind-bench/fixtures/joint_calibration_diagnostic.jsonl \
+  crates/openkind-bench/fixtures/joint_gate_diagnostic.jsonl \
+  --bundle-root crates/openkind-backends/tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8 \
+  --checkpoint-root <pinned-base-checkpoint-dir> \
+  --tokenizer research/14_phase3b_backbone_parity_results/backbone_runtime/tokenizer/tokenizer.json \
+  --backend mlx-fp32 --host "<host label>" --commit <hash> \
+  --output-dir bench-output/joint-calibration
+```
+
+Partition contracts match `compare-choice`. Fitting uses the forward render of
+the calibration partition only; all parameters are fixed before any gate row
+is scored. Improvement claims must come from the gate, not the calibration
+partition, and transfer across order is evidence but not qualification.
 
 ### Non-final Choice qualification
 
@@ -388,6 +440,36 @@ finding serialization, validation, middleware, and SDK regressions; they are
 not native-model throughput, queue-inclusive service load, soak, Metal, or
 production memory evidence. `openkind-bench` remains the authority for the
 full engine request path and model-backed peak RSS.
+
+## Proxy-cache BGE encoder component benchmark
+
+`encoder-embedding` is a sentence encoder used by the proxy-cache, not a
+`DecisionEngine`; it cannot be measured by the decision workload harness. The
+opt-in `encoder_embedding_bench` example measures one state at a time through
+`TextEmbedder::encode`, including tokenization and forward execution while
+excluding model load. It cycles three checked-in support-ticket state strings,
+records their SHA-256, warms the backend, and reports p50/p95 latency and
+embeddings per second. Run CPU and MLX in separate fresh processes:
+
+```bash
+cargo run --release -p openkind-backends --example encoder_embedding_bench -- \
+  --model-root "$OPENKIND_ENCODER_EMBEDDING_MODEL_ROOT" --backend cpu \
+  --host "<hardware label>" --commit <hash> --working-tree-dirty true
+
+SDKROOT=$(xcrun --show-sdk-path) cargo run --release -p openkind-backends \
+  --features mlx --example encoder_embedding_bench -- \
+  --model-root "$OPENKIND_ENCODER_EMBEDDING_MODEL_ROOT" --backend mlx \
+  --host "<hardware label>" --commit <hash> --working-tree-dirty true
+```
+
+The example requires host, source commit, and working-tree state attribution.
+It uses the registry-pinned BGE revision and never downloads weights. For
+peak RSS, build the example first and run its executable under
+`/usr/bin/time -l` on macOS, keeping model loading in the measured process.
+This component result does not measure proxy routing, student-cache quality,
+or end-to-end decision throughput. The paired run and CPU/MLX parity evidence
+are recorded in
+[`benchmarks/2026-09-30-encoder-embedding/`](benchmarks/2026-09-30-encoder-embedding/README.md).
 
 ## Native service load and soak
 
