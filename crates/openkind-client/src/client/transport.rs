@@ -41,6 +41,7 @@ impl Client {
         opts: &RequestOptions,
     ) -> Result<T, Error> {
         let policy = opts.retry.as_ref().unwrap_or(&self.inner.retry);
+        policy.validate()?;
         let endpoint: &'static str = match path {
             SYSTEM_ONE_PATH => "POST /v1/systemone",
             CLOUDFLARE_RUN_PATH => "POST /ai/run",
@@ -55,6 +56,9 @@ impl Client {
             body,
             timeout: opts.timeout.unwrap_or(self.inner.timeout),
         };
+        if desc.timeout.is_zero() {
+            return Err(Error::Config("timeout must be greater than zero".into()));
+        }
         let start = Instant::now();
 
         let mut retries: u32 = 0;
@@ -69,7 +73,7 @@ impl Client {
                     if let Some(budget) = policy.total_timeout {
                         // Mirrors tenacity's stop_before_delay: don't start a
                         // retry whose wait would exceed the remaining budget.
-                        if start.elapsed() + delay >= budget {
+                        if delay >= budget.saturating_sub(start.elapsed()) {
                             return Err(error);
                         }
                     }
@@ -99,6 +103,9 @@ impl Client {
         // cannot be overridden per call; the retry-count header is client-
         // managed outright, and content-type belongs to the JSON body.
         let mut headers = self.inner.base_headers.clone();
+        if desc.body.is_some() {
+            headers.remove(CONTENT_TYPE);
+        }
         if let Some(extra) = &opts.extra_headers {
             for (name, value) in extra {
                 if is_user_overridable(name.as_str(), desc.body.is_some()) {
@@ -270,7 +277,10 @@ pub(crate) fn is_user_overridable(name: &str, has_body: bool) -> bool {
         | "user-agent"
         | "x-typesafe-sdk"
         | "x-typesafe-runtime"
-        | "x-typesafe-retry-count" => false,
+        | "x-typesafe-retry-count"
+        | "host"
+        | "content-length"
+        | "transfer-encoding" => false,
         "content-type" => !has_body,
         _ => true,
     }

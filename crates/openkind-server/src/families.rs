@@ -9,7 +9,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::args::LayaBackendArg;
+use crate::args::{DecoderLogitQwen35BackendArg, EncoderInstructLabelBackendArg, LayaBackendArg};
 use anyhow::{bail, Context, Result};
 use clap::Parser;
 use openkind_backends::families::decoder_logit_letter::{
@@ -19,8 +19,18 @@ use openkind_backends::families::decoder_logit_llm::{DecoderLlmEngine, DecoderLl
 use openkind_backends::families::decoder_logit_qwen35::{
     DecoderLogitQwen35Engine, DecoderLogitQwen35EngineConfig,
 };
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+use openkind_backends::families::decoder_logit_qwen35::{
+    DecoderLogitQwen35MlxEngine, DecoderLogitQwen35MlxEngineConfig,
+};
 use openkind_backends::families::encoder_instruct_label::{
     EncoderInstructLabelEngine, EncoderInstructLabelEngineConfig,
+};
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+use openkind_backends::families::encoder_instruct_label::{
+    EncoderInstructLabelMlxEngine, EncoderInstructLabelMlxEngineConfig,
 };
 use openkind_backends::families::encoder_nli::{EncoderNliEngine, EncoderNliEngineConfig};
 use openkind_backends::families::kev::{KevEngine, KevEngineConfig};
@@ -286,6 +296,26 @@ pub(crate) struct FamilyArgs {
     )]
     pub(crate) laya_backend: LayaBackendArg,
 
+    /// Encoder-instruct-label backend. `mlx-fp32` is available on macOS
+    /// arm64 with the daemon's `mlx` feature enabled.
+    #[arg(
+        long,
+        env = "OPENKIND_ENCODER_INSTRUCT_LABEL_BACKEND",
+        value_enum,
+        default_value_t = EncoderInstructLabelBackendArg::NativeCpu
+    )]
+    pub(crate) encoder_instruct_label_backend: EncoderInstructLabelBackendArg,
+
+    /// decoder-logit-qwen35 backend. `mlx-fp32` is available on macOS arm64
+    /// with the daemon's `mlx` feature enabled.
+    #[arg(
+        long,
+        env = "OPENKIND_DECODER_LOGIT_QWEN35_BACKEND",
+        value_enum,
+        default_value_t = DecoderLogitQwen35BackendArg::NativeCpu
+    )]
+    pub(crate) decoder_logit_qwen35_backend: DecoderLogitQwen35BackendArg,
+
     /// Maximum concurrent model evaluations per surveyed-family engine.
     #[arg(long, env = "OPENKIND_FAMILY_CONCURRENCY", default_value_t = 1)]
     pub(crate) family_concurrency: usize,
@@ -374,13 +404,27 @@ impl FamilyArgs {
                 .context(
                     "encoder-instruct-label alias requested but                      --encoder-instruct-label-model-root is missing",
                 )?;
-            let engine: Arc<dyn DecisionEngine> = Arc::new(
-                EncoderInstructLabelEngine::load(EncoderInstructLabelEngineConfig {
-                    model_root,
-                    limits: admission.limits(),
-                })
-                .map_err(|error| anyhow::anyhow!("load encoder-instruct-label engine: {error}"))?,
-            );
+            let engine: Arc<dyn DecisionEngine> = match self.encoder_instruct_label_backend {
+                EncoderInstructLabelBackendArg::NativeCpu => Arc::new(
+                    EncoderInstructLabelEngine::load(EncoderInstructLabelEngineConfig {
+                        model_root,
+                        limits: admission.limits(),
+                    })
+                    .map_err(|error| {
+                        anyhow::anyhow!("load encoder-instruct-label engine: {error}")
+                    })?,
+                ),
+                #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                EncoderInstructLabelBackendArg::MlxFp32 => Arc::new(
+                    EncoderInstructLabelMlxEngine::load(EncoderInstructLabelMlxEngineConfig {
+                        model_root,
+                        limits: admission.limits(),
+                    })
+                    .map_err(|error| {
+                        anyhow::anyhow!("load encoder-instruct-label mlx engine: {error}")
+                    })?,
+                ),
+            };
             for alias in encoder_instruct_label {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
@@ -490,13 +534,27 @@ impl FamilyArgs {
                 .context(
                     "decoder-logit-qwen35 alias requested but                      --decoder-logit-qwen35-model-root is missing",
                 )?;
-            let engine: Arc<dyn DecisionEngine> = Arc::new(
-                DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
-                    model_root,
-                    limits: admission.limits(),
-                })
-                .map_err(|error| anyhow::anyhow!("load decoder-logit-qwen35 engine: {error}"))?,
-            );
+            let engine: Arc<dyn DecisionEngine> = match self.decoder_logit_qwen35_backend {
+                DecoderLogitQwen35BackendArg::NativeCpu => Arc::new(
+                    DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
+                        model_root,
+                        limits: admission.limits(),
+                    })
+                    .map_err(|error| {
+                        anyhow::anyhow!("load decoder-logit-qwen35 engine: {error}")
+                    })?,
+                ),
+                #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                DecoderLogitQwen35BackendArg::MlxFp32 => Arc::new(
+                    DecoderLogitQwen35MlxEngine::load(DecoderLogitQwen35MlxEngineConfig {
+                        model_root,
+                        limits: admission.limits(),
+                    })
+                    .map_err(|error| {
+                        anyhow::anyhow!("load decoder-logit-qwen35 mlx engine: {error}")
+                    })?,
+                ),
+            };
             for alias in decoder_logit_qwen35 {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
@@ -582,18 +640,30 @@ impl FamilyArgs {
                 continue;
             }
             let mut labels: Vec<String> = Vec::new();
+            let mut bindings = std::collections::BTreeMap::new();
             for token in siblings.split(',') {
                 let (label, sibling) = token.split_once('=').ok_or_else(|| {
                     anyhow::anyhow!("expected `A=alias` in --winnow-siblings, found `{token}`")
                 })?;
-                match label.trim() {
+                let label = label.trim();
+                match label {
                     "A" | "B" => {}
                     other => anyhow::bail!("unknown winnow label `{other}`"),
                 }
-                labels.push(sibling.trim().to_owned());
+                let sibling = sibling.trim();
+                if sibling.is_empty() {
+                    anyhow::bail!("winnow label `{label}` requires a non-empty sibling alias");
+                }
+                if bindings.insert(label, sibling).is_some() {
+                    anyhow::bail!("duplicate winnow label `{label}`");
+                }
             }
-            if labels.len() != 2 {
+            if bindings.len() != 2 {
                 anyhow::bail!("--winnow-siblings needs exactly two labels A and B");
+            }
+            // Learned logits are ordered A, B regardless of flag token order.
+            for label in ["A", "B"] {
+                labels.push(bindings[label].to_owned());
             }
             requested.push((alias.clone(), labels));
         }
@@ -637,8 +707,8 @@ impl FamilyArgs {
         Ok(requested)
     }
 
-    /// Reject duplicate family aliases that would shadow each other.
-    pub(crate) fn validate(&self) -> Result<()> {
+    /// Reject duplicate native or family aliases that would shadow each other.
+    pub(crate) fn validate(&self, native_aliases: &[String]) -> Result<()> {
         let mut seen = std::collections::BTreeSet::new();
         for alias in self
             .decoder_letter_aliases
@@ -655,11 +725,53 @@ impl FamilyArgs {
             .chain(&self.laya_english_aliases)
             .chain(&self.laya_multilingual_aliases)
             .chain(&self.laya_typed_decisions_aliases)
+            .chain(native_aliases)
         {
             if !seen.insert(alias.as_str()) {
                 bail!("alias `{alias}` is assigned to more than one family engine");
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn winnow_label_bindings_follow_labels_instead_of_input_order() {
+        let args = FamilyArgs::parse_from(["openkindd", "--winnow-siblings", "B=second,A=first"]);
+        assert_eq!(
+            args.winnow_requested(&["winnow-router".into()]).unwrap(),
+            vec![(
+                "winnow-router".into(),
+                vec!["first".into(), "second".into()]
+            )]
+        );
+    }
+
+    #[test]
+    fn winnow_rejects_duplicate_missing_and_empty_label_bindings() {
+        for bindings in [
+            "A=first,A=second",
+            "B=first,B=second",
+            "A=first",
+            "A=,B=second",
+        ] {
+            let args = FamilyArgs::parse_from(["openkindd", "--winnow-siblings", bindings]);
+            assert!(
+                args.winnow_requested(&["winnow-router".into()]).is_err(),
+                "{bindings}"
+            );
+        }
+    }
+
+    #[test]
+    fn native_aliases_cannot_shadow_family_aliases() {
+        let args = FamilyArgs::parse_from(["openkindd"]);
+        assert!(args.validate(&["qwen35-native".into()]).is_ok());
+        assert!(args.validate(&["decoder-letter-native".into()]).is_err());
+        assert!(args.validate(&["router-script".into()]).is_err());
     }
 }

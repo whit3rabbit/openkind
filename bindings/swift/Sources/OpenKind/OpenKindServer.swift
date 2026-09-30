@@ -2,33 +2,50 @@
 import Darwin
 import Foundation
 
+/// Errors occurring during local openkindd daemon lifecycle management.
 public enum ServerError: Error {
+    /// Configuration option value was invalid.
     case invalidConfiguration(String)
+    /// Target HTTP loopback address is already occupied by another listener.
     case addressUnavailable(String)
+    /// A server process has already been started by this instance.
     case alreadyStarted
+    /// Failed to launch the child process executable.
     case launchFailed(String)
+    /// The process exited prematurely before passing the health check.
     case exitedBeforeReady(Int32)
+    /// Startup timed out waiting for the health check to succeed.
     case readinessTimedOut
 }
 
 /// Owns one local openkindd process and its HTTP client.
 public final class OpenKindServer {
+    /// Binary executable name or path to spawn.
     public let binary: String
+    /// Local loopback address (`127.0.0.1:<port>`) for HTTP listener.
     public let httpAddress: String
+    /// Model aliases loaded into the daemon.
     public let models: [String]
+    /// Optional bearer API key configured for requests.
     public let apiKey: String?
+    /// Maximum time in seconds to wait for successful health check.
     public let startupTimeout: TimeInterval
+    /// Maximum time in seconds to wait for clean SIGTERM shutdown.
     public let shutdownTimeout: TimeInterval
+    /// Additional command-line flags forwarded to the child process.
     public let extraArguments: [String]
 
     private var process: Process?
 
+    /// True if the child process is currently running.
     public var running: Bool { process?.isRunning == true }
 
+    /// Client preconfigured to communicate with this local daemon.
     public var client: OpenKindClient {
         OpenKindClient(baseURL: URL(string: "http://\(httpAddress)")!, apiKey: apiKey)
     }
 
+    /// Initialize a local daemon manager with lifecycle options.
     public init(
         binary: String = "openkindd",
         httpAddress: String = "127.0.0.1:18080",
@@ -65,6 +82,7 @@ public final class OpenKindServer {
         self.extraArguments = extraArguments
     }
 
+    /// Start the child server process and wait until the health endpoint reports readiness.
     public func start() async throws {
         guard process == nil else { throw ServerError.alreadyStarted }
         let port = UInt16(httpAddress.split(separator: ":")[1])!
@@ -113,6 +131,7 @@ public final class OpenKindServer {
         throw ServerError.readinessTimedOut
     }
 
+    /// Gracefully stop the running child process using SIGTERM, escalating to SIGKILL if timeout expires.
     public func stop() async {
         guard let child = process else { return }
         process = nil

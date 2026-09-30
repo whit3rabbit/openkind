@@ -1,5 +1,6 @@
 import Foundation
 
+/// Recursive representation of arbitrary JSON-serializable values.
 public indirect enum JSONValue: Codable {
     case null
     case bool(Bool)
@@ -31,6 +32,7 @@ public indirect enum JSONValue: Codable {
     }
 }
 
+/// Text criteria defining true and false labels for binary noul questions.
 public struct NoulCriteria: Codable {
     public let `true`: String
     public let `false`: String
@@ -41,9 +43,13 @@ public struct NoulCriteria: Codable {
     }
 }
 
+/// Evaluation questions supported by the System One protocol: noul, choice, and score.
 public enum Question: Codable {
+    /// Binary question evaluated to a probability mass between 0.0 and 1.0.
     case noul(instructions: JSONValue, criteria: NoulCriteria? = nil)
+    /// Multiple-choice question evaluated over candidate option criteria.
     case choice(instructions: JSONValue, criteria: [String: String?])
+    /// Rubric score question evaluated over ordered score levels.
     case score(instructions: JSONValue, criteria: [String])
 
     private enum CodingKeys: String, CodingKey { case type, instructions, criteria }
@@ -82,6 +88,7 @@ public enum Question: Codable {
     }
 }
 
+/// Top-level System One evaluation request containing state context, model alias, and questions.
 public struct SystemRequest: Codable {
     public let state: JSONValue
     public let model: String
@@ -94,9 +101,13 @@ public struct SystemRequest: Codable {
     }
 }
 
+/// Evaluated answer types matching the requested question types.
 public enum Answer: Codable {
+    /// Evaluated binary decision returning probability mass.
     case noul(Double)
+    /// Evaluated multiple-choice decision with selected candidate, probabilities, and confidence.
     case choice(selected: String, probabilities: [String: Double], confidence: Double)
+    /// Evaluated rubric score decision with expected value, rubric legend, probabilities, and confidence.
     case score(value: Double, legend: [String: String], probabilities: [String: Double], confidence: Double)
 
     private enum CodingKeys: String, CodingKey { case type, noul, choice, score, legend, probabilities, confidence }
@@ -145,26 +156,33 @@ public enum Answer: Codable {
     }
 }
 
+/// Token usage counters reported for input and output.
 public struct Usage: Codable {
     public let input_tokens: UInt32
     public let output_tokens: UInt32
 }
 
+/// System One evaluation response containing model name, evaluated answers, and token usage.
 public struct SystemResponse: Codable {
     public let model: String
     public let answers: [String: Answer]
     public let usage: Usage
 }
 
+/// Metadata describing an available model profile in the catalog.
 public struct ModelMetadata: Decodable {
     public let name: String
     public let description: String
     public let release_date: String
 }
 
+/// Response payload from /v1/models listing available models.
 public struct ModelsResponse: Decodable { public let models: [ModelMetadata] }
+
+/// Daemon health check status response.
 public struct Health: Decodable { public let status: String }
 
+/// Information describing a locally installed model profile.
 public struct LocalModel: Decodable, Identifiable {
     public let name: String
     public let description: String
@@ -174,14 +192,17 @@ public struct LocalModel: Decodable, Identifiable {
     public var id: String { name }
 }
 
+/// Response payload listing locally installed model profiles.
 public struct LocalModelsResponse: Decodable { public let models: [LocalModel] }
 private struct LocalModelActionResponse: Decodable { let ok: Bool }
 
+/// Result envelope wrapping decoded response data and optional request ID header.
 public struct ApiResult<Value> {
     public let data: Value
     public let requestID: String?
 }
 
+/// Error thrown when an HTTP call to the daemon fails with a non-2xx status code.
 public struct ApiError: Error {
     public let status: Int
     public let code: String?
@@ -189,6 +210,7 @@ public struct ApiError: Error {
     public let requestID: String?
 }
 
+/// Client-side validation or transport errors.
 public enum ClientError: Error {
     case invalidResponse(String)
     case nonHTTPResponse
@@ -199,13 +221,17 @@ private struct ErrorEnvelope: Decodable {
     let error: Details
 }
 
+/// Asynchronous HTTP client for interacting with the OpenKind daemon and evaluating decisions.
 public final class OpenKindClient {
+    /// Base URL of the target daemon.
     public let baseURL: URL
+    /// Default model alias used when omitted from evaluation requests.
     public let defaultModel: String
     private let apiKey: String?
     private let timeout: TimeInterval
     private let session: URLSession
 
+    /// Initialize an OpenKindClient with configuration options.
     public init(
         baseURL: URL = URL(string: "http://127.0.0.1:18080")!,
         apiKey: String? = nil,
@@ -251,6 +277,7 @@ public final class OpenKindClient {
         return ApiResult(data: decoded, requestID: requestID)
     }
 
+    /// Submit a SystemRequest evaluation payload to `/v1/systemone` and validate the returned answers.
     public func evaluate(_ request: SystemRequest) async throws -> ApiResult<SystemResponse> {
         let result: ApiResult<SystemResponse> = try await send(
             "/v1/systemone", method: "POST", body: JSONEncoder().encode(request),
@@ -259,14 +286,17 @@ public final class OpenKindClient {
         return result
     }
 
+    /// Convenience method to evaluate questions against state using the default or specified model.
     public func systemOne(state: JSONValue, questions: [String: Question], model: String? = nil) async throws -> ApiResult<SystemResponse> {
         try await evaluate(SystemRequest(state: state, model: model ?? defaultModel, questions: questions))
     }
 
+    /// Query `/v1/models` to retrieve available model profiles.
     public func listModels() async throws -> ApiResult<ModelsResponse> {
         try await send("/v1/models", method: "GET")
     }
 
+    /// Query `/health` to verify daemon availability.
     public func health() async throws -> ApiResult<Health> {
         try await send("/health", method: "GET")
     }
@@ -276,6 +306,7 @@ public final class OpenKindClient {
         try await send("/playground/api/models", method: "GET")
     }
 
+    /// Load or unload a local model in the running daemon.
     public func setLocalModelLoaded(_ name: String, loaded: Bool) async throws {
         let body = try JSONSerialization.data(withJSONObject: ["name": name, "loaded": loaded])
         let result: ApiResult<LocalModelActionResponse> = try await send(
@@ -296,6 +327,7 @@ private func distribution(_ values: [String: Double], _ label: String) throws {
     }
 }
 
+/// Validate that a SystemResponse matches question IDs, types, and probability constraints of the request.
 public func validate(_ response: SystemResponse, for request: SystemRequest) throws {
     guard Set(response.answers.keys) == Set(request.questions.keys) else {
         throw ClientError.invalidResponse("answer IDs do not match question IDs")

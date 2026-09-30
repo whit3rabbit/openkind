@@ -22,7 +22,7 @@
      dependencies; the model store owns discovery and local installations.
 2. **Deterministic Exit Codes**:
    - `inspect`: Returns exit code `0` when `validate_request` succeeds. Returns `1` on validation, JSON parse, or file I/O errors (all propagate as `anyhow` errors out of `main`); exit code `2` is reserved for Clap usage errors.
-   - `evaluate`: Returns exit code `0` on HTTP 2xx. Exits with code `1` if the server returns any non-2xx status code.
+   - `evaluate`: Returns exit code `0` for a valid successful response. Exits with code `1` for non-2xx responses, malformed JSON, or answers that fail validation against the request.
 3. **Input Guard**:
    - `MAX_CLI_INPUT_BYTES` (32 MB) bounds file reading to prevent unbounded memory allocation on corrupt input files.
 4. **Stdio Contract**:
@@ -47,7 +47,7 @@
       loopback); otherwise spawns `openkindd` with `--playground on`,
       `--grpc-addr 0`, and `--rate-limit-rpm 0`, waits for `/health`, opens
       the browser (or prints the URL with `--no-open`), and supervises the
-      child like `serve`.
+      child. Unix shutdown signals are forwarded during startup and serving.
     - `Catalog`, `Pull`, `List`, `Show`, `Rm`: Curated discovery and local
       installation management, with JSON output flags for read commands.
     - `Status { server, api_key, watch }`: Checks `/health` and lists aliases from `/v1/models`; `--watch` refreshes the view in a Bubble Tea terminal program.
@@ -57,7 +57,7 @@
 - [`src/output.rs`](./src/output.rs): Shared text tables, color policy, and pull progress rendering.
 - `status --watch` uses `bubbletea-rs` with Lipgloss styles; the normal status command stays a one-shot report.
 - [`src/status.rs`](./src/status.rs): One-shot health and model alias inspection, plus the live `--watch` screen.
-- [`src/serve.rs`](./src/serve.rs): `cmd_serve` process execution delegating to `openkindd`.
+- [`src/serve.rs`](./src/serve.rs): `cmd_serve` process execution delegating to `openkindd`, replacing the CLI process on Unix so shutdown signals reach the daemon directly.
 - [`src/playground.rs`](./src/playground.rs): `cmd_playground` — health probe,
   daemon spawn/supervise, and the per-platform browser opener.
 - [`src/models.rs`](./src/models.rs): Online catalog and pull commands, plus

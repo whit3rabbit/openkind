@@ -20,6 +20,44 @@ fn no_retries() -> RetryPolicy {
     RetryPolicy::new().max_retries(0)
 }
 
+#[tokio::test]
+async fn caller_headers_cannot_replace_json_framing_on_either_transport() {
+    use reqwest::header::{CONTENT_LENGTH, CONTENT_TYPE, HOST, TRANSFER_ENCODING};
+    for custom_transport in [false, true] {
+        let (url, requests) = spawn(|captured| Outcome::success(result_for(captured))).await;
+        let mut builder = openkind_client::Client::builder()
+            .api_key("k")
+            .base_url(&url)
+            .retry(no_retries())
+            .header(CONTENT_TYPE, "text/plain".parse().unwrap())
+            .header(HOST, "wrong.test".parse().unwrap())
+            .header(CONTENT_LENGTH, "0".parse().unwrap())
+            .header(TRANSFER_ENCODING, "chunked".parse().unwrap());
+        if custom_transport {
+            builder = builder.http_client(reqwest::Client::new());
+        }
+        let client = builder.build().unwrap();
+        let options = openkind_client::RequestOptions::new()
+            .header(CONTENT_TYPE, "application/xml".parse().unwrap())
+            .header(HOST, "also-wrong.test".parse().unwrap())
+            .header(CONTENT_LENGTH, "0".parse().unwrap())
+            .header(TRANSFER_ENCODING, "chunked".parse().unwrap());
+        client
+            .evaluate_with(evaluate_request(), &options)
+            .await
+            .unwrap();
+        let sent = requests.last().unwrap();
+        assert_eq!(sent.header("content-type"), Some("application/json"));
+        assert_eq!(
+            sent.header("host"),
+            Some(url.strip_prefix("http://").unwrap())
+        );
+        assert_ne!(sent.header("content-length"), Some("0"));
+        assert!(sent.header("transfer-encoding").is_none());
+        assert_eq!(requests.len(), 1);
+    }
+}
+
 // ---------------------------------------------------------------------
 // test_round_trip — exact wire body and fully-typed response
 // ---------------------------------------------------------------------

@@ -99,9 +99,19 @@ impl WorkloadRow {
     /// The Jev question for this row.
     ///
     /// # Errors
-    /// Returns an error when a score rubric has fewer than two levels or a
+    /// Returns an error for blank question text, fewer than two Score levels, or a
     /// choice row defines `__none__` with an empty description.
     pub fn question(&self) -> Result<Question> {
+        let text = match &self.question {
+            QuestionSpec::Noul { text, .. }
+            | QuestionSpec::Choice { text, .. }
+            | QuestionSpec::Score { text, .. } => text,
+        };
+        anyhow::ensure!(
+            !text.trim().is_empty(),
+            "row `{}`: question text must contain non-whitespace text",
+            self.id
+        );
         match &self.question {
             QuestionSpec::Noul { text, criteria } => Ok(Question::Noul(NoulQuestion {
                 instructions: serde_json::json!(text),
@@ -116,7 +126,7 @@ impl WorkloadRow {
                 }
                 let mut map: HashMap<String, Option<String>> = HashMap::default();
                 for option in options {
-                    if option.id == SEMANTIC_NONE_OPTION {
+                    let description = if option.id == SEMANTIC_NONE_OPTION {
                         let description = option
                             .description
                             .clone()
@@ -128,11 +138,11 @@ impl WorkloadRow {
                                 self.id
                             );
                         }
-                    }
-                    if map
-                        .insert(option.id.clone(), option.description.clone())
-                        .is_some()
-                    {
+                        Some(description)
+                    } else {
+                        option.description.clone()
+                    };
+                    if map.insert(option.id.clone(), description).is_some() {
                         bail!("row `{}`: duplicate option id `{}`", self.id, option.id);
                     }
                 }
@@ -207,7 +217,10 @@ pub fn parse_workload(label: &str, raw: &[u8]) -> Result<Workload> {
         let row: WorkloadRow =
             serde_json::from_str(line).with_context(|| format!("{label} line {}", index + 1))?;
         // Fail early on rows the wire validator would reject later anyway.
-        row.question()?;
+        let request = build_request("bench", std::slice::from_ref(&row), &[0])
+            .with_context(|| format!("{label} line {}: invalid decision", index + 1))?;
+        openkind_core::validate_request(&request)
+            .with_context(|| format!("{label} line {}: invalid decision", index + 1))?;
         rows.push(row);
     }
     if rows.is_empty() {
@@ -244,19 +257,28 @@ pub fn state_groups(rows: &[WorkloadRow]) -> Result<Vec<Vec<usize>>> {
 ///
 /// All rows in a group must share one state so the state-first renderer
 /// produces a single root prefix; [`state_groups`] guarantees this.
+/// Empty groups, invalid indices, and duplicate question IDs fail explicitly.
 pub fn build_request(model: &str, rows: &[WorkloadRow], group: &[usize]) -> Result<SystemRequest> {
-    let first = &rows[*group.first().expect("non-empty group")];
+    let first_index = group.first().context("request group has no rows")?;
+    let first = rows
+        .get(*first_index)
+        .with_context(|| format!("group row index {first_index} is out of range"))?;
+    let group_key = first.group_key()?;
     let mut questions: HashMap<String, openkind_core::Question, _> =
         HashMap::with_capacity_and_hasher(group.len(), Default::default());
     for &index in group {
-        let row = &rows[index];
-        if row.group_key()? != first.group_key()? {
+        let row = rows
+            .get(index)
+            .with_context(|| format!("group row index {index} is out of range"))?;
+        if row.group_key()? != group_key {
             bail!(
                 "grouping violation: row `{}` does not share the group state",
                 row.id
             );
         }
-        questions.insert(row.id.clone(), row.question()?);
+        if questions.insert(row.id.clone(), row.question()?).is_some() {
+            bail!("group contains duplicate decision id `{}`", row.id);
+        }
     }
     Ok(SystemRequest {
         state: first.state.clone(),

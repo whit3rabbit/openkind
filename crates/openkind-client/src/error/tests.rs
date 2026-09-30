@@ -63,6 +63,24 @@ fn retry_after_invalid_values_ignored() {
     }
 }
 
+#[test]
+fn malformed_http_dates_cannot_overflow_or_normalize_invalid_fields() {
+    for date in [
+        "Sun, 06 Nov 9223372036854775807 08:49:37 GMT",
+        "Sun, 06 Jan -9223372036854775808 08:49:37 GMT",
+        "Sun, 31 Feb 2026 08:49:37 GMT",
+        "Sun, 06 Nov 2026 -1:49:37 GMT",
+        "Sun, 06 Nov 2026 08:49:37 EST",
+        "Sun, 06 Nov 2026 08:49:37:12 GMT",
+    ] {
+        assert_eq!(
+            parse_retry_after(&headers(&[("retry-after", date)])),
+            None,
+            "{date}"
+        );
+    }
+}
+
 /// Port of the Python SDK's `test_retry_after` parameter matrix:
 /// [None, "0", "1.5", "invalid", "-1", "Fri, 31 Dec 2099..."]
 #[test]

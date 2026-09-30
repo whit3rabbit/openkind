@@ -319,6 +319,26 @@ pub(crate) enum LayaBackendArg {
     MlxFp32,
 }
 
+/// Encoder-instruct-label backend choices exposed by the daemon.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub(crate) enum EncoderInstructLabelBackendArg {
+    /// Candle FP32 CPU reference backend.
+    NativeCpu,
+    /// MLX FP32 backend on macOS arm64 when the optional feature is enabled.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    MlxFp32,
+}
+
+/// Decoder-logit-qwen35 backend choices exposed by the daemon.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub(crate) enum DecoderLogitQwen35BackendArg {
+    /// Candle FP32 CPU reference backend.
+    NativeCpu,
+    /// MLX FP32 backend on macOS arm64 when the optional feature is enabled.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    MlxFp32,
+}
+
 /// CLI surface for `--qwen35-execution`: the three execution plans plus the
 /// adaptive `auto` default.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]

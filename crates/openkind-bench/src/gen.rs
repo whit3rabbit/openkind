@@ -96,7 +96,8 @@ pub struct GeneratedWorkload {
 /// Deterministic `states × criteria` JSONL workload.
 ///
 /// # Errors
-/// Returns an error when the output path cannot be written.
+/// Returns an error for invalid or unrepresentable dimensions, failed
+/// allocations, or an output path that cannot be written.
 pub fn generate_workload(
     states: usize,
     criteria: usize,
@@ -109,9 +110,25 @@ pub fn generate_workload(
         "criteria must be between 1 and {}",
         CRITERIA.len()
     );
+    let row_count = states
+        .checked_mul(criteria)
+        .context("states times criteria exceeds the workload size range")?;
+    // Validate and reserve before generation or file writes, so oversized
+    // operator input returns an error instead of wrapping or panicking.
+    states
+        .checked_add(9_999)
+        .context("state count exceeds the generated ticket id range")?;
+    let body_capacity = row_count
+        .checked_mul(512)
+        .context("generated JSONL capacity exceeds the workload size range")?;
+    let mut rows = Vec::new();
+    rows.try_reserve(row_count)
+        .context("reserve workload rows")?;
+    let mut state_values: Vec<(usize, openkind_core::State)> = Vec::new();
+    state_values
+        .try_reserve(states)
+        .context("reserve workload states")?;
     let mut rng = StdRng::seed_from_u64(seed);
-    let mut rows = Vec::with_capacity(states * criteria);
-    let mut state_values: Vec<(usize, openkind_core::State)> = Vec::with_capacity(states);
     for state_index in 0..states {
         let state_value = ticket_state(&mut rng, state_index);
         let state: openkind_core::State =
@@ -131,7 +148,9 @@ pub fn generate_workload(
         }
     }
 
-    let mut body = String::with_capacity(rows.len() * 512);
+    let mut body = String::new();
+    body.try_reserve(body_capacity)
+        .context("reserve generated JSONL")?;
     for row in &rows {
         let line = serde_json::to_string(row).context("serialize generated row")?;
         body.push_str(&line);

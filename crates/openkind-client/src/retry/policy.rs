@@ -225,9 +225,11 @@ impl RetryPolicy {
         if self.backoff_initial.is_zero() || self.backoff_max.is_zero() {
             return Duration::ZERO;
         }
-        let initial_ns = self.backoff_initial.as_nanos() as u64;
-        let exponential = initial_ns.saturating_mul(1u64 << retry_index.min(63));
-        let capped = exponential.min(self.backoff_max.as_nanos() as u64);
+        let initial_ns = u64::try_from(self.backoff_initial.as_nanos()).unwrap_or(u64::MAX);
+        let multiplier = 1u64.checked_shl(retry_index).unwrap_or(u64::MAX);
+        let exponential = initial_ns.saturating_mul(multiplier);
+        let maximum_ns = u64::try_from(self.backoff_max.as_nanos()).unwrap_or(u64::MAX);
+        let capped = exponential.min(maximum_ns);
         let jitter_ns = (capped as f64 * self.backoff_jitter * fastrand::f64()) as u64;
         Duration::from_nanos(capped.saturating_sub(jitter_ns))
     }

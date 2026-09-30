@@ -24,7 +24,15 @@ pub(crate) async fn run_strategy_pass(
     args: &ScoreArgs,
     pass: StrategyPass<'_>,
 ) -> Result<(Value, String)> {
-    let mut rep_totals = Vec::with_capacity(args.reps);
+    let backend_id = registry
+        .get(BENCH_ALIAS)
+        .context("benchmark engine is not registered")?
+        .backend_id()
+        .to_owned();
+    let mut rep_totals = Vec::new();
+    rep_totals
+        .try_reserve(args.reps)
+        .context("reserve repetition samples")?;
     let mut input_tokens_total = 0_u64;
     let mut last_request_latencies = vec![0.0_f64; rows.len()];
     let mut last_answers: Vec<Option<Value>> = vec![None; rows.len()];
@@ -48,20 +56,29 @@ pub(crate) async fn run_strategy_pass(
     for rep in 0..args.reps {
         let rep_started = Instant::now();
         for (sequence_index, group) in groups.iter().enumerate() {
-            let request = workload::build_request(BENCH_ALIAS, rows, group)?;
             let started = Instant::now();
+            let request = workload::build_request(BENCH_ALIAS, rows, group)?;
             let response = dispatch(request, registry)
                 .await
                 .map_err(|error| anyhow::anyhow!("dispatch failed: {error}"))?;
-            let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
-            input_tokens_total += u64::from(response.usage.input_tokens);
-            if rep + 1 == args.reps {
-                for &index in group {
+            // Extract every repetition's answers within the advertised
+            // timing scope, retaining predictions only for the final rep.
+            let answers: Vec<Value> = group
+                .iter()
+                .map(|&index| {
                     let answer = response.answers.get(&rows[index].id).ok_or_else(|| {
                         anyhow::anyhow!("missing answer for `{}`", rows[index].id)
                     })?;
-                    last_answers[index] =
-                        Some(serde_json::to_value(answer).context("serialize answer")?);
+                    serde_json::to_value(answer).context("serialize answer")
+                })
+                .collect::<Result<_>>()?;
+            let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
+            input_tokens_total = input_tokens_total
+                .checked_add(u64::from(response.usage.input_tokens))
+                .context("total input token count exceeds the report range")?;
+            if rep + 1 == args.reps {
+                for (&index, answer) in group.iter().zip(answers) {
+                    last_answers[index] = Some(answer.clone());
                     last_request_latencies[index] = elapsed_ms;
                     last_group_sizes[index] = group.len();
                     if args.history_aba {
@@ -111,6 +128,7 @@ pub(crate) async fn run_strategy_pass(
     });
     let report = json!({
         "strategy": pass.label,
+        "backend_id": backend_id,
         "forced": forced,
         "rows": decisions,
         "groups": groups.len(),
@@ -120,7 +138,7 @@ pub(crate) async fn run_strategy_pass(
         "p95_seconds": p95,
         "decisions_per_second": decisions as f64 / p50,
         "input_tokens_total": input_tokens_total,
-        "input_tokens_per_second": input_tokens_total as f64 / p50,
+        "input_tokens_per_second": input_tokens_total as f64 / timed_wall_seconds,
         "cpu_time_seconds": cpu_time_seconds,
         "avg_cpu_percent": avg_cpu_percent,
     });

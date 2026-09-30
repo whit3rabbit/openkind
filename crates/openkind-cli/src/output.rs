@@ -1,3 +1,5 @@
+//! Terminal output formatting, color styling, and pull progress reporting.
+
 use std::io::IsTerminal;
 use std::time::Instant;
 
@@ -9,6 +11,7 @@ fn stdout_color_enabled() -> bool {
     std::io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none()
 }
 
+/// Render text in bold if terminal styling is supported on stdout.
 pub fn style_bold(value: &str) -> String {
     if stdout_color_enabled() {
         Style::new().bold(true).render(value)
@@ -17,6 +20,7 @@ pub fn style_bold(value: &str) -> String {
     }
 }
 
+/// Render a section heading in bold color if terminal styling is supported on stdout.
 pub fn style_heading(value: &str) -> String {
     if stdout_color_enabled() {
         Style::new()
@@ -32,6 +36,7 @@ fn stderr_color_enabled() -> bool {
     std::io::stderr().is_terminal() && std::env::var_os("NO_COLOR").is_none()
 }
 
+/// Render muted secondary text if terminal styling is supported on stdout.
 pub fn style_muted(value: &str) -> String {
     if stdout_color_enabled() {
         Style::new().foreground(Color::from("8")).render(value)
@@ -40,6 +45,7 @@ pub fn style_muted(value: &str) -> String {
     }
 }
 
+/// Render success indicator text in bold green if terminal styling is supported on stdout.
 pub fn style_success(value: &str) -> String {
     if stdout_color_enabled() {
         Style::new()
@@ -51,6 +57,7 @@ pub fn style_success(value: &str) -> String {
     }
 }
 
+/// Render error text in bold red if terminal styling is supported on stdout.
 pub fn style_error(value: &str) -> String {
     if stdout_color_enabled() {
         Style::new()
@@ -62,10 +69,12 @@ pub fn style_error(value: &str) -> String {
     }
 }
 
+/// Print a styled heading followed by a newline.
 pub fn print_heading(title: &str) {
     println!("{}", style_heading(title));
 }
 
+/// Print a tabular dataset with a section heading and aligned columns.
 pub fn print_table(title: &str, headers: &[&str], rows: &[Vec<String>]) {
     print_heading(title);
     if rows.is_empty() {
@@ -75,6 +84,7 @@ pub fn print_table(title: &str, headers: &[&str], rows: &[Vec<String>]) {
     println!("{}", render_table(headers, rows));
 }
 
+/// Render a table with header separator and column widths aligned to Unicode character boundaries.
 pub fn render_table(headers: &[&str], rows: &[Vec<String>]) -> String {
     if headers.is_empty() || rows.is_empty() {
         return String::new();
@@ -124,10 +134,12 @@ fn render_row(values: &[String], widths: &[usize]) -> String {
     line
 }
 
+/// Print a key-value label pair with bold styling on the key.
 pub fn print_key_value(label: &str, value: &str) {
     println!("{}: {value}", style_bold(label));
 }
 
+/// Format a byte count into a human-readable string with binary prefixes (e.g. KiB, MiB, GiB).
 pub fn format_bytes(bytes: u64) -> String {
     const UNITS: [&str; 5] = ["B", "KiB", "MiB", "GiB", "TiB"];
     let mut value = bytes as f64;
@@ -154,6 +166,7 @@ struct ArtifactProgress {
     bar: Option<ProgressBar>,
 }
 
+/// Progress monitor for model pulls, displaying dynamic progress bars in terminals or line logs in pipes.
 pub struct PullProgress {
     terminal: bool,
     current: Option<ArtifactProgress>,
@@ -162,6 +175,7 @@ pub struct PullProgress {
 }
 
 impl PullProgress {
+    /// Create a new progress tracker detecting whether stderr is an interactive terminal.
     pub fn new() -> Self {
         Self {
             terminal: std::io::stderr().is_terminal(),
@@ -171,6 +185,7 @@ impl PullProgress {
         }
     }
 
+    /// Update progress for a specific artifact, advancing bytes transferred or verified.
     pub fn update(&mut self, path: &str, done: u64, total: u64) {
         if self
             .current
@@ -302,18 +317,22 @@ impl PullProgress {
         }
     }
 
+    /// Return the cumulative number of newly downloaded bytes across all artifacts.
     pub fn downloaded_bytes(&self) -> u64 {
         self.downloaded
     }
 
+    /// Return whether any progress callback has fired during the pull operation.
     pub fn has_progress(&self) -> bool {
         self.callback_count > 0
     }
 
+    /// Complete the current active artifact progress tracking with success status.
     pub fn finish_success(&mut self) {
         self.finish_artifact(true);
     }
 
+    /// Complete the current active artifact progress tracking with failure status.
     pub fn finish_failure(&mut self, artifact_error: bool) {
         let failed_artifact = self
             .current

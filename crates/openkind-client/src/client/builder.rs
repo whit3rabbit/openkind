@@ -7,8 +7,8 @@ use reqwest::header::{HeaderMap, HeaderName, HeaderValue, ACCEPT, AUTHORIZATION}
 
 use super::core::{Client, ClientInner};
 use super::options::{
-    DEFAULT_BASE_URL, DEFAULT_MODEL, DEFAULT_TIMEOUT, RETRY_COUNT_HEADER, RUNTIME_HEADER,
-    SDK_HEADER, SDK_NAME, USER_AGENT_HEADER,
+    DEFAULT_BASE_URL, DEFAULT_MODEL, DEFAULT_TIMEOUT, RUNTIME_HEADER, SDK_HEADER, SDK_NAME,
+    USER_AGENT_HEADER,
 };
 use crate::error::Error;
 use crate::retry::RetryPolicy;
@@ -144,6 +144,17 @@ impl ClientBuilder {
                 "base_url must start with http:// or https://, got `{base_url}`"
             )));
         }
+        let parsed_base =
+            reqwest::Url::parse(&base_url).map_err(|_| Error::Config("invalid base URL".into()))?;
+        if parsed_base.query().is_some()
+            || parsed_base.fragment().is_some()
+            || !parsed_base.username().is_empty()
+            || parsed_base.password().is_some()
+        {
+            return Err(Error::Config(
+                "base_url must not contain a query, fragment, or credentials".into(),
+            ));
+        }
 
         let default_model = if cloudflare_account.is_some() {
             self.default_model
@@ -185,7 +196,7 @@ impl ClientBuilder {
         let mut base_headers = HeaderMap::with_capacity(8);
         for (name, value) in self.default_headers {
             if let Some(name) = name {
-                if name.as_str() == RETRY_COUNT_HEADER {
+                if !super::transport::is_user_overridable(name.as_str(), false) {
                     continue;
                 }
                 base_headers.insert(name, value);
@@ -224,10 +235,10 @@ impl ClientBuilder {
         // before.
         let fast_h1 = match (
             owns_http_client,
-            reqwest::Url::parse(&base_url).ok(),
+            parsed_base,
             super::http1::proxy_env_present(),
         ) {
-            (true, Some(url), false) if url.scheme() == "http" => {
+            (true, url, false) if url.scheme() == "http" => {
                 match (url.host_str(), url.port_or_known_default()) {
                     (Some(host), Some(port)) => {
                         Some(super::http1::H1Pool::new(host, port, self.connect_timeout))

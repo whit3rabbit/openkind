@@ -42,23 +42,27 @@ Instructions = str | int | float | bool | list[JSONValue] | dict[str, JSONValue]
 
 
 class NoulCriteria(TypedDict):
+    """Text labels defining true and false criteria for binary noul questions."""
     true: str
     false: str
 
 
 class NoulQuestion(TypedDict):
+    """Binary question evaluated to a probability mass between 0 and 1."""
     type: Literal["noul"]
     instructions: Instructions
     criteria: NotRequired[NoulCriteria]
 
 
 class ChoiceQuestion(TypedDict):
+    """Multiple-choice question evaluated across candidate options."""
     type: Literal["choice"]
     instructions: Instructions
     criteria: dict[str, str | None]
 
 
 class ScoreQuestion(TypedDict):
+    """Rubric score question evaluated across defined score levels."""
     type: Literal["score"]
     instructions: Instructions
     criteria: list[str]
@@ -68,17 +72,20 @@ Question = NoulQuestion | ChoiceQuestion | ScoreQuestion
 
 
 class SystemRequest(TypedDict):
+    """Top-level System One evaluation request containing state, model, and questions."""
     state: State
     model: str
     questions: dict[str, Question]
 
 
 class NoulAnswer(TypedDict):
+    """Evaluated binary decision returning probability mass."""
     type: Literal["noul"]
     noul: float
 
 
 class ChoiceAnswer(TypedDict):
+    """Evaluated multiple-choice decision with selected candidate and probability distribution."""
     type: Literal["choice"]
     choice: str
     probabilities: dict[str, float]
@@ -86,6 +93,7 @@ class ChoiceAnswer(TypedDict):
 
 
 class ScoreAnswer(TypedDict):
+    """Evaluated rubric decision with expected score, rubric legend, and probabilities."""
     type: Literal["score"]
     score: float
     legend: dict[str, str]
@@ -97,27 +105,32 @@ Answer = NoulAnswer | ChoiceAnswer | ScoreAnswer
 
 
 class Usage(TypedDict):
+    """Token usage counters reported for input and output."""
     input_tokens: int
     output_tokens: int
 
 
 class SystemResponse(TypedDict):
+    """System One evaluation response containing model name, evaluated answers, and token usage."""
     model: str
     answers: dict[str, Answer]
     usage: Usage
 
 
 class ModelMetadata(TypedDict):
+    """Metadata describing an available model profile in the catalog."""
     name: str
     description: str
     release_date: str
 
 
 class ModelsResponse(TypedDict):
+    """Response payload from /v1/models listing available models."""
     models: list[ModelMetadata]
 
 
 class Health(TypedDict):
+    """Daemon health check status response."""
     status: str
 
 
@@ -126,11 +139,14 @@ T = TypeVar("T")
 
 @dataclass(frozen=True)
 class ApiResult(Generic[T]):
+    """Generic container wrapping response data and optional request ID header."""
     data: T
     request_id: str | None
 
 
 class ApiError(Exception):
+    """Exception raised when an API request fails with a non-2xx HTTP status code."""
+
     def __init__(self, status: int, code: str | None, message: str, request_id: str | None):
         super().__init__(message)
         self.status = status
@@ -139,6 +155,7 @@ class ApiError(Exception):
 
 
 class InvalidResponseError(Exception):
+    """Exception raised when a response payload violates the wire contract or schema."""
     pass
 
 
@@ -163,6 +180,7 @@ def _distribution(value: object, label: str) -> dict[str, object]:
 
 
 def validate_response(value: object, request: SystemRequest) -> SystemResponse:
+    """Validate that a decoded response dictionary conforms to the System One wire contract."""
     response = _object(value)
     if not isinstance(response.get("model"), str):
         raise InvalidResponseError("invalid response model")
@@ -213,6 +231,7 @@ class Client:
         default_model: str | None = None,
         timeout: float = 10.0,
     ) -> None:
+        """Initialize the OpenKind HTTP client with base URL, authentication, and timeout settings."""
         self.base_url = (base_url or os.getenv("OPENKIND_BASE_URL") or os.getenv("TYPESAFE_BASE_URL") or "http://127.0.0.1:18080").rstrip("/")
         if not self.base_url.startswith(("http://", "https://")):
             raise ValueError("base_url must be an HTTP URL")
@@ -252,13 +271,16 @@ class Client:
                            message if isinstance(message, str) else f"HTTP {error.code}", request_id) from error
 
     def evaluate(self, request: SystemRequest) -> ApiResult[SystemResponse]:
+        """Submit a SystemRequest evaluation payload to /v1/systemone and validate the response."""
         result = self._send("/v1/systemone", "POST", request)
         return ApiResult(validate_response(result.data, request), result.request_id)
 
     def system_one(self, state: State, questions: dict[str, Question], model: str | None = None) -> ApiResult[SystemResponse]:
+        """Convenience method to evaluate questions against state using the default or specified model."""
         return self.evaluate({"state": state, "model": model or self.default_model, "questions": questions})
 
     def list_models(self) -> ApiResult[ModelsResponse]:
+        """Retrieve the catalog of available models from /v1/models."""
         result = self._send("/v1/models", "GET")
         models = _object(result.data).get("models")
         if not isinstance(models, list) or any(
@@ -269,6 +291,7 @@ class Client:
         return ApiResult(result.data, result.request_id)  # type: ignore[arg-type]
 
     def health(self) -> ApiResult[Health]:
+        """Query the /health endpoint to check daemon availability."""
         result = self._send("/health", "GET")
         if not isinstance(_object(result.data).get("status"), str):
             raise InvalidResponseError("invalid health response")

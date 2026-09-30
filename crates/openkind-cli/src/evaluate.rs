@@ -3,10 +3,12 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use anyhow::{Context, Result};
-use openkind_core::{Answer, SystemResponse};
+use openkind_core::{validate_response_for_request, Answer, SystemResponse};
 
 use crate::args::EvaluateFormat;
-use crate::inspect::MAX_CLI_INPUT_BYTES;
+use crate::inspect::{
+    parse_and_validate_request, read_bounded_input, read_request_file, MAX_CLI_INPUT_BYTES,
+};
 use crate::output;
 
 /// Asynchronously evaluates a decision request against a remote openkind server.
@@ -18,34 +20,17 @@ pub async fn cmd_evaluate_async(
     format: EvaluateFormat,
     verbose: bool,
 ) -> Result<()> {
-    let raw = if file.as_os_str() == "-" {
-        tokio::task::spawn_blocking(|| {
-            use std::io::Read;
-            let mut buffer = String::new();
-            std::io::stdin()
-                .take(MAX_CLI_INPUT_BYTES)
-                .read_to_string(&mut buffer)
-                .context("read request from stdin")?;
-            Ok::<_, anyhow::Error>(buffer)
-        })
-        .await
-        .context("stdin read task")??
-    } else {
-        let meta = tokio::fs::metadata(&file)
-            .await
-            .with_context(|| format!("stat {}", file.display()))?;
-        if meta.len() > MAX_CLI_INPUT_BYTES {
-            anyhow::bail!(
-                "file {} exceeds maximum allowed size ({} bytes, limit {} bytes)",
-                file.display(),
-                meta.len(),
-                MAX_CLI_INPUT_BYTES
-            );
+    let raw = tokio::task::spawn_blocking(move || {
+        if file.as_os_str() == "-" {
+            read_bounded_input(std::io::stdin().lock(), MAX_CLI_INPUT_BYTES)
+                .context("read request from stdin")
+        } else {
+            read_request_file(&file)
         }
-        tokio::fs::read_to_string(&file)
-            .await
-            .with_context(|| format!("read {}", file.display()))?
-    };
+    })
+    .await
+    .context("request read task")??;
+    let request = parse_and_validate_request(&raw)?;
 
     let url = format!("{}/v1/systemone", server.trim_end_matches('/'));
     let client = reqwest::Client::builder()
@@ -90,24 +75,21 @@ pub async fn cmd_evaluate_async(
         anyhow::bail!("evaluation request failed with HTTP {status}");
     }
 
+    // Every output mode crosses the same request-bound validation boundary
+    // before emitting answers that a caller may use to make a decision.
+    let response: SystemResponse =
+        serde_json::from_str(&body).context("parse evaluation response JSON")?;
+    validate_response_for_request(&response, &request).context("validate evaluation response")?;
+
     match format {
         EvaluateFormat::Json => {
-            let value: serde_json::Value =
-                serde_json::from_str(&body).context("parse evaluation response JSON")?;
-            let verbose_response = if verbose {
-                Some(
-                    serde_json::from_str::<SystemResponse>(&body)
-                        .context("parse evaluation response")?,
-                )
-            } else {
-                None
-            };
             if pretty {
+                let value: serde_json::Value = serde_json::from_str(&body)?;
                 println!("{}", serde_json::to_string_pretty(&value)?);
             } else {
                 println!("{body}");
             }
-            if let Some(response) = verbose_response {
+            if verbose {
                 eprintln!(
                     "Evaluation completed in {:.1} ms ({} input tokens, {} output tokens)",
                     elapsed.as_secs_f64() * 1000.0,
@@ -117,8 +99,6 @@ pub async fn cmd_evaluate_async(
             }
         }
         EvaluateFormat::Text => {
-            let response: SystemResponse =
-                serde_json::from_str(&body).context("parse evaluation response JSON")?;
             render_text_response(&response, elapsed, verbose);
         }
     }

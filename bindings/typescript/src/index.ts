@@ -1,35 +1,55 @@
+/** Primitive, array, or object JSON-serializable value. */
 export type JSONValue = null | boolean | number | string | JSONValue[] | { [key: string]: JSONValue };
+
+/** State payload for an evaluation request, represented as text, an array, or an object. */
 export type State = string | JSONValue[] | { [key: string]: JSONValue };
+
+/** Instruction input for an evaluation question. */
 export type Instructions = boolean | number | string | JSONValue[] | { [key: string]: JSONValue };
 
+/** Discriminated union of evaluation questions: binary noul, multiple-choice, or rubric score. */
 export type Question =
   | { type: "noul"; instructions: Instructions; criteria?: { true: string; false: string } }
   | { type: "choice"; instructions: Instructions; criteria: Record<string, string | null> }
   | { type: "score"; instructions: Instructions; criteria: string[] };
 
+/** Top-level System One evaluation request containing state context, model alias, and questions. */
 export interface SystemRequest {
   state: State;
   model: string;
   questions: Record<string, Question>;
 }
 
+/** Discriminated union of evaluated answers matching the requested question types. */
 export type Answer =
   | { type: "noul"; noul: number }
   | { type: "choice"; choice: string; probabilities: Record<string, number>; confidence: number }
   | { type: "score"; score: number; legend: Record<string, string>; probabilities: Record<string, number>; confidence: number };
 
+/** System One evaluation response containing the model name, evaluated answers, and token usage. */
 export interface SystemResponse {
   model: string;
   answers: Record<string, Answer>;
   usage: { input_tokens: number; output_tokens: number };
 }
 
+/** Metadata describing an available model profile in the registry or catalog. */
 export interface ModelMetadata { name: string; description: string; release_date: string }
+
+/** Response payload from the `/v1/models` endpoint listing available models. */
 export interface ModelsResponse { models: ModelMetadata[] }
+
+/** Daemon health check status response. */
 export interface Health { status: string }
+
+/** Result container wrapping the decoded API response data and optional request ID. */
 export interface ApiResult<T> { data: T; requestId: string | null }
 
+/** Error thrown when an HTTP call to the daemon fails with a non-2xx status code. */
 export class ApiError extends Error {
+  /**
+   * Create an ApiError with the HTTP status, error code, message, and request ID.
+   */
   constructor(
     readonly status: number,
     readonly code: string | null,
@@ -41,18 +61,26 @@ export class ApiError extends Error {
   }
 }
 
+/** Error thrown when a response payload violates the wire contract or response schema. */
 export class InvalidResponseError extends Error {
+  /** Create an InvalidResponseError with the failure explanation. */
   constructor(message: string) {
     super(message);
     this.name = "InvalidResponseError";
   }
 }
 
+/** Configuration options for instantiating an OpenKindClient. */
 export interface ClientOptions {
+  /** Base URL of the daemon (default: `http://127.0.0.1:18080`). */
   baseUrl?: string;
+  /** Optional bearer API key for authenticated requests. */
   apiKey?: string;
+  /** Default model alias to evaluate against when omitted (default: `jev-latest`). */
   defaultModel?: string;
+  /** HTTP request timeout in milliseconds (default: 10,000). */
   timeoutMs?: number;
+  /** Custom fetch implementation (defaults to global fetch). */
   fetch?: typeof fetch;
 }
 
@@ -86,6 +114,10 @@ function sameKeys(a: Record<string, unknown>, b: Record<string, unknown>): boole
   return left.length === Object.keys(b).length && left.every((key) => Object.hasOwn(b, key));
 }
 
+/**
+ * Validate that an evaluation response satisfies the wire contract for the specified request.
+ * Throws {@link InvalidResponseError} if the response structure, IDs, distributions, or bounds are invalid.
+ */
 export function validateResponse(value: unknown, request: SystemRequest): asserts value is SystemResponse {
   if (!object(value) || typeof value.model !== "string" || !object(value.answers) || !object(value.usage)) {
     fail("invalid evaluation response");
@@ -130,13 +162,17 @@ export function validateResponse(value: unknown, request: SystemRequest): assert
   }
 }
 
+/** HTTP client for the OpenKind / System One decision inference API. */
 export class OpenKindClient {
+  /** Normalized base URL of the target daemon without trailing slashes. */
   readonly baseUrl: string;
+  /** Default model profile alias used when omitted from evaluation calls. */
   readonly defaultModel: string;
   private readonly apiKey?: string;
   private readonly timeoutMs: number;
   private readonly fetcher: typeof fetch;
 
+  /** Create an OpenKindClient with configuration options. */
   constructor(options: ClientOptions = {}) {
     this.baseUrl = (options.baseUrl ?? "http://127.0.0.1:18080").replace(/\/+$/, "");
     this.defaultModel = options.defaultModel ?? "jev-latest";
@@ -181,16 +217,30 @@ export class OpenKindClient {
     }
   }
 
+  /**
+   * Submit an evaluation request to `/v1/systemone` and validate the returned answers.
+   *
+   * @param request - Full System One evaluation request payload.
+   * @returns Validated response with answers and token usage.
+   */
   async evaluate(request: SystemRequest): Promise<ApiResult<SystemResponse>> {
     const result = await this.send<SystemResponse>("/v1/systemone", "POST", request);
     validateResponse(result.data, request);
     return result;
   }
 
+  /**
+   * Convenience helper to evaluate questions against a given state.
+   *
+   * @param state - Context state string, array, or object.
+   * @param questions - Map of question IDs to question definitions.
+   * @param model - Optional model override (defaults to `defaultModel`).
+   */
   systemOne(state: State, questions: Record<string, Question>, model = this.defaultModel): Promise<ApiResult<SystemResponse>> {
     return this.evaluate({ state, model, questions });
   }
 
+  /** Retrieve the list of available model profiles from `/v1/models`. */
   async listModels(): Promise<ApiResult<ModelsResponse>> {
     const result = await this.send<ModelsResponse>("/v1/models", "GET");
     if (!object(result.data) || !Array.isArray(result.data.models) ||
@@ -201,6 +251,7 @@ export class OpenKindClient {
     return result;
   }
 
+  /** Query the `/health` endpoint to check daemon availability. */
   async health(): Promise<ApiResult<Health>> {
     const result = await this.send<Health>("/health", "GET");
     if (!object(result.data) || typeof result.data.status !== "string") fail("invalid health response");

@@ -72,6 +72,41 @@ fn grouped_request_shares_one_state_and_unique_ids() {
     let request = build_request("bench", &workload.rows, &groups[0]).expect("request");
     assert_eq!(request.questions.len(), 3);
     assert_eq!(request.model, "bench");
+    assert!(build_request("bench", &workload.rows, &[]).is_err());
+    assert!(build_request("bench", &workload.rows, &[usize::MAX]).is_err());
+    assert!(build_request("bench", &workload.rows, &[0, usize::MAX]).is_err());
+    assert!(build_request("bench", &workload.rows, &[0, 0]).is_err());
+}
+
+#[test]
+fn explicit_none_without_a_description_gets_the_wire_fallback() {
+    let raw = r#"{"id":"q","state":"evidence","primitive":"choice","options":[{"id":"a"},{"id":"__none__","description":null}]}"#;
+    let workload = parse_workload("none", raw.as_bytes()).expect("parse");
+    let openkind_core::Question::Choice(question) = workload.rows[0].question().expect("question")
+    else {
+        panic!("expected choice");
+    };
+    assert!(question.criteria[SEMANTIC_NONE_OPTION]
+        .as_deref()
+        .is_some_and(|text| !text.trim().is_empty()));
+}
+
+#[test]
+fn workload_loading_rejects_invalid_wire_questions_before_scoring() {
+    for row in [
+        serde_json::json!({"primitive":"noul", "text":""}),
+        serde_json::json!({"primitive":"noul", "text":"   "}),
+        serde_json::json!({"primitive":"noul", "text":"q", "criteria":{"true":"", "false":"no"}}),
+        serde_json::json!({"primitive":"choice", "text":"", "options":[{"id":"a"}]}),
+        serde_json::json!({"primitive":"score", "text":"q", "levels":["low", ""]}),
+    ] {
+        let mut row = row.as_object().expect("row").clone();
+        row.insert("id".into(), serde_json::json!("q"));
+        row.insert("state".into(), serde_json::json!("evidence"));
+        let raw = serde_json::to_vec(&row).expect("row JSON");
+        let error = parse_workload("invalid", &raw).expect_err("reject invalid wire question");
+        assert!(error.to_string().contains("invalid decision"), "{error}");
+    }
 }
 
 #[test]
@@ -94,6 +129,18 @@ fn generated_workloads_are_seed_deterministic() {
     for dir in [first, second, third] {
         let _ = fs::remove_dir_all(dir);
     }
+}
+
+#[test]
+fn oversized_generation_fails_without_overwriting_existing_output() {
+    let dir = temp_dir("gen-overflow");
+    let output = dir.join("workload.jsonl");
+    fs::write(&output, "existing evidence\n").expect("existing output");
+    for (states, criteria) in [(usize::MAX, 2), (usize::MAX, 1), (usize::MAX / 256, 1)] {
+        assert!(generate_workload(states, criteria, 42, &output).is_err());
+        assert_eq!(fs::read_to_string(&output).unwrap(), "existing evidence\n");
+    }
+    fs::remove_dir_all(dir).expect("cleanup");
 }
 
 #[test]
@@ -137,6 +184,8 @@ fn mock_score_run_end_to_end_writes_summary_and_predictions() {
             .expect("summary is JSON");
     assert_eq!(summary["schema"], "openkind-bench/v1");
     assert_eq!(summary["engine"], "mock");
+    assert_eq!(summary["engine_variant"], "mock");
+    assert_eq!(summary["measurement_scope"], "mock_request_path");
     assert_eq!(summary["host"], "test-host");
     assert_eq!(summary["fixture"]["rows"], 12);
     assert_eq!(summary["fixture"]["groups"], 4);
@@ -147,10 +196,26 @@ fn mock_score_run_end_to_end_writes_summary_and_predictions() {
     let strategies = summary["strategies"].as_array().expect("strategies");
     assert_eq!(strategies.len(), 1);
     assert_eq!(strategies[0]["strategy"], "mock");
+    assert_eq!(strategies[0]["backend_id"], "mock");
     assert_eq!(strategies[0]["rows"], 12);
     assert_eq!(strategies[0]["reps"], 2);
     assert!(strategies[0]["p50_seconds"].as_f64().expect("p50") > 0.0);
     assert!(strategies[0]["decisions_per_second"].as_f64().expect("dps") > 0.0);
+    let tokens = strategies[0]["input_tokens_total"]
+        .as_u64()
+        .expect("tokens");
+    assert!(tokens > 0, "dispatch estimates mock input tokens");
+    let timed_seconds: f64 = strategies[0]["samples_seconds"]
+        .as_array()
+        .expect("samples")
+        .iter()
+        .map(|value| value.as_f64().expect("seconds"))
+        .sum();
+    let token_rate = strategies[0]["input_tokens_per_second"]
+        .as_f64()
+        .expect("token rate");
+    let expected_rate = tokens as f64 / timed_seconds;
+    assert!((token_rate - expected_rate).abs() <= expected_rate * 1e-12);
     // CPU telemetry and host hardware are recorded with every summary.
     assert!(
         strategies[0]["cpu_time_seconds"].as_f64().is_some(),
@@ -194,6 +259,34 @@ fn mock_score_run_end_to_end_writes_summary_and_predictions() {
         .expect("probabilities object");
     let total: f64 = probabilities.values().filter_map(Value::as_f64).sum();
     assert!((total - 1.0).abs() < 1e-6, "choice distribution sums to 1");
+
+    let mut router_args = args.clone();
+    router_args.engine = EngineKind::RouterScript;
+    router_args.strategies.clear();
+    router_args.output_dir = dir.join("router");
+    let router = run_score(&router_args).expect("offline router over mock siblings");
+    assert_eq!(router.summary["engine_variant"], "router-script");
+    assert_eq!(
+        router.summary["measurement_scope"],
+        "routing_overhead_with_mock_siblings"
+    );
+    assert_eq!(
+        router.summary["strategies"][0]["backend_id"],
+        "router-script/detector"
+    );
+
+    let mut oversized_reps = args.clone();
+    oversized_reps.reps = usize::MAX;
+    let error =
+        run_score(&oversized_reps).expect_err("oversized repetition count must return an error");
+    assert!(error.to_string().contains("reserve repetition samples"));
+    let preserved: Value =
+        serde_json::from_str(&fs::read_to_string(&summary_path).expect("preserved summary"))
+            .expect("summary JSON");
+    assert_eq!(
+        preserved, summary,
+        "failed run must preserve existing evidence"
+    );
 
     let _ = fs::remove_dir_all(dir);
     // Silence unused-variable lint when fixture constant changes shape.
@@ -243,6 +336,18 @@ fn history_aba_repeats_the_identical_request() {
     assert_eq!(rows[1]["sequence_index"], 1);
     assert_eq!(rows[2]["sequence_index"], 2);
     assert_eq!(rows[0]["answer"], rows[2]["answer"]);
+    let mut mock_defaults = args.clone();
+    mock_defaults.strategies = crate::score::DEFAULT_STRATEGIES.to_vec();
+    mock_defaults.output_dir = dir.join("mock-defaults");
+    run_score(&mock_defaults).expect("mock has one effective plan regardless of native sweep");
+
+    let mut router_args = args.clone();
+    router_args.engine = EngineKind::RouterScript;
+    router_args.strategies.clear();
+    router_args.output_dir = dir.join("router");
+    let router = run_score(&router_args).expect("family history probe uses its single pinned plan");
+    assert_eq!(router.summary["strategies"][0]["rows"], 3);
+    assert_eq!(router.summary["history_aba"], true);
     let _ = fs::remove_dir_all(dir);
 }
 
@@ -328,6 +433,11 @@ fn parse_strategies_defaults_explicit_lists_and_rejects_empty() {
     // Present-but-empty tokens yield no strategies, not the default sweep.
     let err = parse_strategies(Some(",,")).unwrap_err();
     assert!(err.to_string().contains("listed no strategies"), "{err}");
+
+    for repeated in ["repeated_full,repeated_full", "auto,choose_strategy"] {
+        let err = parse_strategies(Some(repeated)).expect_err("reject duplicate strategy aliases");
+        assert!(err.to_string().contains("duplicate"), "{err}");
+    }
 }
 
 #[test]
@@ -341,4 +451,8 @@ fn native_runs_require_at_least_one_strategy() {
         err.to_string().contains("at least one execution strategy"),
         "{err}"
     );
+    let repeated = [StrategySpec::ChooseStrategy, StrategySpec::ChooseStrategy];
+    let error = crate::score::validate_strategy_selection(EngineKind::Qwen35, &repeated)
+        .expect_err("duplicate strategies would overwrite result files");
+    assert!(error.to_string().contains("duplicate"), "{error}");
 }

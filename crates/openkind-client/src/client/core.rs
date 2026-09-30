@@ -260,5 +260,20 @@ impl Client {
 
 #[derive(serde::Deserialize)]
 struct CloudflareResponse {
+    #[serde(rename = "success", deserialize_with = "require_cloudflare_success")]
+    _success: (),
     result: SystemResponse,
+}
+
+fn require_cloudflare_success<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<(), D::Error> {
+    // A failure envelope must not release a result that happens to match the Jev schema.
+    if <bool as serde::Deserialize>::deserialize(deserializer)? {
+        Ok(())
+    } else {
+        Err(serde::de::Error::custom(
+            "Cloudflare response reports failure",
+        ))
+    }
 }
