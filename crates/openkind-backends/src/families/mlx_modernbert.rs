@@ -462,8 +462,6 @@ pub(crate) struct ModernBertMlx {
     final_norm: Array,
     rotary_global: RotaryTables,
     rotary_local: RotaryTables,
-    /// Sliding-window band masks keyed by sequence length, built on demand.
-    window_masks: std::sync::Mutex<std::collections::HashMap<usize, Array>>,
     num_heads: usize,
     head_dim: usize,
     half_window: usize,
@@ -474,8 +472,8 @@ pub(crate) struct ModernBertMlx {
 // process-wide `MlxRuntime` execution mutex (see the qwen35 `mlx` module
 // docs); outside the lock, array handles are immutable refcounted values
 // whose handle-only operations (clone, shape, dtype) are safe concurrently.
-// The window-mask cache is additionally guarded by its own mutex. This is
-// the same soundness argument as `unsafe impl Sync for MlxQwen35Backbone`,
+// This is the same soundness argument as `unsafe impl Sync for
+// MlxQwen35Backbone`,
 // and it is what lets the bounded engine share one loaded model across the
 // blocking-pool threads.
 unsafe impl Send for ModernBertMlx {}
@@ -517,7 +515,6 @@ impl ModernBertMlx {
                 config.local_rope_theta,
                 config.max_sequence_tokens,
             )?,
-            window_masks: std::sync::Mutex::new(std::collections::HashMap::new()),
             num_heads,
             head_dim,
             half_window: config.local_attention / 2,
@@ -525,16 +522,12 @@ impl ModernBertMlx {
         })
     }
 
-    /// The sliding-window band mask for `seq` positions, built on CPU with
-    /// the same layout as the candle reference and cached per length.
-    fn window_mask(&self, seq: usize) -> Result<Array, MlxError> {
-        let mut cache = self
-            .window_masks
-            .lock()
-            .map_err(|_| MlxError::InvalidState("window mask cache poisoned".to_owned()))?;
-        if let Some(mask) = cache.get(&seq) {
-            return Ok(mask.clone());
-        }
+    /// Build the sliding-window band mask for `seq` positions on CPU with
+    /// the same layout as the candle reference.
+    ///
+    /// The sequence length is request-controlled, so masks must remain
+    /// forward-local rather than being retained in a process-lifetime cache.
+    fn window_mask(&self, seq: usize) -> Array {
         let mut values = Vec::with_capacity(seq * seq);
         for i in 0..seq {
             for j in 0..seq {
@@ -545,9 +538,7 @@ impl ModernBertMlx {
                 });
             }
         }
-        let mask = Array::from_slice(&values, &[seq as i32, seq as i32]);
-        cache.insert(seq, mask.clone());
-        Ok(mask)
+        Array::from_slice(&values, &[seq as i32, seq as i32])
     }
 
     /// One full-sequence forward: embedding, all encoder layers, and final
@@ -560,7 +551,7 @@ impl ModernBertMlx {
             .take_axis(&ids, 0)
             .map_err(op("embed tokens"))?;
         xs = layer_norm_weight_only(&xs, &self.embedding_norm, self.norm_eps)?;
-        let mask = self.window_mask(seq)?;
+        let mask = self.window_mask(seq);
         for layer in &self.layers {
             xs = layer.forward(
                 &xs,
