@@ -13,17 +13,27 @@ Models are research prototypes. Implementation parity is tested, but task qualit
 
 ## Install
 
-Build from source with Rust 1.88 or newer and the Protocol Buffers compiler (`protoc`):
+Install the `openkind` CLI and `openkindd` server using Homebrew, Cargo, or prebuilt binaries. Keep both binaries on `PATH`: `openkind serve` starts the server. The standard distributions run models on the CPU; Apple silicon users who want GPU acceleration can [build from source with MLX](#apple-silicon-and-mlx).
+
+### Homebrew (macOS and Linux)
 
 ```bash
-git clone https://github.com/whit3rabbit/openkind.git
-cd openkind
-cargo build --release --locked -p openkind-cli -p openkind-server
-export PATH="$PWD/target/release:$PATH"
+brew install whit3rabbit/tap/openkind
 openkind version
 ```
 
-This builds `openkind`, the CLI, and `openkindd`, the local server. Keep both on `PATH`: `openkind serve` starts the server. The default build runs models on the CPU; Apple silicon users can enable [MLX](#apple-silicon-and-mlx).
+### Cargo
+
+Install from crates.io with Rust 1.88+:
+
+```bash
+cargo install --locked openkind-cli openkind-server
+openkind version
+```
+
+### Releases
+
+Download prebuilt binary archives for macOS (Apple silicon or Intel) and Linux (`x86_64` musl) from [GitHub Releases](https://github.com/whit3rabbit/openkind/releases). Unpack the tarball and add `openkind` and `openkindd` to your `PATH`.
 
 ## Run a model
 
@@ -220,7 +230,23 @@ The new mixed-task Qwen3.5 decision LoRA trainer has been checked with tiny mode
 
 ## Development
 
-Start with the [architecture guide](docs/ARCHITECTURE.md) and [family integration guide](docs/families/NEW_FAMILY.md). The repository's [agent guide](AGENTS.md#verification) lists the full verification battery.
+### Build from source
+
+To build from source, install Rust 1.88 or newer and the Protocol Buffers compiler (`protoc`):
+
+```bash
+git clone https://github.com/whit3rabbit/openkind.git
+cd openkind
+cargo build --release --locked -p openkind-cli -p openkind-server
+export PATH="$PWD/target/release:$PATH"
+openkind version
+```
+
+Apple silicon users can enable the optional GPU-accelerated backend with `--features openkind-server/mlx` (see [Apple silicon and MLX](#apple-silicon-and-mlx)).
+
+### Verification
+
+Start with the [architecture guide](docs/ARCHITECTURE.md) and [family integration guide](docs/families/NEW_FAMILY.md). The repository's [agent guide](AGENTS.md#verification) lists the full verification battery:
 
 ```bash
 cargo fmt --check

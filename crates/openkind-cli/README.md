@@ -6,6 +6,20 @@
 
 ## Installation & Build
 
+### Homebrew (macOS & Linux)
+
+```bash
+brew install whit3rabbit/tap/openkind
+```
+
+### Cargo
+
+```bash
+cargo install --locked openkind-cli
+```
+
+### Build from source
+
 ```bash
 cargo build --release -p openkind-cli
 # Binary produced at target/release/openkind

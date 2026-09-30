@@ -6,7 +6,19 @@
 
 ## Installation & Build
 
-Build the daemon binary:
+### Homebrew (macOS & Linux)
+
+```bash
+brew install whit3rabbit/tap/openkind
+```
+
+### Cargo
+
+```bash
+cargo install --locked openkind-server
+```
+
+### Build from source
 
 ```bash
 cargo build --release -p openkind-server
