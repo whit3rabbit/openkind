@@ -2,13 +2,18 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
 
-use openkind_model_store::{Catalog, Manifest};
+use openkind_model_store::{Catalog, Manifest, CATALOG_SHA256};
 use sha2::{Digest, Sha256};
 
 #[test]
 fn curated_qwen_manifest_matches_the_pinned_local_bundle() {
     let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let catalog_bytes = std::fs::read(repo.join("registry/v1/catalog.json")).unwrap();
+    assert_eq!(
+        format!("{:x}", Sha256::digest(&catalog_bytes)),
+        CATALOG_SHA256,
+        "the production catalog digest must pin the checked-in catalog"
+    );
     let catalog: Catalog = serde_json::from_slice(&catalog_bytes).unwrap();
     catalog.validate().unwrap();
     let entry = catalog
