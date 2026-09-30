@@ -17,5 +17,6 @@ All quality/timing results use full-input execution. Cache diagnostics are separ
 - Fresh data are authored fixtures, not independent production/benchmark evidence
 - Historical Drive run is incomplete; the later pasted physical-removal result lacks raw Drive artifacts
 - NF4 FP32 linear reference retains NF4 weights and lower-precision surrounding operations
+- The Chrome operator trace was not retained; `operator_profile.json` is the available profiling evidence
 - No actual expert streaming, distillation, weight pruning, or Qwen3.5 hybrid-cache execution
 - Hook/eager runtime is not a grouped-expert serving speed ceiling
