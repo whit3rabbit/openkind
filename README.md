@@ -107,10 +107,10 @@ openkind playground --no-open
 openkind playground --http-addr 127.0.0.1:18080 --models mock,jev-latest
 
 # Enable the playground route on a manually started daemon:
-openkindd --playground on
+openkindd --playground on --http-addr 127.0.0.1:8080
 ```
 
-`openkind playground` binds `127.0.0.1` only, disables the gRPC listener, and turns off the per-IP rate limit so benchmark bursts are not throttled; Ctrl-C stops it.  If a daemon is already listening on the target address it checks that the playground is enabled before opening it.  API keys stay in page memory until the page closes. The page offers preset and saved requests (saved examples live in the browser's `localStorage`), a form or raw-JSON editor, typed answer cards with probability bars, and a benchmark tab that measures client-side round trips across selected models.  Those timings are informational; recorded measurements come from `openkind-bench score` ([benchmarks](docs/BENCHMARKS.md)).
+The daemon rejects `--playground on` unless its HTTP listener is bound to a loopback address, keeping model lifecycle controls local even when inference authentication is disabled or an API key is shared. `openkind playground` binds `127.0.0.1` only, disables the gRPC listener, and turns off the per-IP rate limit so benchmark bursts are not throttled; Ctrl-C stops it.  If a daemon is already listening on the target address it checks that the playground is enabled before opening it.  API keys stay in page memory until the page closes. The page offers preset and saved requests (saved examples live in the browser's `localStorage`), a form or raw-JSON editor, typed answer cards with probability bars, and a benchmark tab that measures client-side round trips across selected models.  Those timings are informational; recorded measurements come from `openkind-bench score` ([benchmarks](docs/BENCHMARKS.md)).
 
 ## Features
 
