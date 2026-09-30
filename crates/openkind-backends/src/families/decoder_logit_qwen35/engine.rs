@@ -33,9 +33,13 @@ impl Jevk5PassSource for Inner {
         &self.renderer
     }
 
-    fn letter_logits(&self, pass: &RenderedPass) -> Result<Vec<f64>, FamilyError> {
+    fn letter_logits(
+        &self,
+        pass: &RenderedPass,
+        control: &FamilyControl,
+    ) -> Result<Vec<f64>, FamilyError> {
         self.model
-            .letter_logits(pass.prompt_ids(), pass.letter_ids())
+            .letter_logits(pass.prompt_ids(), pass.letter_ids(), control)
     }
 }
 
@@ -47,7 +51,11 @@ pub(crate) trait Jevk5PassSource {
     fn renderer(&self) -> &super::renderer::Jevk5Renderer;
 
     /// Raw letter logits for one rendered pass (backend-specific forward).
-    fn letter_logits(&self, pass: &RenderedPass) -> Result<Vec<f64>, FamilyError>;
+    fn letter_logits(
+        &self,
+        pass: &RenderedPass,
+        control: &FamilyControl,
+    ) -> Result<Vec<f64>, FamilyError>;
 }
 
 /// One calibrated read of at most 16 options: render, forward, temperature
@@ -61,6 +69,21 @@ struct PassRead<'a> {
     control: &'a FamilyControl,
 }
 
+fn account_question_tokens(
+    token_count: &std::cell::Cell<u64>,
+    tokens: u64,
+) -> Result<(), FamilyError> {
+    token_count.set(token_count.get().saturating_add(tokens));
+    if token_count.get() > super::MAX_QUESTION_TOKENS {
+        return Err(FamilyError::InvalidInput(format!(
+            "question requires {} prompt tokens across its passes, exceeding the maximum work budget of {}",
+            token_count.get(),
+            super::MAX_QUESTION_TOKENS
+        )));
+    }
+    Ok(())
+}
+
 impl PassReader for PassRead<'_> {
     fn read(&self, options: &[(String, String)]) -> Result<Vec<f64>, FamilyError> {
         // Each knockout pass is a separate non-interruptible forward, so a
@@ -71,9 +94,9 @@ impl PassReader for PassRead<'_> {
             .renderer()
             .render_pass(self.state, self.criterion, options)?;
         let tokens = u64::from(self.source.renderer().pass_token_count(&pass));
-        self.token_count
-            .set(self.token_count.get().saturating_add(tokens));
-        let logits = self.source.letter_logits(&pass)?;
+        account_question_tokens(self.token_count, tokens)?;
+        self.control.check()?;
+        let logits = self.source.letter_logits(&pass, self.control)?;
         self.control.check()?;
         temperature_softmax(&logits, CALIBRATION_TEMPERATURE)
     }
@@ -277,6 +300,19 @@ pub(crate) fn evaluate_with(
 }
 
 #[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn aggregate_question_work_fails_closed() {
+        let tokens = std::cell::Cell::new(super::super::MAX_QUESTION_TOKENS - 1);
+        account_question_tokens(&tokens, 1).expect("the exact budget is accepted");
+        let error = account_question_tokens(&tokens, 1).expect_err("excess work must fail");
+        assert!(matches!(error, FamilyError::InvalidInput(_)));
+    }
+}
+
+#[cfg(test)]
 mod debug {
     //! Operator debug aid (never part of CI): dumps rendered prompt ids and
     //! raw letter logits for one hand-written case so the bytes can be
@@ -303,7 +339,15 @@ mod debug {
             .render_pass(&state, criterion, &options)
             .expect("render");
         let logits = model
-            .letter_logits(pass.prompt_ids(), pass.letter_ids())
+            .letter_logits(
+                pass.prompt_ids(),
+                pass.letter_ids(),
+                &FamilyControl::new(
+                    std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                    None,
+                    0,
+                ),
+            )
             .expect("logits");
         eprintln!(
             "PROMPT_IDS {}",
@@ -334,7 +378,11 @@ mod cancellation_tests {
             &self.renderer
         }
 
-        fn letter_logits(&self, pass: &RenderedPass) -> Result<Vec<f64>, FamilyError> {
+        fn letter_logits(
+            &self,
+            pass: &RenderedPass,
+            _control: &FamilyControl,
+        ) -> Result<Vec<f64>, FamilyError> {
             self.calls.set(self.calls.get() + 1);
             self.cancelled.store(true, Ordering::Release);
             Ok(vec![0.0; pass.letter_ids().len()])

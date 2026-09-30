@@ -121,7 +121,40 @@ impl Qwen35Tokenizer {
 
         let mut question_ids = self.encode(QUESTION_MARKER)?;
         question_ids.extend(self.encode(instruction)?);
+        self.finish_state_first(root_ids, question_ids, candidates)
+    }
 
+    /// Encode the state-first renderer with an option-catalogue block inserted
+    /// between the question instruction and each candidate continuation.
+    ///
+    /// The shared root and every candidate continuation are byte-identical to
+    /// the frozen renderer, so the state root stays independent of the
+    /// question; only the question branch gains the caller-supplied catalogue
+    /// text. This is an experimental renderer and is not part of the frozen
+    /// `state_first` contract.
+    pub fn encode_state_first_catalogue(
+        &self,
+        state: &str,
+        instruction: &str,
+        catalogue: &str,
+        candidates: &[CandidateText<'_>],
+    ) -> Result<StateFirstSegments, Qwen35Error> {
+        validate_inputs(state, instruction, candidates)?;
+        let mut root_ids = self.encode(PREFIX)?;
+        root_ids.extend(self.encode(STATE_MARKER)?);
+        root_ids.extend(self.encode(state)?);
+        let mut question_ids = self.encode(QUESTION_MARKER)?;
+        question_ids.extend(self.encode(instruction)?);
+        question_ids.extend(self.encode(catalogue)?);
+        self.finish_state_first(root_ids, question_ids, candidates)
+    }
+
+    fn finish_state_first(
+        &self,
+        root_ids: Vec<u32>,
+        question_ids: Vec<u32>,
+        candidates: &[CandidateText<'_>],
+    ) -> Result<StateFirstSegments, Qwen35Error> {
         let mut candidate_suffix_ids = Vec::with_capacity(candidates.len());
         let mut full_candidate_ids = Vec::with_capacity(candidates.len());
         for candidate in candidates {

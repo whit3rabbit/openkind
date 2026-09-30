@@ -49,13 +49,20 @@ impl Jevk5PassSource for Inner {
         &self.renderer
     }
 
-    fn letter_logits(&self, pass: &RenderedPass) -> Result<Vec<f64>, FamilyError> {
+    fn letter_logits(
+        &self,
+        pass: &RenderedPass,
+        control: &FamilyControl,
+    ) -> Result<Vec<f64>, FamilyError> {
+        control.check()?;
         // No outer `runtime.execute` here: `MlxQwen35Backbone::prefill`
         // takes the process-wide execution lock itself, and the lock is not
         // reentrant.
-        Ok(self
+        let logits = self
             .model
-            .letter_logits(pass.prompt_ids(), pass.letter_ids())?)
+            .letter_logits(pass.prompt_ids(), pass.letter_ids())?;
+        control.check()?;
+        Ok(logits)
     }
 }
 
