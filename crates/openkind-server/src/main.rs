@@ -113,6 +113,7 @@ async fn main() -> Result<()> {
         "OPENPICK_HTTP_ADDR",
     )?
     .unwrap_or_else(|| "0.0.0.0:8080".parse().expect("valid default HTTP address"));
+    validate_playground_bind(args.playground, http_addr)?;
     let grpc_addr_value = resolve_alias(
         args.grpc_addr.clone(),
         args.legacy_grpc_addr.clone(),
@@ -514,6 +515,15 @@ fn init_tracing(filter: &str) -> Result<()> {
     Ok(())
 }
 
+fn validate_playground_bind(playground: PlaygroundArg, http_addr: SocketAddr) -> Result<()> {
+    if matches!(playground, PlaygroundArg::On) && !http_addr.ip().is_loopback() {
+        anyhow::bail!(
+            "--playground on requires a loopback --http-addr (for example 127.0.0.1:8080) because the playground can change loaded models"
+        );
+    }
+    Ok(())
+}
+
 /// Future that resolves on SIGINT (Ctrl-C) or SIGTERM.
 async fn shutdown_signal() {
     let ctrl_c = async {
@@ -555,5 +565,18 @@ mod tests {
             .await
             .unwrap()
             .unwrap();
+    }
+
+    #[test]
+    fn playground_requires_a_loopback_http_listener() {
+        for address in ["127.0.0.1:8080", "[::1]:8080"] {
+            validate_playground_bind(PlaygroundArg::On, address.parse().unwrap()).unwrap();
+        }
+
+        let error = validate_playground_bind(PlaygroundArg::On, "0.0.0.0:8080".parse().unwrap())
+            .unwrap_err();
+        assert!(error.to_string().contains("requires a loopback"));
+
+        validate_playground_bind(PlaygroundArg::Off, "0.0.0.0:8080".parse().unwrap()).unwrap();
     }
 }
