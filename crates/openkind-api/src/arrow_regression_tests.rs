@@ -237,6 +237,7 @@ async fn sequential_batch_preserves_state_order_and_pins_the_engine() {
     let response = evaluate_batch(
         Arc::new(AppState::new(registry.clone())),
         serde_json::from_value(body(json!(["0.1", "0.2", "0.3"]))).unwrap(),
+        None,
         ARROW_BATCH_TIMEOUT,
     )
     .await
@@ -275,6 +276,7 @@ async fn batch_deadline_cancels_active_evaluation_without_starting_later_states(
     let result = evaluate_batch(
         state(engine.clone()),
         serde_json::from_value(body(json!(["0.1", "0.2"]))).unwrap(),
+        None,
         Duration::from_millis(50),
     )
     .await;
@@ -380,6 +382,22 @@ async fn payload_syntax_and_rate_limit_errors_use_standard_json() {
         max_requests: 1,
         window: Duration::from_secs(60),
     });
+    error(
+        post(
+            app(engine.clone(), 1024, limiter),
+            body(json!(["0.1", "0.2"])),
+        )
+        .await,
+        StatusCode::TOO_MANY_REQUESTS,
+        "rate_limited",
+    )
+    .await;
+    assert_eq!(engine.calls.load(Ordering::SeqCst), 0);
+
+    let limiter = crate::RateLimiter::new(crate::RateLimitConfig {
+        max_requests: 2,
+        window: Duration::from_secs(60),
+    });
     let router = app(engine.clone(), 1024, limiter);
     decoded(post(router.clone(), body(json!(["0.1", "0.2"]))).await).await;
     let response = post(router, body(json!(["0.1"]))).await;
@@ -399,6 +417,11 @@ fn projected_buffer_boundary_and_overflow_are_checked() {
     );
     assert!(projected_column_bytes(&questions, MAX_ARROW_RESPONSE_BYTES / 8 + 1).is_err());
     assert!(projected_column_bytes(&questions, usize::MAX).is_err());
+    assert_eq!(arrow_work_units(MAX_ARROW_STATES, 8), ARROW_ADMISSION_UNITS);
+    assert_eq!(
+        arrow_work_units(1, MAX_ARROW_RESPONSE_BYTES),
+        ARROW_ADMISSION_UNITS
+    );
 }
 
 #[test]

@@ -42,7 +42,7 @@ use arrow_array::{FixedSizeListArray, Float64Array, RecordBatch};
 use arrow_ipc::writer::StreamWriter;
 use arrow_schema::{DataType, Field, FieldRef, Fields, Schema, SchemaRef};
 use axum::extract::rejection::JsonRejection;
-use axum::extract::State as AxumState;
+use axum::extract::{Extension, State as AxumState};
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
@@ -72,6 +72,8 @@ pub const ARROW_CONTENT_TYPE: &str = "application/vnd.apache.arrow.stream";
 /// [`openkind_core::MAX_QUESTIONS_PER_REQUEST`]; beyond this, callers chunk
 /// their states across requests.
 pub const MAX_ARROW_STATES: usize = 10_000;
+/// Total weighted Arrow work admitted concurrently by one application state.
+pub(crate) const ARROW_ADMISSION_UNITS: usize = MAX_ARROW_STATES;
 
 /// Maximum number of Choice options a question may have on this endpoint.
 /// The `choice` child column is a `uint8` index into `labels`, so more than
@@ -381,6 +383,7 @@ mod regression_tests;
 /// Arrow bytes are written.
 pub async fn arrow_batch(
     AxumState(state): AxumState<Arc<AppState>>,
+    rate_limit: Option<Extension<crate::middleware::RateLimitContext>>,
     req: Result<Json<ArrowBatchRequest>, JsonRejection>,
 ) -> Result<Response, ApiError> {
     let Json(req) = match req {
@@ -395,23 +398,34 @@ pub async fn arrow_batch(
         },
     };
 
-    evaluate_batch(state, req, ARROW_BATCH_TIMEOUT).await
+    evaluate_batch(
+        state,
+        req,
+        rate_limit.map(|Extension(context)| context),
+        ARROW_BATCH_TIMEOUT,
+    )
+    .await
 }
 
 async fn evaluate_batch(
     state: Arc<AppState>,
     req: ArrowBatchRequest,
+    rate_limit: Option<crate::middleware::RateLimitContext>,
     timeout: Duration,
 ) -> Result<Response, ApiError> {
     let deadline = tokio::time::Instant::now() + timeout;
-    tokio::time::timeout_at(deadline, evaluate_batch_until(state, req, deadline))
-        .await
-        .map_err(|_| deadline_error())?
+    tokio::time::timeout_at(
+        deadline,
+        evaluate_batch_until(state, req, rate_limit, deadline),
+    )
+    .await
+    .map_err(|_| deadline_error())?
 }
 
 async fn evaluate_batch_until(
     state: Arc<AppState>,
     req: ArrowBatchRequest,
+    rate_limit: Option<crate::middleware::RateLimitContext>,
     deadline: tokio::time::Instant,
 ) -> Result<Response, ApiError> {
     if req.states.len() > MAX_ARROW_STATES {
@@ -433,7 +447,27 @@ async fn evaluate_batch_until(
     // usage estimation and telemetry. Playground updates affect later batches.
     let mut registry = EngineRegistry::new();
     registry.register(req.model.clone(), engine);
-    projected_column_bytes(&req.questions, req.states.len())?;
+    let projected_bytes = projected_column_bytes(&req.questions, req.states.len())?;
+    let work_units = arrow_work_units(req.states.len(), projected_bytes);
+    if let Some(rate_limit) = rate_limit {
+        rate_limit
+            .charge(work_units.saturating_sub(1) as u32)
+            .map_err(|retry_after_ms| ApiError::RateLimited { retry_after_ms })?;
+    }
+    // Admission precedes all projected column allocation. A maximum-work
+    // request takes the whole gate; smaller batches may run concurrently.
+    let _admission = if work_units == 0 {
+        None
+    } else {
+        Some(
+            state
+                .arrow_admission
+                .clone()
+                .acquire_many_owned(work_units as u32)
+                .await
+                .map_err(|_| deadline_error())?,
+        )
+    };
     let mut builder = BatchBuilder::new(&req.questions, &req.model, req.states.len())?;
     // Check schema size before doing model work, even for a zero-row batch.
     let (schema, empty) = builder.empty_batch()?;
@@ -461,6 +495,12 @@ async fn evaluate_batch_until(
         bytes,
     )
         .into_response())
+}
+
+/// Estimate both dispatch work and retained column memory on a common scale.
+fn arrow_work_units(states: usize, projected_bytes: usize) -> usize {
+    let bytes_per_unit = MAX_ARROW_RESPONSE_BYTES.div_ceil(ARROW_ADMISSION_UNITS);
+    states.max(projected_bytes.div_ceil(bytes_per_unit))
 }
 
 #[cfg(test)]

@@ -45,6 +45,22 @@ pub struct RateLimiter {
     >,
 }
 
+/// Per-request handle used by bulk handlers to charge work beyond the one
+/// unit already recorded by [`rate_limit_layer`].
+#[doc(hidden)]
+#[derive(Debug, Clone)]
+pub struct RateLimitContext {
+    limiter: RateLimiter,
+    ip: std::net::IpAddr,
+}
+
+impl RateLimitContext {
+    /// Atomically charge additional units to the current client's window.
+    pub(crate) fn charge(&self, units: u32) -> Result<(), u64> {
+        self.limiter.check_n(self.ip, units)
+    }
+}
+
 impl RateLimiter {
     /// Construct a `RateLimiter` with the given configuration.
     pub fn new(config: RateLimitConfig) -> Self {
@@ -70,6 +86,12 @@ impl RateLimiter {
     /// Record one request for `ip`. Returns `Ok(())` when under the limit,
     /// or `Err(retry_after_ms)` when the client has exhausted its window.
     fn check(&self, ip: std::net::IpAddr) -> Result<(), u64> {
+        self.check_n(ip, 1)
+    }
+
+    /// Atomically record `units` for `ip` without partially spending a
+    /// rejected charge.
+    fn check_n(&self, ip: std::net::IpAddr, units: u32) -> Result<(), u64> {
         if !self.is_enabled() {
             return Ok(());
         }
@@ -86,7 +108,7 @@ impl RateLimiter {
         if now.duration_since(entry.1) >= window {
             *entry = (0, now);
         }
-        if entry.0 >= self.config.max_requests {
+        if units > self.config.max_requests.saturating_sub(entry.0) {
             let elapsed = now.duration_since(entry.1);
             let remaining_ms = window
                 .saturating_sub(elapsed)
@@ -94,7 +116,7 @@ impl RateLimiter {
                 .min(u64::MAX as u128) as u64;
             return Err(remaining_ms.max(1));
         }
-        entry.0 += 1;
+        entry.0 += units;
         Ok(())
     }
 }
@@ -122,7 +144,14 @@ pub async fn rate_limit_layer(
         .map(|c| c.0.ip());
     match peer_ip {
         Some(ip) => match limiter.check(ip) {
-            Ok(()) => next.run(req).await,
+            Ok(()) => {
+                let mut req = req;
+                req.extensions_mut().insert(RateLimitContext {
+                    limiter: limiter.clone(),
+                    ip,
+                });
+                next.run(req).await
+            }
             Err(retry_after_ms) => {
                 tracing::debug!(%ip, retry_after_ms, "rate limited");
                 crate::error::ApiError::RateLimited { retry_after_ms }.into_response()

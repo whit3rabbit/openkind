@@ -57,6 +57,8 @@ pub struct AppState {
     pub playground_models: Option<Arc<dyn playground::PlaygroundModels>>,
     /// Optional proxy-cache hook (installed by the daemon in proxy mode).
     pub proxy: Option<Arc<dyn proxy::SystemProxy>>,
+    /// Process-local weighted admission gate for Arrow batch work.
+    pub(crate) arrow_admission: Arc<tokio::sync::Semaphore>,
 }
 
 impl AppState {
@@ -66,6 +68,7 @@ impl AppState {
             registry: Arc::new(registry),
             playground_models: None,
             proxy: None,
+            arrow_admission: Arc::new(tokio::sync::Semaphore::new(arrow::ARROW_ADMISSION_UNITS)),
         }
     }
 }
