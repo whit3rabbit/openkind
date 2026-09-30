@@ -67,7 +67,10 @@ fn catalogue_prompt_shows_every_description_and_keeps_the_frozen_root() {
             .encode_state_first(
                 "Compare the supplied values.",
                 "Which option has the higher value?",
-                &[CandidateText::new("large", "value 9")],
+                &[
+                    CandidateText::new("large", "value 9"),
+                    CandidateText::new("small", "value 3"),
+                ],
             )
             .unwrap();
         frozen.root_ids().len()
@@ -158,7 +161,8 @@ fn calibration_math_preserves_argmax_and_moves_none_mass() {
     // The temperature arm preserves the winning class.
     let hottest = Qwen35ScoringProbe::calibrated_probabilities(&logits, 4.0, 0.0).unwrap();
     assert_eq!(argmax(&probabilities), argmax(&hottest));
-    assert!(hottest[argmax(&hottest)] > probabilities[argmax(&probabilities)]);
+    // Higher temperature flattens, so the winner keeps less mass.
+    assert!(hottest[argmax(&hottest)] < probabilities[argmax(&probabilities)]);
     // The none offset moves rejection mass without inventing evidence.
     let shifted = Qwen35ScoringProbe::calibrated_probabilities(&logits, 1.0, -2.0).unwrap();
     assert!(shifted[2] < probabilities[2]);
@@ -211,13 +215,14 @@ fn joint_rejects_long_option_sets_instead_of_truncating_rivals() {
         let Question::Choice(ref mut choice) = question else {
             unreachable!()
         };
-        // Independent prompts fit, but the catalogue and combined options do not.
+        // Each independent prompt fits at ~170 tokens, but the catalogue shows
+        // every rival in every prompt and exceeds the bound instead.
         for index in 0..16 {
             choice.criteria.remove(&format!("opt{index}"));
         }
         choice
             .criteria
-            .insert("wide".into(), Some("word ".repeat(300)));
+            .insert("wide".into(), Some("word ".repeat(1200)));
     }
     let error = prepare(&tokenizer, &State::Text("state".into()), &question)
         .err()
