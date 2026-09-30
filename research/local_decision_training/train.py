@@ -564,8 +564,14 @@ def restore(folder, model, identity, optimizer=None, scheduler=None):
     result = set_peft_model_state_dict(model, load_file(str(folder / "adapter/adapter_model.safetensors")))
     assert not result.unexpected_keys and not any("lora_" in k for k in result.missing_keys), result
     if optimizer is not None:
-        # Resume files are created by this run and verified against its manifest before unpickling.
-        state = torch.load(folder / "resume.pt", map_location="cpu", weights_only=False)
+        state = torch.load(folder / "resume.pt", map_location="cpu", weights_only=True)
+        assert isinstance(state, dict) and set(state) == {
+            "optimizer", "scheduler", "torch_rng", "cuda_rng", "python_rng"
+        }, "Invalid resume state"
+        assert isinstance(state["optimizer"], dict) and isinstance(state["scheduler"], dict), "Invalid optimizer state"
+        assert isinstance(state["torch_rng"], torch.Tensor), "Invalid Torch RNG state"
+        assert isinstance(state["cuda_rng"], list) and all(isinstance(x, torch.Tensor) for x in state["cuda_rng"]), "Invalid CUDA RNG state"
+        assert isinstance(state["python_rng"], tuple), "Invalid Python RNG state"
         optimizer.load_state_dict(state["optimizer"]); scheduler.load_state_dict(state["scheduler"])
         torch.set_rng_state(state["torch_rng"])
         if state["cuda_rng"]:

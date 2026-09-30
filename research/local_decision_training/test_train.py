@@ -1,5 +1,7 @@
 """Offline checks. Tiny randomly initialized models only; no model/data downloads."""
+import ast
 import copy
+import inspect
 import json
 from pathlib import Path
 import random
@@ -23,6 +25,16 @@ class FakeTokenizer:
 
 
 class DataTests(unittest.TestCase):
+    def test_resume_load_rejects_pickle_execution(self):
+        tree = ast.parse(inspect.getsource(recipe.restore))
+        loads = [node for node in ast.walk(tree) if isinstance(node, ast.Call)
+                 and isinstance(node.func, ast.Attribute) and node.func.attr == "load"]
+        self.assertEqual(len(loads), 1)
+        weights_only = next(keyword.value for keyword in loads[0].keywords
+                            if keyword.arg == "weights_only")
+        self.assertIsInstance(weights_only, ast.Constant)
+        self.assertIs(weights_only.value, True)
+
     def test_mnli_semantics_and_grouping(self):
         for label, expected in [(0, "entailment"), (1, "__none__"), (2, "contradiction")]:
             row = recipe.convert("mnli", dict(premise="Same Premise", hypothesis="claim", label=label), label)
