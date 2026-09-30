@@ -91,8 +91,8 @@ impl Column {
                 },
                 Answer::Score(answer),
             ) => {
-                // Dispatch validates Score numbers, but not the requested rubric
-                // identity. A single field legend must describe every row exactly.
+                // Keep each row bound to the schema even when a caller builds
+                // a batch directly without dispatch's request-bound validation.
                 if answer.probabilities.len() != legend.len() || answer.legend.len() != legend.len()
                 {
                     return Err(invalid());

@@ -146,6 +146,21 @@ async fn dispatch_successful_and_populates_token_usage() {
 }
 
 #[tokio::test]
+async fn dispatch_preserves_registered_alias_with_different_backend_id() {
+    let mut registry = EngineRegistry::new();
+    registry.register(
+        "public-model",
+        Arc::new(MockEngine::with_backend("internal")),
+    );
+
+    let response = dispatch(make_test_request("public-model"), &registry)
+        .await
+        .unwrap();
+
+    assert_eq!(response.model, "public-model");
+}
+
+#[tokio::test]
 async fn dispatch_preserves_engine_reported_tokens() {
     struct ExplicitTokensBackend;
     #[async_trait]
@@ -217,7 +232,7 @@ async fn dispatch_estimates_output_tokens_per_answer_kind() {
                         answers.insert(
                             id.clone(),
                             Answer::Score(ScoreAnswer {
-                                score: 1.0,
+                                score: (s.criteria.len() - 1) as f64 / 2.0,
                                 legend,
                                 probabilities: probs,
                                 confidence: 0.9,
@@ -397,6 +412,61 @@ fn token_estimation_handles_text_object_and_array_states() {
         questions: HashMap::default(),
     };
     assert!(engine.estimate_input_tokens(&req_arr) > 0);
+}
+
+#[test]
+fn token_estimation_counts_criteria_for_every_question_kind() {
+    let engine = MockEngine::new();
+    let description = "1234".repeat(1_000);
+    let requests = [
+        (
+            Question::Noul(NoulQuestion {
+                instructions: serde_json::json!("Check"),
+                criteria: None,
+            }),
+            Question::Noul(NoulQuestion {
+                instructions: serde_json::json!("Check"),
+                criteria: Some(openkind_core::NoulCriteria {
+                    r#true: description.clone(),
+                    r#false: "No".into(),
+                }),
+            }),
+        ),
+        (
+            Question::Choice(ChoiceQuestion {
+                instructions: serde_json::json!("Check"),
+                criteria: HashMap::from_iter([("a".into(), None)]),
+            }),
+            Question::Choice(ChoiceQuestion {
+                instructions: serde_json::json!("Check"),
+                criteria: HashMap::from_iter([("a".into(), Some(description.clone()))]),
+            }),
+        ),
+        (
+            Question::Score(ScoreQuestion {
+                instructions: serde_json::json!("Check"),
+                criteria: vec!["a".into()],
+            }),
+            Question::Score(ScoreQuestion {
+                instructions: serde_json::json!("Check"),
+                criteria: vec![description],
+            }),
+        ),
+    ];
+
+    for (short, long) in requests {
+        let request = |question| SystemRequest {
+            state: State::Text("state".into()),
+            model: "mock".into(),
+            questions: HashMap::from_iter([("q".into(), question)]),
+        };
+        let short_tokens = engine.estimate_input_tokens(&request(short));
+        let long_tokens = engine.estimate_input_tokens(&request(long));
+        assert!(
+            long_tokens >= short_tokens + 999,
+            "a 4,000-byte criterion must contribute to estimated usage"
+        );
+    }
 }
 
 #[tokio::test]

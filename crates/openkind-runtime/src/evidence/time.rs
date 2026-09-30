@@ -1,4 +1,7 @@
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+static RUN_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 pub(crate) fn unix_now() -> u64 {
     SystemTime::now()
@@ -14,10 +17,20 @@ pub fn format_utc_timestamp(unix_seconds: u64) -> String {
     format!("{year:04}-{month:02}-{day:02}T{hour:02}:{minute:02}:{second:02}Z")
 }
 
-/// Generate a UTC run identifier, e.g. `20260920T152206Z`.
+/// Generate a UTC run identifier with a process and invocation suffix.
 #[must_use]
 pub fn generate_run_id() -> String {
-    generate_run_id_at(unix_now())
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    // Evidence directories must be fresh, including concurrent runs in one second.
+    format!(
+        "{}-{}-{:09}-{}",
+        generate_run_id_at(now.as_secs()),
+        std::process::id(),
+        now.subsec_nanos(),
+        RUN_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+    )
 }
 
 pub(crate) fn generate_run_id_at(unix_seconds: u64) -> String {

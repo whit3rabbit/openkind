@@ -55,38 +55,28 @@ impl pb::system_one_server::SystemOne for SystemOneService {
 
         // Authenticate request if an API key is configured.
         if self.auth.is_required() && !check_grpc_auth(request.metadata(), &self.auth) {
-            let mut status = Status::unauthenticated("missing or invalid API key");
-            if let Ok(meta_val) = req_id.parse() {
-                status
-                    .metadata_mut()
-                    .insert("x-typesafe-request-id", meta_val);
-            }
-            return Err(status);
+            return Err(status_with_request_id(
+                Status::unauthenticated("missing or invalid API key"),
+                &req_id,
+            ));
         }
 
         let pb_req = request.into_inner();
 
         // Convert protobuf → core.
-        let state = pb_state_to_core(pb_req.state.as_ref())?;
-        let questions = pb_questions_to_core(pb_req.questions)?;
+        let state = pb_state_to_core(pb_req.state.as_ref())
+            .map_err(|status| status_with_request_id(status, &req_id))?;
+        let questions = pb_questions_to_core(pb_req.questions)
+            .map_err(|status| status_with_request_id(status, &req_id))?;
         let req = SystemRequest {
             state,
             model: pb_req.model,
             questions,
         };
 
-        let resp = match dispatch(req, &self.state.registry).await {
-            Ok(r) => r,
-            Err(e) => {
-                let mut status = status_from_engine(e);
-                if let Ok(meta_val) = req_id.parse() {
-                    status
-                        .metadata_mut()
-                        .insert("x-typesafe-request-id", meta_val);
-                }
-                return Err(status);
-            }
-        };
+        let resp = dispatch(req, &self.state.registry)
+            .await
+            .map_err(|error| status_with_request_id(status_from_engine(error), &req_id))?;
 
         let mut response = Response::new(core_to_pb_response(resp));
         // Stamp x-typesafe-request-id on every gRPC response. The Python
@@ -102,23 +92,31 @@ impl pb::system_one_server::SystemOne for SystemOneService {
     }
 }
 
+fn status_with_request_id(mut status: Status, request_id: &str) -> Status {
+    // Conversion failures happen before dispatch, but need the same
+    // correlation metadata as authentication and engine failures.
+    if let Ok(value) = request_id.parse() {
+        status.metadata_mut().insert("x-typesafe-request-id", value);
+    }
+    status
+}
+
 fn check_grpc_auth(metadata: &tonic::metadata::MetadataMap, auth: &AuthConfig) -> bool {
-    let expected = match auth.expected.as_deref() {
-        Some(exp) => exp,
-        None => return true,
-    };
+    if !auth.is_required() {
+        return true;
+    }
 
     let supplied = metadata
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|s| {
-            s.strip_prefix("Bearer ")
-                .or_else(|| s.strip_prefix("bearer "))
+            let (scheme, token) = s.split_once(' ')?;
+            scheme.eq_ignore_ascii_case("Bearer").then_some(token)
         })
         .or_else(|| metadata.get("x-api-key").and_then(|v| v.to_str().ok()));
 
     match supplied {
-        Some(token) => crate::middleware::secure_token_eq(token, expected),
+        Some(token) => auth.token_matches(token),
         None => false,
     }
 }

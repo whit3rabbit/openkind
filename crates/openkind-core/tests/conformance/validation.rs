@@ -22,6 +22,32 @@ fn empty_questions_is_rejected() {
 }
 
 #[test]
+fn instructions_reject_unsupported_scalar_shapes_for_every_question_kind() {
+    // The protocol permits strings, objects, and arrays, while the public
+    // JSON-value alias also lets callers construct unsupported scalar values.
+    for instructions in [json!(true), json!(false), json!(1), json!(0.5)] {
+        for question in [
+            json!({"type": "noul", "instructions": instructions}),
+            json!({"type": "choice", "instructions": instructions, "criteria": {"a": null}}),
+            json!({"type": "score", "instructions": instructions, "criteria": ["Low", "High"]}),
+        ] {
+            let request: SystemRequest = serde_json::from_value(json!({
+                "state": "x", "model": "mock", "questions": {"q": question}
+            }))
+            .unwrap();
+            assert!(matches!(
+                validate_request(&request),
+                Err(ValidationError::MissingInstructions(_))
+            ));
+            assert!(matches!(
+                ResponseContract::from_request(&request),
+                Err(ValidationError::MissingInstructions(_))
+            ));
+        }
+    }
+}
+
+#[test]
 fn choice_with_no_criteria_is_rejected() {
     // Spec: `criteria` is required on Choice, so serde rejects missing field
     // at deserialization (before our validator even runs).

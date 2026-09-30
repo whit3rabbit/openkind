@@ -102,8 +102,7 @@ fn instructions_missing(v: &serde_json::Value) -> bool {
         serde_json::Value::String(s) => s.is_empty(),
         serde_json::Value::Object(m) => m.is_empty(),
         serde_json::Value::Array(a) => a.is_empty(),
-        serde_json::Value::Null => true,
-        _ => false,
+        serde_json::Value::Null | serde_json::Value::Bool(_) | serde_json::Value::Number(_) => true,
     }
 }
 
@@ -176,6 +175,17 @@ fn validate_response_inner<'a>(
                 if prob_keys != legend_keys {
                     return Err(ValidationError::ScoreLegendMismatch(id.clone()));
                 }
+                if let Some(levels) = keys_for(id).filter(|levels| !levels.is_empty()) {
+                    // A self-consistent returned legend can still invent or
+                    // omit levels, or change the meaning of the requested rubric.
+                    if s.legend.len() != levels.len()
+                        || levels.iter().enumerate().any(|(index, description)| {
+                            s.legend.get(&index.to_string()) != Some(description)
+                        })
+                    {
+                        return Err(ValidationError::ScoreLegendMismatch(id.clone()));
+                    }
+                }
                 let mut max_idx: u32 = 0;
                 for k in &prob_keys {
                     let idx =
@@ -197,6 +207,21 @@ fn validate_response_inner<'a>(
                 }
                 check_confidence(id, s.confidence)?;
                 check_probabilities(id, &s.probabilities)?;
+                let expected: f64 = s
+                    .probabilities
+                    .iter()
+                    .map(|(key, probability)| {
+                        key.parse::<u32>().expect("validated score index") as f64 * probability
+                    })
+                    .sum();
+                // Scale the existing probability tolerance to the rubric's numeric range.
+                if (s.score - expected).abs() > 1e-3 * max_score.max(1.0) {
+                    return Err(ValidationError::ScoreExpectationMismatch {
+                        id: id.clone(),
+                        expected,
+                        value: s.score,
+                    });
+                }
             }
         }
     }
@@ -226,7 +251,7 @@ impl AnswerKind {
 }
 
 impl ResponseContract {
-    /// Capture question IDs, types, and Choice keys without copying state or instructions.
+    /// Capture question IDs, types, Choice keys, and Score levels without copying state or instructions.
     pub fn from_request(req: &SystemRequest) -> ValidationResult<Self> {
         if req.questions.is_empty() {
             return Err(ValidationError::NoQuestions);
@@ -285,7 +310,7 @@ fn contract_entry(question: &Question) -> (AnswerKind, Vec<String>) {
             AnswerKind::Choice,
             choice.criteria.keys().cloned().collect(),
         ),
-        Question::Score(_) => (AnswerKind::Score, Vec::new()),
+        Question::Score(score) => (AnswerKind::Score, score.criteria.clone()),
     }
 }
 
@@ -299,8 +324,8 @@ fn answer_kind(answer: &Answer) -> AnswerKind {
 
 /// Validate a response against its originating request.
 ///
-/// The request supplies the question types and Choice option set that cannot
-/// be established from a response alone. The older [`validate_response`]
+/// The request supplies the question types, Choice option set, and Score rubric
+/// that cannot be established from a response alone. The older [`validate_response`]
 /// remains available for callers that only have a criteria map.
 pub fn validate_response_for_request(
     resp: &SystemResponse,

@@ -154,9 +154,14 @@ impl Manifest {
         }
         let mut paths: HashSet<&str> = HashSet::new();
         for artifact in &self.artifacts {
+            // The metadata write must not alias a linked blob on case-insensitive filesystems.
+            let metadata_alias = artifact
+                .path
+                .split('/')
+                .next()
+                .is_some_and(|root| root.eq_ignore_ascii_case("manifest.json"));
             if !valid_relative_path(&artifact.path)
-                || artifact.path == "manifest.json"
-                || artifact.path.starts_with("manifest.json/")
+                || metadata_alias
                 || !paths.insert(&artifact.path)
                 || artifact.size == 0
                 || !valid_sha256(&artifact.sha256)
@@ -275,6 +280,13 @@ mod tests {
         assert!(manifest.validate().is_err());
         manifest.artifacts = vec![artifact("manifest.json/subfile")];
         assert!(manifest.validate().is_err());
+        for path in ["MANIFEST.JSON", "Manifest.Json/subfile"] {
+            manifest.artifacts = vec![artifact(path)];
+            assert!(
+                manifest.validate().is_err(),
+                "reserved metadata alias: {path}"
+            );
+        }
         manifest.artifacts = vec![artifact("bundle"), artifact("bundle/head.bin")];
         assert!(manifest.validate().is_err());
     }

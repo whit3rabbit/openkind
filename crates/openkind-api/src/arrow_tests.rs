@@ -85,9 +85,9 @@ pub(super) fn sample_answers() -> HashMap<String, Answer, WireHashState> {
                 .into_iter()
                 .collect(),
                 probabilities: [
-                    ("0".to_string(), 0.2),
+                    ("0".to_string(), 0.125),
                     ("1".to_string(), 0.5),
-                    ("2".to_string(), 0.3),
+                    ("2".to_string(), 0.375),
                 ]
                 .into_iter()
                 .collect(),

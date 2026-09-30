@@ -73,7 +73,7 @@ async fn grpc_auth_enforces_bearer_token() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn grpc_auth_accepts_x_api_key_and_lowercase_bearer() {
+async fn grpc_auth_accepts_x_api_key_and_case_insensitive_bearer() {
     let mut registry = openkind_engine::EngineRegistry::new();
     registry.register("mock", std::sync::Arc::new(MockEngine::new()));
     let auth = AuthConfig::new(Some("secret-grpc-token".into()));
@@ -116,14 +116,16 @@ async fn grpc_auth_accepts_x_api_key_and_lowercase_bearer() {
     let key_resp = client.evaluate(key_req).await.unwrap().into_inner();
     assert_eq!(key_resp.model, "mock");
 
-    // 2. A lowercase `bearer` prefix is accepted too (HTTP auth headers
-    //    are case-insensitive per RFC 9110 §11.6.1).
-    let mut lower_req = tonic::Request::new(pb_req);
-    lower_req
-        .metadata_mut()
-        .insert("authorization", "bearer secret-grpc-token".parse().unwrap());
-    let lower_resp = client.evaluate(lower_req).await.unwrap().into_inner();
-    assert_eq!(lower_resp.model, "mock");
+    // Authentication schemes are case-insensitive per RFC 9110 §11.6.1.
+    for scheme in ["bearer", "BEARER", "bEaReR"] {
+        let mut request = tonic::Request::new(pb_req.clone());
+        request.metadata_mut().insert(
+            "authorization",
+            format!("{scheme} secret-grpc-token").parse().unwrap(),
+        );
+        let response = client.evaluate(request).await.unwrap().into_inner();
+        assert_eq!(response.model, "mock");
+    }
 
     let _ = tx.send(());
     let _ = handle.await;
