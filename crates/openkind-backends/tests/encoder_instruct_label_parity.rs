@@ -241,3 +241,151 @@ fn golden_replay_matches_the_pinned_checkpoint() {
         );
     }
 }
+
+/// MLX/Metal parity gates for the pinned profile (feature `mlx`, macOS
+/// arm64). The candle CPU golden replay is the correctness oracle: the MLX
+/// engine must reproduce the same committed fixture answers with unchanged
+/// selections and bounded probability drift, per the workspace MLX parity
+/// gates.
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+mod mlx_replay {
+    use super::*;
+
+    use openkind_backends::families::encoder_instruct_label::{
+        EncoderInstructLabelMlxEngine, EncoderInstructLabelMlxEngineConfig,
+    };
+
+    /// Absolute drift budget on calibrated probabilities (the workspace MLX
+    /// gate for FP32 backend parity).
+    const MLX_PROBABILITY_TOLERANCE: f64 = 0.005;
+
+    struct MlxParity {
+        max_probability_error: f64,
+        selection_flips: usize,
+    }
+
+    fn measure_answer(
+        label: &str,
+        actual: &serde_json::Value,
+        expected: &serde_json::Value,
+        parity: &mut MlxParity,
+    ) {
+        if actual["type"] != expected["type"] {
+            panic!("{label}: answer type drifted on the MLX backend");
+        }
+        match expected["type"].as_str().expect("tagged answer") {
+            "noul" => {
+                let actual = actual["noul"].as_f64().expect("noul");
+                let expected = expected["noul"].as_f64().expect("noul");
+                parity.max_probability_error =
+                    parity.max_probability_error.max((actual - expected).abs());
+            }
+            "choice" => {
+                let actual_selection = actual["choice"].as_str().expect("choice selection");
+                let expected_selection = expected["choice"].as_str().expect("choice selection");
+                if actual_selection != expected_selection {
+                    parity.selection_flips += 1;
+                    eprintln!(
+                        "{label}: MLX selection flip {actual_selection} vs {expected_selection}"
+                    );
+                }
+                for (key, expected_probability) in expected["probabilities"]
+                    .as_object()
+                    .expect("probabilities")
+                {
+                    let actual_probability = actual["probabilities"][key]
+                        .as_f64()
+                        .unwrap_or_else(|| panic!("{label}: missing MLX probability {key}"));
+                    parity.max_probability_error = parity
+                        .max_probability_error
+                        .max((actual_probability - expected_probability.as_f64().unwrap()).abs());
+                }
+            }
+            "score" => {
+                let actual_score = actual["score"].as_f64().expect("score");
+                let expected_score = expected["score"].as_f64().expect("score");
+                parity.max_probability_error = parity
+                    .max_probability_error
+                    .max((actual_score - expected_score).abs());
+                for (key, expected_probability) in expected["probabilities"]
+                    .as_object()
+                    .expect("probabilities")
+                {
+                    let actual_probability = actual["probabilities"][key]
+                        .as_f64()
+                        .unwrap_or_else(|| panic!("{label}: missing MLX level {key}"));
+                    parity.max_probability_error = parity
+                        .max_probability_error
+                        .max((actual_probability - expected_probability.as_f64().unwrap()).abs());
+                }
+            }
+            other => panic!("{label}: unexpected answer type {other}"),
+        }
+    }
+
+    #[test]
+    fn mlx_golden_replay_matches_the_pinned_checkpoint() {
+        let Some(root) = model_root() else {
+            eprintln!("skipping: OPENKIND_ENCODER_INSTRUCT_LABEL_MODEL_ROOT is not set");
+            return;
+        };
+        let golden: Golden = serde_json::from_slice(
+            &fs::read(fixture_dir().join("golden.json")).expect("read golden fixture"),
+        )
+        .expect("decode golden fixture");
+        assert!(!golden.cases.is_empty(), "golden fixture has cases");
+
+        let engine = EncoderInstructLabelMlxEngine::load(EncoderInstructLabelMlxEngineConfig {
+            model_root: root,
+            limits: limits(),
+        })
+        .expect("load pinned MLX engine");
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+
+        let mut parity = MlxParity {
+            max_probability_error: 0.0,
+            selection_flips: 0,
+        };
+        let mut answers = 0_usize;
+        for case in &golden.cases {
+            let response = runtime
+                .block_on(engine.evaluate(case.request.clone()))
+                .unwrap_or_else(|error| panic!("mlx case {}: {error}", case.name));
+            for (question_id, expected) in &case.response.answers {
+                let actual = response.answers.get(question_id).unwrap_or_else(|| {
+                    panic!("mlx case {}: missing answer {question_id}", case.name)
+                });
+                let actual = serde_json::to_value(actual).expect("serialize answer");
+                measure_answer(
+                    &format!("mlx {}: {question_id}", case.name),
+                    &actual,
+                    expected,
+                    &mut parity,
+                );
+                answers += 1;
+            }
+            assert_eq!(
+                response.usage.input_tokens, case.response.usage.input_tokens,
+                "mlx {}: usage drifted",
+                case.name
+            );
+        }
+        assert_eq!(
+            parity.selection_flips, 0,
+            "MLX backend changed {} selections",
+            parity.selection_flips
+        );
+        assert!(
+            parity.max_probability_error <= MLX_PROBABILITY_TOLERANCE,
+            "MLX probability drift {} exceeds {MLX_PROBABILITY_TOLERANCE}",
+            parity.max_probability_error
+        );
+        eprintln!(
+            "mlx encoder-instruct-label parity: {answers} answers, max |Δp| = {:.3e}, selection flips = {}",
+            parity.max_probability_error, parity.selection_flips
+        );
+    }
+}

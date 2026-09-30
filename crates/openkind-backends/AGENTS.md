@@ -104,9 +104,9 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
   - [`runtime.rs`](./src/qwen35/mlx/runtime.rs): Process-wide serialized explicit-stream execution, memory telemetry, and toolchain qualification.
   - [`weights/`](./src/qwen35/mlx/weights/): Safetensors checkpoint loader with format detection and key normalization:
     - [`mod.rs`](./src/qwen35/mlx/weights/mod.rs): `MlxWeightStore` and `MlxWeightLoadReport` streaming loader.
-    - [`checkpoint.rs`](./src/qwen35/mlx/weights/checkpoint.rs): `MlxCheckpointFormat` detection, size/hash verification, and namespace mapping.
+    - [`checkpoint.rs`](./src/qwen35/mlx/weights/checkpoint.rs): `MlxCheckpointFormat` detection, size/hash verification, namespace mapping, and the `MlxSurveyCheckpoint` descriptor that lets a surveyed family reuse the backbone with its own digest-verified artifacts (selected explicitly; never sniffed).
     - [`shard.rs`](./src/qwen35/mlx/weights/shard.rs): Safetensors shard directory parsing and host widening (`widen_bf16`, `read_f32`, `shape_i32`).
-  - [`model.rs`](./src/qwen35/mlx/model.rs): `MlxQwen35Backbone` and continuation state container.
+  - [`model.rs`](./src/qwen35/mlx/model.rs): `MlxQwen35Backbone` and continuation state container. `load` binds the pinned profile identity; `load_survey` binds a survey family's profile/renderer identity over a caller-verified `MlxSurveyCheckpoint`.
   - [`branch_state.rs`](./src/qwen35/mlx/branch_state.rs): `BranchableState` and `BranchBatch` implementation for MLX.
   - [`layers/`](./src/qwen35/mlx/layers/): Decoder blocks decomposed into modular components:
     - [`mod.rs`](./src/qwen35/mlx/layers/mod.rs): Block lifecycle (`MlxDecoderLayer`), continuation states (`MlxLinearState`, `MlxFullState`, `MlxLayerState`), and mixer dispatch.
@@ -126,17 +126,17 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
 - [`src/families/`](./src/families/): Surveyed-family model loaders, readouts, and engine adapters:
   - [`mod.rs`](./src/families/mod.rs): Facade re-exporting `BoundedFamilyEngine`, `FamilyLimits`, `FamilyControl`, `FamilyEvaluator`, and wire answer unpacking.
   - [`decoder_logit_letter/`](./src/families/decoder_logit_letter/): Qwen2.5-0.5B-Instruct letter readout (`5492c97dfcdaf3fe9439`). Evaluates single-token option letters over prompt-formatted choices.
-  - [`decoder_logit_qwen35/`](./src/families/decoder_logit_qwen35/): JevK5 letter-logit readout (`415bcf4a064e6dadcf85`) over alibiserikbay/JevK5 (merged Qwen3.5-4B weights; SemIf letter protocol with knockout combination). Executes through the shared native backbone via [`qwen35/backbone/text.rs`](./src/qwen35/backbone/text.rs).
+  - [`decoder_logit_qwen35/`](./src/families/decoder_logit_qwen35/): JevK5 letter-logit readout (`415bcf4a064e6dadcf85`) over alibiserikbay/JevK5 (merged Qwen3.5-4B weights; SemIf letter protocol with knockout combination). Executes through the shared native backbone via [`qwen35/backbone/text.rs`](./src/qwen35/backbone/text.rs); `mlx/` runs the same artifacts through the MLX Qwen3.5 backbone behind the `Jevk5PassSource` seam shared with the CPU engine.
   - [`decoder_logit_llm/`](./src/families/decoder_logit_llm/): GGUF q8_0 letter readout (`465963d705b6f35d6208`). Offline GGUF checkpoint evaluation for letter-choice prompts.
-  - [`encoder_instruct_label/`](./src/families/encoder_instruct_label/): GLiClass label-marker readout (`9fd68313a5606eca42f2`) on a hand-implemented ModernBERT encoder (knowledgator/gliclass-modern-base-v3.0).
+  - [`encoder_instruct_label/`](./src/families/encoder_instruct_label/): GLiClass label-marker readout (`9fd68313a5606eca42f2`) on a hand-implemented ModernBERT encoder (knowledgator/gliclass-modern-base-v3.0); `mlx/` runs the identical FP32 shard on Metal over the shared ModernBERT body.
   - [`encoder_nli/`](./src/families/encoder_nli/): DistilBERT MNLI entailment readout (`1041a4c362338a61b820`). Maps premise-hypothesis entailment vs contradiction logits to decision distributions.
   - [`kev/`](./src/families/kev/): Kev-0.6B pointer readout (`39d88c11faeb4ac165fa`) over jaredpalmer/kev-0.6b (Qwen3-0.6B-Base plus adapter).
-  - [`laya/`](./src/families/laya/): Laya decision-encoder readout hosting three pinned profiles — `laya-english` (`c8ea29bf1e33a343c4b7`) and `laya-typed-decisions` (`9d28cfa9567902801ed1`) on ModernBERT-large, `laya-multilingual` (`f4064eb56fb7f7d325e1`) on mmBERT-base (convaiinnovations, Apache-2.0). One forward pass scores every `[MASK]`-marked option span through the shared typed-decision head; decode applies the checkpoint's shipped per-type and per-option-count temperature tables under the reference `[0.5, 5.0]` clamp.
+  - [`laya/`](./src/families/laya/): Laya decision-encoder readout hosting three pinned profiles — `laya-english` (`c8ea29bf1e33a343c4b7`) and `laya-typed-decisions` (`9d28cfa9567902801ed1`) on ModernBERT-large, `laya-multilingual` (`f4064eb56fb7f7d325e1`) on mmBERT-base (convaiinnovations, Apache-2.0). One forward pass scores every `[MASK]`-marked option span through the shared typed-decision head; decode applies the checkpoint's shipped per-type and per-option-count temperature tables under the reference `[0.5, 5.0]` clamp. `mlx/` runs the same pinned shards on Metal over the shared ModernBERT body.
   - [`schema_scorer/`](./src/families/schema_scorer/): MS MARCO cross-encoder scalar readout (`5a7350af556f0ee66566`). Evaluates query-passage relevance scores through sigmoid calibration.
   - [`router_script/`](./src/families/router_script/): Composite routing engine dispatching across sibling engines by Unicode script or rule table (`ScriptRuleTable`).
   - [`qwen3guard/`](./src/families/qwen3guard/): Guardrail safety classification profile and evaluation (Qwen3Guard-Stream token-level head, `0fcf416cab16d94f933d`).
   - [`winnow/`](./src/families/winnow/): Learned script router (`4dff8c5b03cfbf680db6`); Qwen2.5-0.5B-Instruct with a rank-8 LoRA adapter dispatching across two sibling engines.
-  - [`support.rs`](./src/families/support.rs), [`wire.rs`](./src/families/wire.rs), [`calibration.rs`](./src/families/calibration.rs), [`letter_renderer.rs`](./src/families/letter_renderer.rs), [`modernbert.rs`](./src/families/modernbert.rs): Reusable scaffolding: admission bounds, temperature scaling, prompt generation, wire answer conversions, and the config-driven ModernBERT encoder shared by `encoder_instruct_label` and `laya`.
+  - [`support.rs`](./src/families/support.rs), [`wire.rs`](./src/families/wire.rs), [`calibration.rs`](./src/families/calibration.rs), [`letter_renderer.rs`](./src/families/letter_renderer.rs), [`modernbert.rs`](./src/families/modernbert.rs): Reusable scaffolding: admission bounds, temperature scaling, prompt generation, wire answer conversions, and the config-driven ModernBERT encoder shared by `encoder_instruct_label` and `laya`. [`mlx_modernbert.rs`](./src/families/mlx_modernbert.rs) (feature `mlx`) is its MLX counterpart: one ModernBERT array path (F16 or F32 shards via `PinnedDtype`) behind every ModernBERT-shaped family head, so the numerical path cannot drift between encoder families.
 - Multi-file examples:
   - [`examples/qwen35_mlx_qualify/`](./examples/qwen35_mlx_qualify/): Phase 3M.0 runtime qualification suite (`main.rs`, `gate.rs`, `fp32.rs`, `bf16.rs`, `helpers.rs`).
   - [`examples/qwen35_mlx_full_parity/`](./examples/qwen35_mlx_full_parity/): Phase 3M.2–3M.4 full-sequence parity gate (`main.rs`, `full.rs`, `trace.rs`, `fixtures.rs`).
@@ -187,7 +187,15 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
    candidate failed the frozen model gate. A different Xcode/Metal toolchain is a different runtime —
    re-run `qwen35_mlx_qualify` (3M.0) before trusting any MLX gate after a
    toolchain change; bf16 is a separately gated candidate profile and must
-   never be treated as a default-equivalent of the FP32 oracle.
+   never be treated as a default-equivalent of the FP32 oracle. The
+   `MlxRuntime::execute` lock is NOT reentrant: never wrap a call that takes
+   the lock internally (backbone prefill, weight-store loads) in an outer
+   `execute` — the failure is a silent 0%-CPU deadlock. Surveyed-family MLX
+   backends (`families/laya/mlx/`, `families/encoder_instruct_label/mlx/`,
+   `families/decoder_logit_qwen35/mlx/`) follow the same discipline with the
+   candle CPU path as oracle and golden-fixture replay gates (frozen 0.005
+   probability tolerance, zero selection flips) in each family's parity test
+   module `mlx_replay`.
 10. **Confine Execution Identity Digests to Offline Evidence**:
     Do not emit raw token digests (`execution_input_digest`, `state_token_digest`, `semantic_set_digest`) in daemon telemetry or debug tracing during runtime evaluation. Raw digests of low-entropy inputs can be guessed offline. Reserve them strictly for explicit offline evidence generation.
 11. **Complete Candidate Retention in Memory Estimation**:
@@ -244,6 +252,11 @@ SDKROOT=$(xcrun --show-sdk-path) cargo run --release \
   --reps 1 --host "<host label>" --commit <hash> \
   --output-dir <benchmark-output-dir>
 ```
+
+Surveyed-family MLX engines dispatch through `--engine laya-english-mlx-fp32`
+(and the other laya profiles), `--engine encoder-instruct-label-mlx-fp32`, and
+`--engine decoder-logit-qwen35-mlx-fp32`, each with `--model-root <pinned
+artifact dir>` and no strategy sweep.
 
 The pinned comparison model is `Qwen/Qwen3.5-4B-Base` at revision
 `1001bb4d826a52d1f399e183466143f4da7b741b`. The MLX backend is built with the

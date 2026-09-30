@@ -17,8 +17,8 @@ use super::{
 };
 
 /// Vocab size and hidden width the tied embedding table must have.
-const VOCAB_SIZE: usize = 248_320;
-const HIDDEN_SIZE: usize = 2_560;
+pub(super) const VOCAB_SIZE: usize = 248_320;
+pub(super) const HIDDEN_SIZE: usize = 2_560;
 /// Frozen decoder-layer count of the pinned architecture.
 const LAYER_COUNT: usize = 32;
 

@@ -141,6 +141,22 @@ pub enum EncoderInstructLabelError {
     Family(#[from] crate::families::support::FamilyError),
 }
 
+/// MLX/Metal execution backend for the pinned profile (feature `mlx`).
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub mod mlx;
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+impl From<crate::qwen35::mlx::MlxError> for EncoderInstructLabelError {
+    fn from(error: crate::qwen35::mlx::MlxError) -> Self {
+        Self::Family(crate::families::support::FamilyError::from(error))
+    }
+}
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub use self::mlx::{
+    EncoderInstructLabelMlxEngine, EncoderInstructLabelMlxEngineConfig, MLX_EXECUTION_ARITHMETIC_ID,
+};
+
 /// Filesystem configuration for the pinned label-marker profile.
 #[derive(Debug, Clone)]
 pub struct EncoderInstructLabelEngineConfig {

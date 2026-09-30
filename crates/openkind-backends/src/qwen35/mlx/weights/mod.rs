@@ -22,10 +22,10 @@ use std::path::Path;
 
 use mlx_rs::Array;
 
-pub use self::checkpoint::MlxCheckpointFormat;
 use self::checkpoint::{canonical_tensor_name, load_checkpoint, MlxCheckpointIdentity};
+pub use self::checkpoint::{MlxCheckpointFormat, MlxSurveyCheckpoint};
 pub(crate) use self::shard::shape_i32;
-use self::shard::{read_bf16, read_f32, widen_bf16};
+use self::shard::{read_bf16, read_f32, widen_bf16, ShardIndex};
 use super::runtime::MlxRuntime;
 use super::{MlxError, MlxPrecision};
 use crate::qwen35::{Qwen35Embedding, Qwen35Error};
@@ -93,45 +93,14 @@ impl MlxWeightStore {
                     .map_err(MlxError::from_qwen)?;
                 loaded_bytes = loaded_bytes.saturating_add(bytes.len() as u64);
                 let mlx_shape = shape_i32(shape);
-                let array = match (precision, is_f32) {
-                    (MlxPrecision::Fp32, true) => {
-                        let values = read_f32(&bytes).ok_or_else(|| {
-                            MlxError::InvalidState(format!(
-                                "FP32 tensor `{tensor_name}` has a non-integral byte count"
-                            ))
-                        })?;
-                        make_f32_array(runtime, &values, &mlx_shape)?
-                    }
-                    (MlxPrecision::Fp32, false) => {
-                        let values = widen_bf16(&bytes).ok_or_else(|| {
-                            MlxError::InvalidState(format!(
-                                "BF16 tensor `{tensor_name}` has a non-integral byte count"
-                            ))
-                        })?;
-                        make_f32_array(runtime, &values, &mlx_shape)?
-                    }
-                    (MlxPrecision::NativeBf16, false) => {
-                        let values = read_bf16(&bytes).ok_or_else(|| {
-                            MlxError::InvalidState(format!(
-                                "BF16 tensor `{tensor_name}` has a non-integral byte count"
-                            ))
-                        })?;
-                        make_bf16_array(runtime, &values, &mlx_shape)?
-                    }
-                    (MlxPrecision::NativeBf16, true) => {
-                        // The pinned checkpoint's FP32 tensors are small
-                        // vectors (`A_log` and DeltaNet norm), so conversion
-                        // does not create a second matrix-sized allocation.
-                        let values = read_f32(&bytes).ok_or_else(|| {
-                            MlxError::InvalidState(format!(
-                                "FP32 tensor `{tensor_name}` has a non-integral byte count"
-                            ))
-                        })?;
-                        let values: Vec<half::bf16> =
-                            values.into_iter().map(half::bf16::from_f32).collect();
-                        make_bf16_array(runtime, &values, &mlx_shape)?
-                    }
-                };
+                let array = materialize_tensor(
+                    runtime,
+                    precision,
+                    &tensor_name,
+                    &bytes,
+                    &mlx_shape,
+                    is_f32,
+                )?;
                 if tensors.insert(tensor_name.clone(), array).is_some() {
                     return Err(MlxError::InvalidState(format!(
                         "checkpoint adapter mapped multiple tensors to `{tensor_name}`"
@@ -155,6 +124,68 @@ impl MlxWeightStore {
         })
     }
 
+    /// Stream a caller-verified survey checkpoint's required decoder tensors
+    /// into MLX arrays at the requested precision.
+    ///
+    /// The descriptor's artifacts (including the single-file shard) were
+    /// digest-verified by the survey family before this call; this loader
+    /// reads the shard in place, applies the format's key normalization, and
+    /// keeps the tied embedding host-resident exactly like [`Self::load`].
+    pub fn load_survey(
+        checkpoint: &MlxSurveyCheckpoint,
+        runtime: &MlxRuntime,
+        precision: MlxPrecision,
+    ) -> Result<Self, MlxError> {
+        let format = checkpoint.format;
+        let index = ShardIndex::read(&checkpoint.shard_path).map_err(MlxError::from_qwen)?;
+
+        let started = std::time::Instant::now();
+        runtime.reset_peak_memory().ok();
+        let mut tensors = BTreeMap::new();
+        let mut loaded_bytes = 0_u64;
+        for source_tensor_name in index.tensors.keys() {
+            let Some(tensor_name) = canonical_tensor_name(format, source_tensor_name) else {
+                continue;
+            };
+            if tensor_name.starts_with("model.language_model.embed_tokens") {
+                continue;
+            }
+            if !is_required_decoder_tensor(&tensor_name) {
+                continue;
+            }
+            let (bytes, shape, is_f32) = index
+                .read_bytes(source_tensor_name)
+                .map_err(MlxError::from_qwen)?;
+            loaded_bytes = loaded_bytes.saturating_add(bytes.len() as u64);
+            let mlx_shape = shape_i32(shape);
+            let array =
+                materialize_tensor(runtime, precision, &tensor_name, &bytes, &mlx_shape, is_f32)?;
+            if tensors.insert(tensor_name.clone(), array).is_some() {
+                return Err(MlxError::InvalidState(format!(
+                    "checkpoint adapter mapped multiple tensors to `{tensor_name}`"
+                )));
+            }
+        }
+        let report = MlxWeightLoadReport {
+            load_seconds: started.elapsed().as_secs_f64(),
+            peak_active_mlx_bytes: runtime.peak_memory_bytes().ok(),
+            peak_process_bytes: openkind_runtime::peak_resident_bytes().ok(),
+            inactive_cache_bytes: runtime.cache_memory_bytes().ok(),
+            loaded_tensor_bytes: loaded_bytes,
+        };
+        Ok(Self {
+            tensors,
+            embedding: checkpoint.embedding.clone(),
+            checkpoint: MlxCheckpointIdentity {
+                format,
+                backbone_id: checkpoint.backbone_id,
+                backbone_revision: checkpoint.backbone_revision,
+                tokenizer_digest: checkpoint.tokenizer_digest,
+            },
+            load_report: report,
+        })
+    }
+
     /// Checkpoint identity selected by the verified adapter.
     #[must_use]
     pub(crate) fn checkpoint_identity(&self) -> MlxCheckpointIdentity {
@@ -170,6 +201,55 @@ impl MlxWeightStore {
 
 fn is_required_decoder_tensor(name: &str) -> bool {
     name == "model.language_model.norm.weight" || name.starts_with("model.language_model.layers.")
+}
+
+/// Convert one raw checkpoint tensor into an MLX array at the requested
+/// execution precision (FP32 widens BF16 exactly; native BF16 decodes
+/// directly, converting the small FP32 vectors without matrix-sized
+/// staging copies).
+fn materialize_tensor(
+    runtime: &MlxRuntime,
+    precision: MlxPrecision,
+    tensor_name: &str,
+    bytes: &[u8],
+    mlx_shape: &[i32],
+    is_f32: bool,
+) -> Result<Array, MlxError> {
+    match (precision, is_f32) {
+        (MlxPrecision::Fp32, true) => {
+            let values = read_f32(bytes).ok_or_else(|| {
+                MlxError::InvalidState(format!(
+                    "FP32 tensor `{tensor_name}` has a non-integral byte count"
+                ))
+            })?;
+            make_f32_array(runtime, &values, mlx_shape)
+        }
+        (MlxPrecision::Fp32, false) => {
+            let values = widen_bf16(bytes).ok_or_else(|| {
+                MlxError::InvalidState(format!(
+                    "BF16 tensor `{tensor_name}` has a non-integral byte count"
+                ))
+            })?;
+            make_f32_array(runtime, &values, mlx_shape)
+        }
+        (MlxPrecision::NativeBf16, false) => {
+            let values = read_bf16(bytes).ok_or_else(|| {
+                MlxError::InvalidState(format!(
+                    "BF16 tensor `{tensor_name}` has a non-integral byte count"
+                ))
+            })?;
+            make_bf16_array(runtime, &values, mlx_shape)
+        }
+        (MlxPrecision::NativeBf16, true) => {
+            let values = read_f32(bytes).ok_or_else(|| {
+                MlxError::InvalidState(format!(
+                    "FP32 tensor `{tensor_name}` has a non-integral byte count"
+                ))
+            })?;
+            let values: Vec<half::bf16> = values.into_iter().map(half::bf16::from_f32).collect();
+            make_bf16_array(runtime, &values, mlx_shape)
+        }
+    }
 }
 
 fn make_f32_array(runtime: &MlxRuntime, values: &[f32], shape: &[i32]) -> Result<Array, MlxError> {
