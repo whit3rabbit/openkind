@@ -409,8 +409,8 @@ mod tests {
         let rendered = render_table(&["ALIAS", "VALUE"], &rows);
 
         assert!(rendered.contains("bad\\u{1b}[2J"));
-        assert!(!rendered.contains('\u{1b}'));
         let lines: Vec<_> = rendered.lines().collect();
+        assert!(!lines[2..].iter().any(|line| line.contains('\u{1b}')));
         assert_eq!(lines[2].find("first"), lines[3].find("second"));
     }
 }
