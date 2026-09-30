@@ -38,6 +38,8 @@ ever sampled.
 | Forward pattern | One full-sequence forward per pass; up to 16 options per pass |
 | Readout | Final-position hidden state dotted with the tied embedding rows of the option letters; softmax at the letter temperature |
 | Wide questions | The reference knockout schedule: near-equal groups of ≤ 16, a 16-finalist final pass, and knockout-temperature sharpening |
+| Work limits | At most 32 options, 512 rendered tokens per pass, and 1,536 aggregate rendered tokens per question |
+| Interruption | Caller cancellation and the queue-inclusive deadline are checked before and after every pass and decoder layer |
 | Continuation state | None — cache-free full forwards only |
 | Text generation | None |
 | Calibration | Pinned scalar temperatures fitted by the checkpoint author; loaders reject other values |
