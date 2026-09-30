@@ -12,12 +12,12 @@ use tokio::io::AsyncWriteExt;
 
 use crate::manifest::{sha256, valid_name, valid_relative_path, valid_sha256};
 use crate::{
-    Catalog, CatalogEntry, Error, Manifest, Result, CATALOG_URL, DECODER_LOGIT_LETTER_MODEL_NAME,
-    DECODER_LOGIT_LLM_MODEL_NAME, DECODER_LOGIT_QWEN35_MODEL_NAME, ENCODER_EMBEDDING_MODEL_NAME,
-    ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME, KEV_MODEL_NAME,
-    LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME, LAYA_TYPED_DECISIONS_MODEL_NAME,
-    QWEN35_STATE_FIRST_MODEL_NAME, QWEN3GUARD_MODEL_NAME, SCHEMA_SCORER_MODEL_NAME,
-    WINNOW_MODEL_NAME,
+    Catalog, CatalogEntry, Error, Manifest, Result, CATALOG_SHA256, CATALOG_URL,
+    DECODER_LOGIT_LETTER_MODEL_NAME, DECODER_LOGIT_LLM_MODEL_NAME, DECODER_LOGIT_QWEN35_MODEL_NAME,
+    ENCODER_EMBEDDING_MODEL_NAME, ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME,
+    KEV_MODEL_NAME, LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME,
+    LAYA_TYPED_DECISIONS_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME, QWEN3GUARD_MODEL_NAME,
+    SCHEMA_SCORER_MODEL_NAME, WINNOW_MODEL_NAME,
 };
 
 const MAX_METADATA_BYTES: u64 = 4 * 1024 * 1024;
@@ -104,6 +104,7 @@ fn supported_profile(manifest: &Manifest) -> bool {
 pub struct ModelStore {
     root: PathBuf,
     catalog_url: String,
+    catalog_sha256: String,
     client: reqwest::Client,
 }
 
@@ -168,6 +169,7 @@ impl ModelStore {
         Ok(Self {
             root,
             catalog_url: CATALOG_URL.to_owned(),
+            catalog_sha256: CATALOG_SHA256.to_owned(),
             client,
         })
     }
@@ -178,6 +180,9 @@ impl ModelStore {
 
     pub async fn catalog(&self) -> Result<Catalog> {
         let bytes = self.fetch_small(&self.catalog_url).await?;
+        if sha256(&bytes) != self.catalog_sha256 {
+            return Err(Error::DigestMismatch("catalog.json".into()));
+        }
         let catalog: Catalog = serde_json::from_slice(&bytes)?;
         catalog.validate()?;
         Ok(catalog)
@@ -687,6 +692,7 @@ mod tests {
                 .collect(),
         };
         let catalog_bytes = serde_json::to_vec(&catalog).unwrap();
+        let catalog_sha256 = sha256(&catalog_bytes);
         let mut app = Router::new().route(
             "/catalog.json",
             get(move || {
@@ -710,6 +716,7 @@ mod tests {
         let dir = tempdir().unwrap();
         let mut store = ModelStore::new(dir.path().to_path_buf()).unwrap();
         store.catalog_url = format!("http://{address}/catalog.json");
+        store.catalog_sha256 = catalog_sha256;
         (dir, store)
     }
 
@@ -717,6 +724,17 @@ mod tests {
         let blob = store.blob_path(&sha256(bytes));
         fs::create_dir_all(blob.parent().unwrap()).unwrap();
         fs::write(blob, bytes).unwrap();
+    }
+
+    #[tokio::test]
+    async fn rejects_catalog_that_does_not_match_the_release_digest() {
+        let bytes = b"verified offline fixture";
+        let (_dir, mut store) = test_store(vec![fixture_manifest(NAME, bytes)]).await;
+        store.catalog_sha256 = "0".repeat(64);
+        assert!(matches!(
+            store.catalog().await,
+            Err(Error::DigestMismatch(path)) if path == "catalog.json"
+        ));
     }
 
     #[tokio::test]

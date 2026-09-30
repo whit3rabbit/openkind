@@ -10,9 +10,10 @@ pub use store::{default_models_dir, InstalledModel, ModelStore};
 
 use thiserror::Error;
 
-/// The production catalog is a static file in this repository. Catalog entries
-/// point to immutable profile manifests whose bytes are checked by SHA-256.
+/// The production catalog mirrors the static file in this repository. Its
+/// digest is pinned below so the mutable mirror cannot authorize new content.
 pub const CATALOG_URL: &str = "https://raw.githubusercontent.com/whit3rabbit/openkind-model-registry/main/registry/v1/catalog.json";
+pub const CATALOG_SHA256: &str = "105d6e877636099e35d02e7efefd610109d003d11007c1b2c4666680126d9ddf";
 pub const QWEN35_STATE_FIRST_MODEL_NAME: &str = "qwen35-state-first:a047d6802c3f06f085b8";
 /// Pinned laya English decision-encoder model name.
 pub const LAYA_ENGLISH_MODEL_NAME: &str = "laya-english:c8ea29bf1e33a343c4b7";
