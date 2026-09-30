@@ -109,6 +109,7 @@ read-only artifact root:
 | `ENCODER_NLI` | `_ALIASES`, `_MODEL_ROOT` |
 | `ENCODER_INSTRUCT_LABEL` | `_ALIASES`, `_MODEL_ROOT` |
 | `KEV` | `_ALIASES`, `_MODEL_ROOT`, plus `OPENKIND_KEV_BASE_ROOT` (base checkpoint) |
+| `JEEVES` | `_ALIASES` (default `jeeves-native`), `_MODEL_ROOT`; requires `mlx` on macOS arm64 |
 | `DECODER_LLM` | `_ALIASES`, `_MODEL_ROOT` |
 | `SCHEMA_SCORER` | `_ALIASES`, `_MODEL_ROOT` |
 | `ROUTER_SCRIPT` | `_ALIASES`, plus `OPENKIND_ROUTER_SCRIPT_RULES` (rules file; no model root) |
@@ -128,6 +129,7 @@ Family token variables are prefixed `OPENKIND_`, for example
 
 Families with an MLX path take a backend selector: `native-cpu` default, or
 `mlx-fp32` on macOS arm64 when the daemon's `mlx` feature is enabled.
+Jeeves uses MLX affine4/FP32 exclusively and has no backend selector.
 
 | Variable | Meaning | Default |
 |---|---|---|

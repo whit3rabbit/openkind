@@ -283,6 +283,17 @@ target is `Qwen/Qwen3.5-4B-Base`; this source-model difference explains why
 loading compatibility does not imply parity. Quantized MLX-community exports
 are separate profiles, not alternate files for this backend.
 
+The separate [`families/jeeves`](../crates/openkind-backends/src/families/jeeves/mod.rs)
+module loads the pinned affine4/g64 Qwen3.5-9B export with a learned pointer
+head. It mmaps verified source files in place, keeps projection weights
+packed, and reuses the shared hybrid mixer math at the export's 4096 hidden
+width. Rust renders prompt, empty chain, and suffix as separate tokenization
+segments. Each question executes with fresh KV, DeltaNet, and convolution
+state through `MlxRuntime`; the bounded adapter maps the offered-option
+distribution to Jev answers. This no-thinking profile has its own identity,
+daemon alias, and [reference evidence](verification/jeeves-native/2026-09-29/REPORT.md).
+It does not change the frozen 4B backbone or its continuation contract.
+
 A backend is promotable only if it can reproduce the required tokenizer/rendering and hidden-state path and expose enough control over continuation state to support the selected profile's parity ladder. If a backend cannot expose recurrent/convolution state or the required hidden representations, it must report the unsupported capability rather than silently substitute a different decision function.
 
 The current `qwen35` module implements the deterministic contracts through the

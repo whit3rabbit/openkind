@@ -8,11 +8,12 @@ verification milestones. Pull progress stays on stderr. `openkind list`,
 `show NAME`, and `rm NAME` operate on local installations without a daemon or
 network request. Read commands accept `--json` for scripts.
 
-Thirteen profiles are catalog-installable: the native Qwen3.5 state-first
+Fifteen profiles are catalog-installable: the native Qwen3.5 state-first
 profile, the three laya decision encoders, and the surveyed-family
 prototypes (`decoder-logit-letter`, `encoder-nli`, `encoder-instruct-label`,
 `decoder-logit-llm`, `schema-scorer`, `qwen3guard`, `kev`,
-`decoder-logit-qwen35`, `winnow`). Every manifest pins each artifact's
+`decoder-logit-qwen35`, `winnow`, `jeeves`), plus the `encoder-embedding`
+proxy-cache student. Jeeves serving requires macOS arm64 and `--features mlx`. Every manifest pins each artifact's
 source revision, byte size, and SHA-256; `rust-loadable` status describes
 implementation and parity coverage, not reviewed task quality or release
 approval. Two small derived assets that no upstream publishes — kev's
@@ -77,6 +78,7 @@ registry model is only as fast as the loaders in this repository.
 | `decoder-logit-llm:465963d705b6f35d6208` | Candle CPU fp32 over GGUF q8_0 weights (`--engine decoder-llm`; daemon `--decoder-llm-aliases` / `--decoder-llm-model-root`) | CPU fp32 — no MLX path | [summary](benchmarks/2026-09-26-surveyed-families/summary-decoder-llm.json) |
 | `schema-scorer:5a7350af556f0ee66566` | Candle CPU fp32 (`--engine schema-scorer`; daemon `--schema-scorer-aliases` / `--schema-scorer-model-root`) | CPU fp32 — no MLX path | [summary](benchmarks/2026-09-26-surveyed-families/summary-schema-scorer.json) |
 | `qwen3guard:0fcf416cab16d94f933d` | Candle CPU fp32 (`--engine qwen3-guard`; daemon `--qwen3guard-aliases` / `--qwen3guard-model-root`) | CPU fp32 — no MLX path | [summary](benchmarks/2026-09-26-surveyed-families/summary-qwen3guard.json) |
+| `jeeves:15fb3b95801f2f039636` | Native MLX affine4/g64 weights, FP32 arithmetic (`--engine jeeves-mlx-affine4`, `--features mlx`), macOS arm64 | Native MLX, no-thinking prototype | [native parity](verification/jeeves-native/2026-09-29/REPORT.md) and [benchmark campaign](benchmarks/2026-09-29-jeeves-native/REPORT.md) |
 | `kev:39d88c11faeb4ac165fa` | Candle CPU fp32 (`--engine kev`; daemon `--kev-aliases` / `--kev-model-root` / `--kev-base-root`) | CPU fp32 — no MLX path | [summary](benchmarks/2026-09-26-surveyed-families/summary-kev.json) |
 | `decoder-logit-qwen35:415bcf4a064e6dadcf85` | Candle CPU fp32 over BF16 checkpoint (`--engine decoder-logit-qwen35`; daemon `--decoder-logit-qwen35-aliases` / `--decoder-logit-qwen35-model-root` / `--decoder-logit-qwen35-backend mlx-fp32`), MLX FP32 over the same BF16 checkpoint widened on load (`--engine decoder-logit-qwen35-mlx-fp32`, `--features mlx`) | `decoder-logit-qwen35-mlx-fp32` — golden-fixture parity gates through the Qwen3.5 MLX backbone (max probability drift 1.003e-6, zero selection flips) | [BENCHMARKS.md](BENCHMARKS.md) records, the [2026-09-29 mlx counterparts campaign](benchmarks/2026-09-29-mlx-counterparts/README.md), and the CPU [summary](benchmarks/2026-09-27-decoder-logit-qwen35/summary-decoder-logit-qwen35.json) |
 | `winnow:4dff8c5b03cfbf680db6` | Candle CPU fp32 router over registered siblings (daemon `--winnow-aliases` / `--winnow-model-root` / `--winnow-adapter`) | CPU fp32 — no MLX path; installed winnow binds label `A` to the installed `decoder-logit-letter` profile and label `B` to `encoder-nli` (falling back to the `--models` aliases) | [summary](benchmarks/2026-09-26-surveyed-families/summary-winnow.json) |

@@ -17,8 +17,9 @@ profile, update the tables here in the same change.
 
 ## Pull a catalog model
 
-Thirteen profiles are catalog-installable: every Rust-loadable profile
-except `router-script`, which needs no artifacts. `openkind pull NAME`
+Fifteen profiles are catalog-installable. `router-script` needs no artifacts.
+Jeeves serving requires macOS arm64 and an `mlx` build.
+`openkind pull NAME`
 downloads pinned artifacts, verifies every digest, and installs them for the
 daemon:
 
@@ -40,6 +41,7 @@ sibling profiles through a fixed rule table configured with
 | [`encoder-state-first`](families/encoder-state-first.md) `qwen35-state-first` | Qwen3.5 hybrid decoder (24 DeltaNet + 8 attention blocks) | [Qwen/Qwen3.5-4B-Base](https://huggingface.co/Qwen/Qwen3.5-4B-Base) + [OpenKind bundle](https://huggingface.co/cowWhySo/OpenKind-Qwen3.5-4B-StateFirst) | 4B | `a047d6802c3f06f085b8` | `openkind pull qwen35-state-first:a047d6802c3f06f085b8` |
 | [`decoder-logit-qwen35`](families/decoder-logit-qwen35.md) | Qwen3.5 hybrid decoder (merged LoRA, letter-logit readout) | [alibiserikbay/JevK5](https://huggingface.co/alibiserikbay/JevK5) (merged Qwen3.5-4B) | 4B | `415bcf4a064e6dadcf85` | `openkind pull decoder-logit-qwen35:415bcf4a064e6dadcf85` |
 | [`kev`](families/kev.md) | Qwen3 decoder (LoRA + pointer head) | [jaredpalmer/kev-0.6b](https://huggingface.co/jaredpalmer/kev-0.6b) over [Qwen/Qwen3-0.6B-Base](https://huggingface.co/Qwen/Qwen3-0.6B-Base) | 0.6B | `39d88c11faeb4ac165fa` | `openkind pull kev:39d88c11faeb4ac165fa` |
+| [`jeeves`](families/jeeves.md) | Qwen3.5 hybrid decoder (merged LoRA, pointer head, no-thinking) | [cowWhySo/jeeves-mlx](https://huggingface.co/cowWhySo/jeeves-mlx) (affine4/g64 export of PostHog/jeeves) | 9B | `15fb3b95801f2f039636` | `openkind pull jeeves:15fb3b95801f2f039636` |
 | [`qwen3guard`](families/qwen3guard.md) (Stream) | Qwen3 decoder (safety-verdict classification head) | [Qwen/Qwen3Guard-Stream-0.6B](https://huggingface.co/Qwen/Qwen3Guard-Stream-0.6B) | 0.6B | `0fcf416cab16d94f933d` | `openkind pull qwen3guard:0fcf416cab16d94f933d` |
 | [`decoder-logit-letter`](families/decoder-logit-letter.md) | Qwen2.5 decoder (option-letter logit readout) | [Qwen/Qwen2.5-0.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct) | 0.5B | `5492c97dfcdaf3fe9439` | `openkind pull decoder-logit-letter:5492c97dfcdaf3fe9439` |
 | [`decoder-logit-llm`](families/decoder-logit-llm.md) | Qwen2.5 decoder, GGUF q8_0 (label-logit readout) | [Qwen/Qwen2.5-0.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF) | 0.5B | `465963d705b6f35d6208` | `openkind pull decoder-logit-llm:465963d705b6f35d6208` |
@@ -60,7 +62,8 @@ checkpoint's own model-card accuracies belong to its authors, not to
 
 ## Execution backends, size, memory, and measured runs
 
-CPU fp32 (candle) runs everywhere and is the correctness oracle. The MLX
+CPU fp32 (candle) runs everywhere for the profiles that implement it. Jeeves
+has a native MLX path only. The MLX
 backend runs the Metal GPU on Apple silicon (macOS arm64, `--features mlx`;
 see [`MLX.md`](MLX.md)); it is parity-qualified for the profiles below and
 does not exist for the others. There is no CUDA or ROCm backend.
@@ -73,6 +76,7 @@ does not exist for the others. There is no CUDA or ROCm backend.
 | `decoder-logit-qwen35` | CPU fp32 | 8.43 GB | 8.04 GB | 0.16 | — | 15.2 s | [summary](benchmarks/2026-09-27-decoder-logit-qwen35/summary-decoder-logit-qwen35.json) |
 | `decoder-logit-qwen35` | MLX fp32 (qualified) | same | 6.98 GB | 0.43 | — | 20.2 s | [mlx counterparts campaign](benchmarks/2026-09-29-mlx-counterparts/README.md) |
 | `kev` | CPU fp32 | 1.25 GB | 4.22 GB | 4.84 | — | 5.6 s | [summary](benchmarks/2026-09-26-surveyed-families/summary-kev.json) |
+| `jeeves` | MLX affine4 weights / FP32 arithmetic | 5.07 GB execution files | — | — | — | — | [native parity and HTTP smoke](verification/jeeves-native/2026-09-29/REPORT.md); no throughput campaign |
 | `qwen3guard` | CPU fp32 | 1.21 GB | 4.20 GB | 4.97 | — | 2.4 s | [summary](benchmarks/2026-09-26-surveyed-families/summary-qwen3guard.json) |
 | `decoder-logit-letter` | CPU fp32 | 0.99 GB | 3.33 GB | 7.22 | — | 2.0 s | [summary](benchmarks/2026-09-26-surveyed-families/summary-decoder-letter.json) |
 | `decoder-logit-llm` | CPU fp32 (GGUF q8_0 weights) | 0.68 GB | 1.55 GB | 0.42 | — | 1.5 s | [summary](benchmarks/2026-09-26-surveyed-families/summary-decoder-llm.json) |
