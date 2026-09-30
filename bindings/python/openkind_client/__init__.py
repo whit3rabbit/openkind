@@ -9,7 +9,7 @@ import os
 from dataclasses import dataclass
 from typing import Generic, Literal, NotRequired, TypeVar, TypedDict, Union
 from urllib.error import HTTPError
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 
 logger = logging.getLogger("openkind_client")
@@ -159,6 +159,16 @@ class InvalidResponseError(Exception):
     pass
 
 
+class _NoRedirectHandler(HTTPRedirectHandler):
+    """Keep authenticated requests on their configured origin."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+_OPENER = build_opener(_NoRedirectHandler)
+
+
 def _object(value: object) -> dict[str, object]:
     if not isinstance(value, dict):
         raise InvalidResponseError("expected JSON object")
@@ -252,7 +262,7 @@ class Client:
             headers["Content-Type"] = "application/json"
         request = Request(self.base_url + path, data=payload, headers=headers, method=method)
         try:
-            with urlopen(request, timeout=self.timeout) as response:
+            with _OPENER.open(request, timeout=self.timeout) as response:
                 request_id = response.headers.get("x-typesafe-request-id")
                 raw = response.read()
                 try:
@@ -267,6 +277,7 @@ class Client:
                 message = details.get("message") if isinstance(details, dict) else None
             except (ValueError, UnicodeDecodeError, AttributeError):
                 code = message = None
+            error.close()
             raise ApiError(error.code, code if isinstance(code, str) else None,
                            message if isinstance(message, str) else f"HTTP {error.code}", request_id) from error
 
