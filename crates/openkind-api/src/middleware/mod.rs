@@ -12,6 +12,8 @@ mod request_id;
 mod tests;
 
 pub use auth::{auth_layer, auth_layer_for, secure_token_eq, AuthConfig, AUTH_HEADER};
+#[doc(hidden)]
+pub use rate_limit::RateLimitContext;
 pub use rate_limit::{rate_limit_layer, RateLimitConfig, RateLimiter};
 pub use request_id::{
     is_safe_request_id, request_id_layer, RequestId, MAX_REQUEST_ID_LEN, REQUEST_ID_HEADER,

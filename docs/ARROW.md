@@ -132,8 +132,12 @@ complete stream or a JSON error body.
 - The complete batch evaluation and encoding has a 600-second deadline. A
   deadline failure returns 504. Each backend may enforce a shorter deadline.
   Chunk large workloads to stay within the byte and time limits.
-- Rate limiting counts one HTTP request per call, so a bulk request moves
-  many state evaluations behind a single rate-limit unit.
+- Rate limiting charges the larger of the state count and the projected
+  column-memory work, rather than one unit for the whole HTTP call. Charges
+  that exceed the remaining per-IP window are rejected before evaluation.
+- A daemon-wide weighted admission gate is acquired before column allocation
+  or dispatch. A maximum-state or maximum-projection batch occupies the whole
+  gate; smaller batches share it in proportion to their estimated work.
 
 ## Consuming from Python
 
