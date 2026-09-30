@@ -51,6 +51,24 @@ const MAX_QUESTIONS: usize = 32;
 /// Detail header cap: above this many questions the header collapses to a count.
 const MAX_DETAIL_QUESTIONS: usize = 64;
 
+/// Whether a routing decision may be returned without consulting the teacher.
+///
+/// Audit decisions intentionally carry the student's would-be prediction for
+/// drift scoring, so the presence of `local` alone is not sufficient.
+fn is_locally_servable(decision: &RouteDecision) -> bool {
+    decision.local.is_some()
+        && decision.channel == Channel::Student
+        && decision.reason == RoutingReason::Confident
+}
+
+fn decision_for_teacher(decision: &RouteDecision) -> RouteDecision {
+    let mut decision = decision.clone();
+    if is_locally_servable(&decision) {
+        decision.channel = Channel::CoDeferred;
+    }
+    decision
+}
+
 /// Server-side proxy-cache configuration (parsed from CLI flags).
 #[derive(Debug, Clone)]
 pub struct ProxyCacheServiceConfig {
@@ -299,7 +317,7 @@ impl ProxyService {
                         student_version: None,
                     },
                 };
-                if decision.local.is_some() {
+                if is_locally_servable(&decision) {
                     any_routed = true;
                 } else {
                     all_local = false;
@@ -358,10 +376,7 @@ impl ProxyService {
             };
             // A locally answerable item forwarded with its request becomes a
             // co-deferred training row (teacher-labelled).
-            let mut decision = decision.clone();
-            if decision.local.is_some() {
-                decision.channel = Channel::CoDeferred;
-            }
+            let decision = decision_for_teacher(decision);
             let Some(mut answer) = teacher_answer_for(&response, ids, &spec.classes()) else {
                 continue;
             };
@@ -850,4 +865,51 @@ pub async fn resolve_encoder(
         ),
     };
     Ok((embedder, Some(installed)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use openkind_backends::proxy_cache::engine::LocalPrediction;
+
+    fn decision(reason: RoutingReason, channel: Channel) -> RouteDecision {
+        RouteDecision {
+            reason,
+            channel,
+            local: Some(LocalPrediction {
+                label: "alpha".into(),
+                probabilities: vec![0.9, 0.1],
+                routing_confidence: 0.9,
+                ood: 0.0,
+            }),
+            student_version: Some("student-v1".into()),
+        }
+    }
+
+    #[test]
+    fn only_confident_student_decisions_are_locally_servable() {
+        assert!(is_locally_servable(&decision(
+            RoutingReason::Confident,
+            Channel::Student
+        )));
+        assert!(!is_locally_servable(&decision(
+            RoutingReason::Audit,
+            Channel::Audit
+        )));
+        assert!(!is_locally_servable(&RouteDecision {
+            reason: RoutingReason::Confident,
+            channel: Channel::Student,
+            local: None,
+            student_version: Some("student-v1".into()),
+        }));
+    }
+
+    #[test]
+    fn forwarding_preserves_the_audit_channel() {
+        let audit = decision(RoutingReason::Audit, Channel::Audit);
+        assert_eq!(decision_for_teacher(&audit).channel, Channel::Audit);
+
+        let student = decision(RoutingReason::Confident, Channel::Student);
+        assert_eq!(decision_for_teacher(&student).channel, Channel::CoDeferred);
+    }
 }
