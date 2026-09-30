@@ -87,6 +87,16 @@ impl<'de> Deserialize<'de> for Answer {
                             continue;
                         }
                     };
+                    let Some(answer_tag) = tag.as_deref() else {
+                        early.push((field, map.next_value()?));
+                        continue;
+                    };
+                    // Known fields from other variants are still unknown
+                    // fields for this variant, so their values are ignored.
+                    if !field_belongs_to_answer(answer_tag, field) {
+                        let _ = map.next_value::<IgnoredAny>()?;
+                        continue;
+                    }
                     let already = |early: &[(&'static str, serde_json::Value)]| {
                         early.iter().any(|(name, _)| *name == field)
                     };
@@ -102,22 +112,28 @@ impl<'de> Deserialize<'de> for Answer {
                     if duplicate {
                         return Err(A::Error::duplicate_field(field));
                     }
-                    match tag.as_deref() {
-                        None => early.push((field, map.next_value()?)),
-                        Some(_) => match field {
-                            "noul" => noul = Some(map.next_value()?),
-                            "choice" => choice = Some(map.next_value()?),
-                            "probabilities" => probabilities = Some(map.next_value()?),
-                            "confidence" => confidence = Some(map.next_value()?),
-                            "score" => score = Some(map.next_value()?),
-                            "legend" => legend = Some(map.next_value()?),
-                            _ => unreachable!("field matched the list above"),
-                        },
+                    match field {
+                        "noul" => noul = Some(map.next_value()?),
+                        "choice" => choice = Some(map.next_value()?),
+                        "probabilities" => probabilities = Some(map.next_value()?),
+                        "confidence" => confidence = Some(map.next_value()?),
+                        "score" => score = Some(map.next_value()?),
+                        "legend" => legend = Some(map.next_value()?),
+                        _ => unreachable!("field matched the list above"),
                     }
                 }
 
                 // Replay any fields that arrived before the tag.
+                let tag = tag.ok_or_else(|| A::Error::missing_field("type"))?;
+                let mut replayed_fields = Vec::new();
                 for (field, value) in early {
+                    if !field_belongs_to_answer(&tag, field) {
+                        continue;
+                    }
+                    if replayed_fields.contains(&field) {
+                        return Err(A::Error::duplicate_field(field));
+                    }
+                    replayed_fields.push(field);
                     let converted: serde_json::Value = value;
                     match field {
                         "noul" => {
@@ -148,7 +164,6 @@ impl<'de> Deserialize<'de> for Answer {
                     }
                 }
 
-                let tag = tag.ok_or_else(|| A::Error::missing_field("type"))?;
                 match tag.as_ref() {
                     "noul" => Ok(Answer::Noul(NoulAnswer {
                         noul: noul.ok_or_else(|| A::Error::missing_field("noul"))?,
@@ -174,6 +189,15 @@ impl<'de> Deserialize<'de> for Answer {
         }
 
         deserializer.deserialize_map(AnswerVisitor)
+    }
+}
+
+fn field_belongs_to_answer(tag: &str, field: &str) -> bool {
+    match tag {
+        "noul" => field == "noul",
+        "choice" => matches!(field, "choice" | "probabilities" | "confidence"),
+        "score" => matches!(field, "score" | "legend" | "probabilities" | "confidence"),
+        _ => false,
     }
 }
 

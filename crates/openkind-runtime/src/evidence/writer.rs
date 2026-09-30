@@ -25,7 +25,7 @@ impl NativeRunWriter {
     ///
     /// # Errors
     /// Returns [`EvidenceError::InvalidRunId`] for run IDs outside
-    /// `[A-Za-z0-9._-]` (path traversal is rejected, not sanitized) and
+    /// `[A-Za-z0-9._-]` or the reserved `.` and `..` path components and
     /// [`EvidenceError::Io`] if the directory cannot be created.
     pub fn begin(
         root: impl AsRef<Path>,
@@ -35,14 +35,21 @@ impl NativeRunWriter {
     ) -> Result<Self, EvidenceError> {
         let run_id = run_id.into();
         if run_id.is_empty()
+            || matches!(run_id.as_str(), "." | "..")
             || !run_id
                 .bytes()
                 .all(|b| b.is_ascii_alphanumeric() || b == b'.' || b == b'_' || b == b'-')
         {
             return Err(EvidenceError::InvalidRunId(run_id));
         }
-        let directory = root.as_ref().join(&run_id);
-        fs::create_dir_all(&directory).map_err(|source| EvidenceError::Io {
+        let root = root.as_ref();
+        fs::create_dir_all(root).map_err(|source| EvidenceError::Io {
+            path: root.to_path_buf(),
+            source,
+        })?;
+        let directory = root.join(&run_id);
+        // A run owns a fresh directory, so collisions cannot overwrite or mix evidence.
+        fs::create_dir(&directory).map_err(|source| EvidenceError::Io {
             path: directory.clone(),
             source,
         })?;
@@ -127,17 +134,22 @@ impl NativeRunWriter {
     pub fn finish(mut self) -> Result<PathBuf, EvidenceError> {
         self.run.finished_utc = format_utc_timestamp(unix_now());
         write_json(&self.directory, "RUN.json", &self.run)?;
+        let mut written_files = vec!["RUN.json"];
         if let Some(profile) = &self.profile {
             write_json(&self.directory, "PROFILE.json", profile)?;
+            written_files.push("PROFILE.json");
         }
         if let Some(parity) = &self.parity {
             write_json(&self.directory, "PARITY.json", parity)?;
+            written_files.push("PARITY.json");
         }
         if let Some(performance) = &self.performance {
             write_json(&self.directory, "PERFORMANCE.json", performance)?;
+            written_files.push("PERFORMANCE.json");
         }
         if let Some(memory) = &self.memory {
             write_json(&self.directory, "MEMORY.json", memory)?;
+            written_files.push("MEMORY.json");
         }
         if !self.predictions.is_empty() {
             let mut body = String::new();
@@ -146,21 +158,14 @@ impl NativeRunWriter {
                 body.push('\n');
             }
             write_bytes(&self.directory, "predictions.jsonl", body.as_bytes())?;
+            written_files.push("predictions.jsonl");
         }
 
         let mut files = BTreeMap::new();
-        for name in [
-            "RUN.json",
-            "PROFILE.json",
-            "PARITY.json",
-            "PERFORMANCE.json",
-            "MEMORY.json",
-            "predictions.jsonl",
-        ] {
+        for name in written_files {
             let path = self.directory.join(name);
-            if let Ok(bytes) = fs::read(&path) {
-                files.insert(name.to_owned(), sha256_hex(&bytes));
-            }
+            let bytes = fs::read(&path).map_err(|source| EvidenceError::Io { path, source })?;
+            files.insert(name.to_owned(), sha256_hex(&bytes));
         }
         let checksums = ChecksumsRecord {
             schema: CHECKSUMS_SCHEMA.to_owned(),

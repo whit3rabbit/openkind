@@ -90,6 +90,65 @@ async fn auth_enabled_with_correct_token_passes() {
 }
 
 #[tokio::test]
+async fn bearer_scheme_is_case_insensitive_while_tokens_remain_case_sensitive() {
+    let router = app(AuthConfig::new(Some("secret".into())));
+    for (authorization, expected) in [
+        ("BEARER secret", StatusCode::OK),
+        ("bEaReR secret", StatusCode::OK),
+        ("bEaReR SECRET", StatusCode::UNAUTHORIZED),
+        ("Basic secret", StatusCode::UNAUTHORIZED),
+    ] {
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/ping")
+                    .header(&AUTH_HEADER, authorization)
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            response.status(),
+            expected,
+            "authorization: {authorization}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn auth_configuration_mutation_uses_the_current_key() {
+    let mut replaced = AuthConfig::new(Some("old-key".into()));
+    replaced.expected = std::sync::Arc::new(Some("new-key".into()));
+    let mut edited = AuthConfig::new(Some("old-key".into()));
+    *std::sync::Arc::make_mut(&mut edited.expected) = Some("new-key".into());
+    let mut enabled = AuthConfig::default();
+    enabled.expected = std::sync::Arc::new(Some("new-key".into()));
+
+    for auth in [replaced, edited, enabled] {
+        let router = app(auth);
+        for (token, expected) in [
+            ("old-key", StatusCode::UNAUTHORIZED),
+            ("new-key", StatusCode::OK),
+        ] {
+            let response = router
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri("/v1/ping")
+                        .header(&AUTH_HEADER, format!("Bearer {token}"))
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), expected, "token: {token}");
+        }
+    }
+}
+
+#[tokio::test]
 async fn health_is_always_open_even_when_auth_required() {
     let resp = app(AuthConfig::new(Some("topsecret".into())))
         .oneshot(

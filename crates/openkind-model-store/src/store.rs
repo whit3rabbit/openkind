@@ -12,34 +12,89 @@ use tokio::io::AsyncWriteExt;
 
 use crate::manifest::{sha256, valid_name, valid_relative_path, valid_sha256};
 use crate::{
-    Catalog, CatalogEntry, Error, Manifest, Result, CATALOG_URL, ENCODER_EMBEDDING_MODEL_NAME,
+    Catalog, CatalogEntry, Error, Manifest, Result, CATALOG_URL, DECODER_LOGIT_LETTER_MODEL_NAME,
+    DECODER_LOGIT_LLM_MODEL_NAME, DECODER_LOGIT_QWEN35_MODEL_NAME, ENCODER_EMBEDDING_MODEL_NAME,
+    ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME, KEV_MODEL_NAME,
     LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME, LAYA_TYPED_DECISIONS_MODEL_NAME,
-    QWEN35_STATE_FIRST_MODEL_NAME,
+    QWEN35_STATE_FIRST_MODEL_NAME, QWEN3GUARD_MODEL_NAME, SCHEMA_SCORER_MODEL_NAME,
+    WINNOW_MODEL_NAME,
 };
 
 const MAX_METADATA_BYTES: u64 = 4 * 1024 * 1024;
-const PINNED_QWEN_PROFILE: &str = "a047d6802c3f06f085b8";
-const PINNED_LAYA_ENGLISH_PROFILE: &str = "c8ea29bf1e33a343c4b7";
-const PINNED_LAYA_MULTILINGUAL_PROFILE: &str = "f4064eb56fb7f7d325e1";
-const PINNED_LAYA_TYPED_DECISIONS_PROFILE: &str = "9d28cfa9567902801ed1";
-const PINNED_ENCODER_EMBEDDING_PROFILE: &str = "8d9498269ef05d95d93c";
+
+/// The pinned `(model name, loader id, profile id)` triples this build can
+/// pull and serve. The profile ids mirror the `PROFILE_ID` constants in
+/// `openkind-backends` family loaders; the server dispatch re-checks them
+/// against those constants when loading an installation.
+const SUPPORTED_PROFILES: &[(&str, &str, &str)] = &[
+    (
+        ENCODER_EMBEDDING_MODEL_NAME,
+        "encoder-embedding",
+        "8d9498269ef05d95d93c",
+    ),
+    (
+        QWEN35_STATE_FIRST_MODEL_NAME,
+        "qwen35-state-first",
+        "a047d6802c3f06f085b8",
+    ),
+    (
+        LAYA_ENGLISH_MODEL_NAME,
+        "laya-english",
+        "c8ea29bf1e33a343c4b7",
+    ),
+    (
+        LAYA_MULTILINGUAL_MODEL_NAME,
+        "laya-multilingual",
+        "f4064eb56fb7f7d325e1",
+    ),
+    (
+        LAYA_TYPED_DECISIONS_MODEL_NAME,
+        "laya-typed-decisions",
+        "9d28cfa9567902801ed1",
+    ),
+    (
+        DECODER_LOGIT_LETTER_MODEL_NAME,
+        "decoder-logit-letter",
+        "5492c97dfcdaf3fe9439",
+    ),
+    (
+        ENCODER_NLI_MODEL_NAME,
+        "encoder-nli",
+        "1041a4c362338a61b820",
+    ),
+    (
+        ENCODER_INSTRUCT_LABEL_MODEL_NAME,
+        "encoder-instruct-label",
+        "9fd68313a5606eca42f2",
+    ),
+    (
+        DECODER_LOGIT_LLM_MODEL_NAME,
+        "decoder-logit-llm",
+        "465963d705b6f35d6208",
+    ),
+    (
+        SCHEMA_SCORER_MODEL_NAME,
+        "schema-scorer",
+        "5a7350af556f0ee66566",
+    ),
+    (QWEN3GUARD_MODEL_NAME, "qwen3guard", "0fcf416cab16d94f933d"),
+    (KEV_MODEL_NAME, "kev", "39d88c11faeb4ac165fa"),
+    (
+        DECODER_LOGIT_QWEN35_MODEL_NAME,
+        "decoder-logit-qwen35",
+        "415bcf4a064e6dadcf85",
+    ),
+    (WINNOW_MODEL_NAME, "winnow", "4dff8c5b03cfbf680db6"),
+];
 
 fn supported_profile(manifest: &Manifest) -> bool {
-    (manifest.name == QWEN35_STATE_FIRST_MODEL_NAME
-        && manifest.loader_id == "qwen35-state-first"
-        && manifest.profile_id == PINNED_QWEN_PROFILE)
-        || (manifest.name == LAYA_ENGLISH_MODEL_NAME
-            && manifest.loader_id == "laya-english"
-            && manifest.profile_id == PINNED_LAYA_ENGLISH_PROFILE)
-        || (manifest.name == LAYA_MULTILINGUAL_MODEL_NAME
-            && manifest.loader_id == "laya-multilingual"
-            && manifest.profile_id == PINNED_LAYA_MULTILINGUAL_PROFILE)
-        || (manifest.name == LAYA_TYPED_DECISIONS_MODEL_NAME
-            && manifest.loader_id == "laya-typed-decisions"
-            && manifest.profile_id == PINNED_LAYA_TYPED_DECISIONS_PROFILE)
-        || (manifest.name == ENCODER_EMBEDDING_MODEL_NAME
-            && manifest.loader_id == "encoder-embedding"
-            && manifest.profile_id == PINNED_ENCODER_EMBEDDING_PROFILE)
+    SUPPORTED_PROFILES
+        .iter()
+        .any(|(name, loader_id, profile_id)| {
+            manifest.name == *name
+                && manifest.loader_id == *loader_id
+                && manifest.profile_id == *profile_id
+        })
         || (cfg!(test)
             && manifest.loader_id == "test-loader"
             && manifest.profile_id == "test-profile")
@@ -312,11 +367,17 @@ impl ModelStore {
         {
             return Err(Error::Invalid("remote metadata exceeds 4 MiB".into()));
         }
-        let bytes = response.bytes().await?;
-        if bytes.len() as u64 > MAX_METADATA_BYTES {
-            return Err(Error::Invalid("remote metadata exceeds 4 MiB".into()));
+        let mut bytes = Vec::new();
+        let mut stream = response.bytes_stream();
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk?;
+            // Enforce the cap while streaming, including bodies without Content-Length.
+            if chunk.len() > MAX_METADATA_BYTES as usize - bytes.len() {
+                return Err(Error::Invalid("remote metadata exceeds 4 MiB".into()));
+            }
+            bytes.extend_from_slice(&chunk);
         }
-        Ok(bytes.to_vec())
+        Ok(bytes)
     }
 
     async fn download_artifact<F>(
@@ -343,7 +404,16 @@ impl ModelStore {
         F: FnMut(&str, u64, u64),
     {
         let part = blob.with_extension("part");
-        let mut present = part.metadata().map(|m| m.len()).unwrap_or(0);
+        let mut present = match part.symlink_metadata() {
+            Ok(metadata) if metadata.file_type().is_file() => metadata.len(),
+            Ok(_) => {
+                return Err(Error::Invalid(
+                    "partial artifact is not a regular file".into(),
+                ))
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => 0,
+            Err(error) => return Err(error.into()),
+        };
         if present == artifact.size {
             progress(&artifact.path, artifact.size, artifact.size);
             match verify_file(&part, artifact.size, &artifact.sha256) {
@@ -370,32 +440,42 @@ impl ModelStore {
         }
         let response = request.send().await?.error_for_status()?;
         let status = response.status();
-        if present > 0 && status == reqwest::StatusCode::OK {
+        let response_end = if present > 0 && status == reqwest::StatusCode::OK {
             present = 0;
             fs::remove_file(&part)?;
+            artifact.size
         } else if present > 0 {
             let range = response
                 .headers()
                 .get(CONTENT_RANGE)
                 .and_then(|h| h.to_str().ok())
                 .unwrap_or("");
-            if status != reqwest::StatusCode::PARTIAL_CONTENT
-                || !range.starts_with(&format!("bytes {present}-"))
-            {
+            if status != reqwest::StatusCode::PARTIAL_CONTENT {
                 return Err(Error::Invalid(
                     "resumed response has wrong byte range".into(),
                 ));
             }
+            resumed_response_end(range, present, artifact.size)
+                .ok_or_else(|| Error::Invalid("resumed response has wrong byte range".into()))?
         } else if status != reqwest::StatusCode::OK {
             return Err(Error::Invalid(
                 "artifact response is not a full file".into(),
             ));
+        } else {
+            artifact.size
+        };
+        let mut options = tokio::fs::OpenOptions::new();
+        options.create(true).append(true);
+        // Do not follow a replaced symlink or block on a replaced FIFO between check and open.
+        #[cfg(unix)]
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+        let mut file = options.open(&part).await?;
+        let metadata = file.metadata().await?;
+        if !metadata.is_file() || metadata.len() != present {
+            return Err(Error::Invalid(
+                "partial artifact changed before append".into(),
+            ));
         }
-        let mut file = tokio::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&part)
-            .await?;
         progress(&artifact.path, present, artifact.size);
         let mut stream = response.bytes_stream();
         while let Some(chunk) = stream.next().await {
@@ -403,9 +483,9 @@ impl ModelStore {
             present = present
                 .checked_add(chunk.len() as u64)
                 .ok_or_else(|| Error::Invalid("artifact size overflow".into()))?;
-            if present > artifact.size {
+            if present > response_end {
                 return Err(Error::Invalid(format!(
-                    "artifact {} exceeds declared size",
+                    "artifact {} exceeds declared response range",
                     artifact.path
                 )));
             }
@@ -414,6 +494,13 @@ impl ModelStore {
         }
         file.sync_all().await?;
         drop(file);
+        // An incomplete transfer has no full-file digest yet; retain it for the next range request.
+        if present < artifact.size {
+            return Err(Error::Invalid(format!(
+                "artifact {} is incomplete: received {present} of {} bytes",
+                artifact.path, artifact.size
+            )));
+        }
         if let Err(error) = verify_file(&part, artifact.size, &artifact.sha256) {
             if matches!(error, Error::DigestMismatch(_)) {
                 let _ = fs::remove_file(&part);
@@ -482,6 +569,15 @@ impl ModelStore {
     }
 }
 
+fn resumed_response_end(range: &str, present: u64, size: u64) -> Option<u64> {
+    let (interval, total) = range.strip_prefix("bytes ")?.split_once('/')?;
+    let (start, end) = interval.split_once('-')?;
+    let start = start.parse::<u64>().ok()?;
+    let end = end.parse::<u64>().ok()?;
+    let total = total.parse::<u64>().ok()?;
+    (start == present && end >= start && end < size && total == size).then(|| end + 1)
+}
+
 fn verify_file(path: &Path, size: u64, sha: &str) -> Result<()> {
     if !valid_sha256(sha)
         || !valid_relative_path(path.file_name().and_then(|s| s.to_str()).unwrap_or(""))
@@ -518,6 +614,30 @@ mod tests {
     use tempfile::tempdir;
 
     const NAME: &str = "fixture:abc123";
+
+    #[test]
+    fn pinned_catalog_profiles_are_supported_by_identity() {
+        for (name, loader_id, profile_id) in SUPPORTED_PROFILES {
+            let manifest = Manifest {
+                schema: "openkind-model/v1".into(),
+                name: (*name).into(),
+                profile_id: (*profile_id).into(),
+                loader_id: (*loader_id).into(),
+                description: "allowlist probe".into(),
+                release_date: "2026-09-29".into(),
+                support_status: "rust-loadable".into(),
+                question_types: vec!["choice".into()],
+                artifacts: vec![],
+            };
+            assert!(supported_profile(&manifest), "{name}");
+            let mut wrong = manifest.clone();
+            wrong.profile_id = "0".repeat(20);
+            assert!(
+                !supported_profile(&wrong),
+                "{name} accepted a foreign profile id"
+            );
+        }
+    }
 
     fn fixture_manifest(name: &str, bytes: &[u8]) -> Manifest {
         Manifest {
@@ -668,6 +788,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn metadata_alias_cannot_install_or_overwrite_a_verified_blob() {
+        let bytes = b"verified artifact";
+        let mut manifest = fixture_manifest(NAME, bytes);
+        manifest.artifacts[0].path = "MANIFEST.JSON".into();
+        let (_dir, store) = test_store(vec![manifest]).await;
+        seed_blob(&store, bytes);
+        let result = store.pull(NAME, |_, _, _| {}).await;
+        assert_eq!(
+            fs::read(store.blob_path(&sha256(bytes))).unwrap(),
+            bytes,
+            "metadata aliases must not mutate a content-addressed blob"
+        );
+        assert!(matches!(result, Err(Error::Invalid(_))));
+        assert!(store.list().unwrap().is_empty());
+    }
+
+    #[tokio::test]
     async fn resumes_from_the_reported_byte_range() {
         let bytes = b"abcdefghij";
         let artifact = fixture_manifest(NAME, bytes).artifacts.remove(0);
@@ -709,5 +846,154 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(fs::read(blob).unwrap(), bytes);
+    }
+
+    async fn mock_url(app: Router) -> String {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        format!("http://{address}/artifact")
+    }
+
+    #[tokio::test]
+    async fn chunked_metadata_is_bounded_before_the_response_finishes() {
+        let app = Router::new().route(
+            "/artifact",
+            get(|| async {
+                let chunks = futures::stream::once(async {
+                    Ok::<_, std::io::Error>(vec![b'x'; MAX_METADATA_BYTES as usize + 1])
+                })
+                .chain(futures::stream::pending());
+                axum::body::Body::from_stream(chunks)
+            }),
+        );
+        let url = mock_url(app).await;
+        let dir = tempdir().unwrap();
+        let store = ModelStore::new(dir.path().to_path_buf()).unwrap();
+        let result =
+            tokio::time::timeout(std::time::Duration::from_secs(2), store.fetch_small(&url))
+                .await
+                .expect("reject oversized metadata without waiting for EOF");
+        assert!(matches!(result, Err(Error::Invalid(_))));
+    }
+
+    #[tokio::test]
+    async fn resumed_download_rejects_inconsistent_range_headers() {
+        let bytes = b"abcdefghij";
+        let artifact = fixture_manifest(NAME, bytes).artifacts.remove(0);
+        for range in [
+            "bytes 4-9/999",
+            "bytes 4-8/10",
+            "bytes 4-3/10",
+            "bytes 4-10/10",
+            "bytes 4-/10",
+            "bytes 4-9/*",
+            "bytes 4-18446744073709551615/10",
+        ] {
+            let app = Router::new().route(
+                "/artifact",
+                get(move || async move {
+                    (
+                        StatusCode::PARTIAL_CONTENT,
+                        [(header::CONTENT_RANGE, range)],
+                        bytes[4..].to_vec(),
+                    )
+                }),
+            );
+            let url = mock_url(app).await;
+            let dir = tempdir().unwrap();
+            let store = ModelStore::new(dir.path().to_path_buf()).unwrap();
+            let blob = store.blob_path(&artifact.sha256);
+            let part = blob.with_extension("part");
+            fs::create_dir_all(blob.parent().unwrap()).unwrap();
+            fs::write(&part, &bytes[..4]).unwrap();
+            let result = store
+                .download_from_url(&url, &artifact, &blob, &mut |_, _, _| {})
+                .await;
+            assert!(
+                matches!(result, Err(Error::Invalid(_))),
+                "{range}: {result:?}"
+            );
+            assert!(!blob.exists(), "{range} must not publish a blob");
+            assert_eq!(fs::read(part).unwrap(), &bytes[..4]);
+        }
+    }
+
+    #[tokio::test]
+    async fn short_artifact_response_preserves_bytes_for_the_next_resume() {
+        let bytes = b"abcdefghij";
+        let app = Router::new().route(
+            "/artifact",
+            get(move |headers: HeaderMap| async move {
+                if headers.get(header::RANGE).and_then(|h| h.to_str().ok()) == Some("bytes=4-") {
+                    (
+                        StatusCode::PARTIAL_CONTENT,
+                        [(header::CONTENT_RANGE, "bytes 4-9/10")],
+                        bytes[4..].to_vec(),
+                    )
+                } else {
+                    (
+                        StatusCode::OK,
+                        [(header::CONTENT_RANGE, "")],
+                        bytes[..4].to_vec(),
+                    )
+                }
+            }),
+        );
+        let url = mock_url(app).await;
+        let dir = tempdir().unwrap();
+        let store = ModelStore::new(dir.path().to_path_buf()).unwrap();
+        let artifact = fixture_manifest(NAME, bytes).artifacts.remove(0);
+        let blob = store.blob_path(&artifact.sha256);
+        fs::create_dir_all(blob.parent().unwrap()).unwrap();
+        assert!(matches!(
+            store
+                .download_from_url(&url, &artifact, &blob, &mut |_, _, _| {})
+                .await,
+            Err(Error::Invalid(_))
+        ));
+        assert_eq!(fs::read(blob.with_extension("part")).unwrap(), &bytes[..4]);
+        assert!(!blob.exists());
+        store
+            .download_from_url(&url, &artifact, &blob, &mut |_, _, _| {})
+            .await
+            .unwrap();
+        assert_eq!(fs::read(blob).unwrap(), bytes);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn partial_symlink_cannot_append_outside_the_store() {
+        let bytes = b"abcdefghij";
+        let app = Router::new().route(
+            "/artifact",
+            get(move || async move {
+                (
+                    StatusCode::PARTIAL_CONTENT,
+                    [(header::CONTENT_RANGE, "bytes 4-9/10")],
+                    bytes[4..].to_vec(),
+                )
+            }),
+        );
+        let url = mock_url(app).await;
+        let dir = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        let target = outside.path().join("target");
+        fs::write(&target, &bytes[..4]).unwrap();
+        let store = ModelStore::new(dir.path().to_path_buf()).unwrap();
+        let artifact = fixture_manifest(NAME, bytes).artifacts.remove(0);
+        let blob = store.blob_path(&artifact.sha256);
+        fs::create_dir_all(blob.parent().unwrap()).unwrap();
+        std::os::unix::fs::symlink(&target, blob.with_extension("part")).unwrap();
+        let result = store
+            .download_from_url(&url, &artifact, &blob, &mut |_, _, _| {})
+            .await;
+        assert_eq!(
+            fs::read(target).unwrap(),
+            &bytes[..4],
+            "outside file must be unchanged"
+        );
+        assert!(matches!(result, Err(Error::Invalid(_))));
+        assert!(!blob.exists());
     }
 }

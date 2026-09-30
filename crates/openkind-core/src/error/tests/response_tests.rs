@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use crate::answer::{Answer, ChoiceAnswer, NoulAnswer, ScoreAnswer};
 use crate::error::types::ValidationError;
 use crate::error::validate::{validate_response, validate_response_for_request};
-use crate::question::{ChoiceQuestion, Question};
+use crate::question::{ChoiceQuestion, Question, ScoreQuestion};
 use crate::request::SystemRequest;
 use crate::response::{SystemResponse, Usage};
 use crate::state::State;
@@ -123,6 +123,127 @@ fn contextual_validation_accepts_caller_supplied_semantic_none() {
         ("__none__".into(), 0.7),
     ]);
     assert!(validate_response_for_request(&response, &request).is_ok());
+}
+
+#[test]
+fn contextual_validation_binds_score_to_requested_rubric() {
+    let request = SystemRequest {
+        state: State::Text("test".into()),
+        model: "mock".into(),
+        questions: HashMap::from_iter([(
+            "rating".into(),
+            Question::Score(ScoreQuestion {
+                instructions: serde_json::json!("Rate this"),
+                criteria: vec!["Low".into(), "High".into()],
+            }),
+        )]),
+    };
+    let response = SystemResponse {
+        model: "mock".into(),
+        answers: HashMap::from_iter([(
+            "rating".into(),
+            Answer::Score(ScoreAnswer {
+                score: 0.4,
+                legend: HashMap::from_iter([
+                    ("0".into(), "Low".into()),
+                    ("1".into(), "High".into()),
+                ]),
+                probabilities: HashMap::from_iter([("0".into(), 0.6), ("1".into(), 0.4)]),
+                confidence: 0.6,
+            }),
+        )]),
+        usage: Usage {
+            input_tokens: 1,
+            output_tokens: 1,
+        },
+    };
+    assert!(validate_response_for_request(&response, &request).is_ok());
+
+    for replacement in ["2", "00", "+0"] {
+        let mut changed = response.clone();
+        let Answer::Score(score) = changed.answers.get_mut("rating").unwrap() else {
+            unreachable!()
+        };
+        score.legend.remove("0");
+        score.legend.insert(replacement.into(), "Low".into());
+        score.probabilities.remove("0");
+        score.probabilities.insert(replacement.into(), 0.6);
+        assert!(
+            validate_response_for_request(&changed, &request).is_err(),
+            "accepted level index absent from request: {replacement}"
+        );
+    }
+
+    let mut changed = response.clone();
+    let Answer::Score(score) = changed.answers.get_mut("rating").unwrap() else {
+        unreachable!()
+    };
+    score.legend.remove("0");
+    score.probabilities.remove("0");
+    score.probabilities.insert("1".into(), 1.0);
+    score.score = 1.0;
+    assert!(validate_response_for_request(&changed, &request).is_err());
+
+    let mut changed = response;
+    let Answer::Score(score) = changed.answers.get_mut("rating").unwrap() else {
+        unreachable!()
+    };
+    score.legend.insert("0".into(), "High".into());
+    assert!(validate_response_for_request(&changed, &request).is_err());
+}
+
+#[test]
+fn score_validation_checks_weighted_expectation_with_rounding_tolerance() {
+    let request = SystemRequest {
+        state: State::Text("test".into()),
+        model: "mock".into(),
+        questions: HashMap::from_iter([(
+            "rating".into(),
+            Question::Score(ScoreQuestion {
+                instructions: serde_json::json!("Rate this"),
+                criteria: vec!["Low".into(), "Medium".into(), "High".into()],
+            }),
+        )]),
+    };
+    for (value, accepted) in [(1.3, true), (1.301, true), (0.8, false), (1.31, false)] {
+        let response = SystemResponse {
+            model: "mock".into(),
+            answers: HashMap::from_iter([(
+                "rating".into(),
+                Answer::Score(ScoreAnswer {
+                    score: value,
+                    legend: HashMap::from_iter([
+                        ("0".into(), "Low".into()),
+                        ("1".into(), "Medium".into()),
+                        ("2".into(), "High".into()),
+                    ]),
+                    probabilities: HashMap::from_iter([
+                        ("0".into(), 0.2),
+                        ("1".into(), 0.3),
+                        ("2".into(), 0.5),
+                    ]),
+                    confidence: 0.5,
+                }),
+            )]),
+            usage: Usage {
+                input_tokens: 1,
+                output_tokens: 1,
+            },
+        };
+        for result in [
+            validate_response_for_request(&response, &request),
+            validate_response(&response, &HashMap::new()),
+        ] {
+            if accepted {
+                assert!(result.is_ok(), "rejected valid expected score {value}");
+            } else {
+                assert!(matches!(
+                    result,
+                    Err(ValidationError::ScoreExpectationMismatch { .. })
+                ));
+            }
+        }
+    }
 }
 
 #[test]

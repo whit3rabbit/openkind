@@ -89,6 +89,11 @@ fn writer_produces_run_profile_and_verifiable_checksums() {
         serde_json::from_str(&fs::read_to_string(directory.join("checksums.json")).unwrap())
             .unwrap();
     assert_eq!(checksums.schema, CHECKSUMS_SCHEMA);
+    assert_eq!(
+        checksums.files.len(),
+        4,
+        "every written artifact must be checksummed"
+    );
     for (name, expected) in &checksums.files {
         let bytes = fs::read(directory.join(name)).unwrap();
         assert_eq!(&sha256_hex(&bytes), expected, "checksum matches {name}");
@@ -101,14 +106,64 @@ fn writer_produces_run_profile_and_verifiable_checksums() {
 #[test]
 fn writer_rejects_traversal_run_ids() {
     let root = temp_root("traversal");
+    for run_id in [".", "..", "../escape", "run/with/slashes"] {
+        assert!(
+            matches!(
+                NativeRunWriter::begin(&root, run_id, invocation(), environment()),
+                Err(EvidenceError::InvalidRunId(_))
+            ),
+            "must reject {run_id}"
+        );
+    }
+    assert!(!root.exists(), "rejected IDs must not create a directory");
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[test]
+fn writer_refuses_to_overwrite_or_mix_an_existing_run() {
+    let root = temp_root("collision");
+    let writer =
+        NativeRunWriter::begin(&root, "existing", invocation(), environment()).expect("begin");
+    assert!(
+        matches!(
+            NativeRunWriter::begin(&root, "existing", invocation(), environment()),
+            Err(EvidenceError::Io { source, .. }) if source.kind() == std::io::ErrorKind::AlreadyExists
+        ),
+        "an unfinished run also owns its directory"
+    );
+    let directory = writer
+        .parity(serde_json::json!({"passed": true}))
+        .finish()
+        .expect("finish");
+    let original_run = fs::read(directory.join("RUN.json")).expect("run");
+    let original_checksums = fs::read(directory.join("checksums.json")).expect("checksums");
     assert!(matches!(
-        NativeRunWriter::begin(&root, "../escape", invocation(), environment()),
-        Err(EvidenceError::InvalidRunId(_))
+        NativeRunWriter::begin(&root, "existing", invocation(), environment()),
+        Err(EvidenceError::Io { source, .. }) if source.kind() == std::io::ErrorKind::AlreadyExists
     ));
+    assert_eq!(
+        fs::read(directory.join("RUN.json")).expect("run"),
+        original_run
+    );
+    assert_eq!(
+        fs::read(directory.join("checksums.json")).expect("checksums"),
+        original_checksums
+    );
+    let _ = fs::remove_dir_all(&root);
+}
+
+#[cfg(unix)]
+#[test]
+fn writer_rejects_a_run_directory_symlink() {
+    let root = temp_root("symlink");
+    let target = root.join("target");
+    fs::create_dir_all(&target).expect("target");
+    std::os::unix::fs::symlink(&target, root.join("run")).expect("symlink");
     assert!(matches!(
-        NativeRunWriter::begin(&root, "run/with/slashes", invocation(), environment()),
-        Err(EvidenceError::InvalidRunId(_))
+        NativeRunWriter::begin(&root, "run", invocation(), environment()),
+        Err(EvidenceError::Io { source, .. }) if source.kind() == std::io::ErrorKind::AlreadyExists
     ));
+    assert_eq!(fs::read_dir(&target).expect("target").count(), 0);
     let _ = fs::remove_dir_all(&root);
 }
 
@@ -171,5 +226,38 @@ fn utc_formatting_covers_epoch_and_leap_days() {
     assert_eq!(format_utc_timestamp(1_789_862_400), "2026-09-20T00:00:00Z");
     assert_eq!(generate_run_id_at(1_789_862_400), "20260920T000000Z");
     let run_id = generate_run_id();
-    assert!(run_id.starts_with("20") && run_id.ends_with('Z') && run_id.len() == 16);
+    assert!(run_id.starts_with("20") && run_id.as_bytes()[15] == b'Z');
+}
+
+#[test]
+fn generated_run_ids_allow_concurrent_evidence_runs() {
+    let root = temp_root("generated-ids");
+    let directories = std::thread::scope(|scope| {
+        let workers: Vec<_> = (0..4)
+            .map(|_| {
+                let root = &root;
+                scope.spawn(move || {
+                    (0..32)
+                        .map(|_| {
+                            NativeRunWriter::begin(
+                                root,
+                                generate_run_id(),
+                                invocation(),
+                                environment(),
+                            )
+                            .expect("generated ID must own a fresh directory")
+                            .finish()
+                            .expect("finish")
+                        })
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        workers
+            .into_iter()
+            .flat_map(|worker| worker.join().expect("worker"))
+            .collect::<std::collections::HashSet<_>>()
+    });
+    assert_eq!(directories.len(), 128);
+    fs::remove_dir_all(root).expect("cleanup");
 }

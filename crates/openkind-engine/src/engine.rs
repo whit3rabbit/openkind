@@ -28,23 +28,27 @@ pub trait DecisionEngine: Send + Sync {
     async fn evaluate(&self, req: SystemRequest) -> EngineResult<SystemResponse>;
 
     /// Estimate input tokens (cheap, before evaluation). The mock uses
-    /// a rough `chars / 4` heuristic; real backends will use a tokenizer.
+    /// a rough `bytes / 4` heuristic for state, instructions, and criteria;
+    /// real backends will use a tokenizer.
     fn estimate_input_tokens(&self, req: &SystemRequest) -> u32 {
         let state_chars = match &req.state {
             openkind_core::State::Text(s) => s.len(),
             openkind_core::State::Object(m) => count_json_bytes(m),
             openkind_core::State::Array(a) => count_json_bytes(a),
         };
-        let instr_chars: usize = req
-            .questions
-            .values()
-            .map(|q| match q {
-                openkind_core::Question::Noul(n) => count_json_bytes(&n.instructions),
-                openkind_core::Question::Choice(c) => count_json_bytes(&c.instructions),
-                openkind_core::Question::Score(s) => count_json_bytes(&s.instructions),
-            })
-            .sum();
-        let total_chars = state_chars.saturating_add(instr_chars);
+        let question_chars =
+            req.questions
+                .values()
+                .map(|q| match q {
+                    openkind_core::Question::Noul(n) => count_json_bytes(&n.instructions)
+                        .saturating_add(n.criteria.as_ref().map(count_json_bytes).unwrap_or(0)),
+                    openkind_core::Question::Choice(c) => count_json_bytes(&c.instructions)
+                        .saturating_add(count_json_bytes(&c.criteria)),
+                    openkind_core::Question::Score(s) => count_json_bytes(&s.instructions)
+                        .saturating_add(count_json_bytes(&s.criteria)),
+                })
+                .fold(0usize, usize::saturating_add);
+        let total_chars = state_chars.saturating_add(question_chars);
         if total_chars == 0 {
             0
         } else {

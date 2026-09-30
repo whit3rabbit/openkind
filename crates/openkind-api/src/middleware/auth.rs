@@ -23,13 +23,15 @@ pub struct AuthConfig {
     pub expected: Arc<Option<String>>,
     /// SHA-256 digest of the expected token, computed once at construction so
     /// the per-request comparison only hashes the supplied token.
-    expected_digest: Option<[u8; 32]>,
+    expected_digest: Option<(Arc<str>, [u8; 32])>,
 }
 
 impl AuthConfig {
     /// Construct a new `AuthConfig` with the specified optional expected API key token.
     pub fn new(expected: Option<String>) -> Self {
-        let expected_digest = expected.as_deref().map(digest_of);
+        let expected_digest = expected
+            .as_deref()
+            .map(|token| (Arc::from(token), digest_of(token)));
         Self {
             expected: Arc::new(expected),
             expected_digest,
@@ -60,6 +62,22 @@ impl AuthConfig {
     pub fn is_required(&self) -> bool {
         self.expected.is_some()
     }
+
+    pub(crate) fn token_matches(&self, supplied: &str) -> bool {
+        use subtle::ConstantTimeEq;
+        let Some(expected) = self.expected.as_deref() else {
+            return false;
+        };
+        // `expected` is public and can be replaced or edited through its Arc.
+        // Reuse the digest only while its configuration snapshot still matches.
+        let expected_digest = self
+            .expected_digest
+            .as_ref()
+            .filter(|(cached, _)| cached.as_ref() == expected)
+            .map(|(_, digest)| *digest)
+            .unwrap_or_else(|| digest_of(expected));
+        digest_of(supplied).ct_eq(&expected_digest).into()
+    }
 }
 
 /// Stackable middleware function: gate `/v1/*` requests on a bearer
@@ -88,17 +106,11 @@ pub async fn auth_layer(
         .get(&AUTH_HEADER)
         .and_then(|v| v.to_str().ok())
         .and_then(|s| {
-            s.strip_prefix("Bearer ")
-                .or_else(|| s.strip_prefix("bearer "))
+            let (scheme, token) = s.split_once(' ')?;
+            scheme.eq_ignore_ascii_case("Bearer").then_some(token)
         });
 
-    let ok = match (supplied, auth.expected_digest.as_ref()) {
-        (Some(given), Some(expected_digest)) => {
-            use subtle::ConstantTimeEq;
-            digest_of(given).ct_eq(expected_digest).into()
-        }
-        _ => false,
-    };
+    let ok = supplied.is_some_and(|token| auth.token_matches(token));
 
     if !ok {
         let body = Json(serde_json::json!({

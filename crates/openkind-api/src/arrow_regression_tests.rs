@@ -306,7 +306,7 @@ async fn changing_response_model_or_score_mapping_fails_the_whole_batch() {
             )
             .await,
             StatusCode::INTERNAL_SERVER_ERROR,
-            "internal_error",
+            "backend_error",
         )
         .await;
         assert_eq!(engine.calls.load(Ordering::SeqCst), 1);

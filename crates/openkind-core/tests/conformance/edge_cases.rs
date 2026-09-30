@@ -185,6 +185,38 @@ fn answer_rejects_bad_shapes() {
 }
 
 #[test]
+fn answer_ignores_fields_from_other_variants_in_any_order() {
+    // Serde treats another variant's fields as unknown fields. Their shapes
+    // and duplicate occurrences must not change the selected answer.
+    for raw in [
+        r#"{"type":"noul","noul":0.5,"confidence":null,"choice":{},"legend":false}"#,
+        r#"{"confidence":null,"choice":{},"legend":false,"noul":0.5,"type":"noul"}"#,
+        r#"{"confidence":null,"confidence":false,"type":"noul","noul":0.5}"#,
+        r#"{"confidence":null,"type":"noul","noul":0.5,"confidence":false}"#,
+        r#"{"type":"noul","noul":0.5,"confidence":null,"confidence":false}"#,
+        r#"{"type":"choice","choice":"a","probabilities":{"a":1.0},"confidence":1.0,"noul":{},"score":false,"legend":null}"#,
+        r#"{"noul":{},"score":false,"legend":null,"type":"choice","choice":"a","probabilities":{"a":1.0},"confidence":1.0}"#,
+        r#"{"type":"score","score":0.0,"legend":{"0":"low"},"probabilities":{"0":1.0},"confidence":1.0,"choice":false,"noul":null}"#,
+        r#"{"choice":false,"noul":null,"type":"score","score":0.0,"legend":{"0":"low"},"probabilities":{"0":1.0},"confidence":1.0}"#,
+    ] {
+        serde_json::from_str::<Answer>(raw).unwrap_or_else(|err| panic!("{raw}: {err}"));
+    }
+}
+
+#[test]
+fn answer_rejects_duplicate_variant_fields_in_any_order() {
+    for raw in [
+        r#"{"type":"noul","noul":0.5,"noul":0.8}"#,
+        r#"{"noul":0.5,"noul":0.8,"type":"noul"}"#,
+        r#"{"noul":0.5,"type":"noul","noul":0.8}"#,
+        r#"{"confidence":0.5,"confidence":0.8,"type":"choice","choice":"a","probabilities":{"a":1.0}}"#,
+    ] {
+        let err = serde_json::from_str::<Answer>(raw).unwrap_err();
+        assert!(err.to_string().contains("duplicate field"), "{raw}: {err}");
+    }
+}
+
+#[test]
 fn escaped_tag_keys_still_resolve_the_variant() {
     // A tag key written with JSON escapes (`\u0074ype`) must behave like `type`.
     let raw = r#"{"\u0074ype": "noul", "instructions": "?"}"#;

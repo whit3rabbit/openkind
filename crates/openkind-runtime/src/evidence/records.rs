@@ -24,8 +24,8 @@ pub enum EvidenceError {
     /// A record could not be serialized.
     #[error("failed to serialize evidence record: {0}")]
     Json(#[from] serde_json::Error),
-    /// The run ID contains characters outside `[A-Za-z0-9._-]`.
-    #[error("invalid run ID `{0}`: only [A-Za-z0-9._-] is allowed")]
+    /// The run ID is empty, reserved, or contains characters outside `[A-Za-z0-9._-]`.
+    #[error("invalid run ID `{0}`: use [A-Za-z0-9._-] excluding the reserved . and .. names")]
     InvalidRunId(String),
 }
 

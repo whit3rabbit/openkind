@@ -15,7 +15,7 @@ pub enum ValidationError {
 
     /// Emitted when a question does not provide non-empty `instructions`.
     /// Instructions must be a non-empty string, object, or array.
-    #[error("question `{0}`: `instructions` is required")]
+    #[error("question `{0}`: `instructions` must be a non-empty string, object, or array")]
     MissingInstructions(String),
 
     /// Emitted when a `choice` question provides an empty `criteria` map.
@@ -89,8 +89,8 @@ pub enum ValidationError {
         value: f64,
     },
 
-    /// Emitted when the keys in a score answer's `legend` do not match the keys in its `probabilities` map.
-    #[error("score answer `{0}`: legend keys must match probabilities keys")]
+    /// Emitted when a score answer's legend disagrees with its probability keys or the requested rubric.
+    #[error("score answer `{0}`: legend must match probabilities keys and requested rubric")]
     ScoreLegendMismatch(String),
 
     /// Emitted when a score answer's legend or probability key cannot be parsed as a numeric index string (e.g. "0", "1").
@@ -110,6 +110,17 @@ pub enum ValidationError {
         /// Maximum allowed score index.
         max: f64,
         /// Invalid score value.
+        value: f64,
+    },
+
+    /// Emitted when a score disagrees with its probability-weighted rubric levels.
+    #[error("score answer `{id}`: expected probability-weighted score {expected} (got {value})")]
+    ScoreExpectationMismatch {
+        /// Question identifier.
+        id: String,
+        /// Probability-weighted mean of the returned level indices.
+        expected: f64,
+        /// Inconsistent returned score.
         value: f64,
     },
 

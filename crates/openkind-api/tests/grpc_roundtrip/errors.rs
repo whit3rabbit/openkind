@@ -161,3 +161,75 @@ async fn grpc_error_carries_request_id_metadata() {
     let _ = shutdown.send(());
     let _ = server.await;
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn grpc_conversion_errors_preserve_or_generate_request_ids() {
+    use openkind_proto::openkind::{state::Value, State, Structured};
+
+    let mut registry = openkind_engine::EngineRegistry::new();
+    registry.register("mock", std::sync::Arc::new(MockEngine::new()));
+    let (addr, shutdown, server) = run_server(AppState::new(registry)).await;
+    let mut client = SystemOneClient::connect(format!("http://{addr}"))
+        .await
+        .unwrap();
+    let valid = req("mock", HashMap::from([("q".into(), noul_q())]));
+    let mut cases = Vec::new();
+    let mut missing_state = valid.clone();
+    missing_state.state = None;
+    cases.push(missing_state);
+    let mut missing_value = valid.clone();
+    missing_value.state = Some(State { value: None });
+    cases.push(missing_value);
+    for json in [b"{".as_slice(), b"true".as_slice()] {
+        let mut malformed_state = valid.clone();
+        malformed_state.state = Some(State {
+            value: Some(Value::Structured(Structured {
+                json: json.to_vec().into(),
+            })),
+        });
+        cases.push(malformed_state);
+    }
+    cases.push(req(
+        "mock",
+        HashMap::from([("q".into(), PbQuestion { kind: None })]),
+    ));
+    cases.push(req(
+        "mock",
+        HashMap::from([(
+            "q".into(),
+            PbQuestion {
+                kind: Some(PbQKind::Noul(PbNoul {
+                    instructions_json: b"{".to_vec().into(),
+                    criteria: None,
+                })),
+            },
+        )]),
+    ));
+
+    for malformed in cases {
+        for supplied_id in [None, Some("conversion-error-id")] {
+            let mut request = tonic::Request::new(malformed.clone());
+            if let Some(id) = supplied_id {
+                request
+                    .metadata_mut()
+                    .insert("x-typesafe-request-id", id.parse().unwrap());
+            }
+            let status = client.evaluate(request).await.unwrap_err();
+            assert_eq!(status.code(), tonic::Code::InvalidArgument);
+            let returned = status
+                .metadata()
+                .get("x-typesafe-request-id")
+                .expect("conversion errors must carry a request ID")
+                .to_str()
+                .unwrap();
+            if let Some(id) = supplied_id {
+                assert_eq!(returned, id);
+            } else {
+                uuid::Uuid::parse_str(returned).expect("generated request ID must be a UUID");
+            }
+        }
+    }
+
+    let _ = shutdown.send(());
+    let _ = server.await;
+}

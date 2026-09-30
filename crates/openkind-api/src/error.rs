@@ -159,7 +159,7 @@ impl From<serde_json::Error> for ApiError {
 impl From<Duration> for ApiError {
     fn from(d: Duration) -> Self {
         ApiError::RateLimited {
-            retry_after_ms: d.as_millis() as u64,
+            retry_after_ms: d.as_millis().min(u64::MAX as u128) as u64,
         }
     }
 }
@@ -284,5 +284,16 @@ mod tests {
             ApiError::RateLimited { retry_after_ms } => assert_eq!(retry_after_ms, 2500),
             _ => panic!("expected RateLimited"),
         }
+    }
+
+    #[test]
+    fn duration_conversion_saturates_instead_of_wrapping() {
+        let err: ApiError = Duration::from_secs(u64::MAX).into();
+        assert!(matches!(
+            err,
+            ApiError::RateLimited {
+                retry_after_ms: u64::MAX
+            }
+        ));
     }
 }
