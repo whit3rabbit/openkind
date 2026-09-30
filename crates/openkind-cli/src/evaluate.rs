@@ -67,10 +67,10 @@ pub async fn cmd_evaluate_async(
     if !status.is_success() {
         eprintln!("HTTP {status}");
         if let Some(request_id) = request_id {
-            eprintln!("Request ID: {request_id}");
+            eprintln!("Request ID: {}", output::terminal_safe(&request_id));
         }
         if !body.is_empty() {
-            eprintln!("{body}");
+            eprintln!("{}", output::terminal_safe(&body));
         }
         anyhow::bail!("evaluation request failed with HTTP {status}");
     }
