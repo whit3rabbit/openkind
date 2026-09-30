@@ -1,7 +1,7 @@
 # OpenKind
 ## Shared-state decision inference: evidence, execution, and useful decisions
 
-**Document version:** 0.8.8 · 28 September 2026, America/Chicago. Consolidated training, Rust/MLX, modern-Qwen serving and native finite-decision evidence through completed 9B/T4 run `20260928T220142_110595Z_1192c8` (protocol `openkind-qwen35-9b-t4l4/v2.0.2`).
+**Document version:** 0.8.9 · 29 September 2026, America/Chicago. Consolidated training, Rust/MLX, modern-Qwen serving, unified decision validity, process isolation, and compact-model transfer evidence through completed run `20260929T194506_694066Z_dc1f74` (protocol `openkind-unified-decisions/v3.0.0`).
 
 ### Abstract
 
@@ -316,6 +316,7 @@ Use Q for independent questions and K for the alternatives within one question. 
 | Source-label replay target comparison | Does source-label CE on the same replay inputs improve retained correctness relative to parent-only KL? | v0.6.0 completed, session `20260926T170047_182185Z`: both fits complete 120 updates and select frozen0; fixed80 SNLI gains do not preserve ContractNLI entailment or QASPER; no promotion. [E32; N1] |
 | Dense 4B native readout/history follow-up | Compare readouts, host action derivation, prefix reuse, and process history | Completed `20260927T192845_426758Z`; timed composition and local cache gains, already-warm priming ambiguity, mapping/history failures. [E39; V8] |
 | 9B/T4 combined-path and open-question study | Measure five-field derivation plus caching, genuine first use, history, shapes, and focused readouts | Completed `20260928T220142_110595Z_1192c8`, protocol v2.0.2: 39 planned + 3 conditional blocks; combined quality/speed and cache/first-use gates pass, mixed-history/low-sequence gates fail; no promotion. [E40; V9] |
+| Unified decision validity study | Selective readouts (X, R, G, GR, J), resident process isolation vs restart, schema sensitivity, native catalogue vs Go/CPU scaling, compact Indecis transfer | Completed `20260929T194506_694066Z_dc1f74`, protocol v3.0.0: 80 completed blocks + 1 INT8 capability boundary; selective indexing (X: 92.19% field / 60.42% all-six at 222 ms) and grouped routing (GR: 95.49% / 83.33% at 1,420 ms) advance design; resident process isolation passes exact parity ($\Delta p = 0.0$); Indecis CPU fails transfer (69.10% fresh policy, 39.58% SNLI); no promotion. [E41; V10] |
 
 The historical E1–E7 measured sequence uses Qwen/Qwen3.5-4B-Base at revision `1001bb4d826a52d1f399e183466143f4da7b741b`. The text backbone has 4,205,751,296 parameters, hidden width 2,560, and 32 blocks. Its layer list contains 24 linear-attention and eight full-attention blocks. The core results were obtained on an NVIDIA L4. The saved environment includes Transformers 5.17.0; the expanded workers record PyTorch 2.11.0+cu128. Environment details should travel with results because kernel and precision behavior matter. [E1; E2; E5]
 
@@ -4752,6 +4753,158 @@ These are implications of measured failures, not executed repairs or training
 authorization. Historical model-learning outcomes in §18 and the immutable
 Rust/MLX profile in §17 are unchanged. [E40; V9; proposed work]
 
+# 22. Unified Decision Validity: Selective Readouts, Process Isolation, Scaling, and Compact-Model Transfer
+
+**Completed result:** `20260929T194506_694066Z_dc1f74`, protocol
+`openkind-unified-decisions/v3.0.0`, has status `RETAIN_BOUNDED_POSITIVE_RESULTS`.
+All **80 completed block receipts plus one explicitly unexecuted INT8 capability record**
+reconcile, explaining the summary's `completed_blocks = 81`. There are zero recorded execution failures.
+This study evaluates the missing joins identified in the 9B/T4 exploratory study: routing dependency rules,
+selective and grouped readouts, joint output probabilities, resident process isolation versus restarts,
+actual multi-question scaling, and a compact Go CPU comparator (Indecis). Execution completion and
+scientific promotion remain distinct; no model, backend, or service is promoted. [E41; V10]
+
+The primary dataset comprises 14,280 technical quality requests across 660 unique evaluated inputs,
+summarized in 106 arm-by-panel rows with two technical repeats. The full dataset contains 1,860 records
+spanning fitting (768 policy, 384 SNLI), development (64 policy, 48 SNLI), calibration-fit (64 policy, 48 SNLI),
+calibration-gate (64 policy, 48 SNLI), and fresh confirmation (96 policy, 96 SNLI). Fresh confirmation
+changes rendering families; context texts and source groups are disjoint across partitions. [E41; V10]
+
+## 22.1 Qwen readout formulations: selective indexing and routing composition
+
+Seven arms were evaluated across the 96-case fresh-template confirmation panel (each with two repeats):
+
+| Arm | Request computation | Probability contract | Field accuracy | All six correct | p50 (ms) | p95 (ms) | Marginals |
+|---|---|---|---|---|---|---|---|
+| **D** | Five natural fields; derived action; static prefix | 6 marginals available | 82.64% | 23.96% | 306.92 | 314.91 | 6/6 |
+| **R** | D + route-priority composition from predicted urgency | 5 marginals (route withheld) | 91.67% | 54.17% | 306.72 | 315.66 | 5/6 |
+| **X** | Index route and case state; retain others; derived action | 6 marginals available | 92.19% | 60.42% | 222.22 | 229.75 | 6/6 |
+| **G** | Grouped: (1) elig/retries/urgent, (2) route, (3) state | 6 marginals available | 93.23% | 73.96% | 1,422.24 | 1,437.59 | 6/6 |
+| **GR** | G + route-priority composition | 5 marginals (route withheld) | 95.49% | 83.33% | 1,419.57 | 1,438.18 | 5/6 |
+| **J** | Joint region/urgency source $\to$ pushforward route/urgent | 6 marginals available | 90.28% | 57.29% | 209.54 | 216.76 | 6/6 |
+| **E** | Compact JSON in isolated quality session | Point answers only | 93.75% | 69.79% | 2,930.54 | 3,012.36 | 0/6 |
+
+**Selective Indexing (Arm X):** Indexing only `route` and `case_state` while retaining natural labels for
+eligibility, next_action, retries, and urgency delivers **+9.55 percentage points field accuracy**
+(92.19% vs 82.64%, 95% CI: [6.08, 12.85]) and **+36.46 points all-six correctness** (60.42% vs 23.96%,
+95% CI: [20.83, 51.07]). Median request latency drops **27.60%** (306.92 ms to 222.22 ms), and full-probability
+NLL drops from 0.7512 to 0.2270. Telemetry shows D uses two scoring decode calls per request, whereas X uses one.
+This confirms that surgical indexing avoids the multi-field decoding bottleneck without incurring blanket-indexing collapse.
+
+**Routing Composition (Arm R & GR):** Deriving route priority deterministically from predicted base route
+and predicted urgency (`route = base_route + (" priority" if urgent else "")`) raises fresh field accuracy
+from 82.64% to 91.67% (+9.03 pp, 95% CI: [7.47, 10.59]) with identical request latency (306.72 ms vs 306.92 ms).
+Because base route and urgency marginals do not determine their joint distribution, R and GR intentionally withhold
+an exact route vector rather than fabricating marginal independence. Grouped routing (GR) achieves **83.33% all-six correctness**
+at 1,419.57 ms, outperforming generated JSON (69.79% at 2,930.54 ms).
+
+**Grouped Requests (Arm G & GR):** Partitioning fields into three subrequests reduces catalogue crosstalk
+(73.96% all-six on G, 83.33% on GR), but executes 576 subrequests with zero prefix cache hits because three
+alternating catalogues replace a single-entry cache. The ~1.42s latency is an artifact of current cache eviction,
+not an inherent architectural lower bound.
+
+**Joint Outputs (Arm J):** Pushforward from a 4-way joint region/urgency distribution guarantees consistent
+marginals at 209.54 ms p50, but retries accuracy falls from 100% to 72.92%.
+
+| Arm | `case_state` | `eligibility` | `next_action` | `retries` | `route` | `urgent` |
+|---|---|---|---|---|---|---|
+| **D** | 58.33% | 96.88% | 96.88% | 100.00% | 43.75% | 100.00% |
+| **R** | 58.33% | 96.88% | 96.88% | 100.00% | 97.92% | 100.00% |
+| **X** | 100.00% | 95.83% | 95.83% | 100.00% | 61.46% | 100.00% |
+| **G** | 95.83% | 92.71% | 92.71% | 100.00% | 78.12% | 100.00% |
+| **GR** | 95.83% | 92.71% | 92.71% | 100.00% | 91.67% | 100.00% |
+| **J** | 89.58% | 90.62% | 90.62% | 72.92% | 98.96% | 98.96% |
+| **E** | 100.00% | 95.83% | 95.83% | 100.00% | 70.83% | 100.00% |
+
+## 22.2 Process isolation passes history parity; in-process restart penalty
+
+Two workload shapes were evaluated: six predicted fields with one context, and the combined D-style five-field/cache
+path with four contexts across mixed-process, native-only, dual-process, and restart treatments:
+
+| Treatment | 6-Field / 1-Context | D-Style / 4-Context | Probability & Answer Outcome |
+|---|---|---|---|
+| **Mixed process** | 84.72 s | 104.45 s | **Fails**: $\max \Delta p = 0.080189 / 0.094815$; 0 / 3 field flips |
+| **Native-only control** | 50.48 s | 70.83 s | **Passes**: exact recorded probabilities & answers ($\Delta p = 0$) |
+| **Separate resident processes** | 89.64 s (+5.80%) | 108.53 s (+3.91%) | **Passes**: exact recorded probabilities & answers ($\Delta p = 0$) |
+| **Restart after JSON** | 305.11 s (3.60x) | 410.28 s (3.93x) | **Passes**: exact recorded probabilities & answers ($\Delta p = 0$) |
+
+Separate resident native and JSON processes pass all probability and answer checks while adding only **3.91%–5.80%**
+to whole trace times. Both resident processes fit simultaneously on the Tesla T4 with 34/34 offload, occupying
+**12.10 GiB total device VRAM** (2.90 GiB free). In-process restarts also preserve state but multiply trace times by
+3.60x–3.93x (mean recovery cost 13.67–19.06s). This supplies operational evidence for process isolation, not a kernel
+diagnosis or repair of the underlying mixed-process state mechanism.
+
+## 22.3 Prompt schema sensitivity persists after process isolation
+
+Across 12 development cases, four diagnostic prompt transformations produce 48 comparisons:
+- **Natural-option list reorder**: 12/12 gate failures, max $\Delta p = 0.075006$, 0 field flips.
+- **Semantic code remapping**: 12/12 gate failures, max $\Delta p = 0.912310$, 13 field flips.
+- **Add unrelated question**: 12/12 gate failures, max $\Delta p = 0.251380$, 2 field flips.
+- **Rename visible field keys**: 12/12 gate failures, max $\Delta p = 0.444171$, 4 field flips.
+
+While process isolation eliminates accumulated execution history, the model remains sensitive to prompt structure.
+An efficient prefix-cached runtime does not guarantee an arbitrary-question independent-choice interface.
+
+## 22.4 Cache validity, genuine first use, and scaling boundaries
+
+All 132 dedicated D-style cache pairs preserve recorded probabilities and selected answers exactly ($\Delta p = 0.0$).
+Prefix reuse delivers a **2.34x speedup** on 1-context requests (686.09 ms cold vs 292.83 ms warm). In fresh-process
+first-use traces, the first useful request takes 782.86 ms (4.82s milestone including startup/bookkeeping), and subsequent
+requests average 309.05 ms/request (vs 676.98 ms without cache).
+
+**Native Catalogue Scaling** ($K=4$, ~256 state tokens): $Q=1$ is 447.32 ms, $Q=4$ is 459.61 ms, $Q=8$ is 549.59 ms,
+and $Q=16$ is 701.66 ms. Scaling 16 questions costs only **1.57x** a single question, establishing strong sub-linear amortization.
+However, static catalogue caching cannot cache dynamic state: for long contexts (~4,106 state tokens), prefill dominates
+(5,395.76 ms warm vs 5,694.38 ms cold).
+
+**Indecis Open-Option Scaling** ($K=4$ with option embedding cache): $Q=1$ is 17.60 ms, $Q=4$ is 75.16 ms, $Q=8$ is 138.76 ms,
+and $Q=16$ is 281.78 ms. Scaling is strictly linear (**16.01x ratio**), as open mode re-encodes the input per question.
+
+## 22.5 Indecis (Go on CPU): execution speed vs severe transfer degradation
+
+Indecis evaluates the pinned Go project (`bekko-embedding-v1-a8m`, ~212 MB weights) built with Go 1.27.1 SIMD and assembly:
+
+| Arm | Policy Field Acc | Policy All-Six | Policy p50 (ms) | SNLI Accuracy | SNLI p50 (ms) |
+|---|---|---|---|---|---|
+| **`I_OPEN_FROZEN`** | 37.85% | 1.04% | 137.16 | 27.08% | 23.41 |
+| **`I_OPEN_FIT`** | 58.85% | 16.67% | 142.57 | 30.21% | 17.68 |
+| **`I_FIXED`** | 69.10% | 22.92% | 46.28 | 39.58% | 13.62 |
+| **`I_POLICY_ONLY`**| 70.14% | 30.21% | 43.52 | 39.58% | 13.72 |
+| **`I_REPLAY`** | 70.31% | 26.04% | 31.54 | 44.79% | 18.58 |
+| *(Qwen Reference)* | *92.19% (X)* | *60.42% (X)* | *222.22 (X)* | *92.71% (NLI_CODE)* | *152.88* |
+
+- Fixed-head policy field accuracy collapses from **91.15% on development to 69.10% on fresh confirmation** (all-six: 73.44% to 22.92%). Public SNLI confirmation accuracy is only 39.58% (vs Qwen's 92.71%).
+- Open-mode fitting improves over frozen baseline (+21.01 pp field accuracy), but remains weak.
+- Replay continuation yields only +5.21 pp on SNLI with CI crossing zero ([-2.08, +13.54]), while reducing fresh policy all-six from 30.21% to 26.04%.
+- Host AVX2/FMA assembly passes exact parity across 1,320 pairs ($\Delta p = 0.0$), delivering a **3.12x speedup** on policy (46.28 ms vs 144.39 ms) and **5.15x** on SNLI (13.62 ms vs 70.14 ms). INT8 was unexecuted due to missing AVX-VNNI instructions.
+
+## 22.6 Calibration and application policy transfer
+
+- **Calibration Gate Transfer Failure**: Temperature fitting accepted on calibration-gate worsens confirmation NLL on `I_FIXED` (0.674 $\to$ 1.328) and `G` (0.190 $\to$ 0.202). In contrast, D (0.751 $\to$ 0.345) and X (0.227 $\to$ 0.210) improve. Pooling tasks hides authored-policy degradation.
+- **Application Cost Analysis**: Confidence gating fails to beat review-all (mean cost 0.10): Arm D achieves mean cost 0.342, Arm G achieves 0.117. Arm X records zero errors but achieves only 5.21% coverage (cost 0.095).
+- **Qwen Frozen NLI Baseline**: `NLI_CODE` achieves **92.71% accuracy** (89/96), 63.54% coverage at threshold 0.8 with 0 errors, yielding mean cost **0.0365** (substantially beating review-all).
+
+## 22.7 Confirmed dispositions and next steps
+
+| Question | Disposition after review | Remaining boundary |
+|---|---|---|
+| Q01 | Routing composition is newly timed and improves point accuracy (+9.03 pp) | Exact route distribution withheld for R/GR |
+| Q02 | X improves speed (222 ms) and accuracy (92.19%); grouping improves whole-request correctness (83.33%) but costs 1.42s | No single universal readout winner |
+| Q03 | J supplies declared joint probabilities and consistent point outputs | Retries accuracy regresses to 72.92% |
+| Q04–Q06 | Dedicated resident processes pass history traces ($\Delta p = 0.0$); restarts pass but slow traces 3.6x–3.9x | Root-cause kernel diagnosis unestablished; untested for new readouts |
+| Q07 | Exact cache parity and genuine first-use accounting pass | Amortization demonstrated on reference anchor, not general traffic |
+| Q08 | Native Q/K mechanics pass with useful Q amortization (Q=16 is 1.57x Q=1) | Dynamic state prefill is not amortized by catalogue cache |
+| Q09 | Prompt schema sensitivity observed across all 4 transformations | Arbitrary-question independence claim is rejected |
+| Q10 | Indecis is a working fast CPU comparator, not an equal-quality replacement | Fixed-head transfer drops from 91.15% to 69.10% |
+| Q11 | Calibration gate acceptance does not guarantee confirmation improvement | Task-dependent calibration curves diverge |
+| Q12 | Qwen sampled SNLI is strong (92.71%); compact baselines are weak (39.58%) | Public task and source-split boundaries remain |
+| Q13 | Compact replay has small uncertain NLI gain and mixed policy outcomes | Retention is not established |
+| Q14 | Assembly-enabled execution is exact and 3.12x–5.15x faster; INT8 correctly unexecuted | Capability boundaries must remain explicit |
+| Q15 | Option caching reduces candidate work, but open-mode question cost scales linearly | Re-encodes input per question |
+| Q16–Q20 | Qwen matched sizes, learned head, document retention, Rust/MLX/MoE work | Remain unmeasured |
+
+**Bottom line:** Retain bounded positive results: selective indexing (Arm X), deterministic route-priority composition (Arms R and GR), exact static-prefix reuse, and resident dual-process isolation. Reject universal readout winners, blanket indexing, raw confidence thresholding, and compact encoder substitution under the current recipe. [E41; V10]
+
 # Conclusion
 
 OpenKind has a bounded execution foundation: typed decisions, complete
@@ -4811,11 +4964,22 @@ Field-only requests provide a positive exposed diagnostic. The additional
 routing dependency is only a post-hoc decision replay, not a timed new arm or
 an independently confirmed 94%-accurate service. [E40; V9]
 
-The supported next serving work is matched process isolation/reset and focused
-field/dependency evaluation under fixed profiles and fresh confirmation cases.
-T4 feasibility is observed for this workload, not other precisions, concurrency,
-or the Mac implementation. No demonstrated kernel cause, general architecture
-winner, or new training authorization follows. [E40; proposed work]
+The unified decision validity study now answers the primary systems and readout questions with actual measurements.
+Selective indexing (Arm X) resolves the multi-field decoding bottleneck, delivering 92.19% field accuracy and 60.42%
+all-six correctness at 222.22 ms median (a 27.6% latency reduction over Arm D). Deterministic route-priority composition
+(Arms R and GR) is now a timed inference result, boosting fresh-template field accuracy to 91.67% (R) and whole-request
+all-six correctness to 83.33% (GR, 2.06x faster than generated JSON). Dedicated resident native and JSON processes
+successfully isolate process history, eliminating drift ($\Delta p = 0.0$) with only a 3.9%–5.8% trace time overhead
+and fitting simultaneously on a 15-GiB T4 (12.10 GiB total VRAM), whereas in-process restarts incur a 3.6x–3.9x penalty. [E41; V10; §22]
+
+Crucial boundaries remain: prompt schema sensitivity persists across all tested transformations, confirming that
+process isolation does not supply arbitrary-question statistical independence. The compact Go CPU model (Indecis)
+executes rapidly with AVX2 assembly (46 ms) but suffers severe transfer collapse on fresh policy templates (69.10% vs
+91.15% development; 39.58% on public SNLI vs Qwen's 92.71%), and replay continuations fail to establish retention.
+Calibration gates can fail transfer to untouched confirmation splits, and confidence thresholds fail to beat review-all.
+The evidence supports retaining bounded architectural and serving components—selective indexing, route composition,
+prefix reuse, and resident dual-process isolation—while continuing to evaluate candidate models against rigorous,
+task-separated confirmation gates. [E41; V10; §22]
 
 The M0–M4 distinction between evidence, useful decisions, lower cost and
 independent confirmation remains. One immutable-profile MLX performance study

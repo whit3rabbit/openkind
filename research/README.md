@@ -6,6 +6,16 @@ OpenKind evaluates typed decisions (`Choice`, `Score`, `Noul`) directly from neu
 
 Detailed analysis, theoretical foundations, and mathematical formulations are documented in the [OpenKind Whitepaper](../docs/whitepaper/WHITEPAPER.md) and [Research Dossier](../docs/RESEARCH.md).
 
+## New training recipe
+
+[35_local_decision_training.ipynb](./35_local_decision_training.ipynb) is a
+self-contained Colab trainer for a mixed-task Qwen3.5-4B decision LoRA, targeting
+A100 with an L4 NF4 path. It combines public labeled tasks, precomputed Qwen-teacher
+decisions and exact rule examples, with separate development, calibration, gate
+and reserved evaluation groups. See the [dataset rationale and run guide](./local_decision_training/README.md).
+Status: authored and locally checked with tiny models; full 4B CUDA training and
+Mac qualification are unrun. It does not reopen historical final splits.
+
 ---
 
 ## Chronological Experiment Index
@@ -46,6 +56,8 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 | **32** | [`32_qwen_cache_and_native_decisions_lab.ipynb`](./32_qwen_cache_and_native_decisions_lab.ipynb) | Qwen Cache & Native Decisions Lab (`7047c6b31436f8e9b5aa85a5dad9ea4378d16eaa0912ebba288fae273c7e12ae`) | NVIDIA A100-SXM4-40GB (vLLM 0.30.0 & llama.cpp `parallel-decision`) | Controlled prefix boundary sweep (527–2,113 tokens), vLLM repeatability (serial vs concurrent), batch-invariance launch, and native tree branching | vLLM repeatability passed 1/4 rows (4B serial passed with $\Delta p = 0.0$; concurrent and MoE serial/concurrent failed with drift up to 29.81 pp); cache boundary confirmed (0 hits below 528/1,056; 528/1,056/2,112 tokens reused when exceeding block boundaries); 6/40 cache rows qualified; batch-invariance and full llama GPU offload threw CapabilityError; no model/cache promoted | [`32_qwen_cache_and_native_decisions_lab_results/`](./32_qwen_cache_and_native_decisions_lab_results) |
 | **33** | [`33_qwen_readout_rules_history_lab.ipynb`](./33_qwen_readout_rules_history_lab.ipynb) | Readout, Rules & History (`20260927T192845_426758Z`, run key `ff6fd499...308a`) | NVIDIA A100-SXM4-40GB (Q4_K_M vs BF16) | Single-token integer codes vs natural labels, deterministic host action derivation (5-field + rule vs 6-field), exact-prefix caching, sequence reservation (24 vs 3), batch shapes (1 vs 4 contexts), request history / state leakage | 5-field + rule eliminated eligibility/action contradictions and lowered NLL; all 8 cache conditions passed exact parity ($\Delta p = 0.0$, 1.24–2.75x speedup); isolated native history passed, but JSON interleaving and sequence reservation interactions caused drift; model/cache not promoted | [`20260927T192845_426758Z/`](./20260927T192845_426758Z) / [Drive run](https://drive.google.com/drive/folders/1N8fq_wSct874PWi-VPwuGWAKiYL39xUM) |
 | **34** | [`34_qwen35_9b_t4_l4_open_questions_lab.ipynb`](./34_qwen35_9b_t4_l4_open_questions_lab.ipynb) | 9B T4/L4 Open Questions (`20260928T220142_110595Z_1192c8`) | NVIDIA Tesla T4 16GB (Qwen3.5-9B Q4_K_M, 34/34 offloaded) | Qwen3.5-9B Q4 feasibility on T4; 5 arms (A: 6 fields recomputed, B: 5 fields + rule recomputed, C: 6 fields warm prefix, D: 5 fields + rule warm prefix, E: JSON); exact prefix reuse; genuine first-use cold trace; JSON interleaving history drift; sequence reservation (8 vs 3); risk coverage; offline deterministic route replay | T4 feasibility demonstrated (6.30 GiB peak VRAM); Arm D delivered 2.29–2.35x speedup over A (339.38 ms median) with 56% lower mean latency from prefix reuse and 0 eligibility/action contradictions; prefix cache passed 330/330 pairs ($\Delta p = 0$); JSON interleaving failed history gate ($\max \Delta p = 0.095$, 4 flips); 3 reserved sequences caused drift ($\Delta p = 0.059$); D showed two systematic errors (plain closed $\to$ duplicate; priority suffix appended); route replay healed route errors (93.8% field acc, 62.5% all-six); complete service not qualified | Review writeup `OpenKind_9B_T4_Results_Review_20260928.md` / [Drive run](https://drive.google.com/file/d/1Q-t2VhbH7qYUbkDodlg4IPgpNK8ySBa3/view) |
+| **35** | [`35_local_decision_training.ipynb`](./35_local_decision_training.ipynb) | Local Decision Training | GPU (A100 / L4 NF4) | Self-contained Colab trainer for mixed-task Qwen3.5-4B decision LoRA across public tasks, teacher decisions, and rule examples | Authored & locally validated with tiny models; full 4B CUDA training unrun | [`local_decision_training/`](./local_decision_training) |
+| **36** | [`36_openkind_unified_decision_validity_lab.ipynb`](./36_openkind_unified_decision_validity_lab.ipynb) | Unified Validity Lab (`20260929T194506_694066Z_dc1f74`, protocol `openkind-unified-decisions/v3.0.0`) | NVIDIA Tesla T4 16GB & CPU (Go 1.27.1) | Selective indexing (X), route composition (R/GR), grouped readouts (G/GR), joint formulation (J), resident process isolation vs restarts, schema sensitivity, scaling (native catalogue vs indecis open-option), CPU SIMD/assembly, calibration & confidence policies | Selective indexing (Arm X: 92.19% field acc, 60.42% all-six, 222.22 ms) and grouped routing (Arm GR: 95.49% field acc, 83.33% all-six, 1419.57 ms) advance the design; resident process isolation passes exact parity ($\Delta p = 0.0$) with ~4–6% trace overhead; Indecis CPU is fast (46 ms) but fails transfer (69.10% fresh policy, 39.58% SNLI); no promotion | [Drive run](https://drive.google.com/drive/folders/1gLVnuSIHUDAqyQlyxFyKuc2LWcOvklgx) / [Archive](https://drive.google.com/file/d/1yXOks6ms6-aaEhj-jZ1WvuWtBQsIIzjA/view) |
 
 
 
@@ -1007,6 +1019,135 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 
 ---
 
+### 35. Local Decision Training: Mixed-Task Qwen3.5-4B Decision LoRA Trainer
+* **File**: [`35_local_decision_training.ipynb`](./35_local_decision_training.ipynb)
+* **Goal**: Self-contained Colab trainer for a mixed-task Qwen3.5-4B decision LoRA targeting A100 with an L4 NF4 fallback path.
+* **Scope & Methodology**:
+  - Combines public labeled tasks (SNLI, MultiNLI, Banking77, CLINC150, ContractNLI, QASPER), precomputed Qwen-teacher decisions, and exact rule examples.
+  - Enforces separate development, calibration-fit, calibration-gate, and reserved evaluation groups without reopening historical final splits.
+  - Implements PEFT rank-16 LoRA adapters with `SDPBackend.MATH` attention consistency.
+* **Status**: Authored and locally checked with tiny models; full 4B CUDA training and Mac qualification remain unrun.
+* **Supporting Directory**: [`local_decision_training/`](./local_decision_training)
+
+---
+
+### 36. OpenKind Unified Decision Validity Lab: Selective Readouts, Process Isolation, Scaling, and Compact-Model Transfer
+* **File**: [`36_openkind_unified_decision_validity_lab.ipynb`](./36_openkind_unified_decision_validity_lab.ipynb)
+* **Run ID**: `20260929T194506_694066Z_dc1f74`
+* **Protocol**: `openkind-unified-decisions/v3.0.0`
+* **Run Date**: 29 September 2026
+* **Target Hardware & Environment**:
+  - NVIDIA Tesla T4 16GB (15.0 GiB reported VRAM, CUDA runtime, native engine commit with Qwen3.5-9B publisher Q4_K_M, 34/34 layers offloaded).
+  - CPU Comparator: Go 1.27.1 built with SIMD and active assembly on host AVX2/FMA, 1 configured worker, backbone `hotchpotch/bekko-embedding-v1-a8m` (`c721113...`, ~212 MB weights).
+* **Evaluated Models**: Qwen3.5-9B Q4_K_M (dense decoder); Indecis / Bekko Embedding v1 a8m (compact Go CPU encoder).
+* **Status & Disposition**: **`RETAIN_BOUNDED_POSITIVE_RESULTS`** (Reconciled across 80 completed block receipts plus 1 explicitly unexecuted INT8 capability record; 0 execution failures; arithmetic and artifact verification confirmed; no model or service promotion).
+* **What it Measured / Scope**:
+  - Comprehensive resolution of open questions from the 9B/T4 exploratory study: routing dependency rules, selective and grouped readouts, joint output probabilities, resident process isolation vs restarts, actual Q/K token scaling, and compact CPU encoder (indecis) alternatives.
+  - Primary evaluation comprises 14,280 technical quality requests over 660 unique evaluated inputs across 106 arm-by-panel rows, repeated twice. Dataset includes 1,860 records spanning fitting, development, calibration-fit, calibration-gate, and fresh confirmation partitions.
+  - Evaluated seven primary arms across fresh-template confirmation (96 cases × 2 repeats):
+    - **Arm D**: Five natural fields; action derived from eligibility; static-prefix reuse (baseline).
+    - **Arm R**: D plus deterministic route-priority composition from predicted urgency.
+    - **Arm X**: Selective indexing of route and case state; natural labels retained for eligibility, next_action, retries, urgent; derived action rule.
+    - **Arm G**: Grouped requests: (1) eligibility/retries/urgency, (2) route separately, (3) case state separately; derived action rule.
+    - **Arm GR**: Grouped requests (G) plus deterministic route-priority composition.
+    - **Arm J**: Indexed formulation with 4-way joint region/urgency outcome; route and urgency pushed forward from joint distribution.
+    - **Arm E**: Compact JSON generated in an isolated quality session.
+  - Serving stability & process isolation: mixed-process vs native-only control vs two resident processes vs restarting native after each JSON request across two trace shapes (six-field 1-context, D-style 4-context).
+  - Schema sensitivity: 4 diagnostic transformations (natural-option list reordering, semantic code remapping, adding an unrelated question, renaming visible field keys) across 12 development cases (48 comparisons).
+  - Dedicated prefix caching & genuine first-use traces: 132 paired cache requests and 16-request cold traces.
+  - Multi-question scaling: Native Qwen catalogue scaling ($Q \in \{1, 4, 8, 16\}$, $K \in \{2, 4, 8, 16\}$, state tokens up to 4,106) vs Indecis open-option scaling ($Q \in \{1, 4, 8, 16\}$ with candidate embedding cache).
+  - Indecis (Go on CPU): Fixed head vs open-mode fitting (1,152 examples, 3 epochs) vs replay continuation (384 exposures), CPU AVX2 assembly parity (1,320 pairs) vs NOASM, memory footprint (RSS).
+  - Calibration & confidence policies: temperature scaling gate on held-out confirmation across tasks; empirical decision policies with cost trade-offs.
+
+* **Stage-by-Stage Findings & Audit Results**:
+
+  #### 1. Fresh-Template Confirmation (96 cases × 2 technical repeats)
+  | Arm | Complete Request Computation | Probability Contract | Field Accuracy | All Six Correct | Request p50 (ms) | Request p95 (ms) | Exact Marginal Dists |
+  |---|---|---|---|---|---|---|---|
+  | **D** | 5 natural fields; derived action; static prefix | 6 marginals available | 82.64% | 23.96% | 306.92 | 314.91 | 6/6 |
+  | **R** | D + route-priority composition from predicted urgency | 5 marginals (route withheld) | 91.67% | 54.17% | 306.72 | 315.66 | 5/6 |
+  | **X** | Index route and case state; retain others; derived action | 6 marginals available | 92.19% | 60.42% | 222.22 | 229.75 | 6/6 |
+  | **G** | Grouped: (1) elig/retries/urgent, (2) route, (3) state | 6 marginals available | 93.23% | 73.96% | 1,422.24 | 1,437.59 | 6/6 |
+  | **GR** | G + route-priority composition | 5 marginals (route withheld) | 95.49% | 83.33% | 1,419.57 | 1,438.18 | 5/6 |
+  | **J** | Joint region/urgency source $\to$ pushforward route/urgent | 6 marginals available | 90.28% | 57.29% | 209.54 | 216.76 | 6/6 |
+  | **E** | Compact JSON in isolated quality session | Point answers only | 93.75% | 69.79% | 2,930.54 | 3,012.36 | 0/6 |
+
+  - **Selective Indexing (Arm X)**: Surgically indexing route and case state while keeping natural labels for the other fields delivers **+9.55 pp field accuracy** (92.19% vs 82.64%, 95% CI: [6.08, 12.85]) and **+36.46 pp all-six correctness** (60.42% vs 23.96%, 95% CI: [20.83, 51.07]). Median request time drops **27.60%** (306.92 ms $\to$ 222.22 ms) and full-probability NLL plummets from 0.7512 to 0.2270. Telemetry confirms X requires only 1 scoring decode call per request versus 2 for D.
+  - **Routing Composition (Arm R & GR)**: Deriving route priority deterministically from predicted urgency raises fresh field accuracy by **+9.03 pp** (82.64% $\to$ 91.67%) with virtually identical latency (306.72 ms vs 306.92 ms). Grouped routing (GR) achieves **83.33% all-six correctness** at 1,419.57 ms (2.06x faster than JSON at 2,930.54 ms / 69.79%).
+  - **Grouped Requests (Arm G & GR)**: Grouping fields eliminates catalogue crosstalk and boosts quality (73.96% all-six on G, 83.33% on GR), but executes 3 sequential subrequests costing ~1.42 s. Alternating catalogues currently yield 0 prefix cache hits; catalogue-resident caching is required for future speedup.
+  - **Joint Outputs (Arm J)**: Pushforward from a 4-way joint region/urgency distribution guarantees consistent marginals at 209.54 ms p50, but retries accuracy drops from 100% to 72.92%.
+
+  #### 2. Per-Field Error Distribution on Fresh Confirmation
+  | Arm | `case_state` | `eligibility` | `next_action` | `retries` | `route` | `urgent` |
+  |---|---|---|---|---|---|---|
+  | **D** | 58.33% | 96.88% | 96.88% | 100.00% | 43.75% | 100.00% |
+  | **R** | 58.33% | 96.88% | 96.88% | 100.00% | 97.92% | 100.00% |
+  | **X** | 100.00% | 95.83% | 95.83% | 100.00% | 61.46% | 100.00% |
+  | **G** | 95.83% | 92.71% | 92.71% | 100.00% | 78.12% | 100.00% |
+  | **GR** | 95.83% | 92.71% | 92.71% | 100.00% | 91.67% | 100.00% |
+  | **J** | 89.58% | 90.62% | 90.62% | 72.92% | 98.96% | 98.96% |
+  | **E** | 100.00% | 95.83% | 95.83% | 100.00% | 70.83% | 100.00% |
+
+  #### 3. Mixed-Request Serving Stability & Process Isolation
+  | Treatment | 6-Field / 1-Context Trace | D-Style / 4-Context Trace | Probability & Answer Gate Verdict |
+  |---|---|---|---|
+  | **Mixed process** | 84.72 s | 104.45 s | **Fails**: $\max \Delta p = 0.080189 / 0.094815$; 0 / 3 field flips |
+  | **Native-only control** | 50.48 s | 70.83 s | **Passes**: exact recorded probabilities & answers ($\Delta p = 0$) |
+  | **Separate resident processes** | 89.64 s (+5.80%) | 108.53 s (+3.91%) | **Passes**: exact recorded probabilities & answers ($\Delta p = 0$) |
+  | **Restart after JSON** | 305.11 s (3.60x) | 410.28 s (3.93x) | **Passes**: exact recorded probabilities & answers ($\Delta p = 0$) |
+
+  - **Resident Process Isolation Validated**: Running native decisions and JSON generation in separate resident processes completely eliminates history contamination with only a **3.9%–5.8% trace time overhead**.
+  - **Memory Footprint on T4**: Both processes reside simultaneously on Tesla T4 with full 34/34 GPU offload, consuming **12.10 GiB total device VRAM** (2.90 GiB free). In contrast, in-process restarting incurs a 3.6x–3.9x slowdown due to repeated process initialization (mean recovery cost: 13.67–19.06 s).
+
+  #### 4. Schema Sensitivity Beyond Process Isolation
+  | Transformation (12 dev cases) | Numerical Gate Failures | Maximum $\Delta p$ | Field Flips | Finding |
+  |---|---|---|---|---|
+  | **Natural-option list reorder** | 12 / 12 | 0.075006 | 0 | Probability drift without discrete decision flips |
+  | **Semantic code remapping** | 12 / 12 | 0.912310 | 13 | Extreme probability disruption; some accuracy improvements |
+  | **Add unrelated question** | 12 / 12 | 0.251380 | 2 | Flips 2 fields while aggregate score remains identical |
+  | **Rename visible field keys** | 12 / 12 | 0.444171 | 4 | Significant sensitivity to visible prompt identifiers |
+
+  - All 48 comparisons fail the strict numerical invariance gate. Process isolation eliminates runtime execution leakage, but model conditioning remains sensitive to prompt schema syntax, demonstrating that arbitrary-question independence cannot be assumed.
+
+  #### 5. Cache Parity and First-Use Telemetry
+  - **132 Dedicated D-Style Cache Pairs**: Exact numerical parity verified ($\Delta p = 0.0$). Prefix caching delivers a **2.34x speedup** on 1-context requests (686.09 ms cold $\to$ 292.83 ms warm).
+  - **Fresh-Process First-Use Trace**: First useful request requires 782.86 ms (4.82 s total milestone including startup/bookkeeping). Subsequent requests average 309.05 ms, proving genuine amortization.
+
+  #### 6. Multi-Question Scaling: Native Catalogue vs Indecis Open-Option
+  - **Qwen Native Catalogue Scaling** ($K=4$, ~256 state tokens): $Q=1$ is 447.32 ms, $Q=4$ is 459.61 ms, $Q=8$ is 549.59 ms, and $Q=16$ is 701.66 ms. Scaling 16 questions costs only **1.57x** a single question, confirming strong native sub-linear amortization.
+  - **Context-Length Dynamic State Boundary**: At $Q=4, K=4$ with ~4,106 state tokens, fresh prefix takes 5,694.38 ms vs 5,395.76 ms warm: static catalogue caching does not amortize dynamic state prefill.
+  - **Indecis Open-Option Scaling** ($K=4$ with option embedding cache): $Q=1$ is 17.60 ms, $Q=4$ is 75.16 ms, $Q=8$ is 138.76 ms, and $Q=16$ is 281.78 ms. Scaling is strictly linear (**16.01x ratio**), as open mode re-encodes the input per question.
+
+  #### 7. Indecis (Go on CPU) Confirmation & Transfer Breakdown
+  | Arm | Policy Field Acc | Policy All-Six | Policy p50 (ms) | SNLI Accuracy | SNLI p50 (ms) |
+  |---|---|---|---|---|---|
+  | **`I_OPEN_FROZEN`** | 37.85% | 1.04% | 137.16 | 27.08% | 23.41 |
+  | **`I_OPEN_FIT`** | 58.85% | 16.67% | 142.57 | 30.21% | 17.68 |
+  | **`I_FIXED`** | 69.10% | 22.92% | 46.28 | 39.58% | 13.62 |
+  | **`I_POLICY_ONLY`**| 70.14% | 30.21% | 43.52 | 39.58% | 13.72 |
+  | **`I_REPLAY`** | 70.31% | 26.04% | 31.54 | 44.79% | 18.58 |
+  | *(Qwen Reference)* | *92.19% (X)* | *60.42% (X)* | *222.22 (X)* | *92.71% (NLI_CODE)* | *152.88* |
+
+  - **Severe Transfer Degradation**: `I_FIXED` drops from 91.15% field / 73.44% all-six on dev to 69.10% / 22.92% on fresh templates. SNLI accuracy is only 39.58% (vs Qwen's 92.71%).
+  - **Replay Continuation Weakness**: Replay adds +5.21 pp on SNLI, with 95% CI spanning zero ([-2.08, +13.54]), while reducing fresh policy all-six from 30.21% to 26.04%.
+  - **CPU Assembly Optimization**: Host AVX2/FMA assembly passes exact bitwise parity across 1,320 pairs ($\Delta p = 0.0$), delivering a **3.12x speedup** on policy (46.28 ms vs 144.39 ms) and **5.15x** on SNLI (13.62 ms vs 70.14 ms). INT8 was unexecuted due to missing AVX-VNNI hardware instructions.
+
+  #### 8. Calibration & Application Policies
+  - **Calibration Transfer Regression**: Temperature fitting accepted on calibration-gate worsens confirmation NLL on `I_FIXED` (0.674 $\to$ 1.328) and `G` (0.190 $\to$ 0.202). In contrast, D (0.751 $\to$ 0.345) and X (0.227 $\to$ 0.210) improve.
+  - **Application Cost Analysis**: Filtering by minimum probability fails to beat review-all (mean cost 0.10): Arm D achieves mean cost 0.342, Arm G achieves 0.117. Arm X records zero errors but achieves only 5.21% coverage (cost 0.095).
+  - **Qwen Frozen NLI Baseline**: `NLI_CODE` achieves **92.71% accuracy** (89/96), 63.54% coverage at threshold 0.8 with 0 errors, yielding mean cost **0.0365** (substantially beating review-all).
+
+* **Supporting Review Artifacts**:
+  - Run Key: `baa2f1ebf0ab02e9f3e4ad795be3330e9cd8c04bcd530cc7992d9f35f0f723bc`
+  - Archive SHA: `2f9b758c8a4c0af86c725eb760e96d88250d209e50118b9bf2b6ede71c54cce1`
+  - Summary SHA: `b4149b1226a3d20ca05e3f63b33d366bb000bf29daec0d0ffc7b8d2879187672`
+  - Dataset SHA: `573585bd877ce15b0a111138a256db419b4dceb5a0cf857aa0f738035db19041`
+  - Drive Folder: [Google Drive Run 20260929T194506](https://drive.google.com/drive/folders/1gLVnuSIHUDAqyQlyxFyKuc2LWcOvklgx)
+  - Archive Download: [Google Drive Archive](https://drive.google.com/file/d/1yXOks6ms6-aaEhj-jZ1WvuWtBQsIIzjA/view)
+  - Read-Only Reconciliation Scripts: `reconcile_unified.py`, `reconcile_execution.py`, `reconcile_calibration.py`.
+
+---
+
 ## Key Scientific Insights & Architectural Invariants
 
 1. **Strict FP32 Reference Boundary**:
@@ -1066,3 +1207,17 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
     Reducing runtime sequence slot reservations below the batch workload requirement (e.g. configuring 3 sequence slots for a 4-context batched request) introduces substantial numerical drift ($\Delta p \approx 0.059$) and fails numerical parity gates, even when discrete argmax winners happen to match. Runtime sequence reservations must be provisioned to cover maximum batch concurrency rather than trimmed for superficial VRAM savings.
 27. **T4 Viability of 9B Quantized Decision Inference**:
     Large dense models (Qwen 3.5 9B) quantized to 4 bits (Q4_K_M) fit comfortably within commodity 16GB GPUs (Tesla T4), utilizing only 6.30 GiB peak VRAM under 4-context batched workloads with full 34/34 layer GPU offload. Combining 5-field prediction, deterministic action derivation, and verified prefix cache reuse delivers a 2.35x latency speedup (339 ms median vs 798 ms baseline) and an 11.5x speedup over generated JSON (3,910 ms), demonstrating that production-speed structured decision serving is feasible on low-cost hardware once readout traps and process-history gates are resolved.
+28. **Selective Field Indexing (Arm X) Over Blanket Indexing**:
+    Indexing only route and case state while retaining natural labels for other fields resolves the multi-field decoding bottleneck (reducing scoring decode calls from 2 to 1), cutting latency by 27.6% (222.22 ms vs 306.92 ms) and improving fresh field accuracy (+9.55 pp to 92.19%) and all-six accuracy (+36.46 pp to 60.42%). While blanket indexing of every field previously degraded performance, surgical indexing of high-cardinality or branch-heavy fields provides a superior speed/accuracy frontier.
+29. **Deterministic Route-Priority Composition Confirmed on Timed Request Path (Arm R / GR)**:
+    Composing the route priority rule deterministically from predicted base route and urgency delivers +9.03 pp field accuracy on fresh templates (raising D from 82.64% to 91.67% and G from 93.23% to 95.49%) with zero latency penalty on the measured request path (306.72 ms vs 306.92 ms). Grouped requests with route composition (Arm GR) achieve 83.33% all-six correctness. When fields possess rigid logical hierarchy, rule composition strictly outperforms end-to-end multi-label neural prediction.
+30. **Resident Process Isolation Resolves Mixed-Traffic State Contamination**:
+    Separating native decision serving and autoregressive JSON into dedicated resident processes completely eliminates the history drift observed in mixed processes ($\Delta p = 0.0$, passing all probability and answer gates) with only a ~4%–6% whole-trace execution penalty. Both resident processes fit simultaneously within a 15-GiB Tesla T4 (12.10 GiB total VRAM with full 34/34 offload). In-process restarts also preserve state but incur a severe 3.60x–3.93x latency penalty (~14–19s recovery per restart).
+31. **Prompt Schema Sensitivity Persists Beyond Process Isolation**:
+    While process separation purges accumulated runtime history, native decision probabilities remain sensitive to prompt formatting: reordering options, adding unrelated questions, remapping codes, or renaming visible keys alters probability vectors (up to $\Delta p = 0.912$, failing 48/48 numerical gates). An efficient prefix-cached runtime does not inherently guarantee arbitrary-question statistical independence; API design must treat prompt schema structure as part of the conditioning state.
+32. **Catalogue Caching Sub-linear Multi-Question Amortization vs Dynamic State Limits**:
+    Native Qwen catalogue caching amortizes multi-question execution sub-linearly (scaling from 1 to 16 questions costs only 1.57x the latency for ~256 state tokens: 447 ms to 702 ms). However, static catalogue caching cannot cache dynamic state: for long contexts (~4,106 state tokens), prefill dominates (5,396 ms warm vs 5,694 ms cold). In contrast, open-option architectures that re-encode input per question scale strictly linearly (Q=16 is 16.01x Q=1).
+33. **Compact-Model Fixed Head & Replay Transfer Limitations**:
+    Fast CPU fixed heads (Indecis) learn fixed schemas with low latency (~46 ms) but suffer severe transfer degradation on fresh rendering templates (dropping from 91.15% dev to 69.10% fresh field accuracy; SNLI at 39.58% vs Qwen's 92.71%). Replay continuations fail to preserve or transfer capabilities (confidence intervals spanning zero). High speed cannot substitute for representational capacity on out-of-distribution prompts.
+34. **Calibration Gate Acceptance Does Not Guarantee Transfer Generalization**:
+    Post-hoc temperature scaling accepted on held-out calibration-gate data can severely degrade proper scoring rules on fresh distribution transfer (e.g. Indecis fixed-head fresh-policy NLL doubling from 0.674 to 1.328). Calibration must be evaluated separately by task and rendering family rather than pooled into a single scalar gate.
