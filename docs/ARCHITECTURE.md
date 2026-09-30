@@ -2,7 +2,7 @@
 
 > An open-source decision-inference engine in Rust targeting the Jev wire contract, with independently designed model and runtime internals.
 >
-> **Document revision 0.8.3 · 27 September 2026 · Current Rust implementation through named-machine CPU service gates and separately qualified pinned-base MLX FP32 parity. Latest Colab findings inform future qualification; they do not change the implemented checkpoint, readout, scheduler or wire contract. Reviewed model quality, complete-request MLX performance, broader accelerated-service evidence and product-release promotion remain open.**
+> **Document revision 0.8.4 · 29 September 2026 · Current Rust implementation through named-machine CPU service gates and separately qualified pinned-base MLX FP32 parity. Local joint-option diagnostics add an offline scoring comparison; the fitted scoring profile and service defaults remain unchanged. Reviewed model quality, complete-request MLX performance, broader accelerated-service evidence and product-release promotion remain open.**
 >
 > Wire spec: https://docs.typesafe.ai/api
 > Reference client SDK target: https://docs.typesafe.ai/sdk/python/api
@@ -51,16 +51,17 @@ The roadmap is the task/status authority; the whitepaper is the detailed evidenc
 
 ## Research findings and the current implementation
 
-This document describes the working Rust codebase reported in the supplied
-architecture and its verification records. The 27 September documentation
-revision does not re-audit a fresh repository checkout or implement a new
-backend. [WHITEPAPER.md](whitepaper/WHITEPAPER.md) owns detailed evidence;
+This document describes the working Rust codebase and its scoped verification
+records, including the offline joint-option probe. Updating this document does
+not qualify another backend or promote a model.
+[WHITEPAPER.md](whitepaper/WHITEPAPER.md) owns detailed evidence;
 [WORKING_PAPER.md](whitepaper/WORKING_PAPER.md) is the confirmed-findings digest.
 
 | Path | Current implementation boundary | Evidence and remaining limit |
 |---|---|---|
 | Selected Base + candidate-feature/score-summary profile | Existing Rust `Qwen35DecisionEngine`; fixed profile `a047d6802c3f06f085b8` | Named CPU parity, persistence and service checks; model-quality/release promotion remains separate |
 | Pinned Base on MLX FP32 | Existing optional parity backend; `ReferenceOps` default, vectorized path explicitly forced | Full/nested/vectorized fixture parity; complete-request performance and broader accelerated-service qualification remain open |
+| Joint-option letter readout | Rust `Qwen35ScoringProbe` and offline `compare-choice`; no daemon registration | Same-checkpoint rule and reference-card diagnostics; order sensitivity, calibration and semantic-none failures prevent promotion |
 | Flat-field and candidate-pooling MLX diagnostics | Measured research code, excluded from automatic scheduler | Slower on tested shapes despite fewer forwards; existing nested path retained |
 | Modern Qwen3.5 dense/MoE indexed-token reader | Separate Colab/vLLM study | MoE improves bounded accuracy at about 2× dense latency; not a new Rust engine/profile default |
 | Qwen3.5-4B Q4_K_M token-tree reader | Separate pinned C++/CUDA fork and Colab study | Faster than generated JSON but lower accuracy; passing prefix-cache fixtures do not qualify the whole reader |
@@ -69,6 +70,54 @@ backend. [WHITEPAPER.md](whitepaper/WHITEPAPER.md) owns detailed evidence;
 The latest CUDA results therefore change validation priorities, not the current
 checkpoint, score-summary head, wire semantics, scheduler or backend registration.
 The CPU/MLX reference qualifications remain scoped to their original identities.
+
+### Scoring tests and why the fitted profile remains the default
+
+The native Qwen default is still the frozen state-first, score-summary profile
+`a047d6802c3f06f085b8`. The original selection kept eligible models within a
+declared development-NLL band, then chose the lower measured Q<=4 request p95.
+Score-summary rejection was close to the best development NLL and won that
+latency tie-breaker. Selection was locked before final evaluation. The
+[selection study](whitepaper/WHITEPAPER.md#152-comparison-design-and-pre-final-selection)
+owns the comparison and its provisional quality boundary.
+
+The [`Qwen35ScoringProbe`](../crates/openkind-backends/src/qwen35/experimental.rs)
+loads the same pinned Base checkpoint for two paths. Its independent control
+replays the frozen renderer, fitted head and temperature. Its joint path puts
+all options into one question prompt and projects the final normalized hidden
+vector onto selected tied vocabulary rows for single-token answer letters,
+including none. It performs no autoregressive generation. The
+[`compare-choice` harness](BENCHMARKS.md#experimental-joint-option-comparison)
+evaluates canonical order, reversed order and the mean of their distributions
+after mapping letters back to caller option IDs.
+
+The [local test record](benchmarks/2026-09-29-joint-choice/README.md) owns the
+fixtures, scores, host and artifact identities. Balanced rule cases test facts,
+negation, thresholds and evidence inside options. A separate reference-card
+intervention changes a rival option while leaving the action descriptions
+unchanged. Unit checks cover prompt/token boundaries, length limits, probability
+averaging, workload validation and metric arithmetic. The probe's independent
+control exactly matches the existing engine on a small positive-only subset;
+CPU/MLX FP32 comparisons pass on that subset. These checks establish a faithful
+control and bounded numerical agreement, separately from task quality. The
+record also documents the MLX test failure and passing reruns, and the missing
+formal runtime receipt for the measured dirty checkout.
+
+Joint scoring improves accuracy and proper scores on these authored panels,
+but that does not establish a better deployment default:
+
+- Option reversal changes decisions; averaging does not resolve reference-card
+  rejection and still selects the forbidden reference option.
+- Averaged joint scoring misses every reference-card none case. On the simpler
+  panel, forward and averaged scoring worsen ECE despite improving NLL/Brier.
+- The comparison changes prompt, head and temperature together. It has no
+  independent natural-task quality gate, and its warmed full-forward timings
+  do not compare against production prefix reuse. Averaging requires two passes.
+
+The fitted profile remains the reproducible integration reference, not a proven
+quality winner. A replacement needs a separately identified profile and its own
+quality, rejection, calibration and request-performance gates. See the
+[next local research comparisons](RESEARCH.md#next-local-scoring-comparisons-proposed).
 
 ### Execution requirements reinforced by the latest tests
 

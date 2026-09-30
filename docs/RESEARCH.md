@@ -219,6 +219,40 @@ explicit none mass. The [recorded local diagnostics](benchmarks/2026-09-29-joint
 cover balanced rule cases and a separate reference-card intervention. These
 change prompt and readout together and do not qualify a production replacement.
 
+### Next local scoring comparisons (proposed)
+
+The local diagnostics make option interaction worth pursuing, but leave
+context visibility, output-slot bias and rejection as separate questions.
+These comparisons can use the locally pinned checkpoint and existing harness;
+none has been run or adopted as a default:
+
+1. **All-options context with the fitted head.** Add a canonical option catalogue
+   to each question's instructions before its candidate continuation, retaining
+   the fitted candidate/rejection head and temperature. Compare against the
+   unchanged independent control. This tests whether seeing rival descriptions
+   helps without also replacing the head with vocabulary rows. Keep the shared
+   state root independent of the question and give the changed renderer a new
+   experimental identity; the old head may fail under this input shift.
+2. **Separate text position from output-code assignment.** Rotate option order,
+   including none, and independently permute the verified single-token answer
+   codes. The current forward/reverse test changes order and codes together and
+   leaves Z last. Measure decision flips and probability shifts by each factor,
+   then compare any fixed ensemble's full-vector quality and forward cost.
+3. **Calibrate the joint distribution and test rejection separately.** Fit a
+   positive temperature and, as a separate arm, a none-logit offset on a new
+   calibration partition. Lock both before evaluating a disjoint gate against
+   the raw distribution. [Temperature scaling](https://proceedings.mlr.press/v70/guo17a.html)
+   is an established baseline, but preserves argmax and cannot repair wrong
+   selections. A none offset can change rejection, but cannot supply missing
+   evidence or guarantee transfer; require NLL/Brier, none recall, false-none
+   rates and accepted-error/coverage evidence alongside ECE.
+
+Use new state/source-group partitions with answerable and none cases, including
+natural tasks; keep historical final partitions closed. Freeze the chosen
+renderer, code mapping, ensemble and calibration before the gate. Publish
+complete offered-option distributions, including none. Only a surviving
+candidate warrants complete request-path timing against the current scheduler.
+
 ## Audit of Prior Art Claims: Reddit Discussion & SalesRLAgent
 
 In September 2026, a high-visibility discussion on Reddit (`r/LocalLLaMA`) asserted that the Jev architecture had already been built and open-sourced a year earlier by researcher Nandakishor M under the title *"I literally built the Jev architecture one year back and completely open-sourced it with model, dataset and paper"*. 
