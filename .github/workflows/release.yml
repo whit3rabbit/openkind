@@ -17,18 +17,61 @@ permissions:
   attestations: write
   artifact-metadata: write
 
-env:
-  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-
 jobs:
+  resolve-release:
+    name: resolve release revision
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      sha: ${{ steps.revision.outputs.sha }}
+    steps:
+      - name: Validate release tag
+        id: release
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_REF: ${{ github.ref }}
+          EVENT_TAG: ${{ github.ref_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            tag="${INPUT_TAG}"
+            if [[ ! "${tag}" =~ ^v[0-9A-Za-z][0-9A-Za-z._-]*$ ]]; then
+              echo "invalid release tag: ${tag}" >&2
+              exit 1
+            fi
+            ref="refs/tags/${tag}"
+          else
+            tag="${EVENT_TAG}"
+            ref="${EVENT_REF}"
+            if [[ "${ref}" != "refs/tags/${tag}" ]]; then
+              echo "release workflow must be triggered by a tag" >&2
+              exit 1
+            fi
+          fi
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "ref=${ref}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout release revision
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && steps.release.outputs.ref || github.sha }}
+
+      - name: Record immutable release revision
+        id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
   publish-crates:
     name: publish to crates.io
+    needs: [resolve-release]
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ needs.resolve-release.outputs.tag }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ env.RELEASE_TAG }}
+          ref: ${{ needs.resolve-release.outputs.sha }}
 
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
@@ -42,7 +85,10 @@ jobs:
 
   build-binaries:
     name: build ${{ matrix.target }}
+    needs: [resolve-release]
     runs-on: ${{ matrix.os }}
+    env:
+      RELEASE_TAG: ${{ needs.resolve-release.outputs.tag }}
     strategy:
       fail-fast: false
       matrix:
@@ -57,7 +103,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          ref: ${{ env.RELEASE_TAG }}
+          ref: ${{ needs.resolve-release.outputs.sha }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -116,13 +162,15 @@ jobs:
 
   homebrew-tap:
     name: update homebrew tap
-    needs: [build-binaries]
+    needs: [resolve-release, build-binaries]
     runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ needs.resolve-release.outputs.tag }}
     steps:
       - name: Checkout openkind templates
         uses: actions/checkout@v7
         with:
-          ref: ${{ env.RELEASE_TAG }}
+          ref: ${{ needs.resolve-release.outputs.sha }}
 
       - name: Download all release artifacts
         uses: actions/download-artifact@v8
