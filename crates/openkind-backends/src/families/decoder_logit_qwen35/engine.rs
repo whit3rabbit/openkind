@@ -36,21 +36,39 @@ struct PassRead<'a> {
     state: &'a serde_json::Value,
     criterion: &'a str,
     token_count: &'a std::cell::Cell<u64>,
+    control: &'a FamilyControl,
+}
+
+fn account_question_tokens(
+    token_count: &std::cell::Cell<u64>,
+    tokens: u64,
+) -> Result<(), FamilyError> {
+    token_count.set(token_count.get().saturating_add(tokens));
+    if token_count.get() > super::MAX_QUESTION_TOKENS {
+        return Err(FamilyError::InvalidInput(format!(
+            "question requires {} prompt tokens across its passes, exceeding the maximum work budget of {}",
+            token_count.get(),
+            super::MAX_QUESTION_TOKENS
+        )));
+    }
+    Ok(())
 }
 
 impl PassReader for PassRead<'_> {
     fn read(&self, options: &[(String, String)]) -> Result<Vec<f64>, FamilyError> {
+        self.control.check()?;
         let pass = self
             .inner
             .renderer
             .render_pass(self.state, self.criterion, options)?;
         let tokens = u64::from(self.inner.renderer.pass_token_count(&pass));
-        self.token_count
-            .set(self.token_count.get().saturating_add(tokens));
-        let logits = self
-            .inner
-            .model
-            .letter_logits(pass.prompt_ids(), pass.letter_ids())?;
+        account_question_tokens(self.token_count, tokens)?;
+        self.control.check()?;
+        let logits =
+            self.inner
+                .model
+                .letter_logits(pass.prompt_ids(), pass.letter_ids(), self.control)?;
+        self.control.check()?;
         temperature_softmax(&logits, CALIBRATION_TEMPERATURE)
     }
 }
@@ -105,6 +123,7 @@ impl DecoderLogitQwen35Engine {
             state,
             criterion,
             token_count,
+            control,
         };
         if options.len() <= super::MAX_OPTIONS_PER_PASS {
             return reader.read(options);
@@ -238,6 +257,19 @@ impl FamilyEvaluator for DecoderLogitQwen35Engine {
 }
 
 #[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn aggregate_question_work_fails_closed() {
+        let tokens = std::cell::Cell::new(super::super::MAX_QUESTION_TOKENS - 1);
+        account_question_tokens(&tokens, 1).expect("the exact budget is accepted");
+        let error = account_question_tokens(&tokens, 1).expect_err("excess work must fail");
+        assert!(matches!(error, FamilyError::InvalidInput(_)));
+    }
+}
+
+#[cfg(test)]
 mod debug {
     //! Operator debug aid (never part of CI): dumps rendered prompt ids and
     //! raw letter logits for one hand-written case so the bytes can be
@@ -264,7 +296,15 @@ mod debug {
             .render_pass(&state, criterion, &options)
             .expect("render");
         let logits = model
-            .letter_logits(pass.prompt_ids(), pass.letter_ids())
+            .letter_logits(
+                pass.prompt_ids(),
+                pass.letter_ids(),
+                &FamilyControl::new(
+                    std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                    None,
+                    0,
+                ),
+            )
             .expect("logits");
         eprintln!(
             "PROMPT_IDS {}",

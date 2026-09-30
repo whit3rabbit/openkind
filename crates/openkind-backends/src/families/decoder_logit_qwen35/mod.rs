@@ -67,14 +67,17 @@ pub const DECLARED_PROBABILITY_SPACE: ProbabilitySpace =
 pub const LETTERS: &[u8] = b"ABCDEFGHIJKLMNOP";
 /// Maximum options in one forward pass.
 pub const MAX_OPTIONS_PER_PASS: usize = 16;
-/// Maximum candidates per question; the knockout schedule covers up to 16
-/// groups of 16 with one final pass.
-pub const MAX_CANDIDATES: usize = 256;
+/// Maximum candidates per question. This bounds the number of independent
+/// full-sequence forwards performed by the knockout schedule.
+pub const MAX_CANDIDATES: usize = 32;
 /// Minimum candidates per question, mirroring the Jev wire contract.
 pub const MIN_CANDIDATES: usize = 2;
 /// Frozen maximum rendered prompt length per pass. Longer requests fail
 /// closed; truncation is forbidden.
-pub const MAX_SEQUENCE_TOKENS: usize = 8_192;
+pub const MAX_SEQUENCE_TOKENS: usize = 512;
+/// Maximum aggregate prompt tokens evaluated for one question, including
+/// every knockout pass.
+pub const MAX_QUESTION_TOKENS: u64 = 1_536;
 
 /// Provisional application-policy threshold recorded with the profile.
 ///

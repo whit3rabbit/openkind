@@ -8,7 +8,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::families::support::{read_json, verify_digest, FamilyError};
+use crate::families::support::{read_json, verify_digest, FamilyControl, FamilyError};
 use crate::qwen35::{EmbeddingLayout, TextBackbone};
 
 use super::{
@@ -132,8 +132,12 @@ impl Jevk5Model {
         &self,
         prompt_ids: &[u32],
         letter_ids: &[u32],
+        control: &FamilyControl,
     ) -> Result<Vec<f64>, FamilyError> {
-        let hidden = self.backbone.forward_hidden(prompt_ids)?;
+        let hidden = self
+            .backbone
+            .forward_hidden_with_check(prompt_ids, || control.check())?;
+        control.check()?;
         let rows = self.backbone.embedding_rows(letter_ids)?;
         let token_start = (prompt_ids.len() - 1) * HIDDEN_SIZE;
         let final_token = &hidden[token_start..];
