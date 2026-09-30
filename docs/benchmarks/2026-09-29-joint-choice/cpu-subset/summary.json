@@ -1,0 +1,1236 @@
+{
+  "arithmetic_id": "candle-cpu-fp32",
+  "backbone": "Qwen/Qwen3.5-4B-Base",
+  "backbone_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+  "backend": "qwen35-native-cpu",
+  "baseline_profile": "a047d6802c3f06f085b8",
+  "baseline_temperature": 1.8186799910442777,
+  "commit": "ebf2b06d493a17e9f7bd4a50ddbc769ef2356f24+joint-choice-working-tree",
+  "ece_bins": 10,
+  "evidence_scope": "paired diagnostic quality on supplied labeled Choice rows; prompt and readout both change; no temperature or threshold fit; no production promotion",
+  "executable_sha256": "3484e98187ec5f43a6384ba893d49504df7758432c6a059b18c361d8ecc3cc89",
+  "host": "Apple M4 Max, Mac16,5, 14 logical cores, 36 GiB, macOS arm64",
+  "joint_renderer": "joint_option_letter/v1",
+  "joint_temperature": 1.0,
+  "load_seconds": 23.196415917,
+  "nll_probability_floor": 1e-15,
+  "order_sensitivity": {
+    "count": 4,
+    "max_probability_shift": 0.3119176668334789,
+    "selection_flips": 1
+  },
+  "overall": {
+    "independent_fitted": {
+      "accuracy": 0.75,
+      "answerable_count": 4,
+      "answerable_ranking_accuracy": 1.0,
+      "balanced_accuracy": 0.75,
+      "brier": 0.24077437779298672,
+      "count": 4,
+      "decisions_per_second": 0.15339428305559988,
+      "ece_10_bins": 0.18203259396396312,
+      "false_none_rate": 0.25,
+      "forwards": 12,
+      "input_tokens": 833,
+      "mean_scoring_ms": 6519.147781000001,
+      "nll": 0.38734119286525853,
+      "none_count": 0,
+      "none_recall": null,
+      "per_class_recall": [
+        {
+          "count": 1,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 1,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 1,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 1,
+          "label": "alpha",
+          "recall": 0.0,
+          "task": "threshold"
+        }
+      ],
+      "risk_coverage": [
+        {
+          "accepted": 3,
+          "coverage": 0.75,
+          "error_rate": 0.0,
+          "threshold": 0.5
+        },
+        {
+          "accepted": 3,
+          "coverage": 0.75,
+          "error_rate": 0.0,
+          "threshold": 0.75
+        },
+        {
+          "accepted": 3,
+          "coverage": 0.75,
+          "error_rate": 0.0,
+          "threshold": 0.9
+        },
+        {
+          "accepted": 0,
+          "coverage": 0.0,
+          "error_rate": null,
+          "threshold": 0.98
+        }
+      ],
+      "scoring_seconds": 26.076591124000004
+    },
+    "joint_average": {
+      "accuracy": 1.0,
+      "answerable_count": 4,
+      "answerable_ranking_accuracy": 1.0,
+      "balanced_accuracy": 1.0,
+      "brier": 0.14762798766416874,
+      "count": 4,
+      "decisions_per_second": 0.16375323562991423,
+      "ece_10_bins": 0.2286297866999723,
+      "false_none_rate": 0.0,
+      "forwards": 8,
+      "input_tokens": 890,
+      "mean_scoring_ms": 6106.749562250001,
+      "nll": 0.3134238341876212,
+      "none_count": 0,
+      "none_recall": null,
+      "per_class_recall": [
+        {
+          "count": 1,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 1,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 1,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 1,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "threshold"
+        }
+      ],
+      "risk_coverage": [
+        {
+          "accepted": 3,
+          "coverage": 0.75,
+          "error_rate": 0.0,
+          "threshold": 0.5
+        },
+        {
+          "accepted": 3,
+          "coverage": 0.75,
+          "error_rate": 0.0,
+          "threshold": 0.75
+        },
+        {
+          "accepted": 2,
+          "coverage": 0.5,
+          "error_rate": 0.0,
+          "threshold": 0.9
+        },
+        {
+          "accepted": 0,
+          "coverage": 0.0,
+          "error_rate": null,
+          "threshold": 0.98
+        }
+      ],
+      "scoring_seconds": 24.426998249000004
+    },
+    "joint_forward": {
+      "accuracy": 1.0,
+      "answerable_count": 4,
+      "answerable_ranking_accuracy": 1.0,
+      "balanced_accuracy": 1.0,
+      "brier": 0.1098333902464971,
+      "count": 4,
+      "decisions_per_second": 0.3132465045728424,
+      "ece_10_bins": 0.22283952835236076,
+      "false_none_rate": 0.0,
+      "forwards": 4,
+      "input_tokens": 445,
+      "mean_scoring_ms": 3192.37401025,
+      "nll": 0.27677449844900853,
+      "none_count": 0,
+      "none_recall": null,
+      "per_class_recall": [
+        {
+          "count": 1,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 1,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 1,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 1,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "threshold"
+        }
+      ],
+      "risk_coverage": [
+        {
+          "accepted": 4,
+          "coverage": 1.0,
+          "error_rate": 0.0,
+          "threshold": 0.5
+        },
+        {
+          "accepted": 3,
+          "coverage": 0.75,
+          "error_rate": 0.0,
+          "threshold": 0.75
+        },
+        {
+          "accepted": 1,
+          "coverage": 0.25,
+          "error_rate": 0.0,
+          "threshold": 0.9
+        },
+        {
+          "accepted": 0,
+          "coverage": 0.0,
+          "error_rate": null,
+          "threshold": 0.98
+        }
+      ],
+      "scoring_seconds": 12.769496041
+    },
+    "joint_reverse": {
+      "accuracy": 0.75,
+      "answerable_count": 4,
+      "answerable_ranking_accuracy": 1.0,
+      "balanced_accuracy": 0.75,
+      "brier": 0.21060115668998236,
+      "count": 4,
+      "decisions_per_second": 0.3431266774502506,
+      "ece_10_bins": 0.18820486587562538,
+      "false_none_rate": 0.25,
+      "forwards": 4,
+      "input_tokens": 445,
+      "mean_scoring_ms": 2914.375552,
+      "nll": 0.373388528046747,
+      "none_count": 0,
+      "none_recall": null,
+      "per_class_recall": [
+        {
+          "count": 1,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "negation"
+        },
+        {
+          "count": 1,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "option_reference"
+        },
+        {
+          "count": 1,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "state_fact"
+        },
+        {
+          "count": 1,
+          "label": "alpha",
+          "recall": 0.0,
+          "task": "threshold"
+        }
+      ],
+      "risk_coverage": [
+        {
+          "accepted": 3,
+          "coverage": 0.75,
+          "error_rate": 0.0,
+          "threshold": 0.5
+        },
+        {
+          "accepted": 3,
+          "coverage": 0.75,
+          "error_rate": 0.0,
+          "threshold": 0.75
+        },
+        {
+          "accepted": 3,
+          "coverage": 0.75,
+          "error_rate": 0.0,
+          "threshold": 0.9
+        },
+        {
+          "accepted": 0,
+          "coverage": 0.0,
+          "error_rate": null,
+          "threshold": 0.98
+        }
+      ],
+      "scoring_seconds": 11.657502208
+    }
+  },
+  "paired_delta_from_independent": {
+    "joint_average": {
+      "bootstrap_replicates": 2000,
+      "bootstrap_seed": 29160717,
+      "candidate_minus_baseline": {
+        "accuracy": {
+          "ci_95": [
+            0.0,
+            0.75
+          ],
+          "delta": 0.25
+        },
+        "brier": {
+          "ci_95": [
+            -0.31135503217540594,
+            0.02150378592371799
+          ],
+          "delta": -0.09314639012881798
+        },
+        "nll": {
+          "ci_95": [
+            -0.35215117847214117,
+            0.07246674547526942
+          ],
+          "delta": -0.07391735867763728
+        }
+      },
+      "source_groups": 4
+    },
+    "joint_forward": {
+      "bootstrap_replicates": 2000,
+      "bootstrap_seed": 29160717,
+      "candidate_minus_baseline": {
+        "accuracy": {
+          "ci_95": [
+            0.0,
+            0.75
+          ],
+          "delta": 0.25
+        },
+        "brier": {
+          "ci_95": [
+            -0.46096051174601493,
+            0.04655753739530537
+          ],
+          "delta": -0.13094098754648964
+        },
+        "nll": {
+          "ci_95": [
+            -0.5293762868682244,
+            0.12836041911940343
+          ],
+          "delta": -0.11056669441624994
+        }
+      },
+      "source_groups": 4
+    },
+    "joint_reverse": {
+      "bootstrap_replicates": 2000,
+      "bootstrap_seed": 29160717,
+      "candidate_minus_baseline": {
+        "accuracy": {
+          "ci_95": [
+            0.0,
+            0.0
+          ],
+          "delta": 0.0
+        },
+        "brier": {
+          "ci_95": [
+            -0.10040545447833285,
+            0.00694374331807965
+          ],
+          "delta": -0.03017322110300438
+        },
+        "nll": {
+          "ci_95": [
+            -0.10854303974704846,
+            0.04714564347142701
+          ],
+          "delta": -0.013952664818511488
+        }
+      },
+      "source_groups": 4
+    }
+  },
+  "per_task": {
+    "negation": {
+      "independent_fitted": {
+        "accuracy": 1.0,
+        "answerable_count": 1,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.0011565047956457516,
+        "count": 1,
+        "decisions_per_second": 0.16557427888192647,
+        "ece_10_bins": 0.027977290878627326,
+        "false_none_rate": 0.0,
+        "forwards": 3,
+        "input_tokens": 189,
+        "mean_scoring_ms": 6039.585416000001,
+        "nll": 0.02837611150102218,
+        "none_count": 0,
+        "none_recall": null,
+        "per_class_recall": [
+          {
+            "count": 1,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "negation"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 6.039585416
+      },
+      "joint_average": {
+        "accuracy": 1.0,
+        "answerable_count": 1,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.009281916515580139,
+        "count": 1,
+        "decisions_per_second": 0.18494225442388096,
+        "ece_10_bins": 0.0773047390674666,
+        "false_none_rate": 0.0,
+        "forwards": 2,
+        "input_tokens": 196,
+        "mean_scoring_ms": 5407.093166,
+        "nll": 0.08045626049780764,
+        "none_count": 0,
+        "none_recall": null,
+        "per_class_recall": [
+          {
+            "count": 1,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "negation"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 5.407093165999999
+      },
+      "joint_forward": {
+        "accuracy": 1.0,
+        "answerable_count": 1,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.010324152352436524,
+        "count": 1,
+        "decisions_per_second": 0.3638065920481156,
+        "ece_10_bins": 0.07323278713462444,
+        "false_none_rate": 0.0,
+        "forwards": 1,
+        "input_tokens": 98,
+        "mean_scoring_ms": 2748.71325,
+        "nll": 0.07605286375946683,
+        "none_count": 0,
+        "none_recall": null,
+        "per_class_recall": [
+          {
+            "count": 1,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "negation"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 2.7487132499999998
+      },
+      "joint_reverse": {
+        "accuracy": 1.0,
+        "answerable_count": 1,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.009811310123621048,
+        "count": 1,
+        "decisions_per_second": 0.3761689568828356,
+        "ece_10_bins": 0.08137669100030864,
+        "false_none_rate": 0.0,
+        "forwards": 1,
+        "input_tokens": 98,
+        "mean_scoring_ms": 2658.379916,
+        "nll": 0.08487913292979794,
+        "none_count": 0,
+        "none_recall": null,
+        "per_class_recall": [
+          {
+            "count": 1,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "negation"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 2.658379916
+      }
+    },
+    "option_reference": {
+      "independent_fitted": {
+        "accuracy": 1.0,
+        "answerable_count": 1,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.0010670598251296707,
+        "count": 1,
+        "decisions_per_second": 0.13960915012001324,
+        "ece_10_bins": 0.025838962857064773,
+        "false_none_rate": 0.0,
+        "forwards": 3,
+        "input_tokens": 249,
+        "mean_scoring_ms": 7162.854291000001,
+        "nll": 0.02617865313036798,
+        "none_count": 0,
+        "none_recall": null,
+        "per_class_recall": [
+          {
+            "count": 1,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "option_reference"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 7.162854291
+      },
+      "joint_average": {
+        "accuracy": 1.0,
+        "answerable_count": 1,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.013765799835663301,
+        "count": 1,
+        "decisions_per_second": 0.15607706743843763,
+        "ece_10_bins": 0.09119357676081863,
+        "false_none_rate": 0.0,
+        "forwards": 2,
+        "input_tokens": 252,
+        "mean_scoring_ms": 6407.091166,
+        "nll": 0.09562316321542366,
+        "none_count": 0,
+        "none_recall": null,
+        "per_class_recall": [
+          {
+            "count": 1,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "option_reference"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 6.407091166
+      },
+      "joint_forward": {
+        "accuracy": 1.0,
+        "answerable_count": 1,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.03505943569082013,
+        "count": 1,
+        "decisions_per_second": 0.3130503858183532,
+        "ece_10_bins": 0.13814359881157878,
+        "false_none_rate": 0.0,
+        "forwards": 1,
+        "input_tokens": 126,
+        "mean_scoring_ms": 3194.373958,
+        "nll": 0.14866661014422472,
+        "none_count": 0,
+        "none_recall": null,
+        "per_class_recall": [
+          {
+            "count": 1,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "option_reference"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 3.1943739580000003
+      },
+      "joint_reverse": {
+        "accuracy": 1.0,
+        "answerable_count": 1,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.002877617113522382,
+        "count": 1,
+        "decisions_per_second": 0.31126300114740757,
+        "ece_10_bins": 0.044243554710058475,
+        "false_none_rate": 0.0,
+        "forwards": 1,
+        "input_tokens": 126,
+        "mean_scoring_ms": 3212.717208,
+        "nll": 0.045252162729748725,
+        "none_count": 0,
+        "none_recall": null,
+        "per_class_recall": [
+          {
+            "count": 1,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "option_reference"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 3.212717208
+      }
+    },
+    "state_fact": {
+      "independent_fitted": {
+        "accuracy": 1.0,
+        "answerable_count": 1,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.009868744903513586,
+        "count": 1,
+        "decisions_per_second": 0.16118104549736686,
+        "ece_10_bins": 0.0762589587399094,
+        "false_none_rate": 0.0,
+        "forwards": 3,
+        "input_tokens": 179,
+        "mean_scoring_ms": 6204.203459,
+        "nll": 0.07932350499669617,
+        "none_count": 0,
+        "none_recall": null,
+        "per_class_recall": [
+          {
+            "count": 1,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "state_fact"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 6.204203459
+      },
+      "joint_average": {
+        "accuracy": 1.0,
+        "answerable_count": 1,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.03583198889515944,
+        "count": 1,
+        "decisions_per_second": 0.1611389072369034,
+        "ece_10_bins": 0.1434242175053796,
+        "false_none_rate": 0.0,
+        "forwards": 2,
+        "input_tokens": 192,
+        "mean_scoring_ms": 6205.825875,
+        "nll": 0.15481248586217933,
+        "none_count": 0,
+        "none_recall": null,
+        "per_class_recall": [
+          {
+            "count": 1,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "state_fact"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 6.205825875
+      },
+      "joint_forward": {
+        "accuracy": 1.0,
+        "answerable_count": 1,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.06888957891165716,
+        "count": 1,
+        "decisions_per_second": 0.27647405225025273,
+        "ece_10_bins": 0.19229338465771284,
+        "false_none_rate": 0.0,
+        "forwards": 1,
+        "input_tokens": 96,
+        "mean_scoring_ms": 3616.9759580000004,
+        "nll": 0.21355638622164633,
+        "none_count": 0,
+        "none_recall": null,
+        "per_class_recall": [
+          {
+            "count": 1,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "state_fact"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 3.6169759580000003
+      },
+      "joint_reverse": {
+        "accuracy": 1.0,
+        "answerable_count": 1,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.013942283317601003,
+        "count": 1,
+        "decisions_per_second": 0.38627190917224574,
+        "ece_10_bins": 0.09455505035304634,
+        "false_none_rate": 0.0,
+        "forwards": 1,
+        "input_tokens": 96,
+        "mean_scoring_ms": 2588.849917,
+        "nll": 0.0993287990374894,
+        "none_count": 0,
+        "none_recall": null,
+        "per_class_recall": [
+          {
+            "count": 1,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "state_fact"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 2.588849917
+      }
+    },
+    "threshold": {
+      "independent_fitted": {
+        "accuracy": 0.0,
+        "answerable_count": 1,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 0.0,
+        "brier": 0.9510052016476579,
+        "count": 1,
+        "decisions_per_second": 0.14992620726531913,
+        "ece_10_bins": 0.5980551633802512,
+        "false_none_rate": 1.0,
+        "forwards": 3,
+        "input_tokens": 216,
+        "mean_scoring_ms": 6669.947958,
+        "nll": 1.4154865018329477,
+        "none_count": 0,
+        "none_recall": null,
+        "per_class_recall": [
+          {
+            "count": 1,
+            "label": "alpha",
+            "recall": 0.0,
+            "task": "threshold"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 6.669947958
+      },
+      "joint_average": {
+        "accuracy": 1.0,
+        "answerable_count": 1,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.5316322454102721,
+        "count": 1,
+        "decisions_per_second": 0.15607957958476865,
+        "ece_10_bins": 0.6025966134662243,
+        "false_none_rate": 0.0,
+        "forwards": 2,
+        "input_tokens": 250,
+        "mean_scoring_ms": 6406.988042,
+        "nll": 0.9228034271750742,
+        "none_count": 0,
+        "none_recall": null,
+        "per_class_recall": [
+          {
+            "count": 1,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "threshold"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 6.406988042
+      },
+      "joint_forward": {
+        "accuracy": 1.0,
+        "answerable_count": 1,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 1.0,
+        "brier": 0.32506039403107456,
+        "count": 1,
+        "decisions_per_second": 0.31158152824741664,
+        "ece_10_bins": 0.4876883428055271,
+        "false_none_rate": 0.0,
+        "forwards": 1,
+        "input_tokens": 125,
+        "mean_scoring_ms": 3209.432875,
+        "nll": 0.6688221336706963,
+        "none_count": 0,
+        "none_recall": null,
+        "per_class_recall": [
+          {
+            "count": 1,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "threshold"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 1,
+            "coverage": 1.0,
+            "error_rate": 0.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 3.209432875
+      },
+      "joint_reverse": {
+        "accuracy": 0.0,
+        "answerable_count": 1,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 0.0,
+        "brier": 0.815773416205185,
+        "count": 1,
+        "decisions_per_second": 0.31273893577205014,
+        "ece_10_bins": 0.5326441674390879,
+        "false_none_rate": 1.0,
+        "forwards": 1,
+        "input_tokens": 125,
+        "mean_scoring_ms": 3197.555167,
+        "nll": 1.264094017489952,
+        "none_count": 0,
+        "none_recall": null,
+        "per_class_recall": [
+          {
+            "count": 1,
+            "label": "alpha",
+            "recall": 0.0,
+            "task": "threshold"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 3.197555167
+      }
+    }
+  },
+  "schema": "openkind-choice-comparison/v1",
+  "timing_scope": "warm full-forward scorer only; excludes load, preparation, warmup, admission, wire mapping and writes; average costs both joint passes; methods interleaved per row",
+  "tokenizer_sha256": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+  "workload_sha256": "6e3a68351cc728c7e3a377d00fe95553a1fe3334ced348dd682bdf866d8f8134"
+}

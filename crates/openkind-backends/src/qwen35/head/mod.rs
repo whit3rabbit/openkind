@@ -9,4 +9,5 @@ mod types;
 mod tests;
 
 pub use evaluation::ScoreSummaryHead;
+pub(crate) use math::stable_softmax;
 pub use types::{HeadEvaluation, PolicyAction, PrimitiveKind, FEATURE_WIDTH};

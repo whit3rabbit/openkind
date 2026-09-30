@@ -10,6 +10,8 @@
 mod backbone;
 mod engine;
 mod evidence;
+/// Offline scoring experiments over the pinned base checkpoint.
+pub mod experimental;
 mod head;
 mod identity;
 /// Phase 3M MLX/Metal parity backend (available on macOS arm64 with feature `mlx`).

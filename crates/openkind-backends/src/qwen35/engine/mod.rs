@@ -5,6 +5,9 @@ mod canonical;
 mod eval;
 mod mapping;
 
+pub(super) use canonical::state_text;
+pub(super) use mapping::{instruction_text, question_candidates};
+
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;

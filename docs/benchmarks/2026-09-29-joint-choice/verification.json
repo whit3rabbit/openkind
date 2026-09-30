@@ -1,0 +1,47 @@
+{
+  "cargo fmt --check": {
+    "exit_code": 0
+  },
+  "cargo clippy --workspace --all-targets -- -D warnings": {
+    "exit_code": 0
+  },
+  "env -u RUST_LOG cargo test --workspace": {
+    "exit_code": 0,
+    "passed_tests": 792
+  },
+  "env -u RUST_LOG cargo test --workspace --benches --locked": {
+    "exit_code": 0,
+    "passed_tests": 526,
+    "criterion_smokes": "passed"
+  },
+  "cargo run -p openkind-gen-schemas -- --write": {
+    "exit_code": 0,
+    "schema_diff": "none"
+  },
+  "git diff --check": {
+    "exit_code": 0
+  },
+  "SDKROOT=<macOS SDK> cargo clippy -p openkind-backends -p openkind-bench --features mlx --all-targets -- -D warnings": {
+    "exit_code": 0
+  },
+  "SDKROOT=<macOS SDK> env -u RUST_LOG cargo test -p openkind-backends -p openkind-bench --features mlx": {
+    "exit_code": 101,
+    "failure": "proxy_cache_loop::full_loop_bootstrap_train_promote_serve_locally, peaked cluster reports high confidence"
+  },
+  "MLX focused proxy_cache_loop rerun": {
+    "exit_code": 0,
+    "code_changes": "none"
+  },
+  "SDKROOT=<macOS SDK> env -u RUST_LOG cargo test -p openkind-backends -p openkind-bench --features mlx --no-fail-fast": {
+    "exit_code": 0,
+    "passed_tests": 328
+  },
+  "qwen35_mlx_qualify --formal": {
+    "exit_code": 2,
+    "limitation": "formal runtime evidence requires a clean worktree; shared working tree has uncommitted changes; no formal receipt emitted"
+  },
+  "qwen35_mlx_qualify": {
+    "exit_code": 0,
+    "result": "FP32 and BF16 runtime primitive checks pass; diagnostic, no formal provenance receipt; benchmark uses FP32 only"
+  }
+}

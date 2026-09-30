@@ -774,6 +774,30 @@ and right padding on Q2/K2 and Q8/K4.
 
 Reference: https://huggingface.co/harshatheg/Qwen-2.5-1B-RLCD
 
+### Orthrus block token generation
+
+OpenKind does not adopt Orthrus in the native decision engine. Orthrus proposes
+unknown future tokens and verifies them through an autoregressive model. The
+native Qwen3.5 decision path already knows its question and candidate suffixes,
+processes their hidden features through the score-summary readout, and assembles
+typed Jev answers in Rust. It has no output-token generation loop to accelerate.
+
+Shared-prefix execution already prefills an immutable state root once and
+branches question and candidate continuations from it. The FP32 MLX
+`ReferenceOps` path supports compatible batches of 2–8 lanes when
+`nested_batched` is explicitly forced; automatic scheduling remains per-lane.
+Sharing historical attention KV between two model views does not replace the
+branch-state contract: attention KV, DeltaNet recurrent state, convolution
+state, logical position, and execution identity must remain isolated or
+immutable as required by each branch.
+
+The [research assessment](../research/README.md#orthrus-adoption-decision)
+records the reviewed sources and upstream support limits. Its lossless-token
+guarantee does not qualify OpenKind's calibrated decision probabilities, and
+the assessment adds no runtime measurements or backend qualification.
+The [benchmark guide](BENCHMARKS.md#candidate-pooling-diagnostic) owns measured
+latency and promotion gates for any future execution optimization.
+
 ### Jev-style DGX Spark benchmark
 
 The September 2026 More Than a Machine comparison is useful as a systems-shape benchmark. Its published Q=1→4 p50 results are approximately:

@@ -59,6 +59,13 @@ pub struct MlxQwen35Backbone {
 unsafe impl Sync for MlxQwen35Backbone {}
 
 impl MlxQwen35Backbone {
+    pub(crate) fn embedding_rows(&self, ids: &[u32]) -> Result<Vec<f32>, MlxError> {
+        self.embedding
+            .embed(ids)
+            .map(|output| output.values().to_vec())
+            .map_err(MlxError::from_qwen)
+    }
+
     /// Arithmetic precision used by this loaded backbone.
     #[must_use]
     pub const fn precision(&self) -> MlxPrecision {

@@ -1,0 +1,678 @@
+{
+  "arithmetic_id": "mlx-core-0.32.2/fp32/reference-ops;checkpoint=qwen35-base-safetensors;toolchain=xcode=Xcode 27.0|Build version 27A266a;metal=Apple metal version 32023.921 (metalfe-32023.921.6)|Target: air64-apple-darwin25.6.0|Thread model: posix|InstalledDir: /private/var/run/com.apple.security.cryptexd/mnt/com.apple.MobileAsset.MetalToolchain-v27.1.266.1.vSBe6u/Metal.xctoolchain/usr/metal/current/bin",
+  "backbone": "Qwen/Qwen3.5-4B-Base",
+  "backbone_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+  "backend": "qwen35-mlx-fp32",
+  "baseline_profile": "a047d6802c3f06f085b8",
+  "baseline_temperature": 1.8186799910442777,
+  "commit": "ebf2b06d493a17e9f7bd4a50ddbc769ef2356f24+joint-choice-working-tree",
+  "ece_bins": 10,
+  "evidence_scope": "paired diagnostic quality on supplied labeled Choice rows; prompt and readout both change; no temperature or threshold fit; no production promotion",
+  "executable_sha256": "3484e98187ec5f43a6384ba893d49504df7758432c6a059b18c361d8ecc3cc89",
+  "host": "Apple M4 Max, Mac16,5, 14 logical cores, 36 GiB, macOS arm64",
+  "joint_renderer": "joint_option_letter/v1",
+  "joint_temperature": 1.0,
+  "load_seconds": 20.77864925,
+  "nll_probability_floor": 1e-15,
+  "order_sensitivity": {
+    "count": 24,
+    "max_probability_shift": 0.39034657099643144,
+    "selection_flips": 17
+  },
+  "overall": {
+    "independent_fitted": {
+      "accuracy": 0.0,
+      "answerable_count": 18,
+      "answerable_ranking_accuracy": 0.0,
+      "balanced_accuracy": 0.0,
+      "brier": 1.6206385018278178,
+      "count": 24,
+      "decisions_per_second": 0.38111149475341555,
+      "ece_10_bins": 0.7837659018124894,
+      "false_none_rate": 0.0,
+      "forwards": 96,
+      "input_tokens": 9180,
+      "mean_scoring_ms": 2623.9040642083332,
+      "nll": 4.595768372650411,
+      "none_count": 6,
+      "none_recall": 0.0,
+      "per_class_recall": [
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 0.0,
+          "task": "reference_card"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 0.0,
+          "task": "reference_card"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 0.0,
+          "task": "reference_card"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 0.0,
+          "task": "reference_card"
+        }
+      ],
+      "risk_coverage": [
+        {
+          "accepted": 22,
+          "coverage": 0.9166666666666666,
+          "error_rate": 1.0,
+          "threshold": 0.5
+        },
+        {
+          "accepted": 14,
+          "coverage": 0.5833333333333334,
+          "error_rate": 1.0,
+          "threshold": 0.75
+        },
+        {
+          "accepted": 10,
+          "coverage": 0.4166666666666667,
+          "error_rate": 1.0,
+          "threshold": 0.9
+        },
+        {
+          "accepted": 0,
+          "coverage": 0.0,
+          "error_rate": null,
+          "threshold": 0.98
+        }
+      ],
+      "scoring_seconds": 62.973697541
+    },
+    "joint_average": {
+      "accuracy": 0.5416666666666666,
+      "answerable_count": 18,
+      "answerable_ranking_accuracy": 0.7222222222222222,
+      "balanced_accuracy": 0.5416666666666666,
+      "brier": 0.5755313984882672,
+      "count": 24,
+      "decisions_per_second": 0.3164704829353257,
+      "ece_10_bins": 0.2555762128662031,
+      "false_none_rate": 0.0,
+      "forwards": 48,
+      "input_tokens": 8448,
+      "mean_scoring_ms": 3159.8523525,
+      "nll": 1.0158978108422623,
+      "none_count": 6,
+      "none_recall": 0.0,
+      "per_class_recall": [
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 0.0,
+          "task": "reference_card"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "reference_card"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 0.6666666666666666,
+          "task": "reference_card"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 0.5,
+          "task": "reference_card"
+        }
+      ],
+      "risk_coverage": [
+        {
+          "accepted": 5,
+          "coverage": 0.20833333333333334,
+          "error_rate": 0.8,
+          "threshold": 0.5
+        },
+        {
+          "accepted": 0,
+          "coverage": 0.0,
+          "error_rate": null,
+          "threshold": 0.75
+        },
+        {
+          "accepted": 0,
+          "coverage": 0.0,
+          "error_rate": null,
+          "threshold": 0.9
+        },
+        {
+          "accepted": 0,
+          "coverage": 0.0,
+          "error_rate": null,
+          "threshold": 0.98
+        }
+      ],
+      "scoring_seconds": 75.83645646000001
+    },
+    "joint_forward": {
+      "accuracy": 0.2916666666666667,
+      "answerable_count": 18,
+      "answerable_ranking_accuracy": 0.2222222222222222,
+      "balanced_accuracy": 0.29166666666666663,
+      "brier": 0.7151319314806533,
+      "count": 24,
+      "decisions_per_second": 0.6278067614382485,
+      "ece_10_bins": 0.2259883031749607,
+      "false_none_rate": 0.0,
+      "forwards": 24,
+      "input_tokens": 4224,
+      "mean_scoring_ms": 1592.8468143750003,
+      "nll": 1.2618052970229952,
+      "none_count": 6,
+      "none_recall": 0.5,
+      "per_class_recall": [
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 0.5,
+          "task": "reference_card"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 0.6666666666666666,
+          "task": "reference_card"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 0.0,
+          "task": "reference_card"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 0.0,
+          "task": "reference_card"
+        }
+      ],
+      "risk_coverage": [
+        {
+          "accepted": 2,
+          "coverage": 0.08333333333333333,
+          "error_rate": 1.0,
+          "threshold": 0.5
+        },
+        {
+          "accepted": 0,
+          "coverage": 0.0,
+          "error_rate": null,
+          "threshold": 0.75
+        },
+        {
+          "accepted": 0,
+          "coverage": 0.0,
+          "error_rate": null,
+          "threshold": 0.9
+        },
+        {
+          "accepted": 0,
+          "coverage": 0.0,
+          "error_rate": null,
+          "threshold": 0.98
+        }
+      ],
+      "scoring_seconds": 38.22832354500001
+    },
+    "joint_reverse": {
+      "accuracy": 0.75,
+      "answerable_count": 18,
+      "answerable_ranking_accuracy": 1.0,
+      "balanced_accuracy": 0.75,
+      "brier": 0.49857351391159227,
+      "count": 24,
+      "decisions_per_second": 0.6381598377734833,
+      "ece_10_bins": 0.33180223703796147,
+      "false_none_rate": 0.0,
+      "forwards": 24,
+      "input_tokens": 4224,
+      "mean_scoring_ms": 1567.0055381250002,
+      "nll": 0.8922078482270998,
+      "none_count": 6,
+      "none_recall": 0.0,
+      "per_class_recall": [
+        {
+          "count": 6,
+          "label": "__none__",
+          "recall": 0.0,
+          "task": "reference_card"
+        },
+        {
+          "count": 6,
+          "label": "alpha",
+          "recall": 1.0,
+          "task": "reference_card"
+        },
+        {
+          "count": 6,
+          "label": "beta",
+          "recall": 1.0,
+          "task": "reference_card"
+        },
+        {
+          "count": 6,
+          "label": "gamma",
+          "recall": 1.0,
+          "task": "reference_card"
+        }
+      ],
+      "risk_coverage": [
+        {
+          "accepted": 16,
+          "coverage": 0.6666666666666666,
+          "error_rate": 0.3125,
+          "threshold": 0.5
+        },
+        {
+          "accepted": 0,
+          "coverage": 0.0,
+          "error_rate": null,
+          "threshold": 0.75
+        },
+        {
+          "accepted": 0,
+          "coverage": 0.0,
+          "error_rate": null,
+          "threshold": 0.9
+        },
+        {
+          "accepted": 0,
+          "coverage": 0.0,
+          "error_rate": null,
+          "threshold": 0.98
+        }
+      ],
+      "scoring_seconds": 37.608132915
+    }
+  },
+  "paired_delta_from_independent": {
+    "joint_average": {
+      "bootstrap_replicates": 2000,
+      "bootstrap_seed": 29160717,
+      "candidate_minus_baseline": {
+        "accuracy": {
+          "ci_95": [
+            0.375,
+            0.7083333333333334
+          ],
+          "delta": 0.5416666666666666
+        },
+        "brier": {
+          "ci_95": [
+            -1.132238315802458,
+            -0.9684652988846799
+          ],
+          "delta": -1.0451071033395511
+        },
+        "nll": {
+          "ci_95": [
+            -3.9220840739296974,
+            -3.2376570496866006
+          ],
+          "delta": -3.5798705618081494
+        }
+      },
+      "source_groups": 6
+    },
+    "joint_forward": {
+      "bootstrap_replicates": 2000,
+      "bootstrap_seed": 29160717,
+      "candidate_minus_baseline": {
+        "accuracy": {
+          "ci_95": [
+            0.125,
+            0.4166666666666667
+          ],
+          "delta": 0.2916666666666667
+        },
+        "brier": {
+          "ci_95": [
+            -0.9915851244957296,
+            -0.8318190291457933
+          ],
+          "delta": -0.9055065703471649
+        },
+        "nll": {
+          "ci_95": [
+            -3.680454914214381,
+            -2.995269661649776
+          ],
+          "delta": -3.333963075627416
+        }
+      },
+      "source_groups": 6
+    },
+    "joint_reverse": {
+      "bootstrap_replicates": 2000,
+      "bootstrap_seed": 29160717,
+      "candidate_minus_baseline": {
+        "accuracy": {
+          "ci_95": [
+            0.75,
+            0.75
+          ],
+          "delta": 0.75
+        },
+        "brier": {
+          "ci_95": [
+            -1.2025633709632446,
+            -1.0448973357194689
+          ],
+          "delta": -1.1220649879162259
+        },
+        "nll": {
+          "ci_95": [
+            -4.05450351267572,
+            -3.3600948251765
+          ],
+          "delta": -3.7035605244233114
+        }
+      },
+      "source_groups": 6
+    }
+  },
+  "per_task": {
+    "reference_card": {
+      "independent_fitted": {
+        "accuracy": 0.0,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 0.0,
+        "balanced_accuracy": 0.0,
+        "brier": 1.6206385018278178,
+        "count": 24,
+        "decisions_per_second": 0.38111149475341555,
+        "ece_10_bins": 0.7837659018124894,
+        "false_none_rate": 0.0,
+        "forwards": 96,
+        "input_tokens": 9180,
+        "mean_scoring_ms": 2623.9040642083332,
+        "nll": 4.595768372650411,
+        "none_count": 6,
+        "none_recall": 0.0,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 0.0,
+            "task": "reference_card"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 0.0,
+            "task": "reference_card"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 0.0,
+            "task": "reference_card"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 0.0,
+            "task": "reference_card"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 22,
+            "coverage": 0.9166666666666666,
+            "error_rate": 1.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 14,
+            "coverage": 0.5833333333333334,
+            "error_rate": 1.0,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 10,
+            "coverage": 0.4166666666666667,
+            "error_rate": 1.0,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 62.973697541
+      },
+      "joint_average": {
+        "accuracy": 0.5416666666666666,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 0.7222222222222222,
+        "balanced_accuracy": 0.5416666666666666,
+        "brier": 0.5755313984882672,
+        "count": 24,
+        "decisions_per_second": 0.3164704829353257,
+        "ece_10_bins": 0.2555762128662031,
+        "false_none_rate": 0.0,
+        "forwards": 48,
+        "input_tokens": 8448,
+        "mean_scoring_ms": 3159.8523525,
+        "nll": 1.0158978108422623,
+        "none_count": 6,
+        "none_recall": 0.0,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 0.0,
+            "task": "reference_card"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "reference_card"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 0.6666666666666666,
+            "task": "reference_card"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 0.5,
+            "task": "reference_card"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 5,
+            "coverage": 0.20833333333333334,
+            "error_rate": 0.8,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 75.83645646000001
+      },
+      "joint_forward": {
+        "accuracy": 0.2916666666666667,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 0.2222222222222222,
+        "balanced_accuracy": 0.29166666666666663,
+        "brier": 0.7151319314806533,
+        "count": 24,
+        "decisions_per_second": 0.6278067614382485,
+        "ece_10_bins": 0.2259883031749607,
+        "false_none_rate": 0.0,
+        "forwards": 24,
+        "input_tokens": 4224,
+        "mean_scoring_ms": 1592.8468143750003,
+        "nll": 1.2618052970229952,
+        "none_count": 6,
+        "none_recall": 0.5,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 0.5,
+            "task": "reference_card"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 0.6666666666666666,
+            "task": "reference_card"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 0.0,
+            "task": "reference_card"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 0.0,
+            "task": "reference_card"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 2,
+            "coverage": 0.08333333333333333,
+            "error_rate": 1.0,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 38.22832354500001
+      },
+      "joint_reverse": {
+        "accuracy": 0.75,
+        "answerable_count": 18,
+        "answerable_ranking_accuracy": 1.0,
+        "balanced_accuracy": 0.75,
+        "brier": 0.49857351391159227,
+        "count": 24,
+        "decisions_per_second": 0.6381598377734833,
+        "ece_10_bins": 0.33180223703796147,
+        "false_none_rate": 0.0,
+        "forwards": 24,
+        "input_tokens": 4224,
+        "mean_scoring_ms": 1567.0055381250002,
+        "nll": 0.8922078482270998,
+        "none_count": 6,
+        "none_recall": 0.0,
+        "per_class_recall": [
+          {
+            "count": 6,
+            "label": "__none__",
+            "recall": 0.0,
+            "task": "reference_card"
+          },
+          {
+            "count": 6,
+            "label": "alpha",
+            "recall": 1.0,
+            "task": "reference_card"
+          },
+          {
+            "count": 6,
+            "label": "beta",
+            "recall": 1.0,
+            "task": "reference_card"
+          },
+          {
+            "count": 6,
+            "label": "gamma",
+            "recall": 1.0,
+            "task": "reference_card"
+          }
+        ],
+        "risk_coverage": [
+          {
+            "accepted": 16,
+            "coverage": 0.6666666666666666,
+            "error_rate": 0.3125,
+            "threshold": 0.5
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.75
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.9
+          },
+          {
+            "accepted": 0,
+            "coverage": 0.0,
+            "error_rate": null,
+            "threshold": 0.98
+          }
+        ],
+        "scoring_seconds": 37.608132915
+      }
+    }
+  },
+  "schema": "openkind-choice-comparison/v1",
+  "timing_scope": "warm full-forward scorer only; excludes load, preparation, warmup, admission, wire mapping and writes; average costs both joint passes; methods interleaved per row",
+  "tokenizer_sha256": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+  "workload_sha256": "c1edcb1161c3e8eb6ec833ae3b3071d14b8f5ea8747c69d8bc97b5cb910224af"
+}

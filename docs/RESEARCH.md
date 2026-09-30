@@ -41,6 +41,7 @@ mechanisms, see [Archer Hume's reconstruction](#archer-humes-api-reconstruction-
 ### Independent Validation: The Every Experiment
 
 An independent editorial-task test was conducted by Taylor Majewski and Dan Shipper at *Every*:
+
 - **Throughput & Amortization**: Majewski ran 21 judgments across 37 documents (777 total decisions) in under **0.7 seconds**, incurring an estimated cost of roughly **$0.0025** (~quarter-cent).
 - **Quality vs. Frontier LLMs**: In a controlled test on 12 passages with seven deliberately planted defects, Jev identified **six of seven**, while Claude Fable 5.1 identified all seven.
 - **Latency Comparison**: Jev achieved a median per-passage latency of **~0.35 seconds**, compared to **8.83 seconds** for Claude Fable 5.1 (~25× wall-clock speedup and ~580× estimated cost reduction).
@@ -102,6 +103,7 @@ TypeSafe documentation exposes both probabilities and a `confidence` metric for 
 > **Jev exposes probability distributions and, for some output types, a separate concentration-derived confidence statistic. The latter should not be interpreted as a calibrated probability of correctness.**
 
 In TypeSafe's API:
+
 - **`Noul`** returns a single probability $p \in [0.0, 1.0]$ and **has no separate confidence field**.
 - **`Choice`** and **`Score`** confidence values summarize concentration. The [official adapter at `fb52b103`](https://github.com/typesafe-ai/system-one-adapter-python/blob/fb52b1030b7fc1f4f1cf39910afa5da54f9835e3/src/system_one_adapter/_utils/confidence_metrics.py) normalizes the distribution, then computes Choice confidence as $(p_{\max}-1/K)/(1-1/K)$ for $K>1$ (and 1 for $K=1$). Score confidence uses expected distance from the modal level, normalized by a uniform-distribution reference. This verifies the adapter's formulas; production internals remain private.
 - TypeSafe explicitly warns in its documentation that a confidence of 1.0 does not guarantee correctness and advises developers to establish domain-specific thresholds.
@@ -143,6 +145,79 @@ C_{\text{naive cross-encoder}} \approx \sum_{q=1}^{Q} \sum_{k=1}^{K_q} C_{\text{
 \]
 
 Latency can remain nearly flat while state reuse and available hardware capacity absorb the added question work. Hume's [latency sweep](https://archerhume.com/research/jev/latency-rerun.json) shows rising service time at larger question counts. Queueing and scheduling also affect the curve; it is not an isolated measure of model compute.
+
+## Archer Hume's API Reconstruction (Reviewed 2026-09-29)
+
+[Jev's Architecture Unmasked](https://archerhume.com/posts/jevs-architecture-unmasked)
+(17 September 2026) proposes a causal Transformer with a shared state prefix,
+isolated question suffixes, listwise option processing, and direct numerical
+readouts. Sparse mixture-of-experts (MoE) routing and outcome-based
+post-training are further hypotheses. The API experiments constrain possible
+implementations, but do not recover Jev's backbone or RLCD recipe.
+
+The [evidence bundle](https://archerhume.com/research/jev/evidence.json)
+identifies `jev-1.13.0`, one date, region, and early-access account, with 1,029
+probe records and 6,800 benchmark records. Repeated configurations reuse items;
+hardware, precision, and service load are unknown.
+
+### Observed behavior and its limits
+
+| Claim | Public observation | Supported conclusion and remaining uncertainty |
+|---|---|---|
+| Direct probability readout replaces text generation | Question-ID changes affect output usage without affecting input usage. TypeSafe [documents](https://docs.typesafe.ai/api) that IDs are excluded from inference. [Accounting probes](https://archerhume.com/research/jev/output-token-accounting.json) | `output_tokens` is response accounting, so dividing it by latency does not measure neural decoding throughput. TypeSafe's parallel-output disclosure supports the readout claim; this probe cannot distinguish a dedicated classifier from selected vocabulary rows. |
+| Questions cannot read sibling instructions | Across five requests per condition, the secret-code option receives 0.00 probability with evidence in a sibling question, versus 0.90–0.92 when moved into state. [Visibility records](https://archerhume.com/research/jev/evidence.json) | Supports behavioral isolation. Learned boundaries or separate calls can mimic a hard tree mask; the probe's wording also mismatches its state control. |
+| State reuse makes multiple questions inexpensive | Eight shuffled repeats per setting give median service times of 86.5 ms for one question, 82 ms for 100, and 610 ms for 1,500. [Latency records](https://archerhume.com/research/jev/latency-rerun.json) | Consistent with amortized state processing and batched suffixes, with finite capacity. `x-envoy-upstream-service-time` has unknown queueing and execution boundaries; these are not isolated GPU timings. |
+| The decision uses information across the option list | Reference-card accuracy is 12/16 with the card first, 11/16 in the middle, and 16/16 last; moving it into state gives 48/48. [Requests and responses](https://archerhume.com/research/jev/followup-trials.json) | Changing the card changes which otherwise unchanged candidate wins. Strictly independent option logits cannot explain this. A final-position readout, pointer with joint context, or mixing stage can; the causal mask remains unidentified. |
+| Adding an option changes existing relative preferences | In ten randomized blocks, adding an irrelevant option changes pooled mean log-odds between two existing choices from +0.382 to +0.104. Every block decreases. [Trials](https://archerhume.com/research/jev/followup-trials.json) | Evidence against unchanged independent logits with fixed softmax temperature. A list-dependent temperature remains possible: changing the extra description at fixed list size is inconclusive. |
+| Jev exhibits measurable calibration on a public sample | On 1,200 MMLU items, expected calibration error (ECE) with ten equal-width bins is 0.031325; 990 predictions occupy the 0.9–1.0 bin. [Predictions and bins](https://archerhume.com/research/jev/calibration.json) | Inspectable evidence for this sample. Sparse lower-probability bins, two-decimal rounding, item selection, and possible training exposure limit generalization. This measures chosen-answer probability, not the separate `confidence` field. |
+
+Recomputing from these records during this review reproduced the ECE,
+reference-card counts, and pooled option-set effect. The mean paired log-odds
+change is −0.2776, with a descriptive 95% paired t interval of approximately
+[−0.3624, −0.1927] across ten blocks. This verifies saved arithmetic, not a fresh
+API rerun. [Calibration data](https://archerhume.com/research/jev/calibration.json),
+[follow-up trials](https://archerhume.com/research/jev/followup-trials.json)
+
+The [generated-math results](https://archerhume.com/research/jev/evidence.json)
+also show imperfect agreement: on 25 modular-exponentiation items, accuracy is
+56% while average top probability is 0.3488. Family averages cannot establish
+calibration across individual probability bins or deployment workflows.
+
+### Mechanisms already used in open implementations
+
+These sources establish components of the proposed design in open systems.
+They do not establish that TypeSafe uses their code or topology.
+
+| Mechanism | Open implementation or research evidence | Evidence boundary |
+|---|---|---|
+| Shared-prefix attention and branch reuse | [Hydragen](https://arxiv.org/abs/2402.05099) decomposes shared-prefix and unique-suffix attention; its [released code](https://github.com/ScalingIntelligence/hydragen) integrates Llama-family models, with CodeLlama-13B evaluated in the paper. [DeFT](https://arxiv.org/abs/2404.00242) and its [code](https://github.com/LINs-lab/DeFT) optimize shared KV access for tree workloads. | Published serving mechanisms that predate Jev. Their generation workloads do not validate Jev's decision quality, latency, or calibration. |
+| Listwise decisions from first-position logits | [FIRST](https://arxiv.org/abs/2406.15657) fine-tunes Zephyr-7B-beta (Mistral-based), ranks candidates from first-identifier logits, and evaluates ranking on BEIR. [Training and inference code](https://github.com/gangiswag/llm-reranker) | Demonstrates joint candidate processing without generating the full ranking sequence. Ranking quality does not establish calibrated Choice probabilities. |
+| Shared state, isolated suffixes, and direct option logits | [SemIf's pinned MLX backend](https://github.com/TheoLeeCJ/SemIf/blob/ca3ba65f142967030ecb453346e94d6f476a69df/src/semif_phase1/mlx_backend.py) prefills Qwen3.5 once, copies or merges native caches for branches, and reads selected final-position logits. | Source-verified implementation, isolating attention and recurrent state together. The [existing pinned review](#prior-art-implementation-review-semif-mlx-backend-reviewed-2026-09-20) owns precision and checkpoint limits. |
+| Finite output codes for dynamic caller options | [imajev-4b's pinned model card](https://github.com/mohit67890/imajev/blob/6ee8a2c555ca6a3d1de9eceb33f1bd1cfeb268a2/model-cards/imajev-4b.md) describes Qwen3.5-4B plus LoRA and a 256-code readout (255 options plus unknown). | Concrete use of dynamic option slots. It does not identify Jev's head or show that its API cap equals the neural output width. See the [evaluation review](#imajev-4b-and-the-newer-jevbench-board-reviewed-2026-09-27). |
+| Dynamic option-conditioned attention | [jevlike's pinned scorer](https://github.com/vinnylarouge/jevlike/blob/94f5fd1b0b11d52bbdfdf4e0ee6aa96b568f8452/jevlike/model.py) makes each option a query over context. Its [README](https://github.com/vinnylarouge/jevlike/blob/94f5fd1b0b11d52bbdfdf4e0ee6aa96b568f8452/README.md) documents byte and frozen Qwen2.5-0.5B encoder paths. | A compatible interface can use a different architecture. This scorer lacks cross-option mixing, so it cannot explain the reference-card value-switch result with unchanged candidate logits. |
+| Sparse capacity with a causal backbone | [DeepSeek-V3](https://github.com/deepseek-ai/DeepSeek-V3) and [Qwen3-235B-A22B](https://huggingface.co/Qwen/Qwen3-235B-A22B) release MoE weights and document selective expert activation. | Establishes feasibility and prior use of sparse Transformers. Unknown Jev hardware and routing prevent inferring MoE from its service latency. |
+
+Hume's causal-backbone and MoE explanations remain hypotheses. His unmatched
+tokenizer counts do not identify the base checkpoint: API accounting, a changed
+vocabulary, continued pretraining, or distillation can obscure lineage. Proper
+scoring rules and post-hoc calibration have public precedents, but these sources
+do not independently reproduce TypeSafe's RLCD training algorithm.
+
+For OpenKind, distinguish **isolation between questions** from **interaction
+between candidates within a question**. Retain option-order and batch-invariance
+checks, and use reference-card and option-set interventions when comparing
+independent candidate scoring with listwise readouts. The
+[existing evaluation protocol](#1-multi-metric-evaluation-protocol) separately
+measures held-out proper scores, calibration, semantic-none behavior, and
+request throughput.
+
+The Rust [`joint-option probe`](../crates/openkind-backends/src/qwen35/experimental.rs)
+implements this comparison over the same pinned Qwen3.5-4B-Base checkpoint as
+the fitted scorer. [`compare-choice`](BENCHMARKS.md#experimental-joint-option-comparison)
+evaluates forward order, reversed order, and averaged distributions, including
+explicit none mass. The [recorded local diagnostics](benchmarks/2026-09-29-joint-choice/README.md)
+cover balanced rule cases and a separate reference-card intervention. These
+change prompt and readout together and do not qualify a production replacement.
 
 ## Audit of Prior Art Claims: Reddit Discussion & SalesRLAgent
 
@@ -574,6 +649,7 @@ flowchart TD
 | **[26]** | [TypeSafe AI Homepage](https://typesafe.ai/) | Current product claims: $0.042/MTok, 70–500 ms latency, and zero output token pricing. |
 
 ### Additional Foundational & Ecosystem References
+
 - **Jev API reconstruction**: [Archer Hume, "Jev's Architecture Unmasked"](https://archerhume.com/posts/jevs-architecture-unmasked) (17 September 2026), with [probe and benchmark evidence](https://archerhume.com/research/jev/evidence.json), [item-level calibration data](https://archerhume.com/research/jev/calibration.json), and [controlled follow-up requests](https://archerhume.com/research/jev/followup-trials.json). See the [claim and implementation review](#archer-humes-api-reconstruction-reviewed-2026-09-29).
 - **TypeSafe Python Adapter**: [GitHub `typesafe-ai/system-one-adapter-python`](https://github.com/typesafe-ai/system-one-adapter-python) — Drop-in client backed by LLM APIs for reproducible benchmarking.
 - **SalesRL PyPI Distribution**: [PyPI `deepmost`](https://pypi.org/project/deepmost/) — Released May 24, 2025.
