@@ -287,7 +287,8 @@ impl Qwen35ScoringProbe {
         input: &PreparedChoice,
         render: &JointRender,
     ) -> Result<ScoringResult, Qwen35Error> {
-        let probabilities = self.render_probabilities(render)?;
+        let logits = self.render_logits(render)?;
+        let probabilities = stable_softmax(&logits, 1.0)?;
         let mut labels = input.labels.clone();
         labels.push(SEMANTIC_NONE_OPTION.into());
         Ok(ScoringResult {
@@ -295,13 +296,6 @@ impl Qwen35ScoringProbe {
             input_tokens: render.ids.len(),
             forwards: 1,
         })
-    }
-
-    fn render_probabilities(&self, render: &JointRender) -> Result<Vec<f64>, Qwen35Error> {
-        let hidden = self.backbone.final_feature(&render.ids)?;
-        let logits = self.render_logits(render)?;
-        let _ = hidden;
-        stable_softmax(&logits, 1.0)
     }
 
     fn render_logits(&self, render: &JointRender) -> Result<Vec<f64>, Qwen35Error> {
@@ -380,15 +374,49 @@ fn prepare(
     )?;
     let count = labels.len();
     let (display, codes) = forward_layout(count);
-    let forward = render_layout(tokenizer, &state, &instruction, &labels, &criteria, none, &display, &codes)?;
+    let forward = render_layout(
+        tokenizer,
+        &state,
+        &instruction,
+        &labels,
+        &criteria,
+        none,
+        &display,
+        &codes,
+    )?;
     let (display, codes) = reverse_layout(count);
-    let reverse = render_layout(tokenizer, &state, &instruction, &labels, &criteria, none, &display, &codes)?;
+    let reverse = render_layout(
+        tokenizer,
+        &state,
+        &instruction,
+        &labels,
+        &criteria,
+        none,
+        &display,
+        &codes,
+    )?;
     let (display, codes) = text_rotate_layout(count);
-    let text_rotate =
-        render_layout(tokenizer, &state, &instruction, &labels, &criteria, none, &display, &codes)?;
+    let text_rotate = render_layout(
+        tokenizer,
+        &state,
+        &instruction,
+        &labels,
+        &criteria,
+        none,
+        &display,
+        &codes,
+    )?;
     let (display, codes) = code_rotate_layout(count);
-    let code_rotate =
-        render_layout(tokenizer, &state, &instruction, &labels, &criteria, none, &display, &codes)?;
+    let code_rotate = render_layout(
+        tokenizer,
+        &state,
+        &instruction,
+        &labels,
+        &criteria,
+        none,
+        &display,
+        &codes,
+    )?;
     Ok(PreparedChoice {
         independent_ids: independent.full_candidate_ids().to_vec(),
         catalogue_ids: catalogue.full_candidate_ids().to_vec(),
@@ -406,7 +434,12 @@ fn prepare(
 fn catalogue_block(labels: &[String], criteria: &[String], none: &str) -> String {
     let mut block = String::from("\nOptions:\n");
     for (index, (label, criterion)) in labels.iter().zip(criteria).enumerate() {
-        block.push_str(&format!("{}. {}: {}\n", letter_char(index), label, criterion));
+        block.push_str(&format!(
+            "{}. {}: {}\n",
+            letter_char(index),
+            label,
+            criterion
+        ));
     }
     block.push_str(&format!("{}. {none}\n", letter_char(MAX_CANDIDATES)));
     block
@@ -481,7 +514,13 @@ fn render_layout(
         }
         seen[*slot] = true;
     }
-    if display.iter().copied().collect::<std::collections::BTreeSet<_>>().len() != total {
+    if display
+        .iter()
+        .copied()
+        .collect::<std::collections::BTreeSet<_>>()
+        .len()
+        != total
+    {
         return Err(Qwen35Error::InvalidInput(
             "joint layout display order repeats an option".into(),
         ));
