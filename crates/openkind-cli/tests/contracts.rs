@@ -19,8 +19,10 @@ impl TempDir {
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let path = std::env::temp_dir()
-            .join(format!("openkind-cli-{}-{unique}-{count}", std::process::id()));
+        let path = std::env::temp_dir().join(format!(
+            "openkind-cli-{}-{unique}-{count}",
+            std::process::id()
+        ));
         std::fs::create_dir(&path).unwrap();
         Self(path)
     }
