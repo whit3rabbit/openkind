@@ -42,20 +42,15 @@
     - `Evaluate { file, server, api_key, pretty, format, verbose }`: POSTs the raw JSON to `{server}/v1/systemone`.
     - `Serve { ... }`: Launches `openkindd`, forwarding explicit installed
       models and the shared model store directory.
-    - `Playground { ... }`: Opens the daemon's web playground. Connects to an
-      already-healthy daemon at `--http-addr` (default `127.0.0.1:8080`,
-      loopback); otherwise spawns `openkindd` with `--playground on`,
-      `--grpc-addr 0`, and `--rate-limit-rpm 0`, waits for `/health`, opens
-      the browser (or prints the URL with `--no-open`), and supervises the
-      child. Unix shutdown signals are forwarded during startup and serving.
+    - `Playground { ... }`: Connects to a healthy daemon or starts and supervises one with the playground enabled. It waits for `/health`, opens the browser or prints the URL, and forwards Unix shutdown signals.
     - `Catalog`, `Pull`, `List`, `Show`, `Rm`: Curated discovery and local
       installation management, with JSON output flags for read commands.
-    - `Status { server, api_key, watch }`: Checks `/health` and lists aliases from `/v1/models`; `--watch` refreshes the view in a Bubble Tea terminal program.
+    - `Status { server, api_key, watch }`: Checks `/health` and lists aliases from `/v1/models`. `--watch` refreshes the view in a Bubble Tea terminal program.
     - `Version`: Prints `openkind_core::api_version()`.
 - [`src/inspect.rs`](./src/inspect.rs): `cmd_inspect` and input file validation bounds.
 - [`src/evaluate.rs`](./src/evaluate.rs): `cmd_evaluate` and `cmd_evaluate_async` HTTP execution.
 - [`src/output.rs`](./src/output.rs): Shared text tables, color policy, and pull progress rendering.
-- `status --watch` uses `bubbletea-rs` with Lipgloss styles; the normal status command stays a one-shot report.
+- `status --watch` uses `bubbletea-rs` with Lipgloss styles. Plain `status` stays one-shot.
 - [`src/status.rs`](./src/status.rs): One-shot health and model alias inspection, plus the live `--watch` screen.
 - [`src/serve.rs`](./src/serve.rs): `cmd_serve` process execution delegating to `openkindd`, replacing the CLI process on Unix so shutdown signals reach the daemon directly.
 - [`src/playground.rs`](./src/playground.rs): `cmd_playground` — health probe,
@@ -70,9 +65,7 @@
 ## Critical Gotchas & Rules
 
 1. **No Direct Model Execution**:
-   `openkind-cli` does not load neural model weights directly. For evaluation, it targets a running `openkindd` instance via HTTP. For offline validation, it evaluates request structure and JSON schema rules only.
-   Only an explicit `pull` contacts model hosts; `list`, `show`, and `rm` are
-   local operations.
+   The CLI never loads neural weights. `evaluate` sends requests to `openkindd`; `inspect` checks request structure and schema only. Only `pull` contacts model hosts. `list`, `show`, and `rm` use local files.
 2. **Standard Output Cleanliness**:
    Successful `evaluate` calls emit JSON to stdout by default. `--format text` opts into human-readable rows. HTTP errors and pull progress go to stderr. `inspect` retains its concise validation summary.
 

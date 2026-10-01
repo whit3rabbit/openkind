@@ -1,7 +1,7 @@
 # OpenKind
 ## Shared-state decision inference: evidence, execution, and useful decisions
 
-**Document version:** 0.8.9 · 29 September 2026, America/Chicago. Consolidated training, Rust/MLX, modern-Qwen serving, unified decision validity, process isolation, and compact-model transfer evidence through completed run `20260929T194506_694066Z_dc1f74` (protocol `openkind-unified-decisions/v3.0.0`).
+**Document version:** 0.8.10 · 30 September 2026, America/Chicago. Completes the integration of completed run `20260929T194506_694066Z_dc1f74` (protocol `openkind-unified-decisions/v3.0.0`): the abstract, executive assessment, research answers, and review boundary now carry the unified decision validity results, §22 records the run's identities, training/memory/calibration detail, and reconciliation scope, and Appendix A adds the E41/V10 register entry. Training, Rust/MLX, modern-Qwen serving, unified decision validity, process isolation, and compact-model transfer evidence runs through that completed run.
 
 ### Abstract
 
@@ -78,6 +78,24 @@ validate low-risk automation. The routing-rule replay is separately labeled
 MoE, BF16, CPU and MLX results retain their own identities and limits.
 [E36–E40; V8; V9; §§19–21]
 
+The completed unified decision validity study then measures the readout,
+isolation, scaling and compact-comparator questions that E40 left open. On the
+96-case fresh-template confirmation panel, selectively indexing only route and
+case state (Arm X) raises field accuracy to **92.19%** and all-six correctness to
+**60.42%** at **222.22 ms** median with full marginals, while deterministic
+route-priority composition becomes a timed arm (R: **91.67%** at unchanged
+latency; grouped GR: **95.49%** field / **83.33%** all-six at 1,419.57 ms,
+2.06× faster than generated JSON with a higher all-six estimate). A joint
+route/urgency source (J) keeps probabilities internally consistent at 209.54 ms
+but costs retries accuracy. Separate resident native and JSON processes pass the
+reproduced mixed-history traces exactly ($\Delta p = 0.0$) at 3.91%–5.80%
+whole-trace overhead while restarts multiply trace time 3.60×–3.93×, and both
+resident processes fit simultaneously on the T4 (12.10 GiB). Prompt-schema
+sensitivity persists across all four transformations (max $\Delta p$ 0.912310,
+13 field flips under code remapping), and the pinned Go/CPU Indecis comparator
+transfers poorly (91.15% development → 69.10% fresh policy field accuracy;
+39.58% SNLI versus Qwen's 92.71%). [E41; V10; §22]
+
 **Current model-learning work:** the frozen comparison, contract-only pilot, parent-KL follow-on,
 and source-label replay comparison have completed. None of the three tested
 adaptation recipes satisfies the full quality/retention exit. Preserve J0/J1
@@ -85,20 +103,21 @@ controls, J2/J3 locked update-80 specialists, and J4–J7 diagnostic snapshots w
 their selected-zero outcomes. Diagnose supported-entailment and long-document
 retention before another bounded treatment; this is proposed work, not a new
 fit or authorization. Protected final and promotion remain closed.
-[ROADMAP.md](../ROADMAP.md) owns M0–M4 work items and is not edited by this revision.
 The historical roadmap remains in [ROADMAP_HISTORY.md](../ROADMAP_HISTORY.md), and
 the historical opening is retained in [Appendix E](#appendix-e-historical-opening-before-the-september-refocus).
 [E30–E32; V6]
 
 **Current serving work:** the 9B/T4 study completed all 39 planned blocks and
-three conditional replays. Combined composition/cache performance and genuine
-first-use accounting are measured, no longer merely proposed. Retain those
-local gains; next test matched process isolation/reset and focused
-field/dependency formulations with new confirmation cases. No specific state
-or kernel cause is proven, and no model or service is promoted. The supplied
-architecture remains the working-code inventory; this revision changes the two
-papers only. Concise findings and discounted approaches are in
-[WORKING_PAPER.md](WORKING_PAPER.md). [E40; V9; §21]
+three conditional replays, and the unified decision validity study then completed
+the isolation and readout tests it proposed. Retain Arm X, R/GR route
+composition, exact prefix reuse, and resident dual-process isolation as bounded
+positives; the next serving qualifications are an identity-bound multi-catalogue
+cache for the grouped arms and process/memory/concurrency qualification of the
+selected fast readout, which was not itself run through the full isolation suite.
+No specific state or kernel cause is proven, and no model or service is promoted.
+The supplied architecture remains the working-code inventory; this revision
+changes the two papers only. Concise findings and discounted approaches are in
+[WORKING_PAPER.md](WORKING_PAPER.md). [E40; E41; V9; V10; §§21–22]
 
 **Reading guide:** current interpretation in [§1](#1-executive-assessment),
 acceptance tracks and work order in [§13](#13-refocused-research-program-and-next-milestone),
@@ -118,6 +137,9 @@ its disposition table records the E38 cutoff. The completed readout, composition
 cache and history follow-up is in [§20](#20-readout-deterministic-composition-and-request-history-follow-up).
 The current 9B/T4 composition, first-use, history, and field-diagnostic results
 are in [§21](#21-qwen35-9b-on-t4-measured-composition-and-reuse-failed-mixed-request-stability).
+The unified decision validity study—selective readouts, route composition,
+process isolation, schema sensitivity, scaling, and compact-model transfer—is in
+[§22](#22-unified-decision-validity-selective-readouts-process-isolation-scaling-and-compact-model-transfer).
 Sections 19–20 retain their earlier evidence cutoffs; their proposed next tests
 are not the current completion status.
 
@@ -150,6 +172,24 @@ without establishing a complete replacement. JSON and confidence comparisons
 retain important quality/reliability limits. These CUDA results do not replace
 the immutable Rust profile or prove a general architecture or size ranking.
 [E40; V9; §21]
+
+**The unified decision validity study converts the E40 follow-ups into measured
+choices with explicit boundaries.** On fresh templates, selective indexing of
+only route and case state (X) improves field accuracy 82.64% → 92.19% at 222.22 ms
+(-27.6% median latency) with full six-field marginals, and the previously
+post-hoc route-priority rule is now a timed arm (R: 91.67% at unchanged latency;
+GR: 95.49% field / 83.33% all-six at 1,419.57 ms). Separate resident native and
+JSON processes pass the reproduced history failure exactly at 3.91%–5.80%
+whole-trace overhead, where restarts cost 3.60×–3.93×. The boundary set is
+equally concrete: grouped arms record zero prefix-cache hits (1.42 s is an
+implementation cost, not a lower bound); schema transformations still move
+probabilities (max $\Delta p$ 0.912310); accepted calibration gates can worsen
+confirmation proper scores; confidence thresholds fail to beat review-all except
+for Qwen's frozen NLI formulation; and the pinned Indecis Go/CPU comparator
+collapses on transfer (91.15% → 69.10% policy field accuracy; 39.58% SNLI versus
+92.71% for Qwen's NLI_CODE). These are component-level results; no model or
+service is promoted, and the newer readouts have not each passed the full
+isolation suite. [E41; V10; §22]
 
 A frozen text-only Qwen3.5-4B-Base backbone with last-token features and a linear head reached 87.67% matched and 87.33% mismatched accuracy in Phase 2B’s three-class MultiNLI experiment. Phase 2C selected the same head family across three training seeds and obtained 87.0% and 88.8% on new matched and mismatched test samples. These are sampled NLI results, not general decision accuracy, and separation from earlier experiments does not establish separation from Qwen’s pretraining corpus. [E1; E2]
 
@@ -224,6 +264,11 @@ not be collapsed into one success claim. [E32; V6; §18.25]
 | Can bounded decision-LoRA improve natural-document decisions without damaging retention? | ContractNLI accuracy and contradiction/none recall improve substantially, but both adapters lose entailment and QASPER behavior. | Close the exact pilot as executed with failed full retention; test preservation, not automatic scale-up. [E30; V4] |
 | Did parent-consistency replay preserve the useful gains without regressions? | It partially recovers probability scores relative to specialists, but no nonzero checkpoint meets the joint preservation rules; both selectors choose frozen. | Keep the completed KL recipe and historical choices; E32 supplies the separate source-label comparison. [E31; E32] |
 | Did replacing parent KL with source-label replay repair retention? | SNLI accuracy/probability quality improve substantially, but supported entailment and QASPER retention still fail; both guarded selectors retain frozen0. | Close the exact source-label recipe; diagnose the recurring complete-document failure rather than equating a better replay proxy with retained scope. [E32; V6] |
+| Does selective indexing of only the failing fields help? | Yes on fresh templates: X reaches 92.19% field / 60.42% all-six at 222.22 ms with complete marginals, while blanket indexing stays rejected. | Retain surgical readout design; profiling field cardinality and branching remains necessary. [E41; V10] |
+| Does process isolation repair mixed-request history? | Separate resident processes and restart-after-JSON pass the reproduced traces exactly; separate processes add 3.91–5.80% whole-trace time versus 3.60–3.93× for restarts. | A measured workaround, not a root-cause fix; X/G/GR/J were not each run through the full isolation suite. [E41; V10] |
+| Does process isolation also remove prompt-schema sensitivity? | No. All four transformations move probabilities (max Δp 0.912310, 13 field flips under code remapping), some without hurting aggregate accuracy. | Exact caching, fresh-process stability, and question-set independence are separate properties; require all three. [E41; V10] |
+| Is the compact Go CPU comparator a Qwen replacement? | No under the tested recipe: fixed heads fall 91.15% → 69.10% on fresh templates and 39.58% on sampled SNLI versus Qwen's 92.71%; replay gains are uncertain. | Keep Indecis as a fast specialist candidate; compact transfer needs a stronger contract before another speed campaign. [E41; V10] |
+| Do accepted calibration gates and confidence thresholds validate automation? | Not in general: G worsens confirmation NLL despite its accepted gate; D and G fail to beat review-all, while Qwen NLI_CODE reaches 63.54% coverage with zero observed errors at stipulated cost 0.036458. | Keep raw scores, gate verdicts, and fresh confirmation distinct; zero errors on a small accepted set is not a rare-error guarantee. [E41; V10] |
 
 **Model-learning direction after E32, retained alongside the serving track:** retain the immutable integration reference,
 its CPU/MLX FP32 qualifications, J0/J1 controls, and all historical adapter and
@@ -323,6 +368,24 @@ The historical E1–E7 measured sequence uses Qwen/Qwen3.5-4B-Base at revision `
 The notebook execution logs also report missing optimized causal-convolution and linear-attention kernels, with reference implementations used instead. Transformers documents these optimized versus reference paths. The recorded timings should therefore be treated as measurements of this particular stack, not the speed limit of Qwen on an L4. Installing faster kernels is a future experiment requiring both new timing and renewed probability/policy parity checks. [E5; E6; P16]
 
 ## 3.2 What was reviewed and what was not rerun
+
+**Version 0.8.9/0.8.10 review boundary.** E41 is the completed unified decision
+validity result authority. The companion review reconstructs every primary
+decision and available probability vector from the saved native and Go replies,
+re-scores the saved gold labels, and reconciles all 106 quality-summary rows and
+276 source-grouped paired-bootstrap rows (2,000-draw bootstrap, technical repeats
+averaged first, seed 290926). It verifies the 80 block result/trace receipt hash
+pairs, 132 dedicated cache pairs, 1,320 CPU execution pairs, 288 isolation
+comparisons, 48 schema-robustness comparisons, and 88 native scaling observations;
+reproduces the 52 non-derived temperature fits/gates and ten development-policy
+selections (42 field fits accepted by the original rule); and recomputes the
+task-separated calibration and confirmation-policy tables. Run key, archive,
+summary, and dataset digests are registered under E41 in Appendix A. These are
+arithmetic and artifact checks over saved outputs, not new inference, training,
+model-weight rehashing, semantic-label adjudication, or a rerun of earlier
+evidence. The run's 81 completed entries comprise 80 completed blocks plus one
+explicitly unexecuted INT8 capability record; "measured" closes execution
+bookkeeping and is not a pass flag. [E41; V10]
 
 **Version 0.8.8 review boundary.** The two attached papers are the editing
 bases; E40 is the completed 9B/T4 result authority. This revision reruns the
@@ -1207,7 +1270,7 @@ Only after establishing a useful supervised baseline and demonstrating teacher q
 
 **Backlog traceability:** the exploratory compact comparison under 2J.1–2J.2
 has run. The released-Laya comparator under 2J.5 and the conditional teacher/student
-study P2.3 remain distinct. The [roadmap crosswalk](../ROADMAP.md#historical-task-crosswalk)
+study P2.3 remain distinct. The [historical roadmap](../ROADMAP_HISTORY.md)
 maps these IDs to M2–M4. Teacher quality and a measured cost problem must precede
 distillation. [E11; RC; RP2]
 
@@ -1274,8 +1337,7 @@ The recovered review reported drift across agent instructions, roadmap phases, p
 
 H is completed through its separately identified continuation. The native
 CPU adapter, persistence replay, and named-machine service gates are also
-recorded. [ROADMAP.md](../ROADMAP.md) now owns M0–M4, while
-[ROADMAP_HISTORY.md](../ROADMAP_HISTORY.md) preserves prior phase IDs and their
+recorded. [ROADMAP_HISTORY.md](../ROADMAP_HISTORY.md) preserves prior phase IDs and their
 evidence register. Current test claims require commit-stamped verification.
 Candidate probability remains distinct from confidence. This v0.8.5 update records
 completed model evidence through E32 and the proposed evidence-sensitive
@@ -1353,7 +1415,16 @@ revision. [E40; V9; §21]
 | Do padding-off or CUDA-graph-disable fix mixed-request history? | No in E40's matched separate replays. Control graph capture was not measured, and the root cause remains unproven. [E40] |
 | Are the remaining fast-path errors diffuse? | No on these panels. D's remaining errors are priority suffixes and plain closed → closed duplicate; single-field diagnostic requests improve both affected fields. [E40; V9] |
 | Does a higher confidence threshold validate automation? | No. At minimum-field probability 0.95, measured D still has 3/10 wrong accepted continuity cases and 7/9 synthetic cases. No calibration or production threshold is fitted. [E40] |
-| Has routing-rule replay produced a confirmed new inference result? | No. The 93.75% / 94.44% figures are post-hoc saved-prediction field accuracy, without new timing, corrected probabilities, or independent confirmation. [V9; §21.8.2] |
+| Has routing-rule replay produced a confirmed new inference result? | The V9 saved-prediction replay remains post-hoc arithmetic, but E41 now times the rule as real arms: R reaches 91.67% fresh field accuracy at unchanged median latency (+9.03 pp, CI [7.47, 10.59]) and GR 95.49% / 83.33% all-six at 1,419.57 ms. [E41; V10; §22.1] |
+| Does selective indexing of only the failing fields resolve the fast path? | Partly. X reaches 92.19% field / 60.42% all-six at 222.22 ms with complete marginals and one scoring decode call, but its route accuracy stays 61.46% and 37.5% of its route/urgent pairs are inconsistent. Errors redistribute with the formulation rather than disappearing. [E41; V10] |
+| Does grouping fields into separate requests help whole-request quality? | Yes, at real cost: G reaches 73.96% and GR 83.33% fresh all-six correctness at ~1.42 s, with GR above JSON's 69.79% at 2.06× its speed — but the implementation records zero prefix-cache hits across 576 subrequests per grouped arm, so that latency is an implementation cost, not a lower bound. [E41; V10] |
+| Does a joint source fix dependent-field probabilities? | It fixes representation: J pushes route/urgency through one four-way joint with reconciled marginals at 209.54 ms. Its changed formulation also costs retries accuracy (100% → 72.92%), so representation and quality remain separate axes. [E41; V10] |
+| Does process isolation fix the reproduced mixed-history failure? | Yes for the tested shapes: separate resident processes and restart-after-JSON both pass exactly, at 3.91–5.80% versus 3.60–3.93× whole-trace overhead; both processes fit simultaneously (12.10 GiB on the T4). Root cause, mixed-mode repair, concurrency, and the newer readouts remain unqualified. [E41; V10] |
+| Does process isolation also remove schema sensitivity? | No. Reordering, code remapping, unrelated-question addition, and visible-key renaming all change probability vectors (max Δp 0.912310, 13 field flips); some changes improve accuracy. Exact caching, fresh-process stability, and arbitrary-question independence stay distinct. [E41; V10] |
+| Does native catalogue scaling amortize questions? | Within tested mechanics: Q=16 costs 1.57× Q=1 at K=4/~256 state tokens across 88 observations in eleven cells, but the catalogue cache cannot reuse dynamic state (~4,106-token prefill costs 5,395.76–5,694.38 ms), and the fixtures are simple item-value extraction, not difficult independent judgments. [E41; V10] |
+| Is the Indecis Go/CPU model an equal-quality replacement? | No under the tested recipe. Fixed heads run at 46.28 ms median with exact assembly on/off parity (3.12×–5.15× faster enabled; INT8 unexecuted for missing AVX-VNNI) but fall 91.15% → 69.10% on fresh templates; open fitting gains 21.01 pp over its frozen baseline yet stays weak; replay's +5.21 pp SNLI interval crosses zero. [E41; V10] |
+| Does compact replay establish retention? | No. A +5/96 SNLI change with CI [−2.08, +13.54] on an already-weak parent is a small uncertain signal; fresh policy all-six falls 30.21% → 26.04%. The Qwen ContractNLI/QASPER retention question remains open. [E41; V10] |
+| Do accepted calibration gates and confidence policies transfer? | Not automatically: G worsens confirmation NLL despite its accepted gate, I_FIXED's fresh-policy NLL nearly doubles (0.674 → 1.328) while its SNLI NLL improves, and D/G fail to beat review-all; NLI_CODE alone reaches 63.54% coverage at zero observed errors and cost 0.036458. [E41; V10] |
 
 **Current 2I/2J status:** the original `2ij.1.0` reviewed-study path remains blocked by unsigned review, null promotion bounds and stale review metadata; separately, `2ij.2.0` completed an **exploratory** model-selection screen and exported a provisional integration profile. The pilot is sufficient to start native parity work but does not satisfy the independent-review/natural-data release gate. [E10; E11; I0]
 
@@ -1371,9 +1442,13 @@ E40 completes actual 9B Q4/T4 execution, the combined action/cache arm, genuine
 first-use accounting, and focused readout/shape diagnostics. Static-prefix
 parity and relative quality/speed gates pass. Every planned JSON-interleaving
 condition fails; neither conditional intervention repairs the matched trace.
-Absolute reader quality, calibrated risk, independent task-family confirmation,
-and Rust/MLX service qualification remain open. Sections 19–20 retain their
-cutoffs; §21 supplies current serving results. [E40; V9]
+E41 then completes the proposed follow-ups: selective readouts (X, G/GR, J) and
+timed route composition, resident-process isolation of the reproduced history
+failure, bounded schema-sensitivity and Q/K-scaling diagnostics, and the Indecis
+compact comparator. Absolute reader quality, calibrated risk, independent
+task-family confirmation, and Rust/MLX service qualification remain open.
+Sections 19–20 retain their cutoffs; §§21–22 supply current serving results.
+[E40; E41; V9; V10]
 
 # 13. Refocused research program and next milestone
 
@@ -1795,7 +1870,7 @@ The historical 0.005 probability tolerance and no-outcome/no-policy-change requi
 
 ## 13.3 Priority order and synchronized roadmap
 
-[ROADMAP.md](../ROADMAP.md) owns M0–M4 and all active exit conditions. This paper
+Prior roadmap versions tracked M0–M4 and their exit conditions. This paper
 records the following evidence update without claiming a roadmap-file edit.
 Completed execution is not the same as satisfying a milestone's quality exit.
 [E29–E32]
@@ -4799,9 +4874,10 @@ an exact route vector rather than fabricating marginal independence. Grouped rou
 at 1,419.57 ms, outperforming generated JSON (69.79% at 2,930.54 ms).
 
 **Grouped Requests (Arm G & GR):** Partitioning fields into three subrequests reduces catalogue crosstalk
-(73.96% all-six on G, 83.33% on GR), but executes 576 subrequests with zero prefix cache hits because three
-alternating catalogues replace a single-entry cache. The ~1.42s latency is an artifact of current cache eviction,
-not an inherent architectural lower bound.
+(73.96% all-six on G, 83.33% on GR), but across 192 fresh measurements per grouped arm each executes 576 subrequests
+with zero prefix cache hits because three alternating catalogues replace a single-entry cache. The ~1.42s latency is
+an artifact of this implementation's cache eviction, not an inherent architectural lower bound; an identity-bound
+multi-catalogue cache is a specific systems hypothesis requiring its own parity and timing measurements.
 
 **Joint Outputs (Arm J):** Pushforward from a 4-way joint region/urgency distribution guarantees consistent
 marginals at 209.54 ms p50, but retries accuracy falls from 100% to 72.92%.
@@ -4815,6 +4891,18 @@ marginals at 209.54 ms p50, but retries accuracy falls from 100% to 72.92%.
 | **GR** | 95.83% | 92.71% | 92.71% | 100.00% | 91.67% | 100.00% |
 | **J** | 89.58% | 90.62% | 90.62% | 72.92% | 98.96% | 98.96% |
 | **E** | 100.00% | 95.83% | 95.83% | 100.00% | 70.83% | 100.00% |
+
+The per-field results explain why no single aggregate score settles the arm
+choice: X recovers case-state accuracy to 100% but route accuracy stays 61.46%,
+and 37.5% of its route/urgent pairs are inconsistent; G reaches 95.83% case-state
+accuracy while eligibility falls to 92.71%; J reaches 98.96% route accuracy while
+retries fall to 72.92% against 100% under D/X/G/R. Changing the catalogue/readout
+**redistributes** errors across fields; it does not remove a universal tokenizer
+defect. Class and dependency diagnostics must therefore accompany the six-field
+aggregate. The historical panels remain regression evidence, not transfer
+substitutes: GR's 97.92% all-six result on the old 96-case panel is not its
+fresh-template score (83.33%). No runtime policy or model is selected on these
+confirmation results alone. [E41; V10]
 
 ## 22.2 Process isolation passes history parity; in-process restart penalty
 
@@ -4830,9 +4918,17 @@ path with four contexts across mixed-process, native-only, dual-process, and res
 
 Separate resident native and JSON processes pass all probability and answer checks while adding only **3.91%–5.80%**
 to whole trace times. Both resident processes fit simultaneously on the Tesla T4 with 34/34 offload, occupying
-**12.10 GiB total device VRAM** (2.90 GiB free). In-process restarts also preserve state but multiply trace times by
-3.60x–3.93x (mean recovery cost 13.67–19.06s). This supplies operational evidence for process isolation, not a kernel
-diagnosis or repair of the underlying mixed-process state mechanism.
+**12.10 GiB total device VRAM** (2.90 GiB free); the separate single-process memory workload samples **6.3008 GiB**
+as its maximum. Neither figure is an exact request-allocation peak or a dual-process peak measurement, and
+alternating two resident servers is not a concurrent-request load or soak test. In-process restarts also preserve
+state but multiply trace times by 3.60x–3.93x: each restart treatment performs 16 recoveries whose recorded mean
+costs (13.67 s and 19.06 s) include startup, priming, and reconstructing the reference-probe history — not model
+loading alone. All trace totals include sentinels, process starts, and the final reset, so they are whole-trace
+comparisons and must not be read as per-request latency; native-only runs omit JSON work, so their shorter
+durations are not equal-work speedups. Each shape uses six repeated anchor groups with 36 probability/answer
+comparisons per trace against independent fresh-reset references — 288 comparisons overall. These are correlated
+diagnostic probes, not failure-rate estimates. This supplies operational evidence for process isolation, not a
+kernel diagnosis or repair of the underlying mixed-process state mechanism. [E41; V10]
 
 ## 22.3 Prompt schema sensitivity persists after process isolation
 
@@ -4845,6 +4941,14 @@ Across 12 development cases, four diagnostic prompt transformations produce 48 c
 While process isolation eliminates accumulated execution history, the model remains sensitive to prompt structure.
 An efficient prefix-cached runtime does not guarantee an arbitrary-question independent-choice interface.
 
+Three qualifications bound the reading. First, the reorder transformation uses its separately recorded
+natural-label reference while the other three use the indexed base, so the four rows are not one common baseline.
+Second, 48 gate failures are not 48 semantic mistakes: some code-remapped answers improve accuracy, and
+unrelated-question addition changes two fields while leaving aggregate accuracy unchanged — the conclusion is
+semantic sensitivity, not that every altered prompt must be numerically identical. Third, the source condition
+`opaque_key_rename` is a legacy name: the renamed keys are visible in the native prompt and the instruction
+explains the new prefix, so the treatment does not test identifiers hidden from the model. [E41; V10]
+
 ## 22.4 Cache validity, genuine first use, and scaling boundaries
 
 All 132 dedicated D-style cache pairs preserve recorded probabilities and selected answers exactly ($\Delta p = 0.0$).
@@ -4853,16 +4957,32 @@ first-use traces, the first useful request takes 782.86 ms (4.82s milestone incl
 requests average 309.05 ms/request (vs 676.98 ms without cache).
 
 **Native Catalogue Scaling** ($K=4$, ~256 state tokens): $Q=1$ is 447.32 ms, $Q=4$ is 459.61 ms, $Q=8$ is 549.59 ms,
-and $Q=16$ is 701.66 ms. Scaling 16 questions costs only **1.57x** a single question, establishing strong sub-linear amortization.
-However, static catalogue caching cannot cache dynamic state: for long contexts (~4,106 state tokens), prefill dominates
-(5,395.76 ms warm vs 5,694.38 ms cold).
+and $Q=16$ is 701.66 ms (actual state tokens 260/256/258/257; steady medians exclude repeat 0). Scaling 16 questions
+costs only **1.57x** a single question, establishing strong sub-linear amortization for the tested catalogue-based
+execution. All **88 observations across eleven cells** — $K \in \{2,4,8,16\}$ with value-bearing facts placed before
+or after padding, through 4,106 actual state tokens — return the intended item values and preserve their same-shape
+fresh-reference probabilities. However, static catalogue caching cannot cache dynamic state: for long contexts
+(~4,106 state tokens), prefill dominates (5,395.76 ms warm vs 5,694.38 ms cold). These are deliberately simple
+item-value extraction fixtures; they do not establish 16 difficult independent semantic judgments, and the cache is
+schema-conditioned rather than a question-independent state root. [E41; V10]
 
 **Indecis Open-Option Scaling** ($K=4$ with option embedding cache): $Q=1$ is 17.60 ms, $Q=4$ is 75.16 ms, $Q=8$ is 138.76 ms,
 and $Q=16$ is 281.78 ms. Scaling is strictly linear (**16.01x ratio**), as open mode re-encodes the input per question.
+Candidate caching itself helps substantially — the $Q=4/K=4$ steady comparison falls from 286.02 ms without option
+caching to 75.16 ms with it — but the open API still lacks the near-flat multi-question cost of fixed heads sharing one
+encoder pass, and the K grid's synthetic repeated meanings do not measure genuinely K-way semantic accuracy. The two
+grids run different backbones, hardware execution, and interfaces: their within-system slopes answer the mechanism
+question, not an architecture contest. [E41; V10]
 
 ## 22.5 Indecis (Go on CPU): execution speed vs severe transfer degradation
 
-Indecis evaluates the pinned Go project (`bekko-embedding-v1-a8m`, ~212 MB weights) built with Go 1.27.1 SIMD and assembly:
+Indecis evaluates the pinned Go implementation at commit
+`9930c7db1913818db7cee68c1b42a384f59592e3` (Go 1.27.1, SIMD enabled, one configured
+worker) over backbone `hotchpotch/bekko-embedding-v1-a8m` at revision
+`c721113d59a1d91b447450324f51c4b3332c924a` (~212 million-byte weight file). This
+is an actually built and executed Go project — not a Python stand-in or mock
+adapter — with the run's identity records pinning commit, backbone revision, Go
+version, and build settings:
 
 | Arm | Policy Field Acc | Policy All-Six | Policy p50 (ms) | SNLI Accuracy | SNLI p50 (ms) |
 |---|---|---|---|---|---|
@@ -4874,15 +4994,69 @@ Indecis evaluates the pinned Go project (`bekko-embedding-v1-a8m`, ~212 MB weigh
 | *(Qwen Reference)* | *92.19% (X)* | *60.42% (X)* | *222.22 (X)* | *92.71% (NLI_CODE)* | *152.88* |
 
 - Fixed-head policy field accuracy collapses from **91.15% on development to 69.10% on fresh confirmation** (all-six: 73.44% to 22.92%). Public SNLI confirmation accuracy is only 39.58% (vs Qwen's 92.71%).
-- Open-mode fitting improves over frozen baseline (+21.01 pp field accuracy), but remains weak.
-- Replay continuation yields only +5.21 pp on SNLI with CI crossing zero ([-2.08, +13.54]), while reducing fresh policy all-six from 30.21% to 26.04%.
-- Host AVX2/FMA assembly passes exact parity across 1,320 pairs ($\Delta p = 0.0$), delivering a **3.12x speedup** on policy (46.28 ms vs 144.39 ms) and **5.15x** on SNLI (13.62 ms vs 70.14 ms). INT8 was unexecuted due to missing AVX-VNNI instructions.
+- Open-mode fitting improves over frozen baseline (**+21.01 pp** field accuracy, descriptive interval [17.19, 24.65]), but remains weak.
+- Replay continuation yields only +5.21 pp on SNLI with CI crossing zero ([-2.08, +13.54]), while fresh policy field accuracy moves just +0.17 points and all-six correctness falls from 30.21% to 26.04%. The parent and policy-only arms both score 38/96 on SNLI, so there is no demonstrated strong NLI capability that policy-only training destroyed — this is a weak replay signal, not a retention repair.
+- Host AVX2/FMA assembly passes exact parity across 1,320 pairs ($\Delta p = 0.0$), delivering a **3.12x speedup** on policy (46.28 ms vs 144.39 ms) and **5.15x** on SNLI (13.62 ms vs 70.14 ms). INT8 was unexecuted because the CPU lacks AVX-VNNI, and the run correctly records a capability boundary instead of a no-op result. `NOASM` disables that assembly path only; the build still enables Go SIMD. Do not infer an architectural speed improvement from timing differences between different trained children measured in different sessions — only the assembly comparison holds execution fixed with unchanged outputs.
+- Sampled worker RSS differs sharply by load path: the fixed-head worker records **73.59–133.62 MiB**, the frozen open-backbone path **855.39–1,157.11 MiB**, and fitted open mode **104.21–150.20 MiB**. These are process/load-path observations, not exact peaks or a proof that nominal active-parameter counts determine deployment memory.
+
+The training comparison is bounded, not an ablation. Both main fits see 1,152 examples (768 authored policy plus
+384 public SNLI) for three epochs — 3,456 case exposures each — but their batch construction and optimization
+graphs differ, and recorded fixed-head training takes 386.59 s versus 1,849.45 s for open fitting. Equal case
+exposure is not equal compute or an isolated head-only comparison. The two continuations start from the same fixed
+parent and process 384 exposures in one epoch (policy-only: 384 policy; replay: 288 policy plus 96 SNLI). The
+result supports Indecis as a compact specialist candidate; it does not rule out better compact backbones,
+broader training data, or different training objectives. [E41; V10]
 
 ## 22.6 Calibration and application policy transfer
 
-- **Calibration Gate Transfer Failure**: Temperature fitting accepted on calibration-gate worsens confirmation NLL on `I_FIXED` (0.674 $\to$ 1.328) and `G` (0.190 $\to$ 0.202). In contrast, D (0.751 $\to$ 0.345) and X (0.227 $\to$ 0.210) improve. Pooling tasks hides authored-policy degradation.
-- **Application Cost Analysis**: Confidence gating fails to beat review-all (mean cost 0.10): Arm D achieves mean cost 0.342, Arm G achieves 0.117. Arm X records zero errors but achieves only 5.21% coverage (cost 0.095).
-- **Qwen Frozen NLI Baseline**: `NLI_CODE` achieves **92.71% accuracy** (89/96), 63.54% coverage at threshold 0.8 with 0 errors, yielding mean cost **0.0365** (substantially beating review-all).
+The split procedure is real: temperature transforms are fitted on calibration-fit data only, accepted on the
+separate calibration-gate only if gate NLL improves by at least 0.002 without worsening Brier by more than 0.002
+(otherwise identity is retained), and the frozen decision is applied to confirmation. Of the 52 non-derived
+temperature fits/gates, 42 field fits were accepted; the derived action inherits eligibility's temperature.
+R/GR and JSON receive no invented complete distributions, and J is not independently temperature-scaled per field
+because that would break its joint-source relation. A positive temperature does not repair an incorrect argmax.
+
+**Calibration gate transfer failure.** Accepted fits can still worsen confirmation proper scores. The
+task-separated confirmation breakdown, using the original accepted temperatures with no reselection:
+
+| Arm / panel | Raw NLL | Calibrated NLL | Raw Brier | Calibrated Brier |
+|---|---:|---:|---:|---:|
+| D, fresh policy | 0.751205 | **0.345177** | 0.335744 | **0.208578** |
+| X, fresh policy | 0.226971 | **0.209743** | 0.117780 | **0.110468** |
+| G, fresh policy | **0.189907** | 0.202322 | **0.103185** | 0.103794 |
+| I_FIXED, fresh policy | **0.674463** | 1.328130 | **0.429775** | 0.514961 |
+| I_FIXED, public SNLI | 1.120790 | **1.081780** | 0.677482 | **0.655490** |
+| I_REPLAY, fresh policy | **0.649653** | 1.368500 | **0.403610** | 0.483232 |
+| NLI_CODE, public SNLI | 0.264607 | **0.249242** | 0.146322 | **0.138831** |
+
+D, X, and the Qwen NLI baseline improve; G worsens NLL despite its accepted gate. The clearest transfer failure is
+the compact fixed model, whose fresh-policy NLL nearly doubles while its separate SNLI NLL improves slightly —
+pooling the tasks would conceal how severe the authored-policy failure is. Compact policy-only and replay
+continuations show the same direction of fresh-policy calibration regression. This supports keeping raw scores,
+gate verdicts, and fresh confirmation metrics distinct — not always accepting or rejecting temperature scaling.
+
+**Application cost analysis.** The recorded acceptance score is the minimum probability assigned to the selected
+field answers, not P(all fields correct). Thresholds are chosen on development only, under stipulated losses of
+wrong answer 5, review 0.1, correct 0, so reviewing everything costs 0.1:
+
+| Arm | Threshold | Accepted | Wrong | Coverage | Mean stipulated cost |
+|---|---:|---:|---:|---:|---:|
+| D, fresh policy | 0.7 | 18/96 | 5 | 18.75% | **0.341667** |
+| G, fresh policy | 0.9 | 34/96 | 1 | 35.42% | **0.116667** |
+| X, fresh policy | 0.8 | 5/96 | 0 | 5.21% | 0.094792 |
+| NLI_CODE, public SNLI | 0.8 | 61/96 | 0 | 63.54% | **0.036458** |
+
+D and G fail to beat review-all on these point costs; X has no observed accepted errors but 5.21% coverage is not
+useful automation or a rare-error guarantee. The compact policies are weaker still: I_FIXED and both open scorers
+accept nothing; policy-only accepts two fresh policy cases with one wrong; replay accepts one correct policy case;
+no NLI case is accepted by any compact policy. Zero coverage has an undefined accepted-error rate, not zero-error
+automation. No threshold was retuned after inspecting confirmation.
+
+**Qwen frozen NLI baseline.** `NLI_CODE` achieves **92.71% accuracy** (89/96) at 152.88 ms median — class recalls
+29/32 contradiction, 31/32 entailment, 29/32 neutral — with 63.54% coverage at threshold 0.8, zero observed errors,
+and mean stipulated cost 0.036458, substantially beating review-all on this sample. This is the run's positive
+automation counterpoint, but zero errors among 61 accepted examples does not certify a rare-error rate in
+deployment, and it is not the full SNLI benchmark or evidence of pretraining decontamination. [E41; V10]
 
 ## 22.7 Confirmed dispositions and next steps
 
@@ -4996,6 +5170,57 @@ artifacts. [§§13.2–13.5; §17.3; E25; E29–E32]
 # Appendix A. Source and reproducibility register
 
 The source IDs below identify the evidence behind the numbered sections. In the accompanying evidence manifest, local snapshot SHA-256 hashes distinguish the exact files reviewed from later Drive edits. Result paths are under `Google Drive / Colab Notebooks`. Timestamps embedded in run IDs are UTC.
+
+**Version 0.8.9/0.8.10 documentation boundary.** Version 0.8.9 added §22 and
+E41/V10 for the completed unified decision validity run; 0.8.10 completes the
+integration across the abstract, executive assessment, research answers, review
+boundary, and this register. Only the two papers are revised. Historical
+results, selections, source registers, and dated interpretations remain intact;
+no notebook, roadmap, architecture, policy threshold, backend, or Drive evidence
+is changed.
+
+**E41: Completed unified decision validity study.**
+Run `20260929T194506_694066Z_dc1f74`, protocol `openkind-unified-decisions/v3.0.0`,
+status `RETAIN_BOUNDED_POSITIVE_RESULTS`; no model, backend, or service promotion.
+Run key `baa2f1ebf0ab02e9f3e4ad795be3330e9cd8c04bcd530cc7992d9f35f0f723bc`;
+archive SHA-256 `2f9b758c8a4c0af86c725eb760e96d88250d209e50118b9bf2b6ede71c54cce1`;
+summary `b4149b1226a3d20ca05e3f63b33d366bb000bf29daec0d0ffc7b8d2879187672`;
+dataset `573585bd877ce15b0a111138a256db419b4dceb5a0cf857aa0f738035db19041`.
+The archive's 81 completed entries comprise 80 completed block result/trace
+receipts plus one explicitly unexecuted INT8 capability record
+(`optional_int8_unavailable`: the host CPU lacks AVX-VNNI); there are zero
+recorded execution failures. Evidence includes `quality_summary.csv`
+(106 arm-by-panel rows over 14,280 technical requests, 660 unique inputs),
+`paired_comparisons.json` (276 source-grouped rows; 2,000-draw bootstrap, seed
+290926), dataset/preparation records (1,860 records: 768/64/64/64/96 authored
+policy and 384/48/48/48/96 SNLI partitions), isolation, robustness, cache,
+first-use, memory, native-scaling, and indecis-scaling block records,
+`calibration_results.json` and `confidence_policies.json` (52 non-derived
+fits/gates; 42 field fits accepted), `class_recall.csv`, `indecis_identity.json`
+(Go implementation `9930c7db1913818db7cee68c1b42a384f59592e3`, Go 1.27.1,
+backbone `hotchpotch/bekko-embedding-v1-a8m` revision
+`c721113d59a1d91b447450324f51c4b3332c924a`), `cpu_execution_parity.json`,
+`scaling_validity.json`, `measurement_gates.json`, execution telemetry, and the
+pinned `source/` notebooks (`unified_data.py`, `unified_native.py`,
+`unified_runner.py`, `unified_indecis.py`, `unified_metrics.py`,
+`indecis_probe.go`). Qwen evidence: publisher Qwen3.5-9B Q4_K_M on Tesla T4;
+Indecis evidence: pinned Go/CPU. Technical repeats, transformed schemas, and
+checkpoints are not additional independent cases.
+
+**V10: Unified results reconciliation and v0.8.9/0.8.10 paper update.** The
+companion reconciliation reconstructs every primary decision and available
+probability vector from saved native/Go replies, re-scores saved gold labels,
+reconciles all 106 quality rows and 276 paired-bootstrap rows, verifies all 80
+receipt hash pairs, 132 dedicated cache pairs, 1,320 CPU execution pairs, 288
+isolation comparisons, 48 schema-robustness comparisons, and 88 scaling
+observations, reproduces the 52 non-derived temperature fits/gates and ten
+development-policy selections, and recomputes task-separated calibration and
+confirmation-policy tables from saved probabilities. These are arithmetic and
+artifact checks, not independent backbone execution, training replication,
+semantic-label adjudication, or rare-error certification. Model binaries and
+separately stored trained weights were not reloaded or independently rehashed.
+The original Drive evidence, notebooks, run ID, and papers are unchanged; the
+completed run ID is never reused.
 
 **Version 0.8.8 documentation boundary.** The editing authorities are the
 attached `WHITEPAPER(6).md` (SHA-256 `10fcd54e7702853b9e65d3f1923a647aae255c37fcc64d45fba3030956e28395`)
@@ -5660,6 +5885,38 @@ entailment. An already-exposed regression panel is not fresh confirmation. [E32]
 
 # Appendix D. Revision history
 
+## Version 0.8.10: completed unified-run integration and §22 detail expansion
+
+30 September 2026, America/Chicago. Completes the integration of completed run
+`20260929T194506_694066Z_dc1f74` (E41/V10) that version 0.8.9 introduced with
+§22. The abstract and executive assessment now carry the unified results; the
+stale "isolation remedy not established" and "routing replay is post-hoc only"
+formulations are superseded by the timed R/GR arms and the passing
+dedicated-process treatments. §12 gains the E41 research answers and an updated
+serving status. §22 records the previously missing run detail: Indecis commit
+and backbone revision pins, the bounded training comparison (386.59 s fixed
+versus 1,849.45 s open at equal 3,456-case exposure), worker RSS ranges, the
+full task-separated calibration and acceptance-policy tables, the calibration
+acceptance rule, NLI_CODE class recalls, isolation block structure (288
+comparisons, recovery composition, 6.3008 GiB single-process memory sample),
+scaling grid coverage (88 observations, eleven cells), and the schema-sensitivity
+qualifications (baseline split, not-48-mistakes, `opaque_key_rename` naming).
+§3.2 gains the 0.8.9/0.8.10 review boundary and Appendix A gains the E41/V10
+register entry with run/archive/summary/dataset digests. No experiment record,
+notebook, roadmap, historical selection, policy threshold, or protected final is
+modified, and no new inference or training is performed.
+
+## Version 0.8.9: unified decision validity study
+
+29 September 2026, America/Chicago. Adds §22 and E41/V10 for completed run
+`20260929T194506_694066Z_dc1f74` (protocol `openkind-unified-decisions/v3.0.0`):
+seven Qwen readout arms (D/R/X/G/GR/J/E) on the 96-case fresh-template panel,
+resident-process isolation of the reproduced mixed-history failure, prompt
+schema sensitivity, cache/first-use and Q/K scaling, and the pinned Indecis
+Go/CPU comparator with weak transfer. Updates §22, part of the chronology, and
+the conclusion; later revisions complete the remaining integration. No model,
+backend, or service is promoted.
+
 ## Version 0.8.8: confirmed 9B/T4 combined path and failed mixed-history qualification
 
 28 September 2026, America/Chicago. Adds §21 and E40/V9 for completed run
@@ -6072,7 +6329,7 @@ Section 14 separates the probe from semantic quality, records a duplicate-questi
 
 **Evidence boundary.** E8 remains the unchanged failed `2h.1.1` attempt and fitting/development source. E9 is the completed continuation with final predictions and an artifact lock; it supersedes the old final-pending status without rewriting the original failure. Completion is separate from numerical acceptance, task generality and deployment readiness. The earlier revision scopes remain in the source and revision registers. [E8; E9]
 
-**Operational plan:** the synchronized [roadmap](../ROADMAP.md) keeps 2H-C1–C5 closed and preserves the blocked `2ij.1.0` review-gated checkpoint. E11–E13 remain the model-selection and Python/native handoff authorities; RUST1–RUST11 remain the native CPU execution and service record. E14–E20 provide the locked Phase 4A corpus and completed architecture, objective, head-only, and evidence-residual studies. E21–E25 record the audit sequence and its separate 51-row and 27-case populations. E26 rejects the tested cheap-prefill readout on non-final data. E27 records a bounded direct-logit comparison with unresolved semantic-none behavior. E28 records the calibrated ranking/rejection sweep: ContractNLI ranks well but over-rejects, and QASPER remains at the answerable-majority decision. Finish source-aligned table/caption/reference repair and review of proposed label/evidence corrections under a new versioned contract before any new representation-learning arm. Do not run seeds 42/123, open final, or promote a checkpoint. Practical high-K latency and separate MLX qualification remain systems work. CPU native parity does not imply Metal or accelerated parity. [E9–E28; RUST1–RUST11; P21–P23; recommendation]
+**Operational plan:** the historical roadmap keeps 2H-C1–C5 closed and preserves the blocked `2ij.1.0` review-gated checkpoint. E11–E13 remain the model-selection and Python/native handoff authorities; RUST1–RUST11 remain the native CPU execution and service record. E14–E20 provide the locked Phase 4A corpus and completed architecture, objective, head-only, and evidence-residual studies. E21–E25 record the audit sequence and its separate 51-row and 27-case populations. E26 rejects the tested cheap-prefill readout on non-final data. E27 records a bounded direct-logit comparison with unresolved semantic-none behavior. E28 records the calibrated ranking/rejection sweep: ContractNLI ranks well but over-rejects, and QASPER remains at the answerable-majority decision. Finish source-aligned table/caption/reference repair and review of proposed label/evidence corrections under a new versioned contract before any new representation-learning arm. Do not run seeds 42/123, open final, or promote a checkpoint. Practical high-K latency and separate MLX qualification remain systems work. CPU native parity does not imply Metal or accelerated parity. [E9–E28; RUST1–RUST11; P21–P23; recommendation]
 
 **Phase 2H reading guide:** [Completed continuation](#1318-completed-continuation-lineage-lock-and-evaluated-scope) · [Final quality and rejection](#1319-selected-model-final-quality-rejection-and-population-weighting) · [All comparison arms](#13110-all-retained-comparisons-the-development-winner-is-not-the-best-final-transfer-arm) · [Source archive and audit](#appendix-a-source-and-reproducibility-register).
 

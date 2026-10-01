@@ -22,9 +22,12 @@ Most pinned profiles are also catalog-installable through `openkind pull`;
 | [`qwen3guard`](./qwen3guard.md) (Stream), `0fcf416cab16d94f933d` | `Qwen/Qwen3Guard-Stream-0.6B` at `419364a715de9840d47b1457982f64ff37f90ed4` | checkpoint direct (digest-verified in place) | [`Qwen3GuardEngine::load`](../../crates/openkind-backends/src/families/qwen3guard/mod.rs) |
 | [`kev`](./kev.md), `39d88c11faeb4ac165fa` | `jaredpalmer/kev-0.6b` at `dece6dba8d43f0f7ded45e9f5b9df12474d90843` over `Qwen/Qwen3-0.6B-Base` at `da87bfb608c14b7cf20ba1ce41287e8de496c0cd` | adapter checkpoint direct; base checkpoint direct (digest-verified in place) | [`KevEngine::load`](../../crates/openkind-backends/src/families/kev/mod.rs) |
 | [`decoder-logit-qwen35`](./decoder-logit-qwen35.md), `415bcf4a064e6dadcf85` | `alibiserikbay/JevK5` at `c4f7fdb3aeab5582336406e78d3bef11bf98833d` (merged Qwen3.5-4B weights) | checkpoint direct (digest-verified in place) | [`DecoderLogitQwen35Engine::load`](../../crates/openkind-backends/src/families/decoder_logit_qwen35/mod.rs) |
+| [`decoder-logit-qwen35`](./decoder-logit-qwen35.md) `plumb-4b` `c1f080794d38e94a0bc2` | `crh225/plumb-4b` at `24f7bf77e7ee258a2d158c61ea2dce2b60321010` (merged Qwen3.5-4B weights, JevK5 v0.2 fine-tune) | checkpoint direct (digest-verified in place) | [`DecoderLogitQwen35Engine::load`](../../crates/openkind-backends/src/families/decoder_logit_qwen35/mod.rs) |
+| [`decider`](./decider.md) `decider-4b` `0529bf6f2bed84641701` | `Mapika/decider-4b` at `eb5fbdfc9448473ec25e399882912863afbdb70e` (merged Qwen3.5-4B weights) | checkpoint direct (digest-verified in place) | [`DeciderEngine::load`](../../crates/openkind-backends/src/families/decider/mod.rs) |
 | [`laya`](./laya.md) `laya-english` `c8ea29bf1e33a343c4b7` | `convaiinnovations/laya` at `55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851` | checkpoint direct (digest-verified in place) | [`LayaEngine::load`](../../crates/openkind-backends/src/families/laya/mod.rs) |
 | [`laya`](./laya.md) `laya-multilingual` `f4064eb56fb7f7d325e1` | `convaiinnovations/laya-multilingual` at `e4e9ddf21a7b1903b7acffd8814ad4307bf63a67` | checkpoint direct (digest-verified in place) | [`LayaEngine::load`](../../crates/openkind-backends/src/families/laya/mod.rs) |
 | [`laya`](./laya.md) `laya-typed-decisions` `9d28cfa9567902801ed1` | `convaiinnovations/laya-typed-decisions` at `1a793eb568e6718f15941d08f85432581df534e3` | checkpoint direct (digest-verified in place) | [`LayaEngine::load`](../../crates/openkind-backends/src/families/laya/mod.rs) |
+| [`von`](./von.md), `69219703407bd39cca0c` | `wfzyx/von` at `d8bb5e0745d8ee1fb65d536d6d4892d54d5a93fd` (author's `option_marker.pt` pickle) | checkpoint direct (digest-verified in place) | [`VonEngine::load`](../../crates/openkind-backends/src/families/von/mod.rs) |
 | [`router-script`](./router-script.md) | none — Unicode script detector over registered siblings | no artifacts (rule table) | [`RouterScriptEngine::new`](../../crates/openkind-backends/src/families/router_script/mod.rs) |
 | [`winnow`](./winnow.md), `4dff8c5b03cfbf680db6` | `Qwen/Qwen2.5-0.5B-Instruct` at `7ae557604adf67be50417f59c2c2f167def9a775` + in-house LoRA (vendored) | adapter vendored, base checkpoint direct | [`WinnowEngine::load`](../../crates/openkind-backends/src/families/winnow/mod.rs) |
 | [`encoder-embedding`](./encoder-embedding.md), `8d9498269ef05d95d93c` | `BAAI/bge-small-en-v1.5` at `5c38ec7c405ec4b44b94cc5a9bb96e735b38267a` | checkpoint direct (digest-verified in place) | [`BertEmbedder::load`](../../crates/openkind-backends/src/proxy_cache/bert_encoder.rs); MLX: [`MlxBertEmbedder::load`](../../crates/openkind-backends/src/proxy_cache/mlx_bert_encoder.rs) |
@@ -171,7 +174,7 @@ it carries no model-quality claim.
 | [jeeves](./jeeves.md) | Qwen3.5-9B with a pointer head and optional generated reasoning | Surveyed; pinned external CUDA download/launch helper, no Rust loader or catalog entry |
 | [decoder-logit-qwen35](./decoder-logit-qwen35.md) | Qwen3.5 hybrid decoder with a letter next-token-logit readout and knockout combination | Rust-loadable (prototype profile, published open checkpoint) |
 | [laya](./laya.md) | ModernBERT-family encoder with a typed-decision marker head and shipped temperature calibration | Rust-loadable (three prototype profiles, reference-parity readout) |
-| [von](./von.md) | Encoder head trained against the published `von` contract | Blocked — external-reference-only (weights and contract unowned) |
+| [von](./von.md) | ModernBERT option-marker encoder scoring all options jointly in one pass | Rust-loadable (prototype profile, published open checkpoint) |
 | [schema-scorer](./schema-scorer.md) | Single-logit cross-encoder for the Jev question schema | Rust-loadable (prototype profile, open-weights realization) |
 | [qwen3guard](./qwen3guard.md) | Decoder fine-tune for fixed-preset safety verdicts | Rust-loadable (Stream variant, prototype profile) |
 | [encoder-embedding](./encoder-embedding.md) | Frozen BERT sentence encoder (CLS pooling, L2-normalized) feeding the proxy-cache distilling student | Rust-loadable (prototype profile; candle CPU + optional MLX) |
@@ -191,7 +194,6 @@ canonical owners are:
 | Subject | Canonical owner |
 |---|---|
 | Loadable-model index for operators: types, pull names, backends, sizes, measured runs | [`../MODELS.md`](../MODELS.md) |
-| Current milestones and remaining work | [`../ROADMAP.md`](../ROADMAP.md) |
 | Landed crate boundaries and data flow | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) |
 | Benchmark methods and recorded results | [`../BENCHMARKS.md`](../BENCHMARKS.md) |
 | MLX runtime contract and limitations | [`../MLX.md`](../MLX.md) |

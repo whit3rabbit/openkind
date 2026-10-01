@@ -48,7 +48,7 @@ It defines:
 - [`src/digest.rs`](./src/digest.rs):
   - Role-domain-separated SHA-256 digests over fixed-width little-endian token IDs (never textual renderings). `ExecutionInputDigest` is order-sensitive (the reproducibility identity); `SemanticSetDigest` is order-independent (invariance/isolation testing).
 - [`src/evidence/`](./src/evidence/):
-  - `NativeRunWriter`: writes `RUN.json`/`PROFILE.json`/optional reports/`predictions.jsonl`/`checksums.json` under one run directory. Invocation records are structured and sanitized — raw `argv` is never recorded, run IDs outside `[A-Za-z0-9._-]` are rejected, and `contains_input_content`/`contains_sensitive_paths` flags state what was written.
+  - `NativeRunWriter` writes `RUN.json`, `PROFILE.json`, optional reports, `predictions.jsonl`, and `checksums.json` under one run directory. It omits raw `argv`, rejects run IDs outside `[A-Za-z0-9._-]`, and records whether input content or sensitive paths were written.
 - [`src/branch/`](./src/branch/):
   - [`src/branch/state.rs`](./src/branch/state.rs):
     - `pub trait BranchableState: Send + Sync`: `fork_one()`, `fork_batch(lanes)`, `position()`, `tensor_storage_bytes()`, `scheduling_fingerprint()`.

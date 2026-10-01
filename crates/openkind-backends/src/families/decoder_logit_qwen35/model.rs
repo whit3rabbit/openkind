@@ -11,10 +11,7 @@ use std::path::{Path, PathBuf};
 use crate::families::support::{read_json, verify_digest, FamilyControl, FamilyError};
 use crate::qwen35::{EmbeddingLayout, TextBackbone};
 
-use super::{
-    pinned_config, CHECKPOINT_SHA256, CONFIG_JSON_SHA256, RUNTIME_CONFIG_SHA256,
-    TOKENIZER_JSON_SHA256,
-};
+use super::{pinned_config, Qwen35LogitProfile};
 
 /// Vocab size and hidden width the tied embedding table must have.
 pub(super) const VOCAB_SIZE: usize = 248_320;
@@ -31,16 +28,16 @@ pub struct VerifiedArtifacts {
 }
 
 impl VerifiedArtifacts {
-    /// Verify the pinned artifacts in place.
+    /// Verify the pinned artifacts of `profile` in place.
     ///
     /// Cheap contract checks run first so a drifted config, tokenizer, or
     /// runtime-config digest fails before the multi-gigabyte checkpoint is
     /// streamed for its digest.
-    pub fn verify(model_root: &Path) -> Result<Self, FamilyError> {
+    pub fn verify(model_root: &Path, profile: &Qwen35LogitProfile) -> Result<Self, FamilyError> {
         let checkpoint = model_root.join("model.safetensors");
         let tokenizer = model_root.join("tokenizer.json");
         let config_path = model_root.join("config.json");
-        let runtime_config_path = model_root.join("jevk5_config.json");
+        let runtime_config_path = model_root.join(profile.runtime_config_path);
         // Cheap artifacts first: existence, digest, and contract checks fail
         // fast before the multi-gigabyte checkpoint is even opened.
         for path in [&tokenizer, &config_path, &runtime_config_path] {
@@ -54,9 +51,9 @@ impl VerifiedArtifacts {
                 });
             }
         }
-        verify_digest(&config_path, CONFIG_JSON_SHA256)?;
-        verify_digest(&tokenizer, TOKENIZER_JSON_SHA256)?;
-        verify_digest(&runtime_config_path, RUNTIME_CONFIG_SHA256)?;
+        verify_digest(&config_path, profile.config_json_sha256)?;
+        verify_digest(&tokenizer, profile.tokenizer_json_sha256)?;
+        verify_digest(&runtime_config_path, profile.runtime_config_sha256)?;
 
         let config_json: serde_json::Value = read_json(&config_path)?;
         for (field, expected) in pinned_config() {
@@ -80,7 +77,7 @@ impl VerifiedArtifacts {
                 ),
             });
         }
-        verify_digest(&checkpoint, CHECKPOINT_SHA256)?;
+        verify_digest(&checkpoint, profile.checkpoint_sha256)?;
         Ok(Self {
             checkpoint,
             tokenizer,
@@ -90,7 +87,10 @@ impl VerifiedArtifacts {
 
 /// Resolve a dotted config path such as `rope_parameters.rope_theta` or an
 /// `architectures[0]` list index.
-fn resolve_config_field(value: &serde_json::Value, field: &str) -> Option<serde_json::Value> {
+pub(crate) fn resolve_config_field(
+    value: &serde_json::Value,
+    field: &str,
+) -> Option<serde_json::Value> {
     let mut current = value;
     for segment in field.split('.') {
         if let Some(name) = segment.strip_suffix("[0]") {

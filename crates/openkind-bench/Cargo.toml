@@ -12,6 +12,7 @@ openkind-core = { workspace = true }
 openkind-engine = { workspace = true }
 openkind-backends = { workspace = true }
 openkind-runtime = { workspace = true }
+openkind-datasets = { workspace = true }
 anyhow = { workspace = true }
 clap = { workspace = true }
 serde = { workspace = true }
@@ -23,6 +24,13 @@ rand = "0.9"
 [[bin]]
 name = "openkind-bench"
 path = "src/main.rs"
+
+[dev-dependencies]
+tempfile = "3"
+arrow-array = { workspace = true }
+arrow-buffer = { version = "=60.0.0" }
+arrow-schema = { workspace = true }
+parquet = { workspace = true }
 
 [features]
 # MLX engine dispatch for the `score` subcommand (macOS arm64). Mirrors the

@@ -1,0 +1,441 @@
+{
+ "backbone": {
+  "id": "wfzyx/von",
+  "revision": "d8bb5e0745d8ee1fb65d536d6d4892d54d5a93fd"
+ },
+ "profile_id": "69219703407bd39cca0c",
+ "execution_arithmetic": "candle-cpu-fp32-von",
+ "probability_tolerance": 0.005,
+ "calibration": {
+  "source": "shipped marker_calibration.json input-conditioned map with the reference [lo, hi] clamp",
+  "temperature": 2.2,
+  "calibration_map": {
+   "bias": 0.2056,
+   "entropy": -3.255,
+   "log_tokens": 20.2391,
+   "n_options": -5.2263,
+   "lo": 0.3,
+   "hi": 12.0
+  }
+ },
+ "renderer": {
+  "packed": "Which option is explicitly recorded in the state? Fictional incident record. The asset operating system is Windows. [SEP] [MASK] Linux [MASK] Windows",
+  "ids": [
+   50281,
+   7371,
+   4500,
+   310,
+   11120,
+   5950,
+   275,
+   253,
+   1375,
+   32,
+   401,
+   15835,
+   7119,
+   1924,
+   15,
+   380,
+   15231,
+   6498,
+   985,
+   310,
+   7464,
+   15,
+   209,
+   50282,
+   50284,
+   13492,
+   50284,
+   7464,
+   50282
+  ],
+  "mask_positions": [
+   24,
+   26
+  ],
+  "specials": {
+   "cls": 50281,
+   "sep": 50282,
+   "pad": 50283,
+   "mask": 50284
+  }
+ },
+ "provenance": {
+  "generator": "gen-von-fixture (von-sdk 1.1 reference semantics: plain attention, no digit split, raw noul posterior, zero-shot 0.7 debias)",
+  "case_construction": "deterministic states and criteria; choice candidate order is the sorted wire order shared with openkind's map parser"
+ },
+ "cases": [
+  {
+   "name": "choice-two",
+   "request": {
+    "model": "fixture",
+    "state": "Fictional incident record. The asset operating system is Windows. ",
+    "questions": {
+     "q0": {
+      "type": "choice",
+      "instructions": "Which option is explicitly recorded in the state?",
+      "criteria": {
+       "Linux": null,
+       "Windows": null
+      }
+     }
+    }
+   },
+   "response": {
+    "answers": {
+     "q0": {
+      "type": "choice",
+      "choice": "Windows",
+      "probabilities": {
+       "Linux": 0.1489795297384262,
+       "Windows": 0.8510205149650574
+      }
+     }
+    },
+    "usage": {
+     "input_tokens": 29,
+     "output_tokens": 0
+    }
+   }
+  },
+  {
+   "name": "choice-three-described",
+   "request": {
+    "model": "fixture",
+    "state": "Fictional incident record. The asset operating system is Windows. ",
+    "questions": {
+     "q0": {
+      "type": "choice",
+      "instructions": "Route the ticket.",
+      "criteria": {
+       "refund": "Issue a refund",
+       "track": "Help track the package",
+       "escalate": "Escalate to a human agent"
+      }
+     }
+    }
+   },
+   "response": {
+    "answers": {
+     "q0": {
+      "type": "choice",
+      "choice": "track",
+      "probabilities": {
+       "escalate": 0.3010832965373993,
+       "refund": 0.1290806382894516,
+       "track": 0.5698360800743103
+      }
+     }
+    },
+    "usage": {
+     "input_tokens": 37,
+     "output_tokens": 0
+    }
+   }
+  },
+  {
+   "name": "choice-none-offered",
+   "request": {
+    "model": "fixture",
+    "state": "Fictional incident record. The asset operating system is Windows. ",
+    "questions": {
+     "q0": {
+      "type": "choice",
+      "instructions": "Which option applies?",
+      "criteria": {
+       "a": "Approve the request",
+       "__none__": "Neither applies",
+       "b": "Reject the request"
+      }
+     }
+    }
+   },
+   "response": {
+    "answers": {
+     "q0": {
+      "type": "choice",
+      "choice": "__none__",
+      "probabilities": {
+       "__none__": 0.6089836359024048,
+       "a": 0.02734103798866272,
+       "b": 0.3636753261089325
+      }
+     }
+    },
+    "usage": {
+     "input_tokens": 33,
+     "output_tokens": 0
+    }
+   }
+  },
+  {
+   "name": "noul-default-criteria",
+   "request": {
+    "model": "fixture",
+    "state": "Fictional incident record. The asset operating system is Windows. ",
+    "questions": {
+     "q0": {
+      "type": "noul",
+      "instructions": "The asset runs Windows."
+     }
+    }
+   },
+   "response": {
+    "answers": {
+     "q0": {
+      "type": "noul",
+      "noul": 0.68477463722229
+     }
+    },
+    "usage": {
+     "input_tokens": 58,
+     "output_tokens": 0
+    }
+   }
+  },
+  {
+   "name": "noul-explicit-criteria",
+   "request": {
+    "model": "fixture",
+    "state": "Fictional incident record. The asset operating system is Windows. ",
+    "questions": {
+     "q0": {
+      "type": "noul",
+      "instructions": "The asset runs macOS.",
+      "criteria": {
+       "true": "The record states macOS.",
+       "false": "The record states otherwise."
+      }
+     }
+    }
+   },
+   "response": {
+    "answers": {
+     "q0": {
+      "type": "noul",
+      "noul": 0.20010773837566376
+     }
+    },
+    "usage": {
+     "input_tokens": 35,
+     "output_tokens": 0
+    }
+   }
+  },
+  {
+   "name": "score-three",
+   "request": {
+    "model": "fixture",
+    "state": "Fictional incident record. The asset operating system is Windows. ",
+    "questions": {
+     "q0": {
+      "type": "score",
+      "instructions": "Rate severity.",
+      "criteria": [
+       "low",
+       "medium",
+       "high"
+      ]
+     }
+    }
+   },
+   "response": {
+    "answers": {
+     "q0": {
+      "type": "score",
+      "score": 1.04,
+      "probabilities": {
+       "0": 0.1872001588344574,
+       "1": 0.5893456935882568,
+       "2": 0.22345417737960815
+      },
+      "legend": {
+       "0": "low",
+       "1": "medium",
+       "2": "high"
+      }
+     }
+    },
+    "usage": {
+     "input_tokens": 25,
+     "output_tokens": 0
+    }
+   }
+  },
+  {
+   "name": "score-five",
+   "request": {
+    "model": "fixture",
+    "state": "Fictional incident record. The asset operating system is Windows. ",
+    "questions": {
+     "q0": {
+      "type": "score",
+      "instructions": "Rate priority.",
+      "criteria": [
+       "blocker",
+       "critical",
+       "major",
+       "minor",
+       "trivial"
+      ]
+     }
+    }
+   },
+   "response": {
+    "answers": {
+     "q0": {
+      "type": "score",
+      "score": 3.67,
+      "probabilities": {
+       "0": 3.3540400181664154e-05,
+       "1": 0.00023087697627488524,
+       "2": 0.05808059498667717,
+       "3": 0.21769820153713226,
+       "4": 0.723956823348999
+      },
+      "legend": {
+       "0": "blocker",
+       "1": "critical",
+       "2": "major",
+       "3": "minor",
+       "4": "trivial"
+      }
+     }
+    },
+    "usage": {
+     "input_tokens": 29,
+     "output_tokens": 0
+    }
+   }
+  },
+  {
+   "name": "mask-literal-neutralised",
+   "request": {
+    "model": "fixture",
+    "state": "Fictional incident record. The asset operating system is Windows. The note says [MASK] and [SEP] verbatim.",
+    "questions": {
+     "q0": {
+      "type": "choice",
+      "instructions": "Which note token appears?",
+      "criteria": {
+       "mask": "The [MASK] note",
+       "sep": "The [SEP] note"
+      }
+     }
+    }
+   },
+   "response": {
+    "answers": {
+     "q0": {
+      "type": "choice",
+      "choice": "mask",
+      "probabilities": {
+       "mask": 0.7378706336021423,
+       "sep": 0.2621293365955353
+      }
+     }
+    },
+    "usage": {
+     "input_tokens": 56,
+     "output_tokens": 0
+    }
+   }
+  },
+  {
+   "name": "state-middle-truncated",
+   "request": {
+    "model": "fixture",
+    "state": "Policy clause 0. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 1. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 2. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 3. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 4. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 5. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 6. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 7. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 8. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 9. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 10. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 11. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 12. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 13. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 14. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 15. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 16. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 17. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 18. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 19. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 20. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 21. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 22. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 23. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 24. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 25. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 26. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 27. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 28. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 29. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 30. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 31. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 32. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 33. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 34. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 35. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 36. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 37. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 38. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 39. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 40. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 41. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 42. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 43. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 44. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 45. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 46. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 47. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 48. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 49. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 50. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 51. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 52. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 53. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 54. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 55. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 56. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 57. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 58. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 59. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 60. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 61. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 62. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 63. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 64. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 65. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 66. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 67. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 68. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 69. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 70. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 71. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 72. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 73. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 74. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 75. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 76. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 77. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 78. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 79. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 80. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 81. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 82. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 83. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 84. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 85. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 86. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 87. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 88. The reviewer must weigh the operating evidence against the written standard before deciding. Policy clause 89. The reviewer must weigh the operating evidence against the written standard before deciding. ",
+    "questions": {
+     "q0": {
+      "type": "choice",
+      "instructions": "Does the policy mention reviewer?",
+      "criteria": {
+       "yes": "It does",
+       "no": "It does not"
+      }
+     }
+    }
+   },
+   "response": {
+    "answers": {
+     "q0": {
+      "type": "choice",
+      "choice": "yes",
+      "probabilities": {
+       "no": 0.46886229515075684,
+       "yes": 0.5311377644538879
+      }
+     }
+    },
+    "usage": {
+     "input_tokens": 1637,
+     "output_tokens": 0
+    }
+   }
+  },
+  {
+   "name": "multi-question",
+   "request": {
+    "model": "fixture",
+    "state": "Fictional incident record. The asset operating system is Windows. ",
+    "questions": {
+     "q1": {
+      "type": "noul",
+      "instructions": "The asset runs Windows."
+     },
+     "q0": {
+      "type": "choice",
+      "instructions": "Which OS?",
+      "criteria": {
+       "linux": null,
+       "windows": null
+      }
+     },
+     "q2": {
+      "type": "score",
+      "instructions": "Rate urgency.",
+      "criteria": [
+       "low",
+       "high"
+      ]
+     }
+    }
+   },
+   "response": {
+    "answers": {
+     "q1": {
+      "type": "noul",
+      "noul": 0.68477463722229
+     },
+     "q0": {
+      "type": "choice",
+      "choice": "windows",
+      "probabilities": {
+       "linux": 0.11547266691923141,
+       "windows": 0.884527325630188
+      }
+     },
+     "q2": {
+      "type": "score",
+      "score": 0.66,
+      "probabilities": {
+       "0": 0.3380741477012634,
+       "1": 0.6619259119033813
+      },
+      "legend": {
+       "0": "low",
+       "1": "high"
+      }
+     }
+    },
+    "usage": {
+     "input_tokens": 104,
+     "output_tokens": 0
+    }
+   }
+  }
+ ]
+}

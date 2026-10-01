@@ -105,8 +105,8 @@ frame.
   sequences fail closed, truncation is forbidden.
 - `MAX_CANDIDATES = 25` (the checkpoint's trained `max_num_classes`); more
   markers leave the head's training envelope and are rejected at the wire.
-- The profile is zero-shot; the M2 useful-decision gate in
-  [`../ROADMAP.md`](../ROADMAP.md) has not run for it. The 32/36 ticket
+- The profile is zero-shot; the M2 useful-decision gate
+  has not run for it. The 32/36 ticket
   battery above is checkpoint-selection evidence, not a recorded
   classification evaluation: no dataset revision, seed, or retained
   operating point is claimed here.

@@ -106,6 +106,7 @@ pub enum Commands {
     },
     /// Download and verify a curated model.
     Pull {
+        /// Curated pull name or one of its catalog aliases (see `openkind catalog`).
         name: String,
         #[arg(long, env = "OPENKIND_MODELS_DIR")]
         models_dir: Option<PathBuf>,

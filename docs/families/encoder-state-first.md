@@ -11,12 +11,10 @@ loader. The provisional profile is `a047d6802c3f06f085b8` over
 `Qwen/Qwen3.5-4B-Base`. A daemon registers a loaded instance under a configured
 model alias. The pinned artifact revisions and a working Rust loading example
 are in the [model registry](./README.md#runnable-model-profiles) and its
-[Rust loading guide](./README.md#load-the-profile-from-rust). Status,
-milestones, and remaining work are owned
-by [`../ROADMAP.md`](../ROADMAP.md); landed contracts are owned by
-[`../ARCHITECTURE.md`](../ARCHITECTURE.md); MLX backend specifics are
-owned by [`../MLX.md`](../MLX.md); benchmark methodology is owned by
-[`../BENCHMARKS.md`](../BENCHMARKS.md).
+[Rust loading guide](./README.md#load-the-profile-from-rust). Landed
+contracts are owned by [`../ARCHITECTURE.md`](../ARCHITECTURE.md); MLX backend
+specifics are owned by [`../MLX.md`](../MLX.md); benchmark methodology is owned
+by [`../BENCHMARKS.md`](../BENCHMARKS.md).
 
 Do not reproduce any quantitative claim from those documents on this page.
 If a measurement is missing from them, it is missing from `openkind`.
@@ -62,8 +60,9 @@ This page does not republish that narrative.
 
 ## Open questions blocking promotion
 
-Inherited from the active milestone sequence in
-[`../ROADMAP.md`](../ROADMAP.md) and not specific to this family:
+Inherited from the qualification criteria in
+[`../RESEARCH.md`](../RESEARCH.md) and [`../whitepaper/WHITEPAPER.md`](../whitepaper/WHITEPAPER.md)
+and not specific to this family:
 
 - A pinned reviewed workload (M0)
 - A repaired source-to-input evidence contract (M1)
@@ -85,7 +84,7 @@ before any release-quality claim:
 This page does not state timings, ECE, NLL, memory footprints, or any
 other quantitative claim. Those belong to
 [`../BENCHMARKS.md`](../BENCHMARKS.md) and the verification reports
-linked from [`../ROADMAP.md`](../ROADMAP.md). The pinned profile id,
+in [`../verification/`](../verification/). The pinned profile id,
 backbone, bundle sha256, calibration temperature, policy threshold, and
 probability tolerance are documented in the parent
 [`../../README.md`](../../README.md) and

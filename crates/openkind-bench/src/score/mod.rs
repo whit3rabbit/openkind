@@ -196,6 +196,7 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
             ),
             EngineKind::DecoderLogitQwen35 => Arc::new(
                 DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
+                    profile: &openkind_backends::families::decoder_logit_qwen35::JEVK5,
                     model_root: model_root.expect("gated").clone(),
                     limits: FamilyLimits {
                         max_concurrent_requests: 1,
@@ -205,6 +206,34 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
                     },
                 })
                 .map_err(|error| anyhow::anyhow!("load decoder-logit-qwen35 engine: {error}"))?,
+            ),
+            EngineKind::Plumb4b => Arc::new(
+                DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
+                    profile: &openkind_backends::families::decoder_logit_qwen35::PLUMB_4B,
+                    model_root: model_root.expect("gated").clone(),
+                    limits: FamilyLimits {
+                        max_concurrent_requests: 1,
+                        max_queued_requests: 0,
+                        retry_after_ms: 250,
+                        evaluation_timeout: None,
+                    },
+                })
+                .map_err(|error| anyhow::anyhow!("load plumb-4b engine: {error}"))?,
+            ),
+            EngineKind::Decider4b => Arc::new(
+                openkind_backends::families::decider::DeciderEngine::load(
+                    openkind_backends::families::decider::DeciderEngineConfig {
+                        profile: &openkind_backends::families::decider::DECIDER_4B,
+                        model_root: model_root.expect("gated").clone(),
+                        limits: FamilyLimits {
+                            max_concurrent_requests: 1,
+                            max_queued_requests: 0,
+                            retry_after_ms: 250,
+                            evaluation_timeout: None,
+                        },
+                    },
+                )
+                .map_err(|error| anyhow::anyhow!("load decider-4b engine: {error}"))?,
             ),
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             EngineKind::EncoderInstructLabelMlxFp32 => Arc::new(
@@ -224,6 +253,7 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             EngineKind::DecoderLogitQwen35MlxFp32 => Arc::new(
                 DecoderLogitQwen35MlxEngine::load(DecoderLogitQwen35MlxEngineConfig {
+                    profile: &openkind_backends::families::decoder_logit_qwen35::JEVK5,
                     model_root: model_root.expect("gated").clone(),
                     limits: FamilyLimits {
                         max_concurrent_requests: 1,
@@ -235,6 +265,20 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
                 .map_err(|error| {
                     anyhow::anyhow!("load decoder-logit-qwen35 mlx engine: {error}")
                 })?,
+            ),
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::Plumb4bMlxFp32 => Arc::new(
+                DecoderLogitQwen35MlxEngine::load(DecoderLogitQwen35MlxEngineConfig {
+                    profile: &openkind_backends::families::decoder_logit_qwen35::PLUMB_4B,
+                    model_root: model_root.expect("gated").clone(),
+                    limits: FamilyLimits {
+                        max_concurrent_requests: 1,
+                        max_queued_requests: 0,
+                        retry_after_ms: 250,
+                        evaluation_timeout: None,
+                    },
+                })
+                .map_err(|error| anyhow::anyhow!("load plumb-4b mlx engine: {error}"))?,
             ),
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             EngineKind::LayaEnglishMlxFp32
@@ -263,6 +307,21 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
                 };
                 load_laya_engine(args.engine, model_root.expect("gated").clone(), limits)?
             }
+            EngineKind::Von => Arc::new(
+                openkind_backends::families::von::VonEngine::load(
+                    openkind_backends::families::von::VonEngineConfig {
+                        profile: &openkind_backends::families::von::VON,
+                        model_root: model_root.expect("gated").clone(),
+                        limits: FamilyLimits {
+                            max_concurrent_requests: 1,
+                            max_queued_requests: 0,
+                            retry_after_ms: 250,
+                            evaluation_timeout: None,
+                        },
+                    },
+                )
+                .map_err(|error| anyhow::anyhow!("load von engine: {error}"))?,
+            ),
             EngineKind::EncoderNli => Arc::new(
                 EncoderNliEngine::load(EncoderNliEngineConfig {
                     model_root: model_root.expect("gated").clone(),

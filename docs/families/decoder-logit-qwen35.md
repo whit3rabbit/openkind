@@ -9,22 +9,42 @@
 
 ## Status in openkind
 
-**Rust-loadable (prototype profile).** The pinned profile
-`415bcf4a064e6dadcf85` serves `alibiserikbay/JevK5` v0.3 (Apache-2.0) at
-`c4f7fdb3aeab5582336406e78d3bef11bf98833d` — Qwen3.5-4B with the author's
-distilled rank-16 LoRA already merged into the weights. The loader
-verifies `config.json`, `tokenizer.json`, `jevk5_config.json`, and the
-single-file BF16 checkpoint by SHA-256 in place, executes the shared native
-FP32 CPU backbone
+**Rust-loadable (prototype profiles).** Two pinned profiles share this
+module (the `laya` multi-profile precedent):
+
+- **`decoder-logit-qwen35` `415bcf4a064e6dadcf85`** — `alibiserikbay/JevK5`
+  v0.3 (Apache-2.0) at `c4f7fdb3aeab5582336406e78d3bef11bf98833d`,
+  Qwen3.5-4B with the author's distilled rank-16 LoRA already merged into
+  the weights; reference knockout runtime calibration (letter temperature
+  1.22, knockout temperature 0.93 from `jevk5_config.json`).
+- **`plumb-4b` `c1f080794d38e94a0bc2`** — `crh225/plumb-4b` (Apache-2.0)
+  at `24f7bf77e7ee258a2d158c61ea2dce2b60321010`, a further JevK5 v0.2
+  fine-tune merged to BF16; `jevk5` v0.2.0 **single-read** semantics (no
+  knockout schedule, questions above 16 options fail closed) with the
+  author server's per-type temperatures (choice/noul 2.07, score 1.2;
+  `jevk5_config.json` pins 2.07). The reference server's JevBench
+  `--noul-commit` band reporting is a scoring policy, not the model
+  distribution, and is deliberately not reproduced.
+
+The loader verifies `config.json`, `tokenizer.json`, the profile's runtime
+config, and the single-file BF16 checkpoint by SHA-256 in place, executes
+the shared native FP32 CPU backbone
 ([`qwen35/backbone`](../../crates/openkind-backends/src/qwen35/backbone/)),
 reads the tied output-embedding rows of the answer letters as the readout
-projection, and applies the pinned calibration temperatures
-(`jevk5_config.json`: letter temperature 1.22, knockout temperature 0.93).
-It serves through `openkindd` via
-`--decoder-logit-qwen35-aliases` / `--decoder-logit-qwen35-model-root` and is
-benchmarked through `openkind-bench score --engine decoder-logit-qwen35`.
+projection, and applies the profile's pinned calibration. Profiles serve
+through `openkindd` via `--decoder-logit-qwen35-aliases` /
+`--decoder-logit-qwen35-model-root` (JevK5) and `--plumb-4b-aliases` /
+`--plumb-4b-model-root` (Plumb-4B), and are benchmarked through
+`openkind-bench score --engine decoder-logit-qwen35|plumb-4b`.
 
-It is catalog-installable offline-first: `openkind pull decoder-logit-qwen35:415bcf4a064e6dadcf85` downloads the pinned artifacts, verifies every SHA-256, and installs them for `--installed-models` (see [`../MODELS.md`](../MODELS.md)).
+Both are catalog-installable offline-first: `openkind pull
+decoder-logit-qwen35:415bcf4a064e6dadcf85` or `openkind pull plumb-4b:c1f080794d38e94a0bc2`
+downloads the pinned artifacts, verifies every SHA-256, and installs them
+for `--installed-models` (see [`../MODELS.md`](../MODELS.md)). The catalog
+also carries the ollaya-compatible alias `jevk5:4b` — ollaya serves the
+same JevK5 v0.3 model as the author's Q8_0 GGUF, while this profile serves
+the pinned unquantized BF16 checkpoint — and the board-name alias
+`plumb:4b`; aliases resolve to the canonical pull name at pull time.
 
 **MLX backend (2026-09-29).** The same pinned artifacts also run on the
 MLX/Metal backend (feature `mlx`, macOS arm64): `openkindd
@@ -50,8 +70,8 @@ ever sampled.
 | Tokenization | Pinned Qwen chat template with thinking off; the decision is one JSON user message (`evidence`, `criterion`, lettered `options`) |
 | Forward pattern | One full-sequence forward per pass; up to 16 options per pass |
 | Readout | Final-position hidden state dotted with the tied embedding rows of the option letters; softmax at the letter temperature |
-| Wide questions | The reference knockout schedule: near-equal groups of ≤ 16, a 16-finalist final pass, and knockout-temperature sharpening |
-| Work limits | At most 32 options, 512 rendered tokens per pass, and 1,536 aggregate rendered tokens per question |
+| Wide questions | JevK5: the reference knockout schedule (near-equal groups of ≤ 16, a 16-finalist final pass, knockout-temperature sharpening). Plumb-4B: none — the reference `jevk5` v0.2.0 runtime has no knockout schedule and questions above 16 options fail closed |
+| Work limits | JevK5: at most 32 options, 512 rendered tokens per pass, 1,536 aggregate per question. Plumb-4B: at most 16 options, 16,384 rendered tokens (the reference server's frozen admission) |
 | Interruption | Caller cancellation and the queue-inclusive deadline are checked before and after every pass and decoder layer |
 | Continuation state | None — cache-free full forwards only |
 | Text generation | None |
@@ -73,8 +93,8 @@ to the sorted candidate order used by the shared wire mapping.
 
 | JevBench rank | System | Checkpoint | Profile status |
 |---|---|---|---|
-| 5 | JevK5 v0.3 | `alibiserikbay/JevK5` (pinned revision) | Rust-loadable prototype |
-| 2 | Plumb-4B | `crh225/plumb-4b` (JevK5 fine-tune, temperature 2.07) | surveyed — second profile pending |
+| 4 | JevK5 v0.3 | `alibiserikbay/JevK5` (pinned revision) | Rust-loadable prototype |
+| 5 | Plumb-4B | `crh225/plumb-4b` (JevK5 v0.2 fine-tune, single read, temperature 2.07/1.2) | Rust-loadable prototype (`plumb-4b:c1f080794d38e94a0bc2`) |
 | 17 | spark-s1-4b-v6 | `abhishek085/spark-s1-4b-v6` (same backbone, menu-style renderer instead of the JSON payload) | surveyed — renderer variant needs its own profile |
 | 13 | SemIf | `TheoLeeCJ/openjev` | Blocked — gated checkpoint (Hub 401/404 with our credentials, 2026-09-27); the readout protocol itself is already implemented here |
 | 14 | Jobe Qwen3.5-4B | `MantisShrimpdev/jobe` | Blocked — gated checkpoint |
@@ -86,10 +106,8 @@ Qwen3.5 rebuilds on the leaderboard.
 
 ## What remains open
 
-- The Plumb-4B second profile (same runtime, own checkpoint and temperature)
-  is surveyed but not loaded.
-- No M2 reviewed-decision gate has run for this profile; its operating point
-  is provisional and it carries no model-quality claim.
+- No M2 reviewed-decision gate has run for either profile; their operating
+  points are provisional and they carry no model-quality claim.
 - Native FP32 CPU execution costs seconds per pass on the reference host;
   the MLX backend removes most of that cost for this family's shapes, but
   neither backend carries a model-quality claim.

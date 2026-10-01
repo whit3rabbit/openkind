@@ -46,11 +46,11 @@ and the router adds no admission control of its own.
 
 ## What remains open
 
-- The M0 supported workload in [`../ROADMAP.md`](../ROADMAP.md)
+- The supported workload scope
   has not locked the languages or scripts the engine must serve. The
   shipped rule table is provisional (daemon default:
   `latin`, `cyrillic`, and `default` lanes over decoder-letter and
-  encoder-nli siblings); M0 owns the final script scope.
+  encoder-nli siblings); future qualification owns the final script scope.
 - Branching on script alone (Latin vs Cyrillic vs Han etc.) is
   sufficient for the multilingual decision but cannot tell the difference
   between, say, German and Turkish Latin-script text. The family is
@@ -64,8 +64,7 @@ and the router adds no admission control of its own.
 
 ## Open questions
 
-- Which scripts and languages does the M0 workload actually require?
-  Owned by [`../ROADMAP.md`](../ROADMAP.md).
+- Which scripts and languages does the supported workload actually require?
 - Does the router need to participate in the M2 reviewed-decision
   contract, or only in M3 lower-cost evaluation?
 - Where does the router live in the crate topology? The current

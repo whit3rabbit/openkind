@@ -13,7 +13,7 @@ use thiserror::Error;
 /// The production catalog mirrors the static file in this repository. Its
 /// digest is pinned below so the mutable mirror cannot authorize new content.
 pub const CATALOG_URL: &str = "https://raw.githubusercontent.com/whit3rabbit/openkind-model-registry/main/registry/v1/catalog.json";
-pub const CATALOG_SHA256: &str = "105d6e877636099e35d02e7efefd610109d003d11007c1b2c4666680126d9ddf";
+pub const CATALOG_SHA256: &str = "12333d91085674f8713e23b18c646e12a3c772059ff5e9ad39048772d4cfe2ab";
 pub const QWEN35_STATE_FIRST_MODEL_NAME: &str = "qwen35-state-first:a047d6802c3f06f085b8";
 /// Pinned laya English decision-encoder model name.
 pub const LAYA_ENGLISH_MODEL_NAME: &str = "laya-english:c8ea29bf1e33a343c4b7";
@@ -37,6 +37,12 @@ pub const QWEN3GUARD_MODEL_NAME: &str = "qwen3guard:0fcf416cab16d94f933d";
 pub const KEV_MODEL_NAME: &str = "kev:39d88c11faeb4ac165fa";
 /// Pinned decoder-logit-qwen35 model name.
 pub const DECODER_LOGIT_QWEN35_MODEL_NAME: &str = "decoder-logit-qwen35:415bcf4a064e6dadcf85";
+/// Pinned plumb-4b model name.
+pub const PLUMB_4B_MODEL_NAME: &str = "plumb-4b:c1f080794d38e94a0bc2";
+/// Pinned decider-4b model name.
+pub const DECIDER_4B_MODEL_NAME: &str = "decider-4b:0529bf6f2bed84641701";
+/// Pinned von model name.
+pub const VON_MODEL_NAME: &str = "von:69219703407bd39cca0c";
 /// Pinned winnow model name.
 pub const WINNOW_MODEL_NAME: &str = "winnow:4dff8c5b03cfbf680db6";
 /// Pinned BGE-small sentence-embedding encoder for the proxy-cache student.

@@ -10,6 +10,8 @@
 
 /// Temperature calibration datasets and Platt scaling utilities.
 pub mod calibration;
+/// Decider slot-logit family adapter (plain state-first layout).
+pub mod decider;
 /// Decoder-only letter-token logit readout family adapter.
 pub mod decoder_logit_letter;
 /// Decoder-only LLM logit readout family adapter.
@@ -34,6 +36,8 @@ pub mod router_script;
 pub mod schema_scorer;
 /// Shared bounded family engine scaffold, limits, controls, and error types.
 pub mod support;
+/// Von option-marker encoder decision readout family adapter.
+pub mod von;
 /// Winnow candidate-filtering decision family adapter.
 pub mod winnow;
 /// Jev wire conversion utilities and response assembly helpers.

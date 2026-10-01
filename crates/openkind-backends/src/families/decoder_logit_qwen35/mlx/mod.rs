@@ -22,26 +22,33 @@ use crate::families::support::{
 };
 use crate::qwen35::mlx::{MlxRuntime, MlxRuntimeConfig};
 
-use super::engine::{evaluate_with, Jevk5PassSource};
+use super::engine::{evaluate_with, ProfiledPassSource};
 use super::model::VerifiedArtifacts;
 use super::renderer::{Jevk5Renderer, RenderedPass};
-use super::{DecoderLogitQwen35Error, BACKBONE_ID, PROFILE_ID};
+use super::{DecoderLogitQwen35Error, Qwen35LogitProfile};
 
 pub(super) mod model;
 
-/// Arithmetic/device identity of the JevK5 MLX execution path: the pinned
-/// single-file BF16 checkpoint widened to FP32 arrays computed on the Metal
+/// Arithmetic/device identity of the family MLX execution path: the pinned
+/// single-file BF16 checkpoints widened to FP32 arrays computed on the Metal
 /// GPU through the shared Qwen3.5 MLX backbone.
 pub const MLX_EXECUTION_ARITHMETIC_ID: &str = "mlx-gpu-fp32-jevk5";
 
-/// Loaded pinned JevK5 engine on the MLX backend.
+/// Loaded pinned profile engine on the MLX backend.
 pub struct DecoderLogitQwen35MlxEngine {
     inner: Arc<Inner>,
 }
 
 struct Inner {
+    profile: &'static Qwen35LogitProfile,
     renderer: Jevk5Renderer,
     model: model::Jevk5MlxModel,
+}
+
+impl ProfiledPassSource for Inner {
+    fn profile(&self) -> &'static Qwen35LogitProfile {
+        self.profile
+    }
 }
 
 impl Jevk5PassSource for Inner {
@@ -66,9 +73,11 @@ impl Jevk5PassSource for Inner {
     }
 }
 
-/// Filesystem configuration for the pinned JevK5 profile on the MLX backend.
+/// Filesystem configuration for one pinned profile on the MLX backend.
 #[derive(Debug, Clone)]
 pub struct DecoderLogitQwen35MlxEngineConfig {
+    /// The pinned profile to load.
+    pub profile: &'static Qwen35LogitProfile,
     /// Model root containing the pinned artifacts. Verified in place;
     /// nothing is copied or downloaded.
     pub model_root: PathBuf,
@@ -77,9 +86,10 @@ pub struct DecoderLogitQwen35MlxEngineConfig {
 }
 
 impl DecoderLogitQwen35MlxEngineConfig {
-    /// Fill admission defaults around the given model root.
-    pub fn new(model_root: impl Into<PathBuf>) -> Self {
+    /// Fill admission defaults around the given profile and model root.
+    pub fn new(profile: &'static Qwen35LogitProfile, model_root: impl Into<PathBuf>) -> Self {
         Self {
+            profile,
             model_root: model_root.into(),
             limits: FamilyLimits {
                 max_concurrent_requests: 1,
@@ -97,15 +107,20 @@ impl DecoderLogitQwen35MlxEngine {
     pub fn load(
         config: DecoderLogitQwen35MlxEngineConfig,
     ) -> Result<BoundedFamilyEngine, DecoderLogitQwen35Error> {
-        let artifacts = VerifiedArtifacts::verify(&config.model_root)?;
-        let renderer = Jevk5Renderer::load(&artifacts.tokenizer)?;
+        let artifacts = VerifiedArtifacts::verify(&config.model_root, config.profile)?;
+        let renderer =
+            Jevk5Renderer::load(&artifacts.tokenizer, config.profile.max_sequence_tokens)?;
         let runtime = Arc::new(MlxRuntime::new(MlxRuntimeConfig::default())?);
         // No outer `runtime.execute`: the weight store and the backbone
         // manage the process-wide execution lock internally, and the lock is
         // not reentrant.
-        let model = model::Jevk5MlxModel::load(&artifacts, &runtime)?;
+        let model = model::Jevk5MlxModel::load(config.profile, &artifacts, &runtime)?;
         let engine = Self {
-            inner: Arc::new(Inner { renderer, model }),
+            inner: Arc::new(Inner {
+                profile: config.profile,
+                renderer,
+                model,
+            }),
         };
         Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))
     }
@@ -113,16 +128,17 @@ impl DecoderLogitQwen35MlxEngine {
 
 impl FamilyEvaluator for DecoderLogitQwen35MlxEngine {
     fn backend_id(&self) -> &str {
-        "decoder-logit-qwen35/mlx-fp32"
+        self.inner.profile.mlx_backend_id
     }
 
     fn model_metadata(&self) -> ModelInfo {
         ModelInfo {
             name: String::new(),
             description: format!(
-                "Pinned {BACKBONE_ID} letter-logit decision engine ({PROFILE_ID}, MLX FP32)."
+                "Pinned {} letter-logit decision engine ({}, MLX FP32).",
+                self.inner.profile.backbone_id, self.inner.profile.profile_id
             ),
-            release_date: "2026-09-27".into(),
+            release_date: self.inner.profile.release_date.into(),
         }
     }
 

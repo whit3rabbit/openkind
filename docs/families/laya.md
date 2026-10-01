@@ -29,7 +29,11 @@ registers in `openkindd` via `--laya-english-aliases` /
 `--laya-english-model-root` (and the per-profile equivalents), and is
 benchmark-eligible through `openkind-bench --engine laya-english` (and
 siblings). All three are installable through `openkind pull` (registry
-manifests under `registry/v1/manifests/laya-*.json`).
+manifests under `registry/v1/manifests/laya-*.json`). Each also carries the
+ollaya-compatible alias `laya:en` / `laya:multilingual` /
+`laya:typed-decisions` in the catalog — the ollaya registry pins the same
+byte-identical weights and tokenizers (see
+[`../MODELS.md`](../MODELS.md) for the alias policy).
 
 **MLX backend (2026-09-28).** The same pinned checkpoints also run on the
 MLX/Metal backend (feature `mlx`, macOS arm64): `openkindd --laya-backend

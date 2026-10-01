@@ -1,7 +1,7 @@
 //! `openkind-runtime`: Hardware abstraction, device discovery, and execution management.
 //!
 //! # Purpose & Integration
-//! As documented in `docs/ARCHITECTURE.md` and `docs/ROADMAP.md`, `openkind-runtime`
+//! As documented in `docs/ARCHITECTURE.md`, `openkind-runtime`
 //! provides hardware device detection (CPU, Apple Silicon Metal Performance Shaders, NVIDIA CUDA),
 //! memory limit accounting, worker pool sizing, backend-neutral execution capabilities, and the
 //! complete branchable-state contract. Qwen3.5 state captures attention KV, DeltaNet recurrent

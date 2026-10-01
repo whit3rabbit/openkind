@@ -2,8 +2,7 @@
 
 > Implementation guide for the optional Qwen 3.5 MLX/Metal parity backend.
 > Benchmark methodology and recorded numbers remain canonical in
-> [`BENCHMARKS.md`](BENCHMARKS.md). Milestone status remains canonical in
-> [`ROADMAP.md`](ROADMAP.md).
+> [`BENCHMARKS.md`](BENCHMARKS.md).
 
 ## Status
 

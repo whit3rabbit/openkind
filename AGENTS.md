@@ -16,11 +16,10 @@ curated open-weight Qwen 3.5 profile documented in
 ## Sources of Truth
 
 - [`README.md`](README.md) covers workspace setup. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) maps crate boundaries and data flow.
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) owns milestone status. [`docs/RESEARCH.md`](docs/RESEARCH.md) and [`docs/whitepaper/WHITEPAPER.md`](docs/whitepaper/WHITEPAPER.md) own research evidence and scientific interpretation.
+- [`docs/RESEARCH.md`](docs/RESEARCH.md) and [`docs/whitepaper/WHITEPAPER.md`](docs/whitepaper/WHITEPAPER.md) own research evidence and scientific interpretation.
 - [`docs/MODEL_REGISTRY.md`](docs/MODEL_REGISTRY.md), [`docs/families/README.md`](docs/families/README.md), and [`docs/families/NEW_FAMILY.md`](docs/families/NEW_FAMILY.md) cover profiles, the catalog, and family qualification.
-- [`docs/MODELS.md`](docs/MODELS.md) indexes every loadable profile: model type, backbone, catalog pull names, backends, and measured runs. When a change edits `registry/v1` or lands a new loadable profile, update that page's model names and tables in the same change.
-- [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md), [`docs/MLX.md`](docs/MLX.md), and [`docs/JEV_COMPATIBILITY.md`](docs/JEV_COMPATIBILITY.md) cover measurement, MLX operations, and provider routes. [`docs/ARROW.md`](docs/ARROW.md) owns the unofficial, opt-in Arrow bulk endpoint; it is outside the TypeSafe wire contract.
-- [`bindings/README.md`](bindings/README.md) covers the TypeScript, Python, and Swift HTTP clients and server wrappers. Crate-specific instructions are linked in the workspace map below.
+- [`docs/MODELS.md`](docs/MODELS.md) indexes loadable profiles. Update it when `registry/v1` changes or a loadable profile is added.
+- [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md) covers measurement, [`docs/MLX.md`](docs/MLX.md) covers MLX, [`docs/JEV_COMPATIBILITY.md`](docs/JEV_COMPATIBILITY.md) covers providers, and [`docs/ARROW.md`](docs/ARROW.md) documents the opt-in Arrow endpoint outside the TypeSafe contract.
 
 Test the contract. If documentation disagrees with code, establish current
 behavior through an executable test and update the stale source.
@@ -53,7 +52,7 @@ for architecture, evidence, and backend limits.
 
 ## Workspace Map
 
-All eleven crates under `crates/` have their own `AGENTS.md`. Read the relevant
+All twelve crates under `crates/` have their own `AGENTS.md`. Read the relevant
 guide before changing a crate. The `docs/` and `proto/` directories have scoped
 guides too.
 
@@ -65,23 +64,15 @@ guides too.
 | Daemon lifecycle | [`crates/openkind-server/AGENTS.md`](crates/openkind-server/AGENTS.md) |
 | Operator CLI | [`crates/openkind-cli/AGENTS.md`](crates/openkind-cli/AGENTS.md) |
 | Rust client SDK | [`crates/openkind-client/AGENTS.md`](crates/openkind-client/AGENTS.md) |
-| TypeScript, Python, and Swift HTTP clients and server wrappers | [`bindings/README.md`](bindings/README.md) |
+| TypeScript, Python, and Swift HTTP clients and daemon wrappers (match [`openapi.yaml`](crates/openkind-api/openapi.yaml)) | [`bindings/README.md`](bindings/README.md) |
 | Hardware and state lifecycle | [`crates/openkind-runtime/AGENTS.md`](crates/openkind-runtime/AGENTS.md) |
 | Model artifacts and readouts | [`crates/openkind-backends/AGENTS.md`](crates/openkind-backends/AGENTS.md) |
 | Curated model catalog and local installations | [`crates/openkind-model-store/AGENTS.md`](crates/openkind-model-store/AGENTS.md) |
+| Pinned evaluation-dataset downloads and local installs | [`crates/openkind-datasets/AGENTS.md`](crates/openkind-datasets/AGENTS.md) |
 | Native decision-workload benchmark harness | [`crates/openkind-bench/AGENTS.md`](crates/openkind-bench/AGENTS.md) |
 | JSON Schema generation | [`crates/openkind-gen-schemas/AGENTS.md`](crates/openkind-gen-schemas/AGENTS.md) |
 | Protobuf contract | [`proto/AGENTS.md`](proto/AGENTS.md) |
 | Project documentation | [`docs/AGENTS.md`](docs/AGENTS.md) |
-
-## HTTP Language and Server Bindings
-
-The TypeScript, Python, and Swift packages in `bindings/` call `openkindd` over
-HTTP. Their wrappers start a local daemon without invoking the CLI or embedding
-Rust. Keep them aligned with
-[`crates/openkind-api/openapi.yaml`](crates/openkind-api/openapi.yaml). The
-[bindings guide](bindings/README.md) owns route, error, lifecycle, and test
-details.
 
 ## Benchmark Evidence
 
@@ -128,12 +119,3 @@ For changes under `bindings/`, also run the language-specific tests:
 (cd bindings/python && python3 -m unittest discover -s tests)
 (cd bindings/swift && swift test)
 ```
-
-The optional MLX backends — the Qwen3.5 engine and the surveyed families
-whose backbones have a qualified MLX path (laya, encoder-instruct-label,
-decoder-logit-qwen35) — are for macOS arm64. Follow
-[`docs/MLX.md`](docs/MLX.md) for feature-build, the serialized-stream
-discipline, and toolchain qualification details. Use
-[`docs/BENCHMARKS.md`](docs/BENCHMARKS.md) for warm throughput commands and
-recorded runs. BF16 comparisons must use `--strategies repeated_full` until
-nested continuation is qualified.

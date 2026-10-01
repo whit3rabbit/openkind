@@ -8,6 +8,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
+use openkind_backends::families::decider::{DeciderEngine, DeciderEngineConfig, DECIDER_4B};
 use openkind_backends::families::decoder_logit_letter::{
     DecoderLetterEngine, DecoderLetterEngineConfig, PROFILE_ID as DECODER_LETTER_PROFILE,
 };
@@ -15,7 +16,7 @@ use openkind_backends::families::decoder_logit_llm::{
     DecoderLlmEngine, DecoderLlmEngineConfig, PROFILE_ID as DECODER_LLM_PROFILE,
 };
 use openkind_backends::families::decoder_logit_qwen35::{
-    DecoderLogitQwen35Engine, DecoderLogitQwen35EngineConfig,
+    DecoderLogitQwen35Engine, DecoderLogitQwen35EngineConfig, Qwen35LogitProfile, JEVK5, PLUMB_4B,
     PROFILE_ID as DECODER_LOGIT_QWEN35_PROFILE,
 };
 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
@@ -47,16 +48,19 @@ use openkind_backends::families::schema_scorer::{
     SchemaScorerEngine, SchemaScorerEngineConfig, PROFILE_ID as SCHEMA_SCORER_PROFILE,
 };
 use openkind_backends::families::support::FamilyLimits;
+use openkind_backends::families::von::{
+    VonEngine, VonEngineConfig, PROFILE_ID as VON_PROFILE, VON,
+};
 use openkind_backends::families::winnow::{
     WinnowEngine, WinnowEngineConfig, PROFILE_ID as WINNOW_PROFILE,
 };
 use openkind_engine::{DecisionEngine, EngineRegistry};
 use openkind_model_store::{
-    Manifest, DECODER_LOGIT_LETTER_MODEL_NAME, DECODER_LOGIT_LLM_MODEL_NAME,
+    Manifest, DECIDER_4B_MODEL_NAME, DECODER_LOGIT_LETTER_MODEL_NAME, DECODER_LOGIT_LLM_MODEL_NAME,
     DECODER_LOGIT_QWEN35_MODEL_NAME, ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME,
     KEV_MODEL_NAME, LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME,
-    LAYA_TYPED_DECISIONS_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME, QWEN3GUARD_MODEL_NAME,
-    SCHEMA_SCORER_MODEL_NAME, WINNOW_MODEL_NAME,
+    LAYA_TYPED_DECISIONS_MODEL_NAME, PLUMB_4B_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME,
+    QWEN3GUARD_MODEL_NAME, SCHEMA_SCORER_MODEL_NAME, VON_MODEL_NAME, WINNOW_MODEL_NAME,
 };
 
 use crate::args::{
@@ -76,7 +80,9 @@ pub(crate) enum InstalledKind {
     SchemaScorer,
     Qwen3Guard,
     Kev,
-    DecoderLogitQwen35,
+    DecoderLogitQwen35(&'static Qwen35LogitProfile),
+    Decider4b,
+    Von,
     Winnow,
 }
 
@@ -129,8 +135,15 @@ pub(crate) fn installed_kind(manifest: &Manifest) -> Option<InstalledKind> {
         (DECODER_LOGIT_QWEN35_MODEL_NAME, "decoder-logit-qwen35")
             if profile == DECODER_LOGIT_QWEN35_PROFILE =>
         {
-            Some(InstalledKind::DecoderLogitQwen35)
+            Some(InstalledKind::DecoderLogitQwen35(&JEVK5))
         }
+        (PLUMB_4B_MODEL_NAME, "plumb-4b") if profile == PLUMB_4B.profile_id => {
+            Some(InstalledKind::DecoderLogitQwen35(&PLUMB_4B))
+        }
+        (DECIDER_4B_MODEL_NAME, "decider-4b") if profile == DECIDER_4B.profile_id => {
+            Some(InstalledKind::Decider4b)
+        }
+        (VON_MODEL_NAME, "von") if profile == VON_PROFILE => Some(InstalledKind::Von),
         (WINNOW_MODEL_NAME, "winnow") if profile == WINNOW_PROFILE => Some(InstalledKind::Winnow),
         _ => None,
     }
@@ -253,23 +266,43 @@ pub(crate) fn load_installed_engine(
             })
             .map_err(|error| anyhow!("load kev engine: {error}"))?,
         ),
-        InstalledKind::DecoderLogitQwen35 => match args.family_args.decoder_logit_qwen35_backend {
-            DecoderLogitQwen35BackendArg::NativeCpu => Arc::new(
-                DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
-                    model_root: root.join("checkpoint"),
-                    limits,
-                })
-                .map_err(|error| anyhow!("load decoder-logit-qwen35 engine: {error}"))?,
-            ),
-            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
-            DecoderLogitQwen35BackendArg::MlxFp32 => Arc::new(
-                DecoderLogitQwen35MlxEngine::load(DecoderLogitQwen35MlxEngineConfig {
-                    model_root: root.join("checkpoint"),
-                    limits,
-                })
-                .map_err(|error| anyhow!("load decoder-logit-qwen35 mlx engine: {error}"))?,
-            ),
-        },
+        InstalledKind::DecoderLogitQwen35(profile) => {
+            match args.family_args.decoder_logit_qwen35_backend {
+                DecoderLogitQwen35BackendArg::NativeCpu => Arc::new(
+                    DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
+                        profile,
+                        model_root: root.join("checkpoint"),
+                        limits,
+                    })
+                    .map_err(|error| anyhow!("load decoder-logit-qwen35 engine: {error}"))?,
+                ),
+                #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                DecoderLogitQwen35BackendArg::MlxFp32 => Arc::new(
+                    DecoderLogitQwen35MlxEngine::load(DecoderLogitQwen35MlxEngineConfig {
+                        profile,
+                        model_root: root.join("checkpoint"),
+                        limits,
+                    })
+                    .map_err(|error| anyhow!("load decoder-logit-qwen35 mlx engine: {error}"))?,
+                ),
+            }
+        }
+        InstalledKind::Von => Arc::new(
+            VonEngine::load(VonEngineConfig {
+                profile: &VON,
+                model_root: root.to_path_buf(),
+                limits,
+            })
+            .map_err(|error| anyhow!("load von engine: {error}"))?,
+        ),
+        InstalledKind::Decider4b => Arc::new(
+            DeciderEngine::load(DeciderEngineConfig {
+                profile: &DECIDER_4B,
+                model_root: root.join("checkpoint"),
+                limits,
+            })
+            .map_err(|error| anyhow!("load decider-4b engine: {error}"))?,
+        ),
         InstalledKind::Winnow => {
             let mut siblings: Vec<(String, Arc<dyn DecisionEngine>)> = Vec::new();
             for &(label, catalog_sibling, family_alias) in WINNOW_SIBLING_DEFAULTS {
@@ -332,7 +365,7 @@ mod tests {
                 "load encoder-instruct-label engine:",
             ),
             (
-                InstalledKind::DecoderLogitQwen35,
+                InstalledKind::DecoderLogitQwen35(&JEVK5),
                 "load decoder-logit-qwen35 engine:",
             ),
         ] {
@@ -356,7 +389,7 @@ mod tests {
                 "load encoder-instruct-label mlx engine:",
             ),
             (
-                InstalledKind::DecoderLogitQwen35,
+                InstalledKind::DecoderLogitQwen35(&JEVK5),
                 "--decoder-logit-qwen35-backend",
                 "load decoder-logit-qwen35 mlx engine:",
             ),

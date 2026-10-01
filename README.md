@@ -226,7 +226,7 @@ The new mixed-task Qwen3.5 decision LoRA trainer has been checked with tiny mode
 | [Whitepaper](docs/whitepaper/WHITEPAPER.md) | Methods and measured results |
 | [Research notebooks](research/README.md) | Experiments, training recipe, and supporting artifacts |
 | [Benchmarks](docs/BENCHMARKS.md) | Measurement methods and recorded runs |
-| [Roadmap](docs/ROADMAP.md) | Current milestones and remaining qualification work |
+
 
 ## Development
 

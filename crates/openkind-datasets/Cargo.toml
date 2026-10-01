@@ -1,0 +1,26 @@
+[package]
+name = "openkind-datasets"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Pinned, verified local evaluation-dataset installations for OpenKind benchmarking"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "stream"] }
+tokio = { workspace = true, features = ["io-util"] }
+futures = { workspace = true }
+fs2 = "0.4"
+libc = { workspace = true }
+arrow-array = { workspace = true }
+arrow-schema = { workspace = true }
+parquet = { workspace = true }
+
+[dev-dependencies]
+axum = { workspace = true }
+tempfile = "3"
