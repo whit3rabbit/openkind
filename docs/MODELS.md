@@ -122,6 +122,7 @@ both spellings. The alias policy:
 | `jevk5:4b` | `decoder-logit-qwen35:415bcf4a064e6dadcf85` | same JevK5 v0.3 checkpoint; FP32 here vs Q8_0 GGUF there |
 | `plumb:4b` | `plumb-4b:c1f080794d38e94a0bc2` | JevBench board name with no ollaya counterpart; checkpoint pinned directly |
 | `von:1.1` | `von:69219703407bd39cca0c` | byte-identical `option_marker.pt` (digest-verified in both registries) |
+| `decider:4b` | `decider-4b:0529bf6f2bed84641701` | byte-identical weights and tokenizer (digest-verified in both registries) |
 
 ```bash
 openkind pull laya:en
@@ -148,7 +149,7 @@ authors.
 | `nli` | `deberta-v3-large`, `modernbert-large`, `latest` | same family, different checkpoints — OpenKind pins `typeform/distilbert-base-uncased-mnli`; the MoritzLaurer zeroshot models need a ModernBERT NLI or DeBERTa-v3 readout port |
 | `gliclass` | `large`, `latest` | same family, different checkpoint — OpenKind pins `gliclass-modern-base-v3.0`; ollaya pins `gliclass-instruct-large-v1.0` |
 | `jevk5` | `4b`, `latest` | supported via alias `jevk5:4b` |
-| `decider` | `0.8b`, `2b`, `2b-vision`, `4b`, `latest` | not loadable — the Mapika decider checkpoints need a Qwen3.5 decision-head loader |
+| `decider` | `0.8b`, `2b`, `2b-vision`, `4b`, `latest` | `decider:4b` supported via alias (byte-identical checkpoint); the 0.8b/2b/2b-vision sizes and the moving `latest` tag (2b) need their own profiles |
 | `decision` | `eos`, `latest` | not loadable — Decision-1.0-Eos-0.8B (backbone + endpoint head) needs a Qwen3.5 head loader |
 | `nimble` | `9b`, `latest` | not loadable — Qwen3.5-9B + Bespoke-Nimble-9B-v2 LoRA; FP32 weights also exceed the 16 GiB per-installation cap |
 | `jeeves` | `9b`, `latest` | not loadable — PostHog/jeeves (Qwen3.5-9B + head); FP32 weights also exceed the 16 GiB per-installation cap |
