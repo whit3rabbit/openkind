@@ -142,7 +142,9 @@ pub fn cpu_time_seconds() -> io::Result<f64> {
 
 #[cfg(unix)]
 fn timeval_seconds(value: libc::timeval) -> f64 {
-    value.tv_sec as f64 + f64::from(value.tv_usec) / 1_000_000.0
+    // `tv_sec`/`tv_usec` are i32 on macOS and i64 on Linux, so plain casts
+    // keep both compiling.
+    value.tv_sec as f64 + value.tv_usec as f64 / 1_000_000.0
 }
 
 #[cfg(target_os = "macos")]
