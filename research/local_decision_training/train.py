@@ -12,10 +12,11 @@ import random
 import shutil
 import time
 
-VERSION = "local-decision-mix-v1"
+VERSION = "local-decision-mix-v3"
 MODEL_ID = "Qwen/Qwen3.5-4B"
 MODEL_REVISION = "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
 CODES = list("ABCDEFGHIJKLMNOP")
+PROMPT_ID = "isolated-question-answer-codes-v1"
 ROLES = ("train", "development", "calibration", "gate", "test")
 SOURCES = {
     "mnli": dict(repo="nyu-mll/multi_nli", revision="da70db2af9d09693783c3320c4249840212ee221", file="data/train-00000-of-00001.parquet", license="mixed: CC-BY-3.0, CC-BY-SA-3.0, MIT, other"),
@@ -24,6 +25,7 @@ SOURCES = {
     "sst5": dict(repo="SetFit/sst5", revision="e51bdcd8cd3a30da231967c1a249ba59361279a3", file="train.jsonl", license="unspecified in this mirror's card; retain upstream SST provenance"),
     "multirc": dict(repo="aps/super_glue", revision="3de24cf8022e94f4ee4b9d55a6f539891524d646", file="multirc/train-00000-of-00001.parquet", license="other, per-source terms in SuperGLUE/MultiRC"),
     "plumb": dict(repo="crh225/plumb-decisions", revision="718a9f006f3beaecfa7f66a819553f99ed7b94f6", file="data/train.jsonl", license="Apache-2.0; synthetic Qwen teacher labels"),
+    "helpsteer2": dict(repo="nvidia/HelpSteer2", revision="990b2711a36180dd19d9c94b8627844866f8982a", file="train.jsonl.gz", license="CC-BY-4.0; human ratings of model-written responses; threshold-derived adequacy proxy"),
 }
 OOD_SOURCES = {
     "paws": dict(repo="google-research-datasets/paws", revision="161ece9501cf0a11f3e48bd356eaa82de46d6a09", file="labeled_final/test-00000-of-00001.parquet", license="other, per-source PAWS terms"),
@@ -35,8 +37,19 @@ DEFAULT_CONFIG = dict(
     accumulation=16, learning_rate=2e-5, rank=16, alpha=32,
     checkpoint_every=50, evaluate_every=100, precision="auto",
     include_sst5=True, include_teacher=True, omit_probability=0.20,
-    teacher_weight=0.5, max_accuracy_drop=0.03, max_class_recall_drop=0.05,
-    max_none_false_positive=0.20, max_nll_increase=0.01,
+    include_helpsteer2=False,
+    schema_diagnostics=True, inference_max_questions=8,
+    teacher_weight=0.5, label_smoothing=0.05, brier_weight=0.1,
+    max_accuracy_drop=0.03, max_class_recall_drop=0.05,
+    max_none_false_positive=0.20, max_nll_increase=0.01, max_brier_increase=0.01,
+)
+LOSS_SWEEP_ARMS = (
+    dict(name="ce_control", label_smoothing=0.0, brier_weight=0.0),
+    dict(name="smoothing_only", label_smoothing=0.05, brier_weight=0.0),
+    dict(name="brier_only", label_smoothing=0.0, brier_weight=0.1),
+    dict(name="combined_low_smoothing", label_smoothing=0.02, brier_weight=0.1),
+    dict(name="combined_default", label_smoothing=0.05, brier_weight=0.1),
+    dict(name="combined_more_brier", label_smoothing=0.05, brier_weight=0.3),
 )
 
 
@@ -119,6 +132,23 @@ def convert(source, raw, index, labels=None):
     if source == "boolq":
         return record(source, index, raw["passage"], raw["question"], yn,
                       "true" if raw["answer"] else "false", "noul")
+    if source == "helpsteer2":
+        prompt, response = raw["prompt"], raw["response"]
+        if not prompt.strip() or not response.strip() or "<extra_id_1>" in prompt:
+            return None
+        ratings = [float(raw[key]) for key in ("helpfulness", "correctness")]
+        assert all(math.isfinite(value) and 0 <= value <= 4 for value in ratings), "Invalid HelpSteer2 ratings"
+        good = min(ratings) >= 3
+        bad = min(ratings) <= 1
+        if not good and not bad:
+            return None  # Ambiguous middle ratings do not establish a binary target.
+        row = record(source, index, "Request:\n" + prompt.strip() + "\n\nResponse:\n" + response.strip(),
+                     "Does the response adequately answer the request (helpful and correct)?", yn,
+                     "true" if good else "false", "noul", group=group_id("Request:\n" + prompt),
+                     family="answer_adequacy_rating_proxy")
+        row["supervision"] = "human_rating_proxy"
+        row["label_rule"] = "adequate: helpfulness and correctness >=3; inadequate: either <=1; middle dropped"
+        return row
     if source == "banking77":
         assert labels and len(labels) == 77
         rng = random.Random(int(digest([source, index])[:16], 16))
@@ -217,6 +247,18 @@ def synthetic_rows(n, seed, ood=False):
         # This is missing evidence, distinct from a negative policy outcome.
         yield record("rules", f"{ood}:{i}:missing", f"Policy: approve if age is at least 18.\nFacts: amount={value}; age is not provided.",
                      "What decision follows from the policy?", opts, "__none__", group=group, family="missing_fact")
+        # An unknown conjunct cannot rescue a known failure, the E42 eligibility error.
+        for known_age, gold in ((17, "deny"), (18, "__none__")):
+            yield record("rules", f"{ood}:{i}:partial:{known_age}",
+                         f"Policy: eligibility requires amount at least {limit} AND age at least 18. Approve if eligible; deny if ineligible.\nFacts: age={known_age}; amount is not provided.",
+                         "What decision follows from the policy?", opts, gold,
+                         group=group, family="partial_evidence_conjunction")
+        # A known disjunct can establish success despite another missing fact.
+        for known_vip, gold in ((True, "approve"), (False, "__none__")):
+            yield record("rules", f"{ood}:{i}:disjunction:{known_vip}",
+                         f"Policy: eligibility requires VIP true OR amount at least {limit}. Approve if eligible; deny if ineligible.\nFacts: VIP={str(known_vip).lower()}; amount is not provided.",
+                         "What decision follows from the policy?", opts, gold,
+                         group=group, family="partial_evidence_disjunction")
         days, users = rng.randint(-20, 90), rng.randint(0, 9000)
         tier, closed = rng.choice(["standard", "VIP"]), bool(rng.randrange(2))
         impact_limit = rng.randint(100, 8000)
@@ -228,7 +270,16 @@ def synthetic_rows(n, seed, ood=False):
                      str(sum(flags)), "score", group=group, family="explicit_rubric")
 
 
+def reject_benchmark_data(rows=(), sources=()):
+    """TypeSafe references are reserved for frozen-export evaluation, including soft labels."""
+    for spec in sources:
+        assert not spec["repo"].strip().casefold().startswith("typesafe/"), "TypeSafe datasets are benchmark-only"
+    for row in rows:
+        assert not row.get("benchmark_only") and not row.get("source", "").casefold().startswith("typesafe/"), "Benchmark rows cannot influence training or selection"
+
+
 def download_source(spec):
+    reject_benchmark_data(sources=[spec])
     from datasets import load_dataset
     from huggingface_hub import hf_hub_download
     path = hf_hub_download(spec["repo"], filename=spec["file"], revision=spec["revision"], repo_type="dataset")
@@ -245,9 +296,11 @@ def messages(row, permutation):
     ]
 
 
-def encode(row, tokenizer, seed):
-    permutation = list(range(len(row["options"])))
-    random.Random(int(digest([seed, row["id"], "order"])[:16], 16)).shuffle(permutation)
+def encode(row, tokenizer, seed, permutation=None):
+    if permutation is None:
+        permutation = list(range(len(row["options"])))
+        random.Random(int(digest([seed, row["id"], "order"])[:16], 16)).shuffle(permutation)
+    assert sorted(permutation) == list(range(len(row["options"]))), "Invalid option permutation"
     prompt = tokenizer.apply_chat_template(messages(row, permutation), tokenize=False,
                                             add_generation_prompt=True, enable_thinking=False)
     ids = tokenizer.encode(prompt, add_special_tokens=False)
@@ -257,17 +310,22 @@ def encode(row, tokenizer, seed):
         assert len(one) == 1, f"Not a single-token code: {code}"
         assert tokenizer.encode(prompt + code, add_special_tokens=False) == ids + one, "Code boundary changed; do not train against mismatched logits."
         code_ids.append(one[0])
-    return {**row, "input_ids": ids, "code_ids": code_ids,
-            "keys": [row["options"][i]["key"] for i in permutation],
-            "target": [row["target"][i] for i in permutation], "permutation": permutation}
+    encoded = {**row, "input_ids": ids, "code_ids": code_ids,
+               "keys": [row["options"][i]["key"] for i in permutation], "permutation": permutation}
+    if "target" in row:
+        encoded["target"] = [row["target"][i] for i in permutation]
+    return encoded
 
 
 def prepare_data(config, tokenizer, directory):
     """Only published train files are opened. Historical OpenKind corpora are untouched."""
+    reject_benchmark_data(sources=SOURCES.values())
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     inventory, candidates, audit = {}, collections.defaultdict(list), collections.Counter()
-    active = [s for s in SOURCES if (s != "sst5" or config["include_sst5"]) and (s != "plumb" or config["include_teacher"])]
+    active = [s for s in SOURCES if (s != "sst5" or config["include_sst5"])
+              and (s != "plumb" or config["include_teacher"])
+              and (s != "helpsteer2" or config["include_helpsteer2"])]
     for source in active + ["rules"]:
         if source == "rules":
             iterator = synthetic_rows(config["synthetic_groups"], config["seed"])
@@ -279,7 +337,8 @@ def prepare_data(config, tokenizer, directory):
         # A deterministic random priority prevents the source's original row order selecting the sample.
         for row in iterator:
             if row is None:
-                audit[f"{source}:invalid_label"] += 1
+                reason = "ambiguous_multiturn_or_empty" if source == "helpsteer2" else "invalid_label"
+                audit[f"{source}:{reason}"] += 1
                 continue
             if abs(row.get("teacher_mass_before_normalization", 1.0) - 1.0) > 1e-8:
                 audit[f"{source}:rounded_distribution_renormalized"] += 1
@@ -291,9 +350,17 @@ def prepare_data(config, tokenizer, directory):
         cap = ((config["teacher_train_cap"] if source == "plumb" else config["train_per_source"])
                if role == "train" else config["eval_per_source"])
         accepted = 0
-        for row in sorted(pool, key=lambda r: digest([config["seed"], r["id"]])):
+        accepted_labels = collections.Counter()
+        paired_requests = {r["group"] for r in pool if r["answer_key"] == "false"} if source == "helpsteer2" and role == "train" else set()
+        ordered = sorted(pool, key=lambda r: (0 if r["group"] in paired_requests else 1, digest([config["seed"], r["id"]])))
+        for row in ordered:
             if accepted >= cap:
                 break
+            if source == "helpsteer2" and role == "train":
+                # Train against the always-adequate shortcut, preferring alternative replies to the same request.
+                quota = cap // 2 + int(row["answer_key"] == "true" and cap % 2)
+                if accepted_labels[row["answer_key"]] >= quota:
+                    continue
             request = digest([normalize(row["state"]), normalize(row["question"]), row["options"]])
             if request in seen_requests:
                 assert seen_requests[request] == row["target"], "Conflicting labels on identical requests"
@@ -313,16 +380,23 @@ def prepare_data(config, tokenizer, directory):
             seen_states[state_key] = role
             selected[role].append(encoded)
             accepted += 1
+            accepted_labels[row["answer_key"]] += 1
         audit[f"{source}:{role}:accepted"] = accepted
+        if source == "helpsteer2":
+            audit[f"{source}:{role}:adequate"] = accepted_labels["true"]
+            audit[f"{source}:{role}:inadequate"] = accepted_labels["false"]
         assert accepted >= min(16, cap), f"Insufficient admitted {source}/{role}: {accepted}"
     for role, rows in selected.items():
         assert len({r["id"] for r in rows}) == len(rows)
         immutable_json(directory / f"{role}.json", rows)
     manifest = dict(schema=VERSION, config=config, sources=inventory, audit=dict(audit),
                     counts={k: len(v) for k, v in selected.items()},
+                    family_counts={k: dict(collections.Counter(f"{r['source']}/{r['family']}" for r in v))
+                                   for k, v in selected.items()},
                     hashes={k: digest(v) for k, v in selected.items()},
-                    role_rule="normalized state groups, 75/8/7/5/5 percent; split before augmentation",
+                    role_rule="normalized state groups, or request groups for HelpSteer2 response siblings, 75/8/7/5/5 percent; split before augmentation",
                     test_labels_used_for_selection=False, historical_final_opened=False,
+                    typesafe_used_for_training_or_selection=False,
                     training_prior_contamination_unknown=True)
     immutable_json(directory / "DATA_MANIFEST.json", manifest)
     # Save human-readable examples separately, never mix the teacher's explanation into the prompt.
@@ -413,13 +487,35 @@ def logits(model, row):
     return result
 
 
-def loss_for(model, row, config):
+def answer_code_ids(tokenizer):
+    ids = [tokenizer.encode(c, add_special_tokens=False) for c in CODES]
+    assert all(len(x) == 1 for x in ids), "Every answer code must be a single token"
+    result = [x[0] for x in ids]
+    assert len(set(result)) == len(result), "Answer codes must have distinct token identities"
+    return result
+
+
+def decision_loss(prediction, target, config):
     import torch
     import torch.nn.functional as F
+    smoothing, brier_weight = config["label_smoothing"], config["brier_weight"]
+    assert math.isfinite(smoothing) and 0 <= smoothing < 1
+    assert math.isfinite(brier_weight) and brier_weight >= 0
+    assert prediction.ndim == 1 and prediction.numel() >= 2 and prediction.shape == target.shape
+    assert torch.isfinite(prediction).all() and torch.isfinite(target).all() and (target >= 0).all()
+    assert abs(float(target.sum()) - 1.0) < 1e-5
+    smoothed = (1 - smoothing) * target + smoothing / target.numel()
+    ce = -(smoothed * F.log_softmax(prediction, dim=-1)).sum()
+    # Brier uses the original distribution, including soft teacher mass. Sum over outcomes.
+    return ce + brier_weight * (prediction.softmax(dim=-1) - target).square().sum()
+
+
+def loss_for(model, row, config):
+    import torch
     prediction = logits(model, row)
     target = torch.tensor(row["target"], device=prediction.device, dtype=torch.float32)
     weight = config["teacher_weight"] if row["supervision"] == "teacher" else 1.0
-    return -(target * F.log_softmax(prediction, dim=-1)).sum() * weight
+    return decision_loss(prediction, target, config) * weight
 
 
 def gradient_preflight(model, row, config):
@@ -442,10 +538,114 @@ def gradient_preflight(model, row, config):
 
 
 def probabilities(values, temperature=1.0):
+    assert math.isfinite(temperature) and temperature > 0, "Invalid temperature"
+    assert len(values) >= 2 and all(math.isfinite(float(v)) for v in values), "Invalid logits"
     vals = [float(x) / temperature for x in values]
+    assert all(math.isfinite(v) for v in vals), "Temperature overflow"
     top = max(vals)
     nums = [math.exp(x - top) for x in vals]
     return [x / sum(nums) for x in nums]
+
+
+def decide(model, tokenizer, state, questions, contract):
+    """Reference inference on a caller-loaded pinned base and verified exported adapter."""
+    import torch
+    assert contract["schema"] == VERSION and contract["prompt_id"] == PROMPT_ID
+    assert contract["model_id"] == MODEL_ID and contract["model_revision"] == MODEL_REVISION
+    assert contract["answer_codes"] == CODES and not contract["truncation"] and not contract["generation"]
+    assert contract["code_token_ids"] == answer_code_ids(tokenizer)
+    assert isinstance(state, str) and questions and isinstance(contract["max_length"], int) and contract["max_length"] > 0
+    assert isinstance(contract["max_questions"], int) and 0 < len(questions) <= contract["max_questions"], "Too many questions"
+    temperature = contract["temperature"]
+    assert math.isfinite(temperature) and temperature > 0
+    admitted, ids = [], set()
+    for q in questions:
+        assert isinstance(q["id"], str) and q["id"] and q["id"] not in ids
+        ids.add(q["id"])
+        assert isinstance(q["instructions"], str) and q["instructions"].strip(), "Missing instructions"
+        kind, options = q["kind"], q["options"]
+        assert kind in ("choice", "noul", "score") and 2 <= len(options) <= len(CODES)
+        keys = [o["key"] for o in options]
+        assert all(isinstance(k, str) and k for k in keys) and len(set(keys)) == len(keys)
+        assert all(isinstance(o["text"], str) and o["text"].strip() for o in options)
+        if kind == "choice":
+            assert "__none__" in keys, "Choice requires a described semantic-none outcome"
+        elif kind == "noul":
+            assert set(keys) == {"false", "true"}
+        else:
+            assert 2 <= len(keys) <= 10 and set(keys) == {str(i) for i in range(len(keys))}, "Finite ordinal levels required"
+        # IDs route the result only. Neither IDs nor sibling questions affect the prompt.
+        row = dict(id=q["id"], state=state, question=q["instructions"], options=options, kind=kind)
+        row = encode(row, tokenizer, 0, permutation=list(range(len(options))))
+        assert len(row["input_ids"]) <= contract["max_length"], "Overlength request; evidence is never truncated"
+        admitted.append(row)
+    model.eval()
+    result = {}
+    with torch.no_grad():
+        for row in admitted:
+            p = probabilities(logits(model, row).cpu().tolist(), temperature)
+            entropy = -sum(v * math.log(v) for v in p if v > 0)
+            item = dict(kind=row["kind"], probabilities=dict(zip(row["keys"], p)),
+                        selected_key=row["keys"][max(range(len(p)), key=p.__getitem__)])
+            if row["kind"] != "noul":
+                item["confidence"] = max(0.0, min(1.0, 1 - entropy / math.log(len(p))))
+            if row["kind"] == "score":
+                item["expected_level"] = sum(float(k) * v for k, v in zip(row["keys"], p))
+            result[row["id"]] = item
+    return result
+
+
+def schema_variants(row, tokenizer):
+    """Change presentation while preserving labels and canonical option identities."""
+    raw = {k: v for k, v in row.items() if k not in ("input_ids", "code_ids", "keys", "permutation")}
+    target_by_key = dict(zip(row["keys"], row["target"]))
+    raw["target"] = [target_by_key[o["key"]] for o in raw["options"]]
+    reverse = encode(raw, tokenizer, 0, permutation=list(reversed(row["permutation"])))
+    reverse["canonical_keys"] = reverse["keys"]
+    yield "reverse_option_order", reverse
+    if row["kind"] == "choice":
+        renamed = json.loads(canonical(raw))
+        mapping = {o["key"]: ("__none__" if o["key"] == "__none__" else f"opaque_{i}")
+                   for i, o in enumerate(raw["options"])}
+        renamed["options"] = [dict(key=mapping[o["key"]], text=o["text"]) for o in raw["options"]]
+        renamed["answer_key"] = mapping[raw["answer_key"]]
+        encoded = encode(renamed, tokenizer, 0, permutation=list(row["permutation"]))
+        encoded["canonical_keys"] = [raw["options"][i]["key"] for i in row["permutation"]]
+        yield "opaque_option_keys", encoded
+
+
+def schema_diagnostics(model, tokenizer, rows, max_length, temperature=1.0):
+    """Descriptive gate-panel sensitivity, not a parity claim or checkpoint search."""
+    import torch
+    model.eval()
+    records, skipped = [], collections.Counter()
+    with torch.no_grad():
+        for row in rows:
+            base = dict(zip(row["keys"], probabilities(logits(model, row).cpu().tolist(), temperature)))
+            winner = max(base, key=base.__getitem__)
+            for transform, variant in schema_variants(row, tokenizer):
+                if len(variant["input_ids"]) > max_length:
+                    skipped[transform] += 1
+                    continue
+                p = dict(zip(variant["canonical_keys"], probabilities(logits(model, variant).cpu().tolist(), temperature)))
+                deltas = [abs(base[k] - p[k]) for k in base]
+                records.append(dict(id=row["id"], group=row["group"], source=row["source"],
+                                    transform=transform, max_probability_delta=max(deltas),
+                                    total_variation=0.5 * sum(deltas),
+                                    selected_key_changed=winner != max(p, key=p.__getitem__),
+                                    canonical_keys=row["keys"], original=[base[k] for k in row["keys"]],
+                                    transformed=[p[k] for k in row["keys"]]))
+    groups = collections.defaultdict(list)
+    for r in records:
+        groups[(r["transform"], r["source"])].append(r)
+    summary = {}
+    for (transform, source), group in groups.items():
+        summary.setdefault(transform, {})[source] = dict(
+            n=len(group), mean_total_variation=sum(r["total_variation"] for r in group) / len(group),
+            max_probability_delta=max(r["max_probability_delta"] for r in group),
+            selected_key_change_rate=sum(r["selected_key_changed"] for r in group) / len(group))
+    return dict(by_transform_and_source=summary, overlength_skipped=dict(skipped), rows=records,
+                used_for_selection=False, parity_established=False)
 
 
 def predict(model, rows):
@@ -511,6 +711,8 @@ def retention(candidate, baseline, config):
             reasons.append(source + ": accuracy regression")
         if current["nll"] > base["nll"] + config["max_nll_increase"]:
             reasons.append(source + ": NLL regression")
+        if current["brier"] > base["brier"] + config["max_brier_increase"]:
+            reasons.append(source + ": Brier regression")
         for label, old in base["class_recall"].items():
             new = current["class_recall"][label]
             if old["n"] >= 8 and new["recall"] < old["recall"] - config["max_class_recall_drop"]:
@@ -574,7 +776,9 @@ def restore(folder, model, identity, optimizer=None, scheduler=None):
     return meta
 
 
-def fit(model, data, config, run, identity):
+def fit(model, data, config, run, identity, baseline_report_sha256=None):
+    reject_benchmark_data(rows=data["train"])
+    reject_benchmark_data(rows=data["development"])
     import torch
     from transformers import get_cosine_schedule_with_warmup
     from tqdm.auto import tqdm
@@ -592,6 +796,8 @@ def fit(model, data, config, run, identity):
         step, history = 0, [dict(step=0, metrics=baseline, retention=dict(passed=True, reasons=[]))]
         checkpoint(checkpoints, model, optimizer, scheduler, 0, history, identity)
     baseline = history[0]["metrics"]
+    if baseline_report_sha256 is not None:
+        assert digest(baseline) == baseline_report_sha256, "Step-zero development reports differ across matched arms"
     order = list(range(len(data["train"])))
     random.Random(config["seed"]).shuffle(order)
     try:
@@ -627,7 +833,90 @@ def fit(model, data, config, run, identity):
     return selection
 
 
+def loss_sweep_configs(config, arms=None):
+    arms = list(LOSS_SWEEP_ARMS if arms is None else arms)
+    assert 2 <= len(arms) <= 6, "Use a bounded sweep of 2 to 6 arms"
+    names, settings, result = set(), set(), []
+    for arm in arms:
+        assert set(arm) == {"name", "label_smoothing", "brier_weight"}, "Sweep only the two loss settings"
+        name = arm["name"]
+        assert isinstance(name, str) and name and all(c in "abcdefghijklmnopqrstuvwxyz0123456789_" for c in name)
+        assert name not in names, "Duplicate sweep name"
+        smoothing, weight = arm["label_smoothing"], arm["brier_weight"]
+        assert math.isfinite(smoothing) and 0 <= smoothing < 1 and math.isfinite(weight) and weight >= 0
+        assert (smoothing, weight) not in settings, "Duplicate sweep settings"
+        names.add(name); settings.add((smoothing, weight))
+        result.append(dict(name=name, config={**config, "label_smoothing": smoothing, "brier_weight": weight}))
+    assert (0.0, 0.0) in settings, "A plain-CE control is required"
+    assert any(s > 0 and w > 0 for s, w in settings), "Include a combined-loss arm"
+    return result
+
+
+def run_loss_sweep(model_factory, data, config, output_root, context, arms=None):
+    """Fresh sequential fits; select one development winner before any gate access."""
+    import gc
+    import torch
+    # Passing only these roles to fit prevents a sweep from inspecting protected panels.
+    admitted = {role: data[role] for role in ("train", "development")}
+    configs = loss_sweep_configs(config, arms)
+    plan = dict(schema=VERSION, context=context, model_revision=MODEL_REVISION, arms=configs,
+                data_hashes={role: digest(rows) for role, rows in admitted.items()},
+                selection_rule="minimum unsmoothed source-macro development NLL subject to retention; ties prefer earlier step then arm order",
+                calibration_used=False, gate_used=False, test_opened=False)
+    sweep_identity = digest(plan)
+    sweep = Path(output_root) / ("sweep_" + sweep_identity[:16])
+    immutable_json(sweep / "SWEEP_PLAN.json", plan)
+    results, baseline_hash, execution = [], None, None
+    for index, arm in enumerate(configs):
+        arm_config = arm["config"]
+        random.seed(arm_config["seed"])
+        torch.manual_seed(arm_config["seed"])
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(arm_config["seed"])
+        model = None
+        try:
+            model, model_report = model_factory(arm_config)
+            current_execution = dict(precision=model_report["precision"],
+                                     compute_capability=model_report["compute_capability"])
+            if execution is None:
+                execution = current_execution
+            assert current_execution == execution, "Sweep precision or device changed"
+            identity = digest(dict(sweep_identity=sweep_identity, arm=arm, execution=execution))
+            run = sweep / arm["name"]
+            immutable_json(run / "CONFIG.json", dict(identity=identity, config=arm_config, context=context,
+                                                     sweep_identity=sweep_identity))
+            atomic_json(run / "ENVIRONMENT.json", dict(context=context, model=model_report))
+            preflight = gradient_preflight(model, admitted["train"][0], arm_config)
+            atomic_json(run / "GRADIENT_PREFLIGHT.json", preflight)
+            selection = fit(model, admitted, arm_config, run, identity, baseline_report_sha256=baseline_hash)
+            baseline = selection["history"][0]["metrics"]
+            current_baseline = digest(baseline)
+            if baseline_hash is None:
+                baseline_hash = current_baseline
+            assert current_baseline == baseline_hash, "Step-zero development reports differ across matched arms"
+            selected = next(h for h in selection["history"] if h["step"] == selection["selected_step"])
+            assert selected["retention"]["passed"]
+            results.append(dict(name=arm["name"], index=index, config=arm_config, run=str(run),
+                                identity=identity, selected_step=selection["selected_step"],
+                                metrics=selected["metrics"], retention=selected["retention"]))
+        finally:
+            del model
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+    winner = min(results, key=lambda r: (r["metrics"]["macro_nll"], r["selected_step"], r["index"]))
+    result = dict(sweep_identity=sweep_identity, selected_arm=winner["name"], selected_run=winner["run"],
+                  selected_identity=winner["identity"], selected_config=winner["config"], results=results,
+                  matched_baseline_report_sha256=baseline_hash, execution=execution,
+                  selection_rule=plan["selection_rule"], calibration_used=False, gate_used=False,
+                  test_opened=False, model_promoted=False)
+    immutable_json(sweep / "SWEEP_RESULT.json", result)
+    return result
+
+
 def calibrate_and_gate(model, data, config, run, identity, selection):
+    reject_benchmark_data(rows=data["calibration"])
+    reject_benchmark_data(rows=data["gate"])
     run = Path(run)
     selected_path = run / "checkpoints" / f"step_{selection['selected_step']:06d}"
     restore(selected_path, model, identity)
@@ -658,6 +947,7 @@ def calibrate_and_gate(model, data, config, run, identity, selection):
 
 
 def export_bundle(model, tokenizer, config, manifest, run, identity, selection, gate):
+    reject_benchmark_data(sources=[s for s in manifest["sources"].values() if "repo" in s])
     run = Path(run); export = run / "export"
     if export.exists():
         existing = json.loads((export / "EXPORT.json").read_text())
@@ -674,13 +964,20 @@ def export_bundle(model, tokenizer, config, manifest, run, identity, selection, 
     model.save_pretrained(temp / "adapter", safe_serialization=True)
     tokenizer.save_pretrained(temp / "tokenizer")
     shutil.copy2(__file__, temp / "train.py")
+    shutil.copy2(Path(__file__).with_name("benchmark.py"), temp / "benchmark.py")
     contract = dict(schema=VERSION, model_id=MODEL_ID, model_revision=MODEL_REVISION,
                     model_class="transformers.Qwen3_5ForCausalLM (text-only)",
-                    answer_codes=CODES, code_token_ids=[tokenizer.encode(c, add_special_tokens=False)[0] for c in CODES],
+                    answer_codes=CODES, code_token_ids=answer_code_ids(tokenizer),
                     readout="last hidden state projected onto frozen LM-head rows, softmax over supplied codes",
                     prompt="train.py:messages + tokenizer.apply_chat_template(enable_thinking=False, add_generation_prompt=True)",
+                    prompt_id=PROMPT_ID, inference="train.py:decide; serial isolated-question prefill, no shared state cache",
+                    confidence="Choice/Score: 1 - entropy(p)/log(number of outcomes); Noul: absent",
                     max_length=config["max_length"], truncation=False, generation=False,
+                    max_questions=config["inference_max_questions"],
                     temperature=gate["deployed_temperature"] if exported_step else 1.0,
+                    loss=dict(label_smoothing=config["label_smoothing"], brier_weight=config["brier_weight"],
+                              brier_target="original distribution", brier_reduction="sum over outcomes"),
+                    typesafe_data_policy="benchmark only, after export; never training, development, calibration, gate or sweep selection",
                     source_licenses={k: v.get("license", "generated by this notebook") for k, v in manifest["sources"].items()},
                     exported_step=exported_step, selection_step=selection["selected_step"],
                     score_semantics="finite ordinal-level distribution; continuous Score and wire integration require a separate profile",
@@ -689,6 +986,15 @@ def export_bundle(model, tokenizer, config, manifest, run, identity, selection, 
     atomic_json(temp / "DECISION_CONTRACT.json", contract)
     for name in ("CONFIG.json", "ENVIRONMENT.json", "SELECTION.json", "GATE_RESULT.json"):
         shutil.copy2(run / name, temp / name)
+    run_config = json.loads((run / "CONFIG.json").read_text())
+    if "sweep_identity" in run_config:
+        sweep_result = json.loads((run.parent / "SWEEP_RESULT.json").read_text())
+        assert sweep_result["selected_identity"] == identity
+        assert digest(json.loads((run.parent / "SWEEP_PLAN.json").read_text())) == run_config["sweep_identity"]
+        for name in ("SWEEP_PLAN.json", "SWEEP_RESULT.json"):
+            shutil.copy2(run.parent / name, temp / name)
+    if (run / "SCHEMA_DIAGNOSTICS.json").exists():
+        shutil.copy2(run / "SCHEMA_DIAGNOSTICS.json", temp / "SCHEMA_DIAGNOSTICS.json")
     atomic_json(temp / "DATA_MANIFEST.json", manifest)
     meta = dict(identity=identity, exported_step=exported_step,
                 files={str(p.relative_to(temp)): file_digest(p) for p in sorted(temp.rglob("*")) if p.is_file()})

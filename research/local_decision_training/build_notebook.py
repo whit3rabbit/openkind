@@ -23,11 +23,12 @@ def code(text, hidden=False):
 md("""
 # Train a compact local decision model
 
-**OpenKind experiment 35, version 1. Prepared 29 September 2026.**
+**OpenKind experiment 35, version 3. Reviewed 1 October 2026.**
 
 Train `Qwen/Qwen3.5-4B` with rank-16 LoRA for typed decisions. The model sees the state,
 question, and all options together. Training applies cross-entropy to selected answer-code
-logits from one forward pass. It does not generate reasoning or answer text.
+logits from one forward pass with label-smoothed CE plus Brier loss. An optional bounded
+loss sweep includes an ordinary CE control. It does not generate reasoning or answer text.
 
 **Recommended runtime: Colab A100.** An L4 uses NF4 QLoRA automatically. Both require native
 BF16; this notebook does not qualify T4 training. Deployment remains targeted at a 16–32 GB
@@ -69,7 +70,9 @@ They remain teacher labels, not human gold. Keep explanations out of inputs. Pre
 targets, renormalizing only four-decimal rounding errors within 0.001 total mass.
 
 For eligible one-hot Choice records, deterministically remove the correct option in about
-20% of cases and supervise `__none__`. Shuffle option/code assignments. Never infer semantic
+20% of cases and supervise `__none__`. Shuffle option/code assignments. Rule groups also
+include a missing conjunct with a known failure and a missing disjunct with a known success.
+Missing facts alone do not imply none. Never infer semantic
 none from confidence, nor label a truncated passage unanswerable. Reject inputs exceeding
 2,048 **total prompt tokens**, including question, options and template.
 
@@ -78,6 +81,10 @@ composition. Source labels are processed when preparing reserved files; their mo
 are not consulted for selection. No historical OpenKind final corpus or QASPER labels are
 read. Public datasets can occur in base-model pretraining; these are fine-tuning holdouts,
 not a claim of pretraining-clean evaluation.
+
+TypeSafe datasets are benchmark-only. They never enter training, development, temperature
+calibration, the acceptance gate or loss-sweep selection. A separate optional cell opens
+pinned test snapshots only after freezing the export, with no refitting or promotion.
 
 Dataset terms remain source-specific. The source manifest records pins, file hashes and
 license metadata. SST-5's mirror does not specify a license, and MultiNLI/MultiRC have
@@ -128,7 +135,7 @@ OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
 """)
 code("# @title Embedded training implementation and offline tests\n" + "\n".join(
     f"(WORK / {name!r}).write_text({(HERE/name).read_text()!r}, encoding='utf-8')"
-    for name in ("train.py", "test_train.py")), hidden=True)
+    for name in ("train.py", "benchmark.py", "test_train.py")), hidden=True)
 
 md("""
 ## 4. Parameters
@@ -139,6 +146,20 @@ the run identity. Changing them creates a new run rather than resuming incompati
 
 `RUN_FINAL_TEST=False` leaves the final evaluation cell inactive. Turn it on only once the
 recipe and selection are frozen. Further tuning after viewing that result needs a new test.
+
+The main run enables `label_smoothing=0.05, brier_weight=0.1`. These are pilot coefficients,
+not Cloudflare's undisclosed values or measured optima. Set `RUN_LOSS_SWEEP=True` to compare
+the six predeclared settings in `recipe.LOSS_SWEEP_ARMS`. The sweep varies only smoothing and
+Brier weight, keeping seed, admitted data, rank, learning rate, readout, precision and update
+budget fixed. It loads one model at a time and resumes each arm's committed checkpoints.
+At defaults, six arms cost 2,400 updates and 38,400 example presentations, excluding evaluation.
+Leave the switch false for one combined-loss run. Sweep rank/LR only after this comparison
+and learning curves expose a specific capacity or optimization problem.
+
+Smooth the CE target;
+compute Brier against the original soft/hard distribution, summed across outcomes. Smoothing
+changes the optimum away from the original target, so evaluate NLL/Brier on unsmoothed labels.
+Do not add RLCD without a disclosed reward, estimator and matched CE comparison.
 """)
 code("""
 import importlib
@@ -161,8 +182,14 @@ CONFIG.update(
     precision="auto",
     include_sst5=True,
     include_teacher=True,
+    label_smoothing=0.05,
+    brier_weight=0.1,
 )
+RUN_LOSS_SWEEP = False  # True runs all six matched loss arms instead of one fit.
 RUN_FINAL_TEST = False
+RUN_TYPESAFE_BENCHMARK = False  # Evaluation only, after freezing the export.
+TYPESAFE_CASES_PER_SOURCE = 10  # None evaluates all cases. Sample whole cases before token admission.
+TYPESAFE_MAX_LENGTH = 12288  # Benchmark-only long-input panel; None enforces the export's 2,048-token cap.
 PREPARE_ONLY = False  # True stops before loading model weights or training.
 random.seed(CONFIG["seed"])
 torch.manual_seed(CONFIG["seed"])
@@ -176,7 +203,8 @@ md("""
 
 These use a tiny, randomly initialized Qwen model with both DeltaNet and full attention.
 They test gradients through both families, selected-logit projection, checkpoint recovery,
-selection and export. They do not download model assets or establish 4B model quality.
+selection and export, loss ablations, counterfactual labels and inference admission. They do
+not download model assets or establish 4B model quality.
 """)
 code("""
 subprocess.check_call([sys.executable, "-m", "unittest", "discover", "-s", str(WORK), "-p", "test_train.py", "-v"])
@@ -220,33 +248,45 @@ hashes. The preflight performs a real forward/backward pass and requires finite 
 gradient signal in attention, DeltaNet and MLP adapters. An OOM stops the run: no example is
 silently dropped. Lowering the length cap creates a separate experiment with new admission
 counts. Resume an interrupted run by rerunning with unchanged settings and the same precision.
+In sweep mode, model loading and gradient preflight occur separately for each arm below.
 """)
 code("""
 import platform
 import time
 if not PREPARE_ONLY:
-    model, model_report = recipe.load_model(CONFIG)
+    import gc
+    if "model" in globals():
+        del model
+    gc.collect(); torch.cuda.empty_cache()
     software = {p: importlib.metadata.version(p) for p in ["torch", "transformers", "peft", "datasets", "accelerate", "bitsandbytes", "huggingface_hub", "safetensors", "tokenizers"]}
     for package in ["flash-linear-attention", "causal-conv1d", "kernels"]:
         try:
             software[package] = importlib.metadata.version(package)
         except importlib.metadata.PackageNotFoundError:
             software[package] = "absent"
-    identity = recipe.digest(dict(version=recipe.VERSION, config=CONFIG, source_sha=source_sha,
-                                  data_hashes=manifest["hashes"], model=recipe.MODEL_REVISION,
-                                  precision=model_report["precision"], compute_capability=model_report["compute_capability"], software=software))
-    RUN = OUTPUT_ROOT / ("run_" + identity[:16])
-    RUN.mkdir(parents=True, exist_ok=True)
-    recipe.immutable_json(RUN / "CONFIG.json", dict(identity=identity, config=CONFIG, software=software, source_sha=source_sha))
-    recipe.atomic_json(RUN / "ENVIRONMENT.json", dict(python=platform.python_version(), software=software, model=model_report))
-    started = time.perf_counter()
-    preflight = recipe.gradient_preflight(model, data["train"][0], CONFIG)
-    torch.cuda.synchronize()
-    preflight.update(seconds=time.perf_counter()-started, peak_gib=torch.cuda.max_memory_allocated()/1024**3)
-    recipe.atomic_json(RUN / "GRADIENT_PREFLIGHT.json", preflight)
-    print("Run directory:", RUN)
-    print(json.dumps(model_report, indent=2))
-    print("Gradient preflight:", preflight)
+    if RUN_LOSS_SWEEP:
+        sweep_context = dict(source_sha=source_sha, software=software, python=platform.python_version(),
+                             gpu=torch.cuda.get_device_name(0), compute_capability=list(torch.cuda.get_device_capability(0)),
+                             total_gib=torch.cuda.get_device_properties(0).total_memory/1024**3)
+        print("Sweep arms:", json.dumps(recipe.LOSS_SWEEP_ARMS, indent=2))
+    else:
+        random.seed(CONFIG["seed"]); torch.manual_seed(CONFIG["seed"]); torch.cuda.manual_seed_all(CONFIG["seed"])
+        model, model_report = recipe.load_model(CONFIG)
+        identity = recipe.digest(dict(version=recipe.VERSION, config=CONFIG, source_sha=source_sha,
+                                      data_hashes=manifest["hashes"], model=recipe.MODEL_REVISION,
+                                      precision=model_report["precision"], compute_capability=model_report["compute_capability"], software=software))
+        RUN = OUTPUT_ROOT / ("run_" + identity[:16])
+        RUN.mkdir(parents=True, exist_ok=True)
+        recipe.immutable_json(RUN / "CONFIG.json", dict(identity=identity, config=CONFIG, software=software, source_sha=source_sha))
+        recipe.atomic_json(RUN / "ENVIRONMENT.json", dict(python=platform.python_version(), software=software, model=model_report))
+        started = time.perf_counter()
+        preflight = recipe.gradient_preflight(model, data["train"][0], CONFIG)
+        torch.cuda.synchronize()
+        preflight.update(seconds=time.perf_counter()-started, peak_gib=torch.cuda.max_memory_allocated()/1024**3)
+        recipe.atomic_json(RUN / "GRADIENT_PREFLIGHT.json", preflight)
+        print("Run directory:", RUN)
+        print(json.dumps(model_report, indent=2))
+        print("Gradient preflight:", preflight)
 """)
 
 md("""
@@ -258,16 +298,42 @@ and vocabulary rows remain frozen. Attention checkpoint forward and recomputatio
 the math SDPA backend, carrying forward the repair from experiment 27.
 
 Select the lowest source-macro development NLL among checkpoints passing per-source
-accuracy/NLL and adequately populated class-recall constraints. Step zero can win. The
+accuracy/NLL/Brier and adequately populated class-recall constraints. Step zero can win. The
 false-none guard applies separately where the source contains enough answerable choices.
 Thresholds are preset pilot rules, not statistical guarantees with 64 examples per source.
 
 Checkpoints include adapter, optimizer, scheduler, RNG, history and hashes. A committed
 manifest is written last. An interrupted update is replayed from the last complete checkpoint.
+
+With `RUN_LOSS_SWEEP=True`, select one arm by the same unsmoothed development NLL and retention
+guards, including Brier. Each arm starts from the same seeded parent, with a fresh optimizer;
+step-zero development reports must match. Ties prefer an earlier checkpoint, then arm order.
+Only the selected arm reaches calibration and the gate. Gate failure retains its frozen
+parent, never another sweep arm. These six fits are a pilot, not a statistical guarantee or
+a search over acceptance/final labels.
 """)
 code("""
 if not PREPARE_ONLY:
-    selection = recipe.fit(model, data, CONFIG, RUN, identity)
+    if RUN_LOSS_SWEEP:
+        if "model" in globals():
+            del model
+        gc.collect(); torch.cuda.empty_cache()
+        sweep = recipe.run_loss_sweep(recipe.load_model, data, CONFIG, OUTPUT_ROOT, sweep_context)
+        display(pd.DataFrame([dict(arm=r["name"], smoothing=r["config"]["label_smoothing"],
+                                  brier_weight=r["config"]["brier_weight"], selected_step=r["selected_step"],
+                                  macro_nll=r["metrics"]["macro_nll"], macro_accuracy=r["metrics"]["macro_accuracy"],
+                                  macro_brier=sum(v["brier"] for v in r["metrics"]["by_source"].values())/len(r["metrics"]["by_source"]))
+                              for r in sweep["results"]]))
+        CONFIG = dict(sweep["selected_config"])
+        RUN = Path(sweep["selected_run"])
+        identity = sweep["selected_identity"]
+        selection = json.loads((RUN / "SELECTION.json").read_text())
+        model, model_report = recipe.load_model(CONFIG)
+        assert {k: model_report[k] for k in ("precision", "compute_capability")} == sweep["execution"]
+        recipe.restore(RUN / "checkpoints" / f"step_{selection['selected_step']:06d}", model, identity)
+        print("Selected loss arm:", sweep["selected_arm"])
+    else:
+        selection = recipe.fit(model, data, CONFIG, RUN, identity)
     history = pd.DataFrame([dict(step=h["step"], macro_nll=h["metrics"]["macro_nll"],
                                 macro_accuracy=h["metrics"]["macro_accuracy"],
                                 passes_retention=h["retention"]["passed"],
@@ -298,6 +364,34 @@ if not PREPARE_ONLY:
 """)
 
 md("""
+### Schema sensitivity on gate groups
+
+E42 found substantial order/key sensitivity despite process isolation. Reverse options and
+their code assignments, then rename opaque Choice keys while preserving descriptions and
+semantic none. Compare the selected candidate with its frozen parent on the same gate groups.
+Log canonical probability vectors, total variation and winner changes per source; reject
+overlength variants rather than truncate. Question IDs never enter this trainer's prompt.
+
+These are descriptive diagnostics, not newly invented numerical parity thresholds. They do
+not select another checkpoint or change the export. High sensitivity remains a deployment
+qualification failure to investigate; a passing small gate is not native qualification.
+They do not test sibling-field interactions, separate code-only remapping or prompt-template
+augmentation. Those require named readout/renderer arms.
+""")
+code("""
+if not PREPARE_ONLY and CONFIG["schema_diagnostics"]:
+    selected_path = RUN / "checkpoints" / f"step_{selection['selected_step']:06d}"
+    recipe.restore(selected_path, model, identity)
+    candidate_schema = recipe.schema_diagnostics(model, tokenizer, data["gate"], CONFIG["max_length"], gate["deployed_temperature"])
+    recipe.restore(RUN / "checkpoints/step_000000", model, identity)
+    parent_schema = recipe.schema_diagnostics(model, tokenizer, data["gate"], CONFIG["max_length"])
+    recipe.restore(selected_path, model, identity)
+    recipe.immutable_json(RUN / "SCHEMA_DIAGNOSTICS.json", dict(identity=identity, selected_step=selection["selected_step"], candidate=candidate_schema, parent=parent_schema))
+    print("Candidate schema sensitivity:", json.dumps(candidate_schema["by_transform_and_source"], indent=2))
+    print("Parent schema sensitivity:", json.dumps(parent_schema["by_transform_and_source"], indent=2))
+""")
+
+md("""
 ## 10. Export a reproducible research bundle
 
 The export contains a PEFT adapter, tokenizer, exact prompt/readout contract, source pins,
@@ -310,6 +404,13 @@ adapter into the pinned unquantized base, convert/quantize in the target runtime
 the finite-code prompt and row selection, then rerun paired quality, calibration, memory and
 latency checks. In particular NF4 training and Mac Q4 inference are different numerical
 paths. A selected-token finite-code readout still needs native profile qualification.
+
+The bundle's `train.py:decide` reference helper accepts a caller-loaded pinned base and
+verified adapter. It admits the entire request before inference, enforces the training token
+cap and described semantic none, and evaluates each question separately. It returns finite
+distributions and normalized-entropy confidence (no Noul confidence). It is not a wire adapter,
+shared-prefix cache or CLEF head implementation. Do not load the base's usual generation API
+or OpenKind's fitted candidate scorer and call that the same readout.
 """)
 code("""
 import shutil
@@ -343,6 +444,55 @@ else:
 """)
 
 md("""
+## 12. Optional TypeSafe benchmark after freezing the export
+
+Set `RUN_TYPESAFE_BENCHMARK=True` to compare the frozen export and zero-update parent on
+the five pinned `typesafe/evalsafe-*` test datasets. The default samples ten complete cases
+per source before checking token length; set `TYPESAFE_CASES_PER_SOURCE=None` for all cases.
+`TYPESAFE_MAX_LENGTH=12288` tests a declared longer context than the 2,048-token training
+and export cap. Set it to `None` to enforce the export cap, which admitted zero invoice
+questions in the tokenizer audit. Lengths above the export cap remain unqualified for
+deployment and can need more GPU memory; an OOM stops evaluation. The report records both
+caps and never changes the export contract. There is no training, calibration, checkpoint
+selection or gate decision in this cell.
+Viewing this benchmark spends it for subsequent tuning. Unknown base pretraining exposure
+is not excluded.
+
+O*NET uses `1 - JSD` with base-2 logs for Noul/Choice and range-normalized expected-score
+agreement for Score, averaged equally across question types. References are synthetic
+Astra/Fable consensus distributions, not human ground truth. The other four datasets are
+fixed-input question diagnostics here: their official metrics require executing complete
+policies and comparing actions, including arguments. Those workflow scores are not produced.
+
+OpenKind requires described `__none__` for Choice, so missing none outcomes are appended with
+zero reference mass. Predicted none mass remains in the divergence. This changes those
+schemas and prevents a direct CLEF/TypeSafe leaderboard comparison. Report coverage and
+all admission failures: the declared token and 16-outcome bounds reject some published records.
+Overlength, unsupported and failed rows score zero in the selected-case denominator; do
+not silently replace them with shorter examples. Model results never modify the export.
+Local serial wall time includes Python overhead and is not the published service or
+workflow latency. Dataset pins, file hashes, case sampling and probability vectors are saved.
+""")
+code("""
+if not PREPARE_ONLY and RUN_TYPESAFE_BENCHMARK:
+    import benchmark as typesafe_benchmark
+    importlib.reload(typesafe_benchmark)
+    prepared_groups = {row["group"] for role_rows in data.values() for row in role_rows}
+    typesafe_result = typesafe_benchmark.run_benchmark(
+        model, tokenizer, CONFIG, RUN, identity,
+        excluded_groups=prepared_groups, cases_per_source=TYPESAFE_CASES_PER_SOURCE,
+        max_length=TYPESAFE_MAX_LENGTH,
+    )
+    display(pd.DataFrame({name: {"question_agreement": report["equal_type_agreement"],
+                                "answered": sum(k["answered"] for k in report["by_kind"].values()),
+                                "selected_questions": sum(k["n"] for k in report["by_kind"].values())}
+                         for name, report in typesafe_result["candidate"].items()}).T)
+    print("TypeSafe question diagnostics saved. Official workflow action scores were not measured.")
+else:
+    print("TypeSafe references unopened. Enable RUN_TYPESAFE_BENCHMARK only after freezing the export.")
+""")
+
+md("""
 ## Sources and interpretation
 
 - [Research history](https://github.com/whit3rabbit/openkind/blob/main/research/README.md): experiments 27–28 expose cross-task forgetting; experiment 29 distinguishes active MoE parameters from weight residency.
@@ -352,6 +502,10 @@ md("""
 - [Imajev model card](https://huggingface.co/mohit67890/imajev-4b): broad labeled data, hard examples and replay motivate a mixed recipe, not an expected score for this notebook.
 - [Winnow model card](https://huggingface.co/EldanRing/Winnow-12B): private training data; the named public tasks here do not reproduce Winnow.
 - [Qwen3.5 text model](https://huggingface.co/docs/transformers/model_doc/qwen3_5) and [PEFT quantization](https://huggingface.co/docs/peft/developer_guides/quantization): framework contracts.
+- [Cloudflare CLEF announcement](https://blog.cloudflare.com/clef-decision-models/) and [source review](../docs/RESEARCH.md#cloudflare-clef-and-linked-decision-models-reviewed-2026-10-01): learned routing head, one prefill, CE/Brier disclosure and reproduction limits. This notebook does not reproduce its rank-256 or RLCD recipe.
+- [Pinned CLEF-flash head settings](https://huggingface.co/Cloudflare/clef-flash/blob/17f0b0ad64efb65d273590632833508766b2aae6/joint_head_config.json): 1,024-wide head, two evidence-routing layers, four decoder layers and 16 heads. This is a 9B architecture reference, not a compatible 4B head or a disclosed loss coefficient.
+- [TypeSafe datasets](https://huggingface.co/typesafe/datasets): five pinned evaluation-only sources, separated from every fitting and selection stage.
+- [Working paper](../docs/whitepaper/WORKING_PAPER.md): E42 known-failure/missing-fact errors, targeted joint decisions and schema sensitivity motivate the revised controls, not a claim that this training run fixes them.
 
 This notebook distills decision behavior, including some teacher-computed distributions. It
 does not transplant a reasoning module or prove that hidden reasoning transferred. Teacher
