@@ -19,6 +19,12 @@ For API probes, published calibration data, and independently implemented
 mechanisms, see [Archer Hume's reconstruction](#archer-humes-api-reconstruction-reviewed-2026-09-29).
 For the independent 37-dataset academic benchmark of `jev-1.13.0`, see
 [Deußer et al.](#independent-37-dataset-benchmark-of-jev-reviewed-2026-09-30).
+For CLEF's released head, training disclosures, and whitepaper comparison, see
+[the 1 October source review](#cloudflare-clef-and-linked-decision-models-reviewed-2026-10-01).
+For a compact pointer model's training, retention, and calibration lessons, see
+[Marc Brooker's Hobson](#hobson-compact-pointer-decisions-and-retention-reviewed-2026-10-01).
+For its released v19 artifacts and agent intervention example, see
+[Strands Decider 2B](#strands-decider-2b-hobson-v19-release-and-agent-interventions-reviewed-2026-10-01).
 
 | Reproduction Target | Feasibility Today | Assessment |
 |---|:---:|---|
@@ -820,7 +826,7 @@ flowchart TD
 
 ## Primary and High-Value Sources Register
 
-### Canonical Citations Register (1–28)
+### Canonical Citations Register (1–31)
 
 | # | Reference / Canonical Resource | Focus / Description |
 |:---:|---|---|
@@ -853,6 +859,8 @@ flowchart TD
 | **[27]** | [Sebastian Raschka — "Language Models for Text Classification: From Bag-of-Words to Jev"](https://magazine.sebastianraschka.com/p/classifier-history-and-jev) | External IMDb API evaluation: reported Choice/Noul accuracy, runtime, and cost, with nondeterminism and possible training-set exposure caveats. |
 | **[28]** | [Damani et al. — "Beyond Binary Rewards: Training LMs to Reason About Their Uncertainty" (arXiv:2507.16806)](https://arxiv.org/abs/2507.16806) | Primary source for RLCR, a Brier-augmented correctness reward for reasoning models that report confidence; a related calibration-aware RL baseline, not evidence about TypeSafe's RLCD. |
 | **[29]** | [Deußer, Sparrenberg, & Sifa — "Evaluating and Benchmarking the System One Model Jev" (arXiv:2609.37647)](https://arxiv.org/abs/2609.37647) | Zero-shot evaluation of `jev-1.13.0` over 37 datasets (346,009 requests, US$9.40) with Qwen3.8-27B and Gemma-4-E4B scored on identical requests via exact option probabilities. [Harness code](https://github.com/AppliedMachineLearning-Lab/jev-benchmarking) (MIT); [raw responses, Zenodo DOI 10.5281/zenodo.23039006](https://doi.org/10.5281/zenodo.23039006). See the [reviewed section](#independent-37-dataset-benchmark-of-jev-reviewed-2026-09-30). |
+| **[30]** | [Marc Brooker: "Small Decisions: Engineering a Leading Model" (28 September 2026)](https://brooker.co.za/blog/2026/09/28/engineering-system-one.html) | Author-reported Hobson recipe: Qwen3.5-2B-Base, pointer head, rank-16 LoRA, retention distillation, per-type temperature scaling, and RTX 3090 prefix-cache measurements. See the [analysis and evidence limits](#hobson-compact-pointer-decisions-and-retention-reviewed-2026-10-01). |
+| **[31]** | [Brooker, Chambers, and de Paula: "Introducing Strands Decider 2B: a small, open source, decision model" (1 October 2026)](https://strandsagents.com/blog/introducing-strands-decider/) | Hobson v19 release, linked code and adapter artifacts, public evaluation records, and a Strands tool-call intervention. See the [pinned source review](#strands-decider-2b-hobson-v19-release-and-agent-interventions-reviewed-2026-10-01). |
 
 ### Additional Foundational & Ecosystem References
 
@@ -2016,6 +2024,254 @@ latency on untouched document groups at fixed question counts and chain caps.
 Its public gains do not establish the same source-evidence behavior or justify
 replacing the current profile without those gates.
 
+### Hobson: compact pointer decisions and retention (reviewed 2026-10-01)
+
+Marc Brooker's [28 September article, "Small Decisions: Engineering a Leading
+Model"](https://brooker.co.za/blog/2026/09/28/engineering-system-one.html),
+describes Hobson, a roughly 2B decision model. Its useful contribution is a
+concrete recipe for learning an option pointer while limiting forgetting and
+calibrating each question type. The article and its figure captions are
+author-reported evidence. The September article itself links no Hobson
+checkpoint, runnable source, immutable model revision, or item-level prediction
+artifact. The subsequent [Strands Decider release](#strands-decider-2b-hobson-v19-release-and-agent-interventions-reviewed-2026-10-01)
+publishes those artifacts and clarifies several recipe and contract details.
+This article review performs no training, inference, or independent reproduction.
+
+#### Architecture and training recipe
+
+The [architecture diagram](https://brooker.co.za/blog/images/hobson_architecture.svg)
+identifies **Qwen3.5-2B-Base** as the pretrained backbone. Hobson discards the
+language-model head and trains rank-16 LoRA adapters plus a pointer head with
+just over one million parameters. A query projection of the hidden state at
+`<answer>` scores key projections of the hidden states at each option's final
+token, using a dot product scaled by `sqrt(256)`. Softmax returns the option
+distribution without generating answer text.
+
+This makes candidate representations part of the readout. Brooker's earlier
+53k-parameter linear head used 24 fixed slots; a larger 2.1M-parameter slot
+head also disappointed. He reports the pointer change as the largest gain.
+It removes that fixed output-slot constraint, but the article does not specify
+an operational option cap or prove order invariance. Its sequence of model
+versions also changes backbones and data, so the reported trajectory does not
+isolate the head's causal effect on accuracy or calibration.
+
+The disclosed training recipe is:
+
+- One epoch of cross-entropy on 115,000 rows, approximately 113k public-data
+  rows and 2k synthetic hard questions, with options shuffled per example.
+- KL distillation toward a frozen teacher to limit forgetting, plus a previous
+  Hobson version on tasks showing regressions. In v17, v14 supplies the teacher
+  for some multi-step tasks. Loss weights and the complete teacher/split recipe
+  remain unspecified.
+- Expanded document and reasoning data, including ContractNLI, BoardgameQA,
+  and MuSiQue. Later synthetic examples use Qwen3.5-27B and a Qwen3.5-397B
+  verifier. Brooker reports gains from these additions, while templated
+  synthesis and some additions, including ShARC and ConditionalQA, failed.
+- After training, fit one temperature for each of Noul, Choice, and Score by
+  minimizing held-out log loss. Reserve the remaining held-out data for
+  evaluation, including tasks absent from training.
+
+Brooker reports that improvements on familiar tasks were easier than
+generalization. More task types and verified document examples are plausible
+experimental controls; these observations do not establish that more rows or
+a larger backbone will improve an OpenKind profile. Reinforcement learning for
+calibration and threshold-based workflow utility is proposed future work,
+rather than a demonstrated Hobson training stage or reproduction of RLCD.
+([Training and development account](https://brooker.co.za/blog/2026/09/28/engineering-system-one.html))
+
+#### Quality, calibration, and benchmark exposure
+
+The [trajectory chart](https://brooker.co.za/blog/images/hobson_jevbench_trajectory.svg)
+compares systems on 231 public tasks. The article's footnote claims joint first
+among 30 entries at 2B or below on JevBench v1.4.2, tied with decider-2b v10,
+and acknowledges a newer decider version ahead. This is a dated claim about a
+size bracket. It does not establish current rank on the
+[v1.4.2.2 board](#jevbench-v1422-top-25-architecture-and-lineage-reviewed-2026-09-28)
+or performance on its sealed decisions.
+
+Brooker reports 100% accuracy and multiclass Brier 0.009 on the easy subset.
+The stated Brier convention sums squared class-probability errors, with range
+0 to 2. Brier measures overall probability quality, combining calibration and
+discrimination; this aggregate on easy tasks does not establish calibration
+across confidence bins, question types, missing-answer cases, or domain shift.
+
+Brooker says JevBench examples were excluded from training and synthesis, but
+also says he saw them and designed the synthesis process. Repeated public-set
+feedback can influence task selection and model development without copying
+test rows. Use these results as development-exposed observations. Exact split
+membership, overlap audits, probability vectors, and an untouched gate are
+needed for independent confirmation.
+([Evaluation account](https://brooker.co.za/blog/2026/09/28/engineering-system-one.html))
+
+#### Shared-prefix serving and numerical limits
+
+Brooker reports one forward pass for one question, or a state prefill plus a
+batched question pass for multiple questions. A fixed number of invocations
+still leaves token work, batch memory, and scheduling cost dependent on the
+number and length of questions and options. The article does not disclose
+the attention mask or establish sibling-question isolation.
+
+The [question-scaling figure](https://brooker.co.za/blog/images/hobson_latency_vs_questions.svg)
+uses v14 on an RTX 3090, a roughly 2,000-token state, 1–16 Choice questions,
+and means of five runs dated 26 September. It compares shared-prefix reuse
+with batching that repeats the state. The caption says v17/v18 retain the
+architecture, but timings were not rerun on v18. It also reports one answer
+disagreement among 16 questions, attributed to BF16 rounding. This is a
+numerical behavior difference that a parity gate must investigate.
+
+Separately, the article reports JevBench public-set p50 just above 100 ms and
+p95 below 300 ms on the 3090. Its suggested 10 ms floor is an unmeasured
+optimization estimate. These timings do not transfer to OpenKind's Mac
+backends or establish complete HTTP request latency under load.
+([Latency account](https://brooker.co.za/blog/2026/09/28/engineering-system-one.html))
+
+#### Consequences for OpenKind
+
+OpenKind's fitted [`ScoreSummaryHead`](../crates/openkind-backends/src/qwen35/head/evaluation.rs)
+scores candidate-conditioned features and adds learned semantic-none mass.
+Its [`nested batching`](../crates/openkind-backends/src/qwen35/backbone/batched.rs)
+already prefills shared state and continues question and candidate branches.
+Hobson's option/answer pointer changes the learned function and rendering;
+it requires separate training and qualification. The article leaves its
+absent-answer handling, Score mapping, and wire validation unspecified.
+
+The source supports these bounded comparisons:
+
+| Proposed control | Evidence needed before adoption |
+|---|---|
+| Compare an option/answer pointer with the fitted scorer and direct-logit control. | Match backbone and visible evidence where possible; separate head changes from LoRA/data changes. Measure option-order sensitivity, missing-answer behavior, and full-vector NLL/Brier. |
+| Ablate base-teacher and parent-teacher KL separately. | Measure retained competence and new-task transfer on source-separated groups. Preserve historical final partitions and quantify failures alongside gains. |
+| Compare a global temperature with per-type temperatures. | Use a new calibration partition, lock temperatures before the gate, and report per-type NLL/Brier, reliability, semantic-none recall, false rejection, and accepted-error/coverage curves. Temperature scaling preserves argmax. |
+| Compare isolated shared-prefix execution with repeated-state batching. | Require probability/selection/policy parity across batch shapes and dtypes, including attention KV, DeltaNet, and convolution state; then measure full request time and peak retained memory on the target Mac. |
+
+Follow the [existing evaluation protocol](#evaluation-framework--benchmark-protocol),
+[local design](whitepaper/LOCAL_DECISION_DESIGN.md), and
+[family qualification gates](families/NEW_FAMILY.md). Hobson's results motivate
+these experiments; they do not qualify a new profile or change service defaults.
+
+### Strands Decider 2B: Hobson v19 release and agent interventions (reviewed 2026-10-01)
+
+The [1 October announcement](https://strandsagents.com/blog/introducing-strands-decider/)
+by Marc Brooker, Mike Chambers, and Fabio Nonato de Paula releases
+**Hobson v19 as Strands Decider 2B**. This is the public continuation of the
+[Hobson study](#hobson-compact-pointer-decisions-and-retention-reviewed-2026-10-01),
+distinct from Mapika's separately developed `decider-2b`. It supplies inspectable
+training and serving code, adapter/head artifacts, and evaluation records.
+The review below checks source and metadata only: no checkpoint tensors were
+downloaded, and no model inference, retraining, or native qualification was run.
+
+#### Released identity and reproduction limits
+
+| Source | Immutable revision reviewed | What is available |
+|---|---|---|
+| [Apache-2.0 code repository](https://github.com/strands-labs/strands-decider/tree/f91487ab8f7e4b4967ae57e46b8d90e91e67d616) | `f91487ab8f7e4b4967ae57e46b8d90e91e67d616` | PyTorch serving, training recipes, data inventory, synthetic exports, research history, and tests. |
+| [Hobson v19 release](https://huggingface.co/StrandsAgents/strands-decider-2B-hobson-v19/tree/bb282d786bc251fd4e3068de3ada9ddbb38127cd) | `bb282d786bc251fd4e3068de3ada9ddbb38127cd` | PEFT LoRA adapter, separate pointer head, tokenizer, configs, file manifest, and evaluation artifacts. Base weights are obtained separately. |
+
+The [export config](https://huggingface.co/StrandsAgents/strands-decider-2B-hobson-v19/blob/bb282d786bc251fd4e3068de3ada9ddbb38127cd/hobson_config.json)
+specifies Qwen3.5-2B-Base, rank-16 LoRA, a 256-dimensional pointer, a
+4,096-token window, and BF16 backbone weights. The
+[head implementation](https://github.com/strands-labs/strands-decider/blob/f91487ab8f7e4b4967ae57e46b8d90e91e67d616/src/strands_decider/modeling.py)
+uses FP32 for normalization and query/key scoring. Per-type temperatures are
+approximately 0.911 for Noul, 0.734 for Choice, and 1.328 for Score.
+These fitted constants belong to this export and renderer.
+
+Publication improves inspectability, but exact historical reproduction remains
+qualified. The [provenance file](https://huggingface.co/StrandsAgents/strands-decider-2B-hobson-v19/blob/bb282d786bc251fd4e3068de3ada9ddbb38127cd/provenance.json)
+labels base revision `b1485b2fa6dfa1287294f269f5fb618e03d52d7c` as inferred
+because training hosts did not pin it, and redacts the training code commit.
+The [data contract](https://github.com/strands-labs/strands-decider/blob/f91487ab8f7e4b4967ae57e46b8d90e91e67d616/data/README.md)
+commits synthetic rows and teacher distributions while rebuilding public data
+from downloads. Frozen targets attach by row position, so corpus hashes are
+essential. The authors document rebuild differences and unverified identity
+of an older corpus. Published recipes and manifests therefore enable an audit
+without establishing that this review reproduced the training run.
+
+The release also makes skill acquisition testable. Its
+[v19 preregistration and outcome](https://github.com/strands-labs/strands-decider/blob/f91487ab8f7e4b4967ae57e46b8d90e91e67d616/research/preregistrations/PREREGISTRATION-v19.md)
+add 4,866 human-rated HelpSteer2 rows and 1,300 generated adequacy rows.
+The reported HelpSteer2 accuracy rises from 0.483 to 0.739, with separate
+adequate/inadequate recalls; generated-category balanced accuracy is 0.788.
+Other skills have explicit retention floors. The public JevBench gain is
+164 to 167 correct, with paired p = 0.69, so that aggregate does not resolve
+an accuracy improvement by itself. These are author-run comparisons with
+source and generator exposure limits, not OpenKind measurements.
+
+#### Evaluation artifacts versus launch claims
+
+The pinned Hub release provides full results, summaries, request manifests,
+and server metadata for 231 public tasks:
+
+| Published run | Accuracy | Brier | ECE | Hardware and latency |
+|---|---:|---:|---:|---|
+| [Window 4,096](https://huggingface.co/StrandsAgents/strands-decider-2B-hobson-v19/blob/bb282d786bc251fd4e3068de3ada9ddbb38127cd/eval/jevbench-w4096/summary.json) | 167/231 (72.29%) | 0.34775 | 0.05008 | [H100 run metadata](https://huggingface.co/StrandsAgents/strands-decider-2B-hobson-v19/blob/bb282d786bc251fd4e3068de3ada9ddbb38127cd/eval/jevbench-w4096/run_meta.json): p50 82.62 ms, p95 93.11 ms. |
+| [Window 3,072](https://huggingface.co/StrandsAgents/strands-decider-2B-hobson-v19/blob/bb282d786bc251fd4e3068de3ada9ddbb38127cd/eval/jevbench-w3072/summary.json) | 167/231 (72.29%) | 0.34884 | 0.05627 | The [card](https://huggingface.co/StrandsAgents/strands-decider-2B-hobson-v19/blob/bb282d786bc251fd4e3068de3ada9ddbb38127cd/README.md) labels this a window-adjusted copy with symlinked, unhashed weights. |
+
+These artifacts differ from the repository narrative's Brier 0.342, ECE 0.052,
+and 168-correct 4,096-window result. Preserve run identity rather than combining
+the better number from each account. The exported run records also mark their
+source revision and dirty state as unknown.
+([Repository performance account](https://github.com/strands-labs/strands-decider/blob/f91487ab8f7e4b4967ae57e46b8d90e91e67d616/README.md))
+
+The launch reports roughly 115 ms median on an RTX 3090 and 153 ms for small
+Mac tasks. Its latency figure is explicitly v18. The
+[v19 Mac account](https://github.com/strands-labs/strands-decider/blob/f91487ab8f7e4b4967ae57e46b8d90e91e67d616/docs/inference.md)
+specifies an M3 Pro with 36 GB, macOS 26.6, PyTorch 2.7.1, Transformers 5.17.0,
+and BF16 MPS: warm p50 153 ms below 300 tokens, but 234 ms across JevBench
+and p95 2,628 ms. The small-task median omits that long-task tail.
+Its 3rd-of-33 size-class and 1st-of-30 narrower-class ranking claims are dated
+launch statements, not verification of the current board or sealed-set quality.
+
+#### Serving and probability contracts
+
+The released [inference path](https://github.com/strands-labs/strands-decider/blob/f91487ab8f7e4b4967ae57e46b8d90e91e67d616/src/strands_decider/infer.py)
+uses separate question batch rows. It forks attention KV, DeltaNet recurrent
+state, and convolution state before continuing the suffixes. Multi-question
+prefix reuse occurs within chunks of at most 32 questions; each chunk prefills
+its state again. Unknown cache layouts fall back to repeated-state batching.
+This is request-local reuse, with retained cache memory growing with the batch.
+
+Isolation of neural branches does not establish invariance to sibling inputs.
+`_fit` reserves the longest question suffix in a chunk and truncates state to
+the remaining budget. Adding a long sibling question can therefore change
+the evidence another question receives. This is a concrete context-budget
+intervention for OpenKind's information-boundary tests.
+
+The [schema](https://github.com/strands-labs/strands-decider/blob/f91487ab8f7e4b4967ae57e46b8d90e91e67d616/src/strands_decider/schema.py)
+allows 2–255 Choice options and 2–10 Score levels. The config's legacy
+`num_slots=24` does not cap the pointer path. Choice uses only supplied options;
+it adds no `__none__` outcome. Noul returns P(true). Score returns the expected
+level index. Choice `confidence` is `(N * p_max - 1) / (N - 1)`; Score confidence
+uses normalized ordinal spread with a smoothing correction. Both are derived
+concentration statistics. The launch's reliability wording does not make
+them calibrated probabilities of correctness. A pointer without slot-specific
+weights also does not prove immunity to positional bias in the causal backbone.
+
+The [model card](https://huggingface.co/StrandsAgents/strands-decider-2B-hobson-v19/blob/bb282d786bc251fd4e3068de3ada9ddbb38127cd/README.md)
+acknowledges weak question sensitivity, long-document reasoning, and transfer
+to unfamiliar Noul tasks or Score rubrics. Temperature fits on held-out short
+classification do not establish calibration for a new tool-gating workflow.
+
+#### Agent interventions and consequences for OpenKind
+
+The [Strands example](https://github.com/strands-labs/strands-decider/blob/f91487ab8f7e4b4967ae57e46b8d90e91e67d616/examples/strands/tool_call_intervention.py)
+asks two Noul questions before a proposed tool call: whether arguments are
+grounded in the user's statements, and whether execution is premature.
+Application code compares the probabilities with an illustrative threshold
+of 0.45 and returns `Guide` or `Proceed`. The broader intervention API also
+supports `Deny` and `Confirm`. This preserves the useful boundary: the model
+classifies, and the consumer owns authorization and execution. The hand-chosen
+weather example supplies no measured guardrail failure rate or calibrated
+deployment threshold.
+
+For OpenKind, the released v19 is now an inspectable external pointer baseline.
+The next useful experiments are the [matched readout and retention controls](#hobson-compact-pointer-decisions-and-retention-reviewed-2026-10-01),
+plus sibling-length/context-budget invariance and a labeled tool-call panel
+measuring false permits, false blocks, coverage, and latency at locked thresholds.
+Keep semantic-none and full answer validation in any adapted contract.
+The Mac implementation uses PyTorch MPS with a custom DeltaNet path; it does
+not qualify an MLX or Rust loader. Follow the
+[new-family gates](families/NEW_FAMILY.md) before registry or runtime adoption.
+
 ### JevBench v1.4.2.2 top 25: architecture and lineage (reviewed 2026-09-28)
 
 The supplied overview concerns JevBench, so this is the current JevBench roster. The
@@ -2190,3 +2446,293 @@ This family tree maps reusable ideas. It does not claim that every model copied 
 - **Training openness is its own axis.** OLMo publishes a broad research trail; Nemotron exposes substantial data and recipe detail; many other open-weight projects publish checkpoints and inference support but not a full reproducible training pipeline. A GitHub serving implementation should not be mistaken for training-code disclosure.
 
 The useful comparison is therefore multi-axis. Total parameters describe stored capacity, active parameters approximate per-token network work, and neither alone predicts latency or memory. Attention and cache design determine context cost; routing determines expert communication; post-training and tool harnesses determine how well a model uses long inference budgets. Compare pinned versions with matched prompts, harnesses, reasoning budgets, and declared hardware. For OpenKind’s decision workload, general rankings do not substitute for task-specific labeled evaluation, semantic-none behavior, and runtime measurement.
+
+---
+
+## Cloudflare CLEF and Linked Decision Models (Reviewed 2026-10-01)
+
+**Assessment:** CLEF supplies an inspectable example of a pretrained Qwen
+backbone with a learned, schema-conditioned decision head. It strengthens the
+case for comparing evidence-routing heads with OpenKind's candidate scorer.
+Its cross-field information flow differs from isolated question evaluation;
+its release does not establish OpenKind parity, calibration, or deployment
+readiness.
+
+This review follows the technical links in
+[Cloudflare's announcement](https://blog.cloudflare.com/clef-decision-models/):
+the model releases, Jev announcement, DiffusionGemma precursor, Kev, Laya,
+Decision Index, WorkflowEvals, and hosted-model documentation. It also revisits
+Hume and Raschka because our whitepaper already uses them. Product sign-up,
+careers, sharing links, and recursively linked literature are outside this
+bounded review.
+
+Evidence is separated below into **released source**, **author disclosure**,
+**external evaluation**, and **proposed OpenKind experiments**. No checkpoint
+weights were downloaded, and no model inference, training, timing, or native
+backend qualification was performed.
+
+### CLEF identity and disclosed training
+
+The Apache-2.0 releases checked on 1 October are:
+
+| Release | Declared starting checkpoint | Reviewed immutable revision | Backbone and head configuration |
+|---|---|---|---|
+| [CLEF](https://huggingface.co/Cloudflare/clef/tree/2f3de3dd85f379784083b0814d997ab627200f0c) | `Qwen/Qwen3.8-27B` | `2f3de3dd85f379784083b0814d997ab627200f0c` | 64 backbone layers, hidden 5120; head width 1024 |
+| [CLEF-flash](https://huggingface.co/Cloudflare/clef-flash/tree/17f0b0ad64efb65d273590632833508766b2aae6) | `Qwen/Qwen3.5-9B` | `17f0b0ad64efb65d273590632833508766b2aae6` | 32 backbone layers, hidden 4096; head width 1024 |
+
+Both exports retain vision encoders and include merged backbone shards, a
+separate head, processor, and Python inference source. Their configs use the
+`Qwen3_5ForConditionalGeneration` implementation family; that class name does
+not invalidate the larger release's declared Qwen3.8 checkpoint identity.
+Both head configs specify two evidence-routing layers, four field-decoder
+layers, 16 attention heads, and feedforward width 4096.
+Sources: [CLEF config](https://huggingface.co/Cloudflare/clef/blob/2f3de3dd85f379784083b0814d997ab627200f0c/config.json),
+[flash config](https://huggingface.co/Cloudflare/clef-flash/blob/17f0b0ad64efb65d273590632833508766b2aae6/config.json),
+[CLEF head](https://huggingface.co/Cloudflare/clef/blob/2f3de3dd85f379784083b0814d997ab627200f0c/joint_head_config.json),
+[flash head](https://huggingface.co/Cloudflare/clef-flash/blob/17f0b0ad64efb65d273590632833508766b2aae6/joint_head_config.json).
+
+Cloudflare reports freezing backbone weights while training rank-256 LoRA
+and the routing head together. Supervision combines label-smoothed
+cross-entropy with Brier loss on internally generated records, varying
+question order, instructions, and schemas. Its additional RLCD objective
+rewards exact records and near-correct ordinal answers while penalizing
+departure from a reference distribution.
+([Training disclosure](https://blog.cloudflare.com/clef-decision-models/))
+
+The reviewed release inventories contain inference artifacts, not the
+synthetic corpus or a training/reward implementation. Loss weights, smoothing,
+RL estimator, reference penalty, data separation, and recipe ablations remain
+undisclosed there. These are material reproduction gaps. The name RLCD does
+not establish an identical algorithm across Cloudflare, TypeSafe, and Laya.
+Adding a Brier term also does not establish calibration under domain shift.
+
+### What the released inference code actually computes
+
+The two pinned `joint_schema_model.py` files are byte-identical. Their path is:
+
+```mermaid
+flowchart TD
+    I[State, media, complete question schema] --> B[One Qwen prefill]
+    B --> M[All final hidden states]
+    M --> O[Option queries route evidence from token memory]
+    L[Option-description embedding rows] --> O
+    O --> F[Field summaries mix across questions]
+    M --> F
+    F --> S[Lexical prior plus learned option scores]
+    S --> P[Separate softmax distribution for each field]
+    P --> H[Host constructs typed answers]
+```
+
+Question and option spans supply query representations. Option queries combine
+contextual and lexical features, then cross-attend to token memory. Field
+summaries undergo unmasked self-attention and memory cross-attention. A lexical
+prior and a gated learned score produce logits. `ClefModel.forward` disables
+caching and reads hidden states without autoregressive answer generation.
+([Pinned inference source](https://huggingface.co/Cloudflare/clef/blob/2f3de3dd85f379784083b0814d997ab627200f0c/joint_schema_model.py#L242))
+
+This replaces repeated candidate backbone continuations with one backbone pass
+and learned head work. It is a different learned function, not an equivalent
+execution rewrite of our scorer. Head attention still depends on token,
+option, and field counts. A single backbone pass does not imply constant
+request cost or cross-request state reuse.
+
+Cross-field attention also does not supply a normalized joint distribution
+over complete records. CLEF returns per-field distributions. This differs
+from the narrowly joint categorical source in our Arm NJ, which derives
+consistent marginals from explicitly enumerated joint outcomes. Neither
+cross-attention nor typed serialization guarantees application constraints.
+
+### Contract differences that matter to OpenKind
+
+The released helper exposes these source-visible behaviors:
+
+- Question IDs enter the prompt and become instructions when instructions are
+  absent. IDs are therefore semantic inputs.
+- Choice uses the supplied criteria, sorted by option ID. It adds no
+  `__none__` outcome.
+- Choice confidence is the winning probability; Score confidence is the
+  largest level probability. Score is the expected level index. Noul exposes
+  the true probability without a confidence field.
+- `encode_record` and `systemone` default to 16,384 tokens and truncate state
+  to fit the schema. The blog's advertised 64k context is a separate claim
+  from this default and from demonstrated long-context quality.
+([Encoding](https://huggingface.co/Cloudflare/clef/blob/2f3de3dd85f379784083b0814d997ab627200f0c/joint_schema_model.py#L103),
+[answer conversion](https://huggingface.co/Cloudflare/clef/blob/2f3de3dd85f379784083b0814d997ab627200f0c/joint_schema_model.py#L523))
+
+Source-only checks reproduced these formatting behaviors using a character
+tokenizer and the reviewed pure Python functions. They establish neither
+real-tokenizer parity nor neural predictions.
+
+Consequently, the claimed Jev-compatible response shape must not be treated
+as matching question isolation, opaque-ID semantics, confidence meaning, or
+OpenKind's semantic-none contract. Adding a none label alone does not qualify
+learned rejection. Silent evidence loss would also conflict with the proposed
+[local decision design](whitepaper/LOCAL_DECISION_DESIGN.md).
+
+### How the related models are built
+
+| Source | Construction and training | Relationship to CLEF and OpenKind |
+|---|---|---|
+| [TypeSafe's Jev announcement](https://typesafe.ai/blog/introducing-system-one-models-and-jev) | A pretrained-model decision system with parallel typed outputs and claimed RLCD. Backbone, head topology, corpus, and reward formula are not disclosed. | Shared product contract and goal. Neither CLEF's open code nor a matching API reveals Jev's internal implementation. |
+| [DiffusionGemma precursor, vLLM PR 57250](https://github.com/vllm-project/vllm/pull/57250) | Mastracci's proposal fixes a diffusion canvas, leaves single-token answer slots, and reads allowed-token log probabilities after a bounded denoising step. Multi-token labels need code mapping. | A pretrained-model serving/readout experiment, not CLEF's Qwen head or a disclosed decision-training recipe. Parallel slot reads and causal prefill with a head are different mechanisms. |
+| [Kev-9B](https://huggingface.co/jaredpalmer/kev-9b/blob/db029f08b290afd9fee4aa4bbcd9ae48602d1eb0/README.md) | Frozen `Qwen3.5-9B-Base`, rank-16 LoRA, and an option-end/question-end pointer head. Cross-entropy training uses public labels and generated rules, then dates/missing evidence and document/skill stages with replay. Option shuffling and removed-answer pairs train rejection; a held-out temperature fits NLL. | A closer comparator for state reuse and isolated questions. It uses a smaller pointer readout and a more disclosed data recipe, rather than CLEF's cross-field head. The reviewed v2 card is not proof that Cloudflare evaluated that version. |
+| [Laya](https://huggingface.co/convaiinnovations/laya/blob/55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851/README.md) | Fully tuned ModernBERT-large or multilingual mmBERT, with an option-marker head. Disclosed RL adds logit noise and uses proper-score rewards (log, spherical, ordinal ranked probability) with REINFORCE and a group baseline. | A compact encoder specialist control. Batching question rows is not shared causal-prefix execution. Its training disclosure is distinct from CLEF's RLCD. Checkpoint and task specialization matter. |
+
+The vLLM API reports PR 57250 merged on 22 September 2026. Its proposal and
+example measurements do not, by themselves, qualify every behavior in a
+released vLLM build. Cloudflare's linked
+[early DiffusionGemma demo](https://x.com/michellechen/status/2101091012559151480)
+could not be read during this review; its claimed lineage is attributed to the
+announcement and the inspectable PR, not an independently checked demo.
+
+Two articles already used by our whitepaper sharpen this comparison:
+
+- [Hume, Jev's Architecture Unmasked](https://archerhume.com/posts/jevs-architecture-unmasked):
+  API interventions support within-question option interaction and behavioral
+  separation between questions, but cannot uniquely recover a topology. CLEF
+  demonstrates an option-interaction mechanism while deliberately allowing
+  sibling-field interaction. It therefore does not validate the entire Jev
+  reconstruction.
+- [Raschka, Language Models for Text Classification](https://magazine.sebastianraschka.com/p/classifier-history-and-jev):
+  fixed-task encoders and decoder classification heads are strong controls.
+  His IMDb comparison and broader-task examples separate specialized accuracy
+  from general decision competence. They support testing a compact specialist,
+  not assuming that a ModernBERT head reproduces arbitrary Jev decisions.
+
+### Evaluation sources and claims to keep separate
+
+The CLEF cards describe an **internal run of Decision Index 0.2.1**. The
+public evaluator's pinned
+[methodology](https://huggingface.co/spaces/multimodalart/jev-decision-index/blob/7cdcea3dd14615192ff2e1f6fd13936a547b55d8/data/methodology-v0.2.1.json)
+specifies native adapters, explicit coverage, and a separate serial latency
+panel on one RTX PRO 6000; hosted Jev timings include HTTPS/service effects.
+Its [dated result snapshot](https://huggingface.co/spaces/multimodalart/jev-decision-index/blob/7cdcea3dd14615192ff2e1f6fd13936a547b55d8/data/index-v0.2.1.json)
+does not include CLEF. Do not attribute Cloudflare's rerun to that independent
+snapshot or to the differently scored JevBench roster elsewhere in this dossier.
+
+Selected author-reported medians illustrate a limit on the announcement's
+speed claim:
+
+| Model | Cloudflare-reported median request latency (ms) |
+|---|---:|
+| CLEF | 209.3 |
+| CLEF-flash | 38.8 |
+| Jev | 524.1 |
+| DiffusionGemma Jev | 84.4 |
+| Kev-9B | 51.4 |
+| Laya | 5.8 |
+
+The larger CLEF is slower than Kev and DiffusionGemma in this table; the broad
+claim that both CLEF models beat all decision models except Laya is too strong.
+Quality also varies: CLEF and flash report CLINC150+OOS macro-F1 of 97.43 and
+66.77, while Jev leads both on When2Call. These are trade-offs, not a universal
+quality ordering. ([Cloudflare's reported results](https://blog.cloudflare.com/clef-decision-models/))
+
+Cloudflare's separate
+[live dashboard](https://clef-evals.workers-ai-mle.workers.dev) returned HTTP
+403 during this review. Its cards provide scores but do not establish the
+rerun's exact competitor revisions, matched hardware, dataset receipt, or
+all serving settings. Local examples are documented on H200; that is not
+evidence that every reported competitor timing used an H200. The headline
+leadership claim remains author-reported here.
+
+[WorkflowEvals](https://huggingface.co/collections/typesafe/workflowevals)
+is another evaluation contract. TypeSafe's announcement describes agreement
+with reference-model probabilities inside fixed workflows, while the CLEF
+card reports action-level agreement with consensus labels. Those metrics must
+not be collapsed into atomic ground-truth classification accuracy. Likewise,
+the website demo includes fetch/render time and cannot establish model-only
+latency.
+
+The [five TypeSafe dataset snapshots](https://huggingface.co/typesafe/datasets)
+were inspected separately on 1 October. Their published tables are test-only:
+
+| Dataset | Pinned revision | Questions | Published metric |
+|---|---|---:|---|
+| [O*NET](https://huggingface.co/datasets/typesafe/evalsafe-onet/blob/bda14bdd85be4d93140a842332359f526543b314/README.md) | `bda14bdd85be4d93140a842332359f526543b314` | 7,500 | Equal mean of Noul/Choice `1-JSD` (base 2) and range-normalized expected-Score agreement |
+| [Invoice processing](https://huggingface.co/datasets/typesafe/evalsafe-invoice-processing/blob/6beeb2d2acd65c086c835022f5f4d7434114cafc/README.md) | `6beeb2d2acd65c086c835022f5f4d7434114cafc` | 6,874 | Exact action-set and primary-action agreement |
+| [Customer service](https://huggingface.co/datasets/typesafe/evalsafe-customer-service/blob/b1342f5a704587dbc465867c38c2694348ff86e4/README.md) | `b1342f5a704587dbc465867c38c2694348ff86e4` | 3,287 | Exact action-set agreement |
+| [Security incidents](https://huggingface.co/datasets/typesafe/evalsafe-security-incidents/blob/fbe1ea5c69cf494157fd23f2002a0d9d9a418443/README.md) | `fbe1ea5c69cf494157fd23f2002a0d9d9a418443` | 1,820 | Exact action-set label agreement |
+| [Agent traces](https://huggingface.co/datasets/typesafe/evalsafe-agent-trace-observability/blob/8635540973910a92465fe2bc53e195375aa6e1a8/README.md) | `8635540973910a92465fe2bc53e195375aa6e1a8` | 1,124 | Primary-disposition agreement |
+
+Question counts are published instances, not independent cases. Reference labels
+are synthetic Astra/Fable probability consensus. A modal `answer_json=null`
+can represent a tie, not an unanswered question. Preserve probability-key
+association and option/rubric descriptions. Score agreement compares expected
+levels rather than modal labels. Workflow action comparisons include arguments;
+customer-service case references blend derived workflow signals, so merely
+averaging atomic answers does not reconstruct those decisions.
+
+Experiment 35 reserves all TypeSafe data for frozen-export evaluation. Its
+[benchmark helper](../research/local_decision_training/benchmark.py) implements
+O*NET's metric definitions and fixed-input question diagnostics across the four
+workflow sources, with no policy execution or official action-score claim.
+It samples complete cases before admission, retains failed rows in denominators,
+records file hashes and uses the accepted export temperature without refitting.
+The declared 12,288-token optional panel is separate from its 2,048-token
+training/export cap. A [tokenizer-only audit](../research/local_decision_training/TYPESAFE_SOURCE_AUDIT.json)
+admitted no sampled invoice questions at 2,048 tokens. Longer benchmark inputs
+probe generalization without qualifying an expanded deployment envelope.
+Choice schemas receive required described `__none__` if absent, with zero
+reference mass and predicted mass retained. This adaptation, short-context and
+16-code bounds, and optional case sampling prevent direct leaderboard equivalence.
+The helper does not read other models' `run_results` as training labels or inputs.
+These labels never enter training, development, calibration, the gate or sweep
+selection. Source cards specify Apache-2.0 for O*NET and invoices; the remaining
+three dataset cards do not state a license.
+
+The [Workers AI model documentation](https://developers.cloudflare.com/workers-ai/models/clef/)
+describes deployment rather than publishing a complete training pipeline.
+The announced tuning service connects captured traffic, rollouts, sandbox
+scoring, weight updates, and redeployment. Cloudflare describes the initial
+FDE offering and a later self-service platform; those are product plans,
+not additional evidence for the released model's recipe.
+
+### Whitepaper alignment and concrete next experiments
+
+The following is a source-to-hypothesis crosswalk, not a revision of our local
+measured results. The [working paper](whitepaper/WORKING_PAPER.md), revision
+0.9.2, and [whitepaper](whitepaper/WHITEPAPER.md), version 0.8.11, own the
+current local evidence through E42.
+
+| CLEF or related-source contribution | OpenKind evidence or proposal | Consequence |
+|---|---|---|
+| A pretrained backbone can return finite distributions without answer text. | Whitepaper §4; working paper §4.1. | Reinforces the existing mechanism, not an architectural novelty claim or proof that every pretrained scorer is accurate. |
+| Option-conditioned evidence routing before scoring. | Working paper §10.1; local design's joint-option/pointer comparison. | Test a learned reader against the existing candidate scorer and selected-vocabulary control on identical visible evidence. |
+| Unmasked cross-field attention. | Whitepaper §§22.3, 23.1; local design's isolated branches. | Compare a deliberately joint profile separately. Do not inherit isolation or assume all schema sensitivity is useful dependence. |
+| Label smoothing, Brier supervision, ordinal/record rewards. | Whitepaper §§18.21–18.25, 22.6; outstanding questions OQ-28–32. | Test calibration and retention directly. Our specialization and replay failures remain counterevidence to an automatic general upgrade. |
+| Full token memory rather than only a cheap state summary. | Working paper §§4.4–4.5; whitepaper's representation/evidence audits. | Test evidence access under long documents and missing evidence before changing model capacity. |
+| One full-schema pass with caching disabled in the release helper. | Whitepaper §§16–17, 23.3; working paper §7. | Distinguish eliminating candidate passes from hybrid-state sharing and persistent prefix reuse. Measure complete request time and retained memory. |
+| Compact Laya and isolated Kev alternatives. | Local design's specialist path; whitepaper §23.8. | Keep encoder and pointer controls. The historical classifier comparison was blocked; source review does not complete it. |
+
+Recommended bounded experiments, with no training or runtime change implied:
+
+1. **Matched readout comparison:** retain profile `a047d6802c3f06f085b8`, then
+   compare a frozen direct-logit control, option pointer, and evidence-routing
+   head. Fix backbone, rendering, evidence budgets, labels, and selection splits
+   wherever attribution requires them. Add cross-field mixing as its own arm.
+2. **Information-boundary panel:** move evidence between state, options, and
+   sibling questions; rename opaque IDs; reorder questions/options; add
+   distractors; remove the correct answer. Evaluate useful option interaction,
+   unwanted sibling leakage, and semantic-none behavior separately.
+3. **Training ablations:** establish cross-entropy first, then isolate smoothing,
+   Brier, schema augmentation, and RL/utility losses under matched budgets.
+   Measure NLL, Brier, ordinal error, whole-record correctness, and retained
+   long-document competence on source/template-separated data. Preserve locked
+   historical final splits.
+4. **Target deployment comparison:** only after useful quality, measure full
+   request latency, Q/K/context scaling, peak memory, history invariance, and
+   quantization on the intended Mac. CLEF-flash's 9B dimensions and custom head
+   need a dedicated loader and parity fixtures; the existing 4B Qwen family
+   implementation does not establish compatibility. Follow the
+   [new-family gates](families/NEW_FAMILY.md).
+
+The next useful comparison is an evidence-routing head with an explicitly
+declared information boundary. Adopting CLEF weights, changing the default
+profile, or treating its benchmark numbers as OpenKind measurements is not
+justified by this source review. The revised
+[local design](whitepaper/LOCAL_DECISION_DESIGN.md) and
+[experiment 35 v3](../research/local_decision_training/README.md) make the
+bounded training-loss controls and development-only sweep, E42 counterfactuals, schema diagnostics and
+reference inference executable. Their offline checks do not establish a trained
+4B improvement, reproduce CLEF, or qualify a new native profile.

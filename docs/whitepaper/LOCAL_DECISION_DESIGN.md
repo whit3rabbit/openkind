@@ -1,17 +1,19 @@
 # A local decision model and engine for 16–32 GB Macs
 
-Design proposal, 29 September 2026. Target: text decisions through OpenKind's
+Design proposal, reviewed 1 October 2026. Target: text decisions through OpenKind's
 Choice, Noul and Score contract on an everyday Apple Silicon Mac. The user
 specified 16–32 GB RAM. Workload prevalence and latency requirements remain
 unspecified; the operating budgets below are proposed targets. This document
-adds no measured model result, implementation, promotion, or roadmap status.
+adds no measured 4B training result, Mac timing, promotion, or roadmap status.
+The [experiment 35 implementation](../../research/local_decision_training/README.md)
+provides a bounded training and reference-inference pilot, separate from native support.
 
 **Recommendation.** Build around a quantized, post-trained Qwen3.5-4B decision
 model. Preserve full interaction between evidence, question and options, but
 evaluate the options together in one question branch. Add a distilled small
 encoder only for workloads on which it earns useful coverage. Use deterministic
-code for declared dependencies and calculations. Keep a bounded recurrent
-evidence reader as the main architecture experiment.
+code for declared dependencies and calculations. Compare a learned option-conditioned
+evidence reader against the finite-code control before adding recurrent reading.
 
 This gives the product a concrete baseline while testing whether substantial
 reasoning can be learned by a smaller deployment model. A dense-to-MoE conversion
@@ -22,12 +24,15 @@ or a cross-model hidden-state bridge has a weaker fit to the memory target.
 
 | Evidence | Design consequence | Boundary |
 |---|---|---|
-| E40: composition plus warm static-prefix reuse improves field accuracy from 80.73% to 86.11% and median request time from 798.68 to 339.38 ms. | Eliminate redundant decisions and repeat computation. | Qwen3.5-9B Q4 on T4, 96 exposed cases. All-six correctness is only 32.29%; this is not Mac latency or sufficient absolute quality. See §21. |
+| E42: selective indexing plus route composition (XR) reaches 95.40% field and 84.38% all-six correctness at 242.98 ms. Narrowly joint route/urgency (NJ) reaches 94.01% and 79.69% at 228.31 ms. | Retain selective readouts and deterministic rules; use an explicit joint source when dependent probabilities are required. | Qwen3.5-9B Q4, T4, 192 new authored policy cases. XR withholds an exact route vector; NJ supplies all six distributions. Neither establishes Mac cost or arbitrary-task quality. See §23.1. |
+| E42: multi-catalogue host snapshots cut grouped latency about 54%, with zero paired probability drift. | Qualify exact catalogue reuse and account for retained host state. | About 170.6 MiB host RAM, 96 paired runs. This is catalogue-prefix caching, not a question-independent state-root result. See §23.3. |
 | E30: post-trained 4B decision LoRA improves ContractNLI from 69.12% to 82.35%, while entailment and QASPER regress. E31/E32 replay treatments fail full retention too. | Keep the general model intact; qualify specialization by task and class. | A single broadly applied adapter is not a demonstrated general upgrade. See §§18.21–18.26. |
 | E11: 2B LoRA reaches 91.56% against 95.00% for the selected 4B; tested ModernBERT arms reach 51.56% and 42.19%. | Test 2B as a cheaper replacement before assuming a sub-billion encoder will generalize. | Exploratory pilot, 56 source messages, easy constructed families; not a general architecture ranking. See §15. |
 | E26 pooled-state shortcuts fail. Earlier B1/B2 token-level readers also fail complete quality/policy gates. | A custom reader must preserve evidence and test a materially different learning hypothesis. | Replacing one summary vector with cross-attention alone is not a new, untested remedy. See §§18.3–18.16. |
 | Native MLX flat-field execution halves forward calls but is slower on both tested shapes. | Select execution plans by elapsed request time and memory. | Fewer calls do not establish less work. See §17.4. |
-| E40 native-only controls are stable, but mixed JSON/native histories fail. | Give each execution profile explicit state ownership and history tests. | Separate processes/reset are proposed remedies, not established fixes. See §21.6. |
+| E41/E42: separate resident native/JSON processes repair the tested history traces with zero drift across X, XR and NJ. | Give execution profiles explicit ownership; retain resident process isolation where mixed traffic requires it. | About 4–6% trace overhead, 12.10 GiB combined T4 memory. Same-process repair, cancellation, concurrency and Mac residency remain unqualified. See §§22.2, 23.5. |
+| E42: all 23 XR eligibility errors confuse missing certification plus known failing points with undetermined eligibility. | Teach partial-information conjunctions and exceptions; missing evidence must not override a decisive fact. | A diagnosed policy-family error, not proof that synthetic counterfactuals fix the general model. See §23.2. |
+| The current evidence retains large schema sensitivity after process isolation; the encoder comparison was blocked by a logging error. | Measure order/key sensitivity and rerun an executable encoder control. | Process stability does not establish presentation invariance. Harness failure does not reject encoders. See §23 and working-paper §§9–11. |
 
 The [Laya family](../families/laya.md) is a useful implementation starting point
 for a specialist. Its existing MLX campaign reports 24.34 English and 56.37
@@ -96,6 +101,37 @@ a fixed output vocabulary, but does not automatically eliminate position bias.
 Both readouts still process all option descriptions. Neither makes computation
 independent of candidate count.
 
+**What CLEF changes.** [Cloudflare's announcement](https://blog.cloudflare.com/clef-decision-models/)
+and [reviewed source](../RESEARCH.md#cloudflare-clef-and-linked-decision-models-reviewed-2026-10-01)
+make an evidence-routing head a concrete comparator. CLEF-flash uses Qwen3.5-9B;
+the larger CLEF declares Qwen3.8-27B. Their released helper performs one prefill
+with caching disabled, retains all token representations, routes option queries
+through evidence, and mixes field summaries across questions. This is learned
+decision computation, not merely a faster prefill of our existing function.
+
+The pinned flash head has width 1,024, two routing layers, four decoder layers,
+16 heads and feedforward width 4,096. Its backbone states have width 4,096;
+the selected 4B model uses width 2,560 and tied embeddings. Both have 32 hybrid
+layers (24 DeltaNet, eight full attention), but flash head weights are not
+dimensionally compatible with 4B. Treat its released settings as a comparator,
+not a recovered training configuration. The
+[training guide](../../research/local_decision_training/README.md#what-clef-justifies-changing)
+records these pins and differences.
+
+Cloudflare reports benchmark leadership on an internal Decision Index rerun,
+with task-specific losses as well as wins. It does not establish universal
+superiority to Jev, nor 4B performance on a Mac. Its full-schema per-field
+softmax is not the explicit joint outcome distribution used by NJ.
+
+First test a reader with each question isolated and all its options visible.
+For a comparison against the last-position control, fix backbone, rendering,
+training data and updates; retain full token memory only in the reader arm and
+account for its memory and head cost. Cross-field mixing is a separately named
+arm because it changes the information boundary. If the causal backbone has
+already read the full schema, a mask in the head cannot restore isolation.
+Do not transplant CLEF's ID fallback, silent truncation or winning-probability
+confidence into OpenKind. The dossier owns the source and contract differences.
+
 This changes roughly Q×K expensive candidate continuations into Q joint-option
 continuations. It is a new model/readout experiment, not an equivalent execution
 rewrite. Joint prompts can be longer, and local indexed-readout results were
@@ -161,12 +197,46 @@ reversed relations, and omitted correct options. Split by source document,
 template family and question family before teacher generation. Teacher text,
 retrieval indexes and student inputs must exclude evaluation answers.
 
-Use label cross-entropy first. Add teacher-distribution matching only when a
+Retain a label cross-entropy control. Add teacher-distribution matching only when a
 complete distribution exists over the same outcomes, with option mappings and
 none semantics aligned. Generated rationales and repeated samples do not by
 themselves supply calibrated target probabilities. Evidence-selection and
 intermediate-relation supervision are separate ablations. No particular loss
 weight or data mixture is established by the current record.
+
+The [v3 pilot](../../research/local_decision_training/README.md) enables combined
+label-smoothed CE and summed Brier loss. Its optional six-arm sweep retains the
+plain-CE control, isolates each addition, and varies two combined coefficients
+under fixed data, seed, rank, learning rate and update budgets. Development NLL
+and retention guards select one arm; only that winner reaches calibration and
+the gate. These defaults and coefficients are unmeasured pilot choices.
+Brier targets retain the original hard/soft probabilities; smoothing applies
+only to CE. Compare unsmoothed-label NLL/Brier and class/none retention, not
+training loss across objectives. CLEF does not disclose coefficients or enough
+RLCD detail to reproduce its recipe. Rank 256, RL, and exact-record rewards
+therefore remain separate proposed experiments. Single-question rows cannot
+train an exact multi-field record objective.
+
+TypeSafe's published datasets remain evaluation-only. The pilot's separate
+[benchmark helper](../../research/local_decision_training/benchmark.py) opens
+pinned test references only after export, without selection or refitting.
+O*NET measures reference-distribution agreement; the four workflow datasets
+require complete policy execution for official action scores. Fixed-input
+question diagnostics do not establish those action scores. Report the none
+schema adaptation, case sampling, token/outcome admission and failed-question
+denominators before comparing with an external model. No TypeSafe labels may
+enter training, development, calibration, the gate or sweep selection.
+The optional 12,288-token benchmark panel probes longer contexts while recording
+the 2,048-token training/export cap. It does not change the deployed contract or
+establish long-context quality. The tokenizer-only source audit admitted zero
+sampled invoice questions at 2,048 tokens, making this distinction necessary.
+
+Rule groups include known-failure/missing-conjunct and known-success/missing-
+disjunct pairs. The pilot records probability changes under reversed options
+and opaque Choice-key renaming, mapped back to canonical outcomes. These checks
+are descriptive; they do not establish parity or justify another checkpoint
+search on the acceptance gate. Prompt-template/schema augmentation remains a
+named follow-up with source/template-separated evaluation.
 
 Compare a 2B Qwen student as a potential replacement for 4B, and a roughly
 0.15–0.4B encoder as a specialist. Run the student without teacher evidence or
@@ -233,10 +303,10 @@ unbounded recursive calls are outside this design. The [Von review](../RESEARCH.
 provides related typed-computation prior art, with unresolved quality and
 probability limitations.
 
-**The architecture experiment: recurrent evidence reading.** Test a small
+**The later architecture experiment: recurrent evidence reading.** Test a small
 pretrained encoder plus a recurrent query module that can reread token-level
-evidence. This is the most interesting research extension, not the initial
-shipping assumption.
+evidence after a non-recurrent evidence-routing control has passed useful
+quality gates. Neither reader is an initial shipping assumption.
 
 ```text
 M = encoder(state)                         # retain token-level memory
@@ -336,7 +406,18 @@ support for the proposed composite engine.
 | [ModelExecutionProfile](../../crates/openkind-engine/src/profile.rs) | Bind checkpoint, readout, renderer, probability space, quantization, calibration and permitted execution plans. |
 | [BranchableState](../../crates/openkind-runtime/src/branch/state.rs) | Exact immutable roots, independently mutable continuation lanes, positions and tensor-byte accounting. |
 | [MlxRuntime](../../crates/openkind-backends/src/qwen35/mlx/runtime.rs) | Retain the serialized process-wide MLX entry point; batch work within that ownership model. |
+| [Native finite-logit family](../../crates/openkind-backends/src/families/decoder_logit_qwen35/model.rs) | Reuse the mechanism of verified output-row selection, with a new profile and renderer for a useful trained artifact. Existing profiles do not load experiment 35's unmerged adapter or CLEF's head. |
 | [Benchmark methodology](../BENCHMARKS.md) | Paired complete-request comparisons, stage attribution, quality and memory evidence. |
+
+Experiment 35's `train.py:decide` is the executable reference for its exported
+prompt, finite readout and calibration. It admits all questions before any
+forward pass, rejects overlength evidence, requires described Choice none,
+keeps opaque question IDs out of prompts, and uses serial independent prefills.
+It returns entropy-based Choice/Score confidence and no Noul confidence.
+It supplies neither a wire adapter nor a shared hybrid-state cache. The native
+Rust reference remains unchanged until selected weights, renderer vectors,
+probability fixtures and conversion gates exist. A faster untrained head would
+not answer the quality question.
 
 Priority implementation choices:
 
@@ -372,11 +453,11 @@ hypothesis and one frozen-profile systems study at a time.
 
 | Order | Comparison | Evidence needed to continue |
 |---|---|---|
-| 1 | Matched 4B candidate scorer versus joint-option readout, with frozen Base/post-trained controls and a separate JSON quality control. | Useful complete decisions, per-class retention, none recall/false-none, proper scores and end-to-end Mac cost. Stop if the shortcut damages the required quality. |
+| 1 | Matched 4B candidate scorer versus finite-code, pointer and isolated evidence-routing readouts, with Base/post-trained controls. Compare cross-field mixing separately. | Useful complete decisions, per-class retention, none recall/false-none, proper scores, order/key sensitivity and end-to-end Mac cost. Hold training/rendering fixed for attribution. |
 | 2 | Selected useful 4B readout in weight formats and qualified repeated/shared plans. | New-profile quality plus same-profile execution parity, history stability, peak memory and cold/warm request timings. |
 | 3 | Verified-teacher supervision versus labels alone for a 2B replacement or one encoder specialist. | Same held-out source/question families, useful risk/coverage and a measured resource benefit. Select the student family from workload needs before the run. |
 | 4 | General-only versus the complete specialist cascade. | Route-conditioned errors, request-level fallback frequency, full probability semantics, queue-inclusive p95 and memory. Reject the cascade if routing overhead or mistakes erase the gain. |
-| 5 | Ordinary distilled encoder versus recurrent evidence reader at equal latency. | Gains on unseen multi-step, evidence-position and counterfactual tasks, with retained ordinary-task quality. Drop recurrence if extra compute is the only advantage. |
+| 5 | Useful non-recurrent reader versus recurrence at equal latency, with an ordinary distilled encoder control. | Gains on unseen multi-step, evidence-position and counterfactual tasks, with retained ordinary-task quality. Drop recurrence if extra compute is the only advantage. |
 
 Use accuracy, class recall, NLL/Brier, semantic-none behavior, complete-request
 correctness and risk/coverage together. Split and bootstrap by independent
@@ -396,13 +477,15 @@ limits before evaluation. Existing same-model parity tolerances remain unchanged
 
 The first concrete build should therefore be the bounded joint-option Qwen
 profile and its Mac benchmark. Distill frequent, validated decisions after a
-useful teacher exists. Fund recurrent evidence reading as the single speculative
-architecture experiment, with ordinary distillation as the control.
+useful teacher exists. Test isolated evidence routing before funding recurrent
+depth, with ordinary distillation retained as a control.
 
 **Review provenance.** This proposal uses the working-tree versions of
 [WORKING_PAPER.md](WORKING_PAPER.md), [WHITEPAPER.md](WHITEPAPER.md),
 [RESEARCH.md](../RESEARCH.md), and [laya.md](../families/laya.md), plus the
-linked primary papers and model sources. Whitepaper version: 0.8.8; working
-paper revision: 0.8. External sources were checked on 29 September 2026.
-No training, model inference, raw-result re-audit, or target-Mac timing was run
-for this design. The numerical targets and new architecture are proposals.
+linked primary papers and model sources. Whitepaper version: 0.8.11; working
+paper revision: 0.9.2. CLEF sources were checked on 1 October 2026; earlier
+sources retain the 29 September review. The v3 trainer/reference helper has
+offline tiny-model and contract checks, not 4B training or target-Mac evidence.
+No raw-result re-audit was performed. Numerical targets and new architectures
+remain proposals; E41/E42 values are attributed to the canonical papers.
