@@ -30,7 +30,7 @@ owned elsewhere and linked, not duplicated:
 ## Prior-art comparability (SemIf)
 
 The methodology mirrors the published SemIf systems benchmark
-(github.com/TheoLeeCJ/SemIf, MIT) so runs are **methodology-comparable**:
+(github.com/TheoLeeCJ/SemIf-OpenJev, MIT — formerly `TheoLeeCJ/openjev`) so runs are **methodology-comparable**:
 
 | SemIf scoring path | openkind equivalent |
 |---|---|
@@ -211,6 +211,30 @@ SDKROOT=$(xcrun --show-sdk-path) cargo run --release -p openkind-bench \
 Every published number must carry `--host` and `--commit` attribution;
 summaries default to an "unattributed" host label that must be replaced before
 results are quoted anywhere.
+
+### Evidence retention
+
+`--commit` records the supplied string. The scoring harness does not verify
+that revision or capture dirty source changes. A commit label alone cannot
+reproduce a run built from later edits.
+
+Keep these with each published record:
+
+- The exact command, hardware, OS, toolchain, checkpoint revision, and
+  measured source state. For a dirty tree, archive the tracked diff and
+  untracked source files used by the build. Record the executable digest.
+- The workload name and SHA-256, grouping, repetitions, and warmup settings.
+  Label workload exceptions in model tables before comparing throughput.
+- Raw summaries and the prediction files bound by their SHA-256 fields.
+  A timing summary does not contain accuracy metrics. Accuracy claims need
+  predictions joined to gold and the evaluation output.
+- Parity commands, configured checkpoint roots, and replay logs. Tests that
+  return early without a local checkpoint provide no checkpoint parity
+  evidence. Preserve an initial failure when reporting a successful rerun.
+
+Identify missing evidence in the record. Keep historical attribution intact
+when the measured source state cannot be recovered, and label unsupported
+claims as reported rather than verified.
 
 ### Experimental joint-option comparison
 
@@ -824,6 +848,7 @@ including a 17-option knockout question and a JSON-object evidence payload.
 
 | Record | Engine | Status |
 |---|---|---|
+| [`benchmarks/2026-09-30-jevbench-expansion/`](./benchmarks/2026-09-30-jevbench-expansion/) | plumb-4b, decider-4b | CPU timing recorded: the two JevBench-v1.5.4 profiles (`plumb-4b` single-read letter-logit, `decider-4b` slot-logit with isolated score levels) on the smoke workload plus the Plumb 96-case choice diagnostic; golden-fixture replays reported for both and MLX replay reported for Plumb, with logs and measured source diff unarchived; request-path timing only, no model-quality claim; see the family pages [`decoder-logit-qwen35`](./families/decoder-logit-qwen35.md) and [`decider`](./families/decider.md) |
 | [`benchmarks/2026-09-29-mlx-counterparts/`](./benchmarks/2026-09-29-mlx-counterparts/) | encoder-instruct-label-mlx-fp32, decoder-logit-qwen35-mlx-fp32 (+ encoder-instruct-label CPU re-run) | Complete — first MLX backends for the GLiClass and JevK5 surveyed families on the standard shape777 workload with frozen golden-fixture parity gates (max probability drift 4.487e-6 / 1.003e-6, zero selection flips); request-path timing only, no model-quality claim; see the survey-family backends section in [`MLX.md`](MLX.md) |
 | [`benchmarks/2026-09-28-laya-mlx-campaign/`](./benchmarks/2026-09-28-laya-mlx-campaign/) | laya-english-mlx-fp32, laya-multilingual-mlx-fp32, laya-typed-decisions-mlx-fp32 (+ candle CPU re-runs) | Complete — first MLX encoder-backend campaign on the standard shape777 workload with frozen golden-fixture parity gates (max probability drift 7.2e-6, zero selection flips); request-path timing only, no model-quality claim; see the laya section below |
 | [`benchmarks/2026-09-28-registry-mlx-campaign/`](./benchmarks/2026-09-28-registry-mlx-campaign/) | qwen35-mlx-fp32, qwen35-mlx-bf16 (unqualified candidate), qwen35-native-cpu, laya CPU ×3 | Complete — registry-wide MLX-preferred campaign over all four catalog models on the standard shape777 workload with the new CPU/host/context telemetry and recommendation dataset; see the registry-campaign section above |

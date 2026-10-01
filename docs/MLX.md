@@ -87,6 +87,18 @@ golden-fixture replay gates, one process-wide serialized stream):
   arithmetic as the CPU family code. Parity: max probability drift
   `1.003e-6`, zero selection flips over the 9 golden answers.
 
+The same decoder backend also serves the pinned Plumb-4B profile as
+`plumb-4b/mlx-fp32`. It retains Plumb's tokenizer, single-read limit, and
+per-type calibration. Select `plumb-4b-mlx-fp32` in the benchmark harness,
+or configure Plumb aliases and model root with the daemon's shared
+`--decoder-logit-qwen35-backend mlx-fp32` selector. The
+[family page](families/decoder-logit-qwen35.md#checkpoint-replay)
+documents checkpoint-gated CPU and MLX replays. The
+[Plumb/Decider record](benchmarks/2026-09-30-jevbench-expansion/README.md)
+contains CPU timing and a reported Plumb MLX replay, with its evidence gaps
+identified. No Plumb MLX throughput record is archived there. Decider has
+no MLX adapter yet.
+
 Backend selection: `openkindd --encoder-instruct-backend mlx-fp32` /
 `--decoder-logit-qwen35-backend mlx-fp32`, and
 `openkind-bench --engine encoder-instruct-label-mlx-fp32` /
@@ -134,7 +146,7 @@ Qwen35DecisionEngine
 The backend is an execution replacement, not a different decision model.
 [`engine/backbone.rs`](../crates/openkind-backends/src/qwen35/engine/backbone.rs)
 selects MLX behind the same backend-neutral executor contract used by Candle.
-[`model.rs`](../crates/openkind-backends/src/qwen35/mlx/model.rs) owns load,
+[`model/mod.rs`](../crates/openkind-backends/src/qwen35/mlx/model/mod.rs) owns load,
 prefill, continuation, final normalization, and executor-boundary
 materialization.
 
@@ -254,7 +266,7 @@ differential comparator for any fused kernel.
 
 ### `MetalTree`
 
-[`gated_delta_kernel.rs`](../crates/openkind-backends/src/qwen35/mlx/layers/gated_delta_kernel.rs)
+[`gated_delta_kernel/mod.rs`](../crates/openkind-backends/src/qwen35/mlx/layers/gated_delta_kernel/mod.rs)
 contains independently derived custom Metal kernels:
 
 - generic FP32 and BF16 scalar-gate recurrence;

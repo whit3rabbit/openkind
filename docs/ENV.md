@@ -115,6 +115,8 @@ read-only artifact root:
 | `QWEN3GUARD` | `_ALIASES`, `_MODEL_ROOT` |
 | `WINNOW` | `_ALIASES`, `_MODEL_ROOT`, `_ADAPTER`, `_SIBLINGS` |
 | `DECODER_LOGIT_QWEN35` | `_ALIASES`, `_MODEL_ROOT` |
+| `PLUMB_4B` | `_ALIASES`, `_MODEL_ROOT` |
+| `DECIDER_4B` | `_ALIASES`, `_MODEL_ROOT` |
 | `LAYA_ENGLISH` | `_ALIASES`, `_MODEL_ROOT` |
 | `LAYA_MULTILINGUAL` | `_ALIASES`, `_MODEL_ROOT` |
 | `LAYA_TYPED_DECISIONS` | `_ALIASES`, `_MODEL_ROOT` |
@@ -133,7 +135,10 @@ Families with an MLX path take a backend selector: `native-cpu` default, or
 |---|---|---|
 | `OPENKIND_LAYA_BACKEND` | Backend for every served laya alias | `native-cpu` |
 | `OPENKIND_ENCODER_INSTRUCT_LABEL_BACKEND` | Backend for served encoder-instruct-label aliases | `native-cpu` |
-| `OPENKIND_DECODER_LOGIT_QWEN35_BACKEND` | Backend for served decoder-logit-qwen35 aliases | `native-cpu` |
+| `OPENKIND_DECODER_LOGIT_QWEN35_BACKEND` | Backend for served JevK5 and Plumb-4B aliases | `native-cpu` |
+
+Plumb shares the JevK5 backend selector while retaining its own profile and
+model root. Decider currently has a CPU backend only.
 
 ## CLI (`openkind`)
 
@@ -182,6 +187,11 @@ is unset. Setting both to conflicting values fails startup; remove the
   tests in `crates/openkind-backends`; see that crate's `AGENTS.md`. Tests
   and builds never download model assets; fixtures are vendored and
   digest-checked.
+- JevK5, Plumb, and Decider replays use
+  `OPENKIND_DECODER_LOGIT_QWEN35_MODEL_ROOT`, `OPENKIND_PLUMB_4B_MODEL_ROOT`,
+  and `OPENKIND_DECIDER_4B_MODEL_ROOT`, respectively. A missing or nonexistent
+  root skips the replay, so a passing test result alone does not establish
+  checkpoint parity. Family pages give explicit replay commands.
 
 ## Benchmark Dataset Variables
 

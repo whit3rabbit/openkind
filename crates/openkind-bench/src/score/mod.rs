@@ -220,6 +220,36 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
                 })
                 .map_err(|error| anyhow::anyhow!("load plumb-4b engine: {error}"))?,
             ),
+            EngineKind::DecoderLogitQwen306b
+            | EngineKind::DecoderLogitQwen317b
+            | EngineKind::DecoderLogitQwen34b => {
+                let profile = match args.engine {
+                    EngineKind::DecoderLogitQwen306b => {
+                        &openkind_backends::families::decoder_logit_qwen3::QWEN3_06B
+                    }
+                    EngineKind::DecoderLogitQwen317b => {
+                        &openkind_backends::families::decoder_logit_qwen3::QWEN3_17B
+                    }
+                    _ => &openkind_backends::families::decoder_logit_qwen3::QWEN3_4B,
+                };
+                Arc::new(
+                    openkind_backends::families::decoder_logit_qwen3::DecoderLogitQwen3Engine::load(
+                        openkind_backends::families::decoder_logit_qwen3::DecoderLogitQwen3EngineConfig {
+                            profile,
+                            model_root: model_root.expect("gated").clone(),
+                            limits: FamilyLimits {
+                                max_concurrent_requests: 1,
+                                max_queued_requests: 0,
+                                retry_after_ms: 250,
+                                evaluation_timeout: None,
+                            },
+                        },
+                    )
+                    .map_err(|error| {
+                        anyhow::anyhow!("load decoder-logit-qwen3 engine: {error}")
+                    })?,
+                )
+            }
             EngineKind::Decider4b => Arc::new(
                 openkind_backends::families::decider::DeciderEngine::load(
                     openkind_backends::families::decider::DeciderEngineConfig {

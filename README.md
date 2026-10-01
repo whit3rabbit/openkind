@@ -1,15 +1,15 @@
 # openkind
 
-`openkind` runs local AI models for classification, routing, and scoring. Use the CLI, serve a TypeSafe-compatible API, or embed its Rust libraries in your application.
+`openkind` runs a Typesafe server and cli (Jev) with local hosted models for the server.
 
-Give it a message, document, or JSON state and ask typed questions. It returns answers and probabilities directly, without generating response text token by token.
+I highly recommend using: https://github.com/ollaya-dev/ollaya
 
-Alongside existing open models, OpenKind researches a custom Qwen3.5 decision model and a Rust inference engine that shares input processing across questions.
+We seem to have had the same idea when I started working and their public release is a lot more polished.
+
+OpenKind researches a custom Qwen3.5 decision model and a Rust inference engine that shares input processing across questions.
 
 [![CI](https://github.com/whit3rabbit/openkind/actions/workflows/ci.yml/badge.svg)](https://github.com/whit3rabbit/openkind/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-
-Models are research prototypes. Implementation parity is tested, but task quality and production readiness still need review. Test the model on your own workflows before relying on its decisions.
 
 ## Install
 

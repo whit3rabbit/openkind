@@ -17,6 +17,9 @@ use openkind_backends::families::decoder_logit_letter::{
     DecoderLetterEngine, DecoderLetterEngineConfig,
 };
 use openkind_backends::families::decoder_logit_llm::{DecoderLlmEngine, DecoderLlmEngineConfig};
+use openkind_backends::families::decoder_logit_qwen3::{
+    DecoderLogitQwen3Engine, DecoderLogitQwen3EngineConfig, QWEN3_06B, QWEN3_17B, QWEN3_4B,
+};
 use openkind_backends::families::decoder_logit_qwen35::{
     DecoderLogitQwen35Engine, DecoderLogitQwen35EngineConfig, PLUMB_4B,
 };
@@ -290,6 +293,21 @@ pub(crate) struct FamilyArgs {
     /// aliases.
     #[arg(long, env = "OPENKIND_DECIDER_4B_MODEL_ROOT")]
     pub(crate) decider_4b_model_root: Option<PathBuf>,
+
+    /// Aliases in `--models` that should use the pinned raw decoder-logit-
+    /// qwen3 controls (letter-logit readout on the dense Qwen3 checkpoints).
+    #[arg(
+        long,
+        env = "OPENKIND_DECODER_LOGIT_QWEN3_ALIASES",
+        value_delimiter = ',',
+        help = "comma-separated alias lists of the form                 06b=<alias>[,alias…];17b=<alias>[,alias…];4b=<alias>[,alias…]"
+    )]
+    pub(crate) decoder_logit_qwen3_aliases: Vec<String>,
+
+    /// Model roots for the raw decoder-logit-qwen3 controls, of the form
+    /// `06b=<path>;17b=<path>;4b=<path>`.
+    #[arg(long, env = "OPENKIND_DECODER_LOGIT_QWEN3_MODEL_ROOTS")]
+    pub(crate) decoder_logit_qwen3_model_roots: Vec<String>,
 
     /// Aliases in `--models` that should use the pinned laya-english engine
     /// (English ModernBERT-large decision encoder).
@@ -668,6 +686,60 @@ impl FamilyArgs {
             }
         }
 
+        // Raw decoder-logit-qwen3 controls: size-keyed alias lists and model
+        // roots (`06b=`, `17b=`, `4b=` prefixes).
+        let mut qwen3_controls: Vec<(
+            &std::string::String,
+            PathBuf,
+            &'static openkind_backends::families::decoder_logit_qwen3::Qwen3LogitProfile,
+            &str,
+        )> = Vec::new();
+        for entry in &self.decoder_logit_qwen3_model_roots {
+            let Some((size, root)) = entry.split_once('=') else {
+                bail!(
+                    "--decoder-logit-qwen3-model-roots entries must look like 06b=<path>; got {entry}"
+                );
+            };
+            let profile = match size {
+                "06b" => &QWEN3_06B,
+                "17b" => &QWEN3_17B,
+                "4b" => &QWEN3_4B,
+                other => {
+                    bail!("unknown decoder-logit-qwen3 control size `{other}`; expected 06b, 17b, or 4b")
+                }
+            };
+            for alias in &self.decoder_logit_qwen3_aliases {
+                let Some((alias_size, alias_names)) = alias.split_once('=') else {
+                    bail!(
+                        "--decoder-logit-qwen3-aliases entries must look like 06b=<alias>[,alias…]; got {alias}"
+                    );
+                };
+                if alias_size != size {
+                    continue;
+                }
+                for alias_name in alias_names.split(',') {
+                    if let Some(alias_string) = models.iter().find(|model| model == &alias_name) {
+                        qwen3_controls.push((alias_string, PathBuf::from(root), profile, size));
+                    }
+                }
+            }
+        }
+        if !qwen3_controls.is_empty() {
+            for (alias, model_root, profile, size) in &qwen3_controls {
+                let engine: Arc<dyn DecisionEngine> = Arc::new(
+                    DecoderLogitQwen3Engine::load(DecoderLogitQwen3EngineConfig {
+                        profile,
+                        model_root: model_root.clone(),
+                        limits: admission.limits(),
+                    })
+                    .map_err(|error| {
+                        anyhow::anyhow!("load decoder-logit-qwen3-{size} engine: {error}")
+                    })?,
+                );
+                engines.push(((*alias).clone(), Arc::clone(&engine)));
+            }
+        }
+
         let decider_4b: Vec<_> = self
             .decider_4b_aliases
             .iter()
@@ -856,6 +928,7 @@ impl FamilyArgs {
             .chain(&self.decoder_logit_qwen35_aliases)
             .chain(&self.plumb_4b_aliases)
             .chain(&self.decider_4b_aliases)
+            .chain(self.decoder_logit_qwen3_aliases.iter())
             .chain(&self.laya_english_aliases)
             .chain(&self.laya_multilingual_aliases)
             .chain(&self.laya_typed_decisions_aliases)

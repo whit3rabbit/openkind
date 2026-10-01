@@ -303,6 +303,13 @@ pub enum EngineArg {
     /// Pinned decider-4b engine (slot-logit readout, isolated score levels).
     #[value(name = "decider-4b")]
     Decider4b,
+    /// Raw decoder-logit-qwen3 controls (letter-logit readout, temperature 1.0).
+    #[value(name = "decoder-logit-qwen3-06b")]
+    DecoderLogitQwen306b,
+    #[value(name = "decoder-logit-qwen3-17b")]
+    DecoderLogitQwen317b,
+    #[value(name = "decoder-logit-qwen3-4b")]
+    DecoderLogitQwen34b,
     /// Pinned laya-english engine (English ModernBERT-large decision encoder).
     LayaEnglish,
     /// Pinned laya-multilingual engine (mmBERT-base decision encoder).
@@ -356,6 +363,9 @@ impl From<EngineArg> for EngineKind {
             EngineArg::DecoderLogitQwen35 => EngineKind::DecoderLogitQwen35,
             EngineArg::Plumb4b => EngineKind::Plumb4b,
             EngineArg::Decider4b => EngineKind::Decider4b,
+            EngineArg::DecoderLogitQwen306b => EngineKind::DecoderLogitQwen306b,
+            EngineArg::DecoderLogitQwen317b => EngineKind::DecoderLogitQwen317b,
+            EngineArg::DecoderLogitQwen34b => EngineKind::DecoderLogitQwen34b,
             EngineArg::LayaEnglish => EngineKind::LayaEnglish,
             EngineArg::LayaMultilingual => EngineKind::LayaMultilingual,
             EngineArg::LayaTypedDecisions => EngineKind::LayaTypedDecisions,

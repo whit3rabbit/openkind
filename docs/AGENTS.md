@@ -56,6 +56,10 @@ The documentation suite maintains a strict division of responsibility across pro
 3. **Diagnostics vs Acceptance Tolerances**:
    - Hidden-vector max-absolute, RMS, and cosine metrics are localization diagnostics to pinpoint divergence, not newly invented pass/fail criteria.
    - Acceptance criteria are governed by final decision argmax parity, calibrated probabilities within tolerance (`0.005`), and policy threshold consistency.
+4. **Evidence Retention**:
+   - Label workload exceptions in model tables. Keep predictions, replay logs, and measured source state with the run. A skipped checkpoint test is not parity evidence. Follow [`BENCHMARKS.md`](BENCHMARKS.md#evidence-retention).
+5. **Source Identity Before Access Status**:
+   - A Hub 401/404 does not establish gating. Check moved repositories, weight files, and serving recipes first. Distinguish a runnable recipe over public weights from a new checkpoint. Qualification needs pinned artifacts and serving settings.
 
 ## Wire Documentation Synchronization
 

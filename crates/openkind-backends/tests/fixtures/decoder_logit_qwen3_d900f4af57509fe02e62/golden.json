@@ -1,0 +1,327 @@
+{
+  "assistant_tail": "<|im_start|>assistant\n<think>\n\n</think>\n\n",
+  "backbone": {
+    "id": "Qwen/Qwen3-0.6B",
+    "revision": "c1899de289a04d12100db370d81485cdf75e47ca"
+  },
+  "calibration": {
+    "uniform": 1.0
+  },
+  "cases": [
+    {
+      "name": "os",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "BSD": null,
+              "Linux": null,
+              "Windows": null,
+              "macOS": null
+            },
+            "instructions": "Which option is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": "Fictional incident record. The asset operating system is Linux. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "Linux",
+            "confidence": 0.9999558149188378,
+            "probabilities": {
+              "BSD": 4.467517212978237e-6,
+              "Linux": 0.999995434093303,
+              "Windows": 3.950968441599281e-8,
+              "macOS": 5.887979948971045e-8
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 152,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "region",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "ap-southeast-1": null,
+              "eu-west-2": null,
+              "us-east-1": null,
+              "us-west-1": null
+            },
+            "instructions": "Which option is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": "Fictional incident record. The affected deployment runs in ap-southeast-1. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "ap-southeast-1",
+            "confidence": 0.9999941573627169,
+            "probabilities": {
+              "ap-southeast-1": 0.9999994989416768,
+              "eu-west-2": 3.4997118104944925e-7,
+              "us-east-1": 5.3734640695841365e-9,
+              "us-west-1": 1.4571367814220733e-7
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 184,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "mfa-true",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "instructions": "Does the record explicitly state that two-factor authentication was enabled?",
+            "type": "noul"
+          }
+        },
+        "state": "Fictional incident record. The record states that two-factor authentication was enabled on the affected account. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "noul": 0.9999894795300814,
+            "type": "noul"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 141,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "export-false",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "instructions": "Does the record explicitly state that a data export was approved?",
+            "type": "noul"
+          }
+        },
+        "state": "Fictional incident record. No data export was approved during the window. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "noul": 0.9999789892372192,
+            "type": "noul"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 136,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "impact-3",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": [
+              "level 0",
+              "level 1",
+              "level 2",
+              "level 3",
+              "level 4"
+            ],
+            "instructions": "What is the documented impact level?",
+            "type": "score"
+          }
+        },
+        "state": "Fictional incident record. The documented impact level is 3. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "confidence": 0.9983256046801836,
+            "legend": {
+              "0": "level 0",
+              "1": "level 1",
+              "2": "level 2",
+              "3": "level 3",
+              "4": "level 4"
+            },
+            "probabilities": {
+              "0": 0.00025478063987340846,
+              "1": 0.000013649888626586499,
+              "2": 2.763506334215152e-6,
+              "3": 0.9997186372311695,
+              "4": 0.000010168733996171407
+            },
+            "score": 2.999215763530788,
+            "type": "score"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 174,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "severity-1",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": [
+              "level 0",
+              "level 1",
+              "level 2"
+            ],
+            "instructions": "What is the documented impact level?",
+            "type": "score"
+          }
+        },
+        "state": "Fictional incident record. The documented severity is 1. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "confidence": 0.7763392882038631,
+            "legend": {
+              "0": "level 0",
+              "1": "level 1",
+              "2": "level 2"
+            },
+            "probabilities": {
+              "0": 0.06695348929368199,
+              "1": 0.9330443576304924,
+              "2": 2.153075825496452e-6
+            },
+            "score": 0.9330486637821435,
+            "type": "score"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 141,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "compromise-criteria",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "false": "The record does not state the server was compromised.",
+              "true": "The record states the server was compromised."
+            },
+            "instructions": "Was the server compromised according to the record?",
+            "type": "noul"
+          }
+        },
+        "state": "Fictional incident record. The record states that the server was compromised. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "noul": 0.9999999068022032,
+            "type": "noul"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 141,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "wide-choice",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "site-00": null,
+              "site-01": null,
+              "site-02": null,
+              "site-03": null,
+              "site-04": null,
+              "site-05": null,
+              "site-06": null,
+              "site-07": null,
+              "site-08": null,
+              "site-09": null,
+              "site-10": null,
+              "site-11": null
+            },
+            "instructions": "Which site is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": "Fictional deployment record. The affected site is site-05. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "site-05",
+            "confidence": 0.9988691787380756,
+            "probabilities": {
+              "site-00": 0.0002295590680912428,
+              "site-01": 3.8076618637659217e-6,
+              "site-02": 7.585556126802424e-7,
+              "site-03": 2.639253470681036e-6,
+              "site-04": 0.0000198725684777233,
+              "site-05": 0.999718071310001,
+              "site-06": 0.000011156304242154854,
+              "site-07": 8.966336423165249e-6,
+              "site-08": 2.1605758765949723e-8,
+              "site-09": 4.222366108408586e-6,
+              "site-10": 1.3215741469362237e-7,
+              "site-11": 7.928125358274272e-7
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 337,
+          "output_tokens": 0
+        }
+      }
+    }
+  ],
+  "execution_arithmetic": "candle-cpu-fp32-qwen3",
+  "family": "decoder-logit-qwen3",
+  "loader_id": "decoder-logit-qwen3-06b",
+  "probability_tolerance": 0.005,
+  "profile_id": "d900f4af57509fe02e62",
+  "provenance": {
+    "case_construction": "correct option stated verbatim in the state document",
+    "generator": "gen_decoder_logit_qwen3_fixture",
+    "reference_runtime": "declared family renderer over the pinned checkpoint's own chat template"
+  }
+}

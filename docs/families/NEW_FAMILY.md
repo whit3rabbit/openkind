@@ -52,6 +52,12 @@ profile must not reuse its identity or overwrite its golden fixtures.
 If a prerequisite fails, leave the entry surveyed or mark it blocked with the
 reason. Do not create a loader to make the registry look complete.
 
+Verify the current source before calling a checkpoint gated. A Hub 401/404
+can indicate a moved repository or a serving recipe with no weight files.
+Record the actual base checkpoint and serving configuration separately.
+Environment-controlled readout settings need pinned values before they can
+define a reproducible profile.
+
 ## Rust integration
 
 The example in the [family registry](README.md#load-the-profile-from-rust)
@@ -114,6 +120,32 @@ types and behavior in their own module.
 - Update the relevant crate `AGENTS.md`, the family page, and the runnable
   profile table in [`README.md`](README.md). The static family table does not
   replace the runtime alias registry.
+
+### Benchmark integration
+
+For each profile exposed through `openkind-bench`, update the complete
+dispatch and provenance path:
+
+- Add the CLI `EngineArg` in
+  [`args.rs`](../../crates/openkind-bench/src/args.rs), its `EngineKind`
+  conversion, and the loader dispatch in
+  [`score/mod.rs`](../../crates/openkind-bench/src/score/mod.rs).
+- Update `engine_slug`, `is_family_engine_public`, and the exhaustive
+  `family_identity` mapping in
+  [`score/types.rs`](../../crates/openkind-bench/src/score/types.rs).
+  Include family variants in the rejected arms of both conditional
+  `native_backend` implementations. A missing family identity can panic
+  during summary construction after an expensive scoring run.
+- Add offline summary regression coverage in
+  [`score/summary.rs`](../../crates/openkind-bench/src/score/summary.rs).
+  Assert the pinned profile and checkpoint revision without loading weights.
+  Family runs retain the family slug in `engine`; `engine_variant` identifies
+  the selected profile and backend.
+- Compile optional MLX variants on macOS arm64 with `--features mlx` and
+  `--all-targets`, following the
+  [benchmark crate checks](../../crates/openkind-bench/AGENTS.md#verification-commands).
+  Default workspace builds omit these variants. CPU and MLX variants of one
+  profile share provenance and use distinct output slugs.
 
 ### 4. Qualify behavior independently
 

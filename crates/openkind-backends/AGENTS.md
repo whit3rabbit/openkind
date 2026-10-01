@@ -26,7 +26,7 @@ alias. Keep task quality and release promotion as separate gates.
 
 1. **No Autoregressive Text Generation**:
    - `openkind` is a **decision engine**, not a text generator.
-   - Forward execution computes final hidden-state representations for candidate suffixes and evaluates them through the score-summary readout head.
+   - Forward execution uses the selected profile's readout, such as a score-summary head, bounded label logits, or encoder marker scores.
    - The execution loop never generates output tokens autoregressively.
 2. **Deterministic Schema Emission**:
    - Host Rust code formats and validates JSON responses directly from floating-point candidate distributions. The model never outputs raw JSON text.
@@ -89,7 +89,7 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
 3. **Entropy-Based Confidence**:
    Confidence uses normalized entropy, `1 - H / ln(N)`, clamped to `[0,1]`. It is not the top probability.
 4. **Offline Parity Tests**:
-   Keep parity tests offline. Changes to backbone math, layer logic, or head evaluation must pass the golden-fixture suites.
+   Keep tests offline. Checkpoint-gated replays return early without model roots. Report those replays as skipped. Changes to backbone math, layer logic, or readout require replay against the pinned checkpoint. See the family pages for commands.
 5. **Batching Claims**:
    `fork_batch` proves state isolation and lane topology, not compute batching. Claim vectorization only when `BackendCapabilities` advertises it.
 6. **Memory Names**:
@@ -108,6 +108,8 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
     Admission estimates must include every state retained by the selected strategy. For `repeated_full`, sum candidates across questions with saturating arithmetic.
 13. **Canonical State Keys**:
     Structured state object keys serialize in byte-lexicographic order at every nesting level. Construction order must not change model input. This is `state_first` semantics, not a renderer change.
+14. **Explicit Family Profiles**:
+    Shared family loaders need the selected profile in both CPU and MLX configs. Keep artifact digests, renderer, calibration, limits, and backend identity bound to that profile. JevK5 and Plumb share a backbone but have separate contracts.
 
 ## Verification Commands
 

@@ -22,7 +22,7 @@ use crate::families::support::{
 };
 use crate::qwen35::mlx::{MlxRuntime, MlxRuntimeConfig};
 
-use super::engine::{evaluate_with, ProfiledPassSource};
+use super::engine::{evaluate_with, Jevk5PassSource, ProfiledPassSource};
 use super::model::VerifiedArtifacts;
 use super::renderer::{Jevk5Renderer, RenderedPass};
 use super::{DecoderLogitQwen35Error, Qwen35LogitProfile};

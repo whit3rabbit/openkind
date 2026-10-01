@@ -170,3 +170,83 @@ fn default_host() -> String {
         std::env::consts::ARCH
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::workload::{parse_workload, state_groups};
+
+    fn profile_summary(engine: EngineKind) -> Value {
+        let fixture = parse_workload(
+            "smoke",
+            include_bytes!("../../fixtures/decisions_smoke.jsonl"),
+        )
+        .expect("parse fixture");
+        let groups = state_groups(&fixture.rows).expect("group fixture");
+        let args = ScoreArgs {
+            input: "smoke.jsonl".into(),
+            engine,
+            output_dir: "unused".into(),
+            strategies: vec![],
+            reps: 1,
+            group: true,
+            warmup: true,
+            history_aba: false,
+            host: Some("offline-test".into()),
+            commit: None,
+            pretty: false,
+            bundle_root: None,
+            checkpoint_root: None,
+            tokenizer_path: None,
+            model_root: None,
+            adapter: None,
+        };
+        // Report construction must use the pinned family identity without
+        // loading weights or reaching the native Qwen backend mapping.
+        build_summary(&args, &fixture, &groups, &[], None)
+    }
+
+    #[test]
+    fn expansion_profiles_report_their_own_provenance_without_model_assets() {
+        for (engine, family, variant, profile_id, revision) in [
+            (
+                EngineKind::Plumb4b,
+                "decoder-logit-qwen35",
+                "plumb-4b",
+                "c1f080794d38e94a0bc2",
+                "24f7bf77e7ee258a2d158c61ea2dce2b60321010",
+            ),
+            (
+                EngineKind::Decider4b,
+                "decider",
+                "decider-4b",
+                "0529bf6f2bed84641701",
+                "eb5fbdfc9448473ec25e399882912863afbdb70e",
+            ),
+        ] {
+            let summary = profile_summary(engine);
+            assert_eq!(summary["engine"], family);
+            assert_eq!(summary["engine_variant"], variant);
+            assert_eq!(summary["profile_id"], profile_id);
+            assert_eq!(summary["model_revision"], revision);
+            assert_eq!(summary["measurement_scope"], "model_request_path");
+            assert!(summary["bundle_version"].is_null());
+        }
+    }
+
+    #[test]
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    fn plumb_mlx_reports_the_cpu_profile_with_a_distinct_engine_variant() {
+        let cpu = profile_summary(EngineKind::Plumb4b);
+        let mlx = profile_summary(EngineKind::Plumb4bMlxFp32);
+        for key in [
+            "engine",
+            "profile_id",
+            "model_revision",
+            "measurement_scope",
+        ] {
+            assert_eq!(mlx[key], cpu[key], "{key}");
+        }
+        assert_eq!(mlx["engine_variant"], "plumb-4b-mlx-fp32");
+    }
+}
