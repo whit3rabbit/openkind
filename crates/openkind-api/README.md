@@ -2,40 +2,83 @@
 
 > Dual HTTP (axum) and gRPC (tonic) protocol layer for `openkind`.
 
-`openkind-api` implements the network endpoints that mirror the hosted TypeSafe Jev API and Python SDK client expectations. It handles routing, middleware, authentication, request-id propagation, error envelopes, and Prometheus metrics.
+`openkind-api` implements the network endpoints that mirror the hosted TypeSafe Jev API and Python SDK client expectations. It handles routing, middleware, authentication, request-id propagation, rate limiting, payload limits, error envelopes, and Prometheus metrics. Both transports call `openkind_engine::dispatch` and return typed decisions; neither generates text.
 
-## Supported Protocols & Endpoints
+This crate is a workspace library with no binary. The [`openkindd` daemon](../openkind-server/README.md) mounts it.
 
-### HTTP (axum 0.8)
-- `POST /v1/systemone` (aliased to `/v1/system_one`): Evaluates a `SystemRequest` and returns a `SystemResponse`.
-- `GET /v1/models`: Returns `{ "models": [ ... ] }` listing available models, their descriptions, and release dates.
-- `GET /health`: Liveness probe (open, no auth required).
-- `GET /metrics`: Prometheus text scrape endpoint (open, no auth required).
+## Quickstart
 
-### OpenAPI Specification
-- Canonical OpenAPI 3.1.0 specification: [`openapi.yaml`](./openapi.yaml) (also referenced at `docs/openapi.yaml`).
+Run the daemon (default models include `mock`; HTTP binds `0.0.0.0:8080`), then probe it:
 
-### gRPC (tonic 0.14)
-- `openkind.system_one.SystemOne/Evaluate`: High-performance binary RPC equivalent of `POST /v1/systemone`.
+```bash
+cargo install --locked openkind-server
+openkindd
+curl -s http://127.0.0.1:8080/health
+# {"status":"ok"}
+```
 
-## Middleware & Cross-Cutting Behaviors
+A first evaluation, no API key required unless one is configured:
 
-1. **Request ID Tracking (`x-typesafe-request-id`)**:
-   - Outermost layer stamps every response (including 401s, 4xx, and 5xx errors) with a unique UUIDv4.
-   - Honors inbound `x-typesafe-request-id` headers when supplied by proxies.
-2. **Bearer Token Authentication**:
-   - Optional auth layer configured via `AuthConfig`, `OPENKIND_API_KEY`, or `TYPESAFE_API_KEY`.
-   - Protects `/v1/*` routes with constant-time token comparison.
-   - `/health` and `/metrics` remain open for scrapers and orchestrators.
-3. **Error Taxonomy**:
-   Maps internal errors into standard TypeSafe HTTP responses with structured JSON envelopes:
-   - `400 Bad Request` (`bad_json`)
-   - `401 Unauthorized` (`unauthorized`, includes `WWW-Authenticate: Bearer`)
-   - `404 Not Found` (`unknown_model`)
-   - `422 Unprocessable Entity` (`invalid_body`)
-   - `429 Too Many Requests` (`rate_limited`, includes `Retry-After` and `retry-after-ms`)
-   - `529 Overloaded` (`overloaded`, includes `Retry-After` and `retry-after-ms`)
-   - `500 Internal Server Error` (`internal_error` / `backend_error`)
+```bash
+curl -s http://127.0.0.1:8080/v1/systemone \
+  -H 'content-type: application/json' \
+  -d '{
+    "state": "I was charged twice. Please help.",
+    "model": "mock",
+    "questions": {
+      "billing": { "type": "noul", "instructions": "Is this about billing?" }
+    }
+  }'
+```
+
+The response reports `answers.billing.noul` as a probability in `[0, 1]`.
+
+## HTTP endpoints (axum 0.8)
+
+| Route | Purpose |
+|---|---|
+| `POST /v1/systemone` (aliased to `/v1/system_one`) | Evaluates a `SystemRequest` and returns a `SystemResponse`. |
+| `GET /v1/models` | Lists models with name, description, and release date. |
+| `GET /health` | Liveness probe returning `{"status":"ok"}`. Open, no auth. |
+| `GET /metrics` | Prometheus text-format scrape. Open, no auth. |
+| `GET /playground` | Embedded web UI. Opt-in: `openkindd --playground on`. |
+| `POST /v1/arrow` | Unofficial bulk Arrow IPC endpoint, outside the TypeSafe wire contract. Opt-in: `openkindd --arrow on`; still behind the `/v1` auth gate and rate limiter. |
+
+`/playground` and `/v1/arrow` are excluded from the OpenAPI specification and SDK parity tests by design. See [`docs/ARROW.md`](../../docs/ARROW.md) for the Arrow contract.
+
+## gRPC (tonic 0.14)
+
+- `openkind.SystemOne/Evaluate` is the binary RPC equivalent of `POST /v1/systemone`.
+- Bearer credentials, or `x-api-key` metadata, are checked per call when an API key is configured. Missing or invalid credentials return `UNAUTHENTICATED` (HTTP 401 equivalent).
+- Engine and validation failures map symmetrically to HTTP: `INVALID_ARGUMENT` to 422, `NOT_FOUND` to 404, `UNAVAILABLE` to 529 overloaded, `DEADLINE_EXCEEDED` to 504, and `INTERNAL` to 500.
+- Every response and error status carries `x-typesafe-request-id` metadata, matching the HTTP header.
+
+## Middleware and cross-cutting behavior
+
+1. **Request ID tracking (`x-typesafe-request-id`)**: the outermost layer stamps every response, including 401s, 429s, and 5xx errors. An inbound header from a proxy is honored only if it is non-empty, at most 128 characters, and limited to ASCII letters, digits, `.`, `-`, and `_`; otherwise a fresh UUIDv4 is minted.
+2. **Bearer token authentication**: enabled via `OPENKIND_API_KEY` or `TYPESAFE_API_KEY` (deprecated `OPENPICK_API_KEY` fallback). `/v1/*` routes are gated; `/health`, `/metrics`, and the playground HTML shell stay open for probes and scrapers. Tokens are compared as SHA-256 digests in constant time.
+3. **Rate limiting**: a per-IP fixed-window limiter emits 429 with `Retry-After` and `retry-after-ms`. The daemon enables it by default at 120 requests per minute. Set `--rate-limit-rpm 0` to disable it.
+4. **Payload limit**: request bodies are capped at 16 MB by default, returning 413 `payload_too_large` beyond that.
+5. **Tracing**: `TraceLayer` spans exclude request headers, so credentials and caller-supplied request IDs never enter telemetry.
+6. **Proxy-cache headers**: in daemon proxy mode, proxied `/v1/systemone` responses carry `x-openkind-cache` (and optionally `x-openkind-cache-detail`).
+
+## Error taxonomy
+
+Internal errors map to TypeSafe JSON envelopes of the form `{"error":{"code":...,"message":...}}`:
+
+- `400 Bad Request` (`bad_json`)
+- `401 Unauthorized` (`unauthorized`, includes `WWW-Authenticate: Bearer`)
+- `404 Not Found` (`unknown_model`)
+- `413 Payload Too Large` (`payload_too_large`)
+- `422 Unprocessable Entity` (`invalid_body`)
+- `429 Too Many Requests` (`rate_limited`) and `529 Overloaded` (`overloaded`), both with `Retry-After` and `retry-after-ms`
+- `500 Internal Server Error` (`internal_error` / `backend_error`)
+- `502 Bad Gateway` (`bad_gateway`)
+- `504 Gateway Timeout` (`deadline_exceeded`)
+
+## OpenAPI specification
+
+[`openapi.yaml`](./openapi.yaml) is the canonical OpenAPI 3.1.0 specification for the wire HTTP endpoints, mirrored at `docs/openapi.yaml` in the repository root.
 
 ## Testing
 
@@ -43,5 +86,11 @@
 cargo test -p openkind-api
 ```
 
-This includes the 61-test `sdk_compat` suite verifying wire and header compatibility with the TypeSafe Python SDK, and gRPC roundtrip integration tests.
+- The 61-test `sdk_compat` suite pins wire and header compatibility with the TypeSafe Python SDK: `cargo test -p openkind-api --test sdk_compat`.
+- gRPC roundtrip integration tests: `cargo test -p openkind-api --test grpc_roundtrip`.
+- Arrow endpoint tests: `cargo test -p openkind-api --lib arrow`.
+- Playground UI regressions (Node 18+): `node --test crates/openkind-api/tests/playground.test.cjs` from the repository root.
 
+## License
+
+MIT — see [../../LICENSE](../../LICENSE). The workspace Cargo manifest declares `MIT OR Apache-2.0`.
