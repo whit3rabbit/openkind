@@ -88,6 +88,25 @@ contract and is a candidate future profile.
   of scope: `decider_config.json` pins `schema_first: false` for this
   checkpoint.
 
+## Checkpoint replay and benchmark evidence
+
+The offline contract tests run without model assets. The full golden replay
+requires the pinned local checkpoint:
+
+```bash
+OPENKIND_DECIDER_4B_MODEL_ROOT="<pinned-decider-root>" \
+  env -u RUST_LOG cargo test -p openkind-backends --test decider_parity \
+  golden_replay_matches_the_pinned_checkpoint -- --exact --nocapture
+```
+
+An unset or nonexistent root skips the replay. Check for the skip message
+before claiming checkpoint parity, and archive the command and output.
+
+The [CPU smoke record](../benchmarks/2026-09-30-jevbench-expansion/README.md)
+contains timing and predictions for 12 rows grouped into four requests.
+It labels the source-attribution and replay-log gaps. Timing on this workload
+does not establish task quality or comparability with shape777.
+
 ## What this page does not say
 
 No accuracy, calibration, or leaderboard claims about decider-4b; those

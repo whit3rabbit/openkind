@@ -4,7 +4,9 @@
 > layers, 8 grouped-query attention layers) prompting the question as a JSON
 > decision payload and reading temperature-calibrated next-token logits over
 > the 16 SemIf option letters. Implements the readout protocol of SemIf
-> (`TheoLeeCJ/SemIf`, MIT) as served by the open `jevk5` runtime
+> (`TheoLeeCJ/SemIf`, MIT, now
+> [`TheoLeeCJ/SemIf-OpenJev`](https://github.com/TheoLeeCJ/SemIf-OpenJev)) as
+> served by the open `jevk5` runtime
 > (`github.com/allebee/jevk5`, Apache-2.0).
 
 ## Status in openkind
@@ -57,6 +59,12 @@ load, tied embedding kept host-resident for the letter readout). The
 arithmetic identity is `mlx-gpu-fp32-jevk5`; the candle CPU path remains
 the correctness oracle.
 
+Plumb uses the same MLX adapter with its own explicit profile. Select
+`plumb-4b-mlx-fp32` for benchmarks. In the daemon, configure Plumb aliases
+and its model root, then use the shared
+`--decoder-logit-qwen35-backend mlx-fp32` selector. The backend does not
+substitute JevK5's calibration or limits for Plumb's.
+
 Profile semantics: `ConditionalOnOfferedOptions` (an offered `__none__` key
 is scored as an ordinary option); no state is retained across questions or
 requests — every pass is an independent full-sequence forward; no token is
@@ -95,11 +103,18 @@ to the sorted candidate order used by the shared wire mapping.
 |---|---|---|---|
 | 4 | JevK5 v0.3 | `alibiserikbay/JevK5` (pinned revision) | Rust-loadable prototype |
 | 5 | Plumb-4B | `crh225/plumb-4b` (JevK5 v0.2 fine-tune, single read, temperature 2.07/1.2) | Rust-loadable prototype (`plumb-4b:c1f080794d38e94a0bc2`) |
-| 17 | spark-s1-4b-v6 | `abhishek085/spark-s1-4b-v6` (same backbone, menu-style renderer instead of the JSON payload) | surveyed — renderer variant needs its own profile |
-| 13 | SemIf | `TheoLeeCJ/openjev` | Blocked — gated checkpoint (Hub 401/404 with our credentials, 2026-09-27); the readout protocol itself is already implemented here |
-| 14 | Jobe Qwen3.5-4B | `MantisShrimpdev/jobe` | Blocked — gated checkpoint |
-| 15 | local-jev | `amithgc/local-jev` | Blocked — gated checkpoint |
-| 23 | OpenSourceJev | `sabeel111/OpenSourceJev` (Qwen3.5-4B Q4_K_M GGUF) | Blocked — gated checkpoint |
+| 12 | SemIf | `openjev/openjev` (the former `TheoLeeCJ/openjev`, moved to the `openjev` org; CC-BY-NC-4.0) | surveyed 2026-10-01, not host-feasible: the current checkpoint is 27B-class (64 layers, hidden 5,120, 54.7 GB BF16 — the shim serves `Qwen/Qwen3.8-27B`), beyond local fp32 CPU and 36 GB MLX memory, and its serving contract is env-configured (`READOUT_T`/`READOUT_NOUL_T`/`READOUT_PERMS`), not a pinned artifact. The earlier 4B board configuration this family's protocol mirrors no longer exists as a pinned checkpoint. Revisit if the authors ship a small pinned checkpoint |
+| 13 | spark-s1-4b-v6 | `abhishek085/spark-s1-4b-v6` (same backbone, menu-style renderer instead of the JSON payload) | surveyed — renderer variant needs its own profile |
+| 14 | Jobe Qwen3.5-4B | `MantisShrimpdev/jobe` | recipe over public `Qwen/Qwen3.5-4B` — no fine-tuned weights to pin (2026-10-01 re-survey) |
+| 19 | local-jev | `amithgc/local-jev` | local server recipe over public base weights — nothing to pin (2026-10-01 re-survey) |
+| 63 | OpenSourceJev | `sabeel111/OpenSourceJev` | llama.cpp recipe over public Qwen3.5-4B Q4_K_M — nothing to pin (2026-10-01 re-survey) |
+
+An earlier revision of this table called SemIf, Jobe, local-jev, and
+OpenSourceJev "gated checkpoints". That was wrong: the Hub 401s came from
+repos that had moved or never held weights, not access gates. The 2026-10-01
+re-survey corrected every row above; jqv (#22) is likewise a zero-shot
+recipe over public `Qwen/Qwen3-32B`, and Cygnet (#1) is a frozen-Gemma-4
+recipe with no fine-tune.
 
 The family is the reference implementation class for the letter-logit
 Qwen3.5 rebuilds on the leaderboard.
@@ -114,7 +129,44 @@ Qwen3.5 rebuilds on the leaderboard.
 - The `jevk5_config.json` digest pins the served temperatures; a new
   upstream revision that refits them is a new profile, not a silent update.
 
+## Checkpoint replay
+
+The integration tests always run offline contract checks. Golden checkpoint
+replays return early when their model-root variable is unset or names a
+nonexistent directory. Provide the matching pinned local artifacts to run
+these gates:
+
+```bash
+# CPU replays for the two separate profiles
+OPENKIND_DECODER_LOGIT_QWEN35_MODEL_ROOT="<pinned-jevk5-root>" \
+  env -u RUST_LOG cargo test -p openkind-backends \
+  --test decoder_logit_qwen35_parity \
+  golden_replay_matches_the_pinned_checkpoint -- --exact --nocapture
+OPENKIND_PLUMB_4B_MODEL_ROOT="<pinned-plumb-root>" \
+  env -u RUST_LOG cargo test -p openkind-backends \
+  --test decoder_logit_qwen35_parity \
+  plumb_golden_replay_matches_the_pinned_checkpoint -- --exact --nocapture
+
+# Plumb MLX replay, macOS arm64 with the mlx feature
+SDKROOT=$(xcrun --show-sdk-path) \
+  OPENKIND_PLUMB_4B_MODEL_ROOT="<pinned-plumb-root>" \
+  env -u RUST_LOG cargo test -p openkind-backends --features mlx \
+  --test decoder_logit_qwen35_parity \
+  mlx_replay::plumb_mlx_golden_replay_matches_the_pinned_checkpoint \
+  -- --exact --nocapture
+```
+
+For JevK5 MLX, set `OPENKIND_DECODER_LOGIT_QWEN35_MODEL_ROOT` and use test
+`mlx_replay::mlx_golden_replay_matches_the_pinned_checkpoint` with the same
+feature and SDK settings. Confirm that the replay prints an answer count,
+not a skip message, and retain its output with the measured source state.
+
 ## Benchmark record
+
+The [Plumb/Decider CPU record](../benchmarks/2026-09-30-jevbench-expansion/README.md)
+covers the smoke workload and Plumb's 96-case choice diagnostic. It also
+reports Plumb checkpoint replays, with missing raw evidence stated in the
+record. These workloads differ from shape777 and establish no task quality.
 
 Shape777 MLX record (2026-09-29, single sample): 0.43 decisions/s, 117
 input tok/s, 6.98 GB peak RSS, 20.2 s model load — roughly 2.7× the

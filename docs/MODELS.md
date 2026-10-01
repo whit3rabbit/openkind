@@ -16,9 +16,9 @@ download size, and measured speed: CPU fp32 (candle) runs everywhere and is
 the correctness oracle. The MLX fp32 backend runs the Metal GPU on Apple
 silicon (macOS arm64, `--features mlx`; see [`MLX.md`](MLX.md)) and is listed
 only where parity-qualified. There is no CUDA or ROCm backend. Measured cells
-read `peak RSS · throughput` on the seeded shape777 workload (single-sample
-warm runs on an Apple M4 Max; model-load times, input token rates, and
-strategy caveats are in the per-backend table below).
+read `peak RSS · throughput` on the seeded shape777 workload, except where
+marked below (single-sample warm runs on an Apple M4 Max; model-load times,
+input token rates, and strategy caveats are in the per-backend table below).
 
 | Model | Type | Source weights (HuggingFace) | Pull name | Download | CPU fp32 (candle) | MLX fp32 | Evidence |
 |---|---|---|---|---:|---|---|---|
@@ -29,8 +29,11 @@ strategy caveats are in the per-backend table below).
 | [`decoder-logit-letter`](families/decoder-logit-letter.md) | Qwen2.5 decoder (option-letter logit readout), 0.5B | [Qwen/Qwen2.5-0.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct) | `decoder-logit-letter:5492c97dfcdaf3fe9439` | 0.99 GB | 3.33 GB · 7.22/s | — | [summary](benchmarks/2026-09-26-surveyed-families/summary-decoder-letter.json) |
 | [`decoder-logit-llm`](families/decoder-logit-llm.md) | Qwen2.5 decoder, GGUF q8_0 (label-logit readout), 0.5B | [Qwen/Qwen2.5-0.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF) | `decoder-logit-llm:465963d705b6f35d6208` | 0.68 GB | 1.55 GB · 0.42/s | — | [summary](benchmarks/2026-09-26-surveyed-families/summary-decoder-llm.json) |
 | [`winnow`](families/winnow.md) | Qwen2.5 decoder + in-house LoRA (script-aware router), 0.5B | [Qwen/Qwen2.5-0.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct) + in-house LoRA (catalog-pinned) | `winnow:4dff8c5b03cfbf680db6` | 1.00 GB | 3.32 GB · 194.6/s † | — | [summary](benchmarks/2026-09-26-surveyed-families/summary-winnow.json) |
-| [`decoder-logit-qwen35`](families/decoder-logit-qwen35.md) (Plumb-4B) | Qwen3.5 hybrid decoder (JevK5 fine-tune, single letter read), 4B | [crh225/plumb-4b](https://huggingface.co/crh225/plumb-4b) | `plumb-4b:c1f080794d38e94a0bc2` (`plumb:4b`) | 8.43 GB | measured run pending | — | measured run pending |
-| [`decider-4b`](families/decider.md) | Qwen3.5 hybrid decoder (slot-logit readout, plain state-first layout, isolated score levels), 4B | [Mapika/decider-4b](https://huggingface.co/Mapika/decider-4b) | `decider-4b:0529bf6f2bed84641701` | 8.43 GB | measured run pending | — | measured run pending |
+| [`decoder-logit-qwen35`](families/decoder-logit-qwen35.md) (Plumb-4B) | Qwen3.5 hybrid decoder (JevK5 fine-tune, single letter read), 4B | [crh225/plumb-4b](https://huggingface.co/crh225/plumb-4b) | `plumb-4b:c1f080794d38e94a0bc2` (`plumb:4b`) | 8.43 GB | 7.83 GB · 0.16/s (choice diagnostic) | — | [smoke + diagnostic](benchmarks/2026-09-30-jevbench-expansion/README.md) |
+| [`decoder-logit-qwen3-4b`](families/decoder-logit-qwen3.md) | Qwen3 dense decoder (raw direct-logit control, temperature 1.0), 4B | [Qwen/Qwen3-4B-Instruct-2507](https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507) | `decoder-logit-qwen3-4b:9dfaf11792a8d061b6b8` | 8.04 GB | measured run pending | — | measured run pending |
+| [`decoder-logit-qwen3-17b`](families/decoder-logit-qwen3.md) | Qwen3 dense decoder (raw direct-logit control, temperature 1.0), 1.7B | [Qwen/Qwen3-1.7B](https://huggingface.co/Qwen/Qwen3-1.7B) | `decoder-logit-qwen3-17b:8119b9271f8d011e7d03` | 4.06 GB | measured run pending | — | measured run pending |
+| [`decoder-logit-qwen3-06b`](families/decoder-logit-qwen3.md) | Qwen3 dense decoder (raw direct-logit control, temperature 1.0), 0.6B | [Qwen/Qwen3-0.6B](https://huggingface.co/Qwen/Qwen3-0.6B) | `decoder-logit-qwen3-06b:d900f4af57509fe02e62` | 1.50 GB | measured run pending | — | measured run pending |
+| [`decider-4b`](families/decider.md) | Qwen3.5 hybrid decoder (slot-logit readout, plain state-first layout, isolated score levels), 4B | [Mapika/decider-4b](https://huggingface.co/Mapika/decider-4b) | `decider-4b:0529bf6f2bed84641701` | 8.43 GB | 7.91 GB · 0.06/s (smoke) | — | [smoke summary](benchmarks/2026-09-30-jevbench-expansion/summary-decider-4b-smoke.json) |
 | [`von`](families/von.md) | ModernBERT-large encoder, option-marker scorer | [wfzyx/von](https://huggingface.co/wfzyx/von) (von-1.1) | `von:69219703407bd39cca0c` (`von:1.1`) | 1.58 GB | 1.83 GB · 2.25/s | — | [summary](benchmarks/2026-09-30-von/summary-von.json) |
 | [`laya-english`](families/laya.md) | ModernBERT-large encoder, typed-decision marker head | [convaiinnovations/laya](https://huggingface.co/convaiinnovations/laya) | `laya-english:c8ea29bf1e33a343c4b7` (`laya:en`) | 0.85 GB | 2.75 GB · 2.23/s | 2.12 GB · 24.34/s | [laya MLX campaign](benchmarks/2026-09-28-laya-mlx-campaign/README.md) |
 | [`laya-multilingual`](families/laya.md) | mmBERT-base encoder, typed-decision marker head | [convaiinnovations/laya-multilingual](https://huggingface.co/convaiinnovations/laya-multilingual) (encoder derives from [jhu-clsp/mmBERT-base](https://huggingface.co/jhu-clsp/mmBERT-base)) | `laya-multilingual:f4064eb56fb7f7d325e1` (`laya:multilingual`) | 0.68 GB | 2.80 GB · 5.30/s | 2.94 GB · 56.37/s | [laya MLX campaign](benchmarks/2026-09-28-laya-mlx-campaign/README.md) |
@@ -45,6 +48,8 @@ Reading notes:
 
 - Throughput is decisions/s; `emb/s` marks the proxy-cache embedder, whose
   benchmark times single-text encodes rather than decision requests.
+- Plumb uses the 96-row choice diagnostic here; Decider uses the 12-row smoke
+  workload. These cells cannot be compared directly with shape777 or each other.
 - † `winnow` and `router-script` measure the routing pass over mock siblings,
   not end-to-end decisions.
 - The `qwen35-state-first` rows are `choose_strategy` (the scheduler picks a
@@ -121,6 +126,7 @@ both spellings. The alias policy:
 | `laya:typed-decisions` | `laya-typed-decisions:9d28cfa9567902801ed1` | byte-identical weights and tokenizer |
 | `jevk5:4b` | `decoder-logit-qwen35:415bcf4a064e6dadcf85` | same JevK5 v0.3 checkpoint; FP32 here vs Q8_0 GGUF there |
 | `plumb:4b` | `plumb-4b:c1f080794d38e94a0bc2` | JevBench board name with no ollaya counterpart; checkpoint pinned directly |
+| `qwen3:4b` | `decoder-logit-qwen3-4b:9dfaf11792a8d061b6b8` | JevBench board name with no ollaya counterpart; checkpoint pinned directly |
 | `von:1.1` | `von:69219703407bd39cca0c` | byte-identical `option_marker.pt` (digest-verified in both registries) |
 | `decider:4b` | `decider-4b:0529bf6f2bed84641701` | byte-identical weights and tokenizer (digest-verified in both registries) |
 

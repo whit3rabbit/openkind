@@ -489,6 +489,7 @@ mod mlx_replay {
         assert!(!golden.cases.is_empty(), "golden fixture has cases");
 
         let engine = DecoderLogitQwen35MlxEngine::load(DecoderLogitQwen35MlxEngineConfig {
+            profile: &JEVK5,
             model_root: root,
             limits: limits(),
         })

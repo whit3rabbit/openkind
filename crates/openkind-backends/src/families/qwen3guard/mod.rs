@@ -24,7 +24,9 @@
 //!   ordinal contract.
 //! - Continuation state: none; every question is one full forward pass.
 
-mod arch;
+/// Dense Qwen3 decoder forward, shared with the raw letter-logit control
+/// family (`decoder-logit-qwen3`).
+pub(crate) mod arch;
 mod engine;
 mod model;
 mod renderer;

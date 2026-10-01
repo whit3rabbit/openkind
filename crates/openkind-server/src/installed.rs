@@ -15,6 +15,10 @@ use openkind_backends::families::decoder_logit_letter::{
 use openkind_backends::families::decoder_logit_llm::{
     DecoderLlmEngine, DecoderLlmEngineConfig, PROFILE_ID as DECODER_LLM_PROFILE,
 };
+use openkind_backends::families::decoder_logit_qwen3::{
+    DecoderLogitQwen3Engine, DecoderLogitQwen3EngineConfig, Qwen3LogitProfile, QWEN3_06B,
+    QWEN3_17B, QWEN3_4B,
+};
 use openkind_backends::families::decoder_logit_qwen35::{
     DecoderLogitQwen35Engine, DecoderLogitQwen35EngineConfig, Qwen35LogitProfile, JEVK5, PLUMB_4B,
     PROFILE_ID as DECODER_LOGIT_QWEN35_PROFILE,
@@ -57,10 +61,12 @@ use openkind_backends::families::winnow::{
 use openkind_engine::{DecisionEngine, EngineRegistry};
 use openkind_model_store::{
     Manifest, DECIDER_4B_MODEL_NAME, DECODER_LOGIT_LETTER_MODEL_NAME, DECODER_LOGIT_LLM_MODEL_NAME,
-    DECODER_LOGIT_QWEN35_MODEL_NAME, ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME,
-    KEV_MODEL_NAME, LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME,
-    LAYA_TYPED_DECISIONS_MODEL_NAME, PLUMB_4B_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME,
-    QWEN3GUARD_MODEL_NAME, SCHEMA_SCORER_MODEL_NAME, VON_MODEL_NAME, WINNOW_MODEL_NAME,
+    DECODER_LOGIT_QWEN35_MODEL_NAME, DECODER_LOGIT_QWEN3_06B_MODEL_NAME,
+    DECODER_LOGIT_QWEN3_17B_MODEL_NAME, DECODER_LOGIT_QWEN3_4B_MODEL_NAME,
+    ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME, KEV_MODEL_NAME,
+    LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME, LAYA_TYPED_DECISIONS_MODEL_NAME,
+    PLUMB_4B_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME, QWEN3GUARD_MODEL_NAME,
+    SCHEMA_SCORER_MODEL_NAME, VON_MODEL_NAME, WINNOW_MODEL_NAME,
 };
 
 use crate::args::{
@@ -81,6 +87,7 @@ pub(crate) enum InstalledKind {
     Qwen3Guard,
     Kev,
     DecoderLogitQwen35(&'static Qwen35LogitProfile),
+    DecoderLogitQwen3(&'static Qwen3LogitProfile),
     Decider4b,
     Von,
     Winnow,
@@ -139,6 +146,21 @@ pub(crate) fn installed_kind(manifest: &Manifest) -> Option<InstalledKind> {
         }
         (PLUMB_4B_MODEL_NAME, "plumb-4b") if profile == PLUMB_4B.profile_id => {
             Some(InstalledKind::DecoderLogitQwen35(&PLUMB_4B))
+        }
+        (DECODER_LOGIT_QWEN3_06B_MODEL_NAME, "decoder-logit-qwen3-06b")
+            if profile == QWEN3_06B.profile_id =>
+        {
+            Some(InstalledKind::DecoderLogitQwen3(&QWEN3_06B))
+        }
+        (DECODER_LOGIT_QWEN3_17B_MODEL_NAME, "decoder-logit-qwen3-17b")
+            if profile == QWEN3_17B.profile_id =>
+        {
+            Some(InstalledKind::DecoderLogitQwen3(&QWEN3_17B))
+        }
+        (DECODER_LOGIT_QWEN3_4B_MODEL_NAME, "decoder-logit-qwen3-4b")
+            if profile == QWEN3_4B.profile_id =>
+        {
+            Some(InstalledKind::DecoderLogitQwen3(&QWEN3_4B))
         }
         (DECIDER_4B_MODEL_NAME, "decider-4b") if profile == DECIDER_4B.profile_id => {
             Some(InstalledKind::Decider4b)
@@ -294,6 +316,14 @@ pub(crate) fn load_installed_engine(
                 limits,
             })
             .map_err(|error| anyhow!("load von engine: {error}"))?,
+        ),
+        InstalledKind::DecoderLogitQwen3(profile) => Arc::new(
+            DecoderLogitQwen3Engine::load(DecoderLogitQwen3EngineConfig {
+                profile,
+                model_root: root.join("checkpoint"),
+                limits,
+            })
+            .map_err(|error| anyhow!("load decoder-logit-qwen3 engine: {error}"))?,
         ),
         InstalledKind::Decider4b => Arc::new(
             DeciderEngine::load(DeciderEngineConfig {

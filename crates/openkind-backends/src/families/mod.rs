@@ -16,6 +16,8 @@ pub mod decider;
 pub mod decoder_logit_letter;
 /// Decoder-only LLM logit readout family adapter.
 pub mod decoder_logit_llm;
+/// Raw dense-Qwen3 letter-logit control family adapter.
+pub mod decoder_logit_qwen3;
 /// Qwen 3.5 decoder-only logit readout family adapter.
 pub mod decoder_logit_qwen35;
 /// ModernBERT encoder instruct-label readout family adapter.

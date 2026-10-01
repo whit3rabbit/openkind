@@ -112,6 +112,9 @@ git diff --check
 
 After schema generation, confirm that unrelated schema files did not change.
 
+Default workspace checks exclude MLX. For optional-backend changes, also run
+the feature checks in the relevant crate guides.
+
 For changes under `bindings/`, also run the language-specific tests:
 
 ```bash

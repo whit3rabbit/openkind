@@ -238,6 +238,19 @@ impl Qwen3Model {
         })
     }
 
+    /// The tied output-embedding rows of `token_ids`, widened to FP32: for
+    /// tied checkpoints the letter-logit readout dots the final hidden state
+    /// against these rows. Each row is `(hidden_size,)`; the result stacks
+    /// rows in `token_ids` order as `(token_count, hidden_size)`.
+    pub fn embed_rows(&self, token_ids: &[u32]) -> Result<Tensor> {
+        let device = self.embed_tokens.embeddings().device();
+        let indexes = Tensor::new(token_ids, device)?;
+        self.embed_tokens
+            .embeddings()
+            .index_select(&indexes, 0)?
+            .to_dtype(DType::F32)
+    }
+
     /// Forward once and return the final-norm hidden state at the last
     /// position: the readout slot the Stream heads score. The result is
     /// 1-D `(hidden_size,)`.

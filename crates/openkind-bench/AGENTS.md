@@ -37,7 +37,7 @@ Methodology, timing scope, and recorded results are owned by
 
 - MLX is optional and runs on macOS arm64. Build with `--features mlx` and `SDKROOT=$(xcrun --show-sdk-path)`.
 - Qwen MLX uses the normal request path. Surveyed-family MLX runs use `--model-root` and one pinned plan, without a strategy sweep.
-- MLX throughput does not establish parity. Frozen parity gates live in the backend examples.
+- MLX throughput does not establish parity. Native Qwen gates live in backend examples. Surveyed-family gates are checkpoint-dependent integration tests.
 - Use `repeated_full` for BF16 throughput comparisons. Label nested runs as diagnostics until the frozen probability gate passes.
 - Do not describe the current BF16 mismatch as cache corruption. The trace localizes shape-dependent projection rounding.
 - FP32 uses production `ReferenceOps` by default. Name and compare opt-in Metal arithmetic against that default on the same fixture and host.
@@ -60,18 +60,12 @@ Methodology, timing scope, and recorded results are owned by
 - [`src/score/mod.rs`](./src/score/mod.rs): Native sweeps force each strategy while preserving admission and check answer equality. Surveyed-family engines use one pinned plan.
 - [`src/score/types.rs`](./src/score/types.rs): `EngineKind`, `native_backend`, `family_identity`,
   and `is_family_engine` helpers.
-- [`src/score/summary.rs`](./src/score/summary.rs): Provenance summary builder recording engine slug,
-  profile ID, and backbone revision in `openkind-bench/v1` records.
-- [`src/dataset/`](./src/dataset/): Dataset commands. [`materialize.rs`](./src/dataset/materialize.rs)
-  turns installed parquet shards into labeled workload rows using the frozen
-  templates in [`templates.rs`](./src/dataset/templates.rs) (ported verbatim
-  from the Bonn MIT harness at the pinned commit — wording changes are new
-  template versions). [`eval.rs`](./src/dataset/eval.rs) scores the
-  materialized split through `run_score` and joins predictions to gold with
-  digest binding; [`metrics.rs`](./src/dataset/metrics.rs) adds AUROC,
-  Spearman/Pearson, macro-F1, AURC, coverage accuracy, and the dev-tuned
-  Noul threshold. Reports are `openkind-dataset-eval/v1`, always
-  model-quality evidence, never promotion.
+- [`src/score/summary.rs`](./src/score/summary.rs): Records family `engine`, profile/backend `engine_variant`,
+  profile ID, and checkpoint revision. Its offline regression tests need no model assets.
+- [`src/dataset/`](./src/dataset/): Materialization, evaluation, and metrics. [`templates.rs`](./src/dataset/templates.rs)
+  freezes Bonn MIT wording. Changes need new versions.
+  [`eval.rs`](./src/dataset/eval.rs) binds predictions to gold by digest.
+  `openkind-dataset-eval/v1` reports provide quality evidence.
 - [`src/tests.rs`](./src/tests.rs): Offline tests (fixture parsing, grouping, `__none__`
   injection, generator determinism, mock end-to-end run).
 
@@ -79,20 +73,30 @@ Methodology, timing scope, and recorded results are owned by
 
 1. **Grouped Requests Share One Root**: Every question in a grouped request must tokenize to the same root prefix. Grouping uses exact state serialization. `--no-group` emits one request per row.
 2. **Request Latency Is Not Row Latency**: Grouped rows report their shared request latency. Do not sum them. Use `decisions_per_second` for per-decision throughput.
-3. **Strategy Sweep Is Native-Only**: Mock and family engines reject `--strategies`. On Qwen 3.5, `choose_strategy` uses the scheduler; named strategies force a plan through `SchedulerConfig::with_forced_strategy`.
-4. **Attribution Is Mandatory for Published Numbers**: `--host` and `--commit` record hardware and revision. Summaries default to an "unattributed" host label. Replace it before quoting results in docs.
-5. **Dataset Bytes Never Enter the Repo**: dataset acquisition delegates to
-   [`openkind-datasets`](../openkind-datasets/AGENTS.md) and writes only to
-   the external cache; materialized workloads carry gold labels as extra
-   keys the plain `score` command ignores. Choice rows still get the
-   injected `__none__` option — dataset reports must quote
-   `answerable_ranking_accuracy` for external comparison.
+3. **Strategy Sweep Is Native-Only**: Mock and family engines reject `--strategies`. On Qwen 3.5, `choose_strategy` uses the scheduler. Named strategies force a plan through `SchedulerConfig::with_forced_strategy`.
+4. **Published Attribution**: `--commit` is caller-supplied metadata. It does not verify the measured source. Records need attributable hardware, the exact fixture, and source state. Follow the [evidence-retention rules](../../docs/BENCHMARKS.md#evidence-retention).
+5. **Dataset Bytes Never Enter the Repo**: Acquisition uses
+   [`openkind-datasets`](../openkind-datasets/AGENTS.md) and the external cache.
+   Plain `score` ignores gold labels. Choice requests inject `__none__`, so
+   external comparisons use dataset metric `answerable_ranking_accuracy`.
+6. **Family Provenance**: Every profile needs a `family_identity` entry. Missing provenance reaches `native_backend` and panics after scoring. Keep matching exhaustive. Shared families retain their family `engine` slug while `engine_variant` identifies the profile and backend.
+7. **Conditional Engine Mappings**: Update CPU and MLX mappings together. Family variants belong in the rejected arms of `native_backend`. Follow the [integration checklist](../../docs/families/NEW_FAMILY.md#benchmark-integration) and compile MLX on macOS arm64.
 
 ## Verification Commands
 
 ```bash
 cargo check -p openkind-bench
 cargo test -p openkind-bench
+```
+
+For MLX mappings, also compile all targets and run the offline feature tests
+on macOS arm64. Default workspace checks omit these branches:
+
+```bash
+SDKROOT=$(xcrun --show-sdk-path) cargo clippy -p openkind-bench \
+  --features mlx --all-targets -- -D warnings
+SDKROOT=$(xcrun --show-sdk-path) env -u RUST_LOG cargo test \
+  -p openkind-bench --features mlx
 ```
 
 Native timing runs (checkpoint-gated, not part of `cargo test`):

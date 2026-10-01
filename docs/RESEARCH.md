@@ -1543,7 +1543,8 @@ checks, the production Rust implementation should:
 
 ## Prior-Art Implementation Review: SemIf MLX Backend (Reviewed 2026-09-20)
 
-[SemIf](https://github.com/TheoLeeCJ/SemIf) is an independent decision-scoring
+[SemIf](https://github.com/TheoLeeCJ/SemIf) (repo now
+`TheoLeeCJ/SemIf-OpenJev`) is an independent decision-scoring
 project that converges on the same direction as OpenKind: decision-native
 inference without an autoregressive loop, shared-state reuse across questions,
 parallel suffix work, and a strict separation between interface compatibility
@@ -1656,6 +1657,20 @@ workloads. Scores from earlier JevBench versions are not directly comparable.
 | [djev](https://github.com/Davipar/djev-dev) | 52.2 | 84.0% | 29.9% | DiffusionGemma answer-slot read |
 | [Jev-Omni](https://huggingface.co/akhilaaa3/Jev-Omni) | 51.3 | 88.7% | 32.1% | Gemma 4 12B, decision head |
 | [SemIf](https://github.com/TheoLeeCJ/SemIf) | 47.7 | 81.0% | 26.3% | Frozen Qwen3.5-4B, option logits |
+
+Dated status note (2026-10-01): the row above describes the board
+configuration surveyed on 2026-09-25. The SemIf weights have since been
+published as [`openjev/openjev`](https://huggingface.co/openjev/openjev)
+(formerly `TheoLeeCJ/openjev`, which returns Hub 401s), and that current
+checkpoint is a different system: 27B-class (64 layers, hidden 5,120,
+54.7 GB BF16, untied embeddings; the repo's shim serves
+`Qwen/Qwen3.8-27B`) with an environment-configured readout
+(`READOUT_T`/`READOUT_NOUL_T`/`READOUT_NOUL_BIAS`/`READOUT_PERMS`) rather
+than a pinned calibration artifact. The earlier frozen Qwen3.5-4B
+checkpoint no longer exists at any pinned revision, so no local profile of
+SemIf is landable; the family pages
+([`decoder-logit-qwen35`](families/decoder-logit-qwen35.md)) record the
+same verdict.
 
 The JevK5/Jev composite difference is 1.3 points under this scoring rule;
 both have large public-to-sealed drops (52.2 and 49.9 points, respectively).
