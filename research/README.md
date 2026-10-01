@@ -8,7 +8,7 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 
 > [!NOTE]
 > **Repository Size & Evidence Archival Policy**:
-> Heavy raw evidence directories, checkpoint weights, and evaluation result folders have been pruned from git tracking to prevent repository bloat (freeing ~1.5 GB). All empirical findings remain 100% reproducible directly from the standalone numbered Jupyter notebooks (`01_*.ipynb` through `37_*.ipynb`). Complete raw run bundles, telemetry logs, receipts, and artifact tarballs are archived and documented on Google Drive.
+> Heavy raw evidence directories, checkpoint weights, and evaluation result folders have been pruned from git tracking to prevent repository bloat (freeing ~1.5 GB). All empirical findings remain 100% reproducible directly from the standalone numbered Jupyter notebooks (`01_*.ipynb` through `39_*.ipynb`). Complete raw run bundles, telemetry logs, receipts, and artifact tarballs are archived and documented on Google Drive.
 
 ## New training recipe
 
@@ -16,9 +16,29 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 self-contained Colab trainer for a mixed-task Qwen3.5-4B decision LoRA, targeting
 A100 with an L4 NF4 path. It combines public labeled tasks, precomputed Qwen-teacher
 decisions and exact rule examples, with separate development, calibration, gate
-and reserved evaluation groups. See the [dataset rationale and run guide](./local_decision_training/README.md).
+and reserved evaluation groups. Version 3 enables smoothed CE/Brier, with an
+optional six-arm loss sweep, E42 partial-information rules, schema diagnostics
+and bounded reference inference.
+See the [dataset rationale and run guide](./local_decision_training/README.md).
 Status: authored and locally checked with tiny models; full 4B CUDA training and
 Mac qualification are unrun. It does not reopen historical final splits.
+
+## CLEF and related decision-model research
+
+[Cloudflare's CLEF announcement](https://blog.cloudflare.com/clef-decision-models/)
+(1 October 2026) describes Qwen post-training with a learned schema head,
+rank-256 LoRA, supervised probability losses, and calibration-oriented RL.
+
+The [source review and whitepaper crosswalk](../docs/RESEARCH.md#cloudflare-clef-and-linked-decision-models-reviewed-2026-10-01)
+cover the released CLEF/CLEF-flash code, Jev, DiffusionGemma, Kev, Laya,
+the linked evaluation protocols, and the Hume and Raschka articles already
+used by our whitepaper.
+
+CLEF shares our finite-decision goal, but its fields attend to one another.
+It is a separate model hypothesis from OpenKind's isolated question branches.
+The review distinguishes disclosed training from verified inference code and
+author-reported scores. No CLEF inference, training, or native qualification
+was performed.
 
 ## Orthrus adoption decision
 
@@ -98,6 +118,8 @@ latency evidence and optimization promotion gates.
 | **35** | [`35_local_decision_training.ipynb`](./35_local_decision_training.ipynb) | Local Decision Training | GPU (A100 / L4 NF4) | Self-contained Colab trainer for mixed-task Qwen3.5-4B decision LoRA across public tasks, teacher decisions, and rule examples | Authored & locally validated with tiny models; full 4B CUDA training unrun | [`local_decision_training/`](./local_decision_training) |
 | **36** | [`36_openkind_unified_decision_validity_lab.ipynb`](./36_openkind_unified_decision_validity_lab.ipynb) | Unified Validity Lab (`20260929T194506_694066Z_dc1f74`, protocol `openkind-unified-decisions/v3.0.0`) | NVIDIA Tesla T4 16GB & CPU (Go 1.27.1) | Selective indexing (X), route composition (R/GR), grouped readouts (G/GR), joint formulation (J), resident process isolation vs restarts, schema sensitivity, scaling (native catalogue vs indecis open-option), CPU SIMD/assembly, calibration & confidence policies | Selective indexing (Arm X: 92.19% field acc, 60.42% all-six, 222.22 ms) and grouped routing (Arm GR: 95.49% field acc, 83.33% all-six, 1419.57 ms) advance the design; resident process isolation passes exact parity ($\Delta p = 0.0$) with ~4–6% trace overhead; Indecis CPU is fast (46 ms) but fails transfer (69.10% fresh policy, 39.58% SNLI); no promotion | [Drive run](https://drive.google.com/drive/folders/1gLVnuSIHUDAqyQlyxFyKuc2LWcOvklgx) / [Archive](https://drive.google.com/file/d/1yXOks6ms6-aaEhj-jZ1WvuWtBQsIIzjA/view) |
 | **37** | [`37_openkind_t4_integrated_research_lab.ipynb`](./37_openkind_t4_integrated_research_lab.ipynb) | OpenKind T4 Integrated Research (`20261001T105345_828556Z_6e6d92`, protocol `openkind-t4-integrated-research/v4.0.0`) | NVIDIA Tesla T4 16GB (Qwen3.5-9B Q4_K_M, Qwen3.5-4B Q4_K_M) & CPU | Integrated readouts (XR, NJ), multi-catalogue host cache (G/GR), dedicated-process history isolation (X, XR, NJ), 4B vs 9B model size, batching diagnostics, schema & dynamic choice probes, calibration & action/review policies, encoder setup logging diagnostic | PARTIAL (no model or service promoted; completion marker absent); XR achieves 95.40% field acc / 84.38% all-six at 242.98 ms; NJ achieves 94.01% field acc / 79.69% all-six at 228.31 ms; multi-catalogue host cache cuts grouped request latency by ~54% (2.19x ratio) with exact output parity; dedicated processes pass history checks ($\Delta p = 0$); batching larger contexts does not improve throughput; schema sensitivity persists; encoder comparisons blocked by SameFileError in log helper | Review writeup (1 Oct 2026) / Run `20261001T105345_828556Z_6e6d92` |
+| **38** | [`38_openkind_t4_recovery_reliability_lab.ipynb`](./38_openkind_t4_recovery_reliability_lab.ipynb) | T4 Recovery & Targeted Reliability (`openkind-t4-recovery-reliability/v4.1.0`) | NVIDIA Tesla T4 16GB & CPU | SameFileError log repair; safetensors 0.8.0 pin; blocked classifier recovery (BERT, ModernBERT, DeBERTa, GLiClass, Indecis); native prompt failure-first eligibility (NF) and joint factual readout (PF); dependency-aware policies across 378 balanced cases | Campaign protocol v4.1.0 authored; recovers blocked classifiers before native work; failure-first eligibility instructions; dedicated process history checks | Notebook outputs / Drive `recovery_reliability_runs/` |
+| **39** | [`39_openkind_t4_recovery_reliability_v4_1_1.ipynb`](./39_openkind_t4_recovery_reliability_v4_1_1.ipynb) | T4 Classifier Environment Recovery (`openkind-t4-recovery-reliability/v4.1.1`) | NVIDIA Tesla T4 16GB & CPU | Venv `ensurepip` failure repair via `--without-pip` and hash-pinned pip 26.2.1 target interpreter seeding; 17 classifier recovery stages (DeBERTa NLI, ModernBERT, BERT-base, GLiClass); retains unchanged U4 splits and r41_* targets | Campaign protocol v4.1.1 authored; repairs venv isolation without modifying classifier recipe or reopening final splits | Notebook outputs / Drive `recovery_reliability_runs/` |
 
 
 
@@ -1048,9 +1070,11 @@ latency evidence and optimization promotion gates.
 * **File**: [`35_local_decision_training.ipynb`](./35_local_decision_training.ipynb)
 * **Goal**: Self-contained Colab trainer for a mixed-task Qwen3.5-4B decision LoRA targeting A100 with an L4 NF4 fallback path.
 * **Scope & Methodology**:
-  - Combines public labeled tasks (SNLI, MultiNLI, Banking77, CLINC150, ContractNLI, QASPER), precomputed Qwen-teacher decisions, and exact rule examples.
+  - Combines MultiNLI, BoolQ, Banking77, MultiRC, optional SST-5, precomputed Qwen-teacher decisions, and exact rule examples. Historical final splits and QASPER stay out of this trainer.
   - Enforces separate development, calibration-fit, calibration-gate, and reserved evaluation groups without reopening historical final splits.
   - Implements PEFT rank-16 LoRA adapters with `SDPBackend.MATH` attention consistency.
+  - Version 3 enables smoothed CE/Brier and an optional six-arm development-selected loss sweep with a CE control. It retains Brier guards, option/key diagnostics and isolated-question reference inference. These are bounded follow-ups to E42 and the CLEF review, not measured quality gains.
+  - TypeSafe data is benchmark-only: a separate frozen-export cell reads five pinned test snapshots, compares the parent, and records coverage and question-level agreement. It does not train or select on those labels or claim official workflow action scores. CLEF-flash's released settings guide the architecture comparison, not the loss coefficients.
 * **Status**: Authored and locally checked with tiny models; full 4B CUDA training and Mac qualification remain unrun.
 * **Supporting Directory**: [`local_decision_training/`](./local_decision_training)
 
@@ -1307,6 +1331,33 @@ latency evidence and optimization promotion gates.
   - Completion Marker: Absent (`PARTIAL`)
   - Primary References: R1 (`REPORT.md`, `RUN_STATUS.json`, `summary.json`, `manifest.json`), R2 (Quality/NLI block results), R3 (`paired_comparisons.json`), R4 (`cache_gate_*`, `multicache_summary.csv`), R5 (`history_*`, `isolation_summary.csv`), R6 (`dynamic_9B`, `schema_9B`, `shape_X`), R7 (`u4_native.py`, `u4_data.py`, `u4_models.py`), R8 (`errors_this_session.json`, command receipts), R9 (`calibration_results.json`, `policies.json`).
   - Read-Only Verification: `python reconcile_u4.py <evidence> <review>`, `python analyze_u4_details.py <evidence> <review>`, `python analyze_u4_error_clusters.py <evidence> <review>`.
+
+---
+
+### 38. OpenKind T4 Recovery & Targeted Reliability
+* **File**: [`38_openkind_t4_recovery_reliability_lab.ipynb`](./38_openkind_t4_recovery_reliability_lab.ipynb)
+* **Protocol**: `openkind-t4-recovery-reliability/v4.1.0`
+* **Version**: Version 4.1.0 · 1 October 2026
+* **Target Hardware & Environment**: NVIDIA Tesla T4 16GB & CPU.
+* **Scope & Objectives**:
+  - Follows partial v4.0.0 run `20261001T105345_828556Z_6e6d92` as a new experiment with immutable parent source checks.
+  - Repairs the subprocess logger self-copy defect (`SameFileError`), adds path and link equality checks, and updates the worker dependency pin to safetensors $\ge 0.8.0$ (compatible with Transformers 5.17.0).
+  - Recovers blocked encoder/classifier stages (BERT, ModernBERT, DeBERTa NLI, GLiClass, and Indecis encode-once) prior to native execution.
+  - Tests failure-first eligibility instructions (Arm NF: known failure before missing info) and joint factual readouts (Arm PF: joint certification/points evidence categories $\to$ eligibility $\to$ action) without independence assumptions.
+  - Evaluates dependency-aware acceptance policies and dedicated-process history isolation across 378 new balanced cases (54 dev, 54 cal-fit, 54 cal-gate, 216 confirmation).
+
+---
+
+### 39. OpenKind T4 Classifier Environment Recovery
+* **File**: [`39_openkind_t4_recovery_reliability_v4_1_1.ipynb`](./39_openkind_t4_recovery_reliability_v4_1_1.ipynb)
+* **Protocol**: `openkind-t4-recovery-reliability/v4.1.1`
+* **Version**: Version 4.1.1 · 1 October 2026
+* **Target Hardware & Environment**: NVIDIA Tesla T4 16GB & CPU.
+* **Scope & Objectives**:
+  - Addresses the `venv` automatic `ensurepip` subprocess failure observed in v4.1.0.
+  - Replaces automatic `ensurepip` with `--without-pip` environment creation followed by explicit target interpreter seeding using SHA-256 hash-pinned pip 26.2.1 wheels.
+  - Scopes 17 classifier recovery stages across DeBERTa three-way NLI, ModernBERT-base (frozen backbone heads and full fine-tuning), BERT-base controls, and GLiClass dynamic-label models.
+  - Preserves immutable U4 parent run inputs and unchanged `r41_*` targeted evaluation splits without modifying model hyperparameters or labels.
 
 ---
 
