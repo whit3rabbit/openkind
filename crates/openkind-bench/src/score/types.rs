@@ -37,6 +37,8 @@ pub enum EngineKind {
     Plumb4b,
     /// Pinned decider-4b engine (slot-logit readout, isolated score levels).
     Decider4b,
+    /// Pinned winnow-e4b engine (Gemma 4 backbone letter-logit readout).
+    WinnowE4b,
     /// Raw decoder-logit-qwen3 controls (letter-logit readout, temperature 1.0).
     DecoderLogitQwen306b,
     DecoderLogitQwen317b,
@@ -98,6 +100,7 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
         | EngineKind::DecoderLogitQwen35
         | EngineKind::Plumb4b
         | EngineKind::Decider4b
+        | EngineKind::WinnowE4b
         | EngineKind::DecoderLogitQwen306b
         | EngineKind::DecoderLogitQwen317b
         | EngineKind::DecoderLogitQwen34b
@@ -140,6 +143,7 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
         | EngineKind::DecoderLogitQwen35
         | EngineKind::Plumb4b
         | EngineKind::Decider4b
+        | EngineKind::WinnowE4b
         | EngineKind::DecoderLogitQwen306b
         | EngineKind::DecoderLogitQwen317b
         | EngineKind::DecoderLogitQwen34b
@@ -173,6 +177,7 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
             EngineKind::DecoderLogitQwen35 => "decoder-logit-qwen35",
             EngineKind::Plumb4b => "plumb-4b",
             EngineKind::Decider4b => "decider-4b",
+            EngineKind::WinnowE4b => "winnow-e4b",
             EngineKind::DecoderLogitQwen306b => "decoder-logit-qwen3-06b",
             EngineKind::DecoderLogitQwen317b => "decoder-logit-qwen3-17b",
             EngineKind::DecoderLogitQwen34b => "decoder-logit-qwen3-4b",
@@ -207,6 +212,7 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
             EngineKind::DecoderLogitQwen35 => "decoder-logit-qwen35",
             EngineKind::Plumb4b => "plumb-4b",
             EngineKind::Decider4b => "decider-4b",
+            EngineKind::WinnowE4b => "winnow-e4b",
             EngineKind::DecoderLogitQwen306b => "decoder-logit-qwen3-06b",
             EngineKind::DecoderLogitQwen317b => "decoder-logit-qwen3-17b",
             EngineKind::DecoderLogitQwen34b => "decoder-logit-qwen3-4b",
@@ -247,6 +253,7 @@ pub fn is_family_engine_public(engine: EngineKind) -> bool {
             | EngineKind::DecoderLogitQwen35
             | EngineKind::Plumb4b
             | EngineKind::Decider4b
+            | EngineKind::WinnowE4b
             | EngineKind::DecoderLogitQwen306b
             | EngineKind::DecoderLogitQwen317b
             | EngineKind::DecoderLogitQwen34b
@@ -322,6 +329,11 @@ pub(crate) fn family_identity(
             openkind_backends::families::decider::FAMILY_SLUG,
             openkind_backends::families::decider::DECIDER_4B.profile_id,
             openkind_backends::families::decider::DECIDER_4B.backbone_revision,
+        )),
+        EngineKind::WinnowE4b => Some((
+            openkind_backends::families::gemma4::FAMILY_SLUG,
+            openkind_backends::families::gemma4::PROFILE_ID,
+            openkind_backends::families::gemma4::BACKBONE_REVISION,
         )),
         EngineKind::DecoderLogitQwen306b => Some(qwen3_control_identity(
             &openkind_backends::families::decoder_logit_qwen3::QWEN3_06B,

@@ -223,6 +223,13 @@ mod tests {
                 "0529bf6f2bed84641701",
                 "eb5fbdfc9448473ec25e399882912863afbdb70e",
             ),
+            (
+                EngineKind::WinnowE4b,
+                "gemma4-decision",
+                "winnow-e4b",
+                "656ac636ce450cf79c7d",
+                "1b257e8fa80b270a62338362a8b35e37f7890273",
+            ),
         ] {
             let summary = profile_summary(engine);
             assert_eq!(summary["engine"], family);

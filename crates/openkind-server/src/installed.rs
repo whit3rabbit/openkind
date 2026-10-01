@@ -38,6 +38,7 @@ use openkind_backends::families::encoder_instruct_label::{
 use openkind_backends::families::encoder_nli::{
     EncoderNliEngine, EncoderNliEngineConfig, PROFILE_ID as ENCODER_NLI_PROFILE,
 };
+use openkind_backends::families::gemma4::{Gemma4DecisionEngine, Gemma4EngineConfig};
 use openkind_backends::families::kev::{KevEngine, KevEngineConfig, PROFILE_ID as KEV_PROFILE};
 use openkind_backends::families::laya::{
     LayaEngine, LayaEngineConfig, LayaProfile, LAYA_ENGLISH, LAYA_MULTILINGUAL,
@@ -66,7 +67,7 @@ use openkind_model_store::{
     ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME, KEV_MODEL_NAME,
     LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME, LAYA_TYPED_DECISIONS_MODEL_NAME,
     PLUMB_4B_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME, QWEN3GUARD_MODEL_NAME,
-    SCHEMA_SCORER_MODEL_NAME, VON_MODEL_NAME, WINNOW_MODEL_NAME,
+    SCHEMA_SCORER_MODEL_NAME, VON_MODEL_NAME, WINNOW_E4B_MODEL_NAME, WINNOW_MODEL_NAME,
 };
 
 use crate::args::{
@@ -92,6 +93,7 @@ pub(crate) enum InstalledKind {
     Decider4b,
     Von,
     Winnow,
+    WinnowE4b,
 }
 
 /// Classify an installed-model manifest. `None` means this build has no
@@ -168,6 +170,11 @@ pub(crate) fn installed_kind(manifest: &Manifest) -> Option<InstalledKind> {
         }
         (VON_MODEL_NAME, "von") if profile == VON_PROFILE => Some(InstalledKind::Von),
         (WINNOW_MODEL_NAME, "winnow") if profile == WINNOW_PROFILE => Some(InstalledKind::Winnow),
+        (WINNOW_E4B_MODEL_NAME, "winnow-e4b")
+            if profile == openkind_backends::families::gemma4::PROFILE_ID =>
+        {
+            Some(InstalledKind::WinnowE4b)
+        }
         _ => None,
     }
 }
@@ -465,6 +472,18 @@ pub(crate) fn load_installed_engine(
                     .to_execution(args.cuda_device)?,
             )
             .map_err(|error| anyhow!("load decider-4b engine: {error}"))?,
+        ),
+        InstalledKind::WinnowE4b => Arc::new(
+            Gemma4DecisionEngine::load_with_execution(
+                Gemma4EngineConfig {
+                    model_root: root.join("checkpoint"),
+                    limits,
+                },
+                args.family_args
+                    .winnow_e4b_backend
+                    .to_execution(args.cuda_device)?,
+            )
+            .map_err(|error| anyhow!("load winnow-e4b engine: {error}"))?,
         ),
         InstalledKind::Winnow => {
             let mut siblings: Vec<(String, Arc<dyn DecisionEngine>)> = Vec::new();

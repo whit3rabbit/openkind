@@ -265,6 +265,20 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
                 )
                 .map_err(|error| anyhow::anyhow!("load decider-4b engine: {error}"))?,
             ),
+            EngineKind::WinnowE4b => Arc::new(
+                openkind_backends::families::gemma4::Gemma4DecisionEngine::load(
+                    openkind_backends::families::gemma4::Gemma4EngineConfig {
+                        model_root: model_root.expect("gated").clone(),
+                        limits: FamilyLimits {
+                            max_concurrent_requests: 1,
+                            max_queued_requests: 0,
+                            retry_after_ms: 250,
+                            evaluation_timeout: None,
+                        },
+                    },
+                )
+                .map_err(|error| anyhow::anyhow!("load winnow-e4b engine: {error}"))?,
+            ),
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             EngineKind::EncoderInstructLabelMlxFp32 => Arc::new(
                 EncoderInstructLabelMlxEngine::load(EncoderInstructLabelMlxEngineConfig {

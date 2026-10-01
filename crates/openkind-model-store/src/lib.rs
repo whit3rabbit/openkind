@@ -13,7 +13,7 @@ use thiserror::Error;
 /// The production catalog mirrors the static file in this repository. Its
 /// digest is pinned below so the mutable mirror cannot authorize new content.
 pub const CATALOG_URL: &str = "https://raw.githubusercontent.com/whit3rabbit/openkind-model-registry/main/registry/v1/catalog.json";
-pub const CATALOG_SHA256: &str = "e20e9eb5238ab827c2e2399a0bdbc099409e2cc87c26e4a9c4819461a9b37498";
+pub const CATALOG_SHA256: &str = "f9441442259d898d3e9cdd9a8cd3bbd70447fe40ee158126ed2c946d7ac5c4c5";
 pub const QWEN35_STATE_FIRST_MODEL_NAME: &str = "qwen35-state-first:a047d6802c3f06f085b8";
 /// Pinned laya English decision-encoder model name.
 pub const LAYA_ENGLISH_MODEL_NAME: &str = "laya-english:c8ea29bf1e33a343c4b7";
@@ -49,6 +49,8 @@ pub const DECODER_LOGIT_QWEN3_4B_MODEL_NAME: &str = "decoder-logit-qwen3-4b:9dfa
 pub const VON_MODEL_NAME: &str = "von:69219703407bd39cca0c";
 /// Pinned winnow model name.
 pub const WINNOW_MODEL_NAME: &str = "winnow:4dff8c5b03cfbf680db6";
+/// Pinned winnow-e4b (Gemma 4 backbone) model name.
+pub const WINNOW_E4B_MODEL_NAME: &str = "winnow-e4b:656ac636ce450cf79c7d";
 /// Pinned BGE-small sentence-embedding encoder for the proxy-cache student.
 pub const ENCODER_EMBEDDING_MODEL_NAME: &str = "encoder-embedding:8d9498269ef05d95d93c";
 

@@ -320,6 +320,9 @@ pub enum EngineArg {
     /// Pinned decider-4b engine (slot-logit readout, isolated score levels).
     #[value(name = "decider-4b")]
     Decider4b,
+    /// Pinned winnow-e4b engine (Gemma 4 backbone letter-logit readout).
+    #[value(name = "winnow-e4b")]
+    WinnowE4b,
     /// Raw decoder-logit-qwen3 controls (letter-logit readout, temperature 1.0).
     #[value(name = "decoder-logit-qwen3-06b")]
     DecoderLogitQwen306b,
@@ -380,6 +383,7 @@ impl From<EngineArg> for EngineKind {
             EngineArg::DecoderLogitQwen35 => EngineKind::DecoderLogitQwen35,
             EngineArg::Plumb4b => EngineKind::Plumb4b,
             EngineArg::Decider4b => EngineKind::Decider4b,
+            EngineArg::WinnowE4b => EngineKind::WinnowE4b,
             EngineArg::DecoderLogitQwen306b => EngineKind::DecoderLogitQwen306b,
             EngineArg::DecoderLogitQwen317b => EngineKind::DecoderLogitQwen317b,
             EngineArg::DecoderLogitQwen34b => EngineKind::DecoderLogitQwen34b,

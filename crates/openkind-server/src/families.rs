@@ -26,6 +26,7 @@ use openkind_backends::families::decoder_logit_qwen3::{
 use openkind_backends::families::decoder_logit_qwen35::{
     DecoderLogitQwen35Engine, DecoderLogitQwen35EngineConfig, PLUMB_4B,
 };
+use openkind_backends::families::gemma4::{Gemma4DecisionEngine, Gemma4EngineConfig};
 
 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
 use openkind_backends::families::decoder_logit_qwen35::{
@@ -486,6 +487,31 @@ pub(crate) struct FamilyArgs {
         default_value_t = CudaOnlyBackendArg::NativeCpu
     )]
     pub(crate) decider_4b_backend: CudaOnlyBackendArg,
+
+    /// Aliases in `--models` that should use the pinned winnow-e4b engine
+    /// (Gemma 4 backbone letter readout on the Winnow-E4B Q8_0 GGUF).
+    #[arg(
+        long,
+        env = "OPENKIND_WINNOW_E4B_ALIASES",
+        value_delimiter = ',',
+        default_value = "winnow-e4b-native"
+    )]
+    pub(crate) winnow_e4b_aliases: Vec<String>,
+
+    /// Model root with the pinned `Winnow-E4B-Q8_0.gguf` and
+    /// `tokenizer.json` required by winnow-e4b aliases.
+    #[arg(long, env = "OPENKIND_WINNOW_E4B_MODEL_ROOT")]
+    pub(crate) winnow_e4b_model_root: Option<PathBuf>,
+
+    /// Winnow-e4b backend. The Gemma 4 backbone has no ONNX export; `cuda`
+    /// requires the daemon's `cuda` feature.
+    #[arg(
+        long,
+        env = "OPENKIND_WINNOW_E4B_BACKEND",
+        value_enum,
+        default_value_t = CudaOnlyBackendArg::NativeCpu
+    )]
+    pub(crate) winnow_e4b_backend: CudaOnlyBackendArg,
 
     /// Winnow router backend. The routing decoder has no ONNX export;
     /// `cuda` requires the daemon's `cuda` feature.
@@ -978,6 +1004,32 @@ impl FamilyArgs {
                 .map_err(|error| anyhow::anyhow!("load decider-4b engine: {error}"))?,
             );
             for alias in decider_4b {
+                engines.push((alias.to_string(), Arc::clone(&engine)));
+            }
+        }
+
+        let winnow_e4b: Vec<_> = self
+            .winnow_e4b_aliases
+            .iter()
+            .filter(|alias| models.contains(alias))
+            .collect();
+        if !winnow_e4b.is_empty() {
+            let model_root = self
+                .winnow_e4b_model_root
+                .clone()
+                .context("winnow-e4b alias requested but --winnow-e4b-model-root is missing")?;
+            let execution = self.winnow_e4b_backend.to_execution(cuda_device)?;
+            let engine: Arc<dyn DecisionEngine> = Arc::new(
+                Gemma4DecisionEngine::load_with_execution(
+                    Gemma4EngineConfig {
+                        model_root,
+                        limits: admission.limits(),
+                    },
+                    execution,
+                )
+                .map_err(|error| anyhow::anyhow!("load winnow-e4b engine: {error}"))?,
+            );
+            for alias in winnow_e4b {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
         }

@@ -39,6 +39,7 @@ input token rates, and strategy caveats are in the per-backend table below).
 | [`decoder-logit-qwen3-17b`](families/decoder-logit-qwen3.md) | Qwen3 dense decoder (raw direct-logit control, temperature 1.0), 1.7B | [Qwen/Qwen3-1.7B](https://huggingface.co/Qwen/Qwen3-1.7B) | `decoder-logit-qwen3-17b:8119b9271f8d011e7d03` | 4.06 GB | 11.46 GB · 2.30/s | — | [smoke summary](benchmarks/2026-10-01-qwen3-controls/summary-decoder-logit-qwen3-17b.json) |
 | [`decoder-logit-qwen3-06b`](families/decoder-logit-qwen3.md) | Qwen3 dense decoder (raw direct-logit control, temperature 1.0), 0.6B | [Qwen/Qwen3-0.6B](https://huggingface.co/Qwen/Qwen3-0.6B) | `decoder-logit-qwen3-06b:d900f4af57509fe02e62` | 1.50 GB | 4.21 GB · 1.61/s | — | [smoke summary](benchmarks/2026-10-01-qwen3-controls/summary-decoder-logit-qwen3-06b.json) |
 | [`decider-4b`](families/decider.md) | Qwen3.5 hybrid decoder (slot-logit readout, plain state-first layout, isolated score levels), 4B | [Mapika/decider-4b](https://huggingface.co/Mapika/decider-4b) | `decider-4b:0529bf6f2bed84641701` | 8.43 GB | 7.91 GB · 0.06/s (smoke) | — | [smoke summary](benchmarks/2026-09-30-jevbench-expansion/summary-decider-4b-smoke.json) |
+| [`winnow-e4b`](families/gemma4-decision.md) | Gemma 4 E4B hybrid decoder (LoRA fine-tune, letter-logit readout over per-layer embeddings), 7.5B | [EldanRing/Winnow-E4B](https://huggingface.co/EldanRing/Winnow-E4B) + [Gemma 4 tokenizer](https://huggingface.co/mistralrs-community/gemma-4-E4B-it-UQFF) | `winnow-e4b:656ac636ce450cf79c7d` (`winnow:e4b`) | 7.46 GB | 8.49 GB · measured run pending | — | [bring-up smoke](benchmarks/2026-10-01-gemma4-backbone/README.md) |
 | [`von`](families/von.md) | ModernBERT-large encoder, option-marker scorer | [wfzyx/von](https://huggingface.co/wfzyx/von) (von-1.1) | `von:69219703407bd39cca0c` (`von:1.1`) | 1.58 GB | 1.83 GB · 2.25/s | — | [summary](benchmarks/2026-09-30-von/summary-von.json) |
 | [`laya-english`](families/laya.md) | ModernBERT-large encoder, typed-decision marker head | [convaiinnovations/laya](https://huggingface.co/convaiinnovations/laya) | `laya-english:c8ea29bf1e33a343c4b7` (`laya:en`) | 0.85 GB | 2.75 GB · 2.23/s | 2.12 GB · 24.34/s | [laya MLX campaign](benchmarks/2026-09-28-laya-mlx-campaign/README.md) |
 | [`laya-multilingual`](families/laya.md) | mmBERT-base encoder, typed-decision marker head | [convaiinnovations/laya-multilingual](https://huggingface.co/convaiinnovations/laya-multilingual) (encoder derives from [jhu-clsp/mmBERT-base](https://huggingface.co/jhu-clsp/mmBERT-base)) | `laya-multilingual:f4064eb56fb7f7d325e1` (`laya:multilingual`) | 0.68 GB | 2.80 GB · 5.30/s | 2.94 GB · 56.37/s | [laya MLX campaign](benchmarks/2026-09-28-laya-mlx-campaign/README.md) |
@@ -73,11 +74,13 @@ Reading notes:
   (#4 on v1.5.4), `kev` is the kev 0.6B checkpoint (the board's kev 4B and
   8B rows are different checkpoints), and the laya profiles sit below the
   top 50 (#86/#93/#106). The in-house `winnow` router is unrelated to the
-  board's #2 Winnow-12B Q8 ([EldanRing/Winnow-12B](https://huggingface.co/EldanRing/Winnow-12B)).
+  board's #2 Winnow-12B Q8 ([EldanRing/Winnow-12B](https://huggingface.co/EldanRing/Winnow-12B));
+  the board family's E4B sibling loads here as
+  [`winnow-e4b`](families/gemma4-decision.md).
 
 ## Pull a catalog model
 
-Sixteen profiles are catalog-installable: every Rust-loadable profile
+Seventeen profiles are catalog-installable: every Rust-loadable profile
 except `router-script`, which needs no artifacts. `openkind pull NAME`
 downloads pinned artifacts, verifies every digest, and installs them for the
 daemon:
@@ -134,6 +137,7 @@ both spellings. The alias policy:
 | `qwen3:4b` | `decoder-logit-qwen3-4b:9dfaf11792a8d061b6b8` | JevBench board name with no ollaya counterpart; checkpoint pinned directly |
 | `von:1.1` | `von:69219703407bd39cca0c` | byte-identical `option_marker.pt` (digest-verified in both registries) |
 | `decider:4b` | `decider-4b:0529bf6f2bed84641701` | byte-identical weights and tokenizer (digest-verified in both registries) |
+| `winnow:e4b` | `winnow-e4b:656ac636ce450cf79c7d` | same canonical `EldanRing/Winnow-E4B` Q8_0 GGUF both registries reference from the author's repository; served through llama.cpp there and the candle kernels here |
 
 ```bash
 openkind pull laya:en
@@ -166,7 +170,7 @@ authors.
 | `jeeves` | `9b`, `latest` | not loadable — PostHog/jeeves (Qwen3.5-9B + head); FP32 weights also exceed the 16 GiB per-installation cap |
 | `clm` | `8b`, `latest` | not loadable — Qwen3-8B + CLM similarity head needs a Qwen3-8B loader |
 | `von` | `1.1`, `latest` | supported via alias `von:1.1` — byte-identical checkpoint; the moving `latest` tag is not carried |
-| `winnow` | `e4b`, `12b`, `latest` | name collision — ollaya's `winnow` is the EldanRing Gemma-4 fine-tune served as Q8_0 GGUF; OpenKind's `winnow` is the unrelated in-house script router. No alias will map the colliding name until a Gemma-4 GGUF backend exists, and never to a different checkpoint |
+| `winnow` | `e4b`, `12b`, `latest` | `winnow:e4b` supported via alias (byte-identical Q8_0 checkpoint); `12b` is the same family on an unpinned larger checkpoint. The bare `winnow` name still resolves to the unrelated in-house script router here and never to the EldanRing fine-tune |
 | `cygnet` | `12b`, `latest` | not loadable — gemma-4-12B-it Q8_0 GGUF needs a Gemma-4 GGUF backend |
 | `jeb` | `4b`, `9b`, `27b`, `latest` | not loadable — the jebadiah GGUF checkpoints need llama.cpp-class GGUF serving |
 
@@ -196,6 +200,7 @@ parity-qualified for the profiles listed and does not exist for the others.
 | `laya-typed-decisions` | CPU fp32 | 0.85 GB | 2.76 GB | 2.33 | 475 | 1.8 s | [laya MLX campaign](benchmarks/2026-09-28-laya-mlx-campaign/README.md) |
 | `laya-typed-decisions` | MLX fp32 (qualified) | same | 2.13 GB | 23.77 | 4,849 | 2.9 s | [laya MLX campaign](benchmarks/2026-09-28-laya-mlx-campaign/README.md) |
 | `plumb-4b` | CPU fp32 | 8.43 GB | measured run pending | — | — | — | measured run pending |
+| `winnow-e4b` | CPU q8_0 kernels + F32 attention | 7.46 GB | 8.49 GB · measured run pending | — | — | measured run pending | [bring-up smoke](benchmarks/2026-10-01-gemma4-backbone/README.md) |
 | `von` | CPU fp32 | 1.58 GB | 1.83 GB | 2.25 | 493 | 3.3 s | [summary](benchmarks/2026-09-30-von/summary-von.json) |
 | `encoder-nli` | CPU fp32 | 0.27 GB | 0.56 GB | 35.14 | — | 0.5 s | [summary](benchmarks/2026-09-26-surveyed-families/summary-encoder-nli.json) |
 | `encoder-instruct-label` | CPU fp32 | 0.61 GB | 1.27 GB | 4.73 | 1,013 | 1.2 s | [mlx counterparts campaign](benchmarks/2026-09-29-mlx-counterparts/README.md) (CPU re-run) |
@@ -233,7 +238,7 @@ Reading notes:
 - Engines run through `openkind-bench score --engine NAME` (`qwen35`,
   `qwen35-mlx-fp32`, `decoder-letter`, `encoder-nli`, `encoder-instruct-label`,
   `decoder-llm`, `schema-scorer`, `qwen3-guard`, `kev`,
-  `decoder-logit-qwen35`, `plumb-4b`, `von`, `laya-english`,
+  `decoder-logit-qwen35`, `plumb-4b`, `winnow-e4b`, `von`, `laya-english`,
   `laya-multilingual`, `laya-typed-decisions`, `winnow`, `router-script`,
   and the `*-mlx-fp32` variants) or through the daemon (`--installed-models` for catalog profiles,
   `--qwen35-backend mlx-fp32`, `--laya-backend mlx-fp32`,

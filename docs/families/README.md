@@ -183,7 +183,7 @@ it carries no model-quality claim.
 | [encoder-embedding](./encoder-embedding.md) | Frozen BERT sentence encoder (CLS pooling, L2-normalized) feeding the proxy-cache distilling student | Rust-loadable (prototype profile; candle CPU + optional MLX) |
 | [parallel-constrained-qwen2](./parallel-constrained-qwen2.md) | Shared-prefix Qwen2.5 decoder with batched field suffixes and token-logit readout | Surveyed only (no Rust MLX loader or Jev adapter) |
 | [jev-style](./jev-style.md) | Qwen3.5-2B with block-causal attention and a yes/no logit-difference readout | Surveyed only; upstream MLX runtime verified locally, no OpenKind Rust loader or installable catalog entry |
-| [gemma4-decision](./gemma4-decision.md) | Gemma 4 unified decoders with trained decision heads (JevBench ranks 6, 8, 11, 16) | Surveyed only (two checkpoints Hub-gated; no Gemma 4 backbone implementation) |
+| [gemma4-decision](./gemma4-decision.md) | Gemma 4 decoders with trained decision readouts (JevBench ranks 6, 8, 11, 16) | Rust-loadable prototype (`winnow-e4b` letter readout over the in-tree Gemma 4 backbone; 12B and gated checkpoints unpinned) |
 | [qwen35-slot-readout](./qwen35-slot-readout.md) | Qwen3.5-4B fine-tunes with trained hidden-state readout heads (JevBench ranks 1, 3, 7, 9, 12, 18, 21) | Surveyed only (backbone reusable from the native path; readouts not implemented) |
 | [reranker-logit](./reranker-logit.md) | Dense Qwen3 4B yes/no or letter next-token-logit scorers (JevBench ranks 20, 22, 24) | Surveyed only (0.6B-scale Qwen3 exists in kev; 4B not implemented) |
 | [diffusion-decision](./diffusion-decision.md) | Diffusion-decoder decision scorers (JevBench rank 10, djev) | Blocked — ranked checkpoint unpublished; base DiffusionGemma surveyed |

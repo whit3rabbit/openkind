@@ -14,6 +14,8 @@ pub mod calibration;
 pub mod clef;
 /// Decider slot-logit family adapter (plain state-first layout).
 pub mod decider;
+/// Gemma 4 backbone letter-logit decision family adapter.
+pub mod gemma4;
 /// Decoder-only letter-token logit readout family adapter.
 pub mod decoder_logit_letter;
 /// Decoder-only LLM logit readout family adapter.

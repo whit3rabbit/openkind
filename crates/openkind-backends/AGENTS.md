@@ -102,7 +102,13 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
    MLX requires macOS arm64 and the `mlx` feature. Set `SDKROOT=$(xcrun --show-sdk-path)`. `MlxRuntime::execute` holds a non-reentrant process lock. Never call it around code that takes the lock. Requalify after toolchain changes.
 10. **MLX Identity and Gates**:
     MLX identity includes precision and kernel family. Never mix MLX and Candle states. BF16 is a separate candidate, not an FP32 equivalent. Use the [benchmark guide](../openkind-bench/AGENTS.md) for comparison rules.
-11. **Confine Execution Digests to Offline Evidence**:
+11. **Gemma 4 Attention Numerics**: Gemma 4 pins the attention softmax
+    scale to `1.0` (no `1/sqrt(head_dim)`), so candle's quantized kernels
+    (which dequantize q8_0 blocks to f16) reshuffle the softmax argmax.
+    The gemma4 family's attention projections must run as dequantized F32
+    linears; only residual-stream paths tolerate `QMatMul`. K/V
+    projections consume the input-layernorm output, exactly like Q.
+12. **Confine Execution Digests to Offline Evidence**:
     Emit role-typed token digests only in explicitly requested offline evidence. Never log request-derived digests because low-entropy inputs can be guessed.
 12. **Complete Candidate Retention in Memory Estimates**:
     Admission estimates must include every state retained by the selected strategy. For `repeated_full`, sum candidates across questions with saturating arithmetic.
