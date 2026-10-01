@@ -58,6 +58,7 @@ md("""
 | SST-5 | Five-level ordinal sentiment; optional source | 1,000 |
 | Plumb decisions | Precomputed Qwen-teacher policy, numeric, rubric and reasoning cases | 2,000 |
 | Generated rules | Exact labels, threshold boundaries, missing facts, explicit score rubrics | 1,000 |
+| HelpSteer2 | Optional answer-adequacy proxy from human ratings; disabled by default | 1,000 if enabled |
 
 All public training records come from upstream **train** files. Split by normalized state
 before constructing options: 75% training, 8% development, 7% calibration, 5% acceptance gate,
@@ -85,6 +86,17 @@ not a claim of pretraining-clean evaluation.
 TypeSafe datasets are benchmark-only. They never enter training, development, temperature
 calibration, the acceptance gate or loss-sweep selection. A separate optional cell opens
 pinned test snapshots only after freezing the export, with no refitting or promotion.
+
+`include_helpsteer2=False` preserves the baseline mixture for the loss sweep. In a separate
+data ablation, set it to `True` to judge request/response adequacy from the pinned NVIDIA
+train file. Adequate means helpfulness and correctness >=3; inadequate means either <=1;
+drop the middle band and multi-turn prompts. These are human-rating proxies, not exact
+logical labels. Group all responses to the same request before splitting. Balance the
+admitted training classes, prefer alternative responses to requests with an inadequate
+reply, and keep evaluation at its sampled natural prevalence. Ratings never enter prompts.
+The extra source adds up to 1,000 rows; keep the 400-update budget fixed and compare the
+same baseline sources on development data before accepting a gain. Strands' generated
+files, replay targets, PAWS training rows and v20 changes are not imported by this flag.
 
 Dataset terms remain source-specific. The source manifest records pins, file hashes and
 license metadata. SST-5's mirror does not specify a license, and MultiNLI/MultiRC have
@@ -182,6 +194,7 @@ CONFIG.update(
     precision="auto",
     include_sst5=True,
     include_teacher=True,
+    include_helpsteer2=False,
     label_smoothing=0.05,
     brier_weight=0.1,
 )
@@ -505,6 +518,8 @@ md("""
 - [Cloudflare CLEF announcement](https://blog.cloudflare.com/clef-decision-models/) and [source review](../docs/RESEARCH.md#cloudflare-clef-and-linked-decision-models-reviewed-2026-10-01): learned routing head, one prefill, CE/Brier disclosure and reproduction limits. This notebook does not reproduce its rank-256 or RLCD recipe.
 - [Pinned CLEF-flash head settings](https://huggingface.co/Cloudflare/clef-flash/blob/17f0b0ad64efb65d273590632833508766b2aae6/joint_head_config.json): 1,024-wide head, two evidence-routing layers, four decoder layers and 16 heads. This is a 9B architecture reference, not a compatible 4B head or a disclosed loss coefficient.
 - [TypeSafe datasets](https://huggingface.co/typesafe/datasets): five pinned evaluation-only sources, separated from every fitting and selection stage.
+- [Strands Decider release](https://strandsagents.com/blog/introducing-strands-decider/) and [pinned v19 artifact](https://huggingface.co/StrandsAgents/strands-decider-2B-hobson-v19/tree/bb282d786bc251fd4e3068de3ada9ddbb38127cd): pointer head, rank-16 LoRA, base/parent KL retention and adequacy training. The released checkpoint uses a different readout and does not establish 4B gains.
+- [HelpSteer2](https://huggingface.co/datasets/nvidia/HelpSteer2/tree/990b2711a36180dd19d9c94b8627844866f8982a): optional human-rating proxy, source-specific CC-BY-4.0 terms, request-grouped splits. Imported only from the upstream train file.
 - [Working paper](../docs/whitepaper/WORKING_PAPER.md): E42 known-failure/missing-fact errors, targeted joint decisions and schema sensitivity motivate the revised controls, not a claim that this training run fixes them.
 
 This notebook distills decision behavior, including some teacher-computed distributions. It
