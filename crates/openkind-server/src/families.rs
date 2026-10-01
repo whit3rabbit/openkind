@@ -9,7 +9,10 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::args::{DecoderLogitQwen35BackendArg, EncoderInstructLabelBackendArg, LayaBackendArg};
+use crate::args::{
+    CudaOnlyBackendArg, DecoderLogitQwen35BackendArg, EncoderInstructLabelBackendArg,
+    FamilyBackendArg, LayaBackendArg,
+};
 use anyhow::{bail, Context, Result};
 use clap::Parser;
 use openkind_backends::families::decider::{DeciderEngine, DeciderEngineConfig, DECIDER_4B};
@@ -353,8 +356,10 @@ pub(crate) struct FamilyArgs {
     #[arg(long, env = "OPENKIND_LAYA_TYPED_DECISIONS_MODEL_ROOT")]
     pub(crate) laya_typed_decisions_model_root: Option<PathBuf>,
 
-    /// Laya decision-encoder backend. `mlx-fp32` is available on macOS arm64
-    /// with the daemon's `mlx` feature enabled.
+    /// Laya decision-encoder backend. `cuda` requires the daemon's `cuda`
+    /// feature; `onnx`/`onnx-cuda` require the ONNX features and `model.onnx`
+    /// in the model root; `mlx-fp32` is available on macOS arm64 with the
+    /// daemon's `mlx` feature enabled.
     #[arg(
         long,
         env = "OPENKIND_LAYA_BACKEND",
@@ -363,8 +368,10 @@ pub(crate) struct FamilyArgs {
     )]
     pub(crate) laya_backend: LayaBackendArg,
 
-    /// Encoder-instruct-label backend. `mlx-fp32` is available on macOS
-    /// arm64 with the daemon's `mlx` feature enabled.
+    /// Encoder-instruct-label backend. `cuda` requires the daemon's `cuda`
+    /// feature; `onnx`/`onnx-cuda` require the ONNX features and `model.onnx`
+    /// in the model root; `mlx-fp32` is available on macOS arm64 with the
+    /// daemon's `mlx` feature enabled.
     #[arg(
         long,
         env = "OPENKIND_ENCODER_INSTRUCT_LABEL_BACKEND",
@@ -373,8 +380,9 @@ pub(crate) struct FamilyArgs {
     )]
     pub(crate) encoder_instruct_label_backend: EncoderInstructLabelBackendArg,
 
-    /// decoder-logit-qwen35 backend. `mlx-fp32` is available on macOS arm64
-    /// with the daemon's `mlx` feature enabled.
+    /// decoder-logit-qwen35 backend. `cuda` requires the daemon's `cuda`
+    /// feature; `mlx-fp32` is available on macOS arm64 with the daemon's
+    /// `mlx` feature enabled.
     #[arg(
         long,
         env = "OPENKIND_DECODER_LOGIT_QWEN35_BACKEND",
@@ -382,6 +390,112 @@ pub(crate) struct FamilyArgs {
         default_value_t = DecoderLogitQwen35BackendArg::NativeCpu
     )]
     pub(crate) decoder_logit_qwen35_backend: DecoderLogitQwen35BackendArg,
+
+    /// Encoder-NLI backend. `cuda` requires the daemon's `cuda` feature;
+    /// `onnx`/`onnx-cuda` require the ONNX features and `model.onnx` in the
+    /// model root.
+    #[arg(
+        long,
+        env = "OPENKIND_ENCODER_NLI_BACKEND",
+        value_enum,
+        default_value_t = FamilyBackendArg::NativeCpu
+    )]
+    pub(crate) encoder_nli_backend: FamilyBackendArg,
+
+    /// Decoder-logit-letter backend. `cuda` requires the daemon's `cuda`
+    /// feature; `onnx`/`onnx-cuda` require the ONNX features and `model.onnx`
+    /// in the model root.
+    #[arg(
+        long,
+        env = "OPENKIND_DECODER_LETTER_BACKEND",
+        value_enum,
+        default_value_t = FamilyBackendArg::NativeCpu
+    )]
+    pub(crate) decoder_letter_backend: FamilyBackendArg,
+
+    /// Kev backend. The pointer-head readout has no ONNX export; `cuda`
+    /// requires the daemon's `cuda` feature.
+    #[arg(
+        long,
+        env = "OPENKIND_KEV_BACKEND",
+        value_enum,
+        default_value_t = CudaOnlyBackendArg::NativeCpu
+    )]
+    pub(crate) kev_backend: CudaOnlyBackendArg,
+
+    /// Decoder-logit-llm backend. The quantized GGUF readout has no ONNX
+    /// export; `cuda` requires the daemon's `cuda` feature.
+    #[arg(
+        long,
+        env = "OPENKIND_DECODER_LLM_BACKEND",
+        value_enum,
+        default_value_t = CudaOnlyBackendArg::NativeCpu
+    )]
+    pub(crate) decoder_llm_backend: CudaOnlyBackendArg,
+
+    /// Schema-scorer backend. `cuda` requires the daemon's `cuda` feature;
+    /// `onnx`/`onnx-cuda` require the ONNX features and `model.onnx` in the
+    /// model root.
+    #[arg(
+        long,
+        env = "OPENKIND_SCHEMA_SCORER_BACKEND",
+        value_enum,
+        default_value_t = FamilyBackendArg::NativeCpu
+    )]
+    pub(crate) schema_scorer_backend: FamilyBackendArg,
+
+    /// Qwen3Guard backend. `cuda` requires the daemon's `cuda` feature;
+    /// `onnx`/`onnx-cuda` require the ONNX features and `model.onnx` in the
+    /// model root.
+    #[arg(
+        long,
+        env = "OPENKIND_QWEN3GUARD_BACKEND",
+        value_enum,
+        default_value_t = FamilyBackendArg::NativeCpu
+    )]
+    pub(crate) qwen3guard_backend: FamilyBackendArg,
+
+    /// Von backend. `cuda` requires the daemon's `cuda` feature;
+    /// `onnx`/`onnx-cuda` require the ONNX features and `model.onnx` in the
+    /// model root.
+    #[arg(
+        long,
+        env = "OPENKIND_VON_BACKEND",
+        value_enum,
+        default_value_t = FamilyBackendArg::NativeCpu
+    )]
+    pub(crate) von_backend: FamilyBackendArg,
+
+    /// Raw decoder-logit-qwen3 controls backend (applies to every size).
+    /// `cuda` requires the daemon's `cuda` feature; `onnx`/`onnx-cuda`
+    /// require the ONNX features and `model.onnx` in each model root.
+    #[arg(
+        long,
+        env = "OPENKIND_DECODER_LOGIT_QWEN3_BACKEND",
+        value_enum,
+        default_value_t = FamilyBackendArg::NativeCpu
+    )]
+    pub(crate) decoder_logit_qwen3_backend: FamilyBackendArg,
+
+    /// Decider-4b backend. The hybrid-backbone slot-logit readout has no
+    /// ONNX export; `cuda` requires the daemon's `cuda` feature.
+    #[arg(
+        long,
+        env = "OPENKIND_DECIDER_4B_BACKEND",
+        value_enum,
+        default_value_t = CudaOnlyBackendArg::NativeCpu
+    )]
+    pub(crate) decider_4b_backend: CudaOnlyBackendArg,
+
+    /// Winnow router backend. The routing decoder has no ONNX export;
+    /// `cuda` requires the daemon's `cuda` feature.
+    #[arg(
+        long,
+        env = "OPENKIND_WINNOW_BACKEND",
+        value_enum,
+        default_value_t = CudaOnlyBackendArg::NativeCpu
+    )]
+    pub(crate) winnow_backend: CudaOnlyBackendArg,
 
     /// Maximum concurrent model evaluations per surveyed-family engine.
     #[arg(long, env = "OPENKIND_FAMILY_CONCURRENCY", default_value_t = 1)]
@@ -412,6 +526,7 @@ impl FamilyArgs {
     pub(crate) fn load_requested(
         &self,
         models: &[String],
+        cuda_device: usize,
     ) -> Result<Vec<(String, Arc<dyn DecisionEngine>)>> {
         let admission = self.admission();
         let mut engines = Vec::new();
@@ -425,11 +540,15 @@ impl FamilyArgs {
             let model_root = self.decoder_letter_model_root.clone().context(
                 "decoder-letter alias requested but --decoder-letter-model-root is missing",
             )?;
+            let execution = self.decoder_letter_backend.to_execution(cuda_device)?;
             let engine: Arc<dyn DecisionEngine> = Arc::new(
-                DecoderLetterEngine::load(DecoderLetterEngineConfig {
-                    model_root,
-                    limits: admission.limits(),
-                })
+                DecoderLetterEngine::load_with_execution(
+                    DecoderLetterEngineConfig {
+                        model_root,
+                        limits: admission.limits(),
+                    },
+                    execution,
+                )
                 .map_err(|error| anyhow::anyhow!("load decoder-logit-letter engine: {error}"))?,
             );
             for alias in decoder_letter {
@@ -447,11 +566,15 @@ impl FamilyArgs {
                 .encoder_nli_model_root
                 .clone()
                 .context("encoder-nli alias requested but --encoder-nli-model-root is missing")?;
+            let execution = self.encoder_nli_backend.to_execution(cuda_device)?;
             let engine: Arc<dyn DecisionEngine> = Arc::new(
-                EncoderNliEngine::load(EncoderNliEngineConfig {
-                    model_root,
-                    limits: admission.limits(),
-                })
+                EncoderNliEngine::load_with_execution(
+                    EncoderNliEngineConfig {
+                        model_root,
+                        limits: admission.limits(),
+                    },
+                    execution,
+                )
                 .map_err(|error| anyhow::anyhow!("load encoder-nli engine: {error}"))?,
             );
             for alias in encoder_nli {
@@ -473,10 +596,52 @@ impl FamilyArgs {
                 )?;
             let engine: Arc<dyn DecisionEngine> = match self.encoder_instruct_label_backend {
                 EncoderInstructLabelBackendArg::NativeCpu => Arc::new(
-                    EncoderInstructLabelEngine::load(EncoderInstructLabelEngineConfig {
-                        model_root,
-                        limits: admission.limits(),
-                    })
+                    EncoderInstructLabelEngine::load_with_execution(
+                        EncoderInstructLabelEngineConfig {
+                            model_root,
+                            limits: admission.limits(),
+                        },
+                        FamilyBackendArg::NativeCpu.to_execution(cuda_device)?,
+                    )
+                    .map_err(|error| {
+                        anyhow::anyhow!("load encoder-instruct-label engine: {error}")
+                    })?,
+                ),
+                #[cfg(feature = "cuda")]
+                EncoderInstructLabelBackendArg::Cuda => Arc::new(
+                    EncoderInstructLabelEngine::load_with_execution(
+                        EncoderInstructLabelEngineConfig {
+                            model_root,
+                            limits: admission.limits(),
+                        },
+                        FamilyBackendArg::Cuda.to_execution(cuda_device)?,
+                    )
+                    .map_err(|error| {
+                        anyhow::anyhow!("load encoder-instruct-label engine: {error}")
+                    })?,
+                ),
+                #[cfg(feature = "onnx")]
+                EncoderInstructLabelBackendArg::Onnx => Arc::new(
+                    EncoderInstructLabelEngine::load_with_execution(
+                        EncoderInstructLabelEngineConfig {
+                            model_root,
+                            limits: admission.limits(),
+                        },
+                        FamilyBackendArg::Onnx.to_execution(cuda_device)?,
+                    )
+                    .map_err(|error| {
+                        anyhow::anyhow!("load encoder-instruct-label engine: {error}")
+                    })?,
+                ),
+                #[cfg(feature = "onnx")]
+                EncoderInstructLabelBackendArg::OnnxCuda => Arc::new(
+                    EncoderInstructLabelEngine::load_with_execution(
+                        EncoderInstructLabelEngineConfig {
+                            model_root,
+                            limits: admission.limits(),
+                        },
+                        FamilyBackendArg::OnnxCuda.to_execution(cuda_device)?,
+                    )
                     .map_err(|error| {
                         anyhow::anyhow!("load encoder-instruct-label engine: {error}")
                     })?,
@@ -507,11 +672,15 @@ impl FamilyArgs {
                 .decoder_llm_model_root
                 .clone()
                 .context("decoder-llm alias requested but --decoder-llm-model-root is missing")?;
+            let execution = self.decoder_llm_backend.to_execution(cuda_device)?;
             let engine: Arc<dyn DecisionEngine> = Arc::new(
-                DecoderLlmEngine::load(DecoderLlmEngineConfig {
-                    model_root,
-                    limits: admission.limits(),
-                })
+                DecoderLlmEngine::load_with_execution(
+                    DecoderLlmEngineConfig {
+                        model_root,
+                        limits: admission.limits(),
+                    },
+                    execution,
+                )
                 .map_err(|error| anyhow::anyhow!("load decoder-logit-llm engine: {error}"))?,
             );
             for alias in decoder_llm {
@@ -533,12 +702,16 @@ impl FamilyArgs {
                 .kev_base_root
                 .clone()
                 .context("kev alias requested but --kev-base-root is missing")?;
+            let execution = self.kev_backend.to_execution(cuda_device)?;
             let engine: Arc<dyn DecisionEngine> = Arc::new(
-                KevEngine::load(KevEngineConfig {
-                    model_root,
-                    base_root,
-                    limits: admission.limits(),
-                })
+                KevEngine::load_with_execution(
+                    KevEngineConfig {
+                        model_root,
+                        base_root,
+                        limits: admission.limits(),
+                    },
+                    execution,
+                )
                 .map_err(|error| anyhow::anyhow!("load kev engine: {error}"))?,
             );
             for alias in kev {
@@ -555,11 +728,15 @@ impl FamilyArgs {
             let model_root = self.schema_scorer_model_root.clone().context(
                 "schema-scorer alias requested but --schema-scorer-model-root is missing",
             )?;
+            let execution = self.schema_scorer_backend.to_execution(cuda_device)?;
             let engine: Arc<dyn DecisionEngine> = Arc::new(
-                SchemaScorerEngine::load(SchemaScorerEngineConfig {
-                    model_root,
-                    limits: admission.limits(),
-                })
+                SchemaScorerEngine::load_with_execution(
+                    SchemaScorerEngineConfig {
+                        model_root,
+                        limits: admission.limits(),
+                    },
+                    execution,
+                )
                 .map_err(|error| anyhow::anyhow!("load schema-scorer engine: {error}"))?,
             );
             for alias in schema_scorer {
@@ -577,11 +754,15 @@ impl FamilyArgs {
                 .qwen3guard_model_root
                 .clone()
                 .context("qwen3guard alias requested but --qwen3guard-model-root is missing")?;
+            let execution = self.qwen3guard_backend.to_execution(cuda_device)?;
             let engine: Arc<dyn DecisionEngine> = Arc::new(
-                Qwen3GuardEngine::load(Qwen3GuardEngineConfig {
-                    model_root,
-                    limits: admission.limits(),
-                })
+                Qwen3GuardEngine::load_with_execution(
+                    Qwen3GuardEngineConfig {
+                        model_root,
+                        limits: admission.limits(),
+                    },
+                    execution,
+                )
                 .map_err(|error| anyhow::anyhow!("load qwen3guard engine: {error}"))?,
             );
             for alias in qwen3guard {
@@ -599,12 +780,16 @@ impl FamilyArgs {
                 .von_model_root
                 .clone()
                 .context("von alias requested but --von-model-root is missing")?;
+            let execution = self.von_backend.to_execution(cuda_device)?;
             let engine: Arc<dyn DecisionEngine> = Arc::new(
-                VonEngine::load(VonEngineConfig {
-                    profile: &VON,
-                    model_root,
-                    limits: admission.limits(),
-                })
+                VonEngine::load_with_execution(
+                    VonEngineConfig {
+                        profile: &VON,
+                        model_root,
+                        limits: admission.limits(),
+                    },
+                    execution,
+                )
                 .map_err(|error| anyhow::anyhow!("load von engine: {error}"))?,
             );
             for alias in von {
@@ -631,6 +816,20 @@ impl FamilyArgs {
                         model_root,
                         limits: admission.limits(),
                     })
+                    .map_err(|error| {
+                        anyhow::anyhow!("load decoder-logit-qwen35 engine: {error}")
+                    })?,
+                ),
+                #[cfg(feature = "cuda")]
+                DecoderLogitQwen35BackendArg::Cuda => Arc::new(
+                    DecoderLogitQwen35Engine::load_with_execution(
+                        DecoderLogitQwen35EngineConfig {
+                            profile: &openkind_backends::families::decoder_logit_qwen35::JEVK5,
+                            model_root,
+                            limits: admission.limits(),
+                        },
+                        FamilyBackendArg::Cuda.to_execution(cuda_device)?,
+                    )
                     .map_err(|error| {
                         anyhow::anyhow!("load decoder-logit-qwen35 engine: {error}")
                     })?,
@@ -669,6 +868,18 @@ impl FamilyArgs {
                         model_root,
                         limits: admission.limits(),
                     })
+                    .map_err(|error| anyhow::anyhow!("load plumb-4b engine: {error}"))?,
+                ),
+                #[cfg(feature = "cuda")]
+                DecoderLogitQwen35BackendArg::Cuda => Arc::new(
+                    DecoderLogitQwen35Engine::load_with_execution(
+                        DecoderLogitQwen35EngineConfig {
+                            profile: &PLUMB_4B,
+                            model_root,
+                            limits: admission.limits(),
+                        },
+                        FamilyBackendArg::Cuda.to_execution(cuda_device)?,
+                    )
                     .map_err(|error| anyhow::anyhow!("load plumb-4b engine: {error}"))?,
                 ),
                 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
@@ -725,13 +936,17 @@ impl FamilyArgs {
             }
         }
         if !qwen3_controls.is_empty() {
+            let qwen3_execution = self.decoder_logit_qwen3_backend.to_execution(cuda_device)?;
             for (alias, model_root, profile, size) in &qwen3_controls {
                 let engine: Arc<dyn DecisionEngine> = Arc::new(
-                    DecoderLogitQwen3Engine::load(DecoderLogitQwen3EngineConfig {
-                        profile,
-                        model_root: model_root.clone(),
-                        limits: admission.limits(),
-                    })
+                    DecoderLogitQwen3Engine::load_with_execution(
+                        DecoderLogitQwen3EngineConfig {
+                            profile,
+                            model_root: model_root.clone(),
+                            limits: admission.limits(),
+                        },
+                        qwen3_execution,
+                    )
                     .map_err(|error| {
                         anyhow::anyhow!("load decoder-logit-qwen3-{size} engine: {error}")
                     })?,
@@ -750,12 +965,16 @@ impl FamilyArgs {
                 .decider_4b_model_root
                 .clone()
                 .context("decider-4b alias requested but --decider-4b-model-root is missing")?;
+            let execution = self.decider_4b_backend.to_execution(cuda_device)?;
             let engine: Arc<dyn DecisionEngine> = Arc::new(
-                DeciderEngine::load(DeciderEngineConfig {
-                    profile: &DECIDER_4B,
-                    model_root,
-                    limits: admission.limits(),
-                })
+                DeciderEngine::load_with_execution(
+                    DeciderEngineConfig {
+                        profile: &DECIDER_4B,
+                        model_root,
+                        limits: admission.limits(),
+                    },
+                    execution,
+                )
                 .map_err(|error| anyhow::anyhow!("load decider-4b engine: {error}"))?,
             );
             for alias in decider_4b {
@@ -804,11 +1023,50 @@ impl FamilyArgs {
         for (requested, model_root, profile, name) in laya_requested {
             let engine: Arc<dyn DecisionEngine> = match self.laya_backend {
                 LayaBackendArg::NativeCpu => Arc::new(
-                    LayaEngine::load(LayaEngineConfig {
-                        profile,
-                        model_root,
-                        limits: admission.limits(),
-                    })
+                    LayaEngine::load_with_execution(
+                        LayaEngineConfig {
+                            profile,
+                            model_root,
+                            limits: admission.limits(),
+                        },
+                        FamilyBackendArg::NativeCpu.to_execution(cuda_device)?,
+                    )
+                    .map_err(|error| anyhow::anyhow!("load {name} engine: {error}"))?,
+                ),
+                #[cfg(feature = "cuda")]
+                LayaBackendArg::Cuda => Arc::new(
+                    LayaEngine::load_with_execution(
+                        LayaEngineConfig {
+                            profile,
+                            model_root,
+                            limits: admission.limits(),
+                        },
+                        FamilyBackendArg::Cuda.to_execution(cuda_device)?,
+                    )
+                    .map_err(|error| anyhow::anyhow!("load {name} engine: {error}"))?,
+                ),
+                #[cfg(feature = "onnx")]
+                LayaBackendArg::Onnx => Arc::new(
+                    LayaEngine::load_with_execution(
+                        LayaEngineConfig {
+                            profile,
+                            model_root,
+                            limits: admission.limits(),
+                        },
+                        FamilyBackendArg::Onnx.to_execution(cuda_device)?,
+                    )
+                    .map_err(|error| anyhow::anyhow!("load {name} engine: {error}"))?,
+                ),
+                #[cfg(feature = "onnx")]
+                LayaBackendArg::OnnxCuda => Arc::new(
+                    LayaEngine::load_with_execution(
+                        LayaEngineConfig {
+                            profile,
+                            model_root,
+                            limits: admission.limits(),
+                        },
+                        FamilyBackendArg::OnnxCuda.to_execution(cuda_device)?,
+                    )
                     .map_err(|error| anyhow::anyhow!("load {name} engine: {error}"))?,
                 ),
                 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]

@@ -63,9 +63,11 @@ Boundaries:
   explicit-source errors instead of silent anonymous degradation.
 - [`src/store.rs`](./src/store.rs): `DatasetStore` — `pull`, `pin`, `rm`,
   `verify`, `installed`, `list`; resumable digest-verified downloads with
-  strict `Content-Range` validation, symlink-safe `.part` files,
-  content-addressed blobs, fs2 locks, staged installs (the model-store
-  discipline adapted to `huggingface.co/datasets/.../resolve/<sha>/<path>`).
+  strict `Content-Range` validation, symlink-safe `.part` files (via
+  `O_NOFOLLOW` on Unix; a `symlink_metadata` pre-check plus post-open size
+  check elsewhere), content-addressed blobs, fs2 locks, staged installs (the
+  model-store discipline adapted to
+  `huggingface.co/datasets/.../resolve/<sha>/<path>`).
 - [`src/rows.rs`](./src/rows.rs): parquet → JSON rows for the installed
   column types; unsupported types fail with the type name.
 - [`registry/v1/datasets.json`](./registry/v1/datasets.json): the committed

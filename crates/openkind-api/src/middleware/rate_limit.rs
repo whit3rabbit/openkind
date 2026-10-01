@@ -125,8 +125,9 @@ impl RateLimiter {
 /// client IP (taken from the `ConnectInfo` extension, which `axum::serve`
 /// provides when the router is served via
 /// `into_make_service_with_connect_info`). Requests without connect info
-/// (unit tests, unix-socket setups) are passed through — limit per-IP is
-/// only enforceable when the peer address is known.
+/// (unit tests, or any future non-TCP transport such as a Unix socket or a
+/// Windows named pipe) are passed through — per-IP limiting is only
+/// enforceable when the peer address is known.
 pub async fn rate_limit_layer(
     State(limiter): State<RateLimiter>,
     req: Request<Body>,

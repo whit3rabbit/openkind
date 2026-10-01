@@ -55,6 +55,16 @@ pub enum FamilyError {
     #[error("family MLX execution failed: {0}")]
     Mlx(String),
 
+    /// The ONNX execution backend failed (feature `onnx`).
+    #[cfg(feature = "onnx")]
+    #[error("family ONNX execution failed: {0}")]
+    Onnx(#[from] crate::onnx::OnnxError),
+
+    /// The requested execution backend is not available in this build or on
+    /// this host.
+    #[error("execution backend unavailable: {0}")]
+    ExecutionUnavailable(String),
+
     /// The shared native Qwen3.5 backbone failed during a survey-profile
     /// forward.
     #[error("qwen35 native backbone failure: {0}")]
@@ -111,6 +121,36 @@ impl FamilyError {
             actual: actual.to_string(),
         }
     }
+}
+
+#[cfg(feature = "onnx")]
+pub(crate) fn onnx_marker_positions(
+    markers: &[usize],
+    token_count: usize,
+) -> Result<Vec<i64>, FamilyError> {
+    markers
+        .iter()
+        .map(|&position| {
+            // A wrapped negative Gather index can select another token
+            // successfully, so reject invalid positions before execution.
+            if position >= token_count {
+                return Err(FamilyError::InvalidInput(format!(
+                    "marker position {position} exceeds the sequence length {token_count}"
+                )));
+            }
+            i64::try_from(position).map_err(|_| {
+                FamilyError::InvalidInput("marker position exceeds ONNX int64".to_owned())
+            })
+        })
+        .collect()
+}
+
+#[cfg(all(test, feature = "onnx"))]
+#[test]
+fn onnx_markers_reject_wrapped_negative_and_out_of_bounds_indices() {
+    assert!(onnx_marker_positions(&[usize::MAX], 3).is_err());
+    assert!(onnx_marker_positions(&[3], 3).is_err());
+    assert_eq!(onnx_marker_positions(&[2, 0], 3).unwrap(), vec![2, 0]);
 }
 
 /// Request-scoped cancellation and deadline checks for family evaluation.

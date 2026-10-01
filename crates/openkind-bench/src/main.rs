@@ -19,11 +19,12 @@ mod tests;
 use anyhow::{Context, Result};
 use clap::Parser;
 
-use crate::args::{Cli, Commands, DatasetCommand, GenWorkloadOutcome};
+use crate::args::{Cli, Commands, DatasetCommand, GenWorkloadOutcome, CUDA_DEVICE};
 use crate::score::{run_score, EngineKind, ScoreArgs, StrategySpec};
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
+    CUDA_DEVICE.store(cli.cuda_device, std::sync::atomic::Ordering::Relaxed);
     match cli.command {
         Commands::CompareChoice {
             input,

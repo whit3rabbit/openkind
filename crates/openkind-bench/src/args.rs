@@ -12,6 +12,10 @@ use crate::score::{EngineKind, StrategySpec, DEFAULT_STRATEGIES, STRATEGY_HELP};
     about = "openkind — offline scoring and timing benchmarks over JSONL decision workloads"
 )]
 pub struct Cli {
+    /// Zero-based CUDA device ordinal used by `--backend cuda` selections.
+    #[arg(long, env = "OPENKIND_CUDA_DEVICE", default_value_t = 0, global = true)]
+    pub cuda_device: usize,
+
     #[command(subcommand)]
     pub command: Commands,
 }
@@ -258,14 +262,24 @@ impl SplitArg {
 #[derive(Clone, Copy, Debug, ValueEnum)]
 pub enum ProbeBackendArg {
     Cpu,
+    /// Candle FP32 CUDA backend (`cuda` feature, `--cuda-device` ordinal).
+    #[cfg(feature = "cuda")]
+    Cuda,
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     MlxFp32,
 }
+
+/// Zero-based CUDA device ordinal for `ProbeBackendArg::Cuda`.
+pub static CUDA_DEVICE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
 impl From<ProbeBackendArg> for openkind_backends::qwen35::Qwen35Backend {
     fn from(value: ProbeBackendArg) -> Self {
         match value {
             ProbeBackendArg::Cpu => Self::NativeCpu,
+            #[cfg(feature = "cuda")]
+            ProbeBackendArg::Cuda => Self::Cuda {
+                device_id: CUDA_DEVICE.load(std::sync::atomic::Ordering::Relaxed),
+            },
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             ProbeBackendArg::MlxFp32 => Self::MlxFp32,
         }

@@ -7,8 +7,8 @@ use serde::Serialize;
 
 /// Static host hardware observation recorded with benchmark evidence.
 ///
-/// Values come from `sysctl` on macOS. Keys the host does not report stay
-/// `None` instead of being guessed.
+/// Values come from `sysctl` on macOS and from `/proc` on Linux. Keys the
+/// host does not report stay `None` instead of being guessed.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct HostHardware {
     /// Platform model identifier, such as `Mac16,5`.
@@ -32,7 +32,18 @@ pub fn host_hardware() -> HostHardware {
             total_memory_bytes: sysctl_int("hw.memsize"),
         }
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "linux")]
+    {
+        HostHardware {
+            model: None,
+            cpu_brand: linux_cpu_brand(),
+            logical_cores: std::thread::available_parallelism()
+                .ok()
+                .map(|value| value.get() as u32),
+            total_memory_bytes: linux_total_memory(),
+        }
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
     {
         HostHardware {
             model: None,
@@ -45,7 +56,33 @@ pub fn host_hardware() -> HostHardware {
     }
 }
 
-/// Return cumulative user plus system CPU time for this process in seconds.
+/// Read `MemTotal:` from `/proc/meminfo` and convert KiB to bytes.
+#[cfg(target_os = "linux")]
+fn linux_total_memory() -> Option<u64> {
+    let text = std::fs::read_to_string("/proc/meminfo").ok()?;
+    let line = text.lines().find(|line| line.starts_with("MemTotal:"))?;
+    let kib = line
+        .strip_prefix("MemTotal:")?
+        .trim()
+        .strip_suffix(" kB")?
+        .trim()
+        .parse::<u64>()
+        .ok()?;
+    Some(kib.saturating_mul(1024))
+}
+
+/// Read the first `model name` entry from `/proc/cpuinfo`.
+#[cfg(target_os = "linux")]
+fn linux_cpu_brand() -> Option<String> {
+    let text = std::fs::read_to_string("/proc/cpuinfo").ok()?;
+    text.lines().find_map(|line| {
+        let value = line.strip_prefix("model name")?;
+        let value = value.split_once(':')?.1.trim();
+        (!value.is_empty()).then(|| value.to_owned())
+    })
+}
+
+/// Return cumulative user plus kernel CPU time for this process in seconds.
 ///
 /// The total covers all threads of the process. Callers diff two observations
 /// around a measured region, the same way `peak_resident_bytes` is used for
@@ -64,8 +101,38 @@ pub fn cpu_time_seconds() -> io::Result<f64> {
     Ok(timeval_seconds(usage.ru_utime) + timeval_seconds(usage.ru_stime))
 }
 
-/// Return an unsupported-platform error when the host has no Unix `getrusage`.
-#[cfg(not(unix))]
+/// Return cumulative user plus kernel CPU time from `GetProcessTimes`.
+#[cfg(windows)]
+pub fn cpu_time_seconds() -> io::Result<f64> {
+    use windows_sys::Win32::Foundation::FILETIME;
+    use windows_sys::Win32::System::Threading::{GetCurrentProcess, GetProcessTimes};
+
+    let mut creation = unsafe { std::mem::zeroed::<FILETIME>() };
+    let mut exit = unsafe { std::mem::zeroed::<FILETIME>() };
+    let mut kernel = unsafe { std::mem::zeroed::<FILETIME>() };
+    let mut user = unsafe { std::mem::zeroed::<FILETIME>() };
+    // SAFETY: all four FILETIME pointers are valid destinations, and the
+    // pseudo-handle from `GetCurrentProcess` requires no cleanup.
+    let ok = unsafe {
+        GetProcessTimes(
+            GetCurrentProcess(),
+            &mut creation,
+            &mut exit,
+            &mut kernel,
+            &mut user,
+        )
+    };
+    if ok == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    let ticks =
+        |value: &FILETIME| ((value.dwHighDateTime as u64) << 32) | value.dwLowDateTime as u64;
+    Ok((ticks(&kernel) + ticks(&user)) as f64 / 10_000_000.0)
+}
+
+/// Return an unsupported-platform error when the host has neither a Unix
+/// `getrusage` nor the Windows `GetProcessTimes` observation.
+#[cfg(not(any(unix, windows)))]
 pub fn cpu_time_seconds() -> io::Result<f64> {
     Err(io::Error::new(
         io::ErrorKind::Unsupported,
@@ -167,6 +234,20 @@ mod tests {
         let memory = hardware
             .total_memory_bytes
             .expect("hw.memsize should be readable");
+        assert!(memory > 0);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn host_hardware_reports_this_linux() {
+        let hardware = host_hardware();
+        let cores = hardware
+            .logical_cores
+            .expect("available_parallelism should be readable");
+        assert!(cores > 0);
+        let memory = hardware
+            .total_memory_bytes
+            .expect("/proc/meminfo MemTotal should be readable");
         assert!(memory > 0);
     }
 

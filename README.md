@@ -13,7 +13,7 @@ OpenKind researches a custom Qwen3.5 decision model and a Rust inference engine 
 
 ## Install
 
-Install the `openkind` CLI and `openkindd` server using Homebrew, Cargo, or prebuilt binaries. Keep both binaries on `PATH`: `openkind serve` starts the server. The standard distributions run models on the CPU; Apple silicon users who want GPU acceleration can [build from source with MLX](#apple-silicon-and-mlx).
+Install the `openkind` CLI and `openkindd` server using Homebrew, Cargo, or prebuilt binaries. Keep both binaries on `PATH`: `openkind serve` starts the server. macOS, Linux, and Windows (`x86_64`) are supported host platforms; the standard distributions run models on the CPU, and Apple silicon users who want GPU acceleration can [build from source with MLX](#apple-silicon-and-mlx).
 
 ### Homebrew (macOS and Linux)
 
@@ -33,7 +33,7 @@ openkind version
 
 ### Releases
 
-Download prebuilt binary archives for macOS (Apple silicon or Intel) and Linux (`x86_64` musl) from [GitHub Releases](https://github.com/whit3rabbit/openkind/releases). Unpack the tarball and add `openkind` and `openkindd` to your `PATH`.
+Download prebuilt binary archives for macOS (Apple silicon or Intel), Linux (`x86_64` musl), and Windows (`x86_64` MSVC) from [GitHub Releases](https://github.com/whit3rabbit/openkind/releases). Unpack the tarball — or the zip on Windows — and add `openkind` and `openkindd` to your `PATH`.
 
 ## Run a model
 

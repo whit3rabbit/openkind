@@ -82,9 +82,11 @@ fn resolve_config_field(value: &serde_json::Value, field: &str) -> Option<serde_
 }
 
 impl Qwen3GuardModel {
-    /// Load the verified checkpoint into FP32 CPU weights.
-    pub fn load(artifacts: &VerifiedArtifacts) -> Result<Self, FamilyError> {
-        let device = Device::Cpu;
+    /// Load the verified checkpoint into FP32 weights on `device`.
+    ///
+    /// The reference path passes the CPU device; accelerated loads thread a
+    /// resolved CUDA device through the same candle model code.
+    pub fn load(artifacts: &VerifiedArtifacts, device: Device) -> Result<Self, FamilyError> {
         let vb = unsafe {
             VarBuilder::from_mmaped_safetensors(
                 std::slice::from_ref(&artifacts.checkpoint),

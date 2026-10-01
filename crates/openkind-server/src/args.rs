@@ -82,7 +82,8 @@ pub(crate) struct Args {
     #[arg(long, env = "OPENKIND_QWEN35_TIMEOUT_MS", default_value_t = 600_000)]
     pub(crate) qwen35_timeout_ms: u64,
 
-    /// Native model backend. `mlx-fp32` is available on macOS arm64 with the
+    /// Native model backend. `cuda` requires the daemon's `cuda` feature
+    /// and a CUDA device; `mlx-fp32` is available on macOS arm64 with the
     /// daemon's `mlx` feature enabled.
     #[arg(
         long,
@@ -91,6 +92,17 @@ pub(crate) struct Args {
         default_value_t = Qwen35BackendArg::NativeCpu
     )]
     pub(crate) qwen35_backend: Qwen35BackendArg,
+
+    /// Zero-based CUDA device ordinal used by every `cuda`/`onnx-cuda`
+    /// backend selection.
+    #[arg(long, env = "OPENKIND_CUDA_DEVICE", default_value_t = 0)]
+    pub(crate) cuda_device: usize,
+
+    /// Explicit path to the ONNX Runtime shared library used by `onnx`
+    /// backend selections. When unset, `ORT_DYLIB_PATH` and the system
+    /// library search path are consulted.
+    #[arg(long, env = "OPENKIND_ONNX_RUNTIME")]
+    pub(crate) onnx_runtime: Option<PathBuf>,
 
     /// Execution-plan override for diagnostics and reproducibility.
     /// Overrides adaptive scheduling only; memory and backend capability
@@ -294,6 +306,9 @@ pub(crate) enum ArrowArg {
 pub(crate) enum ProxyCacheEncoderBackendArg {
     /// Candle FP32 CPU reference backend.
     Cpu,
+    /// Candle FP32 CUDA backend (`cuda` feature, `--cuda-device` ordinal).
+    #[cfg(feature = "cuda")]
+    Cuda,
     /// MLX FP32 backend on macOS arm64 when the optional feature is enabled.
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     MlxFp32,
@@ -304,9 +319,111 @@ pub(crate) enum ProxyCacheEncoderBackendArg {
 pub(crate) enum Qwen35BackendArg {
     /// Candle FP32 CPU reference backend.
     NativeCpu,
+    /// Candle FP32 CUDA backend (`cuda` feature, `--cuda-device` ordinal).
+    #[cfg(feature = "cuda")]
+    Cuda,
     /// MLX FP32 backend on macOS arm64 when the optional feature is enabled.
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     MlxFp32,
+}
+
+impl Qwen35BackendArg {
+    /// Map to the backend-selection enum of the native engine.
+    pub(crate) fn to_backend(self, cuda_device: usize) -> openkind_backends::qwen35::Qwen35Backend {
+        let _ = cuda_device;
+        match self {
+            Self::NativeCpu => openkind_backends::qwen35::Qwen35Backend::NativeCpu,
+            #[cfg(feature = "cuda")]
+            Self::Cuda => openkind_backends::qwen35::Qwen35Backend::Cuda {
+                device_id: cuda_device,
+            },
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            Self::MlxFp32 => openkind_backends::qwen35::Qwen35Backend::MlxFp32,
+        }
+    }
+}
+
+/// Shared surveyed-family backend choices for families without a dedicated
+/// backend enum: CPU, CUDA, and ONNX (optionally on CUDA).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub(crate) enum FamilyBackendArg {
+    /// Candle FP32 CPU reference backend.
+    NativeCpu,
+    /// Candle FP32 CUDA backend (`cuda` feature, `--cuda-device` ordinal).
+    #[cfg(feature = "cuda")]
+    Cuda,
+    /// ONNX Runtime backend (`onnx` feature; CPU execution provider).
+    #[cfg(feature = "onnx")]
+    Onnx,
+    /// ONNX Runtime backend on CUDA (`onnx-cuda` feature, `--cuda-device`
+    /// ordinal).
+    #[cfg(feature = "onnx")]
+    OnnxCuda,
+}
+
+impl FamilyBackendArg {
+    /// Map to the engine-load execution selection.
+    ///
+    /// `cuda_device` is the `--cuda-device` ordinal. Fails closed when an
+    /// ONNX CUDA selection is requested without the `onnx-cuda` feature.
+    pub(crate) fn to_execution(
+        self,
+        cuda_device: usize,
+    ) -> anyhow::Result<openkind_backends::device::FamilyExecution> {
+        use openkind_backends::device::FamilyExecution;
+        let _ = cuda_device;
+        match self {
+            Self::NativeCpu => Ok(FamilyExecution::Cpu),
+            #[cfg(feature = "cuda")]
+            Self::Cuda => Ok(FamilyExecution::Cuda {
+                device_id: cuda_device,
+            }),
+            #[cfg(feature = "onnx")]
+            Self::Onnx => Ok(FamilyExecution::Onnx { device_id: None }),
+            #[cfg(feature = "onnx")]
+            Self::OnnxCuda => {
+                #[cfg(not(feature = "onnx-cuda"))]
+                {
+                    let _ = cuda_device;
+                    anyhow::bail!(
+                        "--*-backend onnx-cuda requires the daemon's `onnx-cuda` feature"
+                    );
+                }
+                #[cfg(feature = "onnx-cuda")]
+                Ok(FamilyExecution::Onnx {
+                    device_id: Some(cuda_device),
+                })
+            }
+        }
+    }
+}
+
+/// Backend choices for families whose readout has no ONNX export: CPU or
+/// CUDA only.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub(crate) enum CudaOnlyBackendArg {
+    /// Candle FP32 CPU reference backend.
+    NativeCpu,
+    /// Candle FP32 CUDA backend (`cuda` feature, `--cuda-device` ordinal).
+    #[cfg(feature = "cuda")]
+    Cuda,
+}
+
+impl CudaOnlyBackendArg {
+    /// Map to the engine-load execution selection.
+    pub(crate) fn to_execution(
+        self,
+        cuda_device: usize,
+    ) -> anyhow::Result<openkind_backends::device::FamilyExecution> {
+        let _ = cuda_device;
+        match self {
+            Self::NativeCpu => Ok(openkind_backends::device::FamilyExecution::Cpu),
+            #[cfg(feature = "cuda")]
+            Self::Cuda => Ok(openkind_backends::device::FamilyExecution::Cuda {
+                device_id: cuda_device,
+            }),
+        }
+    }
 }
 
 /// Laya decision-encoder backend choices exposed by the daemon.
@@ -314,6 +431,16 @@ pub(crate) enum Qwen35BackendArg {
 pub(crate) enum LayaBackendArg {
     /// Candle FP32 CPU reference backend.
     NativeCpu,
+    /// Candle FP32 CUDA backend (`cuda` feature, `--cuda-device` ordinal).
+    #[cfg(feature = "cuda")]
+    Cuda,
+    /// ONNX Runtime backend (`onnx` feature; CPU execution provider).
+    #[cfg(feature = "onnx")]
+    Onnx,
+    /// ONNX Runtime backend on CUDA (`onnx-cuda` feature, `--cuda-device`
+    /// ordinal).
+    #[cfg(feature = "onnx")]
+    OnnxCuda,
     /// MLX FP32 backend on macOS arm64 when the optional feature is enabled.
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     MlxFp32,
@@ -324,16 +451,30 @@ pub(crate) enum LayaBackendArg {
 pub(crate) enum EncoderInstructLabelBackendArg {
     /// Candle FP32 CPU reference backend.
     NativeCpu,
+    /// Candle FP32 CUDA backend (`cuda` feature, `--cuda-device` ordinal).
+    #[cfg(feature = "cuda")]
+    Cuda,
+    /// ONNX Runtime backend (`onnx` feature; CPU execution provider).
+    #[cfg(feature = "onnx")]
+    Onnx,
+    /// ONNX Runtime backend on CUDA (`onnx-cuda` feature, `--cuda-device`
+    /// ordinal).
+    #[cfg(feature = "onnx")]
+    OnnxCuda,
     /// MLX FP32 backend on macOS arm64 when the optional feature is enabled.
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     MlxFp32,
 }
 
-/// Decoder-logit-qwen35 backend choices exposed by the daemon.
+/// Decoder-logit-qwen35 backend choices exposed by the daemon. The Qwen3.5
+/// hybrid backbone has no ONNX export, so ONNX selections are not offered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub(crate) enum DecoderLogitQwen35BackendArg {
     /// Candle FP32 CPU reference backend.
     NativeCpu,
+    /// Candle FP32 CUDA backend (`cuda` feature, `--cuda-device` ordinal).
+    #[cfg(feature = "cuda")]
+    Cuda,
     /// MLX FP32 backend on macOS arm64 when the optional feature is enabled.
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     MlxFp32,

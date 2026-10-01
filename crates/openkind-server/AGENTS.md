@@ -11,7 +11,7 @@
 - Model engine instantiation and registration into `EngineRegistry` (supporting both `MockEngine` and `Qwen35DecisionEngine`).
 - Explicit startup loading of verified installations from `openkind-model-store`.
 - Concurrent HTTP (`axum::serve`) and gRPC (`tonic::transport::Server`) listeners.
-- Graceful shutdown orchestration on Unix `SIGINT` (Ctrl-C) or `SIGTERM`.
+- Graceful shutdown orchestration on Ctrl-C (`SIGINT`), with `SIGTERM` additionally on Unix.
 
 ### Critical Invariants
 
@@ -19,7 +19,7 @@
    - HTTP and gRPC bind to separate sockets (`--http-addr` default `0.0.0.0:8080`, `--grpc-addr` default `0.0.0.0:9090`).
    - The literal `--grpc-addr 0` (also `off`, `none`, or `disabled`) disables gRPC. A normal `host:0` address requests an ephemeral port and is not the disable sentinel.
 2. **Graceful Shutdown**:
-   - Both HTTP and gRPC listener tasks share a shutdown signal future that listens for Unix `SIGTERM` and `SIGINT`.
+   - Both HTTP and gRPC listener tasks share a shutdown signal future that listens for Ctrl-C (`SIGINT`), plus Unix `SIGTERM`.
    - On signal receipt, active in-flight inference requests complete before the process exits.
 3. **Environment Variable Parity**:
    - Every CLI flag has an identical environment variable fallback (e.g. `--http-addr` / `OPENKIND_HTTP_ADDR`, `--models` / `OPENKIND_MODELS`, `--qwen35-bundle-root` / `OPENKIND_QWEN35_BUNDLE_ROOT`).
@@ -30,7 +30,7 @@
 
 - [`src/main.rs`](./src/main.rs):
   - `main()`: Daemon entrypoint; orchestrates logging, auth, Prometheus recorder, engine registration (Qwen 3.5, installed models, surveyed families, router-script and winnow composites, and mock), and concurrent listener tasks via `tokio::join!`.
-  - `shutdown_signal()`: Future selecting on `tokio::signal::ctrl_c()` and Unix `SIGTERM`.
+  - `shutdown_signal()`: Future selecting on `tokio::signal::ctrl_c()` and, on Unix, `SIGTERM`.
 - [`src/lib.rs`](./src/lib.rs): Library re-exports for daemon and benchmark integration.
 - [`src/args.rs`](./src/args.rs): Clap argument parser defining:
     - Server addresses and auth, plus rate limits (`OPENKIND_RATE_LIMIT_RPM`, default 120; `0` disables). `--playground` and `--arrow` are opt-in. See the [API guide](../openkind-api/AGENTS.md) and [Arrow guide](../../docs/ARROW.md).
@@ -63,7 +63,7 @@
 2. **Installed Model Path**: The daemon verifies each installation against a compiled loader and registers its immutable name. It holds a serving lock until shutdown. Missing profiles and alias collisions fail startup. Startup never fetches the public catalog.
 3. **Surveyed-Family Engine Path**: If any alias in `--models` matches `--decoder-letter-aliases`, `--encoder-nli-aliases`, `--encoder-instruct-label-aliases`, `--kev-aliases`, `--decoder-llm-aliases`, `--schema-scorer-aliases`, `--qwen3guard-aliases`, `--decoder-logit-qwen35-aliases`, `--laya-english-aliases`, `--laya-multilingual-aliases`, or `--laya-typed-decisions-aliases`:
    - Validates that the corresponding `--<family>-model-root` is provided (fails fast on startup if omitted).
-   - Loads the family adapter with bounded `FamilyLimits`. MLX-capable families default to `native-cpu`. Requesting `mlx-fp32` without the daemon feature fails startup.
+   - Loads the family adapter with bounded `FamilyLimits`. Every family defaults to `native-cpu`. Accelerated selections are per family: `--<family>-backend cuda` requires the daemon's `cuda` feature and uses `--cuda-device`; `onnx`/`onnx-cuda` require the ONNX features and `model.onnx` in the model root; `mlx-fp32` requires the `mlx` feature on macOS arm64. Unsupported selections fail startup with an explanation.
    - Registers the shared engine under each matching alias.
 4. **Router-Script Composite Path**: If any alias in `--models` matches `--router-script-aliases`:
    - Parses the routing rule table (`--router-script-rules`).

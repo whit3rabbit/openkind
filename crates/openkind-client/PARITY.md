@@ -1,6 +1,6 @@
 # SDK Test Parity Map — typesafe-sdk-python → openkind-client
 
-Every test file in the TypeSafe Python SDK (`github.com/typesafe-ai/typesafe-sdk-python`, `tests/`), mapped to its Rust counterpart. Reference: SDK v0.7.2 (commit `f078f1e208a0d885154dc758344ae4fce77ac168`); clone that commit into `/tmp/typesafe-sdk-python` when re-auditing.
+Every test file in the TypeSafe Python SDK (`github.com/typesafe-ai/typesafe-sdk-python`, `tests/`), mapped to its Rust counterpart. Reference: SDK v0.7.2 (commit `f078f1e208a0d885154dc758344ae4fce77ac168`); clone that commit into a temporary directory (e.g. `$TMPDIR` or `%TEMP%`) when re-auditing.
 
 Status legend: **ported** (assertions live in Rust), **covered** (equivalent guarantee via a different mechanism), **N/A** (Python/platform-specific, reason given), **divergence** (deliberate behavioral difference, pinned by a test).
 

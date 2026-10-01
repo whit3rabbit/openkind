@@ -31,6 +31,7 @@ pub(crate) struct TextBackbone {
     embedding: Qwen35Embedding,
     shards: Vec<PathBuf>,
     layer_count: usize,
+    device: Device,
 }
 
 impl TextBackbone {
@@ -44,11 +45,13 @@ impl TextBackbone {
         embedding: Qwen35Embedding,
         shards: Vec<PathBuf>,
         layer_count: usize,
+        device: Device,
     ) -> Self {
         Self {
             embedding,
             shards,
             layer_count,
+            device,
         }
     }
 
@@ -87,7 +90,7 @@ impl TextBackbone {
         let embedding = self.embedding.embed(input_ids).map_err(E::from)?;
         let token_count = embedding.token_count();
         let mut hidden = embedding.values().to_vec();
-        let device = Device::Cpu;
+        let device = self.device.clone();
         // SAFETY: the caller verified the immutable size and SHA-256 of every
         // read-only shard before constructing this backbone. The VarBuilder
         // owns the mapped tensor storage.

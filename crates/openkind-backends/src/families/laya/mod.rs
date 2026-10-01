@@ -51,6 +51,9 @@ mod arch;
 mod engine;
 #[doc(hidden)]
 pub mod model;
+#[cfg(feature = "onnx")]
+#[doc(hidden)]
+pub mod onnx;
 #[doc(hidden)]
 pub mod renderer;
 
@@ -384,15 +387,6 @@ impl LayaProfile {
             fields.push(("temperature_by_options", serde_json::Value::Object(table)));
         }
         fields
-    }
-
-    /// Backend id reported by engines serving this profile.
-    pub(crate) fn backend_id(&self) -> &str {
-        match self.loader_id {
-            "laya-english" => "laya-english/cpu-fp32",
-            "laya-multilingual" => "laya-multilingual/cpu-fp32",
-            _ => "laya-typed-decisions/cpu-fp32",
-        }
     }
 }
 

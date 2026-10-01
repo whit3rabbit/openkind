@@ -59,6 +59,16 @@ pub struct Qwen35Backbone {
     embedding: Qwen35Embedding,
     decoder_shard: PathBuf,
     identity: StateIdentity,
+    device: Device,
+}
+
+/// Arithmetic identity of the candle backbone on a CUDA device.
+///
+/// CUDA execution is a separate identity from the pinned CPU oracle so CPU
+/// and CUDA continuation states can never be mixed (mirroring the MLX
+/// precision/kernel identity discipline).
+pub(crate) fn candle_cuda_arithmetic_id() -> String {
+    "candle-cuda-fp32".to_owned()
 }
 
 /// Complete Qwen3.5 continuation state after a native prefix evaluation.
@@ -114,15 +124,62 @@ impl Qwen35Backbone {
     }
 
     /// Load and verify both shards of the immutable base-model revision.
+    ///
+    /// The reference execution device is the CPU; see
+    /// [`Self::load_with_device`] for accelerated loads.
     pub fn load(checkpoint_root: impl AsRef<Path>) -> Result<Self, Qwen35Error> {
+        Self::load_with_device(checkpoint_root, Device::Cpu)
+    }
+
+    /// Load and verify both shards, executing on `device`.
+    ///
+    /// The continuation-state arithmetic identity follows the device: CPU
+    /// keeps the pinned `"candle-cpu-fp32"` identity, CUDA carries
+    /// `"candle-cuda-fp32"` so CPU and CUDA states can never be mixed
+    /// (mirroring the MLX identity discipline).
+    pub fn load_with_device(
+        checkpoint_root: impl AsRef<Path>,
+        device: Device,
+    ) -> Result<Self, Qwen35Error> {
+        let identity = match &device {
+            Device::Cpu => super::super::pinned_state_identity(),
+            Device::Cuda(_) => {
+                use super::super::{
+                    BACKBONE_ID, BACKBONE_REVISION, PROFILE_ID, STATE_FIRST_RENDERER_ID,
+                    TOKENIZER_JSON_SHA256,
+                };
+                StateIdentity::new(
+                    PROFILE_ID,
+                    BACKBONE_ID,
+                    BACKBONE_REVISION,
+                    STATE_FIRST_RENDERER_ID,
+                    TOKENIZER_JSON_SHA256,
+                    candle_cuda_arithmetic_id(),
+                )
+                .expect("pinned identity constants are non-empty")
+            }
+            Device::Metal(_) => {
+                return Err(Qwen35Error::InvalidInput(
+                    "the candle backbone supports CPU and CUDA; use the MLX backend for Metal"
+                        .to_owned(),
+                ))
+            }
+        };
         let checkpoint_root = checkpoint_root.as_ref();
         let embedding = Qwen35Embedding::load(checkpoint_root)?;
         let decoder_shard = verify_decoder_shard(checkpoint_root)?;
         Ok(Self {
             embedding,
             decoder_shard,
-            identity: super::super::pinned_state_identity(),
+            identity,
+            device,
         })
+    }
+
+    /// The device this backbone executes its forward passes on.
+    #[must_use]
+    pub fn device(&self) -> &Device {
+        &self.device
     }
 
     /// Pinned state identity every state produced by this backbone carries.
@@ -223,7 +280,7 @@ impl Qwen35Backbone {
         let lineage = previous_state.map_or_else(StateLineage::new_root, |state| state.lineage);
         let embedding_last_token = embedding.last_token().to_vec();
         let mut hidden = embedding.values().to_vec();
-        let device = Device::Cpu;
+        let device = self.device.clone();
         // SAFETY: load() verified the immutable size and SHA-256 of both
         // read-only shards. The VarBuilder owns the mapped tensor storage.
         let variables = unsafe {

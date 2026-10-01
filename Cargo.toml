@@ -105,12 +105,27 @@ openkind-proto = { path = "proto", version = "0.1.0" }
 # Client
 fastrand = "2"
 
-# Phase 3 correctness-first native CPU backbone.
+# Phase 3 correctness-first native CPU backbone. The optional `cuda` feature
+# of openkind-backends forwards to these crates' own `cuda` features; the CUDA
+# toolchain (nvcc) is required to build with it and no workspace default
+# enables it.
 candle-core = "=0.8.0"
 candle-nn = "=0.8.0"
 # Surveyed-family model implementations (BERT, DistilBERT, Qwen2, quantized
 # GGUF runners). Pinned to the same candle release line as candle-core.
 candle-transformers = "=0.8.0"
+
+# Phase 3N CUDA/ONNX block. `ort` executes ONNX artifacts through ONNX
+# Runtime; `load-dynamic` keeps builds offline (no binary downloads at build
+# time) and defers the library to explicit operator setup, mirroring the MLX
+# runtime discipline. The `cuda` feature on `ort` only gates the CUDA
+# execution-provider registration code path.
+ort = { version = "=2.0.0-rc.13", default-features = false, features = ["load-dynamic"] }
+
+# Accelerator discovery. `nvml-wrapper` resolves `libnvidia-ml` with dlopen at
+# runtime, so detection stays functional (and harmless) on hosts without
+# NVIDIA drivers.
+nvml-wrapper = "0.11"
 
 # Phase 3M MLX/Metal parity backend (optional, macOS arm64 only). The versions
 # track Apple's MLX release line; the exact pins keep the vendored mlx-c build

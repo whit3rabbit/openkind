@@ -301,13 +301,17 @@ fn profile_by_name(name: &str) -> &'static LayaProfile {
 }
 
 fn default_model_root(profile: &LayaProfile) -> PathBuf {
-    PathBuf::from(std::env::var("HOME").unwrap_or_default())
-        .join(".cache/openkind")
-        .join(match profile.loader_id {
-            "laya-english" => "laya-english",
-            "laya-multilingual" => "laya-multilingual",
-            _ => "laya-typed-decisions",
-        })
+    PathBuf::from(
+        std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
+            .unwrap_or_default(),
+    )
+    .join(".cache/openkind")
+    .join(match profile.loader_id {
+        "laya-english" => "laya-english",
+        "laya-multilingual" => "laya-multilingual",
+        _ => "laya-typed-decisions",
+    })
 }
 
 /// Walk one response's answers and collect every probability/confidence

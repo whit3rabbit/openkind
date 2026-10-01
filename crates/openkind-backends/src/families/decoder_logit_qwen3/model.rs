@@ -96,13 +96,16 @@ pub struct Qwen3ControlModel {
 }
 
 impl Qwen3ControlModel {
-    /// Load the verified shards into FP32 CPU weights through the shared
-    /// dense-Qwen3 forward.
+    /// Load the verified shards into FP32 weights on `device` through the
+    /// shared dense-Qwen3 forward.
+    ///
+    /// The reference path passes the CPU device; accelerated loads thread a
+    /// resolved CUDA device through the same candle model code.
     pub fn load(
         artifacts: &VerifiedArtifacts,
         profile: &Qwen3LogitProfile,
+        device: Device,
     ) -> Result<Self, FamilyError> {
-        let device = Device::Cpu;
         let vb = unsafe {
             VarBuilder::from_mmaped_safetensors(&artifacts.checkpoints, DType::F32, &device)
         }?;

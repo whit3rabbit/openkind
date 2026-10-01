@@ -38,6 +38,9 @@
 
 mod engine;
 mod model;
+#[cfg(feature = "onnx")]
+#[doc(hidden)]
+pub mod onnx;
 /// Prompt-byte helpers, exposed for offline renderer tests.
 #[doc(hidden)]
 pub mod renderer;

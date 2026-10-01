@@ -219,10 +219,13 @@ impl ModelStore {
             if !entry.file_type()?.is_dir() {
                 continue;
             }
-            let name = entry.file_name().to_string_lossy().into_owned();
-            if name.starts_with('.') || !valid_name(&name) {
+            let raw = entry.file_name().to_string_lossy().into_owned();
+            if raw.starts_with('.') {
                 continue;
             }
+            let Some(name) = from_disk_name(&raw) else {
+                continue;
+            };
             models.push(self.read_installed_manifest(&name)?);
         }
         models.sort_by(|a, b| a.name.cmp(&b.name));
@@ -342,7 +345,7 @@ impl ModelStore {
             .as_nanos();
         let stage = self.root.join("models").join(format!(
             ".stage-{}-{}-{nonce}",
-            canonical,
+            on_disk_name(&canonical),
             std::process::id()
         ));
         fs::create_dir_all(&stage)?;
@@ -447,7 +450,7 @@ impl ModelStore {
             progress(&artifact.path, artifact.size, artifact.size);
             match verify_file(&part, artifact.size, &artifact.sha256) {
                 Ok(()) => {
-                    fs::rename(part, blob)?;
+                    replace_part(&part, blob)?;
                     return Ok(());
                 }
                 Err(Error::DigestMismatch(_)) => {
@@ -536,7 +539,7 @@ impl ModelStore {
             }
             return Err(error);
         }
-        fs::rename(part, blob)?;
+        replace_part(&part, blob)?;
         Ok(())
     }
 
@@ -560,7 +563,7 @@ impl ModelStore {
     }
 
     fn model_dir(&self, name: &str) -> PathBuf {
-        self.root.join("models").join(name)
+        self.root.join("models").join(on_disk_name(name))
     }
 
     fn blob_path(&self, sha: &str) -> PathBuf {
@@ -587,7 +590,11 @@ impl ModelStore {
             .truncate(false)
             .read(true)
             .write(true)
-            .open(self.root.join("locks").join(format!("{name}.lock")))?;
+            .open(
+                self.root
+                    .join("locks")
+                    .join(format!("{}.lock", on_disk_name(name))),
+            )?;
         let result = if exclusive {
             FileExt::try_lock_exclusive(&file)
         } else {
@@ -595,6 +602,40 @@ impl ModelStore {
         };
         result.map_err(|_| Error::Busy(name.into()))?;
         Ok(file)
+    }
+}
+
+/// Publish a verified `.part` file as its final blob. Windows `rename` does
+/// not replace an existing destination, so clear any stale blob first; the
+/// exclusive model lock keeps this window invisible to readers.
+fn replace_part(part: &Path, blob: &Path) -> Result<()> {
+    if blob.exists() {
+        fs::remove_file(blob)?;
+    }
+    fs::rename(part, blob)?;
+    Ok(())
+}
+
+/// Map a validated model name to its on-disk spelling. Windows forbids `:`
+/// in filenames, so the family/version separator is replaced with `@`, a
+/// character the name grammar never emits. Unix keeps the raw spelling for
+/// compatibility with stores created before Windows support.
+fn on_disk_name(name: &str) -> String {
+    if cfg!(windows) {
+        name.replace(':', "@")
+    } else {
+        name.to_owned()
+    }
+}
+
+/// Inverse of [`on_disk_name`] for a `models/` directory entry; returns
+/// `None` when the entry is not a spelled-out installed model.
+fn from_disk_name(entry: &str) -> Option<String> {
+    if cfg!(windows) {
+        let name = entry.replace('@', ":");
+        valid_name(&name).then_some(name)
+    } else {
+        valid_name(entry).then(|| entry.to_owned())
     }
 }
 

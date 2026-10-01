@@ -2,8 +2,10 @@
 
 use std::sync::Arc;
 
+use candle_core::Device;
 use openkind_core::{ModelInfo, Question, State, SystemRequest, SystemResponse, Usage};
 
+use crate::device::FamilyExecution;
 use crate::families::support::{
     temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
 };
@@ -14,6 +16,42 @@ use super::{
     LayaEngineConfig, LayaError, LayaProfile, MAX_CANDIDATES, QTYPE_CHOICE, QTYPE_NOUL, QTYPE_SCORE,
 };
 
+/// Typed-decision logit source shared by the candle and ONNX models.
+trait LayaOptionLogits: Send + Sync {
+    /// One logit per option marker in marker order, before temperature
+    /// calibration.
+    fn option_logits(
+        &self,
+        token_ids: &[u32],
+        markers: &[usize],
+        qtype: usize,
+    ) -> Result<Vec<f64>, FamilyError>;
+}
+
+impl LayaOptionLogits for LayaModel {
+    fn option_logits(
+        &self,
+        token_ids: &[u32],
+        markers: &[usize],
+        qtype: usize,
+    ) -> Result<Vec<f64>, FamilyError> {
+        LayaModel::option_logits(self, token_ids, markers, qtype)
+    }
+}
+
+/// ONNX model readout bridging the shared logit source (feature `onnx`).
+#[cfg(feature = "onnx")]
+impl LayaOptionLogits for super::onnx::LayaOnnxModel {
+    fn option_logits(
+        &self,
+        token_ids: &[u32],
+        markers: &[usize],
+        qtype: usize,
+    ) -> Result<Vec<f64>, FamilyError> {
+        super::onnx::LayaOnnxModel::option_logits(self, token_ids, markers, qtype)
+    }
+}
+
 /// Loaded pinned laya engine.
 pub struct LayaEngine {
     inner: Arc<Inner>,
@@ -22,7 +60,8 @@ pub struct LayaEngine {
 struct Inner {
     profile: &'static LayaProfile,
     renderer: LayaRenderer,
-    model: LayaModel,
+    model: Box<dyn LayaOptionLogits>,
+    backend_id: String,
 }
 
 /// The reference's temperature clamp: confine to `[0.5, 5.0]`, falling back
@@ -223,16 +262,49 @@ pub(crate) fn render_question_inputs(
 
 impl LayaEngine {
     /// Load every pinned artifact offline and build the bounded engine.
+    ///
+    /// The reference execution is FP32 CPU; see [`Self::load_with_execution`]
+    /// for accelerated backends.
     pub fn load(config: LayaEngineConfig) -> Result<BoundedFamilyEngine, LayaError> {
+        Self::load_with_execution(config, FamilyExecution::Cpu)
+    }
+
+    /// Load the engine on the selected execution backend.
+    ///
+    /// Artifact verification (digests, pinned configs) is identical on every
+    /// backend; only the readout execution differs, and ONNX additionally
+    /// requires `model.onnx` and its digest manifest in the model root.
+    /// Loads fail closed when a backend is unavailable.
+    pub fn load_with_execution(
+        config: LayaEngineConfig,
+        execution: FamilyExecution,
+    ) -> Result<BoundedFamilyEngine, LayaError> {
         let profile = config.profile;
         let artifacts = VerifiedArtifacts::verify(&config.model_root, profile)?;
         let renderer = LayaRenderer::load(&artifacts.tokenizer, &profile.specials)?;
-        let model = LayaModel::load(profile, &artifacts)?;
+        let model: Box<dyn LayaOptionLogits> = match execution {
+            FamilyExecution::Cpu => Box::new(LayaModel::load(profile, &artifacts, Device::Cpu)?),
+            #[cfg(feature = "cuda")]
+            FamilyExecution::Cuda { .. } => {
+                let device = execution.candle_device()?;
+                Box::new(LayaModel::load(profile, &artifacts, device)?)
+            }
+            #[cfg(feature = "onnx")]
+            FamilyExecution::Onnx { device_id } => {
+                let acceleration = crate::onnx::OnnxAcceleration::from_onnx_execution(device_id)
+                    .map_err(FamilyError::from)?;
+                Box::new(super::onnx::LayaOnnxModel::load(
+                    &config.model_root,
+                    acceleration,
+                )?)
+            }
+        };
         let engine = Self {
             inner: Arc::new(Inner {
                 profile,
                 renderer,
                 model,
+                backend_id: format!("{}/{}", profile.loader_id, execution.id_fragment()),
             }),
         };
         Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))
@@ -241,7 +313,7 @@ impl LayaEngine {
 
 impl FamilyEvaluator for LayaEngine {
     fn backend_id(&self) -> &str {
-        self.inner.profile.backend_id()
+        &self.inner.backend_id
     }
 
     fn model_metadata(&self) -> ModelInfo {
@@ -249,8 +321,8 @@ impl FamilyEvaluator for LayaEngine {
         ModelInfo {
             name: String::new(),
             description: format!(
-                "Pinned {} decision encoder ({}, FP32 CPU).",
-                profile.backbone_id, profile.profile_id
+                "Pinned {} decision encoder ({}, {}).",
+                profile.backbone_id, profile.profile_id, self.inner.backend_id
             ),
             release_date: "2026-09-24".into(),
         }

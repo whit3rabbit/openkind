@@ -33,6 +33,12 @@ sha2.workspace = true
 
 [features]
 mlx = ["openkind-backends/mlx"]
+# CUDA execution for the native backbone and every candle-backed family.
+cuda = ["openkind-backends/cuda"]
+# ONNX artifact execution through ONNX Runtime (see docs/ONNX.md).
+onnx = ["openkind-backends/onnx"]
+# ONNX sessions may register the CUDA execution provider.
+onnx-cuda = ["openkind-backends/onnx-cuda"]
 
 [dev-dependencies]
 criterion = { workspace = true }

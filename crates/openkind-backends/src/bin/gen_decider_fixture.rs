@@ -157,8 +157,12 @@ fn correct_probability(case: &Case, answer: &Answer) -> Option<f64> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut model_root =
-        PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".cache/openkind/decider-4b");
+    let mut model_root = PathBuf::from(
+        std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
+            .unwrap_or_default(),
+    )
+    .join(".cache/openkind/decider-4b");
     let mut output: Option<PathBuf> = None;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {

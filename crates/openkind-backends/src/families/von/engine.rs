@@ -2,8 +2,10 @@
 
 use std::sync::Arc;
 
+use candle_core::Device;
 use openkind_core::{ModelInfo, Question, State, SystemRequest, SystemResponse, Usage};
 
+use crate::device::FamilyExecution;
 use crate::families::support::{
     temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
 };
@@ -11,6 +13,26 @@ use crate::families::support::{
 use super::model::{VerifiedArtifacts, VonModel};
 use super::renderer::VonRenderer;
 use super::{VonEngineConfig, VonError, VonProfile, MAX_CANDIDATES};
+
+/// Option-marker logit source shared by the candle and ONNX models.
+trait VonOptionLogits: Send + Sync {
+    /// One logit per option marker in marker order, before calibration.
+    fn option_logits(&self, token_ids: &[u32], markers: &[usize]) -> Result<Vec<f64>, FamilyError>;
+}
+
+impl VonOptionLogits for VonModel {
+    fn option_logits(&self, token_ids: &[u32], markers: &[usize]) -> Result<Vec<f64>, FamilyError> {
+        VonModel::option_logits(self, token_ids, markers)
+    }
+}
+
+/// ONNX model readout bridging the shared logit source (feature `onnx`).
+#[cfg(feature = "onnx")]
+impl VonOptionLogits for super::onnx::VonOnnxModel {
+    fn option_logits(&self, token_ids: &[u32], markers: &[usize]) -> Result<Vec<f64>, FamilyError> {
+        super::onnx::VonOnnxModel::option_logits(self, token_ids, markers)
+    }
+}
 
 /// Loaded pinned von engine.
 pub struct VonEngine {
@@ -20,7 +42,8 @@ pub struct VonEngine {
 struct Inner {
     profile: &'static VonProfile,
     renderer: VonRenderer,
-    model: VonModel,
+    model: Box<dyn VonOptionLogits>,
+    backend_id: String,
 }
 
 /// Serialize the wire state the way the reference formats its input with
@@ -205,16 +228,49 @@ fn render_question_inputs(question: &Question) -> Result<RenderedQuestionInputs,
 
 impl VonEngine {
     /// Load every pinned artifact offline and build the bounded engine.
+    ///
+    /// The reference execution is FP32 CPU; see [`Self::load_with_execution`]
+    /// for accelerated backends.
     pub fn load(config: VonEngineConfig) -> Result<BoundedFamilyEngine, VonError> {
+        Self::load_with_execution(config, FamilyExecution::Cpu)
+    }
+
+    /// Load the engine on the selected execution backend.
+    ///
+    /// Artifact verification (digests, pinned configs) is identical on every
+    /// backend; only the readout execution differs, and ONNX additionally
+    /// requires `model.onnx` and its digest manifest in the model root.
+    /// Loads fail closed when a backend is unavailable.
+    pub fn load_with_execution(
+        config: VonEngineConfig,
+        execution: FamilyExecution,
+    ) -> Result<BoundedFamilyEngine, VonError> {
         let profile = config.profile;
         let artifacts = VerifiedArtifacts::verify(&config.model_root, profile)?;
         let renderer = VonRenderer::load(&artifacts.tokenizer, &profile.specials)?;
-        let model = VonModel::load(profile, &artifacts)?;
+        let model: Box<dyn VonOptionLogits> = match execution {
+            FamilyExecution::Cpu => Box::new(VonModel::load(profile, &artifacts, Device::Cpu)?),
+            #[cfg(feature = "cuda")]
+            FamilyExecution::Cuda { .. } => {
+                let device = execution.candle_device()?;
+                Box::new(VonModel::load(profile, &artifacts, device)?)
+            }
+            #[cfg(feature = "onnx")]
+            FamilyExecution::Onnx { device_id } => {
+                let acceleration = crate::onnx::OnnxAcceleration::from_onnx_execution(device_id)
+                    .map_err(FamilyError::from)?;
+                Box::new(super::onnx::VonOnnxModel::load(
+                    &config.model_root,
+                    acceleration,
+                )?)
+            }
+        };
         let engine = Self {
             inner: Arc::new(Inner {
                 profile,
                 renderer,
                 model,
+                backend_id: format!("{}/{}", profile.loader_id, execution.id_fragment()),
             }),
         };
         Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))
@@ -223,7 +279,7 @@ impl VonEngine {
 
 impl FamilyEvaluator for VonEngine {
     fn backend_id(&self) -> &str {
-        self.inner.profile.backend_id()
+        &self.inner.backend_id
     }
 
     fn model_metadata(&self) -> ModelInfo {
@@ -231,8 +287,8 @@ impl FamilyEvaluator for VonEngine {
         ModelInfo {
             name: String::new(),
             description: format!(
-                "Pinned {} option-marker decision encoder ({}, FP32 CPU).",
-                profile.backbone_id, profile.profile_id
+                "Pinned {} option-marker decision encoder ({}, {}).",
+                profile.backbone_id, profile.profile_id, self.inner.backend_id
             ),
             release_date: "2026-09-30".into(),
         }

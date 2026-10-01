@@ -12,6 +12,13 @@
 /// Backend-neutral branchable continuation-state contract.
 pub mod branch;
 
+/// Execution-device and backend-selection vocabulary.
+pub mod device;
+
+/// ONNX Runtime execution of exported family artifacts (feature `onnx`).
+#[cfg(feature = "onnx")]
+pub mod onnx;
+
 /// Qwen 3.5 profile execution contracts, safetensors readout, and parity fixtures.
 pub mod qwen35;
 

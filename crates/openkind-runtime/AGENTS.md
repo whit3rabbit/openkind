@@ -37,10 +37,10 @@ It defines:
   - `RuntimeConfig`: Configuration for target device, memory limits, and worker thread pool.
   - `detect_available_devices()`: Enumerates host acceleration targets.
 - [`src/hardware.rs`](./src/hardware.rs):
-  - `host_hardware()`: macOS `sysctl` host observation (model identifier, CPU brand, logical cores, total memory) recorded with benchmark evidence.
-  - `cpu_time_seconds()`: cumulative process-wide user+system CPU time; callers diff two observations around a measured region.
+  - `host_hardware()`: host observation recorded with benchmark evidence — `sysctl` on macOS, `/proc` on Linux; keys the host does not report stay `None`.
+  - `cpu_time_seconds()`: cumulative process-wide user+system CPU time (`getrusage` on Unix, `GetProcessTimes` on Windows); callers diff two observations around a measured region.
 - [`src/memory.rs`](./src/memory.rs):
-  - `peak_resident_bytes()`: Queries the OS `getrusage` high-water mark. macOS reports bytes; other Unix targets are converted from KiB. It is peak RSS, not current RSS.
+  - `peak_resident_bytes()`: OS high-water mark — `getrusage` on Unix (macOS reports bytes, other Unix targets are converted from KiB), `GetProcessMemoryInfo` peak working set on Windows. It is peak RSS, not current RSS.
 - [`src/execution.rs`](./src/execution.rs):
   - `ExecutionPlan`: `RepeatedFull`, `NestedSequential`, `NestedBatched`.
   - `BatchForwardMode`: `PerLane` vs `Vectorized` — how a plan physically executed, derived from `BackendCapabilities` and the request shape. A plan name is state topology only.

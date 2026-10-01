@@ -17,6 +17,9 @@
 
 mod engine;
 mod model;
+#[cfg(feature = "onnx")]
+#[doc(hidden)]
+pub mod onnx;
 
 use std::path::PathBuf;
 use std::time::Duration;

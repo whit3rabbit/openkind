@@ -90,7 +90,7 @@ Each variable also has an `OPENKIND_*` primary name: `OPENKIND_API_KEY`,
 | `OPENKIND_QWEN35_CONCURRENCY` | Maximum concurrent native evaluations | `1` |
 | `OPENKIND_QWEN35_QUEUE` | Additional queued native requests | `2` |
 | `OPENKIND_QWEN35_TIMEOUT_MS` | Queue-inclusive deadline per native evaluation | `600000` |
-| `OPENKIND_QWEN35_BACKEND` | `native-cpu`, or `mlx-fp32` on macOS arm64 with the `mlx` feature | `native-cpu` |
+| `OPENKIND_QWEN35_BACKEND` | `native-cpu`, `cuda` with the `cuda` feature, or `mlx-fp32` on macOS arm64 with the `mlx` feature | `native-cpu` |
 | `OPENKIND_QWEN35_EXECUTION` | Execution plan override: `auto`, `repeated-full`, `nested-sequential`, `nested-batched` | `auto` |
 | `OPENKIND_QWEN35_MAX_TENSOR_BYTES` | Continuation tensor-payload ceiling per request | unset (policy decides) |
 | `OPENKIND_QWEN35_MAX_PROCESS_BYTES` | Process-memory admission ceiling | unset (policy decides) |
@@ -126,19 +126,44 @@ Family token variables are prefixed `OPENKIND_`, for example
 `OPENKIND_FAMILY_CONCURRENCY` (default `1`), `OPENKIND_FAMILY_QUEUE`
 (default `2`), `OPENKIND_FAMILY_TIMEOUT_MS` (default `600000`).
 
-### Surveyed-family execution backends
-
-Families with an MLX path take a backend selector: `native-cpu` default, or
-`mlx-fp32` on macOS arm64 when the daemon's `mlx` feature is enabled.
+### Accelerator and backend selection
 
 | Variable | Meaning | Default |
 |---|---|---|
-| `OPENKIND_LAYA_BACKEND` | Backend for every served laya alias | `native-cpu` |
-| `OPENKIND_ENCODER_INSTRUCT_LABEL_BACKEND` | Backend for served encoder-instruct-label aliases | `native-cpu` |
-| `OPENKIND_DECODER_LOGIT_QWEN35_BACKEND` | Backend for served JevK5 and Plumb-4B aliases | `native-cpu` |
+| `OPENKIND_CUDA_DEVICE` | Zero-based CUDA device ordinal for every `cuda`/`onnx-cuda` backend selection (daemon and bench) | `0` |
+| `OPENKIND_ONNX_RUNTIME` | Explicit ONNX Runtime shared-library path (sets `ORT_DYLIB_PATH` at daemon startup) | unset; `ORT_DYLIB_PATH` then system search |
+| `ORT_DYLIB_PATH` | ONNX Runtime shared library resolved by `ort` when `OPENKIND_ONNX_RUNTIME` is unset | unset |
+
+Detection at daemon startup logs the hardware accelerators (CPU, CUDA via
+NVML, Apple Silicon Metal) and the backends compiled into the binary. See
+[`CUDA.md`](CUDA.md) and [`ONNX.md`](ONNX.md).
+
+### Surveyed-family execution backends
+
+Every model family takes a backend selector. ONNX selections additionally
+require `model.onnx` and its digest manifest in the family model root
+(see [`ONNX.md`](ONNX.md)); families whose readout has no
+ONNX export reject the selection with an explanation.
+
+| Variable | Values | Default |
+|---|---|---|
+| `OPENKIND_LAYA_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `mlx-fp32` (macOS arm64) | `native-cpu` |
+| `OPENKIND_ENCODER_INSTRUCT_LABEL_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `mlx-fp32` (macOS arm64) | `native-cpu` |
+| `OPENKIND_DECODER_LOGIT_QWEN35_BACKEND` | `native-cpu`, `cuda`, `mlx-fp32` (macOS arm64); no ONNX (hybrid backbone) | `native-cpu` |
+| `OPENKIND_ENCODER_NLI_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda` | `native-cpu` |
+| `OPENKIND_DECODER_LETTER_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda` | `native-cpu` |
+| `OPENKIND_DECODER_LOGIT_QWEN3_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda` (applies to every size) | `native-cpu` |
+| `OPENKIND_SCHEMA_SCORER_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda` | `native-cpu` |
+| `OPENKIND_QWEN3GUARD_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda` | `native-cpu` |
+| `OPENKIND_VON_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda` | `native-cpu` |
+| `OPENKIND_KEV_BACKEND` | `native-cpu`, `cuda`; no ONNX (pointer head) | `native-cpu` |
+| `OPENKIND_DECODER_LLM_BACKEND` | `native-cpu`, `cuda`; no ONNX (GGUF) | `native-cpu` |
+| `OPENKIND_DECIDER_4B_BACKEND` | `native-cpu`, `cuda`; no ONNX (hybrid backbone) | `native-cpu` |
+| `OPENKIND_WINNOW_BACKEND` | `native-cpu`, `cuda`; no ONNX (router decoder) | `native-cpu` |
+| `OPENKIND_PROXY_CACHE_ENCODER_BACKEND` | `cpu`, `cuda`, `mlx-fp32` (macOS arm64) | `cpu` |
 
 Plumb shares the JevK5 backend selector while retaining its own profile and
-model root. Decider currently has a CPU backend only.
+model root.
 
 ## CLI (`openkind`)
 

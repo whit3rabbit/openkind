@@ -18,6 +18,7 @@ pub struct WinnowModel {
     // evaluation is serialized through this mutex and the cache is cleared
     // after every routing pass.
     model: Mutex<ModelForCausalLM>,
+    device: Device,
 }
 
 /// Digest-verified artifacts required by the loader.
@@ -118,7 +119,15 @@ impl WinnowModel {
     /// Load the verified base checkpoint, merge the adapter, and build the
     /// FP32 CPU model.
     pub fn load(artifacts: &VerifiedArtifacts, config: &Config) -> Result<Self, FamilyError> {
-        let device = Device::Cpu;
+        Self::load_with_device(artifacts, config, Device::Cpu)
+    }
+
+    /// Load the verified base plus LoRA adapter onto `device`.
+    pub fn load_with_device(
+        artifacts: &VerifiedArtifacts,
+        config: &Config,
+        device: Device,
+    ) -> Result<Self, FamilyError> {
         let mut tensors = base_tensors(&artifacts.checkpoint, &device)?;
 
         // Collect the adapter lora_a/lora_b pairs.
@@ -185,6 +194,7 @@ impl WinnowModel {
         let model = ModelForCausalLM::new(config, vb)?;
         Ok(Self {
             model: Mutex::new(model),
+            device,
         })
     }
 
@@ -195,7 +205,7 @@ impl WinnowModel {
         prompt_ids: &[u32],
         letter_ids: &[u32],
     ) -> Result<Vec<f64>, FamilyError> {
-        let input = Tensor::new(prompt_ids, &Device::Cpu)?.unsqueeze(0)?;
+        let input = Tensor::new(prompt_ids, &self.device)?.unsqueeze(0)?;
         let logits = {
             let mut model = self
                 .model

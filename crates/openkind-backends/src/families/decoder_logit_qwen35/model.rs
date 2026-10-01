@@ -8,6 +8,8 @@
 
 use std::path::{Path, PathBuf};
 
+use candle_core::Device;
+
 use crate::families::support::{read_json, verify_digest, FamilyControl, FamilyError};
 use crate::qwen35::{EmbeddingLayout, TextBackbone};
 
@@ -111,14 +113,30 @@ impl Jevk5Model {
     /// Load the verified checkpoint into the shared FP32 CPU backbone.
     ///
     /// The embedding layout is read from the safetensors header after the
-    /// whole-file digest passed, so the reader can seek rows in place.
+    /// whole-file digest passed, so the reader can seek rows in place. See
+    /// [`Self::load_with_device`] for accelerated loads.
     pub fn load(artifacts: &VerifiedArtifacts) -> Result<Self, FamilyError> {
+        Self::load_with_device(artifacts, Device::Cpu)
+    }
+
+    /// Load the verified checkpoint onto `device`.
+    ///
+    /// The decoder forward executes on `device`; the tied-embedding row
+    /// lookups stay host-side, exactly as on the CPU reference path.
+    pub fn load_with_device(
+        artifacts: &VerifiedArtifacts,
+        device: Device,
+    ) -> Result<Self, FamilyError> {
         let layout = EmbeddingLayout::read(&artifacts.checkpoint, VOCAB_SIZE, HIDDEN_SIZE)
             .map_err(|error| FamilyError::InvalidInput(error.to_string()))?;
         let embedding =
             crate::qwen35::Qwen35Embedding::from_layout(artifacts.checkpoint.clone(), layout);
-        let backbone =
-            TextBackbone::new(embedding, vec![artifacts.checkpoint.clone()], LAYER_COUNT);
+        let backbone = TextBackbone::new(
+            embedding,
+            vec![artifacts.checkpoint.clone()],
+            LAYER_COUNT,
+            device,
+        );
         Ok(Self { backbone })
     }
 

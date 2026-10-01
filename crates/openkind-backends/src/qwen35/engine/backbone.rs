@@ -25,6 +25,14 @@ pub enum Qwen35Backend {
     /// Candle FP32 CPU reference backend — the frozen Phase 3B oracle.
     #[default]
     NativeCpu,
+    /// Candle FP32 backend executing on a CUDA device (feature `cuda`).
+    /// State identity carries `candle-cuda-fp32` so CPU and CUDA states
+    /// never mix.
+    #[cfg(feature = "cuda")]
+    Cuda {
+        /// Zero-based CUDA device ordinal.
+        device_id: usize,
+    },
     /// MLX FP32 reference-ops backend (Phase 3M parity-qualified).
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     MlxFp32,
@@ -43,13 +51,25 @@ impl Qwen35Backend {
         {
             match self {
                 Self::NativeCpu => "qwen35-native-cpu",
+                #[cfg(feature = "cuda")]
+                Self::Cuda { .. } => "qwen35-cuda",
                 Self::MlxFp32 => "qwen35-mlx-fp32",
                 Self::MlxBf16 => "qwen35-mlx-bf16",
             }
         }
         #[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
         {
-            "qwen35-native-cpu"
+            #[cfg(feature = "cuda")]
+            {
+                match self {
+                    Self::NativeCpu => "qwen35-native-cpu",
+                    Self::Cuda { .. } => "qwen35-cuda",
+                }
+            }
+            #[cfg(not(feature = "cuda"))]
+            {
+                "qwen35-native-cpu"
+            }
         }
     }
 }
@@ -76,6 +96,13 @@ pub(super) fn load_backbone(
             Qwen35Backend::NativeCpu => {
                 Ok(EngineBackbone::Cpu(Qwen35Backbone::load(checkpoint_root)?))
             }
+            #[cfg(feature = "cuda")]
+            Qwen35Backend::Cuda { device_id } => {
+                Ok(EngineBackbone::Cuda(Qwen35Backbone::load_with_device(
+                    checkpoint_root,
+                    candle_core::Device::new_cuda(device_id)?,
+                )?))
+            }
             Qwen35Backend::MlxFp32 => Ok(EngineBackbone::Mlx(load_mlx(
                 checkpoint_root,
                 mlx::MlxPrecision::Fp32,
@@ -92,13 +119,24 @@ pub(super) fn load_backbone(
     }
     #[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
     {
-        debug_assert!(
-            backend == Qwen35Backend::NativeCpu,
-            "the only selectable backend without the mlx feature is the CPU backend"
-        );
-        // The pinned scheduler constants already describe the FP32 CPU state.
-        let _ = scheduler;
-        Qwen35Backbone::load(checkpoint_root)
+        match backend {
+            Qwen35Backend::NativeCpu => {
+                // The pinned scheduler constants already describe the FP32
+                // CPU state.
+                let _ = scheduler;
+                Qwen35Backbone::load(checkpoint_root)
+            }
+            #[cfg(feature = "cuda")]
+            Qwen35Backend::Cuda { device_id } => {
+                // Admission still uses the pinned CPU state sizes; CUDA
+                // continuation states keep the same tensor layout.
+                let _ = scheduler;
+                Qwen35Backbone::load_with_device(
+                    checkpoint_root,
+                    candle_core::Device::new_cuda(device_id)?,
+                )
+            }
+        }
     }
 }
 
@@ -185,6 +223,9 @@ mod dispatch {
     pub enum EngineBackbone {
         /// Candle FP32 CPU reference backend.
         Cpu(Qwen35Backbone),
+        /// Candle FP32 CUDA backend (feature `cuda`).
+        #[cfg(feature = "cuda")]
+        Cuda(Qwen35Backbone),
         /// MLX reference-ops backend.
         Mlx(MlxQwen35Backbone),
     }
@@ -194,6 +235,9 @@ mod dispatch {
     pub enum EngineBackboneState {
         /// Candle CPU continuation state.
         Cpu(BackboneState),
+        /// Candle CUDA continuation state (feature `cuda`).
+        #[cfg(feature = "cuda")]
+        Cuda(BackboneState),
         /// MLX continuation state.
         Mlx(MlxBackboneState),
     }
@@ -202,6 +246,9 @@ mod dispatch {
     pub enum EngineBranchBatch {
         /// Candle CPU lane batch.
         Cpu(Qwen35BranchBatch),
+        /// Candle CUDA lane batch (feature `cuda`).
+        #[cfg(feature = "cuda")]
+        Cuda(Qwen35BranchBatch),
         /// MLX lane batch.
         Mlx(MlxBranchBatch),
     }
@@ -214,6 +261,11 @@ mod dispatch {
                 Self::Cpu(backbone) => {
                     let (feature, state) = SequentialNestedExecutor::prefill(backbone, input_ids)?;
                     Ok((feature, EngineBackboneState::Cpu(state)))
+                }
+                #[cfg(feature = "cuda")]
+                Self::Cuda(backbone) => {
+                    let (feature, state) = SequentialNestedExecutor::prefill(backbone, input_ids)?;
+                    Ok((feature, EngineBackboneState::Cuda(state)))
                 }
                 Self::Mlx(backbone) => {
                     let (feature, state) = SequentialNestedExecutor::prefill(backbone, input_ids)?;
@@ -232,6 +284,12 @@ mod dispatch {
                     let (feature, next) =
                         SequentialNestedExecutor::continue_from(backbone, state, suffix_ids)?;
                     Ok((feature, EngineBackboneState::Cpu(next)))
+                }
+                #[cfg(feature = "cuda")]
+                (Self::Cuda(backbone), EngineBackboneState::Cuda(state)) => {
+                    let (feature, next) =
+                        SequentialNestedExecutor::continue_from(backbone, state, suffix_ids)?;
+                    Ok((feature, EngineBackboneState::Cuda(next)))
                 }
                 (Self::Mlx(backbone), EngineBackboneState::Mlx(state)) => {
                     let (feature, next) =
@@ -255,8 +313,9 @@ mod dispatch {
                         .iter()
                         .map(|state| match *state {
                             EngineBackboneState::Cpu(state) => Ok(state),
-                            EngineBackboneState::Mlx(_) => Err(Qwen35Error::InvalidInput(
-                                "CPU engine received an MLX continuation state".into(),
+                            _ => Err(Qwen35Error::InvalidInput(
+                                "CPU engine received a continuation state from another backend"
+                                    .into(),
                             )),
                         })
                         .collect::<Result<Vec<_>, _>>()?;
@@ -272,13 +331,38 @@ mod dispatch {
                         mode,
                     ))
                 }
+                #[cfg(feature = "cuda")]
+                Self::Cuda(backbone) => {
+                    let states = states
+                        .iter()
+                        .map(|state| match *state {
+                            EngineBackboneState::Cuda(state) => Ok(state),
+                            _ => Err(Qwen35Error::InvalidInput(
+                                "CUDA engine received a continuation state from another backend"
+                                    .into(),
+                            )),
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let result = SequentialNestedExecutor::continue_batch_from(
+                        backbone, &states, suffix_ids,
+                    )?;
+                    let (lanes, mode) = result.into_parts();
+                    Ok(BatchContinuation::new(
+                        lanes
+                            .into_iter()
+                            .map(|(feature, state)| (feature, EngineBackboneState::Cuda(state)))
+                            .collect(),
+                        mode,
+                    ))
+                }
                 Self::Mlx(backbone) => {
                     let states = states
                         .iter()
                         .map(|state| match *state {
                             EngineBackboneState::Mlx(state) => Ok(state),
-                            EngineBackboneState::Cpu(_) => Err(Qwen35Error::InvalidInput(
-                                "MLX engine received a CPU continuation state".into(),
+                            _ => Err(Qwen35Error::InvalidInput(
+                                "MLX engine received a continuation state from another backend"
+                                    .into(),
                             )),
                         })
                         .collect::<Result<Vec<_>, _>>()?;
@@ -309,8 +393,9 @@ mod dispatch {
                         .iter()
                         .map(|state| match *state {
                             EngineBackboneState::Cpu(state) => Ok(state),
-                            EngineBackboneState::Mlx(_) => Err(Qwen35Error::InvalidInput(
-                                "CPU engine received an MLX continuation state".into(),
+                            _ => Err(Qwen35Error::InvalidInput(
+                                "CPU engine received a continuation state from another backend"
+                                    .into(),
                             )),
                         })
                         .collect::<Result<Vec<_>, _>>()?;
@@ -326,13 +411,38 @@ mod dispatch {
                         mode,
                     ))
                 }
+                #[cfg(feature = "cuda")]
+                Self::Cuda(backbone) => {
+                    let states = states
+                        .iter()
+                        .map(|state| match *state {
+                            EngineBackboneState::Cuda(state) => Ok(state),
+                            _ => Err(Qwen35Error::InvalidInput(
+                                "CUDA engine received a continuation state from another backend"
+                                    .into(),
+                            )),
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let result = SequentialNestedExecutor::continue_batch_from_controlled(
+                        backbone, &states, suffix_ids, control,
+                    )?;
+                    let (lanes, mode) = result.into_parts();
+                    Ok(BatchContinuation::new(
+                        lanes
+                            .into_iter()
+                            .map(|(feature, state)| (feature, EngineBackboneState::Cuda(state)))
+                            .collect(),
+                        mode,
+                    ))
+                }
                 Self::Mlx(backbone) => {
                     let states = states
                         .iter()
                         .map(|state| match *state {
                             EngineBackboneState::Mlx(state) => Ok(state),
-                            EngineBackboneState::Cpu(_) => Err(Qwen35Error::InvalidInput(
-                                "MLX engine received a CPU continuation state".into(),
+                            _ => Err(Qwen35Error::InvalidInput(
+                                "MLX engine received a continuation state from another backend"
+                                    .into(),
                             )),
                         })
                         .collect::<Result<Vec<_>, _>>()?;
@@ -358,6 +468,8 @@ mod dispatch {
         fn profile_id(&self) -> &ProfileId {
             match self {
                 Self::Cpu(state) => state.profile_id(),
+                #[cfg(feature = "cuda")]
+                Self::Cuda(state) => state.profile_id(),
                 Self::Mlx(state) => state.profile_id(),
             }
         }
@@ -365,6 +477,8 @@ mod dispatch {
         fn position(&self) -> usize {
             match self {
                 Self::Cpu(state) => state.position(),
+                #[cfg(feature = "cuda")]
+                Self::Cuda(state) => state.position(),
                 Self::Mlx(state) => state.position(),
             }
         }
@@ -372,6 +486,8 @@ mod dispatch {
         fn tensor_storage_bytes(&self) -> usize {
             match self {
                 Self::Cpu(state) => state.tensor_storage_bytes(),
+                #[cfg(feature = "cuda")]
+                Self::Cuda(state) => state.tensor_storage_bytes(),
                 Self::Mlx(state) => state.tensor_storage_bytes(),
             }
         }
@@ -379,6 +495,8 @@ mod dispatch {
         fn scheduling_fingerprint(&self) -> SchedulingFingerprint {
             match self {
                 Self::Cpu(state) => state.scheduling_fingerprint(),
+                #[cfg(feature = "cuda")]
+                Self::Cuda(state) => state.scheduling_fingerprint(),
                 Self::Mlx(state) => state.scheduling_fingerprint(),
             }
         }
@@ -386,6 +504,8 @@ mod dispatch {
         fn fork_one(&self) -> Result<Self, StateError> {
             match self {
                 Self::Cpu(state) => Ok(Self::Cpu(state.fork_one()?)),
+                #[cfg(feature = "cuda")]
+                Self::Cuda(state) => Ok(Self::Cuda(state.fork_one()?)),
                 Self::Mlx(state) => Ok(Self::Mlx(state.fork_one()?)),
             }
         }
@@ -393,6 +513,8 @@ mod dispatch {
         fn fork_batch(&self, lanes: usize) -> Result<Self::Batch, StateError> {
             match self {
                 Self::Cpu(state) => Ok(EngineBranchBatch::Cpu(state.fork_batch(lanes)?)),
+                #[cfg(feature = "cuda")]
+                Self::Cuda(state) => Ok(EngineBranchBatch::Cuda(state.fork_batch(lanes)?)),
                 Self::Mlx(state) => Ok(EngineBranchBatch::Mlx(state.fork_batch(lanes)?)),
             }
         }
@@ -404,6 +526,8 @@ mod dispatch {
         fn lanes(&self) -> usize {
             match self {
                 Self::Cpu(batch) => batch.lanes(),
+                #[cfg(feature = "cuda")]
+                Self::Cuda(batch) => batch.lanes(),
                 Self::Mlx(batch) => batch.lanes(),
             }
         }
@@ -411,6 +535,8 @@ mod dispatch {
         fn tensor_storage_bytes(&self) -> usize {
             match self {
                 Self::Cpu(batch) => batch.tensor_storage_bytes(),
+                #[cfg(feature = "cuda")]
+                Self::Cuda(batch) => batch.tensor_storage_bytes(),
                 Self::Mlx(batch) => batch.tensor_storage_bytes(),
             }
         }
@@ -418,6 +544,8 @@ mod dispatch {
         fn select(&self, index: usize) -> Result<Self::State, StateError> {
             match self {
                 Self::Cpu(batch) => Ok(EngineBackboneState::Cpu(batch.select(index)?)),
+                #[cfg(feature = "cuda")]
+                Self::Cuda(batch) => Ok(EngineBackboneState::Cuda(batch.select(index)?)),
                 Self::Mlx(batch) => Ok(EngineBackboneState::Mlx(batch.select(index)?)),
             }
         }
@@ -425,6 +553,8 @@ mod dispatch {
         fn gather(&self, indices: &[usize]) -> Result<Self, StateError> {
             match self {
                 Self::Cpu(batch) => Ok(Self::Cpu(batch.gather(indices)?)),
+                #[cfg(feature = "cuda")]
+                Self::Cuda(batch) => Ok(Self::Cuda(batch.gather(indices)?)),
                 Self::Mlx(batch) => Ok(Self::Mlx(batch.gather(indices)?)),
             }
         }

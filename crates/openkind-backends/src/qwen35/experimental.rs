@@ -72,6 +72,8 @@ pub struct ScoringResult {
 
 enum ProbeBackbone {
     Cpu(Qwen35Backbone),
+    #[cfg(feature = "cuda")]
+    Cuda(Qwen35Backbone),
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     Mlx(super::mlx::MlxQwen35Backbone),
 }
@@ -80,6 +82,8 @@ impl ProbeBackbone {
     fn final_feature(&self, ids: &[u32]) -> Result<Vec<f32>, Qwen35Error> {
         match self {
             Self::Cpu(backbone) => Ok(backbone.forward(ids)?.final_token().to_vec()),
+            #[cfg(feature = "cuda")]
+            Self::Cuda(backbone) => Ok(backbone.forward(ids)?.final_token().to_vec()),
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             Self::Mlx(backbone) => Ok(backbone.prefill(ids)?.0.feature().to_vec()),
         }
@@ -88,6 +92,8 @@ impl ProbeBackbone {
     fn output_rows(&self, ids: &[u32]) -> Result<Vec<f32>, Qwen35Error> {
         match self {
             Self::Cpu(backbone) => backbone.embedding_rows(ids),
+            #[cfg(feature = "cuda")]
+            Self::Cuda(backbone) => backbone.embedding_rows(ids),
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             Self::Mlx(backbone) => Ok(backbone.embedding_rows(ids)?),
         }
@@ -125,6 +131,13 @@ impl Qwen35ScoringProbe {
         let letters = letter_ids(&tokenizer)?;
         let backbone = match backend {
             Qwen35Backend::NativeCpu => ProbeBackbone::Cpu(Qwen35Backbone::load(checkpoint_root)?),
+            #[cfg(feature = "cuda")]
+            Qwen35Backend::Cuda { device_id } => {
+                ProbeBackbone::Cuda(Qwen35Backbone::load_with_device(
+                    checkpoint_root,
+                    candle_core::Device::new_cuda(device_id)?,
+                )?)
+            }
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             Qwen35Backend::MlxFp32 => {
                 use super::mlx::{MlxPrecision, MlxQwen35Backbone, MlxRuntime, MlxRuntimeConfig};
@@ -158,6 +171,8 @@ impl Qwen35ScoringProbe {
     pub fn arithmetic_id(&self) -> &str {
         match &self.backbone {
             ProbeBackbone::Cpu(backbone) => backbone.identity().arithmetic_id(),
+            #[cfg(feature = "cuda")]
+            ProbeBackbone::Cuda(backbone) => backbone.identity().arithmetic_id(),
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             ProbeBackbone::Mlx(backbone) => backbone.arithmetic_id(),
         }

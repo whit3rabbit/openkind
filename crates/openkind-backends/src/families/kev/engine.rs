@@ -18,9 +18,7 @@ use crate::families::support::{
 
 use super::model::{KevModel, QuestionRow, VerifiedArtifacts};
 use super::renderer::{option_text, render_json, KevRenderer};
-use super::{
-    KevEngineConfig, KevError, BACKBONE_ID, BASE_MODEL_ID, CALIBRATION_TEMPERATURE, PROFILE_ID,
-};
+use super::{KevEngineConfig, KevError, BACKBONE_ID, BASE_MODEL_ID, CALIBRATION_TEMPERATURE};
 
 /// Loaded pinned kev engine.
 pub struct KevEngine {
@@ -30,6 +28,7 @@ pub struct KevEngine {
 struct Inner {
     renderer: KevRenderer,
     model: KevModel,
+    backend_id: String,
 }
 
 /// The offered options of one question, in evaluation order, exactly as the
@@ -98,11 +97,51 @@ fn noul_criteria_are_explicit(question: &openkind_core::Question) -> bool {
 impl KevEngine {
     /// Load every pinned artifact offline and build the bounded engine.
     pub fn load(config: KevEngineConfig) -> Result<BoundedFamilyEngine, KevError> {
+        Self::load_with_execution(config, crate::device::FamilyExecution::Cpu)
+    }
+
+    /// Load the engine on the selected execution backend.
+    ///
+    /// The pointer-head readout over per-row hidden states has no ONNX
+    /// export; accelerated loads require the `cuda` feature.
+    pub fn load_with_execution(
+        config: KevEngineConfig,
+        execution: crate::device::FamilyExecution,
+    ) -> Result<BoundedFamilyEngine, KevError> {
         let artifacts = VerifiedArtifacts::verify(&config.model_root, &config.base_root)?;
         let renderer = KevRenderer::load(&artifacts.tokenizer)?;
+        let backend_id = match execution {
+            crate::device::FamilyExecution::Cpu => "kev/cpu-fp32".to_owned(),
+            #[cfg(feature = "cuda")]
+            crate::device::FamilyExecution::Cuda { .. } => {
+                let device = execution.candle_device()?;
+                let model = KevModel::load_with_device(&artifacts, device)?;
+                let engine = Self {
+                    inner: Arc::new(Inner {
+                        renderer,
+                        model,
+                        backend_id: "kev/cuda-fp32".to_owned(),
+                    }),
+                };
+                return Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits));
+            }
+            #[cfg(feature = "onnx")]
+            crate::device::FamilyExecution::Onnx { .. } => {
+                return Err(FamilyError::ExecutionUnavailable(
+                    "the kev pointer-head readout has no ONNX export; select cpu or (with the \
+                     `cuda` feature) cuda"
+                        .to_owned(),
+                )
+                .into());
+            }
+        };
         let model = KevModel::load(&artifacts)?;
         let engine = Self {
-            inner: Arc::new(Inner { renderer, model }),
+            inner: Arc::new(Inner {
+                renderer,
+                model,
+                backend_id,
+            }),
         };
         Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))
     }
@@ -142,7 +181,7 @@ impl Inner {
 
 impl FamilyEvaluator for KevEngine {
     fn backend_id(&self) -> &str {
-        "kev/cpu-fp32"
+        &self.inner.backend_id
     }
 
     fn model_metadata(&self) -> ModelInfo {
@@ -150,7 +189,8 @@ impl FamilyEvaluator for KevEngine {
             name: String::new(),
             description: format!(
                 "Pinned {BACKBONE_ID} pointer decision engine on {BASE_MODEL_ID} \
-                 ({PROFILE_ID}, FP32 CPU)."
+                 ({}).",
+                self.inner.backend_id
             ),
             release_date: "2026-09-26".into(),
         }

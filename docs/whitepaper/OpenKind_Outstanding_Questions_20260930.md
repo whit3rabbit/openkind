@@ -1,12 +1,12 @@
 # OpenKind: Outstanding Questions for a Fast, Accurate Jev Alternative
 
-**Research and engineering question register · Version 1.0 · 30 September 2026**
+**Research and engineering question register · Version 1.1 · 1 October 2026**
 
 ## Executive assessment
 
-**Yes—BERT-family classifiers are still worth testing. The existing results reject particular compact-model recipes, not the entire encoder family.** The useful comparison is no longer “a small classifier versus generated JSON.” It is a properly trained or pretrained task-aware encoder versus OpenKind’s strongest finite-answer Qwen paths, under the same evidence, task and complete-request measurement contract. [W §15; U3 §§2,7; BERT; MB; DNLI]
+**Yes—BERT-family classifiers are still worth testing. The existing results reject particular compact-model recipes, not the entire encoder family.** The useful comparison is no longer “a small classifier versus generated JSON.” It is a properly trained or pretrained task-aware encoder versus OpenKind’s strongest finite-answer Qwen paths, under the same evidence, task and complete-request measurement contract. [W §15; U3 §§2,7; U4 §2; BERT; MB; DNLI]
 
-The larger outstanding question is whether one integrated system can combine **useful semantic accuracy, complete and trustworthy probabilities, independent question behavior, and low end-to-end cost**. The project has demonstrated parts of that system, but their best results come from different profiles and experiments. They cannot be combined on paper into a tested deployment. [W §§16–17,21; U3 §§2–4]
+The larger outstanding question is whether one integrated system can combine **useful semantic accuracy, complete and trustworthy probabilities, independent question behavior, and low end-to-end cost**. The project has demonstrated parts of that system, but their best results come from different profiles and experiments. They cannot be combined on paper into a tested deployment. [W §§16–17,21,23; U3 §§2–4; U4 §2]
 
 The next work should concentrate on three opportunities. First, combine the strongest measured readout and dependency ideas without introducing hidden probability assumptions. Second, eliminate identified repeated work: grouped catalogue cache misses and repeated open-encoder text encoding. Third, run a small, fair classifier comparison with stronger BERT-family baselines and genuinely held-out question families. Natural-evidence review, uncertainty transfer and service qualification remain requirements across all three tracks—not a final cosmetic check.
 
@@ -18,9 +18,10 @@ The supplied sources have different cutoffs. Their future-work sections must not
 
 | Authority | Evidence boundary | How it is used here |
 |---|---|---|
-| W: whitepaper v0.8.8 | Historical studies through the 28 September 9B/T4 run, E40 | Authority for older model, evidence, rejection, cache, CPU and MLX findings |
-| WP: working paper revision 0.8 | Synthesis through E40, with external research comparisons | Research-question framing, not the latest status of the later Unified tests |
+| W: whitepaper v0.8.11 | Historical studies through the 1 October T4 integrated run, E42 | Authority for older model, evidence, rejection, cache, CPU, MLX, and recent integrated findings |
+| WP: working paper revision 0.9.2 | Synthesis through E42, with external research comparisons | Research-question framing, incorporating the latest T4 integrated results |
 | U3: Unified results review | Run `20260929T194506_694066Z_dc1f74`, protocol v3.0.0 | Supersedes earlier untried labels for routing composition, grouped readouts, indecis and process-isolation treatments |
+| U4: T4 integrated research review | Run `20261001T105345_828556Z_6e6d92`, protocol v4.0.0 (E42) | Measured selective indexing + route composition (XR), narrowly joint readout (NJ), multi-catalogue host cache, dedicated process history for X/XR/NJ, and diagnosed classifier setup exception |
 | R: newly supplied research | Includes the reported 29 September Rust joint-choice follow-up, called R29 here | Additional local **source-reported** results; their linked benchmark files were not re-audited in this document |
 | H, S and primary external sources | Public pages reviewed for this document | Architectural hypotheses, comparison designs and released baselines—not OpenKind measurements |
 
@@ -30,16 +31,16 @@ The current review reads the supplied result synthesis and research; it does not
 
 | Question already addressed | What was actually learned | What is still open |
 |---|---|---|
-| Can dependent outputs be derived? | Action derivation and the separately timed routing rule improve bounded quality. | X plus routing; complete joint probability semantics; new policies and tasks |
-| Can a different field formulation help? | X improves fresh field accuracy to 92.19% at 222.22 ms; G/GR trade more work for greater whole-request correctness. | Integration, generalization, cache-aware grouped execution and calibrated policy usefulness |
-| Can mixed-history interference be avoided? | Dedicated processes and restart treatments pass the two reproduced U3 traces. | Chosen-readout integration, concurrency and a cheaper same-process root-cause repair |
-| Does exact reuse work? | Multiple prior parity and persistence tests pass; U3 cache pairs and genuine first-use traces pass. | New cache layouts, real traffic economics, concurrent readers and adaptive scheduling |
-| Have compact encoders been tried? | E11’s ModernBERT treatments and U3’s bekko/indecis recipe ran and missed important quality targets. | Stronger pretrained NLI encoders, dynamic-label models and better controlled fitting/transfer tests |
+| Can dependent outputs be derived? | Action derivation and routing rules improve bounded quality; U4 measures XR as a timed path: 95.40% field accuracy, 84.38% all-six correctness at 242.98 ms median. | Complete joint probability semantics; new policies and tasks; root cause of missing cert on failing points |
+| Can a different field formulation help? | X reaches 92.19% field accuracy at 222 ms; U4 Arm NJ (narrowly joint route/urgency) supplies all 6 field distributions at 94.01% field accuracy and 79.69% all-six correctness at 228.31 ms. | Integration, generalization, and calibrated policy usefulness |
+| Can multi-catalogue caching help? | U4 multi-catalogue host snapshot cache cuts grouped request latency by ~54% (from ~1,511 to ~690 ms, 2.19x speedup) with $\Delta p = 0.0$ across 96 pairs. | Host-to-device eviction and cold-start amortization under variable load |
+| Can mixed-history interference be avoided? | Dedicated processes pass history checks with $\Delta p = 0.0$ across D, X, XR, and NJ (vs mixed drift up to $\Delta p = 0.114$). | Cheaper same-process root-cause repair, cancellation and concurrency |
+| Have compact encoders been tried? | E11 ModernBERT and U3 indecis missed quality targets; U4 attempted matched encoder tests (ModernBERT, DeBERTa, GLiClass) but was blocked by a `SameFileError` logging exception during setup. | Fix file-copy logging defect, rerun encoder training/evaluation pipelines, and compare against XR and NJ |
 | Has the Rust catalogue idea run? | R29 reports an improved fitted-head catalogue renderer, factorized order/code probes and a gated temperature result. | Natural-task confirmation and complete target-host request cost |
 | Have Rust and MLX been validated at all? | The pinned 4B reference has native CPU and bounded MLX FP32 parity; CPU service/load evidence exists. | New useful profiles, full MLX service cost and expanded release qualification |
-| Have Noul/Score and high K been exercised? | Bounded BoolQ/SST-5 and high-cardinality mechanics already exist. | Unseen binary criteria, unfamiliar rubrics, semantic high-K accuracy and rejection |
+| Have Noul/Score and high K been exercised? | Bounded BoolQ/SST-5 and high-cardinality mechanics already exist; U4 tested high-K omission capacity and ID confusion at K=16, 32. | Unseen binary criteria, unfamiliar rubrics, semantic high-K accuracy and rejection |
 
-Sources: W §§12–17,20–21; WP §§4–10; U3 §§2–11; R, “Outcomes of the 2026-09-29 runs.” These entries retain their original sample and hardware limits.
+Sources: W §§12–17,20–23; WP §§4–10; U3 §§2–11; U4 §§2–10; R, “Outcomes of the 2026-09-29 runs.” These entries retain their original sample and hardware limits.
 
 ## 2. What the two articles add—and what they do not
 
@@ -150,39 +151,39 @@ The source key after each entry separates existing observations from the propose
 
 ### OQ-01. Does selective indexing plus routing composition retain both gains?
 
-**Priority:** P0 · **Status:** untested combination
+**Priority:** P0 · **Status:** closed on tested policy panel (U4 / E42)
 
-**Known and still missing.** U3 separately measures X and the R rule. X fixes case-state accuracy on fresh templates but still has route/urgency contradictions. X plus the rule was not an executed arm.
+**Known and still missing.** U3 separately measured X (selective indexing) and R (route rule). U4 / E42 evaluated the unified timed path (Arm XR) across 192 new authored policy cases: XR achieved **95.40% field accuracy** and **84.38% all-six correctness** at **242.98 ms median** (+40.1 pp all-six correctness over X alone at 222.22 ms). Route marginals are computed from the composed rule with exact route vector withheld. 100% of remaining XR eligibility errors (23/23) were traced to missing certification data on failing score cases (`certified: null`, score < 70).
 
-**Test.** Compare D, X, R and a frozen X-plus-rule arm on new source groups. Derive route only from predicted base route and urgency; preserve other outputs and time the actual complete request.
+**Test.** Extend XR to natural document tasks, long-context states, and unseen schemas. Validate whether the unrecorded certification failure pattern generalizes or responds to explicit schema prompt clarification.
 
-**Evidence to close.** Higher whole-request correctness without protected-class regression or material latency loss. Report missing route probability explicitly; point accuracy cannot close the distribution requirement in OQ-02.
+**Evidence to close.** Whole-request accuracy on natural tasks; explicit handling of missing certification/eligibility rules without regression; complete multi-task calibration.
 
-**Sources:** U3 §§2,12. **Related / prerequisites:** OQ-17, OQ-25. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
+**Sources:** U3 §§2,12; U4 §2; W §23.1. **Related / prerequisites:** OQ-17, OQ-25. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
 
 ### OQ-02. Can a narrowly joint readout provide exact derived probabilities without J’s collateral errors?
 
-**Priority:** P0 · **Status:** partial
+**Priority:** P0 · **Status:** demonstrated on tested policy panel (U4 / E42)
 
-**Known and still missing.** J demonstrates a joint region/urgency source and exact pushforward, but also changes other field encodings and regresses retries. R/GR provide only five exact field marginals.
+**Known and still missing.** U3 J demonstrated a joint source but collapsed retries accuracy (100% → 72.92%). U4 / E42 evaluated Arm NJ (narrowly joint route and urgency readout), which models the four joint route/urgency outcomes explicitly while keeping other fields isolated. NJ supplied all six field distributions and achieved **94.01% field accuracy** and **79.69% all-six correctness** at **228.31 ms median**, completely avoiding retries regression.
 
-**Test.** Hold X’s unrelated fields fixed and replace only the route/urgency source with a joint categorical variable. Compare point-rule, joint-source and unchanged controls. Calibrate the source joint distribution before deriving marginals.
+**Test.** Test NJ across diverse domain distributions, multi-label candidate sets, and under calibrated policy thresholds. Compare empirical policy costs between NJ and XR.
 
-**Evidence to close.** Consistent labels and normalized source-to-output probabilities, retained retries/eligibility quality, useful full-request cost, and separately accepted probability/policy metrics. Do not multiply marginals without an explicit modeling assumption.
+**Evidence to close.** Normalized source-to-output probabilities across heterogeneous policy families; demonstrated calibration transfer; competitive decision utility against XR.
 
-**Sources:** U3 §§2,9; WP §§6.2,10.1. **Related / prerequisites:** OQ-01, OQ-33. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
+**Sources:** U3 §§2,9; U4 §2; WP §§6.2,10.1; W §23.1. **Related / prerequisites:** OQ-01, OQ-33. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
 
 ### OQ-03. Can multi-catalogue prefix caching make grouped requests substantially cheaper?
 
-**Priority:** P0 · **Status:** untested optimization
+**Priority:** P0 · **Status:** demonstrated on tested policy panel (U4 / E42)
 
-**Known and still missing.** U3 G/GR improve quality but alternate three catalogues against a single-entry cache. Each fresh-panel arm records 576 subrequests and zero prefix hits.
+**Known and still missing.** U3 G/GR incurred zero prefix hits due to single-entry cache alternation (1.42s latency). U4 / E42 implemented an identity-bound multi-catalogue host snapshot cache in host RAM (~170.6 MiB), cutting full-request latency from **1,511.02 ms to 690.16 ms (a ~54% latency cut, 2.19x speedup ratio)** with zero probability drift (**$\Delta p = 0.0$**) across 96 paired runs.
 
-**Test.** Compare the existing single-entry path with an identity-bound multi-entry cache using identical finalized prompts, model and call ordering. Measure misses, hits, eviction, retained bytes and the complete three-call request; include cold population.
+**Test.** Evaluate multi-catalogue host cache eviction policies (LRU/LFU), memory scaling across 10+ distinct schema catalogues, and host-to-device transfer latency under concurrent requests.
 
-**Evidence to close.** Same-model probability/answer/policy gates pass and actual request or trace cost improves after admission, copying and eviction costs. Never use a cache-hit count alone as the speed result.
+**Evidence to close.** Cache stability under high concurrency and memory pressure; automated catalogue eviction without cache pollution; sub-millisecond host-to-device reloading.
 
-**Sources:** U3 §2; W §§9–10,21. **Related / prerequisites:** OQ-44, OQ-49. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
+**Sources:** U3 §2; U4 §4; W §§9–10,21,23.3. **Related / prerequisites:** OQ-44, OQ-49. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
 
 ### OQ-04. Does catalogue_state_first/v1 transfer to natural tasks at a useful full-request cost?
 
@@ -198,15 +199,15 @@ The source key after each entry separates existing observations from the propose
 
 ### OQ-05. Does the chosen useful readout remain stable inside the intended service?
 
-**Priority:** P0 · **Status:** partial
+**Priority:** P0 · **Status:** demonstrated on tested readouts (U4 / E42)
 
-**Known and still missing.** U3 process separation and restart-after-JSON pass two matched history traces. X/G/GR/J did not each receive that entire isolation campaign; combining their quality table with D’s pass would invent an integrated result.
+**Known and still missing.** U3 demonstrated that dedicated processes eliminate mixed JSON/native history drift for baseline D. U4 / E42 extended this evaluation to the newer readouts (X, XR, and NJ): across all three readouts, dedicated-process execution achieved zero history drift (**$\Delta p = 0.0$**), whereas mixed-process execution showed drift up to $\Delta p = 0.114$.
 
-**Test.** For a preselected useful readout, rerun the failing mixed control, dedicated native/JSON workers and fresh-reset references. Add the intended traffic mix, variable contexts and actual policy decisions.
+**Test.** Test dedicated worker stability under sustained concurrent load, client cancellation, variable payload sizes, and process crash recovery. Investigate in-process state reset to remove the need for dual resident processes.
 
-**Evidence to close.** The selected end-to-end profile passes probability, answer and policy checks and meets measured resource limits. Preserve root-cause uncertainty and distinguish alternating workers from simultaneous load.
+**Evidence to close.** Long-running soak tests with zero drift without process restarts; bounded peak RSS under burst traffic; exact parity between persistent workers and fresh processes under arbitrary request sequences.
 
-**Sources:** U3 §3. **Related / prerequisites:** OQ-01 or OQ-02 or OQ-04; OQ-49. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
+**Sources:** U3 §3; U4 §5; W §§21.6, 22.2, 23.4. **Related / prerequisites:** OQ-01 or OQ-02 or OQ-04; OQ-49. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
 
 ### OQ-06. Can the quality-leading formulation use a truly question-independent state root?
 
@@ -249,39 +250,39 @@ The source key after each entry separates existing observations from the propose
 
 ### OQ-09. Can a well-trained BERT-family specialist meet the fixed-schema quality target?
 
-**Priority:** P1 · **Status:** partial
+**Priority:** P1 · **Status:** diagnostic blocked at setup (U4 / E42)
 
-**Known and still missing.** E11’s ModernBERT treatments and U3’s tiny bekko/indecis recipe are bounded negative comparisons, not a verdict on BERT, DeBERTa or ModernBERT as families.
+**Known and still missing.** E11’s ModernBERT treatments and U3’s tiny bekko/indecis recipe are bounded negative comparisons, not a verdict on BERT, DeBERTa or ModernBERT as families. U4 / E42 attempted a matched ModernBERT-base fixed-schema comparison, but the harness was blocked during initialization by a `SameFileError` exception in `run_logged.publish()` when logging utilities attempted to overwrite in-place. The encoder comparison was terminated before model quality or latency could be evaluated.
 
-**Test.** Use BERT-base as a historical control and ModernBERT-base as the primary new trained challenger. Compare frozen features plus a head against full or parameter-efficient fitting on the same admissible examples, with a small preregistered learning curve.
+**Test.** Fix the logging publisher file-copy defect. Compare BERT-base and ModernBERT-base with frozen features plus a trained head against full or parameter-efficient fitting on the same admissible policy examples.
 
-**Evidence to close.** Useful fresh-family accuracy, whole-request correctness and selective risk at lower measured cost. Verify tokenizer, pooling, masks, truncation and reference-framework outputs before attributing a failure to encoder capacity.
+**Evidence to close.** Useful fresh-family accuracy, whole-request correctness and selective risk at lower measured cost against Qwen XR. Verify tokenizer, pooling, masks, truncation and reference-framework outputs.
 
-**Sources:** W §15; U3 §7; BERT; MB. **Related / prerequisites:** OQ-17, OQ-25, OQ-51. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
+**Sources:** W §§15,23.6; U3 §7; U4 §8; BERT; MB. **Related / prerequisites:** OQ-17, OQ-25, OQ-51. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
 
 ### OQ-10. Can a strong pretrained NLI encoder answer dynamic questions accurately enough?
 
-**Priority:** P1 · **Status:** untested matched baseline
+**Priority:** P1 · **Status:** diagnostic blocked at setup (U4 / E42)
 
-**Known and still missing.** The small U3 classifier’s weak NLI does not test a mature NLI-tuned DeBERTa. A binary entailment/not-entailment model is not a three-way contradiction/neutral/entailment model.
+**Known and still missing.** The small U3 classifier’s weak NLI does not test a mature NLI-tuned DeBERTa. U4 / E42 scheduled a three-way DeBERTa-v3 NLI arm alongside Qwen, but subprocess execution was blocked by the same `SameFileError` logging exception during setup.
 
-**Test.** Evaluate the named three-way DeBERTa checkpoint directly on NLI. Separately test a binary zero-shot checkpoint on candidate hypotheses, with explicit hypothesis templates and complete state/question information.
+**Test.** Evaluate the named three-way DeBERTa checkpoint directly on NLI once the harness is unblocked. Separately test a binary zero-shot checkpoint on candidate hypotheses, with explicit hypothesis templates and complete state/question information.
 
 **Evidence to close.** Task-appropriate labels and probability semantics, strong unseen-task performance and measured Q×K cost. Preserve neutral where required; candidate softmax must not silently erase no-valid-option cases.
 
-**Sources:** U3 §7; DNLI; DZ. **Related / prerequisites:** OQ-17, OQ-19, OQ-38. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
+**Sources:** U3 §7; U4 §8; W §23.6; DNLI; DZ. **Related / prerequisites:** OQ-17, OQ-19, OQ-38. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
 
 ### OQ-11. Can a dynamic-label encoder or option-marker model outperform the current trade-off?
 
-**Priority:** P1 · **Status:** untested matched baseline
+**Priority:** P1 · **Status:** diagnostic blocked at setup (U4 / E42)
 
-**Known and still missing.** GLiClass, released Laya and Von are not equivalent to the specific encoder arms already evaluated. Their masks, training, option interactions and effective input budgets differ.
+**Known and still missing.** GLiClass, released Laya and Von are not equivalent to the specific encoder arms already evaluated. U4 / E42 included a GLiClass dynamic-label model in the classifier comparison suite, which was blocked by the logging helper exception.
 
-**Test.** Start with one pinned GLiClass uni-encoder checkpoint. Add at most one correctly identified typed-decision marker checkpoint after compatibility checks. Compare frozen released systems first; keep any equal-data retraining campaign separate.
+**Test.** Run the pinned GLiClass uni-encoder checkpoint on common policy cases under the repaired logging harness. Add at most one correctly identified typed-decision marker checkpoint after compatibility checks.
 
 **Evidence to close.** Accuracy, rejection, full distributions, schema sensitivity and whole-request latency on shared cases. Record all text/label truncation and do not convert independent multilabel scores into an unjustified Choice posterior.
 
-**Sources:** R: Laya, Von, Indecis reviews; GL; GLM; U3 §7. **Related / prerequisites:** OQ-21, OQ-26, OQ-38. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
+**Sources:** R: Laya, Von, Indecis reviews; GL; GLM; U3 §7; U4 §8; W §23.6. **Related / prerequisites:** OQ-21, OQ-26, OQ-38. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
 
 ### OQ-12. Can open-encoder inference share input encoding across questions without changing its function?
 
@@ -309,15 +310,15 @@ The source key after each entry separates existing observations from the propose
 
 ### OQ-14. Is 9B worth its extra cost over a matched smaller Qwen?
 
-**Priority:** P1 · **Status:** untested matched comparison
+**Priority:** P1 · **Status:** evaluated on publisher profiles (U4 / E42)
 
-**Known and still missing.** There are earlier 2B/4B comparisons and separate 4B/A100 and 9B/T4 runs. They do not isolate a 4B-versus-9B effect under the useful current readout.
+**Known and still missing.** Prior runs used different stacks or readouts. U4 / E42 directly evaluated matched publisher profiles for Qwen 4B and 9B under identical conditions: 9B demonstrated clear quality superiority on complex policy tasks (XR: 95.40% field accuracy, 84.38% all-six correctness), while 4B showed a latency advantage on simple classification/NLI tasks (30.15 ms median for 4B on SNLI vs 42.14 ms for 9B).
 
-**Test.** Compare pinned 4B and 9B checkpoints from a clearly matched family with the same supported renderers, cases and quantization method. Report exact artifacts and separate Base/post-trained lineage; add a 2B challenger only after the first screen.
+**Test.** Evaluate whether a fine-tuned or post-trained 4B can match 9B's policy accuracy under XR, and establish the exact throughput/quality frontier on target 16–32 GB deployment hosts.
 
-**Evidence to close.** A quality/resource frontier on the same host and workload, including rejection and class floors. Equal bit labels do not guarantee equal quantization error; no size winner follows from unmatched old timings.
+**Evidence to close.** A quality/resource frontier on the same host and workload, including rejection and class floors, comparing post-trained 4B against 9B.
 
-**Sources:** WP §10.2; U3 §11; W §15. **Related / prerequisites:** OQ-01 or OQ-02; OQ-17. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
+**Sources:** WP §10.2; U3 §11; U4 §2; W §§15,23.1. **Related / prerequisites:** OQ-01 or OQ-02; OQ-17. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
 
 ### OQ-15. Does a non-Qwen pretrained backbone change the best operating point?
 
@@ -695,25 +696,25 @@ The source key after each entry separates existing observations from the propose
 
 **Priority:** P1 · **Status:** failed control with workaround
 
-**Known and still missing.** Dedicated processes and full restart are demonstrated workarounds. The underlying history mechanism is still unidentified; previous padding and graph-disable treatments failed.
+**Known and still missing.** Dedicated processes and full restart are demonstrated workarounds: U3 and U4 confirm dedicated resident processes pass history tests with $\Delta p = 0.0$ across D, X, XR, and NJ, whereas mixed-process execution exhibits drift up to $\Delta p = 0.114$. However, dual resident processes require ~12.10 GiB VRAM on a 15-GiB T4. The underlying in-process history contamination mechanism is still unidentified; same-process reset without model reload remains unresolved.
 
 **Test.** Minimize the preserved failing trace, compare full execution-context replacement with narrower resets, and localize the earliest divergent hidden/state tensors. Keep a failing matched control and independent fresh-reset oracle.
 
 **Evidence to close.** A causally attributable repair passes broader histories and costs less than the dedicated-process reference without stale recurrence or shared mutable buffers. No root-cause claim from one final-logit comparison.
 
-**Sources:** U3 §3; W §21.6. **Related / prerequisites:** OQ-05. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
+**Sources:** U3 §3; U4 §5; W §§21.6, 22.2, 23.4. **Related / prerequisites:** OQ-05. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
 
 ### OQ-46. When is persistent CPU/GPU storage worth its transfer, eviction and startup cost?
 
-**Priority:** P1 · **Status:** partial
+**Priority:** P1 · **Status:** demonstrated for host RAM multi-catalogue snapshots (U4 / E42)
 
-**Known and still missing.** Lossless persistence already has bounded trace gains; FP16 KV storage saves some root bytes but can be slower. Those trials do not establish new-profile deployment locality or disk persistence economics.
+**Known and still missing.** Lossless persistence already has bounded trace gains. U4 / E42 demonstrated that host RAM snapshot caching (~170.6 MiB) is highly profitable for multi-catalogue grouped requests, cutting full-request latency by ~54% (2.19x speedup ratio) with $\Delta p = 0.0$ across 96 paired runs. However, disk persistence and larger state transfer economics under fluctuating concurrent traffic remain unmeasured.
 
 **Test.** Replay a declared realistic state reuse distribution through no-persistence, GPU and host-backed caches, adding disk only after transfer profiling. Include cold load, misses, expiry, scans, fragmentation and resource admission.
 
 **Evidence to close.** Actual trace/service cost and memory improve while exact identities and selected behavior survive. Distinguish state storage from model-weight streaming and do not infer traffic hit rates from a repeated-anchor test.
 
-**Sources:** W §§9–10,17.3; WP §§7.1,8.2. **Related / prerequisites:** OQ-44, OQ-49. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
+**Sources:** W §§9–10,17.3,23.3; WP §§7.1,8.2; U4 §4. **Related / prerequisites:** OQ-44, OQ-49. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
 
 ### OQ-47. Can incrementally updated state be reused safely and profitably?
 

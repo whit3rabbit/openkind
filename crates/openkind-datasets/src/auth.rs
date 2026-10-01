@@ -43,10 +43,20 @@ pub fn resolve_token() -> Result<(Option<String>, TokenSource)> {
 }
 
 fn default_token_file() -> Option<PathBuf> {
-    let home = std::env::var_os("HOME")?;
-    let base = match std::env::var_os("HF_HOME") {
+    default_token_file_from(&|key: &str| std::env::var_os(key))
+}
+
+fn default_token_file_from(env: &dyn Fn(&str) -> Option<std::ffi::OsString>) -> Option<PathBuf> {
+    let base = match env("HF_HOME") {
         Some(dir) if !dir.is_empty() => PathBuf::from(dir),
-        _ => PathBuf::from(home).join(".cache").join("huggingface"),
+        _ => {
+            // An explicit HF_HOME needs no home directory. The default
+            // cache still resolves on Windows, where HOME is usually unset.
+            let home = env("HOME")
+                .filter(|home| !home.is_empty())
+                .or_else(|| env("USERPROFILE").filter(|home| !home.is_empty()))?;
+            PathBuf::from(home).join(".cache").join("huggingface")
+        }
     };
     Some(base.join("token"))
 }
@@ -144,5 +154,27 @@ mod tests {
             &|| None,
         );
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn configured_cache_does_not_require_a_home_directory() {
+        assert_eq!(
+            default_token_file_from(&env(&[("HF_HOME", "custom-cache")])),
+            Some(PathBuf::from("custom-cache").join("token"))
+        );
+    }
+
+    #[test]
+    fn empty_home_falls_back_to_windows_profile() {
+        assert_eq!(
+            default_token_file_from(&env(&[("HOME", ""), ("USERPROFILE", "user-profile")])),
+            Some(
+                PathBuf::from("user-profile")
+                    .join(".cache")
+                    .join("huggingface")
+                    .join("token")
+            )
+        );
+        assert_eq!(default_token_file_from(&env(&[])), None);
     }
 }

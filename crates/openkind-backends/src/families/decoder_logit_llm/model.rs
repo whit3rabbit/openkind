@@ -75,7 +75,17 @@ fn metadata_value<'a>(
 impl DecoderLlmModel {
     /// Load the verified GGUF checkpoint through the candle quantized runner.
     pub fn load(artifacts: &VerifiedArtifacts) -> Result<Self, FamilyError> {
-        let device = Device::Cpu;
+        Self::load_with_device(artifacts, Device::Cpu)
+    }
+
+    /// Load the verified GGUF checkpoint onto `device`.
+    ///
+    /// Quantized GGUF execution follows the candle quantized runner; CUDA
+    /// requires the `cuda` feature and fails closed when unavailable.
+    pub fn load_with_device(
+        artifacts: &VerifiedArtifacts,
+        device: Device,
+    ) -> Result<Self, FamilyError> {
         let file =
             std::fs::File::open(&artifacts.checkpoint).map_err(|source| FamilyError::Io {
                 path: artifacts.checkpoint.clone(),

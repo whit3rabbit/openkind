@@ -3,8 +3,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use candle_core::Device;
 use openkind_core::{ModelInfo, State, SystemRequest, SystemResponse, Usage};
 
+use crate::device::FamilyExecution;
 use crate::families::decoder_logit_qwen35::QuestionKind;
 use crate::families::support::{
     temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
@@ -15,6 +17,41 @@ use super::model::{Qwen3ControlModel, VerifiedArtifacts};
 use super::renderer::NOUL_DEFAULT_DESCRIPTIONS;
 use super::{DecoderLogitQwen3EngineConfig, DecoderLogitQwen3Error, Qwen3LogitProfile};
 
+/// Letter-logit source shared by the candle and ONNX models.
+trait LetterLogits: Send + Sync {
+    /// Next-token logits at the answer slot, restricted to `letter_ids`.
+    fn letter_logits(
+        &self,
+        prompt_ids: &[u32],
+        letter_ids: &[u32],
+        control: &FamilyControl,
+    ) -> Result<Vec<f64>, FamilyError>;
+}
+
+impl LetterLogits for Qwen3ControlModel {
+    fn letter_logits(
+        &self,
+        prompt_ids: &[u32],
+        letter_ids: &[u32],
+        control: &FamilyControl,
+    ) -> Result<Vec<f64>, FamilyError> {
+        Qwen3ControlModel::letter_logits(self, prompt_ids, letter_ids, control)
+    }
+}
+
+/// ONNX model readout bridging the shared logit source (feature `onnx`).
+#[cfg(feature = "onnx")]
+impl LetterLogits for super::onnx::Qwen3ControlOnnxModel {
+    fn letter_logits(
+        &self,
+        prompt_ids: &[u32],
+        letter_ids: &[u32],
+        control: &FamilyControl,
+    ) -> Result<Vec<f64>, FamilyError> {
+        super::onnx::Qwen3ControlOnnxModel::letter_logits(self, prompt_ids, letter_ids, control)
+    }
+}
+
 /// Loaded pinned raw-control engine for one profile of the family.
 pub struct DecoderLogitQwen3Engine {
     inner: Arc<Inner>,
@@ -23,20 +60,23 @@ pub struct DecoderLogitQwen3Engine {
 struct Inner {
     profile: &'static Qwen3LogitProfile,
     renderer: super::renderer::Qwen3ControlRenderer,
-    model: Qwen3ControlModel,
+    model: Box<dyn LetterLogits>,
+    backend_id: String,
 }
 
 impl FamilyEvaluator for DecoderLogitQwen3Engine {
     fn backend_id(&self) -> &str {
-        self.inner.profile.cpu_backend_id
+        &self.inner.backend_id
     }
 
     fn model_metadata(&self) -> ModelInfo {
         ModelInfo {
             name: String::new(),
             description: format!(
-                "Pinned {} raw letter-logit control ({}, FP32 CPU, temperature 1.0).",
-                self.inner.profile.backbone_id, self.inner.profile.profile_id
+                "Pinned {} raw letter-logit control ({}, {}, temperature 1.0).",
+                self.inner.profile.backbone_id,
+                self.inner.profile.profile_id,
+                self.inner.backend_id
             ),
             release_date: self.inner.profile.release_date.into(),
         }
@@ -164,21 +204,60 @@ impl DecoderLogitQwen3Engine {
     /// Load every pinned artifact offline and build the bounded engine.
     ///
     /// The returned adapter implements [`DecisionEngine`] and carries
-    /// admission, queue, deadline, and cancellation control.
+    /// admission, queue, deadline, and cancellation control. The reference
+    /// execution is FP32 CPU; see [`Self::load_with_execution`] for
+    /// accelerated backends.
     pub fn load(
         config: DecoderLogitQwen3EngineConfig,
+    ) -> Result<BoundedFamilyEngine, DecoderLogitQwen3Error> {
+        Self::load_with_execution(config, FamilyExecution::Cpu)
+    }
+
+    /// Load the engine on the selected execution backend.
+    ///
+    /// Artifact verification (digests, pinned config) is identical on every
+    /// backend; only the readout execution differs, and ONNX additionally
+    /// requires `model.onnx` and its digest manifest in the model root.
+    /// Loads fail closed when a backend is unavailable.
+    pub fn load_with_execution(
+        config: DecoderLogitQwen3EngineConfig,
+        execution: FamilyExecution,
     ) -> Result<BoundedFamilyEngine, DecoderLogitQwen3Error> {
         let artifacts = VerifiedArtifacts::verify(&config.model_root, config.profile)?;
         let renderer = super::renderer::Qwen3ControlRenderer::load(
             &artifacts.tokenizer,
             config.profile.assistant_tail,
         )?;
-        let model = Qwen3ControlModel::load(&artifacts, config.profile)?;
+        let model: Box<dyn LetterLogits> = match execution {
+            FamilyExecution::Cpu => Box::new(Qwen3ControlModel::load(
+                &artifacts,
+                config.profile,
+                Device::Cpu,
+            )?),
+            #[cfg(feature = "cuda")]
+            FamilyExecution::Cuda { .. } => {
+                let device = execution.candle_device()?;
+                Box::new(Qwen3ControlModel::load(&artifacts, config.profile, device)?)
+            }
+            #[cfg(feature = "onnx")]
+            FamilyExecution::Onnx { device_id } => {
+                let acceleration = crate::onnx::OnnxAcceleration::from_onnx_execution(device_id)
+                    .map_err(FamilyError::from)?;
+                Box::new(super::onnx::Qwen3ControlOnnxModel::load(
+                    &config.model_root,
+                    acceleration,
+                )?)
+            }
+        };
+        // Reproduces `profile.cpu_backend_id` byte-for-byte on the CPU
+        // reference execution.
+        let backend_id = format!("{}/{}", config.profile.loader_id, execution.id_fragment());
         let engine = Self {
             inner: Arc::new(Inner {
                 profile: config.profile,
                 renderer,
                 model,
+                backend_id,
             }),
         };
         Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))

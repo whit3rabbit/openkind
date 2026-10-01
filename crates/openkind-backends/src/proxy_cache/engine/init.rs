@@ -59,7 +59,7 @@ impl TaskEngine {
             lineage_candidate_streak: 0,
             audit_window: VecDeque::new(),
             audit_since_check: 0,
-            request_rng: None,
+            request_split_draw: None,
         };
         let task_info = serde_json::json!({
             "key": key,
@@ -191,7 +191,7 @@ impl TaskEngine {
             lineage_candidate_streak: 0,
             audit_window: VecDeque::new(),
             audit_since_check: 0,
-            request_rng: None,
+            request_split_draw: None,
         };
         engine.classes = engine.spec.classes();
         // Lineage continues from the newest teacher-labelled row.

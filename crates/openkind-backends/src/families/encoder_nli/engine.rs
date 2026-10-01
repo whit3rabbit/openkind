@@ -2,8 +2,10 @@
 
 use std::sync::Arc;
 
+use candle_core::Device;
 use openkind_core::{ModelInfo, State, SystemRequest, SystemResponse, Usage};
 
+use crate::device::FamilyExecution;
 use crate::families::support::{
     temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
 };
@@ -24,6 +26,26 @@ fn question_criteria_are_explicit(question: &openkind_core::Question) -> bool {
     }
 }
 
+/// Three-way NLI logit source shared by the candle and ONNX models.
+trait NliLogits: Send + Sync {
+    /// Three-way NLI logits in checkpoint label order.
+    fn nli_logits(&self, pair_ids: &[u32]) -> Result<[f64; 3], FamilyError>;
+}
+
+impl NliLogits for EncoderNliModel {
+    fn nli_logits(&self, pair_ids: &[u32]) -> Result<[f64; 3], FamilyError> {
+        EncoderNliModel::nli_logits(self, pair_ids)
+    }
+}
+
+/// ONNX model readout bridging the shared logit source (feature `onnx`).
+#[cfg(feature = "onnx")]
+impl NliLogits for super::onnx::EncoderNliOnnxModel {
+    fn nli_logits(&self, pair_ids: &[u32]) -> Result<[f64; 3], FamilyError> {
+        super::onnx::EncoderNliOnnxModel::nli_logits(self, pair_ids)
+    }
+}
+
 /// Loaded pinned encoder-NLI engine.
 pub struct EncoderNliEngine {
     inner: Arc<Inner>,
@@ -31,17 +53,54 @@ pub struct EncoderNliEngine {
 
 struct Inner {
     renderer: EncoderNliRenderer,
-    model: EncoderNliModel,
+    model: Box<dyn NliLogits>,
+    backend_id: String,
 }
 
 impl EncoderNliEngine {
     /// Load every pinned artifact offline and build the bounded engine.
+    ///
+    /// The reference execution is FP32 CPU; see [`Self::load_with_execution`]
+    /// for accelerated backends.
     pub fn load(config: EncoderNliEngineConfig) -> Result<BoundedFamilyEngine, EncoderNliError> {
+        Self::load_with_execution(config, FamilyExecution::Cpu)
+    }
+
+    /// Load the engine on the selected execution backend.
+    ///
+    /// Artifact verification (digests, pinned config) is identical on every
+    /// backend; only the readout execution differs, and ONNX additionally
+    /// requires `model.onnx` and its digest manifest in the model root.
+    /// Loads fail closed when a backend is unavailable.
+    pub fn load_with_execution(
+        config: EncoderNliEngineConfig,
+        execution: FamilyExecution,
+    ) -> Result<BoundedFamilyEngine, EncoderNliError> {
         let artifacts = VerifiedArtifacts::verify(&config.model_root)?;
         let renderer = EncoderNliRenderer::load(&artifacts.vocab)?;
-        let model = EncoderNliModel::load(&artifacts)?;
+        let model: Box<dyn NliLogits> = match execution {
+            FamilyExecution::Cpu => Box::new(EncoderNliModel::load(&artifacts, Device::Cpu)?),
+            #[cfg(feature = "cuda")]
+            FamilyExecution::Cuda { .. } => {
+                let device = execution.candle_device()?;
+                Box::new(EncoderNliModel::load(&artifacts, device)?)
+            }
+            #[cfg(feature = "onnx")]
+            FamilyExecution::Onnx { device_id } => {
+                let acceleration = crate::onnx::OnnxAcceleration::from_onnx_execution(device_id)
+                    .map_err(FamilyError::from)?;
+                Box::new(super::onnx::EncoderNliOnnxModel::load(
+                    &config.model_root,
+                    acceleration,
+                )?)
+            }
+        };
         let engine = Self {
-            inner: Arc::new(Inner { renderer, model }),
+            inner: Arc::new(Inner {
+                renderer,
+                model,
+                backend_id: format!("encoder-nli/{}", execution.id_fragment()),
+            }),
         };
         Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))
     }
@@ -95,14 +154,15 @@ impl Inner {
 
 impl FamilyEvaluator for EncoderNliEngine {
     fn backend_id(&self) -> &str {
-        "encoder-nli/cpu-fp32"
+        &self.inner.backend_id
     }
 
     fn model_metadata(&self) -> ModelInfo {
         ModelInfo {
             name: String::new(),
             description: format!(
-                "Pinned {BACKBONE_ID} premise-hypothesis entailment engine ({PROFILE_ID}, FP32 CPU)."
+                "Pinned {BACKBONE_ID} premise-hypothesis entailment engine ({PROFILE_ID}, {}).",
+                self.inner.backend_id
             ),
             release_date: "2026-09-26".into(),
         }

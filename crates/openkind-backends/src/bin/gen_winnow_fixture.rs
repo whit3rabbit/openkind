@@ -29,8 +29,12 @@ fn states() -> Vec<(&'static str, &'static str, &'static str)> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut model_root = PathBuf::from(std::env::var("HOME").unwrap_or_default())
-        .join(".cache/openkind/qwen25-05b-instruct");
+    let mut model_root = PathBuf::from(
+        std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
+            .unwrap_or_default(),
+    )
+    .join(".cache/openkind/qwen25-05b-instruct");
     let crate_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let mut adapter = crate_root.join("tests/fixtures/winnow_adapter/adapters.safetensors");
     let mut output: Option<PathBuf> = None;

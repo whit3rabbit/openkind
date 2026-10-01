@@ -108,8 +108,12 @@ fn fit_temperature(distributions: &[Vec<f64>], truths: &[usize]) -> f64 {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut model_root = PathBuf::from(std::env::var("HOME").unwrap_or_default())
-        .join(".cache/openkind/msmarco-minilm");
+    let mut model_root = PathBuf::from(
+        std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
+            .unwrap_or_default(),
+    )
+    .join(".cache/openkind/msmarco-minilm");
     let mut fit = false;
     let mut output: Option<PathBuf> = None;
     let mut args = std::env::args().skip(1);

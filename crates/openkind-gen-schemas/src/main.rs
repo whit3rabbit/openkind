@@ -192,6 +192,21 @@ mod tests {
         );
     }
 
+    #[cfg(windows)]
+    #[test]
+    fn non_utf16_argument_is_rejected_without_panicking() {
+        use std::os::windows::ffi::OsStringExt;
+
+        // An unpaired surrogate is not valid UTF-16, mirroring the Unix
+        // non-UTF-8 argument case.
+        assert_eq!(
+            parse_args([OsString::from_wide(&[0xD800])])
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::InvalidInput
+        );
+    }
+
     #[test]
     fn successful_writes_replace_files_and_leave_no_temporary_files() {
         let dir = TestDir::new();

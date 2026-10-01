@@ -2,6 +2,12 @@ use anyhow::{Context, Result};
 use std::path::PathBuf;
 
 /// Runs the `openkindd` daemon binary with configured flags and credentials.
+///
+/// On Unix the wrapper `exec`s into the daemon so the supervisor-targeted PID
+/// is preserved. On Windows the wrapper stays resident and blocks on the
+/// daemon; Ctrl-C reaches both processes through the shared console and the
+/// daemon drains gracefully, though the wrapper's own exit code is not
+/// forwarded for signal-driven exits.
 pub fn cmd_serve(
     http_addr: String,
     grpc_addr: String,

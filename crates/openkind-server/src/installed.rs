@@ -70,7 +70,8 @@ use openkind_model_store::{
 };
 
 use crate::args::{
-    Args, DecoderLogitQwen35BackendArg, EncoderInstructLabelBackendArg, LayaBackendArg,
+    Args, DecoderLogitQwen35BackendArg, EncoderInstructLabelBackendArg, FamilyBackendArg,
+    LayaBackendArg,
 };
 
 /// The installed model a manifest describes, matched against the pinned
@@ -209,11 +210,50 @@ pub(crate) fn load_installed_engine(
         )?,
         InstalledKind::Laya(profile) => match args.family_args.laya_backend {
             LayaBackendArg::NativeCpu => Arc::new(
-                LayaEngine::load(LayaEngineConfig {
-                    profile,
-                    model_root: root.to_path_buf(),
-                    limits,
-                })
+                LayaEngine::load_with_execution(
+                    LayaEngineConfig {
+                        profile,
+                        model_root: root.to_path_buf(),
+                        limits,
+                    },
+                    FamilyBackendArg::NativeCpu.to_execution(args.cuda_device)?,
+                )
+                .map_err(|error| anyhow!("load installed laya model: {error}"))?,
+            ),
+            #[cfg(feature = "cuda")]
+            LayaBackendArg::Cuda => Arc::new(
+                LayaEngine::load_with_execution(
+                    LayaEngineConfig {
+                        profile,
+                        model_root: root.to_path_buf(),
+                        limits,
+                    },
+                    FamilyBackendArg::Cuda.to_execution(args.cuda_device)?,
+                )
+                .map_err(|error| anyhow!("load installed laya model: {error}"))?,
+            ),
+            #[cfg(feature = "onnx")]
+            LayaBackendArg::Onnx => Arc::new(
+                LayaEngine::load_with_execution(
+                    LayaEngineConfig {
+                        profile,
+                        model_root: root.to_path_buf(),
+                        limits,
+                    },
+                    FamilyBackendArg::Onnx.to_execution(args.cuda_device)?,
+                )
+                .map_err(|error| anyhow!("load installed laya model: {error}"))?,
+            ),
+            #[cfg(feature = "onnx")]
+            LayaBackendArg::OnnxCuda => Arc::new(
+                LayaEngine::load_with_execution(
+                    LayaEngineConfig {
+                        profile,
+                        model_root: root.to_path_buf(),
+                        limits,
+                    },
+                    FamilyBackendArg::OnnxCuda.to_execution(args.cuda_device)?,
+                )
                 .map_err(|error| anyhow!("load installed laya model: {error}"))?,
             ),
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
@@ -227,26 +267,72 @@ pub(crate) fn load_installed_engine(
             ),
         },
         InstalledKind::DecoderLetter => Arc::new(
-            DecoderLetterEngine::load(DecoderLetterEngineConfig {
-                model_root: root.join("checkpoint"),
-                limits,
-            })
+            DecoderLetterEngine::load_with_execution(
+                DecoderLetterEngineConfig {
+                    model_root: root.join("checkpoint"),
+                    limits,
+                },
+                args.family_args
+                    .decoder_letter_backend
+                    .to_execution(args.cuda_device)?,
+            )
             .map_err(|error| anyhow!("load decoder-logit-letter engine: {error}"))?,
         ),
         InstalledKind::EncoderNli => Arc::new(
-            EncoderNliEngine::load(EncoderNliEngineConfig {
-                model_root: root.join("checkpoint"),
-                limits,
-            })
+            EncoderNliEngine::load_with_execution(
+                EncoderNliEngineConfig {
+                    model_root: root.join("checkpoint"),
+                    limits,
+                },
+                args.family_args
+                    .encoder_nli_backend
+                    .to_execution(args.cuda_device)?,
+            )
             .map_err(|error| anyhow!("load encoder-nli engine: {error}"))?,
         ),
         InstalledKind::EncoderInstructLabel => {
             match args.family_args.encoder_instruct_label_backend {
                 EncoderInstructLabelBackendArg::NativeCpu => Arc::new(
-                    EncoderInstructLabelEngine::load(EncoderInstructLabelEngineConfig {
-                        model_root: root.join("checkpoint"),
-                        limits,
-                    })
+                    EncoderInstructLabelEngine::load_with_execution(
+                        EncoderInstructLabelEngineConfig {
+                            model_root: root.join("checkpoint"),
+                            limits,
+                        },
+                        FamilyBackendArg::NativeCpu.to_execution(args.cuda_device)?,
+                    )
+                    .map_err(|error| anyhow!("load encoder-instruct-label engine: {error}"))?,
+                ),
+                #[cfg(feature = "cuda")]
+                EncoderInstructLabelBackendArg::Cuda => Arc::new(
+                    EncoderInstructLabelEngine::load_with_execution(
+                        EncoderInstructLabelEngineConfig {
+                            model_root: root.join("checkpoint"),
+                            limits,
+                        },
+                        FamilyBackendArg::Cuda.to_execution(args.cuda_device)?,
+                    )
+                    .map_err(|error| anyhow!("load encoder-instruct-label engine: {error}"))?,
+                ),
+                #[cfg(feature = "onnx")]
+                EncoderInstructLabelBackendArg::Onnx => Arc::new(
+                    EncoderInstructLabelEngine::load_with_execution(
+                        EncoderInstructLabelEngineConfig {
+                            model_root: root.join("checkpoint"),
+                            limits,
+                        },
+                        FamilyBackendArg::Onnx.to_execution(args.cuda_device)?,
+                    )
+                    .map_err(|error| anyhow!("load encoder-instruct-label engine: {error}"))?,
+                ),
+                #[cfg(feature = "onnx")]
+                EncoderInstructLabelBackendArg::OnnxCuda => Arc::new(
+                    EncoderInstructLabelEngine::load_with_execution(
+                        EncoderInstructLabelEngineConfig {
+                            model_root: root.join("checkpoint"),
+                            limits,
+                        },
+                        FamilyBackendArg::OnnxCuda.to_execution(args.cuda_device)?,
+                    )
                     .map_err(|error| anyhow!("load encoder-instruct-label engine: {error}"))?,
                 ),
                 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
@@ -260,32 +346,52 @@ pub(crate) fn load_installed_engine(
             }
         }
         InstalledKind::DecoderLlm => Arc::new(
-            DecoderLlmEngine::load(DecoderLlmEngineConfig {
-                model_root: root.join("checkpoint"),
-                limits,
-            })
+            DecoderLlmEngine::load_with_execution(
+                DecoderLlmEngineConfig {
+                    model_root: root.join("checkpoint"),
+                    limits,
+                },
+                args.family_args
+                    .decoder_llm_backend
+                    .to_execution(args.cuda_device)?,
+            )
             .map_err(|error| anyhow!("load decoder-logit-llm engine: {error}"))?,
         ),
         InstalledKind::SchemaScorer => Arc::new(
-            SchemaScorerEngine::load(SchemaScorerEngineConfig {
-                model_root: root.join("checkpoint"),
-                limits,
-            })
+            SchemaScorerEngine::load_with_execution(
+                SchemaScorerEngineConfig {
+                    model_root: root.join("checkpoint"),
+                    limits,
+                },
+                args.family_args
+                    .schema_scorer_backend
+                    .to_execution(args.cuda_device)?,
+            )
             .map_err(|error| anyhow!("load schema-scorer engine: {error}"))?,
         ),
         InstalledKind::Qwen3Guard => Arc::new(
-            Qwen3GuardEngine::load(Qwen3GuardEngineConfig {
-                model_root: root.join("checkpoint"),
-                limits,
-            })
+            Qwen3GuardEngine::load_with_execution(
+                Qwen3GuardEngineConfig {
+                    model_root: root.join("checkpoint"),
+                    limits,
+                },
+                args.family_args
+                    .qwen3guard_backend
+                    .to_execution(args.cuda_device)?,
+            )
             .map_err(|error| anyhow!("load qwen3guard engine: {error}"))?,
         ),
         InstalledKind::Kev => Arc::new(
-            KevEngine::load(KevEngineConfig {
-                model_root: root.join("adapter"),
-                base_root: root.join("base"),
-                limits,
-            })
+            KevEngine::load_with_execution(
+                KevEngineConfig {
+                    model_root: root.join("adapter"),
+                    base_root: root.join("base"),
+                    limits,
+                },
+                args.family_args
+                    .kev_backend
+                    .to_execution(args.cuda_device)?,
+            )
             .map_err(|error| anyhow!("load kev engine: {error}"))?,
         ),
         InstalledKind::DecoderLogitQwen35(profile) => {
@@ -296,6 +402,18 @@ pub(crate) fn load_installed_engine(
                         model_root: root.join("checkpoint"),
                         limits,
                     })
+                    .map_err(|error| anyhow!("load decoder-logit-qwen35 engine: {error}"))?,
+                ),
+                #[cfg(feature = "cuda")]
+                DecoderLogitQwen35BackendArg::Cuda => Arc::new(
+                    DecoderLogitQwen35Engine::load_with_execution(
+                        DecoderLogitQwen35EngineConfig {
+                            profile,
+                            model_root: root.join("checkpoint"),
+                            limits,
+                        },
+                        FamilyBackendArg::Cuda.to_execution(args.cuda_device)?,
+                    )
                     .map_err(|error| anyhow!("load decoder-logit-qwen35 engine: {error}"))?,
                 ),
                 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
@@ -310,27 +428,42 @@ pub(crate) fn load_installed_engine(
             }
         }
         InstalledKind::Von => Arc::new(
-            VonEngine::load(VonEngineConfig {
-                profile: &VON,
-                model_root: root.to_path_buf(),
-                limits,
-            })
+            VonEngine::load_with_execution(
+                VonEngineConfig {
+                    profile: &VON,
+                    model_root: root.to_path_buf(),
+                    limits,
+                },
+                args.family_args
+                    .von_backend
+                    .to_execution(args.cuda_device)?,
+            )
             .map_err(|error| anyhow!("load von engine: {error}"))?,
         ),
         InstalledKind::DecoderLogitQwen3(profile) => Arc::new(
-            DecoderLogitQwen3Engine::load(DecoderLogitQwen3EngineConfig {
-                profile,
-                model_root: root.join("checkpoint"),
-                limits,
-            })
+            DecoderLogitQwen3Engine::load_with_execution(
+                DecoderLogitQwen3EngineConfig {
+                    profile,
+                    model_root: root.join("checkpoint"),
+                    limits,
+                },
+                args.family_args
+                    .decoder_logit_qwen3_backend
+                    .to_execution(args.cuda_device)?,
+            )
             .map_err(|error| anyhow!("load decoder-logit-qwen3 engine: {error}"))?,
         ),
         InstalledKind::Decider4b => Arc::new(
-            DeciderEngine::load(DeciderEngineConfig {
-                profile: &DECIDER_4B,
-                model_root: root.join("checkpoint"),
-                limits,
-            })
+            DeciderEngine::load_with_execution(
+                DeciderEngineConfig {
+                    profile: &DECIDER_4B,
+                    model_root: root.join("checkpoint"),
+                    limits,
+                },
+                args.family_args
+                    .decider_4b_backend
+                    .to_execution(args.cuda_device)?,
+            )
             .map_err(|error| anyhow!("load decider-4b engine: {error}"))?,
         ),
         InstalledKind::Winnow => {
@@ -354,13 +487,16 @@ pub(crate) fn load_installed_engine(
                 siblings.push((sibling_alias.to_owned(), engine));
             }
             Arc::new(
-                WinnowEngine::load(
+                WinnowEngine::load_with_execution(
                     WinnowEngineConfig {
                         model_root: root.join("checkpoint"),
                         adapter_path: root.join("adapter.safetensors"),
                         limits,
                     },
                     siblings,
+                    args.family_args
+                        .winnow_backend
+                        .to_execution(args.cuda_device)?,
                 )
                 .map_err(|error| anyhow!("load winnow engine: {error}"))?,
             )

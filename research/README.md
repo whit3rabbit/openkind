@@ -6,6 +6,10 @@ OpenKind evaluates typed decisions (`Choice`, `Score`, `Noul`) directly from neu
 
 Detailed analysis, theoretical foundations, and mathematical formulations are documented in the [OpenKind Whitepaper](../docs/whitepaper/WHITEPAPER.md) and [Research Dossier](../docs/RESEARCH.md).
 
+> [!NOTE]
+> **Repository Size & Evidence Archival Policy**:
+> Heavy raw evidence directories, checkpoint weights, and evaluation result folders have been pruned from git tracking to prevent repository bloat (freeing ~1.5 GB). All empirical findings remain 100% reproducible directly from the standalone numbered Jupyter notebooks (`01_*.ipynb` through `37_*.ipynb`). Complete raw run bundles, telemetry logs, receipts, and artifact tarballs are archived and documented on Google Drive.
+
 ## New training recipe
 
 [35_local_decision_training.ipynb](./35_local_decision_training.ipynb) is a
@@ -58,41 +62,42 @@ latency evidence and optimization promotion gates.
 | # | Notebook | Phase / Run ID | Target HW | Core Research Focus | Status & Outcome | Supporting Artifacts |
 |---|---|---|---|---|---|---|
 | **1** | [`01_phase2_qwen35_probe.ipynb`](./01_phase2_qwen35_probe.ipynb) | Phase 2 Probe | GPU (L4/A100) | Frozen Qwen3.5 feature extraction & linear decision head | Feasibility proven; identified text vs vision parameter count | [Whitepaper §3.1](../docs/whitepaper/WHITEPAPER.md#31-research-chronology) |
-| **2** | [`02_phase2b_benchmark.ipynb`](./02_phase2b_benchmark.ipynb) | Phase 2B (`20260917T205849Z`) | NVIDIA L4 (BF16) | MultiNLI classification, pooling strategies, calibration, generation vs decision timing | Last-token + linear won (87.7% matched); 44.6× speedup over generation; temperature scaling rejected | [`02_phase2b_benchmark_results/`](./02_phase2b_benchmark_results) |
-| **3** | [`03_phase2c_stability_dynamic_choice.ipynb`](./03_phase2c_stability_dynamic_choice.ipynb) | Phase 2C (`20260917T222948Z`) | NVIDIA L4 (BF16) | Multi-seed stability, dynamic candidate scoring (Banking77), global `__none__` logit | Stable across seeds (87.0% / 88.8%); 80.8% seen / 64.6% unseen accuracy; 0.817 AUROC for none | [`03_phase2c_stability_results/`](./03_phase2c_stability_results) |
-| **4** | [`04_phase2d_numerics_none_handling.ipynb`](./04_phase2d_numerics_none_handling.ipynb) | Phase 2D (`20260917T234417Z`) | NVIDIA L4 | Precision diagnostics (BF16 vs FP32 vs TF32), none-head alternatives, request latency vs K | Isolated layer divergence in DeltaNet/conv; linear latency scaling without prefix caching | [`04_phase2d_numerics_results/`](./04_phase2d_numerics_results) |
-| **5** | [`05_phase2e_selective_precision_initial.ipynb`](./05_phase2e_selective_precision_initial.ipynb) | Phase 2E initial (`20260918T032049180933Z`, v2e.1.1) | GPU (L4/A100) | Module-level FP32 promotion, shared-prefix KV branching, application policies | Full FP32 stage halted by memory guard; isolated hybrid state isolation requirement | [`05_phase2e_selective_precision_results/`](./05_phase2e_selective_precision_results) |
-| **6** | [`06_phase2e_expanded_batched_prefix_parity.ipynb`](./06_phase2e_expanded_batched_prefix_parity.ipynb) | Phase 2E expanded (`20260918T114914072764Z`, v2e.2.0) | GPU (isolated processes) | Strict FP32 reference, batched prefix reuse parity vs BF16, component breakdown | Strict FP32 prefix reuse passed ($Δp \le 1.1 \times 10^{-5}$); BF16 failed tolerance ($>0.005$) and flipped actions | [`06_phase2e_expanded_parity_results/`](./06_phase2e_expanded_parity_results) |
-| **7** | [`07_phase2f_cache_compression_prefix_reuse.ipynb`](./07_phase2f_cache_compression_prefix_reuse.ipynb) | Phase 2F (`20260918T224427722898Z`, v2f.1.0) | NVIDIA L4 / A100 | TurboQuant low-bit KV compression (2/3/4-bit) vs FP16/lossless, GPU LRU prefix cache | Lossless & FP16-KV passed all gates; all 4 low-bit TurboQuant variants failed and flipped actions | [`07_phase2f_cache_compression_results/`](./07_phase2f_cache_compression_results) |
-| **8** | [`08_phase2g_fresh_evidence_tf32_cache.ipynb`](./08_phase2g_fresh_evidence_tf32_cache.ipynb) | Phase 2G (`20260919T005142584348Z`, v2g.1.0) | NVIDIA L4 / A100 | Generalization to fresh Banking/CLINC/OOS data, TF32 execution, cache TTL & eviction | TF32 cut latency ~2× but flipped 3 argmax decisions; revealed candidate head narrowness on OOS | [`08_phase2g_fresh_evidence_results/`](./08_phase2g_fresh_evidence_results) |
-| **9** | [`09_phase2h_criteria_rejection_multidomain.ipynb`](./09_phase2h_criteria_rejection_multidomain.ipynb) | Phase 2H (`20260919T040612625670Z`, v2h.1.2) | NVIDIA L4 / A100 | Multi-domain candidate fitting, criteria augmentation (support examples), rejection transfer | Original criteria transferred better (83.8% acc) than support examples (78.9% acc); held to pre-registration | [`09_phase2h_criteria_rejection_results/`](./09_phase2h_criteria_rejection_results) |
-| **10** | [`10_phase2ij_gated_workbench.ipynb`](./10_phase2ij_gated_workbench.ipynb) | Phase 2I/2J Workbench (`2ij.1.0`) | NVIDIA L4 / A100 | Multi-question reviewed study gate, state-first vs instruction-first GPU mechanics probe | Strict independent-review gate blocked unverified training; probe validated state-first prefill mechanics | [`10_phase2ij_gated_workbench_results/`](./10_phase2ij_gated_workbench_results) |
-| **11** | [`11_phase2ij_model_selection_screen.ipynb`](./11_phase2ij_model_selection_screen.ipynb) | Phase 2I/2J Screen (`2ij.2.0`) | NVIDIA L4 / A100 | 13 fit jobs, 31 evaluation profiles across Qwen 3.5 4B, Qwen 2.5 1.5B/2B, ModernBERT | Selected & locked profile `a047d6802c3f06f085b8` (Qwen3.5-4B state-first score-summary head) | [`11_phase2ij_model_selection_results/`](./11_phase2ij_model_selection_results) |
+| **2** | [`02_phase2b_benchmark.ipynb`](./02_phase2b_benchmark.ipynb) | Phase 2B (`20260917T205849Z`) | NVIDIA L4 (BF16) | MultiNLI classification, pooling strategies, calibration, generation vs decision timing | Last-token + linear won (87.7% matched); 44.6× speedup over generation; temperature scaling rejected | Documented on Google Drive / Notebook outputs |
+| **3** | [`03_phase2c_stability_dynamic_choice.ipynb`](./03_phase2c_stability_dynamic_choice.ipynb) | Phase 2C (`20260917T222948Z`) | NVIDIA L4 (BF16) | Multi-seed stability, dynamic candidate scoring (Banking77), global `__none__` logit | Stable across seeds (87.0% / 88.8%); 80.8% seen / 64.6% unseen accuracy; 0.817 AUROC for none | Documented on Google Drive / Notebook outputs |
+| **4** | [`04_phase2d_numerics_none_handling.ipynb`](./04_phase2d_numerics_none_handling.ipynb) | Phase 2D (`20260917T234417Z`) | NVIDIA L4 | Precision diagnostics (BF16 vs FP32 vs TF32), none-head alternatives, request latency vs K | Isolated layer divergence in DeltaNet/conv; linear latency scaling without prefix caching | Documented on Google Drive / Notebook outputs |
+| **5** | [`05_phase2e_selective_precision_initial.ipynb`](./05_phase2e_selective_precision_initial.ipynb) | Phase 2E initial (`20260918T032049180933Z`, v2e.1.1) | GPU (L4/A100) | Module-level FP32 promotion, shared-prefix KV branching, application policies | Full FP32 stage halted by memory guard; isolated hybrid state isolation requirement | Documented on Google Drive / Notebook outputs |
+| **6** | [`06_phase2e_expanded_batched_prefix_parity.ipynb`](./06_phase2e_expanded_batched_prefix_parity.ipynb) | Phase 2E expanded (`20260918T114914072764Z`, v2e.2.0) | GPU (isolated processes) | Strict FP32 reference, batched prefix reuse parity vs BF16, component breakdown | Strict FP32 prefix reuse passed ($Δp \le 1.1 \times 10^{-5}$); BF16 failed tolerance ($>0.005$) and flipped actions | Documented on Google Drive / Notebook outputs |
+| **7** | [`07_phase2f_cache_compression_prefix_reuse.ipynb`](./07_phase2f_cache_compression_prefix_reuse.ipynb) | Phase 2F (`20260918T224427722898Z`, v2f.1.0) | NVIDIA L4 / A100 | TurboQuant low-bit KV compression (2/3/4-bit) vs FP16/lossless, GPU LRU prefix cache | Lossless & FP16-KV passed all gates; all 4 low-bit TurboQuant variants failed and flipped actions | Documented on Google Drive / Notebook outputs |
+| **8** | [`08_phase2g_fresh_evidence_tf32_cache.ipynb`](./08_phase2g_fresh_evidence_tf32_cache.ipynb) | Phase 2G (`20260919T005142584348Z`, v2g.1.0) | NVIDIA L4 / A100 | Generalization to fresh Banking/CLINC/OOS data, TF32 execution, cache TTL & eviction | TF32 cut latency ~2× but flipped 3 argmax decisions; revealed candidate head narrowness on OOS | Documented on Google Drive / Notebook outputs |
+| **9** | [`09_phase2h_criteria_rejection_multidomain.ipynb`](./09_phase2h_criteria_rejection_multidomain.ipynb) | Phase 2H (`20260919T040612625670Z`, v2h.1.2) | NVIDIA L4 / A100 | Multi-domain candidate fitting, criteria augmentation (support examples), rejection transfer | Original criteria transferred better (83.8% acc) than support examples (78.9% acc); held to pre-registration | Documented on Google Drive / Notebook outputs |
+| **10** | [`10_phase2ij_gated_workbench.ipynb`](./10_phase2ij_gated_workbench.ipynb) | Phase 2I/2J Workbench (`2ij.1.0`) | NVIDIA L4 / A100 | Multi-question reviewed study gate, state-first vs instruction-first GPU mechanics probe | Strict independent-review gate blocked unverified training; probe validated state-first prefill mechanics | Documented on Google Drive / Notebook outputs |
+| **11** | [`11_phase2ij_model_selection_screen.ipynb`](./11_phase2ij_model_selection_screen.ipynb) | Phase 2I/2J Screen (`2ij.2.0`) | NVIDIA L4 / A100 | 13 fit jobs, 31 evaluation profiles across Qwen 3.5 4B, Qwen 2.5 1.5B/2B, ModernBERT | Selected & locked profile `a047d6802c3f06f085b8` (Qwen3.5-4B state-first score-summary head) | Documented on Google Drive / Notebook outputs |
 | **12** | [`12_phase2ij_a100_bundle_export.ipynb`](./12_phase2ij_a100_bundle_export.ipynb) | Phase 2I/2J Continuation | NVIDIA A100 | Clean selected-model bundle export and checksum verification on high-memory GPU | Produced golden bundle `4d9ffdee...3332` with zero OOM risk; validated reference repo | Informs profile `a047d6802c3f06f085b8` |
 | **13** | [`13_phase3a_branchable_state_batched_q.ipynb`](./13_phase3a_branchable_state_batched_q.ipynb) | Phase 3A (`20260920T024056Z`) | NVIDIA L4 / A100 | Hybrid state branching (KV + DeltaNet + conv), batched-Q/K topologies, crossover behavior | Zero-leakage branch isolation confirmed; batched-Q faster for long state/high Q; informed Rust scheduler | [Whitepaper §16](../docs/whitepaper/WHITEPAPER.md#16-phase-3a-full-hybrid-branchablestate-batched-qk-execution-and-the-rust-handoff) |
-| **14** | [`14_phase3b_backbone_parity.ipynb`](./14_phase3b_backbone_parity.ipynb) | Phase 3B (`20260920T152206Z`) | GPU (FP32) | Layer-by-layer backbone traces, golden token fixtures, Rust handoff contract | Exported 47 FP32 vectors across 34 stages; maximum cached continuation drift $\le 1.91 \times 10^{-5}$ | [`14_phase3b_backbone_parity_results/`](./14_phase3b_backbone_parity_results) |
+| **14** | [`14_phase3b_backbone_parity.ipynb`](./14_phase3b_backbone_parity.ipynb) | Phase 3B (`20260920T152206Z`) | GPU (FP32) | Layer-by-layer backbone traces, golden token fixtures, Rust handoff contract | Exported 47 FP32 vectors across 34 stages; maximum cached continuation drift $\le 1.91 \times 10^{-5}$ | Documented on Google Drive / Notebook outputs |
 | **15** | [`15_phase4a_statequery_workbench.ipynb`](./15_phase4a_statequery_workbench.ipynb) | Phase 4A.0 / 4A.1 (`20260921T013558Z`, v4a.0.2) | GPU (L4/A100) | Natural-document corpus lock (ContractNLI + QASPER) & StateQuery B1 representation probe | Locked 2,192 states / 15,368 Qs; B1 scored 0.7796 macro-acc but collapsed QASPER none-recall to 0.0 | [Whitepaper §18](../docs/whitepaper/WHITEPAPER.md#18-phase-4a4e-locked-benchmark-applicability-experiments-and-audit-gate) |
 | **16** | [`16_phase4a2_statequery_model_comparison.ipynb`](./16_phase4a2_statequery_model_comparison.ipynb) | Phase 4A.2 (`4a.2.0`) | GPU (L4/A100) | Matched B0 control, source-balanced B1, factorized B2 without reopening final splits | B0 matched collapse (0.0 none-recall); balanced B1 raised none-recall to 0.168 (gate threshold: 0.30) | [Whitepaper §18.4](../docs/whitepaper/WHITEPAPER.md#184-completed-non-final-comparison-aggregate-improvement-hides-a-qasper-collapse) |
-| **17** | [`17_phase4b2_statequery_model_comparison.ipynb`](./17_phase4b2_statequery_model_comparison.ipynb) | Phase 4B.2 (`4b.2.0` / `4b.2.1`) | GPU (L4/A100) | Scalar-weight saturation (cap 12) & source/class-stratified applicability | Realized weight saturated at 8.5602; stratified objective raised QASPER recall to 0.3111 gate, but gate policy cost failed (0.11675) | [`17_phase4b2_statequery_model_comparison_results/`](./17_phase4b2_statequery_model_comparison_results) |
+| **17** | [`17_phase4b2_statequery_model_comparison.ipynb`](./17_phase4b2_statequery_model_comparison.ipynb) | Phase 4B.2 (`4b.2.0` / `4b.2.1`) | GPU (L4/A100) | Scalar-weight saturation (cap 12) & source/class-stratified applicability | Realized weight saturated at 8.5602; stratified objective raised QASPER recall to 0.3111 gate, but gate policy cost failed (0.11675) | Documented on Google Drive / Notebook outputs |
 | **18** | [`18_phase4b3_applicability_ranking_sweep.ipynb`](./18_phase4b3_applicability_ranking_sweep.ipynb) | Phase 4B.3 (`4b.3.0`) | GPU (L4/A100) | Within-state pairwise applicability ranking loss ($w \in \{0.25, 0.50, 1.00\}$) | Cleared development recall (0.3451), but failed gate false-none (>0.21) and policy cost (0.10221); rejected | [Whitepaper §18.10](../docs/whitepaper/WHITEPAPER.md#1810-phase-4b3-pairwise-applicability-passes-development-but-not-transfer) |
-| **19** | [`19_phase4c_decoupled_applicability_head.ipynb`](./19_phase4c_decoupled_applicability_head.ipynb) | Phase 4C (`4c.0.0`) | GPU (L4/A100) | Isolated applicability head fine-tuning over frozen B2 representations | Child epochs regressed NLL (+2.77%) and Brier (+2.10%) for only +2 true positives; parent epoch 0 retained | [`19_phase4c_decoupled_applicability_results/`](./19_phase4c_decoupled_applicability_results) |
-| **20** | [`20_phase4d_evidence_aware_applicability.ipynb`](./20_phase4d_evidence_aware_applicability.ipynb) | Phase 4D (`4d.0.0`) | GPU (L4/A100) | 19-dim handcrafted evidence/uncertainty diagnostic residual over frozen parent | Strict JSON enforced; child gained only +1 true positive while NLL worsened +6.08%; child rejected | [`20_phase4d_evidence_aware_applicability_results/`](./20_phase4d_evidence_aware_applicability_results) |
-| **21** | [`21_phase4e_qasper_error_audit.ipynb`](./21_phase4e_qasper_error_audit.ipynb) | Phase 4E (`4e.0.0`) | CPU | Blinded human audit of 150 QASPER false-negative, false-positive, and control cases | Prepares double-blind adjudication pack to separate representation failure from label ambiguity before 4E-B | [`21_phase4e_qasper_audit_results/`](./21_phase4e_qasper_audit_results) |
-| **22** | [`22_phase4e_a2_qasper_audit_repair.ipynb`](./22_phase4e_a2_qasper_audit_repair.ipynb) | Phase 4E-A2 (`20260921T013558Z`, `qasper_error_audit_repair_s17`) | CPU | Repaired QASPER error/evidence audit with complete paper text; primary blinded review & adjudication packet generation | Validated hash chain, 66.4% decided agreement, 51 adjudication rows, asymmetric disagreement (44 challenged semantic_none, 6 representation/serialization defects); Phase 4E-B blocked pending benchmark/representation repair | [`22_phase4e_a2_qasper_audit_repair_results/`](./22_phase4e_a2_qasper_audit_repair_results) |
-| **23** | [`23_phase4e_a3_qasper_followup.ipynb`](./23_phase4e_a3_qasper_followup.ipynb) | Phase 4E-A3 (`20260921T013558Z`, `qasper_followup_cpu_s17_v1`) | CPU | QASPER review follow-up, 87 numeric cell restorations, frozen-state evidence candidates, and external representation leads | Restored 87 numeric cells; 51-row V2 adjudication (33 answerable, 13 semantic-none, 5 ambiguous); 13 exact state candidate spans; 6 non-independent assistant follow-ups scoped; no benchmark mutations; Phase 4E-B training unauthorized | [`23_phase4e_a3_qasper_followup_results/`](./23_phase4e_a3_qasper_followup_results) |
-| **24** | [`24_phase4e_a4_qasper_source_alignment.ipynb`](./24_phase4e_a4_qasper_source_alignment.ipynb) | Phase 4E-A4 (`20260921T013558Z`, `qasper_source_alignment_cpu_s17_v1`) | CPU | QASPER upstream source alignment preflight, span partition verification, and audit ledger V2 | Verified 12 development candidate spans (7 Qs) and 1 gate diagnostic span; quarantined 3 unresolved evidence cases; aligned with upstream allenai/qasper (train/val only); final unopened; training remains unauthorized | [`24_phase4e_a4_qasper_source_alignment_results/`](./24_phase4e_a4_qasper_source_alignment_results) |
-| **25** | [`25_phase4e_b1_candidate_option_logit_audit.ipynb`](./25_phase4e_b1_candidate_option_logit_audit.ipynb) | Phase 4E-B.1 (`candidate_option_logit_gate16_s17_v2`) | GPU / CPU (FP32) | Constrained next-token candidate option readout and uncalibrated `Z` rejection over 16-state gate sample (N=325) | Answerable ContractNLI ranking improved (87.8% vs 31.1% StateQuery ref); uncalibrated `Z` failed semantic none (0/124 none recall); order reversal flipped winners on 6.6% of questions; QASPER accuracy 77.4% (below 84.9% majority baseline); model promotion rejected | [`25_phase4e_b1_candidate_option_logit_results/`](./25_phase4e_b1_candidate_option_logit_results) |
-| **26** | [`26_phase4e_b2_candidate_ranking_sweep.ipynb`](./26_phase4e_b2_candidate_ranking_sweep.ipynb) | Phase 4E-B.2 (`candidate_detection_ranking_sweep_s17_n12_v1`) | GPU / CPU (FP32) | Candidate ranking (3 rankers) and logistic-calibrated semantic-none detection (3 detectors) sweep across 12-state splits (N=741) | Cache parity verified ($\le 3.3 \times 10^{-6}$); order-averaged ranking hit 87.0% gate accuracy on ContractNLI; ContractNLI none recall hit 75.0% but gate false-none was 42.6% (violating $\le 0.20$ guardrail); QASPER selected grid collapsed to 0/5 none recall; cross-source calibration diverged; final closed | [`26_phase4e_b2_candidate_ranking_sweep_results/`](./26_phase4e_b2_candidate_ranking_sweep_results) |
+| **19** | [`19_phase4c_decoupled_applicability_head.ipynb`](./19_phase4c_decoupled_applicability_head.ipynb) | Phase 4C (`4c.0.0`) | GPU (L4/A100) | Isolated applicability head fine-tuning over frozen B2 representations | Child epochs regressed NLL (+2.77%) and Brier (+2.10%) for only +2 true positives; parent epoch 0 retained | Documented on Google Drive / Notebook outputs |
+| **20** | [`20_phase4d_evidence_aware_applicability.ipynb`](./20_phase4d_evidence_aware_applicability.ipynb) | Phase 4D (`4d.0.0`) | GPU (L4/A100) | 19-dim handcrafted evidence/uncertainty diagnostic residual over frozen parent | Strict JSON enforced; child gained only +1 true positive while NLL worsened +6.08%; child rejected | Documented on Google Drive / Notebook outputs |
+| **21** | [`21_phase4e_qasper_error_audit.ipynb`](./21_phase4e_qasper_error_audit.ipynb) | Phase 4E (`4e.0.0`) | CPU | Blinded human audit of 150 QASPER false-negative, false-positive, and control cases | Prepares double-blind adjudication pack to separate representation failure from label ambiguity before 4E-B | Documented on Google Drive / Notebook outputs |
+| **22** | [`22_phase4e_a2_qasper_audit_repair.ipynb`](./22_phase4e_a2_qasper_audit_repair.ipynb) | Phase 4E-A2 (`20260921T013558Z`, `qasper_error_audit_repair_s17`) | CPU | Repaired QASPER error/evidence audit with complete paper text; primary blinded review & adjudication packet generation | Validated hash chain, 66.4% decided agreement, 51 adjudication rows, asymmetric disagreement (44 challenged semantic_none, 6 representation/serialization defects); Phase 4E-B blocked pending benchmark/representation repair | Documented on Google Drive / Notebook outputs |
+| **23** | [`23_phase4e_a3_qasper_followup.ipynb`](./23_phase4e_a3_qasper_followup.ipynb) | Phase 4E-A3 (`20260921T013558Z`, `qasper_followup_cpu_s17_v1`) | CPU | QASPER review follow-up, 87 numeric cell restorations, frozen-state evidence candidates, and external representation leads | Restored 87 numeric cells; 51-row V2 adjudication (33 answerable, 13 semantic-none, 5 ambiguous); 13 exact state candidate spans; 6 non-independent assistant follow-ups scoped; no benchmark mutations; Phase 4E-B training unauthorized | Documented on Google Drive / Notebook outputs |
+| **24** | [`24_phase4e_a4_qasper_source_alignment.ipynb`](./24_phase4e_a4_qasper_source_alignment.ipynb) | Phase 4E-A4 (`20260921T013558Z`, `qasper_source_alignment_cpu_s17_v1`) | CPU | QASPER upstream source alignment preflight, span partition verification, and audit ledger V2 | Verified 12 development candidate spans (7 Qs) and 1 gate diagnostic span; quarantined 3 unresolved evidence cases; aligned with upstream allenai/qasper (train/val only); final unopened; training remains unauthorized | Documented on Google Drive / Notebook outputs |
+| **25** | [`25_phase4e_b1_candidate_option_logit_audit.ipynb`](./25_phase4e_b1_candidate_option_logit_audit.ipynb) | Phase 4E-B.1 (`candidate_option_logit_gate16_s17_v2`) | GPU / CPU (FP32) | Constrained next-token candidate option readout and uncalibrated `Z` rejection over 16-state gate sample (N=325) | Answerable ContractNLI ranking improved (87.8% vs 31.1% StateQuery ref); uncalibrated `Z` failed semantic none (0/124 none recall); order reversal flipped winners on 6.6% of questions; QASPER accuracy 77.4% (below 84.9% majority baseline); model promotion rejected | Documented on Google Drive / Notebook outputs |
+| **26** | [`26_phase4e_b2_candidate_ranking_sweep.ipynb`](./26_phase4e_b2_candidate_ranking_sweep.ipynb) | Phase 4E-B.2 (`candidate_detection_ranking_sweep_s17_n12_v1`) | GPU / CPU (FP32) | Candidate ranking (3 rankers) and logistic-calibrated semantic-none detection (3 detectors) sweep across 12-state splits (N=741) | Cache parity verified ($\le 3.3 \times 10^{-6}$); order-averaged ranking hit 87.0% gate accuracy on ContractNLI; ContractNLI none recall hit 75.0% but gate false-none was 42.6% (violating $\le 0.20$ guardrail); QASPER selected grid collapsed to 0/5 none recall; cross-source calibration diverged; final closed | Documented on Google Drive / Notebook outputs |
 | **27** | [`27_m22_matched_decision_lora.ipynb`](./27_m22_matched_decision_lora.ipynb) | M2.2 (`openkind-m22-contract-only-lora/v1`, v0.4.1) | GPU (A100 BF16 / FP32 adapters) | Upstream matched decision-LoRA pilot across 4 arms (J0/J1 controls, J2/J3 rank-16 LoRA) under full-document ContractNLI supervision and QASPER transfer | Stable backward recomputation pinned to `SDPBackend.MATH`; gated on development NLL ($\ge$5-pt contradiction gain, $\le$5-pt other loss, $\le$3-pt QASPER loss); final remains closed | Milestone M2 (Qwen 4B decision model) |
 | **28** | [`28_source_label_replay.ipynb`](./28_source_label_replay.ipynb) | v0.6.0 (`source_label_v060_s17_bf16_dbb5e724b5452f23`) | NVIDIA A100 (BF16 / FP32 adapters) | Source-label cross-entropy replay vs parent-KL consistency on SNLI to test joint ContractNLI/QASPER preservation | SNLI accuracy & probability scores improved (+17.7pp J6 vs J4, +18.2pp J7 vs J5); ContractNLI entailment and QASPER false-none failed preservation bounds; frozen parents retained | Milestone M2 (Qwen 4B decision model) |
-| **29** | [`29_qwen_moe_decision_lab.ipynb`](./29_qwen_moe_decision_lab.ipynb) | MoE Lab v0.2 (`20260926T224132_613995Z`) | NVIDIA L4 (NF4 / BF16 compute) | Qwen MoE decision inference, expert routing sparsity, top-k truncation, expert allowlisting, late MoE bypass, exact prefix state sharing, and physical weight residency | Prefill touches 98.7%–99.6% of experts (active params $\ne$ resident VRAM); top-1 routing cuts latency by 1.59x but drops accuracy by 15.6pp; late MoE skip preserves 53.1% acc (vs 56.3% native) at 1.32x speedup; direct selected readout achieves exact zero-delta parity; shared prefix state fails strict parity on MoE without full router isolation; physical pruning frees memory only when non-routed modules are deleted | [`29_qwen_moe_decision_lab_results/`](./29_qwen_moe_decision_lab_results) |
-| **30** | [`30_qwen_moe_quality_and_cache_followup.ipynb`](./30_qwen_moe_quality_and_cache_followup.ipynb) | MoE Follow-up v0.1 (`20260927T003918_481825Z`) | NVIDIA L4 (NF4 / BF16 compute) | Multi-split decision quality (252 Qs, 84 states), prompt selection, mass-matched top-k, late-block skip, FP32 linear reference cache numerics, option order diagnostics | Explicit three-way prompt won dev; `skip_last_6` selected on dev and evaluated on 96 fresh test cases (41.7% vs 37.5% native, 1.32x speedup, 8.3% coverage vs 14.6% native); native Unknown recall 0/32; mass-matched half-k beats raw half-k in NLL (2.038 vs 2.122); cache parity failed on both native ($\Delta p=0.120$) and FP32 linear reference ($\Delta p=0.155$); option order flips 25.0% of decisions ($\max \Delta p = 0.169$); research gate failed, promotion rejected | [Drive run](https://drive.google.com/drive/folders/1gXwnF1sXhR5Yh4-7R2izDQ9TJXDl_Lf1) / [`29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z) |
-| **31** | [`31_qwen_prefill_speed_accuracy_lab.ipynb`](./31_qwen_prefill_speed_accuracy_lab.ipynb) | MoE Prefill Speed & Accuracy Lab v0.2 (`e15e1e9f7a64e464a38354c59b0c79805d59bc13d517f7e4fca66873e5d5ff2e`) | NVIDIA A100-SXM4-40GB (vLLM 0.30.0, BF16 / GPTQ INT4) | Dense Qwen3.5-4B vs Qwen3.5-35B-A3B MoE INT4 prefill speed, exact-prefix caching, repeat/concurrency drift, and PrivateMode-style decision readout | Cache qualification failed (prefixes 59–105 tokens < 528/1,056 runtime blocks; 0 reused tokens); probability drift observed without cache reuse (MoE sequential repeat max $\Delta p = 17.60$ pp, concurrent vs seq $\max \Delta p = 11.92$ pp; 4B concurrent $\max \Delta p = 3.28$ pp); research gate failed, promotion rejected | [Drive run](https://drive.google.com/drive/folders/1LIKE7JSmEcO2fvrhf8Qx4_ZJfv-heGwD) / [`31_qwen_prefill_speed_accuracy_lab_results/`](./31_qwen_prefill_speed_accuracy_lab_results) |
-| **32** | [`32_qwen_cache_and_native_decisions_lab.ipynb`](./32_qwen_cache_and_native_decisions_lab.ipynb) | Qwen Cache & Native Decisions Lab (`7047c6b31436f8e9b5aa85a5dad9ea4378d16eaa0912ebba288fae273c7e12ae`) | NVIDIA A100-SXM4-40GB (vLLM 0.30.0 & llama.cpp `parallel-decision`) | Controlled prefix boundary sweep (527–2,113 tokens), vLLM repeatability (serial vs concurrent), batch-invariance launch, and native tree branching | vLLM repeatability passed 1/4 rows (4B serial passed with $\Delta p = 0.0$; concurrent and MoE serial/concurrent failed with drift up to 29.81 pp); cache boundary confirmed (0 hits below 528/1,056; 528/1,056/2,112 tokens reused when exceeding block boundaries); 6/40 cache rows qualified; batch-invariance and full llama GPU offload threw CapabilityError; no model/cache promoted | [`32_qwen_cache_and_native_decisions_lab_results/`](./32_qwen_cache_and_native_decisions_lab_results) |
-| **33** | [`33_qwen_readout_rules_history_lab.ipynb`](./33_qwen_readout_rules_history_lab.ipynb) | Readout, Rules & History (`20260927T192845_426758Z`, run key `ff6fd499...308a`) | NVIDIA A100-SXM4-40GB (Q4_K_M vs BF16) | Single-token integer codes vs natural labels, deterministic host action derivation (5-field + rule vs 6-field), exact-prefix caching, sequence reservation (24 vs 3), batch shapes (1 vs 4 contexts), request history / state leakage | 5-field + rule eliminated eligibility/action contradictions and lowered NLL; all 8 cache conditions passed exact parity ($\Delta p = 0.0$, 1.24–2.75x speedup); isolated native history passed, but JSON interleaving and sequence reservation interactions caused drift; model/cache not promoted | [`20260927T192845_426758Z/`](./20260927T192845_426758Z) / [Drive run](https://drive.google.com/drive/folders/1N8fq_wSct874PWi-VPwuGWAKiYL39xUM) |
+| **29** | [`29_qwen_moe_decision_lab.ipynb`](./29_qwen_moe_decision_lab.ipynb) | MoE Lab v0.2 (`20260926T224132_613995Z`) | NVIDIA L4 (NF4 / BF16 compute) | Qwen MoE decision inference, expert routing sparsity, top-k truncation, expert allowlisting, late MoE bypass, exact prefix state sharing, and physical weight residency | Prefill touches 98.7%–99.6% of experts (active params $\ne$ resident VRAM); top-1 routing cuts latency by 1.59x but drops accuracy by 15.6pp; late MoE skip preserves 53.1% acc (vs 56.3% native) at 1.32x speedup; direct selected readout achieves exact zero-delta parity; shared prefix state fails strict parity on MoE without full router isolation; physical pruning frees memory only when non-routed modules are deleted | Documented on Google Drive / Notebook outputs |
+| **30** | [`30_qwen_moe_quality_and_cache_followup.ipynb`](./30_qwen_moe_quality_and_cache_followup.ipynb) | MoE Follow-up v0.1 (`20260927T003918_481825Z`) | NVIDIA L4 (NF4 / BF16 compute) | Multi-split decision quality (252 Qs, 84 states), prompt selection, mass-matched top-k, late-block skip, FP32 linear reference cache numerics, option order diagnostics | Explicit three-way prompt won dev; `skip_last_6` selected on dev and evaluated on 96 fresh test cases (41.7% vs 37.5% native, 1.32x speedup, 8.3% coverage vs 14.6% native); native Unknown recall 0/32; mass-matched half-k beats raw half-k in NLL (2.038 vs 2.122); cache parity failed on both native ($\Delta p=0.120$) and FP32 linear reference ($\Delta p=0.155$); option order flips 25.0% of decisions ($\max \Delta p = 0.169$); research gate failed, promotion rejected | [Drive run](https://drive.google.com/drive/folders/1gXwnF1sXhR5Yh4-7R2izDQ9TJXDl_Lf1) / Notebook outputs |
+| **31** | [`31_qwen_prefill_speed_accuracy_lab.ipynb`](./31_qwen_prefill_speed_accuracy_lab.ipynb) | MoE Prefill Speed & Accuracy Lab v0.2 (`e15e1e9f7a64e464a38354c59b0c79805d59bc13d517f7e4fca66873e5d5ff2e`) | NVIDIA A100-SXM4-40GB (vLLM 0.30.0, BF16 / GPTQ INT4) | Dense Qwen3.5-4B vs Qwen3.5-35B-A3B MoE INT4 prefill speed, exact-prefix caching, repeat/concurrency drift, and PrivateMode-style decision readout | Cache qualification failed (prefixes 59–105 tokens < 528/1,056 runtime blocks; 0 reused tokens); probability drift observed without cache reuse (MoE sequential repeat max $\Delta p = 17.60$ pp, concurrent vs seq $\max \Delta p = 11.92$ pp; 4B concurrent $\max \Delta p = 3.28$ pp); research gate failed, promotion rejected | [Drive run](https://drive.google.com/drive/folders/1LIKE7JSmEcO2fvrhf8Qx4_ZJfv-heGwD) / Notebook outputs |
+| **32** | [`32_qwen_cache_and_native_decisions_lab.ipynb`](./32_qwen_cache_and_native_decisions_lab.ipynb) | Qwen Cache & Native Decisions Lab (`7047c6b31436f8e9b5aa85a5dad9ea4378d16eaa0912ebba288fae273c7e12ae`) | NVIDIA A100-SXM4-40GB (vLLM 0.30.0 & llama.cpp `parallel-decision`) | Controlled prefix boundary sweep (527–2,113 tokens), vLLM repeatability (serial vs concurrent), batch-invariance launch, and native tree branching | vLLM repeatability passed 1/4 rows (4B serial passed with $\Delta p = 0.0$; concurrent and MoE serial/concurrent failed with drift up to 29.81 pp); cache boundary confirmed (0 hits below 528/1,056; 528/1,056/2,112 tokens reused when exceeding block boundaries); 6/40 cache rows qualified; batch-invariance and full llama GPU offload threw CapabilityError; no model/cache promoted | Documented on Google Drive / Notebook outputs |
+| **33** | [`33_qwen_readout_rules_history_lab.ipynb`](./33_qwen_readout_rules_history_lab.ipynb) | Readout, Rules & History (`20260927T192845_426758Z`, run key `ff6fd499...308a`) | NVIDIA A100-SXM4-40GB (Q4_K_M vs BF16) | Single-token integer codes vs natural labels, deterministic host action derivation (5-field + rule vs 6-field), exact-prefix caching, sequence reservation (24 vs 3), batch shapes (1 vs 4 contexts), request history / state leakage | 5-field + rule eliminated eligibility/action contradictions and lowered NLL; all 8 cache conditions passed exact parity ($\Delta p = 0.0$, 1.24–2.75x speedup); isolated native history passed, but JSON interleaving and sequence reservation interactions caused drift; model/cache not promoted | [Drive run](https://drive.google.com/drive/folders/1N8fq_wSct874PWi-VPwuGWAKiYL39xUM) / Notebook outputs |
 | **34** | [`34_qwen35_9b_t4_l4_open_questions_lab.ipynb`](./34_qwen35_9b_t4_l4_open_questions_lab.ipynb) | 9B T4/L4 Open Questions (`20260928T220142_110595Z_1192c8`) | NVIDIA Tesla T4 16GB (Qwen3.5-9B Q4_K_M, 34/34 offloaded) | Qwen3.5-9B Q4 feasibility on T4; 5 arms (A: 6 fields recomputed, B: 5 fields + rule recomputed, C: 6 fields warm prefix, D: 5 fields + rule warm prefix, E: JSON); exact prefix reuse; genuine first-use cold trace; JSON interleaving history drift; sequence reservation (8 vs 3); risk coverage; offline deterministic route replay | T4 feasibility demonstrated (6.30 GiB peak VRAM); Arm D delivered 2.29–2.35x speedup over A (339.38 ms median) with 56% lower mean latency from prefix reuse and 0 eligibility/action contradictions; prefix cache passed 330/330 pairs ($\Delta p = 0$); JSON interleaving failed history gate ($\max \Delta p = 0.095$, 4 flips); 3 reserved sequences caused drift ($\Delta p = 0.059$); D showed two systematic errors (plain closed $\to$ duplicate; priority suffix appended); route replay healed route errors (93.8% field acc, 62.5% all-six); complete service not qualified | Review writeup `OpenKind_9B_T4_Results_Review_20260928.md` / [Drive run](https://drive.google.com/file/d/1Q-t2VhbH7qYUbkDodlg4IPgpNK8ySBa3/view) |
 | **35** | [`35_local_decision_training.ipynb`](./35_local_decision_training.ipynb) | Local Decision Training | GPU (A100 / L4 NF4) | Self-contained Colab trainer for mixed-task Qwen3.5-4B decision LoRA across public tasks, teacher decisions, and rule examples | Authored & locally validated with tiny models; full 4B CUDA training unrun | [`local_decision_training/`](./local_decision_training) |
 | **36** | [`36_openkind_unified_decision_validity_lab.ipynb`](./36_openkind_unified_decision_validity_lab.ipynb) | Unified Validity Lab (`20260929T194506_694066Z_dc1f74`, protocol `openkind-unified-decisions/v3.0.0`) | NVIDIA Tesla T4 16GB & CPU (Go 1.27.1) | Selective indexing (X), route composition (R/GR), grouped readouts (G/GR), joint formulation (J), resident process isolation vs restarts, schema sensitivity, scaling (native catalogue vs indecis open-option), CPU SIMD/assembly, calibration & confidence policies | Selective indexing (Arm X: 92.19% field acc, 60.42% all-six, 222.22 ms) and grouped routing (Arm GR: 95.49% field acc, 83.33% all-six, 1419.57 ms) advance the design; resident process isolation passes exact parity ($\Delta p = 0.0$) with ~4–6% trace overhead; Indecis CPU is fast (46 ms) but fails transfer (69.10% fresh policy, 39.58% SNLI); no promotion | [Drive run](https://drive.google.com/drive/folders/1gLVnuSIHUDAqyQlyxFyKuc2LWcOvklgx) / [Archive](https://drive.google.com/file/d/1yXOks6ms6-aaEhj-jZ1WvuWtBQsIIzjA/view) |
+| **37** | [`37_openkind_t4_integrated_research_lab.ipynb`](./37_openkind_t4_integrated_research_lab.ipynb) | OpenKind T4 Integrated Research (`20261001T105345_828556Z_6e6d92`, protocol `openkind-t4-integrated-research/v4.0.0`) | NVIDIA Tesla T4 16GB (Qwen3.5-9B Q4_K_M, Qwen3.5-4B Q4_K_M) & CPU | Integrated readouts (XR, NJ), multi-catalogue host cache (G/GR), dedicated-process history isolation (X, XR, NJ), 4B vs 9B model size, batching diagnostics, schema & dynamic choice probes, calibration & action/review policies, encoder setup logging diagnostic | PARTIAL (no model or service promoted; completion marker absent); XR achieves 95.40% field acc / 84.38% all-six at 242.98 ms; NJ achieves 94.01% field acc / 79.69% all-six at 228.31 ms; multi-catalogue host cache cuts grouped request latency by ~54% (2.19x ratio) with exact output parity; dedicated processes pass history checks ($\Delta p = 0$); batching larger contexts does not improve throughput; schema sensitivity persists; encoder comparisons blocked by SameFileError in log helper | Review writeup (1 Oct 2026) / Run `20261001T105345_828556Z_6e6d92` |
 
 
 
@@ -125,9 +130,10 @@ latency evidence and optimization promotion gates.
   - **Decision Accuracy**: Last-token pooling with a Linear head achieved **87.67% matched** and **87.33% mismatched** accuracy, outperforming mean pooling (74.67%) and max pooling (84.83%). MLP offered negligible advantage over linear.
   - **Latency / Throughput**: Decision forward pass completed in **~38.4 ms** versus **~1,714 ms** for autoregressive generation (~44.6× speedup; ~250× fewer FLOPs).
   - **Calibration Insight**: Fitted temperature ($T = 0.887$) worsened matched test NLL (0.380 $\to$ 0.428) and ECE. Established rule: post-hoc calibration must pass held-out validation gates before being applied.
-* **Supporting Directory**:
-  - [`02_phase2b_benchmark_results/`](./02_phase2b_benchmark_results)
-  - Key files: [`openkind_phase2b_summary.md`](./02_phase2b_benchmark_results/openkind_phase2b_summary.md), `decision_benchmark.json`, `generation_benchmark.json`, `metrics.json`.
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, receipts, and benchmark logs are archived on Google Drive.
+  - **Reproducibility**: All benchmark metrics, pooling comparisons, and calibration curves can be regenerated by running [`02_phase2b_benchmark.ipynb`](./02_phase2b_benchmark.ipynb).
+  - **Key Output Files**: `openkind_phase2b_summary.md`, `decision_benchmark.json`, `generation_benchmark.json`, `metrics.json`.
 
 ---
 
@@ -143,9 +149,10 @@ latency evidence and optimization promotion gates.
   - MultiNLI stability confirmed: 87.0% matched / 88.8% mismatched test accuracy; dev NLL was 0.35297 (linear) vs 0.35472 (MLP).
   - Calibration gate strictly enforced: temperature scaling was rejected ($T=1.0$ retained) as it failed held-out gate criteria.
   - Dynamic choice head scored **80.8% accuracy on seen labels** and **64.6% on withheld labels**. The global `__none__` scalar yielded an **AUROC of 0.817** for identifying unrepresented intents.
-* **Supporting Directory**:
-  - [`03_phase2c_stability_results/`](./03_phase2c_stability_results)
-  - Key files: [`openkind_phase2c_summary.md`](./03_phase2c_stability_results/openkind_phase2c_summary.md), `stability.json`, `dynamic_predictions_test_seen.json`, `dynamic_predictions_test_unseen.json`.
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, stability logs, and predictions are archived on Google Drive.
+  - **Reproducibility**: Multi-seed stability metrics and dynamic candidate predictions can be regenerated by running [`03_phase2c_stability_dynamic_choice.ipynb`](./03_phase2c_stability_dynamic_choice.ipynb).
+  - **Key Output Files**: `openkind_phase2c_summary.md`, `stability.json`, `dynamic_predictions_test_seen.json`, `dynamic_predictions_test_unseen.json`.
 
 ---
 
@@ -161,9 +168,10 @@ latency evidence and optimization promotion gates.
   - Numerical drift begins in early hybrid layers (DeltaNet recurrent states and 1D depthwise convolutions) and compounds across depth.
   - Dedicated none-head failed to improve out-of-scope discrimination over the simpler global scalar logit.
   - Without prefix caching, latency scaled linearly with $K$ (~25 ms per candidate), confirming the theoretical necessity of shared-prefix continuation caching.
-* **Supporting Directory**:
-  - [`04_phase2d_numerics_results/`](./04_phase2d_numerics_results)
-  - Key files: [`openkind_phase2d_summary.md`](./04_phase2d_numerics_results/openkind_phase2d_summary.md), `numerics/layer_drift.csv`, `numerics/single_precision_drift.json`, `none_models.json`.
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, layer drift traces, and precision evaluations are archived on Google Drive.
+  - **Reproducibility**: Layer drift data and numerical precision comparisons can be regenerated by running [`04_phase2d_numerics_none_handling.ipynb`](./04_phase2d_numerics_none_handling.ipynb).
+  - **Key Output Files**: `openkind_phase2d_summary.md`, `numerics/layer_drift.csv`, `numerics/single_precision_drift.json`, `none_models.json`.
 
 ---
 
@@ -177,9 +185,10 @@ latency evidence and optimization promotion gates.
 * **Results**:
   - An in-process memory guard halted the full FP32 stage due to running the notebook coordinator and GPU tensors in the same process space.
   - Demonstrated that cloning Qwen attention KV tensors alone is insufficient for state branching: hybrid recurrent DeltaNet states must also be isolated.
-* **Supporting Directory**:
-  - [`05_phase2e_selective_precision_results/`](./05_phase2e_selective_precision_results)
-  - Key files: [`README_results.md`](./05_phase2e_selective_precision_results/README_results.md).
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete run logs and execution reports are archived on Google Drive.
+  - **Reproducibility**: Selective precision probes and state-prefill tests can be regenerated by running [`05_phase2e_selective_precision_initial.ipynb`](./05_phase2e_selective_precision_initial.ipynb).
+  - **Key Output Files**: `README_results.md`.
 
 ---
 
@@ -198,9 +207,10 @@ latency evidence and optimization promotion gates.
     - Under strict FP32, shared-prefix branching matched sequential evaluation with **maximum probability delta $\le 1.1 \times 10^{-5}$** and zero class flips or policy changes.
     - Under BF16, shared-prefix branching **violated the 0.005 parity tolerance** and altered application-policy decisions.
     - Established that strict FP32 is the required mathematical parity reference for OpenKind engine verification.
-* **Supporting Directory**:
-  - [`06_phase2e_expanded_parity_results/`](./06_phase2e_expanded_parity_results)
-  - Key files: [`README_results.md`](./06_phase2e_expanded_parity_results/README_results.md), `fp32_strict_math/parity_rows.json`, `bf16_default/parity_rows.json`, `fp32_strict_math/component_profiles.json` (also under `bf16_default/`).
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, parity tables, and component profiles are archived on Google Drive.
+  - **Reproducibility**: Prefix branching and numerical parity evaluations across FP32/BF16 can be regenerated by running [`06_phase2e_expanded_batched_prefix_parity.ipynb`](./06_phase2e_expanded_batched_prefix_parity.ipynb).
+  - **Key Output Files**: `README_results.md`, `fp32_strict_math/parity_rows.json`, `bf16_default/parity_rows.json`, `fp32_strict_math/component_profiles.json`, `bf16_default/component_profiles.json`.
 
 ---
 
@@ -215,9 +225,10 @@ latency evidence and optimization promotion gates.
   - **Lossless FP32 and FP16-KV passed all 32 episodes with zero policy flips**.
   - **All four low-bit TurboQuant codecs failed the gates**, introducing severe probability distortions that flipped decisions and downstream application actions.
   - Proved that low-bit quantization of continuation state cannot be applied without end-to-end retraining. Bounded lossless prefix caching was adopted.
-* **Supporting Directory**:
-  - [`07_phase2f_cache_compression_results/`](./07_phase2f_cache_compression_results)
-  - Key files: [`README_results.md`](./07_phase2f_cache_compression_results/README_results.md), `fp32_strict_math/compression_parity.json`, `fp32_strict_math/compression_quality.json`, `fp32_strict_math/cross_request_summary.json`.
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, compression parity metrics, and cross-request summaries are archived on Google Drive.
+  - **Reproducibility**: TurboQuant quantization and prefix caching experiments can be regenerated by running [`07_phase2f_cache_compression_prefix_reuse.ipynb`](./07_phase2f_cache_compression_prefix_reuse.ipynb).
+  - **Key Output Files**: `README_results.md`, `fp32_strict_math/compression_parity.json`, `fp32_strict_math/compression_quality.json`, `fp32_strict_math/cross_request_summary.json`.
 
 ---
 
@@ -231,9 +242,10 @@ latency evidence and optimization promotion gates.
 * **Results**:
   - **Rejection Limitation Identified**: On the CLINC panel, answerable accuracy was 93.75%, but omitted-intent recall was only 39.06% (author OOS recall was 46.88%). Revealed that candidate-conditioned scoring trained on in-domain tasks does not automatically generalize to out-of-domain rejection.
   - **TF32 Trade-off**: TF32 halved latency ($K=4$: 265 ms $\to$ 132 ms; $K=16$: 1,118 ms $\to$ 518 ms), but caused 3 argmax flips across 416 episodes. TF32 is valuable for high-throughput serving but cannot be used as the reference parity authority.
-* **Supporting Directory**:
-  - [`08_phase2g_fresh_evidence_results/`](./08_phase2g_fresh_evidence_results)
-  - Key files: [`README_results.md`](./08_phase2g_fresh_evidence_results/README_results.md), `cross_precision_fp32_tf32_allowed.json`, `fp32_strict_math/fresh_rows.json`, `fp32_strict_math/traffic_summary.json`.
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, fresh generalization data, and TF32 comparison files are archived on Google Drive.
+  - **Reproducibility**: Cross-precision evaluations and cache lifecycle benchmarks can be regenerated by running [`08_phase2g_fresh_evidence_tf32_cache.ipynb`](./08_phase2g_fresh_evidence_tf32_cache.ipynb).
+  - **Key Output Files**: `README_results.md`, `cross_precision_fp32_tf32_allowed.json`, `fp32_strict_math/fresh_rows.json`, `fp32_strict_math/traffic_summary.json`.
 
 ---
 
@@ -247,15 +259,16 @@ latency evidence and optimization promotion gates.
 * **Results**:
   - The support-example joint head achieved 78.91% raw pooled accuracy (1,152 episodes), 85.55% on Banking fitting labels, and 89.84% on CLINC fitting domains, but dropped to 63.67% on held-out Banking labels and 66.02% on held-out CLINC domains.
   - **Methodological Victory**: The original-criteria control head transferred significantly better on held-out data (83.77% accuracy / 0.541 NLL) than the development-selected support-augmented head. Following pre-registration rules, the project did *not* retroactively swap winners, using this as motivation for architectural model selection in Phase 2I/2J.
-* **Supporting Directory**:
-  - [`09_phase2h_criteria_rejection_results/`](./09_phase2h_criteria_rejection_results)
-  - Key files: [`README_results.md`](./09_phase2h_criteria_rejection_results/README_results.md), `eval_qwen4b_strict/final_metrics.json`, `eval_qwen4b_strict/paired_final_contrasts.json`.
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, final contrast metrics, and evaluation summaries are archived on Google Drive.
+  - **Reproducibility**: Multi-domain criteria transfer and rejection experiments can be regenerated by running [`09_phase2h_criteria_rejection_multidomain.ipynb`](./09_phase2h_criteria_rejection_multidomain.ipynb).
+  - **Key Output Files**: `README_results.md`, `eval_qwen4b_strict/final_metrics.json`, `eval_qwen4b_strict/paired_final_contrasts.json`.
 
 ---
 
 ### 10. Phase 2I/2J: Gated Multi-Question Workbench
 * **File**: [`10_phase2ij_gated_workbench.ipynb`](./10_phase2ij_gated_workbench.ipynb)
-* **Version**: `2ij.1.0` (`10_phase2ij_gated_workbench_results`)
+* **Version**: `2ij.1.0`
 * **What it Measured**:
   - Setup of a formal review gate requiring independent human audit of task criteria and split manifests before launching expensive training.
   - Small synthetic GPU probe validating **state-first segmented tokenization**:
@@ -264,15 +277,16 @@ latency evidence and optimization promotion gates.
 * **Results**:
   - The review gate successfully blocked unreviewed multi-question training, preventing unverified claims.
   - Synthetic GPU probe validated state-first mechanics: prefilling the state document once and branching questions/candidates reduced compute without token leakage.
-* **Supporting Directory**:
-  - [`10_phase2ij_gated_workbench_results/`](./10_phase2ij_gated_workbench_results)
-  - Key files: [`REPORT.md`](./10_phase2ij_gated_workbench_results/REPORT.md), `gate_report.json`, `contracts/SERVICE_HANDOFF.md`.
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, gate report, and handoff contracts are archived on Google Drive.
+  - **Reproducibility**: Review gate and state-first segmented tokenization probes can be regenerated by running [`10_phase2ij_gated_workbench.ipynb`](./10_phase2ij_gated_workbench.ipynb).
+  - **Key Output Files**: `REPORT.md`, `gate_report.json`, `contracts/SERVICE_HANDOFF.md`.
 
 ---
 
 ### 11. Phase 2I/2J: Model Selection Screen & Architectural Decision
 * **File**: [`11_phase2ij_model_selection_screen.ipynb`](./11_phase2ij_model_selection_screen.ipynb)
-* **Version**: `2ij.2.0` (`11_phase2ij_model_selection_results`)
+* **Version**: `2ij.2.0`
 * **What it Measured**:
   - Extensive screening across 13 model fit jobs and 31 evaluation profiles.
   - Model families evaluated:
@@ -287,9 +301,10 @@ latency evidence and optimization promotion gates.
     - Readout Head: Score-summary rejection head with normalization, projection, rejection scalar, temperature calibration ($T = 1.81868$), and policy threshold (0.98).
   - ModernBERT and Qwen2.5 baselines trailed Qwen3.5-4B on dynamic candidate expressivity and state prefill compatibility.
   - This locked profile became the permanent target for native Rust and Metal implementations.
-* **Supporting Directory**:
-  - [`11_phase2ij_model_selection_results/`](./11_phase2ij_model_selection_results)
-  - Key files: [`REPORT.md`](./11_phase2ij_model_selection_results/REPORT.md), [`MODEL_DECISION.md`](./11_phase2ij_model_selection_results/MODEL_DECISION.md), `contracts/SERVICE_HANDOFF.md`.
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, model selection reports, and profile decision records are archived on Google Drive.
+  - **Reproducibility**: Model screening across 13 fit jobs and 31 evaluation profiles can be regenerated by running [`11_phase2ij_model_selection_screen.ipynb`](./11_phase2ij_model_selection_screen.ipynb).
+  - **Key Output Files**: `REPORT.md`, `MODEL_DECISION.md`, `contracts/SERVICE_HANDOFF.md`.
 
 ---
 
@@ -336,9 +351,10 @@ latency evidence and optimization promotion gates.
   - Largest fresh-feature difference between Python and Rust reference was $4.96 \times 10^{-5}$.
   - Cached continuation differed from fresh full-sequence execution by at most $1.91 \times 10^{-5}$.
   - Locked the parity gates: Bundle SHA-256 match, max probability difference $\le 0.005$, argmax rank ordering tolerance $\le 10^{-5}$.
-* **Supporting Directory**:
-  - [`14_phase3b_backbone_parity_results/`](./14_phase3b_backbone_parity_results)
-  - Key files: [`RUST_BACKBONE_HANDOFF.md`](./14_phase3b_backbone_parity_results/RUST_BACKBONE_HANDOFF.md), `TOKEN_FIXTURES.json`, `PROBABILITY_REFERENCE.json`, `CONTINUATION_TRACE.json`, `QWEN35_BACKBONE_GOLDEN.safetensors`.
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, golden token fixtures, activation traces, and safetensors weights are archived on Google Drive.
+  - **Reproducibility**: Golden token fixtures, layer traces, and parity contracts can be regenerated by running [`14_phase3b_backbone_parity.ipynb`](./14_phase3b_backbone_parity.ipynb).
+  - **Key Output Files**: `RUST_BACKBONE_HANDOFF.md`, `TOKEN_FIXTURES.json`, `PROBABILITY_REFERENCE.json`, `CONTINUATION_TRACE.json`, `QWEN35_BACKBONE_GOLDEN.safetensors`.
 
 ---
 
@@ -389,9 +405,10 @@ latency evidence and optimization promotion gates.
 * **What Was Not Confirmed / Disproved**:
   - **Scalar Recovery Disproved**: Larger scalar weights failed to resolve the cross-source conflict. While ContractNLI none recall rose to 0.8399, 278 of 701 answerable ContractNLI questions were falsely rejected (0.3966 false-none rate). The scalar weight sweep was permanently closed.
   - **Policy Transfer Disproved**: The stratified model accepted 14 development decisions with 0 errors (cost 0.09858), but on the untouched calibration gate accepted 32 decisions with 7 errors, driving cost to **0.11675** (worse than the 0.10 review-all ceiling). The model remained ineligible for release promotion.
-* **Supporting Directory**:
-  - [`17_phase4b2_statequery_model_comparison_results/`](./17_phase4b2_statequery_model_comparison_results/)
-  - Key files: [`b2q_weight12_s17/TRAINING_REPORT.json`](./17_phase4b2_statequery_model_comparison_results/20260921T013558Z/b2q_weight12_s17/TRAINING_REPORT.json), [`b2_applicability_stratified_s17/NONFINAL_RESULT_LOCK.json`](./17_phase4b2_statequery_model_comparison_results/20260921T013558Z/b2_applicability_stratified_s17/NONFINAL_RESULT_LOCK.json), `comparison_snapshot_20260922T115817Z.json`.
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, training reports, result locks, and comparison snapshots are archived on Google Drive.
+  - **Reproducibility**: Scalar-weight saturation and source/class-stratified applicability training can be regenerated by running [`17_phase4b2_statequery_model_comparison.ipynb`](./17_phase4b2_statequery_model_comparison.ipynb).
+  - **Key Output Files**: `b2q_weight12_s17/TRAINING_REPORT.json`, `b2_applicability_stratified_s17/NONFINAL_RESULT_LOCK.json`, `comparison_snapshot_20260922T115817Z.json`.
 
 ---
 
@@ -429,9 +446,10 @@ latency evidence and optimization promotion gates.
 * **What Was Not Confirmed / Disproved**:
   - **Head-Only Recovery Disproved**: Fine-tuning the head in isolation failed to yield viable candidates. The best child (epoch 3) gained only 2 additional QASPER true positives (34 $\to$ 36 of 113) while degrading source-macro NLL by +2.77% and Brier by +2.10%.
   - **Child Promotion Disproved**: All child checkpoints were rejected; epoch 0 was retained. Concluded that further head-only hyperparameter tuning on frozen pooled features is an unproductive route.
-* **Supporting Directory**:
-  - [`19_phase4c_decoupled_applicability_results/`](./19_phase4c_decoupled_applicability_results/)
-  - Key files: [`b2_app_headonly_guard18_s17/TRAINING_REPORT.json`](./19_phase4c_decoupled_applicability_results/20260921T013558Z/b2_app_headonly_guard18_s17/TRAINING_REPORT.json), [`b2_app_headonly_guard18_s17/NONFINAL_RESULT_LOCK.json`](./19_phase4c_decoupled_applicability_results/20260921T013558Z/b2_app_headonly_guard18_s17/NONFINAL_RESULT_LOCK.json), `comparison_snapshot_20260922T172543Z.json`.
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, head-only training reports, and evaluation snapshots are archived on Google Drive.
+  - **Reproducibility**: Decoupled applicability head fine-tuning can be regenerated by running [`19_phase4c_decoupled_applicability_head.ipynb`](./19_phase4c_decoupled_applicability_head.ipynb).
+  - **Key Output Files**: `b2_app_headonly_guard18_s17/TRAINING_REPORT.json`, `b2_app_headonly_guard18_s17/NONFINAL_RESULT_LOCK.json`, `comparison_snapshot_20260922T172543Z.json`.
 
 ---
 
@@ -450,9 +468,10 @@ latency evidence and optimization promotion gates.
   - **Diagnostic Feature Sufficiency Disproved**: Handcrafted statistical and attention heuristics failed to separate applicable from unanswerable questions. The best child (epoch 1) gained only a single QASPER true positive (34 $\to$ 35 of 113), falling 5 short of the 40 required.
   - **Proper-Score Stability Disproved**: Source-macro development NLL deteriorated by **+6.08%** (0.56457 $\to$ 0.59888) and Brier by **+6.60%** (0.33934 $\to$ 0.36172).
   - **Training Signal Generalization Disproved**: Training loss proxy steadily decreased from 0.75076 to 0.65405 while validation metrics worsened, demonstrating rapid memorization of surface heuristics. All 8 child epochs were rejected; status locked as `nonfinal_failed_final_unavailable`.
-* **Supporting Directory**:
-  - [`20_phase4d_evidence_aware_applicability_results/`](./20_phase4d_evidence_aware_applicability_results/)
-  - Key files: [`b2_evidence_residual_s17/TRAINING_REPORT.json`](./20_phase4d_evidence_aware_applicability_results/20260921T013558Z/b2_evidence_residual_s17/TRAINING_REPORT.json), [`b2_evidence_residual_s17/NONFINAL_RESULT_LOCK.json`](./20_phase4d_evidence_aware_applicability_results/20260921T013558Z/b2_evidence_residual_s17/NONFINAL_RESULT_LOCK.json), `comparison_snapshot_20260922T200741Z.json`.
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, residual training reports, and lock files are archived on Google Drive.
+  - **Reproducibility**: Evidence-aware diagnostic residual evaluations can be regenerated by running [`20_phase4d_evidence_aware_applicability.ipynb`](./20_phase4d_evidence_aware_applicability.ipynb).
+  - **Key Output Files**: `b2_evidence_residual_s17/TRAINING_REPORT.json`, `b2_evidence_residual_s17/NONFINAL_RESULT_LOCK.json`, `comparison_snapshot_20260922T200741Z.json`.
 
 ---
 
@@ -472,9 +491,10 @@ latency evidence and optimization promotion gates.
   - **Audit Protocol Locked Confirmed**: 150 items fully exported to blinded CSV, ground-truth key SHA-256 locked in `AUDIT_CONTRACT.json`, and final splits kept strictly unopened.
 * **What Was Not Confirmed / Blocked**:
   - **Upstream Representation Retraining Blocked**: Phase 4E-B (upstream token-level attention adaptation) remains strictly blocked until human review quantifies paper-level annotation ambiguity and establishes verified target bounds.
-* **Supporting Directory**:
-  - [`21_phase4e_qasper_audit_results/`](./21_phase4e_qasper_audit_results/)
-  - Key files: [`AUDIT_GUIDE.md`](./21_phase4e_qasper_audit_results/20260921T013558Z/qasper_error_audit_s17/AUDIT_GUIDE.md), [`AUDIT_REVIEW_BLINDED.csv`](./21_phase4e_qasper_audit_results/20260921T013558Z/qasper_error_audit_s17/AUDIT_REVIEW_BLINDED.csv), [`AUDIT_ANALYSIS.json`](./21_phase4e_qasper_audit_results/20260921T013558Z/qasper_error_audit_s17/AUDIT_ANALYSIS.json), [`AUDIT_RESULT_LOCK.json`](./21_phase4e_qasper_audit_results/20260921T013558Z/qasper_error_audit_s17/AUDIT_RESULT_LOCK.json).
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw audit directory, blinded CSVs, analysis JSONs, and lock files are archived on Google Drive.
+  - **Reproducibility**: QASPER blinded error audit generation and statistical analysis can be regenerated by running [`21_phase4e_qasper_error_audit.ipynb`](./21_phase4e_qasper_error_audit.ipynb).
+  - **Key Output Files**: `AUDIT_GUIDE.md`, `AUDIT_REVIEW_BLINDED.csv`, `AUDIT_ANALYSIS.json`, `AUDIT_RESULT_LOCK.json`.
 
 ---
 
@@ -506,11 +526,12 @@ latency evidence and optimization promotion gates.
     5. Genuine underspecification
     6. Primary-review error
   - Final adjudication must be performed by a fresh reviewer or isolated adjudication run to preserve independence. A mixed repair (label/evidence cleanup and table/reference serialization) is required before any preregistered seed-17 model arm.
-* **Supporting Directory & Artifacts**:
-  - Local Directory: [`22_phase4e_a2_qasper_audit_repair_results/20260921T013558Z/qasper_error_audit_repair_s17/`](./22_phase4e_a2_qasper_audit_repair_results/20260921T013558Z/qasper_error_audit_repair_s17/)
-  - Adjudication Packet: [`AUDIT_ADJUDICATION_PACKET.csv`](https://drive.google.com/file/d/1eu6evYz9JzRQBSr9eJa5g_XpK6szIKE1/view) (SHA-256 `2d6b3be4dfa532de7c0c320d4e84b67d2be571ff4ddcc7f886b22f437e88edeb`)
-  - Analysis JSON: [`AUDIT_ANALYSIS.json`](https://drive.google.com/file/d/1-UTO4L8gRy5NrbAracI7o2jGxJoXyGu4/view) (SHA-256 `858d1b7b08d2e3e9969f7de4bdc1780cbaf83a831c379b9529d4acfe2a84b25f`)
-  - Result Lock: [`AUDIT_RESULT_LOCK.json`](https://drive.google.com/file/d/1n7Xb9Ye_ek9kyHt1t6yRqKi1GMgJXY_c/view) (SHA-256 `89d0e283a2b743efcb95de3f73189c6fb0157620c5f6252beea149a44d1ecefd`)
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory and audit files are archived on Google Drive:
+    - Adjudication Packet: [`AUDIT_ADJUDICATION_PACKET.csv`](https://drive.google.com/file/d/1eu6evYz9JzRQBSr9eJa5g_XpK6szIKE1/view) (SHA-256 `2d6b3be4dfa532de7c0c320d4e84b67d2be571ff4ddcc7f886b22f437e88edeb`)
+    - Analysis JSON: [`AUDIT_ANALYSIS.json`](https://drive.google.com/file/d/1-UTO4L8gRy5NrbAracI7o2jGxJoXyGu4/view) (SHA-256 `858d1b7b08d2e3e9969f7de4bdc1780cbaf83a831c379b9529d4acfe2a84b25f`)
+    - Result Lock: [`AUDIT_RESULT_LOCK.json`](https://drive.google.com/file/d/1n7Xb9Ye_ek9kyHt1t6yRqKi1GMgJXY_c/view) (SHA-256 `89d0e283a2b743efcb95de3f73189c6fb0157620c5f6252beea149a44d1ecefd`)
+  - **Reproducibility**: The repaired audit packet and adjudication tables can be regenerated by running [`22_phase4e_a2_qasper_audit_repair.ipynb`](./22_phase4e_a2_qasper_audit_repair.ipynb).
 
 ---
 
@@ -532,9 +553,10 @@ latency evidence and optimization promotion gates.
 * **What Was Not Confirmed / Disproved**:
   - **External Representation Integration Disproved**: External source leads (e.g. NarrativeQA Table 5 Masque scores, OpenTapioca Figure 2 F1, LCF-ATEPC Tables 3–4, User embeddings Table 3, BLI paper §3) cannot be directly inserted into state text without verified PDF version alignment. Marked as `external_candidate_not_integrated_version_unverified`.
   - **Immediate Phase 4E-B Retraining Blocked**: Authorizing Phase 4E-B representation retraining was explicitly rejected (`automatic_phase4e_b_authorization: false`). Version-aligned source verification and benchmark repair must precede any training.
-* **Supporting Directory & Key Artifacts**:
-  - Local Directory: [`23_phase4e_a3_qasper_followup_results/20260921T013558Z/qasper_followup_cpu_s17_v1/`](./23_phase4e_a3_qasper_followup_results/20260921T013558Z/qasper_followup_cpu_s17_v1/)
-  - Key files: [`PHASE4E_A3_DECISION_RECORD.md`](./23_phase4e_a3_qasper_followup_results/20260921T013558Z/qasper_followup_cpu_s17_v1/PHASE4E_A3_DECISION_RECORD.md), [`AUDIT_ADJUDICATION_REPORT_V2.json`](./23_phase4e_a3_qasper_followup_results/20260921T013558Z/qasper_followup_cpu_s17_v1/AUDIT_ADJUDICATION_REPORT_V2.json), [`PHASE4E_A3_NONFINAL_REPORT.json`](./23_phase4e_a3_qasper_followup_results/20260921T013558Z/qasper_followup_cpu_s17_v1/PHASE4E_A3_NONFINAL_REPORT.json), [`AUDIT_REPAIR_LEDGER.csv`](./23_phase4e_a3_qasper_followup_results/20260921T013558Z/qasper_followup_cpu_s17_v1/AUDIT_REPAIR_LEDGER.csv), [`EVIDENCE_SPAN_CANDIDATES.csv`](./23_phase4e_a3_qasper_followup_results/20260921T013558Z/qasper_followup_cpu_s17_v1/EVIDENCE_SPAN_CANDIDATES.csv), [`REPRESENTATION_SOURCE_CANDIDATES.csv`](./23_phase4e_a3_qasper_followup_results/20260921T013558Z/qasper_followup_cpu_s17_v1/REPRESENTATION_SOURCE_CANDIDATES.csv), [`PHASE4E_A3_LOCK.json`](./23_phase4e_a3_qasper_followup_results/20260921T013558Z/qasper_followup_cpu_s17_v1/PHASE4E_A3_LOCK.json).
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory and adjudication report files are archived on Google Drive.
+  - **Reproducibility**: The V2 adjudication analysis, span candidates, and decision records can be regenerated by running [`23_phase4e_a3_qasper_followup.ipynb`](./23_phase4e_a3_qasper_followup.ipynb).
+  - **Key Output Files**: `PHASE4E_A3_DECISION_RECORD.md`, `AUDIT_ADJUDICATION_REPORT_V2.json`, `PHASE4E_A3_NONFINAL_REPORT.json`, `AUDIT_REPAIR_LEDGER.csv`, `EVIDENCE_SPAN_CANDIDATES.csv`, `REPRESENTATION_SOURCE_CANDIDATES.csv`, `PHASE4E_A3_LOCK.json`.
 
 ---
 
@@ -555,9 +577,10 @@ latency evidence and optimization promotion gates.
 * **What Was Not Confirmed / Disproved**:
   - **Upstream Equivalence Disproved**: Exact state spans and dataset parquet alignment do not establish published PDF version equivalence, recover missing table float values, or provide an end-to-end table/reference serializer.
   - **Phase 4E-B Retraining Blocked**: Kept `automatic_training_authorization: false`. A future arm requires a source-aligned representation provenance and reviewed label/evidence contract before any training.
-* **Supporting Directory & Key Artifacts**:
-  - Local Directory: [`24_phase4e_a4_qasper_source_alignment_results/20260921T013558Z/qasper_source_alignment_cpu_s17_v1/`](./24_phase4e_a4_qasper_source_alignment_results/20260921T013558Z/qasper_source_alignment_cpu_s17_v1/)
-  - Key files: [`PHASE4E_A4_PRELIMINARY_RECORD.md`](./24_phase4e_a4_qasper_source_alignment_results/20260921T013558Z/qasper_source_alignment_cpu_s17_v1/PHASE4E_A4_PRELIMINARY_RECORD.md), [`PHASE4E_A4_PREFLIGHT.json`](./24_phase4e_a4_qasper_source_alignment_results/20260921T013558Z/qasper_source_alignment_cpu_s17_v1/PHASE4E_A4_PREFLIGHT.json), [`AUDIT_REPAIR_LEDGER_V2.csv`](./24_phase4e_a4_qasper_source_alignment_results/20260921T013558Z/qasper_source_alignment_cpu_s17_v1/AUDIT_REPAIR_LEDGER_V2.csv), [`EVIDENCE_SPAN_POLICY_CANDIDATES.csv`](./24_phase4e_a4_qasper_source_alignment_results/20260921T013558Z/qasper_source_alignment_cpu_s17_v1/EVIDENCE_SPAN_POLICY_CANDIDATES.csv), [`QASPER_SOURCE_ROW_ALIGNMENT.csv`](./24_phase4e_a4_qasper_source_alignment_results/20260921T013558Z/qasper_source_alignment_cpu_s17_v1/QASPER_SOURCE_ROW_ALIGNMENT.csv), [`QASPER_SOURCE_CAPTION_CANDIDATES.csv`](./24_phase4e_a4_qasper_source_alignment_results/20260921T013558Z/qasper_source_alignment_cpu_s17_v1/QASPER_SOURCE_CAPTION_CANDIDATES.csv).
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, alignment tables, and preflight records are archived on Google Drive.
+  - **Reproducibility**: Source alignment preflight and span candidate partitions can be regenerated by running [`24_phase4e_a4_qasper_source_alignment.ipynb`](./24_phase4e_a4_qasper_source_alignment.ipynb).
+  - **Key Output Files**: `PHASE4E_A4_PRELIMINARY_RECORD.md`, `PHASE4E_A4_PREFLIGHT.json`, `AUDIT_REPAIR_LEDGER_V2.csv`, `EVIDENCE_SPAN_POLICY_CANDIDATES.csv`, `QASPER_SOURCE_ROW_ALIGNMENT.csv`, `QASPER_SOURCE_CAPTION_CANDIDATES.csv`.
 
 ---
 
@@ -579,9 +602,10 @@ latency evidence and optimization promotion gates.
   - **Positional Order Sensitivity**: Reversing candidate order in ContractNLI changed the winning candidate on 18 of 272 questions (6.6%) and shifted option probabilities by up to 0.2865. While reversed-order raw accuracy was 89.2%, balanced accuracy dropped to 67.0%.
   - **QASPER Answerability Deficit**: On QASPER (1 candidate option + `Z`), accuracy was 77.4% (41/53), falling short of the simple answerable-majority baseline (84.9%, 45/53); `Z` caught only 2/8 semantic-none cases (25.0% recall, 13.3% false-none).
   - **Model Promotion Rejected**: Option logits alone cannot replace the decision engine without calibrated semantic-none handling. No model, prompt, or threshold was promoted; final splits remained unopened (`final_opened: false`).
-* **Supporting Directory & Key Artifacts**:
-  - Local Directory: [`25_phase4e_b1_candidate_option_logit_results/candidate_option_logit_gate16_s17_v2/`](./25_phase4e_b1_candidate_option_logit_results/candidate_option_logit_gate16_s17_v2/)
-  - Key files: [`NONFINAL_EVALUATION.json`](./25_phase4e_b1_candidate_option_logit_results/candidate_option_logit_gate16_s17_v2/NONFINAL_EVALUATION.json), [`NONFINAL_RESULT_LOCK.json`](./25_phase4e_b1_candidate_option_logit_results/candidate_option_logit_gate16_s17_v2/NONFINAL_RESULT_LOCK.json), [`EXPERIMENT_CONTRACT.json`](./25_phase4e_b1_candidate_option_logit_results/candidate_option_logit_gate16_s17_v2/EXPERIMENT_CONTRACT.json), `NONFINAL_ROWS.parquet`.
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, non-final evaluations, and row parquets are archived on Google Drive.
+  - **Reproducibility**: Next-token candidate option readout evaluations and position checks can be regenerated by running [`25_phase4e_b1_candidate_option_logit_audit.ipynb`](./25_phase4e_b1_candidate_option_logit_audit.ipynb).
+  - **Key Output Files**: `NONFINAL_EVALUATION.json`, `NONFINAL_RESULT_LOCK.json`, `EXPERIMENT_CONTRACT.json`, `NONFINAL_ROWS.parquet`.
 
 ---
 
@@ -605,9 +629,10 @@ latency evidence and optimization promotion gates.
   - **Cross-Source Calibration Generalization Failure**: ContractNLI and QASPER selected completely discordant detectors (`joint_z` vs `max_support`) and operating thresholds (0.35 vs 0.25), proving that a unified calibrated decision head cannot transfer across diverse document structures without source-specific calibration.
   - **Post-Hoc Threshold Probes Disproved**: An unlocked, post-hoc lower-threshold test ($Z$ at 0.175) found 2/5 QASPER none cases but falsely rejected 9/41 answerable (22.0% false-none). Post-hoc diagnostics cannot substitute for pre-registered selection.
   - **Release Promotion Denied**: The sweep failed both the ContractNLI false-none guardrail and the QASPER rejection threshold. Final splits remain unopened (`final_opened: false`); benchmark source repair and independent adjudication remain the mandatory prerequisites.
-* **Supporting Directory & Key Artifacts**:
-  - Local Directory: [`26_phase4e_b2_candidate_ranking_sweep_results/candidate_detection_ranking_sweep_s17_n12_v1/`](./26_phase4e_b2_candidate_ranking_sweep_results/candidate_detection_ranking_sweep_s17_n12_v1/)
-  - Key files: [`DEVELOPMENT_SELECTION.json`](./26_phase4e_b2_candidate_ranking_sweep_results/candidate_detection_ranking_sweep_s17_n12_v1/DEVELOPMENT_SELECTION.json), [`NONFINAL_EVALUATION.json`](./26_phase4e_b2_candidate_ranking_sweep_results/candidate_detection_ranking_sweep_s17_n12_v1/NONFINAL_EVALUATION.json), [`NONFINAL_RESULT_LOCK.json`](./26_phase4e_b2_candidate_ranking_sweep_results/candidate_detection_ranking_sweep_s17_n12_v1/NONFINAL_RESULT_LOCK.json), [`EXPERIMENT_CONTRACT.json`](./26_phase4e_b2_candidate_ranking_sweep_results/candidate_detection_ranking_sweep_s17_n12_v1/EXPERIMENT_CONTRACT.json), `NONFINAL_ROWS.parquet`.
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, sweep logs, and selection manifests are archived on Google Drive.
+  - **Reproducibility**: Candidate ranking and semantic-none detection grid sweeps can be regenerated by running [`26_phase4e_b2_candidate_ranking_sweep.ipynb`](./26_phase4e_b2_candidate_ranking_sweep.ipynb).
+  - **Key Output Files**: `DEVELOPMENT_SELECTION.json`, `NONFINAL_EVALUATION.json`, `NONFINAL_RESULT_LOCK.json`, `EXPERIMENT_CONTRACT.json`, `NONFINAL_ROWS.parquet`.
 
 ---
 
@@ -736,10 +761,11 @@ latency evidence and optimization promotion gates.
   - **Interventions**: Skip last 1, 2, 4, or 6 MoE blocks; compare raw half-$k$ against probability-mass-rescaled half-$k$ (rescaling retained weights to match the native selected sum).
   - **Cache Diagnostics**: Independent branch storage, explicit position/attention masks, root state SHA-256 hashes, batch shape logging, and comparison against an on-demand FP32 linear reference over NF4 weights.
   - **Persistent Evidence**: Automated Google Drive sync with manifests, locks, predictions, diagnostics, and SHA-256 checksums.
-  - **Execution & Follow-up**: Implemented and executed in [`30_qwen_moe_quality_and_cache_followup.ipynb`](./30_qwen_moe_quality_and_cache_followup.ipynb) yielding follow-up run [`20260927T003918_481825Z`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z), detailed in Section 30 below.
-* **Supporting Directory & Key Artifacts**:
-  - Local Directory: [`29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z)
-  - Key files: [`manifest.json`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/manifest.json), [`comparison.csv`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/comparison.csv), [`arm_results.json`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/arm_results.json), [`routing_counts.json`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/routing_counts.json), [`observed_expert_work.csv`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/observed_expert_work.csv), [`readout_comparison.json`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/readout_comparison.json), [`shared_prefix_parity.json`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/shared_prefix_parity.json), [`length_study.json`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/length_study.json), [`suffix_policy.json`](./29_qwen_moe_decision_lab_results/runs/20260926T224132_613995Z/suffix_policy.json), `routing_heatmap.png`, `quality_latency.png`, `length_study.png`.
+  - **Execution & Follow-up**: Implemented and executed in [`30_qwen_moe_quality_and_cache_followup.ipynb`](./30_qwen_moe_quality_and_cache_followup.ipynb) yielding follow-up run `20260927T003918_481825Z`, detailed in Section 30 below.
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, comparison CSVs, and routing logs are archived on Google Drive.
+  - **Reproducibility**: Qwen MoE inference, routing heatmaps, and late MoE bypass experiments can be regenerated by running [`29_qwen_moe_decision_lab.ipynb`](./29_qwen_moe_decision_lab.ipynb).
+  - **Key Output Files**: `manifest.json`, `comparison.csv`, `arm_results.json`, `routing_counts.json`, `observed_expert_work.csv`, `readout_comparison.json`, `shared_prefix_parity.json`, `length_study.json`, `suffix_policy.json`, `routing_heatmap.png`, `quality_latency.png`, `length_study.png`.
 
 ---
 
@@ -748,10 +774,9 @@ latency evidence and optimization promotion gates.
 * **Run ID / Session**: `20260927T003918_481825Z` (Workbench v0.1, 27 September 2026; seed 73129; profile `qwen15_moe`, model `Qwen/Qwen1.5-MoE-A2.7B-Chat` at revision `ec052fda178e241c7c443468d2fa1db6618996be`, NF4 precision with BF16 compute, eager attention)
 * **Target HW**: GPU (NVIDIA L4, Linux 6.6.122+, Python 3.13.15, PyTorch 2.11.0+cu128, Transformers 4.57.1, bitsandbytes 0.48.1, CUDA 12.8; allocated 7.78 GiB / peak 7.82 GiB / reserved 10.55 GiB)
 * **Evidence & Provenance**:
-  - Primary inspected run: [Drive run `20260927T003918_481825Z`](https://drive.google.com/drive/folders/1gXwnF1sXhR5Yh4-7R2izDQ9TJXDl_Lf1) (22 raw source file hashes verified against SHA-256; final metrics recomputed directly from saved predictions; non-fatal `FutureWarning` audited and verified non-causal for gate failure).
-  - Local Run Directory: [`29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z)
-  - Prior Evidence Audit: [`prior_evidence/`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/prior_evidence) (SHA-256 `7168962d24ea477dc4ed078757d6339e910118fe01cc8a4ad3285e1d205dbbc5`)
-  - Fresh Dataset: [`fresh_decisions.jsonl`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/fresh_decisions.jsonl) (SHA-256 `59fabd2b2ae55553e136b2d636b645466591ac5ad5fc422f06ecdac7fcb4818d`)
+  - Archival Location: Primary inspected run archived on Google Drive: [Drive run `20260927T003918_481825Z`](https://drive.google.com/drive/folders/1gXwnF1sXhR5Yh4-7R2izDQ9TJXDl_Lf1) (22 raw source file hashes verified against SHA-256; final metrics recomputed directly from saved predictions).
+  - Prior Evidence Audit: `prior_evidence/` (SHA-256 `7168962d24ea477dc4ed078757d6339e910118fe01cc8a4ad3285e1d205dbbc5`)
+  - Fresh Dataset: `fresh_decisions.jsonl` (SHA-256 `59fabd2b2ae55553e136b2d636b645466591ac5ad5fc422f06ecdac7fcb4818d`)
   - Population: 252 authored teaching questions across 84 source states (balanced 1 Yes, 1 No, 1 Unknown per state).
   - Split sizes:
     - Prompt dev: 24 questions (8 states)
@@ -822,9 +847,10 @@ latency evidence and optimization promotion gates.
   - Realized outcome: `research_gate_passed = false`, `promotion_authorized = false`, `model_promoted = false`.
   - Confirms exploratory completion (`EXPLORATORY_COMPLETE`). No MoE checkpoint promoted to production or Jev runtime serving.
   - **Next Priorities**: Prioritize establishing a trustworthy three-way decision baseline and actual-route capture next. Keep late-layer skipping as an experimental candidate only; current findings do not support further pruning or making streaming the primary serving architecture.
-* **Supporting Directory & Key Artifacts**:
-  - Local Directory: [`29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z)
-  - Key files: [`RUN_SUMMARY.md`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/RUN_SUMMARY.md), [`manifest.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/manifest.json), [`summary.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/summary.json), [`final_results.csv`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/final_results.csv), [`final_results.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/final_results.json), [`development_results.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/development_results.json), [`prompt_development.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/prompt_development.json), [`prompt_lock.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/prompt_lock.json), [`selection_lock.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/selection_lock.json), [`cache_mode_summary.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/cache_mode_summary.json), [`cache_numerics.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/cache_numerics.json), [`option_order_diagnostic.json`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/option_order_diagnostic.json), [`expert_batch_shapes.csv`](./29_qwen_moe_decision_lab_results/runs/20260927T003918_481825Z/expert_batch_shapes.csv), `fresh_quality_and_coverage.png`, `cache_route_changes.png`.
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, receipts, and figures are archived on Google Drive ([Drive run `20260927T003918_481825Z`](https://drive.google.com/drive/folders/1gXwnF1sXhR5Yh4-7R2izDQ9TJXDl_Lf1)).
+  - **Reproducibility**: Intervention selections, calibration thresholds, and option-order diagnostics can be regenerated by running [`30_qwen_moe_quality_and_cache_followup.ipynb`](./30_qwen_moe_quality_and_cache_followup.ipynb).
+  - **Key Output Files**: `RUN_SUMMARY.md`, `manifest.json`, `summary.json`, `final_results.csv`, `final_results.json`, `development_results.json`, `prompt_development.json`, `prompt_lock.json`, `selection_lock.json`, `cache_mode_summary.json`, `cache_numerics.json`, `option_order_diagnostic.json`, `expert_batch_shapes.csv`, `fresh_quality_and_coverage.png`, `cache_route_changes.png`.
 
 ---
 
@@ -872,23 +898,10 @@ latency evidence and optimization promotion gates.
     - Test cache reuse with prefixes exceeding the observed block boundaries (528 and 1,056 tokens), confirming actual hits before measuring speed.
     - **Correction to Earlier Setup**: vLLM 0.30 documents batch-invariance support for compute capability 8.0+, including A100. The earlier $\ge 9.0$ guard was too restrictive. That setting deserves a controlled test, though this exact quantized model/backend still needs verification ([vLLM Batch Invariance](https://docs.vllm.ai/en/v0.30.0/features/batch_invariance/?utm_source=chatgpt.com)).
     - The completed accuracy results remain recorded observations. We can retain them and run a smaller cache/repeatability experiment rather than repeat the entire quality study.
-* **Supporting Directory & Key Artifacts**:
-  - Completed Run (Google Drive): [Completed Run `1LIKE7JSmEcO2fvrhf8Qx4_ZJfv-heGwD`](https://drive.google.com/drive/folders/1LIKE7JSmEcO2fvrhf8Qx4_ZJfv-heGwD)
-  - Local Directory: [`31_qwen_prefill_speed_accuracy_lab_results/`](./31_qwen_prefill_speed_accuracy_lab_results)
-  - Key files:
-    - [`RUN_SUMMARY.md`](./31_qwen_prefill_speed_accuracy_lab_results/RUN_SUMMARY.md)
-    - [`manifest.json`](./31_qwen_prefill_speed_accuracy_lab_results/manifest.json)
-    - [`summary.json`](./31_qwen_prefill_speed_accuracy_lab_results/summary.json)
-    - [`quality.csv`](./31_qwen_prefill_speed_accuracy_lab_results/quality.csv)
-    - [`performance.csv`](./31_qwen_prefill_speed_accuracy_lab_results/performance.csv)
-    - [`accuracy.png`](./31_qwen_prefill_speed_accuracy_lab_results/accuracy.png)
-    - [`quality_latency.png`](./31_qwen_prefill_speed_accuracy_lab_results/quality_latency.png)
-    - [`qwen35_4b_cache_qualification.json`](./31_qwen_prefill_speed_accuracy_lab_results/qwen35_4b_cache_qualification.json)
-    - [`qwen35_4b_server.log`](./31_qwen_prefill_speed_accuracy_lab_results/qwen35_4b_server.log)
-    - [`qwen35_moe_int4_cache_qualification.json`](./31_qwen_prefill_speed_accuracy_lab_results/qwen35_moe_int4_cache_qualification.json)
-    - [`qwen35_moe_int4_server.log`](./31_qwen_prefill_speed_accuracy_lab_results/qwen35_moe_int4_server.log)
-    - [`dataset.json`](./31_qwen_prefill_speed_accuracy_lab_results/dataset.json)
-    - [`SHA256SUMS`](./31_qwen_prefill_speed_accuracy_lab_results/SHA256SUMS)
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory and server logs are archived on Google Drive: [Completed Run `1LIKE7JSmEcO2fvrhf8Qx4_ZJfv-heGwD`](https://drive.google.com/drive/folders/1LIKE7JSmEcO2fvrhf8Qx4_ZJfv-heGwD).
+  - **Reproducibility**: Prefill speed benchmarks, cache qualification sweeps, and repeatability diagnostics can be regenerated by running [`31_qwen_prefill_speed_accuracy_lab.ipynb`](./31_qwen_prefill_speed_accuracy_lab.ipynb).
+  - **Key Output Files**: `RUN_SUMMARY.md`, `manifest.json`, `summary.json`, `quality.csv`, `performance.csv`, `accuracy.png`, `quality_latency.png`, `qwen35_4b_cache_qualification.json`, `qwen35_4b_server.log`, `qwen35_moe_int4_cache_qualification.json`, `qwen35_moe_int4_server.log`, `dataset.json`, `SHA256SUMS`.
 
 ---
 
@@ -938,24 +951,10 @@ latency evidence and optimization promotion gates.
   - **Research Governance Outcome**:
     - `model_promoted = false`, `cache_promoted = false`.
     - No model, probability policy, or cache path is promoted.
-* **Supporting Directory & Key Artifacts**:
-  - Local Directory: [`32_qwen_cache_and_native_decisions_lab_results/`](./32_qwen_cache_and_native_decisions_lab_results)
-  - Key files:
-    - [`RUN_SUMMARY.md`](./32_qwen_cache_and_native_decisions_lab_results/RUN_SUMMARY.md)
-    - [`manifest.json`](./32_qwen_cache_and_native_decisions_lab_results/manifest.json)
-    - [`summary.json`](./32_qwen_cache_and_native_decisions_lab_results/summary.json)
-    - [`repeatability.csv`](./32_qwen_cache_and_native_decisions_lab_results/repeatability.csv)
-    - [`cache_boundaries.csv`](./32_qwen_cache_and_native_decisions_lab_results/cache_boundaries.csv)
-    - [`vllm_replay_quality.csv`](./32_qwen_cache_and_native_decisions_lab_results/vllm_replay_quality.csv)
-    - [`vllm_vs_standard.csv`](./32_qwen_cache_and_native_decisions_lab_results/vllm_vs_standard.csv)
-    - [`runtime_memory.csv`](./32_qwen_cache_and_native_decisions_lab_results/runtime_memory.csv)
-    - [`errors.json`](./32_qwen_cache_and_native_decisions_lab_results/errors.json)
-    - [`llama_build_identity.json`](./32_qwen_cache_and_native_decisions_lab_results/llama_build_identity.json)
-    - [`llama_build.log`](./32_qwen_cache_and_native_decisions_lab_results/llama_build.log)
-    - [`repeatability.png`](./32_qwen_cache_and_native_decisions_lab_results/repeatability.png)
-    - [`cache_latency.png`](./32_qwen_cache_and_native_decisions_lab_results/cache_latency.png)
-    - [`dataset.json`](./32_qwen_cache_and_native_decisions_lab_results/dataset.json)
-    - [`SHA256SUMS`](./32_qwen_cache_and_native_decisions_lab_results/SHA256SUMS)
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, boundary logs, and repeatability CSVs are archived on Google Drive.
+  - **Reproducibility**: Microbatching repeatability, prefix boundary sweeps, and native llama.cpp builds can be regenerated by running [`32_qwen_cache_and_native_decisions_lab.ipynb`](./32_qwen_cache_and_native_decisions_lab.ipynb).
+  - **Key Output Files**: `RUN_SUMMARY.md`, `manifest.json`, `summary.json`, `repeatability.csv`, `cache_boundaries.csv`, `vllm_replay_quality.csv`, `vllm_vs_standard.csv`, `runtime_memory.csv`, `errors.json`, `llama_build_identity.json`, `llama_build.log`, `repeatability.png`, `cache_latency.png`, `dataset.json`, `SHA256SUMS`.
 
 ---
 
@@ -985,19 +984,10 @@ latency evidence and optimization promotion gates.
   - **Request History & State Leakage**:
     - Isolated native calls and noop interventions passed with $\Delta p = 0.0$.
     - However, interleaved JSON generation and tight sequence reservations (3 sequences with 4 contexts) introduced minor drift ($\Delta p \le 0.0040$), signaling that process state and memory layout can subtly interact with continuation state.
-* **Supporting Directory & Key Artifacts**:
-  - Local Directory: [`20260927T192845_426758Z/`](./20260927T192845_426758Z)
-  - Key files:
-    - [`REPORT.md`](./20260927T192845_426758Z/REPORT.md)
-    - [`manifest.json`](./20260927T192845_426758Z/manifest.json)
-    - [`setup.json`](./20260927T192845_426758Z/setup.json)
-    - [`quality_summary.csv`](./20260927T192845_426758Z/quality_summary.csv)
-    - [`cache_summary.csv`](./20260927T192845_426758Z/cache_summary.csv)
-    - [`history_summary.csv`](./20260927T192845_426758Z/history_summary.csv)
-    - [`measurement_gates.json`](./20260927T192845_426758Z/measurement_gates.json)
-    - [`quality_latency.png`](./20260927T192845_426758Z/quality_latency.png)
-    - [`cache_timings.png`](./20260927T192845_426758Z/cache_timings.png)
-    - [`history_drift.png`](./20260927T192845_426758Z/history_drift.png)
+* **Evidence & Artifacts**:
+  - **Archival Location**: Complete raw run directory, receipts, and charts are archived on Google Drive: [Drive run `20260927T192845_426758Z`](https://drive.google.com/drive/folders/1N8fq_wSct874PWi-VPwuGWAKiYL39xUM).
+  - **Reproducibility**: Single-token readout codes, deterministic rule composition, and request history evaluations can be regenerated by running [`33_qwen_readout_rules_history_lab.ipynb`](./33_qwen_readout_rules_history_lab.ipynb).
+  - **Key Output Files**: `REPORT.md`, `manifest.json`, `setup.json`, `quality_summary.csv`, `cache_summary.csv`, `history_summary.csv`, `measurement_gates.json`, `quality_latency.png`, `cache_timings.png`, `history_drift.png`.
 
 ---
 
@@ -1183,6 +1173,143 @@ latency evidence and optimization promotion gates.
 
 ---
 
+### 37. OpenKind T4 Integrated Research: Useful Integrations, Exact Cache Savings, and an Unfinished Classifier Comparison
+* **File**: [`37_openkind_t4_integrated_research_lab.ipynb`](./37_openkind_t4_integrated_research_lab.ipynb)
+* **Run ID**: `20261001T105345_828556Z_6e6d92`
+* **Protocol**: `openkind-t4-integrated-research/v4.0.0`
+* **Run Date**: 1 October 2026
+* **Target Hardware & Environment**:
+  - NVIDIA Tesla T4 16GB (15.0 GiB reported VRAM, CUDA runtime, native engine with Qwen3.5-9B publisher Q4_K_M and Qwen3.5-4B publisher Q4_K_M, 34/34 layers offloaded).
+  - CPU: Local Python runtime / scikit-learn / TF-IDF logistic regression baseline.
+* **Evaluated Models**: Qwen3.5-9B Q4_K_M (primary native decoder); Qwen3.5-4B Q4_K_M (matched deployment profile comparator); TF-IDF + Logistic Regression (cheap baseline). *Note: BERT, ModernBERT, DeBERTa, GLiClass, and Indecis shared-build remained unmeasured due to an identity-unsafe log-copy failure in setup.*
+* **Status & Disposition**: **`PARTIAL`** (Completion marker absent; 45 executed stages, 12 blocked, 2 failed; 41 experiment blocks with verified receipts; no model or service promoted).
+* **What it Measured / Scope**:
+  - Timed execution and whole-request correctness of integrated readouts: selective indexing + deterministic routing-priority composition (Arm XR) and a narrowly joint route/urgency readout (Arm NJ).
+  - Multi-catalogue host snapshot caching for grouped requests (Arm G and GR) evaluating steady reuse, cold startup, and host RAM retention.
+  - Dedicated-process history isolation extended directly to integrated readouts (X, XR, NJ) under 1-context and 4-context traces.
+  - Deployment profile model size comparison: Qwen3.5-4B Q4_K_M vs Qwen3.5-9B Q4_K_M on fresh policy confirmation and 192-case SNLI.
+  - Batching diagnostics on Arm X across batch sizes 1, 2, and 4.
+  - Prompt schema sensitivity (4 transformations across 12 development cases) and dynamic Choice behavioral probes (runtime policy changes, ordinal rubrics, candidate omission/capacity traps, option interaction, sibling visibility, evidence position).
+  - Calibration transfer and empirical action/review policies under asymmetric loss costs.
+  - Bookkeeping failure root-cause analysis for blocked encoder / classifier stages.
+
+* **Stage-by-Stage Findings & Audit Results**:
+
+  #### 1. Complete 9B Request Comparison on Fresh Confirmation (192 fact groups × 2 technical repeats)
+  | Profile | Field Accuracy (%) | All Six Correct (%) | p50 Request (ms) | p95 Request (ms) | Available Field Distributions / 6 |
+  |---|---|---|---|---|---|
+  | **9B:NJ:control** | 94.010% | 79.688% | 228.309 | 240.683 | 6 / 6 |
+  | **9B:D:control** | 79.688% | 22.396% | 325.922 | 349.839 | 6 / 6 |
+  | **9B:XR:control** | 95.399% | 84.375% | 242.983 | 256.648 | 5 / 6 |
+  | **9B:GR:multicache** | 94.010% | 79.167% | 690.162 | 727.937 | 5 / 6 |
+  | **9B:X:control** | 87.500% | 44.271% | 243.291 | 257.087 | 6 / 6 |
+  | **9B:E:control** | 87.240% | 46.354% | 3,634.013 | 3,689.855 | 0 / 6 |
+  | **9B:G:multicache** | 88.542% | 53.125% | 691.222 | 728.557 | 6 / 6 |
+
+  *Timings reflect the full implemented request including subcalls, host rules, and serialization (excluding server startup and evidence writing). Missing NLL/Brier in XR/GR is intentional due to withheld route distribution; Arm E outputs point JSON only.*
+
+  - **Selective Indexing + Routing Composition (Arm XR)**: Relative to Arm X, XR increases field accuracy by **+7.90 pp** (95% CI: [6.77, 9.11]) and whole-request correctness by **+40.10 pp** (95% CI: [33.33, 47.40]), reaching 162/192 all-six-correct requests (vs X's 85/192 and JSON's 89/192). Median latency remains virtually identical to X (242.98 ms vs 243.29 ms) and is **~14.96x faster than JSON** (3,634.01 ms). Saved-output analysis confirms 91 routing corrections and 0 routing harms, with all other fields completely preserved.
+  - **Narrowly Joint Readout (Arm NJ)**: Replaces route and urgency with an explicit joint categorical source, calibrating the joint distribution before deriving marginal probabilities. Achieves **94.01% field accuracy** and **79.69% all-six correctness** (153/192) at **228.31 ms median** (~6.2% faster than X). All six marginal distributions are mathematically valid, though individual marginals do not yield a joint whole-request correctness probability.
+  - **XR vs NJ Trade-off**: XR provides superior discrete accuracy (84.38% vs 79.69% all-six) but withholds route distribution; NJ provides full exact marginal distributions across all 6 fields with competitive accuracy.
+
+  #### 2. Actionable Semantic Error Analysis
+  - On new policy confirmation, XR achieves 100% accuracy on route and urgency across all 192 cases.
+  - The 30 failing requests comprise three disjoint clusters:
+    1. **23 Eligibility Errors** (and corresponding derived action errors): In all 23 cases, the model predicts `undetermined` instead of `ineligible` (leading to action `request missing information` instead of `deny access`). Every single case features unrecorded certification (`certified: null`) alongside a known failing points score ($< 70$). Under the contract, eligibility requires `certified == true AND points >= 70`; a known failing condition conclusively establishes ineligibility regardless of missing fields.
+    2. **4 Case-State Errors**: The model selects `closed` instead of `open`.
+    3. **3 Retry-Cap Errors**: The model outputs `1` instead of the capped value `3`.
+  - NJ replicates the identical 23 eligibility errors, isolating partial-information logic, event recency, and numerical capping as targeted focal points for subsequent prompt/logic refinement.
+
+  #### 3. Multi-Catalogue Snapshot Caching & Batching Diagnostics
+  - **Dedicated Cache Experiment (96 Paired Inferences)**: Tested 24 cases twice across Arm G (48 requests) and Arm GR (48 requests). Control and multicache arms exhibited **zero observed probability drift ($\Delta p = 0.0$)** and identical discrete decisions across all 96 pairs.
+  - **Cache Hit Dynamics & Amortization**:
+    - First grouped request misses all 3 catalogues; subsequent 47 requests achieve **141 hit subrequests** (control records 0 hits).
+    - Maximum retained snapshot payload in host RAM: **178,865,396 bytes (~170.6 MiB)**.
+
+    | Dedicated Trace | Control First Request | Multicache First Request | Control Steady Median | Multicache Steady Median | Steady Speedup |
+    |---|---|---|---|---|---|
+    | **Arm G** | 1,480.12 ms | 1,512.98 ms | 1,440.76 ms | 586.27 ms | **2.46x** |
+    | **Arm GR** | 1,482.45 ms | 1,561.74 ms | 1,432.09 ms | 605.52 ms | **2.36x** |
+
+    - On full confirmation, G drops from 1,511.22 ms to 691.22 ms and GR drops from 1,511.75 ms to 690.16 ms (**~54% latency reduction / ~2.19x speedup**).
+  - **Batching Diagnostic on Arm X**: Comparing batches of 1, 2, and 4 contexts on 12 cases (36 total items) over 8 reserved sequence slots:
+    - Batch 1: 36 requests, median 212.04 ms, **4.749 items/sec**.
+    - Batch 2: 18 requests, median 440.83 ms, **4.528 items/sec**.
+    - Batch 4: 9 requests, median 891.13 ms, **4.477 items/sec**.
+    - All 108 comparisons passed with $\Delta p = 0.0$, but larger batches showed slightly lower throughput on this short-context workload.
+
+  #### 4. Model Size Deployment Comparison (4B vs 9B Q4_K_M on T4)
+  | Readout / Task | 4B Accuracy (Field / All-Six) | 9B Accuracy (Field / All-Six) | 4B Median (ms) | 9B Median (ms) |
+  |---|---|---|---|---|
+  | **Policy: Arm X** | 79.60% / 25.52% | 87.50% / 44.27% | 150.09 ms | 243.29 ms |
+  | **Policy: Arm XR** | 86.20% / 49.48% | 95.40% / 84.38% | 153.68 ms | 242.98 ms |
+  | **Policy: Arm NJ** | 83.94% / 52.60% | 94.01% / 79.69% | 145.88 ms | 228.31 ms |
+  | **SNLI Confirmation** | 90.63% (174/192) | 86.98% (167/192) | 98.47 ms | 168.21 ms |
+
+  - On policy formulations, 9B buys a massive gain in whole-request correctness (+34.90 pp on XR, +27.09 pp on NJ).
+  - On SNLI sentence-pair NLI, 4B is faster and scores higher (+3.65 pp, 95% CI: [-0.52, +7.81]). Model suitability is strictly task-dependent.
+
+  #### 5. Dedicated-Process Serving Isolation for Integrated Readouts
+  - All 6 mixed-process controls failed history checks; all 6 native-only controls and 6 dedicated-process treatments **passed exact parity ($\Delta p = 0.0$)** for X, XR, and NJ across 1-context and 4-context traces.
+  - Mixed-process 4-context failures exhibited significant drift:
+    - Arm X: $\max \Delta p = 0.113938$ (6 fixed diagnostic-policy flips).
+    - Arm XR: $\max \Delta p = 0.113938$ (route distribution withheld).
+    - Arm NJ: $\max \Delta p = 0.073574$ (4 discrete field flips, 1 policy flip).
+  - Dedicated-process trace execution times ranged from 78 to 91 s, comparable to mixed-process times (73 to 99 s).
+
+  #### 6. Schema Sensitivity and Dynamic Choice Probes
+  - **Schema Sensitivity**: All 48 schema comparisons failed strict invariance gates. Maximum observed probability shifts:
+    - Code remapping: $\max \Delta p = 0.871611$ (9 field flips).
+    - Visible key renaming: $\max \Delta p = 0.513453$ (3 field flips).
+    - Natural option reordering: $\max \Delta p = 0.235829$ (4 field flips).
+    - Unrelated question addition: $\max \Delta p = 0.168059$ (0 field flips, 1 policy threshold flip).
+  - **Dynamic Choice Probes**:
+    - Runtime policy thresholds: 48/48 correct.
+    - Ordinal rubric: 24/24 correct (4 unique payloads).
+    - Candidate omission: 37/40 correct (1 error at K=16, 2 errors at K=32 where plan numeric IDs resemble required capacity despite differing textual descriptions).
+    - Option interaction: 24/24 correct (4 unique payloads).
+    - Sibling visibility: 36/36 correct (5 unique payloads).
+    - Evidence position: 32/32 correct (8 unique payloads).
+
+  #### 7. Probability Scores and Decision Automation Policies
+  - **Calibration Impact**:
+    - 9B D: raw NLL 0.819 $\to$ cal 0.438; raw Brier 0.356 $\to$ cal 0.265 (improved).
+    - 9B X: raw NLL 0.353 $\to$ cal 0.294; raw Brier 0.198 $\to$ cal 0.168 (improved).
+    - 9B NJ: raw NLL 0.207 $\to$ cal 0.170; raw Brier 0.107 $\to$ cal 0.087 (improved).
+    - 9B G: raw NLL 0.270 $\to$ cal 0.291; raw Brier 0.164 $\to$ cal 0.178 (worsened).
+    - 9B NLI: raw NLL 0.410 $\to$ cal 0.411; raw Brier 0.199 $\to$ cal 0.198.
+    - 4B NLI: raw NLL 0.362 $\to$ cal 0.405; raw Brier 0.179 $\to$ cal 0.167.
+  - **Empirical Action/Review Policies** (stipulated losses: wrong=5, review=0.1, correct=0; baseline review-all costs 0.1000):
+    - Arms D, X, 4B X, lexical: 0% coverage (mean cost 0.1000).
+    - Arm G: 44/192 accepted (4 wrong), 22.92% coverage, mean cost 0.18125 (worse than review-all).
+    - 9B NLI: 80/192 accepted (0 wrong), 41.67% coverage, mean cost **0.05833** (beats review-all).
+    - 4B NLI: 103/192 accepted (2 wrong), 53.65% coverage, mean cost 0.09844.
+    - NJ recorded `NOT_MEASURED_JOINT_POLICY_NOT_IMPLEMENTED`; XR/GR lack the required route distribution.
+
+  #### 8. Classifier Comparison Diagnostic & Bookkeeping Failure
+  - The encoder evaluation suite was blocked due to a Python exception in the runner: `run_logged.publish()` unconditionally called `shutil.copyfile` to copy its execution log into the run directory even when the log already resided at the destination path, raising `SameFileError`.
+  - The owned subprocesses terminated with return code -15 after ~0.018–0.037 s with empty logs. BERT, ModernBERT, DeBERTa, GLiClass, and Indecis shared-build were not evaluated; this was an execution harness bookkeeping defect rather than a GPU memory or model quality failure.
+  - **TF-IDF + Logistic Regression Baseline**: Reached 95.05% field acc / 76.56% all-six on development, but dropped to 74.83% field acc / 31.77% all-six on fresh confirmation at 2.41 ms median (SNLI acc 37.5%), illustrating sharp out-of-distribution transfer degradation for simple bag-of-words classifiers.
+
+  #### 9. Status of Outstanding Questions
+  - **OQ-01 (X + Routing Composition)**: XR timed on fresh confirmation; confirms 84.38% all-six correctness (+40.1 pp over X) at 242.98 ms; route probability distribution remains withheld.
+  - **OQ-02 (Narrowly Joint Source)**: NJ provides exact marginals and 79.69% all-six correctness at 228.31 ms; joint action/review policy not yet implemented.
+  - **OQ-03 (Multi-Catalogue Caching)**: Grouped latency cut by ~54% (2.19x speedup) with bitwise output parity ($\Delta p = 0.0$); eviction, TTL, and concurrent readers remain unmeasured.
+  - **OQ-05 (Readout History Isolation)**: Dedicated processes pass exact parity for X, XR, and NJ; mixed process drift confirmed across all readouts.
+  - **OQ-14 (Matched Size Comparison)**: 9B is decisively superior on structured policy decisions; 4B is faster and slightly more accurate on short-premise NLI.
+  - **OQ-09–11, OQ-12 (Stronger Classifiers & Indecis Reuse)**: Blocked by setup logging exception; requires harness repair and separate execution.
+  - **OQ-17–23 (Semantic Scope & Probes)**: High accuracy on small probes; candidate omission reveals capacity/ID confusion; prompt schema sensitivity persists.
+  - **OQ-33–39 (Probability & Policy Utility)**: Profile-specific calibration outcomes; completed joint policy implementation remains outstanding.
+
+* **Supporting Review Artifacts**:
+  - Run Key: `930195a6d0a3ff83a617822fde813eae5e4a83f80a64eda9d20d8eb830b3e658`
+  - Archive SHA256: `f0cfde45b65efd1716220d5860695cb1a1122c03863ce6155c914c569569eac3`
+  - Completion Marker: Absent (`PARTIAL`)
+  - Primary References: R1 (`REPORT.md`, `RUN_STATUS.json`, `summary.json`, `manifest.json`), R2 (Quality/NLI block results), R3 (`paired_comparisons.json`), R4 (`cache_gate_*`, `multicache_summary.csv`), R5 (`history_*`, `isolation_summary.csv`), R6 (`dynamic_9B`, `schema_9B`, `shape_X`), R7 (`u4_native.py`, `u4_data.py`, `u4_models.py`), R8 (`errors_this_session.json`, command receipts), R9 (`calibration_results.json`, `policies.json`).
+  - Read-Only Verification: `python reconcile_u4.py <evidence> <review>`, `python analyze_u4_details.py <evidence> <review>`, `python analyze_u4_error_clusters.py <evidence> <review>`.
+
+---
+
 ## Key Scientific Insights & Architectural Invariants
 
 1. **Strict FP32 Reference Boundary**:
@@ -1256,3 +1383,15 @@ latency evidence and optimization promotion gates.
     Fast CPU fixed heads (Indecis) learn fixed schemas with low latency (~46 ms) but suffer severe transfer degradation on fresh rendering templates (dropping from 91.15% dev to 69.10% fresh field accuracy; SNLI at 39.58% vs Qwen's 92.71%). Replay continuations fail to preserve or transfer capabilities (confidence intervals spanning zero). High speed cannot substitute for representational capacity on out-of-distribution prompts.
 34. **Calibration Gate Acceptance Does Not Guarantee Transfer Generalization**:
     Post-hoc temperature scaling accepted on held-out calibration-gate data can severely degrade proper scoring rules on fresh distribution transfer (e.g. Indecis fixed-head fresh-policy NLL doubling from 0.674 to 1.328). Calibration must be evaluated separately by task and rendering family rather than pooled into a single scalar gate.
+35. **Timed Selective Indexing with Routing Composition (Arm XR)**:
+    Surgically indexing high-cardinality fields (route and case state) combined with deterministic host-side routing-priority composition (Arm XR) delivers **95.40% field accuracy** and **84.38% all-six correctness** on fresh policy confirmation (gaining +40.10 pp whole-request correctness over raw selective indexing Arm X) with zero latency penalty (242.98 ms median). XR is ~14.96x faster than generated JSON (3,634.01 ms) while achieving 91 routing corrections and 0 routing harms.
+36. **Narrowly Joint Categorical Readout (Arm NJ) and Marginal Probability Consistency**:
+    Predicting a joint categorical source over interdependent fields (e.g. 4-way base route and urgency) and pushing forward to derived marginals yields exact field probability distributions (all 6 fields available) while avoiding naive independent-field assumptions. Arm NJ achieves 94.01% field accuracy and 79.69% all-six correctness at 228.31 ms median (~6.2% faster than X), offering an attractive operating point when downstream consumers demand calibrated probability distributions.
+37. **Multi-Catalogue Host-RAM Snapshot Caching for Grouped Readouts**:
+    Retaining compiled sequence snapshot payloads in host RAM across disparate catalogues (~170.6 MiB for 3 catalogues) eliminates cold-state recomputation in alternating grouped requests. Steady-state grouped request latency drops by ~54% (from 1,511 ms to 690 ms, a ~2.19x speedup) with bitwise identical probability vectors and zero discrete decision flips across 96 paired evaluations.
+38. **Throughput Inefficiency of Dynamic Batching on Commodity GPUs for Short Sequences**:
+    For short-context decision requests on commodity GPUs (Tesla T4), increasing batch size from 1 to 2 and 4 contexts maintains numerical parity ($\Delta p = 0.0$) but slightly degrades overall throughput (falling from 4.75 items/sec at batch 1 to 4.48 items/sec at batch 4). Without large batch queues or long shared prefill amortization, serial execution achieves superior latency and equivalent aggregate throughput.
+39. **Dedicated-Process Isolation Across Diverse Readout Topologies**:
+    The necessity and effectiveness of separate resident processes for native decision serving and autoregressive text/JSON generation extends to all evaluated readout topologies (X, XR, and NJ). While mixed-process execution introduces severe probability drift (up to $\Delta p = 0.114$, flipping discrete decisions and policy thresholds), dedicated resident processes achieve bitwise exact history invariance ($\Delta p = 0.0$) across both 1-context and 4-context workloads with negligible trace overhead (~4%–6%).
+40. **Partial-Information Semantic Logic Failures in Natural Decision Boundaries**:
+    Models can exhibit highly localized, systematic semantic failures when evaluating partial-information rules: across 192 fresh policy cases, 100% of eligibility errors (23/23) occurred when a required certification field was unrecorded while a separate numeric points score was conclusively failing ($< 70$). Rather than correctly concluding ineligibility under a conjunctive contract ($A \land B$), the model retreated to `undetermined` whenever any field was missing. Diagnostic error clustering localizes the intervention to partial-information rule framing rather than general model capacity tournaments.

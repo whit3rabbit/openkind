@@ -34,6 +34,9 @@
 mod engine;
 #[doc(hidden)]
 pub mod model;
+#[cfg(feature = "onnx")]
+#[doc(hidden)]
+pub mod onnx;
 #[doc(hidden)]
 pub mod renderer;
 

@@ -12,18 +12,14 @@ impl TaskEngine {
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|duration| duration.as_nanos() as u64)
                 .unwrap_or(0);
-        self.request_rng = Some(fastrand::Rng::with_seed(seed));
+        self.request_split_draw = Some(fastrand::Rng::with_seed(seed).f64());
     }
 
     pub(super) fn split_for(&mut self, channel: Channel) -> &'static str {
         if !channel.is_iid() {
             return "train";
         }
-        let draw = self
-            .request_rng
-            .as_mut()
-            .map(|rng| rng.f64())
-            .unwrap_or_else(|| self.rng.f64());
+        let draw = self.request_split_draw.unwrap_or_else(|| self.rng.f64());
         if draw < self.config.calib_fraction {
             "calib"
         } else {

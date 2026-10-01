@@ -116,7 +116,12 @@ fn cases() -> Vec<Case> {
         choice_case(
             "owner-a",
             "Fictional incident record. The owner of record is the platform team. These statements are the full evidence record; do not infer missing facts.",
-            &["security team", "platform team", "external vendor", "data team"],
+            &[
+                "security team",
+                "platform team",
+                "external vendor",
+                "data team",
+            ],
             1,
         ),
         choice_case(
@@ -253,8 +258,12 @@ fn fit_temperature(per_case: &[FittedCase]) -> f64 {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut model_root = PathBuf::from(std::env::var("HOME").unwrap_or_default())
-        .join(".cache/openkind/gliclass-modern-base-v3.0");
+    let mut model_root = PathBuf::from(
+        std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
+            .unwrap_or_default(),
+    )
+    .join(".cache/openkind/gliclass-modern-base-v3.0");
     let mut fit = false;
     let mut output: Option<PathBuf> = None;
     let mut args = std::env::args().skip(1);
@@ -275,7 +284,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     let artifacts = VerifiedArtifacts::verify(&model_root)?;
     let renderer = EncoderInstructLabelRenderer::load(&artifacts.tokenizer)?;
-    let model = EncoderInstructLabelModel::load(&artifacts)?;
+    let model = EncoderInstructLabelModel::load(&artifacts, candle_core::Device::Cpu)?;
     let engine = EncoderInstructLabelEngine::load(EncoderInstructLabelEngineConfig {
         model_root: model_root.clone(),
         limits,

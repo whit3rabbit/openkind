@@ -144,8 +144,8 @@ pub struct TaskEngine {
     pub(super) audit_window: VecDeque<AuditObservation>,
     pub(super) audit_since_check: usize,
 
-    // Per-request split draw state (a seeded RNG re-seeded per request).
-    pub(super) request_rng: Option<fastrand::Rng>,
+    // All IID observations in one request share this split draw.
+    pub(super) request_split_draw: Option<f64>,
 }
 
 /// Extra visibility for tests and status endpoints.

@@ -99,6 +99,8 @@ jobs:
             target: x86_64-apple-darwin
           - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -117,26 +119,37 @@ jobs:
       - name: Build release binaries
         run: cargo build --release --locked --target ${{ matrix.target }} --bin openkind --bin openkindd
 
-      - name: Package tarball and checksum
+      - name: Package archive and checksum
         shell: bash
         run: |
           set -euo pipefail
           tag="${RELEASE_TAG}"
           ver="${tag#v}"
           name="openkind-${ver}-${{ matrix.target }}"
+          bin_dir="target/${{ matrix.target }}/release"
 
-          tar -C "target/${{ matrix.target }}/release" -czf "${name}.tar.gz" openkind openkindd
+          # Windows archives are zips holding the .exe binaries; every other
+          # target ships a tarball.
+          if [[ "${{ matrix.target }}" == x86_64-pc-windows-msvc ]]; then
+            powershell -NoProfile -Command \
+              "Compress-Archive -Path '${bin_dir}/openkind.exe','${bin_dir}/openkindd.exe' -DestinationPath '${name}.zip' -Force"
+            asset="${name}.zip"
+          else
+            tar -C "$bin_dir" -czf "${name}.tar.gz" openkind openkindd
+            asset="${name}.tar.gz"
+          fi
+          checksum="${asset}.sha256"
 
           if command -v sha256sum >/dev/null 2>&1; then
-            sha256sum "${name}.tar.gz" > "${name}.tar.gz.sha256"
+            sha256sum "${asset}" > "${checksum}"
           else
-            shasum -a 256 "${name}.tar.gz" > "${name}.tar.gz.sha256"
+            shasum -a 256 "${asset}" > "${checksum}"
           fi
 
           {
             echo "RELEASE_TAG=${tag}"
-            echo "ASSET=${name}.tar.gz"
-            echo "CHECKSUM=${name}.tar.gz.sha256"
+            echo "ASSET=${asset}"
+            echo "CHECKSUM=${checksum}"
           } >> "$GITHUB_ENV"
 
       - name: Attest build provenance

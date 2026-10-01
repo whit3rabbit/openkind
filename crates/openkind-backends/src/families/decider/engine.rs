@@ -24,6 +24,7 @@ struct Inner {
     profile: &'static DeciderProfile,
     renderer: DeciderRenderer,
     model: DeciderModel,
+    backend_id: String,
 }
 
 /// One scoring row of a planned question: the rendered prompt, the number of
@@ -275,15 +276,54 @@ impl DeciderEngine {
     ///
     /// The returned adapter implements [`DecisionEngine`] and carries
     /// admission, queue, deadline, and cancellation control.
+    /// Load every pinned artifact offline and build the bounded engine on
+    /// the CPU reference backend.
     pub fn load(config: DeciderEngineConfig) -> Result<BoundedFamilyEngine, DeciderError> {
+        Self::load_with_execution(config, crate::device::FamilyExecution::Cpu)
+    }
+
+    /// Load the engine on the selected execution backend.
+    ///
+    /// The slot-logit readout runs on the Qwen3.5 hybrid backbone, which has
+    /// no ONNX export; accelerated loads require the `cuda` feature.
+    pub fn load_with_execution(
+        config: DeciderEngineConfig,
+        execution: crate::device::FamilyExecution,
+    ) -> Result<BoundedFamilyEngine, DeciderError> {
         let artifacts = VerifiedArtifacts::verify(&config.model_root, config.profile)?;
         let renderer = DeciderRenderer::load(&artifacts.tokenizer, config.profile)?;
+        let backend_id: String = match execution {
+            crate::device::FamilyExecution::Cpu => config.profile.cpu_backend_id.to_owned(),
+            #[cfg(feature = "cuda")]
+            crate::device::FamilyExecution::Cuda { .. } => {
+                let device = execution.candle_device()?;
+                let model = DeciderModel::load_with_device(&artifacts, device)?;
+                let engine = Self {
+                    inner: Arc::new(Inner {
+                        profile: config.profile,
+                        renderer,
+                        model,
+                        backend_id: config.profile.cuda_backend_id.to_owned(),
+                    }),
+                };
+                return Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits));
+            }
+            #[cfg(feature = "onnx")]
+            crate::device::FamilyExecution::Onnx { .. } => {
+                return Err(crate::families::support::FamilyError::ExecutionUnavailable(
+                    "the decider slot-logit readout runs on the Qwen3.5 hybrid backbone,                      which has no ONNX export; select cpu or (with the `cuda` feature) cuda"
+                        .to_owned(),
+                )
+                .into());
+            }
+        };
         let model = DeciderModel::load(&artifacts)?;
         let engine = Self {
             inner: Arc::new(Inner {
                 profile: config.profile,
                 renderer,
                 model,
+                backend_id,
             }),
         };
         Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))
@@ -292,15 +332,17 @@ impl DeciderEngine {
 
 impl FamilyEvaluator for DeciderEngine {
     fn backend_id(&self) -> &str {
-        self.inner.profile.cpu_backend_id
+        &self.inner.backend_id
     }
 
     fn model_metadata(&self) -> ModelInfo {
         ModelInfo {
             name: String::new(),
             description: format!(
-                "Pinned {} slot-logit decision engine ({}, FP32 CPU).",
-                self.inner.profile.backbone_id, self.inner.profile.profile_id
+                "Pinned {} slot-logit decision engine ({}, {}).",
+                self.inner.profile.backbone_id,
+                self.inner.profile.profile_id,
+                self.inner.backend_id
             ),
             release_date: self.inner.profile.release_date.into(),
         }

@@ -12,6 +12,8 @@
 
 #![warn(missing_docs)]
 
+/// Hardware accelerator discovery (CPU, CUDA via NVML, Apple Silicon Metal).
+pub mod accelerators;
 /// Backend-neutral branchable continuation-state contracts.
 pub mod branch;
 /// Typed digests over finalized execution-input token sequences.
@@ -25,6 +27,7 @@ pub mod hardware;
 /// Process-memory observations for admission calibration.
 pub mod memory;
 
+pub use accelerators::{detect_accelerators, Accelerator};
 pub use digest::{
     CandidateTokenDigest, ExecutionInputDigest, QuestionTokenDigest, SemanticSetDigest,
     StateTokenDigest,
@@ -107,8 +110,17 @@ impl Default for RuntimeConfig {
 }
 
 /// Detect available acceleration devices on the current host.
+///
+/// CUDA devices are enumerated through the NVIDIA Management Library when the
+/// driver is loadable; see [`detect_accelerators`] for names and memory.
+#[must_use]
 pub fn detect_available_devices() -> Vec<DeviceType> {
     let mut devices = vec![DeviceType::Cpu];
+    devices.extend(
+        accelerators::cuda_accelerators()
+            .into_iter()
+            .map(|accelerator| accelerator.device),
+    );
 
     #[cfg(target_os = "macos")]
     {

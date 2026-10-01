@@ -26,6 +26,7 @@ struct Inner {
     profile: &'static Qwen35LogitProfile,
     renderer: super::renderer::Jevk5Renderer,
     model: Jevk5Model,
+    backend_id: String,
 }
 
 impl Jevk5PassSource for Inner {
@@ -127,17 +128,54 @@ impl DecoderLogitQwen35Engine {
     pub fn load(
         config: DecoderLogitQwen35EngineConfig,
     ) -> Result<BoundedFamilyEngine, DecoderLogitQwen35Error> {
+        Self::load_with_execution(config, crate::device::FamilyExecution::Cpu)
+    }
+
+    /// Load the engine on the selected execution backend.
+    ///
+    /// The letter-logit readout runs on the Qwen3.5 hybrid backbone, which
+    /// has no ONNX export; accelerated loads require the `cuda` feature.
+    pub fn load_with_execution(
+        config: DecoderLogitQwen35EngineConfig,
+        execution: crate::device::FamilyExecution,
+    ) -> Result<BoundedFamilyEngine, DecoderLogitQwen35Error> {
         let artifacts = VerifiedArtifacts::verify(&config.model_root, config.profile)?;
         let renderer = super::renderer::Jevk5Renderer::load(
             &artifacts.tokenizer,
             config.profile.max_sequence_tokens,
         )?;
+        let backend_id = match execution {
+            crate::device::FamilyExecution::Cpu => config.profile.cpu_backend_id.to_owned(),
+            #[cfg(feature = "cuda")]
+            crate::device::FamilyExecution::Cuda { .. } => {
+                let device = execution.candle_device()?;
+                let model = Jevk5Model::load_with_device(&artifacts, device)?;
+                let engine = Self {
+                    inner: Arc::new(Inner {
+                        profile: config.profile,
+                        renderer,
+                        model,
+                        backend_id: config.profile.cuda_backend_id.to_owned(),
+                    }),
+                };
+                return Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits));
+            }
+            #[cfg(feature = "onnx")]
+            crate::device::FamilyExecution::Onnx { .. } => {
+                return Err(FamilyError::ExecutionUnavailable(
+                    "the letter-logit readout runs on the Qwen3.5 hybrid backbone,                      which has no ONNX export; select cpu or (with the `cuda` feature) cuda"
+                        .to_owned(),
+                )
+                .into());
+            }
+        };
         let model = Jevk5Model::load(&artifacts)?;
         let engine = Self {
             inner: Arc::new(Inner {
                 profile: config.profile,
                 renderer,
                 model,
+                backend_id,
             }),
         };
         Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))
@@ -217,15 +255,17 @@ pub(crate) fn question_probabilities(
 
 impl FamilyEvaluator for DecoderLogitQwen35Engine {
     fn backend_id(&self) -> &str {
-        self.inner.profile.cpu_backend_id
+        &self.inner.backend_id
     }
 
     fn model_metadata(&self) -> ModelInfo {
         ModelInfo {
             name: String::new(),
             description: format!(
-                "Pinned {} letter-logit decision engine ({}, FP32 CPU).",
-                self.inner.profile.backbone_id, self.inner.profile.profile_id
+                "Pinned {} letter-logit decision engine ({}, {}).",
+                self.inner.profile.backbone_id,
+                self.inner.profile.profile_id,
+                self.inner.backend_id
             ),
             release_date: self.inner.profile.release_date.into(),
         }

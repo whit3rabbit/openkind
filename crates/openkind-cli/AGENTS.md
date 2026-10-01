@@ -42,7 +42,7 @@
     - `Evaluate { file, server, api_key, pretty, format, verbose }`: POSTs the raw JSON to `{server}/v1/systemone`.
     - `Serve { ... }`: Launches `openkindd`, forwarding explicit installed
       models and the shared model store directory.
-    - `Playground { ... }`: Connects to a healthy daemon or starts and supervises one with the playground enabled. It waits for `/health`, opens the browser or prints the URL, and forwards Unix shutdown signals.
+    - `Playground { ... }`: Connects to a healthy daemon or starts and supervises one with the playground enabled. It waits for `/health`, opens the browser or prints the URL, and forwards shutdown signals (`SIGINT`/`SIGTERM` on Unix; on Windows the daemon observes the same console Ctrl-C event and the supervisor reaps its real exit status).
     - `Catalog`, `Pull`, `List`, `Show`, `Rm`: Curated discovery and local
       installation management, with JSON output flags for read commands.
     - `Status { server, api_key, watch }`: Checks `/health` and lists aliases from `/v1/models`. `--watch` refreshes the view in a Bubble Tea terminal program.
@@ -52,7 +52,7 @@
 - [`src/output.rs`](./src/output.rs): Shared text tables, color policy, and pull progress rendering.
 - `status --watch` uses `bubbletea-rs` with Lipgloss styles. Plain `status` stays one-shot.
 - [`src/status.rs`](./src/status.rs): One-shot health and model alias inspection, plus the live `--watch` screen.
-- [`src/serve.rs`](./src/serve.rs): `cmd_serve` process execution delegating to `openkindd`, replacing the CLI process on Unix so shutdown signals reach the daemon directly.
+- [`src/serve.rs`](./src/serve.rs): `cmd_serve` process execution delegating to `openkindd`, replacing the CLI process on Unix so shutdown signals reach the daemon directly (on Windows the wrapper blocks on the daemon; both observe the shared console Ctrl-C event).
 - [`src/playground.rs`](./src/playground.rs): `cmd_playground` — health probe,
   daemon spawn/supervise, and the per-platform browser opener.
 - [`src/models.rs`](./src/models.rs): Online catalog and pull commands, plus

@@ -1,0 +1,13 @@
+# Keep text files at LF on every platform: byte-exact tests compare the
+# generated JSON schemas against the committed files, and CRLF checkouts
+# would break them.
+* text=auto eol=lf
+
+# Binary fixtures and assets must never be normalized; their digest-checked
+# contents can contain byte sequences that the text-detection heuristic
+# misses.
+*.png binary
+*.zip binary
+*.safetensors binary
+*.npz binary
+*.parquet binary

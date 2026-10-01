@@ -39,12 +39,8 @@ use crate::args::{
     parse_grpc_addr, resolve_alias, Args, ArrowArg, PlaygroundArg, Qwen35BackendArg,
 };
 
-fn backend_from_arg(backend: Qwen35BackendArg) -> Qwen35Backend {
-    match backend {
-        Qwen35BackendArg::NativeCpu => Qwen35Backend::NativeCpu,
-        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
-        Qwen35BackendArg::MlxFp32 => Qwen35Backend::MlxFp32,
-    }
+fn backend_from_arg(backend: Qwen35BackendArg, cuda_device: usize) -> Qwen35Backend {
+    backend.to_backend(cuda_device)
 }
 
 fn load_qwen(
@@ -74,7 +70,7 @@ fn load_qwen(
             bundle_root,
             checkpoint_root,
             tokenizer_path,
-            backend: backend_from_arg(args.qwen35_backend),
+            backend: backend_from_arg(args.qwen35_backend, args.cuda_device),
             scheduler,
             max_concurrent_requests: args.qwen35_concurrency,
             max_queued_requests: args.qwen35_queue,
@@ -146,6 +142,30 @@ async fn main() -> Result<()> {
         }
     }
 
+    // Explicit ONNX Runtime library placement precedes any engine load so
+    // the process-global runtime picks it up on first ONNX session.
+    if let Some(runtime) = &args.onnx_runtime {
+        std::env::set_var("ORT_DYLIB_PATH", runtime);
+    }
+
+    for accelerator in openkind_runtime::detect_accelerators() {
+        info!(
+            device = %accelerator.device,
+            name = %accelerator.name,
+            total_memory_bytes = ?accelerator.total_memory_bytes,
+            "detected accelerator"
+        );
+    }
+    let support = openkind_backends::device::execution_support();
+    info!(
+        candle_cuda = support.candle_cuda,
+        onnx = support.onnx,
+        onnx_cuda = support.onnx_cuda,
+        mlx = support.mlx,
+        cuda_device = args.cuda_device,
+        "execution backend support compiled into this daemon"
+    );
+
     info!(
         http = %http_addr,
         grpc = ?grpc_addr,
@@ -158,7 +178,9 @@ async fn main() -> Result<()> {
     let mut registry = EngineRegistry::new();
     let mock = Arc::new(MockEngine::new());
     args.family_args.validate(&args.qwen35_aliases)?;
-    let family_engines = args.family_args.load_requested(&args.models)?;
+    let family_engines = args
+        .family_args
+        .load_requested(&args.models, args.cuda_device)?;
     for (alias, engine) in &family_engines {
         info!(
             alias,
@@ -230,7 +252,7 @@ async fn main() -> Result<()> {
             })?;
             siblings.push((sibling_alias.clone(), engine));
         }
-        let engine = openkind_backends::families::winnow::WinnowEngine::load(
+        let engine = openkind_backends::families::winnow::WinnowEngine::load_with_execution(
             openkind_backends::families::winnow::WinnowEngineConfig {
                 model_root,
                 adapter_path: adapter,
@@ -244,6 +266,9 @@ async fn main() -> Result<()> {
                 },
             },
             siblings,
+            args.family_args
+                .winnow_backend
+                .to_execution(args.cuda_device)?,
         )
         .map_err(|error| anyhow::anyhow!("compose winnow alias `{alias}`: {error}"))?;
         info!(alias, backend = engine.backend_id(), "registered model");
@@ -331,6 +356,7 @@ async fn main() -> Result<()> {
             let (embedder, guard) = proxy::resolve_encoder(
                 &args.proxy_cache_encoder,
                 args.proxy_cache_encoder_backend,
+                args.cuda_device,
                 args.models_dir.as_deref(),
             )
             .await?;

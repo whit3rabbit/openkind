@@ -2,8 +2,10 @@
 
 use std::sync::Arc;
 
+use candle_core::Device;
 use openkind_core::{ModelInfo, State, SystemRequest, SystemResponse, Usage};
 
+use crate::device::FamilyExecution;
 use crate::families::support::{
     temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
 };
@@ -15,6 +17,26 @@ use super::{
     CALIBRATION_TEMPERATURE, MAX_CANDIDATES, PROFILE_ID,
 };
 
+/// Label-marker logit source shared by the candle and ONNX models.
+trait MarkerLogits: Send + Sync {
+    /// One raw dot-product logit per `<<LABEL>>` marker in token order.
+    fn marker_logits(&self, token_ids: &[u32]) -> Result<Vec<f64>, FamilyError>;
+}
+
+impl MarkerLogits for EncoderInstructLabelModel {
+    fn marker_logits(&self, token_ids: &[u32]) -> Result<Vec<f64>, FamilyError> {
+        EncoderInstructLabelModel::marker_logits(self, token_ids)
+    }
+}
+
+/// ONNX model readout bridging the shared logit source (feature `onnx`).
+#[cfg(feature = "onnx")]
+impl MarkerLogits for super::onnx::EncoderInstructLabelOnnxModel {
+    fn marker_logits(&self, token_ids: &[u32]) -> Result<Vec<f64>, FamilyError> {
+        super::onnx::EncoderInstructLabelOnnxModel::marker_logits(self, token_ids)
+    }
+}
+
 /// Loaded pinned label-marker engine.
 pub struct EncoderInstructLabelEngine {
     inner: Arc<Inner>,
@@ -22,7 +44,8 @@ pub struct EncoderInstructLabelEngine {
 
 struct Inner {
     renderer: EncoderInstructLabelRenderer,
-    model: EncoderInstructLabelModel,
+    model: Box<dyn MarkerLogits>,
+    backend_id: String,
 }
 
 /// Numerically stable temperature-calibrated logistic sigmoid.
@@ -54,14 +77,52 @@ fn renormalize(supports: &[f64]) -> Result<Vec<f64>, FamilyError> {
 
 impl EncoderInstructLabelEngine {
     /// Load every pinned artifact offline and build the bounded engine.
+    ///
+    /// The reference execution is FP32 CPU; see [`Self::load_with_execution`]
+    /// for accelerated backends.
     pub fn load(
         config: EncoderInstructLabelEngineConfig,
     ) -> Result<BoundedFamilyEngine, EncoderInstructLabelError> {
+        Self::load_with_execution(config, FamilyExecution::Cpu)
+    }
+
+    /// Load the engine on the selected execution backend.
+    ///
+    /// Artifact verification (digests, pinned config) is identical on every
+    /// backend; only the readout execution differs, and ONNX additionally
+    /// requires `model.onnx` and its digest manifest in the model root.
+    /// Loads fail closed when a backend is unavailable.
+    pub fn load_with_execution(
+        config: EncoderInstructLabelEngineConfig,
+        execution: FamilyExecution,
+    ) -> Result<BoundedFamilyEngine, EncoderInstructLabelError> {
         let artifacts = VerifiedArtifacts::verify(&config.model_root)?;
         let renderer = EncoderInstructLabelRenderer::load(&artifacts.tokenizer)?;
-        let model = EncoderInstructLabelModel::load(&artifacts)?;
+        let model: Box<dyn MarkerLogits> = match execution {
+            FamilyExecution::Cpu => {
+                Box::new(EncoderInstructLabelModel::load(&artifacts, Device::Cpu)?)
+            }
+            #[cfg(feature = "cuda")]
+            FamilyExecution::Cuda { .. } => {
+                let device = execution.candle_device()?;
+                Box::new(EncoderInstructLabelModel::load(&artifacts, device)?)
+            }
+            #[cfg(feature = "onnx")]
+            FamilyExecution::Onnx { device_id } => {
+                let acceleration = crate::onnx::OnnxAcceleration::from_onnx_execution(device_id)
+                    .map_err(FamilyError::from)?;
+                Box::new(super::onnx::EncoderInstructLabelOnnxModel::load(
+                    &config.model_root,
+                    acceleration,
+                )?)
+            }
+        };
         let engine = Self {
-            inner: Arc::new(Inner { renderer, model }),
+            inner: Arc::new(Inner {
+                renderer,
+                model,
+                backend_id: format!("encoder-instruct-label/{}", execution.id_fragment()),
+            }),
         };
         Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))
     }
@@ -124,14 +185,15 @@ fn noul_criteria_are_explicit(question: &openkind_core::Question) -> bool {
 
 impl FamilyEvaluator for EncoderInstructLabelEngine {
     fn backend_id(&self) -> &str {
-        "encoder-instruct-label/cpu-fp32"
+        &self.inner.backend_id
     }
 
     fn model_metadata(&self) -> ModelInfo {
         ModelInfo {
             name: String::new(),
             description: format!(
-                "Pinned {BACKBONE_ID} label-marker decision engine ({PROFILE_ID}, FP32 CPU)."
+                "Pinned {BACKBONE_ID} label-marker decision engine ({PROFILE_ID}, {}).",
+                self.inner.backend_id
             ),
             release_date: "2026-09-26".into(),
         }

@@ -29,6 +29,9 @@
 pub(crate) mod arch;
 mod engine;
 mod model;
+#[cfg(feature = "onnx")]
+#[doc(hidden)]
+pub mod onnx;
 mod renderer;
 
 use std::path::PathBuf;

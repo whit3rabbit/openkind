@@ -132,10 +132,17 @@ fn resolve_config_field(value: &serde_json::Value, field: &str) -> Option<serde_
 }
 
 impl VonModel {
-    /// Load the verified checkpoint into FP32 CPU weights. The pickle stores
-    /// the training fp32 tensors; every tensor upcasts to F32 at build.
-    pub fn load(profile: &VonProfile, artifacts: &VerifiedArtifacts) -> Result<Self, FamilyError> {
-        let device = Device::Cpu;
+    /// Load the verified checkpoint into FP32 weights on `device`. The
+    /// pickle stores the training fp32 tensors; every tensor upcasts to F32
+    /// at build.
+    ///
+    /// The reference path passes the CPU device; accelerated loads thread a
+    /// resolved CUDA device through the same candle model code.
+    pub fn load(
+        profile: &VonProfile,
+        artifacts: &VerifiedArtifacts,
+        device: Device,
+    ) -> Result<Self, FamilyError> {
         let tensors = candle_core::pickle::read_all(&artifacts.checkpoint)?;
         let map: HashMap<String, Tensor> = tensors.into_iter().collect();
         if map.is_empty() {

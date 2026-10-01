@@ -19,6 +19,10 @@ uses its offline read and serving-lock path.
   verified blobs into a staged snapshot on the same filesystem.
 - Keep serving locks alive for the daemon lifetime so `rm` cannot remove an
   active model. Never log credentials, request content, or token digests.
+- Model names are `family:version`, but `:` is illegal in Windows filenames:
+  on-disk spellings (install directories, stage directories, lock files)
+  replace it with `@` on Windows and keep the raw name on Unix, where
+  existing stores already use it. `list()` applies the inverse mapping.
 - `rust-loadable`, task qualification, and release promotion are distinct.
 
 Run `cargo test -p openkind-model-store` and the workspace verification battery

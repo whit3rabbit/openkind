@@ -100,6 +100,9 @@ pub struct DeciderProfile {
     pub annotate_min: usize,
     /// Backend id reported by the CPU engine serving this profile.
     pub cpu_backend_id: &'static str,
+    /// Backend id reported by the CUDA engine serving this profile
+    /// (`cuda` feature).
+    pub cuda_backend_id: &'static str,
     /// Release date of the profile (the day it was pinned here).
     pub release_date: &'static str,
     /// Catalog/manifest description of the profile.
@@ -132,6 +135,7 @@ pub const DECIDER_4B: DeciderProfile = DeciderProfile {
     max_row_tokens: 65_536,
     annotate_min: 8,
     cpu_backend_id: "decider-4b/cpu-fp32",
+    cuda_backend_id: "decider-4b/cuda-fp32",
     release_date: "2026-09-30",
     description: "Pinned decider-4b merged Qwen3.5-4B slot-logit decision decoder (Apache-2.0, \
                   plain state-first layout, isolated score levels); prototype readout, research \

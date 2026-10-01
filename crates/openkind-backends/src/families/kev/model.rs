@@ -155,7 +155,17 @@ impl KevModel {
     /// Load the verified base checkpoint, merge the adapter, and build the
     /// FP32 CPU model.
     pub fn load(artifacts: &VerifiedArtifacts) -> Result<Self, FamilyError> {
-        let device = Device::Cpu;
+        Self::load_with_device(artifacts, Device::Cpu)
+    }
+
+    /// Load the verified base checkpoint and adapter onto `device`.
+    ///
+    /// The pointer-head forward executes on `device`; CUDA requires the
+    /// `cuda` feature and fails closed when unavailable.
+    pub fn load_with_device(
+        artifacts: &VerifiedArtifacts,
+        device: Device,
+    ) -> Result<Self, FamilyError> {
         let mmap = unsafe {
             candle_core::safetensors::MmapedSafetensors::new(&artifacts.base_checkpoint)?
         };

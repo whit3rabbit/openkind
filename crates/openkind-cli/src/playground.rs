@@ -129,7 +129,16 @@ impl ShutdownSignals {
             }
         }
         #[cfg(not(unix))]
-        std::future::pending().await
+        {
+            // The wrapper must survive Ctrl-C to observe and reap the daemon.
+            // Windows has no signal numbers; the daemon observes the same
+            // console Ctrl-C event directly, so the forwarded value is
+            // only a shutdown marker.
+            tokio::signal::ctrl_c()
+                .await
+                .context("install Ctrl-C handler")?;
+            Ok(2)
+        }
     }
 }
 
@@ -150,7 +159,11 @@ fn forward_shutdown(child: &mut Child, signal: i32) -> Result<()> {
     #[cfg(not(unix))]
     {
         let _ = signal;
-        child.kill().context("stop openkindd")
+        let _ = child;
+        // The daemon shares the wrapper console and observes the same Ctrl-C
+        // event through its own handler, so a hard kill here would defeat its
+        // graceful drain; wait_for_exit reaps its real exit status instead.
+        Ok(())
     }
 }
 

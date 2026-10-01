@@ -18,6 +18,8 @@ The documentation suite maintains a strict division of responsibility across pro
 | Benchmark methodology, harness usage, and recorded runs | [`BENCHMARKS.md`](BENCHMARKS.md) |
 | Pinned evaluation datasets: acquisition policy and registry | [`../crates/openkind-datasets/AGENTS.md`](../crates/openkind-datasets/AGENTS.md) |
 | MLX runtime contract, implementation guide, limitations, and enhancement path | [`MLX.md`](MLX.md) |
+| Native CUDA execution: build flags, selection, detection, and evidence gates | [`CUDA.md`](CUDA.md) |
+| ONNX artifact execution: runtime library, artifact contract, and selection | [`ONNX.md`](ONNX.md) |
 | Unofficial Arrow bulk endpoint: mapping, limits, and usage | [`ARROW.md`](ARROW.md) |
 | Research dossier, background, and prior art | [`RESEARCH.md`](RESEARCH.md) |
 | Supported environment variables across binaries, SDKs, and bindings | [`ENV.md`](ENV.md) |

@@ -807,11 +807,13 @@ pub fn default_proxy_cache_dir() -> Result<PathBuf, ProxyCacheError> {
 pub async fn resolve_encoder(
     encoder_name: &str,
     backend: crate::args::ProxyCacheEncoderBackendArg,
+    cuda_device: usize,
     models_dir: Option<&std::path::Path>,
 ) -> anyhow::Result<(
     Arc<dyn openkind_backends::proxy_cache::TextEmbedder>,
     Option<openkind_model_store::InstalledModel>,
 )> {
+    let _ = cuda_device;
     use openkind_backends::proxy_cache::{
         bert_encoder::{BertEmbedder, BertEmbedderArtifacts},
         HashEmbedder, TextEmbedder,
@@ -857,6 +859,18 @@ pub async fn resolve_encoder(
         crate::args::ProxyCacheEncoderBackendArg::Cpu => Arc::new(
             BertEmbedder::load(&artifacts)
                 .map_err(|error| anyhow::anyhow!("load encoder `{encoder_name}`: {error}"))?,
+        ),
+        #[cfg(feature = "cuda")]
+        crate::args::ProxyCacheEncoderBackendArg::Cuda => Arc::new(
+            BertEmbedder::load_with_device(
+                &artifacts,
+                openkind_backends::device::FamilyExecution::Cuda {
+                    device_id: cuda_device,
+                }
+                .candle_device()
+                .map_err(|error| anyhow::anyhow!("open CUDA device: {error}"))?,
+            )
+            .map_err(|error| anyhow::anyhow!("load encoder `{encoder_name}`: {error}"))?,
         ),
         #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
         crate::args::ProxyCacheEncoderBackendArg::MlxFp32 => Arc::new(

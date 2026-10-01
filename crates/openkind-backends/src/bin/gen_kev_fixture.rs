@@ -226,7 +226,11 @@ fn mean_nll(distributions: &[Vec<f64>], truths: &[usize], t: f64) -> f64 {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let home = PathBuf::from(std::env::var("HOME").unwrap_or_default());
+    let home = PathBuf::from(
+        std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
+            .unwrap_or_default(),
+    );
     let mut model_root = home.join(".cache/openkind/kev-0.6b");
     let mut base_root = home.join(".cache/openkind/qwen3-0.6b-base");
     let mut fit = false;

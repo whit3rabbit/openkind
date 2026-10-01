@@ -15,7 +15,12 @@ source repository has its own column. Choose by task shape,
 download size, and measured speed: CPU fp32 (candle) runs everywhere and is
 the correctness oracle. The MLX fp32 backend runs the Metal GPU on Apple
 silicon (macOS arm64, `--features mlx`; see [`MLX.md`](MLX.md)) and is listed
-only where parity-qualified. There is no CUDA or ROCm backend. Measured cells
+only where parity-qualified. Native CUDA execution exists for every model
+behind `--features cuda` and a CUDA device selection (see [`CUDA.md`](CUDA.md)),
+and ONNX artifact execution exists behind `--features onnx`
+([`ONNX.md`](ONNX.md)); neither has recorded parity or benchmark evidence on
+this table's measurement host, so their cells stay empty until a qualified
+run lands. There is no ROCm backend. Measured cells
 read `peak RSS · throughput` on the seeded shape777 workload, except where
 marked below (single-sample warm runs on an Apple M4 Max; model-load times,
 input token rates, and strategy caveats are in the per-backend table below).

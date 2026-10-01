@@ -25,6 +25,7 @@ pub struct WinnowEngine {
     admission_slots: Arc<Semaphore>,
     retry_after_ms: u64,
     evaluation_timeout: Option<Duration>,
+    backend_id: String,
 }
 
 struct WinnowRouter {
@@ -42,6 +43,19 @@ impl WinnowEngine {
         config: WinnowEngineConfig,
         siblings: Vec<(String, Arc<dyn DecisionEngine>)>,
     ) -> Result<Self, WinnowError> {
+        Self::load_with_execution(config, siblings, crate::device::FamilyExecution::Cpu)
+    }
+
+    /// Load the routing engine on the selected execution backend.
+    ///
+    /// The winnow router is a candle decoder plus engine-level routing
+    /// logic; it has no ONNX export. Accelerated loads require the `cuda`
+    /// feature.
+    pub fn load_with_execution(
+        config: WinnowEngineConfig,
+        siblings: Vec<(String, Arc<dyn DecisionEngine>)>,
+        execution: crate::device::FamilyExecution,
+    ) -> Result<Self, WinnowError> {
         if siblings.len() != 2 {
             return Err(FamilyError::InvalidInput(format!(
                 "winnow routes exactly two labels (A, B); got {} siblings",
@@ -55,6 +69,35 @@ impl WinnowEngine {
             crate::families::decoder_logit_letter::CHECKPOINT_SHA256,
         )?;
         let renderer = WinnowRenderer::load(&artifacts.tokenizer)?;
+        let backend_id = match execution {
+            crate::device::FamilyExecution::Cpu => "winnow/cpu-fp32-lora".to_owned(),
+            #[cfg(feature = "cuda")]
+            crate::device::FamilyExecution::Cuda { .. } => {
+                let device = execution.candle_device()?;
+                let model =
+                    WinnowModel::load_with_device(&artifacts, &Self::pinned_config(), device)?;
+                let concurrent = config.limits.max_concurrent_requests.max(1);
+                let admitted = concurrent.saturating_add(config.limits.max_queued_requests);
+                return Ok(Self {
+                    router: Arc::new(WinnowRouter { model, renderer }),
+                    siblings,
+                    execution_slots: Arc::new(Semaphore::new(concurrent)),
+                    admission_slots: Arc::new(Semaphore::new(admitted)),
+                    retry_after_ms: config.limits.retry_after_ms,
+                    evaluation_timeout: config.limits.evaluation_timeout,
+                    backend_id: "winnow/cuda-fp32-lora".to_owned(),
+                });
+            }
+            #[cfg(feature = "onnx")]
+            crate::device::FamilyExecution::Onnx { .. } => {
+                return Err(FamilyError::ExecutionUnavailable(
+                    "the winnow router decoder has no ONNX export; select cpu or (with the \
+                     `cuda` feature) cuda"
+                        .to_owned(),
+                )
+                .into());
+            }
+        };
         let model = WinnowModel::load(&artifacts, &Self::pinned_config())?;
         let concurrent = config.limits.max_concurrent_requests.max(1);
         let admitted = concurrent.saturating_add(config.limits.max_queued_requests);
@@ -65,6 +108,7 @@ impl WinnowEngine {
             admission_slots: Arc::new(Semaphore::new(admitted)),
             retry_after_ms: config.limits.retry_after_ms,
             evaluation_timeout: config.limits.evaluation_timeout,
+            backend_id,
         })
     }
 
@@ -152,14 +196,15 @@ struct RouteDecision {
 #[async_trait]
 impl DecisionEngine for WinnowEngine {
     fn backend_id(&self) -> &str {
-        "winnow/cpu-fp32-lora"
+        &self.backend_id
     }
 
     fn model_metadata(&self) -> ModelInfo {
         ModelInfo {
             name: String::new(),
             description: format!(
-                "Pinned {BACKBONE_ID} LoRA-learned router ({PROFILE_ID}, FP32 CPU)."
+                "Pinned {BACKBONE_ID} LoRA-learned router ({PROFILE_ID}, {}).",
+                self.backend_id
             ),
             release_date: "2026-09-26".into(),
         }

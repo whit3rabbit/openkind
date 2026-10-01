@@ -51,6 +51,9 @@ mod arch;
 mod engine;
 #[doc(hidden)]
 pub mod model;
+#[cfg(feature = "onnx")]
+#[doc(hidden)]
+pub mod onnx;
 #[doc(hidden)]
 pub mod renderer;
 
@@ -283,11 +286,6 @@ impl VonProfile {
             ("calibration_map.lo", json!(map.lo)),
             ("calibration_map.hi", json!(map.hi)),
         ]
-    }
-
-    /// Backend id reported by the engine serving this profile.
-    pub(crate) fn backend_id(&self) -> &str {
-        "von/cpu-fp32"
     }
 }
 

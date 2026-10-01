@@ -76,7 +76,14 @@ multi-gigabyte operator gate.
 Each catalog model records which execution backends can serve it on Apple
 silicon and where the measured evidence lives. An MLX conversion of a
 backbone that openkind cannot load is not an executable equivalent; the
-registry model is only as fast as the loaders in this repository.
+registry model is only as fast as the loaders in this repository. Beyond the
+Apple-silicon backends below, candle-backed models expose native CUDA
+loading (`--features cuda`; [`CUDA.md`](CUDA.md)). Families with ONNX
+adapters require a separately exported and digest-pinned graph
+(`--features onnx`; [`ONNX.md`](ONNX.md)). Those paths are
+unpromoted candidates: no parity or benchmark evidence exists on a CUDA host
+or against an ONNX export yet, so they are not listed per row until
+qualified runs land.
 
 | Registry model | Executable backends | Preferred on Apple silicon | Evidence |
 |---|---|---|---|

@@ -126,10 +126,16 @@ fn resolve_config_field(value: &serde_json::Value, field: &str) -> Option<serde_
 }
 
 impl LayaModel {
-    /// Load the verified checkpoint into FP32 CPU weights. The shard stores
-    /// fp16; the mmap is upcast per tensor at load.
-    pub fn load(profile: &LayaProfile, artifacts: &VerifiedArtifacts) -> Result<Self, FamilyError> {
-        let device = Device::Cpu;
+    /// Load the verified checkpoint into FP32 weights on `device`. The shard
+    /// stores fp16; the mmap is upcast per tensor at load.
+    ///
+    /// The reference path passes the CPU device; accelerated loads thread a
+    /// resolved CUDA device through the same candle model code.
+    pub fn load(
+        profile: &LayaProfile,
+        artifacts: &VerifiedArtifacts,
+        device: Device,
+    ) -> Result<Self, FamilyError> {
         let vb = unsafe {
             candle_nn::VarBuilder::from_mmaped_safetensors(
                 std::slice::from_ref(&artifacts.checkpoint),

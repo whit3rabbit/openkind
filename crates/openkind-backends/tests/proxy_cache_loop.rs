@@ -115,16 +115,64 @@ fn request_training_quietly(engine: &mut TaskEngine) -> bool {
 }
 
 #[test]
+fn one_request_keeps_teacher_observations_in_one_split() {
+    let dir = tempfile::tempdir().unwrap();
+    let embedder = HashEmbedder::new(64, 0, true).unwrap();
+    let mut config = small_config();
+    config.calib_fraction = 0.5;
+    let mut engine = TaskEngine::create(
+        dir.path(),
+        "splitkey00000000000".to_string(),
+        "default".to_string(),
+        "jev-latest".to_string(),
+        two_class_spec(),
+        config,
+        0.9,
+        None,
+    )
+    .unwrap();
+    let text = cluster_text(0, 1);
+    let embedding = embedder
+        .encode(std::slice::from_ref(&text))
+        .unwrap()
+        .remove(0);
+    engine.begin_request();
+    // Sibling answers share their request's state. Splitting their rows
+    // independently leaks that state into both training and calibration.
+    for _ in 0..64 {
+        let decision = engine.route(&embedding);
+        engine
+            .observe_teacher(
+                &decision,
+                &embedding,
+                &text,
+                "text",
+                &embedder.id(),
+                &teacher_for(0),
+            )
+            .unwrap();
+    }
+    let (train, calib) = engine.labelled_rows_for_test(100, 100).unwrap();
+    assert_eq!(train.len() + calib.len(), 64);
+    assert!(train.is_empty() || calib.is_empty());
+}
+
+#[test]
 fn full_loop_bootstrap_train_promote_serve_locally() {
     let dir = tempfile::tempdir().unwrap();
     let embedder = HashEmbedder::new(64, 0, true).unwrap();
+    let mut config = small_config();
+    // This test exercises local acceptance and rejection; an audit would
+    // deliberately forward either probe before evaluating those gates.
+    config.audit_rate = 0.0;
+    config.audit_rate_shadow = 0.0;
     let mut engine = TaskEngine::create(
         dir.path(),
         "testkey0000000000000".to_string(),
         "default".to_string(),
         "jev-latest".to_string(),
         two_class_spec(),
-        small_config(),
+        config.clone(),
         // budget = 1 - 0.9 = 0.1 so zero-disagreement shadow rows can pass
         // quickly at 95% confidence.
         0.9,
@@ -166,7 +214,7 @@ fn full_loop_bootstrap_train_promote_serve_locally() {
     // Keep feeding: shadow rows accumulate (bootstrap channel continues
     // because production is still empty).
     let mut promoted = false;
-    for index in 120..260 {
+    for index in 160..300 {
         let cluster = index % 2;
         feed(
             &mut engine,
@@ -206,9 +254,10 @@ fn full_loop_bootstrap_train_promote_serve_locally() {
     assert_eq!(decision.reason, RoutingReason::Confident);
     let local = decision.local.as_ref().expect("served locally");
     assert_eq!(local.label, "alpha");
-    // Reported confidence uses Jev's peakedness definition.
-    let reported = peakedness_floor(&local.probabilities);
-    assert!(reported > 0.9, "peaked cluster reports high confidence");
+    // Routing uses the calibrated top-probability threshold, which is
+    // independent of Jev's reported peakedness and the task risk budget.
+    assert!(local.routing_confidence >= status.production_threshold.unwrap());
+    assert!(local.ood <= status.ood_threshold.unwrap());
 
     // Out-of-distribution text is forwarded (no local answer).
     let novel = embedder
@@ -237,7 +286,7 @@ fn full_loop_bootstrap_train_promote_serve_locally() {
     let reloaded = TaskEngine::load(
         dir.path(),
         "testkey0000000000000".to_string(),
-        small_config(),
+        config,
         0.9,
         None,
     )
@@ -248,10 +297,6 @@ fn full_loop_bootstrap_train_promote_serve_locally() {
         reloaded_status.production_version.as_deref(),
         Some("student-v1")
     );
-}
-
-fn peakedness_floor(probabilities: &[f64]) -> f64 {
-    openkind_backends::proxy_cache::task::peakedness(probabilities)
 }
 
 #[test]

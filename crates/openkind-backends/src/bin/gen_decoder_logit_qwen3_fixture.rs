@@ -165,8 +165,12 @@ fn correct_probability(case: &Case, answer: &Answer) -> Option<f64> {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut profile_id = "decoder-logit-qwen3-06b".to_owned();
-    let mut model_root = PathBuf::from(std::env::var("HOME").unwrap_or_default())
-        .join(".cache/openkind/qwen3-0.6b-control");
+    let mut model_root = PathBuf::from(
+        std::env::var_os("HOME")
+            .or_else(|| std::env::var_os("USERPROFILE"))
+            .unwrap_or_default(),
+    )
+    .join(".cache/openkind/qwen3-0.6b-control");
     let mut output: Option<PathBuf> = None;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {

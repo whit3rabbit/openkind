@@ -2,11 +2,13 @@
 //! content-addressed blobs, locked installs, and revision pinning.
 //!
 //! The download machinery mirrors `openkind-model-store` (byte-range resume
-//! with strict `Content-Range` validation, symlink-safe partial files, size
-//! caps, streaming SHA-256, content-addressed blobs hard-linked into staged
-//! installs) adapted for Hugging Face dataset repositories and bearer-token
-//! authentication. Nothing here runs during builds or tests; only the
-//! explicit `dataset pull` and `dataset pin` commands drive the network.
+//! with strict `Content-Range` validation, partial files guarded against
+//! symlink following via `O_NOFOLLOW` on Unix and a `symlink_metadata`
+//! pre-check elsewhere, size caps, streaming SHA-256, content-addressed blobs
+//! hard-linked into staged installs) adapted for Hugging Face dataset
+//! repositories and bearer-token authentication. Nothing here runs during
+//! builds or tests; only the explicit `dataset pull` and `dataset pin`
+//! commands drive the network.
 
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -907,6 +909,7 @@ mod tests {
         ));
     }
 
+    #[cfg(unix)]
     #[test]
     fn symlinked_partial_file_is_rejected() {
         let dir = tempfile::tempdir().unwrap();

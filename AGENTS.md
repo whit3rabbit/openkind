@@ -19,7 +19,7 @@ curated open-weight Qwen 3.5 profile documented in
 - [`docs/RESEARCH.md`](docs/RESEARCH.md) and [`docs/whitepaper/WHITEPAPER.md`](docs/whitepaper/WHITEPAPER.md) own research evidence and scientific interpretation.
 - [`docs/MODEL_REGISTRY.md`](docs/MODEL_REGISTRY.md), [`docs/families/README.md`](docs/families/README.md), and [`docs/families/NEW_FAMILY.md`](docs/families/NEW_FAMILY.md) cover profiles, the catalog, and family qualification.
 - [`docs/MODELS.md`](docs/MODELS.md) indexes loadable profiles. Update it when `registry/v1` changes or a loadable profile is added.
-- [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md) covers measurement, [`docs/MLX.md`](docs/MLX.md) covers MLX, [`docs/JEV_COMPATIBILITY.md`](docs/JEV_COMPATIBILITY.md) covers providers, and [`docs/ARROW.md`](docs/ARROW.md) documents the opt-in Arrow endpoint outside the TypeSafe contract.
+- [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md) covers measurement, [`docs/MLX.md`](docs/MLX.md) covers MLX, [`docs/CUDA.md`](docs/CUDA.md) covers native CUDA execution, [`docs/ONNX.md`](docs/ONNX.md) covers ONNX artifact execution, [`docs/JEV_COMPATIBILITY.md`](docs/JEV_COMPATIBILITY.md) covers providers, and [`docs/ARROW.md`](docs/ARROW.md) documents the opt-in Arrow endpoint outside the TypeSafe contract.
 
 Test the contract. If documentation disagrees with code, establish current
 behavior through an executable test and update the stale source.

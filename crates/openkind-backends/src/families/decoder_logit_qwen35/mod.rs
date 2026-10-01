@@ -166,6 +166,9 @@ pub struct Qwen35LogitProfile {
     pub max_question_tokens: u64,
     /// Backend id reported by the CPU engine serving this profile.
     pub cpu_backend_id: &'static str,
+    /// Backend id reported by the CUDA engine serving this profile
+    /// (`cuda` feature).
+    pub cuda_backend_id: &'static str,
     /// Backend id reported by the MLX engine serving this profile.
     pub mlx_backend_id: &'static str,
     /// Release date of the profile (the day it was pinned here).
@@ -194,6 +197,7 @@ pub const JEVK5: Qwen35LogitProfile = Qwen35LogitProfile {
     max_sequence_tokens: 512,
     max_question_tokens: 1_536,
     cpu_backend_id: "decoder-logit-qwen35/cpu-fp32",
+    cuda_backend_id: "decoder-logit-qwen35/cuda-fp32",
     mlx_backend_id: "decoder-logit-qwen35/mlx-fp32",
     release_date: "2026-09-27",
     description: "Pinned JevK5 merged Qwen3.5-4B letter-logit decision decoder (Apache-2.0); \
@@ -228,6 +232,7 @@ pub const PLUMB_4B: Qwen35LogitProfile = Qwen35LogitProfile {
     max_sequence_tokens: 16_384,
     max_question_tokens: 16_384,
     cpu_backend_id: "plumb-4b/cpu-fp32",
+    cuda_backend_id: "plumb-4b/cuda-fp32",
     mlx_backend_id: "plumb-4b/mlx-fp32",
     release_date: "2026-09-30",
     description: "Pinned Plumb-4B merged Qwen3.5-4B letter-logit decision decoder (Apache-2.0, \

@@ -36,6 +36,29 @@ jobs:
       - name: Smoke-test Criterion benchmarks
         run: env -u RUST_LOG cargo test --workspace --benches --locked
 
+  platforms:
+    name: clippy and tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install stable Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Run clippy linter
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Run workspace tests
+        shell: bash
+        run: env -u RUST_LOG cargo test --workspace
+
   msrv:
     name: MSRV Rust 1.88
     runs-on: ubuntu-latest

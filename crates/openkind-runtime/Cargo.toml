@@ -13,7 +13,18 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
 thiserror = { workspace = true }
+nvml-wrapper = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
 libc = { workspace = true }
+
+# Process CPU-time and peak working-set observation on Windows.
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_System_ProcessStatus",
+    "Win32_System_Threading",
+] }
 
 [lib]
 path = "src/lib.rs"

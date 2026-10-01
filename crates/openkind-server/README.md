@@ -2,7 +2,7 @@
 
 > The `openkindd` production inference daemon.
 
-`openkind-server` provides the `openkindd` daemon binary that powers self-hosted `openkind` deployments. It sets up structured tracing, initializes the `EngineRegistry`, mounts both HTTP (axum) and gRPC (tonic) listeners, registers Prometheus metrics, and manages graceful shutdown on `SIGINT` or `SIGTERM`.
+`openkind-server` provides the `openkindd` daemon binary that powers self-hosted `openkind` deployments. It sets up structured tracing, initializes the `EngineRegistry`, mounts both HTTP (axum) and gRPC (tonic) listeners, registers Prometheus metrics, and manages graceful shutdown on Ctrl-C (`SIGINT`, plus `SIGTERM` on Unix).
 
 ## Installation & Build
 

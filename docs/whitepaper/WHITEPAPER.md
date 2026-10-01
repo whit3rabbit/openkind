@@ -1,7 +1,7 @@
 # OpenKind
 ## Shared-state decision inference: evidence, execution, and useful decisions
 
-**Document version:** 0.8.10 · 30 September 2026, America/Chicago. Completes the integration of completed run `20260929T194506_694066Z_dc1f74` (protocol `openkind-unified-decisions/v3.0.0`): the abstract, executive assessment, research answers, and review boundary now carry the unified decision validity results, §22 records the run's identities, training/memory/calibration detail, and reconciliation scope, and Appendix A adds the E41/V10 register entry. Training, Rust/MLX, modern-Qwen serving, unified decision validity, process isolation, and compact-model transfer evidence runs through that completed run.
+**Document version:** 0.8.11 · 1 October 2026, America/Chicago. Completes the integration of completed run `20261001T105345_828556Z_6e6d92` (protocol `openkind-t4-integrated-research/v4.0.0`): the abstract, executive assessment, research answers, review boundary, §23, and Appendix A now carry the T4 integrated research results. Training, Rust/MLX, modern-Qwen serving, unified decision validity, process isolation, multi-catalogue caching, and integrated readout evidence runs through that completed run.
 
 ### Abstract
 
@@ -96,6 +96,21 @@ sensitivity persists across all four transformations (max $\Delta p$ 0.912310,
 transfers poorly (91.15% development → 69.10% fresh policy field accuracy;
 39.58% SNLI versus Qwen's 92.71%). [E41; V10; §22]
 
+The subsequent T4 integrated research study (Run `20261001T105345_828556Z_6e6d92`,
+protocol `openkind-t4-integrated-research/v4.0.0`) supplies three substantive advances.
+First, selective indexing plus routing composition (XR) runs as one timed path:
+**95.40% field accuracy** and **84.38% all-six correctness** at **242.98 ms median**
+on 192 new authored policy cases (~14.96x faster than generated JSON at 3,634.01 ms).
+Second, a narrowly joint route/urgency readout (NJ) supplies all six field distributions
+and obtains **94.01% field accuracy** and **79.69% all-six correctness** at **228.31 ms**.
+Third, multi-catalogue host snapshots preserve grouped outputs with bitwise parity ($\Delta p = 0.0$)
+while reducing full grouped request latency by about **54%** (~2.19x speedup on confirmation).
+Dedicated native/JSON processes pass history traces for X, XR, and NJ themselves ($\Delta p = 0.0$).
+A systematic semantic error pattern accounts for all 23 XR eligibility failures: missing
+certification combined with known failing points ($< 70$) returning `undetermined` instead
+of `ineligible`. The classifier comparison suite was blocked by an identity-unsafe log-copy
+`SameFileError` in runner setup. Model promotion remains closed; status is `PARTIAL`. [E42; V11; §23]
+
 **Current model-learning work:** the frozen comparison, contract-only pilot, parent-KL follow-on,
 and source-label replay comparison have completed. None of the three tested
 adaptation recipes satisfies the full quality/retention exit. Preserve J0/J1
@@ -107,17 +122,17 @@ The historical roadmap remains in [ROADMAP_HISTORY.md](../ROADMAP_HISTORY.md), a
 the historical opening is retained in [Appendix E](#appendix-e-historical-opening-before-the-september-refocus).
 [E30–E32; V6]
 
-**Current serving work:** the 9B/T4 study completed all 39 planned blocks and
-three conditional replays, and the unified decision validity study then completed
-the isolation and readout tests it proposed. Retain Arm X, R/GR route
-composition, exact prefix reuse, and resident dual-process isolation as bounded
-positives; the next serving qualifications are an identity-bound multi-catalogue
-cache for the grouped arms and process/memory/concurrency qualification of the
-selected fast readout, which was not itself run through the full isolation suite.
+**Current serving work:** the 9B/T4, unified decision validity, and integrated research
+studies have completed their proposed tests. Retain Arm XR (selective indexing + routing
+composition), Arm NJ (narrowly joint categorical source), multi-catalogue host snapshot
+caching for grouped requests, and resident dual-process isolation as bounded positives.
+Next serving priorities focus on qualifying the broader concurrency and memory envelope,
+repairing the classifier runner harness to evaluate the blocked encoder models, and
+addressing the partial-information eligibility logic in host code.
 No specific state or kernel cause is proven, and no model or service is promoted.
 The supplied architecture remains the working-code inventory; this revision
 changes the two papers only. Concise findings and discounted approaches are in
-[WORKING_PAPER.md](WORKING_PAPER.md). [E40; E41; V9; V10; §§21–22]
+[WORKING_PAPER.md](WORKING_PAPER.md). [E40; E41; E42; V9; V10; V11; §§21–23]
 
 **Reading guide:** current interpretation in [§1](#1-executive-assessment),
 acceptance tracks and work order in [§13](#13-refocused-research-program-and-next-milestone),
@@ -362,12 +377,30 @@ Use Q for independent questions and K for the alternatives within one question. 
 | Dense 4B native readout/history follow-up | Compare readouts, host action derivation, prefix reuse, and process history | Completed `20260927T192845_426758Z`; timed composition and local cache gains, already-warm priming ambiguity, mapping/history failures. [E39; V8] |
 | 9B/T4 combined-path and open-question study | Measure five-field derivation plus caching, genuine first use, history, shapes, and focused readouts | Completed `20260928T220142_110595Z_1192c8`, protocol v2.0.2: 39 planned + 3 conditional blocks; combined quality/speed and cache/first-use gates pass, mixed-history/low-sequence gates fail; no promotion. [E40; V9] |
 | Unified decision validity study | Selective readouts (X, R, G, GR, J), resident process isolation vs restart, schema sensitivity, native catalogue vs Go/CPU scaling, compact Indecis transfer | Completed `20260929T194506_694066Z_dc1f74`, protocol v3.0.0: 80 completed blocks + 1 INT8 capability boundary; selective indexing (X: 92.19% field / 60.42% all-six at 222 ms) and grouped routing (GR: 95.49% / 83.33% at 1,420 ms) advance design; resident process isolation passes exact parity ($\Delta p = 0.0$); Indecis CPU fails transfer (69.10% fresh policy, 39.58% SNLI); no promotion. [E41; V10] |
+| T4 integrated research study | Integrated readouts (XR, NJ), multi-catalogue host cache, dedicated process history (X, XR, NJ), 4B vs 9B profile comparison, dynamic probes, classifier setup diagnostic | Run `20261001T105345_828556Z_6e6d92`, protocol v4.0.0, status `PARTIAL`: 45 executed / 12 blocked / 2 failed stages across 41 verified receipts; XR reaches 95.40% field / 84.38% all-six at 242.98 ms; NJ achieves 94.01% / 79.69% at 228.31 ms; multi-catalogue host snapshots cut grouped latency by ~54% (2.19x ratio, $\Delta p = 0.0$); dedicated processes pass history for X/XR/NJ; classifier track blocked by SameFileError in setup logging helper; no promotion. [E42; V11] |
 
 The historical E1–E7 measured sequence uses Qwen/Qwen3.5-4B-Base at revision `1001bb4d826a52d1f399e183466143f4da7b741b`. The text backbone has 4,205,751,296 parameters, hidden width 2,560, and 32 blocks. Its layer list contains 24 linear-attention and eight full-attention blocks. The core results were obtained on an NVIDIA L4. The saved environment includes Transformers 5.17.0; the expanded workers record PyTorch 2.11.0+cu128. Environment details should travel with results because kernel and precision behavior matter. [E1; E2; E5]
 
 The notebook execution logs also report missing optimized causal-convolution and linear-attention kernels, with reference implementations used instead. Transformers documents these optimized versus reference paths. The recorded timings should therefore be treated as measurements of this particular stack, not the speed limit of Qwen on an L4. Installing faster kernels is a future experiment requiring both new timing and renewed probability/policy parity checks. [E5; E6; P16]
 
 ## 3.2 What was reviewed and what was not rerun
+
+**Version 0.8.11 review boundary.** E42 is the completed T4 integrated research
+study (Run `20261001T105345_828556Z_6e6d92`, protocol `openkind-t4-integrated-research/v4.0.0`,
+status `PARTIAL`). The companion review independently downloads the exact ZIP,
+checks member integrity, reconstructs 116 quality-summary rows from 20,220
+primary technical requests and 105,900 field observations, reproduces 105
+original paired-bootstrap rows, and checks 2,448 NJ source-joint pushforwards,
+945 history comparisons, 48 schema comparisons, 108 shape comparisons, 96
+dedicated cache pairs, 11 calibrated confirmation profiles, and 18 frozen policy
+development/confirmation results. It verifies 41 result/trace receipts across 45
+executed stages (12 blocked, 2 failed). Both setup failures were `SameFileError`
+exceptions in the logging helper, leaving the classifier comparison unmeasured.
+Run key `930195a6d0a3ff83a617822fde813eae5e4a83f80a64eda9d20d8eb830b3e658` and
+archive SHA-256 `f0cfde45b65efd1716220d5860695cb1a1122c03863ce6155c914c569569eac3`
+are registered in Appendix A under E42. No new model inference, training,
+calibration fit, threshold reselection, label adjudication, or protected-final
+evaluation was performed in the review. [E42; V11]
 
 **Version 0.8.9/0.8.10 review boundary.** E41 is the completed unified decision
 validity result authority. The companion review reconstructs every primary
@@ -5167,9 +5200,124 @@ artifacts. [§§13.2–13.5; §17.3; E25; E29–E32]
 
 ---
 
+# 23. OpenKind T4 Integrated Research: Useful Integrations, Exact Cache Savings, and an Unfinished Classifier Comparison
+
+**Completed result:** `20261001T105345_828556Z_6e6d92`, protocol
+`openkind-t4-integrated-research/v4.0.0`, has status `PARTIAL`. Completion marker
+is absent; no model, backend, or service is promoted.
+Of 59 planned stages, **45 executed, 12 were blocked, and two failed** (with zero pending).
+38 executed stages display `scientific_pass=True` and seven display false (six mixed-history conditions
+and the schema diagnostic). 41 experiment blocks have verified result/trace receipts.
+Arithmetic and artifact verification confirms all primary technical requests and field observations.
+This campaign directly tests the primary open questions left by the unified study: selective indexing
+plus routing composition on one timed path (Arm XR), narrowly joint route/urgency readout (Arm NJ),
+multi-catalogue host snapshot caching (Arm G and GR), dedicated-process history isolation across all
+candidate readouts, 4B versus 9B publisher deployment comparisons, batching scaling, dynamic choice probes,
+calibration transfer, and encoder classifier baselines. [E42; V11]
+
+## 23.1 The complete 9B request comparison: XR, NJ, D, X, G, GR, and JSON
+
+The principal policy confirmation contains 192 distinct authored fact groups and two technical repeats per profile,
+using two rendering families withheld from fitting, development, and calibration partitions.
+All timings reflect the complete implemented request, every required subcall, host rule, and serialization:
+
+| Profile | Complete Request Formulation | Field Accuracy (%) | All Six Correct (%) | p50 Request (ms) | p95 Request (ms) | Available Field Distributions / 6 |
+|---|---|---|---|---|---|---|
+| **9B:NJ:control** | Joint route/urgency categorical source $\to$ pushforward marginals; derived action | 94.010% | 79.688% | 228.309 | 240.683 | 6 / 6 |
+| **9B:D:control** | 5 natural fields; derived action rule; static prefix | 79.688% | 22.396% | 325.922 | 349.839 | 6 / 6 |
+| **9B:XR:control** | Index route & case state; retain others; routing composition rule + derived action | 95.399% | 84.375% | 242.983 | 256.648 | 5 / 6 |
+| **9B:GR:multicache** | Grouped: (1) elig/retries/urgent, (2) route, (3) state; routing composition rule | 94.010% | 79.167% | 690.162 | 727.937 | 5 / 6 |
+| **9B:X:control** | Index route & case state; retain others; derived action rule | 87.500% | 44.271% | 243.291 | 257.087 | 6 / 6 |
+| **9B:E:control** | Compact JSON in isolated quality session | 87.240% | 46.354% | 3,634.013 | 3,689.855 | 0 / 6 |
+| **9B:G:multicache** | Grouped 3 subrequests; host snapshot cache | 88.542% | 53.125% | 691.222 | 728.557 | 6 / 6 |
+
+### 23.1.1 Selective indexing plus routing composition (Arm XR)
+Relative to Arm X, Arm XR improves field accuracy by **+7.90 pp** (95% CI: [6.77, 9.11]) and whole-request correctness by **+40.10 pp** (95% CI: [33.33, 47.40]), while median request latency is virtually unchanged (242.98 ms vs 243.29 ms). XR reaches **162/192 all-six-correct requests**, compared with X's 85/192 and JSON's 89/192. Its median latency is **~14.96x lower than JSON** (3,634.01 ms). Saved-output analysis confirms 91 routing corrections and zero routing harms, with all other fields preserved. Missing NLL/Brier in XR is intentional because the route distribution is withheld.
+
+### 23.1.2 Narrowly joint categorical readout (Arm NJ)
+Arm NJ reaches **153/192 all-six-correct requests**. It replaces route and urgency with an explicit joint categorical source, calibrating the joint distribution before deriving marginals. It is approximately **6.2% faster than X** by median (228.31 ms vs 243.29 ms) and substantially more accurate (94.01% field / 79.69% all-six). All six field marginal distributions are mathematically valid, though six marginals do not constitute a joint whole-response probability. Compared with XR, retry errors rise from 3 to 10 and six urgency/route pairs become wrong, while case-state errors drop from 4 to 1. XR versus NJ represents a point-quality versus complete-distribution trade-off.
+
+## 23.2 Semantic error clustering: partial-information logic failures
+On the new policy confirmation panel, XR gets route and urgency right in all 192 cases. The 30 failing requests comprise three disjoint groups:
+1. **23 Eligibility Errors** (and corresponding derived action errors): In all 23 cases, the model returns `undetermined` instead of `ineligible` (causing action `request missing information` instead of `deny access`). Every single case features unrecorded certification (`certified: null`) and a known points score below 70. The contract specifies that eligibility requires `certified == true AND points >= 70`; a known failing condition conclusively establishes ineligibility regardless of unrecorded attributes.
+2. **4 Case-State Errors**: The model selects `closed` instead of `open`.
+3. **3 Retry-Cap Errors**: The model outputs `1` instead of the capped value `3`.
+NJ replicates the identical 23 eligibility errors, isolating partial-information logic, event recency, and numerical capping as targeted focal points for subsequent prompt/logic refinement.
+
+## 23.3 Multi-catalogue host snapshot caching and batching diagnostics
+- **Dedicated Cache Experiment (96 Paired Inferences)**: 24 cases tested twice for Arm G (48 requests) and Arm GR (48 requests). Control and multicache arms show **zero observed probability drift ($\Delta p = 0.0$)** on available vectors and identical discrete decisions across all 96 pairs.
+- **Cache Hit Dynamics**: The multicache run misses all 3 catalogues on its first grouped request, then obtains 141 hit subrequests across the remaining 47 requests (control records 0 hits).
+- **Host RAM Memory**: Maximum retained snapshot payload is **178,865,396 bytes (~170.6 MiB)** in host RAM.
+- **Latency Amortization**:
+  - Arm G: Control first request 1,480.12 ms $\to$ Multicache steady median 586.27 ms (**2.46x speedup**).
+  - Arm GR: Control first request 1,482.45 ms $\to$ Multicache steady median 605.52 ms (**2.36x speedup**).
+  - Full confirmation: G drops from 1,511.22 ms to 691.22 ms and GR drops from 1,511.75 ms to 690.16 ms (**~54% latency cut / ~2.19x speedup**).
+- **Batching Diagnostic on Arm X**: Comparing batches of 1, 2, and 4 contexts across 12 cases (36 items total, 8 reserved sequence slots) confirms exact probability parity ($\Delta p = 0.0$), but larger batches do not improve throughput: batch 1 achieves 4.749 items/s (212.04 ms median), batch 2 achieves 4.528 items/s (440.83 ms median), and batch 4 achieves 4.477 items/s (891.13 ms median).
+
+## 23.4 Model size deployment comparison: 4B vs 9B Q4_K_M on T4
+- **Policy Readouts**:
+  - Arm X: 4B (79.60% field / 25.52% all-six at 150.09 ms) vs 9B (87.50% field / 44.27% all-six at 243.29 ms).
+  - Arm XR: 4B (86.20% field / 49.48% all-six at 153.68 ms) vs 9B (95.40% field / 84.38% all-six at 242.98 ms).
+  - Arm NJ: 4B (83.94% field / 52.60% all-six at 145.88 ms) vs 9B (94.01% field / 79.69% all-six at 228.31 ms).
+- **SNLI Confirmation (192 cases)**: 4B achieves **90.63% (174/192)** at 98.47 ms vs 9B's **86.98% (167/192)** at 168.21 ms (+3.65 pp in favor of 4B, 95% CI: [-0.52, +7.81]). Model selection is strictly task-dependent.
+
+## 23.5 Dedicated-process history isolation for integrated readouts
+All six mixed controls fail history checks; all six native-only controls and six dedicated-process treatments pass with **exact probability and answer parity ($\Delta p = 0.0$)** for X, XR, and NJ across 1-context and 4-context traces.
+Four-context mixed failures show substantial drift:
+- Arm X: $\max \Delta p = 0.113938$ (6 diagnostic-policy flips).
+- Arm XR: $\max \Delta p = 0.113938$ (route distribution withheld).
+- Arm NJ: $\max \Delta p = 0.073574$ (4 discrete field flips, 1 policy flip).
+Dedicated-process trace totals range from 78 to 91 s, comparable to mixed totals (73 to 99 s).
+
+## 23.6 Prompt schema sensitivity and dynamic Choice probes
+- **Schema Sensitivity**: All 48 comparisons fail the strict numerical invariance gate. Maximum probability shifts: code remapping $\max \Delta p = 0.871611$ (9 flips), visible key renaming $\max \Delta p = 0.513453$ (3 flips), natural-option order $\max \Delta p = 0.235829$ (4 flips), unrelated question addition $\max \Delta p = 0.168059$ (0 flips, 1 policy flip).
+- **Dynamic Choice Probes**: Runtime policy thresholds (48/48 correct), ordinal rubric (24/24), option interaction (24/24), sibling visibility (36/36), evidence position (32/32). Candidate omission scores 37/40 correct, with errors at $K \in \{16, 32\}$ where numeric plan IDs resemble required capacity despite conflicting textual descriptions.
+
+## 23.7 Probability calibration and decision automation policies
+- **Calibration Scores**: Proper scoring rules show mixed outcomes: D (NLL 0.819 $\to$ 0.438), X (NLL 0.353 $\to$ 0.294), and NJ (NLL 0.207 $\to$ 0.170) improve, while G worsens (NLL 0.270 $\to$ 0.291) despite calibration. NLI NLL worsens slightly for 9B (0.410 $\to$ 0.411) and 4B (0.362 $\to$ 0.405) while Brier improves.
+- **Empirical Action/Review Policies**: Under losses wrong=5, review=0.1, correct=0 (review-all baseline cost 0.1000): Arms D, X, 4B X accept zero cases (mean cost 0.1000); Arm G achieves 22.92% coverage with 4 errors (mean cost 0.18125, worse than review-all); 9B NLI achieves 41.67% coverage with zero errors (mean cost **0.05833**, beating review-all); 4B NLI achieves 53.65% coverage with 2 errors (mean cost 0.09844). NJ recorded `NOT_MEASURED_JOINT_POLICY_NOT_IMPLEMENTED`; XR/GR lack the required route distribution.
+
+## 23.8 Classifier comparison diagnostic and bookkeeping root cause
+The encoder setup failed because `run_logged.publish()` unconditionally copies its log into the run directory even when the log already resides at the destination. `shutil.copyfile` raises `SameFileError`; the exception handler terminated the subprocess (return code -15 after ~0.018–0.037 s), and final publication repeated the failure. Logs were empty; BERT, ModernBERT, DeBERTa, GLiClass, and Indecis shared-build were not evaluated. This was an execution harness bookkeeping failure, not an out-of-memory or model quality failure.
+The only measured cheap baseline, TF-IDF + Logistic Regression, achieved 95.05% field acc / 76.56% all-six on development, but dropped to 74.83% field acc / 31.77% all-six on fresh confirmation at 2.41 ms median (SNLI acc 37.5%).
+
+---
+
 # Appendix A. Source and reproducibility register
 
 The source IDs below identify the evidence behind the numbered sections. In the accompanying evidence manifest, local snapshot SHA-256 hashes distinguish the exact files reviewed from later Drive edits. Result paths are under `Google Drive / Colab Notebooks`. Timestamps embedded in run IDs are UTC.
+
+**Version 0.8.11 documentation boundary.** Version 0.8.11 adds §23 and E42/V11
+for the completed T4 integrated research study (Run `20261001T105345_828556Z_6e6d92`,
+protocol `openkind-t4-integrated-research/v4.0.0`). The abstract, executive assessment,
+research answers, review boundary, §23, and this register carry the integrated results.
+Only the two papers are revised. Historical results, selections, source registers,
+and dated interpretations remain intact; no notebook, roadmap, architecture, policy
+threshold, backend, or Drive evidence is changed.
+
+**E42: Completed T4 integrated research study.**
+Run `20261001T105345_828556Z_6e6d92`, protocol `openkind-t4-integrated-research/v4.0.0`,
+status `PARTIAL`; no model, backend, or service promotion.
+Run key `930195a6d0a3ff83a617822fde813eae5e4a83f80a64eda9d20d8eb830b3e658`;
+archive SHA-256 `f0cfde45b65efd1716220d5860695cb1a1122c03863ce6155c914c569569eac3`;
+completion marker: absent. Evidence includes `quality_summary.csv`
+(116 rows over 20,220 primary technical requests, 105,900 field observations),
+`paired_comparisons.json` (105 original paired-bootstrap rows), 2,448 NJ
+source-joint pushforwards, 945 history comparisons across 18 blocks,
+48 schema comparisons, 108 shape comparisons, 96 dedicated cache pairs,
+`multicache_summary.csv`, `isolation_summary.csv`, `calibration_results.json`,
+`policies.json`, and execution receipts for 41 blocks across 45 executed stages.
+Setup failure logs (`errors_this_session.json`) identify the runner's
+`SameFileError` exception on log publication. Qwen evidence: publisher
+Qwen3.5-9B Q4_K_M and Qwen3.5-4B Q4_K_M on Tesla T4; CPU evidence: TF-IDF
+logistic regression baseline. Technical repeats are correlated observations,
+not independent cases.
+
+**V11: T4 integrated research results reconciliation and v0.8.11 paper update.**
+The companion review independently downloads the exact ZIP, verifies member
+integrity, reconstructs all 116 quality rows, checks receipts across 41
+experiment blocks, and validates reported arithmetic without model inference,
+training, calibration refitting, or gold-label mutation.
 
 **Version 0.8.9/0.8.10 documentation boundary.** Version 0.8.9 added §22 and
 E41/V10 for the completed unified decision validity run; 0.8.10 completes the

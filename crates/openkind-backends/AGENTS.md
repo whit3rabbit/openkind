@@ -121,6 +121,38 @@ cargo check -p openkind-backends
 cargo test -p openkind-backends
 ```
 
+### CUDA feature (CUDA toolchain required at build time)
+
+```bash
+cargo check -p openkind-backends --features cuda
+cargo clippy -p openkind-backends --features cuda --all-targets -- -D warnings
+```
+
+CUDA execution reuses the CPU candle model code with a resolved
+`candle_core::Device`; the only feature-gated surface is device resolution
+(`src/device.rs`) plus per-engine selection arms, so feature-off builds type
+check the device threading. Device selection is `FamilyExecution`
+(`Cpu`, `Cuda { device_id }`, `Onnx { device_id }`); every family engine
+exposes `load_with_execution`, and `load` stays the CPU reference path.
+Continuation-state arithmetic identity follows the device: the native
+backbone emits `candle-cuda-fp32` on CUDA. No CUDA host has run parity yet;
+see [`docs/CUDA.md`](../../docs/CUDA.md).
+
+### ONNX features
+
+```bash
+cargo check -p openkind-backends --features onnx
+cargo clippy -p openkind-backends --features onnx --all-targets -- -D warnings
+cargo test  -p openkind-backends --features onnx
+```
+
+`ort` runs with `load-dynamic`: no binary downloads at build time, and the
+ONNX Runtime library resolves through `ORT_DYLIB_PATH` or standard paths at
+load time (fail closed). Family ONNX adapters live in each family's
+`onnx.rs` and must reproduce the candle readout contract exactly; the
+artifact contract, required export digest manifest, and per-family applicability are in
+[`docs/ONNX.md`](../../docs/ONNX.md).
+
 ### MLX feature (macOS arm64 only)
 
 ```bash

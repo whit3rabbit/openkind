@@ -79,6 +79,15 @@ pub struct BertEmbedder {
 impl BertEmbedder {
     /// Load and verify the checkpoint (mmap FP32 CPU).
     pub fn load(artifacts: &BertEmbedderArtifacts) -> Result<Self, ProxyCacheError> {
+        Self::load_with_device(artifacts, Device::Cpu)
+    }
+
+    /// Load and verify the checkpoint onto `device` (feature `cuda` for
+    /// CUDA devices; fails closed when the device is unavailable).
+    pub fn load_with_device(
+        artifacts: &BertEmbedderArtifacts,
+        device: Device,
+    ) -> Result<Self, ProxyCacheError> {
         let content_hash = artifacts.verify()?;
 
         let config_json: serde_json::Value = serde_json::from_str(
@@ -118,7 +127,6 @@ impl BertEmbedder {
             })? as usize;
         let config: candle_transformers::models::bert::Config = serde_json::from_value(config_json)
             .map_err(|error| ProxyCacheError::Encoder(format!("decode bert config: {error}")))?;
-        let device = Device::Cpu;
         let vb = unsafe {
             VarBuilder::from_mmaped_safetensors(
                 std::slice::from_ref(&artifacts.checkpoint),
