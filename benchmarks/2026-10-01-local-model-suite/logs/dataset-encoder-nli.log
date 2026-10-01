@@ -1,0 +1,1069 @@
+profile=encoder-nli:1041a4c362338a61b820
+loader=encoder-nli
+commit=e3cb136f431e817ac4aca475ea381b0840ef2cd0
+host=Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind pull encoder-nli:1041a4c362338a61b820
+Downloading checkpoint/config.json (776 B)
+Verifying checkpoint/config.json (SHA-256)
+Verified checkpoint/config.json
+Downloading checkpoint/vocab.txt (226.1 KiB)
+Verifying checkpoint/vocab.txt (SHA-256)
+Verified checkpoint/vocab.txt
+Downloading checkpoint/model.safetensors (255.4 MiB)
+Verifying checkpoint/model.safetensors (SHA-256)
+Verified checkpoint/model.safetensors
+Installed encoder-nli:1041a4c362338a61b820 (rust-loadable); 255.6 MiB downloaded
+To activate it, restart the daemon with: openkind serve --installed-models encoder-nli:1041a4c362338a61b820
+[exit 0] pull encoder-nli:1041a4c362338a61b820
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval sst2 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine encoder-nli --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/sst2 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/encoder-nli:1041a4c362338a61b820/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/sst2/workload-sst2-eval.jsonl: 50 rows (sha256 aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine encoder-nli starting
+[bench] strategy encoder-nli warmup complete
+[bench] strategy encoder-nli rep 0: 1.326 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/sst2/summary-encoder-nli.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "db3daed39bcd33ea25255ab60c1ac86ad52ce79d",
+    "description": "Binary sentence sentiment (GLUE SST-2).",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "stanfordnlp/sst2",
+    "hf_revision": "8d51e7e4887a4caaa95b3fbebbf53c0490b58bbb",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "sst2",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "encoder-nli",
+    "model_revision": "cfa538a0fddbbd978fefe8966c1aeff7ad409c90",
+    "profile_id": "1041a4c362338a61b820",
+    "strategy": "encoder-nli"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.74,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.92,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.825,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.62,
+        0.86
+      ],
+      "clusters": 50,
+      "point": 0.74,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.74,
+    "aurc": 0.09623135256363013,
+    "brier": 0.3230719772717623,
+    "ece_10_bins": 0.13485787975628527,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.7312939231087227,
+    "nll": 0.5288460814968565,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 20,
+        "label": "negative",
+        "recall": 0.7
+      },
+      {
+        "count": 30,
+        "label": "positive",
+        "recall": 0.7666666666666667
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.26,
+        "answered": 50,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.16216216216216217,
+        "answered": 37,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.1428571428571429,
+        "answered": 28,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0625,
+        "answered": 16,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/sst2/predictions-encoder-nli-encoder-nli.jsonl",
+    "predictions_sha256": "b9709ee819ddf0e30e4bc3ee28ed95cdc173a8d9e8310130685c4526eadcfd44",
+    "summary_sha256": "2173c9b2d554d9010c0e2b15efef44147f4c07fb5915d0e9a4829294faa26653",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/sst2/workload-sst2-eval.jsonl",
+    "workload_sha256": "aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval encoder-nli/sst2 (encoder-nli)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval ag_news --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine encoder-nli --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/ag_news --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/encoder-nli:1041a4c362338a61b820/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/ag_news/workload-ag_news-eval.jsonl: 50 rows (sha256 dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine encoder-nli starting
+[bench] strategy encoder-nli warmup complete
+[bench] strategy encoder-nli rep 0: 2.839 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/ag_news/summary-encoder-nli.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "4efd5262b756aee7a12710ca78c74aa258660063",
+    "description": "News topic classification, 4 classes.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "fancyzhx/ag_news",
+    "hf_revision": "eb185aade064a813bc0b7f42de02595523103ca4",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "ag_news",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "encoder-nli",
+    "model_revision": "cfa538a0fddbbd978fefe8966c1aeff7ad409c90",
+    "profile_id": "1041a4c362338a61b820",
+    "strategy": "encoder-nli"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.64,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.72,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.675,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.5,
+        0.78
+      ],
+      "clusters": 50,
+      "point": 0.64,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.64,
+    "aurc": 0.22831298509267486,
+    "brier": 0.5485787303395658,
+    "ece_10_bins": 0.2072732758978443,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.6270703712305492,
+    "nll": 1.0480773238676153,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "Business",
+        "recall": 0.875
+      },
+      {
+        "count": 10,
+        "label": "Sci/Tech",
+        "recall": 0.4
+      },
+      {
+        "count": 16,
+        "label": "Sports",
+        "recall": 0.8125
+      },
+      {
+        "count": 16,
+        "label": "World",
+        "recall": 0.5
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.19999999999999996,
+        "answered": 15,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 6,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 4,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/ag_news/predictions-encoder-nli-encoder-nli.jsonl",
+    "predictions_sha256": "ef5536fa8bb05192a5148dc8b83b18fd50b00d9592fecce04823188fa0b9ec30",
+    "summary_sha256": "999195bccb4705c79f7f5787daf28943196b3c5c985270d0934b392ef6dfe050",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/ag_news/workload-ag_news-eval.jsonl",
+    "workload_sha256": "dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval encoder-nli/ag_news (encoder-nli)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval banking77 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine encoder-nli --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/banking77 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/encoder-nli:1041a4c362338a61b820/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/banking77/workload-banking77-eval.jsonl: 50 rows (sha256 9987b6f82a27ab4a5ddc0124ab4a110945d168858aa1ff1352d371422d657b98)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine encoder-nli starting
+Error: warmup dispatch failed: backend `encoder-nli/cpu-fp32` does not support this request: question `banking77/1039` offers 78 candidates but the profile accepts at most 32
+[exit 1] eval encoder-nli/banking77 (encoder-nli)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval clinc150 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine encoder-nli --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/clinc150 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/encoder-nli:1041a4c362338a61b820/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/clinc150/workload-clinc150-eval.jsonl: 50 rows (sha256 c4fa558b966c0c72618366e1b6b6024566b5de14d3eeba7e0085c260ebdf1701)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine encoder-nli starting
+Error: warmup dispatch failed: backend `encoder-nli/cpu-fp32` does not support this request: question `clinc150/plus/1394` offers 152 candidates but the profile accepts at most 32
+[exit 1] eval encoder-nli/clinc150 (encoder-nli)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval arc --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine encoder-nli --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/arc --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/encoder-nli:1041a4c362338a61b820/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/arc/workload-arc-eval.jsonl: 50 rows (sha256 a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine encoder-nli starting
+[bench] strategy encoder-nli warmup complete
+[bench] strategy encoder-nli rep 0: 2.309 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/arc/summary-encoder-nli.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "5a61ed188b8810abf32686fa83eb93787cbc5f25",
+    "description": "Grade-school science QA (Challenge + Easy), 3-5 options.",
+    "files": 4,
+    "gated": "none",
+    "hf_repo": "allenai/ai2_arc",
+    "hf_revision": "210d026faf9955653af8916fad021475a3f00453",
+    "license": "CC-BY-SA-4.0",
+    "name": "arc",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "encoder-nli",
+    "model_revision": "cfa538a0fddbbd978fefe8966c1aeff7ad409c90",
+    "profile_id": "1041a4c362338a61b820",
+    "strategy": "encoder-nli"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.38,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.36,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.4,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.26,
+        0.52
+      ],
+      "clusters": 50,
+      "point": 0.38,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.38,
+    "aurc": 0.6136240685648463,
+    "brier": 0.8353782149205812,
+    "ece_10_bins": 0.1940493341327303,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.38257575757575757,
+    "nll": 1.6437716017530943,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "A",
+        "recall": 0.625
+      },
+      {
+        "count": 19,
+        "label": "B",
+        "recall": 0.2631578947368421
+      },
+      {
+        "count": 13,
+        "label": "C",
+        "recall": 0.3076923076923077
+      },
+      {
+        "count": 10,
+        "label": "D",
+        "recall": 0.5
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.5714285714285714,
+        "answered": 28,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.7,
+        "answered": 10,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.8333333333333334,
+        "answered": 6,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/arc/predictions-encoder-nli-encoder-nli.jsonl",
+    "predictions_sha256": "72627e87e2ee58ade3ff2a42ae9296dc56a68d5da16d6779f9456cc761c650af",
+    "summary_sha256": "b0514efd0db99d179a75636324095c952729083eebe26d27d4c541552175258b",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/arc/workload-arc-eval.jsonl",
+    "workload_sha256": "a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval encoder-nli/arc (encoder-nli)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval hellaswag --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine encoder-nli --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/hellaswag --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/encoder-nli:1041a4c362338a61b820/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/hellaswag/workload-hellaswag-eval.jsonl: 50 rows (sha256 01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine encoder-nli starting
+[bench] strategy encoder-nli warmup complete
+[bench] strategy encoder-nli rep 0: 3.521 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/hellaswag/summary-encoder-nli.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "382ffb520660cc2ba98092cd8aa07cafc9c47f6d",
+    "description": "Commonsense sentence completion, 4 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "Rowan/hellaswag",
+    "hf_revision": "218ec52e09a7e7462a5400043bb9a69a41d06b76",
+    "license": "MIT (dataset card); underlying corpus terms not detailed",
+    "name": "hellaswag",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "encoder-nli",
+    "model_revision": "cfa538a0fddbbd978fefe8966c1aeff7ad409c90",
+    "profile_id": "1041a4c362338a61b820",
+    "strategy": "encoder-nli"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.26,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.2,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.275,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.14,
+        0.38
+      ],
+      "clusters": 50,
+      "point": 0.26,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.26,
+    "aurc": 0.7646127140042955,
+    "brier": 1.045936667079011,
+    "ece_10_bins": 0.4447470022711828,
+    "false_none_rate": 0.02,
+    "macro_f1": 0.24630541871921183,
+    "nll": 2.245141696430387,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 12,
+        "label": "A",
+        "recall": 0.5
+      },
+      {
+        "count": 8,
+        "label": "B",
+        "recall": 0.125
+      },
+      {
+        "count": 11,
+        "label": "C",
+        "recall": 0.18181818181818182
+      },
+      {
+        "count": 19,
+        "label": "D",
+        "recall": 0.21052631578947367
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.7142857142857143,
+        "answered": 35,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.782608695652174,
+        "answered": 23,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.6363636363636364,
+        "answered": 11,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 1.0,
+        "answered": 2,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/hellaswag/predictions-encoder-nli-encoder-nli.jsonl",
+    "predictions_sha256": "097b285e9a1e6e10cfc14c2dc3a9de6ff847dd296a6d71c55de2f9fe1e132ccc",
+    "summary_sha256": "e7088169107997ad0af56fff74ec8bd2a7fdba133525a634feeddc4931ea314e",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/hellaswag/workload-hellaswag-eval.jsonl",
+    "workload_sha256": "01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval encoder-nli/hellaswag (encoder-nli)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval winogrande --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine encoder-nli --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/winogrande --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/encoder-nli:1041a4c362338a61b820/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/winogrande/workload-winogrande-eval.jsonl: 50 rows (sha256 43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine encoder-nli starting
+[bench] strategy encoder-nli warmup complete
+[bench] strategy encoder-nli rep 0: 1.721 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/winogrande/summary-encoder-nli.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "546d5aa0e42fc0fa9ad2c13260322ec969e083ee",
+    "description": "Commonsense pronoun/blank resolution, 2 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "allenai/winogrande",
+    "hf_revision": "01e74176c63542e6b0bcb004dcdea22d94fb67b5",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "winogrande",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "encoder-nli",
+    "model_revision": "cfa538a0fddbbd978fefe8966c1aeff7ad409c90",
+    "profile_id": "1041a4c362338a61b820",
+    "strategy": "encoder-nli"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.5,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.48,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.475,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.36,
+        0.64
+      ],
+      "clusters": 50,
+      "point": 0.5,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.52,
+    "aurc": 0.4771030188119837,
+    "brier": 0.6134883253967843,
+    "ece_10_bins": 0.21169208499141026,
+    "false_none_rate": 0.02,
+    "macro_f1": 0.5032733224222585,
+    "nll": 0.9142510781584032,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 25,
+        "label": "A",
+        "recall": 0.56
+      },
+      {
+        "count": 25,
+        "label": "B",
+        "recall": 0.44
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.5238095238095238,
+        "answered": 42,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.4666666666666667,
+        "answered": 15,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.4,
+        "answered": 5,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/winogrande/predictions-encoder-nli-encoder-nli.jsonl",
+    "predictions_sha256": "4b8d04ac7bca40b4343899eaee5a4b2d5bcff4401aaf52d843de202b3f2b6f1d",
+    "summary_sha256": "87440388f3a92e37f42fa85afc96bb150f4ac0c68a5cf7d055d91a8d8e611ed8",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/winogrande/workload-winogrande-eval.jsonl",
+    "workload_sha256": "43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval encoder-nli/winogrande (encoder-nli)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval commonsense_qa --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine encoder-nli --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/commonsense_qa --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/encoder-nli:1041a4c362338a61b820/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/commonsense_qa/workload-commonsense_qa-eval.jsonl: 50 rows (sha256 197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine encoder-nli starting
+[bench] strategy encoder-nli warmup complete
+[bench] strategy encoder-nli rep 0: 2.948 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/commonsense_qa/summary-encoder-nli.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "ae0768efa72432cb9c8e3945bd39f6dad24b2808",
+    "description": "Commonsense QA, 5 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "tau/commonsense_qa",
+    "hf_revision": "94630fe30dad47192a8546eb75f094926d47e155",
+    "license": "MIT",
+    "name": "commonsense_qa",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "encoder-nli",
+    "model_revision": "cfa538a0fddbbd978fefe8966c1aeff7ad409c90",
+    "profile_id": "1041a4c362338a61b820",
+    "strategy": "encoder-nli"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.26,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.24,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.225,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.14,
+        0.38
+      ],
+      "clusters": 50,
+      "point": 0.26,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.26,
+    "aurc": 0.727585294631066,
+    "brier": 0.9865725435851956,
+    "ece_10_bins": 0.3717280149639551,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.2664333263990014,
+    "nll": 2.18762517109951,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 7,
+        "label": "A",
+        "recall": 0.42857142857142855
+      },
+      {
+        "count": 11,
+        "label": "B",
+        "recall": 0.18181818181818182
+      },
+      {
+        "count": 14,
+        "label": "C",
+        "recall": 0.14285714285714285
+      },
+      {
+        "count": 5,
+        "label": "D",
+        "recall": 0.6
+      },
+      {
+        "count": 13,
+        "label": "E",
+        "recall": 0.23076923076923078
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.7777777777777778,
+        "answered": 27,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.7,
+        "answered": 10,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.6666666666666667,
+        "answered": 3,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/commonsense_qa/predictions-encoder-nli-encoder-nli.jsonl",
+    "predictions_sha256": "4030ccf9638d4e790b8a411c7a0357484234771b684423341b5980c40876a54f",
+    "summary_sha256": "98536fc6fe0f3a4552b5bd8f0e475a77f757cf900c90303f85f67fe99feee875",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/commonsense_qa/workload-commonsense_qa-eval.jsonl",
+    "workload_sha256": "197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval encoder-nli/commonsense_qa (encoder-nli)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval paws --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine encoder-nli --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/paws --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/encoder-nli:1041a4c362338a61b820/checkpoint --tune-threshold
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/paws/tuning-paws/workload-paws-dev.jsonl: 50 rows (sha256 f9c04db8a2189dc90a3981b384703273ab29fb29778decf3895a80de707c1f75)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine encoder-nli starting
+[bench] strategy encoder-nli warmup complete
+[bench] strategy encoder-nli rep 0: 0.925 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/paws/tuning-paws/summary-encoder-nli.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/paws/workload-paws-eval.jsonl: 50 rows (sha256 36ecb2af4e6c31d6529afaf2a85abbb1581be6ff6544263029794b66a6defc70)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine encoder-nli starting
+[bench] strategy encoder-nli warmup complete
+[bench] strategy encoder-nli rep 0: 0.864 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/paws/summary-encoder-nli.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "254f2df8677712ee0972ddb92870dc79fed48aec",
+    "description": "Adversarial paraphrase identification (high word overlap).",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "google-research-datasets/paws",
+    "hf_revision": "161ece9501cf0a11f3e48bd356eaa82de46d6a09",
+    "license": "custom terms on the dataset card; review before broader use",
+    "name": "paws",
+    "task_family": "nli"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "encoder-nli",
+    "model_revision": "cfa538a0fddbbd978fefe8966c1aeff7ad409c90",
+    "profile_id": "1041a4c362338a61b820",
+    "strategy": "encoder-nli"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy_at_0.5": 0.42,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.48,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.475,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.28,
+        0.56
+      ],
+      "clusters": 50,
+      "point": 0.42,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "aurc": 0.449946515984402,
+    "auroc": 0.5066666666666667,
+    "brier": 0.29675642340592423,
+    "ece_10_bins": 0.31377134974236137,
+    "negative_recall": 0.36666666666666664,
+    "positive_recall": 0.5,
+    "rows": 50,
+    "tuned_threshold": {
+      "dev_rows": 50,
+      "eval_accuracy": 0.58,
+      "protocol": "threshold selected on dev, applied to eval",
+      "threshold": 0.7423714021013387,
+      "tuning_accuracy_on_dev": 0.74
+    }
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/paws/predictions-encoder-nli-encoder-nli.jsonl",
+    "predictions_sha256": "ab6a9183a6656d9ef66eed48cf292a44395f81ce1e499aa3827b7416bbddd8b2",
+    "summary_sha256": "28606a60b5014cf66ee554a288db3e3892bbf0e8e093c392f5cd6c3dba4587a8",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/paws/workload-paws-eval.jsonl",
+    "workload_sha256": "36ecb2af4e6c31d6529afaf2a85abbb1581be6ff6544263029794b66a6defc70"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 18,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval encoder-nli/paws (encoder-nli)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval boolq --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine encoder-nli --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/boolq --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/encoder-nli:1041a4c362338a61b820/checkpoint --tune-threshold
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/boolq/tuning-boolq/workload-boolq-dev.jsonl: 50 rows (sha256 1344c51d3a9d27d9cbf428f2e823b6324a62c5e15d9d4beba09f034c57950ea9)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine encoder-nli starting
+[bench] strategy encoder-nli warmup complete
+[bench] strategy encoder-nli rep 0: 1.440 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/boolq/tuning-boolq/summary-encoder-nli.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/boolq/workload-boolq-eval.jsonl: 50 rows (sha256 449d16d61bdfeba20b1323e394af130cf9e9e70670365f052602e59eed64373c)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine encoder-nli starting
+Error: warmup dispatch failed: backend `encoder-nli/cpu-fp32` does not support this request: encoded pair length 761 exceeds frozen maximum 512; truncation is forbidden
+[exit 1] eval encoder-nli/boolq (encoder-nli)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval stsb --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine encoder-nli --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/stsb --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/encoder-nli:1041a4c362338a61b820/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/stsb/workload-stsb-eval.jsonl: 50 rows (sha256 fbcbdc284c4c7e1d9f950740770134c5eaab52175a16eaafb059749acf610453)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine encoder-nli starting
+[bench] strategy encoder-nli warmup complete
+[bench] strategy encoder-nli rep 0: 3.937 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/stsb/summary-encoder-nli.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "58372e8197f43125a85d75e3c5121ccabc61413a",
+    "description": "Semantic textual similarity on a 0-5 scale.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "sentence-transformers/stsb",
+    "hf_revision": "ab7a5ac0e35aa22088bdcf23e7fd99b220e53308",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "stsb",
+    "task_family": "rubric-scoring"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "encoder-nli",
+    "model_revision": "cfa538a0fddbbd978fefe8966c1aeff7ad409c90",
+    "profile_id": "1041a4c362338a61b820",
+    "strategy": "encoder-nli"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "argmax_level_accuracy": 0.06,
+    "mae": 1.5334790906996119,
+    "nll": 1.860118614095498,
+    "pearson": -0.20047150841550637,
+    "rows": 50,
+    "spearman": -0.138020976225833
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/stsb/predictions-encoder-nli-encoder-nli.jsonl",
+    "predictions_sha256": "e6a56d090571ca8be3a69a2111f0b127fc9281415bb78c380e7ef694b8e0d6f9",
+    "summary_sha256": "a98d582660289c704cfe384e6bd078d7040ec57ad63cdf7d275b2f4d624a287f",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/stsb/workload-stsb-eval.jsonl",
+    "workload_sha256": "fbcbdc284c4c7e1d9f950740770134c5eaab52175a16eaafb059749acf610453"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 1,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval encoder-nli/stsb (encoder-nli)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval sst5 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine encoder-nli --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/sst5 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/encoder-nli:1041a4c362338a61b820/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/sst5/workload-sst5-eval.jsonl: 50 rows (sha256 6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine encoder-nli starting
+[bench] strategy encoder-nli warmup complete
+[bench] strategy encoder-nli rep 0: 2.698 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/sst5/summary-encoder-nli.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "956d888e7bc9c029fd96e3cece49c054ec0ddbd9",
+    "description": "Fine-grained sentence sentiment, 5 ordered levels.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "SetFit/sst5",
+    "hf_revision": "e51bdcd8cd3a30da231967c1a249ba59361279a3",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "sst5",
+    "task_family": "rubric-scoring"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "encoder-nli",
+    "model_revision": "cfa538a0fddbbd978fefe8966c1aeff7ad409c90",
+    "profile_id": "1041a4c362338a61b820",
+    "strategy": "encoder-nli"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "argmax_level_accuracy": 0.46,
+    "mae": 0.7828374592440209,
+    "nll": 1.3451933190838778,
+    "pearson": 0.6280035120009766,
+    "rows": 50,
+    "spearman": 0.5792300401867696
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/sst5/predictions-encoder-nli-encoder-nli.jsonl",
+    "predictions_sha256": "0735a8b7df63fa13e0b2d39d9c05685d961280aeb2680d4babdd7928dca572dc",
+    "summary_sha256": "9bb902378529455f252f16d2205c1e0a1677315ac0764c4162292cc1748b33e3",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/sst5/workload-sst5-eval.jsonl",
+    "workload_sha256": "6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval encoder-nli/sst5 (encoder-nli)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench score /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl --engine encoder-nli --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/performance/encoder-nli/encoder-nli --reps 1 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --model-root /tmp/openkind-local-suite-2026-10-01/models/models/encoder-nli:1041a4c362338a61b820/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl: 12 rows (sha256 c2db6b36351d340b4f55343109cf4a41444d56c96868ab7f467381dd791c3905)
+[bench] 4 groups over 12 rows (grouping=true)
+[bench] engine encoder-nli starting
+[bench] strategy encoder-nli warmup complete
+[bench] strategy encoder-nli rep 0: 0.461 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/performance/encoder-nli/encoder-nli/summary-encoder-nli.json
+{"bundle_version":null,"commit":"e3cb136f431e817ac4aca475ea381b0840ef2cd0","context":null,"cross_strategy_answer_parity_clean":null,"engine":"encoder-nli","engine_variant":"encoder-nli","fixture":{"groups":4,"path":"/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl","rows":12,"sha256":"c2db6b36351d340b4f55343109cf4a41444d56c96868ab7f467381dd791c3905"},"grouping":"per-state","history_aba":false,"host":"Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64","host_hardware":{"cpu_brand":"Apple M4 Max","logical_cores":14,"model":"Mac16,5","total_memory_bytes":38654705664},"measurement_scope":"model_request_path","model_revision":"cfa538a0fddbbd978fefe8966c1aeff7ad409c90","notes":{"cpu_time_seconds":"process-wide user+system CPU time diff across the timed region, excluding warmup and model load; avg_cpu_percent exceeds 100 when multiple threads run","input_tokens_per_second":"total input tokens across all timed repetitions divided by their total wall time","percentiles":"p50 is the median rep total and p95 is the ceil(0.95*n)-1 sample; small rep counts are reported alongside as samples_seconds","request_latency_ms":"latency is per request; grouped rows share their request's latency and are not independent timings; includes request construction through answer extraction"},"peak_resident_bytes":561889280,"prediction_sha256":{"encoder-nli":"05fda6a2ba80473eee78777b59ebd7bd9c2b0ffa102fb7f39cc2f868ce947841"},"profile_id":"1041a4c362338a61b820","reps":1,"schema":"openkind-bench/v1","strategies":[{"avg_cpu_percent":195.87974213329989,"backend_id":"encoder-nli/cpu-fp32","cpu_time_seconds":0.9026900000000002,"decisions_per_second":26.039469868942806,"forced":null,"groups":4,"input_tokens_per_second":5305.5419857970965,"input_tokens_total":2445,"model_load_seconds":0.554377333,"p50_seconds":0.460838875,"p95_seconds":0.460838875,"reps":1,"rows":12,"samples_seconds":[0.460838875],"strategy":"encoder-nli"}],"timing_scope":"request construction, validation, dispatch, and answer extraction; excludes model load (reported per strategy), result writes, and the untimed warmup pass; warm process","warmup":true}
+[exit 0] score encoder-nli (encoder-nli, 12 rows)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind rm encoder-nli:1041a4c362338a61b820
+Removed installed model encoder-nli:1041a4c362338a61b820
+[exit 0] remove encoder-nli:1041a4c362338a61b820
+

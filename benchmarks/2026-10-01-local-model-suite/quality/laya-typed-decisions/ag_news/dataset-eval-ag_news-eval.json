@@ -1,0 +1,124 @@
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "4efd5262b756aee7a12710ca78c74aa258660063",
+    "description": "News topic classification, 4 classes.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "fancyzhx/ag_news",
+    "hf_revision": "eb185aade064a813bc0b7f42de02595523103ca4",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "ag_news",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "laya",
+    "model_revision": "1a793eb568e6718f15941d08f85432581df534e3",
+    "profile_id": "9d28cfa9567902801ed1",
+    "strategy": "laya-typed-decisions-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.9,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.975,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.8,
+        0.98
+      ],
+      "clusters": 50,
+      "point": 0.9,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.9,
+    "aurc": 0.02590848010555529,
+    "brier": 0.2171727735397157,
+    "ece_10_bins": 0.1937394509010492,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.8779296906926641,
+    "nll": 0.4887201496577019,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "Business",
+        "recall": 0.625
+      },
+      {
+        "count": 10,
+        "label": "Sci/Tech",
+        "recall": 1.0
+      },
+      {
+        "count": 16,
+        "label": "Sports",
+        "recall": 1.0
+      },
+      {
+        "count": 16,
+        "label": "World",
+        "recall": 0.875
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.0888888888888889,
+        "answered": 45,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 25,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-typed-decisions/ag_news/predictions-laya-typed-decisions-mlx-fp32-laya-typed-decisions-mlx-fp32.jsonl",
+    "predictions_sha256": "a92a59783f7d679acb03eaabf2fcc510066d5ec25016b7f6b2ec5de508e331f4",
+    "summary_sha256": "c881627b0910cf1627511e10f0e9260763f74e92cbdb54a9a037b1e638da41b3",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-typed-decisions/ag_news/workload-ag_news-eval.jsonl",
+    "workload_sha256": "dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}

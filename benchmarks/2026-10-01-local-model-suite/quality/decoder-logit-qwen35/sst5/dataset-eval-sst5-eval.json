@@ -1,0 +1,54 @@
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "956d888e7bc9c029fd96e3cece49c054ec0ddbd9",
+    "description": "Fine-grained sentence sentiment, 5 ordered levels.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "SetFit/sst5",
+    "hf_revision": "e51bdcd8cd3a30da231967c1a249ba59361279a3",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "sst5",
+    "task_family": "rubric-scoring"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decoder-logit-qwen35",
+    "model_revision": "c4f7fdb3aeab5582336406e78d3bef11bf98833d",
+    "profile_id": "415bcf4a064e6dadcf85",
+    "strategy": "decoder-logit-qwen35-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "argmax_level_accuracy": 0.58,
+    "mae": 0.4881250017093805,
+    "nll": 0.9195307288085953,
+    "pearson": 0.8850610638938523,
+    "rows": 50,
+    "spearman": 0.8555433265806671
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/sst5/predictions-decoder-logit-qwen35-mlx-fp32-decoder-logit-qwen35-mlx-fp32.jsonl",
+    "predictions_sha256": "8541ded36ddea95c61776a425ce886e51438b62ae814013ff07a397e65711590",
+    "summary_sha256": "afa2ea4b3a1efcc2169c151e987a3d5538173a5f9b7eac2b5c921cbdd841e4ea",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/sst5/workload-sst5-eval.jsonl",
+    "workload_sha256": "6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}

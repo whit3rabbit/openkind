@@ -1,0 +1,129 @@
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "ae0768efa72432cb9c8e3945bd39f6dad24b2808",
+    "description": "Commonsense QA, 5 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "tau/commonsense_qa",
+    "hf_revision": "94630fe30dad47192a8546eb75f094926d47e155",
+    "license": "MIT",
+    "name": "commonsense_qa",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decoder-logit-qwen35",
+    "model_revision": "c4f7fdb3aeab5582336406e78d3bef11bf98833d",
+    "profile_id": "415bcf4a064e6dadcf85",
+    "strategy": "decoder-logit-qwen35-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.8,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.96,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.875,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.68,
+        0.9
+      ],
+      "clusters": 50,
+      "point": 0.8,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.8,
+    "aurc": 0.06460718548812426,
+    "brier": 0.2936312942670108,
+    "ece_10_bins": 0.11609548073529136,
+    "false_none_rate": 0.04,
+    "macro_f1": 0.8074285714285713,
+    "nll": 0.6425291629125478,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 7,
+        "label": "A",
+        "recall": 0.7142857142857143
+      },
+      {
+        "count": 11,
+        "label": "B",
+        "recall": 0.8181818181818182
+      },
+      {
+        "count": 14,
+        "label": "C",
+        "recall": 0.7857142857142857
+      },
+      {
+        "count": 5,
+        "label": "D",
+        "recall": 1.0
+      },
+      {
+        "count": 13,
+        "label": "E",
+        "recall": 0.7692307692307693
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.12195121951219512,
+        "answered": 41,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.040000000000000036,
+        "answered": 25,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 14,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/commonsense_qa/predictions-decoder-logit-qwen35-mlx-fp32-decoder-logit-qwen35-mlx-fp32.jsonl",
+    "predictions_sha256": "4cfce2637bf6324475f25b292acdcba1a32e4607bc2caa64faafa860f68b27ea",
+    "summary_sha256": "807e164e1014daacf5ccf4630a77f099c743f3dce6c216f19fc1588e555b27a5",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/commonsense_qa/workload-commonsense_qa-eval.jsonl",
+    "workload_sha256": "197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}

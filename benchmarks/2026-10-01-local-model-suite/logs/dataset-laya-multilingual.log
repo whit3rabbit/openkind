@@ -1,0 +1,1438 @@
+profile=laya-multilingual:f4064eb56fb7f7d325e1
+loader=laya-multilingual
+commit=e3cb136f431e817ac4aca475ea381b0840ef2cd0
+host=Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind pull laya-multilingual:f4064eb56fb7f7d325e1
+Downloading model.safetensors (614.0 MiB)
+Verifying model.safetensors (SHA-256)
+Verified model.safetensors
+Downloading rl_agent_config.json (472 B)
+Verifying rl_agent_config.json (SHA-256)
+Verified rl_agent_config.json
+Downloading encoder/config.json (1.9 KiB)
+Verifying encoder/config.json (SHA-256)
+Verified encoder/config.json
+Downloading tokenizer/tokenizer.json (32.8 MiB)
+Verifying tokenizer/tokenizer.json (SHA-256)
+Verified tokenizer/tokenizer.json
+Downloading tokenizer/tokenizer_config.json (502 B)
+Verifying tokenizer/tokenizer_config.json (SHA-256)
+Verified tokenizer/tokenizer_config.json
+Installed laya-multilingual:f4064eb56fb7f7d325e1 (rust-loadable); 646.8 MiB downloaded
+To activate it, restart the daemon with: openkind serve --installed-models laya-multilingual:f4064eb56fb7f7d325e1
+[exit 0] pull laya-multilingual:f4064eb56fb7f7d325e1
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval sst2 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine laya-multilingual-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/sst2 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/laya-multilingual:f4064eb56fb7f7d325e1
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/sst2/workload-sst2-eval.jsonl: 50 rows (sha256 aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine laya-multilingual-mlx-fp32 starting
+[bench] strategy laya-multilingual-mlx-fp32 warmup complete
+[bench] strategy laya-multilingual-mlx-fp32 rep 0: 0.474 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/sst2/summary-laya-multilingual-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "db3daed39bcd33ea25255ab60c1ac86ad52ce79d",
+    "description": "Binary sentence sentiment (GLUE SST-2).",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "stanfordnlp/sst2",
+    "hf_revision": "8d51e7e4887a4caaa95b3fbebbf53c0490b58bbb",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "sst2",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "laya",
+    "model_revision": "e4e9ddf21a7b1903b7acffd8814ad4307bf63a67",
+    "profile_id": "f4064eb56fb7f7d325e1",
+    "strategy": "laya-multilingual-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.3,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.24,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.325,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.18,
+        0.42
+      ],
+      "clusters": 50,
+      "point": 0.3,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.92,
+    "aurc": 0.6766383681102184,
+    "brier": 0.993829834549627,
+    "ece_10_bins": 0.5030826158816918,
+    "false_none_rate": 0.68,
+    "macro_f1": 0.46438746438746437,
+    "nll": 1.6709030603223036,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 20,
+        "label": "negative",
+        "recall": 0.35
+      },
+      {
+        "count": 30,
+        "label": "positive",
+        "recall": 0.26666666666666666
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.7,
+        "answered": 50,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.7575757575757576,
+        "answered": 33,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.7,
+        "answered": 20,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.5,
+        "answered": 2,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/sst2/predictions-laya-multilingual-mlx-fp32-laya-multilingual-mlx-fp32.jsonl",
+    "predictions_sha256": "6fc014086449137c860681d54f5fa0df9b6843ad2f62b66bc58eff41691f1cb3",
+    "summary_sha256": "2101d0c7aac57174e35971943f655cc30c5d52950903e91335745e016f2cf7ac",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/sst2/workload-sst2-eval.jsonl",
+    "workload_sha256": "aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval laya-multilingual/sst2 (laya-multilingual-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval ag_news --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine laya-multilingual-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/ag_news --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/laya-multilingual:f4064eb56fb7f7d325e1
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/ag_news/workload-ag_news-eval.jsonl: 50 rows (sha256 dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine laya-multilingual-mlx-fp32 starting
+[bench] strategy laya-multilingual-mlx-fp32 warmup complete
+[bench] strategy laya-multilingual-mlx-fp32 rep 0: 0.557 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/ag_news/summary-laya-multilingual-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "4efd5262b756aee7a12710ca78c74aa258660063",
+    "description": "News topic classification, 4 classes.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "fancyzhx/ag_news",
+    "hf_revision": "eb185aade064a813bc0b7f42de02595523103ca4",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "ag_news",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "laya",
+    "model_revision": "e4e9ddf21a7b1903b7acffd8814ad4307bf63a67",
+    "profile_id": "f4064eb56fb7f7d325e1",
+    "strategy": "laya-multilingual-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.88,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.95,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.78,
+        0.96
+      ],
+      "clusters": 50,
+      "point": 0.88,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.88,
+    "aurc": 0.030456780973478165,
+    "brier": 0.20577246141001473,
+    "ece_10_bins": 0.09688321146954748,
+    "false_none_rate": 0.04,
+    "macro_f1": 0.8940972222222222,
+    "nll": 0.4283112149941739,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "Business",
+        "recall": 0.875
+      },
+      {
+        "count": 10,
+        "label": "Sci/Tech",
+        "recall": 0.8
+      },
+      {
+        "count": 16,
+        "label": "Sports",
+        "recall": 0.9375
+      },
+      {
+        "count": 16,
+        "label": "World",
+        "recall": 0.875
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.12,
+        "answered": 50,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0888888888888889,
+        "answered": 45,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.04878048780487809,
+        "answered": 41,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.05555555555555558,
+        "answered": 36,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/ag_news/predictions-laya-multilingual-mlx-fp32-laya-multilingual-mlx-fp32.jsonl",
+    "predictions_sha256": "6688787f492824c477e872fec4102dfc8bb00879f4f9f972cebc0872c9bd8dca",
+    "summary_sha256": "9790a8990e363e8d72c506f0274fd87a875a5042b3229c86aec39ca4fd38c92a",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/ag_news/workload-ag_news-eval.jsonl",
+    "workload_sha256": "dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval laya-multilingual/ag_news (laya-multilingual-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval banking77 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine laya-multilingual-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/banking77 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/laya-multilingual:f4064eb56fb7f7d325e1
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/banking77/workload-banking77-eval.jsonl: 50 rows (sha256 9987b6f82a27ab4a5ddc0124ab4a110945d168858aa1ff1352d371422d657b98)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine laya-multilingual-mlx-fp32 starting
+[bench] strategy laya-multilingual-mlx-fp32 warmup complete
+[bench] strategy laya-multilingual-mlx-fp32 rep 0: 1.022 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/banking77/summary-laya-multilingual-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "2f7db33fffeec50f4802e51b5ac250340200e85f",
+    "description": "Banking customer-query intent, 77 classes.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "mteb/banking77",
+    "hf_revision": "18072d2685ea682290f7b8924d94c62acc19c0b2",
+    "license": "MIT",
+    "name": "banking77",
+    "task_family": "intent-routing"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "laya",
+    "model_revision": "e4e9ddf21a7b1903b7acffd8814ad4307bf63a67",
+    "profile_id": "f4064eb56fb7f7d325e1",
+    "strategy": "laya-multilingual-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.24,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.36,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.3,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.12,
+        0.36
+      ],
+      "clusters": 50,
+      "point": 0.24,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.24,
+    "aurc": 0.5905249053635635,
+    "brier": 1.2671569967309422,
+    "ece_10_bins": 0.5865791022885842,
+    "false_none_rate": 0.02,
+    "macro_f1": 0.21764705882352942,
+    "nll": 6.629987335270703,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 1,
+        "label": "apple_pay_or_google_pay",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "atm_support",
+        "recall": 0.0
+      },
+      {
+        "count": 4,
+        "label": "automatic_top_up",
+        "recall": 0.25
+      },
+      {
+        "count": 1,
+        "label": "balance_not_updated_after_bank_transfer",
+        "recall": 1.0
+      },
+      {
+        "count": 4,
+        "label": "balance_not_updated_after_cheque_or_cash_deposit",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "card_delivery_estimate",
+        "recall": 0.0
+      },
+      {
+        "count": 2,
+        "label": "card_linking",
+        "recall": 0.5
+      },
+      {
+        "count": 1,
+        "label": "card_not_working",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "card_swallowed",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "cash_withdrawal_charge",
+        "recall": 0.0
+      },
+      {
+        "count": 3,
+        "label": "cash_withdrawal_not_recognised",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "change_pin",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "declined_cash_withdrawal",
+        "recall": 0.0
+      },
+      {
+        "count": 2,
+        "label": "disposable_card_limits",
+        "recall": 0.5
+      },
+      {
+        "count": 1,
+        "label": "extra_charge_on_statement",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "fiat_currency_support",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "getting_spare_card",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "pending_card_payment",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "pending_top_up",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "supported_cards_and_currencies",
+        "recall": 0.0
+      },
+      {
+        "count": 2,
+        "label": "terminate_account",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "top_up_by_bank_transfer_charge",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "top_up_by_cash_or_cheque",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "top_up_failed",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "top_up_limits",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "transfer_fee_charged",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "transfer_into_account",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "transfer_not_received_by_recipient",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "verify_my_identity",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "verify_source_of_funds",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "verify_top_up",
+        "recall": 0.0
+      },
+      {
+        "count": 3,
+        "label": "virtual_card_not_working",
+        "recall": 0.6666666666666666
+      },
+      {
+        "count": 2,
+        "label": "why_verify_identity",
+        "recall": 0.5
+      },
+      {
+        "count": 1,
+        "label": "wrong_exchange_rate_for_cash_withdrawal",
+        "recall": 1.0
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.7209302325581395,
+        "answered": 43,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.6944444444444444,
+        "answered": 36,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.6774193548387097,
+        "answered": 31,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.6666666666666667,
+        "answered": 27,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/banking77/predictions-laya-multilingual-mlx-fp32-laya-multilingual-mlx-fp32.jsonl",
+    "predictions_sha256": "e70d7ebd3bf41b235b0d0f369ed52943f556f90f076c00f104ea4f6057638695",
+    "summary_sha256": "fae8a89412f2273a12ca3fc2183b9ea7e118bfae1d06468d3ae6a85fce0a6544",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/banking77/workload-banking77-eval.jsonl",
+    "workload_sha256": "9987b6f82a27ab4a5ddc0124ab4a110945d168858aa1ff1352d371422d657b98"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval laya-multilingual/banking77 (laya-multilingual-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval clinc150 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine laya-multilingual-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/clinc150 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/laya-multilingual:f4064eb56fb7f7d325e1
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/clinc150/workload-clinc150-eval.jsonl: 50 rows (sha256 c4fa558b966c0c72618366e1b6b6024566b5de14d3eeba7e0085c260ebdf1701)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine laya-multilingual-mlx-fp32 starting
+Error: warmup dispatch failed: backend `laya-multilingual/mlx-fp32` does not support this request: question `clinc150/plus/1394` offers 152 options but the profile accepts at most 100
+[exit 1] eval laya-multilingual/clinc150 (laya-multilingual-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval arc --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine laya-multilingual-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/arc --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/laya-multilingual:f4064eb56fb7f7d325e1
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/arc/workload-arc-eval.jsonl: 50 rows (sha256 a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine laya-multilingual-mlx-fp32 starting
+[bench] strategy laya-multilingual-mlx-fp32 warmup complete
+[bench] strategy laya-multilingual-mlx-fp32 rep 0: 0.484 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/arc/summary-laya-multilingual-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "5a61ed188b8810abf32686fa83eb93787cbc5f25",
+    "description": "Grade-school science QA (Challenge + Easy), 3-5 options.",
+    "files": 4,
+    "gated": "none",
+    "hf_repo": "allenai/ai2_arc",
+    "hf_revision": "210d026faf9955653af8916fad021475a3f00453",
+    "license": "CC-BY-SA-4.0",
+    "name": "arc",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "laya",
+    "model_revision": "e4e9ddf21a7b1903b7acffd8814ad4307bf63a67",
+    "profile_id": "f4064eb56fb7f7d325e1",
+    "strategy": "laya-multilingual-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.2,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.16,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.225,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.1,
+        0.32
+      ],
+      "clusters": 50,
+      "point": 0.2,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.28,
+    "aurc": 0.7657248083431896,
+    "brier": 0.8979384772023267,
+    "ece_10_bins": 0.2859052353307193,
+    "false_none_rate": 0.22,
+    "macro_f1": 0.221001221001221,
+    "nll": 1.8173748445882603,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "A",
+        "recall": 0.5
+      },
+      {
+        "count": 19,
+        "label": "B",
+        "recall": 0.10526315789473684
+      },
+      {
+        "count": 13,
+        "label": "C",
+        "recall": 0.23076923076923078
+      },
+      {
+        "count": 10,
+        "label": "D",
+        "recall": 0.1
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.8571428571428572,
+        "answered": 21,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.6,
+        "answered": 5,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 1,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/arc/predictions-laya-multilingual-mlx-fp32-laya-multilingual-mlx-fp32.jsonl",
+    "predictions_sha256": "34dd1889ad676bc2470551c96cd4cc996900f348bd72314da4943079e73187c0",
+    "summary_sha256": "017cf58373dc3f7d30d3e7312387435264b34d51c7f9737dd93ac7b31ec6d96e",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/arc/workload-arc-eval.jsonl",
+    "workload_sha256": "a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval laya-multilingual/arc (laya-multilingual-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval hellaswag --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine laya-multilingual-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/hellaswag --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/laya-multilingual:f4064eb56fb7f7d325e1
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/hellaswag/workload-hellaswag-eval.jsonl: 50 rows (sha256 01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine laya-multilingual-mlx-fp32 starting
+[bench] strategy laya-multilingual-mlx-fp32 warmup complete
+[bench] strategy laya-multilingual-mlx-fp32 rep 0: 0.718 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/hellaswag/summary-laya-multilingual-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "382ffb520660cc2ba98092cd8aa07cafc9c47f6d",
+    "description": "Commonsense sentence completion, 4 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "Rowan/hellaswag",
+    "hf_revision": "218ec52e09a7e7462a5400043bb9a69a41d06b76",
+    "license": "MIT (dataset card); underlying corpus terms not detailed",
+    "name": "hellaswag",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "laya",
+    "model_revision": "e4e9ddf21a7b1903b7acffd8814ad4307bf63a67",
+    "profile_id": "f4064eb56fb7f7d325e1",
+    "strategy": "laya-multilingual-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.2,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.28,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.225,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.1,
+        0.32
+      ],
+      "clusters": 50,
+      "point": 0.2,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.22,
+    "aurc": 0.727273851315281,
+    "brier": 0.8669386381303994,
+    "ece_10_bins": 0.2540797386144417,
+    "false_none_rate": 0.2,
+    "macro_f1": 0.21179760996694635,
+    "nll": 1.7691860339557577,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 12,
+        "label": "A",
+        "recall": 0.25
+      },
+      {
+        "count": 8,
+        "label": "B",
+        "recall": 0.125
+      },
+      {
+        "count": 11,
+        "label": "C",
+        "recall": 0.45454545454545453
+      },
+      {
+        "count": 19,
+        "label": "D",
+        "recall": 0.05263157894736842
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.6875,
+        "answered": 16,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.6666666666666667,
+        "answered": 3,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.5,
+        "answered": 2,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/hellaswag/predictions-laya-multilingual-mlx-fp32-laya-multilingual-mlx-fp32.jsonl",
+    "predictions_sha256": "95a3ad74acdcdab56ad2d8e71ac720bbd18cc8355a52cf11d9140bd425e9ff10",
+    "summary_sha256": "52454add6ff4a592e9134f539564fc849b8abe953143fe9fd560220d46c92ae1",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/hellaswag/workload-hellaswag-eval.jsonl",
+    "workload_sha256": "01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval laya-multilingual/hellaswag (laya-multilingual-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval winogrande --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine laya-multilingual-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/winogrande --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/laya-multilingual:f4064eb56fb7f7d325e1
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/winogrande/workload-winogrande-eval.jsonl: 50 rows (sha256 43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine laya-multilingual-mlx-fp32 starting
+[bench] strategy laya-multilingual-mlx-fp32 warmup complete
+[bench] strategy laya-multilingual-mlx-fp32 rep 0: 0.455 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/winogrande/summary-laya-multilingual-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "546d5aa0e42fc0fa9ad2c13260322ec969e083ee",
+    "description": "Commonsense pronoun/blank resolution, 2 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "allenai/winogrande",
+    "hf_revision": "01e74176c63542e6b0bcb004dcdea22d94fb67b5",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "winogrande",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "laya",
+    "model_revision": "e4e9ddf21a7b1903b7acffd8814ad4307bf63a67",
+    "profile_id": "f4064eb56fb7f7d325e1",
+    "strategy": "laya-multilingual-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.34,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.48,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.35,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.22,
+        0.48
+      ],
+      "clusters": 50,
+      "point": 0.34,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.48,
+    "aurc": 0.4952035112380212,
+    "brier": 0.8926954197662168,
+    "ece_10_bins": 0.381903282784757,
+    "false_none_rate": 0.4,
+    "macro_f1": 0.3824884792626728,
+    "nll": 1.6402078156501638,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 25,
+        "label": "A",
+        "recall": 0.56
+      },
+      {
+        "count": 25,
+        "label": "B",
+        "recall": 0.12
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.6428571428571428,
+        "answered": 42,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.5185185185185186,
+        "answered": 27,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.33333333333333337,
+        "answered": 6,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 1,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/winogrande/predictions-laya-multilingual-mlx-fp32-laya-multilingual-mlx-fp32.jsonl",
+    "predictions_sha256": "054ccfe0bafbc247e53e4b012d804fbab45fba10504e8eead45000e847397f61",
+    "summary_sha256": "0273122305cb5c194c68b33490724badbf84b8eb34e5f8ac5210cabb6ef20209",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/winogrande/workload-winogrande-eval.jsonl",
+    "workload_sha256": "43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval laya-multilingual/winogrande (laya-multilingual-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval commonsense_qa --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine laya-multilingual-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/commonsense_qa --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/laya-multilingual:f4064eb56fb7f7d325e1
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/commonsense_qa/workload-commonsense_qa-eval.jsonl: 50 rows (sha256 197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine laya-multilingual-mlx-fp32 starting
+[bench] strategy laya-multilingual-mlx-fp32 warmup complete
+[bench] strategy laya-multilingual-mlx-fp32 rep 0: 0.452 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/commonsense_qa/summary-laya-multilingual-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "ae0768efa72432cb9c8e3945bd39f6dad24b2808",
+    "description": "Commonsense QA, 5 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "tau/commonsense_qa",
+    "hf_revision": "94630fe30dad47192a8546eb75f094926d47e155",
+    "license": "MIT",
+    "name": "commonsense_qa",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "laya",
+    "model_revision": "e4e9ddf21a7b1903b7acffd8814ad4307bf63a67",
+    "profile_id": "f4064eb56fb7f7d325e1",
+    "strategy": "laya-multilingual-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.18,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.2,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.2,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.08,
+        0.3
+      ],
+      "clusters": 50,
+      "point": 0.18,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.3,
+    "aurc": 0.7915167873217029,
+    "brier": 1.061779445469025,
+    "ece_10_bins": 0.44198750056370584,
+    "false_none_rate": 0.42,
+    "macro_f1": 0.2418913594145792,
+    "nll": 2.315799496721195,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 7,
+        "label": "A",
+        "recall": 0.42857142857142855
+      },
+      {
+        "count": 11,
+        "label": "B",
+        "recall": 0.09090909090909091
+      },
+      {
+        "count": 14,
+        "label": "C",
+        "recall": 0.14285714285714285
+      },
+      {
+        "count": 5,
+        "label": "D",
+        "recall": 0.4
+      },
+      {
+        "count": 13,
+        "label": "E",
+        "recall": 0.07692307692307693
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.7941176470588236,
+        "answered": 34,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.7333333333333334,
+        "answered": 15,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.75,
+        "answered": 4,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 1.0,
+        "answered": 1,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/commonsense_qa/predictions-laya-multilingual-mlx-fp32-laya-multilingual-mlx-fp32.jsonl",
+    "predictions_sha256": "bc25bbd07f956916fcf3f5459e238f3f77fd56d738823a3f61718b5f17d00281",
+    "summary_sha256": "16148681bc7939801e20a9247d1d722baae091f29d09b889145209909f94c935",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/commonsense_qa/workload-commonsense_qa-eval.jsonl",
+    "workload_sha256": "197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval laya-multilingual/commonsense_qa (laya-multilingual-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval paws --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine laya-multilingual-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/paws --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/laya-multilingual:f4064eb56fb7f7d325e1 --tune-threshold
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/paws/tuning-paws/workload-paws-dev.jsonl: 50 rows (sha256 f9c04db8a2189dc90a3981b384703273ab29fb29778decf3895a80de707c1f75)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine laya-multilingual-mlx-fp32 starting
+[bench] strategy laya-multilingual-mlx-fp32 warmup complete
+[bench] strategy laya-multilingual-mlx-fp32 rep 0: 0.548 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/paws/tuning-paws/summary-laya-multilingual-mlx-fp32.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/paws/workload-paws-eval.jsonl: 50 rows (sha256 36ecb2af4e6c31d6529afaf2a85abbb1581be6ff6544263029794b66a6defc70)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine laya-multilingual-mlx-fp32 starting
+[bench] strategy laya-multilingual-mlx-fp32 warmup complete
+[bench] strategy laya-multilingual-mlx-fp32 rep 0: 0.533 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/paws/summary-laya-multilingual-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "254f2df8677712ee0972ddb92870dc79fed48aec",
+    "description": "Adversarial paraphrase identification (high word overlap).",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "google-research-datasets/paws",
+    "hf_revision": "161ece9501cf0a11f3e48bd356eaa82de46d6a09",
+    "license": "custom terms on the dataset card; review before broader use",
+    "name": "paws",
+    "task_family": "nli"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "laya",
+    "model_revision": "e4e9ddf21a7b1903b7acffd8814ad4307bf63a67",
+    "profile_id": "f4064eb56fb7f7d325e1",
+    "strategy": "laya-multilingual-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy_at_0.5": 0.68,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.8,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.75,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.54,
+        0.8
+      ],
+      "clusters": 50,
+      "point": 0.68,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "aurc": 0.25526580431943685,
+    "auroc": 0.825,
+    "brier": 0.21524736414246826,
+    "ece_10_bins": 0.45303454973112595,
+    "negative_recall": 0.5666666666666667,
+    "positive_recall": 0.85,
+    "rows": 50,
+    "tuned_threshold": {
+      "dev_rows": 50,
+      "eval_accuracy": 0.74,
+      "protocol": "threshold selected on dev, applied to eval",
+      "threshold": 0.6942132347974957,
+      "tuning_accuracy_on_dev": 0.72
+    }
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/paws/predictions-laya-multilingual-mlx-fp32-laya-multilingual-mlx-fp32.jsonl",
+    "predictions_sha256": "16a810096d5845a0666dae92f2b556b22e989eb0ed01ec3cc1cb98c0aa3e52f5",
+    "summary_sha256": "11edefe53ca88b3c1934da9d386f1e647692962f80d54e29cafabbdadb5b3d47",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/paws/workload-paws-eval.jsonl",
+    "workload_sha256": "36ecb2af4e6c31d6529afaf2a85abbb1581be6ff6544263029794b66a6defc70"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 18,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval laya-multilingual/paws (laya-multilingual-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval boolq --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine laya-multilingual-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/boolq --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/laya-multilingual:f4064eb56fb7f7d325e1 --tune-threshold
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/boolq/tuning-boolq/workload-boolq-dev.jsonl: 50 rows (sha256 1344c51d3a9d27d9cbf428f2e823b6324a62c5e15d9d4beba09f034c57950ea9)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine laya-multilingual-mlx-fp32 starting
+[bench] strategy laya-multilingual-mlx-fp32 warmup complete
+[bench] strategy laya-multilingual-mlx-fp32 rep 0: 0.651 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/boolq/tuning-boolq/summary-laya-multilingual-mlx-fp32.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/boolq/workload-boolq-eval.jsonl: 50 rows (sha256 449d16d61bdfeba20b1323e394af130cf9e9e70670365f052602e59eed64373c)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine laya-multilingual-mlx-fp32 starting
+[bench] strategy laya-multilingual-mlx-fp32 warmup complete
+[bench] strategy laya-multilingual-mlx-fp32 rep 0: 0.697 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/boolq/summary-laya-multilingual-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "d89fc6ef4da46f056176dcf941ba670524ab1c87",
+    "description": "Yes/no questions over Wikipedia passages.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "google/boolq",
+    "hf_revision": "35b264d03638db9f4ce671b711558bf7ff0f80d5",
+    "license": "CC-BY-SA-3.0",
+    "name": "boolq",
+    "task_family": "reading-comprehension"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "laya",
+    "model_revision": "e4e9ddf21a7b1903b7acffd8814ad4307bf63a67",
+    "profile_id": "f4064eb56fb7f7d325e1",
+    "strategy": "laya-multilingual-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy_at_0.5": 0.76,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.88,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.85,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.64,
+        0.88
+      ],
+      "clusters": 50,
+      "point": 0.76,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "aurc": 0.150042035867097,
+    "auroc": 0.8211805555555556,
+    "brier": 0.1666553734463606,
+    "ece_10_bins": 0.2932235775062394,
+    "negative_recall": 0.6666666666666666,
+    "positive_recall": 0.8125,
+    "rows": 50,
+    "tuned_threshold": {
+      "dev_rows": 50,
+      "eval_accuracy": 0.84,
+      "protocol": "threshold selected on dev, applied to eval",
+      "threshold": 0.8393871455634015,
+      "tuning_accuracy_on_dev": 1.0
+    }
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/boolq/predictions-laya-multilingual-mlx-fp32-laya-multilingual-mlx-fp32.jsonl",
+    "predictions_sha256": "4137d7c0a1c445abd225e8efad42cd25b1cc1c6b3cbc4aa80276b52c08244c6b",
+    "summary_sha256": "9f08f11024c273e87657e7abe40c29d52b85bf77350dfd82df64b6243e83f332",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/boolq/workload-boolq-eval.jsonl",
+    "workload_sha256": "449d16d61bdfeba20b1323e394af130cf9e9e70670365f052602e59eed64373c"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval laya-multilingual/boolq (laya-multilingual-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval stsb --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine laya-multilingual-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/stsb --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/laya-multilingual:f4064eb56fb7f7d325e1
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/stsb/workload-stsb-eval.jsonl: 50 rows (sha256 fbcbdc284c4c7e1d9f950740770134c5eaab52175a16eaafb059749acf610453)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine laya-multilingual-mlx-fp32 starting
+[bench] strategy laya-multilingual-mlx-fp32 warmup complete
+[bench] strategy laya-multilingual-mlx-fp32 rep 0: 0.607 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/stsb/summary-laya-multilingual-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "58372e8197f43125a85d75e3c5121ccabc61413a",
+    "description": "Semantic textual similarity on a 0-5 scale.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "sentence-transformers/stsb",
+    "hf_revision": "ab7a5ac0e35aa22088bdcf23e7fd99b220e53308",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "stsb",
+    "task_family": "rubric-scoring"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "laya",
+    "model_revision": "e4e9ddf21a7b1903b7acffd8814ad4307bf63a67",
+    "profile_id": "f4064eb56fb7f7d325e1",
+    "strategy": "laya-multilingual-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "argmax_level_accuracy": 0.1,
+    "mae": 1.5511569865259427,
+    "nll": 2.6389912531483035,
+    "pearson": 0.4187216192637949,
+    "rows": 50,
+    "spearman": 0.4681067070253409
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/stsb/predictions-laya-multilingual-mlx-fp32-laya-multilingual-mlx-fp32.jsonl",
+    "predictions_sha256": "8a3a320c99a5810121b2e167805663ff6a4fb48c87f648e1eec048c95f47279f",
+    "summary_sha256": "884237e59eb03d8c6bfec0cf71a5babbd05ab586db6b5d1b948d347d0af1855f",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/stsb/workload-stsb-eval.jsonl",
+    "workload_sha256": "fbcbdc284c4c7e1d9f950740770134c5eaab52175a16eaafb059749acf610453"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 1,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval laya-multilingual/stsb (laya-multilingual-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval sst5 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine laya-multilingual-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/sst5 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/laya-multilingual:f4064eb56fb7f7d325e1
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/sst5/workload-sst5-eval.jsonl: 50 rows (sha256 6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine laya-multilingual-mlx-fp32 starting
+[bench] strategy laya-multilingual-mlx-fp32 warmup complete
+[bench] strategy laya-multilingual-mlx-fp32 rep 0: 0.480 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/sst5/summary-laya-multilingual-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "956d888e7bc9c029fd96e3cece49c054ec0ddbd9",
+    "description": "Fine-grained sentence sentiment, 5 ordered levels.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "SetFit/sst5",
+    "hf_revision": "e51bdcd8cd3a30da231967c1a249ba59361279a3",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "sst5",
+    "task_family": "rubric-scoring"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "laya",
+    "model_revision": "e4e9ddf21a7b1903b7acffd8814ad4307bf63a67",
+    "profile_id": "f4064eb56fb7f7d325e1",
+    "strategy": "laya-multilingual-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "argmax_level_accuracy": 0.28,
+    "mae": 1.1311858763338243,
+    "nll": 2.779448826829317,
+    "pearson": 0.5807157070338649,
+    "rows": 50,
+    "spearman": 0.6249799424562188
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/sst5/predictions-laya-multilingual-mlx-fp32-laya-multilingual-mlx-fp32.jsonl",
+    "predictions_sha256": "6bf26996bd30e64f57965540fbb32056ecbe7c2e3b016fc6a63a7af7259e5839",
+    "summary_sha256": "5c60490d3fdb36ae18e4df9122af76684d387d9fba8ea0c805a451cc004d9454",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-multilingual/sst5/workload-sst5-eval.jsonl",
+    "workload_sha256": "6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval laya-multilingual/sst5 (laya-multilingual-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench score /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl --engine laya-multilingual-mlx-fp32 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/performance/laya-multilingual/laya-multilingual-mlx-fp32 --reps 1 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --model-root /tmp/openkind-local-suite-2026-10-01/models/models/laya-multilingual:f4064eb56fb7f7d325e1
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl: 12 rows (sha256 c2db6b36351d340b4f55343109cf4a41444d56c96868ab7f467381dd791c3905)
+[bench] 4 groups over 12 rows (grouping=true)
+[bench] engine laya-multilingual-mlx-fp32 starting
+[bench] strategy laya-multilingual-mlx-fp32 warmup complete
+[bench] strategy laya-multilingual-mlx-fp32 rep 0: 0.169 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/performance/laya-multilingual/laya-multilingual-mlx-fp32/summary-laya-multilingual-mlx-fp32.json
+{"bundle_version":null,"commit":"e3cb136f431e817ac4aca475ea381b0840ef2cd0","context":{"head_max_len_tokens":256,"max_sequence_tokens":1024},"cross_strategy_answer_parity_clean":null,"engine":"laya","engine_variant":"laya-multilingual-mlx-fp32","fixture":{"groups":4,"path":"/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl","rows":12,"sha256":"c2db6b36351d340b4f55343109cf4a41444d56c96868ab7f467381dd791c3905"},"grouping":"per-state","history_aba":false,"host":"Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64","host_hardware":{"cpu_brand":"Apple M4 Max","logical_cores":14,"model":"Mac16,5","total_memory_bytes":38654705664},"measurement_scope":"model_request_path","model_revision":"e4e9ddf21a7b1903b7acffd8814ad4307bf63a67","notes":{"cpu_time_seconds":"process-wide user+system CPU time diff across the timed region, excluding warmup and model load; avg_cpu_percent exceeds 100 when multiple threads run","input_tokens_per_second":"total input tokens across all timed repetitions divided by their total wall time","percentiles":"p50 is the median rep total and p95 is the ceil(0.95*n)-1 sample; small rep counts are reported alongside as samples_seconds","request_latency_ms":"latency is per request; grouped rows share their request's latency and are not independent timings; includes request construction through answer extraction"},"peak_resident_bytes":2939027456,"prediction_sha256":{"laya-multilingual-mlx-fp32":"22346cd0fe2fb85b2e31a3278cc5ff79c8e6775d5fbfe26cc01a554c95094bc6"},"profile_id":"f4064eb56fb7f7d325e1","reps":1,"schema":"openkind-bench/v1","strategies":[{"avg_cpu_percent":65.51789523583787,"backend_id":"laya-multilingual/mlx-fp32","cpu_time_seconds":0.110568,"decisions_per_second":71.1068973690448,"forced":null,"groups":4,"input_tokens_per_second":14493.955913723632,"input_tokens_total":2446,"model_load_seconds":1.862578916,"p50_seconds":0.16876,"p95_seconds":0.16876,"reps":1,"rows":12,"samples_seconds":[0.16876],"strategy":"laya-multilingual-mlx-fp32"}],"timing_scope":"request construction, validation, dispatch, and answer extraction; excludes model load (reported per strategy), result writes, and the untimed warmup pass; warm process","warmup":true}
+[exit 0] score laya-multilingual (laya-multilingual-mlx-fp32, 12 rows)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind rm laya-multilingual:f4064eb56fb7f7d325e1
+Removed installed model laya-multilingual:f4064eb56fb7f7d325e1
+[exit 0] remove laya-multilingual:f4064eb56fb7f7d325e1
+

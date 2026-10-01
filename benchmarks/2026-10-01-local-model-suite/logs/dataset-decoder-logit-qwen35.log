@@ -1,0 +1,1072 @@
+profile=decoder-logit-qwen35:415bcf4a064e6dadcf85
+loader=decoder-logit-qwen35
+commit=e3cb136f431e817ac4aca475ea381b0840ef2cd0
+host=Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind pull decoder-logit-qwen35:415bcf4a064e6dadcf85
+Downloading checkpoint/config.json (1.9 KiB)
+Verifying checkpoint/config.json (SHA-256)
+Verified checkpoint/config.json
+Downloading checkpoint/tokenizer.json (19.1 MiB)
+Verifying checkpoint/tokenizer.json (SHA-256)
+Verified checkpoint/tokenizer.json
+Downloading checkpoint/jevk5_config.json (52 B)
+Verifying checkpoint/jevk5_config.json (SHA-256)
+Verified checkpoint/jevk5_config.json
+Downloading checkpoint/model.safetensors (7.8 GiB)
+Verifying checkpoint/model.safetensors (SHA-256)
+Verified checkpoint/model.safetensors
+Installed decoder-logit-qwen35:415bcf4a064e6dadcf85 (rust-loadable); 7.9 GiB downloaded
+To activate it, restart the daemon with: openkind serve --installed-models decoder-logit-qwen35:415bcf4a064e6dadcf85
+[exit 0] pull decoder-logit-qwen35:415bcf4a064e6dadcf85
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval sst2 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decoder-logit-qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/sst2 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decoder-logit-qwen35:415bcf4a064e6dadcf85/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/sst2/workload-sst2-eval.jsonl: 50 rows (sha256 aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decoder-logit-qwen35-mlx-fp32 starting
+[bench] strategy decoder-logit-qwen35-mlx-fp32 warmup complete
+[bench] strategy decoder-logit-qwen35-mlx-fp32 rep 0: 49.579 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/sst2/summary-decoder-logit-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "db3daed39bcd33ea25255ab60c1ac86ad52ce79d",
+    "description": "Binary sentence sentiment (GLUE SST-2).",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "stanfordnlp/sst2",
+    "hf_revision": "8d51e7e4887a4caaa95b3fbebbf53c0490b58bbb",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "sst2",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decoder-logit-qwen35",
+    "model_revision": "c4f7fdb3aeab5582336406e78d3bef11bf98833d",
+    "profile_id": "415bcf4a064e6dadcf85",
+    "strategy": "decoder-logit-qwen35-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.98,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 1.0,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.94,
+        1.0
+      ],
+      "clusters": 50,
+      "point": 0.98,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.98,
+    "aurc": 0.0020851444555620583,
+    "brier": 0.05284104453904235,
+    "ece_10_bins": 0.06957032650847737,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.9789827658680117,
+    "nll": 0.13707689225121117,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 20,
+        "label": "negative",
+        "recall": 0.95
+      },
+      {
+        "count": 30,
+        "label": "positive",
+        "recall": 1.0
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.020000000000000018,
+        "answered": 50,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.020408163265306145,
+        "answered": 49,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 33,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 7,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/sst2/predictions-decoder-logit-qwen35-mlx-fp32-decoder-logit-qwen35-mlx-fp32.jsonl",
+    "predictions_sha256": "4e306aafcc7b8c5f0b979341533c9574e5d12e6877144d1f4513d36bd509d700",
+    "summary_sha256": "0e76c0e2d462801a7670c656b3d710fb751a16f8017939d1011ca890107bbbd7",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/sst2/workload-sst2-eval.jsonl",
+    "workload_sha256": "aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval decoder-logit-qwen35/sst2 (decoder-logit-qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval ag_news --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decoder-logit-qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/ag_news --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decoder-logit-qwen35:415bcf4a064e6dadcf85/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/ag_news/workload-ag_news-eval.jsonl: 50 rows (sha256 dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decoder-logit-qwen35-mlx-fp32 starting
+[bench] strategy decoder-logit-qwen35-mlx-fp32 warmup complete
+[bench] strategy decoder-logit-qwen35-mlx-fp32 rep 0: 71.127 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/ag_news/summary-decoder-logit-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "4efd5262b756aee7a12710ca78c74aa258660063",
+    "description": "News topic classification, 4 classes.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "fancyzhx/ag_news",
+    "hf_revision": "eb185aade064a813bc0b7f42de02595523103ca4",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "ag_news",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decoder-logit-qwen35",
+    "model_revision": "c4f7fdb3aeab5582336406e78d3bef11bf98833d",
+    "profile_id": "415bcf4a064e6dadcf85",
+    "strategy": "decoder-logit-qwen35-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.86,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.96,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.925,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.76,
+        0.94
+      ],
+      "clusters": 50,
+      "point": 0.86,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.88,
+    "aurc": 0.03933393910774654,
+    "brier": 0.2120218062883703,
+    "ece_10_bins": 0.12165160007985293,
+    "false_none_rate": 0.02,
+    "macro_f1": 0.8431186868686869,
+    "nll": 0.48918357266006113,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "Business",
+        "recall": 0.875
+      },
+      {
+        "count": 10,
+        "label": "Sci/Tech",
+        "recall": 0.6
+      },
+      {
+        "count": 16,
+        "label": "Sports",
+        "recall": 1.0
+      },
+      {
+        "count": 16,
+        "label": "World",
+        "recall": 0.875
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.10416666666666663,
+        "answered": 48,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0714285714285714,
+        "answered": 42,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.07692307692307687,
+        "answered": 39,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.03703703703703709,
+        "answered": 27,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/ag_news/predictions-decoder-logit-qwen35-mlx-fp32-decoder-logit-qwen35-mlx-fp32.jsonl",
+    "predictions_sha256": "a3d0393b7249651d3757764f59021e898d61c19342a42899dde7eeeaa97ab5cf",
+    "summary_sha256": "1ba17b74a4f1ba4fe97e232be5ccea7cb928a982f27f4e1bd3f42437c3ea96d0",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/ag_news/workload-ag_news-eval.jsonl",
+    "workload_sha256": "dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval decoder-logit-qwen35/ag_news (decoder-logit-qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval banking77 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decoder-logit-qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/banking77 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decoder-logit-qwen35:415bcf4a064e6dadcf85/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/banking77/workload-banking77-eval.jsonl: 50 rows (sha256 9987b6f82a27ab4a5ddc0124ab4a110945d168858aa1ff1352d371422d657b98)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decoder-logit-qwen35-mlx-fp32 starting
+Error: warmup dispatch failed: backend `decoder-logit-qwen35/mlx-fp32` does not support this request: question offers 78 candidates but profile decoder-logit-qwen35 covers at most 32; split the question
+[exit 1] eval decoder-logit-qwen35/banking77 (decoder-logit-qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval clinc150 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decoder-logit-qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/clinc150 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decoder-logit-qwen35:415bcf4a064e6dadcf85/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/clinc150/workload-clinc150-eval.jsonl: 50 rows (sha256 c4fa558b966c0c72618366e1b6b6024566b5de14d3eeba7e0085c260ebdf1701)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decoder-logit-qwen35-mlx-fp32 starting
+Error: warmup dispatch failed: backend `decoder-logit-qwen35/mlx-fp32` does not support this request: question offers 152 candidates but profile decoder-logit-qwen35 covers at most 32; split the question
+[exit 1] eval decoder-logit-qwen35/clinc150 (decoder-logit-qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval arc --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decoder-logit-qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/arc --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decoder-logit-qwen35:415bcf4a064e6dadcf85/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/arc/workload-arc-eval.jsonl: 50 rows (sha256 a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decoder-logit-qwen35-mlx-fp32 starting
+[bench] strategy decoder-logit-qwen35-mlx-fp32 warmup complete
+[bench] strategy decoder-logit-qwen35-mlx-fp32 rep 0: 54.294 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/arc/summary-decoder-logit-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "5a61ed188b8810abf32686fa83eb93787cbc5f25",
+    "description": "Grade-school science QA (Challenge + Easy), 3-5 options.",
+    "files": 4,
+    "gated": "none",
+    "hf_repo": "allenai/ai2_arc",
+    "hf_revision": "210d026faf9955653af8916fad021475a3f00453",
+    "license": "CC-BY-SA-4.0",
+    "name": "arc",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decoder-logit-qwen35",
+    "model_revision": "c4f7fdb3aeab5582336406e78d3bef11bf98833d",
+    "profile_id": "415bcf4a064e6dadcf85",
+    "strategy": "decoder-logit-qwen35-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.94,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 1.0,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.86,
+        1.0
+      ],
+      "clusters": 50,
+      "point": 0.94,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.94,
+    "aurc": 0.0032933077208681803,
+    "brier": 0.06845968759193147,
+    "ece_10_bins": 0.07400624705932911,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.9299581492676122,
+    "nll": 0.1563401972888202,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "A",
+        "recall": 1.0
+      },
+      {
+        "count": 19,
+        "label": "B",
+        "recall": 1.0
+      },
+      {
+        "count": 13,
+        "label": "C",
+        "recall": 0.7692307692307693
+      },
+      {
+        "count": 10,
+        "label": "D",
+        "recall": 1.0
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.04081632653061229,
+        "answered": 49,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 44,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 36,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 4,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/arc/predictions-decoder-logit-qwen35-mlx-fp32-decoder-logit-qwen35-mlx-fp32.jsonl",
+    "predictions_sha256": "4a7747de6f1d440def4bef094b03320f4a3d34fa7b5dbc32167a6d84fecf32aa",
+    "summary_sha256": "42a897476a1ebf9cfb2430b206d4fc73da62f68469dd81362164d5af0ed11ad4",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/arc/workload-arc-eval.jsonl",
+    "workload_sha256": "a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval decoder-logit-qwen35/arc (decoder-logit-qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval hellaswag --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decoder-logit-qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/hellaswag --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decoder-logit-qwen35:415bcf4a064e6dadcf85/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/hellaswag/workload-hellaswag-eval.jsonl: 50 rows (sha256 01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decoder-logit-qwen35-mlx-fp32 starting
+[bench] strategy decoder-logit-qwen35-mlx-fp32 warmup complete
+[bench] strategy decoder-logit-qwen35-mlx-fp32 rep 0: 116.280 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/hellaswag/summary-decoder-logit-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "382ffb520660cc2ba98092cd8aa07cafc9c47f6d",
+    "description": "Commonsense sentence completion, 4 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "Rowan/hellaswag",
+    "hf_revision": "218ec52e09a7e7462a5400043bb9a69a41d06b76",
+    "license": "MIT (dataset card); underlying corpus terms not detailed",
+    "name": "hellaswag",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decoder-logit-qwen35",
+    "model_revision": "c4f7fdb3aeab5582336406e78d3bef11bf98833d",
+    "profile_id": "415bcf4a064e6dadcf85",
+    "strategy": "decoder-logit-qwen35-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.92,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 1.0,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.84,
+        0.98
+      ],
+      "clusters": 50,
+      "point": 0.92,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.92,
+    "aurc": 0.009022210274385729,
+    "brier": 0.12523693252257193,
+    "ece_10_bins": 0.10485941682780987,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.9145192307692307,
+    "nll": 0.2760860661995194,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 12,
+        "label": "A",
+        "recall": 1.0
+      },
+      {
+        "count": 8,
+        "label": "B",
+        "recall": 0.875
+      },
+      {
+        "count": 11,
+        "label": "C",
+        "recall": 0.8181818181818182
+      },
+      {
+        "count": 19,
+        "label": "D",
+        "recall": 0.9473684210526315
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.04255319148936165,
+        "answered": 47,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 39,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 22,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 5,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/hellaswag/predictions-decoder-logit-qwen35-mlx-fp32-decoder-logit-qwen35-mlx-fp32.jsonl",
+    "predictions_sha256": "79d446655509850f0d4ad79fd60e9447c7179e9efa9ef800747921f4afe6b5eb",
+    "summary_sha256": "9debacdc28414c212b6d6476a5c5159c752c02814f9671200ee8e8f296c7ad4d",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/hellaswag/workload-hellaswag-eval.jsonl",
+    "workload_sha256": "01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval decoder-logit-qwen35/hellaswag (decoder-logit-qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval winogrande --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decoder-logit-qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/winogrande --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decoder-logit-qwen35:415bcf4a064e6dadcf85/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/winogrande/workload-winogrande-eval.jsonl: 50 rows (sha256 43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decoder-logit-qwen35-mlx-fp32 starting
+[bench] strategy decoder-logit-qwen35-mlx-fp32 warmup complete
+[bench] strategy decoder-logit-qwen35-mlx-fp32 rep 0: 37.919 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/winogrande/summary-decoder-logit-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "546d5aa0e42fc0fa9ad2c13260322ec969e083ee",
+    "description": "Commonsense pronoun/blank resolution, 2 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "allenai/winogrande",
+    "hf_revision": "01e74176c63542e6b0bcb004dcdea22d94fb67b5",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "winogrande",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decoder-logit-qwen35",
+    "model_revision": "c4f7fdb3aeab5582336406e78d3bef11bf98833d",
+    "profile_id": "415bcf4a064e6dadcf85",
+    "strategy": "decoder-logit-qwen35-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.74,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.84,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.775,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.62,
+        0.86
+      ],
+      "clusters": 50,
+      "point": 0.74,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.74,
+    "aurc": 0.12906885113176073,
+    "brier": 0.3541442186952027,
+    "ece_10_bins": 0.11985143815927543,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.7312939231087227,
+    "nll": 0.5723500660300737,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 25,
+        "label": "A",
+        "recall": 0.56
+      },
+      {
+        "count": 25,
+        "label": "B",
+        "recall": 0.92
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.21739130434782605,
+        "answered": 46,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.15000000000000002,
+        "answered": 20,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 11,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 1,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/winogrande/predictions-decoder-logit-qwen35-mlx-fp32-decoder-logit-qwen35-mlx-fp32.jsonl",
+    "predictions_sha256": "d0a288499b1b1f8ccab5f5269c8867c5d57dd4f02e8c4ea055520ef02ff7be95",
+    "summary_sha256": "9dd62de64a9383bd4c9339692caf53041fb0a794e35fc7cb67abbb2534094b12",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/winogrande/workload-winogrande-eval.jsonl",
+    "workload_sha256": "43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval decoder-logit-qwen35/winogrande (decoder-logit-qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval commonsense_qa --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decoder-logit-qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/commonsense_qa --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decoder-logit-qwen35:415bcf4a064e6dadcf85/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/commonsense_qa/workload-commonsense_qa-eval.jsonl: 50 rows (sha256 197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decoder-logit-qwen35-mlx-fp32 starting
+[bench] strategy decoder-logit-qwen35-mlx-fp32 warmup complete
+[bench] strategy decoder-logit-qwen35-mlx-fp32 rep 0: 49.563 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/commonsense_qa/summary-decoder-logit-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "ae0768efa72432cb9c8e3945bd39f6dad24b2808",
+    "description": "Commonsense QA, 5 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "tau/commonsense_qa",
+    "hf_revision": "94630fe30dad47192a8546eb75f094926d47e155",
+    "license": "MIT",
+    "name": "commonsense_qa",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decoder-logit-qwen35",
+    "model_revision": "c4f7fdb3aeab5582336406e78d3bef11bf98833d",
+    "profile_id": "415bcf4a064e6dadcf85",
+    "strategy": "decoder-logit-qwen35-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.8,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.96,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.875,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.68,
+        0.9
+      ],
+      "clusters": 50,
+      "point": 0.8,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.8,
+    "aurc": 0.06460718548812426,
+    "brier": 0.2936312942670108,
+    "ece_10_bins": 0.11609548073529136,
+    "false_none_rate": 0.04,
+    "macro_f1": 0.8074285714285713,
+    "nll": 0.6425291629125478,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 7,
+        "label": "A",
+        "recall": 0.7142857142857143
+      },
+      {
+        "count": 11,
+        "label": "B",
+        "recall": 0.8181818181818182
+      },
+      {
+        "count": 14,
+        "label": "C",
+        "recall": 0.7857142857142857
+      },
+      {
+        "count": 5,
+        "label": "D",
+        "recall": 1.0
+      },
+      {
+        "count": 13,
+        "label": "E",
+        "recall": 0.7692307692307693
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.12195121951219512,
+        "answered": 41,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.040000000000000036,
+        "answered": 25,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 14,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/commonsense_qa/predictions-decoder-logit-qwen35-mlx-fp32-decoder-logit-qwen35-mlx-fp32.jsonl",
+    "predictions_sha256": "4cfce2637bf6324475f25b292acdcba1a32e4607bc2caa64faafa860f68b27ea",
+    "summary_sha256": "807e164e1014daacf5ccf4630a77f099c743f3dce6c216f19fc1588e555b27a5",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/commonsense_qa/workload-commonsense_qa-eval.jsonl",
+    "workload_sha256": "197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval decoder-logit-qwen35/commonsense_qa (decoder-logit-qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval paws --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decoder-logit-qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/paws --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decoder-logit-qwen35:415bcf4a064e6dadcf85/checkpoint --tune-threshold
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/paws/tuning-paws/workload-paws-dev.jsonl: 50 rows (sha256 f9c04db8a2189dc90a3981b384703273ab29fb29778decf3895a80de707c1f75)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decoder-logit-qwen35-mlx-fp32 starting
+[bench] strategy decoder-logit-qwen35-mlx-fp32 warmup complete
+[bench] strategy decoder-logit-qwen35-mlx-fp32 rep 0: 60.631 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/paws/tuning-paws/summary-decoder-logit-qwen35-mlx-fp32.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/paws/workload-paws-eval.jsonl: 50 rows (sha256 36ecb2af4e6c31d6529afaf2a85abbb1581be6ff6544263029794b66a6defc70)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decoder-logit-qwen35-mlx-fp32 starting
+[bench] strategy decoder-logit-qwen35-mlx-fp32 warmup complete
+[bench] strategy decoder-logit-qwen35-mlx-fp32 rep 0: 57.624 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/paws/summary-decoder-logit-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "254f2df8677712ee0972ddb92870dc79fed48aec",
+    "description": "Adversarial paraphrase identification (high word overlap).",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "google-research-datasets/paws",
+    "hf_revision": "161ece9501cf0a11f3e48bd356eaa82de46d6a09",
+    "license": "custom terms on the dataset card; review before broader use",
+    "name": "paws",
+    "task_family": "nli"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decoder-logit-qwen35",
+    "model_revision": "c4f7fdb3aeab5582336406e78d3bef11bf98833d",
+    "profile_id": "415bcf4a064e6dadcf85",
+    "strategy": "decoder-logit-qwen35-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy_at_0.5": 0.72,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.8,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.75,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.6,
+        0.84
+      ],
+      "clusters": 50,
+      "point": 0.72,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "aurc": 0.13977245516155942,
+    "auroc": 0.79,
+    "brier": 0.19295694030041843,
+    "ece_10_bins": 0.480800235846845,
+    "negative_recall": 0.7,
+    "positive_recall": 0.75,
+    "rows": 50,
+    "tuned_threshold": {
+      "dev_rows": 50,
+      "eval_accuracy": 0.68,
+      "protocol": "threshold selected on dev, applied to eval",
+      "threshold": 0.8919198313081608,
+      "tuning_accuracy_on_dev": 0.7
+    }
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/paws/predictions-decoder-logit-qwen35-mlx-fp32-decoder-logit-qwen35-mlx-fp32.jsonl",
+    "predictions_sha256": "d4154adc3833226385b5634c04084427f9389833c87fdbf4659959bdf9ea6916",
+    "summary_sha256": "6ec10714caf7ae8e02488137eef0ae46851c1996d93a88a12cdc10527e9f42fa",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/paws/workload-paws-eval.jsonl",
+    "workload_sha256": "36ecb2af4e6c31d6529afaf2a85abbb1581be6ff6544263029794b66a6defc70"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 18,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval decoder-logit-qwen35/paws (decoder-logit-qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval boolq --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decoder-logit-qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/boolq --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decoder-logit-qwen35:415bcf4a064e6dadcf85/checkpoint --tune-threshold
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/boolq/tuning-boolq/workload-boolq-dev.jsonl: 50 rows (sha256 1344c51d3a9d27d9cbf428f2e823b6324a62c5e15d9d4beba09f034c57950ea9)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decoder-logit-qwen35-mlx-fp32 starting
+[bench] strategy decoder-logit-qwen35-mlx-fp32 warmup complete
+[bench] strategy decoder-logit-qwen35-mlx-fp32 rep 0: 80.277 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/boolq/tuning-boolq/summary-decoder-logit-qwen35-mlx-fp32.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/boolq/workload-boolq-eval.jsonl: 50 rows (sha256 449d16d61bdfeba20b1323e394af130cf9e9e70670365f052602e59eed64373c)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decoder-logit-qwen35-mlx-fp32 starting
+Error: warmup dispatch failed: backend `decoder-logit-qwen35/mlx-fp32` does not support this request: rendered prompt length 838 exceeds frozen maximum 512; truncation is forbidden
+[exit 1] eval decoder-logit-qwen35/boolq (decoder-logit-qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval stsb --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decoder-logit-qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/stsb --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decoder-logit-qwen35:415bcf4a064e6dadcf85/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/stsb/workload-stsb-eval.jsonl: 50 rows (sha256 fbcbdc284c4c7e1d9f950740770134c5eaab52175a16eaafb059749acf610453)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decoder-logit-qwen35-mlx-fp32 starting
+[bench] strategy decoder-logit-qwen35-mlx-fp32 warmup complete
+[bench] strategy decoder-logit-qwen35-mlx-fp32 rep 0: 87.479 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/stsb/summary-decoder-logit-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "58372e8197f43125a85d75e3c5121ccabc61413a",
+    "description": "Semantic textual similarity on a 0-5 scale.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "sentence-transformers/stsb",
+    "hf_revision": "ab7a5ac0e35aa22088bdcf23e7fd99b220e53308",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "stsb",
+    "task_family": "rubric-scoring"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decoder-logit-qwen35",
+    "model_revision": "c4f7fdb3aeab5582336406e78d3bef11bf98833d",
+    "profile_id": "415bcf4a064e6dadcf85",
+    "strategy": "decoder-logit-qwen35-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "argmax_level_accuracy": 0.36,
+    "mae": 0.7318789627669383,
+    "nll": 1.1727254305690946,
+    "pearson": 0.8743242639846417,
+    "rows": 50,
+    "spearman": 0.8877039496031087
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/stsb/predictions-decoder-logit-qwen35-mlx-fp32-decoder-logit-qwen35-mlx-fp32.jsonl",
+    "predictions_sha256": "06580e56d0c90d3b7b956e58f3446c1a16cd1a6d47655c9879407618ab151765",
+    "summary_sha256": "cb731e3973b2e32f0ce2b46e1498ecbbcec85834d99cc56ec7520d7500262856",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/stsb/workload-stsb-eval.jsonl",
+    "workload_sha256": "fbcbdc284c4c7e1d9f950740770134c5eaab52175a16eaafb059749acf610453"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 1,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval decoder-logit-qwen35/stsb (decoder-logit-qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval sst5 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decoder-logit-qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/sst5 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decoder-logit-qwen35:415bcf4a064e6dadcf85/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/sst5/workload-sst5-eval.jsonl: 50 rows (sha256 6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decoder-logit-qwen35-mlx-fp32 starting
+[bench] strategy decoder-logit-qwen35-mlx-fp32 warmup complete
+[bench] strategy decoder-logit-qwen35-mlx-fp32 rep 0: 47.429 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/sst5/summary-decoder-logit-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "956d888e7bc9c029fd96e3cece49c054ec0ddbd9",
+    "description": "Fine-grained sentence sentiment, 5 ordered levels.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "SetFit/sst5",
+    "hf_revision": "e51bdcd8cd3a30da231967c1a249ba59361279a3",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "sst5",
+    "task_family": "rubric-scoring"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decoder-logit-qwen35",
+    "model_revision": "c4f7fdb3aeab5582336406e78d3bef11bf98833d",
+    "profile_id": "415bcf4a064e6dadcf85",
+    "strategy": "decoder-logit-qwen35-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "argmax_level_accuracy": 0.58,
+    "mae": 0.4881250017093805,
+    "nll": 0.9195307288085953,
+    "pearson": 0.8850610638938523,
+    "rows": 50,
+    "spearman": 0.8555433265806671
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/sst5/predictions-decoder-logit-qwen35-mlx-fp32-decoder-logit-qwen35-mlx-fp32.jsonl",
+    "predictions_sha256": "8541ded36ddea95c61776a425ce886e51438b62ae814013ff07a397e65711590",
+    "summary_sha256": "afa2ea4b3a1efcc2169c151e987a3d5538173a5f9b7eac2b5c921cbdd841e4ea",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen35/sst5/workload-sst5-eval.jsonl",
+    "workload_sha256": "6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval decoder-logit-qwen35/sst5 (decoder-logit-qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench score /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl --engine decoder-logit-qwen35-mlx-fp32 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/performance/decoder-logit-qwen35/decoder-logit-qwen35-mlx-fp32 --reps 1 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decoder-logit-qwen35:415bcf4a064e6dadcf85/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl: 12 rows (sha256 c2db6b36351d340b4f55343109cf4a41444d56c96868ab7f467381dd791c3905)
+[bench] 4 groups over 12 rows (grouping=true)
+[bench] engine decoder-logit-qwen35-mlx-fp32 starting
+[bench] strategy decoder-logit-qwen35-mlx-fp32 warmup complete
+[bench] strategy decoder-logit-qwen35-mlx-fp32 rep 0: 21.945 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/performance/decoder-logit-qwen35/decoder-logit-qwen35-mlx-fp32/summary-decoder-logit-qwen35-mlx-fp32.json
+{"bundle_version":null,"commit":"e3cb136f431e817ac4aca475ea381b0840ef2cd0","context":null,"cross_strategy_answer_parity_clean":null,"engine":"decoder-logit-qwen35","engine_variant":"decoder-logit-qwen35-mlx-fp32","fixture":{"groups":4,"path":"/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl","rows":12,"sha256":"c2db6b36351d340b4f55343109cf4a41444d56c96868ab7f467381dd791c3905"},"grouping":"per-state","history_aba":false,"host":"Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64","host_hardware":{"cpu_brand":"Apple M4 Max","logical_cores":14,"model":"Mac16,5","total_memory_bytes":38654705664},"measurement_scope":"model_request_path","model_revision":"c4f7fdb3aeab5582336406e78d3bef11bf98833d","notes":{"cpu_time_seconds":"process-wide user+system CPU time diff across the timed region, excluding warmup and model load; avg_cpu_percent exceeds 100 when multiple threads run","input_tokens_per_second":"total input tokens across all timed repetitions divided by their total wall time","percentiles":"p50 is the median rep total and p95 is the ceil(0.95*n)-1 sample; small rep counts are reported alongside as samples_seconds","request_latency_ms":"latency is per request; grouped rows share their request's latency and are not independent timings; includes request construction through answer extraction"},"peak_resident_bytes":14748237824,"prediction_sha256":{"decoder-logit-qwen35-mlx-fp32":"5de01c832238b94e7e04cebaa33b07ec6c107da573fcf00eaaa5fd88f3acb0d3"},"profile_id":"415bcf4a064e6dadcf85","reps":1,"schema":"openkind-bench/v1","strategies":[{"avg_cpu_percent":134.2669717604109,"backend_id":"decoder-logit-qwen35/mlx-fp32","cpu_time_seconds":29.464645999999995,"decisions_per_second":0.5468260711922116,"forced":null,"groups":4,"input_tokens_per_second":149.0556732391437,"input_tokens_total":3271,"model_load_seconds":17.510167708,"p50_seconds":21.944820542,"p95_seconds":21.944820542,"reps":1,"rows":12,"samples_seconds":[21.944820542],"strategy":"decoder-logit-qwen35-mlx-fp32"}],"timing_scope":"request construction, validation, dispatch, and answer extraction; excludes model load (reported per strategy), result writes, and the untimed warmup pass; warm process","warmup":true}
+[exit 0] score decoder-logit-qwen35 (decoder-logit-qwen35-mlx-fp32, 12 rows)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind rm decoder-logit-qwen35:415bcf4a064e6dadcf85
+Removed installed model decoder-logit-qwen35:415bcf4a064e6dadcf85
+[exit 0] remove decoder-logit-qwen35:415bcf4a064e6dadcf85
+

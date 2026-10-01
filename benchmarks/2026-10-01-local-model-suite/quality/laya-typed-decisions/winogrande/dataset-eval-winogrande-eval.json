@@ -1,0 +1,114 @@
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "546d5aa0e42fc0fa9ad2c13260322ec969e083ee",
+    "description": "Commonsense pronoun/blank resolution, 2 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "allenai/winogrande",
+    "hf_revision": "01e74176c63542e6b0bcb004dcdea22d94fb67b5",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "winogrande",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "laya",
+    "model_revision": "1a793eb568e6718f15941d08f85432581df534e3",
+    "profile_id": "9d28cfa9567902801ed1",
+    "strategy": "laya-typed-decisions-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.58,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.68,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.575,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.44,
+        0.72
+      ],
+      "clusters": 50,
+      "point": 0.58,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.64,
+    "aurc": 0.34257084045942543,
+    "brier": 0.5772072305515367,
+    "ece_10_bins": 0.06749830011827315,
+    "false_none_rate": 0.12,
+    "macro_f1": 0.6093240093240093,
+    "nll": 0.9801012091458944,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 25,
+        "label": "A",
+        "recall": 0.72
+      },
+      {
+        "count": 25,
+        "label": "B",
+        "recall": 0.44
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.31999999999999995,
+        "answered": 25,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 3,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-typed-decisions/winogrande/predictions-laya-typed-decisions-mlx-fp32-laya-typed-decisions-mlx-fp32.jsonl",
+    "predictions_sha256": "ad5b5463004ea75b458597602e83a2302911c5a76726bc49141be33743461457",
+    "summary_sha256": "3c760ca7d49c627636ab7241bc4f87ed1fdc1b0e7926eb7a0e101d24ef43dad4",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-typed-decisions/winogrande/workload-winogrande-eval.jsonl",
+    "workload_sha256": "43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}

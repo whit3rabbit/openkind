@@ -1,0 +1,1285 @@
+profile=qwen35-state-first:a047d6802c3f06f085b8
+loader=qwen35-state-first
+commit=e3cb136f431e817ac4aca475ea381b0840ef2cd0
+host=Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind pull qwen35-state-first:a047d6802c3f06f085b8
+Downloading bundle/BUNDLE_MANIFEST.json (3.6 KiB)
+Verifying bundle/BUNDLE_MANIFEST.json (SHA-256)
+Verified bundle/BUNDLE_MANIFEST.json
+Downloading bundle/HEAD_ALGEBRA_CHECK.json (988 B)
+Verifying bundle/HEAD_ALGEBRA_CHECK.json (SHA-256)
+Verified bundle/HEAD_ALGEBRA_CHECK.json
+Downloading bundle/HEAD_GRAPH.json (1.7 KiB)
+Verifying bundle/HEAD_GRAPH.json (SHA-256)
+Verified bundle/HEAD_GRAPH.json
+Downloading bundle/MODEL_CONTRACT.json (10.8 KiB)
+Verifying bundle/MODEL_CONTRACT.json (SHA-256)
+Verified bundle/MODEL_CONTRACT.json
+Downloading bundle/RELOAD_CHECK.json (1.4 KiB)
+Verifying bundle/RELOAD_CHECK.json (SHA-256)
+Verified bundle/RELOAD_CHECK.json
+Downloading bundle/SOURCE.md (1.1 KiB)
+Verifying bundle/SOURCE.md (SHA-256)
+Verified bundle/SOURCE.md
+Downloading bundle/golden.json (861.2 KiB)
+Verifying bundle/golden.json (SHA-256)
+Verified bundle/golden.json
+Downloading bundle/inference_protocol.json (915 B)
+Verifying bundle/inference_protocol.json (SHA-256)
+Verified bundle/inference_protocol.json
+Downloading bundle/model/score_summary_seed17.safetensors (30.7 KiB)
+Verifying bundle/model/score_summary_seed17.safetensors (SHA-256)
+Verified bundle/model/score_summary_seed17.safetensors
+Downloading bundle/profile.json (23.4 KiB)
+Verifying bundle/profile.json (SHA-256)
+Verified bundle/profile.json
+Downloading checkpoint/config.json (3.1 KiB)
+Verifying checkpoint/config.json (SHA-256)
+Verified checkpoint/config.json
+Downloading checkpoint/model.safetensors.index.json (74.4 KiB)
+Verifying checkpoint/model.safetensors.index.json (SHA-256)
+Verified checkpoint/model.safetensors.index.json
+Downloading checkpoint/model.safetensors-00001-of-00002.safetensors (5.0 GiB)
+Verifying checkpoint/model.safetensors-00001-of-00002.safetensors (SHA-256)
+Verified checkpoint/model.safetensors-00001-of-00002.safetensors
+Downloading checkpoint/model.safetensors-00002-of-00002.safetensors (3.7 GiB)
+Verifying checkpoint/model.safetensors-00002-of-00002.safetensors (SHA-256)
+Verified checkpoint/model.safetensors-00002-of-00002.safetensors
+Downloading checkpoint/tokenizer.json (19.1 MiB)
+Verifying checkpoint/tokenizer.json (SHA-256)
+Verified checkpoint/tokenizer.json
+Installed qwen35-state-first:a047d6802c3f06f085b8 (rust-loadable); 8.7 GiB downloaded
+To activate it, restart the daemon with: openkind serve --installed-models qwen35-state-first:a047d6802c3f06f085b8
+[exit 0] pull qwen35-state-first:a047d6802c3f06f085b8
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval sst2 --datasets-dir /tmp/openkind-local-suite-2026-10-01/datasets --limit 50 --engine qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/sst2 --pretty --bundle-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/bundle --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint --tokenizer /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint/tokenizer.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/sst2/workload-sst2-eval.jsonl: 50 rows (sha256 aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine qwen35-mlx-fp32 strategy choose_strategy starting
+[bench] strategy choose_strategy warmup complete
+[bench] strategy choose_strategy rep 0: 45.950 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/sst2/summary-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "db3daed39bcd33ea25255ab60c1ac86ad52ce79d",
+    "description": "Binary sentence sentiment (GLUE SST-2).",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "stanfordnlp/sst2",
+    "hf_revision": "8d51e7e4887a4caaa95b3fbebbf53c0490b58bbb",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "sst2",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": "2ij.2.0",
+    "engine": "qwen35-mlx-fp32",
+    "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+    "profile_id": "a047d6802c3f06f085b8",
+    "strategy": "choose_strategy"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.02,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.0,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.0,
+        0.06
+      ],
+      "clusters": 50,
+      "point": 0.02,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.96,
+    "aurc": 0.9995999999999999,
+    "brier": 1.6951606242150519,
+    "ece_10_bins": 0.9109105442661452,
+    "false_none_rate": 0.98,
+    "macro_f1": 0.047619047619047616,
+    "nll": 3.5719836044701494,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 20,
+        "label": "negative",
+        "recall": 0.05
+      },
+      {
+        "count": 30,
+        "label": "positive",
+        "recall": 0.0
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 1.0,
+        "answered": 49,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 1.0,
+        "answered": 44,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 1.0,
+        "answered": 36,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 1.0,
+        "answered": 18,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "5655e6297f186d79e349baf262a10721299d17a1c90b2c31a41c221f57bd4751",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/sst2/predictions-qwen35-mlx-fp32-choose_strategy.jsonl",
+    "predictions_sha256": "5a75ac7c61d5257050ded1ceb975c3c26a6248ed79a5d49d67dd3f9cff1045f2",
+    "summary_sha256": "50ee5f64679187e6b36418fa6147b1cfc51f1dcabaa1b905fefceab88559a0d4",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/sst2/workload-sst2-eval.jsonl",
+    "workload_sha256": "aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval qwen35-state-first/sst2 (qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval ag_news --datasets-dir /tmp/openkind-local-suite-2026-10-01/datasets --limit 50 --engine qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/ag_news --pretty --bundle-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/bundle --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint --tokenizer /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint/tokenizer.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/ag_news/workload-ag_news-eval.jsonl: 50 rows (sha256 dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine qwen35-mlx-fp32 strategy choose_strategy starting
+[bench] strategy choose_strategy warmup complete
+[bench] strategy choose_strategy rep 0: 85.969 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/ag_news/summary-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "4efd5262b756aee7a12710ca78c74aa258660063",
+    "description": "News topic classification, 4 classes.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "fancyzhx/ag_news",
+    "hf_revision": "eb185aade064a813bc0b7f42de02595523103ca4",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "ag_news",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": "2ij.2.0",
+    "engine": "qwen35-mlx-fp32",
+    "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+    "profile_id": "a047d6802c3f06f085b8",
+    "strategy": "choose_strategy"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.7,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.92,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.775,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.58,
+        0.82
+      ],
+      "clusters": 50,
+      "point": 0.7,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.78,
+    "aurc": 0.12049189720040611,
+    "brier": 0.40898374509945173,
+    "ece_10_bins": 0.08873094117453241,
+    "false_none_rate": 0.14,
+    "macro_f1": 0.7539592760180995,
+    "nll": 0.8865864998398362,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "Business",
+        "recall": 0.875
+      },
+      {
+        "count": 10,
+        "label": "Sci/Tech",
+        "recall": 0.7
+      },
+      {
+        "count": 16,
+        "label": "Sports",
+        "recall": 0.5625
+      },
+      {
+        "count": 16,
+        "label": "World",
+        "recall": 0.75
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.1842105263157895,
+        "answered": 38,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.09523809523809523,
+        "answered": 21,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 6,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "5655e6297f186d79e349baf262a10721299d17a1c90b2c31a41c221f57bd4751",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/ag_news/predictions-qwen35-mlx-fp32-choose_strategy.jsonl",
+    "predictions_sha256": "56baf2be9804f5d75e021c540276659b3b54b99f85ebfe4b3afbc51bdd2c9b3c",
+    "summary_sha256": "f1742dd7445f3ba50ac29829fd5828b9d99f064264d81120ebbafb9183bbf10c",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/ag_news/workload-ag_news-eval.jsonl",
+    "workload_sha256": "dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval qwen35-state-first/ag_news (qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval banking77 --datasets-dir /tmp/openkind-local-suite-2026-10-01/datasets --limit 50 --engine qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/banking77 --pretty --bundle-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/bundle --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint --tokenizer /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint/tokenizer.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/banking77/workload-banking77-eval.jsonl: 50 rows (sha256 9987b6f82a27ab4a5ddc0124ab4a110945d168858aa1ff1352d371422d657b98)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine qwen35-mlx-fp32 strategy choose_strategy starting
+Error: warmup dispatch failed: backend `qwen35-mlx-fp32` does not support this request: candidate count must be between 2 and 16, found 77
+[exit 1] eval qwen35-state-first/banking77 (qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval clinc150 --datasets-dir /tmp/openkind-local-suite-2026-10-01/datasets --limit 50 --engine qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/clinc150 --pretty --bundle-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/bundle --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint --tokenizer /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint/tokenizer.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/clinc150/workload-clinc150-eval.jsonl: 50 rows (sha256 c4fa558b966c0c72618366e1b6b6024566b5de14d3eeba7e0085c260ebdf1701)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine qwen35-mlx-fp32 strategy choose_strategy starting
+Error: warmup dispatch failed: backend `qwen35-mlx-fp32` does not support this request: candidate count must be between 2 and 16, found 151
+[exit 1] eval qwen35-state-first/clinc150 (qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval arc --datasets-dir /tmp/openkind-local-suite-2026-10-01/datasets --limit 50 --engine qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/arc --pretty --bundle-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/bundle --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint --tokenizer /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint/tokenizer.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/arc/workload-arc-eval.jsonl: 50 rows (sha256 a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine qwen35-mlx-fp32 strategy choose_strategy starting
+[bench] strategy choose_strategy warmup complete
+[bench] strategy choose_strategy rep 0: 59.419 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/arc/summary-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "5a61ed188b8810abf32686fa83eb93787cbc5f25",
+    "description": "Grade-school science QA (Challenge + Easy), 3-5 options.",
+    "files": 4,
+    "gated": "none",
+    "hf_repo": "allenai/ai2_arc",
+    "hf_revision": "210d026faf9955653af8916fad021475a3f00453",
+    "license": "CC-BY-SA-4.0",
+    "name": "arc",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": "2ij.2.0",
+    "engine": "qwen35-mlx-fp32",
+    "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+    "profile_id": "a047d6802c3f06f085b8",
+    "strategy": "choose_strategy"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.48,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.48,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.55,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.34,
+        0.62
+      ],
+      "clusters": 50,
+      "point": 0.48,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.5,
+    "aurc": 0.42201279535527825,
+    "brier": 0.6674093007254907,
+    "ece_10_bins": 0.22569711223542363,
+    "false_none_rate": 0.02,
+    "macro_f1": 0.522077922077922,
+    "nll": 1.1852607518336755,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "A",
+        "recall": 0.625
+      },
+      {
+        "count": 19,
+        "label": "B",
+        "recall": 0.3157894736842105
+      },
+      {
+        "count": 13,
+        "label": "C",
+        "recall": 0.46153846153846156
+      },
+      {
+        "count": 10,
+        "label": "D",
+        "recall": 0.7
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.5,
+        "answered": 36,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.4,
+        "answered": 10,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.19999999999999996,
+        "answered": 5,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 2,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "5655e6297f186d79e349baf262a10721299d17a1c90b2c31a41c221f57bd4751",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/arc/predictions-qwen35-mlx-fp32-choose_strategy.jsonl",
+    "predictions_sha256": "efd82179d2c92d321f717767f2b00d222002d9c9169341c38b89ab93b890166c",
+    "summary_sha256": "a5a5528f5bd25887ed133fdd992410a4f5b4cf6cfffbedeec1f41bfb0bc516da",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/arc/workload-arc-eval.jsonl",
+    "workload_sha256": "a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval qwen35-state-first/arc (qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval hellaswag --datasets-dir /tmp/openkind-local-suite-2026-10-01/datasets --limit 50 --engine qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/hellaswag --pretty --bundle-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/bundle --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint --tokenizer /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint/tokenizer.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/hellaswag/workload-hellaswag-eval.jsonl: 50 rows (sha256 01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine qwen35-mlx-fp32 strategy choose_strategy starting
+[bench] strategy choose_strategy warmup complete
+[bench] strategy choose_strategy rep 0: 157.369 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/hellaswag/summary-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "382ffb520660cc2ba98092cd8aa07cafc9c47f6d",
+    "description": "Commonsense sentence completion, 4 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "Rowan/hellaswag",
+    "hf_revision": "218ec52e09a7e7462a5400043bb9a69a41d06b76",
+    "license": "MIT (dataset card); underlying corpus terms not detailed",
+    "name": "hellaswag",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": "2ij.2.0",
+    "engine": "qwen35-mlx-fp32",
+    "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+    "profile_id": "a047d6802c3f06f085b8",
+    "strategy": "choose_strategy"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.28,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.28,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.325,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.16,
+        0.4
+      ],
+      "clusters": 50,
+      "point": 0.28,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.52,
+    "aurc": 0.6259192849710795,
+    "brier": 0.964134714072313,
+    "ece_10_bins": 0.3824614282636624,
+    "false_none_rate": 0.56,
+    "macro_f1": 0.2601214574898786,
+    "nll": 1.9528005429576254,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 12,
+        "label": "A",
+        "recall": 0.08333333333333333
+      },
+      {
+        "count": 8,
+        "label": "B",
+        "recall": 0.0
+      },
+      {
+        "count": 11,
+        "label": "C",
+        "recall": 0.18181818181818182
+      },
+      {
+        "count": 19,
+        "label": "D",
+        "recall": 0.5789473684210527
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.6904761904761905,
+        "answered": 42,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.6470588235294117,
+        "answered": 17,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.25,
+        "answered": 4,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "5655e6297f186d79e349baf262a10721299d17a1c90b2c31a41c221f57bd4751",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/hellaswag/predictions-qwen35-mlx-fp32-choose_strategy.jsonl",
+    "predictions_sha256": "938352bb2111314729f722dd71aaa6f764abc5d24e1ed2916992d01d1fef8f5b",
+    "summary_sha256": "ee7aa62c6fc0fa5d4d06502eaa82d323d764c44e4d5b7d2b384b2b14d96190aa",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/hellaswag/workload-hellaswag-eval.jsonl",
+    "workload_sha256": "01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval qwen35-state-first/hellaswag (qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval winogrande --datasets-dir /tmp/openkind-local-suite-2026-10-01/datasets --limit 50 --engine qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/winogrande --pretty --bundle-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/bundle --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint --tokenizer /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint/tokenizer.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/winogrande/workload-winogrande-eval.jsonl: 50 rows (sha256 43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine qwen35-mlx-fp32 strategy choose_strategy starting
+[bench] strategy choose_strategy warmup complete
+[bench] strategy choose_strategy rep 0: 38.224 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/winogrande/summary-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "546d5aa0e42fc0fa9ad2c13260322ec969e083ee",
+    "description": "Commonsense pronoun/blank resolution, 2 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "allenai/winogrande",
+    "hf_revision": "01e74176c63542e6b0bcb004dcdea22d94fb67b5",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "winogrande",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": "2ij.2.0",
+    "engine": "qwen35-mlx-fp32",
+    "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+    "profile_id": "a047d6802c3f06f085b8",
+    "strategy": "choose_strategy"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.48,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.44,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.45,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.34,
+        0.62
+      ],
+      "clusters": 50,
+      "point": 0.48,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.48,
+    "aurc": 0.5487550739816108,
+    "brier": 0.8063008051734173,
+    "ece_10_bins": 0.40283743424316376,
+    "false_none_rate": 0.08,
+    "macro_f1": 0.4665105386416862,
+    "nll": 1.2994141476449224,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 25,
+        "label": "A",
+        "recall": 0.72
+      },
+      {
+        "count": 25,
+        "label": "B",
+        "recall": 0.24
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.5306122448979591,
+        "answered": 49,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.5161290322580645,
+        "answered": 31,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.5333333333333333,
+        "answered": 15,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "5655e6297f186d79e349baf262a10721299d17a1c90b2c31a41c221f57bd4751",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/winogrande/predictions-qwen35-mlx-fp32-choose_strategy.jsonl",
+    "predictions_sha256": "1675e3aeda7868abee8a72d6215c3af952009add46e7f341a0b0bb7e7ffeb3a3",
+    "summary_sha256": "b06640fef0d2a7cd2ea174dc3bc2116faadc581bd0142dc754f3d883e98fd93a",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/winogrande/workload-winogrande-eval.jsonl",
+    "workload_sha256": "43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval qwen35-state-first/winogrande (qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval commonsense_qa --datasets-dir /tmp/openkind-local-suite-2026-10-01/datasets --limit 50 --engine qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/commonsense_qa --pretty --bundle-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/bundle --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint --tokenizer /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint/tokenizer.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/commonsense_qa/workload-commonsense_qa-eval.jsonl: 50 rows (sha256 197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine qwen35-mlx-fp32 strategy choose_strategy starting
+[bench] strategy choose_strategy warmup complete
+[bench] strategy choose_strategy rep 0: 45.604 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/commonsense_qa/summary-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "ae0768efa72432cb9c8e3945bd39f6dad24b2808",
+    "description": "Commonsense QA, 5 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "tau/commonsense_qa",
+    "hf_revision": "94630fe30dad47192a8546eb75f094926d47e155",
+    "license": "MIT",
+    "name": "commonsense_qa",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": "2ij.2.0",
+    "engine": "qwen35-mlx-fp32",
+    "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+    "profile_id": "a047d6802c3f06f085b8",
+    "strategy": "choose_strategy"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.26,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.2,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.25,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.14,
+        0.4
+      ],
+      "clusters": 50,
+      "point": 0.26,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.34,
+    "aurc": 0.8101924048484576,
+    "brier": 0.9741638819688597,
+    "ece_10_bins": 0.27010647032128027,
+    "false_none_rate": 0.24,
+    "macro_f1": 0.25320794148380354,
+    "nll": 2.205958063837228,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 7,
+        "label": "A",
+        "recall": 0.14285714285714285
+      },
+      {
+        "count": 11,
+        "label": "B",
+        "recall": 0.0
+      },
+      {
+        "count": 14,
+        "label": "C",
+        "recall": 0.35714285714285715
+      },
+      {
+        "count": 5,
+        "label": "D",
+        "recall": 1.0
+      },
+      {
+        "count": 13,
+        "label": "E",
+        "recall": 0.15384615384615385
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.7916666666666666,
+        "answered": 24,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 1.0,
+        "answered": 4,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 1.0,
+        "answered": 2,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "5655e6297f186d79e349baf262a10721299d17a1c90b2c31a41c221f57bd4751",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/commonsense_qa/predictions-qwen35-mlx-fp32-choose_strategy.jsonl",
+    "predictions_sha256": "df50956280e8aad9bd62043e54282fe8ca58d217d328a681b3ddb2ae22d10e59",
+    "summary_sha256": "7c9c08804c361a7a7bb411a0f63065cfe013a90c4bbc5fe2ead96b96bcba5d1e",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/commonsense_qa/workload-commonsense_qa-eval.jsonl",
+    "workload_sha256": "197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval qwen35-state-first/commonsense_qa (qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval paws --datasets-dir /tmp/openkind-local-suite-2026-10-01/datasets --limit 50 --engine qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/paws --pretty --bundle-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/bundle --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint --tokenizer /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint/tokenizer.json --tune-threshold
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/paws/tuning-paws/workload-paws-dev.jsonl: 50 rows (sha256 f9c04db8a2189dc90a3981b384703273ab29fb29778decf3895a80de707c1f75)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine qwen35-mlx-fp32 strategy choose_strategy starting
+[bench] strategy choose_strategy warmup complete
+[bench] strategy choose_strategy rep 0: 83.104 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/paws/tuning-paws/summary-qwen35-mlx-fp32.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/paws/workload-paws-eval.jsonl: 50 rows (sha256 36ecb2af4e6c31d6529afaf2a85abbb1581be6ff6544263029794b66a6defc70)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine qwen35-mlx-fp32 strategy choose_strategy starting
+[bench] strategy choose_strategy warmup complete
+[bench] strategy choose_strategy rep 0: 79.959 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/paws/summary-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "254f2df8677712ee0972ddb92870dc79fed48aec",
+    "description": "Adversarial paraphrase identification (high word overlap).",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "google-research-datasets/paws",
+    "hf_revision": "161ece9501cf0a11f3e48bd356eaa82de46d6a09",
+    "license": "custom terms on the dataset card; review before broader use",
+    "name": "paws",
+    "task_family": "nli"
+  },
+  "engine": {
+    "bundle_version": "2ij.2.0",
+    "engine": "qwen35-mlx-fp32",
+    "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+    "profile_id": "a047d6802c3f06f085b8",
+    "strategy": "choose_strategy"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy_at_0.5": 0.66,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.8,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.75,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.52,
+        0.78
+      ],
+      "clusters": 50,
+      "point": 0.66,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "aurc": 0.22874246222447037,
+    "auroc": 0.745,
+    "brier": 0.20582158817815832,
+    "ece_10_bins": 0.49970965985839905,
+    "negative_recall": 0.8333333333333334,
+    "positive_recall": 0.4,
+    "rows": 50,
+    "tuned_threshold": {
+      "dev_rows": 50,
+      "eval_accuracy": 0.68,
+      "protocol": "threshold selected on dev, applied to eval",
+      "threshold": 0.23589439570501272,
+      "tuning_accuracy_on_dev": 0.72
+    }
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "5655e6297f186d79e349baf262a10721299d17a1c90b2c31a41c221f57bd4751",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/paws/predictions-qwen35-mlx-fp32-choose_strategy.jsonl",
+    "predictions_sha256": "059cc81fd7d0d88725cc96a60b50a88aedabc21aaf865278469ce12e73f525db",
+    "summary_sha256": "30ccb65fd534acd85716cbb64e6422eec376119d3ffe825cfe953f419ae5d262",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/paws/workload-paws-eval.jsonl",
+    "workload_sha256": "36ecb2af4e6c31d6529afaf2a85abbb1581be6ff6544263029794b66a6defc70"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 18,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval qwen35-state-first/paws (qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval boolq --datasets-dir /tmp/openkind-local-suite-2026-10-01/datasets --limit 50 --engine qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/boolq --pretty --bundle-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/bundle --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint --tokenizer /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint/tokenizer.json --tune-threshold
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/boolq/tuning-boolq/workload-boolq-dev.jsonl: 50 rows (sha256 1344c51d3a9d27d9cbf428f2e823b6324a62c5e15d9d4beba09f034c57950ea9)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine qwen35-mlx-fp32 strategy choose_strategy starting
+[bench] strategy choose_strategy warmup complete
+[bench] strategy choose_strategy rep 0: 214.659 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/boolq/tuning-boolq/summary-qwen35-mlx-fp32.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/boolq/workload-boolq-eval.jsonl: 50 rows (sha256 449d16d61bdfeba20b1323e394af130cf9e9e70670365f052602e59eed64373c)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine qwen35-mlx-fp32 strategy choose_strategy starting
+[bench] strategy choose_strategy warmup complete
+[bench] strategy choose_strategy rep 0: 135.738 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/boolq/summary-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "d89fc6ef4da46f056176dcf941ba670524ab1c87",
+    "description": "Yes/no questions over Wikipedia passages.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "google/boolq",
+    "hf_revision": "35b264d03638db9f4ce671b711558bf7ff0f80d5",
+    "license": "CC-BY-SA-3.0",
+    "name": "boolq",
+    "task_family": "reading-comprehension"
+  },
+  "engine": {
+    "bundle_version": "2ij.2.0",
+    "engine": "qwen35-mlx-fp32",
+    "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+    "profile_id": "a047d6802c3f06f085b8",
+    "strategy": "choose_strategy"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy_at_0.5": 0.64,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.76,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.675,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.5,
+        0.78
+      ],
+      "clusters": 50,
+      "point": 0.64,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "aurc": 0.2863393526997753,
+    "auroc": 0.9166666666666666,
+    "brier": 0.23264695058587972,
+    "ece_10_bins": 0.4796081616046812,
+    "negative_recall": 1.0,
+    "positive_recall": 0.4375,
+    "rows": 50,
+    "tuned_threshold": {
+      "dev_rows": 50,
+      "eval_accuracy": 0.88,
+      "protocol": "threshold selected on dev, applied to eval",
+      "threshold": 0.1424024778125209,
+      "tuning_accuracy_on_dev": 0.78
+    }
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "5655e6297f186d79e349baf262a10721299d17a1c90b2c31a41c221f57bd4751",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/boolq/predictions-qwen35-mlx-fp32-choose_strategy.jsonl",
+    "predictions_sha256": "086ee20123af66bd828a90d584760916bdccfb2119311ffde9c4594932068689",
+    "summary_sha256": "e3033f6f74a735cdb6b910e84355c58cc0fe3ef1809866792ed300ae603fd541",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/boolq/workload-boolq-eval.jsonl",
+    "workload_sha256": "449d16d61bdfeba20b1323e394af130cf9e9e70670365f052602e59eed64373c"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval qwen35-state-first/boolq (qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval stsb --datasets-dir /tmp/openkind-local-suite-2026-10-01/datasets --limit 50 --engine qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/stsb --pretty --bundle-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/bundle --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint --tokenizer /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint/tokenizer.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/stsb/workload-stsb-eval.jsonl: 50 rows (sha256 fbcbdc284c4c7e1d9f950740770134c5eaab52175a16eaafb059749acf610453)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine qwen35-mlx-fp32 strategy choose_strategy starting
+[bench] strategy choose_strategy warmup complete
+[bench] strategy choose_strategy rep 0: 82.240 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/stsb/summary-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "58372e8197f43125a85d75e3c5121ccabc61413a",
+    "description": "Semantic textual similarity on a 0-5 scale.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "sentence-transformers/stsb",
+    "hf_revision": "ab7a5ac0e35aa22088bdcf23e7fd99b220e53308",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "stsb",
+    "task_family": "rubric-scoring"
+  },
+  "engine": {
+    "bundle_version": "2ij.2.0",
+    "engine": "qwen35-mlx-fp32",
+    "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+    "profile_id": "a047d6802c3f06f085b8",
+    "strategy": "choose_strategy"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "argmax_level_accuracy": 0.08,
+    "mae": 2.818168540238543,
+    "nll": 5.909892939832826,
+    "pearson": 0.3833780867581427,
+    "rows": 50,
+    "spearman": 0.494382666934443
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "5655e6297f186d79e349baf262a10721299d17a1c90b2c31a41c221f57bd4751",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/stsb/predictions-qwen35-mlx-fp32-choose_strategy.jsonl",
+    "predictions_sha256": "01b7386fb4d48fb9116edda3a1a55e87696582f52038bdf947fed3fb8c20be16",
+    "summary_sha256": "0d8b6c049409b6bbd4e0bb9fda023144c3cc92afd087c24aaf45ec12f9378343",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/stsb/workload-stsb-eval.jsonl",
+    "workload_sha256": "fbcbdc284c4c7e1d9f950740770134c5eaab52175a16eaafb059749acf610453"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 1,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval qwen35-state-first/stsb (qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval sst5 --datasets-dir /tmp/openkind-local-suite-2026-10-01/datasets --limit 50 --engine qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/sst5 --pretty --bundle-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/bundle --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint --tokenizer /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint/tokenizer.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/sst5/workload-sst5-eval.jsonl: 50 rows (sha256 6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine qwen35-mlx-fp32 strategy choose_strategy starting
+[bench] strategy choose_strategy warmup complete
+[bench] strategy choose_strategy rep 0: 45.842 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/sst5/summary-qwen35-mlx-fp32.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "956d888e7bc9c029fd96e3cece49c054ec0ddbd9",
+    "description": "Fine-grained sentence sentiment, 5 ordered levels.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "SetFit/sst5",
+    "hf_revision": "e51bdcd8cd3a30da231967c1a249ba59361279a3",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "sst5",
+    "task_family": "rubric-scoring"
+  },
+  "engine": {
+    "bundle_version": "2ij.2.0",
+    "engine": "qwen35-mlx-fp32",
+    "model_revision": "1001bb4d826a52d1f399e183466143f4da7b741b",
+    "profile_id": "a047d6802c3f06f085b8",
+    "strategy": "choose_strategy"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "argmax_level_accuracy": 0.12,
+    "mae": 1.269465062812258,
+    "nll": 2.1418472353728406,
+    "pearson": 0.6649365180886544,
+    "rows": 50,
+    "spearman": 0.7070073002697244
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "5655e6297f186d79e349baf262a10721299d17a1c90b2c31a41c221f57bd4751",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/sst5/predictions-qwen35-mlx-fp32-choose_strategy.jsonl",
+    "predictions_sha256": "8a3fb715b7b901815e48599c6faa8bd3fc0b092f66eb929af5d5a88bac7446f2",
+    "summary_sha256": "e51ba294566564dff9e9abb5070a9b13cbc86de15b4f3a79551393ff09cdd5c2",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/sst5/workload-sst5-eval.jsonl",
+    "workload_sha256": "6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval qwen35-state-first/sst5 (qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench score /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape777.jsonl --engine qwen35-mlx-fp32 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/performance/qwen35-state-first/qwen35-mlx-fp32 --reps 1 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --bundle-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/bundle --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint --tokenizer /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint/tokenizer.json --strategies repeated_full,nested_sequential,nested_batched,choose_strategy
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape777.jsonl: 777 rows (sha256 be397bfc48209c8f7379d0d76ccbe3d3e7dca3269724928f0868cf872f4c8b01)
+[bench] 37 groups over 777 rows (grouping=true)
+[bench] engine qwen35-mlx-fp32 strategy repeated_full starting
+profile=qwen35-state-first:a047d6802c3f06f085b8
+loader=qwen35-state-first
+commit=e3cb136f431e817ac4aca475ea381b0840ef2cd0
+host=Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind pull qwen35-state-first:a047d6802c3f06f085b8
+Downloading bundle/BUNDLE_MANIFEST.json (3.6 KiB)
+Verifying bundle/BUNDLE_MANIFEST.json (SHA-256)
+Verified bundle/BUNDLE_MANIFEST.json
+Downloading bundle/HEAD_ALGEBRA_CHECK.json (988 B)
+Verifying bundle/HEAD_ALGEBRA_CHECK.json (SHA-256)
+Verified bundle/HEAD_ALGEBRA_CHECK.json
+Downloading bundle/HEAD_GRAPH.json (1.7 KiB)
+Verifying bundle/HEAD_GRAPH.json (SHA-256)
+Verified bundle/HEAD_GRAPH.json
+Downloading bundle/MODEL_CONTRACT.json (10.8 KiB)
+Verifying bundle/MODEL_CONTRACT.json (SHA-256)
+Verified bundle/MODEL_CONTRACT.json
+Downloading bundle/RELOAD_CHECK.json (1.4 KiB)
+Verifying bundle/RELOAD_CHECK.json (SHA-256)
+Verified bundle/RELOAD_CHECK.json
+Downloading bundle/SOURCE.md (1.1 KiB)
+Verifying bundle/SOURCE.md (SHA-256)
+Verified bundle/SOURCE.md
+Downloading bundle/golden.json (861.2 KiB)
+Verifying bundle/golden.json (SHA-256)
+Verified bundle/golden.json
+Downloading bundle/inference_protocol.json (915 B)
+Verifying bundle/inference_protocol.json (SHA-256)
+Verified bundle/inference_protocol.json
+Downloading bundle/model/score_summary_seed17.safetensors (30.7 KiB)
+Verifying bundle/model/score_summary_seed17.safetensors (SHA-256)
+Verified bundle/model/score_summary_seed17.safetensors
+Downloading bundle/profile.json (23.4 KiB)
+Verifying bundle/profile.json (SHA-256)
+Verified bundle/profile.json
+Downloading checkpoint/config.json (3.1 KiB)
+Verifying checkpoint/config.json (SHA-256)
+Verified checkpoint/config.json
+Downloading checkpoint/model.safetensors.index.json (74.4 KiB)
+Verifying checkpoint/model.safetensors.index.json (SHA-256)
+Verified checkpoint/model.safetensors.index.json
+Downloading checkpoint/model.safetensors-00001-of-00002.safetensors (5.0 GiB)
+Verifying checkpoint/model.safetensors-00001-of-00002.safetensors (SHA-256)
+Verified checkpoint/model.safetensors-00001-of-00002.safetensors
+Downloading checkpoint/model.safetensors-00002-of-00002.safetensors (3.7 GiB)
+Verifying checkpoint/model.safetensors-00002-of-00002.safetensors (SHA-256)
+Verified checkpoint/model.safetensors-00002-of-00002.safetensors
+Downloading checkpoint/tokenizer.json (19.1 MiB)
+Verifying checkpoint/tokenizer.json (SHA-256)
+Verified checkpoint/tokenizer.json
+Installed qwen35-state-first:a047d6802c3f06f085b8 (rust-loadable); 8.7 GiB downloaded
+To activate it, restart the daemon with: openkind serve --installed-models qwen35-state-first:a047d6802c3f06f085b8
+[exit 0] pull qwen35-state-first:a047d6802c3f06f085b8
+
+[resume] verified existing 50-row report for sst2 (qwen35-mlx-fp32)
+[resume] verified existing 50-row report for ag_news (qwen35-mlx-fp32)
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval banking77 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/banking77 --pretty --bundle-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/bundle --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint --tokenizer /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint/tokenizer.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/banking77/workload-banking77-eval.jsonl: 50 rows (sha256 9987b6f82a27ab4a5ddc0124ab4a110945d168858aa1ff1352d371422d657b98)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine qwen35-mlx-fp32 strategy choose_strategy starting
+Error: warmup dispatch failed: backend `qwen35-mlx-fp32` does not support this request: candidate count must be between 2 and 16, found 77
+[exit 1] eval qwen35-state-first/banking77 (qwen35-mlx-fp32)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval clinc150 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine qwen35-mlx-fp32 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/clinc150 --pretty --bundle-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/bundle --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint --tokenizer /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint/tokenizer.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen35-state-first/clinc150/workload-clinc150-eval.jsonl: 50 rows (sha256 c4fa558b966c0c72618366e1b6b6024566b5de14d3eeba7e0085c260ebdf1701)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine qwen35-mlx-fp32 strategy choose_strategy starting
+Error: warmup dispatch failed: backend `qwen35-mlx-fp32` does not support this request: candidate count must be between 2 and 16, found 151
+[exit 1] eval qwen35-state-first/clinc150 (qwen35-mlx-fp32)
+
+[resume] verified existing 50-row report for arc (qwen35-mlx-fp32)
+[resume] verified existing 50-row report for hellaswag (qwen35-mlx-fp32)
+[resume] verified existing 50-row report for winogrande (qwen35-mlx-fp32)
+[resume] verified existing 50-row report for commonsense_qa (qwen35-mlx-fp32)
+[resume] verified existing 50-row report for paws (qwen35-mlx-fp32)
+[resume] verified existing 50-row report for boolq (qwen35-mlx-fp32)
+[resume] verified existing 50-row report for stsb (qwen35-mlx-fp32)
+[resume] verified existing 50-row report for sst5 (qwen35-mlx-fp32)
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench score /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl --engine qwen35-mlx-fp32 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/performance/qwen35-state-first/qwen35-mlx-fp32 --reps 1 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --bundle-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/bundle --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint --tokenizer /tmp/openkind-local-suite-2026-10-01/models/models/qwen35-state-first:a047d6802c3f06f085b8/checkpoint/tokenizer.json --strategies repeated_full,nested_sequential,nested_batched,choose_strategy
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl: 12 rows (sha256 c2db6b36351d340b4f55343109cf4a41444d56c96868ab7f467381dd791c3905)
+[bench] 4 groups over 12 rows (grouping=true)
+[bench] engine qwen35-mlx-fp32 strategy repeated_full starting
+[bench] strategy repeated_full warmup complete
+[bench] strategy repeated_full rep 0: 35.976 s
+[bench] engine qwen35-mlx-fp32 strategy nested_sequential starting
+[bench] strategy nested_sequential warmup complete
+[bench] strategy nested_sequential rep 0: 8.649 s
+[bench] strategy nested_sequential: answer parity violation against earlier strategies
+[bench] engine qwen35-mlx-fp32 strategy nested_batched starting
+[bench] strategy nested_batched warmup complete
+[bench] strategy nested_batched rep 0: 9.737 s
+[bench] engine qwen35-mlx-fp32 strategy choose_strategy starting
+[bench] strategy choose_strategy warmup complete
+[bench] strategy choose_strategy rep 0: 8.549 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/performance/qwen35-state-first/qwen35-mlx-fp32/summary-qwen35-mlx-fp32.json
+{"bundle_version":"2ij.2.0","commit":"e3cb136f431e817ac4aca475ea381b0840ef2cd0","context":{"max_candidate_sequence_tokens":1792},"cross_strategy_answer_parity_clean":false,"engine":"qwen35-mlx-fp32","engine_variant":"qwen35-mlx-fp32","fixture":{"groups":4,"path":"/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl","rows":12,"sha256":"c2db6b36351d340b4f55343109cf4a41444d56c96868ab7f467381dd791c3905"},"grouping":"per-state","history_aba":false,"host":"Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64","host_hardware":{"cpu_brand":"Apple M4 Max","logical_cores":14,"model":"Mac16,5","total_memory_bytes":38654705664},"measurement_scope":"model_request_path","model_revision":"1001bb4d826a52d1f399e183466143f4da7b741b","notes":{"cpu_time_seconds":"process-wide user+system CPU time diff across the timed region, excluding warmup and model load; avg_cpu_percent exceeds 100 when multiple threads run","input_tokens_per_second":"total input tokens across all timed repetitions divided by their total wall time","percentiles":"p50 is the median rep total and p95 is the ceil(0.95*n)-1 sample; small rep counts are reported alongside as samples_seconds","request_latency_ms":"latency is per request; grouped rows share their request's latency and are not independent timings; includes request construction through answer extraction"},"peak_resident_bytes":12311085056,"prediction_sha256":{"choose_strategy":"29e1ba1f642c8427a8fa55e1917d6af6dc17cc5409c03a3b231e97f30eca1ba5","nested_batched":"95ef8624cc9f4f066a93e2c9a8d6171290394ca0dd2bb975c59220b7641e1de9","nested_sequential":"4f1def320cab6267165593857589be08b4ecd9c8c315c98120362e73e7b5ed8c","repeated_full":"3fb29a4a0b88a36c8c990ebe3fda4ca042da586765884826053b4b426638d42e"},"profile_id":"a047d6802c3f06f085b8","reps":1,"schema":"openkind-bench/v1","strategies":[{"avg_cpu_percent":136.5525094988949,"backend_id":"qwen35-mlx-fp32","cpu_time_seconds":49.12655799999999,"decisions_per_second":0.3335528033506315,"forced":{"strategy":"repeated_full"},"groups":4,"input_tokens_per_second":36.38505163216472,"input_tokens_total":1309,"model_load_seconds":20.191435042,"p50_seconds":35.976312834,"p95_seconds":35.976312834,"reps":1,"rows":12,"samples_seconds":[35.976312834],"strategy":"repeated_full"},{"avg_cpu_percent":103.32032920232881,"backend_id":"qwen35-mlx-fp32","cpu_time_seconds":8.936534999999992,"decisions_per_second":1.3873877855655987,"forced":{"strategy":"nested_sequential"},"groups":4,"input_tokens_per_second":151.3408842754474,"input_tokens_total":1309,"model_load_seconds":20.318379791,"p50_seconds":8.649348167,"p95_seconds":8.649348167,"reps":1,"rows":12,"samples_seconds":[8.649348167],"strategy":"nested_sequential"},{"avg_cpu_percent":127.46684609468859,"backend_id":"qwen35-mlx-fp32","cpu_time_seconds":12.41189399999999,"decisions_per_second":1.2323680440199252,"forced":{"strategy":"nested_batched"},"groups":4,"input_tokens_per_second":134.4308141351735,"input_tokens_total":1309,"model_load_seconds":20.499321541,"p50_seconds":9.737350833,"p95_seconds":9.737350833,"reps":1,"rows":12,"samples_seconds":[9.737350833],"strategy":"nested_batched"},{"avg_cpu_percent":104.01214421918168,"backend_id":"qwen35-mlx-fp32","cpu_time_seconds":8.89214400000003,"decisions_per_second":1.403649930354452,"forced":{"strategy":"choose_strategy"},"groups":4,"input_tokens_per_second":153.11481323616482,"input_tokens_total":1309,"model_load_seconds":20.731772791,"p50_seconds":8.549140167000001,"p95_seconds":8.549140167000001,"reps":1,"rows":12,"samples_seconds":[8.549140167000001],"strategy":"choose_strategy"}],"timing_scope":"request construction, validation, dispatch, and answer extraction; excludes model load (reported per strategy), result writes, and the untimed warmup pass; warm process","warmup":true}
+[exit 0] score qwen35-state-first (qwen35-mlx-fp32, 12 rows)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind rm qwen35-state-first:a047d6802c3f06f085b8
+Removed installed model qwen35-state-first:a047d6802c3f06f085b8
+[exit 0] remove qwen35-state-first:a047d6802c3f06f085b8
+

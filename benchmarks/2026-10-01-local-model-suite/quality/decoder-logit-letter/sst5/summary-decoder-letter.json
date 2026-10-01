@@ -1,0 +1,61 @@
+{
+  "bundle_version": null,
+  "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+  "context": null,
+  "cross_strategy_answer_parity_clean": null,
+  "engine": "decoder-logit-letter",
+  "engine_variant": "decoder-letter",
+  "fixture": {
+    "groups": 50,
+    "path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-letter/sst5/workload-sst5-eval.jsonl",
+    "rows": 50,
+    "sha256": "6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4"
+  },
+  "grouping": "per-state",
+  "history_aba": false,
+  "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+  "host_hardware": {
+    "cpu_brand": "Apple M4 Max",
+    "logical_cores": 14,
+    "model": "Mac16,5",
+    "total_memory_bytes": 38654705664
+  },
+  "measurement_scope": "model_request_path",
+  "model_revision": "7ae557604adf67be50417f59c2c2f167def9a775",
+  "notes": {
+    "cpu_time_seconds": "process-wide user+system CPU time diff across the timed region, excluding warmup and model load; avg_cpu_percent exceeds 100 when multiple threads run",
+    "input_tokens_per_second": "total input tokens across all timed repetitions divided by their total wall time",
+    "percentiles": "p50 is the median rep total and p95 is the ceil(0.95*n)-1 sample; small rep counts are reported alongside as samples_seconds",
+    "request_latency_ms": "latency is per request; grouped rows share their request's latency and are not independent timings; includes request construction through answer extraction"
+  },
+  "peak_resident_bytes": 3337142272,
+  "prediction_sha256": {
+    "decoder-letter": "39cd2ec8dfd8e11ed7e8db304e07fff7514a50e16564ae27455cea5eebdd0ae2"
+  },
+  "profile_id": "5492c97dfcdaf3fe9439",
+  "reps": 1,
+  "schema": "openkind-bench/v1",
+  "strategies": [
+    {
+      "avg_cpu_percent": 410.3780179717798,
+      "backend_id": "decoder-logit-letter/cpu-fp32",
+      "cpu_time_seconds": 16.501150999999997,
+      "decisions_per_second": 12.434830090694275,
+      "forced": null,
+      "groups": 50,
+      "input_tokens_per_second": 1384.7426788997145,
+      "input_tokens_total": 5568,
+      "model_load_seconds": 2.032608833,
+      "p50_seconds": 4.020963667,
+      "p95_seconds": 4.020963667,
+      "reps": 1,
+      "rows": 50,
+      "samples_seconds": [
+        4.020963667
+      ],
+      "strategy": "decoder-letter"
+    }
+  ],
+  "timing_scope": "request construction, validation, dispatch, and answer extraction; excludes model load (reported per strategy), result writes, and the untimed warmup pass; warm process",
+  "warmup": true
+}

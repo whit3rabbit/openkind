@@ -146,6 +146,9 @@ pub enum Commands {
 }
 
 /// Subcommands of `openkind-bench dataset`.
+// Clap payload dispatch; boxing fields would churn every arm for no gain.
+// Windows `PathBuf`s push the variant size ratio over the lint threshold.
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand, Debug)]
 pub enum DatasetCommand {
     /// List curated datasets and their install state.

@@ -1,0 +1,1627 @@
+profile=kev:39d88c11faeb4ac165fa
+loader=kev
+commit=e3cb136f431e817ac4aca475ea381b0840ef2cd0
+host=Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind pull kev:39d88c11faeb4ac165fa
+Downloading adapter/adapter_model.safetensors (38.5 MiB)
+Verifying adapter/adapter_model.safetensors (SHA-256)
+Verified adapter/adapter_model.safetensors
+Downloading adapter/tokenizer.json (10.9 MiB)
+Verifying adapter/tokenizer.json (SHA-256)
+Verified adapter/tokenizer.json
+Downloading adapter/head.safetensors (2.0 MiB)
+Verifying adapter/head.safetensors (SHA-256)
+Verified adapter/head.safetensors
+Downloading base/model.safetensors (1.1 GiB)
+Verifying base/model.safetensors (SHA-256)
+Verified base/model.safetensors
+Downloading base/config.json (727 B)
+Verifying base/config.json (SHA-256)
+Verified base/config.json
+Installed kev:39d88c11faeb4ac165fa (rust-loadable); 1.2 GiB downloaded
+To activate it, restart the daemon with: openkind serve --installed-models kev:39d88c11faeb4ac165fa
+[exit 0] pull kev:39d88c11faeb4ac165fa
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval sst2 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine kev --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/sst2 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/adapter --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/sst2/workload-sst2-eval.jsonl: 50 rows (sha256 aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine kev starting
+[bench] strategy kev warmup complete
+[bench] strategy kev rep 0: 5.818 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/sst2/summary-kev.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "db3daed39bcd33ea25255ab60c1ac86ad52ce79d",
+    "description": "Binary sentence sentiment (GLUE SST-2).",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "stanfordnlp/sst2",
+    "hf_revision": "8d51e7e4887a4caaa95b3fbebbf53c0490b58bbb",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "sst2",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "kev",
+    "model_revision": "dece6dba8d43f0f7ded45e9f5b9df12474d90843",
+    "profile_id": "39d88c11faeb4ac165fa",
+    "strategy": "kev"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.86,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.96,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.9,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.76,
+        0.94
+      ],
+      "clusters": 50,
+      "point": 0.86,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.96,
+    "aurc": 0.048001115677475,
+    "brier": 0.23456330122099192,
+    "ece_10_bins": 0.056682410604474626,
+    "false_none_rate": 0.12,
+    "macro_f1": 0.9099616858237548,
+    "nll": 0.4975390037814208,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 20,
+        "label": "negative",
+        "recall": 0.8
+      },
+      {
+        "count": 30,
+        "label": "positive",
+        "recall": 0.9
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.14,
+        "answered": 50,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.09999999999999998,
+        "answered": 40,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.033333333333333326,
+        "answered": 30,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 5,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/sst2/predictions-kev-kev.jsonl",
+    "predictions_sha256": "054821e82d7c5503ef88c5cf78648f8fd66fae09a59af2b5d6279255b466a42f",
+    "summary_sha256": "7ce8ab3fbcfe9ea7dc5d68c9b8beca38bc5793c3528854e7c7aa2123f2e112a9",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/sst2/workload-sst2-eval.jsonl",
+    "workload_sha256": "aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval kev/sst2 (kev)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval ag_news --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine kev --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/ag_news --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/adapter --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/ag_news/workload-ag_news-eval.jsonl: 50 rows (sha256 dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine kev starting
+[bench] strategy kev warmup complete
+[bench] strategy kev rep 0: 7.637 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/ag_news/summary-kev.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "4efd5262b756aee7a12710ca78c74aa258660063",
+    "description": "News topic classification, 4 classes.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "fancyzhx/ag_news",
+    "hf_revision": "eb185aade064a813bc0b7f42de02595523103ca4",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "ag_news",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "kev",
+    "model_revision": "dece6dba8d43f0f7ded45e9f5b9df12474d90843",
+    "profile_id": "39d88c11faeb4ac165fa",
+    "strategy": "kev"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.88,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.96,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.9,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.78,
+        0.96
+      ],
+      "clusters": 50,
+      "point": 0.88,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.88,
+    "aurc": 0.06257955446757439,
+    "brier": 0.22416076908721996,
+    "ece_10_bins": 0.09251892950133607,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.8580273892773893,
+    "nll": 0.7286924618283558,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "Business",
+        "recall": 0.625
+      },
+      {
+        "count": 10,
+        "label": "Sci/Tech",
+        "recall": 0.9
+      },
+      {
+        "count": 16,
+        "label": "Sports",
+        "recall": 1.0
+      },
+      {
+        "count": 16,
+        "label": "World",
+        "recall": 0.875
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.12,
+        "answered": 50,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.10204081632653061,
+        "answered": 49,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.11363636363636365,
+        "answered": 44,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.045454545454545414,
+        "answered": 22,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/ag_news/predictions-kev-kev.jsonl",
+    "predictions_sha256": "d4ae0f3f4925cd8e04b32ac18fa3045a5e563b7de91cecaecd6729587c226d14",
+    "summary_sha256": "e815902f16425ebe5bf81911ab3a316850103ed42cc0e7007b3dcdb5a30d4c42",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/ag_news/workload-ag_news-eval.jsonl",
+    "workload_sha256": "dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval kev/ag_news (kev)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval banking77 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine kev --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/banking77 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/adapter --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/banking77/workload-banking77-eval.jsonl: 50 rows (sha256 9987b6f82a27ab4a5ddc0124ab4a110945d168858aa1ff1352d371422d657b98)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine kev starting
+[bench] strategy kev warmup complete
+[bench] strategy kev rep 0: 48.518 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/banking77/summary-kev.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "2f7db33fffeec50f4802e51b5ac250340200e85f",
+    "description": "Banking customer-query intent, 77 classes.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "mteb/banking77",
+    "hf_revision": "18072d2685ea682290f7b8924d94c62acc19c0b2",
+    "license": "MIT",
+    "name": "banking77",
+    "task_family": "intent-routing"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "kev",
+    "model_revision": "dece6dba8d43f0f7ded45e9f5b9df12474d90843",
+    "profile_id": "39d88c11faeb4ac165fa",
+    "strategy": "kev"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.68,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.88,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.775,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.56,
+        0.8
+      ],
+      "clusters": 50,
+      "point": 0.68,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.84,
+    "aurc": 0.14085485873755832,
+    "brier": 0.5015537036507987,
+    "ece_10_bins": 0.21529208692435092,
+    "false_none_rate": 0.24,
+    "macro_f1": 0.6801120448179272,
+    "nll": 1.209640760968484,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 1,
+        "label": "apple_pay_or_google_pay",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "atm_support",
+        "recall": 0.0
+      },
+      {
+        "count": 4,
+        "label": "automatic_top_up",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "balance_not_updated_after_bank_transfer",
+        "recall": 1.0
+      },
+      {
+        "count": 4,
+        "label": "balance_not_updated_after_cheque_or_cash_deposit",
+        "recall": 0.75
+      },
+      {
+        "count": 1,
+        "label": "card_delivery_estimate",
+        "recall": 0.0
+      },
+      {
+        "count": 2,
+        "label": "card_linking",
+        "recall": 0.5
+      },
+      {
+        "count": 1,
+        "label": "card_not_working",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "card_swallowed",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "cash_withdrawal_charge",
+        "recall": 1.0
+      },
+      {
+        "count": 3,
+        "label": "cash_withdrawal_not_recognised",
+        "recall": 0.6666666666666666
+      },
+      {
+        "count": 1,
+        "label": "change_pin",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "declined_cash_withdrawal",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "disposable_card_limits",
+        "recall": 0.5
+      },
+      {
+        "count": 1,
+        "label": "extra_charge_on_statement",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "fiat_currency_support",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "getting_spare_card",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "pending_card_payment",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "pending_top_up",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "supported_cards_and_currencies",
+        "recall": 0.0
+      },
+      {
+        "count": 2,
+        "label": "terminate_account",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "top_up_by_bank_transfer_charge",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "top_up_by_cash_or_cheque",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "top_up_failed",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "top_up_limits",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "transfer_fee_charged",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "transfer_into_account",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "transfer_not_received_by_recipient",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "verify_my_identity",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "verify_source_of_funds",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "verify_top_up",
+        "recall": 0.5
+      },
+      {
+        "count": 3,
+        "label": "virtual_card_not_working",
+        "recall": 0.6666666666666666
+      },
+      {
+        "count": 2,
+        "label": "why_verify_identity",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "wrong_exchange_rate_for_cash_withdrawal",
+        "recall": 1.0
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.3125,
+        "answered": 48,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.24242424242424243,
+        "answered": 33,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.12,
+        "answered": 25,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.06666666666666665,
+        "answered": 15,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/banking77/predictions-kev-kev.jsonl",
+    "predictions_sha256": "eea2c5eb7f4b2640ebd09772dc1334187507c2a98536b76ef880d4a9cf168af9",
+    "summary_sha256": "e62deae5c3fa338df2ff73cd8a99419728fe91798ca3576fd6323a97cf68943e",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/banking77/workload-banking77-eval.jsonl",
+    "workload_sha256": "9987b6f82a27ab4a5ddc0124ab4a110945d168858aa1ff1352d371422d657b98"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval kev/banking77 (kev)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval clinc150 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine kev --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/clinc150 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/adapter --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/clinc150/workload-clinc150-eval.jsonl: 50 rows (sha256 c4fa558b966c0c72618366e1b6b6024566b5de14d3eeba7e0085c260ebdf1701)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine kev starting
+[bench] strategy kev warmup complete
+[bench] strategy kev rep 0: 50.250 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/clinc150/summary-kev.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "8e951f061d8a5bedeaec359c02de3185e8c3359a",
+    "description": "Virtual-assistant intent, 150 intents + out-of-scope.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "clinc/clinc_oos",
+    "hf_revision": "155b9c710419136e17307b80d0a13e68cd46b4ec",
+    "license": "CC-BY-3.0",
+    "name": "clinc150",
+    "task_family": "intent-routing"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "kev",
+    "model_revision": "dece6dba8d43f0f7ded45e9f5b9df12474d90843",
+    "profile_id": "39d88c11faeb4ac165fa",
+    "strategy": "kev"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.52,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.8,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.6,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.38,
+        0.66
+      ],
+      "clusters": 50,
+      "point": 0.52,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.54,
+    "aurc": 0.23169613480063095,
+    "brier": 0.6201209316405097,
+    "ece_10_bins": 0.16870225335597597,
+    "false_none_rate": 0.02,
+    "macro_f1": 0.5889355742296919,
+    "nll": 2.183076900614393,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 2,
+        "label": "bill_balance",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "book_flight",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "car_rental",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "do_you_have_pets",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "gas",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "gas_type",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "greeting",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "ingredient_substitution",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "ingredients_list",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "last_maintenance",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "mpg",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "no",
+        "recall": 0.0
+      },
+      {
+        "count": 13,
+        "label": "oos",
+        "recall": 0.38461538461538464
+      },
+      {
+        "count": 1,
+        "label": "order_checks",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "payday",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "pto_request",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "pto_request_status",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "reminder",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "replacement_card_duration",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "report_fraud",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "rewards_balance",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "roll_dice",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "schedule_maintenance",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "schedule_meeting",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "timezone",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "tire_pressure",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "todo_list",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "transfer",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "translate",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "travel_suggestion",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "uber",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "w2",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "whisper_mode",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "yes",
+        "recall": 0.0
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.368421052631579,
+        "answered": 38,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.25,
+        "answered": 20,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 9,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 3,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/clinc150/predictions-kev-kev.jsonl",
+    "predictions_sha256": "1f4d870da0b2d7b644dcdf37e28bce34778b103118f8edb08b52e2ccae9914ae",
+    "summary_sha256": "b96c78fd51153aae471d67a69b97d65fae1c5178dcac0b0ba6c1a9073f50ceda",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/clinc150/workload-clinc150-eval.jsonl",
+    "workload_sha256": "c4fa558b966c0c72618366e1b6b6024566b5de14d3eeba7e0085c260ebdf1701"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval kev/clinc150 (kev)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval arc --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine kev --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/arc --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/adapter --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/arc/workload-arc-eval.jsonl: 50 rows (sha256 a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine kev starting
+[bench] strategy kev warmup complete
+[bench] strategy kev rep 0: 5.436 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/arc/summary-kev.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "5a61ed188b8810abf32686fa83eb93787cbc5f25",
+    "description": "Grade-school science QA (Challenge + Easy), 3-5 options.",
+    "files": 4,
+    "gated": "none",
+    "hf_repo": "allenai/ai2_arc",
+    "hf_revision": "210d026faf9955653af8916fad021475a3f00453",
+    "license": "CC-BY-SA-4.0",
+    "name": "arc",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "kev",
+    "model_revision": "dece6dba8d43f0f7ded45e9f5b9df12474d90843",
+    "profile_id": "39d88c11faeb4ac165fa",
+    "strategy": "kev"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.46,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.56,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.5,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.32,
+        0.6
+      ],
+      "clusters": 50,
+      "point": 0.46,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.54,
+    "aurc": 0.34834392135367553,
+    "brier": 0.7378371546556601,
+    "ece_10_bins": 0.25228840815238696,
+    "false_none_rate": 0.4,
+    "macro_f1": 0.5663196452670136,
+    "nll": 1.3956710497257534,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "A",
+        "recall": 0.375
+      },
+      {
+        "count": 19,
+        "label": "B",
+        "recall": 0.3684210526315789
+      },
+      {
+        "count": 13,
+        "label": "C",
+        "recall": 0.46153846153846156
+      },
+      {
+        "count": 10,
+        "label": "D",
+        "recall": 0.7
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.5,
+        "answered": 42,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.4347826086956522,
+        "answered": 23,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.09999999999999998,
+        "answered": 10,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 5,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/arc/predictions-kev-kev.jsonl",
+    "predictions_sha256": "f523f75d1abfefadeaa319c133ddffac34c9ae6cf1ea7dc9e4b98f9b9fae9aad",
+    "summary_sha256": "264d25a4d5f5a5af48713b12af7d3fffe2c188376f128204bdc0bd4c1521962d",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/arc/workload-arc-eval.jsonl",
+    "workload_sha256": "a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval kev/arc (kev)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval hellaswag --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine kev --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/hellaswag --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/adapter --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/hellaswag/workload-hellaswag-eval.jsonl: 50 rows (sha256 01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine kev starting
+[bench] strategy kev warmup complete
+[bench] strategy kev rep 0: 11.362 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/hellaswag/summary-kev.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "382ffb520660cc2ba98092cd8aa07cafc9c47f6d",
+    "description": "Commonsense sentence completion, 4 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "Rowan/hellaswag",
+    "hf_revision": "218ec52e09a7e7462a5400043bb9a69a41d06b76",
+    "license": "MIT (dataset card); underlying corpus terms not detailed",
+    "name": "hellaswag",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "kev",
+    "model_revision": "dece6dba8d43f0f7ded45e9f5b9df12474d90843",
+    "profile_id": "39d88c11faeb4ac165fa",
+    "strategy": "kev"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.46,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.56,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.45,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.32,
+        0.6
+      ],
+      "clusters": 50,
+      "point": 0.46,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.54,
+    "aurc": 0.44103705710934477,
+    "brier": 0.7195693720021379,
+    "ece_10_bins": 0.19913758450421556,
+    "false_none_rate": 0.16,
+    "macro_f1": 0.49156010230179026,
+    "nll": 1.4590159289063545,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 12,
+        "label": "A",
+        "recall": 0.6666666666666666
+      },
+      {
+        "count": 8,
+        "label": "B",
+        "recall": 0.375
+      },
+      {
+        "count": 11,
+        "label": "C",
+        "recall": 0.36363636363636365
+      },
+      {
+        "count": 19,
+        "label": "D",
+        "recall": 0.42105263157894735
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.4482758620689655,
+        "answered": 29,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.33333333333333337,
+        "answered": 9,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 2,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 1,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/hellaswag/predictions-kev-kev.jsonl",
+    "predictions_sha256": "3409de5b9f32af9441264fd1c1b1fe23d5dd445811a1ac0d89686d8b32d4f67e",
+    "summary_sha256": "7b7f53bcf0777154a742f17afa5071a52ac9956ef9c3e50b29e23eb759cc6b47",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/hellaswag/workload-hellaswag-eval.jsonl",
+    "workload_sha256": "01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval kev/hellaswag (kev)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval winogrande --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine kev --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/winogrande --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/adapter --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/winogrande/workload-winogrande-eval.jsonl: 50 rows (sha256 43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine kev starting
+[bench] strategy kev warmup complete
+[bench] strategy kev rep 0: 4.482 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/winogrande/summary-kev.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "546d5aa0e42fc0fa9ad2c13260322ec969e083ee",
+    "description": "Commonsense pronoun/blank resolution, 2 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "allenai/winogrande",
+    "hf_revision": "01e74176c63542e6b0bcb004dcdea22d94fb67b5",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "winogrande",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "kev",
+    "model_revision": "dece6dba8d43f0f7ded45e9f5b9df12474d90843",
+    "profile_id": "39d88c11faeb4ac165fa",
+    "strategy": "kev"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.24,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.28,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.25,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.12,
+        0.36
+      ],
+      "clusters": 50,
+      "point": 0.24,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.44,
+    "aurc": 0.7138124104202593,
+    "brier": 0.9001594413232155,
+    "ece_10_bins": 0.35008707122935645,
+    "false_none_rate": 0.54,
+    "macro_f1": 0.31105990783410137,
+    "nll": 1.5993106067582232,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 25,
+        "label": "A",
+        "recall": 0.36
+      },
+      {
+        "count": 25,
+        "label": "B",
+        "recall": 0.12
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.7352941176470589,
+        "answered": 34,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.6666666666666667,
+        "answered": 6,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/winogrande/predictions-kev-kev.jsonl",
+    "predictions_sha256": "5d02a1618c41104d841462e1f26f5248e2d19dc9bf9b35be58eab5179c55b2a0",
+    "summary_sha256": "f9f35ba681953e6c816a98993dac805305d6f9ae17e93e6a1e2d7ca618ef2013",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/winogrande/workload-winogrande-eval.jsonl",
+    "workload_sha256": "43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval kev/winogrande (kev)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval commonsense_qa --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine kev --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/commonsense_qa --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/adapter --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/commonsense_qa/workload-commonsense_qa-eval.jsonl: 50 rows (sha256 197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine kev starting
+[bench] strategy kev warmup complete
+[bench] strategy kev rep 0: 4.806 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/commonsense_qa/summary-kev.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "ae0768efa72432cb9c8e3945bd39f6dad24b2808",
+    "description": "Commonsense QA, 5 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "tau/commonsense_qa",
+    "hf_revision": "94630fe30dad47192a8546eb75f094926d47e155",
+    "license": "MIT",
+    "name": "commonsense_qa",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "kev",
+    "model_revision": "dece6dba8d43f0f7ded45e9f5b9df12474d90843",
+    "profile_id": "39d88c11faeb4ac165fa",
+    "strategy": "kev"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.16,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.24,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.175,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.06,
+        0.28
+      ],
+      "clusters": 50,
+      "point": 0.16,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.5,
+    "aurc": 0.8023169315870426,
+    "brier": 1.1501992925689506,
+    "ece_10_bins": 0.5238355425887464,
+    "false_none_rate": 0.7,
+    "macro_f1": 0.20399662257247395,
+    "nll": 2.6453372403150213,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 7,
+        "label": "A",
+        "recall": 0.0
+      },
+      {
+        "count": 11,
+        "label": "B",
+        "recall": 0.0
+      },
+      {
+        "count": 14,
+        "label": "C",
+        "recall": 0.14285714285714285
+      },
+      {
+        "count": 5,
+        "label": "D",
+        "recall": 0.4
+      },
+      {
+        "count": 13,
+        "label": "E",
+        "recall": 0.3076923076923077
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.8461538461538461,
+        "answered": 39,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.7777777777777778,
+        "answered": 18,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.8333333333333334,
+        "answered": 12,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 1.0,
+        "answered": 1,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/commonsense_qa/predictions-kev-kev.jsonl",
+    "predictions_sha256": "472fee5427f5d9cb92acb2b528640ab298f6dd219dc109b4e5fc6f28363be482",
+    "summary_sha256": "f344b634c81885745f38d175b6c871613f7c54c3f4594795de8969957b1ed288",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/commonsense_qa/workload-commonsense_qa-eval.jsonl",
+    "workload_sha256": "197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval kev/commonsense_qa (kev)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval paws --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine kev --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/paws --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/adapter --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/base --tune-threshold
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/paws/tuning-paws/workload-paws-dev.jsonl: 50 rows (sha256 f9c04db8a2189dc90a3981b384703273ab29fb29778decf3895a80de707c1f75)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine kev starting
+[bench] strategy kev warmup complete
+[bench] strategy kev rep 0: 7.096 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/paws/tuning-paws/summary-kev.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/paws/workload-paws-eval.jsonl: 50 rows (sha256 36ecb2af4e6c31d6529afaf2a85abbb1581be6ff6544263029794b66a6defc70)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine kev starting
+[bench] strategy kev warmup complete
+[bench] strategy kev rep 0: 6.632 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/paws/summary-kev.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "254f2df8677712ee0972ddb92870dc79fed48aec",
+    "description": "Adversarial paraphrase identification (high word overlap).",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "google-research-datasets/paws",
+    "hf_revision": "161ece9501cf0a11f3e48bd356eaa82de46d6a09",
+    "license": "custom terms on the dataset card; review before broader use",
+    "name": "paws",
+    "task_family": "nli"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "kev",
+    "model_revision": "dece6dba8d43f0f7ded45e9f5b9df12474d90843",
+    "profile_id": "39d88c11faeb4ac165fa",
+    "strategy": "kev"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy_at_0.5": 0.54,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.64,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.575,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.4,
+        0.68
+      ],
+      "clusters": 50,
+      "point": 0.54,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "aurc": 0.39364868250763485,
+    "auroc": 0.7,
+    "brier": 0.27776687363253844,
+    "ece_10_bins": 0.3375891352943107,
+    "negative_recall": 0.3,
+    "positive_recall": 0.9,
+    "rows": 50,
+    "tuned_threshold": {
+      "dev_rows": 50,
+      "eval_accuracy": 0.7,
+      "protocol": "threshold selected on dev, applied to eval",
+      "threshold": 0.7864765625612099,
+      "tuning_accuracy_on_dev": 0.74
+    }
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/paws/predictions-kev-kev.jsonl",
+    "predictions_sha256": "b3f97e19b27b416267032f62956b04610ec2df5f0ecadd8acfb5fbc2c9c5ebc8",
+    "summary_sha256": "80813d6b0414a91b61b9801f5dfaa096f9a24b28add2148c91d9ac42069b70c6",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/paws/workload-paws-eval.jsonl",
+    "workload_sha256": "36ecb2af4e6c31d6529afaf2a85abbb1581be6ff6544263029794b66a6defc70"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 18,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval kev/paws (kev)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval boolq --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine kev --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/boolq --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/adapter --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/base --tune-threshold
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/boolq/tuning-boolq/workload-boolq-dev.jsonl: 50 rows (sha256 1344c51d3a9d27d9cbf428f2e823b6324a62c5e15d9d4beba09f034c57950ea9)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine kev starting
+[bench] strategy kev warmup complete
+[bench] strategy kev rep 0: 9.617 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/boolq/tuning-boolq/summary-kev.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/boolq/workload-boolq-eval.jsonl: 50 rows (sha256 449d16d61bdfeba20b1323e394af130cf9e9e70670365f052602e59eed64373c)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine kev starting
+Error: warmup dispatch failed: backend `kev/cpu-fp32` does not support this request: state length 725 tokens exceeds frozen maximum 384; truncation is forbidden
+[exit 1] eval kev/boolq (kev)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval stsb --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine kev --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/stsb --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/adapter --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/stsb/workload-stsb-eval.jsonl: 50 rows (sha256 fbcbdc284c4c7e1d9f950740770134c5eaab52175a16eaafb059749acf610453)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine kev starting
+[bench] strategy kev warmup complete
+[bench] strategy kev rep 0: 7.721 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/stsb/summary-kev.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "58372e8197f43125a85d75e3c5121ccabc61413a",
+    "description": "Semantic textual similarity on a 0-5 scale.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "sentence-transformers/stsb",
+    "hf_revision": "ab7a5ac0e35aa22088bdcf23e7fd99b220e53308",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "stsb",
+    "task_family": "rubric-scoring"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "kev",
+    "model_revision": "dece6dba8d43f0f7ded45e9f5b9df12474d90843",
+    "profile_id": "39d88c11faeb4ac165fa",
+    "strategy": "kev"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "argmax_level_accuracy": 0.18,
+    "mae": 1.5803370658017237,
+    "nll": 2.2986700950448102,
+    "pearson": 0.1745494975891775,
+    "rows": 50,
+    "spearman": -0.042253283516834515
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/stsb/predictions-kev-kev.jsonl",
+    "predictions_sha256": "91b70c83b7f2eb70dc6366df9d3d0d01ff35b4ca9714b20ff9856c931da7583f",
+    "summary_sha256": "7fdb7e6c082a5d6391513ecd24dd5a70df52ea11d258688bee0d73def8a424f5",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/stsb/workload-stsb-eval.jsonl",
+    "workload_sha256": "fbcbdc284c4c7e1d9f950740770134c5eaab52175a16eaafb059749acf610453"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 1,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval kev/stsb (kev)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval sst5 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine kev --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/sst5 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/adapter --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/sst5/workload-sst5-eval.jsonl: 50 rows (sha256 6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine kev starting
+[bench] strategy kev warmup complete
+[bench] strategy kev rep 0: 4.319 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/sst5/summary-kev.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "956d888e7bc9c029fd96e3cece49c054ec0ddbd9",
+    "description": "Fine-grained sentence sentiment, 5 ordered levels.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "SetFit/sst5",
+    "hf_revision": "e51bdcd8cd3a30da231967c1a249ba59361279a3",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "sst5",
+    "task_family": "rubric-scoring"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "kev",
+    "model_revision": "dece6dba8d43f0f7ded45e9f5b9df12474d90843",
+    "profile_id": "39d88c11faeb4ac165fa",
+    "strategy": "kev"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "argmax_level_accuracy": 0.68,
+    "mae": 0.462689741696616,
+    "nll": 1.1077157600542302,
+    "pearson": 0.8688988696841631,
+    "rows": 50,
+    "spearman": 0.8199712660055227
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/sst5/predictions-kev-kev.jsonl",
+    "predictions_sha256": "648f27c5559df3d1b1c47df15fe6ee510ccdaed1b3986d907f9d8fc1cc20a5de",
+    "summary_sha256": "2e9a1ad50217f54bee386e9b84e62dfa5659b10095c5697bbb321fc14385b2c2",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/kev/sst5/workload-sst5-eval.jsonl",
+    "workload_sha256": "6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval kev/sst5 (kev)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench score /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl --engine kev --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/performance/kev/kev --reps 1 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --model-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/adapter --checkpoint-root /tmp/openkind-local-suite-2026-10-01/models/models/kev:39d88c11faeb4ac165fa/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl: 12 rows (sha256 c2db6b36351d340b4f55343109cf4a41444d56c96868ab7f467381dd791c3905)
+[bench] 4 groups over 12 rows (grouping=true)
+[bench] engine kev starting
+[bench] strategy kev warmup complete
+[bench] strategy kev rep 0: 2.190 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/performance/kev/kev/summary-kev.json
+{"bundle_version":null,"commit":"e3cb136f431e817ac4aca475ea381b0840ef2cd0","context":null,"cross_strategy_answer_parity_clean":null,"engine":"kev","engine_variant":"kev","fixture":{"groups":4,"path":"/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl","rows":12,"sha256":"c2db6b36351d340b4f55343109cf4a41444d56c96868ab7f467381dd791c3905"},"grouping":"per-state","history_aba":false,"host":"Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64","host_hardware":{"cpu_brand":"Apple M4 Max","logical_cores":14,"model":"Mac16,5","total_memory_bytes":38654705664},"measurement_scope":"model_request_path","model_revision":"dece6dba8d43f0f7ded45e9f5b9df12474d90843","notes":{"cpu_time_seconds":"process-wide user+system CPU time diff across the timed region, excluding warmup and model load; avg_cpu_percent exceeds 100 when multiple threads run","input_tokens_per_second":"total input tokens across all timed repetitions divided by their total wall time","percentiles":"p50 is the median rep total and p95 is the ceil(0.95*n)-1 sample; small rep counts are reported alongside as samples_seconds","request_latency_ms":"latency is per request; grouped rows share their request's latency and are not independent timings; includes request construction through answer extraction"},"peak_resident_bytes":4212785152,"prediction_sha256":{"kev":"cbde87e205cda036795de530ded95c5067b1172652793abedb2dc6c9bf98e28c"},"profile_id":"39d88c11faeb4ac165fa","reps":1,"schema":"openkind-bench/v1","strategies":[{"avg_cpu_percent":237.70980978311903,"backend_id":"kev/cpu-fp32","cpu_time_seconds":5.205236,"decisions_per_second":5.480092962926999,"forced":null,"groups":4,"input_tokens_per_second":843.9343162907579,"input_tokens_total":1848,"model_load_seconds":2.627140125,"p50_seconds":2.189743875,"p95_seconds":2.189743875,"reps":1,"rows":12,"samples_seconds":[2.189743875],"strategy":"kev"}],"timing_scope":"request construction, validation, dispatch, and answer extraction; excludes model load (reported per strategy), result writes, and the untimed warmup pass; warm process","warmup":true}
+[exit 0] score kev (kev, 12 rows)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind rm kev:39d88c11faeb4ac165fa
+Removed installed model kev:39d88c11faeb4ac165fa
+[exit 0] remove kev:39d88c11faeb4ac165fa
+

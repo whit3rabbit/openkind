@@ -1,0 +1,61 @@
+{
+  "bundle_version": null,
+  "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+  "context": null,
+  "cross_strategy_answer_parity_clean": null,
+  "engine": "encoder-instruct-label",
+  "engine_variant": "encoder-instruct-label-mlx-fp32",
+  "fixture": {
+    "groups": 50,
+    "path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-instruct-label/commonsense_qa/workload-commonsense_qa-eval.jsonl",
+    "rows": 50,
+    "sha256": "197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd"
+  },
+  "grouping": "per-state",
+  "history_aba": false,
+  "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+  "host_hardware": {
+    "cpu_brand": "Apple M4 Max",
+    "logical_cores": 14,
+    "model": "Mac16,5",
+    "total_memory_bytes": 38654705664
+  },
+  "measurement_scope": "model_request_path",
+  "model_revision": "ac369222ca4375ca66ebaf7fb5220f223514c035",
+  "notes": {
+    "cpu_time_seconds": "process-wide user+system CPU time diff across the timed region, excluding warmup and model load; avg_cpu_percent exceeds 100 when multiple threads run",
+    "input_tokens_per_second": "total input tokens across all timed repetitions divided by their total wall time",
+    "percentiles": "p50 is the median rep total and p95 is the ceil(0.95*n)-1 sample; small rep counts are reported alongside as samples_seconds",
+    "request_latency_ms": "latency is per request; grouped rows share their request's latency and are not independent timings; includes request construction through answer extraction"
+  },
+  "peak_resident_bytes": 1019363328,
+  "prediction_sha256": {
+    "encoder-instruct-label-mlx-fp32": "d1a4e4d2d14ab2d244926021e0bca073d2926fe86fa7636fb630df87f7825bbd"
+  },
+  "profile_id": "9fd68313a5606eca42f2",
+  "reps": 1,
+  "schema": "openkind-bench/v1",
+  "strategies": [
+    {
+      "avg_cpu_percent": 57.220473737403324,
+      "backend_id": "encoder-instruct-label/mlx-fp32",
+      "cpu_time_seconds": 0.24196600000000013,
+      "decisions_per_second": 118.24073162635102,
+      "forced": null,
+      "groups": 50,
+      "input_tokens_per_second": 5741.7699277756055,
+      "input_tokens_total": 2428,
+      "model_load_seconds": 1.3044455,
+      "p50_seconds": 0.422866125,
+      "p95_seconds": 0.422866125,
+      "reps": 1,
+      "rows": 50,
+      "samples_seconds": [
+        0.422866125
+      ],
+      "strategy": "encoder-instruct-label-mlx-fp32"
+    }
+  ],
+  "timing_scope": "request construction, validation, dispatch, and answer extraction; excludes model load (reported per strategy), result writes, and the untimed warmup pass; warm process",
+  "warmup": true
+}

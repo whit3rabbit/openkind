@@ -1,0 +1,54 @@
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "58372e8197f43125a85d75e3c5121ccabc61413a",
+    "description": "Semantic textual similarity on a 0-5 scale.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "sentence-transformers/stsb",
+    "hf_revision": "ab7a5ac0e35aa22088bdcf23e7fd99b220e53308",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "stsb",
+    "task_family": "rubric-scoring"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "laya",
+    "model_revision": "e4e9ddf21a7b1903b7acffd8814ad4307bf63a67",
+    "profile_id": "f4064eb56fb7f7d325e1",
+    "strategy": "laya-multilingual-mlx-fp32"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "argmax_level_accuracy": 0.1,
+    "mae": 1.5511569865259427,
+    "nll": 2.6389912531483035,
+    "pearson": 0.4187216192637949,
+    "rows": 50,
+    "spearman": 0.4681067070253409
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "5655e6297f186d79e349baf262a10721299d17a1c90b2c31a41c221f57bd4751",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "benchmarks/2026-10-01-local-model-suite/probe-laya-stsb/predictions-laya-multilingual-mlx-fp32-laya-multilingual-mlx-fp32.jsonl",
+    "predictions_sha256": "cdabe5b42d6d9c49cd33ef8927a1bb45740232d2fb25173555b88e0f8c6d7e04",
+    "summary_sha256": "f75973bdba07fd7f941a6e1b2910b04586c93637001f4c097cf03c4a9f956fd3",
+    "workload_path": "benchmarks/2026-10-01-local-model-suite/probe-laya-stsb/workload-stsb-eval.jsonl",
+    "workload_sha256": "fbcbdc284c4c7e1d9f950740770134c5eaab52175a16eaafb059749acf610453"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 1,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}

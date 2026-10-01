@@ -99,10 +99,7 @@ pub fn run_eval(args: &EvalArgs) -> Result<Value> {
     };
     let outcome = run_score(&score_args)?;
     let summary = outcome.summary;
-    let engine_slug = summary["engine"]
-        .as_str()
-        .context("summary engine slug")?
-        .to_owned();
+    let engine_slug = summary_engine_slug(&summary)?.to_owned();
     let strategy = summary["strategies"][0]["strategy"]
         .as_str()
         .context("summary strategy")?
@@ -362,6 +359,16 @@ fn executable_digest() -> Result<String> {
     Ok(format!("{:x}", Sha256::digest(bytes)))
 }
 
+/// The prediction artifact includes the selected family profile and backend.
+/// `engine` alone is only the stable family identity (for example, `laya`).
+fn summary_engine_slug(summary: &Value) -> Result<&str> {
+    summary
+        .get("engine_variant")
+        .and_then(Value::as_str)
+        .or_else(|| summary.get("engine").and_then(Value::as_str))
+        .context("summary engine variant or engine slug")
+}
+
 /// Tune a Noul threshold on the dev split with the same engine, following the
 /// paper's protocol: parameters are locked on dev before any eval row is
 /// scored.
@@ -395,10 +402,7 @@ fn tune_threshold_on_dev(store: &DatasetStore, args: &EvalArgs) -> Result<(f64, 
     };
     let outcome = run_score(&score_args)?;
     let summary = outcome.summary;
-    let engine_slug = summary["engine"]
-        .as_str()
-        .context("summary engine")?
-        .to_owned();
+    let engine_slug = summary_engine_slug(&summary)?.to_owned();
     let strategy = summary["strategies"][0]["strategy"]
         .as_str()
         .context("strategy")?
@@ -423,4 +427,23 @@ fn tune_threshold_on_dev(store: &DatasetStore, args: &EvalArgs) -> Result<(f64, 
     let (threshold, accuracy) =
         super::metrics::best_threshold_tuned_on(&probabilities, &gold).context("tune threshold")?;
     Ok((threshold, accuracy, dev.rows.len()))
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::summary_engine_slug;
+
+    #[test]
+    fn prediction_slug_prefers_profile_variant_and_falls_back_for_legacy_summary() {
+        let profiled = json!({"engine": "laya", "engine_variant": "laya-multilingual-mlx-fp32"});
+        assert_eq!(
+            summary_engine_slug(&profiled).expect("profile variant"),
+            "laya-multilingual-mlx-fp32"
+        );
+
+        let legacy = json!({"engine": "laya"});
+        assert_eq!(summary_engine_slug(&legacy).expect("legacy engine"), "laya");
+    }
 }

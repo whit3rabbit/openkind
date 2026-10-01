@@ -1,0 +1,110 @@
+profile=von:69219703407bd39cca0c
+loader=von
+commit=e3cb136f431e817ac4aca475ea381b0840ef2cd0
+host=Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind pull von:69219703407bd39cca0c
+Downloading checkpoint/option_marker.pt (1.5 GiB)
+Verifying checkpoint/option_marker.pt (SHA-256)
+Verified checkpoint/option_marker.pt
+Downloading checkpoint/config.json (6.2 KiB)
+Verifying checkpoint/config.json (SHA-256)
+Verified checkpoint/config.json
+Downloading checkpoint/tokenizer.json (3.4 MiB)
+Verifying checkpoint/tokenizer.json (SHA-256)
+Verified checkpoint/tokenizer.json
+Downloading checkpoint/tokenizer_config.json (599 B)
+Verifying checkpoint/tokenizer_config.json (SHA-256)
+Verified checkpoint/tokenizer_config.json
+Downloading checkpoint/marker_calibration.json (664 B)
+Verifying checkpoint/marker_calibration.json (SHA-256)
+Verified checkpoint/marker_calibration.json
+Installed von:69219703407bd39cca0c (rust-loadable); 1.5 GiB downloaded
+To activate it, restart the daemon with: openkind serve --installed-models von:69219703407bd39cca0c
+[exit 0] pull von:69219703407bd39cca0c
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval sst2 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine von --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/sst2 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/sst2/workload-sst2-eval.jsonl: 50 rows (sha256 aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb)
+[bench] 50 groups over 50 rows (grouping=true)
+Error: load von engine: failed to read `/tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint/checkpoint/option_marker.pt`: required pinned artifact is missing
+[exit 1] eval von/sst2 (von)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval ag_news --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine von --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/ag_news --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/ag_news/workload-ag_news-eval.jsonl: 50 rows (sha256 dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998)
+[bench] 50 groups over 50 rows (grouping=true)
+Error: load von engine: failed to read `/tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint/checkpoint/option_marker.pt`: required pinned artifact is missing
+[exit 1] eval von/ag_news (von)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval banking77 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine von --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/banking77 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/banking77/workload-banking77-eval.jsonl: 50 rows (sha256 9987b6f82a27ab4a5ddc0124ab4a110945d168858aa1ff1352d371422d657b98)
+[bench] 50 groups over 50 rows (grouping=true)
+Error: load von engine: failed to read `/tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint/checkpoint/option_marker.pt`: required pinned artifact is missing
+[exit 1] eval von/banking77 (von)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval clinc150 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine von --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/clinc150 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/clinc150/workload-clinc150-eval.jsonl: 50 rows (sha256 c4fa558b966c0c72618366e1b6b6024566b5de14d3eeba7e0085c260ebdf1701)
+[bench] 50 groups over 50 rows (grouping=true)
+Error: load von engine: failed to read `/tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint/checkpoint/option_marker.pt`: required pinned artifact is missing
+[exit 1] eval von/clinc150 (von)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval arc --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine von --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/arc --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/arc/workload-arc-eval.jsonl: 50 rows (sha256 a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e)
+[bench] 50 groups over 50 rows (grouping=true)
+Error: load von engine: failed to read `/tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint/checkpoint/option_marker.pt`: required pinned artifact is missing
+[exit 1] eval von/arc (von)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval hellaswag --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine von --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/hellaswag --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/hellaswag/workload-hellaswag-eval.jsonl: 50 rows (sha256 01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e)
+[bench] 50 groups over 50 rows (grouping=true)
+Error: load von engine: failed to read `/tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint/checkpoint/option_marker.pt`: required pinned artifact is missing
+[exit 1] eval von/hellaswag (von)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval winogrande --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine von --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/winogrande --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/winogrande/workload-winogrande-eval.jsonl: 50 rows (sha256 43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef)
+[bench] 50 groups over 50 rows (grouping=true)
+Error: load von engine: failed to read `/tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint/checkpoint/option_marker.pt`: required pinned artifact is missing
+[exit 1] eval von/winogrande (von)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval commonsense_qa --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine von --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/commonsense_qa --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/commonsense_qa/workload-commonsense_qa-eval.jsonl: 50 rows (sha256 197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd)
+[bench] 50 groups over 50 rows (grouping=true)
+Error: load von engine: failed to read `/tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint/checkpoint/option_marker.pt`: required pinned artifact is missing
+[exit 1] eval von/commonsense_qa (von)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval paws --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine von --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/paws --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint --tune-threshold
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/paws/tuning-paws/workload-paws-dev.jsonl: 50 rows (sha256 f9c04db8a2189dc90a3981b384703273ab29fb29778decf3895a80de707c1f75)
+[bench] 50 groups over 50 rows (grouping=true)
+Error: load von engine: failed to read `/tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint/checkpoint/option_marker.pt`: required pinned artifact is missing
+[exit 1] eval von/paws (von)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval boolq --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine von --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/boolq --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint --tune-threshold
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/boolq/tuning-boolq/workload-boolq-dev.jsonl: 50 rows (sha256 1344c51d3a9d27d9cbf428f2e823b6324a62c5e15d9d4beba09f034c57950ea9)
+[bench] 50 groups over 50 rows (grouping=true)
+Error: load von engine: failed to read `/tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint/checkpoint/option_marker.pt`: required pinned artifact is missing
+[exit 1] eval von/boolq (von)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval stsb --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine von --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/stsb --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/stsb/workload-stsb-eval.jsonl: 50 rows (sha256 fbcbdc284c4c7e1d9f950740770134c5eaab52175a16eaafb059749acf610453)
+[bench] 50 groups over 50 rows (grouping=true)
+Error: load von engine: failed to read `/tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint/checkpoint/option_marker.pt`: required pinned artifact is missing
+[exit 1] eval von/stsb (von)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval sst5 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine von --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/sst5 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/sst5/workload-sst5-eval.jsonl: 50 rows (sha256 6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4)
+[bench] 50 groups over 50 rows (grouping=true)
+Error: load von engine: failed to read `/tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint/checkpoint/option_marker.pt`: required pinned artifact is missing
+[exit 1] eval von/sst5 (von)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench score /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl --engine von --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/performance/von/von --reps 1 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --model-root /tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl: 12 rows (sha256 c2db6b36351d340b4f55343109cf4a41444d56c96868ab7f467381dd791c3905)
+[bench] 4 groups over 12 rows (grouping=true)
+Error: score run over /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl
+
+Caused by:
+    load von engine: failed to read `/tmp/openkind-local-suite-2026-10-01/models/models/von:69219703407bd39cca0c/checkpoint/checkpoint/option_marker.pt`: required pinned artifact is missing
+[exit 1] score von (von, 12 rows)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind rm von:69219703407bd39cca0c
+Removed installed model von:69219703407bd39cca0c
+[exit 0] remove von:69219703407bd39cca0c
+

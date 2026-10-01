@@ -1,0 +1,85 @@
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "d89fc6ef4da46f056176dcf941ba670524ab1c87",
+    "description": "Yes/no questions over Wikipedia passages.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "google/boolq",
+    "hf_revision": "35b264d03638db9f4ce671b711558bf7ff0f80d5",
+    "license": "CC-BY-SA-3.0",
+    "name": "boolq",
+    "task_family": "reading-comprehension"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "qwen3guard",
+    "model_revision": "419364a715de9840d47b1457982f64ff37f90ed4",
+    "profile_id": "0fcf416cab16d94f933d",
+    "strategy": "qwen3guard"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy_at_0.5": 0.36,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.32,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.35,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.22,
+        0.5
+      ],
+      "clusters": 50,
+      "point": 0.36,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "aurc": 0.7020738500236517,
+    "auroc": 0.4322916666666667,
+    "brier": 0.635855126331504,
+    "ece_10_bins": 0.3554643772927373,
+    "negative_recall": 1.0,
+    "positive_recall": 0.0,
+    "rows": 50,
+    "tuned_threshold": {
+      "dev_rows": 50,
+      "eval_accuracy": 0.42,
+      "protocol": "threshold selected on dev, applied to eval",
+      "threshold": 0.002991843851996287,
+      "tuning_accuracy_on_dev": 0.54
+    }
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen3guard/boolq/predictions-qwen3guard-qwen3guard.jsonl",
+    "predictions_sha256": "bd69d18192e4dead403bb7e9d0e0a49c0168326dda1be057e502a10d5e1884ef",
+    "summary_sha256": "eca82771d1747be7fbfad3b7fbbf597c1446d723f872123b8cdfab9593e5191d",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/qwen3guard/boolq/workload-boolq-eval.jsonl",
+    "workload_sha256": "449d16d61bdfeba20b1323e394af130cf9e9e70670365f052602e59eed64373c"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}

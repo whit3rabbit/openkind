@@ -169,6 +169,8 @@ fn store(datasets_dir: Option<std::path::PathBuf>) -> Result<DatasetStore> {
 }
 
 /// `dataset` subcommand payloads (mirrors the clap definitions in `args.rs`).
+// Windows `PathBuf`s push the variant size ratio over the lint threshold.
+#[allow(clippy::large_enum_variant)]
 pub enum DatasetAction {
     List {
         datasets_dir: Option<std::path::PathBuf>,

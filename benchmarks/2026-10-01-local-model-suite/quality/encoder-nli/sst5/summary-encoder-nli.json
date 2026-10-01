@@ -1,0 +1,61 @@
+{
+  "bundle_version": null,
+  "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+  "context": null,
+  "cross_strategy_answer_parity_clean": null,
+  "engine": "encoder-nli",
+  "engine_variant": "encoder-nli",
+  "fixture": {
+    "groups": 50,
+    "path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/encoder-nli/sst5/workload-sst5-eval.jsonl",
+    "rows": 50,
+    "sha256": "6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4"
+  },
+  "grouping": "per-state",
+  "history_aba": false,
+  "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+  "host_hardware": {
+    "cpu_brand": "Apple M4 Max",
+    "logical_cores": 14,
+    "model": "Mac16,5",
+    "total_memory_bytes": 38654705664
+  },
+  "measurement_scope": "model_request_path",
+  "model_revision": "cfa538a0fddbbd978fefe8966c1aeff7ad409c90",
+  "notes": {
+    "cpu_time_seconds": "process-wide user+system CPU time diff across the timed region, excluding warmup and model load; avg_cpu_percent exceeds 100 when multiple threads run",
+    "input_tokens_per_second": "total input tokens across all timed repetitions divided by their total wall time",
+    "percentiles": "p50 is the median rep total and p95 is the ceil(0.95*n)-1 sample; small rep counts are reported alongside as samples_seconds",
+    "request_latency_ms": "latency is per request; grouped rows share their request's latency and are not independent timings; includes request construction through answer extraction"
+  },
+  "peak_resident_bytes": 570834944,
+  "prediction_sha256": {
+    "encoder-nli": "0735a8b7df63fa13e0b2d39d9c05685d961280aeb2680d4babdd7928dca572dc"
+  },
+  "profile_id": "1041a4c362338a61b820",
+  "reps": 1,
+  "schema": "openkind-bench/v1",
+  "strategies": [
+    {
+      "avg_cpu_percent": 346.61376832701706,
+      "backend_id": "encoder-nli/cpu-fp32",
+      "cpu_time_seconds": 9.351359000000002,
+      "decisions_per_second": 18.5328019342973,
+      "forced": null,
+      "groups": 50,
+      "input_tokens_per_second": 3348.8773095275224,
+      "input_tokens_total": 9035,
+      "model_load_seconds": 0.55382275,
+      "p50_seconds": 2.697919083,
+      "p95_seconds": 2.697919083,
+      "reps": 1,
+      "rows": 50,
+      "samples_seconds": [
+        2.697919083
+      ],
+      "strategy": "encoder-nli"
+    }
+  ],
+  "timing_scope": "request construction, validation, dispatch, and answer extraction; excludes model load (reported per strategy), result writes, and the untimed warmup pass; warm process",
+  "warmup": true
+}

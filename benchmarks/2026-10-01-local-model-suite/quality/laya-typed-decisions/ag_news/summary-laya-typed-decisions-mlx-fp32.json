@@ -1,0 +1,64 @@
+{
+  "bundle_version": null,
+  "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+  "context": {
+    "head_max_len_tokens": 256,
+    "max_sequence_tokens": 1024
+  },
+  "cross_strategy_answer_parity_clean": null,
+  "engine": "laya",
+  "engine_variant": "laya-typed-decisions-mlx-fp32",
+  "fixture": {
+    "groups": 50,
+    "path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/laya-typed-decisions/ag_news/workload-ag_news-eval.jsonl",
+    "rows": 50,
+    "sha256": "dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998"
+  },
+  "grouping": "per-state",
+  "history_aba": false,
+  "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+  "host_hardware": {
+    "cpu_brand": "Apple M4 Max",
+    "logical_cores": 14,
+    "model": "Mac16,5",
+    "total_memory_bytes": 38654705664
+  },
+  "measurement_scope": "model_request_path",
+  "model_revision": "1a793eb568e6718f15941d08f85432581df534e3",
+  "notes": {
+    "cpu_time_seconds": "process-wide user+system CPU time diff across the timed region, excluding warmup and model load; avg_cpu_percent exceeds 100 when multiple threads run",
+    "input_tokens_per_second": "total input tokens across all timed repetitions divided by their total wall time",
+    "percentiles": "p50 is the median rep total and p95 is the ceil(0.95*n)-1 sample; small rep counts are reported alongside as samples_seconds",
+    "request_latency_ms": "latency is per request; grouped rows share their request's latency and are not independent timings; includes request construction through answer extraction"
+  },
+  "peak_resident_bytes": 2141585408,
+  "prediction_sha256": {
+    "laya-typed-decisions-mlx-fp32": "a92a59783f7d679acb03eaabf2fcc510066d5ec25016b7f6b2ec5de508e331f4"
+  },
+  "profile_id": "9d28cfa9567902801ed1",
+  "reps": 1,
+  "schema": "openkind-bench/v1",
+  "strategies": [
+    {
+      "avg_cpu_percent": 66.32780969696388,
+      "backend_id": "laya-typed-decisions/mlx-fp32",
+      "cpu_time_seconds": 0.7422400000000002,
+      "decisions_per_second": 44.6808375302893,
+      "forced": null,
+      "groups": 50,
+      "input_tokens_per_second": 6165.955579179923,
+      "input_tokens_total": 6900,
+      "model_load_seconds": 1.92151725,
+      "p50_seconds": 1.119047958,
+      "p95_seconds": 1.119047958,
+      "reps": 1,
+      "rows": 50,
+      "samples_seconds": [
+        1.119047958
+      ],
+      "strategy": "laya-typed-decisions-mlx-fp32"
+    }
+  ],
+  "timing_scope": "request construction, validation, dispatch, and answer extraction; excludes model load (reported per strategy), result writes, and the untimed warmup pass; warm process",
+  "warmup": true
+}
