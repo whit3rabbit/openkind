@@ -4,6 +4,7 @@ mod batched;
 mod branch;
 mod contract;
 mod embedding;
+mod geometry;
 mod layer0;
 mod model;
 mod nested;
@@ -43,6 +44,13 @@ pub use branch::Qwen35BranchBatch;
 pub use contract::LayerKind;
 pub(crate) use embedding::EmbeddingLayout;
 pub use embedding::{EmbeddingOutput, Qwen35Embedding};
+pub use geometry::Qwen35Geometry;
+// Clef-family GGUF execution reuses the parity-verified forward kernels.
+pub(crate) use layer0::{
+    apply_rotary, causal_depthwise_conv_silu_with_state, causal_grouped_query_attention,
+    gated_delta_recurrent_with_state, linear, rms_norm_heads, rms_norm_zero_centered,
+    split_query_gate,
+};
 // MLX parity-backend weight loading reuses the Candle oracle's verified
 // shard path helper.
 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]

@@ -14,7 +14,7 @@ use candle_core::Device;
 
 use crate::families::decoder_logit_qwen35::model::resolve_config_field;
 use crate::families::support::{read_json, verify_digest, FamilyControl, FamilyError};
-use crate::qwen35::{EmbeddingLayout, TextBackbone};
+use crate::qwen35::{EmbeddingLayout, Qwen35Geometry, TextBackbone};
 
 use super::{pinned_config, pinned_decider_config, DeciderProfile};
 
@@ -133,7 +133,7 @@ impl DeciderModel {
         let backbone = TextBackbone::new(
             embedding,
             vec![artifacts.checkpoint.clone()],
-            LAYER_COUNT,
+            Qwen35Geometry::PINNED,
             device,
         );
         Ok(Self { backbone })

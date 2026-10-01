@@ -28,11 +28,16 @@ pub use backbone::{
     BatchedQuestionResult, BatchedQuestions, CountingExecutor, EmbeddingOutput, ExecutionStrategy,
     FlatBatchRun, FullSequenceRecord, Layer0Output, LayerKind, NestedCandidateResult,
     NestedQuestion, NestedQuestionResult, NestedRun, ProcessMemoryEnvelope, Qwen35Backbone,
-    Qwen35BranchBatch, Qwen35Embedding, Qwen35Layer0, RetentionEstimates, SchedulerConfig,
-    SequentialNestedExecutor, StageComparison, StrategyDecision, StrategyEstimates, StrategyOutput,
-    StrategyRequest, TraceStage,
+    Qwen35BranchBatch, Qwen35Embedding, Qwen35Geometry, Qwen35Layer0, RetentionEstimates,
+    SchedulerConfig, SequentialNestedExecutor, StageComparison, StrategyDecision,
+    StrategyEstimates, StrategyOutput, StrategyRequest, TraceStage,
 };
 pub(crate) use backbone::{EmbeddingLayout, TextBackbone};
+// Clef-family GGUF execution reuses the parity-verified forward kernels.
+pub(crate) use backbone::{
+    apply_rotary, causal_depthwise_conv_silu_with_state, causal_grouped_query_attention,
+    gated_delta_recurrent_with_state, rms_norm_heads, rms_norm_zero_centered, split_query_gate,
+};
 pub use engine::{Qwen35Backend, Qwen35DecisionEngine, Qwen35EngineConfig, SEMANTIC_NONE_OPTION};
 pub use evidence::{native_profile_record, BACKEND_IMPLEMENTATION};
 pub use head::{HeadEvaluation, PolicyAction, PrimitiveKind, ScoreSummaryHead, FEATURE_WIDTH};

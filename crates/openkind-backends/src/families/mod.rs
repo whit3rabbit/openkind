@@ -10,6 +10,8 @@
 
 /// Temperature calibration datasets and Platt scaling utilities.
 pub mod calibration;
+/// Cloudflare Clef joint-schema decision family adapter.
+pub mod clef;
 /// Decider slot-logit family adapter (plain state-first layout).
 pub mod decider;
 /// Decoder-only letter-token logit readout family adapter.

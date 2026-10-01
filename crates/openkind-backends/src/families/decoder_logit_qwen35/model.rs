@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use candle_core::Device;
 
 use crate::families::support::{read_json, verify_digest, FamilyControl, FamilyError};
-use crate::qwen35::{EmbeddingLayout, TextBackbone};
+use crate::qwen35::{EmbeddingLayout, Qwen35Geometry, TextBackbone};
 
 use super::{pinned_config, Qwen35LogitProfile};
 
@@ -134,7 +134,7 @@ impl Jevk5Model {
         let backbone = TextBackbone::new(
             embedding,
             vec![artifacts.checkpoint.clone()],
-            LAYER_COUNT,
+            Qwen35Geometry::PINNED,
             device,
         );
         Ok(Self { backbone })

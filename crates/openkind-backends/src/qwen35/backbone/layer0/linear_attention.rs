@@ -4,14 +4,13 @@ use candle_core::{Device, Tensor};
 use candle_nn::VarBuilder;
 
 use crate::qwen35::Qwen35Error;
+use crate::qwen35::backbone::geometry::Qwen35Geometry;
 
-use super::{
-    linear, tensor_values, vector, LayerState, CONV_KERNEL, HEAD_DIM, HIDDEN_SIZE, KEY_HEADS,
-    KEY_SIZE, QKV_SIZE, RMS_EPSILON, VALUE_HEADS, VALUE_SIZE,
-};
+use super::{linear, tensor_values, vector, LayerState, RMS_EPSILON};
 
 #[derive(Debug)]
 pub(crate) struct LinearAttention {
+    geometry: Qwen35Geometry,
     in_proj_qkv: Tensor,
     in_proj_z: Tensor,
     in_proj_b: Tensor,
@@ -24,20 +23,39 @@ pub(crate) struct LinearAttention {
 }
 
 impl LinearAttention {
-    pub(crate) fn load(variables: &VarBuilder<'_>) -> Result<Self, Qwen35Error> {
+    pub(crate) fn load(
+        variables: &VarBuilder<'_>,
+        geometry: Qwen35Geometry,
+    ) -> Result<Self, Qwen35Error> {
         Ok(Self {
-            in_proj_qkv: variables
-                .get((QKV_SIZE, HIDDEN_SIZE), "linear_attn.in_proj_qkv.weight")?,
-            in_proj_z: variables.get((VALUE_SIZE, HIDDEN_SIZE), "linear_attn.in_proj_z.weight")?,
-            in_proj_b: variables.get((VALUE_HEADS, HIDDEN_SIZE), "linear_attn.in_proj_b.weight")?,
-            in_proj_a: variables.get((VALUE_HEADS, HIDDEN_SIZE), "linear_attn.in_proj_a.weight")?,
-            conv1d: tensor_values(
-                &variables.get((QKV_SIZE, 1, CONV_KERNEL), "linear_attn.conv1d.weight")?,
+            geometry,
+            in_proj_qkv: variables.get(
+                (geometry.qkv_size(), geometry.hidden_size),
+                "linear_attn.in_proj_qkv.weight",
             )?,
-            dt_bias: vector(variables, VALUE_HEADS, "linear_attn.dt_bias")?,
-            a_log: vector(variables, VALUE_HEADS, "linear_attn.A_log")?,
-            delta_norm: vector(variables, HEAD_DIM, "linear_attn.norm.weight")?,
-            out_proj: variables.get((HIDDEN_SIZE, VALUE_SIZE), "linear_attn.out_proj.weight")?,
+            in_proj_z: variables.get(
+                (geometry.value_size(), geometry.hidden_size),
+                "linear_attn.in_proj_z.weight",
+            )?,
+            in_proj_b: variables.get(
+                (geometry.value_heads, geometry.hidden_size),
+                "linear_attn.in_proj_b.weight",
+            )?,
+            in_proj_a: variables.get(
+                (geometry.value_heads, geometry.hidden_size),
+                "linear_attn.in_proj_a.weight",
+            )?,
+            conv1d: tensor_values(&variables.get(
+                (geometry.qkv_size(), 1, geometry.conv_kernel),
+                "linear_attn.conv1d.weight",
+            )?)?,
+            dt_bias: vector(variables, geometry.value_heads, "linear_attn.dt_bias")?,
+            a_log: vector(variables, geometry.value_heads, "linear_attn.A_log")?,
+            delta_norm: vector(variables, geometry.head_dim, "linear_attn.norm.weight")?,
+            out_proj: variables.get(
+                (geometry.hidden_size, geometry.value_size()),
+                "linear_attn.out_proj.weight",
+            )?,
         })
     }
 
@@ -48,45 +66,46 @@ impl LinearAttention {
         device: &Device,
         previous_state: Option<(&[f32], &[f32])>,
     ) -> Result<(Vec<f32>, LayerState), Qwen35Error> {
+        let geometry = self.geometry;
         let raw_qkv = linear(
             normalized,
             token_count,
-            HIDDEN_SIZE,
+            geometry.hidden_size,
             &self.in_proj_qkv,
-            QKV_SIZE,
+            geometry.qkv_size(),
             device,
         )?;
         let (previous_conv, previous_recurrent) = previous_state.unzip();
         let (qkv, conv) = causal_depthwise_conv_silu_with_state(
             &raw_qkv,
             token_count,
-            QKV_SIZE,
+            geometry.qkv_size(),
             &self.conv1d,
-            CONV_KERNEL,
+            geometry.conv_kernel,
             previous_conv,
         );
         let z = linear(
             normalized,
             token_count,
-            HIDDEN_SIZE,
+            geometry.hidden_size,
             &self.in_proj_z,
-            VALUE_SIZE,
+            geometry.value_size(),
             device,
         )?;
         let beta = linear(
             normalized,
             token_count,
-            HIDDEN_SIZE,
+            geometry.hidden_size,
             &self.in_proj_b,
-            VALUE_HEADS,
+            geometry.value_heads,
             device,
         )?;
         let decay = linear(
             normalized,
             token_count,
-            HIDDEN_SIZE,
+            geometry.hidden_size,
             &self.in_proj_a,
-            VALUE_HEADS,
+            geometry.value_heads,
             device,
         )?;
         let (mixed, recurrent) = gated_delta_recurrent_with_state(
@@ -98,14 +117,15 @@ impl LinearAttention {
             &self.a_log,
             &self.delta_norm,
             token_count,
+            geometry,
             previous_recurrent,
         );
         let output = linear(
             &mixed,
             token_count,
-            VALUE_SIZE,
+            geometry.value_size(),
             &self.out_proj,
-            HIDDEN_SIZE,
+            geometry.hidden_size,
             device,
         )?;
         Ok((output, LayerState::Linear { conv, recurrent }))
@@ -176,31 +196,38 @@ pub(crate) fn gated_delta_recurrent_with_state(
     a_log: &[f32],
     norm_weight: &[f32],
     rows: usize,
+    geometry: Qwen35Geometry,
     initial_state: Option<&[f32]>,
 ) -> (Vec<f32>, Vec<f32>) {
-    debug_assert_eq!(qkv.len(), rows * QKV_SIZE);
-    debug_assert_eq!(z.len(), rows * VALUE_SIZE);
-    debug_assert_eq!(beta_projection.len(), rows * VALUE_HEADS);
-    debug_assert_eq!(decay_projection.len(), rows * VALUE_HEADS);
+    let value_heads = geometry.value_heads;
+    let head_dim = geometry.head_dim;
+    let key_heads = geometry.key_heads;
+    let qkv_size = geometry.qkv_size();
+    let value_size = geometry.value_size();
+    let key_size = geometry.key_size();
+    debug_assert_eq!(qkv.len(), rows * qkv_size);
+    debug_assert_eq!(z.len(), rows * value_size);
+    debug_assert_eq!(beta_projection.len(), rows * value_heads);
+    debug_assert_eq!(decay_projection.len(), rows * value_heads);
     let mut state = initial_state.map_or_else(
-        || vec![0.0_f32; VALUE_HEADS * HEAD_DIM * HEAD_DIM],
+        || vec![0.0_f32; value_heads * head_dim * head_dim],
         <[f32]>::to_vec,
     );
-    debug_assert_eq!(state.len(), VALUE_HEADS * HEAD_DIM * HEAD_DIM);
-    let mut output = vec![0.0_f32; rows * VALUE_SIZE];
-    let query_scale = (HEAD_DIM as f32).sqrt().recip();
+    debug_assert_eq!(state.len(), value_heads * head_dim * head_dim);
+    let mut output = vec![0.0_f32; rows * value_size];
+    let query_scale = (head_dim as f32).sqrt().recip();
 
     for row in 0..rows {
-        let qkv_row = row * QKV_SIZE;
-        for value_head in 0..VALUE_HEADS {
-            let key_head = value_head / (VALUE_HEADS / KEY_HEADS);
-            let query_offset = qkv_row + key_head * HEAD_DIM;
-            let key_offset = qkv_row + KEY_SIZE + key_head * HEAD_DIM;
-            let value_offset = qkv_row + KEY_SIZE * 2 + value_head * HEAD_DIM;
-            let state_offset = value_head * HEAD_DIM * HEAD_DIM;
-            let state_head = &mut state[state_offset..state_offset + HEAD_DIM * HEAD_DIM];
+        let qkv_row = row * qkv_size;
+        for value_head in 0..value_heads {
+            let key_head = value_head / (value_heads / key_heads);
+            let query_offset = qkv_row + key_head * head_dim;
+            let key_offset = qkv_row + key_size + key_head * head_dim;
+            let value_offset = qkv_row + key_size * 2 + value_head * head_dim;
+            let state_offset = value_head * head_dim * head_dim;
+            let state_head = &mut state[state_offset..state_offset + head_dim * head_dim];
 
-            let query_norm = (qkv[query_offset..query_offset + HEAD_DIM]
+            let query_norm = (qkv[query_offset..query_offset + head_dim]
                 .iter()
                 .map(|value| value * value)
                 .sum::<f32>()
@@ -208,56 +235,58 @@ pub(crate) fn gated_delta_recurrent_with_state(
                 .sqrt()
                 .recip()
                 * query_scale;
-            let key_norm = (qkv[key_offset..key_offset + HEAD_DIM]
+            let key_norm = (qkv[key_offset..key_offset + head_dim]
                 .iter()
                 .map(|value| value * value)
                 .sum::<f32>()
                 + RMS_EPSILON)
                 .sqrt()
                 .recip();
-            let beta = sigmoid(beta_projection[row * VALUE_HEADS + value_head]);
+            let beta = sigmoid(beta_projection[row * value_heads + value_head]);
             let decay = (-a_log[value_head].exp()
-                * softplus(decay_projection[row * VALUE_HEADS + value_head] + dt_bias[value_head]))
+                * softplus(decay_projection[row * value_heads + value_head]
+                    + dt_bias[value_head]))
             .exp();
             for state in state_head.iter_mut() {
                 *state *= decay;
             }
 
-            let mut delta = [0.0_f32; HEAD_DIM];
-            for value_index in 0..HEAD_DIM {
+            let mut delta = vec![0.0_f32; head_dim];
+            for value_index in 0..head_dim {
                 let mut memory = 0.0_f32;
-                for key_index in 0..HEAD_DIM {
+                for key_index in 0..head_dim {
                     let key = qkv[key_offset + key_index] * key_norm;
-                    memory += state_head[key_index * HEAD_DIM + value_index] * key;
+                    memory += state_head[key_index * head_dim + value_index] * key;
                 }
                 delta[value_index] = (qkv[value_offset + value_index] - memory) * beta;
             }
-            for key_index in 0..HEAD_DIM {
+            for key_index in 0..head_dim {
                 let key = qkv[key_offset + key_index] * key_norm;
-                let state_row = &mut state_head[key_index * HEAD_DIM..(key_index + 1) * HEAD_DIM];
-                for value_index in 0..HEAD_DIM {
+                let state_row = &mut state_head[key_index * head_dim..(key_index + 1) * head_dim];
+                for value_index in 0..head_dim {
                     state_row[value_index] += key * delta[value_index];
                 }
             }
 
-            let output_offset = row * VALUE_SIZE + value_head * HEAD_DIM;
-            for value_index in 0..HEAD_DIM {
+            let output_offset = row * value_size + value_head * head_dim;
+            for value_index in 0..head_dim {
                 let mut value = 0.0_f32;
-                for key_index in 0..HEAD_DIM {
+                for key_index in 0..head_dim {
                     let query = qkv[query_offset + key_index] * query_norm;
-                    value += state_head[key_index * HEAD_DIM + value_index] * query;
+                    value += state_head[key_index * head_dim + value_index] * query;
                 }
                 output[output_offset + value_index] = value;
             }
-            let variance = output[output_offset..output_offset + HEAD_DIM]
+            let variance = output[output_offset..output_offset + head_dim]
                 .iter()
                 .map(|value| value * value)
                 .sum::<f32>()
-                / HEAD_DIM as f32;
+                / head_dim as f32;
             let norm_scale = (variance + RMS_EPSILON).sqrt().recip();
-            for value_index in 0..HEAD_DIM {
+            for value_index in 0..head_dim {
                 let gate = silu(z[output_offset + value_index]);
-                output[output_offset + value_index] *= norm_scale * norm_weight[value_index] * gate;
+                output[output_offset + value_index] *=
+                    norm_scale * norm_weight[value_index] * gate;
             }
         }
     }

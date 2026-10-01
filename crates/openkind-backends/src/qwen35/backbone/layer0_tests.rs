@@ -54,9 +54,9 @@ fn rotary_positions_are_continuation_stable() {
     let mut full = vec![0.25_f32; 3 * ATTENTION_HEAD_DIM];
     let mut prefix = full[..2 * ATTENTION_HEAD_DIM].to_vec();
     let mut suffix = full[2 * ATTENTION_HEAD_DIM..].to_vec();
-    apply_rotary(&mut full, 1, 3, 0);
-    apply_rotary(&mut prefix, 1, 2, 0);
-    apply_rotary(&mut suffix, 1, 1, 2);
+    apply_rotary(&mut full, 1, 3, 0, PINNED);
+    apply_rotary(&mut prefix, 1, 2, 0, PINNED);
+    apply_rotary(&mut suffix, 1, 1, 2, PINNED);
     assert_eq!([prefix, suffix].concat(), full);
 }
 
@@ -67,15 +67,16 @@ fn cached_causal_attention_matches_one_pass_execution() {
     let values: Vec<_> = (0..2 * KV_SIZE)
         .map(|index| index as f32 / 10_000.0)
         .collect();
-    let full = causal_grouped_query_attention(&queries, &keys, &values, 2, 0);
+    let full = causal_grouped_query_attention(&queries, &keys, &values, 2, 0, PINNED);
     let prefix = causal_grouped_query_attention(
         &queries[..ATTENTION_SIZE],
         &keys[..KV_SIZE],
         &values[..KV_SIZE],
         1,
         0,
+        PINNED,
     );
-    let suffix = causal_grouped_query_attention(&queries[ATTENTION_SIZE..], &keys, &values, 1, 1);
+    let suffix = causal_grouped_query_attention(&queries[ATTENTION_SIZE..], &keys, &values, 1, 1, PINNED);
     assert_eq!([prefix, suffix].concat(), full);
 }
 
@@ -90,7 +91,7 @@ fn cached_delta_recurrence_matches_one_pass_execution() {
     let a_log = vec![0.0_f32; VALUE_HEADS];
     let norm = vec![1.0_f32; HEAD_DIM];
     let (full, full_state) = gated_delta_recurrent_with_state(
-        &qkv, &z, &beta, &decay, &dt_bias, &a_log, &norm, rows, None,
+        &qkv, &z, &beta, &decay, &dt_bias, &a_log, &norm, rows, PINNED, None,
     );
     let (prefix, prefix_state) = gated_delta_recurrent_with_state(
         &qkv[..2 * QKV_SIZE],
@@ -101,6 +102,7 @@ fn cached_delta_recurrence_matches_one_pass_execution() {
         &a_log,
         &norm,
         2,
+        PINNED,
         None,
     );
     let (suffix, suffix_state) = gated_delta_recurrent_with_state(
@@ -112,6 +114,7 @@ fn cached_delta_recurrence_matches_one_pass_execution() {
         &a_log,
         &norm,
         1,
+        PINNED,
         Some(&prefix_state),
     );
     assert_eq!([prefix, suffix].concat(), full);

@@ -5,32 +5,37 @@ use candle_nn::VarBuilder;
 
 use super::super::Qwen35Error;
 use super::embedding::{verify_decoder_shard, Qwen35Embedding};
+use super::geometry::Qwen35Geometry;
 
 mod full_attention;
 mod linear_attention;
 
-pub(super) use full_attention::*;
-pub(super) use linear_attention::*;
+pub(crate) use full_attention::*;
+pub(crate) use linear_attention::*;
 
-pub(super) const HIDDEN_SIZE: usize = 2_560;
-const INTERMEDIATE_SIZE: usize = 9_216;
-pub(super) const KEY_HEADS: usize = 16;
+/// Geometry of the pinned backbone the module constants mirror. Layer
+/// structs carry [`Qwen35Geometry`] values so the Clef family can reuse the
+/// same kernels at its own frozen widths.
+pub(super) const PINNED: Qwen35Geometry = Qwen35Geometry::PINNED;
+pub(super) const HIDDEN_SIZE: usize = PINNED.hidden_size;
+const INTERMEDIATE_SIZE: usize = PINNED.intermediate_size;
+pub(super) const KEY_HEADS: usize = PINNED.key_heads;
 // State-shape constants are shared with the branch-state implementation so
 // storage accounting and fixtures stay tied to the executing architecture.
-pub(super) const VALUE_HEADS: usize = 32;
-pub(super) const HEAD_DIM: usize = 128;
-pub(super) const KEY_SIZE: usize = KEY_HEADS * HEAD_DIM;
-pub(super) const VALUE_SIZE: usize = VALUE_HEADS * HEAD_DIM;
-pub(super) const QKV_SIZE: usize = KEY_SIZE * 2 + VALUE_SIZE;
-pub(super) const CONV_KERNEL: usize = 4;
-pub(super) const RMS_EPSILON: f32 = 1e-6;
-pub(super) const ATTENTION_HEADS: usize = 16;
-pub(super) const KV_HEADS: usize = 4;
-pub(super) const ATTENTION_HEAD_DIM: usize = 256;
-pub(super) const ATTENTION_SIZE: usize = ATTENTION_HEADS * ATTENTION_HEAD_DIM;
-pub(super) const KV_SIZE: usize = KV_HEADS * ATTENTION_HEAD_DIM;
-pub(super) const ROTARY_DIM: usize = 64;
-pub(super) const ROPE_THETA: f32 = 10_000_000.0;
+pub(super) const VALUE_HEADS: usize = PINNED.value_heads;
+pub(super) const HEAD_DIM: usize = PINNED.head_dim;
+pub(super) const KEY_SIZE: usize = PINNED.key_size();
+pub(super) const VALUE_SIZE: usize = PINNED.value_size();
+pub(super) const QKV_SIZE: usize = PINNED.qkv_size();
+pub(super) const CONV_KERNEL: usize = PINNED.conv_kernel;
+pub(super) const RMS_EPSILON: f32 = PINNED.rms_epsilon;
+pub(super) const ATTENTION_HEADS: usize = PINNED.attention_heads;
+pub(super) const KV_HEADS: usize = PINNED.kv_heads;
+pub(super) const ATTENTION_HEAD_DIM: usize = PINNED.attention_head_dim;
+pub(super) const ATTENTION_SIZE: usize = PINNED.attention_size();
+pub(super) const KV_SIZE: usize = PINNED.kv_size();
+pub(super) const ROTARY_DIM: usize = PINNED.rotary_dim();
+pub(super) const ROPE_THETA: f32 = Qwen35Geometry::ROPE_THETA;
 
 /// FP32 output from the first Qwen3.5 decoder block.
 #[derive(Debug, Clone, PartialEq)]
@@ -73,6 +78,7 @@ pub struct Qwen35Layer0 {
 
 #[derive(Debug)]
 pub(super) struct DecoderLayer {
+    geometry: Qwen35Geometry,
     input_layernorm: Vec<f32>,
     mixer: TokenMixer,
     post_attention_layernorm: Vec<f32>,
@@ -132,7 +138,7 @@ impl Qwen35Layer0 {
 
         Ok(Self {
             embedding,
-            layer: DecoderLayer::load(&variables, 0, &device)?,
+            layer: DecoderLayer::load(&variables, 0, &device, PINNED)?,
         })
     }
 
@@ -153,26 +159,35 @@ impl DecoderLayer {
         variables: &VarBuilder<'_>,
         layer_index: usize,
         device: &Device,
+        geometry: Qwen35Geometry,
     ) -> Result<Self, Qwen35Error> {
         let variables = variables.pp(layer_index);
-        let mixer = if layer_index % 4 == 3 {
-            TokenMixer::Full(FullAttention::load(&variables)?)
+        let mixer = if geometry.is_full_attention(layer_index) {
+            TokenMixer::Full(FullAttention::load(&variables, geometry)?)
         } else {
-            TokenMixer::Linear(LinearAttention::load(&variables)?)
+            TokenMixer::Linear(LinearAttention::load(&variables, geometry)?)
         };
         Ok(Self {
-            input_layernorm: vector(&variables, HIDDEN_SIZE, "input_layernorm.weight")?,
+            geometry,
+            input_layernorm: vector(&variables, geometry.hidden_size, "input_layernorm.weight")?,
             mixer,
             post_attention_layernorm: vector(
                 &variables,
-                HIDDEN_SIZE,
+                geometry.hidden_size,
                 "post_attention_layernorm.weight",
             )?,
-            mlp_gate_proj: variables
-                .get((INTERMEDIATE_SIZE, HIDDEN_SIZE), "mlp.gate_proj.weight")?,
-            mlp_up_proj: variables.get((INTERMEDIATE_SIZE, HIDDEN_SIZE), "mlp.up_proj.weight")?,
-            mlp_down_proj: variables
-                .get((HIDDEN_SIZE, INTERMEDIATE_SIZE), "mlp.down_proj.weight")?,
+            mlp_gate_proj: variables.get(
+                (geometry.intermediate_size, geometry.hidden_size),
+                "mlp.gate_proj.weight",
+            )?,
+            mlp_up_proj: variables.get(
+                (geometry.intermediate_size, geometry.hidden_size),
+                "mlp.up_proj.weight",
+            )?,
+            mlp_down_proj: variables.get(
+                (geometry.hidden_size, geometry.intermediate_size),
+                "mlp.down_proj.weight",
+            )?,
             device: device.clone(),
         })
     }
@@ -195,8 +210,13 @@ impl DecoderLayer {
         position_start: usize,
         previous_state: Option<&LayerState>,
     ) -> Result<(Vec<f32>, LayerState), Qwen35Error> {
-        let normalized =
-            rms_norm_zero_centered(residual, token_count, HIDDEN_SIZE, &self.input_layernorm);
+        let hidden_size = self.geometry.hidden_size;
+        let normalized = rms_norm_zero_centered(
+            residual,
+            token_count,
+            hidden_size,
+            &self.input_layernorm,
+        );
         let (attention, state) = match (&self.mixer, previous_state) {
             (TokenMixer::Linear(mixer), None) => {
                 mixer.forward_with_state(&normalized, token_count, &self.device, None)?
@@ -233,23 +253,23 @@ impl DecoderLayer {
         let mlp_input = rms_norm_zero_centered(
             &hidden,
             token_count,
-            HIDDEN_SIZE,
+            hidden_size,
             &self.post_attention_layernorm,
         );
         let mut gate = linear(
             &mlp_input,
             token_count,
-            HIDDEN_SIZE,
+            hidden_size,
             &self.mlp_gate_proj,
-            INTERMEDIATE_SIZE,
+            self.geometry.intermediate_size,
             &self.device,
         )?;
         let up = linear(
             &mlp_input,
             token_count,
-            HIDDEN_SIZE,
+            hidden_size,
             &self.mlp_up_proj,
-            INTERMEDIATE_SIZE,
+            self.geometry.intermediate_size,
             &self.device,
         )?;
         for (gate, up) in gate.iter_mut().zip(up) {
@@ -258,9 +278,9 @@ impl DecoderLayer {
         let mlp = linear(
             &gate,
             token_count,
-            INTERMEDIATE_SIZE,
+            self.geometry.intermediate_size,
             &self.mlp_down_proj,
-            HIDDEN_SIZE,
+            hidden_size,
             &self.device,
         )?;
         for (hidden, mlp) in hidden.iter_mut().zip(mlp) {
@@ -285,7 +305,7 @@ fn ensure_finite(values: &[f32], stage: &str) -> Result<(), Qwen35Error> {
     Ok(())
 }
 
-pub(super) fn vector(
+pub(crate) fn vector(
     variables: &VarBuilder<'_>,
     size: usize,
     name: &str,
@@ -293,11 +313,14 @@ pub(super) fn vector(
     tensor_values(&variables.get(size, name)?)
 }
 
-pub(super) fn tensor_values(tensor: &Tensor) -> Result<Vec<f32>, Qwen35Error> {
-    Ok(tensor.flatten_all()?.to_vec1::<f32>()?)
+pub(crate) fn tensor_values(tensor: &Tensor) -> Result<Vec<f32>, Qwen35Error> {
+    Ok(tensor
+        .flatten_all()?
+        .to_dtype(DType::F32)?
+        .to_vec1::<f32>()?)
 }
 
-pub(super) fn linear(
+pub(crate) fn linear(
     input: &[f32],
     rows: usize,
     input_width: usize,
@@ -313,6 +336,10 @@ pub(super) fn linear(
         )));
     }
     let input = Tensor::from_vec(input.to_vec(), (rows, input_width), device)?;
+    // BF16-stored checkpoints keep their mmap view; the upcast happens per
+    // use so only one layer's weights are ever widened in memory. F32
+    // tensors pass through `to_dtype` as the same refcounted handle.
+    let weight = weight.to_dtype(DType::F32)?;
     let output = input.matmul(&weight.t()?)?;
     let dimensions = output.dims2()?;
     if dimensions != (rows, output_width) {
@@ -324,7 +351,7 @@ pub(super) fn linear(
     tensor_values(&output)
 }
 
-pub(super) fn rms_norm_zero_centered(
+pub(crate) fn rms_norm_zero_centered(
     input: &[f32],
     rows: usize,
     width: usize,

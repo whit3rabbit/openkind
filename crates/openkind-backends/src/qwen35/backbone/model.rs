@@ -5,7 +5,7 @@ use candle_nn::VarBuilder;
 
 use super::super::{ExecutionControl, Qwen35Error};
 use super::embedding::{verify_decoder_shard, Qwen35Embedding};
-use super::layer0::{rms_norm_zero_centered, DecoderLayer, LayerState};
+use super::layer0::{rms_norm_zero_centered, DecoderLayer, LayerState, PINNED};
 use openkind_runtime::branch::{StateError, StateIdentity, StateLineage};
 
 const HIDDEN_SIZE: usize = 2_560;
@@ -302,7 +302,7 @@ impl Qwen35Backbone {
             if let Some(control) = control {
                 control.check()?;
             }
-            let layer = DecoderLayer::load(&layers, layer_index, &device)?;
+            let layer = DecoderLayer::load(&layers, layer_index, &device, PINNED)?;
             let previous_layer = previous_state.map(|state| &state.layers[layer_index]);
             let (next_hidden, next_state) = layer.forward_with_state(
                 &hidden,
@@ -322,6 +322,7 @@ impl Qwen35Backbone {
         let norm = variables
             .get(HIDDEN_SIZE, "norm.weight")?
             .flatten_all()?
+            .to_dtype(DType::F32)?
             .to_vec1::<f32>()?;
         let final_values = rms_norm_zero_centered(&hidden, token_count, HIDDEN_SIZE, &norm);
         if let Some((index, value)) = final_values

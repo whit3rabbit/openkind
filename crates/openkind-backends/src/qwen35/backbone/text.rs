@@ -17,7 +17,8 @@ use candle_nn::VarBuilder;
 
 use super::super::Qwen35Error;
 use super::embedding::Qwen35Embedding;
-use super::layer0::{rms_norm_zero_centered, DecoderLayer, HIDDEN_SIZE};
+use super::geometry::Qwen35Geometry;
+use super::layer0::{rms_norm_zero_centered, DecoderLayer};
 
 /// Full-sequence Qwen3.5 text forward over caller-verified checkpoint shards.
 ///
@@ -30,7 +31,11 @@ use super::layer0::{rms_norm_zero_centered, DecoderLayer, HIDDEN_SIZE};
 pub(crate) struct TextBackbone {
     embedding: Qwen35Embedding,
     shards: Vec<PathBuf>,
-    layer_count: usize,
+    geometry: Qwen35Geometry,
+    /// Storage dtype of the mapped shards. BF16 shards stay mapped in their
+    /// native width and are widened per use inside the layer kernels; F32
+    /// (the pinned default) maps directly.
+    dtype: DType,
     device: Device,
 }
 
@@ -38,21 +43,38 @@ impl TextBackbone {
     /// Assemble a backbone from a verified embedding reader and verified
     /// shard paths.
     ///
-    /// `layer_count` must match the checkpoint; every layer is loaded lazily
+    /// The geometry must match the checkpoint; every layer is loaded lazily
     /// through the memory-mapped shards during forward, so no weights are
     /// copied or held outside each layer's execution.
     pub(crate) fn new(
         embedding: Qwen35Embedding,
         shards: Vec<PathBuf>,
-        layer_count: usize,
+        geometry: Qwen35Geometry,
+        device: Device,
+    ) -> Self {
+        Self::new_with_dtype(embedding, shards, geometry, DType::F32, device)
+    }
+
+    /// Assemble a backbone whose mapped shards keep `dtype` storage.
+    pub(crate) fn new_with_dtype(
+        embedding: Qwen35Embedding,
+        shards: Vec<PathBuf>,
+        geometry: Qwen35Geometry,
+        dtype: DType,
         device: Device,
     ) -> Self {
         Self {
             embedding,
             shards,
-            layer_count,
+            geometry,
+            dtype,
             device,
         }
+    }
+
+    /// The frozen geometry this backbone executes.
+    pub(crate) fn geometry(&self) -> Qwen35Geometry {
+        self.geometry
     }
 
     /// Run embedding, all decoder layers, and final RMSNorm in FP32, returning
@@ -101,7 +123,7 @@ impl TextBackbone {
                     .iter()
                     .map(|shard| shard.as_path())
                     .collect::<Vec<_>>(),
-                DType::F32,
+                self.dtype,
                 &device,
             )
             .map_err(Qwen35Error::from)
@@ -110,21 +132,24 @@ impl TextBackbone {
         .pp("model")
         .pp("language_model");
         let layers = variables.pp("layers");
-        for layer_index in 0..self.layer_count {
+        for layer_index in 0..self.geometry.layer_count {
             check()?;
-            let layer = DecoderLayer::load(&layers, layer_index, &device).map_err(E::from)?;
+            let layer =
+                DecoderLayer::load(&layers, layer_index, &device, self.geometry).map_err(E::from)?;
             hidden = layer
                 .forward(&hidden, token_count, layer_index)
                 .map_err(E::from)?;
             check()?;
         }
         let norm = variables
-            .get(HIDDEN_SIZE, "norm.weight")
+            .get(self.geometry.hidden_size, "norm.weight")
             .and_then(|value| value.flatten_all())
+            .and_then(|value| value.to_dtype(DType::F32))
             .and_then(|value| value.to_vec1::<f32>())
             .map_err(Qwen35Error::from)
             .map_err(E::from)?;
-        let final_values = rms_norm_zero_centered(&hidden, token_count, HIDDEN_SIZE, &norm);
+        let final_values =
+            rms_norm_zero_centered(&hidden, token_count, self.geometry.hidden_size, &norm);
         if let Some((index, value)) = final_values
             .iter()
             .copied()

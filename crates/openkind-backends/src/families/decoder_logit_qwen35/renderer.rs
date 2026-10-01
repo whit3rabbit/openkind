@@ -229,7 +229,7 @@ pub(crate) fn python_json(value: &serde_json::Value) -> String {
     }
 }
 
-fn python_number(number: &serde_json::Number) -> String {
+pub(crate) fn python_number(number: &serde_json::Number) -> String {
     if let Some(integer) = number.as_i64() {
         return integer.to_string();
     }
@@ -240,7 +240,7 @@ fn python_number(number: &serde_json::Number) -> String {
     python_float(number.as_f64().unwrap_or_default())
 }
 
-fn python_float(value: f64) -> String {
+pub(crate) fn python_float(value: f64) -> String {
     if !value.is_finite() {
         // Wire states cannot carry non-finite numbers; callers validate
         // before reaching this point.
@@ -276,7 +276,7 @@ fn python_float(value: f64) -> String {
     }
 }
 
-fn python_string(text: &str) -> String {
+pub(crate) fn python_string(text: &str) -> String {
     let mut out = String::with_capacity(text.len() + 2);
     out.push('"');
     for character in text.chars() {
