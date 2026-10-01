@@ -46,9 +46,8 @@ workload (see [`../BENCHMARKS.md`](../BENCHMARKS.md)).
 - A single letter-logit readout handles `Choice`, `Score`, and `Noul`
   shapes uniformly; the family contract is small.
 - Decoder backbones are the strongest available open model class for
-  longer-context decision tasks, which the M0 supported-workload
-  definition in [`../ROADMAP.md`](../ROADMAP.md) may eventually
-  require.
+  longer-context decision tasks, which the supported-workload
+  definition may eventually require.
 
 ## What remains open
 
@@ -57,7 +56,7 @@ workload (see [`../BENCHMARKS.md`](../BENCHMARKS.md)).
   an order-of-magnitude latency increase over encoder-state-first on
   the named M4 Max; the recorded request-path numbers live in
   [`../BENCHMARKS.md`](../BENCHMARKS.md).
-- The M3 lower-cost gate in [`../ROADMAP.md`](../ROADMAP.md) has
+- The M3 lower-cost qualification gate has
   the encoder-state-first operating point as the reference; the family
   would have to demonstrate competitive cost on the same reviewed
   workload before any release-quality claim is possible.

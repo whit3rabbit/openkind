@@ -18,11 +18,9 @@ use crate::qwen35::mlx::{
 use crate::qwen35::{EmbeddingLayout, Qwen35Embedding};
 
 use crate::families::decoder_logit_qwen35::model::{VerifiedArtifacts, HIDDEN_SIZE, VOCAB_SIZE};
-use crate::families::decoder_logit_qwen35::{
-    BACKBONE_ID, BACKBONE_REVISION, PROFILE_ID, RENDERER_ID, TOKENIZER_JSON_SHA256,
-};
+use crate::families::decoder_logit_qwen35::{Qwen35LogitProfile, RENDERER_ID};
 
-/// The pinned JevK5 model on the MLX backbone plus the host-resident tied
+/// The pinned family model on the MLX backbone plus the host-resident tied
 /// embedding reader used by the letter readout.
 pub(super) struct Jevk5MlxModel {
     backbone: MlxQwen35Backbone,
@@ -30,13 +28,14 @@ pub(super) struct Jevk5MlxModel {
 }
 
 impl Jevk5MlxModel {
-    /// Load the digest-verified checkpoint into FP32 MLX arrays.
+    /// Load the digest-verified checkpoint of `profile` into FP32 MLX arrays.
     ///
     /// The embedding layout is read from the safetensors header after the
     /// whole-file digest passed, so the reader can seek rows in place; the
     /// backbone then streams every required decoder tensor through the
     /// survey descriptor. Must run inside [`MlxRuntime::execute`].
     pub(super) fn load(
+        profile: &Qwen35LogitProfile,
         artifacts: &VerifiedArtifacts,
         runtime: &Arc<MlxRuntime>,
     ) -> Result<Self, MlxError> {
@@ -44,10 +43,13 @@ impl Jevk5MlxModel {
             .map_err(|error| MlxError::InvalidState(error.to_string()))?;
         let embedding = Qwen35Embedding::from_layout(artifacts.checkpoint.clone(), layout);
         let survey = MlxSurveyCheckpoint {
+            // The variant names the pinned single-file HF tensor layout this
+            // family's checkpoints share (JevK5 introduced it; Plumb-4B and
+            // later letter-logit profiles reuse the identical layout).
             format: MlxCheckpointFormat::PinnedJevk5,
-            backbone_id: BACKBONE_ID,
-            backbone_revision: BACKBONE_REVISION,
-            tokenizer_digest: TOKENIZER_JSON_SHA256,
+            backbone_id: profile.backbone_id,
+            backbone_revision: profile.backbone_revision,
+            tokenizer_digest: profile.tokenizer_json_sha256,
             shard_path: artifacts.checkpoint.clone(),
             embedding: embedding.clone(),
         };
@@ -55,7 +57,7 @@ impl Jevk5MlxModel {
             &survey,
             runtime.clone(),
             MlxPrecision::Fp32,
-            PROFILE_ID,
+            profile.profile_id,
             RENDERER_ID,
         )?;
         Ok(Self {

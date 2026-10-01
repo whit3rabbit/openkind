@@ -1,7 +1,9 @@
 # OpenKind roadmap history
 
 This is the preserved revision 0.8.6 roadmap as read on 24 September 2026,
-including the working-tree evidence addenda. [ROADMAP.md](ROADMAP.md) supersedes
+including the working-tree evidence addenda. Active repository documentation
+([`ARCHITECTURE.md`](ARCHITECTURE.md), [`RESEARCH.md`](RESEARCH.md), and
+[`whitepaper/WHITEPAPER.md`](whitepaper/WHITEPAPER.md)) supersedes
 its priorities, proposed architectures, and forward-looking task language.
 Completed experiments, failed gates, source identifiers, and historical
 checkboxes below remain evidence of their stated scope. A completed experiment

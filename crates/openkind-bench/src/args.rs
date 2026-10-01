@@ -132,6 +132,126 @@ pub enum Commands {
         #[arg(long)]
         pretty: bool,
     },
+
+    /// Curated evaluation datasets: pinned downloads (never redistributed),
+    /// labeled workload materialization, and accuracy evaluation.
+    Dataset {
+        #[command(subcommand)]
+        action: DatasetCommand,
+    },
+}
+
+/// Subcommands of `openkind-bench dataset`.
+#[derive(Subcommand, Debug)]
+pub enum DatasetCommand {
+    /// List curated datasets and their install state.
+    List {
+        /// Dataset cache root (default: the per-OS openkind data dir).
+        #[arg(long, env = "OPENKIND_DATASETS_DIR")]
+        datasets_dir: Option<PathBuf>,
+    },
+    /// Download and verify a pinned dataset. Explicit and networked.
+    Pull {
+        /// Dataset pull name from the registry.
+        name: String,
+        #[arg(long, env = "OPENKIND_DATASETS_DIR")]
+        datasets_dir: Option<PathBuf>,
+    },
+    /// Remove an installed dataset and its unshared blobs.
+    Rm {
+        name: String,
+        #[arg(long, env = "OPENKIND_DATASETS_DIR")]
+        datasets_dir: Option<PathBuf>,
+    },
+    /// Re-verify every installed file digest.
+    Verify {
+        name: String,
+        #[arg(long, env = "OPENKIND_DATASETS_DIR")]
+        datasets_dir: Option<PathBuf>,
+    },
+    /// Resolve current upstream revisions for a curated dataset, download and
+    /// hash the shards, install, and print the registry entry to commit.
+    Pin {
+        name: String,
+        #[arg(long, env = "OPENKIND_DATASETS_DIR")]
+        datasets_dir: Option<PathBuf>,
+    },
+    /// Materialize a labeled workload JSONL from an installed dataset.
+    Build {
+        name: String,
+        /// Split to materialize; `dev` for prompt work, `eval` to report.
+        #[arg(long, value_enum, default_value_t = SplitArg::Eval)]
+        split: SplitArg,
+        #[arg(long, env = "OPENKIND_DATASETS_DIR")]
+        datasets_dir: Option<PathBuf>,
+        /// Deterministic nested sample (subsets of larger limits).
+        #[arg(long)]
+        limit: Option<usize>,
+        /// Output JSONL path (default: bench-output/dataset-<name>-<split>.jsonl).
+        #[arg(long)]
+        output: Option<PathBuf>,
+    },
+    /// Materialize, score through the normal request path, and report
+    /// accuracy with provenance. Model-quality evidence; no promotion.
+    Eval {
+        name: String,
+        #[arg(long, value_enum, default_value_t = SplitArg::Eval)]
+        split: SplitArg,
+        #[arg(long, env = "OPENKIND_DATASETS_DIR")]
+        datasets_dir: Option<PathBuf>,
+        #[arg(long)]
+        limit: Option<usize>,
+        /// Engine under test.
+        #[arg(long, value_enum, default_value_t = EngineArg::Mock)]
+        engine: EngineArg,
+        /// Output directory for workload, predictions, and report.
+        #[arg(long, default_value = "bench-output")]
+        output_dir: PathBuf,
+        #[arg(long)]
+        host: Option<String>,
+        #[arg(long)]
+        commit: Option<String>,
+        /// Profile bundle root (native engine).
+        #[arg(long)]
+        bundle_root: Option<PathBuf>,
+        /// Pinned Qwen checkpoint root (native engine).
+        #[arg(long)]
+        checkpoint_root: Option<PathBuf>,
+        /// Digest-locked tokenizer JSON (native engine).
+        #[arg(long)]
+        tokenizer: Option<PathBuf>,
+        /// Family model root directory (surveyed-family engines).
+        #[arg(long)]
+        model_root: Option<PathBuf>,
+        /// LoRA adapter path (winnow engine).
+        #[arg(long)]
+        adapter: Option<PathBuf>,
+        /// Tune a Noul decision threshold on the dev split, then apply it
+        /// here (eval split only).
+        #[arg(long)]
+        tune_threshold: bool,
+        /// Print the report as pretty JSON.
+        #[arg(long)]
+        pretty: bool,
+    },
+}
+
+/// Materialization split.
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum SplitArg {
+    /// The reported split.
+    Eval,
+    /// Prompt and threshold work only.
+    Dev,
+}
+
+impl SplitArg {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Eval => "eval",
+            Self::Dev => "dev",
+        }
+    }
 }
 
 /// FP32 arithmetic paths supported by the paired readout experiment.
@@ -177,12 +297,20 @@ pub enum EngineArg {
     Kev,
     /// Pinned decoder-logit-qwen35 engine (JevK5 letter-logit readout).
     DecoderLogitQwen35,
+    /// Pinned plumb-4b engine (Plumb-4B letter-logit readout, single read).
+    #[value(name = "plumb-4b")]
+    Plumb4b,
+    /// Pinned decider-4b engine (slot-logit readout, isolated score levels).
+    #[value(name = "decider-4b")]
+    Decider4b,
     /// Pinned laya-english engine (English ModernBERT-large decision encoder).
     LayaEnglish,
     /// Pinned laya-multilingual engine (mmBERT-base decision encoder).
     LayaMultilingual,
     /// Pinned laya-typed-decisions engine (fine-tuned ModernBERT-large).
     LayaTypedDecisions,
+    /// Pinned von engine (von-1.1 option-marker ModernBERT-large).
+    Von,
     /// Winnow learned router over mock siblings; router-cost only.
     Winnow,
     /// Pinned Qwen3.5 MLX FP32 reference-ops engine; requires `--features mlx`.
@@ -206,6 +334,10 @@ pub enum EngineArg {
     /// Pinned decoder-logit-qwen35 MLX FP32 engine; requires `--features mlx`.
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     DecoderLogitQwen35MlxFp32,
+    /// Pinned plumb-4b MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[value(name = "plumb-4b-mlx-fp32")]
+    Plumb4bMlxFp32,
 }
 
 impl From<EngineArg> for EngineKind {
@@ -222,9 +354,12 @@ impl From<EngineArg> for EngineKind {
             EngineArg::Qwen3Guard => EngineKind::Qwen3Guard,
             EngineArg::Kev => EngineKind::Kev,
             EngineArg::DecoderLogitQwen35 => EngineKind::DecoderLogitQwen35,
+            EngineArg::Plumb4b => EngineKind::Plumb4b,
+            EngineArg::Decider4b => EngineKind::Decider4b,
             EngineArg::LayaEnglish => EngineKind::LayaEnglish,
             EngineArg::LayaMultilingual => EngineKind::LayaMultilingual,
             EngineArg::LayaTypedDecisions => EngineKind::LayaTypedDecisions,
+            EngineArg::Von => EngineKind::Von,
             EngineArg::Winnow => EngineKind::Winnow,
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             EngineArg::Qwen35MlxFp32 => EngineKind::Qwen35MlxFp32,
@@ -240,6 +375,8 @@ impl From<EngineArg> for EngineKind {
             EngineArg::EncoderInstructLabelMlxFp32 => EngineKind::EncoderInstructLabelMlxFp32,
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             EngineArg::DecoderLogitQwen35MlxFp32 => EngineKind::DecoderLogitQwen35MlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::Plumb4bMlxFp32 => EngineKind::Plumb4bMlxFp32,
         }
     }
 }

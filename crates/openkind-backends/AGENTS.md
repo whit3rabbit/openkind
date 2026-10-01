@@ -69,150 +69,45 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
 
 ## Key Modules & Files
 
-- [`src/branch/mod.rs`](./src/branch/mod.rs):
-  - Compatibility re-export of the runtime-owned branch-state contract ([`openkind_runtime::branch`](../openkind-runtime/src/branch/mod.rs)).
-- [`src/qwen35/mod.rs`](./src/qwen35/mod.rs): Root facade for the pinned Qwen 3.5 reference engine.
-- [`src/qwen35/profile.rs`](./src/qwen35/profile.rs):
-  - Validates profile `a047d6802c3f06f085b8`, bundle SHA-256, safetensors manifests, and numerical tolerances.
-- [`src/qwen35/engine/`](./src/qwen35/engine/): Direct Jev wire adapter for the native reference engine:
-  - [`mod.rs`](./src/qwen35/engine/mod.rs): `Qwen35DecisionEngine` (implements `openkind_engine::DecisionEngine`), `Qwen35EngineConfig`, semaphore admission, off-thread blocking spawn, and `SEMANTIC_NONE_OPTION = "__none__"`.
-  - [`backbone.rs`](./src/qwen35/engine/backbone.rs): Execution-backend selection. `Qwen35Backend` (`NativeCpu`, plus `MlxFp32`/`MlxBf16` behind `mlx`) picks the backbone behind the same backend-neutral executor contract; MLX loads re-derive scheduler state-size constants from the loaded model (BF16 states are half the FP32 bytes). Only FP32 `ReferenceOps` with an explicitly forced `NestedBatched` plan advertises the implemented 2–8-lane vectorized forward. The unequal-length frozen batch fixture passes, but automatic scheduling and unsupported shapes remain per-lane until matched performance evidence supports broader capability. BF16 loads run the runtime preflight; pinned-base full and nested probability gates fail at the unchanged tolerance.
-  - [`canonical.rs`](./src/qwen35/engine/canonical.rs): Structured wire state canonicalization (`state_text`) with byte-lexicographically sorted object keys at every nesting level.
-  - [`eval.rs`](./src/qwen35/engine/eval.rs): Model evaluation pipeline (`evaluate_request`), scheduler decision logging, and engine error mapping.
-  - [`mapping.rs`](./src/qwen35/engine/mapping.rs): Question criteria extraction, entropy-based confidence calculation, and distribution answer mapping.
-- [`src/qwen35/head/`](./src/qwen35/head/): Score-summary rejection readout:
-  - [`types.rs`](./src/qwen35/head/types.rs): `PrimitiveKind`, `PolicyAction`, `HeadEvaluation`, and feature-width/profile constants.
-  - [`tensors.rs`](./src/qwen35/head/tensors.rs): Safetensors extraction and f64 conversion.
-  - [`math.rs`](./src/qwen35/head/math.rs): Numerically stable vector algebra, normalization, and stable softmax.
-  - [`evaluation.rs`](./src/qwen35/head/evaluation.rs): Projection, rejection, temperature calibration, and distribution evaluation.
-- [`src/qwen35/tokenizer.rs`](./src/qwen35/tokenizer.rs):
-  - `Qwen35Tokenizer`: Digest-locked offline tokenizer loading.
-  - `encode_state_first()`: Segmented encoding producing shared root IDs, question IDs, and candidate suffix IDs.
-  - `encode_state_first_catalogue()`: Experimental catalogue variant that inserts an all-option block into the question branch only; the shared root and candidate continuations stay byte-identical to the frozen renderer.
-- [`src/qwen35/experimental.rs`](./src/qwen35/experimental.rs): Offline joint-option
-  scoring probe, never registered by the daemon. `Qwen35ScoringProbe` serves the
-  frozen independent control, the `catalogue_state_first/v1` catalogue arm (fitted
-  head + frozen temperature over catalogue prompts), and the
-  `joint_option_letter/v1` joint arms (forward, reversal, text-rotation with fixed
-  codes, code-rotation at fixed positions, plus raw `joint_logits` for post-hoc
-  calibration). Ensembles and probability averaging preserve semantic-none mass.
-  Methodology, commands, and recorded evidence live in
-  [`docs/BENCHMARKS.md`](../../docs/BENCHMARKS.md) and
-  [`docs/benchmarks/`](../../docs/benchmarks/).
-- [`src/qwen35/backbone/`](./src/qwen35/backbone/):
-  - [`embedding.rs`](./src/qwen35/backbone/embedding.rs) & [`embedding/layout.rs`](./src/qwen35/backbone/embedding/layout.rs): Checkpoint embedding lookup, index validation, and BF16-to-FP32 widening.
-  - [`layer0.rs`](./src/qwen35/backbone/layer0.rs), [`layer0/linear_attention.rs`](./src/qwen35/backbone/layer0/linear_attention.rs), [`layer0/full_attention.rs`](./src/qwen35/backbone/layer0/full_attention.rs): 24 DeltaNet recurrent layers, 8 grouped-query attention layers, and final RMSNorm in FP32.
-  - [`branch.rs`](./src/qwen35/backbone/branch.rs): `BranchableState` and `BranchBatch` implementations for `BackboneState` and `Qwen35BranchBatch`.
-  - [`persistence.rs`](./src/qwen35/backbone/persistence.rs): Atomic versioned pinned-state snapshot, envelope digest, identity/layout validation, and strict restored-content gate.
-  - [`nested.rs`](./src/qwen35/backbone/nested.rs): Sequential nested execution (`run_sequential_nested`, `SequentialNestedExecutor`).
-  - [`batched.rs`](./src/qwen35/backbone/batched.rs) & [`batched/types.rs`](./src/qwen35/backbone/batched/types.rs): Breadth-first batched question/candidate execution (`run_batched_questions`, `run_batched_candidates`, `run_batched_nested`).
-  - [`strategy.rs`](./src/qwen35/backbone/strategy.rs) & [`strategy/policy.rs`](./src/qwen35/backbone/strategy/policy.rs): Strategy dispatcher (`run_strategy`, `choose_strategy`, `SchedulerConfig`). `SchedulerConfig::forced_strategy` overrides the plan for diagnostics — bypassing the savings-ratio and vectorized-preference policy only; tensor/process admission still fails closed. Every `StrategyDecision` carries the selected plan, its physical `BatchForwardMode`, and a `forced` flag.
-  - [`reference.rs`](./src/qwen35/backbone/reference.rs): Golden vector validation for diagnostic stages.
-  - [`identity.rs`](./src/qwen35/identity.rs): `ExecutionIdentity` — profile/renderer/tokenizer/arithmetic identity plus the role-typed token digests of one finalized request (order-sensitive `execution_input_digest` is the reproducibility identity; `semantic_set_digest` is order-independent).
-  - [`evidence.rs`](./src/qwen35/evidence.rs): Maps the pinned profile, scheduler config, and one decision onto the backend-neutral `openkind-native-run/v1` records from `openkind-runtime::evidence`.
-  - [`engine/canonical.rs` state canonicalization](./src/qwen35/engine/canonical.rs): Structured wire state (`State::Object`/`State::Array`) renders through an explicit canonical serializer with byte-lexicographically sorted object keys at every nesting level; key construction order and the JSON map implementation cannot alter the model input. This is the `state_first` renderer's ordering semantics — no renderer-ID bump.
-- [`src/qwen35/mlx/`](./src/qwen35/mlx/): Optional MLX/Metal parity backend (`--features mlx`):
-  - [`runtime.rs`](./src/qwen35/mlx/runtime.rs): Process-wide serialized explicit-stream execution, memory telemetry, and toolchain qualification.
-  - [`weights/`](./src/qwen35/mlx/weights/): Safetensors checkpoint loader with format detection and key normalization:
-    - [`mod.rs`](./src/qwen35/mlx/weights/mod.rs): `MlxWeightStore` and `MlxWeightLoadReport` streaming loader.
-    - [`checkpoint.rs`](./src/qwen35/mlx/weights/checkpoint.rs): `MlxCheckpointFormat` detection, size/hash verification, namespace mapping, and the `MlxSurveyCheckpoint` descriptor that lets a surveyed family reuse the backbone with its own digest-verified artifacts (selected explicitly; never sniffed).
-    - [`shard.rs`](./src/qwen35/mlx/weights/shard.rs): Safetensors shard directory parsing and host widening (`widen_bf16`, `read_f32`, `shape_i32`).
-  - [`model.rs`](./src/qwen35/mlx/model.rs): `MlxQwen35Backbone` and continuation state container. `load` binds the pinned profile identity; `load_survey` binds a survey family's profile/renderer identity over a caller-verified `MlxSurveyCheckpoint`.
-  - [`branch_state.rs`](./src/qwen35/mlx/branch_state.rs): `BranchableState` and `BranchBatch` implementation for MLX.
-  - [`layers/`](./src/qwen35/mlx/layers/): Decoder blocks decomposed into modular components:
-    - [`mod.rs`](./src/qwen35/mlx/layers/mod.rs): Block lifecycle (`MlxDecoderLayer`), continuation states (`MlxLinearState`, `MlxFullState`, `MlxLayerState`), and mixer dispatch.
-    - [`linear_attention.rs`](./src/qwen35/mlx/layers/linear_attention.rs): Linear attention forward pass and vectorized per-token `gated_delta_step`.
-    - [`gated_delta_kernel.rs`](./src/qwen35/mlx/layers/gated_delta_kernel.rs): Generic masked/vector-gate and packed FP32 `Dk = Dv = 128` custom Metal reduction-tree kernels.
-    - [`full_attention.rs`](./src/qwen35/mlx/layers/full_attention.rs): Grouped-query attention, rotary embedding (`apply_rotary`), and per-head normalization.
-    - [`ops.rs`](./src/qwen35/mlx/layers/ops.rs): MLX array operations, causal conv windowing, and tensor loading helpers.
-    - [`differential_tests/`](./src/qwen35/mlx/layers/differential_tests/): Independent FP32 host reference and differential verification tests.
-- [`src/proxy_cache/`](./src/proxy_cache/): Distilling proxy-cache subsystem (used by the daemon's `--proxy-cache-upstream` mode; see [`docs/PROXY_CACHE.md`](../../docs/PROXY_CACHE.md)):
-  - [`task.rs`](./src/proxy_cache/task.rs): task identity (order-insensitive fingerprint over canonical instructions+criteria), config knobs, routing reasons, and IID channel rules.
-  - [`encoder.rs`](./src/proxy_cache/encoder.rs): the `TextEmbedder` contract and the dependency-free hash embedder; [`bert_encoder.rs`](./src/proxy_cache/bert_encoder.rs) (candle CPU, pinned `encoder-embedding:8d9498269ef05d95d93c`) and [`mlx_bert_encoder.rs`](./src/proxy_cache/mlx_bert_encoder.rs) (feature `mlx`) implement the same L2-normalized CLS-pooling contract.
-  - [`student.rs`](./src/proxy_cache/student.rs): multinomial logistic student, full-batch Adam with early stopping, safetensors round-trip.
-  - [`ood.rs`](./src/proxy_cache/ood.rs): kNN cosine gate with a leave-one-out threshold from training data only.
-  - [`calibrate.rs`](./src/proxy_cache/calibrate.rs): fixed threshold grid, Clopper-Pearson bound over all calibration rows, fixed-sequence scan.
-  - [`store.rs`](./src/proxy_cache/store.rs) / [`registry.rs`](./src/proxy_cache/registry.rs): per-task SQLite sample store and immutable `student-vN` version directories.
-  - [`engine/`](./src/proxy_cache/engine/): route/record/train/shadow/promote/monitor lifecycle with audit drift monitoring and teacher lineage; [`manager.rs`](./src/proxy_cache/manager.rs): task registry, admission, and the background training worker.
-- [`src/families/`](./src/families/): Surveyed-family model loaders, readouts, and engine adapters:
-  - [`mod.rs`](./src/families/mod.rs): Facade re-exporting `BoundedFamilyEngine`, `FamilyLimits`, `FamilyControl`, `FamilyEvaluator`, and wire answer unpacking.
-  - [`decoder_logit_letter/`](./src/families/decoder_logit_letter/): Qwen2.5-0.5B-Instruct letter readout (`5492c97dfcdaf3fe9439`). Evaluates single-token option letters over prompt-formatted choices.
-  - [`decoder_logit_qwen35/`](./src/families/decoder_logit_qwen35/): JevK5 letter-logit readout (`415bcf4a064e6dadcf85`) over alibiserikbay/JevK5 (merged Qwen3.5-4B weights; SemIf letter protocol with knockout combination). Executes through the shared native backbone via [`qwen35/backbone/text.rs`](./src/qwen35/backbone/text.rs); `mlx/` runs the same artifacts through the MLX Qwen3.5 backbone behind the `Jevk5PassSource` seam shared with the CPU engine.
-  - [`decoder_logit_llm/`](./src/families/decoder_logit_llm/): GGUF q8_0 letter readout (`465963d705b6f35d6208`). Offline GGUF checkpoint evaluation for letter-choice prompts.
-  - [`encoder_instruct_label/`](./src/families/encoder_instruct_label/): GLiClass label-marker readout (`9fd68313a5606eca42f2`) on a hand-implemented ModernBERT encoder (knowledgator/gliclass-modern-base-v3.0); `mlx/` runs the identical FP32 shard on Metal over the shared ModernBERT body.
-  - [`encoder_nli/`](./src/families/encoder_nli/): DistilBERT MNLI entailment readout (`1041a4c362338a61b820`). Maps premise-hypothesis entailment vs contradiction logits to decision distributions.
-  - [`kev/`](./src/families/kev/): Kev-0.6B pointer readout (`39d88c11faeb4ac165fa`) over jaredpalmer/kev-0.6b (Qwen3-0.6B-Base plus adapter).
-  - [`laya/`](./src/families/laya/): Laya decision-encoder readout hosting three pinned profiles — `laya-english` (`c8ea29bf1e33a343c4b7`) and `laya-typed-decisions` (`9d28cfa9567902801ed1`) on ModernBERT-large, `laya-multilingual` (`f4064eb56fb7f7d325e1`) on mmBERT-base (convaiinnovations, Apache-2.0). One forward pass scores every `[MASK]`-marked option span through the shared typed-decision head; decode applies the checkpoint's shipped per-type and per-option-count temperature tables under the reference `[0.5, 5.0]` clamp. `mlx/` runs the same pinned shards on Metal over the shared ModernBERT body.
-  - [`schema_scorer/`](./src/families/schema_scorer/): MS MARCO cross-encoder scalar readout (`5a7350af556f0ee66566`). Evaluates query-passage relevance scores through sigmoid calibration.
-  - [`router_script/`](./src/families/router_script/): Composite routing engine dispatching across sibling engines by Unicode script or rule table (`ScriptRuleTable`).
-  - [`qwen3guard/`](./src/families/qwen3guard/): Guardrail safety classification profile and evaluation (Qwen3Guard-Stream token-level head, `0fcf416cab16d94f933d`).
-  - [`winnow/`](./src/families/winnow/): Learned script router (`4dff8c5b03cfbf680db6`); Qwen2.5-0.5B-Instruct with a rank-8 LoRA adapter dispatching across two sibling engines.
-  - [`support.rs`](./src/families/support.rs), [`wire.rs`](./src/families/wire.rs), [`calibration.rs`](./src/families/calibration.rs), [`letter_renderer.rs`](./src/families/letter_renderer.rs), [`modernbert.rs`](./src/families/modernbert.rs): Reusable scaffolding: admission bounds, temperature scaling, prompt generation, wire answer conversions, and the config-driven ModernBERT encoder shared by `encoder_instruct_label` and `laya`. [`mlx_modernbert.rs`](./src/families/mlx_modernbert.rs) (feature `mlx`) is its MLX counterpart: one ModernBERT array path (F16 or F32 shards via `PinnedDtype`) behind every ModernBERT-shaped family head, so the numerical path cannot drift between encoder families.
-- Multi-file examples:
-  - [`examples/qwen35_mlx_qualify/`](./examples/qwen35_mlx_qualify/): Phase 3M.0 runtime qualification suite (`main.rs`, `gate.rs`, `fp32.rs`, `bf16.rs`, `helpers.rs`).
-  - [`examples/qwen35_mlx_full_parity/`](./examples/qwen35_mlx_full_parity/): Phase 3M.2–3M.4 full-sequence parity gate (`main.rs`, `full.rs`, `trace.rs`, `fixtures.rs`).
-  - [`examples/qwen35_mlx_nested_parity/`](./examples/qwen35_mlx_nested_parity/): Phase 3M.4 sequential nested continuation parity gate (`main.rs`, `stage.rs`, `fixtures.rs`).
+- [`src/branch/mod.rs`](./src/branch/mod.rs): Re-exports the branch-state contract owned by [`openkind-runtime`](../openkind-runtime/src/branch/mod.rs).
+- [`src/qwen35/`](./src/qwen35/): Native Qwen engine, tokenizer, continuation state, schedulers, and score readout.
+- [`src/qwen35/engine/`](./src/qwen35/engine/): Wire adapter, backend selection, request evaluation, identity, and answer mapping.
+- [`src/qwen35/backbone/`](./src/qwen35/backbone/): Hybrid model execution, branch state, persistence, and execution strategies.
+- [`src/qwen35/head/`](./src/qwen35/head/): Deterministic score-summary projection, rejection, and calibration.
+- [`src/qwen35/experimental.rs`](./src/qwen35/experimental.rs): Offline scoring probes. The daemon does not register them. See benchmark docs for methodology.
+- [`src/qwen35/mlx/`](./src/qwen35/mlx/): Optional MLX backend. Checkpoint layouts, arithmetic paths, and kernel notes are in [MLX backend internals](../../.claude/docs/mlx-backend-internals.md).
+- [`src/families/`](./src/families/): Surveyed-family adapters and shared readouts. The family registry owns profile names and status.
+- [`src/proxy_cache/`](./src/proxy_cache/): Distilling cache and training lifecycle. See [`docs/PROXY_CACHE.md`](../../docs/PROXY_CACHE.md).
+- [`examples/`](./examples/): Offline parity and MLX qualification programs. See [`docs/MLX.md`](../../docs/MLX.md).
 
 ## Critical Gotchas & Rules
 
 1. **DeltaNet + Conv + KV State Isolation**:
-   In Qwen 3.5, causal attention masking alone does NOT prevent crosstalk between questions in a batch. Recurrent DeltaNet state and 1D convolution state carry historical activations forward. Forking a branch requires deep-copying all three state tensor groups.
-2. **Explicit Semantic None (`SEMANTIC_NONE_OPTION`)**:
-   In native Choice questions, semantic-none mass is explicitly managed via `__none__`. The adapter requires this criteria key with a non-empty description, removes it from candidate texts sent to the model backbone, and restores the calibrated rejection mass to the response probabilities map.
-3. **Entropy-Based Confidence Calculation**:
-   The engine computes confidence using normalized distribution entropy ($1.0 - H / \ln(N)$), clamped to $[0.0, 1.0]$. It is NOT simply the maximum/top probability.
+   Causal attention does not prevent Qwen 3.5 branch crosstalk. Deep-copy attention KV, DeltaNet recurrent state, and convolution state.
+2. **Explicit Semantic None**:
+   Native Choice requires a non-empty `__none__` criterion. Remove it from candidate text, then restore calibrated rejection mass in the probability map.
+3. **Entropy-Based Confidence**:
+   Confidence uses normalized entropy, `1 - H / ln(N)`, clamped to `[0,1]`. It is not the top probability.
 4. **Offline Parity Tests**:
-   Offline tests replay golden feature fixtures and pinned embedding rows. Any modification to backbone math, layer logic, or head evaluation must pass the parity test suites without network access.
+   Keep parity tests offline. Changes to backbone math, layer logic, or head evaluation must pass the golden-fixture suites.
 5. **Batching Claims**:
-   `fork_batch` proves state isolation and lane topology. The current CPU executor still advances each lane separately. Do not claim compute batching unless `BackendCapabilities` advertises vectorized question and candidate forward.
+   `fork_batch` proves state isolation and lane topology, not compute batching. Claim vectorization only when `BackendCapabilities` advertises it.
 6. **Memory Names**:
-   `tensor_storage_bytes()` excludes metadata, allocator overhead, mapped weights, Candle objects, and forward scratch. Admission must use a process-memory envelope for those costs.
+   `tensor_storage_bytes()` excludes metadata, allocator overhead, mapped weights, Candle objects, and scratch. Admission must also use process-memory limits.
 7. **Cancellation Holds Admission**:
-   Queue and execution permits are owned by the blocking native task. A cancelled caller must not release them early; the CPU executor observes cancellation and queue-inclusive deadlines between decoder layers, then releases both permits when it exits. Executors with a non-interruptible forward check before and after that forward, so cancellation latency is bounded by the active backend operation rather than a CPU layer. Metrics may record fixed outcome labels and durations only, never request IDs, input content, token IDs, fingerprints, or digests. The named CPU service evidence is in [`docs/verification/native-service-gate/2026-09-22/`](../../docs/verification/native-service-gate/2026-09-22/README.md) and does not qualify MLX cancellation timing.
+   Queue and execution permits stay with the blocking model task until it exits. CPU checks cancellation between layers; non-interruptible backends check around each call. Metrics include only fixed labels and durations.
 8. **Persisted State Is Pinned**:
-   Persist and restore only the selected execution identity and exact Qwen layer layout. Restored states receive fresh process-local lineage and must reproduce the stored `ContentFingerprint`; `SchedulingFingerprint` is never serialized as content evidence.
-   The checkpoint-gated `qwen35_parity_probe persist-replay` compares every restored candidate feature and full head decision against independent full-sequence forwards. The named-host CPU result is recorded in [`docs/verification/phase3.10-2026-09-22/`](../../docs/verification/phase3.10-2026-09-22/README.md).
-9. **MLX Backend (`--features mlx`, macOS arm64)**:
-   The MLX parity backend in `src/qwen35/mlx/` is optional. Rules: build with
-   `SDKROOT=$(xcrun --show-sdk-path)` (bindgen needs the macOS SDK); all MLX
-   work goes through `MlxRuntime::execute`, which holds one process-wide lock
-   and installs the same explicit cross-thread GPU stream for every operation;
-   evaluation outside that scope is unsound. MLX `conv1d` is true
-   convolution (kernel reversed, weight `(C_out, K, C_in/groups)`) — the
-   recurrent path implements the causal conv explicitly instead; the
-   pinned checkpoint stores `A_log` and `linear_attn.norm.weight` in FP32 and
-   the rest in BF16 (the loader handles both). The verified
-   `mlx-community/Qwen3.5-4B-MLX-bf16` adapter additionally handles its
-   `language_model.model.*` and `vision_tower.*` prefixes, `__metadata__`
-   safetensors header, `[C, K, 1]` convolution layout, and BF16
-   `linear_attn.norm.weight`; layernorm weights fold `(1 + w)` at load but
-   DeltaNet `norm.weight` stays raw; MLX `Array` clone is a
-   refcounted handle copy and arrays are immutable values, so branch
-   isolation is structural (verified by strict fingerprints); arithmetic
-   identities include precision and kernel family
-   (`mlx-core-0.32.2/fp32/reference-ops`), so MLX states never mix with
-   Candle states. The generic masked/vector-gate and packed FP32 reduction-tree
-   kernels are opt-in candidates; `ReferenceOps` remains the default because
-   the packed sequence candidate passed FP32 parity but was 14–28% slower on
-   the smoke sweep. Native BF16 falls back to `ReferenceOps` because its fused
-   candidate failed the frozen model gate. A different Xcode/Metal toolchain is a different runtime —
-   re-run `qwen35_mlx_qualify` (3M.0) before trusting any MLX gate after a
-   toolchain change; bf16 is a separately gated candidate profile and must
-   never be treated as a default-equivalent of the FP32 oracle. The
-   `MlxRuntime::execute` lock is NOT reentrant: never wrap a call that takes
-   the lock internally (backbone prefill, weight-store loads) in an outer
-   `execute` — the failure is a silent 0%-CPU deadlock. Surveyed-family MLX
-   backends (`families/laya/mlx/`, `families/encoder_instruct_label/mlx/`,
-   `families/decoder_logit_qwen35/mlx/`) follow the same discipline with the
-   candle CPU path as oracle and golden-fixture replay gates (frozen 0.005
-   probability tolerance, zero selection flips) in each family's parity test
-   module `mlx_replay`.
-10. **Confine Execution Identity Digests to Offline Evidence**:
-    Do not emit raw token digests (`execution_input_digest`, `state_token_digest`, `semantic_set_digest`) in daemon telemetry or debug tracing during runtime evaluation. Raw digests of low-entropy inputs can be guessed offline. Reserve them strictly for explicit offline evidence generation.
-11. **Complete Candidate Retention in Memory Estimation**:
-    When calculating retention in the execution strategy scheduler, account for all candidate states retained by the chosen strategy. In particular, `repeated_full` retains all candidate states across all questions in its `StrategyOutput`. Always use saturating arithmetic when computing total retained bytes to avoid overflow.
-12. **In-Place Checkpoint Verification**:
-    Safetensors shards must be verified in-place on their read-only filesystem paths. Never copy or stage multi-gigabyte model weights to `/tmp` or ephemeral directories during model loading or inference.
+   Restore only the selected execution identity and exact Qwen layout. Restored states need fresh lineage and must reproduce `ContentFingerprint`; never serialize `SchedulingFingerprint` as content evidence.
+9. **MLX Execution Discipline**:
+   MLX requires macOS arm64 and the `mlx` feature. Set `SDKROOT=$(xcrun --show-sdk-path)`. `MlxRuntime::execute` holds a non-reentrant process lock. Never call it around code that takes the lock. Requalify after toolchain changes.
+10. **MLX Identity and Gates**:
+    MLX identity includes precision and kernel family. Never mix MLX and Candle states. BF16 is a separate candidate, not an FP32 equivalent. Use the [benchmark guide](../openkind-bench/AGENTS.md) for comparison rules.
+11. **Confine Execution Digests to Offline Evidence**:
+    Emit role-typed token digests only in explicitly requested offline evidence. Never log request-derived digests because low-entropy inputs can be guessed.
+12. **Complete Candidate Retention in Memory Estimates**:
+    Admission estimates must include every state retained by the selected strategy. For `repeated_full`, sum candidates across questions with saturating arithmetic.
+13. **Canonical State Keys**:
+    Structured state object keys serialize in byte-lexicographic order at every nesting level. Construction order must not change model input. This is `state_first` semantics, not a renderer change.
 
 ## Verification Commands
 
@@ -248,33 +143,6 @@ cargo run -p openkind-backends --features mlx --release \
 
 ### MLX benchmark dispatch
 
-For warm request throughput, use the benchmark harness rather than the parity
-examples. The harness dispatches `qwen35-mlx-fp32` through the same
-`Qwen35DecisionEngine` path as the CPU backend:
-
-```bash
-SDKROOT=$(xcrun --show-sdk-path) cargo run --release \
-  -p openkind-bench --features mlx -- score <workload.jsonl> \
-  --engine qwen35-mlx-fp32 \
-  --bundle-root <profile-bundle-dir> \
-  --checkpoint-root <pinned-checkpoint-dir> \
-  --tokenizer <digest-locked-tokenizer.json> \
-  --strategies repeated_full,nested_sequential,nested_batched,choose_strategy \
-  --reps 1 --host "<host label>" --commit <hash> \
-  --output-dir <benchmark-output-dir>
-```
-
-Surveyed-family MLX engines dispatch through `--engine laya-english-mlx-fp32`
-(and the other laya profiles), `--engine encoder-instruct-label-mlx-fp32`, and
-`--engine decoder-logit-qwen35-mlx-fp32`, each with `--model-root <pinned
-artifact dir>` and no strategy sweep.
-
-The pinned comparison model is `Qwen/Qwen3.5-4B-Base` at revision
-`1001bb4d826a52d1f399e183466143f4da7b741b`. The MLX backend is built with the
-vendored MLX 0.32.2 toolchain. Keep BF16 benchmark comparisons on
-`--strategies repeated_full` until Gate B passes; nested continuation now
-completes its state checks but exceeds the frozen probability tolerance. The
-community `mlx-community/Qwen3.5-4B-MLX-bf16` artifact is a
-separate model/conversion and is throughput evidence only. See
-[`docs/BENCHMARKS.md`](../../docs/BENCHMARKS.md) for recorded timings,
-speedups, and parity boundaries.
+Use the canonical warm-throughput command and comparison rules in
+[`openkind-bench/AGENTS.md`](../openkind-bench/AGENTS.md) and
+[`docs/BENCHMARKS.md`](../../docs/BENCHMARKS.md). Parity commands remain above.

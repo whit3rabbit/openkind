@@ -72,10 +72,7 @@
 4. **Permissive Instructions**:
    `Instructions` is not just a plain string; it accepts raw strings, JSON objects, or arrays. Serializers and renderers must handle this polymorphism without panicking.
 5. **Request-Bound Response Checks**:
-   `ChoiceAnswer.choice` is a string, so the wire type alone does not enforce the offered option set. Use
-   `validate_response_for_request` when the request is available. It checks question coverage and answer types,
-   then applies the existing numeric and distribution rules. `ResponseContract` retains those expectations when
-   an engine takes ownership of the request. The older `validate_response` lacks question types.
+   Use `validate_response_for_request` when the request is available. It checks question coverage, answer types, offered choices, and numeric distributions. `ResponseContract` retains these expectations after an engine takes ownership. `validate_response` lacks question types.
 
 ## Verification Commands
 

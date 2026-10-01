@@ -8,11 +8,11 @@ verification milestones. Pull progress stays on stderr. `openkind list`,
 `show NAME`, and `rm NAME` operate on local installations without a daemon or
 network request. Read commands accept `--json` for scripts.
 
-Fourteen profiles are catalog-installable: the native Qwen3.5 state-first
+Sixteen profiles are catalog-installable: the native Qwen3.5 state-first
 profile, the three laya decision encoders, and the surveyed-family
 prototypes (`decoder-logit-letter`, `encoder-nli`, `encoder-instruct-label`,
 `decoder-logit-llm`, `schema-scorer`, `qwen3guard`, `kev`,
-`decoder-logit-qwen35`, `winnow`), plus the proxy-cache `encoder-embedding`
+`decoder-logit-qwen35`, `plumb-4b`, `von`, `winnow`), plus the proxy-cache `encoder-embedding`
 sentence encoder. Every manifest pins each artifact's
 source revision, byte size, and SHA-256; `rust-loadable` status describes
 implementation and parity coverage, not reviewed task quality or release
@@ -21,9 +21,21 @@ converted `head.safetensors` and the in-house winnow LoRA adapter — are
 pinned as `github` assets in the public mirror at the commit recorded in
 their manifests.
 
+Pull names follow the `loader-id:profile-digest` schema. A catalog entry may
+also declare `name:tag` aliases — the schema the
+[ollaya decision-model registry](https://github.com/ollaya-dev/ollaya) uses —
+so names transfer between users of both tools. An alias resolves to the
+canonical pull name at pull time; installations stay keyed by the canonical
+name, and `list`, `show`, `rm`, and `--installed-models` accept canonical
+names only. Aliases are added only where the checkpoint identity matches,
+never for `latest` or precision tags; [`MODELS.md`](MODELS.md) owns the alias
+table and the full ollaya coverage matrix, both pinned by
+[`models_doc.rs`](../crates/openkind-model-store/tests/models_doc.rs).
+
 ```bash
 openkind catalog
 openkind pull qwen35-state-first:a047d6802c3f06f085b8
+openkind pull laya:en
 openkind list
 openkind show qwen35-state-first:a047d6802c3f06f085b8
 openkind serve --installed-models qwen35-state-first:a047d6802c3f06f085b8
@@ -80,6 +92,8 @@ registry model is only as fast as the loaders in this repository.
 | `qwen3guard:0fcf416cab16d94f933d` | Candle CPU fp32 (`--engine qwen3-guard`; daemon `--qwen3guard-aliases` / `--qwen3guard-model-root`) | CPU fp32 — no MLX path | [summary](benchmarks/2026-09-26-surveyed-families/summary-qwen3guard.json) |
 | `kev:39d88c11faeb4ac165fa` | Candle CPU fp32 (`--engine kev`; daemon `--kev-aliases` / `--kev-model-root` / `--kev-base-root`) | CPU fp32 — no MLX path | [summary](benchmarks/2026-09-26-surveyed-families/summary-kev.json) |
 | `decoder-logit-qwen35:415bcf4a064e6dadcf85` | Candle CPU fp32 over BF16 checkpoint (`--engine decoder-logit-qwen35`; daemon `--decoder-logit-qwen35-aliases` / `--decoder-logit-qwen35-model-root` / `--decoder-logit-qwen35-backend mlx-fp32`), MLX FP32 over the same BF16 checkpoint widened on load (`--engine decoder-logit-qwen35-mlx-fp32`, `--features mlx`) | `decoder-logit-qwen35-mlx-fp32` — golden-fixture parity gates through the Qwen3.5 MLX backbone (max probability drift 1.003e-6, zero selection flips) | [BENCHMARKS.md](BENCHMARKS.md) records, the [2026-09-29 mlx counterparts campaign](benchmarks/2026-09-29-mlx-counterparts/README.md), and the CPU [summary](benchmarks/2026-09-27-decoder-logit-qwen35/summary-decoder-logit-qwen35.json) |
+| `plumb-4b:c1f080794d38e94a0bc2` | Candle CPU fp32 over BF16 checkpoint (`--engine plumb-4b`; daemon `--plumb-4b-aliases` / `--plumb-4b-model-root`), MLX FP32 (`--engine plumb-4b-mlx-fp32`, `--features mlx`) | pending measured runs | measured run pending |
+| `von:69219703407bd39cca0c` | Candle CPU fp32 over the author's `option_marker.pt` pickle (`--engine von`; daemon `--von-aliases` / `--von-model-root`) | CPU fp32 — no MLX path | [summary](benchmarks/2026-09-30-von/summary-von.json) |
 | `winnow:4dff8c5b03cfbf680db6` | Candle CPU fp32 router over registered siblings (daemon `--winnow-aliases` / `--winnow-model-root` / `--winnow-adapter`) | CPU fp32 — no MLX path; installed winnow binds label `A` to the installed `decoder-logit-letter` profile and label `B` to `encoder-nli` (falling back to the `--models` aliases) | [summary](benchmarks/2026-09-26-surveyed-families/summary-winnow.json) |
 | `encoder-embedding:8d9498269ef05d95d93c` | Candle CPU fp32 and MLX FP32 (`--proxy-cache-encoder-backend mlx-fp32`, macOS arm64); embedding only, not a `DecisionEngine` | MLX FP32 measured 5.4x CPU throughput in one M4 Max component run; CPU remains the numerical oracle | [encoder parity and component benchmark](benchmarks/2026-09-30-encoder-embedding/README.md) |
 
@@ -133,7 +147,9 @@ Keep prior asset commits available so existing manifests remain reproducible.
 
 ## Family expansion
 
-The [roadmap](ROADMAP.md) owns M0–M4 and the evidence required for task support.
+The research evidence and qualification gates (M0–M4) documented in
+[`RESEARCH.md`](RESEARCH.md) and [`whitepaper/WHITEPAPER.md`](whitepaper/WHITEPAPER.md)
+govern task support.
 After those gates, qualify one profile at a time: encoder NLI, GLiClass-style
 label scoring, Laya-style decision encoders, then decoder-logit profiles where
 the supported workload calls for them. Each needs its own checkpoint and

@@ -1,4 +1,4 @@
-//! `DecisionEngine` adapter for the pinned `decoder-logit-qwen35` profile.
+//! `DecisionEngine` adapter for the pinned `decoder-logit-qwen35` profiles.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -14,16 +14,16 @@ use super::knockout::{combine, PassReader};
 use super::model::{Jevk5Model, VerifiedArtifacts};
 use super::renderer::{RenderedPass, NOUL_DEFAULT_DESCRIPTIONS};
 use super::{
-    DecoderLogitQwen35EngineConfig, DecoderLogitQwen35Error, CALIBRATION_TEMPERATURE,
-    KNOCKOUT_TEMPERATURE,
+    DecoderLogitQwen35EngineConfig, DecoderLogitQwen35Error, QuestionKind, Qwen35LogitProfile,
 };
 
-/// Loaded pinned JevK5 engine.
+/// Loaded pinned engine for one profile of the family.
 pub struct DecoderLogitQwen35Engine {
     inner: Arc<Inner>,
 }
 
 struct Inner {
+    profile: &'static Qwen35LogitProfile,
     renderer: super::renderer::Jevk5Renderer,
     model: Jevk5Model,
 }
@@ -43,6 +43,12 @@ impl Jevk5PassSource for Inner {
     }
 }
 
+impl ProfiledPassSource for Inner {
+    fn profile(&self) -> &'static Qwen35LogitProfile {
+        self.profile
+    }
+}
+
 /// Per-pass forward source shared by every execution backend: rendering,
 /// calibration, and the knockout schedule are family code, while only the
 /// letter-logit forward differs per backend.
@@ -58,11 +64,21 @@ pub(crate) trait Jevk5PassSource {
     ) -> Result<Vec<f64>, FamilyError>;
 }
 
+/// A pass source that serves one pinned profile of this family. Execution
+/// backends carry the profile alongside the renderer so the shared
+/// evaluation path applies the profile's calibration and pass schedule.
+pub(crate) trait ProfiledPassSource: Jevk5PassSource {
+    /// The pinned profile this source serves.
+    fn profile(&self) -> &'static Qwen35LogitProfile;
+}
+
 /// One calibrated read of at most 16 options: render, forward, temperature
 /// softmax over the letter logits. Rendered prompt tokens accumulate into
 /// `token_count` so usage covers every knockout pass.
 struct PassRead<'a> {
     source: &'a dyn Jevk5PassSource,
+    profile: &'static Qwen35LogitProfile,
+    kind: QuestionKind,
     state: &'a serde_json::Value,
     criterion: &'a str,
     token_count: &'a std::cell::Cell<u64>,
@@ -72,13 +88,14 @@ struct PassRead<'a> {
 fn account_question_tokens(
     token_count: &std::cell::Cell<u64>,
     tokens: u64,
+    max_question_tokens: u64,
 ) -> Result<(), FamilyError> {
     token_count.set(token_count.get().saturating_add(tokens));
-    if token_count.get() > super::MAX_QUESTION_TOKENS {
+    if token_count.get() > max_question_tokens {
         return Err(FamilyError::InvalidInput(format!(
             "question requires {} prompt tokens across its passes, exceeding the maximum work budget of {}",
             token_count.get(),
-            super::MAX_QUESTION_TOKENS
+            max_question_tokens
         )));
     }
     Ok(())
@@ -94,11 +111,11 @@ impl PassReader for PassRead<'_> {
             .renderer()
             .render_pass(self.state, self.criterion, options)?;
         let tokens = u64::from(self.source.renderer().pass_token_count(&pass));
-        account_question_tokens(self.token_count, tokens)?;
+        account_question_tokens(self.token_count, tokens, self.profile.max_question_tokens)?;
         self.control.check()?;
         let logits = self.source.letter_logits(&pass, self.control)?;
         self.control.check()?;
-        temperature_softmax(&logits, CALIBRATION_TEMPERATURE)
+        temperature_softmax(&logits, self.profile.calibration.resolve(self.kind))
     }
 }
 
@@ -110,11 +127,18 @@ impl DecoderLogitQwen35Engine {
     pub fn load(
         config: DecoderLogitQwen35EngineConfig,
     ) -> Result<BoundedFamilyEngine, DecoderLogitQwen35Error> {
-        let artifacts = VerifiedArtifacts::verify(&config.model_root)?;
-        let renderer = super::renderer::Jevk5Renderer::load(&artifacts.tokenizer)?;
+        let artifacts = VerifiedArtifacts::verify(&config.model_root, config.profile)?;
+        let renderer = super::renderer::Jevk5Renderer::load(
+            &artifacts.tokenizer,
+            config.profile.max_sequence_tokens,
+        )?;
         let model = Jevk5Model::load(&artifacts)?;
         let engine = Self {
-            inner: Arc::new(Inner { renderer, model }),
+            inner: Arc::new(Inner {
+                profile: config.profile,
+                renderer,
+                model,
+            }),
         };
         Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))
     }
@@ -123,10 +147,14 @@ impl DecoderLogitQwen35Engine {
 /// Score one question into a per-option probability distribution over any
 /// execution backend.
 ///
-/// Up to 16 options one calibrated pass suffices; more options run the
-/// reference knockout schedule and its sharpening temperature.
+/// Up to one pass width, a single calibrated read suffices. Wider questions
+/// run the profile's reference knockout schedule when its runtime defines
+/// one, and fail closed otherwise.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn question_probabilities(
     source: &dyn Jevk5PassSource,
+    profile: &'static Qwen35LogitProfile,
+    kind: QuestionKind,
     state: &serde_json::Value,
     criterion: &str,
     options: &[(String, String)],
@@ -141,17 +169,19 @@ pub(crate) fn question_probabilities(
                 options.len()
             )));
         }
-        if options.len() > super::MAX_CANDIDATES {
+        if options.len() > profile.max_candidates {
             return Err(FamilyError::InvalidInput(format!(
-                "question offers {} candidates but the knockout schedule covers at most {}; \
-                 split the question",
+                "question offers {} candidates but profile {} covers at most {}; split the question",
                 options.len(),
-                super::MAX_CANDIDATES
+                profile.loader_id,
+                profile.max_candidates
             )));
         }
         control.check()?;
         let reader = PassRead {
             source,
+            profile,
+            kind,
             state,
             criterion,
             token_count,
@@ -160,6 +190,14 @@ pub(crate) fn question_probabilities(
         if options.len() <= super::MAX_OPTIONS_PER_PASS {
             return reader.read(options);
         }
+        let Some(knockout_temperature) = profile.knockout_temperature else {
+            return Err(FamilyError::InvalidInput(format!(
+                "question offers {} candidates but profile {} serves at most {} in a single pass",
+                options.len(),
+                profile.loader_id,
+                super::MAX_OPTIONS_PER_PASS
+            )));
+        };
         let combined = combine(&reader, options)?;
         // The reference sharpens the combined distribution by
         // q^(1/knockout_temperature) and renormalizes.
@@ -169,7 +207,7 @@ pub(crate) fn question_probabilities(
                 if probability <= 0.0 {
                     f64::NEG_INFINITY
                 } else {
-                    probability.ln() / KNOCKOUT_TEMPERATURE
+                    probability.ln() / knockout_temperature
                 }
             })
             .collect();
@@ -179,7 +217,7 @@ pub(crate) fn question_probabilities(
 
 impl FamilyEvaluator for DecoderLogitQwen35Engine {
     fn backend_id(&self) -> &str {
-        "decoder-logit-qwen35/cpu-fp32"
+        self.inner.profile.cpu_backend_id
     }
 
     fn model_metadata(&self) -> ModelInfo {
@@ -187,10 +225,9 @@ impl FamilyEvaluator for DecoderLogitQwen35Engine {
             name: String::new(),
             description: format!(
                 "Pinned {} letter-logit decision engine ({}, FP32 CPU).",
-                super::BACKBONE_ID,
-                super::PROFILE_ID
+                self.inner.profile.backbone_id, self.inner.profile.profile_id
             ),
-            release_date: "2026-09-27".into(),
+            release_date: self.inner.profile.release_date.into(),
         }
     }
 
@@ -204,13 +241,14 @@ impl FamilyEvaluator for DecoderLogitQwen35Engine {
 }
 
 /// Model-agnostic evaluation shared by every execution backend: the
-/// backend-specific [`Jevk5PassSource`] is the only input, so both backends
-/// apply the identical rendering, calibration, and wire mapping.
+/// backend-specific [`ProfiledPassSource`] is the only input, so both
+/// backends apply the identical rendering, calibration, and wire mapping.
 pub(crate) fn evaluate_with(
-    source: &dyn Jevk5PassSource,
+    source: &dyn ProfiledPassSource,
     request: SystemRequest,
     control: &FamilyControl,
 ) -> Result<SystemResponse, FamilyError> {
+    let profile = source.profile();
     control.check()?;
     let state: serde_json::Value = match &request.state {
         State::Text(text) => serde_json::Value::String(text.clone()),
@@ -242,7 +280,7 @@ pub(crate) fn evaluate_with(
         // Noul keeps the reference runtime's default criterion text when
         // the caller supplied none; Choice and Score use the shared wire
         // unpacking.
-        let unpacked = match question {
+        let (kind, unpacked) = match question {
             openkind_core::Question::Noul(noul) => {
                 let (false_description, true_description) = noul
                     .criteria
@@ -254,15 +292,26 @@ pub(crate) fn evaluate_with(
                             NOUL_DEFAULT_DESCRIPTIONS[1].to_owned(),
                         )
                     });
-                wire::UnpackedQuestion {
-                    id: id.clone(),
-                    primitive: wire::QuestionPrimitive::Noul,
-                    labels: vec!["false".into(), "true".into()],
-                    criteria: vec![false_description, true_description],
-                    ordered: false,
-                }
+                (
+                    QuestionKind::Noul,
+                    wire::UnpackedQuestion {
+                        id: id.clone(),
+                        primitive: wire::QuestionPrimitive::Noul,
+                        labels: vec!["false".into(), "true".into()],
+                        criteria: vec![false_description, true_description],
+                        ordered: false,
+                    },
+                )
             }
-            other => wire::unpack_question(id, other)?,
+            other => {
+                let unpacked = wire::unpack_question(id, other)?;
+                let kind = match unpacked.primitive {
+                    wire::QuestionPrimitive::Noul => QuestionKind::Noul,
+                    wire::QuestionPrimitive::Choice => QuestionKind::Choice,
+                    wire::QuestionPrimitive::Score => QuestionKind::Score,
+                };
+                (kind, unpacked)
+            }
         };
         let options: Vec<(String, String)> = unpacked
             .labels
@@ -279,8 +328,16 @@ pub(crate) fn evaluate_with(
         if matches!(unpacked.primitive, wire::QuestionPrimitive::Noul) {
             options.reverse();
         }
-        let mut probabilities =
-            question_probabilities(source, &state, &criterion, &options, &token_count, control)?;
+        let mut probabilities = question_probabilities(
+            source,
+            profile,
+            kind,
+            &state,
+            &criterion,
+            &options,
+            &token_count,
+            control,
+        )?;
         if matches!(unpacked.primitive, wire::QuestionPrimitive::Noul) {
             probabilities.reverse();
         }
@@ -305,9 +362,11 @@ mod tests {
 
     #[test]
     fn aggregate_question_work_fails_closed() {
-        let tokens = std::cell::Cell::new(super::super::MAX_QUESTION_TOKENS - 1);
-        account_question_tokens(&tokens, 1).expect("the exact budget is accepted");
-        let error = account_question_tokens(&tokens, 1).expect_err("excess work must fail");
+        let tokens = std::cell::Cell::new(super::super::JEVK5.max_question_tokens - 1);
+        account_question_tokens(&tokens, 1, super::super::JEVK5.max_question_tokens)
+            .expect("the exact budget is accepted");
+        let error = account_question_tokens(&tokens, 1, super::super::JEVK5.max_question_tokens)
+            .expect_err("excess work must fail");
         assert!(matches!(error, FamilyError::InvalidInput(_)));
     }
 }
@@ -331,9 +390,14 @@ mod debug {
             ("true".to_owned(), "The proposition is true.".to_owned()),
             ("false".to_owned(), "The proposition is false.".to_owned()),
         ];
-        let artifacts = VerifiedArtifacts::verify(std::path::Path::new(&root)).expect("verify");
-        let renderer =
-            super::super::renderer::Jevk5Renderer::load(&artifacts.tokenizer).expect("renderer");
+        let artifacts =
+            VerifiedArtifacts::verify(std::path::Path::new(&root), &super::super::JEVK5)
+                .expect("verify");
+        let renderer = super::super::renderer::Jevk5Renderer::load(
+            &artifacts.tokenizer,
+            super::super::JEVK5.max_sequence_tokens,
+        )
+        .expect("renderer");
         let model = Jevk5Model::load(&artifacts).expect("model");
         let pass = renderer
             .render_pass(&state, criterion, &options)
@@ -373,6 +437,12 @@ mod cancellation_tests {
         calls: Cell<usize>,
     }
 
+    impl ProfiledPassSource for CancellingSource {
+        fn profile(&self) -> &'static Qwen35LogitProfile {
+            &super::super::JEVK5
+        }
+    }
+
     impl Jevk5PassSource for CancellingSource {
         fn renderer(&self) -> &super::super::renderer::Jevk5Renderer {
             &self.renderer
@@ -401,7 +471,11 @@ mod cancellation_tests {
             "790e5d78a52353fcb7766098a8e0044c6d229448602eb78b05a81c3f875315c4",
         )
         .expect("synthetic tokenizer digest");
-        let renderer = super::super::renderer::Jevk5Renderer::load(&path).expect("renderer");
+        let renderer = super::super::renderer::Jevk5Renderer::load(
+            &path,
+            super::super::JEVK5.max_sequence_tokens,
+        )
+        .expect("renderer");
         let cancelled = Arc::new(AtomicBool::new(false));
         let control = FamilyControl::new(cancelled.clone(), None, 0);
         let source = CancellingSource {
@@ -417,6 +491,8 @@ mod cancellation_tests {
                 .collect::<Vec<_>>();
             let result = question_probabilities(
                 &source,
+                source.profile(),
+                QuestionKind::Choice,
                 &serde_json::json!("evidence"),
                 "Pick an option",
                 &options,

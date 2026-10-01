@@ -33,12 +33,18 @@ pub enum EngineKind {
     Kev,
     /// Pinned decoder-logit-qwen35 engine (JevK5 letter-logit readout).
     DecoderLogitQwen35,
+    /// Pinned plumb-4b engine (Plumb-4B letter-logit readout, single read).
+    Plumb4b,
+    /// Pinned decider-4b engine (slot-logit readout, isolated score levels).
+    Decider4b,
     /// Pinned laya-english engine (English ModernBERT-large decision encoder).
     LayaEnglish,
     /// Pinned laya-multilingual engine (mmBERT-base decision encoder).
     LayaMultilingual,
     /// Pinned laya-typed-decisions engine (fine-tuned ModernBERT-large).
     LayaTypedDecisions,
+    /// Pinned von engine (von-1.1 option-marker ModernBERT-large).
+    Von,
     /// Winnow learned router over mock siblings; router-cost only.
     Winnow,
     /// Pinned Qwen3.5 MLX FP32 reference-ops engine (`mlx` feature).
@@ -62,6 +68,9 @@ pub enum EngineKind {
     /// Pinned decoder-logit-qwen35 MLX FP32 engine (`mlx` feature).
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     DecoderLogitQwen35MlxFp32,
+    /// Pinned plumb-4b MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    Plumb4bMlxFp32,
 }
 
 /// Native backend bound to a non-mock [`EngineKind`].
@@ -83,9 +92,12 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
         | EngineKind::Winnow
         | EngineKind::Kev
         | EngineKind::DecoderLogitQwen35
+        | EngineKind::Plumb4b
+        | EngineKind::Decider4b
         | EngineKind::LayaEnglish
         | EngineKind::LayaMultilingual
         | EngineKind::LayaTypedDecisions
+        | EngineKind::Von
         | EngineKind::LayaEnglishMlxFp32
         | EngineKind::LayaMultilingualMlxFp32
         | EngineKind::LayaTypedDecisionsMlxFp32
@@ -118,9 +130,12 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
         | EngineKind::Winnow
         | EngineKind::Kev
         | EngineKind::DecoderLogitQwen35
+        | EngineKind::Plumb4b
+        | EngineKind::Decider4b
         | EngineKind::LayaEnglish
         | EngineKind::LayaMultilingual
-        | EngineKind::LayaTypedDecisions => {
+        | EngineKind::LayaTypedDecisions
+        | EngineKind::Von => {
             panic!("the mock and surveyed-family engines have no Qwen35 native backend")
         }
         EngineKind::Qwen35 => Qwen35Backend::NativeCpu,
@@ -145,9 +160,12 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
             EngineKind::Qwen3Guard => "qwen3guard",
             EngineKind::Kev => "kev",
             EngineKind::DecoderLogitQwen35 => "decoder-logit-qwen35",
+            EngineKind::Plumb4b => "plumb-4b",
+            EngineKind::Decider4b => "decider-4b",
             EngineKind::LayaEnglish => "laya-english",
             EngineKind::LayaMultilingual => "laya-multilingual",
             EngineKind::LayaTypedDecisions => "laya-typed-decisions",
+            EngineKind::Von => "von",
             EngineKind::Winnow => "winnow",
             EngineKind::Qwen35MlxFp32 => "qwen35-mlx-fp32",
             EngineKind::Qwen35MlxBf16 => "qwen35-mlx-bf16",
@@ -156,6 +174,7 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
             EngineKind::LayaTypedDecisionsMlxFp32 => "laya-typed-decisions-mlx-fp32",
             EngineKind::EncoderInstructLabelMlxFp32 => "encoder-instruct-label-mlx-fp32",
             EngineKind::DecoderLogitQwen35MlxFp32 => "decoder-logit-qwen35-mlx-fp32",
+            EngineKind::Plumb4bMlxFp32 => "plumb-4b-mlx-fp32",
         }
     }
     #[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
@@ -172,9 +191,12 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
             EngineKind::Qwen3Guard => "qwen3guard",
             EngineKind::Kev => "kev",
             EngineKind::DecoderLogitQwen35 => "decoder-logit-qwen35",
+            EngineKind::Plumb4b => "plumb-4b",
+            EngineKind::Decider4b => "decider-4b",
             EngineKind::LayaEnglish => "laya-english",
             EngineKind::LayaMultilingual => "laya-multilingual",
             EngineKind::LayaTypedDecisions => "laya-typed-decisions",
+            EngineKind::Von => "von",
             EngineKind::Winnow => "winnow",
         }
     }
@@ -190,6 +212,7 @@ pub fn is_family_engine_public(engine: EngineKind) -> bool {
             | EngineKind::LayaTypedDecisionsMlxFp32
             | EngineKind::EncoderInstructLabelMlxFp32
             | EngineKind::DecoderLogitQwen35MlxFp32
+            | EngineKind::Plumb4bMlxFp32
     ) {
         return true;
     }
@@ -205,9 +228,12 @@ pub fn is_family_engine_public(engine: EngineKind) -> bool {
             | EngineKind::Winnow
             | EngineKind::Kev
             | EngineKind::DecoderLogitQwen35
+            | EngineKind::Plumb4b
+            | EngineKind::Decider4b
             | EngineKind::LayaEnglish
             | EngineKind::LayaMultilingual
             | EngineKind::LayaTypedDecisions
+            | EngineKind::Von
     )
 }
 
@@ -269,6 +295,9 @@ pub(crate) fn family_identity(
             openkind_backends::families::decoder_logit_qwen35::PROFILE_ID,
             openkind_backends::families::decoder_logit_qwen35::BACKBONE_REVISION,
         )),
+        EngineKind::Plumb4b => Some(qwen35_logit_identity(
+            &openkind_backends::families::decoder_logit_qwen35::PLUMB_4B,
+        )),
         EngineKind::LayaEnglish => Some(laya_identity(
             &openkind_backends::families::laya::LAYA_ENGLISH,
         )),
@@ -277,6 +306,11 @@ pub(crate) fn family_identity(
         )),
         EngineKind::LayaTypedDecisions => Some(laya_identity(
             &openkind_backends::families::laya::LAYA_TYPED_DECISIONS,
+        )),
+        EngineKind::Von => Some((
+            openkind_backends::families::von::FAMILY_SLUG,
+            openkind_backends::families::von::PROFILE_ID,
+            openkind_backends::families::von::VON.backbone_revision,
         )),
         #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
         EngineKind::LayaEnglishMlxFp32 => Some(laya_identity(
@@ -302,8 +336,24 @@ pub(crate) fn family_identity(
             openkind_backends::families::decoder_logit_qwen35::PROFILE_ID,
             openkind_backends::families::decoder_logit_qwen35::BACKBONE_REVISION,
         )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::Plumb4bMlxFp32 => Some(qwen35_logit_identity(
+            openkind_backends::families::decoder_logit_qwen35::PLUMB_4B,
+        )),
         _ => None,
     }
+}
+
+/// `(family slug, profile id, backbone revision)` provenance for one pinned
+/// decoder-logit-qwen35 family profile.
+fn qwen35_logit_identity(
+    profile: &openkind_backends::families::decoder_logit_qwen35::Qwen35LogitProfile,
+) -> (&'static str, &'static str, &'static str) {
+    (
+        openkind_backends::families::decoder_logit_qwen35::FAMILY_SLUG,
+        profile.profile_id,
+        profile.backbone_revision,
+    )
 }
 
 /// `(family slug, profile id, backbone revision)` provenance for one pinned

@@ -19,8 +19,6 @@ owned elsewhere and linked, not duplicated:
   the landed execution-strategy contract.
 - [`whitepaper/WHITEPAPER.md`](./whitepaper/WHITEPAPER.md)
   — canonical measured-results register for the native engine.
-- [`ROADMAP.md`](./ROADMAP.md) — open benchmark work: practical high-K latency,
-  full restored head/decision replay, and queue-inclusive load/soak.
 - [`verification/`](./verification/) — verification records for gate runs.
 - The `qwen35_scheduler_bench` example
   ([`crates/openkind-backends/examples/`](../crates/openkind-backends/examples/))
@@ -55,6 +53,70 @@ named M4 Max with different fixtures and different pinned model revisions.
 Only ratio-shaped quantities (strategy ratios, `T(Q)/T(1)`, prefill fraction)
 are meaningfully comparable across these environments; absolute
 decisions-per-second are not.
+
+## Prior-art comparability (jev-benchmarking)
+
+The University of Bonn harness
+([`AppliedMachineLearning-Lab/jev-benchmarking`](https://github.com/AppliedMachineLearning-Lab/jev-benchmarking),
+MIT) published with [Deußer et al., arXiv:2609.37647](https://arxiv.org/abs/2609.37647)
+is the closest published methodology to our labeled diagnostics: frozen
+zero-shot request templates, a dev split for prompt work with the wording
+frozen before the reported eval split, exact option probabilities from
+open-weight reference models scored on identical requests, ECE/Brier,
+bootstrap intervals, development-tuned Noul thresholds, and memorization
+probes. Its target is the commercial Jev API; the findings are reviewed in
+[`RESEARCH.md`](./RESEARCH.md#independent-37-dataset-benchmark-of-jev-reviewed-2026-09-30).
+This section records what transfers to `openkind-bench` and what does not.
+
+| Their practice | `openkind-bench` today | Assessment |
+|---|---|---|
+| One frozen template per dataset; question wording frozen before the eval split | Pinned workload fixtures; renderer identities frozen in registered profiles | Aligned |
+| `--split dev` for prompt work; `--split eval` is the reported split | Choice diagnostics reject shared source groups and row IDs across partitions; qualification refuses `final` rows | Aligned |
+| 95% percentile bootstrap intervals, 500 resamples | 2,000 source-group paired bootstraps (seed 29160717) | Aligned; resample counts differ, so interval widths are not cross-suite comparable |
+| ECE with 15 equal-width bins plus Brier | Fixed 10-bin ECE, multiclass Brier, NLL (probability floor `1e-15`) | Aligned; bin counts differ, so ECE values are not cross-suite comparable |
+| Selective prediction: accuracy at 80%/50% coverage plus AURC | Fixed risk/coverage points in the Choice diagnostics | Coverage points present; AURC is a candidate addition |
+| Noul thresholds tuned on ~1,000 development items, then locked | `calibrate-choice` fit/lock/gate partitions | Same protocol at smaller scale |
+| Content-addressed response cache keyed by the exact request; evaluation never re-runs inference | Every `score` run recomputes all forwards | Candidate adaptation |
+| Deterministic hash-ordered `--limit N`; smaller samples are subsets of larger ones so pilot answers are reused | Seeded `gen-workload`; no pilot-subset-of-full guarantee | Candidate adaptation |
+| Memorization probes: option rotation and question withholding | `compare-choice` position and code rotation factors; no question-withholding probe | Withholding probe is a candidate addition |
+| API spend caps (`--max-cost`, `JEV_TOTAL_BUDGET_USD`) | Fully local, offline inference | Not applicable — no metered cost to cap |
+| 37 public datasets pulled from the Hugging Face Hub on first use | Pinned, digest-verified downloads under explicit `openkind-bench dataset pull`/`pin` commands; tests and builds never download | Adopted with pinning — see [Dataset accuracy evaluation](#dataset-accuracy-evaluation); nothing is redistributed from this repository |
+
+### Candidate adaptations (proposed)
+
+None of these are landed; each would follow the existing summary schema,
+attribution rules, and offline constraints.
+
+1. **Request-digest response cache.** Key finished typed answers by a
+   digest of engine identity, profile revision, checkpoint digest, and the
+   exact request bytes, so metric or report changes can be recomputed
+   without re-running the backbone. This is the local-compute analog of
+   their "nothing is ever paid for twice" rule and would make
+   qualification re-scoring cheap. Cache entries must record the same
+   provenance the summaries do, or a stale cache becomes silently wrong
+   evidence.
+2. **Nested deterministic sampling.** Landed for dataset evaluation:
+   materialized rows are hash-ordered, so `--limit N` selects a subset of
+   any larger limit and pilot forwards stay valid for the full run.
+3. **Question-withholding probe.** Reuse the `compare-choice` panel
+   machinery with the question text removed. Accuracy should fall toward
+   chance while option rotation stays flat; together the two probes bound
+   state-only shortcuts and option-set memorization.
+4. **AURC alongside coverage points.** Landed for dataset evaluation:
+   `dataset eval` reports AURC plus accuracy at 50%/80% coverage for Choice
+   and Noul rows; the authored-panel diagnostics keep their fixed points.
+
+Their comparison protocol — identical requests, options rendered as single
+tokens, exact probabilities from one forward pass, thinking disabled — is
+also the standard an external evaluator will apply to OpenKind profiles.
+Complete per-row predictions with provenance, already the harness rule, are
+what make that comparison possible.
+
+Licensing note: their Zenodo release ships Jev responses under a
+research/evaluation-only license (no distillation, no competing products);
+the open-model responses are Apache 2.0. Their response corpora cannot
+become OpenKind training data. The MIT harness code may be consulted or
+ported with attribution.
 
 ## Workload model
 
@@ -391,6 +453,95 @@ Native sweeps force each strategy through the scheduler's diagnostic override
 Answer equality across strategies is asserted per workload — a violation
 flags `cross_strategy_answer_parity_clean: false` in the summary and must be
 investigated before any numbers from that run are quoted.
+
+## Dataset accuracy evaluation
+
+`openkind-bench dataset` adds labeled public-dataset evaluation, the
+model-quality evidence class the timing harness does not produce. The
+methodology follows the [University of Bonn suite](#prior-art-comparability-jev-benchmarking)
+(Deußer et al., arXiv 2609.37647): frozen zero-shot request templates
+ported verbatim from their MIT harness at commit `6bbdeb3`, one request per
+example with gold labels, `dev` splits for prompt and threshold work and
+`eval` splits for reported numbers, identical-request deduplication, and
+deterministic hash-ordered rows so smaller `--limit` values are subsets of
+larger ones.
+
+Acquisition lives in `crates/openkind-datasets` and is always explicit and
+networked (`dataset pull`, `dataset pin`); tests and builds never download.
+Downloads come from the Hugging Face Hub pinned to exact 40-hex revisions of
+both the repository `main` branch and the `refs/convert/parquet` conversion
+branch, verified against per-file sizes and SHA-256 digests from the
+checked-in registry (`crates/openkind-datasets/registry/v1/datasets.json`),
+and installed under `OPENKIND_DATASETS_DIR` (platform data dir by default)
+as content-addressed blobs hard-linked into locked installs — the
+`openkind-model-store` discipline applied to datasets. Gated repositories
+authenticate with `HF_TOKEN`, `HF_TOKEN_PATH`, or the token file written by
+`hf auth login` ([`ENV.md`](ENV.md#benchmark-dataset-variables)). Dataset
+bytes are never committed here and never redistributed: the registry pins
+identities, revisions, sizes, and digests only.
+
+The curated core set covers all three primitives with fully open access —
+Choice: `sst2`, `ag_news`, `banking77` (77 options), `clinc150` (151
+options including out-of-scope), `arc`, `hellaswag`, `winogrande`,
+`commonsense_qa`; Noul: `boolq`, `paws`; Score: `stsb`, `sst5`. `dataset
+list` shows install state, license, and gating per dataset.
+
+```bash
+# List curated datasets and install state
+cargo run -p openkind-bench -- dataset list
+
+# Download and verify a pinned dataset (explicit, resumable, networked)
+cargo run -p openkind-bench -- dataset pull sst2
+
+# Materialize a labeled workload (dev split for prompt/threshold work)
+cargo run -p openkind-bench -- dataset build sst2 --split eval --limit 100
+
+# Score and report accuracy through the normal request path (any engine)
+cargo run --release -p openkind-bench -- dataset eval sst2 \
+  --engine qwen35 --bundle-root <dir> --checkpoint-root <dir> \
+  --tokenizer <json> --host "<label>" --commit <hash> --output-dir bench-output
+
+# Noul datasets: tune the decision threshold on dev, apply it to eval
+cargo run --release -p openkind-bench -- dataset eval boolq --tune_threshold \
+  --engine ... --host "<label>" --commit <hash>
+
+# Re-check installed digests; resolve new upstream revisions for a curated
+# definition and print the registry entry to commit after review
+cargo run -p openkind-bench -- dataset verify sst2
+cargo run -p openkind-bench -- dataset pin sst2
+```
+
+The report (`openkind-dataset-eval/v1`, written to
+`dataset-eval-<name>-<split>.json` and printed) carries dataset provenance
+(repository, both revisions, license, gating, template identity), engine
+provenance, workload/prediction/summary/executable SHA-256 bindings — the
+predictions file must match the summary's digest binding — and the metrics.
+Choice rows report accuracy with a bootstrap interval over source groups,
+answerable ranking accuracy, macro-F1, per-class recall, NLL, multiclass
+Brier, 10-bin ECE, AURC, accuracy at 50%/80% coverage, none recall and
+false-none rate. Noul rows add AUROC, binary Brier and ECE, class recalls,
+and the optional dev-tuned threshold arm. Score rows report Spearman and
+Pearson correlation, MAE, level accuracy, and NLL.
+
+Interpretation rules:
+
+- Reports are **model-quality evidence on a pinned public dataset**; they
+  never promote a model, profile, or policy, and timing claims stay with
+  the `score` harness.
+- Choice rows always carry the injected `__none__` option (workspace
+  invariant), which the paper's Jev requests did not force. `accuracy`
+  includes it; `answerable_ranking_accuracy` is the externally comparable
+  figure. This is stated on every report.
+- Templates are frozen: a wording change is a new template version, and
+  comparison against the paper's published numbers is only meaningful with
+  the same request wording.
+- The core set intentionally avoids gated and non-commercial-licensed
+  datasets. `dataset pin` will not resolve them until a definition exists;
+  when added, their license flags travel in the registry entry and their
+  bytes remain download-only.
+- Contamination still applies to long-established benchmarks (the paper's
+  MMLU anomaly); treat absolute numbers on familiar datasets as weak
+  evidence and prefer fresh or authored panels for promotion decisions.
 
 ## Criterion microbenchmarks
 
@@ -904,3 +1055,8 @@ finished, submit the model for external evaluation:
 - **`jevbench` Harness**:
   [`fstandhartinger/jevbench`](https://github.com/fstandhartinger/jevbench) —
   evaluation suite and benchmark harness for Jev models.
+- **University of Bonn `jev-benchmarking`**:
+  [`AppliedMachineLearning-Lab/jev-benchmarking`](https://github.com/AppliedMachineLearning-Lab/jev-benchmarking)
+  — the 37-dataset zero-shot suite and released response corpus from
+  Deußer et al. (arXiv:2609.37647); see the
+  [comparability section](#prior-art-comparability-jev-benchmarking) above.

@@ -21,6 +21,11 @@ pub struct Catalog {
 #[serde(deny_unknown_fields)]
 pub struct CatalogEntry {
     pub name: String,
+    /// Alternative pull names shaped `name:tag` (the schema the ollaya
+    /// decision-model registry uses). An alias resolves to `name` at pull
+    /// time; installations are always keyed by the canonical `name`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub aliases: Vec<String>,
     pub profile_id: String,
     pub loader_id: String,
     pub description: String,
@@ -122,6 +127,20 @@ impl Catalog {
                     "invalid catalog entry {}",
                     entry.name
                 )));
+            }
+        }
+        // An alias must be a well-formed `name:tag`, must not collide with a
+        // canonical name or another alias, and must stay unique so a pull
+        // request resolves to exactly one curated profile.
+        let mut aliases = HashSet::new();
+        for entry in &self.models {
+            for alias in &entry.aliases {
+                if !valid_name(alias) || names.contains(alias) || !aliases.insert(alias.as_str()) {
+                    return Err(Error::Invalid(format!(
+                        "invalid catalog alias {alias} for {}",
+                        entry.name
+                    )));
+                }
             }
         }
         Ok(())
@@ -261,6 +280,58 @@ mod tests {
         assert!(valid_name("qwen35-state-first:a047d6802c3f06f085b8"));
         for name in ["qwen35", "../bad:v1", "a:b:c", "A:b", "a:", ".a:v1"] {
             assert!(!valid_name(name), "{name}");
+        }
+    }
+
+    fn catalog_with_entries(entries: &[(&str, &[&str])]) -> Catalog {
+        Catalog {
+            schema: CATALOG_SCHEMA.into(),
+            models: entries
+                .iter()
+                .map(|(name, aliases)| CatalogEntry {
+                    name: (*name).into(),
+                    aliases: aliases.iter().map(|a| (*a).to_owned()).collect(),
+                    profile_id: "profile".into(),
+                    loader_id: "loader".into(),
+                    description: "fixture".into(),
+                    support_status: "rust-loadable".into(),
+                    manifest_path: "manifests/fixture.json".into(),
+                    manifest_sha256: "a".repeat(64),
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn catalog_accepts_unique_well_formed_aliases() {
+        let catalog = catalog_with_entries(&[
+            ("fixture:aaaa", &["alias:one", "alias:two"]),
+            ("other:bbbb", &[]),
+        ]);
+        catalog.validate().expect("unique aliases validate");
+    }
+
+    #[test]
+    fn catalog_rejects_alias_collisions_and_bad_shapes() {
+        let cases: &[&[(&str, &[&str])]] = &[
+            // An alias may not collide with a canonical name.
+            &[("fixture:aaaa", &["other:bbbb"]), ("other:bbbb", &[])],
+            // An alias may not collide with another entry's alias.
+            &[
+                ("fixture:aaaa", &["alias:one"]),
+                ("other:bbbb", &["alias:one"]),
+            ],
+            // Aliases must be valid `name:tag` model names.
+            &[("fixture:aaaa", &["Alias:one"])],
+            &[("fixture:aaaa", &["no-tag"])],
+            &[("fixture:aaaa", &["a:b:c"])],
+        ];
+        for entries in cases {
+            let catalog = catalog_with_entries(entries);
+            assert!(
+                catalog.validate().is_err(),
+                "catalog must reject {entries:?}"
+            );
         }
     }
 

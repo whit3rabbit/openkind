@@ -33,25 +33,19 @@
   - `shutdown_signal()`: Future selecting on `tokio::signal::ctrl_c()` and Unix `SIGTERM`.
 - [`src/lib.rs`](./src/lib.rs): Library re-exports for daemon and benchmark integration.
 - [`src/args.rs`](./src/args.rs): Clap argument parser defining:
-    - Server endpoints: `--http-addr`, `--grpc-addr`, `--api-key`, `--rate-limit-rpm` (`OPENKIND_RATE_LIMIT_RPM`, default 120; `0` disables), `--playground` (`OPENKIND_PLAYGROUND`, `on`/`off`, default `off`; adds the `GET /playground` UI and gated local model controls — see [`openkind-api`](../openkind-api/AGENTS.md)), `--arrow` (`OPENKIND_ARROW`, `on`/`off`, default `off`; adds the unofficial `POST /v1/arrow` bulk Arrow IPC endpoint — see [`docs/ARROW.md`](../../docs/ARROW.md)), `--log-filter`.
+    - Server addresses and auth, plus rate limits (`OPENKIND_RATE_LIMIT_RPM`, default 120; `0` disables). `--playground` and `--arrow` are opt-in. See the [API guide](../openkind-api/AGENTS.md) and [Arrow guide](../../docs/ARROW.md).
     - Model aliases: `--models`, `--qwen35-aliases`, `--installed-models`, and `--models-dir`.
     - Surveyed-family configuration: flattened `family_args: FamilyArgs`.
-    - Native Qwen3.5 parameters: `--qwen35-bundle-root`, `--qwen35-checkpoint-root`, `--qwen35-tokenizer`, `--qwen35-backend` / `OPENKIND_QWEN35_BACKEND` (`native-cpu` default, or feature-gated `mlx-fp32` on macOS arm64), `--qwen35-concurrency`, `--qwen35-queue`, `--qwen35-timeout-ms` (queue-inclusive, default 600000), `--qwen35-max-tensor-bytes`, `--qwen35-max-process-bytes`, `--qwen35-scratch-bytes`, `--qwen35-allocator-headroom-bytes`, `--qwen35-execution` (diagnostic plan override: `auto` default; bypasses the profitability policy only — admission ceilings and backend capabilities still apply).
+    - Native Qwen uses bundle/checkpoint/tokenizer paths, backend selection, concurrency and queue limits, and a queue-inclusive timeout (default 600000 ms). Memory ceilings and `--qwen35-execution` configure admission and diagnostic scheduling.
 - [`src/playground.rs`](./src/playground.rs): Explicit load/unload of supported local installations and mock aliases. Blocking verification runs outside async workers; mutations serialize across clients. Installation guards stay alive until shutdown, and startup native/composite engines require restart.
-- [`src/installed.rs`](./src/installed.rs): Shared loading of installed catalog
-  models for daemon startup and the playground. `installed_kind` matches a
-  manifest's `(name, loader, profile)` identity against compiled-in loader
-  constants; `load_installed_engine` builds the engine from the verified
-  installation tree. Installed winnow routers bind label `A` to the installed
-  `decoder-logit-letter` profile and label `B` to `encoder-nli` (falling back
-  to the `--models` aliases) and fail closed when a sibling is unregistered.
+- [`src/installed.rs`](./src/installed.rs): Loads catalog models for startup and the playground. `installed_kind` validates manifest identity against compiled loaders. Winnow binds installed `decoder-logit-letter` to A and `encoder-nli` to B. Missing siblings fall back to aliases or fail closed.
 - [`src/proxy.rs`](./src/proxy.rs): Proxy-cache service (only when `--proxy-cache-upstream` is set):
-  - Flags: `--proxy-cache-upstream`, `--proxy-cache-models`, `--proxy-cache-encoder` (`hash` default; a pull name such as `encoder-embedding:8d9498269ef05d95d93c`), `--proxy-cache-encoder-backend` (`cpu`/`mlx-fp32`), `--proxy-cache-data-dir`, `--proxy-cache-upstream-key`, `--proxy-cache-upstream-timeout-ms`, `--proxy-cache-target-agreement`, `--proxy-cache-store-text`, and the bootstrap tuning flags (`--proxy-cache-admission-min`, `--proxy-cache-min-train-samples`, `--proxy-cache-min-calib-samples`, `--proxy-cache-shadow-min-samples`, `--proxy-cache-calib-fraction`, `--proxy-cache-min-new-samples`); every flag has an `OPENKIND_PROXY_CACHE_*` env alias.
-  - `ProxyService` implements the [`openkind-api`](../openkind-api/AGENTS.md) `SystemProxy` hook: groups choice questions per task, embeds the state once, routes via the [`openkind-backends`](../openkind-backends/AGENTS.md) `proxy_cache` manager, and forwards everything else with the caller's own bearer key. Responses add `x-openkind-cache: local|upstream` and `x-openkind-cache-detail`.
-  - Fail-open rule: any proxy-internal error forwards upstream; unverified keys forward first and are trusted only after a parsed upstream answer. Raw keys stay in memory as salted hashes only.
+  - Flags cover upstream, model aliases, encoder, backend, data directory, credentials, timeout, agreement, text storage, and bootstrap thresholds. Each flag has an `OPENKIND_PROXY_CACHE_*` environment alias.
+  - `ProxyService` implements the [`openkind-api`](../openkind-api/AGENTS.md) `SystemProxy` hook. It groups choice questions, embeds state once, routes through the [`openkind-backends`](../openkind-backends/AGENTS.md) manager, and forwards other requests with the caller's bearer key. Responses include cache headers.
+  - Internal errors fail open to upstream. Unverified keys are forwarded and trusted only after a parsed answer. The daemon keeps only salted key hashes in memory.
   - Encoder resolution is fail-closed: a missing installation errors with the `openkind pull` instruction (regular or MLX profile). The daemon never downloads during startup (model-store invariant).
 - [`src/families.rs`](./src/families.rs):
-  - `FamilyArgs`: Flags and environment variables for surveyed-family loaders (`--decoder-letter-aliases`, `--decoder-letter-model-root`, `--encoder-nli-aliases`, `--encoder-nli-model-root`, `--encoder-instruct-label-aliases`, `--encoder-instruct-label-model-root`, `--kev-aliases`, `--kev-model-root`, `--kev-base-root`, `--decoder-llm-aliases`, `--decoder-llm-model-root`, `--schema-scorer-aliases`, `--schema-scorer-model-root`, `--router-script-aliases`, `--router-script-rules`, `--qwen3guard-aliases`, `--qwen3guard-model-root`, `--winnow-aliases`, `--winnow-model-root`, `--winnow-adapter`, `--winnow-siblings`, `--decoder-logit-qwen35-aliases`, `--decoder-logit-qwen35-model-root`, `--laya-english-aliases`, `--laya-english-model-root`, `--laya-multilingual-aliases`, `--laya-multilingual-model-root`, `--laya-typed-decisions-aliases`, `--laya-typed-decisions-model-root`). Execution-backend selectors for the families with MLX paths: `--laya-backend`, `--encoder-instruct-label-backend`, `--decoder-logit-qwen35-backend` (each `native-cpu` default, or feature-gated `mlx-fp32` on macOS arm64).
+  - `FamilyArgs` holds aliases and model roots for surveyed families and composite routers. MLX-capable family backends are feature-gated and macOS arm64 only.
   - `FamilyAdmission`: Concurrency, queue, and timeout parameters for family engines (`--family-concurrency`, `--family-queue`, `--family-timeout-ms`).
   - Fail-closed validation for duplicate or missing artifact configurations.
 - [`benches/server.rs`](./benches/server.rs): Criterion coverage for the complete
@@ -62,19 +56,14 @@
 `openkindd` populates `EngineRegistry` from `--models` and `--installed-models`:
 1. **Native Engine Path**: If any alias in `--models` is listed in `--qwen35-aliases` (default `qwen35-native`):
    - Validates that `--qwen35-bundle-root`, `--qwen35-checkpoint-root`, and `--qwen35-tokenizer` are provided.
-   - Instantiates `SchedulerConfig::for_pinned_profile` with `BackendCapabilities::per_lane()`. The MLX loader may advertise vectorized forward only for FP32 `ReferenceOps` when `--qwen35-execution nested-batched` is explicitly forced; automatic scheduling stays per-lane pending measured performance. MLX server startup requires the `mlx` crate feature and is available only on macOS arm64.
+   - Defaults to per-lane execution. MLX advertises vectorization only for explicitly forced nested-batched FP32 `ReferenceOps`. Automatic scheduling stays per-lane pending measured performance. MLX requires the feature on macOS arm64.
    - Optionally attaches a process-memory envelope if `--qwen35-max-process-bytes` is configured. The engine refreshes peak RSS after model load and immediately before each request, then divides remaining headroom across the concurrency limit.
    - Loads `Qwen35DecisionEngine` with configured concurrency and queue semaphores.
    - Registers the shared engine under each matching alias.
-2. **Installed Model Path**: Each name in `--installed-models` is read from
-   `--models-dir` or `OPENKIND_MODELS_DIR`, verified, matched to a compiled-in
-   loader, and registered under its immutable name. A serving lock remains
-   held until shutdown; missing profiles and alias collisions fail startup.
-   The public catalog is never fetched during daemon startup. See the
-   [registry guide](../../docs/MODEL_REGISTRY.md) for the mirror and sync flow.
+2. **Installed Model Path**: The daemon verifies each installation against a compiled loader and registers its immutable name. It holds a serving lock until shutdown. Missing profiles and alias collisions fail startup. Startup never fetches the public catalog.
 3. **Surveyed-Family Engine Path**: If any alias in `--models` matches `--decoder-letter-aliases`, `--encoder-nli-aliases`, `--encoder-instruct-label-aliases`, `--kev-aliases`, `--decoder-llm-aliases`, `--schema-scorer-aliases`, `--qwen3guard-aliases`, `--decoder-logit-qwen35-aliases`, `--laya-english-aliases`, `--laya-multilingual-aliases`, or `--laya-typed-decisions-aliases`:
    - Validates that the corresponding `--<family>-model-root` is provided (fails fast on startup if omitted).
-   - Loads the respective engine adapter from `openkind_backends::families` with bounded `FamilyLimits`. For laya, encoder-instruct-label, and decoder-logit-qwen35 aliases, the family's `--<family>-backend` flag picks `native-cpu` (default) or feature-gated `mlx-fp32`; requesting `mlx-fp32` without the daemon's `mlx` feature fails startup.
+   - Loads the family adapter with bounded `FamilyLimits`. MLX-capable families default to `native-cpu`. Requesting `mlx-fp32` without the daemon feature fails startup.
    - Registers the shared engine under each matching alias.
 4. **Router-Script Composite Path**: If any alias in `--models` matches `--router-script-aliases`:
    - Parses the routing rule table (`--router-script-rules`).
@@ -94,13 +83,13 @@
 3. **Graceful Drain**:
    When orchestrating shutdown, drop guards ensure server tasks drain in-flight evaluations. Do not call `std::process::exit(0)` abruptly from signal handlers.
 4. **Cancellation Does Not Free Native Capacity Early**:
-   `Qwen35DecisionEngine` moves queue and execution permits into the blocking model task. If an HTTP or gRPC caller disconnects, replacement work remains blocked until cooperative cancellation reaches a CPU decoder-layer boundary and the native task exits. `--qwen35-timeout-ms` is a queue-inclusive deadline (default 600000 ms).
+   A disconnect does not release native permits. The blocking task owns queue and execution permits until cancellation exits at a CPU layer boundary. The queue-inclusive timeout defaults to 600000 ms.
 5. **Telemetry Privacy**:
    Native metrics use fixed outcome labels and durations only. HTTP spans exclude headers. Never log request IDs, auth headers, state/question/candidate content, token IDs, content fingerprints, or input digests.
 6. **Service Evidence Boundary**:
-   The release-mode native CPU load/soak evidence is recorded in [`docs/verification/native-service-gate/2026-09-22/`](../../docs/verification/native-service-gate/2026-09-22/README.md). Its fixture has no reviewed labels and does not establish model quality, Metal behavior, or product-release promotion; use [`docs/BENCHMARKS.md`](../../docs/BENCHMARKS.md) for the canonical methodology.
+   Service load and soak evidence does not establish model quality, Metal behavior, or release readiness. Use [`docs/BENCHMARKS.md`](../../docs/BENCHMARKS.md) for methodology and current evidence.
 7. **Family Path Fail-Closed**:
-   Requesting a surveyed-family alias without its required `--<family>-model-root` or assigning the same alias to multiple families fails fast on daemon startup with a descriptive configuration error.
+   Fail startup if a surveyed-family alias lacks its model root or appears in multiple families.
 
 ## Verification Commands
 

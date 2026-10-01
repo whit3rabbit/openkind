@@ -69,7 +69,7 @@ hypotheses.
   full forward passes; the same question under encoder-state-first is
   one forward pass per candidate suffix reusing the shared root.
 - Zero-shot checkpoints are over-confident; the M2 useful-decision gate
-  in [`../ROADMAP.md`](../ROADMAP.md) requires a retained useful
+  requires a retained useful
   operating point with calibrated probabilities. Implementing the family
   without a fitted temperature is known to fail downstream threshold
   reviews.
@@ -86,7 +86,7 @@ hypotheses.
   encoder-state-first on encoder-token-budget grounds while preserving
   the off-the-shelf license story?
 - Does a fitted temperature per label space survive natural-data
-  confirmation (M1/M2 in [`../ROADMAP.md`](../ROADMAP.md))?
+  confirmation (M1/M2 qualification)?
 - How does the family behave under the policy threshold when the state
   is shorter than the encoder's pretraining distribution? State
   truncation semantics are owned by

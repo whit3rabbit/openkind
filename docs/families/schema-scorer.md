@@ -83,8 +83,8 @@ The contract-level details are owned by the upstream family spec.
   reserves the `__none__` option key. Any schema-scorer profile would
   have to be reviewed against that contract; ollaya notes that list-
   valued choice criteria must round-trip without an Ollaya-side
-  mapping layer, so the M0 wire contract in
-  [`../ROADMAP.md`](../ROADMAP.md) would have to approve the
+  mapping layer, so the supported wire contract
+  would have to approve the
   criterion-shape constraint before a profile could land.
 
 ## Open questions
@@ -93,7 +93,7 @@ The contract-level details are owned by the upstream family spec.
   compose cleanly with the existing `__none__` contract owned by the
   implemented family?
 - Would a schema-scorer profile be a candidate for the M3 lower-cost
-  gate in [`../ROADMAP.md`](../ROADMAP.md), or is its CPU cost
+  gate, or is its CPU cost
   comparable to [`encoder-nli.md`](encoder-nli.md) (which is the
   existing cross-encoder baseline)? Request-path timings for both are
   recorded in [`../BENCHMARKS.md`](../BENCHMARKS.md); the M3 comparison

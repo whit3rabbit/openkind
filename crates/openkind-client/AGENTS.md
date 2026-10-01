@@ -24,7 +24,7 @@
 ## Critical Invariants
 
 1. **Python SDK Parity for Defaults**:
-   `RetryPolicy::default()` must match tenacity defaults in the Python SDK: 2 retries, 0.5s initial backoff, 5s max backoff, 0.25 jitter, retrying `{408, 429, 5xx}` (529 included via 5xx), 30s total budget. Pinned by `tests::defaults_match_python_sdk`.
+   `RetryPolicy::default()` must match Python tenacity: 2 retries, 0.5s initial and 5s maximum backoff, 0.25 jitter, retryable `{408, 429, 5xx}`, and a 30s budget. `tests::defaults_match_python_sdk` pins these values.
 2. **`retry-after-ms` Precedence**:
    When both headers are present, `retry-after-ms` (milliseconds) wins over `Retry-After` (seconds/HTTP-date). The openkind server emits both on 429/529.
 3. **Retry Counting**:
@@ -32,7 +32,7 @@
 4. **Budget Semantics**:
    Mirror tenacity `stop_before_delay` — if `elapsed + next_delay >= total_timeout`, return the last error immediately instead of sleeping. Do not start a retry that cannot complete.
 5. **Never Retry Non-Transient Failures**:
-   4xx errors (except 408/429), deserialization errors, and configuration failures must surface immediately without retrying. `RetryPolicy::is_retryable` decides transport and API retries. A decoded 2xx response that fails request-bound validation becomes nonretryable `Error::InvalidResponse` after the send loop.
+   Retry transient transport failures and `{408, 429, 5xx}` only. Return other 4xx errors, deserialization errors, and configuration failures immediately. A 2xx response that fails request-bound validation becomes nonretryable `Error::InvalidResponse` after the send loop.
 6. **Wire Types from Core**:
    Wire types come strictly from `openkind-core` — re-exported, never redefined here.
 

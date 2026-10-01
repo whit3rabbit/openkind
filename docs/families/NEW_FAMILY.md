@@ -2,7 +2,8 @@
 
 Use this guide to move a surveyed architecture toward a real Rust loader and
 runtime registration. The [family registry](README.md) is the support index;
-the [roadmap](../ROADMAP.md) owns project priority and evidence gates.
+[`../RESEARCH.md`](../RESEARCH.md) and [`../whitepaper/WHITEPAPER.md`](../whitepaper/WHITEPAPER.md)
+own project priority and evidence gates.
 
 ## Name the thing being added
 
@@ -157,5 +158,5 @@ Rust-loadable prototype still carries no model-quality claim.
 
 The family is Rust-loadable only after the code and offline qualification
 steps above land. Task support and release promotion are separate statuses.
-The full sequence and ordering dependencies are tracked in
-[`../ROADMAP.md`](../ROADMAP.md).
+The full sequence and ordering dependencies are documented in
+[`../RESEARCH.md`](../RESEARCH.md) and [`../whitepaper/WHITEPAPER.md`](../whitepaper/WHITEPAPER.md).

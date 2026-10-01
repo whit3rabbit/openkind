@@ -26,6 +26,11 @@ pub(super) fn catalog(json: bool) -> Result<()> {
         .map(|model| {
             vec![
                 model.name,
+                if model.aliases.is_empty() {
+                    "—".to_owned()
+                } else {
+                    model.aliases.join(", ")
+                },
                 model.profile_id,
                 model.support_status,
                 model.description,
@@ -38,7 +43,7 @@ pub(super) fn catalog(json: bool) -> Result<()> {
     } else {
         output::print_table(
             "Curated catalog profiles available to pull",
-            &["NAME", "PROFILE", "STATUS", "DESCRIPTION"],
+            &["NAME", "ALIASES", "PROFILE", "STATUS", "DESCRIPTION"],
             &rows,
         );
     }
@@ -65,6 +70,12 @@ pub(super) fn pull(name: &str, dir: Option<PathBuf>) -> Result<()> {
     let already_installed = !progress.has_progress();
     let downloaded = progress.downloaded_bytes();
     progress.finish_success();
+    if name != manifest.name {
+        println!(
+            "Resolved alias {name} to the curated profile {}.",
+            manifest.name
+        );
+    }
     if already_installed {
         eprintln!("{} is already installed and verified.", manifest.name);
     }

@@ -66,7 +66,7 @@ classification head, no generated text, no string parsing.
   classifier.
 - A guardrail-specialised head could be a smaller model than the
   current encoder-state-first profile and could serve as a candidate
-  for the M3 lower-cost gate in [`../ROADMAP.md`](../ROADMAP.md).
+  for the M3 lower-cost gate.
 - The family ships as a fixed-preset model (the question schema is
   embedded), which simplifies the wire contract for the caller and
   removes the need for arbitrary-question prompt engineering.
@@ -80,13 +80,12 @@ only a hypothetical `gen` profile that generates and parses verdict text:
   autoregressive text generation in the engine. Adopting this family
   would be a documented family-level exception, not a relaxation of
   the global rule; the exception would need its own review against
-  the M0/M1/M2 milestone sequence in
-  [`../ROADMAP.md`](../ROADMAP.md).
+  the M0/M1/M2 qualification sequence in [`../RESEARCH.md`](../RESEARCH.md).
 - The published upstream preset ignores arbitrary custom
   instructions; any profile here can answer only the embedded
   question schema. Questions outside the embedded schema must be
   rejected at the wire with a 422.
-- The M0 supported workload in [`../ROADMAP.md`](../ROADMAP.md)
+- The supported workload definition
   has not selected guardrail decisions as in-scope, and no guardrail
   training or evaluation contract is owned by `openkind`.
 - The verdict is parsed back from generated text, which adds a
@@ -96,9 +95,8 @@ only a hypothetical `gen` profile that generates and parses verdict text:
 
 ## Open questions
 
-- Does the M0 supported workload in
-  [`../ROADMAP.md`](../ROADMAP.md) authorize guardrail-shaped
-  decisions?
+- Does the supported workload definition
+  authorize guardrail-shaped decisions?
 - How would the family's guardrail class set interact with the
   `__none__` semantic-none contract owned by the implemented
   encoder-state-first family?

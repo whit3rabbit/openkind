@@ -82,9 +82,8 @@ workload within the frozen probability tolerance.
 
 ## Open questions
 
-- Which backbones would qualify as profiles under the M0 supported
-  workload definition? The current milestone sequence in
-  [`../ROADMAP.md`](../ROADMAP.md) has not selected any.
+- Which backbones would qualify as profiles under the supported
+  workload definition? No general deployment profile has been selected.
 - Does the chat-template letter vocabulary differ across backbones,
   and how would the family contract document that variation?
 

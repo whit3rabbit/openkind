@@ -13,11 +13,12 @@ use tokio::io::AsyncWriteExt;
 use crate::manifest::{sha256, valid_name, valid_relative_path, valid_sha256};
 use crate::{
     Catalog, CatalogEntry, Error, Manifest, Result, CATALOG_SHA256, CATALOG_URL,
-    DECODER_LOGIT_LETTER_MODEL_NAME, DECODER_LOGIT_LLM_MODEL_NAME, DECODER_LOGIT_QWEN35_MODEL_NAME,
-    ENCODER_EMBEDDING_MODEL_NAME, ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME,
-    KEV_MODEL_NAME, LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME,
-    LAYA_TYPED_DECISIONS_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME, QWEN3GUARD_MODEL_NAME,
-    SCHEMA_SCORER_MODEL_NAME, WINNOW_MODEL_NAME,
+    DECIDER_4B_MODEL_NAME, DECODER_LOGIT_LETTER_MODEL_NAME, DECODER_LOGIT_LLM_MODEL_NAME,
+    DECODER_LOGIT_QWEN35_MODEL_NAME, ENCODER_EMBEDDING_MODEL_NAME,
+    ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME, KEV_MODEL_NAME,
+    LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME, LAYA_TYPED_DECISIONS_MODEL_NAME,
+    PLUMB_4B_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME, QWEN3GUARD_MODEL_NAME,
+    SCHEMA_SCORER_MODEL_NAME, VON_MODEL_NAME, WINNOW_MODEL_NAME,
 };
 
 const MAX_METADATA_BYTES: u64 = 4 * 1024 * 1024;
@@ -84,6 +85,9 @@ const SUPPORTED_PROFILES: &[(&str, &str, &str)] = &[
         "decoder-logit-qwen35",
         "415bcf4a064e6dadcf85",
     ),
+    (PLUMB_4B_MODEL_NAME, "plumb-4b", "c1f080794d38e94a0bc2"),
+    (DECIDER_4B_MODEL_NAME, "decider-4b", "0529bf6f2bed84641701"),
+    (VON_MODEL_NAME, "von", "69219703407bd39cca0c"),
     (WINNOW_MODEL_NAME, "winnow", "4dff8c5b03cfbf680db6"),
 ];
 
@@ -256,11 +260,14 @@ impl ModelStore {
     }
 
     /// Pull only a model named in the repository-controlled catalog. The
-    /// callback receives the artifact path, present bytes, and expected bytes.
-    /// For artifacts being pulled, it runs before remote requests and local
-    /// blob verification, then as downloaded bytes arrive, so callers can
-    /// report stalled transfers and verification work as well as byte
-    /// movement. The count can return to zero when partial data is discarded.
+    /// name may be a curated pull name or one of its catalog aliases; the
+    /// installation is always keyed by the canonical pull name. The
+    /// callback receives the artifact path, present bytes, and expected
+    /// bytes. For artifacts being pulled, it runs before remote requests
+    /// and local blob verification, then as downloaded bytes arrive, so
+    /// callers can report stalled transfers and verification work as well
+    /// as byte movement. The count can return to zero when partial data is
+    /// discarded.
     pub async fn pull<F>(&self, name: &str, mut progress: F) -> Result<Manifest>
     where
         F: FnMut(&str, u64, u64),
@@ -269,13 +276,14 @@ impl ModelStore {
             return Err(Error::Invalid("invalid model name".into()));
         }
         let _global = self.global_lock()?;
-        let _model = self.model_lock(name, true)?;
         let catalog = self.catalog().await?;
         let entry = catalog
             .models
             .iter()
-            .find(|entry| entry.name == name)
+            .find(|entry| entry.name == name || entry.aliases.iter().any(|alias| alias == name))
             .ok_or_else(|| Error::NotCurated(name.into()))?;
+        let canonical = entry.name.clone();
+        let _model = self.model_lock(&canonical, true)?;
         let (manifest, manifest_bytes) = self.fetch_manifest(entry).await?;
         if !supported_profile(&manifest) {
             return Err(Error::Invalid(format!(
@@ -283,14 +291,14 @@ impl ModelStore {
                 manifest.profile_id
             )));
         }
-        if self.model_dir(name).exists() {
-            let existing = self.read_installed_manifest(name)?;
-            if sha256(&fs::read(self.model_dir(name).join("manifest.json"))?)
+        if self.model_dir(&canonical).exists() {
+            let existing = self.read_installed_manifest(&canonical)?;
+            if sha256(&fs::read(self.model_dir(&canonical).join("manifest.json"))?)
                 == sha256(&manifest_bytes)
             {
                 for artifact in &existing.artifacts {
                     verify_file(
-                        &self.model_dir(name).join(&artifact.path),
+                        &self.model_dir(&canonical).join(&artifact.path),
                         artifact.size,
                         &artifact.sha256,
                     )?;
@@ -298,7 +306,7 @@ impl ModelStore {
                 return Ok(existing);
             }
             return Err(Error::Invalid(format!(
-                "installed model {name} differs from the curated manifest"
+                "installed model {canonical} differs from the curated manifest"
             )));
         }
         fs::create_dir_all(self.root.join("blobs/sha256"))?;
@@ -318,7 +326,7 @@ impl ModelStore {
             .as_nanos();
         let stage = self.root.join("models").join(format!(
             ".stage-{}-{}-{nonce}",
-            name,
+            canonical,
             std::process::id()
         ));
         fs::create_dir_all(&stage)?;
@@ -329,7 +337,7 @@ impl ModelStore {
                 fs::hard_link(self.blob_path(&artifact.sha256), target)?;
             }
             fs::write(stage.join("manifest.json"), &manifest_bytes)?;
-            fs::rename(&stage, self.model_dir(name))?;
+            fs::rename(&stage, self.model_dir(&canonical))?;
             Ok(())
         })();
         if install.is_err() {
@@ -712,6 +720,13 @@ mod tests {
     }
 
     async fn test_store(manifests: Vec<Manifest>) -> (tempfile::TempDir, ModelStore) {
+        test_store_with_aliases(manifests, Vec::new()).await
+    }
+
+    async fn test_store_with_aliases(
+        manifests: Vec<Manifest>,
+        aliases: Vec<(String, Vec<String>)>,
+    ) -> (tempfile::TempDir, ModelStore) {
         let entries: Vec<_> = manifests
             .iter()
             .map(|manifest| {
@@ -725,6 +740,11 @@ mod tests {
                 .iter()
                 .map(|(name, bytes)| CatalogEntry {
                     name: name.clone(),
+                    aliases: aliases
+                        .iter()
+                        .filter(|(owner, _)| owner == name)
+                        .flat_map(|(_, aliases)| aliases.clone())
+                        .collect(),
                     profile_id: "test-profile".into(),
                     loader_id: "test-loader".into(),
                     description: "Offline fixture".into(),
@@ -794,6 +814,48 @@ mod tests {
         store.rm(NAME).unwrap();
         assert!(store.list().unwrap().is_empty());
         assert!(!store.blob_path(&sha256(bytes)).exists());
+    }
+
+    #[tokio::test]
+    async fn pull_resolves_a_catalog_alias_to_the_canonical_installation() {
+        let bytes = b"verified offline fixture";
+        let alias = "fixture-alias:tag";
+        let (_dir, store) = test_store_with_aliases(
+            vec![fixture_manifest(NAME, bytes)],
+            vec![(NAME.to_owned(), vec![alias.to_owned()])],
+        )
+        .await;
+        seed_blob(&store, bytes);
+        let model = store.pull(alias, |_, _, _| {}).await.unwrap();
+        assert_eq!(model.name, NAME, "the manifest stays canonical");
+        // The installation is keyed by the canonical pull name only.
+        assert_eq!(store.list().unwrap().len(), 1);
+        assert_eq!(store.list().unwrap()[0].name, NAME);
+        store.acquire_serving(NAME).unwrap();
+        assert!(store.show(alias).is_err());
+        // Pulling the canonical name afterwards observes the same verified
+        // installation instead of downloading again.
+        store.pull(NAME, |_, _, _| {}).await.unwrap();
+        assert_eq!(store.list().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn pull_by_alias_then_by_name_share_one_installation() {
+        let bytes = b"verified offline fixture";
+        let alias = "fixture-alias:tag";
+        let (_dir, store) = test_store_with_aliases(
+            vec![fixture_manifest(NAME, bytes)],
+            vec![(NAME.to_owned(), vec![alias.to_owned()])],
+        )
+        .await;
+        seed_blob(&store, bytes);
+        store.pull(alias, |_, _, _| {}).await.unwrap();
+        store.rm(NAME).unwrap();
+        assert!(
+            !store.blob_path(&sha256(bytes)).exists(),
+            "the alias pull must own the same single installation"
+        );
+        assert!(store.list().unwrap().is_empty());
     }
 
     #[tokio::test]

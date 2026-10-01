@@ -11,6 +11,9 @@ timing harness over JSONL decision workloads. It exists to:
   per-row predictions and a provenance summary (`openkind-bench/v1`).
 - Allow an explicit `--no-warmup` pass and `--history-aba` exact-request sequence for history probes.
 - Generate seeded, deterministic shape-matched workloads (`gen-workload`).
+- Acquire pinned public evaluation datasets and report labeled accuracy
+  (`dataset pull/pin/build/eval`); acquisition is explicit and networked,
+  evaluation reads only the verified local install.
 - Keep service-level queue/HTTP measurements in [`scripts/native-service-gate.py`](../../scripts/native-service-gate.py), not in this in-process harness.
 
 Methodology, timing scope, and recorded results are owned by
@@ -30,95 +33,60 @@ Methodology, timing scope, and recorded results are owned by
 4. **f64 on Reports**: All probabilities and timings serialized into summaries and
    predictions are `f64` (workspace wire-precision rule applies to benchmark evidence
    the same way).
-5. **MLX Boundary**: Behind the optional `mlx` cargo feature (macOS arm64, built
-   with `SDKROOT=$(xcrun --show-sdk-path)`), `--engine qwen35-mlx-fp32` and
-   `--engine qwen35-mlx-bf16` dispatch the MLX backends through the same
-   `Qwen35DecisionEngine` request path as the CPU engine
-   (`Qwen35Backend` selection in
-   [`openkind-backends`](../openkind-backends/AGENTS.md)), and
-   `--engine laya-english-mlx-fp32` (and sibling laya profiles),
-   `--engine encoder-instruct-label-mlx-fp32`, and
-   `--engine decoder-logit-qwen35-mlx-fp32` dispatch the surveyed-family
-   MLX backends through those families' engines (`--model-root`, no
-   strategy sweep). Default builds (no feature) expose the CPU engines —
-   `mock`, `qwen35`, and the thirteen surveyed-family engines — and never
-   link MLX.
-   MLX runs use the same fixtures, strategy sweep, warmup, and parity
-   assertions; their numbers are throughput evidence only — the frozen parity
-   gates live in the parity examples. The pinned-base BF16 reference path fails
-   the frozen probability gate in both full and nested execution; use
-   `--strategies repeated_full` for BF16 throughput comparisons unless a run is
-   explicitly labeled as a nested diagnostic. Do not describe the mismatch as
-   cache corruption: the current trace first localizes shape-dependent
-   projection rounding.
-   FP32 benchmarks use the production `ReferenceOps` default. Do not publish
-   an opt-in Metal-kernel run without naming its arithmetic identity and
-   comparing it against that default on the same fixture and host.
+## MLX Qualification Rules
+
+- MLX is optional and runs on macOS arm64. Build with `--features mlx` and `SDKROOT=$(xcrun --show-sdk-path)`.
+- Qwen MLX uses the normal request path. Surveyed-family MLX runs use `--model-root` and one pinned plan, without a strategy sweep.
+- MLX throughput does not establish parity. Frozen parity gates live in the backend examples.
+- Use `repeated_full` for BF16 throughput comparisons. Label nested runs as diagnostics until the frozen probability gate passes.
+- Do not describe the current BF16 mismatch as cache corruption. The trace localizes shape-dependent projection rounding.
+- FP32 uses production `ReferenceOps` by default. Name and compare opt-in Metal arithmetic against that default on the same fixture and host.
 
 ## Key Files & Types
 
 - [`src/main.rs`](./src/main.rs): Entrypoint; `gen-workload` prints one JSON result line,
   `score` and the paired `compare-choice` / `calibrate-choice` diagnostics print
   the summary JSON to stdout (progress goes to stderr).
-- [`src/args.rs`](./src/args.rs): Clap parser; `EngineArg` mirrors
-  `EngineKind` one-for-one: `mock`, `qwen35`, the surveyed-family engines
-  (`decoder-letter`, `encoder-nli`, `encoder-instruct-label`, `decoder-llm`,
-  `schema-scorer`, `router-script`, `qwen3-guard`, `kev`,
-  `decoder-logit-qwen35`, `laya-english`, `laya-multilingual`,
-  `laya-typed-decisions`, `winnow`), and behind the `mlx` feature the MLX
-  engines (`qwen35-mlx-fp32`, `qwen35-mlx-bf16`, `laya-*-mlx-fp32`,
-  `encoder-instruct-label-mlx-fp32`, `decoder-logit-qwen35-mlx-fp32`).
-  `--model-root` is required for surveyed families, `--adapter` for the
-  winnow router; plus `--no-warmup`, `--history-aba`, and `parse_strategies`.
-- [`src/quality/`](./src/quality/): Offline paired Choice diagnostics over the
-  pinned Qwen3.5 probe, separate from timing workloads. [`mod.rs`](./src/quality/mod.rs)
-  runs `compare-choice` (nine methods: fitted independent and catalogue
-  renderers, four joint renders including the position/code separation arms,
-  and three fixed ensembles); [`metrics.rs`](./src/quality/metrics.rs) owns
-  proper scores, none recall/false-none, ECE and fixed risk/coverage points;
-  [`report.rs`](./src/quality/report.rs) owns source-group bootstrap deltas and
-  per-factor order sensitivity; [`calibrate.rs`](./src/quality/calibrate.rs)
-  runs `calibrate-choice` (deterministic grid + golden-section NLL fit of a
-  temperature and none-logit offset on a calibration partition, locked before
-  a disjoint gate is scored; refuses partitions that share source groups or
-  row ids). Fixture contracts live in
-  [`fixtures/`](./fixtures/) (`joint_choice_diagnostic.jsonl`,
-  `joint_reference_card_diagnostic.jsonl`, and the disjoint
-  `joint_calibration_diagnostic.jsonl` / `joint_gate_diagnostic.jsonl`
-  pair). See [`docs/BENCHMARKS.md`](../../docs/BENCHMARKS.md) for the commands
-  and [`docs/benchmarks/`](../../docs/benchmarks/) for recorded runs.
+- [`src/args.rs`](./src/args.rs): `EngineArg` mirrors available engines. Surveyed families require `--model-root`; winnow also requires `--adapter`. `--no-warmup` and `--history-aba` control diagnostic runs.
+- [`src/quality/`](./src/quality/): Offline paired Choice diagnostics, separate from timing workloads.
+- [`src/quality/calibrate.rs`](./src/quality/calibrate.rs): Fits calibration values and rejects calibration/gate partitions that share source groups or row IDs.
+- Quality methodology and fixture evidence live in [`docs/BENCHMARKS.md`](../../docs/BENCHMARKS.md) and [`docs/benchmarks/`](../../docs/benchmarks/).
 - [`src/workload.rs`](./src/workload.rs): `WorkloadRow` (flattened `primitive` tag),
   `load_workload`/`parse_workload` (SHA-256 recorded), `state_groups`,
   `build_request`. Choice rows always carry a non-empty `__none__` criterion — one is
   injected when absent so native Choice evaluation keeps semantic-none mass on wire.
 - [`src/gen.rs`](./src/gen.rs): Seeded ticket-grid generator (`states × criteria` binary
   noul rows), byte-identical for identical seeds.
-- [`src/score/mod.rs`](./src/score/mod.rs): `run_score`/`ScoreArgs`. Native engine sweeps run the
-  scheduler's `forced_strategy` diagnostic override per strategy (admission still
-  enforced) and assert cross-strategy answer equality per workload. Surveyed-family engines
-  execute their single pinned plan without a strategy sweep.
+- [`src/score/mod.rs`](./src/score/mod.rs): Native sweeps force each strategy while preserving admission and check answer equality. Surveyed-family engines use one pinned plan.
 - [`src/score/types.rs`](./src/score/types.rs): `EngineKind`, `native_backend`, `family_identity`,
   and `is_family_engine` helpers.
 - [`src/score/summary.rs`](./src/score/summary.rs): Provenance summary builder recording engine slug,
   profile ID, and backbone revision in `openkind-bench/v1` records.
+- [`src/dataset/`](./src/dataset/): Dataset commands. [`materialize.rs`](./src/dataset/materialize.rs)
+  turns installed parquet shards into labeled workload rows using the frozen
+  templates in [`templates.rs`](./src/dataset/templates.rs) (ported verbatim
+  from the Bonn MIT harness at the pinned commit — wording changes are new
+  template versions). [`eval.rs`](./src/dataset/eval.rs) scores the
+  materialized split through `run_score` and joins predictions to gold with
+  digest binding; [`metrics.rs`](./src/dataset/metrics.rs) adds AUROC,
+  Spearman/Pearson, macro-F1, AURC, coverage accuracy, and the dev-tuned
+  Noul threshold. Reports are `openkind-dataset-eval/v1`, always
+  model-quality evidence, never promotion.
 - [`src/tests.rs`](./src/tests.rs): Offline tests (fixture parsing, grouping, `__none__`
   injection, generator determinism, mock end-to-end run).
 
 ## Critical Gotchas & Rules
 
-1. **Grouped Requests Share One Root**: The state-first renderer requires every question
-   in one request to tokenize to the same root prefix. Grouping is by exact state
-   serialization; `--no-group` emits one request per row (the fresh-scoring baseline).
-2. **Request Latency Is Not Row Latency**: In grouped mode, every row in a group reports
-   its request's latency. Never sum those into per-decision latencies; use
-   `decisions_per_second` from the strategy report instead.
-3. **Strategy Sweep Is Native-Only**: The mock and surveyed-family engines do not accept
-   a strategy sweep (`--strategies` is rejected for family engines, and ignored on mock).
-   On Qwen 3.5, `choose_strategy` lets the measured scheduler decide; concrete
-   strategy names force the plan through `SchedulerConfig::with_forced_strategy`.
-4. **Attribution Is Mandatory for Published Numbers**: `--host` and `--commit` exist so
-   recorded results can name their hardware and commit; summaries carry a default
-   "unattributed" host label that must be replaced before results are quoted in docs.
+1. **Grouped Requests Share One Root**: Every question in a grouped request must tokenize to the same root prefix. Grouping uses exact state serialization. `--no-group` emits one request per row.
+2. **Request Latency Is Not Row Latency**: Grouped rows report their shared request latency. Do not sum them. Use `decisions_per_second` for per-decision throughput.
+3. **Strategy Sweep Is Native-Only**: Mock and family engines reject `--strategies`. On Qwen 3.5, `choose_strategy` uses the scheduler; named strategies force a plan through `SchedulerConfig::with_forced_strategy`.
+4. **Attribution Is Mandatory for Published Numbers**: `--host` and `--commit` record hardware and revision. Summaries default to an "unattributed" host label. Replace it before quoting results in docs.
+5. **Dataset Bytes Never Enter the Repo**: dataset acquisition delegates to
+   [`openkind-datasets`](../openkind-datasets/AGENTS.md) and writes only to
+   the external cache; materialized workloads carry gold labels as extra
+   keys the plain `score` command ignores. Choice rows still get the
+   injected `__none__` option — dataset reports must quote
+   `answerable_ranking_accuracy` for external comparison.
 
 ## Verification Commands
 

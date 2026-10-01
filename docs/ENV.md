@@ -183,6 +183,23 @@ is unset. Setting both to conflicting values fails startup; remove the
   and builds never download model assets; fixtures are vendored and
   digest-checked.
 
+## Benchmark Dataset Variables
+
+Read by `openkind-bench dataset` commands only (see
+[`BENCHMARKS.md`](BENCHMARKS.md#dataset-accuracy-evaluation)); no test or
+build path consults them.
+
+| Variable | Meaning | Default |
+|---|---|---|
+| `OPENKIND_DATASETS_DIR` | Evaluation-dataset cache root (installs, content-addressed blobs, locks) | platform default: `~/Library/Application Support/openkind/datasets` (macOS), `%APPDATA%/openkind/datasets` (Windows), `${XDG_DATA_HOME:-~/.local/share}/openkind/datasets` (Linux) |
+| `HF_TOKEN` | Hugging Face bearer token for gated dataset downloads | unset |
+| `HF_TOKEN_PATH` | Explicit path to a Hugging Face token file | unset |
+| `HF_HOME` | Locates the `token` file written by `hf auth login` when `HF_TOKEN`/`HF_TOKEN_PATH` are unset | `~/.cache/huggingface` |
+
+Token resolution order is `HF_TOKEN`, then `HF_TOKEN_PATH`, then the
+`hf auth login` token file; downloads are anonymous when none is present.
+The token value is never logged — only its source.
+
 ## Verification
 
 Client-side `TYPESAFE_*` resolution is covered by

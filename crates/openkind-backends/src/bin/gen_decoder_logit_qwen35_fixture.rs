@@ -1,25 +1,27 @@
-//! Offline fixture generator for the pinned `decoder-logit-qwen35` (JevK5)
-//! profile.
+//! Offline fixture generator for the pinned `decoder-logit-qwen35` profiles.
 //!
 //! One-time operator workflow (never part of builds or tests):
 //!
 //! ```text
 //! cargo run -p openkind-backends --release --bin gen-decoder-logit-qwen35-fixture -- \
+//!   --profile decoder-logit-qwen35 \
 //!   --model-root ~/.cache/openkind/jevk5 \
 //!   --output crates/openkind-backends/tests/fixtures/decoder_logit_qwen35_415bcf4a064e6dadcf85/golden.json
 //! ```
 //!
 //! The cases are synthetic decisions whose correct option is stated verbatim
 //! in the state document; they exercise the letter readout (Choice, Noul,
-//! Score) and the knockout combination (a 17-option Choice spanning two
-//! groups plus a final pass). Temperatures are the pinned runtime values, so
-//! no calibration fit runs here.
+//! Score) and, for knockout profiles, the knockout combination (a 17-option
+//! Choice spanning two groups plus a final pass). The `plumb-4b` profile
+//! serves at most 16 options in one pass, so its wide case stays inside one
+//! read. Temperatures are the pinned runtime values, so no calibration fit
+//! runs here.
 
 use std::path::PathBuf;
 
 use openkind_backends::families::decoder_logit_qwen35::{
-    DecoderLogitQwen35Engine, DecoderLogitQwen35EngineConfig, BACKBONE_ID, BACKBONE_REVISION,
-    EXECUTION_ARITHMETIC_ID, PROFILE_ID,
+    profile_by_loader_id, DecoderLogitQwen35Engine, DecoderLogitQwen35EngineConfig,
+    EXECUTION_ARITHMETIC_ID,
 };
 use openkind_backends::families::support::FamilyLimits;
 use openkind_core::{Answer, Question, SystemRequest};
@@ -90,7 +92,7 @@ fn stated_score(name: &str, state: &str, levels: usize, truth: usize) -> Case {
     )
 }
 
-fn cases() -> Vec<Case> {
+fn cases(with_knockout: bool) -> Vec<Case> {
     let mut cases = vec![
         stated_choice(
             "os",
@@ -155,9 +157,13 @@ fn cases() -> Vec<Case> {
             }),
         ),
     ];
-    // A 17-option Choice: two knockout groups (9 + 8) plus a 16-finalist
-    // final pass.
-    let wide_options: Vec<String> = (0..17).map(|index| format!("site-{index:02}")).collect();
+    // A wide Choice: knockout profiles run two groups (9 + 8) plus a
+    // 16-finalist final pass; single-read profiles cap at 16 options in one
+    // pass, so their wide case stays within the pass width.
+    let wide_count = if with_knockout { 17 } else { 16 };
+    let wide_options: Vec<String> = (0..wide_count)
+        .map(|index| format!("site-{index:02}"))
+        .collect();
     cases.push(text_case(
         "wide-choice",
         "Fictional deployment record. The affected site is site-13. These statements are the full evidence record; do not infer missing facts.",
@@ -188,20 +194,25 @@ fn correct_probability(case: &Case, answer: &Answer) -> Option<f64> {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut profile_id = "decoder-logit-qwen35".to_owned();
     let mut model_root =
         PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".cache/openkind/jevk5");
     let mut output: Option<PathBuf> = None;
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
+            "--profile" => profile_id = args.next().expect("--profile value"),
             "--model-root" => model_root = PathBuf::from(args.next().expect("--model-root value")),
             "--output" => output = Some(PathBuf::from(args.next().expect("--output value"))),
             other => return Err(format!("unknown argument {other}").into()),
         }
     }
     let output = output.ok_or_else(|| "--output is required".to_owned())?;
+    let profile = profile_by_loader_id(&profile_id)
+        .ok_or_else(|| format!("unknown profile loader id {profile_id}"))?;
 
     let engine = DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
+        profile,
         model_root: model_root.clone(),
         limits: FamilyLimits {
             max_concurrent_requests: 1,
@@ -214,7 +225,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .enable_all()
         .build()?;
 
-    let case_list = cases();
+    let case_list = cases(profile.knockout_temperature.is_some());
     let mut rendered_cases = Vec::new();
     for (index, case) in case_list.iter().enumerate() {
         let request: SystemRequest = serde_json::from_value(json!({
@@ -245,14 +256,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .into_iter()
         .map(|(name, request, response)| json!({ "name": name, "request": request, "response": response }))
         .collect();
+    let calibration = match profile.calibration {
+        openkind_backends::families::decoder_logit_qwen35::Calibration::Uniform(temperature) => {
+            json!({ "uniform": temperature })
+        }
+        openkind_backends::families::decoder_logit_qwen35::Calibration::ByType {
+            choice,
+            score,
+            noul,
+        } => json!({ "choice": choice, "score": score, "noul": noul }),
+    };
     let golden = json!({
-        "profile_id": PROFILE_ID,
-        "backbone": { "id": BACKBONE_ID, "revision": BACKBONE_REVISION },
+        "profile_id": profile.profile_id,
+        "loader_id": profile.loader_id,
+        "backbone": { "id": profile.backbone_id, "revision": profile.backbone_revision },
         "execution_arithmetic": EXECUTION_ARITHMETIC_ID,
-        "calibration_temperature":
-            openkind_backends::families::decoder_logit_qwen35::CALIBRATION_TEMPERATURE,
-        "knockout_temperature":
-            openkind_backends::families::decoder_logit_qwen35::KNOCKOUT_TEMPERATURE,
+        "calibration": calibration,
+        "knockout_temperature": profile.knockout_temperature,
         "probability_tolerance": 0.005,
         "provenance": {
             "generator": "gen-decoder-logit-qwen35-fixture",

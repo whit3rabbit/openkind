@@ -12,12 +12,13 @@ use std::time::Duration;
 use crate::args::{DecoderLogitQwen35BackendArg, EncoderInstructLabelBackendArg, LayaBackendArg};
 use anyhow::{bail, Context, Result};
 use clap::Parser;
+use openkind_backends::families::decider::{DeciderEngine, DeciderEngineConfig, DECIDER_4B};
 use openkind_backends::families::decoder_logit_letter::{
     DecoderLetterEngine, DecoderLetterEngineConfig,
 };
 use openkind_backends::families::decoder_logit_llm::{DecoderLlmEngine, DecoderLlmEngineConfig};
 use openkind_backends::families::decoder_logit_qwen35::{
-    DecoderLogitQwen35Engine, DecoderLogitQwen35EngineConfig,
+    DecoderLogitQwen35Engine, DecoderLogitQwen35EngineConfig, PLUMB_4B,
 };
 
 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
@@ -43,6 +44,7 @@ use openkind_backends::families::qwen3guard::{Qwen3GuardEngine, Qwen3GuardEngine
 use openkind_backends::families::router_script::ScriptRuleTable;
 use openkind_backends::families::schema_scorer::{SchemaScorerEngine, SchemaScorerEngineConfig};
 use openkind_backends::families::support::FamilyLimits;
+use openkind_backends::families::von::{VonEngine, VonEngineConfig, VON};
 use openkind_engine::DecisionEngine;
 
 /// Admission defaults shared by all surveyed-family engines.
@@ -197,6 +199,21 @@ pub(crate) struct FamilyArgs {
     #[arg(long, env = "OPENKIND_QWEN3GUARD_MODEL_ROOT")]
     pub(crate) qwen3guard_model_root: Option<PathBuf>,
 
+    /// Aliases in `--models` that should use the pinned von engine
+    /// (von-1.1 option-marker readout).
+    #[arg(
+        long,
+        env = "OPENKIND_VON_ALIASES",
+        value_delimiter = ',',
+        default_value = "von-native"
+    )]
+    pub(crate) von_aliases: Vec<String>,
+
+    /// Model root with the pinned `checkpoint/` directory required by von
+    /// aliases.
+    #[arg(long, env = "OPENKIND_VON_MODEL_ROOT")]
+    pub(crate) von_model_root: Option<PathBuf>,
+
     /// Aliases in `--models` that should use the winnow learned router.
     #[arg(
         long,
@@ -241,6 +258,38 @@ pub(crate) struct FamilyArgs {
     /// decoder-logit-qwen35 aliases.
     #[arg(long, env = "OPENKIND_DECODER_LOGIT_QWEN35_MODEL_ROOT")]
     pub(crate) decoder_logit_qwen35_model_root: Option<PathBuf>,
+
+    /// Aliases in `--models` that should use the pinned plumb-4b engine
+    /// (Plumb-4B letter-logit readout on the Qwen3.5 hybrid backbone).
+    #[arg(
+        long,
+        env = "OPENKIND_PLUMB_4B_ALIASES",
+        value_delimiter = ',',
+        default_value = "plumb-4b-native"
+    )]
+    pub(crate) plumb_4b_aliases: Vec<String>,
+
+    /// Model root with the pinned `model.safetensors`, `config.json`,
+    /// `jevk5_config.json`, and `tokenizer.json` required by plumb-4b
+    /// aliases.
+    #[arg(long, env = "OPENKIND_PLUMB_4B_MODEL_ROOT")]
+    pub(crate) plumb_4b_model_root: Option<PathBuf>,
+
+    /// Aliases in `--models` that should use the pinned decider-4b engine
+    /// (slot-logit readout on the Qwen3.5 hybrid backbone).
+    #[arg(
+        long,
+        env = "OPENKIND_DECIDER_4B_ALIASES",
+        value_delimiter = ',',
+        default_value = "decider-4b-native"
+    )]
+    pub(crate) decider_4b_aliases: Vec<String>,
+
+    /// Model root with the pinned `model.safetensors`, `config.json`,
+    /// `decider_config.json`, and `tokenizer.json` required by decider-4b
+    /// aliases.
+    #[arg(long, env = "OPENKIND_DECIDER_4B_MODEL_ROOT")]
+    pub(crate) decider_4b_model_root: Option<PathBuf>,
 
     /// Aliases in `--models` that should use the pinned laya-english engine
     /// (English ModernBERT-large decision encoder).
@@ -522,6 +571,29 @@ impl FamilyArgs {
             }
         }
 
+        let von: Vec<_> = self
+            .von_aliases
+            .iter()
+            .filter(|alias| models.contains(alias))
+            .collect();
+        if !von.is_empty() {
+            let model_root = self
+                .von_model_root
+                .clone()
+                .context("von alias requested but --von-model-root is missing")?;
+            let engine: Arc<dyn DecisionEngine> = Arc::new(
+                VonEngine::load(VonEngineConfig {
+                    profile: &VON,
+                    model_root,
+                    limits: admission.limits(),
+                })
+                .map_err(|error| anyhow::anyhow!("load von engine: {error}"))?,
+            );
+            for alias in von {
+                engines.push((alias.to_string(), Arc::clone(&engine)));
+            }
+        }
+
         let decoder_logit_qwen35: Vec<_> = self
             .decoder_logit_qwen35_aliases
             .iter()
@@ -537,6 +609,7 @@ impl FamilyArgs {
             let engine: Arc<dyn DecisionEngine> = match self.decoder_logit_qwen35_backend {
                 DecoderLogitQwen35BackendArg::NativeCpu => Arc::new(
                     DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
+                        profile: &openkind_backends::families::decoder_logit_qwen35::JEVK5,
                         model_root,
                         limits: admission.limits(),
                     })
@@ -547,6 +620,7 @@ impl FamilyArgs {
                 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
                 DecoderLogitQwen35BackendArg::MlxFp32 => Arc::new(
                     DecoderLogitQwen35MlxEngine::load(DecoderLogitQwen35MlxEngineConfig {
+                        profile: &openkind_backends::families::decoder_logit_qwen35::JEVK5,
                         model_root,
                         limits: admission.limits(),
                     })
@@ -556,6 +630,63 @@ impl FamilyArgs {
                 ),
             };
             for alias in decoder_logit_qwen35 {
+                engines.push((alias.to_string(), Arc::clone(&engine)));
+            }
+        }
+
+        let plumb_4b: Vec<_> = self
+            .plumb_4b_aliases
+            .iter()
+            .filter(|alias| models.contains(alias))
+            .collect();
+        if !plumb_4b.is_empty() {
+            let model_root = self
+                .plumb_4b_model_root
+                .clone()
+                .context("plumb-4b alias requested but --plumb-4b-model-root is missing")?;
+            let engine: Arc<dyn DecisionEngine> = match self.decoder_logit_qwen35_backend {
+                DecoderLogitQwen35BackendArg::NativeCpu => Arc::new(
+                    DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
+                        profile: &PLUMB_4B,
+                        model_root,
+                        limits: admission.limits(),
+                    })
+                    .map_err(|error| anyhow::anyhow!("load plumb-4b engine: {error}"))?,
+                ),
+                #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                DecoderLogitQwen35BackendArg::MlxFp32 => Arc::new(
+                    DecoderLogitQwen35MlxEngine::load(DecoderLogitQwen35MlxEngineConfig {
+                        profile: &PLUMB_4B,
+                        model_root,
+                        limits: admission.limits(),
+                    })
+                    .map_err(|error| anyhow::anyhow!("load plumb-4b mlx engine: {error}"))?,
+                ),
+            };
+            for alias in plumb_4b {
+                engines.push((alias.to_string(), Arc::clone(&engine)));
+            }
+        }
+
+        let decider_4b: Vec<_> = self
+            .decider_4b_aliases
+            .iter()
+            .filter(|alias| models.contains(alias))
+            .collect();
+        if !decider_4b.is_empty() {
+            let model_root = self
+                .decider_4b_model_root
+                .clone()
+                .context("decider-4b alias requested but --decider-4b-model-root is missing")?;
+            let engine: Arc<dyn DecisionEngine> = Arc::new(
+                DeciderEngine::load(DeciderEngineConfig {
+                    profile: &DECIDER_4B,
+                    model_root,
+                    limits: admission.limits(),
+                })
+                .map_err(|error| anyhow::anyhow!("load decider-4b engine: {error}"))?,
+            );
+            for alias in decider_4b {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
         }
@@ -719,9 +850,12 @@ impl FamilyArgs {
             .chain(&self.schema_scorer_aliases)
             .chain(&self.router_script_aliases)
             .chain(&self.qwen3guard_aliases)
+            .chain(&self.von_aliases)
             .chain(&self.winnow_aliases)
             .chain(&self.kev_aliases)
             .chain(&self.decoder_logit_qwen35_aliases)
+            .chain(&self.plumb_4b_aliases)
+            .chain(&self.decider_4b_aliases)
             .chain(&self.laya_english_aliases)
             .chain(&self.laya_multilingual_aliases)
             .chain(&self.laya_typed_decisions_aliases)

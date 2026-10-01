@@ -12,7 +12,7 @@ use tokenizers::Tokenizer;
 
 use crate::families::support::FamilyError;
 
-use super::{MAX_OPTIONS_PER_PASS, MAX_SEQUENCE_TOKENS};
+use super::MAX_OPTIONS_PER_PASS;
 
 pub(crate) const SYSTEM_INSTRUCTION: &str = "Apply the supplied criterion to the supplied evidence. Choose exactly one listed option. Respond with only its uppercase letter, with no explanation or reasoning.";
 
@@ -46,10 +46,12 @@ impl RenderedPass {
     }
 }
 
-/// Offline renderer for the pinned JevK5 profile.
+/// Offline renderer for the pinned letter-pass profiles of this family.
 pub struct Jevk5Renderer {
     tokenizer: Tokenizer,
     letter_token_ids: Vec<u32>,
+    /// Frozen maximum rendered prompt length per pass of the loaded profile.
+    max_sequence_tokens: usize,
 }
 
 impl Jevk5Renderer {
@@ -57,7 +59,10 @@ impl Jevk5Renderer {
     ///
     /// Every option letter must tokenize to exactly one token; a tokenizer
     /// that splits a letter fails the load instead of corrupting the readout.
-    pub fn load(tokenizer_path: &std::path::Path) -> Result<Self, FamilyError> {
+    pub fn load(
+        tokenizer_path: &std::path::Path,
+        max_sequence_tokens: usize,
+    ) -> Result<Self, FamilyError> {
         let bytes = std::fs::read(tokenizer_path).map_err(|source| FamilyError::Io {
             path: tokenizer_path.to_path_buf(),
             source,
@@ -97,6 +102,7 @@ impl Jevk5Renderer {
         Ok(Self {
             tokenizer,
             letter_token_ids,
+            max_sequence_tokens,
         })
     }
 
@@ -170,11 +176,11 @@ impl Jevk5Renderer {
             .encode(prompt.as_str(), false)
             .map_err(|error| FamilyError::Tokenizer(error.to_string()))?;
         let prompt_ids = encoding.get_ids().to_vec();
-        if prompt_ids.len() > MAX_SEQUENCE_TOKENS {
+        if prompt_ids.len() > self.max_sequence_tokens {
             return Err(FamilyError::InvalidInput(format!(
                 "rendered prompt length {} exceeds frozen maximum {}; truncation is forbidden",
                 prompt_ids.len(),
-                MAX_SEQUENCE_TOKENS
+                self.max_sequence_tokens
             )));
         }
         let letter_ids = options

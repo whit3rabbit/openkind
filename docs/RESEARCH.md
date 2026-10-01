@@ -17,6 +17,8 @@ An open-source reproduction effort must explicitly distinguish three reproductio
 For a dated comparison of later open entrants, see [Jev-like decision systems (2026-09-24)](#jev-like-decision-systems-reviewed-2026-09-24).
 For API probes, published calibration data, and independently implemented
 mechanisms, see [Archer Hume's reconstruction](#archer-humes-api-reconstruction-reviewed-2026-09-29).
+For the independent 37-dataset academic benchmark of `jev-1.13.0`, see
+[Deußer et al.](#independent-37-dataset-benchmark-of-jev-reviewed-2026-09-30).
 
 | Reproduction Target | Feasibility Today | Assessment |
 |---|:---:|---|
@@ -312,6 +314,104 @@ within 1.07e-5 with zero selection changes.
 The catalogue arm is the surviving candidate. Per the standing rule, only it
 warrants complete request-path timing against the current scheduler, on
 natural-task panels, before any replacement is considered.
+
+## Independent 37-Dataset Benchmark of Jev (Reviewed 2026-09-30)
+
+[Deußer, Sparrenberg, and Sifa](https://arxiv.org/abs/2609.37647)
+(University of Bonn, Lamarr Institute, Fraunhofer IAIS; arXiv 2609.37647,
+29 September 2026, cs.CL with cs.AI cross-list) evaluate TypeSafe's
+commercial `jev-1.13.0` zero-shot across **37 public datasets** in seven
+task families: text classification, intent routing, NLI/grounding,
+knowledge, reasoning, safety/legal, and rubric scoring. The design uses one
+frozen template per dataset — no in-context examples and no prompt tuning on
+evaluation data — over full evaluation splits with duplicates removed:
+**346,009 unique requests for US$9.40** in about five hours fifteen
+minutes. Reference models **Qwen3.8-27B** and **Gemma-4-E4B** are scored on
+the *identical requests* by rendering each question as a chat prompt whose
+answer options are single tokens and reading exact option probabilities
+from one forward pass with thinking disabled, so all three systems emit
+comparable distributions over the same items. The harness code is
+MIT-licensed
+([`AppliedMachineLearning-Lab/jev-benchmarking`](https://github.com/AppliedMachineLearning-Lab/jev-benchmarking));
+all raw responses are published on
+[Zenodo (DOI 10.5281/zenodo.23039006)](https://doi.org/10.5281/zenodo.23039006),
+so every reported number can in principle be recomputed offline. The
+methodology comparison against `openkind-bench` is owned by
+[`BENCHMARKS.md`](BENCHMARKS.md#prior-art-comparability-jev-benchmarking).
+
+### Reported results
+
+| Area | Reported result |
+|---|---|
+| Sentiment, commonsense, science MC | 95–99% on IMDB, SST-2, HellaSwag, and ARC; language identification 99.6% |
+| High-cardinality routing | 89.5% on CLINC150 with 151 options including out-of-scope; Banking77 (77 intents) and SIB-200 (205 languages) also covered |
+| Multilingual reading | 86.7% Belebele averaged over 122 languages, with low-resource tails down to 37.4% (Fulfulde) and near-chance Santali |
+| Grounding | 78.6% balanced accuracy on LLM-AggreFact |
+| Moderation ranking | AUROC 0.95–0.99 across ToxiGen, OpenAI Moderation, ToxicChat, and prompt-injection sets |
+| Weak areas | Emotion 58.5%, SST-5 57.9%, AGB-DE German contract judgment F1 0.204, HelpSteer2 rubric correlations 0.28–0.56 |
+| Versus references | Jev beats Qwen3.8-27B on 27/37 datasets (largest margins WinoGrande +15.1 and MMLU +10.1; Qwen leads UNFAIR-ToS by +8.3 and matches Jev on rubric scoring) and Gemma-4-E4B on all 37 |
+| Choice calibration | Pooled ECE 0.028 (15 bins) with confidence scores supporting selective prediction |
+| Noul calibration asymmetry | Single binary questions are under-confident (mean P(yes) 0.465 versus 0.518 observed); multi-label Nouls over-predict yes (0.209 versus 0.041) |
+| Threshold tuning | Per-question Noul thresholds tuned on ~1,000 development examples raise UNFAIR-ToS micro-F1 from 0.50 to 0.75; AGB-DE does not improve, indicating weak separation rather than bad threshold placement |
+| Cost and latency | ~0.36 s mean latency, US$0.042 per million input tokens, no output-token charge |
+
+The MMLU anomaly is the most consequential observation for benchmark
+consumers: Jev answers MMLU's calculation-heavy subjects *better* than its
+other questions (94% versus 91%), while both open references — and all
+three models on C-Eval — show the reverse pattern. Two probes bound the
+explanation: rotating option order leaves accuracy unchanged, and
+withholding the question drops it near chance. This rules out shallow
+position or option-set memorization, but not memorized question-answer
+pairs. The authors accordingly advise caution when citing long-established
+English benchmarks as capability evidence for opaque commercial models.
+
+### Evidence boundary and use limits
+
+- These are author-run API measurements of the commercial service. This
+  review has not recomputed the metrics from the Zenodo release, and the
+  paper evaluates no OpenKind or other open Jev-like engine; none of the
+  numbers above transfer to any OpenKind profile.
+- The published responses are licensed, not public domain: Jev responses
+  ship under a "Jev Responses License 1.0" restricted to research and
+  evaluation use with no distillation or competing products, while the
+  open-model responses are Apache 2.0. **The Jev response corpus therefore
+  cannot become OpenKind training data.**
+- The reference-LLM arm disables thinking and reads one forward pass, so it
+  measures constrained-scoring mode, not each model's full reasoning
+  envelope. The authors also list the single untuned template per dataset,
+  the absence of generative proprietary baselines, unmeasured single-run
+  variance, validation splits substituted where test labels are private,
+  and shallow-only memorization probes as limitations.
+
+### Consequences for OpenKind
+
+1. The calibration asymmetry — well-calibrated Choice distributions beside
+   systematically mis-thresholded binary Noul probabilities — is
+   independent support for OpenKind's separation of probability reporting
+   from application policy, the reserved `__none__` semantic-none mass
+   contract, and the fit/lock/gate discipline of
+   [`calibrate-choice`](BENCHMARKS.md#experimental-joint-distribution-calibration).
+   Their UNFAIR-ToS result is exactly the recoverable kind of gap; their
+   AGB-DE result is the kind no threshold can repair.
+2. Option rotation and question withholding are cheap, transferable
+   invariance probes. `compare-choice` already reports position and code
+   factors; question withholding is a candidate diagnostic addition.
+3. Scoring open-weight references on identical requests through exact
+   single-token option probabilities is the comparison protocol external
+   evaluators will apply to OpenKind. Complete per-row predictions with
+   provenance — already the harness rule — are what make that comparison
+   possible.
+4. The MMLU anomaly reinforces treating long-established public benchmarks
+   as weak qualification evidence: prefer fresh, rotated, or authored
+   panels with source isolation, which is how the current qualification
+   fixtures are built.
+
+Their dataset methodology is now part of the OpenKind harness: a curated
+core set (fully open datasets spanning Choice, Noul, and Score) is
+downloaded at pinned revisions and evaluated with the verbatim ported
+templates — see [Dataset accuracy evaluation](BENCHMARKS.md#dataset-accuracy-evaluation).
+The Bonn findings above remain measurements of the commercial Jev service,
+not of any OpenKind profile.
 
 ## Audit of Prior Art Claims: Reddit Discussion & SalesRLAgent
 
@@ -752,6 +852,7 @@ flowchart TD
 | **[26]** | [TypeSafe AI Homepage](https://typesafe.ai/) | Current product claims: $0.042/MTok, 70–500 ms latency, and zero output token pricing. |
 | **[27]** | [Sebastian Raschka — "Language Models for Text Classification: From Bag-of-Words to Jev"](https://magazine.sebastianraschka.com/p/classifier-history-and-jev) | External IMDb API evaluation: reported Choice/Noul accuracy, runtime, and cost, with nondeterminism and possible training-set exposure caveats. |
 | **[28]** | [Damani et al. — "Beyond Binary Rewards: Training LMs to Reason About Their Uncertainty" (arXiv:2507.16806)](https://arxiv.org/abs/2507.16806) | Primary source for RLCR, a Brier-augmented correctness reward for reasoning models that report confidence; a related calibration-aware RL baseline, not evidence about TypeSafe's RLCD. |
+| **[29]** | [Deußer, Sparrenberg, & Sifa — "Evaluating and Benchmarking the System One Model Jev" (arXiv:2609.37647)](https://arxiv.org/abs/2609.37647) | Zero-shot evaluation of `jev-1.13.0` over 37 datasets (346,009 requests, US$9.40) with Qwen3.8-27B and Gemma-4-E4B scored on identical requests via exact option probabilities. [Harness code](https://github.com/AppliedMachineLearning-Lab/jev-benchmarking) (MIT); [raw responses, Zenodo DOI 10.5281/zenodo.23039006](https://doi.org/10.5281/zenodo.23039006). See the [reviewed section](#independent-37-dataset-benchmark-of-jev-reviewed-2026-09-30). |
 
 ### Additional Foundational & Ecosystem References
 
@@ -1584,7 +1685,7 @@ no-contamination claim. [Board notes](https://benchmarkheaven.com/jev-models)
    can serialize a finite answer distribution. That alone does not establish
    calibrated probabilities or correct decisions on natural cases. The large
    public-to-sealed gaps make independent, untouched, source-aligned evaluation
-   the release gate, as the [roadmap](ROADMAP.md) already requires.
+   the release gate, as the release criteria require.
 2. **Use direct logits as a controlled comparator.** JevK5, Hopper, reflex,
    and SemIf make the option-letter readout a serious baseline for OpenKind's
    trained candidate head. A fair OpenKind ablation would hold the checkpoint,

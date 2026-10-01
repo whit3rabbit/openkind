@@ -12,6 +12,7 @@ members = [
     "crates/openkind-gen-schemas",
     "crates/openkind-bench",
     "crates/openkind-model-store",
+    "crates/openkind-datasets",
     "proto",
 ]
 
@@ -75,6 +76,9 @@ metrics-exporter-prometheus = { version = "0.18", default-features = false, feat
 arrow-array = "=60.0.0"
 arrow-ipc = { version = "=60.0.0", default-features = false }
 arrow-schema = "=60.0.0"
+# Evaluation-dataset shards are read from pinned parquet files; keep the same
+# qualified Arrow release line.
+parquet = { version = "=60.0.0", default-features = false, features = ["arrow", "snap"] }
 
 # Crypto / TLS
 rustls = { version = "0.23", default-features = false, features = ["std", "logging", "aws_lc_rs", "tls12"] }
@@ -95,6 +99,7 @@ openkind-engine = { path = "crates/openkind-engine", version = "0.1.0" }
 openkind-runtime = { path = "crates/openkind-runtime", version = "0.1.0" }
 openkind-backends = { path = "crates/openkind-backends", version = "0.1.0" }
 openkind-model-store = { path = "crates/openkind-model-store", version = "0.1.0" }
+openkind-datasets = { path = "crates/openkind-datasets", version = "0.1.0" }
 openkind-proto = { path = "proto", version = "0.1.0" }
 
 # Client

@@ -10,8 +10,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use openkind_backends::families::decoder_logit_qwen35::{
-    DecoderLogitQwen35Engine, DecoderLogitQwen35EngineConfig, CALIBRATION_TEMPERATURE,
-    KNOCKOUT_TEMPERATURE, PROFILE_ID,
+    Calibration, DecoderLogitQwen35Engine, DecoderLogitQwen35EngineConfig, JEVK5, PLUMB_4B,
+    PROFILE_ID,
 };
 use openkind_backends::families::support::FamilyLimits;
 use openkind_engine::DecisionEngine;
@@ -19,6 +19,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 const FIXTURE_DIR: &str = "tests/fixtures/decoder_logit_qwen35_415bcf4a064e6dadcf85";
+const PLUMB_FIXTURE_DIR: &str = "tests/fixtures/plumb_4b_c1f080794d38e94a0bc2";
 const PROBABILITY_TOLERANCE: f64 = 0.005;
 
 fn fixture_dir() -> PathBuf {
@@ -27,6 +28,12 @@ fn fixture_dir() -> PathBuf {
 
 fn model_root() -> Option<PathBuf> {
     std::env::var_os("OPENKIND_DECODER_LOGIT_QWEN35_MODEL_ROOT")
+        .map(PathBuf::from)
+        .filter(|root| root.is_dir())
+}
+
+fn plumb_model_root() -> Option<PathBuf> {
+    std::env::var_os("OPENKIND_PLUMB_4B_MODEL_ROOT")
         .map(PathBuf::from)
         .filter(|root| root.is_dir())
 }
@@ -133,9 +140,26 @@ fn profile_constants_are_self_consistent() {
             "c4f7fdb3aeab5582336406e78d3bef11bf98833d",
         )
     );
-    assert_eq!(CALIBRATION_TEMPERATURE, 1.22);
-    assert_eq!(KNOCKOUT_TEMPERATURE, 0.93);
-    assert!(CALIBRATION_TEMPERATURE.is_finite() && CALIBRATION_TEMPERATURE > 0.0);
+    assert_eq!(JEVK5.calibration, Calibration::Uniform(1.22));
+    assert_eq!(JEVK5.knockout_temperature, Some(0.93));
+    assert_eq!(
+        PLUMB_4B.profile_id,
+        openkind_backends::families::support::derive_profile_id(
+            "decoder-logit-qwen35",
+            "crh225/plumb-4b",
+            "24f7bf77e7ee258a2d158c61ea2dce2b60321010",
+        )
+    );
+    assert_eq!(
+        PLUMB_4B.calibration,
+        Calibration::ByType {
+            choice: 2.07,
+            score: 1.2,
+            noul: 2.07,
+        }
+    );
+    assert_eq!(PLUMB_4B.knockout_temperature, None);
+    assert_eq!(PLUMB_4B.max_candidates, 16);
 }
 
 #[test]
@@ -147,6 +171,7 @@ fn load_fails_closed_without_artifacts() {
     let _ = fs::remove_dir_all(&empty);
     fs::create_dir_all(&empty).expect("create empty root");
     let error = match DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
+        profile: &JEVK5,
         model_root: empty.clone(),
         limits: limits(),
     }) {
@@ -184,6 +209,7 @@ fn load_fails_closed_on_config_digest_mismatch() {
     fs::write(staged.join("config.json"), config.to_string()).expect("write drifted config");
 
     let error = match DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
+        profile: &JEVK5,
         model_root: staged.clone(),
         limits: limits(),
     }) {
@@ -210,6 +236,7 @@ fn golden_replay_matches_the_pinned_checkpoint() {
     assert!(!golden.cases.is_empty(), "golden fixture has cases");
 
     let engine = DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
+        profile: &JEVK5,
         model_root: root,
         limits: limits(),
     })
@@ -239,6 +266,60 @@ fn golden_replay_matches_the_pinned_checkpoint() {
         assert_eq!(
             response.usage.input_tokens, case.response.usage.input_tokens,
             "{}: usage drifted",
+            case.name
+        );
+    }
+}
+
+/// Golden replay for the pinned plumb-4b profile: same fixture format, its
+/// own model root and single-read contract (no knockout case).
+#[test]
+fn plumb_golden_replay_matches_the_pinned_checkpoint() {
+    let Some(root) = plumb_model_root() else {
+        eprintln!("skipping: OPENKIND_PLUMB_4B_MODEL_ROOT is not set");
+        return;
+    };
+    let golden: Golden = serde_json::from_slice(
+        &fs::read(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join(PLUMB_FIXTURE_DIR)
+                .join("golden.json"),
+        )
+        .expect("read plumb golden fixture"),
+    )
+    .expect("decode plumb golden fixture");
+    assert!(!golden.cases.is_empty(), "plumb golden fixture has cases");
+
+    let engine = DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
+        profile: &PLUMB_4B,
+        model_root: root,
+        limits: limits(),
+    })
+    .expect("load pinned plumb engine");
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("runtime");
+
+    for case in &golden.cases {
+        let response = runtime
+            .block_on(engine.evaluate(case.request.clone()))
+            .unwrap_or_else(|error| panic!("plumb case {}: {error}", case.name));
+        for (question_id, expected) in &case.response.answers {
+            let actual = response.answers.get(question_id).unwrap_or_else(|| {
+                panic!("plumb case {}: missing answer {question_id}", case.name)
+            });
+            let actual = serde_json::to_value(actual).expect("serialize answer");
+            assert_answer_matches(&format!("plumb {}", case.name), &actual, expected);
+        }
+        assert_eq!(
+            response.usage.output_tokens, 0,
+            "{}: decision engines never generate output tokens",
+            case.name
+        );
+        assert_eq!(
+            response.usage.input_tokens, case.response.usage.input_tokens,
+            "plumb {}: usage drifted",
             case.name
         );
     }
@@ -323,6 +404,76 @@ mod mlx_replay {
             }
             other => panic!("{label}: unexpected answer type {other}"),
         }
+    }
+
+    #[test]
+    fn plumb_mlx_golden_replay_matches_the_pinned_checkpoint() {
+        let Some(root) = plumb_model_root() else {
+            eprintln!("skipping: OPENKIND_PLUMB_4B_MODEL_ROOT is not set");
+            return;
+        };
+        let golden: Golden = serde_json::from_slice(
+            &fs::read(
+                Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join(PLUMB_FIXTURE_DIR)
+                    .join("golden.json"),
+            )
+            .expect("read plumb golden fixture"),
+        )
+        .expect("decode plumb golden fixture");
+        let engine = DecoderLogitQwen35MlxEngine::load(DecoderLogitQwen35MlxEngineConfig {
+            profile: &PLUMB_4B,
+            model_root: root,
+            limits: limits(),
+        })
+        .expect("load pinned plumb MLX engine");
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+
+        let mut parity = MlxParity {
+            max_probability_error: 0.0,
+            selection_flips: 0,
+        };
+        let mut answers = 0_usize;
+        for case in &golden.cases {
+            let response = runtime
+                .block_on(engine.evaluate(case.request.clone()))
+                .unwrap_or_else(|error| panic!("plumb mlx case {}: {error}", case.name));
+            for (question_id, expected) in &case.response.answers {
+                let actual = response.answers.get(question_id).unwrap_or_else(|| {
+                    panic!("plumb mlx case {}: missing answer {question_id}", case.name)
+                });
+                let actual = serde_json::to_value(actual).expect("serialize answer");
+                measure_answer(
+                    &format!("plumb mlx {}: {question_id}", case.name),
+                    &actual,
+                    expected,
+                    &mut parity,
+                );
+                answers += 1;
+            }
+            assert_eq!(
+                response.usage.input_tokens, case.response.usage.input_tokens,
+                "plumb mlx {}: usage drifted",
+                case.name
+            );
+        }
+        assert_eq!(
+            parity.selection_flips, 0,
+            "MLX backend changed {} selections",
+            parity.selection_flips
+        );
+        assert!(
+            parity.max_probability_error <= MLX_PROBABILITY_TOLERANCE,
+            "MLX probability drift {} exceeds {MLX_PROBABILITY_TOLERANCE}",
+            parity.max_probability_error
+        );
+        eprintln!(
+            "mlx plumb-4b parity: {answers} answers, max |\u{394}p| = {:.3e}, selection flips = {}",
+            parity.max_probability_error, parity.selection_flips
+        );
     }
 
     #[test]

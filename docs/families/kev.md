@@ -87,8 +87,7 @@ upstream evaluation and are not `openkind` measurements.
   (255 per the reference API) bounded in practice by the row limit.
 - Zero-shot outside its training distribution: the checkpoint is a 0.6B
   model with published out-of-domain accuracy ~0.62 and near-chance
-  held-out policy reasoning. The M2 useful-decision gate in
-  [`../ROADMAP.md`](../ROADMAP.md) has not run for this profile.
+  held-out policy reasoning. The M2 useful-decision gate has not run for this profile.
 
 ## What this page does not say
 

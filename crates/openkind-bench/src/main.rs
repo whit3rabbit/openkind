@@ -7,6 +7,7 @@
 //! checkpoint, bundle, and tokenizer paths only.
 
 mod args;
+mod dataset;
 mod gen;
 mod quality;
 mod score;
@@ -18,7 +19,7 @@ mod tests;
 use anyhow::{Context, Result};
 use clap::Parser;
 
-use crate::args::{Cli, Commands, GenWorkloadOutcome};
+use crate::args::{Cli, Commands, DatasetCommand, GenWorkloadOutcome};
 use crate::score::{run_score, EngineKind, ScoreArgs, StrategySpec};
 
 fn main() -> Result<()> {
@@ -142,6 +143,72 @@ fn main() -> Result<()> {
                 .with_context(|| format!("score run over {}", score_args.input.display()))?;
             println!("{}", outcome.summary);
             Ok(())
+        }
+        Commands::Dataset { action } => {
+            let action = match action {
+                DatasetCommand::List { datasets_dir } => {
+                    dataset::DatasetAction::List { datasets_dir }
+                }
+                DatasetCommand::Pull { name, datasets_dir } => {
+                    dataset::DatasetAction::Pull { name, datasets_dir }
+                }
+                DatasetCommand::Rm { name, datasets_dir } => {
+                    dataset::DatasetAction::Rm { name, datasets_dir }
+                }
+                DatasetCommand::Verify { name, datasets_dir } => {
+                    dataset::DatasetAction::Verify { name, datasets_dir }
+                }
+                DatasetCommand::Pin { name, datasets_dir } => {
+                    dataset::DatasetAction::Pin { name, datasets_dir }
+                }
+                DatasetCommand::Build {
+                    name,
+                    split,
+                    datasets_dir,
+                    limit,
+                    output,
+                } => dataset::DatasetAction::Build {
+                    name,
+                    split,
+                    datasets_dir,
+                    limit,
+                    output,
+                },
+                DatasetCommand::Eval {
+                    name,
+                    split,
+                    datasets_dir,
+                    limit,
+                    engine,
+                    output_dir,
+                    host,
+                    commit,
+                    bundle_root,
+                    checkpoint_root,
+                    tokenizer,
+                    model_root,
+                    adapter,
+                    tune_threshold,
+                    pretty,
+                } => dataset::DatasetAction::Eval {
+                    name,
+                    split,
+                    datasets_dir,
+                    limit,
+                    engine,
+                    output_dir,
+                    host,
+                    commit,
+                    bundle_root,
+                    checkpoint_root,
+                    tokenizer,
+                    model_root,
+                    adapter,
+                    tune_threshold,
+                    pretty,
+                },
+            };
+            dataset::run_command(action)
         }
     }
 }

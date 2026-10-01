@@ -1,0 +1,260 @@
+{
+  "backbone": {
+    "id": "Mapika/decider-4b",
+    "revision": "eb5fbdfc9448473ec25e399882912863afbdb70e"
+  },
+  "calibration": {
+    "choice": 1.11,
+    "noul": 1.56,
+    "score": 1.287
+  },
+  "cases": [
+    {
+      "name": "os",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "BSD": null,
+              "Linux": null,
+              "Windows": null,
+              "macOS": null
+            },
+            "instructions": "Which option is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": "Fictional incident record. The asset operating system is Linux. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "Linux",
+            "confidence": 0.993540437154378,
+            "probabilities": {
+              "BSD": 0.00040468317021228164,
+              "Linux": 0.9990048549394335,
+              "Windows": 0.0003070295603016744,
+              "macOS": 0.0002834323300526604
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 65,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "mfa-true",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "instructions": "Does the record explicitly state that two-factor authentication was enabled?",
+            "type": "noul"
+          }
+        },
+        "state": "Fictional incident record. The record states that two-factor authentication was enabled on the affected account. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "noul": 0.9904611898192707,
+            "type": "noul"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 67,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "impact-3",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": [
+              "level 0",
+              "level 1",
+              "level 2",
+              "level 3",
+              "level 4"
+            ],
+            "instructions": "What is the documented impact level?",
+            "type": "score"
+          }
+        },
+        "state": "Fictional incident record. The documented impact level is 3. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "confidence": 0.9891756699804658,
+            "legend": {
+              "0": "level 0",
+              "1": "level 1",
+              "2": "level 2",
+              "3": "level 3",
+              "4": "level 4"
+            },
+            "probabilities": {
+              "0": 0.0004081462956626579,
+              "1": 0.00041883678545886154,
+              "2": 0.0006240963708476846,
+              "3": 0.9979660412578482,
+              "4": 0.0005828792901824756
+            },
+            "score": 2.997896670461429,
+            "type": "score"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 355,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "wide-choice",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "site-00": null,
+              "site-01": null,
+              "site-02": null,
+              "site-03": null,
+              "site-04": null,
+              "site-05": null,
+              "site-06": null,
+              "site-07": null,
+              "site-08": null,
+              "site-09": null,
+              "site-10": null,
+              "site-11": null
+            },
+            "instructions": "Which site is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": "Fictional deployment record. The affected site is site-07. These statements are the full evidence record; do not infer missing facts."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "site-07",
+            "confidence": 0.9990925062579032,
+            "probabilities": {
+              "site-00": 0.000016777961401265424,
+              "site-01": 0.000029950067131344672,
+              "site-02": 0.000022606545338688385,
+              "site-03": 0.000019798191231181087,
+              "site-04": 0.00001290702201375546,
+              "site-05": 6.685275205443042e-6,
+              "site-06": 0.000015526180198283656,
+              "site-07": 0.999810075855165,
+              "site-08": 0.000027301328644978417,
+              "site-09": 0.000019855227333805987,
+              "site-10": 6.378779101360086e-6,
+              "site-11": 0.000012137567234857828
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 147,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "json-state",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "instructions": "Does the record state that a database failover was approved?",
+            "type": "noul"
+          }
+        },
+        "state": {
+          "events": [
+            {
+              "detail": "routine heartbeat",
+              "seq": 0
+            },
+            {
+              "detail": "routine heartbeat",
+              "seq": 1
+            },
+            {
+              "detail": "routine heartbeat",
+              "seq": 2
+            },
+            {
+              "detail": "routine heartbeat",
+              "seq": 3
+            },
+            {
+              "detail": "routine heartbeat",
+              "seq": 4
+            },
+            {
+              "detail": "routine heartbeat",
+              "seq": 5
+            },
+            {
+              "detail": "the database failover was approved",
+              "seq": 6
+            },
+            {
+              "detail": "routine heartbeat",
+              "seq": 7
+            },
+            {
+              "detail": "routine heartbeat",
+              "seq": 8
+            },
+            {
+              "detail": "routine heartbeat",
+              "seq": 9
+            }
+          ]
+        }
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "noul": 0.9946491443494667,
+            "type": "noul"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 241,
+          "output_tokens": 0
+        }
+      }
+    }
+  ],
+  "execution_arithmetic": "candle-cpu-fp32-qwen35-text",
+  "family": "decider",
+  "loader_id": "decider-4b",
+  "probability_tolerance": 0.005,
+  "profile_id": "0529bf6f2bed84641701",
+  "provenance": {
+    "case_construction": "correct option stated verbatim in the state document",
+    "generator": "gen_decider_fixture",
+    "reference_runtime": "github.com/Mapika/decider decider package (in-repo, pinned revision)"
+  }
+}

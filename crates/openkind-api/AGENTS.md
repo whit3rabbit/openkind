@@ -43,23 +43,15 @@ It defines:
     - `POST /v1/arrow` — only when the daemon passes `arrow = true` (`openkindd --arrow on`)
   - Metrics initialization via `install_metrics_recorder()`.
 - [`src/arrow.rs`](./src/arrow.rs) & [`src/arrow_tests.rs`](./src/arrow_tests.rs):
-  - The unofficial bulk Arrow IPC endpoint (`POST /v1/arrow`), flag-gated and
-    outside the TypeSafe wire contract. JSON request (`model`, `states`,
-    `questions`) runs one sequential `dispatch` per state and encodes one row per
-    state as a schema-first Arrow IPC stream; [`docs/ARROW.md`](../../docs/ARROW.md)
-    owns the wire mapping and fixed byte/time limits. `src/arrow_columns.rs` builds numeric columns without retaining per-row
-    response text. `src/arrow_decoder.rs` validates schema and values.
-    `answers_from_batch` is the reference decoder that
-    reconstructs Jev answers from a batch; its round-trip tests are the
-    executable definition of the column mapping.
+  - Implements the opt-in Arrow IPC endpoint outside the TypeSafe contract. It dispatches once per state and returns a schema-first stream. [`docs/ARROW.md`](../../docs/ARROW.md) owns mapping and limits. Round-trip tests define decoding.
 - [`src/playground.rs`](./src/playground.rs) & [`assets/playground.html`](./assets/playground.html):
-  - The embedded web playground: a single self-contained HTML file (inline CSS/JS, no external requests) served verbatim with `no-store`. Evaluation uses `/v1/systemone` and `/v1/models`. Opt-in `GET/POST /playground/api/models` delegates local model controls to the daemon through `PlaygroundModels`, outside the TypeSafe wire contract. Only the exact HTML route is public; model controls use the bearer gate and mutations require `x-openkind-playground: 1`.
+  - Serves a self-contained HTML asset with `no-store`. Evaluation uses `/v1/systemone` and `/v1/models`. Optional local model controls use gated `/playground/api/models`; mutations require `x-openkind-playground: 1`.
 - [`src/http_tests.rs`](./src/http_tests.rs):
   - Unit tests for HTTP routes, handler dispatch, model listing, and error response formatting.
 - [`src/models.rs`](./src/models.rs):
   - Model response construction and metadata projection helpers.
 - [`src/proxy.rs`](./src/proxy.rs):
-  - The optional `SystemProxy` hook (`AppState.proxy`). When the daemon runs in proxy-cache mode (`openkindd --proxy-cache-upstream`, see [`docs/PROXY_CACHE.md`](../../docs/PROXY_CACHE.md)), the `systemone` handler consults the hook before dispatching: `wants` gates by model alias, `evaluate` answers from the distilling cache or forwards upstream with the caller's bearer key, and `models` may replace the `GET /v1/models` listing. Responses add `x-openkind-cache` and `x-openkind-cache-detail` headers on the existing `/v1/systemone` route; the wire schema is unchanged, so `openapi.yaml` does not grow proxy routes.
+  - Intercepts requests before proxy-cache dispatch (see [`docs/PROXY_CACHE.md`](../../docs/PROXY_CACHE.md)). `SystemProxy` can serve cached answers, forward with the caller's bearer key, or replace model listings. `/v1/systemone` alone carries cache headers. The wire schema stays unchanged.
   - `ApiError::BadGateway` (HTTP 502, `bad_gateway`) carries upstream forwarding failures.
 - [`src/grpc.rs`](./src/grpc.rs):
   - `SystemOneService`: Implements `openkind::system_one_server::SystemOne`.
@@ -67,7 +59,7 @@ It defines:
 - [`src/middleware/`](./src/middleware/):
   - Modular middleware stack:
     - [`src/middleware/request_id.rs`](./src/middleware/request_id.rs): `REQUEST_ID_HEADER = "x-typesafe-request-id"`, `request_id_layer` (checks for inbound client header, falls back to `Uuid::new_v4()`).
-    - [`src/middleware/auth.rs`](./src/middleware/auth.rs): `auth_layer` (constant-time bearer token check: both tokens are SHA-256 hashed via `ring` and the digests compared with `subtle::ConstantTimeEq`; supports `OPENKIND_API_KEY`, `TYPESAFE_API_KEY`, and deprecated fallback `OPENPICK_API_KEY`).
+    - [`src/middleware/auth.rs`](./src/middleware/auth.rs): `auth_layer` hashes both bearer tokens with SHA-256 via `ring` and compares them with `subtle::ConstantTimeEq`. It supports `OPENKIND_API_KEY`, `TYPESAFE_API_KEY`, and deprecated `OPENPICK_API_KEY`.
     - [`src/middleware/rate_limit.rs`](./src/middleware/rate_limit.rs): `rate_limit_layer` (per-IP fixed-window rate limiter emitting 429 status and retry headers).
     - [`src/middleware/tests/`](./src/middleware/tests/): Dedicated test suites (`request_id_tests.rs`, `auth_tests.rs`, `rate_limit_tests.rs`).
 - [`src/error.rs`](./src/error.rs):
@@ -101,19 +93,11 @@ It defines:
 2. **Overload Header Symmetry (529)**:
    When `EngineError::Overloaded` occurs, the API layer emits status 529 and both `Retry-After` (seconds) and `retry-after-ms` (milliseconds) headers.
 3. **Public Endpoints**:
-   `/health` and `/metrics` must never be wrapped with `auth_layer`. Automated health probes and Prometheus scrapers must access them unauthenticated. The exact path `/playground` is exempt the same way: it is an inert HTML shell, and evaluation and model-control data still flow through gated routes (the UI collects an optional bearer key for those).
+   Keep `/health` and `/metrics` outside `auth_layer` for probes and scrapers. `/playground` exposes only inert HTML. Evaluation and model-control routes remain gated.
 4. **Playground Is Not in `openapi.yaml`** (deliberate):
-   `GET /playground` is a flag-gated developer UI asset, not part of the TypeSafe wire contract, so it is intentionally absent from `openapi.yaml` and from the `tests/sdk_compat/openapi.rs` parity assertions. If you touch the playground route, keep that boundary: wire API changes belong in the spec; playground changes do not.
-5. **Arrow Endpoint Is Unofficial and Opt-In** (deliberate):
-   `POST /v1/arrow` shares the playground's boundary discipline: flag-gated
-   (`openkindd --arrow on`), absent from `openapi.yaml` and the OpenAPI parity
-   assertions, and never referenced by `tests/sdk_compat.rs`. It reuses the
-   `/v1/*` auth, rate-limit, and request-ID middleware, and maps errors through
-   the standard `ApiError` taxonomy: a failing bulk request must surface as the
-   usual JSON error envelope, never a partial Arrow stream. Wire mapping details
-   (column order, sorted labels, uint8 choice cap, metadata keys) are owned by
-   [`docs/ARROW.md`](../../docs/ARROW.md); keep `src/arrow.rs` and that page in
-   lockstep.
+   Keep `GET /playground` out of `openapi.yaml` and SDK parity assertions. Wire API changes belong in the spec; playground UI changes do not.
+5. **Unofficial Arrow**:
+   Keep `POST /v1/arrow` opt-in and outside OpenAPI and SDK parity tests. It uses `/v1/*` middleware and returns JSON errors, never partial streams. See [`docs/ARROW.md`](../../docs/ARROW.md) and `src/arrow.rs` for its contract.
 
 ## Verification Commands
 
