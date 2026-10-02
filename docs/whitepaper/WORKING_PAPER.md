@@ -4,7 +4,7 @@
 
 **Research question:** Which ideas in [RESEARCH.md][R] should we actually pursue when building an accurate, low-latency, resource-conscious typed-decision model and runtime?
 
-**Local evidence cutoff:** the completed T4 recovery runs `20261001T202134_352688Z_4a8cbc` (protocol `openkind-t4-recovery-reliability/v4.1.0`, E43) and `20261001T223435_041738Z_f25616` (protocol `openkind-t4-recovery-reliability/v4.1.1`, E44), the integrated research study `20261001T105345_828556Z_6e6d92` (E42), the unified decision validity study `20260929T194506_694066Z_dc1f74` (E41), and the earlier Qwen3.5-9B Q4/T4 study `20260928T220142_110595Z_1192c8`, together with the earlier model-learning, cache, CPU and MLX results consolidated in [WHITEPAPER.md, version 0.8.12][W]. External sources were checked separately for this revision. No new model inference, training, benchmark timing or raw-result re-audit was performed.
+**Local evidence cutoff:** the completed T4 recovery runs `20261001T202134_352688Z_4a8cbc` (protocol `openkind-t4-recovery-reliability/v4.1.0`, E43) and `20261001T223435_041738Z_f25616` (protocol `openkind-t4-recovery-reliability/v4.1.1`, E44 / [ER]), the integrated research study `20261001T105345_828556Z_6e6d92` (E42), the unified decision validity study `20260929T194506_694066Z_dc1f74` (E41), and the earlier Qwen3.5-9B Q4/T4 study `20260928T220142_110595Z_1192c8`, together with the earlier model-learning, cache, CPU and MLX results consolidated in [WHITEPAPER.md, version 0.8.12][W]. External sources were checked separately for this revision. No new model inference, training, benchmark timing or raw-result re-audit was performed.
 
 ## Abstract
 
@@ -41,7 +41,7 @@ The practical direction is therefore **a pretrained, evidence-sensitive decision
 | **Decompose / investigate** | Failure-first instruction patch (Arm NF). | E43: NF repairs partial-information eligibility (48/48 correct on failure-with-missing vs NJ's 34/48), raising overall eligibility from 201 to 213 of 216. | Collateral retry regression drops retry correctness from 89 to 76 of 216; all-six correctness drops from 33.33% to 28.70%. Cannot be deployed as complete request. |
 | **Retain as runtime discipline** | Version precision, kernels, rendering, batching, cache and request-history behavior together. | CPU/MLX parity assets identify reproducible modes; prompt schema sensitivity persists across all 4 transformations despite process isolation. | An efficient prefix-cached runtime does not inherently guarantee arbitrary-question statistical independence. |
 
-**Source:** [W: §§4–10, 15–18, 20–23; E1–E7, E11–E12, E29–E32, E39–E42, RUSTM2]. The recommendations synthesize those results; they are not claims that every component has already been integrated into one runtime.
+**Source:** [W: §§4–10, 15–18, 20–24; E1–E7, E11–E12, E29–E32, E39–E44, RUSTM2; ER]. The recommendations synthesize those results; they are not claims that every component has already been integrated into one runtime.
 
 The main architectural lesson is to **keep expensive question-conditioned interpretation where it is needed and remove redundant computation around it**. The record supports this more strongly than replacing the full decision computation with a cheap pooled state vector, indiscriminately compressing the cache, or assuming sparsity supplies a faster model. [W: §§9, 16–19, 23]
 
@@ -54,6 +54,8 @@ The main architectural lesson is to **keep expensive question-conditioned interp
 The disposition terms are correspondingly narrow: **retain** a demonstrated component; **conditional** when quality or execution trade-offs remain; **discount the tested form** when its intended objective failed; **unresolved** when the necessary comparison has not run. “Failed” does not mean every related architecture is impossible. “Passed” does not mean generalization, calibration and service reliability all passed.
 
 Repeated requests and transformed options are not additional independent cases. In particular, E40's two technical repeats do not double its 96 continuity or 36 synthetic cases; the synthetic panel also shares three templates, and E41's two repeats likewise do not double its 96-case fresh policy or SNLI confirmation panels. E29–E32 reuse an exposed natural-document panel, including only 12 contracts and 12 papers at the calibration gate. These are useful development and diagnostic results, not an untouched deployment population. [W: §§3.3, 18.20–18.25, 21.1, 22]
+
+ER separately labels old `u4_*` and regression panels as **exposed recovery/regression evidence**, and `r41_*` panels as **new authored confirmation/calibration evidence**. The policy confirmation contains 216 unique cases and 432 technical requests per profile. Its new fact groups and two held-out authored renderings do not constitute independent human confirmation or establish transfer to genuinely new policy families. Input coverage of 1.0 reports admitted cases, not a guarantee that every model retained every input token. The report, summary, manifest and completion record were read for this update; agreement among these generated outputs is not a new raw-prediction audit. [ER; ER-M; ER-S; ER-C]
 
 ## 3. What the benchmark leaders actually contribute
 
@@ -370,6 +372,26 @@ The record does not establish the original 0.3B–1.5B proposal as optimal. E11'
 
 The same study's frozen ModernBERT arm is far faster and smaller but reaches 51.56%; the full-update arm reaches 42.19%. That rejects those tested treatments as quality replacements, not every encoder or released Laya/Von checkpoint. An encoder's one batched call may also repeat state encoding for every question. [W: §15; R: Laya and Von reviews]
 
+### 10.2.1 Encoder recovery now supplies measurements, with a limited claim
+
+E42's `SameFileError` remains part of that run's historical record. The later ER recovery executed all 17 scheduled encoder/setup/smoke stages with zero failed, blocked or pending stages. Its manifest enables encoders and GLiClass but disables native Qwen, cache and history experiments. `EXPLORATORY_COMPLETE` therefore closes the setup blocker for these treatments; it is not an accuracy target, general reliability result or promotion. Neither the model nor the service was promoted. [ER; ER-M; ER-C]
+
+The following is a **within-run T4 policy comparison** on `r41_policy_confirmation`: 216 unique authored cases, each requested twice, with all requested cases admitted. The report retains the original U4 fitting examples and hyperparameters. Latencies are reported complete-request p50/p95; they are not cold-start, queueing or production-service measurements. [ER; ER-M]
+
+| Profile | Field accuracy | All-six correct | Request p50 / p95 | NLL / Brier |
+|---|---:|---:|---:|---:|
+| BERT frozen features | 51.31% | 5.09% | 16.51 / 18.05 ms | 0.950 / 0.557 |
+| BERT fine-tuned | 73.46% | 21.30% | 15.78 / 16.77 ms | 0.755 / 0.423 |
+| ModernBERT frozen features | 52.39% | 0.00% | 18.65 / 27.42 ms | 0.949 / 0.555 |
+| ModernBERT fine-tuned | 70.45% | 19.44% | 20.92 / 27.45 ms | 0.777 / 0.457 |
+| GLiClass released dynamic-label treatment | 45.45% | 3.24% | 65.13 / 96.90 ms | 1.045 / 0.619 |
+
+**What worked:** the tested fine-tuning recipes improve field accuracy over their frozen-feature controls by **22.15 pp (BERT)** and **18.06 pp (ModernBERT)**, with better all-six correctness and proper scores. BERT fine-tuning has the strongest descriptive point result of these five treatments. **What remains inadequate:** even it answers all six fields correctly on only 46/216 cases; ModernBERT achieves 42/216 and GLiClass 7/216. Complete probability availability and action consistency do not turn those answers into reliable whole requests. [ER; ER-S]
+
+**Faster/slower:** within this panel, fine-tuned ModernBERT's median is 1.33× BERT's and GLiClass's is 4.13× BERT's, calculated from the reported medians. BERT's small measured latency difference from its frozen control is descriptive, not evidence that fine-tuning inherently accelerates an encoder. These are task/recipe comparisons, not architecture-only ablations. E42's XR/NJ numbers remain useful historical references, but its 192-case panel differs from ER's 216-case panel and Qwen did not run in ER; dividing those latencies would not establish a matched encoder-versus-Qwen speedup. [ER; ER-M; W §23.1]
+
+**A separate positive NLI result:** the released three-way DeBERTa treatment achieves **90.10% (173/192)** on `u4_snli_confirmation`, with **20.92 ms p50 / 33.13 ms p95**, NLL **0.368** and Brier **0.166**. This is explicitly exposed recovery/regression evidence, with 384 technical requests. It justifies retaining a task-appropriate released NLI comparator; it does not establish caller-defined policy following, fresh NLI generalization or independent deployment-risk certification. GLiClass's original dynamic fixtures likewise remain exposed diagnostics. [ER]
+
 For the current project, keep the 4B Base profile as the implementation reference and the measured 9B Q4 profile as a separate serving candidate. A matched 4B/9B comparison has not established a size winner. Bring a 2B student or alternative backbone forward only under a declared quality floor and measured target-machine resource benefit. External Cygnet/Winnow results justify a strong non-Qwen control when resources permit, not an automatic migration.
 
 ### 10.3 What to borrow from the general-model survey—and what not to borrow
@@ -400,6 +422,16 @@ The next stage should resolve the few obstacles between the measured components 
 | **4. Match readout to runtime** | Compare selected vocabulary logits and a learned code head under explicitly controlled training/rendering; port only a useful selected profile into shared-state execution. | Leading systems support both methods; local evidence does not settle their matched quality/resource trade-off. | Correct code/option mappings, meaningful none behavior, Q/K scaling and paired full-request measurements; adapter-specific branching and history qualification. |
 | **5. Reduce deployment cost** | Compare a smaller Qwen/student or a frozen alternative after a useful task point exists; evaluate approved batching, exact reuse and storage formats on the target machine. | E11 supports a real smaller-model trade-off; E12/RUSTM2 show that cost depends on the actual graph and hardware. E41's native (1.57× at Q=16) versus open-mode (16×) scaling contrast shows the plan must come from the actual mechanism. | Retained useful quality, measured memory/latency benefit, and complete execution gates. Distillation additionally needs validated teacher quality. |
 
+**Bounded next model experiment (proposed):**
+
+1. Freeze a fixed-schema lane containing the recovered BERT and ModernBERT frozen/fine-tuned controls plus the selected Qwen XR and NJ controls. Reuse the already inspected ER panels only as exposed regression diagnostics. Keep DeBERTa's released NLI treatment in its own lane; do not interpret an NLI score as policy competence.
+2. Define genuinely new policy/question families before fitting, separately from new facts or paraphrases of the old policy. Independently review labels and decisive evidence where feasible, and otherwise continue to call the panel authored. Split by source/fact group and keep related renderings together. Freeze the family mix, training budget, seeds, tuning rule and confirmation set before inspecting outcomes.
+3. Admit common decisive content and candidate descriptions across models, record each tokenizer's actual retained evidence and exclusions, and lock checkpoint, pooling, label IDs, precision and renderer. Use multiple declared training seeds for fitted heads/backbones; a single-seed point ordering is not a stable model ranking.
+4. Report per-field and all-six correctness, class-sensitive errors, NLL/Brier, rejection, and a development-selected review policy's confirmation risk/coverage. Fit calibration only on calibration-fit data, accept it on the gate, and never choose a treatment or threshold using confirmation. Complete field marginals are not a joint posterior; do not multiply dependent-field confidences or describe model-implied bounds as certified risk.
+5. Advance an encoder only if it satisfies a **predeclared application quality/risk floor** and has a measured complete-request cost or memory benefit on shared cases. Report paired uncertainty using independent source groups, with technical repeats averaged first. If no treatment qualifies, record the bounded negative result and target its demonstrated errors; do not repeat the startup repair or declare the encoder family rejected. Cache eviction, process-history root cause, Rust/MLX and service qualification remain separate work.
+
+[ER; ER-M; question register OQ-09–11, OQ-17, OQ-25–26, OQ-33–38, OQ-51]
+
 These work items can proceed as separate model-quality and systems tracks. A model does not need to reproduce an older model's mistakes; an engine claiming to implement an unchanged model must reproduce its declared behavior. Neither distinction licenses post-hoc reselection or relaxation of historical acceptance rules. [W: §13.2]
 
 ## 12. Direct answers to the original research hypotheses
@@ -420,7 +452,7 @@ These work items can proceed as separate model-quality and systems tracks. A mod
 | Teacher/parent replay guarantees retention. | Parent agreement, replay-task learning and retained document correctness diverge. | **Use task-aligned retention, not proxy success.** |
 | Explicit unknown plus temperature scaling yields calibrated decisions. | None recall, false-none and high-confidence errors remain; temperature fits can worsen held-out scores. | **Train semantics; accept calibration separately.** |
 | RLCD/CADO is necessary. | No local result isolates an incremental benefit from decision-utility RL over supervised controls. | **Unresolved; not the next default investment.** |
-| A 0.3B–1.5B encoder should be the initial winner. | Released DeBERTa is a strong NLI specialist (90.10% at 20.92 ms); newly tuned BERT/ModernBERT collapse to majority classes. | **Retain specialist baseline; let quality/resource evidence select role.** |
+| A 0.3B–1.5B encoder should be the initial winner. | ER measures fast, improved task-fitted encoders, but policy all-six correctness remains low; released DeBERTa is strong on exposed NLI (90.10% at 20.92 ms). Newly tuned BERT/ModernBERT collapse to majority classes. | **Retain specialist baseline; let quality/resource evidence select role.** |
 | MTP will accelerate the no-generation path. | No output sequence exists for that mechanism to accelerate; no local MTP result was measured. | **Do not prioritize for this graph.** |
 | Passing a leaderboard or cache test qualifies a Jev replacement. | Benchmark quality, semantic scope, execution parity and service behavior have distinct failure modes. | **Require their separate evidence.** |
 
@@ -433,7 +465,7 @@ The positive evidence is substantial enough to choose a direction. **Use a capab
 The most persuasive local integrated results are now action composition plus static-prefix reuse, E42's selective indexing plus route composition (Arm XR: 95.40% field accuracy, 84.38% all-six correctness at 242.98 ms median), multi-catalogue host snapshot caching (~54% latency cut, 2.19× speedup, $\Delta p = 0.0$), dedicated-process isolation of the reproduced history failure ($\Delta p = 0.0$ across X, XR, and NJ), exact within-request sequence encoding reuse in Indecis (4.80× speedup, $\Delta p = 0.0$), and released DeBERTa as a task-specialized NLI candidate (90.10% accuracy at 20.92 ms median)—not a novel latent architecture, universal one-token encoding, aggressive cache compression or expert streaming.
 The recovery experiments also firmly establish the boundaries: small fixed-schema encoder fine-tuning suffers majority-class collapse, targeted instruction patches (NF) create collateral retry regressions, multi-digit retry capping exhibits first-digit copying traps, and inverted event displays defeat chronological recency.
 
-For a new Jev-style model and engine, pursue these demonstrated components first, then test the missing joins: separating numeric extraction from categorical capping, display-order invariant temporal resolution, a complete request that preserves failure-first eligibility without retry degradation, and application-calibrated acceptance policies on fresh task families. That is a positive engineering program grounded in what worked, while keeping the failed approaches and untested claims visible.
+For a new Jev-style model and engine, pursue these demonstrated components first, then test the missing joins: separating numeric extraction from categorical capping, display-order invariant temporal resolution, a complete request that preserves failure-first eligibility without retry degradation, application-calibrated acceptance policies on fresh task families, and a matched quality/risk test of the recovered encoders. That is a positive engineering program grounded in what worked, while keeping the failed approaches and untested claims visible.
 
 ---
 
@@ -457,9 +489,11 @@ For a new Jev-style model and engine, pursue these demonstrated components first
 | E41; V10 | §22 | Unified decision validity: selective readouts (X, R, GR), resident process isolation, multi-question scaling, and compact CPU transfer. |
 | E42; V11 | §23 | OpenKind T4 integrated research: useful integrations (XR, NJ), multi-catalogue host cache, dedicated process history, and classifier comparison diagnostic. |
 
+**[ER]** [Encoder recovery report][ER], run `20261001T223435_041738Z_f25616`, protocol `openkind-t4-recovery-reliability/v4.1.1`, completed 1 October 2026. New local, source-reported encoder measurements; evidence roles and sample sizes remain those in the report. Supporting [manifest][ER-M], [summary][ER-S] and [completion record][ER-C] establish the executed scope. The downloaded summary's SHA-256 matches the completion record; this is a file-integrity check, not a re-audit of predictions, labels, model weights or the result archive. ER is a source label for this follow-up, not a newly assigned whitepaper experiment ID.
+
 **[R]** `RESEARCH.md`, supplied research synthesis, hypothesis program and dated external-model roster. Earlier proposals remain proposals unless local result evidence changes their disposition. Its general-purpose-model survey is not treated as a ranked decision-model benchmark.
 
-**Editing base:** `WORKING_PAPER(4).md`, revision 0.7. This revision reorganizes its evidence around research questions and restores relevant earlier model/systems findings from W. It does not edit W, R, the roadmap, architecture, notebooks, backend defaults or evidence directories.
+**Editing base:** repository `docs/whitepaper/WORKING_PAPER.md`, revision 0.9.2, Git blob `d6d853f9285e93e984aa841c8ad56212b971471c`. This update preserves its E42 and earlier evidence and changes the encoder status, interpretation and next experiment using ER. Older supplied-input hashes below retain their historical role; they are not identities for this revision or the later recovery run.
 
 **Review boundary:** published-table ratios were recalculated where explicitly labeled. Model inference, training, archive reconciliation, source-label adjudication, checkpoint hashing, protected-final access and new latency measurement were not performed. Historical checker counts and hash-verification claims remain those of their original records.
 
@@ -510,3 +544,8 @@ These are hashes of the three supplied Markdown inputs, not hashes or renewed au
 [X9]: https://huggingface.co/EldanRing/Winnow-12B
 [X10]: https://www.privatemode.ai/blog/system-one-from-glm-flash
 [X10a]: https://github.com/edgelesssys/privatemode-decisions
+
+[ER]: https://drive.google.com/file/d/1fpZNrhNLue6q55FYNH1AKrf7Pv1u4iHR/view
+[ER-M]: https://drive.google.com/file/d/1X448XWfV7bnSvUAk5f0Sna-zS441tiiX/view
+[ER-S]: https://drive.google.com/file/d/1iVivey4fVpG9SlWTmTel3vuUX2gZ4EH6/view
+[ER-C]: https://drive.google.com/file/d/1qxUWUtqE2Zvr6TTLj_AwDB4E7pASy68w/view
