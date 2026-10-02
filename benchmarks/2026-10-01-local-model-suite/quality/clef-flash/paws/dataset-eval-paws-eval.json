@@ -1,0 +1,85 @@
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "254f2df8677712ee0972ddb92870dc79fed48aec",
+    "description": "Adversarial paraphrase identification (high word overlap).",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "google-research-datasets/paws",
+    "hf_revision": "161ece9501cf0a11f3e48bd356eaa82de46d6a09",
+    "license": "custom terms on the dataset card; review before broader use",
+    "name": "paws",
+    "task_family": "nli"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "clef",
+    "model_revision": "17f0b0ad64efb65d273590632833508766b2aae6",
+    "profile_id": "dfe12a21a5c9dd5b2fb1",
+    "strategy": "clef-flash"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy_at_0.5": 0.7,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.8,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.775,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.58,
+        0.82
+      ],
+      "clusters": 50,
+      "point": 0.7,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "aurc": 0.2561650488296966,
+    "auroc": 0.8116666666666666,
+    "brier": 0.2101979449575882,
+    "ece_10_bins": 0.42097897135420836,
+    "negative_recall": 0.6,
+    "positive_recall": 0.85,
+    "rows": 50,
+    "tuned_threshold": {
+      "dev_rows": 50,
+      "eval_accuracy": 0.74,
+      "protocol": "threshold selected on dev, applied to eval",
+      "threshold": 0.6545256218212224,
+      "tuning_accuracy_on_dev": 0.64
+    }
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "65d92a24e5a080b38e8c4af435fde1422a1c5a354cb2101b53019093f53f844a",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/clef-flash/paws/predictions-clef-flash-clef-flash.jsonl",
+    "predictions_sha256": "17d5213b9f9fb6570524526d05675c936195847d85c742c3e882b1b45b7d02a4",
+    "summary_sha256": "7f39118453d569d2cfede59014e52670f6bc4e7c9182cc49ee08809cdd4a9bcb",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/clef-flash/paws/workload-paws-eval.jsonl",
+    "workload_sha256": "36ecb2af4e6c31d6529afaf2a85abbb1581be6ff6544263029794b66a6defc70"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 18,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}

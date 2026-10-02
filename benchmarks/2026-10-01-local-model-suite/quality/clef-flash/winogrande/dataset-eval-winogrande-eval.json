@@ -1,0 +1,114 @@
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "546d5aa0e42fc0fa9ad2c13260322ec969e083ee",
+    "description": "Commonsense pronoun/blank resolution, 2 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "allenai/winogrande",
+    "hf_revision": "01e74176c63542e6b0bcb004dcdea22d94fb67b5",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "winogrande",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "clef",
+    "model_revision": "17f0b0ad64efb65d273590632833508766b2aae6",
+    "profile_id": "dfe12a21a5c9dd5b2fb1",
+    "strategy": "clef-flash"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.98,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 1.0,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.94,
+        1.0
+      ],
+      "clusters": 50,
+      "point": 0.98,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.98,
+    "aurc": 0.0016503618468664061,
+    "brier": 0.04086153480118848,
+    "ece_10_bins": 0.07103104739748169,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.9799919967987194,
+    "nll": 0.11638694718055792,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 25,
+        "label": "A",
+        "recall": 1.0
+      },
+      {
+        "count": 25,
+        "label": "B",
+        "recall": 0.96
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.020000000000000018,
+        "answered": 50,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.020408163265306145,
+        "answered": 49,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 38,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "65d92a24e5a080b38e8c4af435fde1422a1c5a354cb2101b53019093f53f844a",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/clef-flash/winogrande/predictions-clef-flash-clef-flash.jsonl",
+    "predictions_sha256": "9145a158d4df38e31a31d0999e9ca2c2115121c5ecd6014f98272b815eef4f77",
+    "summary_sha256": "04963eb3fd00326915b8cb75503e8b0c838b4d1dd85cd894923cf6b5cdcd3f12",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/clef-flash/winogrande/workload-winogrande-eval.jsonl",
+    "workload_sha256": "43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}

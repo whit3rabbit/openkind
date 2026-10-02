@@ -1,0 +1,124 @@
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "5a61ed188b8810abf32686fa83eb93787cbc5f25",
+    "description": "Grade-school science QA (Challenge + Easy), 3-5 options.",
+    "files": 4,
+    "gated": "none",
+    "hf_repo": "allenai/ai2_arc",
+    "hf_revision": "210d026faf9955653af8916fad021475a3f00453",
+    "license": "CC-BY-SA-4.0",
+    "name": "arc",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "clef",
+    "model_revision": "17f0b0ad64efb65d273590632833508766b2aae6",
+    "profile_id": "dfe12a21a5c9dd5b2fb1",
+    "strategy": "clef-flash"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.98,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 1.0,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.94,
+        1.0
+      ],
+      "clusters": 50,
+      "point": 0.98,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.98,
+    "aurc": 0.0008081632653061224,
+    "brier": 0.030117345318758124,
+    "ece_10_bins": 0.06234491396793922,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.9780952380952381,
+    "nll": 0.08035955694017297,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "A",
+        "recall": 1.0
+      },
+      {
+        "count": 19,
+        "label": "B",
+        "recall": 1.0
+      },
+      {
+        "count": 13,
+        "label": "C",
+        "recall": 0.9230769230769231
+      },
+      {
+        "count": 10,
+        "label": "D",
+        "recall": 1.0
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.020000000000000018,
+        "answered": 50,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 48,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 47,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 7,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "65d92a24e5a080b38e8c4af435fde1422a1c5a354cb2101b53019093f53f844a",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/clef-flash/arc/predictions-clef-flash-clef-flash.jsonl",
+    "predictions_sha256": "0f9f3f1f2fe7906a076d4e6900420527b4d1b161456c405af8dbea687a49dad6",
+    "summary_sha256": "26ce7dc1a8633c6689b87046b9d576835aa64f3ff8f36f84c9f79de5bc3627b5",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/clef-flash/arc/workload-arc-eval.jsonl",
+    "workload_sha256": "a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}

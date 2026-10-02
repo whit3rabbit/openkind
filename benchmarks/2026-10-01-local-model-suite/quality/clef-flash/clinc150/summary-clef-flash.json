@@ -1,0 +1,61 @@
+{
+  "bundle_version": null,
+  "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+  "context": null,
+  "cross_strategy_answer_parity_clean": null,
+  "engine": "clef",
+  "engine_variant": "clef-flash",
+  "fixture": {
+    "groups": 50,
+    "path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/clef-flash/clinc150/workload-clinc150-eval.jsonl",
+    "rows": 50,
+    "sha256": "c4fa558b966c0c72618366e1b6b6024566b5de14d3eeba7e0085c260ebdf1701"
+  },
+  "grouping": "per-state",
+  "history_aba": false,
+  "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+  "host_hardware": {
+    "cpu_brand": "Apple M4 Max",
+    "logical_cores": 14,
+    "model": "Mac16,5",
+    "total_memory_bytes": 38654705664
+  },
+  "measurement_scope": "model_request_path",
+  "model_revision": "17f0b0ad64efb65d273590632833508766b2aae6",
+  "notes": {
+    "cpu_time_seconds": "process-wide user+system CPU time diff across the timed region, excluding warmup and model load; avg_cpu_percent exceeds 100 when multiple threads run",
+    "input_tokens_per_second": "total input tokens across all timed repetitions divided by their total wall time",
+    "percentiles": "p50 is the median rep total and p95 is the ceil(0.95*n)-1 sample; small rep counts are reported alongside as samples_seconds",
+    "request_latency_ms": "latency is per request; grouped rows share their request's latency and are not independent timings; includes request construction through answer extraction"
+  },
+  "peak_resident_bytes": 11454791680,
+  "prediction_sha256": {
+    "clef-flash": "d4e6b5fb2ad029209ec779b7ae01397eea9ada7290447f3d8ec3270c2be0537a"
+  },
+  "profile_id": "dfe12a21a5c9dd5b2fb1",
+  "reps": 1,
+  "schema": "openkind-bench/v1",
+  "strategies": [
+    {
+      "avg_cpu_percent": 101.9683599537053,
+      "backend_id": "clef-flash/cpu-bf16w-fp32c",
+      "cpu_time_seconds": 9580.358188000002,
+      "decisions_per_second": 0.005321740479464904,
+      "forced": null,
+      "groups": 50,
+      "input_tokens_per_second": 16.759118683121287,
+      "input_tokens_total": 157459,
+      "model_load_seconds": 35.720358959,
+      "p50_seconds": 9395.422454916,
+      "p95_seconds": 9395.422454916,
+      "reps": 1,
+      "rows": 50,
+      "samples_seconds": [
+        9395.422454916
+      ],
+      "strategy": "clef-flash"
+    }
+  ],
+  "timing_scope": "request construction, validation, dispatch, and answer extraction; excludes model load (reported per strategy), result writes, and the untimed warmup pass; warm process",
+  "warmup": true
+}

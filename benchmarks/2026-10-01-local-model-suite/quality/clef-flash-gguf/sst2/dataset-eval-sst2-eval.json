@@ -1,0 +1,114 @@
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "db3daed39bcd33ea25255ab60c1ac86ad52ce79d",
+    "description": "Binary sentence sentiment (GLUE SST-2).",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "stanfordnlp/sst2",
+    "hf_revision": "8d51e7e4887a4caaa95b3fbebbf53c0490b58bbb",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "sst2",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "clef",
+    "model_revision": "d7f376ea88c05e7bb1014dd5351a93df9dd8029e",
+    "profile_id": "c330d9ee7e9cc658ad45",
+    "strategy": "clef-flash-gguf"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.96,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.975,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.9,
+        1.0
+      ],
+      "clusters": 50,
+      "point": 0.96,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.96,
+    "aurc": 0.006234229765987617,
+    "brier": 0.082448300125639,
+    "ece_10_bins": 0.049608405300210934,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.9575551782682513,
+    "nll": 0.20631460540769017,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 20,
+        "label": "negative",
+        "recall": 0.9
+      },
+      {
+        "count": 30,
+        "label": "positive",
+        "recall": 1.0
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.04081632653061229,
+        "answered": 49,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.021276595744680882,
+        "answered": 47,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.021739130434782594,
+        "answered": 46,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "65d92a24e5a080b38e8c4af435fde1422a1c5a354cb2101b53019093f53f844a",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/clef-flash-gguf/sst2/predictions-clef-flash-gguf-clef-flash-gguf.jsonl",
+    "predictions_sha256": "079e9f8a82195afe9692b6160c7895d3def960e7f6b1570d9ff00b3c569520be",
+    "summary_sha256": "c60469a2b7e55f225a925305038623f3666f487c313a03e3506431edfe164ebb",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/clef-flash-gguf/sst2/workload-sst2-eval.jsonl",
+    "workload_sha256": "aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
