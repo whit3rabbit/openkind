@@ -31,6 +31,8 @@ pub enum EngineKind {
     Qwen3Guard,
     /// Pinned kev engine (Kev-0.6B pointer readout).
     Kev,
+    /// Pinned strands-decider-2b engine (Strands Decider 2B pointer readout).
+    StrandsDecider2b,
     /// Pinned decoder-logit-qwen35 engine (JevK5 letter-logit readout).
     DecoderLogitQwen35,
     /// Pinned plumb-4b engine (Plumb-4B letter-logit readout, single read).
@@ -39,6 +41,10 @@ pub enum EngineKind {
     Decider4b,
     /// Pinned winnow-e4b engine (Gemma 4 backbone letter-logit readout).
     WinnowE4b,
+    /// Pinned Cloudflare Clef joint-schema engines.
+    ClefFlash,
+    ClefFlashGguf,
+    Clef27bGguf,
     /// Raw decoder-logit-qwen3 controls (letter-logit readout, temperature 1.0).
     DecoderLogitQwen306b,
     DecoderLogitQwen317b,
@@ -97,10 +103,14 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
         | EngineKind::Qwen3Guard
         | EngineKind::Winnow
         | EngineKind::Kev
+        | EngineKind::StrandsDecider2b
         | EngineKind::DecoderLogitQwen35
         | EngineKind::Plumb4b
         | EngineKind::Decider4b
         | EngineKind::WinnowE4b
+        | EngineKind::ClefFlash
+        | EngineKind::ClefFlashGguf
+        | EngineKind::Clef27bGguf
         | EngineKind::DecoderLogitQwen306b
         | EngineKind::DecoderLogitQwen317b
         | EngineKind::DecoderLogitQwen34b
@@ -140,10 +150,14 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
         | EngineKind::Qwen3Guard
         | EngineKind::Winnow
         | EngineKind::Kev
+        | EngineKind::StrandsDecider2b
         | EngineKind::DecoderLogitQwen35
         | EngineKind::Plumb4b
         | EngineKind::Decider4b
         | EngineKind::WinnowE4b
+        | EngineKind::ClefFlash
+        | EngineKind::ClefFlashGguf
+        | EngineKind::Clef27bGguf
         | EngineKind::DecoderLogitQwen306b
         | EngineKind::DecoderLogitQwen317b
         | EngineKind::DecoderLogitQwen34b
@@ -174,10 +188,14 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
             EngineKind::RouterScript => "router-script",
             EngineKind::Qwen3Guard => "qwen3guard",
             EngineKind::Kev => "kev",
+            EngineKind::StrandsDecider2b => "strands-decider-2b",
             EngineKind::DecoderLogitQwen35 => "decoder-logit-qwen35",
             EngineKind::Plumb4b => "plumb-4b",
             EngineKind::Decider4b => "decider-4b",
             EngineKind::WinnowE4b => "winnow-e4b",
+            EngineKind::ClefFlash => "clef-flash",
+            EngineKind::ClefFlashGguf => "clef-flash-gguf",
+            EngineKind::Clef27bGguf => "clef-27b-gguf",
             EngineKind::DecoderLogitQwen306b => "decoder-logit-qwen3-06b",
             EngineKind::DecoderLogitQwen317b => "decoder-logit-qwen3-17b",
             EngineKind::DecoderLogitQwen34b => "decoder-logit-qwen3-4b",
@@ -209,10 +227,14 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
             EngineKind::RouterScript => "router-script",
             EngineKind::Qwen3Guard => "qwen3guard",
             EngineKind::Kev => "kev",
+            EngineKind::StrandsDecider2b => "strands-decider-2b",
             EngineKind::DecoderLogitQwen35 => "decoder-logit-qwen35",
             EngineKind::Plumb4b => "plumb-4b",
             EngineKind::Decider4b => "decider-4b",
             EngineKind::WinnowE4b => "winnow-e4b",
+            EngineKind::ClefFlash => "clef-flash",
+            EngineKind::ClefFlashGguf => "clef-flash-gguf",
+            EngineKind::Clef27bGguf => "clef-27b-gguf",
             EngineKind::DecoderLogitQwen306b => "decoder-logit-qwen3-06b",
             EngineKind::DecoderLogitQwen317b => "decoder-logit-qwen3-17b",
             EngineKind::DecoderLogitQwen34b => "decoder-logit-qwen3-4b",
@@ -250,10 +272,14 @@ pub fn is_family_engine_public(engine: EngineKind) -> bool {
             | EngineKind::Qwen3Guard
             | EngineKind::Winnow
             | EngineKind::Kev
+            | EngineKind::StrandsDecider2b
             | EngineKind::DecoderLogitQwen35
             | EngineKind::Plumb4b
             | EngineKind::Decider4b
             | EngineKind::WinnowE4b
+            | EngineKind::ClefFlash
+            | EngineKind::ClefFlashGguf
+            | EngineKind::Clef27bGguf
             | EngineKind::DecoderLogitQwen306b
             | EngineKind::DecoderLogitQwen317b
             | EngineKind::DecoderLogitQwen34b
@@ -317,6 +343,11 @@ pub(crate) fn family_identity(
             openkind_backends::families::kev::PROFILE_ID,
             openkind_backends::families::kev::BACKBONE_REVISION,
         )),
+        EngineKind::StrandsDecider2b => Some((
+            openkind_backends::families::strands_decider::FAMILY_SLUG,
+            openkind_backends::families::strands_decider::PROFILE_ID,
+            openkind_backends::families::strands_decider::BACKBONE_REVISION,
+        )),
         EngineKind::DecoderLogitQwen35 => Some((
             openkind_backends::families::decoder_logit_qwen35::FAMILY_SLUG,
             openkind_backends::families::decoder_logit_qwen35::PROFILE_ID,
@@ -334,6 +365,21 @@ pub(crate) fn family_identity(
             openkind_backends::families::gemma4::FAMILY_SLUG,
             openkind_backends::families::gemma4::PROFILE_ID,
             openkind_backends::families::gemma4::BACKBONE_REVISION,
+        )),
+        EngineKind::ClefFlash => Some((
+            openkind_backends::families::clef::FAMILY_SLUG,
+            openkind_backends::families::clef::CLEF_FLASH.profile_id,
+            openkind_backends::families::clef::CLEF_FLASH.backbone_revision,
+        )),
+        EngineKind::ClefFlashGguf => Some((
+            openkind_backends::families::clef::FAMILY_SLUG,
+            openkind_backends::families::clef::CLEF_FLASH_GGUF.profile_id,
+            openkind_backends::families::clef::CLEF_FLASH_GGUF.backbone_revision,
+        )),
+        EngineKind::Clef27bGguf => Some((
+            openkind_backends::families::clef::FAMILY_SLUG,
+            openkind_backends::families::clef::CLEF_27B_GGUF.profile_id,
+            openkind_backends::families::clef::CLEF_27B_GGUF.backbone_revision,
         )),
         EngineKind::DecoderLogitQwen306b => Some(qwen3_control_identity(
             &openkind_backends::families::decoder_logit_qwen3::QWEN3_06B,

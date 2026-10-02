@@ -46,6 +46,9 @@ use openkind_backends::families::encoder_nli::{EncoderNliEngine, EncoderNliEngin
 use openkind_backends::families::kev::{KevEngine, KevEngineConfig};
 use openkind_backends::families::qwen3guard::{Qwen3GuardEngine, Qwen3GuardEngineConfig};
 use openkind_backends::families::schema_scorer::{SchemaScorerEngine, SchemaScorerEngineConfig};
+use openkind_backends::families::strands_decider::{
+    StrandsDeciderEngine, StrandsDeciderEngineConfig,
+};
 use openkind_backends::families::support::FamilyLimits;
 use openkind_backends::qwen35::{Qwen35DecisionEngine, Qwen35EngineConfig, SchedulerConfig};
 use openkind_engine::{DecisionEngine, EngineRegistry};
@@ -248,6 +251,28 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
                     .map_err(|error| {
                         anyhow::anyhow!("load decoder-logit-qwen3 engine: {error}")
                     })?,
+                )
+            }
+            EngineKind::ClefFlash | EngineKind::ClefFlashGguf | EngineKind::Clef27bGguf => {
+                let profile = match args.engine {
+                    EngineKind::ClefFlash => &openkind_backends::families::clef::CLEF_FLASH,
+                    EngineKind::ClefFlashGguf => {
+                        &openkind_backends::families::clef::CLEF_FLASH_GGUF
+                    }
+                    _ => &openkind_backends::families::clef::CLEF_27B_GGUF,
+                };
+                Arc::new(
+                    openkind_backends::families::clef::ClefEngine::load(
+                        model_root.expect("gated").clone(),
+                        profile,
+                        FamilyLimits {
+                            max_concurrent_requests: 1,
+                            max_queued_requests: 0,
+                            retry_after_ms: 250,
+                            evaluation_timeout: None,
+                        },
+                    )
+                    .map_err(|error| anyhow::anyhow!("load clef engine: {error}"))?,
                 )
             }
             EngineKind::Decider4b => Arc::new(
@@ -471,6 +496,29 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
                         },
                     })
                     .map_err(|error| anyhow::anyhow!("load kev engine: {error}"))?,
+                )
+            }
+            EngineKind::StrandsDecider2b => {
+                let model_root = args.model_root.as_ref().ok_or_else(|| {
+                    anyhow::anyhow!("--model-root is required for the strands-decider-2b engine")
+                })?;
+                let base_root = args.checkpoint_root.as_ref().ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "--checkpoint-root is required for the strands-decider-2b engine"
+                    )
+                })?;
+                Arc::new(
+                    StrandsDeciderEngine::load(StrandsDeciderEngineConfig {
+                        model_root: model_root.clone(),
+                        base_root: base_root.clone(),
+                        limits: FamilyLimits {
+                            max_concurrent_requests: 1,
+                            max_queued_requests: 0,
+                            retry_after_ms: 250,
+                            evaluation_timeout: None,
+                        },
+                    })
+                    .map_err(|error| anyhow::anyhow!("load strands-decider-2b engine: {error}"))?,
                 )
             }
             EngineKind::Winnow => {

@@ -39,6 +39,7 @@ input token rates, and strategy caveats are in the per-backend table below).
 | [`decoder-logit-qwen3-17b`](families/decoder-logit-qwen3.md) | Qwen3 dense decoder (raw direct-logit control, temperature 1.0), 1.7B | [Qwen/Qwen3-1.7B](https://huggingface.co/Qwen/Qwen3-1.7B) | `decoder-logit-qwen3-17b:8119b9271f8d011e7d03` | 4.06 GB | 11.46 GB · 2.30/s | — | [smoke summary](benchmarks/2026-10-01-qwen3-controls/summary-decoder-logit-qwen3-17b.json) |
 | [`decoder-logit-qwen3-06b`](families/decoder-logit-qwen3.md) | Qwen3 dense decoder (raw direct-logit control, temperature 1.0), 0.6B | [Qwen/Qwen3-0.6B](https://huggingface.co/Qwen/Qwen3-0.6B) | `decoder-logit-qwen3-06b:d900f4af57509fe02e62` | 1.50 GB | 4.21 GB · 1.61/s | — | [smoke summary](benchmarks/2026-10-01-qwen3-controls/summary-decoder-logit-qwen3-06b.json) |
 | [`decider-4b`](families/decider.md) | Qwen3.5 hybrid decoder (slot-logit readout, plain state-first layout, isolated score levels), 4B | [Mapika/decider-4b](https://huggingface.co/Mapika/decider-4b) | `decider-4b:0529bf6f2bed84641701` | 8.43 GB | 7.91 GB · 0.06/s (smoke) | — | [smoke summary](benchmarks/2026-09-30-jevbench-expansion/summary-decider-4b-smoke.json) |
+| [`strands-decider-2b`](families/strands-decider.md) | Qwen3.5 hybrid decoder (LoRA + pointer head readout), 2B | [StrandsAgents/strands-decider-2B-hobson-v19](https://huggingface.co/StrandsAgents/strands-decider-2B-hobson-v19) over [Qwen/Qwen3.5-2B-Base](https://huggingface.co/Qwen/Qwen3.5-2B-Base) | `strands-decider-2b:6a02bb0d1c6b25cae74b` | 4.64 GB | 9.01 GB · 0.31/s | — | [bring-up + cross-check](benchmarks/2026-10-01-strands-decider/README.md) |
 | [`winnow-e4b`](families/gemma4-decision.md) | Gemma 4 E4B hybrid decoder (LoRA fine-tune, letter-logit readout over per-layer embeddings), 7.5B | [EldanRing/Winnow-E4B](https://huggingface.co/EldanRing/Winnow-E4B) + [Gemma 4 tokenizer](https://huggingface.co/mistralrs-community/gemma-4-E4B-it-UQFF) | `winnow-e4b:656ac636ce450cf79c7d` (`winnow:e4b`) | 7.46 GB | 8.49 GB · measured run pending | — | [bring-up smoke](benchmarks/2026-10-01-gemma4-backbone/README.md) |
 | [`von`](families/von.md) | ModernBERT-large encoder, option-marker scorer | [wfzyx/von](https://huggingface.co/wfzyx/von) (von-1.1) | `von:69219703407bd39cca0c` (`von:1.1`) | 1.58 GB | 1.83 GB · 2.25/s | — | [summary](benchmarks/2026-09-30-von/summary-von.json) |
 | [`laya-english`](families/laya.md) | ModernBERT-large encoder, typed-decision marker head | [convaiinnovations/laya](https://huggingface.co/convaiinnovations/laya) | `laya-english:c8ea29bf1e33a343c4b7` (`laya:en`) | 0.85 GB | 2.75 GB · 2.23/s | 2.12 GB · 24.34/s | [laya MLX campaign](benchmarks/2026-09-28-laya-mlx-campaign/README.md) |
@@ -80,7 +81,7 @@ Reading notes:
 
 ## Pull a catalog model
 
-Seventeen profiles are catalog-installable: every Rust-loadable profile
+Twenty-two profiles are catalog-installable: every Rust-loadable profile
 except `router-script`, which needs no artifacts. `openkind pull NAME`
 downloads pinned artifacts, verifies every digest, and installs them for the
 daemon:
@@ -201,6 +202,7 @@ parity-qualified for the profiles listed and does not exist for the others.
 | `laya-typed-decisions` | MLX fp32 (qualified) | same | 2.13 GB | 23.77 | 4,849 | 2.9 s | [laya MLX campaign](benchmarks/2026-09-28-laya-mlx-campaign/README.md) |
 | `plumb-4b` | CPU fp32 | 8.43 GB | measured run pending | — | — | — | measured run pending |
 | `winnow-e4b` | CPU q8_0 kernels + F32 attention | 7.46 GB | 8.49 GB · measured run pending | — | — | measured run pending | [bring-up smoke](benchmarks/2026-10-01-gemma4-backbone/README.md) |
+| `strands-decider-2b` | CPU fp32 | 4.64 GB | 9.01 GB | 0.31 | 85 | 10.3 s | [bring-up + cross-check](benchmarks/2026-10-01-strands-decider/README.md) |
 | `von` | CPU fp32 | 1.58 GB | 1.83 GB | 2.25 | 493 | 3.3 s | [summary](benchmarks/2026-09-30-von/summary-von.json) |
 | `encoder-nli` | CPU fp32 | 0.27 GB | 0.56 GB | 35.14 | — | 0.5 s | [summary](benchmarks/2026-09-26-surveyed-families/summary-encoder-nli.json) |
 | `encoder-instruct-label` | CPU fp32 | 0.61 GB | 1.27 GB | 4.73 | 1,013 | 1.2 s | [mlx counterparts campaign](benchmarks/2026-09-29-mlx-counterparts/README.md) (CPU re-run) |

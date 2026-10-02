@@ -13,7 +13,7 @@ use thiserror::Error;
 /// The production catalog mirrors the static file in this repository. Its
 /// digest is pinned below so the mutable mirror cannot authorize new content.
 pub const CATALOG_URL: &str = "https://raw.githubusercontent.com/whit3rabbit/openkind-model-registry/main/registry/v1/catalog.json";
-pub const CATALOG_SHA256: &str = "f9441442259d898d3e9cdd9a8cd3bbd70447fe40ee158126ed2c946d7ac5c4c5";
+pub const CATALOG_SHA256: &str = "aa1737c33963ca3a95ce0002932d224526648555b5886a9d438f2bc36faa7874";
 pub const QWEN35_STATE_FIRST_MODEL_NAME: &str = "qwen35-state-first:a047d6802c3f06f085b8";
 /// Pinned laya English decision-encoder model name.
 pub const LAYA_ENGLISH_MODEL_NAME: &str = "laya-english:c8ea29bf1e33a343c4b7";
@@ -37,6 +37,12 @@ pub const QWEN3GUARD_MODEL_NAME: &str = "qwen3guard:0fcf416cab16d94f933d";
 pub const KEV_MODEL_NAME: &str = "kev:39d88c11faeb4ac165fa";
 /// Pinned decoder-logit-qwen35 model name.
 pub const DECODER_LOGIT_QWEN35_MODEL_NAME: &str = "decoder-logit-qwen35:415bcf4a064e6dadcf85";
+/// Pinned Cloudflare Clef-Flash BF16 model name.
+pub const CLEF_FLASH_MODEL_NAME: &str = "clef-flash:dfe12a21a5c9dd5b2fb1";
+/// Pinned Cloudflare Clef-Flash GGUF Q4_K_M model name.
+pub const CLEF_FLASH_GGUF_MODEL_NAME: &str = "clef-flash-gguf:c330d9ee7e9cc658ad45";
+/// Pinned Cloudflare Clef 27B GGUF Q4_K_M model name.
+pub const CLEF_27B_GGUF_MODEL_NAME: &str = "clef-27b-gguf:48cb5634b4a258de5a6b";
 /// Pinned plumb-4b model name.
 pub const PLUMB_4B_MODEL_NAME: &str = "plumb-4b:c1f080794d38e94a0bc2";
 /// Pinned decider-4b model name.
@@ -51,6 +57,8 @@ pub const VON_MODEL_NAME: &str = "von:69219703407bd39cca0c";
 pub const WINNOW_MODEL_NAME: &str = "winnow:4dff8c5b03cfbf680db6";
 /// Pinned winnow-e4b (Gemma 4 backbone) model name.
 pub const WINNOW_E4B_MODEL_NAME: &str = "winnow-e4b:656ac636ce450cf79c7d";
+/// Pinned Strands Decider 2B (Hobson v19) model name.
+pub const STRANDS_DECIDER_2B_MODEL_NAME: &str = "strands-decider-2b:6a02bb0d1c6b25cae74b";
 /// Pinned BGE-small sentence-embedding encoder for the proxy-cache student.
 pub const ENCODER_EMBEDDING_MODEL_NAME: &str = "encoder-embedding:8d9498269ef05d95d93c";
 

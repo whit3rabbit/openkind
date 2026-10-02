@@ -13,14 +13,15 @@ use tokio::io::AsyncWriteExt;
 use crate::manifest::{sha256, valid_name, valid_relative_path, valid_sha256};
 use crate::{
     Catalog, CatalogEntry, Error, Manifest, Result, CATALOG_SHA256, CATALOG_URL,
+    CLEF_27B_GGUF_MODEL_NAME, CLEF_FLASH_GGUF_MODEL_NAME, CLEF_FLASH_MODEL_NAME,
     DECIDER_4B_MODEL_NAME, DECODER_LOGIT_LETTER_MODEL_NAME, DECODER_LOGIT_LLM_MODEL_NAME,
     DECODER_LOGIT_QWEN35_MODEL_NAME, DECODER_LOGIT_QWEN3_06B_MODEL_NAME,
     DECODER_LOGIT_QWEN3_17B_MODEL_NAME, DECODER_LOGIT_QWEN3_4B_MODEL_NAME,
     ENCODER_EMBEDDING_MODEL_NAME, ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME,
     KEV_MODEL_NAME, LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME,
     LAYA_TYPED_DECISIONS_MODEL_NAME, PLUMB_4B_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME,
-    QWEN3GUARD_MODEL_NAME, SCHEMA_SCORER_MODEL_NAME, VON_MODEL_NAME, WINNOW_E4B_MODEL_NAME,
-    WINNOW_MODEL_NAME,
+    QWEN3GUARD_MODEL_NAME, SCHEMA_SCORER_MODEL_NAME, STRANDS_DECIDER_2B_MODEL_NAME, VON_MODEL_NAME,
+    WINNOW_E4B_MODEL_NAME, WINNOW_MODEL_NAME,
 };
 
 const MAX_METADATA_BYTES: u64 = 4 * 1024 * 1024;
@@ -59,6 +60,17 @@ const SUPPORTED_PROFILES: &[(&str, &str, &str)] = &[
         DECODER_LOGIT_LETTER_MODEL_NAME,
         "decoder-logit-letter",
         "5492c97dfcdaf3fe9439",
+    ),
+    (CLEF_FLASH_MODEL_NAME, "clef-flash", "dfe12a21a5c9dd5b2fb1"),
+    (
+        CLEF_FLASH_GGUF_MODEL_NAME,
+        "clef-flash-gguf",
+        "c330d9ee7e9cc658ad45",
+    ),
+    (
+        CLEF_27B_GGUF_MODEL_NAME,
+        "clef-27b-gguf",
+        "48cb5634b4a258de5a6b",
     ),
     (
         ENCODER_NLI_MODEL_NAME,
@@ -107,6 +119,11 @@ const SUPPORTED_PROFILES: &[(&str, &str, &str)] = &[
     (VON_MODEL_NAME, "von", "69219703407bd39cca0c"),
     (WINNOW_MODEL_NAME, "winnow", "4dff8c5b03cfbf680db6"),
     (WINNOW_E4B_MODEL_NAME, "winnow-e4b", "656ac636ce450cf79c7d"),
+    (
+        STRANDS_DECIDER_2B_MODEL_NAME,
+        "strands-decider-2b",
+        "6a02bb0d1c6b25cae74b",
+    ),
 ];
 
 fn supported_profile(manifest: &Manifest) -> bool {

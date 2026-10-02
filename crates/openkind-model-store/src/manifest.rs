@@ -8,7 +8,10 @@ use crate::{Error, Result};
 pub const CATALOG_SCHEMA: &str = "openkind-catalog/v1";
 pub const MANIFEST_SCHEMA: &str = "openkind-model/v1";
 /// Upper bound for all artifacts in one model installation.
-pub const MAX_MODEL_BYTES: u64 = 16 * 1024 * 1024 * 1024;
+///
+/// Sized above the largest pinned artifact (the Cloudflare Clef 27B GGUF
+/// Q4_K_M backbone at 17.2 GB) with headroom for its companion artifacts.
+pub const MAX_MODEL_BYTES: u64 = 32 * 1024 * 1024 * 1024;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

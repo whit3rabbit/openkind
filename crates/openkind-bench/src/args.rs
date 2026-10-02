@@ -312,6 +312,9 @@ pub enum EngineArg {
     Qwen3Guard,
     /// Pinned kev engine (Kev-0.6B pointer readout).
     Kev,
+    /// Pinned strands-decider-2b engine (Strands Decider 2B pointer readout).
+    #[value(name = "strands-decider-2b")]
+    StrandsDecider2b,
     /// Pinned decoder-logit-qwen35 engine (JevK5 letter-logit readout).
     DecoderLogitQwen35,
     /// Pinned plumb-4b engine (Plumb-4B letter-logit readout, single read).
@@ -323,6 +326,13 @@ pub enum EngineArg {
     /// Pinned winnow-e4b engine (Gemma 4 backbone letter-logit readout).
     #[value(name = "winnow-e4b")]
     WinnowE4b,
+    /// Pinned Cloudflare Clef joint-schema engines.
+    #[value(name = "clef-flash")]
+    ClefFlash,
+    #[value(name = "clef-flash-gguf")]
+    ClefFlashGguf,
+    #[value(name = "clef-27b-gguf")]
+    Clef27bGguf,
     /// Raw decoder-logit-qwen3 controls (letter-logit readout, temperature 1.0).
     #[value(name = "decoder-logit-qwen3-06b")]
     DecoderLogitQwen306b,
@@ -380,10 +390,14 @@ impl From<EngineArg> for EngineKind {
             EngineArg::RouterScript => EngineKind::RouterScript,
             EngineArg::Qwen3Guard => EngineKind::Qwen3Guard,
             EngineArg::Kev => EngineKind::Kev,
+            EngineArg::StrandsDecider2b => EngineKind::StrandsDecider2b,
             EngineArg::DecoderLogitQwen35 => EngineKind::DecoderLogitQwen35,
             EngineArg::Plumb4b => EngineKind::Plumb4b,
             EngineArg::Decider4b => EngineKind::Decider4b,
             EngineArg::WinnowE4b => EngineKind::WinnowE4b,
+            EngineArg::ClefFlash => EngineKind::ClefFlash,
+            EngineArg::ClefFlashGguf => EngineKind::ClefFlashGguf,
+            EngineArg::Clef27bGguf => EngineKind::Clef27bGguf,
             EngineArg::DecoderLogitQwen306b => EngineKind::DecoderLogitQwen306b,
             EngineArg::DecoderLogitQwen317b => EngineKind::DecoderLogitQwen317b,
             EngineArg::DecoderLogitQwen34b => EngineKind::DecoderLogitQwen34b,

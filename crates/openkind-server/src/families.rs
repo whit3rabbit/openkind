@@ -50,6 +50,9 @@ use openkind_backends::families::laya::{LayaMlxEngine, LayaMlxEngineConfig};
 use openkind_backends::families::qwen3guard::{Qwen3GuardEngine, Qwen3GuardEngineConfig};
 use openkind_backends::families::router_script::ScriptRuleTable;
 use openkind_backends::families::schema_scorer::{SchemaScorerEngine, SchemaScorerEngineConfig};
+use openkind_backends::families::strands_decider::{
+    StrandsDeciderEngine, StrandsDeciderEngineConfig,
+};
 use openkind_backends::families::support::FamilyLimits;
 use openkind_backends::families::von::{VonEngine, VonEngineConfig, VON};
 use openkind_engine::DecisionEngine;
@@ -140,6 +143,27 @@ pub(crate) struct FamilyArgs {
     /// (`model.safetensors`, `config.json`).
     #[arg(long, env = "OPENKIND_KEV_BASE_ROOT")]
     pub(crate) kev_base_root: Option<PathBuf>,
+
+    /// Aliases in `--models` that should use the pinned strands-decider-2b
+    /// engine (Strands Decider 2B pointer readout on Qwen3.5-2B-Base).
+    #[arg(
+        long,
+        env = "OPENKIND_STRANDS_DECIDER_ALIASES",
+        value_delimiter = ',',
+        default_value = "strands-decider-native"
+    )]
+    pub(crate) strands_decider_aliases: Vec<String>,
+
+    /// Model root with the pinned Strands Decider 2B checkpoint artifacts
+    /// (`adapter_model.safetensors`, `adapter_config.json`,
+    /// `head.safetensors`, `tokenizer.json`, `hobson_config.json`).
+    #[arg(long, env = "OPENKIND_STRANDS_DECIDER_MODEL_ROOT")]
+    pub(crate) strands_decider_model_root: Option<PathBuf>,
+
+    /// Base-model root with the pinned `Qwen3.5-2B-Base`
+    /// (`model.safetensors`, `config.json`).
+    #[arg(long, env = "OPENKIND_STRANDS_DECIDER_BASE_ROOT")]
+    pub(crate) strands_decider_base_root: Option<PathBuf>,
 
     /// Aliases in `--models` that should use the pinned decoder-logit-llm
     /// engine (GGUF q8_0 letter readout).
@@ -313,6 +337,21 @@ pub(crate) struct FamilyArgs {
     #[arg(long, env = "OPENKIND_DECODER_LOGIT_QWEN3_MODEL_ROOTS")]
     pub(crate) decoder_logit_qwen3_model_roots: Vec<String>,
 
+    /// Aliases in `--models` that should use a pinned Cloudflare Clef
+    /// engine, of the form `flash=<alias>[,alias…];flash-gguf=<…>;27b=<…>`.
+    #[arg(
+        long,
+        env = "OPENKIND_CLEF_ALIASES",
+        value_delimiter = ';',
+        help = "comma-separated alias lists of the form        flash=<alias>[,alias…];flash-gguf=<alias>[,alias…];27b=<alias>[,alias…]"
+    )]
+    pub(crate) clef_aliases: Vec<String>,
+
+    /// Model roots for the pinned Cloudflare Clef profiles, of the form
+    /// `flash=<path>;flash-gguf=<path>;27b=<path>`.
+    #[arg(long, env = "OPENKIND_CLEF_MODEL_ROOTS")]
+    pub(crate) clef_model_roots: Vec<String>,
+
     /// Aliases in `--models` that should use the pinned laya-english engine
     /// (English ModernBERT-large decision encoder).
     #[arg(
@@ -423,6 +462,17 @@ pub(crate) struct FamilyArgs {
         default_value_t = CudaOnlyBackendArg::NativeCpu
     )]
     pub(crate) kev_backend: CudaOnlyBackendArg,
+
+    /// Strands-decider-2b backend. The pointer-head readout over the
+    /// Qwen3.5 hybrid backbone has no ONNX export; `cuda` requires the
+    /// daemon's `cuda` feature.
+    #[arg(
+        long,
+        env = "OPENKIND_STRANDS_DECIDER_BACKEND",
+        value_enum,
+        default_value_t = CudaOnlyBackendArg::NativeCpu
+    )]
+    pub(crate) strands_decider_backend: CudaOnlyBackendArg,
 
     /// Decoder-logit-llm backend. The quantized GGUF readout has no ONNX
     /// export; `cuda` requires the daemon's `cuda` feature.
@@ -745,6 +795,35 @@ impl FamilyArgs {
             }
         }
 
+        let strands_decider: Vec<_> = self
+            .strands_decider_aliases
+            .iter()
+            .filter(|alias| models.contains(alias))
+            .collect();
+        if !strands_decider.is_empty() {
+            let model_root = self.strands_decider_model_root.clone().context(
+                "strands-decider alias requested but --strands-decider-model-root is missing",
+            )?;
+            let base_root = self.strands_decider_base_root.clone().context(
+                "strands-decider alias requested but --strands-decider-base-root is missing",
+            )?;
+            let execution = self.strands_decider_backend.to_execution(cuda_device)?;
+            let engine: Arc<dyn DecisionEngine> = Arc::new(
+                StrandsDeciderEngine::load_with_execution(
+                    StrandsDeciderEngineConfig {
+                        model_root,
+                        base_root,
+                        limits: admission.limits(),
+                    },
+                    execution,
+                )
+                .map_err(|error| anyhow::anyhow!("load strands-decider-2b engine: {error}"))?,
+            );
+            for alias in strands_decider {
+                engines.push((alias.to_string(), Arc::clone(&engine)));
+            }
+        }
+
         let schema_scorer: Vec<_> = self
             .schema_scorer_aliases
             .iter()
@@ -976,6 +1055,57 @@ impl FamilyArgs {
                     .map_err(|error| {
                         anyhow::anyhow!("load decoder-logit-qwen3-{size} engine: {error}")
                     })?,
+                );
+                engines.push(((*alias).clone(), Arc::clone(&engine)));
+            }
+        }
+
+        // Cloudflare Clef joint-schema profiles: size-keyed alias lists and
+        // model roots (`flash=`, `flash-gguf=`, `27b=` prefixes). Every
+        // profile executes on the candle CPU path.
+        let mut clef_controls: Vec<(
+            &std::string::String,
+            PathBuf,
+            &'static openkind_backends::families::clef::ClefProfile,
+            &str,
+        )> = Vec::new();
+        for entry in &self.clef_model_roots {
+            let Some((size, root)) = entry.split_once('=') else {
+                bail!("--clef-model-roots entries must look like flash=<path>; got {entry}");
+            };
+            let profile = match size {
+                "flash" => &openkind_backends::families::clef::CLEF_FLASH,
+                "flash-gguf" => &openkind_backends::families::clef::CLEF_FLASH_GGUF,
+                "27b" => &openkind_backends::families::clef::CLEF_27B_GGUF,
+                other => {
+                    bail!("unknown clef profile key `{other}`; expected flash, flash-gguf, or 27b")
+                }
+            };
+            for alias in &self.clef_aliases {
+                let Some((alias_size, alias_names)) = alias.split_once('=') else {
+                    bail!(
+                        "--clef-aliases entries must look like flash=<alias>[,alias…]; got {alias}"
+                    );
+                };
+                if alias_size != size {
+                    continue;
+                }
+                for alias_name in alias_names.split(',') {
+                    if let Some(alias_string) = models.iter().find(|model| model == &alias_name) {
+                        clef_controls.push((alias_string, PathBuf::from(root), profile, size));
+                    }
+                }
+            }
+        }
+        if !clef_controls.is_empty() {
+            for (alias, model_root, profile, size) in &clef_controls {
+                let engine: Arc<dyn DecisionEngine> = Arc::new(
+                    openkind_backends::families::clef::ClefEngine::load(
+                        model_root.clone(),
+                        profile,
+                        admission.limits(),
+                    )
+                    .map_err(|error| anyhow::anyhow!("load clef-{size} engine: {error}"))?,
                 );
                 engines.push(((*alias).clone(), Arc::clone(&engine)));
             }
@@ -1235,10 +1365,12 @@ impl FamilyArgs {
             .chain(&self.von_aliases)
             .chain(&self.winnow_aliases)
             .chain(&self.kev_aliases)
+            .chain(&self.strands_decider_aliases)
             .chain(&self.decoder_logit_qwen35_aliases)
             .chain(&self.plumb_4b_aliases)
             .chain(&self.decider_4b_aliases)
             .chain(self.decoder_logit_qwen3_aliases.iter())
+            .chain(&self.clef_aliases)
             .chain(&self.laya_english_aliases)
             .chain(&self.laya_multilingual_aliases)
             .chain(&self.laya_typed_decisions_aliases)

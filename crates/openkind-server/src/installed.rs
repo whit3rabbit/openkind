@@ -8,6 +8,9 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
+use openkind_backends::families::clef::{
+    ClefEngine, ClefProfile, CLEF_27B_GGUF, CLEF_FLASH, CLEF_FLASH_GGUF,
+};
 use openkind_backends::families::decider::{DeciderEngine, DeciderEngineConfig, DECIDER_4B};
 use openkind_backends::families::decoder_logit_letter::{
     DecoderLetterEngine, DecoderLetterEngineConfig, PROFILE_ID as DECODER_LETTER_PROFILE,
@@ -52,6 +55,9 @@ use openkind_backends::families::qwen3guard::{
 use openkind_backends::families::schema_scorer::{
     SchemaScorerEngine, SchemaScorerEngineConfig, PROFILE_ID as SCHEMA_SCORER_PROFILE,
 };
+use openkind_backends::families::strands_decider::{
+    StrandsDeciderEngine, StrandsDeciderEngineConfig, PROFILE_ID as STRANDS_DECIDER_PROFILE,
+};
 use openkind_backends::families::support::FamilyLimits;
 use openkind_backends::families::von::{
     VonEngine, VonEngineConfig, PROFILE_ID as VON_PROFILE, VON,
@@ -61,13 +67,15 @@ use openkind_backends::families::winnow::{
 };
 use openkind_engine::{DecisionEngine, EngineRegistry};
 use openkind_model_store::{
-    Manifest, DECIDER_4B_MODEL_NAME, DECODER_LOGIT_LETTER_MODEL_NAME, DECODER_LOGIT_LLM_MODEL_NAME,
+    Manifest, CLEF_27B_GGUF_MODEL_NAME, CLEF_FLASH_GGUF_MODEL_NAME, CLEF_FLASH_MODEL_NAME,
+    DECIDER_4B_MODEL_NAME, DECODER_LOGIT_LETTER_MODEL_NAME, DECODER_LOGIT_LLM_MODEL_NAME,
     DECODER_LOGIT_QWEN35_MODEL_NAME, DECODER_LOGIT_QWEN3_06B_MODEL_NAME,
     DECODER_LOGIT_QWEN3_17B_MODEL_NAME, DECODER_LOGIT_QWEN3_4B_MODEL_NAME,
     ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME, KEV_MODEL_NAME,
     LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME, LAYA_TYPED_DECISIONS_MODEL_NAME,
     PLUMB_4B_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME, QWEN3GUARD_MODEL_NAME,
-    SCHEMA_SCORER_MODEL_NAME, VON_MODEL_NAME, WINNOW_E4B_MODEL_NAME, WINNOW_MODEL_NAME,
+    SCHEMA_SCORER_MODEL_NAME, STRANDS_DECIDER_2B_MODEL_NAME, VON_MODEL_NAME, WINNOW_E4B_MODEL_NAME,
+    WINNOW_MODEL_NAME,
 };
 
 use crate::args::{
@@ -88,8 +96,10 @@ pub(crate) enum InstalledKind {
     SchemaScorer,
     Qwen3Guard,
     Kev,
+    StrandsDecider2b,
     DecoderLogitQwen35(&'static Qwen35LogitProfile),
     DecoderLogitQwen3(&'static Qwen3LogitProfile),
+    Clef(&'static ClefProfile),
     Decider4b,
     Von,
     Winnow,
@@ -142,6 +152,11 @@ pub(crate) fn installed_kind(manifest: &Manifest) -> Option<InstalledKind> {
             Some(InstalledKind::Qwen3Guard)
         }
         (KEV_MODEL_NAME, "kev") if profile == KEV_PROFILE => Some(InstalledKind::Kev),
+        (STRANDS_DECIDER_2B_MODEL_NAME, "strands-decider-2b")
+            if profile == STRANDS_DECIDER_PROFILE =>
+        {
+            Some(InstalledKind::StrandsDecider2b)
+        }
         (DECODER_LOGIT_QWEN35_MODEL_NAME, "decoder-logit-qwen35")
             if profile == DECODER_LOGIT_QWEN35_PROFILE =>
         {
@@ -164,6 +179,17 @@ pub(crate) fn installed_kind(manifest: &Manifest) -> Option<InstalledKind> {
             if profile == QWEN3_4B.profile_id =>
         {
             Some(InstalledKind::DecoderLogitQwen3(&QWEN3_4B))
+        }
+        (CLEF_FLASH_MODEL_NAME, "clef-flash") if profile == CLEF_FLASH.profile_id => {
+            Some(InstalledKind::Clef(&CLEF_FLASH))
+        }
+        (CLEF_FLASH_GGUF_MODEL_NAME, "clef-flash-gguf")
+            if profile == CLEF_FLASH_GGUF.profile_id =>
+        {
+            Some(InstalledKind::Clef(&CLEF_FLASH_GGUF))
+        }
+        (CLEF_27B_GGUF_MODEL_NAME, "clef-27b-gguf") if profile == CLEF_27B_GGUF.profile_id => {
+            Some(InstalledKind::Clef(&CLEF_27B_GGUF))
         }
         (DECIDER_4B_MODEL_NAME, "decider-4b") if profile == DECIDER_4B.profile_id => {
             Some(InstalledKind::Decider4b)
@@ -401,6 +427,19 @@ pub(crate) fn load_installed_engine(
             )
             .map_err(|error| anyhow!("load kev engine: {error}"))?,
         ),
+        InstalledKind::StrandsDecider2b => Arc::new(
+            StrandsDeciderEngine::load_with_execution(
+                StrandsDeciderEngineConfig {
+                    model_root: root.join("adapter"),
+                    base_root: root.join("base"),
+                    limits,
+                },
+                args.family_args
+                    .strands_decider_backend
+                    .to_execution(args.cuda_device)?,
+            )
+            .map_err(|error| anyhow!("load strands-decider-2b engine: {error}"))?,
+        ),
         InstalledKind::DecoderLogitQwen35(profile) => {
             match args.family_args.decoder_logit_qwen35_backend {
                 DecoderLogitQwen35BackendArg::NativeCpu => Arc::new(
@@ -459,6 +498,10 @@ pub(crate) fn load_installed_engine(
                     .to_execution(args.cuda_device)?,
             )
             .map_err(|error| anyhow!("load decoder-logit-qwen3 engine: {error}"))?,
+        ),
+        InstalledKind::Clef(profile) => Arc::new(
+            ClefEngine::load(root.join("checkpoint"), profile, limits)
+                .map_err(|error| anyhow!("load clef engine: {error}"))?,
         ),
         InstalledKind::Decider4b => Arc::new(
             DeciderEngine::load_with_execution(
