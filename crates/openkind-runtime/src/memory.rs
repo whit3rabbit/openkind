@@ -44,8 +44,7 @@ pub fn peak_resident_bytes() -> io::Result<usize> {
     if ok == 0 {
         return Err(io::Error::last_os_error());
     }
-    usize::try_from(counters.PeakWorkingSetSize)
-        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "negative peak RSS"))
+    Ok(counters.PeakWorkingSetSize)
 }
 
 /// Return an unsupported-platform error when the host has neither a Unix

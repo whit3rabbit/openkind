@@ -255,6 +255,7 @@ async fn drive(base: &str, upstream_log: &std::sync::Arc<UpstreamLog>) -> Result
     let deadline = Instant::now() + Duration::from_secs(240);
     let mut forwarded = 0usize;
     let mut local_answer = None;
+    let mut local_index = None;
     while Instant::now() < deadline {
         // Mixed traffic on both clusters keeps the task's classes balanced.
         // Local answers carry the resolved upstream model name too, so
@@ -267,6 +268,7 @@ async fn drive(base: &str, upstream_log: &std::sync::Arc<UpstreamLog>) -> Result
         forwarded += 1;
         if response.usage.input_tokens == 0 {
             local_answer = Some(response);
+            local_index = Some(forwarded - 1);
             break;
         }
     }
@@ -305,11 +307,12 @@ async fn drive(base: &str, upstream_log: &std::sync::Arc<UpstreamLog>) -> Result
     // (Header detail is asserted through a raw HTTP call below.)
 
     // Raw request to read the cache headers.
+    // Reuse traffic that qualified locally; another paraphrase may legitimately forward.
     let http = reqwest::Client::new();
     let raw = http
         .post(format!("{base}/v1/systemone"))
         .bearer_auth("sk-caller-key-1")
-        .json(&request(CLUSTER_A_2, "qh"))
+        .json(&request_for(local_index.expect("local request index")))
         .send()
         .await
         .map_err(|error| format!("raw evaluate: {error}"))?;
@@ -389,7 +392,6 @@ fn cluster_text(cluster: usize, index: usize) -> String {
 }
 
 const CLUSTER_A_1: &str = "alpha report number 1 discusses alpha topics and alpha findings";
-const CLUSTER_A_2: &str = "alpha report number 77 discusses alpha topics and alpha findings";
 
 /// Fixed instructions: the task fingerprint covers instructions and
 /// criteria, so per-request variation must live in the state alone.

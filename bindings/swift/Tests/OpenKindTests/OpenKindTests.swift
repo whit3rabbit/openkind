@@ -182,7 +182,12 @@ final class OpenKindTests: XCTestCase {
         let server = try OpenKindServer(binary: fixture.path,
                                         httpAddress: "127.0.0.1:\(freePort())",
                                         models: ["mock"], apiKey: "secret")
-        try await server.start()
+        do {
+            try await server.start()
+        } catch {
+            print("Fixture startup failed: \(error); last health probe: \(server.lastReadinessFailure ?? "none")")
+            throw error
+        }
         do {
             XCTAssertTrue(server.running)
             let health = try await server.client.health()
@@ -212,6 +217,25 @@ final class OpenKindTests: XCTestCase {
             throw error
         }
         await server.stop()
+        XCTAssertFalse(server.running)
+    }
+
+    func testServerReportsHealthFailureAndStopsTimedOutChild() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let binary = directory.appendingPathComponent("no-listener.sh")
+        try Data("#!/bin/sh\nexec /bin/sleep 10\n".utf8).write(to: binary)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: binary.path)
+        let server = try OpenKindServer(binary: binary.path,
+                                        httpAddress: "127.0.0.1:\(freePort())",
+                                        models: ["mock"], startupTimeout: 0.3, shutdownTimeout: 0.2)
+        do {
+            try await server.start()
+            XCTFail("started a child without a health listener")
+        } catch ServerError.readinessTimedOut {
+            XCTAssertNotNil(server.lastReadinessFailure)
+        }
         XCTAssertFalse(server.running)
     }
 

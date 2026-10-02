@@ -21,6 +21,12 @@ jobs:
         with:
           components: rustfmt, clippy
 
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: '32.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Check code formatting
         run: cargo fmt --check
 
@@ -52,6 +58,12 @@ jobs:
         with:
           components: clippy
 
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: '32.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run clippy linter
         run: cargo clippy --workspace --all-targets -- -D warnings
 
@@ -69,11 +81,21 @@ jobs:
       - name: Install workspace MSRV
         uses: dtolnay/rust-toolchain@1.88.0
 
-      - name: Run locked all-features workspace tests
-        run: env -u RUST_LOG cargo test --workspace --all-features --locked
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: '32.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # CUDA and MLX require their qualified hardware/toolchains; this runner tests CPU.
+      - name: Run locked CPU workspace tests
+        run: env -u RUST_LOG cargo test --workspace --locked
+
+      - name: Check optional ONNX CPU features on MSRV
+        run: cargo check --workspace --all-targets --features onnx --locked
 
       - name: Smoke-test Criterion benchmarks on MSRV
-        run: env -u RUST_LOG cargo test --workspace --all-features --benches --locked
+        run: env -u RUST_LOG cargo test --workspace --benches --locked
 
   swift:
     name: Swift package (${{ matrix.runner }})

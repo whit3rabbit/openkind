@@ -36,6 +36,8 @@ public final class OpenKindServer {
     public let extraArguments: [String]
 
     private var process: Process?
+    // Keep a bounded diagnostic for tests without recording response bodies or credentials.
+    private(set) var lastReadinessFailure: String?
 
     /// True if the child process is currently running.
     public var running: Bool { process?.isRunning == true }
@@ -85,6 +87,7 @@ public final class OpenKindServer {
     /// Start the child server process and wait until the health endpoint reports readiness.
     public func start() async throws {
         guard process == nil else { throw ServerError.alreadyStarted }
+        lastReadinessFailure = nil
         let port = UInt16(httpAddress.split(separator: ":")[1])!
         guard Self.portIsFree(port) else { throw ServerError.addressUnavailable(httpAddress) }
 
@@ -122,8 +125,13 @@ public final class OpenKindServer {
                    try JSONDecoder().decode(Health.self, from: data).status == "ok", child.isRunning {
                     return
                 }
+                lastReadinessFailure = (response as? HTTPURLResponse).map {
+                    "health HTTP \($0.statusCode), status did not report ok"
+                } ?? "health response was not HTTP"
             } catch {
                 // The HTTP listener may still be starting.
+                let failure = error as NSError
+                lastReadinessFailure = "\(failure.domain) (\(failure.code))"
             }
             try? await Task.sleep(nanoseconds: 50_000_000)
         }

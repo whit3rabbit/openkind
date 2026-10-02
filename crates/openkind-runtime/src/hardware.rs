@@ -253,7 +253,7 @@ mod tests {
         assert!(memory > 0);
     }
 
-    #[cfg(unix)]
+    #[cfg(any(unix, windows))]
     #[test]
     fn cpu_time_observation_is_positive_after_work() {
         let start = cpu_time_seconds().expect("read CPU time");

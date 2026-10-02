@@ -75,8 +75,11 @@ class RedirectHandler(BaseHTTPRequestHandler):
         pass
 
     def redirect(self):
+        # Drain POST bytes so closing this fixture cannot reset the error response.
+        self.rfile.read(int(self.headers.get("Content-Length", "0")))
         self.send_response(302)
         self.send_header("Location", self.target_url)
+        self.send_header("Content-Length", "0")
         self.end_headers()
 
     do_GET = redirect
