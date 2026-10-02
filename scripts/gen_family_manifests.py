@@ -193,6 +193,7 @@ MODELS = [
     },
     {
         "name": "decoder-logit-qwen35:415bcf4a064e6dadcf85",
+        "aliases": ["jevk5:4b"],
         "profile_id": "415bcf4a064e6dadcf85",
         "loader_id": "decoder-logit-qwen35",
         "description": "Pinned JevK5 merged Qwen3.5-4B letter-logit decision decoder (Apache-2.0); prototype readout, research status",
