@@ -15,12 +15,13 @@ use crate::families::support::{
     temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
     FamilyLimits,
 };
+
 use crate::families::wire::{answer_from_probabilities, unpack_question, QuestionPrimitive};
 
 use super::gguf::GgufModel;
 use super::model::{ClefExecutionModel, ClefModel, VerifiedArtifacts};
 use super::renderer::{clef_render_value, ClefQuestionType, ClefRenderer};
-use super::{default_limits, ClefExecution, ClefProfile};
+use super::{ClefExecution, ClefProfile};
 
 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
 use super::mlx::MlxClefModel;
@@ -114,6 +115,15 @@ impl FamilyEvaluator for ClefEngine {
     }
 }
 
+/// One rendered question with options in
+/// evaluation order as `(option_id, description)`.
+pub(crate) struct RenderQuestion {
+    pub(crate) id: String,
+    pub(crate) question_type: ClefQuestionType,
+    pub(crate) instruction: String,
+    pub(crate) options: Vec<(String, String)>,
+}
+
 impl ClefEngine {
     /// Full evaluation: render, forward, read out, and map answers.
     fn evaluate_request(
@@ -140,8 +150,9 @@ fn evaluate_with(
     sorted.sort_by(|left, right| left.0.cmp(right.0));
     let mut unpacked: Vec<(String, crate::families::wire::UnpackedQuestion)> =
         Vec::with_capacity(sorted.len());
-    let mut render_questions: Vec<(String, ClefQuestionType, String, Vec<(String, String)>)> =
-        Vec::with_capacity(sorted.len());
+    // One rendered question: (id, type, instruction, options) with options
+    // in evaluation order as (option_id, description).
+    let mut render_questions: Vec<RenderQuestion> = Vec::with_capacity(sorted.len());
     for (id, question) in &sorted {
         let unpack = unpack_question(id, question)?;
         let clef_type = match unpack.primitive {
@@ -165,21 +176,17 @@ fn evaluate_with(
                 .map(|(label, criterion)| (label.clone(), criterion.clone()))
                 .collect(),
         };
-        render_questions.push((unpack.id.clone(), clef_type, instruction, options));
+        render_questions.push(RenderQuestion {
+            id: unpack.id.clone(),
+            question_type: clef_type,
+            instruction,
+            options,
+        });
         unpacked.push(((*id).clone(), unpack));
     }
     let state_value = state_json(request);
     let encoded = renderer.encode(&state_value, &render_questions)?;
     let logits = model.evaluate_record(&encoded, control)?;
-    if std::env::var("OPENKIND_CLEF_DEBUG").is_ok() {
-        for (question, question_logits) in encoded.questions.iter().zip(&logits) {
-            eprintln!(
-                "debug: head {} logits={}",
-                question.question_id,
-                question_logits.len()
-            );
-        }
-    }
     if logits.len() != encoded.questions.len() {
         return Err(FamilyError::InvalidInput(
             "joint head returned a question count that does not match the encoded record".into(),
@@ -187,17 +194,6 @@ fn evaluate_with(
     }
     let mut answers =
         HashMap::with_capacity_and_hasher(request.questions.len(), Default::default());
-    if std::env::var("OPENKIND_CLEF_DEBUG").is_ok() {
-        for (id, unpack) in &unpacked {
-            eprintln!("debug: unpacked {id} labels={:?}", unpack.labels);
-        }
-        for question in &encoded.questions {
-            eprintln!(
-                "debug: encoded {} options={:?}",
-                question.question_id, question.option_ids
-            );
-        }
-    }
     for ((question_id, unpack), (question, question_logits)) in
         unpacked.iter().zip(encoded.questions.iter().zip(&logits))
     {
@@ -240,12 +236,4 @@ fn state_json(request: &SystemRequest) -> serde_json::Value {
         State::Object(map) => serde_json::Value::Object(map.clone()),
         State::Array(items) => serde_json::Value::Array(items.clone()),
     }
-}
-
-/// Async decision-engine constructor shared by the server and the CLI.
-pub fn load_engine(
-    model_root: impl AsRef<std::path::Path>,
-    profile: &'static ClefProfile,
-) -> Result<BoundedFamilyEngine, FamilyError> {
-    ClefEngine::load(model_root, profile, default_limits())
 }

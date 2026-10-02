@@ -23,8 +23,8 @@
 //! q/k rows, the conv q/k channels, and the full-attention tensors are
 //! direct; value/gate output channels are gathered back to source order
 //! right after their quantized matmuls, and the small per-head vectors
-//! (`ssm_beta`, `ssm_alpha`, `ssm_dt.bias`, conv v channels) are reordered
-//! at load.
+//!   (`ssm_beta`, `ssm_alpha`, `ssm_dt.bias`, conv v channels) are reordered
+//!   at load.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -56,26 +56,14 @@ struct PinnedConfig {
     text_config: PinnedTextConfig,
 }
 
-/// One projection weight: K-quantized through `QMatMul`, or a plain F32
-/// tensor for the small SSM projections llama.cpp keeps unquantized.
-enum Weight {
-    Quantized(QMatMul),
-    Dense(Tensor),
+/// One K-quantized projection weight executed through `QMatMul`.
+struct Weight {
+    quantized: QMatMul,
 }
 
 impl Weight {
-    #[allow(clippy::trait_duplication_in_bounds)]
     fn forward(&self, input: &Tensor) -> Result<Tensor, FamilyError> {
-        Ok(match self {
-            Self::Quantized(matmul) => matmul.forward(input)?,
-            Self::Dense(tensor) => {
-                if tensor.dtype() != input.dtype() {
-                    input.matmul(&tensor.to_dtype(input.dtype())?.t()?)?
-                } else {
-                    input.matmul(&tensor.t()?)?
-                }
-            }
-        })
+        Ok(self.quantized.forward(input)?)
     }
 }
 
@@ -291,7 +279,7 @@ impl GgufModel {
         }
         let token_count = input_ids.len();
         let mut hidden = self.embed(input_ids)?;
-        for (_index, layer) in self.layers.iter().enumerate() {
+        for layer in &self.layers {
             let normalized = rms_norm_zero_centered(
                 &hidden,
                 token_count,
@@ -384,7 +372,9 @@ fn load_layer(
             .collect())
     };
     let matrix = |name: &str| -> Result<Weight, FamilyError> {
-        Ok(Weight::Quantized(QMatMul::from_arc(qtensor(name)?)?))
+        Ok(Weight {
+            quantized: QMatMul::from_arc(qtensor(name)?)?,
+        })
     };
     let head_slots: Vec<usize> = (0..geometry.value_heads)
         .map(|head| gguf_head_slot(head, geometry.value_heads, geometry.key_heads))
@@ -444,7 +434,7 @@ fn load_layer(
         let mut a_log = vec![0_f32; geometry.value_heads];
         for (slot, source) in source_order.iter().enumerate() {
             let coefficient = a_coefficient[slot];
-            if !(coefficient < 0.0) || !coefficient.is_finite() {
+            if coefficient >= 0.0 || !coefficient.is_finite() {
                 return Err(FamilyError::ContractMismatch {
                     field: "ssm_a_sign",
                     expected: "negative decay coefficient A = -exp(A_log)".into(),
@@ -531,7 +521,8 @@ impl LinearAttention {
         device: &Device,
     ) -> Result<Vec<f32>, FamilyError> {
         let flatten = |tensor: Tensor| -> Result<Vec<f32>, FamilyError> {
-            Ok(tensor.to_vec2::<f32>()?.into_iter().flatten().collect())
+            let rows = tensor.to_vec2::<f32>()?;
+            Ok(rows.into_iter().flatten().collect())
         };
         let normalized_tensor = Tensor::from_vec(
             normalized.to_vec(),
@@ -600,7 +591,8 @@ impl LinearAttention {
             }
         }
         let mixed = Tensor::from_vec(scattered, (token_count, geometry.value_size()), device)?;
-        Ok(flatten(self.out.forward(&mixed)?)?)
+        let rows = self.out.forward(&mixed)?.to_vec2::<f32>()?;
+        Ok(rows.into_iter().flatten().collect())
     }
 }
 
@@ -613,7 +605,8 @@ impl FullAttention {
         device: &Device,
     ) -> Result<Vec<f32>, FamilyError> {
         let flatten = |tensor: Tensor| -> Result<Vec<f32>, FamilyError> {
-            Ok(tensor.to_vec2::<f32>()?.into_iter().flatten().collect())
+            let rows = tensor.to_vec2::<f32>()?;
+            Ok(rows.into_iter().flatten().collect())
         };
         let normalized_tensor = Tensor::from_vec(
             normalized.to_vec(),
@@ -641,7 +634,8 @@ impl FullAttention {
             *value *= sigmoid(gate);
         }
         let mixed = Tensor::from_vec(mixed, (token_count, geometry.attention_size()), device)?;
-        Ok(flatten(self.out.forward(&mixed)?)?)
+        let rows = self.out.forward(&mixed)?.to_vec2::<f32>()?;
+        Ok(rows.into_iter().flatten().collect())
     }
 }
 
@@ -666,7 +660,6 @@ impl super::model::ClefExecutionModel for GgufModel {
         control.check()?;
         let lexical = GgufLexical {
             lm_head: &self.lm_head,
-            hidden_size: self.hidden_size,
             device: &self.device,
         };
         let result = self
@@ -679,7 +672,6 @@ impl super::model::ClefExecutionModel for GgufModel {
 
 struct GgufLexical<'a> {
     lm_head: &'a Tensor,
-    hidden_size: usize,
     device: &'a Device,
 }
 

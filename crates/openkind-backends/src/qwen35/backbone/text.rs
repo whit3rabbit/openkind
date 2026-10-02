@@ -143,11 +143,6 @@ impl TextBackbone {
         }
     }
 
-    /// The frozen geometry this backbone executes.
-    pub(crate) fn geometry(&self) -> Qwen35Geometry {
-        self.geometry
-    }
-
     /// Run embedding, all decoder layers, and final RMSNorm in FP32, returning
     /// the row-major `[token_count, 2560]` final-norm hidden states.
     ///

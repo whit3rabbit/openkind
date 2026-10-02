@@ -100,11 +100,10 @@ fn map_tensor_name(name: &str) -> Option<String> {
         "per_layer_model_projection.weight".to_owned()
     } else if name == "per_layer_proj_norm.weight" {
         "per_layer_projection_norm.weight".to_owned()
-    } else if let Some(rest) = name.strip_prefix("blk.") {
+    } else {
+        let rest = name.strip_prefix("blk.")?;
         let (layer, tensor) = rest.split_once('.')?;
         format!("layers.{layer}.{tensor}")
-    } else {
-        return None;
     };
     let mapped = match mapped {
         s if s.ends_with("attn_q.weight") => s.replace("attn_q.weight", "self_attn.q_proj.weight"),
@@ -192,6 +191,7 @@ impl GgufRowTable {
             file.read_exact(&mut block_bytes)
                 .map_err(candle_core::Error::wrap)?;
             values.reserve(self.width);
+            #[allow(clippy::chunks_exact_to_as_chunks)]
             for block in block_bytes.chunks_exact(Q8_0_BLOCK_BYTES) {
                 let scale_bits = u16::from_le_bytes([block[0], block[1]]);
                 let scale = half::f16::from_bits(scale_bits).to_f32();

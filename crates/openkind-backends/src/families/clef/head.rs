@@ -350,7 +350,7 @@ impl JointSchemaHead {
             )?);
         }
         Ok(Self {
-            config: config,
+            config,
             hidden_norm: load_layer_norm(&variables, "hidden_norm", hidden)?,
             memory_projection: variables.get((width, hidden), "memory_projection.weight")?,
             question_projection: variables.get((width, hidden), "question_projection.weight")?,
@@ -551,10 +551,8 @@ impl JointSchemaHead {
             let prior = lexical_anchor
                 .matmul(&anchor.unsqueeze(1)?)?
                 .affine(f64::from(prior_scale), 0.0)?;
-            let options = self.option_norm.apply(&options)?;
-            let repeated_field = field
-                .unsqueeze(0)?
-                .broadcast_as(options.shape().to_owned())?;
+            let options = self.option_norm.apply(options)?;
+            let repeated_field = field.unsqueeze(0)?.broadcast_as(options.shape())?;
             let cosine = cosine_similarity(&repeated_field, &options)?;
             let features = Tensor::cat(
                 &[

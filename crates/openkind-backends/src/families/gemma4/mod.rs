@@ -317,6 +317,7 @@ mod tests {
                 "active_departure": "14:05",
             }
         });
+        #[allow(clippy::type_complexity)]
         let cases: &[(
             &str,
             serde_json::Value,

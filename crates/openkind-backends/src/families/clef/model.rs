@@ -11,7 +11,6 @@ use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use candle_core::DType;
 use serde::Deserialize;
@@ -227,8 +226,7 @@ impl VerifiedArtifacts {
                 FamilyError::InvalidInput(format!("{tensor} missing from checkpoint index"))
             })?;
             let layout = TensorLayout::read(&self.model_root.join(shard), tensor)?;
-            let rows = layout.rows(vocab, hidden)?;
-            let _ = rows;
+            layout.rows(vocab, hidden)?;
         }
         Ok(())
     }
@@ -502,9 +500,7 @@ impl ClefModel {
         control.check()?;
         let hidden = self
             .text
-            .forward_hidden_with_check(&encoded.input_ids, || {
-                control.check().map_err(FamilyError::from)
-            })?;
+            .forward_hidden_with_check(&encoded.input_ids, || control.check())?;
         let token_count = encoded.input_ids.len();
         if hidden.len() != token_count * self.geometry.hidden_size {
             return Err(FamilyError::InvalidInput(
@@ -525,6 +521,3 @@ impl LexicalLookup for RowReader {
         self.read_rows(token_ids)
     }
 }
-
-/// Re-export so the engine can share one verified model across workers.
-pub type SharedClefModel = Arc<ClefModel>;

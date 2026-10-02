@@ -47,8 +47,8 @@ mod mlx;
 use openkind_engine::ProbabilitySpace;
 
 pub use self::engine::ClefEngine;
+pub(crate) use self::engine::RenderQuestion;
 pub use self::head::LexicalLookup;
-use crate::families::support::FamilyLimits;
 
 /// Family slug used for identity derivation and telemetry.
 pub const FAMILY_SLUG: &str = "clef";
@@ -292,16 +292,6 @@ pub enum ClefError {
         /// Observed artifact value.
         actual: String,
     },
-}
-
-/// Default admission settings for a Clef engine.
-pub(crate) fn default_limits() -> FamilyLimits {
-    FamilyLimits {
-        max_concurrent_requests: 1,
-        max_queued_requests: 8,
-        retry_after_ms: 250,
-        evaluation_timeout: None,
-    }
 }
 
 #[cfg(test)]

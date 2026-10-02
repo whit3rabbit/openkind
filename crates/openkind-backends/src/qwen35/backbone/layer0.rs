@@ -18,23 +18,32 @@ pub(crate) use linear_attention::*;
 /// same kernels at its own frozen widths.
 pub(super) const PINNED: Qwen35Geometry = Qwen35Geometry::PINNED;
 pub(super) const HIDDEN_SIZE: usize = PINNED.hidden_size;
-const INTERMEDIATE_SIZE: usize = PINNED.intermediate_size;
-pub(super) const KEY_HEADS: usize = PINNED.key_heads;
 // State-shape constants are shared with the branch-state implementation so
 // storage accounting and fixtures stay tied to the executing architecture.
 pub(super) const VALUE_HEADS: usize = PINNED.value_heads;
 pub(super) const HEAD_DIM: usize = PINNED.head_dim;
+// The remaining aliases survive for the kernel-equivalence tests and the
+// branch-state storage accounting; the executing kernels take geometry
+// values directly.
+#[allow(dead_code)]
 pub(super) const KEY_SIZE: usize = PINNED.key_size();
+#[allow(dead_code)]
 pub(super) const VALUE_SIZE: usize = PINNED.value_size();
 pub(super) const QKV_SIZE: usize = PINNED.qkv_size();
 pub(super) const CONV_KERNEL: usize = PINNED.conv_kernel;
 pub(super) const RMS_EPSILON: f32 = PINNED.rms_epsilon;
+#[allow(dead_code)]
 pub(super) const ATTENTION_HEADS: usize = PINNED.attention_heads;
+#[allow(dead_code)]
 pub(super) const KV_HEADS: usize = PINNED.kv_heads;
+#[allow(dead_code)]
 pub(super) const ATTENTION_HEAD_DIM: usize = PINNED.attention_head_dim;
+#[allow(dead_code)]
 pub(super) const ATTENTION_SIZE: usize = PINNED.attention_size();
 pub(super) const KV_SIZE: usize = PINNED.kv_size();
+#[allow(dead_code)]
 pub(super) const ROTARY_DIM: usize = PINNED.rotary_dim();
+#[allow(dead_code)]
 pub(super) const ROPE_THETA: f32 = Qwen35Geometry::ROPE_THETA;
 
 /// FP32 output from the first Qwen3.5 decoder block.

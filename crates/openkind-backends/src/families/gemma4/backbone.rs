@@ -744,14 +744,11 @@ impl Gemma4TextModel {
         let mut donors: Vec<Option<(Tensor, Tensor)>> = vec![None; self.layers.len()];
         let mut xs = xs;
         for (layer_idx, layer) in self.layers.iter().enumerate() {
-            let donor_kv = match layer.self_attn.kv_donor {
-                Some(donor) => Some(
-                    donors[donor]
-                        .clone()
-                        .expect("donor K/V computed before its consumer"),
-                ),
-                None => None,
-            };
+            let donor_kv = layer.self_attn.kv_donor.map(|donor| {
+                donors[donor]
+                    .clone()
+                    .expect("donor K/V computed before its consumer")
+            });
             let pli = per_layer_inputs.as_ref().map(|inputs| &inputs[layer_idx]);
             let (out, own_kv) =
                 layer.forward(&xs, donor_kv.as_ref(), pli, &causal_mask, &sliding_mask)?;

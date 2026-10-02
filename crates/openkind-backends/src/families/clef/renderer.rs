@@ -13,8 +13,9 @@
 //!   fields render in sorted-key order. The Python reference preserves the
 //!   caller's JSON insertion order, which the wire cannot carry.
 //! - Noul option descriptions come from the wire's materialized criteria
-//!   (openkind defaults), not the Clef defaults — the caller's wire payload
+//!   (openkind defaults), not the Clef defaults: the caller's wire payload
 //!   governs.
+//!
 //! JSON serialization for the state and option payloads follows Python
 //! `json.dumps(..., ensure_ascii=False, separators=(",", ":"), sort_keys=True)`.
 
@@ -109,11 +110,6 @@ impl ClefRenderer {
         })
     }
 
-    /// Maximum encoded prompt length of this renderer.
-    pub(crate) fn max_length(&self) -> usize {
-        self.max_length
-    }
-
     fn tokens(&self, text: &str) -> Result<Vec<u32>, FamilyError> {
         let encoding = self
             .tokenizer
@@ -127,34 +123,30 @@ impl ClefRenderer {
     pub(crate) fn encode(
         &self,
         state: &serde_json::Value,
-        questions: &[(String, ClefQuestionType, String, Vec<(String, String)>)],
+        questions: &[super::RenderQuestion],
     ) -> Result<EncodedRecord, FamilyError> {
-        // `questions` entries are (id, type, instruction, options) with
-        // options in evaluation order: (option_id, description).
         let mut schema_ids: Vec<u32> = Vec::new();
         schema_ids.extend(self.tokens(SCHEMA_HEADER)?);
         let mut encoded_questions: Vec<EncodedQuestion> = Vec::new();
-        for (question_index, (question_id, question_type, instruction, options)) in
-            questions.iter().enumerate()
-        {
+        for (question_index, question) in questions.iter().enumerate() {
             schema_ids.extend(self.tokens(&format!(
                 "\nFIELD {n}\nID: {id}\nTYPE: {kind}\nINSTRUCTION: ",
                 n = question_index + 1,
-                id = question_id,
-                kind = question_type.as_str(),
+                id = question.id,
+                kind = question.question_type.as_str(),
             ))?);
             let question_start = schema_ids.len();
-            let instruction_text = if instruction.is_empty() {
-                question_id.clone()
+            let instruction_text = if question.instruction.is_empty() {
+                question.id.clone()
             } else {
-                instruction.clone()
+                question.instruction.clone()
             };
             schema_ids.extend(self.tokens(&clef_render_text(&instruction_text))?);
             let question_end = schema_ids.len();
             schema_ids.extend(self.tokens("\nALLOWED OPTIONS:\n")?);
-            let mut option_spans = Vec::with_capacity(options.len());
-            let mut option_ids = Vec::with_capacity(options.len());
-            for (option_index, (option_id, description)) in options.iter().enumerate() {
+            let mut option_spans = Vec::with_capacity(question.options.len());
+            let mut option_ids = Vec::with_capacity(question.options.len());
+            for (option_index, (option_id, description)) in question.options.iter().enumerate() {
                 schema_ids.extend(self.tokens(&format!("OPTION {}: ", option_index + 1))?);
                 let option_start = schema_ids.len();
                 let semantics = clef_json_compact(&serde_json::json!({
@@ -168,8 +160,8 @@ impl ClefRenderer {
             }
             schema_ids.extend(self.tokens("END FIELD\n")?);
             encoded_questions.push(EncodedQuestion {
-                question_id: question_id.clone(),
-                question_type: *question_type,
+                question_id: question.id.clone(),
+                question_type: question.question_type,
                 question_span: (question_start, question_end),
                 option_spans,
                 option_ids,
