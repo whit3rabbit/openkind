@@ -78,6 +78,23 @@ impl Qwen35Geometry {
         rms_epsilon: 1e-6,
     };
 
+    /// Geometry of the `Qwen/Qwen3.5-2B-Base` text backbone (the base every
+    /// published 2B decision checkpoint adapts).
+    pub const BASE_2B: Self = Self {
+        hidden_size: 2_048,
+        intermediate_size: 6_144,
+        layer_count: 24,
+        full_attention_interval: 4,
+        key_heads: 16,
+        value_heads: 16,
+        head_dim: 128,
+        conv_kernel: 4,
+        attention_heads: 8,
+        kv_heads: 2,
+        attention_head_dim: 256,
+        rms_epsilon: 1e-6,
+    };
+
     /// Geometry of the `Cloudflare/clef` (27B) text backbone.
     pub const CLEF: Self = Self {
         hidden_size: 5_120,

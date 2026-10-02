@@ -11,14 +11,62 @@
 //! numerical path cannot drift from the parity-verified oracle.
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use candle_core::{DType, Device};
+use candle_nn::var_builder::SimpleBackend;
 use candle_nn::VarBuilder;
 
 use super::super::Qwen35Error;
 use super::embedding::Qwen35Embedding;
 use super::geometry::Qwen35Geometry;
 use super::layer0::{rms_norm_zero_centered, DecoderLayer};
+
+/// Where layer weights come from during forward.
+///
+/// The default source memory-maps the caller-verified shard paths; the
+/// adapter source wraps a caller-built backend (for example a LoRA-merged
+/// view over a mapped checkpoint) with the same lazy per-tensor contract.
+enum WeightSource {
+    Shards(Vec<PathBuf>),
+    Adapter(Arc<dyn SimpleBackend>),
+}
+
+impl std::fmt::Debug for WeightSource {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Shards(shards) => formatter.debug_tuple("Shards").field(shards).finish(),
+            Self::Adapter(_) => formatter.debug_tuple("Adapter").finish(),
+        }
+    }
+}
+
+/// Delegating backend so a shared [`SimpleBackend`] can be boxed per forward
+/// (candle's `VarBuilder::from_backend` consumes the backend).
+struct SharedBackend(Arc<dyn SimpleBackend>);
+
+impl std::fmt::Debug for SharedBackend {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.debug_tuple("SharedBackend").finish()
+    }
+}
+
+impl SimpleBackend for SharedBackend {
+    fn get(
+        &self,
+        s: candle_core::Shape,
+        name: &str,
+        h: candle_nn::Init,
+        dtype: DType,
+        dev: &Device,
+    ) -> candle_core::Result<candle_core::Tensor> {
+        self.0.get(s, name, h, dtype, dev)
+    }
+
+    fn contains_tensor(&self, name: &str) -> bool {
+        self.0.contains_tensor(name)
+    }
+}
 
 /// Full-sequence Qwen3.5 text forward over caller-verified checkpoint shards.
 ///
@@ -28,9 +76,10 @@ use super::layer0::{rms_norm_zero_centered, DecoderLayer};
 /// survey-family engines that build on this type evaluate independent
 /// full-sequence prompts and retain nothing between requests.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub(crate) struct TextBackbone {
     embedding: Qwen35Embedding,
-    shards: Vec<PathBuf>,
+    source: WeightSource,
     geometry: Qwen35Geometry,
     /// Storage dtype of the mapped shards. BF16 shards stay mapped in their
     /// native width and are widened per use inside the layer kernels; F32
@@ -65,9 +114,31 @@ impl TextBackbone {
     ) -> Self {
         Self {
             embedding,
-            shards,
+            source: WeightSource::Shards(shards),
             geometry,
             dtype,
+            device,
+        }
+    }
+
+    /// Assemble a backbone whose layer weights come from a caller-built
+    /// backend (for example a LoRA-merged view over a mapped checkpoint).
+    ///
+    /// The backend must serve the checkpoint's own full tensor names; the
+    /// same lazy per-tensor loading contract applies, and the caller owns
+    /// artifact trust exactly as with shard paths.
+    #[allow(dead_code)]
+    pub(crate) fn new_with_adapter_backend(
+        embedding: Qwen35Embedding,
+        backend: Arc<dyn SimpleBackend>,
+        geometry: Qwen35Geometry,
+        device: Device,
+    ) -> Self {
+        Self {
+            embedding,
+            source: WeightSource::Adapter(backend),
+            geometry,
+            dtype: DType::F32,
             device,
         }
     }
@@ -103,7 +174,7 @@ impl TextBackbone {
             )
             .into());
         }
-        if self.shards.is_empty() {
+        if matches!(self.source, WeightSource::Shards(ref shards) if shards.is_empty()) {
             return Err(Qwen35Error::InvalidInput(
                 "text backbone requires at least one verified shard".to_owned(),
             )
@@ -116,29 +187,40 @@ impl TextBackbone {
         // SAFETY: the caller verified the immutable size and SHA-256 of every
         // read-only shard before constructing this backbone. The VarBuilder
         // owns the mapped tensor storage.
-        let variables = unsafe {
-            VarBuilder::from_mmaped_safetensors(
-                &self
-                    .shards
-                    .iter()
-                    .map(|shard| shard.as_path())
-                    .collect::<Vec<_>>(),
+        let variables = match &self.source {
+            WeightSource::Shards(shards) => unsafe {
+                VarBuilder::from_mmaped_safetensors(
+                    &shards
+                        .iter()
+                        .map(|shard| shard.as_path())
+                        .collect::<Vec<_>>(),
+                    self.dtype,
+                    &device,
+                )
+                .map_err(Qwen35Error::from)
+                .map_err(E::from)?
+            },
+            WeightSource::Adapter(backend) => VarBuilder::from_backend(
+                Box::new(SharedBackend(backend.clone())),
                 self.dtype,
-                &device,
-            )
-            .map_err(Qwen35Error::from)
-            .map_err(E::from)?
+                device.clone(),
+            ),
         }
         .pp("model")
         .pp("language_model");
         let layers = variables.pp("layers");
         for layer_index in 0..self.geometry.layer_count {
             check()?;
-            let layer =
-                DecoderLayer::load(&layers, layer_index, &device, self.geometry).map_err(E::from)?;
+            let layer = DecoderLayer::load(&layers, layer_index, &device, self.geometry)
+                .map_err(E::from)?;
             hidden = layer
                 .forward(&hidden, token_count, layer_index)
                 .map_err(E::from)?;
+            if std::env::var("OPENKIND_QWEN35_LAYER_TRACE").is_ok() {
+                let start = (token_count - 1) * self.geometry.hidden_size;
+                let head: Vec<f32> = hidden[start..start + 4].to_vec();
+                eprintln!("trace: layer {layer_index} last {head:?}");
+            }
             check()?;
         }
         let norm = variables

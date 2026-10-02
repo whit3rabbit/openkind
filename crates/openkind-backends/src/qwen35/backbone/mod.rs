@@ -48,8 +48,7 @@ pub use geometry::Qwen35Geometry;
 // Clef-family GGUF execution reuses the parity-verified forward kernels.
 pub(crate) use layer0::{
     apply_rotary, causal_depthwise_conv_silu_with_state, causal_grouped_query_attention,
-    gated_delta_recurrent_with_state, linear, rms_norm_heads, rms_norm_zero_centered,
-    split_query_gate,
+    gated_delta_recurrent_with_state, rms_norm_heads, rms_norm_zero_centered, split_query_gate,
 };
 // MLX parity-backend weight loading reuses the Candle oracle's verified
 // shard path helper.

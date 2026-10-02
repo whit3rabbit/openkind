@@ -14,8 +14,6 @@ pub mod calibration;
 pub mod clef;
 /// Decider slot-logit family adapter (plain state-first layout).
 pub mod decider;
-/// Gemma 4 backbone letter-logit decision family adapter.
-pub mod gemma4;
 /// Decoder-only letter-token logit readout family adapter.
 pub mod decoder_logit_letter;
 /// Decoder-only LLM logit readout family adapter.
@@ -28,6 +26,8 @@ pub mod decoder_logit_qwen35;
 pub mod encoder_instruct_label;
 /// Encoder natural language inference (NLI) readout family adapter.
 pub mod encoder_nli;
+/// Gemma 4 backbone letter-logit decision family adapter.
+pub mod gemma4;
 /// KEV family model loader and decision engine adapter.
 pub mod kev;
 /// Laya encoder decision readout family adapter.
@@ -40,6 +40,8 @@ pub mod qwen3guard;
 pub mod router_script;
 /// Schema scorer decision family adapter.
 pub mod schema_scorer;
+/// Strands Decider 2B pointer-head family adapter.
+pub mod strands_decider;
 /// Shared bounded family engine scaffold, limits, controls, and error types.
 pub mod support;
 /// Von option-marker encoder decision readout family adapter.
