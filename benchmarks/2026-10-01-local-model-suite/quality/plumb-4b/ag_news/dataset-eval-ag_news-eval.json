@@ -1,0 +1,124 @@
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "4efd5262b756aee7a12710ca78c74aa258660063",
+    "description": "News topic classification, 4 classes.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "fancyzhx/ag_news",
+    "hf_revision": "eb185aade064a813bc0b7f42de02595523103ca4",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "ag_news",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decoder-logit-qwen35",
+    "model_revision": "24f7bf77e7ee258a2d158c61ea2dce2b60321010",
+    "profile_id": "c1f080794d38e94a0bc2",
+    "strategy": "plumb-4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.86,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.96,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.925,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.76,
+        0.96
+      ],
+      "clusters": 50,
+      "point": 0.86,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.88,
+    "aurc": 0.05179010920405322,
+    "brier": 0.22327356871475768,
+    "ece_10_bins": 0.07151967562565885,
+    "false_none_rate": 0.02,
+    "macro_f1": 0.8582609180035651,
+    "nll": 0.48734269301718564,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "Business",
+        "recall": 0.875
+      },
+      {
+        "count": 10,
+        "label": "Sci/Tech",
+        "recall": 0.7
+      },
+      {
+        "count": 16,
+        "label": "Sports",
+        "recall": 0.9375
+      },
+      {
+        "count": 16,
+        "label": "World",
+        "recall": 0.875
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.1428571428571429,
+        "answered": 49,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0714285714285714,
+        "answered": 42,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.040000000000000036,
+        "answered": 25,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "5e038a0201eba2990aefdff077f600da2e88734cb87b9b985fbde7a6744f29eb",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/ag_news/predictions-plumb-4b-plumb-4b.jsonl",
+    "predictions_sha256": "e9a87035b521954f1222531ff7501de6450ca1cdf2ce61e5f04aba8067636be7",
+    "summary_sha256": "3be4f02cf49f9c00f345e21183c113f5874626d3164698fd03672e720773aa38",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/ag_news/workload-ag_news-eval.jsonl",
+    "workload_sha256": "dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}

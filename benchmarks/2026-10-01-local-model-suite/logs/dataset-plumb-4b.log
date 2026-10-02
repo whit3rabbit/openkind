@@ -1,0 +1,562 @@
+profile=plumb-4b:c1f080794d38e94a0bc2
+loader=plumb-4b
+commit=e3cb136f431e817ac4aca475ea381b0840ef2cd0
+host=Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind pull plumb-4b:c1f080794d38e94a0bc2
+Downloading checkpoint/config.json (1.9 KiB)
+Verifying checkpoint/config.json (SHA-256)
+Verified checkpoint/config.json
+Downloading checkpoint/tokenizer.json (19.1 MiB)
+Verifying checkpoint/tokenizer.json (SHA-256)
+Verified checkpoint/tokenizer.json
+Downloading checkpoint/jevk5_config.json (22 B)
+Verifying checkpoint/jevk5_config.json (SHA-256)
+Verified checkpoint/jevk5_config.json
+Downloading checkpoint/model.safetensors (7.8 GiB)
+Verifying checkpoint/model.safetensors (SHA-256)
+Verified checkpoint/model.safetensors
+Installed plumb-4b:c1f080794d38e94a0bc2 (rust-loadable); 7.9 GiB downloaded
+To activate it, restart the daemon with: openkind serve --installed-models plumb-4b:c1f080794d38e94a0bc2
+[exit 0] pull plumb-4b:c1f080794d38e94a0bc2
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval sst2 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine plumb-4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/sst2 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/plumb-4b:c1f080794d38e94a0bc2/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/sst2/workload-sst2-eval.jsonl: 50 rows (sha256 aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine plumb-4b starting
+[bench] strategy plumb-4b warmup complete
+[bench] strategy plumb-4b rep 0: 266.851 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/sst2/summary-plumb-4b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "db3daed39bcd33ea25255ab60c1ac86ad52ce79d",
+    "description": "Binary sentence sentiment (GLUE SST-2).",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "stanfordnlp/sst2",
+    "hf_revision": "8d51e7e4887a4caaa95b3fbebbf53c0490b58bbb",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "sst2",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decoder-logit-qwen35",
+    "model_revision": "24f7bf77e7ee258a2d158c61ea2dce2b60321010",
+    "profile_id": "c1f080794d38e94a0bc2",
+    "strategy": "plumb-4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.96,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 1.0,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.9,
+        1.0
+      ],
+      "clusters": 50,
+      "point": 0.96,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.96,
+    "aurc": 0.0033377521653126254,
+    "brier": 0.10761102806993404,
+    "ece_10_bins": 0.1766276604235158,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.9575551782682513,
+    "nll": 0.2695694407899043,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 20,
+        "label": "negative",
+        "recall": 0.9
+      },
+      {
+        "count": 30,
+        "label": "positive",
+        "recall": 1.0
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.04081632653061229,
+        "answered": 49,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 37,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 5,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "5e038a0201eba2990aefdff077f600da2e88734cb87b9b985fbde7a6744f29eb",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/sst2/predictions-plumb-4b-plumb-4b.jsonl",
+    "predictions_sha256": "78e810d575e1b3ebb6c95a55d5a6fa7df3b56857c351f3c339e2dbb3822d87a8",
+    "summary_sha256": "a2547cb031e119ec847b934dcc53cee011f8a0bdb68a22c0e614135528a1c661",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/sst2/workload-sst2-eval.jsonl",
+    "workload_sha256": "aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval plumb-4b/sst2 (plumb-4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval ag_news --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine plumb-4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/ag_news --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/plumb-4b:c1f080794d38e94a0bc2/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/ag_news/workload-ag_news-eval.jsonl: 50 rows (sha256 dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine plumb-4b starting
+[bench] strategy plumb-4b warmup complete
+[bench] strategy plumb-4b rep 0: 649.236 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/ag_news/summary-plumb-4b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "4efd5262b756aee7a12710ca78c74aa258660063",
+    "description": "News topic classification, 4 classes.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "fancyzhx/ag_news",
+    "hf_revision": "eb185aade064a813bc0b7f42de02595523103ca4",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "ag_news",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decoder-logit-qwen35",
+    "model_revision": "24f7bf77e7ee258a2d158c61ea2dce2b60321010",
+    "profile_id": "c1f080794d38e94a0bc2",
+    "strategy": "plumb-4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.86,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.96,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.925,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.76,
+        0.96
+      ],
+      "clusters": 50,
+      "point": 0.86,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.88,
+    "aurc": 0.05179010920405322,
+    "brier": 0.22327356871475768,
+    "ece_10_bins": 0.07151967562565885,
+    "false_none_rate": 0.02,
+    "macro_f1": 0.8582609180035651,
+    "nll": 0.48734269301718564,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "Business",
+        "recall": 0.875
+      },
+      {
+        "count": 10,
+        "label": "Sci/Tech",
+        "recall": 0.7
+      },
+      {
+        "count": 16,
+        "label": "Sports",
+        "recall": 0.9375
+      },
+      {
+        "count": 16,
+        "label": "World",
+        "recall": 0.875
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.1428571428571429,
+        "answered": 49,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0714285714285714,
+        "answered": 42,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.040000000000000036,
+        "answered": 25,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "5e038a0201eba2990aefdff077f600da2e88734cb87b9b985fbde7a6744f29eb",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/ag_news/predictions-plumb-4b-plumb-4b.jsonl",
+    "predictions_sha256": "e9a87035b521954f1222531ff7501de6450ca1cdf2ce61e5f04aba8067636be7",
+    "summary_sha256": "3be4f02cf49f9c00f345e21183c113f5874626d3164698fd03672e720773aa38",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/ag_news/workload-ag_news-eval.jsonl",
+    "workload_sha256": "dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval plumb-4b/ag_news (plumb-4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval banking77 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine plumb-4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/banking77 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/plumb-4b:c1f080794d38e94a0bc2/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/banking77/workload-banking77-eval.jsonl: 50 rows (sha256 9987b6f82a27ab4a5ddc0124ab4a110945d168858aa1ff1352d371422d657b98)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine plumb-4b starting
+Error: warmup dispatch failed: backend `plumb-4b/cpu-fp32` does not support this request: question offers 78 candidates but profile plumb-4b covers at most 16; split the question
+[exit 1] eval plumb-4b/banking77 (plumb-4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval clinc150 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine plumb-4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/clinc150 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/plumb-4b:c1f080794d38e94a0bc2/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/clinc150/workload-clinc150-eval.jsonl: 50 rows (sha256 c4fa558b966c0c72618366e1b6b6024566b5de14d3eeba7e0085c260ebdf1701)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine plumb-4b starting
+Error: warmup dispatch failed: backend `plumb-4b/cpu-fp32` does not support this request: question offers 152 candidates but profile plumb-4b covers at most 16; split the question
+[exit 1] eval plumb-4b/clinc150 (plumb-4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval arc --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine plumb-4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/arc --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/plumb-4b:c1f080794d38e94a0bc2/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/arc/workload-arc-eval.jsonl: 50 rows (sha256 a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine plumb-4b starting
+[bench] strategy plumb-4b warmup complete
+[bench] strategy plumb-4b rep 0: 249.369 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/arc/summary-plumb-4b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "5a61ed188b8810abf32686fa83eb93787cbc5f25",
+    "description": "Grade-school science QA (Challenge + Easy), 3-5 options.",
+    "files": 4,
+    "gated": "none",
+    "hf_repo": "allenai/ai2_arc",
+    "hf_revision": "210d026faf9955653af8916fad021475a3f00453",
+    "license": "CC-BY-SA-4.0",
+    "name": "arc",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decoder-logit-qwen35",
+    "model_revision": "24f7bf77e7ee258a2d158c61ea2dce2b60321010",
+    "profile_id": "c1f080794d38e94a0bc2",
+    "strategy": "plumb-4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.94,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 1.0,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.86,
+        1.0
+      ],
+      "clusters": 50,
+      "point": 0.94,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.94,
+    "aurc": 0.005621409253167104,
+    "brier": 0.1041461465611459,
+    "ece_10_bins": 0.1829944167650857,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.9299581492676122,
+    "nll": 0.28632422843042127,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "A",
+        "recall": 1.0
+      },
+      {
+        "count": 19,
+        "label": "B",
+        "recall": 1.0
+      },
+      {
+        "count": 13,
+        "label": "C",
+        "recall": 0.7692307692307693
+      },
+      {
+        "count": 10,
+        "label": "D",
+        "recall": 1.0
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.02083333333333337,
+        "answered": 48,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 35,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 4,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "ff1d154676a0256306a380085fadec373883283f839b839fe1d1a024798ace8d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/arc/predictions-plumb-4b-plumb-4b.jsonl",
+    "predictions_sha256": "cc922417a1ec1087d83da81df46b1603f9a2b6614494a0dcf6496d37f95a5b61",
+    "summary_sha256": "7907c9d4e7f7b816b8cc3e8e6943afab5c6b65b501ffd2004733ca17e3d34c62",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/arc/workload-arc-eval.jsonl",
+    "workload_sha256": "a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval plumb-4b/arc (plumb-4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval hellaswag --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine plumb-4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/hellaswag --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/plumb-4b:c1f080794d38e94a0bc2/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/hellaswag/workload-hellaswag-eval.jsonl: 50 rows (sha256 01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine plumb-4b starting
+[bench] strategy plumb-4b warmup complete
+[bench] strategy plumb-4b rep 0: 452.198 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/hellaswag/summary-plumb-4b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "382ffb520660cc2ba98092cd8aa07cafc9c47f6d",
+    "description": "Commonsense sentence completion, 4 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "Rowan/hellaswag",
+    "hf_revision": "218ec52e09a7e7462a5400043bb9a69a41d06b76",
+    "license": "MIT (dataset card); underlying corpus terms not detailed",
+    "name": "hellaswag",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decoder-logit-qwen35",
+    "model_revision": "24f7bf77e7ee258a2d158c61ea2dce2b60321010",
+    "profile_id": "c1f080794d38e94a0bc2",
+    "strategy": "plumb-4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.9,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.975,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.82,
+        0.98
+      ],
+      "clusters": 50,
+      "point": 0.9,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.9,
+    "aurc": 0.018812785080120333,
+    "brier": 0.19161961077969797,
+    "ece_10_bins": 0.176070420379347,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.8929716117216118,
+    "nll": 0.44477869251903535,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 12,
+        "label": "A",
+        "recall": 0.9166666666666666
+      },
+      {
+        "count": 8,
+        "label": "B",
+        "recall": 0.875
+      },
+      {
+        "count": 11,
+        "label": "C",
+        "recall": 0.8181818181818182
+      },
+      {
+        "count": 19,
+        "label": "D",
+        "recall": 0.9473684210526315
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.0444444444444444,
+        "answered": 45,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 25,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 5,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "21128d18e06e07fb4fd14417f431a705bf108fa758fefd7f1d9b29a77e55aad1",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/hellaswag/predictions-plumb-4b-plumb-4b.jsonl",
+    "predictions_sha256": "6030264bac0a23567ca6320eba0270057a56fb7fdca9f7dd63fc51fe3c7f1876",
+    "summary_sha256": "657dd47abedf578ed0e2f21f10c69091a1d3c1ae2a3d201d5f8a0243825eca5a",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/hellaswag/workload-hellaswag-eval.jsonl",
+    "workload_sha256": "01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval plumb-4b/hellaswag (plumb-4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval winogrande --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine plumb-4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/winogrande --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/plumb-4b:c1f080794d38e94a0bc2/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/plumb-4b/winogrande/workload-winogrande-eval.jsonl: 50 rows (sha256 43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine plumb-4b starting

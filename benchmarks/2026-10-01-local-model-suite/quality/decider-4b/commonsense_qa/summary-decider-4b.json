@@ -1,0 +1,61 @@
+{
+  "bundle_version": null,
+  "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+  "context": null,
+  "cross_strategy_answer_parity_clean": null,
+  "engine": "decider",
+  "engine_variant": "decider-4b",
+  "fixture": {
+    "groups": 50,
+    "path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/commonsense_qa/workload-commonsense_qa-eval.jsonl",
+    "rows": 50,
+    "sha256": "197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd"
+  },
+  "grouping": "per-state",
+  "history_aba": false,
+  "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+  "host_hardware": {
+    "cpu_brand": "Apple M4 Max",
+    "logical_cores": 14,
+    "model": "Mac16,5",
+    "total_memory_bytes": 38654705664
+  },
+  "measurement_scope": "model_request_path",
+  "model_revision": "eb5fbdfc9448473ec25e399882912863afbdb70e",
+  "notes": {
+    "cpu_time_seconds": "process-wide user+system CPU time diff across the timed region, excluding warmup and model load; avg_cpu_percent exceeds 100 when multiple threads run",
+    "input_tokens_per_second": "total input tokens across all timed repetitions divided by their total wall time",
+    "percentiles": "p50 is the median rep total and p95 is the ceil(0.95*n)-1 sample; small rep counts are reported alongside as samples_seconds",
+    "request_latency_ms": "latency is per request; grouped rows share their request's latency and are not independent timings; includes request construction through answer extraction"
+  },
+  "peak_resident_bytes": 7962689536,
+  "prediction_sha256": {
+    "decider-4b": "89586bb244679fc8951dc42b41523209e0ed2304a225a01e777b867b4f6b9121"
+  },
+  "profile_id": "0529bf6f2bed84641701",
+  "reps": 1,
+  "schema": "openkind-bench/v1",
+  "strategies": [
+    {
+      "avg_cpu_percent": 119.12323206866421,
+      "backend_id": "decider-4b/cpu-fp32",
+      "cpu_time_seconds": 146.865398,
+      "decisions_per_second": 0.40555240952216737,
+      "forced": null,
+      "groups": 50,
+      "input_tokens_per_second": 35.33983696576166,
+      "input_tokens_total": 4357,
+      "model_load_seconds": 14.830892083,
+      "p50_seconds": 123.288627625,
+      "p95_seconds": 123.288627625,
+      "reps": 1,
+      "rows": 50,
+      "samples_seconds": [
+        123.288627625
+      ],
+      "strategy": "decider-4b"
+    }
+  ],
+  "timing_scope": "request construction, validation, dispatch, and answer extraction; excludes model load (reported per strategy), result writes, and the untimed warmup pass; warm process",
+  "warmup": true
+}

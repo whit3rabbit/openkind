@@ -563,3 +563,1148 @@ $ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dat
 [bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/clinc150/workload-clinc150-eval.jsonl: 50 rows (sha256 c4fa558b966c0c72618366e1b6b6024566b5de14d3eeba7e0085c260ebdf1701)
 [bench] 50 groups over 50 rows (grouping=true)
 [bench] engine decider-4b starting
+[bench] strategy decider-4b warmup complete
+[bench] strategy decider-4b rep 0: 1465.536 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/clinc150/summary-decider-4b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "8e951f061d8a5bedeaec359c02de3185e8c3359a",
+    "description": "Virtual-assistant intent, 150 intents + out-of-scope.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "clinc/clinc_oos",
+    "hf_revision": "155b9c710419136e17307b80d0a13e68cd46b4ec",
+    "license": "CC-BY-3.0",
+    "name": "clinc150",
+    "task_family": "intent-routing"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decider",
+    "model_revision": "eb5fbdfc9448473ec25e399882912863afbdb70e",
+    "profile_id": "0529bf6f2bed84641701",
+    "strategy": "decider-4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.8,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.96,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.875,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.68,
+        0.9
+      ],
+      "clusters": 50,
+      "point": 0.8,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.86,
+    "aurc": 0.06273232688308326,
+    "brier": 0.3029545105087175,
+    "ece_10_bins": 0.09603453446092047,
+    "false_none_rate": 0.06,
+    "macro_f1": 0.8912655971479502,
+    "nll": 0.7743140199181667,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 2,
+        "label": "bill_balance",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "book_flight",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "car_rental",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "do_you_have_pets",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "gas",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "gas_type",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "greeting",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "ingredient_substitution",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "ingredients_list",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "last_maintenance",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "mpg",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "no",
+        "recall": 1.0
+      },
+      {
+        "count": 13,
+        "label": "oos",
+        "recall": 0.5384615384615384
+      },
+      {
+        "count": 1,
+        "label": "order_checks",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "payday",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "pto_request",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "pto_request_status",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "reminder",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "replacement_card_duration",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "report_fraud",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "rewards_balance",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "roll_dice",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "schedule_maintenance",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "schedule_meeting",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "timezone",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "tire_pressure",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "todo_list",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "transfer",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "translate",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "travel_suggestion",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "uber",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "w2",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "whisper_mode",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "yes",
+        "recall": 1.0
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.13953488372093026,
+        "answered": 43,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.08823529411764708,
+        "answered": 34,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.06666666666666665,
+        "answered": 30,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 20,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/clinc150/predictions-decider-4b-decider-4b.jsonl",
+    "predictions_sha256": "bda51e484fd6392023abda9513ebf52466f4084c5d7f80a5855fcbfcf3d2f87f",
+    "summary_sha256": "08c5698d8c7023e150a13d825e6f7e4c93f03f685783a91faf50a499329575a9",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/clinc150/workload-clinc150-eval.jsonl",
+    "workload_sha256": "c4fa558b966c0c72618366e1b6b6024566b5de14d3eeba7e0085c260ebdf1701"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval decider-4b/clinc150 (decider-4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval arc --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decider-4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/arc --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decider-4b:0529bf6f2bed84641701/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/arc/workload-arc-eval.jsonl: 50 rows (sha256 a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decider-4b starting
+[bench] strategy decider-4b warmup complete
+[bench] strategy decider-4b rep 0: 135.222 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/arc/summary-decider-4b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "5a61ed188b8810abf32686fa83eb93787cbc5f25",
+    "description": "Grade-school science QA (Challenge + Easy), 3-5 options.",
+    "files": 4,
+    "gated": "none",
+    "hf_repo": "allenai/ai2_arc",
+    "hf_revision": "210d026faf9955653af8916fad021475a3f00453",
+    "license": "CC-BY-SA-4.0",
+    "name": "arc",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decider",
+    "model_revision": "eb5fbdfc9448473ec25e399882912863afbdb70e",
+    "profile_id": "0529bf6f2bed84641701",
+    "strategy": "decider-4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 1.0,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 1.0,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        1.0,
+        1.0
+      ],
+      "clusters": 50,
+      "point": 1.0,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 1.0,
+    "aurc": 0.0,
+    "brier": 0.006388911229821558,
+    "ece_10_bins": 0.03645949058297604,
+    "false_none_rate": 0.0,
+    "macro_f1": 1.0,
+    "nll": 0.0389482943603596,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "A",
+        "recall": 1.0
+      },
+      {
+        "count": 19,
+        "label": "B",
+        "recall": 1.0
+      },
+      {
+        "count": 13,
+        "label": "C",
+        "recall": 1.0
+      },
+      {
+        "count": 10,
+        "label": "D",
+        "recall": 1.0
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.0,
+        "answered": 50,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 50,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 45,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 28,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/arc/predictions-decider-4b-decider-4b.jsonl",
+    "predictions_sha256": "b874399ac01d9cf264570572c2f348913e79ae2cd56eb3e354c49fa7d80ba202",
+    "summary_sha256": "3ea022c870b51450c9f4be7b72e82d320362d1b2437876ae4f1e1ad77118f6e2",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/arc/workload-arc-eval.jsonl",
+    "workload_sha256": "a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval decider-4b/arc (decider-4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval hellaswag --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decider-4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/hellaswag --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decider-4b:0529bf6f2bed84641701/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/hellaswag/workload-hellaswag-eval.jsonl: 50 rows (sha256 01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decider-4b starting
+[bench] strategy decider-4b warmup complete
+[bench] strategy decider-4b rep 0: 391.256 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/hellaswag/summary-decider-4b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "382ffb520660cc2ba98092cd8aa07cafc9c47f6d",
+    "description": "Commonsense sentence completion, 4 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "Rowan/hellaswag",
+    "hf_revision": "218ec52e09a7e7462a5400043bb9a69a41d06b76",
+    "license": "MIT (dataset card); underlying corpus terms not detailed",
+    "name": "hellaswag",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decider",
+    "model_revision": "eb5fbdfc9448473ec25e399882912863afbdb70e",
+    "profile_id": "0529bf6f2bed84641701",
+    "strategy": "decider-4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.96,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 1.0,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.9,
+        1.0
+      ],
+      "clusters": 50,
+      "point": 0.96,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.96,
+    "aurc": 0.004813245987860982,
+    "brier": 0.06920466832173888,
+    "ece_10_bins": 0.05948649334551227,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.9555921052631579,
+    "nll": 0.1825769809877858,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 12,
+        "label": "A",
+        "recall": 1.0
+      },
+      {
+        "count": 8,
+        "label": "B",
+        "recall": 0.875
+      },
+      {
+        "count": 11,
+        "label": "C",
+        "recall": 1.0
+      },
+      {
+        "count": 19,
+        "label": "D",
+        "recall": 0.9473684210526315
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.020408163265306145,
+        "answered": 49,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.021739130434782594,
+        "answered": 46,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 36,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 19,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/hellaswag/predictions-decider-4b-decider-4b.jsonl",
+    "predictions_sha256": "5d50eb614164fefd50b0993381d26175323339a14cd8647d323884195b60bf8c",
+    "summary_sha256": "88f004570755a66117148e39e8006f948cba9443c3a9eb6f4d2e915323cfc030",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/hellaswag/workload-hellaswag-eval.jsonl",
+    "workload_sha256": "01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval decider-4b/hellaswag (decider-4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval winogrande --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decider-4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/winogrande --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decider-4b:0529bf6f2bed84641701/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/winogrande/workload-winogrande-eval.jsonl: 50 rows (sha256 43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decider-4b starting
+[bench] strategy decider-4b warmup complete
+[bench] strategy decider-4b rep 0: 110.140 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/winogrande/summary-decider-4b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "546d5aa0e42fc0fa9ad2c13260322ec969e083ee",
+    "description": "Commonsense pronoun/blank resolution, 2 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "allenai/winogrande",
+    "hf_revision": "01e74176c63542e6b0bcb004dcdea22d94fb67b5",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "winogrande",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decider",
+    "model_revision": "eb5fbdfc9448473ec25e399882912863afbdb70e",
+    "profile_id": "0529bf6f2bed84641701",
+    "strategy": "decider-4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.8,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.96,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.9,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.68,
+        0.9
+      ],
+      "clusters": 50,
+      "point": 0.8,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.8,
+    "aurc": 0.06960075841081517,
+    "brier": 0.26959950568976365,
+    "ece_10_bins": 0.0640456075257196,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.7987117552334944,
+    "nll": 0.4542836940674224,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 25,
+        "label": "A",
+        "recall": 0.72
+      },
+      {
+        "count": 25,
+        "label": "B",
+        "recall": 0.88
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.16666666666666663,
+        "answered": 48,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.11764705882352944,
+        "answered": 34,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.05882352941176472,
+        "answered": 17,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 6,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/winogrande/predictions-decider-4b-decider-4b.jsonl",
+    "predictions_sha256": "8b200a1669ff21df4b38a8c0b686011e9813eed4864e3a2ba3a3c47ce7256fdf",
+    "summary_sha256": "4d44b0791419f39d4dbf3101288013c078f3b2ab2e30f72576ab4c8edbe06f24",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/winogrande/workload-winogrande-eval.jsonl",
+    "workload_sha256": "43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval decider-4b/winogrande (decider-4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval commonsense_qa --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decider-4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/commonsense_qa --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decider-4b:0529bf6f2bed84641701/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/commonsense_qa/workload-commonsense_qa-eval.jsonl: 50 rows (sha256 197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decider-4b starting
+[bench] strategy decider-4b warmup complete
+[bench] strategy decider-4b rep 0: 123.289 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/commonsense_qa/summary-decider-4b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "ae0768efa72432cb9c8e3945bd39f6dad24b2808",
+    "description": "Commonsense QA, 5 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "tau/commonsense_qa",
+    "hf_revision": "94630fe30dad47192a8546eb75f094926d47e155",
+    "license": "MIT",
+    "name": "commonsense_qa",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decider",
+    "model_revision": "eb5fbdfc9448473ec25e399882912863afbdb70e",
+    "profile_id": "0529bf6f2bed84641701",
+    "strategy": "decider-4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.84,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.96,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.9,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.74,
+        0.94
+      ],
+      "clusters": 50,
+      "point": 0.84,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.84,
+    "aurc": 0.056607263712231355,
+    "brier": 0.2673558914645607,
+    "ece_10_bins": 0.08828824241420032,
+    "false_none_rate": 0.04,
+    "macro_f1": 0.8425740925740925,
+    "nll": 0.538571505192326,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 7,
+        "label": "A",
+        "recall": 0.8571428571428571
+      },
+      {
+        "count": 11,
+        "label": "B",
+        "recall": 0.9090909090909091
+      },
+      {
+        "count": 14,
+        "label": "C",
+        "recall": 0.8571428571428571
+      },
+      {
+        "count": 5,
+        "label": "D",
+        "recall": 1.0
+      },
+      {
+        "count": 13,
+        "label": "E",
+        "recall": 0.6923076923076923
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.09090909090909094,
+        "answered": 44,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.06451612903225812,
+        "answered": 31,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.050000000000000044,
+        "answered": 20,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 3,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/commonsense_qa/predictions-decider-4b-decider-4b.jsonl",
+    "predictions_sha256": "89586bb244679fc8951dc42b41523209e0ed2304a225a01e777b867b4f6b9121",
+    "summary_sha256": "0d99693e394d7e478a0ad7dac9da5c175738797435a3a428e627f16c5d0c93b0",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/commonsense_qa/workload-commonsense_qa-eval.jsonl",
+    "workload_sha256": "197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval decider-4b/commonsense_qa (decider-4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval paws --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decider-4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/paws --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decider-4b:0529bf6f2bed84641701/checkpoint --tune-threshold
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/paws/tuning-paws/workload-paws-dev.jsonl: 50 rows (sha256 f9c04db8a2189dc90a3981b384703273ab29fb29778decf3895a80de707c1f75)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decider-4b starting
+[bench] strategy decider-4b warmup complete
+[bench] strategy decider-4b rep 0: 172.981 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/paws/tuning-paws/summary-decider-4b.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/paws/workload-paws-eval.jsonl: 50 rows (sha256 36ecb2af4e6c31d6529afaf2a85abbb1581be6ff6544263029794b66a6defc70)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decider-4b starting
+[bench] strategy decider-4b warmup complete
+[bench] strategy decider-4b rep 0: 192.687 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/paws/summary-decider-4b.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "254f2df8677712ee0972ddb92870dc79fed48aec",
+    "description": "Adversarial paraphrase identification (high word overlap).",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "google-research-datasets/paws",
+    "hf_revision": "161ece9501cf0a11f3e48bd356eaa82de46d6a09",
+    "license": "custom terms on the dataset card; review before broader use",
+    "name": "paws",
+    "task_family": "nli"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decider",
+    "model_revision": "eb5fbdfc9448473ec25e399882912863afbdb70e",
+    "profile_id": "0529bf6f2bed84641701",
+    "strategy": "decider-4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy_at_0.5": 0.66,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.68,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.675,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.52,
+        0.78
+      ],
+      "clusters": 50,
+      "point": 0.66,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "aurc": 0.35407395301482836,
+    "auroc": 0.8416666666666667,
+    "brier": 0.27659451238271343,
+    "ece_10_bins": 0.48565659226507535,
+    "negative_recall": 0.43333333333333335,
+    "positive_recall": 1.0,
+    "rows": 50,
+    "tuned_threshold": {
+      "dev_rows": 50,
+      "eval_accuracy": 0.82,
+      "protocol": "threshold selected on dev, applied to eval",
+      "threshold": 0.9704976739187294,
+      "tuning_accuracy_on_dev": 0.76
+    }
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/paws/predictions-decider-4b-decider-4b.jsonl",
+    "predictions_sha256": "98c8b1c0557d4b7215840442335a6c8d2e92402b381acb36ad364d6a16b60a6a",
+    "summary_sha256": "99ddda3dde3324bb39a98f16d0df1284691f0d262e020b3e080ae9290ffb990b",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/paws/workload-paws-eval.jsonl",
+    "workload_sha256": "36ecb2af4e6c31d6529afaf2a85abbb1581be6ff6544263029794b66a6defc70"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 18,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval decider-4b/paws (decider-4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval boolq --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decider-4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/boolq --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decider-4b:0529bf6f2bed84641701/checkpoint --tune-threshold
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/boolq/tuning-boolq/workload-boolq-dev.jsonl: 50 rows (sha256 1344c51d3a9d27d9cbf428f2e823b6324a62c5e15d9d4beba09f034c57950ea9)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decider-4b starting
+[bench] strategy decider-4b warmup complete
+[bench] strategy decider-4b rep 0: 226.003 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/boolq/tuning-boolq/summary-decider-4b.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/boolq/workload-boolq-eval.jsonl: 50 rows (sha256 449d16d61bdfeba20b1323e394af130cf9e9e70670365f052602e59eed64373c)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decider-4b starting
+[bench] strategy decider-4b warmup complete
+[bench] strategy decider-4b rep 0: 246.197 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/boolq/summary-decider-4b.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "d89fc6ef4da46f056176dcf941ba670524ab1c87",
+    "description": "Yes/no questions over Wikipedia passages.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "google/boolq",
+    "hf_revision": "35b264d03638db9f4ce671b711558bf7ff0f80d5",
+    "license": "CC-BY-SA-3.0",
+    "name": "boolq",
+    "task_family": "reading-comprehension"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decider",
+    "model_revision": "eb5fbdfc9448473ec25e399882912863afbdb70e",
+    "profile_id": "0529bf6f2bed84641701",
+    "strategy": "decider-4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy_at_0.5": 0.98,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.975,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.94,
+        1.0
+      ],
+      "clusters": 50,
+      "point": 0.98,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "aurc": 0.006492922830695719,
+    "auroc": 0.9895833333333334,
+    "brier": 0.040736707876275056,
+    "ece_10_bins": 0.37483451044966726,
+    "negative_recall": 1.0,
+    "positive_recall": 0.96875,
+    "rows": 50,
+    "tuned_threshold": {
+      "dev_rows": 50,
+      "eval_accuracy": 0.94,
+      "protocol": "threshold selected on dev, applied to eval",
+      "threshold": 0.35658903056331354,
+      "tuning_accuracy_on_dev": 0.92
+    }
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "8b66617d7ef7371feea5adc66d6d7b0b4858726656b987c005cc0d184f14ca27",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/boolq/predictions-decider-4b-decider-4b.jsonl",
+    "predictions_sha256": "28d1f5054173d2ec01d58440bb97ab5c43b3668e816804b90a26f79e286cd56f",
+    "summary_sha256": "b6a3d244464a7b24aae20f34ed33e78e6d5242ee2b89838b8d1b328b2da6da94",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/boolq/workload-boolq-eval.jsonl",
+    "workload_sha256": "449d16d61bdfeba20b1323e394af130cf9e9e70670365f052602e59eed64373c"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval decider-4b/boolq (decider-4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval stsb --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decider-4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/stsb --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decider-4b:0529bf6f2bed84641701/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/stsb/workload-stsb-eval.jsonl: 50 rows (sha256 fbcbdc284c4c7e1d9f950740770134c5eaab52175a16eaafb059749acf610453)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decider-4b starting
+[bench] strategy decider-4b warmup complete
+[bench] strategy decider-4b rep 0: 995.922 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/stsb/summary-decider-4b.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "58372e8197f43125a85d75e3c5121ccabc61413a",
+    "description": "Semantic textual similarity on a 0-5 scale.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "sentence-transformers/stsb",
+    "hf_revision": "ab7a5ac0e35aa22088bdcf23e7fd99b220e53308",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "stsb",
+    "task_family": "rubric-scoring"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decider",
+    "model_revision": "eb5fbdfc9448473ec25e399882912863afbdb70e",
+    "profile_id": "0529bf6f2bed84641701",
+    "strategy": "decider-4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "argmax_level_accuracy": 0.44,
+    "mae": 0.5421207233015923,
+    "nll": 1.134574369214928,
+    "pearson": 0.8994662844313192,
+    "rows": 50,
+    "spearman": 0.8901101730380081
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "5e038a0201eba2990aefdff077f600da2e88734cb87b9b985fbde7a6744f29eb",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/stsb/predictions-decider-4b-decider-4b.jsonl",
+    "predictions_sha256": "ec656f10b41d1645f4927326e61459332e096147219c86e7dcdeb33a8b9e22e4",
+    "summary_sha256": "5714afbe3d1d754e12e105e87109395f50a0f552b1901ef1f69cac2b94dd951a",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/stsb/workload-stsb-eval.jsonl",
+    "workload_sha256": "fbcbdc284c4c7e1d9f950740770134c5eaab52175a16eaafb059749acf610453"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 1,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval decider-4b/stsb (decider-4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval sst5 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine decider-4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/sst5 --pretty --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decider-4b:0529bf6f2bed84641701/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/sst5/workload-sst5-eval.jsonl: 50 rows (sha256 6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine decider-4b starting
+[bench] strategy decider-4b warmup complete
+[bench] strategy decider-4b rep 0: 861.428 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/sst5/summary-decider-4b.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "956d888e7bc9c029fd96e3cece49c054ec0ddbd9",
+    "description": "Fine-grained sentence sentiment, 5 ordered levels.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "SetFit/sst5",
+    "hf_revision": "e51bdcd8cd3a30da231967c1a249ba59361279a3",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "sst5",
+    "task_family": "rubric-scoring"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decider",
+    "model_revision": "eb5fbdfc9448473ec25e399882912863afbdb70e",
+    "profile_id": "0529bf6f2bed84641701",
+    "strategy": "decider-4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "argmax_level_accuracy": 0.62,
+    "mae": 0.4142407058371165,
+    "nll": 0.8934976940173024,
+    "pearson": 0.9222683379061066,
+    "rows": 50,
+    "spearman": 0.8792748287490707
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "5e038a0201eba2990aefdff077f600da2e88734cb87b9b985fbde7a6744f29eb",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/sst5/predictions-decider-4b-decider-4b.jsonl",
+    "predictions_sha256": "8c023d847c20bec0231f52ac1bb0755fe82617bf7631fa03eb6eab56482f84c4",
+    "summary_sha256": "0035206087c0eb8234d0c0b682f90a3d50c754a52b33c00838eaebf4d4896571",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decider-4b/sst5/workload-sst5-eval.jsonl",
+    "workload_sha256": "6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval decider-4b/sst5 (decider-4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench score /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl --engine decider-4b --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/performance/decider-4b/decider-4b --reps 1 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit e3cb136f431e817ac4aca475ea381b0840ef2cd0 --model-root /tmp/openkind-local-suite-2026-10-01/models/models/decider-4b:0529bf6f2bed84641701/checkpoint
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl: 12 rows (sha256 c2db6b36351d340b4f55343109cf4a41444d56c96868ab7f467381dd791c3905)
+[bench] 4 groups over 12 rows (grouping=true)
+[bench] engine decider-4b starting
+[bench] strategy decider-4b warmup complete
+[bench] strategy decider-4b rep 0: 66.401 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/performance/decider-4b/decider-4b/summary-decider-4b.json
+{"bundle_version":null,"commit":"e3cb136f431e817ac4aca475ea381b0840ef2cd0","context":null,"cross_strategy_answer_parity_clean":null,"engine":"decider","engine_variant":"decider-4b","fixture":{"groups":4,"path":"/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl","rows":12,"sha256":"c2db6b36351d340b4f55343109cf4a41444d56c96868ab7f467381dd791c3905"},"grouping":"per-state","history_aba":false,"host":"Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64","host_hardware":{"cpu_brand":"Apple M4 Max","logical_cores":14,"model":"Mac16,5","total_memory_bytes":38654705664},"measurement_scope":"model_request_path","model_revision":"eb5fbdfc9448473ec25e399882912863afbdb70e","notes":{"cpu_time_seconds":"process-wide user+system CPU time diff across the timed region, excluding warmup and model load; avg_cpu_percent exceeds 100 when multiple threads run","input_tokens_per_second":"total input tokens across all timed repetitions divided by their total wall time","percentiles":"p50 is the median rep total and p95 is the ceil(0.95*n)-1 sample; small rep counts are reported alongside as samples_seconds","request_latency_ms":"latency is per request; grouped rows share their request's latency and are not independent timings; includes request construction through answer extraction"},"peak_resident_bytes":8046968832,"prediction_sha256":{"decider-4b":"18a6d4e7ca29e2e8ea30ac6e93fcacf704976cb4fd9115cc9729d6ad36fd5a5f"},"profile_id":"0529bf6f2bed84641701","reps":1,"schema":"openkind-bench/v1","strategies":[{"avg_cpu_percent":120.08079745994748,"backend_id":"decider-4b/cpu-fp32","cpu_time_seconds":79.73526500000001,"decisions_per_second":0.18071923000686954,"forced":null,"groups":4,"input_tokens_per_second":36.068546322204384,"input_tokens_total":2395,"model_load_seconds":15.7147055,"p50_seconds":66.401345333,"p95_seconds":66.401345333,"reps":1,"rows":12,"samples_seconds":[66.401345333],"strategy":"decider-4b"}],"timing_scope":"request construction, validation, dispatch, and answer extraction; excludes model load (reported per strategy), result writes, and the untimed warmup pass; warm process","warmup":true}
+[exit 0] score decider-4b (decider-4b, 12 rows)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind rm decider-4b:0529bf6f2bed84641701
+Removed installed model decider-4b:0529bf6f2bed84641701
+[exit 0] remove decider-4b:0529bf6f2bed84641701
