@@ -1,7 +1,9 @@
 """Offline checks. Tiny randomly initialized models only; no model/data downloads."""
 import copy
 import json
+import os
 from pathlib import Path
+import pickle
 import random
 import tempfile
 import unittest
@@ -109,6 +111,70 @@ def encoded_rows():
     return [dict(id=str(i), source="tiny", group=str(i), kind="noul", keys=["false", "true"],
                  target=[0., 1.], answer_key="true", label_class="true", supervision="human",
                  input_ids=[1, 2, 3+i], code_ids=[20, 21]) for i in range(4)]
+
+
+class PickleMarker:
+    def __init__(self, path):
+        self.path = path
+
+    def __reduce__(self):
+        return os.mkdir, (str(self.path),)
+
+
+class ResumeStateTests(unittest.TestCase):
+    def test_rejects_pickle_side_effect(self):
+        import torch
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "resume.pt"
+            marker = Path(tmp) / "unpickled"
+            torch.save(PickleMarker(marker), path)
+            with self.assertRaises(pickle.UnpicklingError):
+                recipe.load_resume_state(path)
+            self.assertFalse(marker.exists())
+
+    def test_optimizer_scheduler_and_rng_round_trip(self):
+        import torch
+        parameter = torch.nn.Parameter(torch.tensor([1.0]))
+        optimizer = torch.optim.AdamW([parameter], lr=0.01)
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lambda step: 0.9 ** step)
+        parameter.square().sum().backward()
+        optimizer.step(); scheduler.step()
+        state = dict(optimizer=optimizer.state_dict(), scheduler=scheduler.state_dict(),
+                     torch_rng=torch.get_rng_state(), cuda_rng=[torch.get_rng_state()],
+                     python_rng=random.getstate())
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "resume.pt"
+            torch.save(state, path)
+            loaded = recipe.load_resume_state(path)
+        other = torch.nn.Parameter(parameter.detach().clone())
+        resumed_optimizer = torch.optim.AdamW([other], lr=0.01)
+        resumed_scheduler = torch.optim.lr_scheduler.LambdaLR(resumed_optimizer, lambda step: 0.9 ** step)
+        resumed_optimizer.load_state_dict(loaded["optimizer"])
+        resumed_scheduler.load_state_dict(loaded["scheduler"])
+        self.assertEqual(resumed_scheduler.state_dict(), scheduler.state_dict())
+        for key, value in optimizer.state[parameter].items():
+            torch.testing.assert_close(resumed_optimizer.state[other][key], value)
+        torch.testing.assert_close(loaded["torch_rng"], state["torch_rng"])
+        torch.testing.assert_close(loaded["cuda_rng"][0], state["cuda_rng"][0])
+        self.assertEqual(loaded["python_rng"], state["python_rng"])
+
+    def test_rejects_malformed_state(self):
+        import torch
+        valid = dict(optimizer={}, scheduler={}, torch_rng=torch.get_rng_state(),
+                     cuda_rng=[], python_rng=random.getstate())
+        malformed = [[], {**valid, "extra": 1},
+                     {k: v for k, v in valid.items() if k != "scheduler"}]
+        malformed += [{**valid, key: value} for key, value in [
+            ("optimizer", []), ("scheduler", None), ("torch_rng", []),
+            ("torch_rng", torch.tensor([1.0])), ("cuda_rng", ()),
+            ("cuda_rng", [1]), ("python_rng", []), ("python_rng", (3, (), None))]]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "resume.pt"
+            for state in malformed:
+                with self.subTest(state=list(state) if isinstance(state, dict) else state):
+                    torch.save(state, path)
+                    with self.assertRaises(ValueError):
+                        recipe.load_resume_state(path)
 
 
 class TrainingTests(unittest.TestCase):
