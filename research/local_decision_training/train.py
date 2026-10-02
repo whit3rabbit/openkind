@@ -757,17 +757,44 @@ def verify_checkpoint(folder, identity):
     return meta
 
 
+def load_resume_state(path):
+    import torch
+    # Colocated digests check consistency, not authenticity. Never allow pickle globals.
+    state = torch.load(path, map_location="cpu", weights_only=True)
+    if not isinstance(state, dict) or set(state) != {
+        "optimizer", "scheduler", "torch_rng", "cuda_rng", "python_rng"
+    }:
+        raise ValueError("Invalid resume state")
+    if not isinstance(state["optimizer"], dict) or not isinstance(state["scheduler"], dict):
+        raise ValueError("Invalid optimizer or scheduler state")
+    def rng_tensor(value):
+        return isinstance(value, torch.Tensor) and value.dtype == torch.uint8 and value.ndim == 1
+    if not rng_tensor(state["torch_rng"]):
+        raise ValueError("Invalid Torch RNG state")
+    if not isinstance(state["cuda_rng"], list) or not all(rng_tensor(x) for x in state["cuda_rng"]):
+        raise ValueError("Invalid CUDA RNG state")
+    if not isinstance(state["python_rng"], tuple):
+        raise ValueError("Invalid Python RNG state")
+    try:
+        random.Random().setstate(state["python_rng"])
+    except (TypeError, ValueError, IndexError) as error:
+        raise ValueError("Invalid Python RNG state") from error
+    return state
+
+
 def restore(folder, model, identity, optimizer=None, scheduler=None):
     import torch
     from peft import set_peft_model_state_dict
     from safetensors.torch import load_file
     folder = Path(folder)
     meta = verify_checkpoint(folder, identity)
+    if optimizer is not None:
+        if scheduler is None:
+            raise ValueError("Resume requires a scheduler")
+        state = load_resume_state(folder / "resume.pt")
     result = set_peft_model_state_dict(model, load_file(str(folder / "adapter/adapter_model.safetensors")))
     assert not result.unexpected_keys and not any("lora_" in k for k in result.missing_keys), result
     if optimizer is not None:
-        # Resume files are created by this run and verified against its manifest before unpickling.
-        state = torch.load(folder / "resume.pt", map_location="cpu", weights_only=False)
         optimizer.load_state_dict(state["optimizer"]); scheduler.load_state_dict(state["scheduler"])
         torch.set_rng_state(state["torch_rng"])
         if state["cuda_rng"]:

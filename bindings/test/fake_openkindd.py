@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import signal
+import socketserver
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -81,7 +82,14 @@ class Handler(BaseHTTPRequestHandler):
                          "usage": {"input_tokens": 1, "output_tokens": 1}})
 
 
-server = ThreadingHTTPServer((host, int(port)), Handler)
+class LoopbackServer(ThreadingHTTPServer):
+    def server_bind(self):
+        # The fixture never uses a DNS name. Reverse lookup can stall startup on CI hosts.
+        socketserver.TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address
+
+
+server = LoopbackServer((host, int(port)), Handler)
 signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=server.shutdown, daemon=True).start())
 server.serve_forever(poll_interval=0.05)
 server.server_close()

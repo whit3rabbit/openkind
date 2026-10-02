@@ -7,7 +7,7 @@ use openkind_backends::qwen35::{
 };
 use serde::Deserialize;
 
-const PHASE3B_DIR: &str = "research/14_phase3b_backbone_parity_results";
+const PHASE3B_DIR: &str = "tests/fixtures/qwen35_backbone_phase3b_a047d6802c3f06f085b8";
 
 #[derive(Debug, Deserialize)]
 struct GoldenCase {
@@ -63,16 +63,14 @@ struct TokenChecks {
     full_candidate_ids_exact: bool,
 }
 
-fn workspace_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
 fn phase3b_root() -> PathBuf {
-    workspace_root().join(PHASE3B_DIR)
+    Path::new(env!("CARGO_MANIFEST_DIR")).join(PHASE3B_DIR)
 }
 
 fn tokenizer_path() -> PathBuf {
-    phase3b_root().join("backbone_runtime/tokenizer/tokenizer.json")
+    std::env::var_os("OPENKIND_QWEN35_TOKENIZER")
+        .map(PathBuf::from)
+        .expect("set OPENKIND_QWEN35_TOKENIZER to the pinned tokenizer.json for qualification")
 }
 
 fn golden_path() -> PathBuf {
@@ -87,6 +85,7 @@ fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> T {
 }
 
 #[test]
+#[ignore = "requires the external pinned tokenizer; set OPENKIND_QWEN35_TOKENIZER"]
 fn phase3b_state_first_segments_match_all_four_exported_records_exactly() {
     let fixtures: TokenFixtureFile = read_json(&phase3b_root().join("TOKEN_FIXTURES.json"));
     let cases: Vec<GoldenCase> = read_json(&golden_path());
@@ -160,6 +159,7 @@ fn tokenizer_loader_rejects_an_unpinned_artifact() {
 }
 
 #[test]
+#[ignore = "requires the external pinned tokenizer; set OPENKIND_QWEN35_TOKENIZER"]
 fn renderer_rejects_invalid_cardinality_and_truncation() {
     let tokenizer = Qwen35Tokenizer::from_file(tokenizer_path()).expect("load pinned tokenizer");
     let one = [CandidateText::new("one", "only candidate")];

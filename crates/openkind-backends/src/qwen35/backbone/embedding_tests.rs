@@ -69,8 +69,7 @@ fn pinned_checkpoint_row_matches_phase3b_embedding_exactly() {
     decode_bf16_row(&bytes, 25, &mut actual).expect("decode pinned BF16 row");
 
     let phase3b_root = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .join("research/14_phase3b_backbone_parity_results");
+        .join("tests/fixtures/qwen35_backbone_phase3b_a047d6802c3f06f085b8");
     let reference = BackboneReference::load(phase3b_root).expect("load Phase 3B reference");
     let comparison = reference
         .compare("diagnostic.embedding", &actual)

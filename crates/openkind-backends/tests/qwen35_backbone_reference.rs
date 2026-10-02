@@ -8,7 +8,7 @@ use openkind_backends::qwen35::{
 };
 use serde::Deserialize;
 
-const PHASE3B_DIR: &str = "research/14_phase3b_backbone_parity_results";
+const PHASE3B_DIR: &str = "tests/fixtures/qwen35_backbone_phase3b_a047d6802c3f06f085b8";
 
 #[derive(Debug, Deserialize)]
 struct TokenFixtures {
@@ -63,9 +63,7 @@ struct ExpectedAnswer {
 }
 
 fn phase3b_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .join(PHASE3B_DIR)
+    Path::new(env!("CARGO_MANIFEST_DIR")).join(PHASE3B_DIR)
 }
 
 fn head_fixture_root() -> PathBuf {

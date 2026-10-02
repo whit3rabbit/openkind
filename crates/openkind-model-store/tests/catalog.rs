@@ -53,7 +53,13 @@ fn curated_qwen_manifest_matches_the_pinned_local_bundle() {
             .join(path)
         } else {
             assert_eq!(artifact.path, "checkpoint/tokenizer.json");
-            repo.join("research/11_phase2ij_model_selection_results/final/434894dccea25608c3c8/runtime/tokenizer/tokenizer.json")
+            // Pin the descriptor offline; full tokenizer bytes have an explicit qualification below.
+            assert_eq!(artifact.size, 19_989_325);
+            assert_eq!(
+                artifact.sha256,
+                "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523"
+            );
+            continue;
         };
         let mut input = BufReader::new(File::open(&source).unwrap());
         let mut digest = Sha256::new();
@@ -75,4 +81,28 @@ fn curated_qwen_manifest_matches_the_pinned_local_bundle() {
             artifact.path
         );
     }
+}
+
+#[test]
+#[ignore = "requires the external pinned tokenizer; set OPENKIND_QWEN35_TOKENIZER"]
+fn curated_qwen_tokenizer_bytes_match_the_pinned_manifest() {
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let manifest: Manifest = serde_json::from_slice(
+        &std::fs::read(
+            repo.join("registry/v1/manifests/qwen35-state-first-a047d6802c3f06f085b8.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    manifest.validate().unwrap();
+    let artifact = manifest
+        .artifacts
+        .iter()
+        .find(|artifact| artifact.path == "checkpoint/tokenizer.json")
+        .unwrap();
+    let source =
+        std::env::var_os("OPENKIND_QWEN35_TOKENIZER").expect("set the external tokenizer path");
+    let bytes = std::fs::read(source).expect("read pinned tokenizer");
+    assert_eq!(bytes.len() as u64, artifact.size);
+    assert_eq!(format!("{:x}", Sha256::digest(&bytes)), artifact.sha256);
 }
