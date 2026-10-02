@@ -2848,7 +2848,27 @@ Recommended bounded experiments, with no training or runtime change implied:
 The next useful comparison is an evidence-routing head with an explicitly
 declared information boundary. Adopting CLEF weights, changing the default
 profile, or treating its benchmark numbers as OpenKind measurements is not
-justified by this source review. The revised
+justified by this source review.
+
+### OpenKind implementation status (2026-10-02)
+
+The survey's caution that "CLEF-flash's 9B dimensions and custom head need a
+dedicated loader and parity fixtures; the existing 4B Qwen family
+implementation does not establish compatibility" has been resolved: the
+[`clef` family](families/clef.md) now ships a dedicated loader. Three
+profiles are Rust-loadable and catalog-installable — the BF16 CPU oracle
+(`cpu-bf16w-fp32c` arithmetic), the Q4_K_M GGUF flash profile, and the Q4_K_M
+GGUF 27B profile — each with digest-pinned manifests and golden-fixture
+parity. The Qwen3.5 backbone geometry was parameterized out of the pinned 4B
+oracle (hidden 2560) to clef-flash (4096) and clef (5120) without changing
+the pinned profiles' parity fixtures. The GGUF loader documents and undoes
+llama.cpp's storage transforms (group-interleaved value heads, `A =
+-exp(A_log)`, pre-folded RMSNorm weights). The MLX 4-bit path runs
+end-to-end but its quantized-input DeltaNet state diverges from the oracle;
+it stays non-loadable until its fixtures pass. Open items from the source
+review — the evidence-boundary panel, training ablations, and deployment
+comparison — remain open research; landing the loader changes none of that
+assessment. The revised
 [local design](whitepaper/LOCAL_DECISION_DESIGN.md) and
 [experiment 35 v3](../research/local_decision_training/README.md) make the
 bounded training-loss controls and development-only sweep, E42 counterfactuals, schema diagnostics and
