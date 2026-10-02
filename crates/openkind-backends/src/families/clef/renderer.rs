@@ -29,7 +29,8 @@ pub(crate) const SYSTEM_PROMPT: &str = "Read the complete state and schema. Deci
 /// Prompt prefix before the state, rendered and pinned from the reference
 /// encoding (`<|im_start|>` and `<|im_end|>` are literal markers, not chat
 /// template output).
-pub(crate) const PROMPT_PREFIX: &str = "<|im_start|>system\nSYSTEM_PROMPT_PLACEHOLDER<|im_end|>\n<|im_start|>user\nSTATE:\n";
+pub(crate) const PROMPT_PREFIX: &str =
+    "<|im_start|>system\nSYSTEM_PROMPT_PLACEHOLDER<|im_end|>\n<|im_start|>user\nSTATE:\n";
 
 /// Trigger after the schema block.
 pub(crate) const PROMPT_SUFFIX: &str =
@@ -100,8 +101,8 @@ impl ClefRenderer {
             path: tokenizer_path.to_path_buf(),
             source,
         })?;
-        let tokenizer =
-            Tokenizer::from_bytes(bytes).map_err(|error| FamilyError::Tokenizer(error.to_string()))?;
+        let tokenizer = Tokenizer::from_bytes(bytes)
+            .map_err(|error| FamilyError::Tokenizer(error.to_string()))?;
         Ok(Self {
             tokenizer,
             max_length: MAX_LENGTH_TOKENS,
@@ -175,10 +176,8 @@ impl ClefRenderer {
             });
         }
 
-        let prefix_ids = self.tokens(&PROMPT_PREFIX.replace(
-            "SYSTEM_PROMPT_PLACEHOLDER",
-            SYSTEM_PROMPT,
-        ))?;
+        let prefix_ids =
+            self.tokens(&PROMPT_PREFIX.replace("SYSTEM_PROMPT_PLACEHOLDER", SYSTEM_PROMPT))?;
         let suffix_ids = self.tokens(PROMPT_SUFFIX)?;
         let state_ids = self.tokens(&clef_render_value(state)?)?;
         let fixed_length = prefix_ids.len() + schema_ids.len() + suffix_ids.len();
@@ -284,7 +283,10 @@ mod tests {
     #[test]
     fn compact_json_sorts_keys_and_preserves_non_ascii() {
         let value = json!({"b": 1, "a": "ünï", "c": [true, null]});
-        assert_eq!(clef_json_compact(&value), r#"{"a":"ünï","b":1,"c":[true,null]}"#);
+        assert_eq!(
+            clef_json_compact(&value),
+            r#"{"a":"ünï","b":1,"c":[true,null]}"#
+        );
     }
 
     #[test]
@@ -298,9 +300,6 @@ mod tests {
 
     #[test]
     fn option_payload_uses_compact_sorted_semantics() {
-        assert_eq!(
-            python_string("true"),
-            "\"true\""
-        );
+        assert_eq!(python_string("true"), "\"true\"");
     }
 }

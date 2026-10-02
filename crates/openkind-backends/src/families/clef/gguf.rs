@@ -13,14 +13,26 @@
 //! grouped-query attention, and rotary embedding — reuse the
 //! parity-verified kernels from [`crate::qwen35::backbone`] so the
 //! quantized path cannot drift from the CPU oracle in its arithmetic.
+//!
+//! GGUF head interleave: llama.cpp stores the linear-attention value/gate
+//! streams with the value heads grouped by key-head group and interleaved
+//! group-first — slot `g` holds source value head `g % groups * key_heads
+//! + g / groups` (two groups on clef-flash, three on clef). It also stores
+//! the DeltaNet decay as `A = -exp(A_log)` instead of the log, and
+//! pre-folds every RMSNorm weight as `1 + w`. The loader undoes all three:
+//! q/k rows, the conv q/k channels, and the full-attention tensors are
+//! direct; value/gate output channels are gathered back to source order
+//! right after their quantized matmuls, and the small per-head vectors
+//! (`ssm_beta`, `ssm_alpha`, `ssm_dt.bias`, conv v channels) are reordered
+//! at load.
 
 use std::path::Path;
 use std::sync::Arc;
 
 use candle_core::quantized::gguf_file as gguf;
 use candle_core::quantized::{QMatMul, QTensor};
-use candle_nn::Module as _;
 use candle_core::{DType, Device, Tensor};
+use candle_nn::Module as _;
 use serde::Deserialize;
 
 use crate::families::support::{read_json, verify_digest, FamilyControl, FamilyError};
@@ -32,7 +44,7 @@ use crate::qwen35::{
 
 use super::head::{JointSchemaHead, LexicalLookup};
 use super::renderer::EncodedRecord;
-use super::{ClefProfile, JOINT_HEAD_CONFIG};
+use super::ClefProfile;
 
 #[derive(Debug, Deserialize)]
 struct PinnedTextConfig {
@@ -69,7 +81,10 @@ impl Weight {
 
 /// Flatten one tensor to F32 row-major values.
 fn values(tensor: &Tensor) -> Result<Vec<f32>, FamilyError> {
-    Ok(tensor.flatten_all()?.to_dtype(DType::F32)?.to_vec1::<f32>()?)
+    Ok(tensor
+        .flatten_all()?
+        .to_dtype(DType::F32)?
+        .to_vec1::<f32>()?)
 }
 
 /// Loaded GGUF quantized Clef model.
@@ -104,11 +119,28 @@ struct LinearAttention {
     beta: Weight,
     decay: Weight,
     out: Weight,
-    /// Channels-major causal conv taps `[qkv_size, kernel]`.
+    /// Channels-major causal conv taps `[qkv_size, kernel]` in source head
+    /// order (v channels already de-interleaved).
     conv1d: Vec<f32>,
     dt_bias: Vec<f32>,
     a_log: Vec<f32>,
     delta_norm: Vec<f32>,
+    /// Gathers restoring source head order on the quantized matmul outputs:
+    /// one index per output channel of `attn_qkv` and `attn_gate`.
+    qkv_channel_gather: Vec<u32>,
+    gate_channel_gather: Vec<u32>,
+    /// Source head for each GGUF slot, applied to the `[T, value_heads]`
+    /// beta/decay outputs.
+    head_source_for_slot: Vec<usize>,
+    /// Scatter of the de-interleaved mixed vector into `ssm_out`'s GGUF
+    /// input-channel order (the inverse of the output gathers).
+    out_scatter: Vec<u32>,
+}
+
+/// The GGUF slot holding source value head `h`.
+fn gguf_head_slot(h: usize, value_heads: usize, key_heads: usize) -> usize {
+    let groups = value_heads / key_heads;
+    (h % groups) * key_heads + h / groups
 }
 
 struct FullAttention {
@@ -227,7 +259,7 @@ impl GgufModel {
             }
             values(&tensor)?
         };
-        let head = JointSchemaHead::load(&JOINT_HEAD_CONFIG, &head_path, &device)?;
+        let head = JointSchemaHead::load(&profile.joint_head_config, &head_path, &device)?;
         Ok(Self {
             embedding,
             lm_head,
@@ -259,7 +291,7 @@ impl GgufModel {
         }
         let token_count = input_ids.len();
         let mut hidden = self.embed(input_ids)?;
-        for layer in &self.layers {
+        for (_index, layer) in self.layers.iter().enumerate() {
             let normalized = rms_norm_zero_centered(
                 &hidden,
                 token_count,
@@ -343,26 +375,101 @@ fn load_layer(
         }
         values(&tensor)
     };
+    // GGUF RMSNorm weights arrive pre-folded as (1 + w); the shared oracle
+    // kernels re-fold at use, so every norm read goes through this.
+    let unfolded_vector = |name: &str, width: usize| -> Result<Vec<f32>, FamilyError> {
+        Ok(vector(name, width)?
+            .into_iter()
+            .map(|value| value - 1.0)
+            .collect())
+    };
     let matrix = |name: &str| -> Result<Weight, FamilyError> {
         Ok(Weight::Quantized(QMatMul::from_arc(qtensor(name)?)?))
     };
+    let head_slots: Vec<usize> = (0..geometry.value_heads)
+        .map(|head| gguf_head_slot(head, geometry.value_heads, geometry.key_heads))
+        .collect();
     let mixer = if geometry.is_full_attention(index) {
         Mixer::Full(FullAttention {
             q: matrix(&format!("{prefix}.attn_q.weight"))?,
             k: matrix(&format!("{prefix}.attn_k.weight"))?,
             v: matrix(&format!("{prefix}.attn_v.weight"))?,
             out: matrix(&format!("{prefix}.attn_output.weight"))?,
-            q_norm: vector(
+            q_norm: unfolded_vector(
                 &format!("{prefix}.attn_q_norm.weight"),
                 geometry.attention_head_dim,
             )?,
-            k_norm: vector(
+            k_norm: unfolded_vector(
                 &format!("{prefix}.attn_k_norm.weight"),
                 geometry.attention_head_dim,
             )?,
         })
     } else {
+        // Value-head rows and channels arrive interleaved; build the
+        // source-order gathers once per layer.
+        let head_dim = geometry.head_dim;
+        let value_rows = geometry.value_size();
+        let qkv_channels = geometry.qkv_size();
+        // q and k rows are direct; v rows (head h at source offset) sit at
+        // gguf slot gguf_head_slot(h).
+        let qkv_channel_gather: Vec<u32> = (0..qkv_channels)
+            .map(|channel| {
+                if channel < qkv_channels - value_rows {
+                    channel as u32
+                } else {
+                    let offset = channel - (qkv_channels - value_rows);
+                    let head = offset / head_dim;
+                    let within = offset % head_dim;
+                    (qkv_channels - value_rows + head_slots[head] * head_dim + within) as u32
+                }
+            })
+            .collect();
+        let gate_channel_gather: Vec<u32> = (0..value_rows)
+            .map(|offset| {
+                let head = offset / head_dim;
+                let within = offset % head_dim;
+                (head_slots[head] * head_dim + within) as u32
+            })
+            .collect();
+        let source_order: Vec<usize> = {
+            let mut slots = vec![0_usize; geometry.value_heads];
+            for (source, slot) in head_slots.iter().enumerate() {
+                slots[*slot] = source;
+            }
+            slots
+        };
+        // gguf stores the decay coefficient A = -exp(A_log); restore the
+        // oracle's log form after reordering.
+        let a_coefficient = vector(&format!("{prefix}.ssm_a"), geometry.value_heads)?;
+        let mut a_log = vec![0_f32; geometry.value_heads];
+        for (slot, source) in source_order.iter().enumerate() {
+            let coefficient = a_coefficient[slot];
+            if !(coefficient < 0.0) || !coefficient.is_finite() {
+                return Err(FamilyError::ContractMismatch {
+                    field: "ssm_a_sign",
+                    expected: "negative decay coefficient A = -exp(A_log)".into(),
+                    actual: format!("{coefficient}"),
+                });
+            }
+            a_log[*source] = (-coefficient).ln();
+        }
+        let dt_gguf = vector(&format!("{prefix}.ssm_dt.bias"), geometry.value_heads)?;
+        let mut dt_bias = vec![0_f32; geometry.value_heads];
+        for (slot, source) in source_order.iter().enumerate() {
+            dt_bias[*source] = dt_gguf[slot];
+        }
+        let out_scatter: Vec<u32> = {
+            let mut scatter = vec![0_u32; value_rows];
+            for (source, slot) in head_slots.iter().enumerate() {
+                for within in 0..head_dim {
+                    scatter[source * head_dim + within] = (slot * head_dim + within) as u32;
+                }
+            }
+            scatter
+        };
         Mixer::Linear(LinearAttention {
+            head_source_for_slot: source_order.clone(),
+            out_scatter,
             qkv: matrix(&format!("{prefix}.attn_qkv.weight"))?,
             z: matrix(&format!("{prefix}.attn_gate.weight"))?,
             beta: matrix(&format!("{prefix}.ssm_beta.weight"))?,
@@ -370,29 +477,42 @@ fn load_layer(
             out: matrix(&format!("{prefix}.ssm_out.weight"))?,
             // GGUF stores the conv kernel as ne=[kernel, channels]; candle
             // reverses that to [channels, kernel], matching the oracle's
-            // channels-major layout.
+            // channels-major layout. The v channels are de-interleaved.
             conv1d: {
-                let tensor = qtensor(&format!("{prefix}.ssm_conv1d.weight"))?
-                    .dequantize(&Device::Cpu)?;
+                let tensor =
+                    qtensor(&format!("{prefix}.ssm_conv1d.weight"))?.dequantize(&Device::Cpu)?;
                 let dims = tensor.dims().to_vec();
-                if dims != [geometry.qkv_size(), geometry.conv_kernel] {
+                if dims != [qkv_channels, geometry.conv_kernel] {
                     return Err(FamilyError::ContractMismatch {
                         field: "ssm_conv1d_shape",
-                        expected: format!("[{}, {}]", geometry.qkv_size(), geometry.conv_kernel),
+                        expected: format!("[{}, {}]", qkv_channels, geometry.conv_kernel),
                         actual: format!("{dims:?}"),
                     });
                 }
-                values(&tensor)?
+                let taps = values(&tensor)?;
+                let mut ordered = vec![0_f32; taps.len()];
+                for (channel, gather) in qkv_channel_gather.iter().enumerate() {
+                    for tap in 0..geometry.conv_kernel {
+                        ordered[channel * geometry.conv_kernel + tap] =
+                            taps[*gather as usize * geometry.conv_kernel + tap];
+                    }
+                }
+                ordered
             },
-            dt_bias: vector(&format!("{prefix}.ssm_dt.bias"), geometry.value_heads)?,
-            a_log: vector(&format!("{prefix}.ssm_a"), geometry.value_heads)?,
+            dt_bias,
+            a_log,
             delta_norm: vector(&format!("{prefix}.ssm_norm.weight"), geometry.head_dim)?,
+            qkv_channel_gather,
+            gate_channel_gather,
         })
     };
     Ok(DecoderLayer {
-        input_layernorm: vector(&format!("{prefix}.attn_norm.weight"), geometry.hidden_size)?,
+        input_layernorm: unfolded_vector(
+            &format!("{prefix}.attn_norm.weight"),
+            geometry.hidden_size,
+        )?,
         mixer,
-        post_attention_layernorm: vector(
+        post_attention_layernorm: unfolded_vector(
             &format!("{prefix}.post_attention_norm.weight"),
             geometry.hidden_size,
         )?,
@@ -413,9 +533,37 @@ impl LinearAttention {
         let flatten = |tensor: Tensor| -> Result<Vec<f32>, FamilyError> {
             Ok(tensor.to_vec2::<f32>()?.into_iter().flatten().collect())
         };
-        let normalized_tensor =
-            Tensor::from_vec(normalized.to_vec(), (token_count, geometry.hidden_size), device)?;
-        let raw_qkv = flatten(self.qkv.forward(&normalized_tensor)?)?;
+        let normalized_tensor = Tensor::from_vec(
+            normalized.to_vec(),
+            (token_count, geometry.hidden_size),
+            device,
+        )?;
+        // De-interleave the quantized matmul outputs back into source head
+        // order before the conv and recurrence consume them.
+        let gather = |flat: &[f32], gather: &[u32], channels: usize| -> Vec<f32> {
+            let mut ordered = vec![0_f32; flat.len()];
+            for row in 0..token_count {
+                for (channel, source) in gather.iter().enumerate() {
+                    ordered[row * channels + channel] = flat[row * channels + *source as usize];
+                }
+            }
+            ordered
+        };
+        let gather_heads = |flat: &[f32]| -> Vec<f32> {
+            let heads = self.head_source_for_slot.len();
+            let mut ordered = vec![0_f32; flat.len()];
+            for row in 0..token_count {
+                for (slot, source) in self.head_source_for_slot.iter().enumerate() {
+                    ordered[row * heads + *source] = flat[row * heads + slot];
+                }
+            }
+            ordered
+        };
+        let raw_qkv = gather(
+            &flatten(self.qkv.forward(&normalized_tensor)?)?,
+            &self.qkv_channel_gather,
+            geometry.qkv_size(),
+        );
         let (qkv, _conv_state) = causal_depthwise_conv_silu_with_state(
             &raw_qkv,
             token_count,
@@ -424,9 +572,13 @@ impl LinearAttention {
             geometry.conv_kernel,
             None,
         );
-        let z = flatten(self.z.forward(&normalized_tensor)?)?;
-        let beta = flatten(self.beta.forward(&normalized_tensor)?)?;
-        let decay = flatten(self.decay.forward(&normalized_tensor)?)?;
+        let z = gather(
+            &flatten(self.z.forward(&normalized_tensor)?)?,
+            &self.gate_channel_gather,
+            geometry.value_size(),
+        );
+        let beta = gather_heads(&flatten(self.beta.forward(&normalized_tensor)?)?);
+        let decay = gather_heads(&flatten(self.decay.forward(&normalized_tensor)?)?);
         let (mixed, _recurrent) = gated_delta_recurrent_with_state(
             &qkv,
             &z,
@@ -439,7 +591,15 @@ impl LinearAttention {
             geometry,
             None,
         );
-        let mixed = Tensor::from_vec(mixed, (token_count, geometry.value_size()), device)?;
+        // Scatter the mixed vector into ssm_out's GGUF input-channel order.
+        let mut scattered = vec![0_f32; mixed.len()];
+        for row in 0..token_count {
+            for (channel, target) in self.out_scatter.iter().enumerate() {
+                scattered[row * geometry.value_size() + *target as usize] =
+                    mixed[row * geometry.value_size() + channel];
+            }
+        }
+        let mixed = Tensor::from_vec(scattered, (token_count, geometry.value_size()), device)?;
         Ok(flatten(self.out.forward(&mixed)?)?)
     }
 }
@@ -455,8 +615,11 @@ impl FullAttention {
         let flatten = |tensor: Tensor| -> Result<Vec<f32>, FamilyError> {
             Ok(tensor.to_vec2::<f32>()?.into_iter().flatten().collect())
         };
-        let normalized_tensor =
-            Tensor::from_vec(normalized.to_vec(), (token_count, geometry.hidden_size), device)?;
+        let normalized_tensor = Tensor::from_vec(
+            normalized.to_vec(),
+            (token_count, geometry.hidden_size),
+            device,
+        )?;
         let projected_q = flatten(self.q.forward(&normalized_tensor)?)?;
         let projected_k = flatten(self.k.forward(&normalized_tensor)?)?;
         let projected_v = flatten(self.v.forward(&normalized_tensor)?)?;
@@ -472,14 +635,8 @@ impl FullAttention {
             geometry,
         );
         apply_rotary(&mut keys, geometry.kv_heads, token_count, 0, geometry);
-        let mut mixed = causal_grouped_query_attention(
-            &queries,
-            &keys,
-            &projected_v,
-            token_count,
-            0,
-            geometry,
-        );
+        let mut mixed =
+            causal_grouped_query_attention(&queries, &keys, &projected_v, token_count, 0, geometry);
         for (value, gate) in mixed.iter_mut().zip(gates) {
             *value *= sigmoid(gate);
         }

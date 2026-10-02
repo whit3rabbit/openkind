@@ -3,8 +3,8 @@
 use candle_core::{Device, Tensor};
 use candle_nn::VarBuilder;
 
-use crate::qwen35::Qwen35Error;
 use crate::qwen35::backbone::geometry::Qwen35Geometry;
+use crate::qwen35::Qwen35Error;
 
 use super::{linear, tensor_values, vector, LayerState, RMS_EPSILON};
 
@@ -244,8 +244,7 @@ pub(crate) fn gated_delta_recurrent_with_state(
                 .recip();
             let beta = sigmoid(beta_projection[row * value_heads + value_head]);
             let decay = (-a_log[value_head].exp()
-                * softplus(decay_projection[row * value_heads + value_head]
-                    + dt_bias[value_head]))
+                * softplus(decay_projection[row * value_heads + value_head] + dt_bias[value_head]))
             .exp();
             for state in state_head.iter_mut() {
                 *state *= decay;
@@ -285,8 +284,7 @@ pub(crate) fn gated_delta_recurrent_with_state(
             let norm_scale = (variance + RMS_EPSILON).sqrt().recip();
             for value_index in 0..head_dim {
                 let gate = silu(z[output_offset + value_index]);
-                output[output_offset + value_index] *=
-                    norm_scale * norm_weight[value_index] * gate;
+                output[output_offset + value_index] *= norm_scale * norm_weight[value_index] * gate;
             }
         }
     }

@@ -21,7 +21,7 @@ use crate::qwen35::Qwen35Embedding;
 
 use super::head::{JointSchemaHead, LexicalLookup};
 use super::renderer::EncodedRecord;
-use super::{ClefProfile, JOINT_HEAD_CONFIG};
+use super::ClefProfile;
 
 /// Execution backend of one loaded Clef model.
 ///
@@ -80,7 +80,10 @@ struct PinnedConfig {
 impl VerifiedArtifacts {
     /// Verify every pinned artifact of `profile` under `model_root` in
     /// place, and enforce the config contract.
-    pub fn verify(model_root: impl AsRef<Path>, profile: &'static ClefProfile) -> Result<Self, FamilyError> {
+    pub fn verify(
+        model_root: impl AsRef<Path>,
+        profile: &'static ClefProfile,
+    ) -> Result<Self, FamilyError> {
         let model_root = model_root.as_ref().to_path_buf();
         for (name, digest, bytes) in profile.checkpoint_shards {
             let path = model_root.join(name);
@@ -215,11 +218,8 @@ impl VerifiedArtifacts {
         }
         // The vocabulary enters through the embedding and output-embedding
         // readers; a mismatch would misread every row.
-        let index: CheckpointIndex = read_json(
-            &self
-                .model_root
-                .join("model.safetensors.index.json"),
-        )?;
+        let index: CheckpointIndex =
+            read_json(&self.model_root.join("model.safetensors.index.json"))?;
         let vocab = config.text_config.vocab_size;
         let hidden = geometry.hidden_size;
         for tensor in [EMBED_TOKENS_TENSOR, LM_HEAD_TENSOR] {
@@ -258,6 +258,15 @@ struct TensorMetadata {
     data_offsets: [u64; 2],
 }
 
+impl TensorMetadata {
+    fn from_value(value: &serde_json::Value, tensor: &str) -> Result<Self, FamilyError> {
+        serde_json::from_value(value.clone()).map_err(|error| FamilyError::Json {
+            path: std::path::PathBuf::from(tensor),
+            source: error,
+        })
+    }
+}
+
 /// Safetensors header reader locating one tensor's data window in a shard.
 #[derive(Debug, Clone)]
 struct TensorLayout {
@@ -293,22 +302,27 @@ impl TensorLayout {
                 path: shard_path.to_path_buf(),
                 source,
             })?;
-        let tensors: BTreeMap<String, TensorMetadata> =
-            serde_json::from_slice(&header).map_err(|error| FamilyError::Json {
+        let tensors: BTreeMap<String, serde_json::Value> = serde_json::from_slice(&header)
+            .map_err(|error| FamilyError::Json {
                 path: shard_path.to_path_buf(),
                 source: error,
             })?;
-        let metadata = tensors.get(tensor).ok_or_else(|| {
-            FamilyError::InvalidInput(format!(
-                "{tensor} missing from safetensors header of {}",
-                shard_path.display()
-            ))
-        })?;
+        let metadata = TensorMetadata::from_value(
+            tensors.get(tensor).ok_or_else(|| {
+                FamilyError::InvalidInput(format!(
+                    "{tensor} missing from safetensors header of {}",
+                    shard_path.display()
+                ))
+            })?,
+            tensor,
+        )?;
         Ok(Self {
             shard_path: shard_path.to_path_buf(),
             // The tensor data window starts after the 8-byte length prefix
             // and header, offset by the tensor's own data offset.
-            data_start: 8 + u64::try_from(header_len).unwrap_or(u64::MAX) + metadata.data_offsets[0],
+            data_start: 8
+                + u64::try_from(header_len).unwrap_or(u64::MAX)
+                + metadata.data_offsets[0],
             dtype: metadata.dtype.clone(),
             shape: metadata.shape.clone(),
         })
@@ -396,8 +410,7 @@ impl RowReader {
                 })?;
             for index in 0..self.width {
                 let byte = index * 2;
-                let bits =
-                    u32::from(u16::from_le_bytes([raw[byte], raw[byte + 1]])) << 16;
+                let bits = u32::from(u16::from_le_bytes([raw[byte], raw[byte + 1]])) << 16;
                 values.push(f32::from_bits(bits));
             }
         }
@@ -428,11 +441,8 @@ impl ClefModel {
     ) -> Result<Self, FamilyError> {
         let profile = artifacts.profile();
         let geometry = profile.geometry;
-        let index: CheckpointIndex = read_json(
-            &artifacts
-                .model_root
-                .join("model.safetensors.index.json"),
-        )?;
+        let index: CheckpointIndex =
+            read_json(&artifacts.model_root.join("model.safetensors.index.json"))?;
         let vocab = {
             let config: PinnedConfig = read_json(&artifacts.model_root.join(profile.config_path))?;
             config.text_config.vocab_size
@@ -446,9 +456,12 @@ impl ClefModel {
                 ))
             })?
             .clone();
-        let embedding_layout =
-            crate::qwen35::EmbeddingLayout::read(&artifacts.model_root.join(&embedding_shard), vocab, geometry.hidden_size)
-                .map_err(FamilyError::from)?;
+        let embedding_layout = crate::qwen35::EmbeddingLayout::read(
+            &artifacts.model_root.join(&embedding_shard),
+            vocab,
+            geometry.hidden_size,
+        )
+        .map_err(FamilyError::from)?;
         let embedding = Qwen35Embedding::from_layout(
             artifacts.model_root.join(&embedding_shard),
             embedding_layout,
@@ -468,7 +481,7 @@ impl ClefModel {
             device.clone(),
         );
         let head_path = artifacts.model_root.join(profile.joint_head.0);
-        let head = JointSchemaHead::load(&JOINT_HEAD_CONFIG, &head_path, &device)?;
+        let head = JointSchemaHead::load(&profile.joint_head_config, &head_path, &device)?;
         Ok(Self {
             text,
             lexical,
@@ -487,9 +500,11 @@ impl ClefModel {
         control: &crate::families::support::FamilyControl,
     ) -> Result<Vec<Vec<f64>>, FamilyError> {
         control.check()?;
-        let hidden = self.text.forward_hidden_with_check(&encoded.input_ids, || {
-            control.check().map_err(FamilyError::from)
-        })?;
+        let hidden = self
+            .text
+            .forward_hidden_with_check(&encoded.input_ids, || {
+                control.check().map_err(FamilyError::from)
+            })?;
         let token_count = encoded.input_ids.len();
         if hidden.len() != token_count * self.geometry.hidden_size {
             return Err(FamilyError::InvalidInput(

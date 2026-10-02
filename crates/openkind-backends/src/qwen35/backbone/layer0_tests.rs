@@ -76,7 +76,8 @@ fn cached_causal_attention_matches_one_pass_execution() {
         0,
         PINNED,
     );
-    let suffix = causal_grouped_query_attention(&queries[ATTENTION_SIZE..], &keys, &values, 1, 1, PINNED);
+    let suffix =
+        causal_grouped_query_attention(&queries[ATTENTION_SIZE..], &keys, &values, 1, 1, PINNED);
     assert_eq!([prefix, suffix].concat(), full);
 }
 

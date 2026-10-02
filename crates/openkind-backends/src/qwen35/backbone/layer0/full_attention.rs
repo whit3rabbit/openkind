@@ -3,8 +3,8 @@
 use candle_core::{Device, Tensor};
 use candle_nn::VarBuilder;
 
-use crate::qwen35::Qwen35Error;
 use crate::qwen35::backbone::geometry::Qwen35Geometry;
+use crate::qwen35::Qwen35Error;
 
 use super::linear_attention::sigmoid;
 use super::{linear, vector, LayerState};
@@ -165,8 +165,7 @@ pub(crate) fn split_query_gate(
             let head_start = row_start + head * attention_head_dim * 2;
             query.extend_from_slice(&projected[head_start..head_start + attention_head_dim]);
             gate.extend_from_slice(
-                &projected[head_start + attention_head_dim
-                    ..head_start + attention_head_dim * 2],
+                &projected[head_start + attention_head_dim..head_start + attention_head_dim * 2],
             );
         }
     }

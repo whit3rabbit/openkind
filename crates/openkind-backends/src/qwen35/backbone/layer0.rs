@@ -211,12 +211,8 @@ impl DecoderLayer {
         previous_state: Option<&LayerState>,
     ) -> Result<(Vec<f32>, LayerState), Qwen35Error> {
         let hidden_size = self.geometry.hidden_size;
-        let normalized = rms_norm_zero_centered(
-            residual,
-            token_count,
-            hidden_size,
-            &self.input_layernorm,
-        );
+        let normalized =
+            rms_norm_zero_centered(residual, token_count, hidden_size, &self.input_layernorm);
         let (attention, state) = match (&self.mixer, previous_state) {
             (TokenMixer::Linear(mixer), None) => {
                 mixer.forward_with_state(&normalized, token_count, &self.device, None)?

@@ -149,7 +149,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "{id}: score={:.4} confidence={:.4}",
                     score.score, score.confidence
                 ),
-                other => println!("{id}: {other:?}"),
             }
         }
         println!("---");

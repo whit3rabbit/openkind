@@ -25,6 +25,15 @@ QWEN3GUARD = ("Qwen/Qwen3Guard-Stream-0.6B", "419364a715de9840d47b1457982f64ff37
 KEV = ("jaredpalmer/kev-0.6b", "dece6dba8d43f0f7ded45e9f5b9df12474d90843")
 QWEN3_BASE = ("Qwen/Qwen3-0.6B-Base", "da87bfb608c14b7cf20ba1ce41287e8de496c0cd")
 JEVK5 = ("alibiserikbay/JevK5", "c4f7fdb3aeab5582336406e78d3bef11bf98833d")
+CLEF_FLASH = ("Cloudflare/clef-flash", "17f0b0ad64efb65d273590632833508766b2aae6")
+CLEF = ("Cloudflare/clef", "2f3de3dd85f379784083b0814d997ab627200f0c")
+CLEF_FLASH_GGUF = ("bartowski/Cloudflare_clef-flash-GGUF", "d7f376ea88c05e7bb1014dd5351a93df9dd8029e")
+CLEF_GGUF = ("bartowski/Cloudflare_clef-GGUF", "e306f00c6c85da175dfb8de952ebb872087426a7")
+
+TOKENIZER_CLEF = (
+    "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+    19989325,
+)
 
 TOKENIZER_QWEN25 = (
     "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
@@ -215,8 +224,70 @@ MODELS = [
                          "assets/winnow/4dff8c5b03cfbf680db6/adapters.safetensors",
                          "f4dbf4dae0974b0afae79ceb73487d24a994520fd53365fcb20a28e157b49d83", 5877295),
         ],
+    },    {
+        "name": "clef-flash:dfe12a21a5c9dd5b2fb1",
+        "aliases": ["clef:flash"],
+        "profile_id": "dfe12a21a5c9dd5b2fb1",
+        "loader_id": "clef-flash",
+        "description": "Cloudflare Clef-Flash 9B joint-schema decision model, BF16 safetensors oracle (Apache-2.0); reference-parity readout, research status",
+        "release_date": "2026-10-01",
+        "question_types": ["choice", "score", "noul"],
+        "artifacts": [
+            hf_artifact(CLEF_FLASH, "config.json", "checkpoint/config.json",
+                        "66f87f6fb2616b46604daf2a9c67ddc87938296d07156efa34d59b5be49e3238", 2832),
+            hf_artifact(CLEF_FLASH, "tokenizer.json", "checkpoint/tokenizer.json", *TOKENIZER_CLEF),
+            hf_artifact(CLEF_FLASH, "joint_head.safetensors", "checkpoint/joint_head.safetensors",
+                        "19cdcec8c81dc9212be320fff47462ab342fbc1278be4368fb3da71241cf5ba0", 243538016),
+            hf_artifact(CLEF_FLASH, "model.safetensors.index.json", "checkpoint/model.safetensors.index.json",
+                        "941305ff9f77551e145a6cea976ef456cd5cb208cbece99f168376c752fcf96c", 69253),
+            hf_artifact(CLEF_FLASH, "model-00001-of-00004.safetensors", "checkpoint/model-00001-of-00004.safetensors",
+                        "8b45a8e968141cdcc58fb71c9adfc258e2c77b5f062bc636c1fd5bc5d916b565", 4942706120),
+            hf_artifact(CLEF_FLASH, "model-00002-of-00004.safetensors", "checkpoint/model-00002-of-00004.safetensors",
+                        "7590856c713eed844a2dcf48e6c43c4de165b788bc3f80e328311183cdbc7db8", 4987757928),
+            hf_artifact(CLEF_FLASH, "model-00003-of-00004.safetensors", "checkpoint/model-00003-of-00004.safetensors",
+                        "e6eac2467952c33361ed7dcb3c7959d1086bbe57201cd3749c3d769fdc17fe63", 4954810240),
+            hf_artifact(CLEF_FLASH, "model-00004-of-00004.safetensors", "checkpoint/model-00004-of-00004.safetensors",
+                        "9fcecc6556b39171238373a465f409794b7f821fb4cd1e6459e3a9c0fe317af7", 3934446832),
+        ],
+    },
+    {
+        "name": "clef-flash-gguf:c330d9ee7e9cc658ad45",
+        "aliases": ["clef:flash-gguf"],
+        "profile_id": "c330d9ee7e9cc658ad45",
+        "loader_id": "clef-flash-gguf",
+        "description": "Cloudflare Clef-Flash 9B Q4_K_M GGUF backbone with the official BF16 joint schema head (Apache-2.0); reference-parity readout, research status",
+        "release_date": "2026-10-01",
+        "question_types": ["choice", "score", "noul"],
+        "artifacts": [
+            hf_artifact(CLEF_FLASH, "config.json", "checkpoint/config.json",
+                        "66f87f6fb2616b46604daf2a9c67ddc87938296d07156efa34d59b5be49e3238", 2832),
+            hf_artifact(CLEF_FLASH, "tokenizer.json", "checkpoint/tokenizer.json", *TOKENIZER_CLEF),
+            hf_artifact(CLEF_FLASH, "joint_head.safetensors", "checkpoint/joint_head.safetensors",
+                        "19cdcec8c81dc9212be320fff47462ab342fbc1278be4368fb3da71241cf5ba0", 243538016),
+            hf_artifact(CLEF_FLASH_GGUF, "Cloudflare_clef-flash-Q4_K_M.gguf", "checkpoint/Cloudflare_clef-flash-Q4_K_M.gguf",
+                        "45f803cbcb6144784653bc31cde957e0d184d963a5198d423dc589a79e178d45", 5841052992),
+        ],
+    },
+    {
+        "name": "clef-27b-gguf:48cb5634b4a258de5a6b",
+        "aliases": ["clef:27b"],
+        "profile_id": "48cb5634b4a258de5a6b",
+        "loader_id": "clef-27b-gguf",
+        "description": "Cloudflare Clef 27B Q4_K_M GGUF backbone with the official BF16 joint schema head (Apache-2.0); reference-parity readout, research status",
+        "release_date": "2026-10-01",
+        "question_types": ["choice", "score", "noul"],
+        "artifacts": [
+            hf_artifact(CLEF, "config.json", "checkpoint/config.json",
+                        "c42e88892bd3fd84e8276b2ad90df58c1c3b797676ea161035006a72ad468c58", 3688),
+            hf_artifact(CLEF, "tokenizer.json", "checkpoint/tokenizer.json", *TOKENIZER_CLEF),
+            hf_artifact(CLEF, "joint_head.safetensors", "checkpoint/joint_head.safetensors",
+                        "a010ac04f078e699988e4049cbea5e62c962393f59fec366640b64e8d69a4953", 256125024),
+            hf_artifact(CLEF_GGUF, "Cloudflare_clef-Q4_K_M.gguf", "checkpoint/Cloudflare_clef-Q4_K_M.gguf",
+                        "6a03997c1fe1b22580d15b540535f61b3da79e261766cac7104febc8e4651849", 17203416256),
+        ],
     },
 ]
+
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -248,17 +319,18 @@ def main() -> int:
         manifest_bytes = (json.dumps(manifest, indent=2) + "\n").encode()
         manifest_name = model["name"].replace(":", "-") + ".json"
         (manifests_dir / manifest_name).write_bytes(manifest_bytes)
-        catalog["models"].append(
-            {
-                "name": model["name"],
-                "profile_id": model["profile_id"],
-                "loader_id": model["loader_id"],
-                "description": model["description"],
-                "support_status": "rust-loadable",
-                "manifest_path": f"manifests/{manifest_name}",
-                "manifest_sha256": sha256_bytes(manifest_bytes),
-            }
-        )
+        entry = {
+            "name": model["name"],
+            "profile_id": model["profile_id"],
+            "loader_id": model["loader_id"],
+            "description": model["description"],
+            "support_status": "rust-loadable",
+            "manifest_path": f"manifests/{manifest_name}",
+            "manifest_sha256": sha256_bytes(manifest_bytes),
+        }
+        if model.get("aliases"):
+            entry["aliases"] = model["aliases"]
+        catalog["models"].append(entry)
         print(f"wrote {manifest_name}")
     catalog_path.write_text(json.dumps(catalog, indent=2) + "\n")
     print(f"catalog now lists {len(catalog['models'])} models")

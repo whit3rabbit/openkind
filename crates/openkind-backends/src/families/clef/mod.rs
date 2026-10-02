@@ -64,16 +64,18 @@ pub const DECLARED_PROBABILITY_SPACE: ProbabilitySpace =
 /// can record acceptance against a declared operating point.
 pub const POLICY_THRESHOLD: f64 = 0.60;
 
-/// Joint-head geometry from the pinned `joint_head_config.json` (byte-for-
-/// byte identical for both Clef releases).
-pub(crate) const JOINT_HEAD_CONFIG: head::JointHeadConfig = head::JointHeadConfig {
-    hidden_size: 4_096,
-    width: 1_024,
-    routing_layers: 2,
-    layers: 4,
-    heads: 16,
-    feedforward: 4_096,
-};
+/// Joint-head geometry beyond the backbone width. The two Clef releases
+/// share every field except the backbone width (4096 flash, 5120 27B).
+const fn joint_head_config(hidden_size: usize) -> head::JointHeadConfig {
+    head::JointHeadConfig {
+        hidden_size,
+        width: 1_024,
+        routing_layers: 2,
+        layers: 4,
+        heads: 16,
+        feedforward: 4_096,
+    }
+}
 
 /// Execution backend of one profile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -112,6 +114,8 @@ pub struct ClefProfile {
     pub config_path: &'static str,
     /// Backbone geometry of this profile.
     pub geometry: crate::qwen35::Qwen35Geometry,
+    /// Joint-head configuration of this profile.
+    pub joint_head_config: head::JointHeadConfig,
     /// Backend id of the candle CPU execution path.
     pub cpu_backend_id: &'static str,
     /// Execution backend this profile loads.
@@ -167,6 +171,7 @@ pub static CLEF_FLASH: ClefProfile = ClefProfile {
     tokenizer_path: "tokenizer.json",
     config_path: "config.json",
     geometry: crate::qwen35::Qwen35Geometry::CLEF_FLASH,
+    joint_head_config: joint_head_config(4_096),
     cpu_backend_id: "clef-flash/cpu-bf16w-fp32c",
     execution: ClefExecution::CandleBf16,
     release_date: "2026-10-01",
@@ -191,6 +196,7 @@ pub static CLEF_FLASH_GGUF: ClefProfile = ClefProfile {
     tokenizer_path: CLEF_FLASH.tokenizer_path,
     config_path: CLEF_FLASH.config_path,
     geometry: crate::qwen35::Qwen35Geometry::CLEF_FLASH,
+    joint_head_config: joint_head_config(4_096),
     cpu_backend_id: "clef-flash-gguf/cpu-q4km",
     execution: ClefExecution::CandleGguf,
     release_date: CLEF_FLASH.release_date,
@@ -221,6 +227,7 @@ pub static CLEF_FLASH_MLX_4BIT: ClefProfile = ClefProfile {
     tokenizer_path: "tokenizer.json",
     config_path: "config.json",
     geometry: crate::qwen35::Qwen35Geometry::CLEF_FLASH,
+    joint_head_config: joint_head_config(4_096),
     cpu_backend_id: "clef-flash-mlx-4bit/mlx-q4",
     execution: ClefExecution::Mlx4Bit,
     release_date: CLEF_FLASH.release_date,
@@ -249,15 +256,20 @@ pub static CLEF_27B_GGUF: ClefProfile = ClefProfile {
     tokenizer_path: CLEF_FLASH.tokenizer_path,
     config_path: CLEF_FLASH.config_path,
     geometry: crate::qwen35::Qwen35Geometry::CLEF,
+    joint_head_config: joint_head_config(5_120),
     cpu_backend_id: "clef-27b-gguf/cpu-q4km",
     execution: ClefExecution::CandleGguf,
     release_date: CLEF_FLASH.release_date,
     description: "Cloudflare Clef 27B Q4_K_M GGUF backbone with the official joint head.",
 };
 
-/// Every pinned profile of this family.
-pub static PROFILES: &[&ClefProfile] =
-    &[&CLEF_FLASH, &CLEF_FLASH_GGUF, &CLEF_FLASH_MLX_4BIT, &CLEF_27B_GGUF];
+/// Every loadable profile of this family.
+///
+/// `CLEF_FLASH_MLX_4BIT` is intentionally absent: its MLX execution path
+/// runs end-to-end but has not established joint-head parity with the CPU
+/// oracle (the quantized-input DeltaNet state diverges; see the family
+/// page's open items). It is promoted here once parity fixtures pass.
+pub static PROFILES: &[&ClefProfile] = &[&CLEF_FLASH, &CLEF_FLASH_GGUF, &CLEF_27B_GGUF];
 
 /// Resolve a profile by its loader identifier.
 pub fn profile_by_loader_id(loader_id: &str) -> Option<&'static ClefProfile> {

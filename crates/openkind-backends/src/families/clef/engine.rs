@@ -22,6 +22,12 @@ use super::model::{ClefExecutionModel, ClefModel, VerifiedArtifacts};
 use super::renderer::{clef_render_value, ClefQuestionType, ClefRenderer};
 use super::{default_limits, ClefExecution, ClefProfile};
 
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+use super::mlx::MlxClefModel;
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+use crate::qwen35::mlx::runtime::{MlxRuntime, MlxRuntimeConfig};
+
 /// Blocking Clef evaluator over one digest-verified model.
 pub struct ClefEngine {
     profile: &'static ClefProfile,
@@ -43,6 +49,14 @@ impl ClefEngine {
                 Arc::new(ClefModel::load(&artifacts)?)
             }
             ClefExecution::CandleGguf => Arc::new(GgufModel::load(model_root, profile)?),
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            ClefExecution::Mlx4Bit => {
+                // The MLX loader performs its own artifact verification (the
+                // quantized repo ships no safetensors index json).
+                let runtime = Arc::new(MlxRuntime::new(MlxRuntimeConfig::default())?);
+                Arc::new(MlxClefModel::load(model_root, profile, runtime)?)
+            }
+            #[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
             ClefExecution::Mlx4Bit => {
                 return Err(FamilyError::ExecutionUnavailable(
                     "the clef-flash-mlx-4bit profile requires the `mlx` feature on macOS arm64"
@@ -122,17 +136,12 @@ fn evaluate_with(
     // Questions render in sorted-id order: the wire map is unordered, and a
     // deterministic order keeps the joint head's cross-question attention
     // reproducible.
-    let mut sorted: Vec<(&String, &openkind_core::Question)> =
-        request.questions.iter().collect();
+    let mut sorted: Vec<(&String, &openkind_core::Question)> = request.questions.iter().collect();
     sorted.sort_by(|left, right| left.0.cmp(right.0));
     let mut unpacked: Vec<(String, crate::families::wire::UnpackedQuestion)> =
         Vec::with_capacity(sorted.len());
-    let mut render_questions: Vec<(
-        String,
-        ClefQuestionType,
-        String,
-        Vec<(String, String)>,
-    )> = Vec::with_capacity(sorted.len());
+    let mut render_questions: Vec<(String, ClefQuestionType, String, Vec<(String, String)>)> =
+        Vec::with_capacity(sorted.len());
     for (id, question) in &sorted {
         let unpack = unpack_question(id, question)?;
         let clef_type = match unpack.primitive {
