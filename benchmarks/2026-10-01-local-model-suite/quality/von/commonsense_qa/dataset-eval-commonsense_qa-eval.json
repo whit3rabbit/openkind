@@ -1,0 +1,129 @@
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "ae0768efa72432cb9c8e3945bd39f6dad24b2808",
+    "description": "Commonsense QA, 5 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "tau/commonsense_qa",
+    "hf_revision": "94630fe30dad47192a8546eb75f094926d47e155",
+    "license": "MIT",
+    "name": "commonsense_qa",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "von",
+    "model_revision": "d8bb5e0745d8ee1fb65d536d6d4892d54d5a93fd",
+    "profile_id": "69219703407bd39cca0c",
+    "strategy": "von"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.18,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.16,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.175,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.08,
+        0.3
+      ],
+      "clusters": 50,
+      "point": 0.18,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.54,
+    "aurc": 0.8595547837638577,
+    "brier": 1.2602740845685707,
+    "ece_10_bins": 0.5977379219840621,
+    "false_none_rate": 0.66,
+    "macro_f1": 0.2664527629233512,
+    "nll": 3.0943474020029997,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 7,
+        "label": "A",
+        "recall": 0.2857142857142857
+      },
+      {
+        "count": 11,
+        "label": "B",
+        "recall": 0.0
+      },
+      {
+        "count": 14,
+        "label": "C",
+        "recall": 0.14285714285714285
+      },
+      {
+        "count": 5,
+        "label": "D",
+        "recall": 0.4
+      },
+      {
+        "count": 13,
+        "label": "E",
+        "recall": 0.23076923076923078
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.8163265306122449,
+        "answered": 49,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.8064516129032258,
+        "answered": 31,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.9230769230769231,
+        "answered": 13,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 1.0,
+        "answered": 4,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/commonsense_qa/predictions-von-von.jsonl",
+    "predictions_sha256": "59851bed82065472d9d0368716af670a2db02b865772bf6da59bdcde88d8948c",
+    "summary_sha256": "375d208fae5e9bc5f2f7a74e8f7cbe6cb31f980ed0366da60fd2573a3f8e9e0c",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/commonsense_qa/workload-commonsense_qa-eval.jsonl",
+    "workload_sha256": "197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}

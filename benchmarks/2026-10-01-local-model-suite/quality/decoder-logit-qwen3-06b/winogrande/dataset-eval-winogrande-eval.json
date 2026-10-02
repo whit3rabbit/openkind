@@ -1,0 +1,114 @@
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "546d5aa0e42fc0fa9ad2c13260322ec969e083ee",
+    "description": "Commonsense pronoun/blank resolution, 2 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "allenai/winogrande",
+    "hf_revision": "01e74176c63542e6b0bcb004dcdea22d94fb67b5",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "winogrande",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "decoder-logit-qwen3",
+    "model_revision": "c1899de289a04d12100db370d81485cdf75e47ca",
+    "profile_id": "d900f4af57509fe02e62",
+    "strategy": "decoder-logit-qwen3-06b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.32,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.36,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.3,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.2,
+        0.46
+      ],
+      "clusters": 50,
+      "point": 0.32,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.52,
+    "aurc": 0.5490727410781381,
+    "brier": 1.1649384753141017,
+    "ece_10_bins": 0.5386338222262854,
+    "false_none_rate": 0.38,
+    "macro_f1": 0.31118881118881114,
+    "nll": 3.8460831976453447,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 25,
+        "label": "A",
+        "recall": 0.6
+      },
+      {
+        "count": 25,
+        "label": "B",
+        "recall": 0.04
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.6799999999999999,
+        "answered": 50,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.7,
+        "answered": 40,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.6086956521739131,
+        "answered": 23,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.5,
+        "answered": 12,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "e3cb136f431e817ac4aca475ea381b0840ef2cd0",
+    "executable_sha256": "21128d18e06e07fb4fd14417f431a705bf108fa758fefd7f1d9b29a77e55aad1",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen3-06b/winogrande/predictions-decoder-logit-qwen3-06b-decoder-logit-qwen3-06b.jsonl",
+    "predictions_sha256": "8c04cf669269c5eadef9ed4ec893e63105fa4b6429612a898a0c616928ce2864",
+    "summary_sha256": "c1d025a2e12ab70f2b28b816e1e6a3fbc03aacffd13cb758a0f00b0a7bae6882",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/decoder-logit-qwen3-06b/winogrande/workload-winogrande-eval.jsonl",
+    "workload_sha256": "43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}

@@ -1,0 +1,124 @@
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "382ffb520660cc2ba98092cd8aa07cafc9c47f6d",
+    "description": "Commonsense sentence completion, 4 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "Rowan/hellaswag",
+    "hf_revision": "218ec52e09a7e7462a5400043bb9a69a41d06b76",
+    "license": "MIT (dataset card); underlying corpus terms not detailed",
+    "name": "hellaswag",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "gemma4-decision",
+    "model_revision": "1b257e8fa80b270a62338362a8b35e37f7890273",
+    "profile_id": "656ac636ce450cf79c7d",
+    "strategy": "winnow-e4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.66,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.84,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.725,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.52,
+        0.8
+      ],
+      "clusters": 50,
+      "point": 0.66,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.82,
+    "aurc": 0.15881206808895615,
+    "brier": 0.4350743241955118,
+    "ece_10_bins": 0.09594591503283316,
+    "false_none_rate": 0.24,
+    "macro_f1": 0.7113636363636362,
+    "nll": 0.8142102068695501,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 12,
+        "label": "A",
+        "recall": 0.5833333333333334
+      },
+      {
+        "count": 8,
+        "label": "B",
+        "recall": 0.375
+      },
+      {
+        "count": 11,
+        "label": "C",
+        "recall": 0.7272727272727273
+      },
+      {
+        "count": 19,
+        "label": "D",
+        "recall": 0.7894736842105263
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.20588235294117652,
+        "answered": 34,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 12,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 4,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/hellaswag/predictions-winnow-e4b-winnow-e4b.jsonl",
+    "predictions_sha256": "e00c20fcb4c55dcd71a480bf17d317e3a914f4cfa658706db9e355ba03c8f256",
+    "summary_sha256": "703f9bd5c8b9cc73cd4b660ec014f70322e03a5ec9226ac330b73d4229d5ce2e",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/hellaswag/workload-hellaswag-eval.jsonl",
+    "workload_sha256": "01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}

@@ -45,6 +45,11 @@ ENGINE_BY_LOADER = {
     "decoder-logit-qwen3-17b": "decoder-logit-qwen3-17b",
     "decoder-logit-qwen3-4b": "decoder-logit-qwen3-4b",
     "winnow": "winnow",
+    "winnow-e4b": "winnow-e4b",
+    "strands-decider-2b": "strands-decider-2b",
+    "clef-flash": "clef-flash",
+    "clef-flash-gguf": "clef-flash-gguf",
+    "clef-27b-gguf": "clef-27b-gguf",
 }
 
 
@@ -93,6 +98,8 @@ def engine_args(loader: str, root: Path) -> list[str]:
         ]
     if loader == "von":
         return ["--model-root", str(root)]
+    if loader == "strands-decider-2b":
+        return ["--model-root", str(root / "adapter"), "--checkpoint-root", str(root / "base")]
     if loader.startswith("laya-"):
         return ["--model-root", str(root)]
     return ["--model-root", str(root / "checkpoint")]
@@ -195,11 +202,13 @@ def write_status(
     current_phase: str,
     installed_profile: str | None,
     embedding_reports: list[str] | None = None,
+    commit: str | None = None,
 ) -> None:
     status_doc = {
         "schema": "openkind-local-model-suite-status/v1",
         "host": HOST,
-        "commit": COMMIT,
+        "commit": commit or COMMIT,
+        "initial_campaign_commit": COMMIT,
         "working_tree_dirty": True,
         "dataset_limit_per_eval": 50,
         "current_profile": current_profile,

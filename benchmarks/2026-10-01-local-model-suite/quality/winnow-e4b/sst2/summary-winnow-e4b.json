@@ -1,0 +1,61 @@
+{
+  "bundle_version": null,
+  "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+  "context": null,
+  "cross_strategy_answer_parity_clean": null,
+  "engine": "gemma4-decision",
+  "engine_variant": "winnow-e4b",
+  "fixture": {
+    "groups": 50,
+    "path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/sst2/workload-sst2-eval.jsonl",
+    "rows": 50,
+    "sha256": "aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb"
+  },
+  "grouping": "per-state",
+  "history_aba": false,
+  "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+  "host_hardware": {
+    "cpu_brand": "Apple M4 Max",
+    "logical_cores": 14,
+    "model": "Mac16,5",
+    "total_memory_bytes": 38654705664
+  },
+  "measurement_scope": "model_request_path",
+  "model_revision": "1b257e8fa80b270a62338362a8b35e37f7890273",
+  "notes": {
+    "cpu_time_seconds": "process-wide user+system CPU time diff across the timed region, excluding warmup and model load; avg_cpu_percent exceeds 100 when multiple threads run",
+    "input_tokens_per_second": "total input tokens across all timed repetitions divided by their total wall time",
+    "percentiles": "p50 is the median rep total and p95 is the ceil(0.95*n)-1 sample; small rep counts are reported alongside as samples_seconds",
+    "request_latency_ms": "latency is per request; grouped rows share their request's latency and are not independent timings; includes request construction through answer extraction"
+  },
+  "peak_resident_bytes": 8428994560,
+  "prediction_sha256": {
+    "winnow-e4b": "e1c334c57bf9a954510213c28bda4bb0a2f1ab57eb71d0a9783a0073c8605786"
+  },
+  "profile_id": "656ac636ce450cf79c7d",
+  "reps": 1,
+  "schema": "openkind-bench/v1",
+  "strategies": [
+    {
+      "avg_cpu_percent": 789.9603885075952,
+      "backend_id": "gemma4-decision/cpu-fp32",
+      "cpu_time_seconds": 2254.895846,
+      "decisions_per_second": 0.17516560463511432,
+      "forced": null,
+      "groups": 50,
+      "input_tokens_per_second": 26.92295343241707,
+      "input_tokens_total": 7685,
+      "model_load_seconds": 13.947303167,
+      "p50_seconds": 285.444166417,
+      "p95_seconds": 285.444166417,
+      "reps": 1,
+      "rows": 50,
+      "samples_seconds": [
+        285.444166417
+      ],
+      "strategy": "winnow-e4b"
+    }
+  ],
+  "timing_scope": "request construction, validation, dispatch, and answer extraction; excludes model load (reported per strategy), result writes, and the untimed warmup pass; warm process",
+  "warmup": true
+}

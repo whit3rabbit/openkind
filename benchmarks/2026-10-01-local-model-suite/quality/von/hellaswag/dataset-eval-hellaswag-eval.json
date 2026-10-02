@@ -1,0 +1,124 @@
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "382ffb520660cc2ba98092cd8aa07cafc9c47f6d",
+    "description": "Commonsense sentence completion, 4 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "Rowan/hellaswag",
+    "hf_revision": "218ec52e09a7e7462a5400043bb9a69a41d06b76",
+    "license": "MIT (dataset card); underlying corpus terms not detailed",
+    "name": "hellaswag",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "von",
+    "model_revision": "d8bb5e0745d8ee1fb65d536d6d4892d54d5a93fd",
+    "profile_id": "69219703407bd39cca0c",
+    "strategy": "von"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.14,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.2,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.175,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.06,
+        0.24
+      ],
+      "clusters": 50,
+      "point": 0.14,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.4,
+    "aurc": 0.8855614520170172,
+    "brier": 0.9082588356771231,
+    "ece_10_bins": 0.290275000510335,
+    "false_none_rate": 0.6,
+    "macro_f1": 0.17906162464985995,
+    "nll": 1.7650188333208314,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 12,
+        "label": "A",
+        "recall": 0.16666666666666666
+      },
+      {
+        "count": 8,
+        "label": "B",
+        "recall": 0.0
+      },
+      {
+        "count": 11,
+        "label": "C",
+        "recall": 0.18181818181818182
+      },
+      {
+        "count": 19,
+        "label": "D",
+        "recall": 0.15789473684210525
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 1.0,
+        "answered": 13,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 1.0,
+        "answered": 2,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/hellaswag/predictions-von-von.jsonl",
+    "predictions_sha256": "38400c5fae58ac6dfec6b3d3397084df5759b1185b77c8eeea3db0fa9e515316",
+    "summary_sha256": "9f0dde5c082f7d7fa3156d6429b253f340334138df3cf0597a24ee324855e706",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/von/hellaswag/workload-hellaswag-eval.jsonl",
+    "workload_sha256": "01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}

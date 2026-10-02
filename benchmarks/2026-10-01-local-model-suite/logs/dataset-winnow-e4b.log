@@ -1,0 +1,1139 @@
+
+supplemental profile=winnow-e4b:656ac636ce450cf79c7d
+loader=winnow-e4b
+commit=4f49048714c056cf97757de1f5fb2ea126fc87f6
+host=Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64
+
+using pre-existing local checkpoint cache after manifest size and SHA-256 verification: /Users/whit3rabbit/.cache/openkind/winnow-e4b-1b257e8fa80b270a62338362a8b35e37f7890273
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval sst2 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine winnow-e4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/sst2 --pretty --model-root /Users/whit3rabbit/.cache/openkind/winnow-e4b-1b257e8fa80b270a62338362a8b35e37f7890273
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/sst2/workload-sst2-eval.jsonl: 50 rows (sha256 aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine winnow-e4b starting
+[bench] strategy winnow-e4b warmup complete
+[bench] strategy winnow-e4b rep 0: 285.444 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/sst2/summary-winnow-e4b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "db3daed39bcd33ea25255ab60c1ac86ad52ce79d",
+    "description": "Binary sentence sentiment (GLUE SST-2).",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "stanfordnlp/sst2",
+    "hf_revision": "8d51e7e4887a4caaa95b3fbebbf53c0490b58bbb",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "sst2",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "gemma4-decision",
+    "model_revision": "1b257e8fa80b270a62338362a8b35e37f7890273",
+    "profile_id": "656ac636ce450cf79c7d",
+    "strategy": "winnow-e4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.94,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.975,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.86,
+        1.0
+      ],
+      "clusters": 50,
+      "point": 0.94,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.98,
+    "aurc": 0.008355655400687997,
+    "brier": 0.10075326421194183,
+    "ece_10_bins": 0.06491136114442399,
+    "false_none_rate": 0.04,
+    "macro_f1": 0.961755758365928,
+    "nll": 0.20432960422624805,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 20,
+        "label": "negative",
+        "recall": 0.95
+      },
+      {
+        "count": 30,
+        "label": "positive",
+        "recall": 0.9333333333333333
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.04081632653061229,
+        "answered": 49,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.022727272727272707,
+        "answered": 44,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 33,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 16,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/sst2/predictions-winnow-e4b-winnow-e4b.jsonl",
+    "predictions_sha256": "e1c334c57bf9a954510213c28bda4bb0a2f1ab57eb71d0a9783a0073c8605786",
+    "summary_sha256": "606791277a6481c1f3b3e663d2f960b5973a6d2acbc8f8ee99fb78e02e99938c",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/sst2/workload-sst2-eval.jsonl",
+    "workload_sha256": "aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval winnow-e4b/sst2 (winnow-e4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval ag_news --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine winnow-e4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/ag_news --pretty --model-root /Users/whit3rabbit/.cache/openkind/winnow-e4b-1b257e8fa80b270a62338362a8b35e37f7890273
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/ag_news/workload-ag_news-eval.jsonl: 50 rows (sha256 dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine winnow-e4b starting
+[bench] strategy winnow-e4b warmup complete
+[bench] strategy winnow-e4b rep 0: 399.510 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/ag_news/summary-winnow-e4b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "4efd5262b756aee7a12710ca78c74aa258660063",
+    "description": "News topic classification, 4 classes.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "fancyzhx/ag_news",
+    "hf_revision": "eb185aade064a813bc0b7f42de02595523103ca4",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "ag_news",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "gemma4-decision",
+    "model_revision": "1b257e8fa80b270a62338362a8b35e37f7890273",
+    "profile_id": "656ac636ce450cf79c7d",
+    "strategy": "winnow-e4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.8,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.96,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.9,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.68,
+        0.9
+      ],
+      "clusters": 50,
+      "point": 0.8,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.86,
+    "aurc": 0.05717315813871906,
+    "brier": 0.29899022655133195,
+    "ece_10_bins": 0.11333335154903845,
+    "false_none_rate": 0.08,
+    "macro_f1": 0.8104766833419585,
+    "nll": 0.672712750302738,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "Business",
+        "recall": 0.875
+      },
+      {
+        "count": 10,
+        "label": "Sci/Tech",
+        "recall": 0.5
+      },
+      {
+        "count": 16,
+        "label": "Sports",
+        "recall": 0.875
+      },
+      {
+        "count": 16,
+        "label": "World",
+        "recall": 0.875
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.20408163265306123,
+        "answered": 49,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.09999999999999998,
+        "answered": 40,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.05882352941176472,
+        "answered": 34,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 13,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/ag_news/predictions-winnow-e4b-winnow-e4b.jsonl",
+    "predictions_sha256": "c668b4c34ea409ead44b99a655e39712c7792fe8875860a93d964c7829e61da3",
+    "summary_sha256": "9eada637d68d68d7746b6c7b23084b62a37eae7e04f5ce80c91b5823eff06142",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/ag_news/workload-ag_news-eval.jsonl",
+    "workload_sha256": "dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval winnow-e4b/ag_news (winnow-e4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval banking77 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine winnow-e4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/banking77 --pretty --model-root /Users/whit3rabbit/.cache/openkind/winnow-e4b-1b257e8fa80b270a62338362a8b35e37f7890273
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/banking77/workload-banking77-eval.jsonl: 50 rows (sha256 9987b6f82a27ab4a5ddc0124ab4a110945d168858aa1ff1352d371422d657b98)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine winnow-e4b starting
+Error: warmup dispatch failed: backend `gemma4-decision/cpu-fp32` does not support this request: question offers 78 candidates but the verified letter vocabulary covers only 64; split the question or use a profile with a wider readout
+[exit 1] eval winnow-e4b/banking77 (winnow-e4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval clinc150 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine winnow-e4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/clinc150 --pretty --model-root /Users/whit3rabbit/.cache/openkind/winnow-e4b-1b257e8fa80b270a62338362a8b35e37f7890273
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/clinc150/workload-clinc150-eval.jsonl: 50 rows (sha256 c4fa558b966c0c72618366e1b6b6024566b5de14d3eeba7e0085c260ebdf1701)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine winnow-e4b starting
+Error: warmup dispatch failed: backend `gemma4-decision/cpu-fp32` does not support this request: question offers 152 candidates but the verified letter vocabulary covers only 64; split the question or use a profile with a wider readout
+[exit 1] eval winnow-e4b/clinc150 (winnow-e4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval arc --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine winnow-e4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/arc --pretty --model-root /Users/whit3rabbit/.cache/openkind/winnow-e4b-1b257e8fa80b270a62338362a8b35e37f7890273
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/arc/workload-arc-eval.jsonl: 50 rows (sha256 a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine winnow-e4b starting
+[bench] strategy winnow-e4b warmup complete
+[bench] strategy winnow-e4b rep 0: 317.398 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/arc/summary-winnow-e4b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "5a61ed188b8810abf32686fa83eb93787cbc5f25",
+    "description": "Grade-school science QA (Challenge + Easy), 3-5 options.",
+    "files": 4,
+    "gated": "none",
+    "hf_repo": "allenai/ai2_arc",
+    "hf_revision": "210d026faf9955653af8916fad021475a3f00453",
+    "license": "CC-BY-SA-4.0",
+    "name": "arc",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "gemma4-decision",
+    "model_revision": "1b257e8fa80b270a62338362a8b35e37f7890273",
+    "profile_id": "656ac636ce450cf79c7d",
+    "strategy": "winnow-e4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.92,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 1.0,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.84,
+        0.98
+      ],
+      "clusters": 50,
+      "point": 0.92,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.96,
+    "aurc": 0.004083355044145318,
+    "brier": 0.11290792303219917,
+    "ece_10_bins": 0.14115357790943578,
+    "false_none_rate": 0.06,
+    "macro_f1": 0.9445461328201266,
+    "nll": 0.26311204033759117,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "A",
+        "recall": 1.0
+      },
+      {
+        "count": 19,
+        "label": "B",
+        "recall": 0.9473684210526315
+      },
+      {
+        "count": 13,
+        "label": "C",
+        "recall": 0.8461538461538461
+      },
+      {
+        "count": 10,
+        "label": "D",
+        "recall": 0.9
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.061224489795918324,
+        "answered": 49,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 39,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 30,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 3,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/arc/predictions-winnow-e4b-winnow-e4b.jsonl",
+    "predictions_sha256": "1ecc64168f44c2db1b31f8e6941d035f762ba29ceec0d73222abdaa8507e8f77",
+    "summary_sha256": "d8870751bfc8a71effc942815b008d0532ff08ecfa42f3b47336d6ac8ca2a54d",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/arc/workload-arc-eval.jsonl",
+    "workload_sha256": "a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval winnow-e4b/arc (winnow-e4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval hellaswag --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine winnow-e4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/hellaswag --pretty --model-root /Users/whit3rabbit/.cache/openkind/winnow-e4b-1b257e8fa80b270a62338362a8b35e37f7890273
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/hellaswag/workload-hellaswag-eval.jsonl: 50 rows (sha256 01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine winnow-e4b starting
+[bench] strategy winnow-e4b warmup complete
+[bench] strategy winnow-e4b rep 0: 560.192 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/hellaswag/summary-winnow-e4b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "382ffb520660cc2ba98092cd8aa07cafc9c47f6d",
+    "description": "Commonsense sentence completion, 4 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "Rowan/hellaswag",
+    "hf_revision": "218ec52e09a7e7462a5400043bb9a69a41d06b76",
+    "license": "MIT (dataset card); underlying corpus terms not detailed",
+    "name": "hellaswag",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "gemma4-decision",
+    "model_revision": "1b257e8fa80b270a62338362a8b35e37f7890273",
+    "profile_id": "656ac636ce450cf79c7d",
+    "strategy": "winnow-e4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.66,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.84,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.725,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.52,
+        0.8
+      ],
+      "clusters": 50,
+      "point": 0.66,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.82,
+    "aurc": 0.15881206808895615,
+    "brier": 0.4350743241955118,
+    "ece_10_bins": 0.09594591503283316,
+    "false_none_rate": 0.24,
+    "macro_f1": 0.7113636363636362,
+    "nll": 0.8142102068695501,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 12,
+        "label": "A",
+        "recall": 0.5833333333333334
+      },
+      {
+        "count": 8,
+        "label": "B",
+        "recall": 0.375
+      },
+      {
+        "count": 11,
+        "label": "C",
+        "recall": 0.7272727272727273
+      },
+      {
+        "count": 19,
+        "label": "D",
+        "recall": 0.7894736842105263
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.20588235294117652,
+        "answered": 34,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 12,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 4,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/hellaswag/predictions-winnow-e4b-winnow-e4b.jsonl",
+    "predictions_sha256": "e00c20fcb4c55dcd71a480bf17d317e3a914f4cfa658706db9e355ba03c8f256",
+    "summary_sha256": "703f9bd5c8b9cc73cd4b660ec014f70322e03a5ec9226ac330b73d4229d5ce2e",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/hellaswag/workload-hellaswag-eval.jsonl",
+    "workload_sha256": "01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval winnow-e4b/hellaswag (winnow-e4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval winogrande --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine winnow-e4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/winogrande --pretty --model-root /Users/whit3rabbit/.cache/openkind/winnow-e4b-1b257e8fa80b270a62338362a8b35e37f7890273
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/winogrande/workload-winogrande-eval.jsonl: 50 rows (sha256 43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine winnow-e4b starting
+[bench] strategy winnow-e4b warmup complete
+[bench] strategy winnow-e4b rep 0: 286.785 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/winogrande/summary-winnow-e4b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "546d5aa0e42fc0fa9ad2c13260322ec969e083ee",
+    "description": "Commonsense pronoun/blank resolution, 2 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "allenai/winogrande",
+    "hf_revision": "01e74176c63542e6b0bcb004dcdea22d94fb67b5",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "winogrande",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "gemma4-decision",
+    "model_revision": "1b257e8fa80b270a62338362a8b35e37f7890273",
+    "profile_id": "656ac636ce450cf79c7d",
+    "strategy": "winnow-e4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.44,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.68,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.5,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.3,
+        0.58
+      ],
+      "clusters": 50,
+      "point": 0.44,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.64,
+    "aurc": 0.33951267215134395,
+    "brier": 0.6714536478819579,
+    "ece_10_bins": 0.23294377360893748,
+    "false_none_rate": 0.34,
+    "macro_f1": 0.5301974448315911,
+    "nll": 1.1882694312864148,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 25,
+        "label": "A",
+        "recall": 0.44
+      },
+      {
+        "count": 25,
+        "label": "B",
+        "recall": 0.44
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.5,
+        "answered": 40,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.25,
+        "answered": 16,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 3,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/winogrande/predictions-winnow-e4b-winnow-e4b.jsonl",
+    "predictions_sha256": "db265e65b56d28884593c60a4009c35dae01f9eb043872ec1b7f8fc5d93a8a6b",
+    "summary_sha256": "c7ec1e52f8734b640c0c6b7ee75666891e396de8a8404150e65ad3405a75fbc4",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/winogrande/workload-winogrande-eval.jsonl",
+    "workload_sha256": "43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval winnow-e4b/winogrande (winnow-e4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval commonsense_qa --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine winnow-e4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/commonsense_qa --pretty --model-root /Users/whit3rabbit/.cache/openkind/winnow-e4b-1b257e8fa80b270a62338362a8b35e37f7890273
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/commonsense_qa/workload-commonsense_qa-eval.jsonl: 50 rows (sha256 197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine winnow-e4b starting
+[bench] strategy winnow-e4b warmup complete
+[bench] strategy winnow-e4b rep 0: 300.307 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/commonsense_qa/summary-winnow-e4b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "ae0768efa72432cb9c8e3945bd39f6dad24b2808",
+    "description": "Commonsense QA, 5 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "tau/commonsense_qa",
+    "hf_revision": "94630fe30dad47192a8546eb75f094926d47e155",
+    "license": "MIT",
+    "name": "commonsense_qa",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "gemma4-decision",
+    "model_revision": "1b257e8fa80b270a62338362a8b35e37f7890273",
+    "profile_id": "656ac636ce450cf79c7d",
+    "strategy": "winnow-e4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.56,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.64,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.55,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.42,
+        0.7
+      ],
+      "clusters": 50,
+      "point": 0.56,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.76,
+    "aurc": 0.43172386772571164,
+    "brier": 0.6411902197517588,
+    "ece_10_bins": 0.18109599926558662,
+    "false_none_rate": 0.3,
+    "macro_f1": 0.610937950937951,
+    "nll": 1.2503641396870249,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 7,
+        "label": "A",
+        "recall": 0.14285714285714285
+      },
+      {
+        "count": 11,
+        "label": "B",
+        "recall": 0.6363636363636364
+      },
+      {
+        "count": 14,
+        "label": "C",
+        "recall": 0.42857142857142855
+      },
+      {
+        "count": 5,
+        "label": "D",
+        "recall": 1.0
+      },
+      {
+        "count": 13,
+        "label": "E",
+        "recall": 0.6923076923076923
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.4473684210526315,
+        "answered": 38,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.44999999999999996,
+        "answered": 20,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.33333333333333337,
+        "answered": 3,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/commonsense_qa/predictions-winnow-e4b-winnow-e4b.jsonl",
+    "predictions_sha256": "23ff91bcbd9745d53f9a85a1f4f5cdb48fa057c4f7364ded11061361131a9e99",
+    "summary_sha256": "157ea5b25910310f1af816beaebc2f5b9a9a53a5251f5f09b1f2145f0caf4582",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/commonsense_qa/workload-commonsense_qa-eval.jsonl",
+    "workload_sha256": "197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval winnow-e4b/commonsense_qa (winnow-e4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval paws --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine winnow-e4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/paws --pretty --model-root /Users/whit3rabbit/.cache/openkind/winnow-e4b-1b257e8fa80b270a62338362a8b35e37f7890273 --tune-threshold
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/paws/tuning-paws/workload-paws-dev.jsonl: 50 rows (sha256 f9c04db8a2189dc90a3981b384703273ab29fb29778decf3895a80de707c1f75)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine winnow-e4b starting
+[bench] strategy winnow-e4b warmup complete
+[bench] strategy winnow-e4b rep 0: 377.930 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/paws/tuning-paws/summary-winnow-e4b.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/paws/workload-paws-eval.jsonl: 50 rows (sha256 36ecb2af4e6c31d6529afaf2a85abbb1581be6ff6544263029794b66a6defc70)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine winnow-e4b starting
+[bench] strategy winnow-e4b warmup complete
+[bench] strategy winnow-e4b rep 0: 370.821 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/paws/summary-winnow-e4b.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "254f2df8677712ee0972ddb92870dc79fed48aec",
+    "description": "Adversarial paraphrase identification (high word overlap).",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "google-research-datasets/paws",
+    "hf_revision": "161ece9501cf0a11f3e48bd356eaa82de46d6a09",
+    "license": "custom terms on the dataset card; review before broader use",
+    "name": "paws",
+    "task_family": "nli"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "gemma4-decision",
+    "model_revision": "1b257e8fa80b270a62338362a8b35e37f7890273",
+    "profile_id": "656ac636ce450cf79c7d",
+    "strategy": "winnow-e4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy_at_0.5": 0.72,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.84,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.85,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.6,
+        0.84
+      ],
+      "clusters": 50,
+      "point": 0.72,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "aurc": 0.14076293726738076,
+    "auroc": 0.8533333333333334,
+    "brier": 0.17937986691674662,
+    "ece_10_bins": 0.4677176725729678,
+    "negative_recall": 0.6,
+    "positive_recall": 0.9,
+    "rows": 50,
+    "tuned_threshold": {
+      "dev_rows": 50,
+      "eval_accuracy": 0.72,
+      "protocol": "threshold selected on dev, applied to eval",
+      "threshold": 0.8939630310620066,
+      "tuning_accuracy_on_dev": 0.74
+    }
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/paws/predictions-winnow-e4b-winnow-e4b.jsonl",
+    "predictions_sha256": "9dfbb8737f933e66f13ee2af1838797701fa1438366deaee7614a94574015441",
+    "summary_sha256": "8414a34d00f72744e5cd7e494f59af6604eed600593a6e017f6580d2e9d3825f",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/paws/workload-paws-eval.jsonl",
+    "workload_sha256": "36ecb2af4e6c31d6529afaf2a85abbb1581be6ff6544263029794b66a6defc70"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 18,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval winnow-e4b/paws (winnow-e4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval boolq --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine winnow-e4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/boolq --pretty --model-root /Users/whit3rabbit/.cache/openkind/winnow-e4b-1b257e8fa80b270a62338362a8b35e37f7890273 --tune-threshold
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/boolq/tuning-boolq/workload-boolq-dev.jsonl: 50 rows (sha256 1344c51d3a9d27d9cbf428f2e823b6324a62c5e15d9d4beba09f034c57950ea9)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine winnow-e4b starting
+[bench] strategy winnow-e4b warmup complete
+[bench] strategy winnow-e4b rep 0: 484.125 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/boolq/tuning-boolq/summary-winnow-e4b.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/boolq/workload-boolq-eval.jsonl: 50 rows (sha256 449d16d61bdfeba20b1323e394af130cf9e9e70670365f052602e59eed64373c)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine winnow-e4b starting
+[bench] strategy winnow-e4b warmup complete
+[bench] strategy winnow-e4b rep 0: 509.131 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/boolq/summary-winnow-e4b.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "d89fc6ef4da46f056176dcf941ba670524ab1c87",
+    "description": "Yes/no questions over Wikipedia passages.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "google/boolq",
+    "hf_revision": "35b264d03638db9f4ce671b711558bf7ff0f80d5",
+    "license": "CC-BY-SA-3.0",
+    "name": "boolq",
+    "task_family": "reading-comprehension"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "gemma4-decision",
+    "model_revision": "1b257e8fa80b270a62338362a8b35e37f7890273",
+    "profile_id": "656ac636ce450cf79c7d",
+    "strategy": "winnow-e4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy_at_0.5": 0.84,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.96,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.925,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.74,
+        0.94
+      ],
+      "clusters": 50,
+      "point": 0.84,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "aurc": 0.0501003853868883,
+    "auroc": 0.9444444444444444,
+    "brier": 0.1085262558309636,
+    "ece_10_bins": 0.3637455309453073,
+    "negative_recall": 0.9444444444444444,
+    "positive_recall": 0.78125,
+    "rows": 50,
+    "tuned_threshold": {
+      "dev_rows": 50,
+      "eval_accuracy": 0.86,
+      "protocol": "threshold selected on dev, applied to eval",
+      "threshold": 0.47210176261723913,
+      "tuning_accuracy_on_dev": 0.88
+    }
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/boolq/predictions-winnow-e4b-winnow-e4b.jsonl",
+    "predictions_sha256": "81305eec3c1838306fde0585013ec4390826d6169d249bfd4df75ebceb7c911f",
+    "summary_sha256": "d46e00217ff895e8cff18b7bb0065990c9e52c9da837efc526e6e6446d9cdd92",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/boolq/workload-boolq-eval.jsonl",
+    "workload_sha256": "449d16d61bdfeba20b1323e394af130cf9e9e70670365f052602e59eed64373c"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval winnow-e4b/boolq (winnow-e4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval stsb --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine winnow-e4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/stsb --pretty --model-root /Users/whit3rabbit/.cache/openkind/winnow-e4b-1b257e8fa80b270a62338362a8b35e37f7890273
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/stsb/workload-stsb-eval.jsonl: 50 rows (sha256 fbcbdc284c4c7e1d9f950740770134c5eaab52175a16eaafb059749acf610453)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine winnow-e4b starting
+[bench] strategy winnow-e4b warmup complete
+[bench] strategy winnow-e4b rep 0: 414.680 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/stsb/summary-winnow-e4b.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "58372e8197f43125a85d75e3c5121ccabc61413a",
+    "description": "Semantic textual similarity on a 0-5 scale.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "sentence-transformers/stsb",
+    "hf_revision": "ab7a5ac0e35aa22088bdcf23e7fd99b220e53308",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "stsb",
+    "task_family": "rubric-scoring"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "gemma4-decision",
+    "model_revision": "1b257e8fa80b270a62338362a8b35e37f7890273",
+    "profile_id": "656ac636ce450cf79c7d",
+    "strategy": "winnow-e4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "argmax_level_accuracy": 0.48,
+    "mae": 0.598609832049626,
+    "nll": 1.0974507549652313,
+    "pearson": 0.8924139938825417,
+    "rows": 50,
+    "spearman": 0.9010825519011497
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/stsb/predictions-winnow-e4b-winnow-e4b.jsonl",
+    "predictions_sha256": "17b30790dff2d37623b150281e9534b8c120ad8c562e85f61cc344c118656405",
+    "summary_sha256": "410a25b04d3a1cc09080546f57f82018c9051e15a40cd340420da02728266656",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/stsb/workload-stsb-eval.jsonl",
+    "workload_sha256": "fbcbdc284c4c7e1d9f950740770134c5eaab52175a16eaafb059749acf610453"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 1,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval winnow-e4b/stsb (winnow-e4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval sst5 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine winnow-e4b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/sst5 --pretty --model-root /Users/whit3rabbit/.cache/openkind/winnow-e4b-1b257e8fa80b270a62338362a8b35e37f7890273
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/sst5/workload-sst5-eval.jsonl: 50 rows (sha256 6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine winnow-e4b starting
+[bench] strategy winnow-e4b warmup complete
+[bench] strategy winnow-e4b rep 0: 262.920 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/sst5/summary-winnow-e4b.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "956d888e7bc9c029fd96e3cece49c054ec0ddbd9",
+    "description": "Fine-grained sentence sentiment, 5 ordered levels.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "SetFit/sst5",
+    "hf_revision": "e51bdcd8cd3a30da231967c1a249ba59361279a3",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "sst5",
+    "task_family": "rubric-scoring"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "gemma4-decision",
+    "model_revision": "1b257e8fa80b270a62338362a8b35e37f7890273",
+    "profile_id": "656ac636ce450cf79c7d",
+    "strategy": "winnow-e4b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "argmax_level_accuracy": 0.62,
+    "mae": 0.41799284300344325,
+    "nll": 0.8277240417350188,
+    "pearson": 0.9097085419601378,
+    "rows": 50,
+    "spearman": 0.8504544057335147
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/sst5/predictions-winnow-e4b-winnow-e4b.jsonl",
+    "predictions_sha256": "8bc99bcb1637790c8d1d5357b0b369608de7334125d46697ea523cce3b2cc7bf",
+    "summary_sha256": "00bc5ff9b2faf1f594d5e0f51ff32ca1e32608131d927bf11d066138e05940fa",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/winnow-e4b/sst5/workload-sst5-eval.jsonl",
+    "workload_sha256": "6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval winnow-e4b/sst5 (winnow-e4b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench score /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl --engine winnow-e4b --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/performance/winnow-e4b/winnow-e4b --reps 1 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --model-root /Users/whit3rabbit/.cache/openkind/winnow-e4b-1b257e8fa80b270a62338362a8b35e37f7890273
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl: 12 rows (sha256 c2db6b36351d340b4f55343109cf4a41444d56c96868ab7f467381dd791c3905)
+[bench] 4 groups over 12 rows (grouping=true)
+[bench] engine winnow-e4b starting
+[bench] strategy winnow-e4b warmup complete
+[bench] strategy winnow-e4b rep 0: 122.216 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/performance/winnow-e4b/winnow-e4b/summary-winnow-e4b.json
+{"bundle_version":null,"commit":"4f49048714c056cf97757de1f5fb2ea126fc87f6","context":null,"cross_strategy_answer_parity_clean":null,"engine":"gemma4-decision","engine_variant":"winnow-e4b","fixture":{"groups":4,"path":"/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl","rows":12,"sha256":"c2db6b36351d340b4f55343109cf4a41444d56c96868ab7f467381dd791c3905"},"grouping":"per-state","history_aba":false,"host":"Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64","host_hardware":{"cpu_brand":"Apple M4 Max","logical_cores":14,"model":"Mac16,5","total_memory_bytes":38654705664},"measurement_scope":"model_request_path","model_revision":"1b257e8fa80b270a62338362a8b35e37f7890273","notes":{"cpu_time_seconds":"process-wide user+system CPU time diff across the timed region, excluding warmup and model load; avg_cpu_percent exceeds 100 when multiple threads run","input_tokens_per_second":"total input tokens across all timed repetitions divided by their total wall time","percentiles":"p50 is the median rep total and p95 is the ceil(0.95*n)-1 sample; small rep counts are reported alongside as samples_seconds","request_latency_ms":"latency is per request; grouped rows share their request's latency and are not independent timings; includes request construction through answer extraction"},"peak_resident_bytes":8421031936,"prediction_sha256":{"winnow-e4b":"07207b00c1e36e12dec0eb9c507e9cc19130d03e857635b78728a1bf20ae0453"},"profile_id":"656ac636ce450cf79c7d","reps":1,"schema":"openkind-bench/v1","strategies":[{"avg_cpu_percent":810.5860328275156,"backend_id":"gemma4-decision/cpu-fp32","cpu_time_seconds":990.6683869999999,"decisions_per_second":0.09818656294651894,"forced":null,"groups":4,"input_tokens_per_second":26.543100849875618,"input_tokens_total":3244,"model_load_seconds":14.006982416,"p50_seconds":122.216315959,"p95_seconds":122.216315959,"reps":1,"rows":12,"samples_seconds":[122.216315959],"strategy":"winnow-e4b"}],"timing_scope":"request construction, validation, dispatch, and answer extraction; excludes model load (reported per strategy), result writes, and the untimed warmup pass; warm process","warmup":true}
+[exit 0] score winnow-e4b (winnow-e4b, 12 rows)

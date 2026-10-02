@@ -1,0 +1,1691 @@
+
+supplemental profile=strands-decider-2b:6a02bb0d1c6b25cae74b
+loader=strands-decider-2b
+commit=4f49048714c056cf97757de1f5fb2ea126fc87f6
+host=Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64
+
+using pre-existing local checkpoint cache after manifest size and SHA-256 verification: /Users/whit3rabbit/.cache/openkind/strands-decider-2b
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval sst2 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine strands-decider-2b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/sst2 --pretty --model-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/adapter --checkpoint-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/sst2/workload-sst2-eval.jsonl: 50 rows (sha256 aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine strands-decider-2b starting
+[bench] strategy strands-decider-2b warmup complete
+[bench] strategy strands-decider-2b rep 0: 59.991 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/sst2/summary-strands-decider-2b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "db3daed39bcd33ea25255ab60c1ac86ad52ce79d",
+    "description": "Binary sentence sentiment (GLUE SST-2).",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "stanfordnlp/sst2",
+    "hf_revision": "8d51e7e4887a4caaa95b3fbebbf53c0490b58bbb",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "sst2",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "strands-decider",
+    "model_revision": "bb282d786bc251fd4e3068de3ada9ddbb38127cd",
+    "profile_id": "6a02bb0d1c6b25cae74b",
+    "strategy": "strands-decider-2b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.96,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.96,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.975,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.9,
+        1.0
+      ],
+      "clusters": 50,
+      "point": 0.96,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.96,
+    "aurc": 0.017476932671333913,
+    "brier": 0.10978856144573783,
+    "ece_10_bins": 0.12868612858484568,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.9575551782682513,
+    "nll": 0.2657645556815424,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 20,
+        "label": "negative",
+        "recall": 0.9
+      },
+      {
+        "count": 30,
+        "label": "positive",
+        "recall": 1.0
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.02083333333333337,
+        "answered": 48,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.023255813953488413,
+        "answered": 43,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 15,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/sst2/predictions-strands-decider-2b-strands-decider-2b.jsonl",
+    "predictions_sha256": "58609ee49a4d244129aabacd01e6f77e395c6ba7c2f071c4e0d660301c6d0020",
+    "summary_sha256": "314fd53767fbf8543c4f6ffd799830886aed049f743d6a6f50108c4f183a616e",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/sst2/workload-sst2-eval.jsonl",
+    "workload_sha256": "aec7abbd2b4c0eb841e63b184e85bf2ce6285bd07cc2791db4e5c9eef2e263eb"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval strands-decider-2b/sst2 (strands-decider-2b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval ag_news --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine strands-decider-2b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/ag_news --pretty --model-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/adapter --checkpoint-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/ag_news/workload-ag_news-eval.jsonl: 50 rows (sha256 dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine strands-decider-2b starting
+[bench] strategy strands-decider-2b warmup complete
+[bench] strategy strands-decider-2b rep 0: 82.308 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/ag_news/summary-strands-decider-2b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "4efd5262b756aee7a12710ca78c74aa258660063",
+    "description": "News topic classification, 4 classes.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "fancyzhx/ag_news",
+    "hf_revision": "eb185aade064a813bc0b7f42de02595523103ca4",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "ag_news",
+    "task_family": "text-classification"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "strands-decider",
+    "model_revision": "bb282d786bc251fd4e3068de3ada9ddbb38127cd",
+    "profile_id": "6a02bb0d1c6b25cae74b",
+    "strategy": "strands-decider-2b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.88,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.96,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.975,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.78,
+        0.96
+      ],
+      "clusters": 50,
+      "point": 0.88,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.92,
+    "aurc": 0.03266910056958375,
+    "brier": 0.19829608066191148,
+    "ece_10_bins": 0.09940854808137534,
+    "false_none_rate": 0.04,
+    "macro_f1": 0.8959613109018882,
+    "nll": 0.4311301196421031,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "Business",
+        "recall": 0.875
+      },
+      {
+        "count": 10,
+        "label": "Sci/Tech",
+        "recall": 0.8
+      },
+      {
+        "count": 16,
+        "label": "Sports",
+        "recall": 1.0
+      },
+      {
+        "count": 16,
+        "label": "World",
+        "recall": 0.8125
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.12765957446808507,
+        "answered": 47,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.024390243902439046,
+        "answered": 41,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.02777777777777779,
+        "answered": 36,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 5,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/ag_news/predictions-strands-decider-2b-strands-decider-2b.jsonl",
+    "predictions_sha256": "8a8903a3641dd2ff8f6ddf403f3298da3d1b8b15a837aeda8d3517015091f370",
+    "summary_sha256": "a87764d5e80fc65cd0a70b8df829f8862398d0a23c84ba9b24ea787cf11a63fc",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/ag_news/workload-ag_news-eval.jsonl",
+    "workload_sha256": "dc1d8893d535881c1e80eedd7012e8ef0dc8db0daa1ee4cf977a7a0e91dcc998"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval strands-decider-2b/ag_news (strands-decider-2b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval banking77 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine strands-decider-2b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/banking77 --pretty --model-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/adapter --checkpoint-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/banking77/workload-banking77-eval.jsonl: 50 rows (sha256 9987b6f82a27ab4a5ddc0124ab4a110945d168858aa1ff1352d371422d657b98)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine strands-decider-2b starting
+[bench] strategy strands-decider-2b warmup complete
+[bench] strategy strands-decider-2b rep 0: 510.638 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/banking77/summary-strands-decider-2b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "2f7db33fffeec50f4802e51b5ac250340200e85f",
+    "description": "Banking customer-query intent, 77 classes.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "mteb/banking77",
+    "hf_revision": "18072d2685ea682290f7b8924d94c62acc19c0b2",
+    "license": "MIT",
+    "name": "banking77",
+    "task_family": "intent-routing"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "strands-decider",
+    "model_revision": "bb282d786bc251fd4e3068de3ada9ddbb38127cd",
+    "profile_id": "6a02bb0d1c6b25cae74b",
+    "strategy": "strands-decider-2b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.84,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.9,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.74,
+        0.94
+      ],
+      "clusters": 50,
+      "point": 0.84,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.84,
+    "aurc": 0.04662164820320957,
+    "brier": 0.2446421768017484,
+    "ece_10_bins": 0.07095804220598957,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.8585434173669467,
+    "nll": 0.459204887658781,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 1,
+        "label": "apple_pay_or_google_pay",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "atm_support",
+        "recall": 1.0
+      },
+      {
+        "count": 4,
+        "label": "automatic_top_up",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "balance_not_updated_after_bank_transfer",
+        "recall": 1.0
+      },
+      {
+        "count": 4,
+        "label": "balance_not_updated_after_cheque_or_cash_deposit",
+        "recall": 0.75
+      },
+      {
+        "count": 1,
+        "label": "card_delivery_estimate",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "card_linking",
+        "recall": 0.5
+      },
+      {
+        "count": 1,
+        "label": "card_not_working",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "card_swallowed",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "cash_withdrawal_charge",
+        "recall": 1.0
+      },
+      {
+        "count": 3,
+        "label": "cash_withdrawal_not_recognised",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "change_pin",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "declined_cash_withdrawal",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "disposable_card_limits",
+        "recall": 0.5
+      },
+      {
+        "count": 1,
+        "label": "extra_charge_on_statement",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "fiat_currency_support",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "getting_spare_card",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "pending_card_payment",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "pending_top_up",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "supported_cards_and_currencies",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "terminate_account",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "top_up_by_bank_transfer_charge",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "top_up_by_cash_or_cheque",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "top_up_failed",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "top_up_limits",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "transfer_fee_charged",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "transfer_into_account",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "transfer_not_received_by_recipient",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "verify_my_identity",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "verify_source_of_funds",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "verify_top_up",
+        "recall": 1.0
+      },
+      {
+        "count": 3,
+        "label": "virtual_card_not_working",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "why_verify_identity",
+        "recall": 0.5
+      },
+      {
+        "count": 1,
+        "label": "wrong_exchange_rate_for_cash_withdrawal",
+        "recall": 1.0
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.13636363636363635,
+        "answered": 44,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0625,
+        "answered": 32,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 24,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 7,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/banking77/predictions-strands-decider-2b-strands-decider-2b.jsonl",
+    "predictions_sha256": "3731420fdae197e7b51da984ab5d3be02f84095663f4b9166a3f8efbcbc43252",
+    "summary_sha256": "39e119bdbd5cd424a1dc93e1f2996a3626c5ff60a4589c3d8c4c9b52011b108a",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/banking77/workload-banking77-eval.jsonl",
+    "workload_sha256": "9987b6f82a27ab4a5ddc0124ab4a110945d168858aa1ff1352d371422d657b98"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval strands-decider-2b/banking77 (strands-decider-2b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval clinc150 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine strands-decider-2b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/clinc150 --pretty --model-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/adapter --checkpoint-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/clinc150/workload-clinc150-eval.jsonl: 50 rows (sha256 c4fa558b966c0c72618366e1b6b6024566b5de14d3eeba7e0085c260ebdf1701)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine strands-decider-2b starting
+[bench] strategy strands-decider-2b warmup complete
+[bench] strategy strands-decider-2b rep 0: 830.258 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/clinc150/summary-strands-decider-2b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "8e951f061d8a5bedeaec359c02de3185e8c3359a",
+    "description": "Virtual-assistant intent, 150 intents + out-of-scope.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "clinc/clinc_oos",
+    "hf_revision": "155b9c710419136e17307b80d0a13e68cd46b4ec",
+    "license": "CC-BY-3.0",
+    "name": "clinc150",
+    "task_family": "intent-routing"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "strands-decider",
+    "model_revision": "bb282d786bc251fd4e3068de3ada9ddbb38127cd",
+    "profile_id": "6a02bb0d1c6b25cae74b",
+    "strategy": "strands-decider-2b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.78,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.9,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.66,
+        0.88
+      ],
+      "clusters": 50,
+      "point": 0.78,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.78,
+    "aurc": 0.044624293145101905,
+    "brier": 0.2786368534950649,
+    "ece_10_bins": 0.06748605871072326,
+    "false_none_rate": 0.0,
+    "macro_f1": 0.8618538324420678,
+    "nll": 0.6000719545663269,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 2,
+        "label": "bill_balance",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "book_flight",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "car_rental",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "do_you_have_pets",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "gas",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "gas_type",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "greeting",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "ingredient_substitution",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "ingredients_list",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "last_maintenance",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "mpg",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "no",
+        "recall": 1.0
+      },
+      {
+        "count": 13,
+        "label": "oos",
+        "recall": 0.5384615384615384
+      },
+      {
+        "count": 1,
+        "label": "order_checks",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "payday",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "pto_request",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "pto_request_status",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "reminder",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "replacement_card_duration",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "report_fraud",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "rewards_balance",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "roll_dice",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "schedule_maintenance",
+        "recall": 0.0
+      },
+      {
+        "count": 1,
+        "label": "schedule_meeting",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "timezone",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "tire_pressure",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "todo_list",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "transfer",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "translate",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "travel_suggestion",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "uber",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "w2",
+        "recall": 1.0
+      },
+      {
+        "count": 1,
+        "label": "whisper_mode",
+        "recall": 1.0
+      },
+      {
+        "count": 2,
+        "label": "yes",
+        "recall": 1.0
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.09999999999999998,
+        "answered": 40,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 30,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 24,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 14,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/clinc150/predictions-strands-decider-2b-strands-decider-2b.jsonl",
+    "predictions_sha256": "fcf394b4dd7dd9bc984ff9b9ddd3001572ea025521b2d9b35a5cf69133a2d8cb",
+    "summary_sha256": "ee6f138162b677db635dadf2a4a348e8fd3845eeda7aa83b89db3d48ebe7c4a9",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/clinc150/workload-clinc150-eval.jsonl",
+    "workload_sha256": "c4fa558b966c0c72618366e1b6b6024566b5de14d3eeba7e0085c260ebdf1701"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval strands-decider-2b/clinc150 (strands-decider-2b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval arc --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine strands-decider-2b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/arc --pretty --model-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/adapter --checkpoint-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/arc/workload-arc-eval.jsonl: 50 rows (sha256 a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine strands-decider-2b starting
+[bench] strategy strands-decider-2b warmup complete
+[bench] strategy strands-decider-2b rep 0: 62.517 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/arc/summary-strands-decider-2b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "5a61ed188b8810abf32686fa83eb93787cbc5f25",
+    "description": "Grade-school science QA (Challenge + Easy), 3-5 options.",
+    "files": 4,
+    "gated": "none",
+    "hf_repo": "allenai/ai2_arc",
+    "hf_revision": "210d026faf9955653af8916fad021475a3f00453",
+    "license": "CC-BY-SA-4.0",
+    "name": "arc",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "strands-decider",
+    "model_revision": "bb282d786bc251fd4e3068de3ada9ddbb38127cd",
+    "profile_id": "6a02bb0d1c6b25cae74b",
+    "strategy": "strands-decider-2b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.7,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.8,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.58,
+        0.82
+      ],
+      "clusters": 50,
+      "point": 0.7,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.78,
+    "aurc": 0.08541355981681059,
+    "brier": 0.34103015518276697,
+    "ece_10_bins": 0.1458926728232722,
+    "false_none_rate": 0.1,
+    "macro_f1": 0.7379785247432307,
+    "nll": 0.6575837825281148,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 8,
+        "label": "A",
+        "recall": 0.75
+      },
+      {
+        "count": 19,
+        "label": "B",
+        "recall": 0.6842105263157895
+      },
+      {
+        "count": 13,
+        "label": "C",
+        "recall": 0.5384615384615384
+      },
+      {
+        "count": 10,
+        "label": "D",
+        "recall": 0.9
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.11764705882352944,
+        "answered": 34,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 21,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 7,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 1,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/arc/predictions-strands-decider-2b-strands-decider-2b.jsonl",
+    "predictions_sha256": "e311d349df683daeba9a3800f041326affc7eb20d072cee9b29bf97ee497446e",
+    "summary_sha256": "b2e3c6ca42339837a88041c725018f735f58280098a5b796123842f5ebc3ce39",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/arc/workload-arc-eval.jsonl",
+    "workload_sha256": "a075d83ef393eaf6312d06148ced5f742adda040cd5d4b5055592a5925d2608e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval strands-decider-2b/arc (strands-decider-2b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval hellaswag --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine strands-decider-2b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/hellaswag --pretty --model-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/adapter --checkpoint-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/hellaswag/workload-hellaswag-eval.jsonl: 50 rows (sha256 01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine strands-decider-2b starting
+[bench] strategy strands-decider-2b warmup complete
+[bench] strategy strands-decider-2b rep 0: 110.813 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/hellaswag/summary-strands-decider-2b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "382ffb520660cc2ba98092cd8aa07cafc9c47f6d",
+    "description": "Commonsense sentence completion, 4 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "Rowan/hellaswag",
+    "hf_revision": "218ec52e09a7e7462a5400043bb9a69a41d06b76",
+    "license": "MIT (dataset card); underlying corpus terms not detailed",
+    "name": "hellaswag",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "strands-decider",
+    "model_revision": "bb282d786bc251fd4e3068de3ada9ddbb38127cd",
+    "profile_id": "6a02bb0d1c6b25cae74b",
+    "strategy": "strands-decider-2b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.5,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.6,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.525,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.36,
+        0.64
+      ],
+      "clusters": 50,
+      "point": 0.5,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.66,
+    "aurc": 0.349665997686288,
+    "brier": 0.6080217005808156,
+    "ece_10_bins": 0.08398761524074125,
+    "false_none_rate": 0.26,
+    "macro_f1": 0.5719381313131313,
+    "nll": 1.137798507394209,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 12,
+        "label": "A",
+        "recall": 0.5833333333333334
+      },
+      {
+        "count": 8,
+        "label": "B",
+        "recall": 0.5
+      },
+      {
+        "count": 11,
+        "label": "C",
+        "recall": 0.45454545454545453
+      },
+      {
+        "count": 19,
+        "label": "D",
+        "recall": 0.47368421052631576
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.4285714285714286,
+        "answered": 28,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 3,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/hellaswag/predictions-strands-decider-2b-strands-decider-2b.jsonl",
+    "predictions_sha256": "4ff53eee0d4a53138dafa65ccfad32c4b220cc8dbccbc8e87b3d966d4f383f0d",
+    "summary_sha256": "725a904c840202d1e0b0f69cfa69c4af3352f93b74fd4fece0e2a4395e32d776",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/hellaswag/workload-hellaswag-eval.jsonl",
+    "workload_sha256": "01256c366f308738acba00c48cf7a384e5e4fd433fe7970a4042b04acb0efc7e"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval strands-decider-2b/hellaswag (strands-decider-2b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval winogrande --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine strands-decider-2b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/winogrande --pretty --model-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/adapter --checkpoint-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/winogrande/workload-winogrande-eval.jsonl: 50 rows (sha256 43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine strands-decider-2b starting
+[bench] strategy strands-decider-2b warmup complete
+[bench] strategy strands-decider-2b rep 0: 53.697 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/winogrande/summary-strands-decider-2b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "546d5aa0e42fc0fa9ad2c13260322ec969e083ee",
+    "description": "Commonsense pronoun/blank resolution, 2 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "allenai/winogrande",
+    "hf_revision": "01e74176c63542e6b0bcb004dcdea22d94fb67b5",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "winogrande",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "strands-decider",
+    "model_revision": "bb282d786bc251fd4e3068de3ada9ddbb38127cd",
+    "profile_id": "6a02bb0d1c6b25cae74b",
+    "strategy": "strands-decider-2b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.52,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.64,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.6,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.38,
+        0.66
+      ],
+      "clusters": 50,
+      "point": 0.52,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.56,
+    "aurc": 0.31495955680916254,
+    "brier": 0.5745558686528656,
+    "ece_10_bins": 0.1349444210354819,
+    "false_none_rate": 0.08,
+    "macro_f1": 0.5384615384615385,
+    "nll": 0.9636355472828749,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 25,
+        "label": "A",
+        "recall": 0.44
+      },
+      {
+        "count": 25,
+        "label": "B",
+        "recall": 0.6
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.25,
+        "answered": 20,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.0,
+        "answered": 1,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/winogrande/predictions-strands-decider-2b-strands-decider-2b.jsonl",
+    "predictions_sha256": "613fb44122f7e78a5a8797ef9a577d996fd213c5ecfbae5eb4549b260e7d797d",
+    "summary_sha256": "0d6a4de3bce1952f51a49011fd9feb650c3a0e04654f8766148d5131d6912f80",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/winogrande/workload-winogrande-eval.jsonl",
+    "workload_sha256": "43971ef7f5207f9208acc7b1674b661e2998b24dcc221d2e0de084899d57e4ef"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval strands-decider-2b/winogrande (strands-decider-2b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval commonsense_qa --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine strands-decider-2b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/commonsense_qa --pretty --model-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/adapter --checkpoint-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/commonsense_qa/workload-commonsense_qa-eval.jsonl: 50 rows (sha256 197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine strands-decider-2b starting
+[bench] strategy strands-decider-2b warmup complete
+[bench] strategy strands-decider-2b rep 0: 57.288 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/commonsense_qa/summary-strands-decider-2b.json
+{
+  "comparability": {
+    "forced_none_option": true,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "ae0768efa72432cb9c8e3945bd39f6dad24b2808",
+    "description": "Commonsense QA, 5 options.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "tau/commonsense_qa",
+    "hf_revision": "94630fe30dad47192a8546eb75f094926d47e155",
+    "license": "MIT",
+    "name": "commonsense_qa",
+    "task_family": "multiple-choice"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "strands-decider",
+    "model_revision": "bb282d786bc251fd4e3068de3ada9ddbb38127cd",
+    "profile_id": "6a02bb0d1c6b25cae74b",
+    "strategy": "strands-decider-2b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy": 0.46,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.64,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.525,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.34,
+        0.6
+      ],
+      "clusters": 50,
+      "point": 0.46,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "answerable_ranking_accuracy": 0.6,
+    "aurc": 0.41543048409383865,
+    "brier": 0.7050739433901302,
+    "ece_10_bins": 0.19161448657402128,
+    "false_none_rate": 0.32,
+    "macro_f1": 0.5371428571428571,
+    "nll": 1.4751608075726028,
+    "none_recall": null,
+    "per_class_recall": [
+      {
+        "count": 7,
+        "label": "A",
+        "recall": 0.7142857142857143
+      },
+      {
+        "count": 11,
+        "label": "B",
+        "recall": 0.18181818181818182
+      },
+      {
+        "count": 14,
+        "label": "C",
+        "recall": 0.42857142857142855
+      },
+      {
+        "count": 5,
+        "label": "D",
+        "recall": 0.8
+      },
+      {
+        "count": 13,
+        "label": "E",
+        "recall": 0.46153846153846156
+      }
+    ],
+    "risk_coverage": [
+      {
+        "accepted_error": 0.41666666666666663,
+        "answered": 36,
+        "threshold": 0.5
+      },
+      {
+        "accepted_error": 0.5,
+        "answered": 10,
+        "threshold": 0.75
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.9
+      },
+      {
+        "accepted_error": null,
+        "answered": 0,
+        "threshold": 0.98
+      }
+    ],
+    "rows": 50
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/commonsense_qa/predictions-strands-decider-2b-strands-decider-2b.jsonl",
+    "predictions_sha256": "6431ac688a39deea68496776d46f4b59494c8d6cdccc0d0357c9a879c552d6b3",
+    "summary_sha256": "0ada55fadb06ecbe0118decf72ef7914a8c13467d52852bc5388500f92b4b5ae",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/commonsense_qa/workload-commonsense_qa-eval.jsonl",
+    "workload_sha256": "197771028f499cf4daba2c389f99f876c48ebebae094ce528182f504028f72bd"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval strands-decider-2b/commonsense_qa (strands-decider-2b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval paws --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine strands-decider-2b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/paws --pretty --model-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/adapter --checkpoint-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/base --tune-threshold
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/paws/tuning-paws/workload-paws-dev.jsonl: 50 rows (sha256 f9c04db8a2189dc90a3981b384703273ab29fb29778decf3895a80de707c1f75)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine strands-decider-2b starting
+[bench] strategy strands-decider-2b warmup complete
+[bench] strategy strands-decider-2b rep 0: 81.551 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/paws/tuning-paws/summary-strands-decider-2b.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/paws/workload-paws-eval.jsonl: 50 rows (sha256 36ecb2af4e6c31d6529afaf2a85abbb1581be6ff6544263029794b66a6defc70)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine strands-decider-2b starting
+[bench] strategy strands-decider-2b warmup complete
+[bench] strategy strands-decider-2b rep 0: 79.687 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/paws/summary-strands-decider-2b.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "254f2df8677712ee0972ddb92870dc79fed48aec",
+    "description": "Adversarial paraphrase identification (high word overlap).",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "google-research-datasets/paws",
+    "hf_revision": "161ece9501cf0a11f3e48bd356eaa82de46d6a09",
+    "license": "custom terms on the dataset card; review before broader use",
+    "name": "paws",
+    "task_family": "nli"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "strands-decider",
+    "model_revision": "bb282d786bc251fd4e3068de3ada9ddbb38127cd",
+    "profile_id": "6a02bb0d1c6b25cae74b",
+    "strategy": "strands-decider-2b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy_at_0.5": 0.86,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 0.92,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 0.925,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.76,
+        0.96
+      ],
+      "clusters": 50,
+      "point": 0.86,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "aurc": 0.11701057009645117,
+    "auroc": 0.9116666666666666,
+    "brier": 0.1380524137355354,
+    "ece_10_bins": 0.3906193404734295,
+    "negative_recall": 0.8666666666666667,
+    "positive_recall": 0.85,
+    "rows": 50,
+    "tuned_threshold": {
+      "dev_rows": 50,
+      "eval_accuracy": 0.84,
+      "protocol": "threshold selected on dev, applied to eval",
+      "threshold": 0.3900826946990455,
+      "tuning_accuracy_on_dev": 0.86
+    }
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/paws/predictions-strands-decider-2b-strands-decider-2b.jsonl",
+    "predictions_sha256": "0daf42372f59456c936ef002cc8cd45cff32295d3ce68098d16206ea376bc0b6",
+    "summary_sha256": "8df9a8f8e3548267f7d9f4a73370dd44cabb4425ea070d467368465b91e8155e",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/paws/workload-paws-eval.jsonl",
+    "workload_sha256": "36ecb2af4e6c31d6529afaf2a85abbb1581be6ff6544263029794b66a6defc70"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 18,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval strands-decider-2b/paws (strands-decider-2b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval boolq --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine strands-decider-2b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/boolq --pretty --model-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/adapter --checkpoint-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/base --tune-threshold
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/boolq/tuning-boolq/workload-boolq-dev.jsonl: 50 rows (sha256 1344c51d3a9d27d9cbf428f2e823b6324a62c5e15d9d4beba09f034c57950ea9)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine strands-decider-2b starting
+[bench] strategy strands-decider-2b warmup complete
+[bench] strategy strands-decider-2b rep 0: 100.594 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/boolq/tuning-boolq/summary-strands-decider-2b.json
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/boolq/workload-boolq-eval.jsonl: 50 rows (sha256 449d16d61bdfeba20b1323e394af130cf9e9e70670365f052602e59eed64373c)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine strands-decider-2b starting
+[bench] strategy strands-decider-2b warmup complete
+[bench] strategy strands-decider-2b rep 0: 108.494 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/boolq/summary-strands-decider-2b.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "d89fc6ef4da46f056176dcf941ba670524ab1c87",
+    "description": "Yes/no questions over Wikipedia passages.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "google/boolq",
+    "hf_revision": "35b264d03638db9f4ce671b711558bf7ff0f80d5",
+    "license": "CC-BY-SA-3.0",
+    "name": "boolq",
+    "task_family": "reading-comprehension"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "strands-decider",
+    "model_revision": "bb282d786bc251fd4e3068de3ada9ddbb38127cd",
+    "profile_id": "6a02bb0d1c6b25cae74b",
+    "strategy": "strands-decider-2b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "accuracy_at_0.5": 0.92,
+    "accuracy_at_coverage": {
+      "0.5": {
+        "accuracy": 1.0,
+        "answered": 25,
+        "coverage": 0.5
+      },
+      "0.8": {
+        "accuracy": 1.0,
+        "answered": 40,
+        "coverage": 0.8
+      }
+    },
+    "accuracy_bootstrap": {
+      "ci_95": [
+        0.84,
+        0.98
+      ],
+      "clusters": 50,
+      "point": 0.92,
+      "replicates": 2000,
+      "seed": 29160717
+    },
+    "aurc": 0.00804357876265317,
+    "auroc": 0.9878472222222222,
+    "brier": 0.07288793923008174,
+    "ece_10_bins": 0.3576744877755571,
+    "negative_recall": 0.9444444444444444,
+    "positive_recall": 0.90625,
+    "rows": 50,
+    "tuned_threshold": {
+      "dev_rows": 50,
+      "eval_accuracy": 0.92,
+      "protocol": "threshold selected on dev, applied to eval",
+      "threshold": 0.5,
+      "tuning_accuracy_on_dev": 0.9
+    }
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/boolq/predictions-strands-decider-2b-strands-decider-2b.jsonl",
+    "predictions_sha256": "ddf741052df425a3d04936995657e8c153d372a2331cd46ac67b4d89c50249de",
+    "summary_sha256": "5fd314244d1ba89cecff0d13927b904341f523e8ada1f9c30c08f27e2019e7cc",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/boolq/workload-boolq-eval.jsonl",
+    "workload_sha256": "449d16d61bdfeba20b1323e394af130cf9e9e70670365f052602e59eed64373c"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval strands-decider-2b/boolq (strands-decider-2b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval stsb --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine strands-decider-2b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/stsb --pretty --model-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/adapter --checkpoint-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/stsb/workload-stsb-eval.jsonl: 50 rows (sha256 fbcbdc284c4c7e1d9f950740770134c5eaab52175a16eaafb059749acf610453)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine strands-decider-2b starting
+[bench] strategy strands-decider-2b warmup complete
+[bench] strategy strands-decider-2b rep 0: 94.589 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/stsb/summary-strands-decider-2b.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "58372e8197f43125a85d75e3c5121ccabc61413a",
+    "description": "Semantic textual similarity on a 0-5 scale.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "sentence-transformers/stsb",
+    "hf_revision": "ab7a5ac0e35aa22088bdcf23e7fd99b220e53308",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "stsb",
+    "task_family": "rubric-scoring"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "strands-decider",
+    "model_revision": "bb282d786bc251fd4e3068de3ada9ddbb38127cd",
+    "profile_id": "6a02bb0d1c6b25cae74b",
+    "strategy": "strands-decider-2b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "argmax_level_accuracy": 0.18,
+    "mae": 1.1989751184195152,
+    "nll": 1.5684953292594443,
+    "pearson": 0.8655221678771986,
+    "rows": 50,
+    "spearman": 0.8812552707975781
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/stsb/predictions-strands-decider-2b-strands-decider-2b.jsonl",
+    "predictions_sha256": "a7ed978556bb59c93fd36c0c09e9175e35ae80cf1f09c54df455606c99e774a1",
+    "summary_sha256": "19f7be5a24429aeea072cbe2b5f908804b905c13010f31caab1406df850a2cf3",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/stsb/workload-stsb-eval.jsonl",
+    "workload_sha256": "fbcbdc284c4c7e1d9f950740770134c5eaab52175a16eaafb059749acf610453"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 1,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval strands-decider-2b/stsb (strands-decider-2b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench dataset eval sst5 --datasets-dir /Users/whit3rabbit/Library/Caches/openkind-local-suite-2026-10-01/datasets --limit 50 --engine strands-decider-2b --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/sst5 --pretty --model-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/adapter --checkpoint-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/sst5/workload-sst5-eval.jsonl: 50 rows (sha256 6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4)
+[bench] 50 groups over 50 rows (grouping=true)
+[bench] engine strands-decider-2b starting
+[bench] strategy strands-decider-2b warmup complete
+[bench] strategy strands-decider-2b rep 0: 60.156 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/sst5/summary-strands-decider-2b.json
+{
+  "comparability": {
+    "forced_none_option": false,
+    "note": "Choice rows always carry an injected __none__ option; accuracy includes it, answerable_ranking_accuracy excludes it for external comparison. Request wording follows the pinned template source."
+  },
+  "dataset": {
+    "convert_revision": "956d888e7bc9c029fd96e3cece49c054ec0ddbd9",
+    "description": "Fine-grained sentence sentiment, 5 ordered levels.",
+    "files": 2,
+    "gated": "none",
+    "hf_repo": "SetFit/sst5",
+    "hf_revision": "e51bdcd8cd3a30da231967c1a249ba59361279a3",
+    "license": "unstated on the dataset card; internal evaluation only",
+    "name": "sst5",
+    "task_family": "rubric-scoring"
+  },
+  "engine": {
+    "bundle_version": null,
+    "engine": "strands-decider",
+    "model_revision": "bb282d786bc251fd4e3068de3ada9ddbb38127cd",
+    "profile_id": "6a02bb0d1c6b25cae74b",
+    "strategy": "strands-decider-2b"
+  },
+  "evidence_class": "model-quality (public-dataset); no model or policy promotion",
+  "limit": 50,
+  "metrics": {
+    "argmax_level_accuracy": 0.5,
+    "mae": 0.5967626846956575,
+    "nll": 1.0187386417216262,
+    "pearson": 0.9103320886926839,
+    "rows": 50,
+    "spearman": 0.8698023820236782
+  },
+  "provenance": {
+    "commit": "4f49048714c056cf97757de1f5fb2ea126fc87f6",
+    "executable_sha256": "83708aab3f6dceb367c7e1dcf6db7014e43a41fe19d301b2abee6921d42a824d",
+    "host": "Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64",
+    "predictions_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/sst5/predictions-strands-decider-2b-strands-decider-2b.jsonl",
+    "predictions_sha256": "ede8f379b8f40f86325a7b7fd2c8acae1566ebc48482f28da963de43e306f77b",
+    "summary_sha256": "d57cec3c4d6f77fc9ece658d551214975c5719eb9d1d1812f7fc3027dd418653",
+    "workload_path": "/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/quality/strands-decider-2b/sst5/workload-sst5-eval.jsonl",
+    "workload_sha256": "6bb721c089a9da937cb5b7f49e671fad585a979df1fc22bacbebefe021d7c2c4"
+  },
+  "rows": 50,
+  "schema": "openkind-dataset-eval/v1",
+  "skipped_duplicates": 0,
+  "skipped_template_rows": 0,
+  "split": "eval",
+  "template": {
+    "id": "jev-benchmarking",
+    "source": "https://github.com/AppliedMachineLearning-Lab/jev-benchmarking@6bbdeb33474849b6de2f0cccc9f5e19756abd67e",
+    "version": 1
+  }
+}
+[exit 0] eval strands-decider-2b/sst5 (strands-decider-2b)
+
+$ /Users/whit3rabbit/Documents/GitHub/openkind/target/release/openkind-bench score /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl --engine strands-decider-2b --output-dir /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/performance/strands-decider-2b/strands-decider-2b --reps 1 --host 'Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64' --commit 4f49048714c056cf97757de1f5fb2ea126fc87f6 --model-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/adapter --checkpoint-root /Users/whit3rabbit/.cache/openkind/strands-decider-2b/base
+[bench] workload /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl: 12 rows (sha256 c2db6b36351d340b4f55343109cf4a41444d56c96868ab7f467381dd791c3905)
+[bench] 4 groups over 12 rows (grouping=true)
+[bench] engine strands-decider-2b starting
+[bench] strategy strands-decider-2b warmup complete
+[bench] strategy strands-decider-2b rep 0: 28.657 s
+[bench] summary /Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/performance/strands-decider-2b/strands-decider-2b/summary-strands-decider-2b.json
+{"bundle_version":null,"commit":"4f49048714c056cf97757de1f5fb2ea126fc87f6","context":null,"cross_strategy_answer_parity_clean":null,"engine":"strands-decider","engine_variant":"strands-decider-2b","fixture":{"groups":4,"path":"/Users/whit3rabbit/Documents/GitHub/openkind/benchmarks/2026-10-01-local-model-suite/shape-smoke-12.jsonl","rows":12,"sha256":"c2db6b36351d340b4f55343109cf4a41444d56c96868ab7f467381dd791c3905"},"grouping":"per-state","history_aba":false,"host":"Apple M4 Max, 14 cores, 36 GiB RAM, macOS arm64","host_hardware":{"cpu_brand":"Apple M4 Max","logical_cores":14,"model":"Mac16,5","total_memory_bytes":38654705664},"measurement_scope":"model_request_path","model_revision":"bb282d786bc251fd4e3068de3ada9ddbb38127cd","notes":{"cpu_time_seconds":"process-wide user+system CPU time diff across the timed region, excluding warmup and model load; avg_cpu_percent exceeds 100 when multiple threads run","input_tokens_per_second":"total input tokens across all timed repetitions divided by their total wall time","percentiles":"p50 is the median rep total and p95 is the ceil(0.95*n)-1 sample; small rep counts are reported alongside as samples_seconds","request_latency_ms":"latency is per request; grouped rows share their request's latency and are not independent timings; includes request construction through answer extraction"},"peak_resident_bytes":9150775296,"prediction_sha256":{"strands-decider-2b":"86390f9923509dcc0c7924867b63b2e3e1cc9ca6d56e811f6a168a808ed7d4cc"},"profile_id":"6a02bb0d1c6b25cae74b","reps":1,"schema":"openkind-bench/v1","strategies":[{"avg_cpu_percent":121.15012109920673,"backend_id":"strands-decider-2b/cpu-fp32","cpu_time_seconds":34.717895000000006,"decisions_per_second":0.41874700444554036,"forced":null,"groups":4,"input_tokens_per_second":117.07468332623233,"input_tokens_total":3355,"model_load_seconds":8.16395725,"p50_seconds":28.656921417,"p95_seconds":28.656921417,"reps":1,"rows":12,"samples_seconds":[28.656921417],"strategy":"strands-decider-2b"}],"timing_scope":"request construction, validation, dispatch, and answer extraction; excludes model load (reported per strategy), result writes, and the untimed warmup pass; warm process","warmup":true}
+[exit 0] score strands-decider-2b (strands-decider-2b, 12 rows)
