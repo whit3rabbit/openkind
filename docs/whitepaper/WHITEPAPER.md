@@ -1,7 +1,7 @@
 # OpenKind
 ## Shared-state decision inference: evidence, execution, and useful decisions
 
-**Document version:** 0.8.11 · 1 October 2026, America/Chicago. Completes the integration of completed run `20261001T105345_828556Z_6e6d92` (protocol `openkind-t4-integrated-research/v4.0.0`): the abstract, executive assessment, research answers, review boundary, §23, and Appendix A now carry the T4 integrated research results. Training, Rust/MLX, modern-Qwen serving, unified decision validity, process isolation, multi-catalogue caching, and integrated readout evidence runs through that completed run.
+**Document version:** 0.8.12 · 1 October 2026, America/Chicago. Completes the integration of completed recovery runs `20261001T202134_352688Z_4a8cbc` (protocol `openkind-t4-recovery-reliability/v4.1.0`, E43) and `20261001T223435_041738Z_f25616` (protocol `openkind-t4-recovery-reliability/v4.1.1`, E44): the abstract, executive assessment, research chronology, review boundary, §24, and Appendix A now carry the T4 recovery and classifier verification results. Training, Rust/MLX, modern-Qwen serving, unified decision validity, process isolation, multi-catalogue caching, integrated readouts, encoder fine-tuning, and compact NLI specialization run through these completed runs.
 
 ### Abstract
 
@@ -97,19 +97,36 @@ transfers poorly (91.15% development → 69.10% fresh policy field accuracy;
 39.58% SNLI versus Qwen's 92.71%). [E41; V10; §22]
 
 The subsequent T4 integrated research study (Run `20261001T105345_828556Z_6e6d92`,
-protocol `openkind-t4-integrated-research/v4.0.0`) supplies three substantive advances.
-First, selective indexing plus routing composition (XR) runs as one timed path:
+protocol `openkind-t4-integrated-research/v4.0.0`) supplied three substantive advances.
+First, selective indexing plus routing composition (XR) ran as one timed path:
 **95.40% field accuracy** and **84.38% all-six correctness** at **242.98 ms median**
 on 192 new authored policy cases (~14.96x faster than generated JSON at 3,634.01 ms).
-Second, a narrowly joint route/urgency readout (NJ) supplies all six field distributions
-and obtains **94.01% field accuracy** and **79.69% all-six correctness** at **228.31 ms**.
-Third, multi-catalogue host snapshots preserve grouped outputs with bitwise parity ($\Delta p = 0.0$)
+Second, a narrowly joint route/urgency readout (NJ) supplied all six field distributions
+and obtained **94.01% field accuracy** and **79.69% all-six correctness** at **228.31 ms**.
+Third, multi-catalogue host snapshots preserved grouped outputs with bitwise parity ($\Delta p = 0.0$)
 while reducing full grouped request latency by about **54%** (~2.19x speedup on confirmation).
-Dedicated native/JSON processes pass history traces for X, XR, and NJ themselves ($\Delta p = 0.0$).
-A systematic semantic error pattern accounts for all 23 XR eligibility failures: missing
+Dedicated native/JSON processes passed history traces for X, XR, and NJ itself ($\Delta p = 0.0$).
+A systematic semantic error pattern accounted for all 23 XR eligibility failures: missing
 certification combined with known failing points ($< 70$) returning `undetermined` instead
 of `ineligible`. The classifier comparison suite was blocked by an identity-unsafe log-copy
-`SameFileError` in runner setup. Model promotion remains closed; status is `PARTIAL`. [E42; V11; §23]
+`SameFileError` in runner setup. Model promotion remained closed; status was `PARTIAL`. [E42; V11; §23]
+
+The two subsequent recovery runs (`20261001T202134_352688Z_4a8cbc` [v4.1.0] and `20261001T223435_041738Z_f25616` [v4.1.1])
+close the blocked classifier comparisons, measure exact within-request encoder reuse, and test targeted logic repairs on
+the new 216-case R41 confirmation panel.
+Exact input encoding reuse in the Go CPU worker (Indecis) reduces median request latency from **117.13 ms to 24.38 ms (~4.80× speedup)**
+with bitwise zero probability drift and zero decision flips across 1,980 paired requests, but leaves transfer quality unchanged at 0.0% all-six correctness.
+Released DeBERTa-v3-base proves to be a strong compact three-way NLI specialist: **90.10% accuracy (173/192)** at **20.92 ms median**
+on shared SNLI confirmation, outperforming Qwen 9B (167/192 = 86.98% at 149.13 ms) with calibrated NLL 0.2972, though its frozen
+development acceptance threshold fails the review-all cost gate (mean cost 0.11354 vs 0.1000).
+On native Qwen, the targeted failure-first instruction repair (Arm NF) repairs the intended partial-information logic (48/48 correct
+on known failure with missing info vs NJ's 34/48), but collateral retry regressions drop all-six correctness from **33.33% to 28.70%** (62/216).
+Primitive joint evidence extraction (Arm PF) fails to yield accurate primitive evidence (190/216 eligibility correct).
+Error clustering reveals that 100% of native retry errors on counts 10–26 copy the first decimal digit, and 100% of case-state errors
+under newest-first displays erroneously select the older event. Full fine-tuning of ModernBERT (70.45% field / 19.44% all-six) and
+BERT (73.46% field / 21.30% all-six) beats frozen backbones (~51–52%) but both collapse into majority classes (predicting 100% ineligible
+and 100% retry=3). Dependency-aware acceptance policies lose to review-all due to calibration degradation across rendering layouts,
+while dedicated resident processes achieve exact history invariance ($\Delta p = 0.0$). [E43; E44; V12; §24]
 
 **Current model-learning work:** the frozen comparison, contract-only pilot, parent-KL follow-on,
 and source-label replay comparison have completed. None of the three tested
@@ -122,17 +139,19 @@ The historical roadmap remains in [ROADMAP_HISTORY.md](../ROADMAP_HISTORY.md), a
 the historical opening is retained in [Appendix E](#appendix-e-historical-opening-before-the-september-refocus).
 [E30–E32; V6]
 
-**Current serving work:** the 9B/T4, unified decision validity, and integrated research
-studies have completed their proposed tests. Retain Arm XR (selective indexing + routing
+**Current serving work:** the 9B/T4, unified decision validity, integrated research,
+and recovery studies have completed their proposed tests. Retain Arm XR (selective indexing + routing
 composition), Arm NJ (narrowly joint categorical source), multi-catalogue host snapshot
-caching for grouped requests, and resident dual-process isolation as bounded positives.
-Next serving priorities focus on qualifying the broader concurrency and memory envelope,
-repairing the classifier runner harness to evaluate the blocked encoder models, and
-addressing the partial-information eligibility logic in host code.
+caching for grouped requests, exact within-request sequence encoder reuse, resident dual-process isolation,
+and released DeBERTa as a task-specific NLI specialist as bounded positives.
+Next serving priorities focus on separating multi-digit numeric extraction from categorical capping,
+resolving chronological event interpretation independent of display order, combining the failure-first
+eligibility instruction with a stable retry/case-state formulation, and qualifying acceptance policies under
+application-specific loss matrices on unseen source families.
 No specific state or kernel cause is proven, and no model or service is promoted.
 The supplied architecture remains the working-code inventory; this revision
 changes the two papers only. Concise findings and discounted approaches are in
-[WORKING_PAPER.md](WORKING_PAPER.md). [E40; E41; E42; V9; V10; V11; §§21–23]
+[WORKING_PAPER.md](WORKING_PAPER.md). [E40–E44; V9–V12; §§21–24]
 
 **Reading guide:** current interpretation in [§1](#1-executive-assessment),
 acceptance tracks and work order in [§13](#13-refocused-research-program-and-next-milestone),
@@ -378,12 +397,29 @@ Use Q for independent questions and K for the alternatives within one question. 
 | 9B/T4 combined-path and open-question study | Measure five-field derivation plus caching, genuine first use, history, shapes, and focused readouts | Completed `20260928T220142_110595Z_1192c8`, protocol v2.0.2: 39 planned + 3 conditional blocks; combined quality/speed and cache/first-use gates pass, mixed-history/low-sequence gates fail; no promotion. [E40; V9] |
 | Unified decision validity study | Selective readouts (X, R, G, GR, J), resident process isolation vs restart, schema sensitivity, native catalogue vs Go/CPU scaling, compact Indecis transfer | Completed `20260929T194506_694066Z_dc1f74`, protocol v3.0.0: 80 completed blocks + 1 INT8 capability boundary; selective indexing (X: 92.19% field / 60.42% all-six at 222 ms) and grouped routing (GR: 95.49% / 83.33% at 1,420 ms) advance design; resident process isolation passes exact parity ($\Delta p = 0.0$); Indecis CPU fails transfer (69.10% fresh policy, 39.58% SNLI); no promotion. [E41; V10] |
 | T4 integrated research study | Integrated readouts (XR, NJ), multi-catalogue host cache, dedicated process history (X, XR, NJ), 4B vs 9B profile comparison, dynamic probes, classifier setup diagnostic | Run `20261001T105345_828556Z_6e6d92`, protocol v4.0.0, status `PARTIAL`: 45 executed / 12 blocked / 2 failed stages across 41 verified receipts; XR reaches 95.40% field / 84.38% all-six at 242.98 ms; NJ achieves 94.01% / 79.69% at 228.31 ms; multi-catalogue host snapshots cut grouped latency by ~54% (2.19x ratio, $\Delta p = 0.0$); dedicated processes pass history for X/XR/NJ; classifier track blocked by SameFileError in setup logging helper; no promotion. [E42; V11] |
+| T4 recovery and classifier verification | Recover blocked classifiers, test failure-first eligibility (NF) and joint evidence (PF), evaluate indecis input reuse and dependency-aware policies across 378 balanced cases | Runs `20261001T202134_352688Z_4a8cbc` (v4.1.0, status `PARTIAL`: 23 executed, 2 failed in ensurepip, 15 blocked) and `20261001T223435_041738Z_f25616` (v4.1.1, status `EXPLORATORY_COMPLETE`: all 17 classifier stages executed); indecis input reuse verified 4.80x speedup with zero semantic change; DeBERTa NLI specialist reaches 90.10% acc at 20.92 ms with NLL 0.2972 but dev acceptance policy fails cost gate; NF repairs partial-information eligibility (48/48 vs 34/48) but regresses retries (all-six 28.70% vs 33.33%); BERT/ModernBERT fine-tuning beats frozen heads but suffers majority collapse; native errors concentrate in first-digit retry copying and inverted display chronology; dependency-aware policies lose to review-all; dedicated processes pass history checks ($\Delta p = 0$); no promotion. [E43; E44; V12] |
 
 The historical E1–E7 measured sequence uses Qwen/Qwen3.5-4B-Base at revision `1001bb4d826a52d1f399e183466143f4da7b741b`. The text backbone has 4,205,751,296 parameters, hidden width 2,560, and 32 blocks. Its layer list contains 24 linear-attention and eight full-attention blocks. The core results were obtained on an NVIDIA L4. The saved environment includes Transformers 5.17.0; the expanded workers record PyTorch 2.11.0+cu128. Environment details should travel with results because kernel and precision behavior matter. [E1; E2; E5]
 
 The notebook execution logs also report missing optimized causal-convolution and linear-attention kernels, with reference implementations used instead. Transformers documents these optimized versus reference paths. The recorded timings should therefore be treated as measurements of this particular stack, not the speed limit of Qwen on an L4. Installing faster kernels is a future experiment requiring both new timing and renewed probability/policy parity checks. [E5; E6; P16]
 
 ## 3.2 What was reviewed and what was not rerun
+
+**Version 0.8.12 review boundary.** E43 and E44 are the completed T4 recovery and
+classifier verification result authorities. Run `20261001T202134_352688Z_4a8cbc`
+(protocol `openkind-t4-recovery-reliability/v4.1.0`, status `PARTIAL`) executed 23 stages
+with two environment setup failures in `ensurepip` blocking 15 stages. Run `20261001T223435_041738Z_f25616`
+(protocol `openkind-t4-recovery-reliability/v4.1.1`, status `EXPLORATORY_COMPLETE`) executed
+all 17 planned classifier stages with no reported failures. The read-only reconciliation (V12)
+verified the verified completion marker, 26 completed block receipts with result/event hashes,
+and 80 recorded Python source hashes across both archives. It reconstructed 154 quality-summary
+rows from 28,844 primary technical measurements, reproduced 189 saved paired-bootstrap comparisons,
+checked all 1,980 indecis execution pairs (990 cases), and reconstructed 8,002 classifier repeat
+comparisons. It checked calibration transformations and frozen policy evaluations against saved
+predictions without refitting. Both snapshots share a byte-identical 2,826-case dataset
+(`e400fe9edad191820b340779795ade5d63270f934d324b0fcdf84c66a151a9a5`). No model inference,
+training, new timing, source-label adjudication, protected-final access, or persistent mutation
+occurred. [E43; E44; V12]
 
 **Version 0.8.11 review boundary.** E42 is the completed T4 integrated research
 study (Run `20261001T105345_828556Z_6e6d92`, protocol `openkind-t4-integrated-research/v4.0.0`,
@@ -5283,9 +5319,189 @@ The only measured cheap baseline, TF-IDF + Logistic Regression, achieved 95.05% 
 
 ---
 
+# 24. OpenKind T4 Recovery & Classifier Verification: Input Reuse, NLI Specialization, and General Policy Limits
+
+The two recovery runs—native/Go run `20261001T202134_352688Z_4a8cbc` (protocol `openkind-t4-recovery-reliability/v4.1.0`) and classifier recovery run `20261001T223435_041738Z_f25616` (protocol `openkind-t4-recovery-reliability/v4.1.1`)—supply the missing encoder baselines, evaluate exact within-request input encoding reuse, test failure-first instruction patches, and measure dependency-aware automation policies on the new balanced R41 confirmation panel. [E43; E44; V12]
+
+## 24.1 Scope, identities, and execution reconciliation
+
+The v4.1.0 campaign executed 23 of 40 requested stages. Two environment setup stages failed in `ensurepip`, blocking 15 dependent stages; its native quality, Indecis reuse, and process isolation results remain valid within their scope (`PARTIAL`). The v4.1.1 campaign addressed the environment defect by combining `--without-pip` with explicit target interpreter seeding using SHA-256 hash-pinned pip 26.2.1 wheels, successfully executing all 17 planned classifier stages with no failures (`EXPLORATORY_COMPLETE`). [E43; E44; V12]
+
+The read-only reconciliation (V12) independently verified the verified completion marker, 26 completed block receipts with result/event hashes, and 80 recorded Python source hashes across both archives. It reconstructed 154 quality-summary rows from 28,844 primary technical measurements, reproduced 189 saved paired-bootstrap rows, checked all 1,980 Indecis execution pairs, and reconstructed 8,002 classifier repeat comparisons. Both runs share a byte-identical 2,826-case dataset (`e400fe9edad191820b340779795ade5d63270f934d324b0fcdf84c66a151a9a5`) and recorded Tesla T4 GPUs with 15.0 GiB VRAM (different GPU UUIDs). No model inference, training, new timing, or label changes were performed in the review.
+
+The evaluation units comprise:
+- **Old U4 confirmation panel**: 192 unique cases each for policy and SNLI (previously inspected regression material).
+- **New R41 confirmation panel**: 216 unique fact groups and two held-out authored renderings, balanced across all nine certification/points strata (120 ineligible, 72 undetermined, 24 eligible cases).
+
+## 24.2 Qwen: the failure-first eligibility repair (NF) and collateral retry regressions
+
+The distinction between the old regression panel and the new confirmation panel is the controlling result:
+
+| Qwen arm | Old U4 field accuracy | Old U4 all-six correct | New R41 field accuracy | New R41 all-six correct | New R41 median request |
+|---|---:|---:|---:|---:|---:|
+| **XR** (selective indexing + route rule) | 95.40% | 84.38% (162/192) | 86.88% | 44.44% (96/216) | 197.20 ms |
+| **NJ** (narrowly joint route/urgency) | 94.01% | 79.69% (153/192) | 85.11% | 33.33% (72/216) | 184.22 ms |
+| **NF** (failure-first eligibility + NJ) | 98.00% | 90.63% (174/192) | 85.96% | 28.70% (62/216) | 183.37 ms |
+| **PF** (primitive joint evidence categories) | 90.28% | 71.35% (137/192) | 84.80% | 36.11% (78/216) | 195.62 ms |
+
+The intended logical correction in NF succeeds: NF explicitly states that an explicitly false certification or a recorded points score below 70 establishes ineligibility even when the other input is unrecorded. On the 48 new R41 cases combining missing information with a known failing condition:
+- XR: 34/48 correct
+- NJ: 34/48 correct
+- **NF: 48/48 correct**
+- PF: 26/48 correct
+
+Across all 216 confirmation cases, eligibility improves from 201/216 under NJ to 213/216 under NF (14 errors corrected, 2 new errors). Action inherits eligibility and changes identically.
+However, **retry correctness regresses severely**, falling from 89/216 under NJ to 76/216 under NF (13 previously correct retry decisions became wrong, with none repaired). Route/urgency and case state are unchanged.
+Consequently, whole-request all-six correctness drops by 4.63 percentage points (from 33.33% to 28.70%, descriptive paired bootstrap interval [-8.33, -0.93] points). Field accuracy rises by only 0.85 points (interval [-0.54, +2.31] points). Making eligibility evaluation order explicit is a valid local ingredient, but does not justify deploying NF as a complete-request replacement.
+
+## 24.3 Primitive evidence extraction versus deterministic rules (Arm PF)
+
+Arm PF predicted nine joint certification/points evidence categories, then pushed forward probability mass into eligibility and action via exact host rules. The probability aggregation algebra is exact and passes verification.
+However, the neural model's primitive evidence extraction was inaccurate: new-panel eligibility correctness was only 190/216 (below NJ's 201/216 and NF's 213/216), and known-failure-with-missing correctness was only 26/48. Its new all-six difference versus NJ was only +2.78 points (interval [-1.86, +7.87] points). Exact host rules cannot compensate for an inaccurate neural evidence distribution.
+
+## 24.4 Concentration of native errors: numeric capping and chronological display order
+
+Per-field recounts over the 216 new cases (repeats collapsed) isolate two dominant failure modes:
+
+| Arm | Eligibility / action, each | Route / urgency, each | Case state | Retries |
+|---|---:|---:|---:|---:|
+| **XR** | 195 | 216 | 180 | 124 |
+| **NJ** | 201 | 216 | 180 | 89 |
+| **NF** | 213 | 216 | 180 | 76 |
+| **PF** | 190 | 216 | 180 | 107 |
+
+### 24.4.1 Retry capping as first-digit copying
+There are 145 new cases with retry counts from 10 through 26 (correct capped output is 3). On this subset, XR gets 53 correct, NJ 21, NF 9, and PF 36.
+Crucially, **100% of errors in this subset equal the first decimal digit of the stated retry count** (e.g. stated retry count 21 yields error 2 instead of required answer 3). XR and PF errors occur entirely within this two-digit subset; NJ and NF have an additional 3 and 4 errors among counts 4–9. The next controlled experiment should separate numeric string extraction from categorical capping.
+
+### 24.4.2 Inverted display order defeats chronological recency
+All four native arms make the exact same 36 case-state errors: gold says the latest state is "open", but the model selects the older "closed duplicate" event.
+All 36 errors occur in the newest-first rendering, where explicit system text states: `The first displayed event is newest; no event follows it in time.` The information is fully present. The shared Indecis model is even more extreme: on all 216 new cases, its predicted case state equals the older event (216/216 wrong), explaining its zero all-six correctness. Models exhibit strong presentation order bias that overrides explicit chronological instructions.
+
+## 24.5 Indecis input encoding reuse: validated 4.8× acceleration without semantic capability
+
+Indecis evaluates exact within-request input encoding reuse across the five predicted policy fields using the same saved open-model checkpoint:
+
+| Panel | Original median | Shared-input median | Latency ratio | Field accuracy | All-six correctness |
+|---|---:|---:|---:|---:|---:|
+| **Old U4 confirmation** | 172.30 ms | 36.00 ms | 4.79× | 59.90% | 7.29% |
+| **New R41 confirmation** | 117.13 ms | 24.38 ms | 4.80× | 51.31% | 0.00% |
+
+Across all 1,980 paired technical requests over 990 unique cases, there was **zero probability difference, zero selected-field changes, and identical returned case/repeat coverage**. Aggregate recorded medians fell from 136.43 ms to 27.56 ms. Cold costs remain visible: first-request latency was 927.52 ms original vs 867.58 ms shared (~1.07×). The 4.8× speedup is a clean execution optimization that should be retained in sequence-scoring engines, but does not compensate for Indecis's lack of general semantic capability (0.0% all-six accuracy on transfer).
+
+## 24.6 BERT-family policy classification: fine-tuning gains, transfer limits, and majority collapse
+
+The classifier recovery evaluated BERT-base and ModernBERT-base under a bounded recipe: 1,152 training cases (768 policy, 384 NLI), 3 epochs, 1 seed, mask-weighted mean pooling, selecting epoch 2 via development NLL:
+
+| Model and treatment | Old U4 field / all-six | New R41 field / all-six | New R41 median request |
+|---|---:|---:|---:|
+| **ModernBERT**, frozen backbone + fitted heads | 59.90% / 6.25% | 52.39% / 0.00% | 18.65 ms |
+| **ModernBERT**, full fine-tuning | 72.22% / 23.96% | 70.45% / 19.44% | 20.92 ms |
+| **BERT-base**, frozen backbone + fitted heads | 52.60% / 6.25% | 51.31% / 5.09% | 16.51 ms |
+| **BERT-base**, full fine-tuning | 73.52% / 29.17% | 73.46% / 21.30% | 15.78 ms |
+
+Full fine-tuning substantially improved new-panel field accuracy over frozen features (+18.06 pp for ModernBERT, +22.15 pp for BERT).
+However, neither model is an equal-quality replacement for Qwen (best all-six is 46/216 vs XR's 96/216).
+More critically, per-field recounts expose **majority-class collapse**:
+- Both BERT arms and frozen ModernBERT predict "ineligible" on all 216 new cases (matching the 120-case majority).
+- Every BERT and ModernBERT arm predicts `retries=3` on all 216 cases, earning 87.96% retry accuracy without distinguishing lower counts.
+Small fixed-schema fine-tuning remains highly vulnerable to label imbalance.
+
+## 24.7 Released DeBERTa: high-quality compact NLI specialist with an unverified acceptance policy
+
+On the shared 192-case SNLI confirmation panel:
+
+| Profile | Correct / 192 | Accuracy | Median request | Raw NLL | Raw Brier |
+|---|---:|---:|---:|---:|---:|
+| **Released DeBERTa NLI** | **173** | **90.10%** | **20.92 ms** | **0.3683** | **0.1663** |
+| **Qwen 9B finite NLI** | 167 | 86.98% | 149.13 ms | 0.4097 | 0.1989 |
+| **ModernBERT full fine-tuning** | 107 | 55.73% | 15.97 ms | 0.9792 | 0.5706 |
+| **BERT-base full fine-tuning** | 106 | 55.21% | 10.78 ms | 1.0207 | 0.5762 |
+
+DeBERTa achieves the strongest compact NLI quality, offering a ~7.13× latency reduction over Qwen 9B. A paired bootstrap over the 192 shared cases yields an interval of [-2.08, +8.33] percentage points (DeBERTa fixes 15 Qwen errors but introduces 9 errors where Qwen was correct).
+Separately accepted temperature calibration ($T \approx 1.9319$) improved confirmation NLL to 0.2972 and Brier to 0.1559.
+**Reliability Caveat**: At its frozen development-selected threshold, DeBERTa accepted 74 cases with 2 wrong, yielding a mean cost of **0.11354**—failing to beat review-all at cost 0.1000. Qwen NLI accepted 80 cases with 0 wrong (mean cost 0.05833). Task-specialized classifiers deserve a place in the serving architecture, but their automation policies must be separately qualified.
+
+## 24.8 GLiClass dynamic-label interface: evaluation on policy and budget boundaries
+
+Released GLiClass achieved 45.45% field accuracy and 3.24% all-six correctness on R41 policy at 65.13 ms (requiring five field-specific forwards); SNLI accuracy was 35.42%.
+Input budget limits: all 32 evidence-position cases were rejected twice (64 rejection records) because rendered text plus candidate descriptions exceeded the token budget. The dynamic-label interface failed to provide reliable policy reasoning.
+
+## 24.9 Dependency-aware whole-request policies and calibration transfer breakdown
+
+The campaign evaluated four source events covering the six outputs (eligibility/action, route/urgency joint, case state, retries) without naive probability multiplication:
+
+| New R41 native policy | Accepted | Wrong among accepted | Coverage | Mean stipulated cost (wrong=5, review=0.1, correct=0) |
+|---|---:|---:|---:|---:|
+| **NJ** | 9 | 1 | 4.17% | 0.11898 |
+| **NF** | 52 | 17 | 24.07% | 0.46944 |
+| **PF** | 108 | 61 | 50.00% | 1.46204 |
+
+All three policies lost to review-all at 0.1000. Furthermore, applying saved development-accepted source temperatures worsened log-loss on the new rendering layouts:
+- NJ NLL: 0.4666 raw $\to$ 0.7621 calibrated
+- NF NLL: 0.4585 raw $\to$ 0.7376 calibrated
+- PF NLL: 0.3970 raw $\to$ 0.8448 calibrated
+Correctly modeling dependencies does not guarantee that source probabilities are well-calibrated across new prompt renderings.
+
+## 24.10 Dedicated process isolation confirmed across recovery conditions
+
+Every mixed NF/PF condition failed its execution gate, while all native-only and separate-process conditions passed at one and four contexts:
+- NF, 4 contexts mixed: $\max \Delta p = 0.061293$ (4 diagnostic-policy flips).
+- PF, 4 contexts mixed: $\max \Delta p = 0.079341$ (11 field flips, 5 policy flips).
+- Dedicated processes: **$\Delta p = 0.0$ across all 8 tested conditions**.
+Classifier repeated predictions and all 60 FP16 autocast probes passed numerical gates ($\max \Delta p < 0.003$).
+
+## 24.11 Summary of dispositions: what to retain, what to investigate, what not to claim
+
+| Finding or mechanism | Disposition supported by the evidence |
+|---|---|
+| **Exact input encoding reuse** | **Retain**: 4.80× CPU latency reduction in Indecis with bitwise identical outputs ($\Delta p = 0.0$); valid speedup for sequence-scoring models. |
+| **Released DeBERTa NLI specialist** | **Retain as specialist candidate**: 90.10% accuracy at 20.92 ms median; frozen acceptance threshold requires separate qualification. |
+| **Failure-first instruction patch (NF)** | **Investigate / decompose**: Repairs partial-information logic (48/48 vs 34/48), but collateral retry regression drops all-six correctness to 28.70%. Do not deploy as complete request. |
+| **Host-side numeric capping** | **Investigate next**: Separate multi-digit number extraction from categorical capping to bypass first-digit copying traps. |
+| **Order-invariant chronological resolution** | **Investigate next**: Test matched old-first vs new-first layouts to isolate display order bias from factual event interpretation. |
+| **Small multi-task fixed-schema encoders** | **Discount under current recipe**: Full fine-tuning beats frozen heads but collapses to majority classes (100% ineligible, 100% retry=3). |
+| **GLiClass dynamic-label interface** | **Discount tested form**: 45.45% field accuracy, 5 serial forwards, token budget rejections on long inputs. |
+| **Dependency-aware whole-request policies** | **Preserve failed results**: Accounting for dependencies is mathematically sound, but policies lose to review-all when source calibration fails to transfer. |
+| **Dedicated-process isolation** | **Retain**: Exact history invariance ($\Delta p = 0.0$) across all tested conditions; mixed-process serving remains unqualified. |
+
+---
+
 # Appendix A. Source and reproducibility register
 
 The source IDs below identify the evidence behind the numbered sections. In the accompanying evidence manifest, local snapshot SHA-256 hashes distinguish the exact files reviewed from later Drive edits. Result paths are under `Google Drive / Colab Notebooks`. Timestamps embedded in run IDs are UTC.
+
+**Version 0.8.12 documentation boundary.** Version 0.8.12 adds §24 and E43/E44/V12
+for the completed T4 recovery and classifier verification studies (Runs `20261001T202134_352688Z_4a8cbc`
+and `20261001T223435_041738Z_f25616`). The abstract, executive assessment, research chronology,
+review boundary, §24, and this register carry the recovery results. Only the two papers are revised.
+Historical results, selections, source registers, and dated interpretations remain intact; no notebook,
+roadmap, architecture, policy threshold, backend, or Drive evidence is changed.
+
+**E43: Completed T4 native and Go recovery study.**
+Run `20261001T202134_352688Z_4a8cbc`, protocol `openkind-t4-recovery-reliability/v4.1.0`,
+status `PARTIAL`; no model, backend, or service promotion.
+Run key `4a8cbc`; archive SHA-256 `d366adc6bfe7b82d9b2b8a595642272e65c4e9785575539ddc91ed85e0315eac`.
+Evidence includes `REPORT.md`, `manifest.json`, `dataset.json` (2,826 cases, SHA-256
+`e400fe9edad191820b340779795ade5d63270f934d324b0fcdf84c66a151a9a5`), `quality_summary.csv`,
+`targeted_strata.csv`, `paired_comparisons.json`, `request_policies.json`, `calibration_results.json`,
+`isolation_summary.csv`, `indecis_reuse_summary.csv` (1,980 paired technical requests over 990 cases),
+and checksummed block results/events across 23 executed stages (2 failed in ensurepip, 15 blocked).
+
+**E44: Completed T4 classifier recovery study.**
+Run `20261001T223435_041738Z_f25616`, protocol `openkind-t4-recovery-reliability/v4.1.1`,
+status `EXPLORATORY_COMPLETE`; no model, backend, or service promotion.
+Run key `f25616`; archive SHA-256 `76c663fce88147bc4c026862790fd3dcff1cd23b9a50898a8dee3f7ce981f1ea`;
+verified completion marker present. Evidence includes completed block receipts for all 17 planned
+classifier stages across released DeBERTa NLI, ModernBERT-base (frozen + fine-tuned), BERT-base
+(frozen + fine-tuned), and GLiClass, fitting logs, unsupported long-input records, 60 FP16 autocast
+probes, and 8,002 classifier repeat comparisons.
+
+**V12: T4 recovery and classifier results reconciliation and v0.8.12 paper update.**
+The companion review independently downloads both exact ZIPs, checks member integrity,
+reconstructs 154 quality rows from 28,844 primary technical measurements, reproduces 189 saved
+paired-bootstrap comparisons, verifies 26 completed block receipts and 80 Python source hashes,
+and validates reported arithmetic without model inference, training, calibration refitting, or gold-label mutation.
 
 **Version 0.8.11 documentation boundary.** Version 0.8.11 adds §23 and E42/V11
 for the completed T4 integrated research study (Run `20261001T105345_828556Z_6e6d92`,

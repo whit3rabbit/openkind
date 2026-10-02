@@ -145,6 +145,22 @@ retaining the stronger candidate scorer a required control. If the joint-option
 path loses useful quality, ship the qualified candidate scorer and its measured
 reuse plan instead.
 
+**What Strands Decider adds.** The [released Hobson v19 recipe](../RESEARCH.md#strands-decider-2b-hobson-v19-release-and-agent-interventions-reviewed-2026-10-01)
+provides an inspectable 2B Base option-pointer comparator, rank-16 LoRA,
+frozen-base/parent KL retention and human-rated answer-adequacy training.
+The [pilot's optional HelpSteer2 ablation](../../research/local_decision_training/README.md#strands-decider-training-lessons)
+tests only the new adequacy skill, groups response siblings by request and
+retains the existing loss control. Keep readout, retention loss and data changes
+separate: our specialization failures remain relevant even when another recipe
+adds KL. Its later instruction-flip treatment fails its own retention guards.
+
+Add paired question-sensitivity diagnostics where evidence/options stay fixed
+but the correct answer changes with the question. Correctness on both siblings
+matters; question responsiveness alone does not establish reliable reasoning.
+Reject overlength inputs rather than copying its longest-sibling truncation,
+which can change one question's evidence when another question is added.
+Its custom pointer and PyTorch MPS path do not qualify a native 4B loader.
+
 Choice training includes an explicit, meaningful `__none__` outcome and returns
 one distribution over offered options plus none. Noul returns its binary
 probability without a confidence field. Score returns an ordered level
