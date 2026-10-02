@@ -40,6 +40,9 @@ input token rates, and strategy caveats are in the per-backend table below).
 | [`decoder-logit-qwen3-06b`](families/decoder-logit-qwen3.md) | Qwen3 dense decoder (raw direct-logit control, temperature 1.0), 0.6B | [Qwen/Qwen3-0.6B](https://huggingface.co/Qwen/Qwen3-0.6B) | `decoder-logit-qwen3-06b:d900f4af57509fe02e62` | 1.50 GB | 4.21 GB · 1.61/s | — | [smoke summary](benchmarks/2026-10-01-qwen3-controls/summary-decoder-logit-qwen3-06b.json) |
 | [`decider-4b`](families/decider.md) | Qwen3.5 hybrid decoder (slot-logit readout, plain state-first layout, isolated score levels), 4B | [Mapika/decider-4b](https://huggingface.co/Mapika/decider-4b) | `decider-4b:0529bf6f2bed84641701` | 8.43 GB | 7.91 GB · 0.06/s (smoke) | — | [smoke summary](benchmarks/2026-09-30-jevbench-expansion/summary-decider-4b-smoke.json) |
 | [`strands-decider-2b`](families/strands-decider.md) | Qwen3.5 hybrid decoder (LoRA + pointer head readout), 2B | [StrandsAgents/strands-decider-2B-hobson-v19](https://huggingface.co/StrandsAgents/strands-decider-2B-hobson-v19) over [Qwen/Qwen3.5-2B-Base](https://huggingface.co/Qwen/Qwen3.5-2B-Base) | `strands-decider-2b:6a02bb0d1c6b25cae74b` | 4.64 GB | 9.01 GB · 0.31/s | — | [bring-up + cross-check](benchmarks/2026-10-01-strands-decider/README.md) |
+| [`clef-flash`](families/clef.md) | Qwen3.5 hybrid decoder + joint schema head (all options of all questions in one pass), 9B | [Cloudflare/clef-flash](https://huggingface.co/Cloudflare/clef-flash) | `clef-flash:dfe12a21a5c9dd5b2fb1` (`clef:flash`) | 19.08 GB | 20 GB · measured run pending | — | [bring-up + cross-check](benchmarks/2026-10-02-clef/README.md) |
+| [`clef-flash-gguf`](families/clef.md) | Clef-Flash 9B Q4_K_M GGUF backbone + official joint head | [bartowski/Cloudflare_clef-flash-GGUF](https://huggingface.co/bartowski/Cloudflare_clef-flash-GGUF) + [Cloudflare/clef-flash](https://huggingface.co/Cloudflare/clef-flash) head | `clef-flash-gguf:c330d9ee7e9cc658ad45` (`clef:flash-gguf`) | 6.13 GB | 6.5 GB · measured run pending | — | [bring-up + cross-check](benchmarks/2026-10-02-clef/README.md) |
+| [`clef-27b-gguf`](families/clef.md) | Clef 27B Q4_K_M GGUF backbone + official joint head | [bartowski/Cloudflare_clef-GGUF](https://huggingface.co/bartowski/Cloudflare_clef-GGUF) + [Cloudflare/clef](https://huggingface.co/Cloudflare/clef) head | `clef-27b-gguf:48cb5634b4a258de5a6b` (`clef:27b`) | 17.48 GB | 18 GB · measured run pending | — | [bring-up + cross-check](benchmarks/2026-10-02-clef/README.md) |
 | [`winnow-e4b`](families/gemma4-decision.md) | Gemma 4 E4B hybrid decoder (LoRA fine-tune, letter-logit readout over per-layer embeddings), 7.5B | [EldanRing/Winnow-E4B](https://huggingface.co/EldanRing/Winnow-E4B) + [Gemma 4 tokenizer](https://huggingface.co/mistralrs-community/gemma-4-E4B-it-UQFF) | `winnow-e4b:656ac636ce450cf79c7d` (`winnow:e4b`) | 7.46 GB | 8.49 GB · measured run pending | — | [bring-up smoke](benchmarks/2026-10-01-gemma4-backbone/README.md) |
 | [`von`](families/von.md) | ModernBERT-large encoder, option-marker scorer | [wfzyx/von](https://huggingface.co/wfzyx/von) (von-1.1) | `von:69219703407bd39cca0c` (`von:1.1`) | 1.58 GB | 1.83 GB · 2.25/s | — | [summary](benchmarks/2026-09-30-von/summary-von.json) |
 | [`laya-english`](families/laya.md) | ModernBERT-large encoder, typed-decision marker head | [convaiinnovations/laya](https://huggingface.co/convaiinnovations/laya) | `laya-english:c8ea29bf1e33a343c4b7` (`laya:en`) | 0.85 GB | 2.75 GB · 2.23/s | 2.12 GB · 24.34/s | [laya MLX campaign](benchmarks/2026-09-28-laya-mlx-campaign/README.md) |
@@ -81,7 +84,7 @@ Reading notes:
 
 ## Pull a catalog model
 
-Twenty-two profiles are catalog-installable: every Rust-loadable profile
+Twenty-five profiles are catalog-installable: every Rust-loadable profile
 except `router-script`, which needs no artifacts. `openkind pull NAME`
 downloads pinned artifacts, verifies every digest, and installs them for the
 daemon:
@@ -139,6 +142,9 @@ both spellings. The alias policy:
 | `von:1.1` | `von:69219703407bd39cca0c` | byte-identical `option_marker.pt` (digest-verified in both registries) |
 | `decider:4b` | `decider-4b:0529bf6f2bed84641701` | byte-identical weights and tokenizer (digest-verified in both registries) |
 | `winnow:e4b` | `winnow-e4b:656ac636ce450cf79c7d` | same canonical `EldanRing/Winnow-E4B` Q8_0 GGUF both registries reference from the author's repository; served through llama.cpp there and the candle kernels here |
+| `clef:flash` | `clef-flash:dfe12a21a5c9dd5b2fb1` | model-family board name; checkpoint pinned directly |
+| `clef:flash-gguf` | `clef-flash-gguf:c330d9ee7e9cc658ad45` | board name for the quantized flash profile; backbone pinned to the bartowski GGUF, head pinned to the official release |
+| `clef:27b` | `clef-27b-gguf:48cb5634b4a258de5a6b` | board name for the 27B profile; same pinning scheme |
 
 ```bash
 openkind pull laya:en
@@ -203,6 +209,9 @@ parity-qualified for the profiles listed and does not exist for the others.
 | `plumb-4b` | CPU fp32 | 8.43 GB | measured run pending | — | — | — | measured run pending |
 | `winnow-e4b` | CPU q8_0 kernels + F32 attention | 7.46 GB | 8.49 GB · measured run pending | — | — | measured run pending | [bring-up smoke](benchmarks/2026-10-01-gemma4-backbone/README.md) |
 | `strands-decider-2b` | CPU fp32 | 4.64 GB | 9.01 GB | 0.31 | 85 | 10.3 s | [bring-up + cross-check](benchmarks/2026-10-01-strands-decider/README.md) |
+| `clef-flash` | CPU bf16 weights / fp32 compute | 19.08 GB | 20 GB · measured run pending | — | — | measured run pending | [bring-up + cross-check](benchmarks/2026-10-02-clef/README.md) |
+| `clef-flash-gguf` | CPU Q4_K_M kernels + F32 attention | 6.13 GB | 6.5 GB · measured run pending | — | — | measured run pending | [bring-up + cross-check](benchmarks/2026-10-02-clef/README.md) |
+| `clef-27b-gguf` | CPU Q4_K_M kernels + F32 attention | 17.48 GB | 18 GB · measured run pending | — | — | measured run pending | [bring-up + cross-check](benchmarks/2026-10-02-clef/README.md) |
 | `von` | CPU fp32 | 1.58 GB | 1.83 GB | 2.25 | 493 | 3.3 s | [summary](benchmarks/2026-09-30-von/summary-von.json) |
 | `encoder-nli` | CPU fp32 | 0.27 GB | 0.56 GB | 35.14 | — | 0.5 s | [summary](benchmarks/2026-09-26-surveyed-families/summary-encoder-nli.json) |
 | `encoder-instruct-label` | CPU fp32 | 0.61 GB | 1.27 GB | 4.73 | 1,013 | 1.2 s | [mlx counterparts campaign](benchmarks/2026-09-29-mlx-counterparts/README.md) (CPU re-run) |

@@ -35,6 +35,9 @@ Most pinned profiles are also catalog-installable through `openkind pull`;
 | [`router-script`](./router-script.md) | none — Unicode script detector over registered siblings | no artifacts (rule table) | [`RouterScriptEngine::new`](../../crates/openkind-backends/src/families/router_script/mod.rs) |
 | [`winnow`](./winnow.md), `4dff8c5b03cfbf680db6` | `Qwen/Qwen2.5-0.5B-Instruct` at `7ae557604adf67be50417f59c2c2f167def9a775` + in-house LoRA (vendored) | adapter vendored, base checkpoint direct | [`WinnowEngine::load`](../../crates/openkind-backends/src/families/winnow/mod.rs) |
 | [`encoder-embedding`](./encoder-embedding.md), `8d9498269ef05d95d93c` | `BAAI/bge-small-en-v1.5` at `5c38ec7c405ec4b44b94cc5a9bb96e735b38267a` | checkpoint direct (digest-verified in place) | [`BertEmbedder::load`](../../crates/openkind-backends/src/proxy_cache/bert_encoder.rs); MLX: [`MlxBertEmbedder::load`](../../crates/openkind-backends/src/proxy_cache/mlx_bert_encoder.rs) |
+| [`clef`](./clef.md) `clef-flash` `dfe12a21a5c9dd5b2fb1` | `Cloudflare/clef-flash` at `17f0b0ad64efb65d273590632833508766b2aae6` | checkpoint direct (digest-verified in place) | [`ClefEngine::load`](../../crates/openkind-backends/src/families/clef/mod.rs) |
+| [`clef`](./clef.md) `clef-flash-gguf` `c330d9ee7e9cc658ad45` | `bartowski/Cloudflare_clef-flash-GGUF` (Q4_K_M) at `d7f376ea88c05e7bb1014dd5351a93df9dd8029e` + official `joint_head.safetensors` | checkpoint direct (digest-verified in place) | [`ClefEngine::load`](../../crates/openkind-backends/src/families/clef/mod.rs) |
+| [`clef`](./clef.md) `clef-27b-gguf` `48cb5634b4a258de5a6b` | `bartowski/Cloudflare_clef-GGUF` (Q4_K_M) at `e306f00c6c85da175dfb8de952ebb872087426a7` + official `joint_head.safetensors` | checkpoint direct (digest-verified in place) | [`ClefEngine::load`](../../crates/openkind-backends/src/families/clef/mod.rs) |
 
 The loader constants and bundle validation are in
 [`qwen35/mod.rs`](../../crates/openkind-backends/src/qwen35/mod.rs) and
@@ -188,6 +191,7 @@ it carries no model-quality claim.
 | [qwen35-slot-readout](./qwen35-slot-readout.md) | Qwen3.5-4B fine-tunes with trained hidden-state readout heads (JevBench ranks 1, 3, 7, 9, 12, 18, 21) | Surveyed only (backbone reusable from the native path; readouts not implemented) |
 | [reranker-logit](./reranker-logit.md) | Dense Qwen3 4B yes/no or letter next-token-logit scorers (JevBench ranks 20, 22, 24) | Surveyed only (0.6B-scale Qwen3 exists in kev; 4B not implemented) |
 | [diffusion-decision](./diffusion-decision.md) | Diffusion-decoder decision scorers (JevBench rank 10, djev) | Blocked — ranked checkpoint unpublished; base DiffusionGemma surveyed |
+| [clef](./clef.md) | Qwen3.5 hybrid decoder with a joint schema head scoring every option of every question in one pass | Rust-loadable (three prototype profiles: BF16 CPU oracle, Q4_K_M GGUF flash and 27B; MLX 4-bit path in tree, parity open) |
 
 ## Ownership and updates
 

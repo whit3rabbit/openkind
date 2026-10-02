@@ -187,6 +187,7 @@ Rust-loadable prototype still carries no model-quality claim.
 | [`router-script`](router-script.md) | Rust-loadable composite; deterministic Unicode-script rules over registered sibling engines. |
 | [`winnow`](winnow.md) | Rust-loadable learned router (in-house LoRA); sibling set locked to decoder-letter and encoder-nli. |
 | [`qwen3guard`](qwen3guard.md) | Rust-loadable prototype (Stream variant, token-level head). A generated-verdict variant would still need a separate decision on the no-generation invariant, fixed-schema rejection, and parser failures. |
+| [`clef`](clef.md) | Rust-loadable prototype (2026-10-01/02): Cloudflare Clef joint-schema models — BF16 CPU oracle, Q4_K_M GGUF flash and 27B, all reference-parity against the model card's `joint_schema_model.py`. The MLX 4-bit path is in tree but fails joint-head parity on quantized inputs; it stays non-loadable until the fixtures pass. The BF16 oracle's per-execution arithmetic (`cpu-bf16w-fp32c`) is a deliberate deviation from the strict-FP32 family convention, pinned by its own fixtures. Task qualification remains separate. |
 
 The family is Rust-loadable only after the code and offline qualification
 steps above land. Task support and release promotion are separate statuses.

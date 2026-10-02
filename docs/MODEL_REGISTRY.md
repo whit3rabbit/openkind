@@ -8,12 +8,13 @@ verification milestones. Pull progress stays on stderr. `openkind list`,
 `show NAME`, and `rm NAME` operate on local installations without a daemon or
 network request. Read commands accept `--json` for scripts.
 
-Twenty-two profiles are catalog-installable: the native Qwen3.5 state-first
+Twenty-five profiles are catalog-installable: the native Qwen3.5 state-first
 profile, the three laya decision encoders, and the surveyed-family
 prototypes (`decoder-logit-letter`, `encoder-nli`, `encoder-instruct-label`,
 `decoder-logit-llm`, `schema-scorer`, `qwen3guard`, `kev`,
 `decoder-logit-qwen35`, `plumb-4b`, `decider-4b`, `von`, `winnow`,
-`winnow-e4b`, `strands-decider-2b`), plus the proxy-cache
+`winnow-e4b`, `strands-decider-2b`, `clef-flash`, `clef-flash-gguf`,
+`clef-27b-gguf`), plus the proxy-cache
 `encoder-embedding` sentence encoder. Every manifest pins each artifact's
 source revision, byte size, and SHA-256; `rust-loadable` status describes
 implementation and parity coverage, not reviewed task quality or release
