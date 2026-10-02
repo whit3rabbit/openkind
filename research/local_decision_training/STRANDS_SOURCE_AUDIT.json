@@ -1,0 +1,250 @@
+{
+  "reviewed": "2026-10-01",
+  "code_revision": "f91487ab8f7e4b4967ae57e46b8d90e91e67d616",
+  "model_revision": "bb282d786bc251fd4e3068de3ada9ddbb38127cd",
+  "method": "schema, hash, exact normalized-state overlap and tokenizer admission; no neural model loaded",
+  "tokenizer_model": "Qwen/Qwen3.5-4B",
+  "tokenizer_revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+  "max_length": 2048,
+  "sources": {
+    "generated_v18": {
+      "train": {
+        "file": "data/synthetic/generated_v18.jsonl",
+        "file_sha256": "0ed447998a340cf93d504afaac246b80bc394a26f660d7900f5b83896059c5d5",
+        "manifest_match": true,
+        "rows": 1667,
+        "kinds": {
+          "choice": 1179,
+          "noul": 488
+        },
+        "tasks": {
+          "gen:precedence": 94,
+          "gen:running_total": 151,
+          "gen:borderline_rubric": 86,
+          "gen:version_in_force": 244,
+          "gen:all_conditions": 62,
+          "gen:exception": 76,
+          "gen:missing_fact": 117,
+          "gen:numbers": 11,
+          "gen:withdrawn_instruction": 59,
+          "gen:dates": 59,
+          "gen:tie_break": 207,
+          "gen:lookup_chain": 83,
+          "gen:cross_artefact": 203,
+          "gen:underdetermined": 2,
+          "gen:definition_scope": 57,
+          "gen:judge_action": 55,
+          "gen:nested_exception": 73,
+          "gen:tradeoff": 8,
+          "gen:surface_trap": 12,
+          "gen:rubric": 8
+        }
+      },
+      "evaluation": {
+        "file": "data/synthetic/generated_v18_eval.jsonl",
+        "file_sha256": "7d9164116952acc0920c217a5286ed91ac800ee1e25224104a238a454548066f",
+        "manifest_match": true,
+        "rows": 247,
+        "kinds": {
+          "choice": 183,
+          "noul": 64
+        },
+        "tasks": {
+          "gen:exception": 15,
+          "gen:lookup_chain": 10,
+          "gen:all_conditions": 9,
+          "gen:surface_trap": 1,
+          "gen:rubric": 3,
+          "gen:underdetermined": 1,
+          "gen:precedence": 11,
+          "gen:numbers": 1,
+          "gen:dates": 10,
+          "gen:nested_exception": 13,
+          "gen:judge_action": 7,
+          "gen:missing_fact": 29,
+          "gen:withdrawn_instruction": 8,
+          "gen:definition_scope": 12,
+          "gen:version_in_force": 27,
+          "gen:tie_break": 23,
+          "gen:borderline_rubric": 13,
+          "gen:running_total": 23,
+          "gen:cross_artefact": 31
+        }
+      },
+      "exact_state_overlap": 0,
+      "sample_token_audit": {
+        "n": 100,
+        "admitted": 94,
+        "overlength": 6,
+        "schema_failures": {},
+        "min_tokens": 1291,
+        "max_tokens": 2272,
+        "choice_none_added": true,
+        "training_intake_implemented": false
+      }
+    },
+    "adequacy_gen": {
+      "train": {
+        "file": "data/synthetic/adequacy_gen.jsonl",
+        "file_sha256": "afbf3dc3504563206bc7772b0de5dc3a0ae41541d9f6ed0a6ee4efd6daa2885e",
+        "manifest_match": true,
+        "rows": 1300,
+        "kinds": {
+          "noul": 1300
+        },
+        "tasks": {
+          "gen:adequacy": 1300
+        }
+      },
+      "evaluation": {
+        "file": "data/synthetic/adequacy_gen_eval.jsonl",
+        "file_sha256": "73015008d1f344177345bfda63e2191433ad608a297c5cbccc45c99b72c80c7a",
+        "manifest_match": true,
+        "rows": 302,
+        "kinds": {
+          "noul": 302
+        },
+        "tasks": {
+          "gen:adequacy": 302
+        }
+      },
+      "exact_state_overlap": 0,
+      "sample_token_audit": {
+        "n": 100,
+        "admitted": 100,
+        "overlength": 0,
+        "schema_failures": {},
+        "min_tokens": 203,
+        "max_tokens": 450,
+        "choice_none_added": true,
+        "training_intake_implemented": false
+      }
+    },
+    "flips_v20": {
+      "train": {
+        "file": "data/synthetic/flips_v20.jsonl",
+        "file_sha256": "f93ce7a861edf28a927386220a43d6a90f08a3d8f8a7e7909432854b9463329c",
+        "manifest_match": true,
+        "rows": 718,
+        "kinds": {
+          "noul": 718
+        },
+        "tasks": {
+          "gen:instruction_flip": 718
+        }
+      },
+      "evaluation": {
+        "file": "data/synthetic/flips_v20_eval.jsonl",
+        "file_sha256": "70ba374212b9f99a9acbd2a0caa6db78827842949ad1e962dba9538dface486a",
+        "manifest_match": true,
+        "rows": 120,
+        "kinds": {
+          "noul": 120
+        },
+        "tasks": {
+          "gen:instruction_flip": 120
+        }
+      },
+      "exact_state_overlap": 0,
+      "sample_token_audit": {
+        "n": 100,
+        "admitted": 100,
+        "overlength": 0,
+        "schema_failures": {},
+        "min_tokens": 367,
+        "max_tokens": 599,
+        "choice_none_added": true,
+        "training_intake_implemented": false
+      }
+    },
+    "helpsteer2": {
+      "repo": "nvidia/HelpSteer2",
+      "revision": "990b2711a36180dd19d9c94b8627844866f8982a",
+      "file": "train.jsonl.gz",
+      "license": "CC-BY-4.0; human ratings of model-written responses; threshold-derived adequacy proxy",
+      "raw_rows": 20324,
+      "file_sha256": "c0d7e91d738d42e8a08070db26c4c09a9c7631308e1f0fd380ff43d130c9f713",
+      "eligible_rows": 12713,
+      "raw_proxy_labels": {
+        "true": 10280,
+        "false": 2433
+      },
+      "unique_requests": 7081,
+      "roles": {
+        "train": {
+          "n": 1000,
+          "labels": {
+            "false": 500,
+            "true": 500
+          },
+          "max_tokens": 1737
+        },
+        "development": {
+          "n": 64,
+          "labels": {
+            "true": 58,
+            "false": 6
+          },
+          "max_tokens": 1691
+        },
+        "calibration": {
+          "n": 64,
+          "labels": {
+            "false": 19,
+            "true": 45
+          },
+          "max_tokens": 1350
+        },
+        "gate": {
+          "n": 64,
+          "labels": {
+            "true": 52,
+            "false": 12
+          },
+          "max_tokens": 1442
+        },
+        "test": {
+          "n": 64,
+          "labels": {
+            "true": 52,
+            "false": 12
+          },
+          "max_tokens": 1225
+        }
+      },
+      "audit": {
+        "helpsteer2:ambiguous_multiturn_or_empty": 7611,
+        "helpsteer2:calibration:accepted": 64,
+        "helpsteer2:calibration:adequate": 45,
+        "helpsteer2:calibration:inadequate": 19,
+        "helpsteer2:development:accepted": 64,
+        "helpsteer2:development:adequate": 58,
+        "helpsteer2:development:inadequate": 6,
+        "helpsteer2:gate:accepted": 64,
+        "helpsteer2:gate:adequate": 52,
+        "helpsteer2:gate:inadequate": 12,
+        "helpsteer2:test:accepted": 64,
+        "helpsteer2:test:adequate": 52,
+        "helpsteer2:test:inadequate": 12,
+        "helpsteer2:train:overlength": 2,
+        "helpsteer2:train:accepted": 1000,
+        "helpsteer2:train:adequate": 500,
+        "helpsteer2:train:inadequate": 500
+      },
+      "request_roles_disjoint": true,
+      "admission_scope": "HelpSteer2 and computed rules only; baseline corpora not opened",
+      "admission_config": {
+        "seed": 17,
+        "train_per_source": 1000,
+        "eval_per_source": 64,
+        "max_length": 2048,
+        "include_helpsteer2": true
+      }
+    }
+  },
+  "seed": 17,
+  "sample_selection": "First 100 train-row indices sorted by SHA256 of canonical JSON [17, source_name, row_index]; no model or label-based selection",
+  "implementation_sha256": {
+    "train.py": "aacabc8f036e070a1726a6ed13824ec4d54b75a4a19691a5723f791b072e873d"
+  }
+}

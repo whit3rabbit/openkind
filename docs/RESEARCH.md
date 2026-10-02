@@ -2196,6 +2196,81 @@ Other skills have explicit retention floors. The public JevBench gain is
 an accuracy improvement by itself. These are author-run comparisons with
 source and generator exposure limits, not OpenKind measurements.
 
+#### Training transfers for the local 4B pilot
+
+The pinned [released training config](https://huggingface.co/StrandsAgents/strands-decider-2B-hobson-v19/blob/bb282d786bc251fd4e3068de3ada9ddbb38127cd/train_config.json)
+is more specific than the earlier article. It trains one epoch with microbatch
+8 and accumulation 4, adapter LR `1e-4`, head LR `1e-3`, weight decay 0.01,
+warmup 0.03, and clipping at 1. The adapter and head dropout are 0.05.
+These values belong to a 2B Base model with a newly initialized pointer;
+they do not establish suitable learning rates for our post-trained 4B model
+and frozen-vocabulary readout. Keep the existing rank-16 control and bounded
+loss sweep before changing backbone, head, data and optimization together.
+
+Its retention objective adds two distinct KL terms to label CE. The
+[training code](https://github.com/strands-labs/strands-decider/blob/f91487ab8f7e4b4967ae57e46b8d90e91e67d616/src/strands_decider/train.py)
+uses weight 0.3 for `KL(frozen_base || student)` and weight 1.0 for replay
+distributions on multi-step training rows. The
+[frozen reference](https://github.com/strands-labs/strands-decider/blob/f91487ab8f7e4b4967ae57e46b8d90e91e67d616/src/strands_decider/modeling.py)
+disables adapters on the same torso rather than loading another base.
+It reads option-number vocabulary rows, not pointer-head outputs, and excludes
+rows beyond its single-token number coverage. The shipped run precomputes
+these references. Any OpenKind ablation needs our exact prompt, answer-code
+permutation, source identity and unsmoothed probabilities, not their positional
+target file. Our local specialization/replay failures still require retained-task
+and proper-score gates; a KL term is not proof that forgetting is solved.
+
+Useful data inputs are separate from the full recipe:
+
+| Source or construction | Evidence and intake decision |
+|---|---|
+| Human-rated HelpSteer2 | The clearest new skill for our mixture: judge a response against its request. Adequate means helpfulness and correctness >=3; inadequate means either <=1; ambiguous middle ratings are omitted. These are threshold-derived proxies, not exact semantic verdicts. Use the pinned upstream train file and group alternative responses by request before splitting. |
+| Generated v16/v18 document decisions | Committed teacher-written rows cover precedence, exceptions, missing facts, numeric rules, lookups and cross-artifact evidence. Writer/verifier agreement is attributable supervision, not independent human gold. Balance labels and audit answer-length shortcuts as the released builder does. |
+| ContractNLI, MuSiQue and BoardgameQA | Useful future evidence/logic controls, but preserve our historical groups. ContractNLI windows use gold evidence spans and MuSiQue prioritizes supporting paragraphs, so these views do not establish retrieval quality or full-document competence. |
+| Generated adequacy | The processed training file has 1,300 binary rows and a separate 302-row evaluation file. Assigned defects and verifier agreement can still introduce generator shortcuts. Prefer a human-rating-only ablation before combining this with generated supervision. |
+| Instruction flips and paraphrases | Same state/options with answer-changing instructions, and separately meaning-preserving paraphrases. These are v20 experiments, not the released v19 training data. Measure both answers correct, paraphrase consistency plus correctness, and transfer to new templates. |
+| Replay and frozen-teacher targets | Their distributions are attached by row index. Do not import them without exact corpus and option-order identity; a matching option count alone is insufficient. The v20 gold-agreement filter uses existing gold labels, so it cannot validate a synthetic label without an independent reference. |
+
+The [source inventory](https://github.com/strands-labs/strands-decider/blob/f91487ab8f7e4b4967ae57e46b8d90e91e67d616/data/sources.md)
+distinguishes committed synthetic data from rebuilt public corpora. It includes
+PAWS in training, whereas experiment 35 reserves PAWS for its final transfer
+panel. Importing the entire corpus would change that evidence boundary.
+HotpotQA is evaluation-only in their recipe; TypeSafe remains evaluation-only
+in ours. Dataset terms remain source-specific despite the code/model Apache-2.0
+license. No new generator API calls are needed to inspect the committed rows.
+
+The [local source audit](../research/local_decision_training/STRANDS_SOURCE_AUDIT.json)
+checks the actual file hashes, typed shapes, exact normalized-state overlap,
+and sampled 4B-tokenizer admission for generated v18, adequacy and flips.
+It does not verify semantic labels, near-duplicate independence or neural quality.
+The [4B trainer](../research/local_decision_training/README.md#strands-decider-training-lessons)
+adds only an opt-in HelpSteer2 ablation. It imports no Strands evaluation file,
+replay file or generated corpus, and changes no default loss or native profile.
+
+Two negative results are particularly useful controls. The
+[v20 preregistration and outcome](https://github.com/strands-labs/strands-decider/blob/f91487ab8f7e4b4967ae57e46b8d90e91e67d616/research/preregistrations/PREREGISTRATION-v20.md)
+reports flip-pair accuracy rising from 0.233 to 0.900, but rejects v20 as the
+default because retention and benchmark guards fail. Catch-all recall rises
+from 0.438 to 0.835 while distractor correctness falls from 0.618 to 0.538.
+This supports testing instruction use and false-none errors, not copying the
+combined v20 changes or increasing omission frequency. These comparisons use
+the authors' original runs, not the separately exported H100 retrain.
+
+The released [per-kind fitter](https://github.com/strands-labs/strands-decider/blob/f91487ab8f7e4b4967ae57e46b8d90e91e67d616/src/strands_decider/evaluate.py)
+defaults to an ECE grid objective, unlike the earlier article's log-loss account.
+A [broader calibration refit](https://github.com/strands-labs/strands-decider/blob/f91487ab8f7e4b4967ae57e46b8d90e91e67d616/research/preregistrations/PREREGISTRATION-v19-calmix.md)
+reduces mean ECE from 0.202 to 0.108 but raises mean NLL from 0.533 to 0.545,
+so its preregistered rule retains the original temperatures. Keep our NLL/Brier
+gate; test global versus per-kind fits only on fresh, adequately populated
+calibration groups and representative domains. Better binned ECE alone does
+not establish a better predictive distribution.
+
+For ordinal labels, their collator moves 0.1 mass only to adjacent Score levels
+and reverses rubric order in half the presentations. This differs from our
+uniform CE smoothing plus original-target Brier. A later ordinal ablation must
+keep canonical level meaning and evaluate original labels, expected-value error
+and full distributions; do not quietly replace the present loss study.
+
 #### Evaluation artifacts versus launch claims
 
 The pinned Hub release provides full results, summaries, request manifests,
@@ -2271,6 +2346,49 @@ Keep semantic-none and full answer validation in any adapted contract.
 The Mac implementation uses PyTorch MPS with a custom DeltaNet path; it does
 not qualify an MLX or Rust loader. Follow the
 [new-family gates](families/NEW_FAMILY.md) before registry or runtime adoption.
+
+### Ollaya's Windows Vulkan GGUF attempt: cross-backend parity fails (reviewed 2026-10-01)
+
+Ollaya is the sibling decision-model registry and serving stack whose names
+this repository mirrors ([`docs/MODELS.md`](MODELS.md)); unlike OpenKind, it
+executes GGUF checkpoints through llama.cpp, so its device surface is ggml's
+backend registry rather than an in-tree tensor library. Its
+[PR #27](https://github.com/ollaya-dev/ollaya/pull/27) (open as of
+2026-10-01) bundles a pinned llama.cpp Windows Vulkan release
+(`ggml-vulkan.dll`) beside the CPU libraries, accepts
+`OLLAYA_DEVICE=vulkan[:<n>]`, and orders `auto` as CUDA, then discrete
+Vulkan, then integrated Vulkan, with CPU fallback when a GPU load fails. The
+PR ships with the author's own acceptance gate unmet, and says so.
+
+The measured evidence. Against a stock CUDA fixture (llama.cpp b11146, RTX
+4090) of Winnow-E4B — the checkpoint family behind OpenKind's
+[`winnow-e4b`](families/gemma4-decision.md) profile — Vulkan execution on an
+Intel Arc 140T (Core Ultra 9 285H, driver 32.0.101.8860) agrees on 502/505
+decisions with a maximum normalized option-logit difference of 0.3261
+against a 1e-3 limit. The author attributes the divergence to ggml's Vulkan
+activation quantization; candidate arithmetic changes improved agreement
+with a host mathematical reference but still failed known CUDA
+counterexamples, and selected 15-question CUDA regression replays flip 2–3
+decisions even in control builds
+([measurement report](https://github.com/MauricioPerera/ollaya/blob/intel-arc-vulkan-pr/docs/measurements/intel-arc-140t-parity.md)).
+Same-backend checks (the PR's runner versus stock Vulkan, 505/505 on Winnow
+and 593/593 on JevK5) establish only that the runner reproduces stock Vulkan
+execution, not cross-backend agreement.
+
+Consequences for OpenKind. This is external confirmation that a production
+GGUF GPU backend can move option logits far enough to flip typed decisions.
+Flipped decisions fail OpenKind's unchanged-argmax requirement outright, so
+no looser probability tolerance would rescue such a run. The result supports
+(1) keeping the in-tree candle GGUF runner as the correctness oracle and
+llama.cpp/Vulkan execution unexplored, and (2) requiring any future
+accelerated GGUF study to pass the full CPU-oracle gate (unchanged argmax
+plus the 0.005 probability tolerance, [`docs/CUDA.md`](CUDA.md)) rather than
+a load-and-warm-up check — a distinction ollaya's own distribution notes
+draw as well ("successful loading does not establish matching decisions
+across backends"). The scope stays bounded: one GPU family and driver,
+compared against a CUDA reference from a different GPU, with other Vulkan
+drivers and hybrid hardware untested. It is evidence for OpenKind's existing
+caution, not a general Vulkan verdict.
 
 ### JevBench v1.4.2.2 top 25: architecture and lineage (reviewed 2026-09-28)
 

@@ -29,6 +29,7 @@ not an empirically optimal mixture.
 | [SST-5](https://huggingface.co/datasets/SetFit/sst5) | 1,000 | Five-level ordinal judgments; optional via `include_sst5` |
 | [Plumb decisions](https://huggingface.co/datasets/crh225/plumb-decisions/tree/718a9f006f3beaecfa7f66a819553f99ed7b94f6) | 2,000 | Already generated Qwen-teacher decisions covering policies, numerical reasoning, rubrics and exceptions |
 | Notebook rule generator | 1,000 | Exact boundary cases, counterfactuals, missing facts and explicit ordinal rules |
+| [HelpSteer2](https://huggingface.co/datasets/nvidia/HelpSteer2/tree/990b2711a36180dd19d9c94b8627844866f8982a) | 0 by default; 1,000 if enabled | Optional adequacy proxy from human helpfulness/correctness ratings of model-written responses |
 
 Plumb is the practical first test of the proposed reasoning transfer: train a
 small model against decisions produced by a larger reasoning teacher. Its labels
@@ -57,6 +58,7 @@ benchmark scores are separate evidence.
 | [Plumb](https://huggingface.co/datasets/crh225/plumb-decisions/tree/718a9f006f3beaecfa7f66a819553f99ed7b94f6) | Public 5,014-row Qwen-teacher training split, independently solved twice by that teacher | The 131-row split named `test` set Plumb's calibration temperature. It is not an untouched test for that model |
 | [Winnow-12B](https://huggingface.co/EldanRing/Winnow-12B) | Private mixture of synthetic, teacher-supervised and labeled semantic tasks; a refinement stage mixes gold labels, gold-agreeing teacher distributions and replay | The card states training/validation separation and points to evaluation disclosures. The actual private dataset cannot be reconstructed from the card |
 | [CLEF / CLEF-flash review](../../docs/RESEARCH.md#cloudflare-clef-and-linked-decision-models-reviewed-2026-10-01) | Frozen Qwen backbone, rank-256 LoRA plus a learned routing head; internal synthetic schemas; disclosed smoothed CE/Brier and a later RLCD objective | Cloudflare reports an internal Decision Index 0.2.1 rerun. Data, loss coefficients, reward implementation and full competitor settings are not released; this notebook does not reproduce that recipe |
+| [Strands Decider / Hobson v19 review](../../docs/RESEARCH.md#strands-decider-2b-hobson-v19-release-and-agent-interventions-reviewed-2026-10-01) | Qwen3.5-2B-Base, rank-16 LoRA and a learned option pointer; label CE with frozen-base and parent-replay KL; public tasks, multi-step reasoning, generated documents and adequacy | Released scripts, corpus hashes and held-out panels expose both gains and failed retention experiments. Historical base revision is inferred; code revision is redacted. This is an external comparator, not a reproduced 4B result |
 
 The common approach is broad decision supervision plus checked hard examples.
 Benchmark test sets are not interchangeable with training datasets. In particular,
@@ -164,6 +166,61 @@ head remain separate experiments. The public recipe cannot establish their exact
 settings or individual effects. Exact-record rewards need multi-field training
 records; the current single-question mixture does not provide them.
 
+## Strands Decider training lessons
+
+The [source review](../../docs/RESEARCH.md#training-transfers-for-the-local-4b-pilot)
+checks the released v19 configuration, data builders, retention objectives and
+later experiments. Its strongest contribution is an inspectable recipe with
+skill-specific retention rules. Its 2B Base pointer head differs from our
+post-trained 4B vocabulary readout, so its head weights, learning rates and fitted
+temperatures do not transfer directly.
+
+For a separate data ablation, set `include_helpsteer2=True` in the notebook's
+`CONFIG.update(...)`. This enables only the pinned upstream training file:
+
+- Adequate: helpfulness and correctness both >=3. Inadequate: either <=1.
+  Drop the middle band, empty responses and marked multi-turn prompts. Human
+  ratings become a binary proxy; they are not exact correctness labels.
+- Put every response to the same normalized request in one split group before
+  sampling. Ratings stay out of prompts. Admit up to 500 adequate and 500
+  inadequate training rows, preferring requests with alternative inadequate
+  replies. Evaluation keeps its sampled natural label prevalence.
+- Keep the baseline loss, seed, optimizer and 400-update budget fixed. The
+  added source raises the mixture cap from 8,000 to 9,000 rows and changes
+  baseline-source exposure. Compare those sources on development data as well
+  as adequacy; a gain on adequacy alone cannot justify promotion.
+
+Leave the flag off for the existing loss sweep. Source/configuration hashes
+prevent this ablation from resuming a baseline run. NVIDIA specifies CC-BY-4.0
+for HelpSteer2. This flag imports no Strands synthetic, replay or evaluation file.
+
+The [source audit](STRANDS_SOURCE_AUDIT.json) parsed all 20,324 upstream rows;
+12,713 meet the proxy rule, with 10,280 adequate and 2,433 inadequate. Under
+the default seed and token cap, an isolated HelpSteer2/rules admission check
+admits 1,000 balanced training rows and 64 rows per evaluation role, with
+disjoint request groups. The
+development sample has only six inadequate examples, so minority-class
+estimates are coarse. This is token/data admission, not model-quality evidence.
+
+The same audit checks hashes and exact state overlap for committed generated
+v18, adequacy and v20 instruction-flip files. Of 100 sampled training rows per
+file, 94 document rows and all adequacy/flip rows fit our 2,048-token cap after
+schema conversion. Labels and semantic independence remain unverified. The
+full Strands mixture includes PAWS training rows, conflicting with our reserved
+PAWS transfer panel; do not import it wholesale.
+
+Test question sensitivity separately: preserve state/options while changing
+the question so the correct answer changes, and score both answers together.
+Keep meaning-preserving paraphrases as a different diagnostic. Their v20
+combined treatment improves generated flip-pair accuracy but fails retention
+guards; it is not the released v19 default. False-none errors and unfamiliar
+question templates must remain visible alongside the new skill's score.
+
+Base/parent KL, a pointer readout, adjacent-level Score smoothing and per-kind
+temperature fitting remain named follow-ups. Strands' broader temperature
+refit improves ECE while worsening NLL and is rejected by its own rule.
+Retain our proper-score and source-retention gates before adopting any of them.
+
 ## Training and validation contract
 
 - Start from the pinned post-trained Qwen3.5-4B, not the Base checkpoint. Train
@@ -173,7 +230,8 @@ records; the current single-question mixture does not provide them.
 - Use only upstream training files. Split normalized state groups 75/8/7/5/5
   into training, development, calibration, gate and reserved test before augmentation.
   Exact cross-source state duplicates share a role; rule counterfactuals share a
-  group. Exact duplicate requests are removed and conflicting labels stop preparation.
+  group. HelpSteer2 response siblings share their request group. Exact duplicate
+  requests are removed and conflicting labels stop preparation.
   This is not comprehensive semantic near-duplicate decontamination.
 - Randomize option/code positions. Omit the correct option in approximately 20%
   of eligible one-hot Choice cases and supervise `__none__`. Preserve natural
@@ -321,5 +379,6 @@ fresh matched initialization, resume, development-only selection and rejection
 of a mismatched parent. The 4B sweep has not been run.
 TypeSafe checks cover source exclusion, reference schemas and soft targets,
 published metric math, failed-row denominators, frozen-export verification and
-parent comparison without export mutation. Twenty offline tests pass; the
-tokenizer-only audit is separate evidence from neural evaluation.
+parent comparison without export mutation. HelpSteer2 checks cover proxy thresholds,
+request-group isolation and training-label balance. Twenty-two offline tests pass;
+the tokenizer-only audits are separate evidence from neural evaluation.

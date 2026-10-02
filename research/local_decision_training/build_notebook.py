@@ -61,7 +61,7 @@ md("""
 | HelpSteer2 | Optional answer-adequacy proxy from human ratings; disabled by default | 1,000 if enabled |
 
 All public training records come from upstream **train** files. Split by normalized state
-before constructing options: 75% training, 8% development, 7% calibration, 5% acceptance gate,
+(request groups for HelpSteer2 responses) before augmentation: 75% training, 8% development, 7% calibration, 5% acceptance gate,
 5% reserved test. Counterfactual siblings share their original group. Actual admitted counts
 are recorded; the table gives caps, not guaranteed counts or a balanced-label promise.
 
