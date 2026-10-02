@@ -123,12 +123,17 @@ impl VonRenderer {
 
     /// Encode the packed string with the `[CLS] … [SEP]` frame the
     /// tokenizer's post-processor adds, and locate the option markers.
-    pub(crate) fn encode_packed(&self, packed: &str) -> Result<RenderedQuestion, FamilyError> {
+    pub(crate) fn encode_packed(
+        &self,
+        packed: &str,
+        max_sequence_tokens: usize,
+    ) -> Result<RenderedQuestion, FamilyError> {
         let encoding = self
             .tokenizer
             .encode(packed, true)
             .map_err(|error| FamilyError::Tokenizer(error.to_string()))?;
         let ids: Vec<u32> = encoding.get_ids().to_vec();
+        ensure_sequence_fits(ids.len(), max_sequence_tokens)?;
         let markers: Vec<usize> = ids
             .iter()
             .enumerate()
@@ -166,9 +171,15 @@ impl VonRenderer {
         options: &[String],
     ) -> Result<String, FamilyError> {
         let reserve_reserve = self.pack("", question, options);
-        let reserve = self.encode_plain(&reserve_reserve)?.len() + 8;
+        let reserve = self
+            .encode_plain(&reserve_reserve)?
+            .len()
+            .checked_add(8)
+            .ok_or_else(|| {
+                FamilyError::InvalidInput("von question token reserve overflowed".to_owned())
+            })?;
         let window = profile.max_sequence_tokens;
-        let limit = 16.max(profile.max_state_tokens.min(window.saturating_sub(reserve)));
+        let limit = state_token_limit(window, profile.max_state_tokens, reserve)?;
         let ids = self.encode_plain(state_text)?;
         if ids.len() <= limit {
             return Ok(state_text.to_owned());
@@ -181,5 +192,47 @@ impl VonRenderer {
             self.decode(&ids[ids.len() - tail..])?
         );
         Ok(fitted)
+    }
+}
+
+fn ensure_sequence_fits(actual: usize, maximum: usize) -> Result<(), FamilyError> {
+    if actual > maximum {
+        return Err(FamilyError::InvalidInput(format!(
+            "von packed sequence has {actual} tokens, exceeding the {maximum}-token model window"
+        )));
+    }
+    Ok(())
+}
+
+fn state_token_limit(
+    window: usize,
+    max_state_tokens: usize,
+    reserve: usize,
+) -> Result<usize, FamilyError> {
+    let available = window
+        .checked_sub(reserve)
+        .filter(|available| *available >= 16)
+        .ok_or_else(|| {
+            FamilyError::InvalidInput(format!(
+                "von question and options leave fewer than 16 state tokens in the {window}-token model window"
+            ))
+        })?;
+    Ok(16.max(max_state_tokens.min(available)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ensure_sequence_fits, state_token_limit};
+
+    #[test]
+    fn rejects_a_sequence_over_the_model_window() {
+        assert!(ensure_sequence_fits(8_193, 8_192).is_err());
+        assert!(ensure_sequence_fits(8_192, 8_192).is_ok());
+    }
+
+    #[test]
+    fn rejects_question_reserve_that_crowds_out_the_state() {
+        assert!(state_token_limit(8_192, 4_096, 8_177).is_err());
+        assert_eq!(state_token_limit(8_192, 4_096, 8_176).unwrap(), 16);
     }
 }

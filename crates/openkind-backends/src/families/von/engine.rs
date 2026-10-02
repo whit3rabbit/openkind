@@ -299,7 +299,10 @@ impl FamilyEvaluator for VonEngine {
                 .inner
                 .renderer
                 .pack(&fitted, &instructions, &inputs.options);
-            let rendered = self.inner.renderer.encode_packed(&packed)?;
+            let rendered = self
+                .inner
+                .renderer
+                .encode_packed(&packed, profile.max_sequence_tokens)?;
             if rendered.markers.len() != inputs.options.len() {
                 return Err(FamilyError::InvalidInput(format!(
                     "question `{id}` packed {} option markers for {} options; packing is corrupt",
@@ -319,7 +322,10 @@ impl FamilyEvaluator for VonEngine {
             let is_noul = matches!(question, Question::Noul(_));
             if is_noul && !inputs.has_explicit_criteria {
                 let null_packed = self.inner.renderer.pack("", &instructions, &inputs.options);
-                let null_rendered = self.inner.renderer.encode_packed(&null_packed)?;
+                let null_rendered = self
+                    .inner
+                    .renderer
+                    .encode_packed(&null_packed, profile.max_sequence_tokens)?;
                 input_tokens = input_tokens.saturating_add(null_rendered.ids.len() as u64);
                 let null_logits = self
                     .inner
