@@ -2,9 +2,49 @@ use super::*;
 use openkind_core::ChoiceQuestion;
 
 fn tokenizer() -> Qwen35Tokenizer {
-    Qwen35Tokenizer::from_file(std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../research/14_phase3b_backbone_parity_results/backbone_runtime/tokenizer/tokenizer.json"))
-        .expect("vendored digest-locked tokenizer")
+    use tokenizers::{
+        models::bpe::BPE, pre_tokenizers::byte_level::ByteLevel, AddedToken, Tokenizer,
+    };
+    // These tests check renderer semantics. Pretrained token-ID parity has its own qualification.
+    let mut alphabet: Vec<_> = ByteLevel::alphabet().into_iter().collect();
+    alphabet.sort_unstable();
+    let vocab = alphabet
+        .into_iter()
+        .enumerate()
+        .map(|(id, ch)| (ch.to_string(), id as u32))
+        .collect();
+    let mut inner = Tokenizer::new(
+        BPE::builder()
+            .vocab_and_merges(vocab, vec![])
+            .build()
+            .unwrap(),
+    );
+    inner.with_pre_tokenizer(Some(ByteLevel::new(false, true, true)));
+    inner.with_decoder(Some(ByteLevel::new(false, true, true)));
+    inner.add_tokens(
+        &(b'A'..=b'Z')
+            .map(|letter| AddedToken::from(format!(" {}", letter as char), false))
+            .collect::<Vec<_>>(),
+    );
+    Qwen35Tokenizer { inner }
+}
+
+#[test]
+fn state_first_renderer_rejects_invalid_cardinality_and_truncation() {
+    let tokenizer = tokenizer();
+    let one = [CandidateText::new("one", "only candidate")];
+    assert!(matches!(
+        tokenizer.encode_state_first("state", "question", &one),
+        Err(Qwen35Error::InvalidInput(_))
+    ));
+    let two = [
+        CandidateText::new("one", "first"),
+        CandidateText::new("two", "second"),
+    ];
+    assert!(matches!(
+        tokenizer.encode_state_first(&"evidence ".repeat(4_000), "question", &two),
+        Err(Qwen35Error::InvalidInput(_))
+    ));
 }
 
 fn choice() -> Question {

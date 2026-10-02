@@ -14,3 +14,17 @@ The extracted row has SHA-256
 The fixture is stored as lowercase hexadecimal so it remains reviewable and
 portable without adding a binary editing path. Tests decode it locally and do
 not access the network.
+
+## Offline Phase 3B reference subset
+
+The contract, architecture, traces, token IDs, probability reference and 47
+golden vectors are recovered byte-for-byte from Git commit `d5baa48c95a90f19b8d313fe19e023d1ec220a37`,
+under `research/OpenKind_Phase3B_BackboneParity_20260920T152206Z`. `REFERENCE_SHA256.json` records their digests;
+the reference loader also verifies the tensor index and each golden vector.
+
+These files total under 650 KiB and contain no checkpoint weights. They preserve
+the embedding comparison and frozen-head replay tests on a clean checkout.
+The 20 MB pretrained tokenizer is intentionally external: its dedicated
+qualification tests require `OPENKIND_QWEN35_TOKENIZER` and `--ignored`.
+Experimental renderer unit tests use a synthetic byte tokenizer and make no
+pretrained-tokenizer parity claim.

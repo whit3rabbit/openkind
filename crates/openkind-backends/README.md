@@ -86,6 +86,28 @@ and convolution state. A KV-only abstraction is incomplete.
 
 ## Verification
 
+Default offline tests verify the tracked Phase 3B identities and golden-vector
+digests, exact embedding widening, frozen-head probability/policy replay,
+renderer semantics, cardinality and input limits. The renderer unit tests use
+a deterministic synthetic byte tokenizer. The reference subset's provenance
+and file digests are in [its source record](tests/fixtures/qwen35_backbone_phase3b_a047d6802c3f06f085b8/SOURCE.md).
+
+The two pretrained-tokenizer tests and the catalog tokenizer-byte check require
+an explicitly supplied artifact. They remain separate qualifications rather
+than downloads in the default suite. With the already acquired Qwen3.5-4B-Base
+tokenizer (19,989,325 bytes, SHA-256
+`06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523`), run:
+
+```bash
+export OPENKIND_QWEN35_TOKENIZER=path/to/pinned/tokenizer.json
+cargo test --locked -p openkind-backends --test qwen35_tokenizer_parity -- --ignored
+cargo test --locked -p openkind-model-store --test catalog -- --ignored
+```
+
+These commands verify the artifact's digest, exact exported segment IDs,
+renderer limits and catalog size/hash. They do not run full checkpoint or
+accelerated inference. Missing or changed artifacts fail qualification.
+
 ```bash
 cargo test -p openkind-backends
 
