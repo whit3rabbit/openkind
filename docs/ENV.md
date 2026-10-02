@@ -120,6 +120,7 @@ read-only artifact root:
 | `LAYA_ENGLISH` | `_ALIASES`, `_MODEL_ROOT` |
 | `LAYA_MULTILINGUAL` | `_ALIASES`, `_MODEL_ROOT` |
 | `LAYA_TYPED_DECISIONS` | `_ALIASES`, `_MODEL_ROOT` |
+| `CLEF` | `_ALIASES`, `_MODEL_ROOTS` (both keyed `flash=` / `flash-gguf=` / `27b=`) |
 
 Family token variables are prefixed `OPENKIND_`, for example
 `OPENKIND_LAYA_ENGLISH_MODEL_ROOT`. Shared admission knobs:
@@ -214,7 +215,9 @@ is unset. Setting both to conflicting values fails startup; remove the
   digest-checked.
 - JevK5, Plumb, and Decider replays use
   `OPENKIND_DECODER_LOGIT_QWEN35_MODEL_ROOT`, `OPENKIND_PLUMB_4B_MODEL_ROOT`,
-  and `OPENKIND_DECIDER_4B_MODEL_ROOT`, respectively. A missing or nonexistent
+  `OPENKIND_DECIDER_4B_MODEL_ROOT`, and the Clef trio
+  `OPENKIND_CLEF_FLASH_MODEL_ROOT`, `OPENKIND_CLEF_FLASH_GGUF_MODEL_ROOT`,
+  and `OPENKIND_CLEF_27B_GGUF_MODEL_ROOT`, respectively. A missing or nonexistent
   root skips the replay, so a passing test result alone does not establish
   checkpoint parity. Family pages give explicit replay commands.
 
