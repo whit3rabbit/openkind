@@ -1,16 +1,16 @@
 # OpenKind: Outstanding Questions for a Fast, Accurate Jev Alternative
 
-**Research and engineering question register · Version 1.1 · 1 October 2026**
+**Research and engineering question register · Version 1.2 · 1 October 2026**
 
 ## Executive assessment
 
-**Yes—BERT-family classifiers are still worth testing. The existing results reject particular compact-model recipes, not the entire encoder family.** The useful comparison is no longer “a small classifier versus generated JSON.” It is a properly trained or pretrained task-aware encoder versus OpenKind’s strongest finite-answer Qwen paths, under the same evidence, task and complete-request measurement contract. [W §15; U3 §§2,7; U4 §2; BERT; MB; DNLI]
+**BERT-family classifiers now have recovered measurements, and remain scoped challengers rather than a rejected family.** The completed ER follow-up removes U4's setup blocker. On 216 new authored policy cases, fine-tuned BERT and ModernBERT reach 73.46%/70.45% field accuracy but only 21.30%/19.44% all-six correctness, at 15.78/20.92 ms median. Released DeBERTa reaches 90.10% on 192 exposed SNLI cases. The remaining question is whether a task-appropriate encoder meets a declared quality/risk floor on common, genuinely new tasks at lower complete cost than the selected Qwen path. [W §15; U3 §§2,7; U4 §2; ER]
 
 The larger outstanding question is whether one integrated system can combine **useful semantic accuracy, complete and trustworthy probabilities, independent question behavior, and low end-to-end cost**. The project has demonstrated parts of that system, but their best results come from different profiles and experiments. They cannot be combined on paper into a tested deployment. [W §§16–17,21,23; U3 §§2–4; U4 §2]
 
-The next work should concentrate on three opportunities. First, combine the strongest measured readout and dependency ideas without introducing hidden probability assumptions. Second, eliminate identified repeated work: grouped catalogue cache misses and repeated open-encoder text encoding. Third, run a small, fair classifier comparison with stronger BERT-family baselines and genuinely held-out question families. Natural-evidence review, uncertainty transfer and service qualification remain requirements across all three tracks—not a final cosmetic check.
+The next work should concentrate on three opportunities. First, combine the strongest measured readout and dependency ideas without introducing hidden probability assumptions. Second, eliminate identified repeated work: grouped catalogue cache misses and repeated open-encoder text encoding. Third, follow the completed encoder recovery with a small matched quality/risk comparison on genuinely held-out question families. Natural-evidence review, uncertainty transfer and service qualification remain requirements across all three tracks—not a final cosmetic check.
 
-This document contains **60 outstanding questions**, grouped into eight workstreams. It is a deduplicated register of the gaps identifiable in the supplied evidence and research, not a claim to enumerate every possible future research idea. Each question states what is already known, the unresolved comparison, and what evidence would close it. **There are no new model results in this document.** The existing papers, experiment evidence, runtime defaults and protected-final boundaries are unchanged.
+This document contains **60 outstanding questions**, grouped into eight workstreams. It is a deduplicated register of the gaps identifiable in the supplied evidence and research, not a claim to enumerate every possible future research idea. Each question states what is already known, the unresolved comparison, and what evidence would close it. **This document adds source-reported ER results; no new model experiment is performed by the document update.** The existing papers, experiment evidence, runtime defaults and protected-final boundaries are unchanged.
 
 ## 1. Which evidence owns the current status?
 
@@ -19,9 +19,10 @@ The supplied sources have different cutoffs. Their future-work sections must not
 | Authority | Evidence boundary | How it is used here |
 |---|---|---|
 | W: whitepaper v0.8.11 | Historical studies through the 1 October T4 integrated run, E42 | Authority for older model, evidence, rejection, cache, CPU, MLX, and recent integrated findings |
-| WP: working paper revision 0.9.2 | Synthesis through E42, with external research comparisons | Research-question framing, incorporating the latest T4 integrated results |
+| WP: working paper revision 0.9.3 | E42 synthesis plus the separately scoped ER encoder recovery | Research-question framing and bounded next-experiment design |
 | U3: Unified results review | Run `20260929T194506_694066Z_dc1f74`, protocol v3.0.0 | Supersedes earlier untried labels for routing composition, grouped readouts, indecis and process-isolation treatments |
 | U4: T4 integrated research review | Run `20261001T105345_828556Z_6e6d92`, protocol v4.0.0 (E42) | Measured selective indexing + route composition (XR), narrowly joint readout (NJ), multi-catalogue host cache, dedicated process history for X/XR/NJ, and diagnosed classifier setup exception |
+| ER: encoder recovery follow-up | Run `20261001T223435_041738Z_f25616`, protocol v4.1.1 | All 17 scheduled encoder/setup/smoke stages executed; new authored policy and exposed NLI/regression evidence remain separate; native Qwen/cache/history experiments disabled |
 | R: newly supplied research | Includes the reported 29 September Rust joint-choice follow-up, called R29 here | Additional local **source-reported** results; their linked benchmark files were not re-audited in this document |
 | H, S and primary external sources | Public pages reviewed for this document | Architectural hypotheses, comparison designs and released baselines—not OpenKind measurements |
 
@@ -35,7 +36,7 @@ The current review reads the supplied result synthesis and research; it does not
 | Can a different field formulation help? | X reaches 92.19% field accuracy at 222 ms; U4 Arm NJ (narrowly joint route/urgency) supplies all 6 field distributions at 94.01% field accuracy and 79.69% all-six correctness at 228.31 ms. | Integration, generalization, and calibrated policy usefulness |
 | Can multi-catalogue caching help? | U4 multi-catalogue host snapshot cache cuts grouped request latency by ~54% (from ~1,511 to ~690 ms, 2.19x speedup) with $\Delta p = 0.0$ across 96 pairs. | Host-to-device eviction and cold-start amortization under variable load |
 | Can mixed-history interference be avoided? | Dedicated processes pass history checks with $\Delta p = 0.0$ across D, X, XR, and NJ (vs mixed drift up to $\Delta p = 0.114$). | Cheaper same-process root-cause repair, cancellation and concurrency |
-| Have compact encoders been tried? | E11 ModernBERT and U3 indecis missed quality targets; U4 attempted matched encoder tests (ModernBERT, DeBERTa, GLiClass) but was blocked by a `SameFileError` logging exception during setup. | Fix file-copy logging defect, rerun encoder training/evaluation pipelines, and compare against XR and NJ |
+| Have compact encoders been tried? | E11/U3 remain bounded negative results; ER subsequently executes the BERT/ModernBERT frozen and fine-tuned controls, released DeBERTa NLI and GLiClass. Fine-tuning improves policy field accuracy, but all-six correctness remains low. | Same-case Qwen comparison, useful risk/coverage, genuinely new families and independent confirmation; the setup blocker is no longer the next task |
 | Has the Rust catalogue idea run? | R29 reports an improved fitted-head catalogue renderer, factorized order/code probes and a gated temperature result. | Natural-task confirmation and complete target-host request cost |
 | Have Rust and MLX been validated at all? | The pinned 4B reference has native CPU and bounded MLX FP32 parity; CPU service/load evidence exists. | New useful profiles, full MLX service cost and expanded release qualification |
 | Have Noul/Score and high K been exercised? | Bounded BoolQ/SST-5 and high-cardinality mechanics already exist; U4 tested high-K omission capacity and ID confusion at K=16, 32. | Unseen binary criteria, unfamiliar rubrics, semantic high-K accuracy and rejection |
@@ -104,7 +105,7 @@ P0 means a direct integration or evidence blocker; P1 means the next discriminat
 |---|---|---|
 | **A. Integrate the current leaders** | D/X/R versus X-plus-rule; a narrowly joint source only if complete probabilities are required; selected readout under dedicated-process isolation | Can a single measured profile retain the separate accuracy, probability and stability gains? OQ-01,02,05 |
 | **B. Remove identified repeated work** | Existing G/GR versus exact multi-catalogue cache; existing open encoder versus encode-once input reuse | Can the same function become cheaper without a new model? OQ-03,12,44 |
-| **C. Challenge Qwen fairly** | ModernBERT-base, the appropriate pretrained DeBERTa and one GLiClass configuration versus fixed Qwen controls | Does an encoder meet a declared quality/risk floor on new task families at lower complete cost? OQ-09–11,14,17 |
+| **C. Challenge Qwen fairly** | Recovered BERT/ModernBERT controls versus fixed Qwen XR/NJ on the same new families; keep released DeBERTa in a separate NLI lane and GLiClass as a scoped dynamic-label control | Does an encoder meet a predeclared quality/risk floor at lower complete cost? ER has supplied the recovery measurements, not closed the question. OQ-09–11,14,17 |
 | **D. Confirm the state-first catalogue path** | Recover R29’s pinned renderer; test admissible natural tasks and the real scheduler path | Do its local quality gains survive evidence-sensitive tasks and their 2.3× scorer-time cost? OQ-04,06,18,25–27 |
 | **E. Qualify reliability and deployment** | Locked calibration and review policy, realistic traffic, cancellation, memory pressure, API conformance and the intended Rust/MLX profile | Is the selected system useful and stable in its advertised operating envelope? OQ-33–39,48–55,60 |
 
@@ -250,39 +251,39 @@ The source key after each entry separates existing observations from the propose
 
 ### OQ-09. Can a well-trained BERT-family specialist meet the fixed-schema quality target?
 
-**Priority:** P1 · **Status:** diagnostic blocked at setup (U4 / E42)
+**Priority:** P1 · **Status:** recovery measured; quality/risk comparison remains open
 
-**Known and still missing.** E11’s ModernBERT treatments and U3’s tiny bekko/indecis recipe are bounded negative comparisons, not a verdict on BERT, DeBERTa or ModernBERT as families. U4 / E42 attempted a matched ModernBERT-base fixed-schema comparison, but the harness was blocked during initialization by a `SameFileError` exception in `run_logged.publish()` when logging utilities attempted to overwrite in-place. The encoder comparison was terminated before model quality or latency could be evaluated.
+**Known and still missing.** ER supersedes U4's setup block for the tested treatments. On 216 new authored confirmation cases (432 technical requests), fine-tuned BERT reaches 73.46% field / 21.30% all-six at 15.78 ms p50, and ModernBERT 70.45% / 19.44% at 20.92 ms. Their frozen-feature controls reach 51.31% / 5.09% and 52.39% / 0.00%. The fitting examples and hyperparameters remain the original U4 recipe. These are useful adaptation gains with low whole-request correctness, not independent human confirmation or a new Qwen comparison.
 
-**Test.** Fix the logging publisher file-copy defect. Compare BERT-base and ModernBERT-base with frozen features plus a trained head against full or parameter-efficient fitting on the same admissible policy examples.
+**Test.** Retain the recovered controls and compare them with fixed Qwen XR/NJ on common decisive content, with separately defined new policy families and multiple declared training seeds. Keep inspected ER panels as exposed regression diagnostics. Freeze training, tuning, calibration and selection before confirmation.
 
-**Evidence to close.** Useful fresh-family accuracy, whole-request correctness and selective risk at lower measured cost against Qwen XR. Verify tokenizer, pooling, masks, truncation and reference-framework outputs.
+**Evidence to close.** A predeclared application quality/risk floor, class-sensitive and all-six correctness, useful locked-policy risk/coverage, paired source-group uncertainty and lower measured complete-request cost or memory. Verify tokenizer, pooling, masks, retained evidence and reference-framework outputs. A failed treatment does not reject the family.
 
-**Sources:** W §§15,23.6; U3 §7; U4 §8; BERT; MB. **Related / prerequisites:** OQ-17, OQ-25, OQ-51. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
+**Sources:** W §§15,23.6; U3 §7; U4 §8; ER; BERT; MB. **Related / prerequisites:** OQ-17, OQ-25, OQ-51. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
 
 ### OQ-10. Can a strong pretrained NLI encoder answer dynamic questions accurately enough?
 
-**Priority:** P1 · **Status:** diagnostic blocked at setup (U4 / E42)
+**Priority:** P1 · **Status:** released NLI recovery measured; broader transfer remains open
 
-**Known and still missing.** The small U3 classifier’s weak NLI does not test a mature NLI-tuned DeBERTa. U4 / E42 scheduled a three-way DeBERTa-v3 NLI arm alongside Qwen, but subprocess execution was blocked by the same `SameFileError` logging exception during setup.
+**Known and still missing.** ER's released three-way DeBERTa treatment achieves 90.10% (173/192) on `u4_snli_confirmation`, with 384 technical requests, 20.92 ms p50 / 33.13 ms p95, NLL 0.368 and Brier 0.166. The source explicitly labels this exposed recovery/regression evidence. It establishes a useful task-appropriate NLI control, not unseen-policy or arbitrary caller-defined question competence.
 
-**Test.** Evaluate the named three-way DeBERTa checkpoint directly on NLI once the harness is unblocked. Separately test a binary zero-shot checkpoint on candidate hypotheses, with explicit hypothesis templates and complete state/question information.
+**Test.** Confirm the locked three-way model on an admissible, newly held-out NLI/task panel alongside the appropriate Qwen control. Treat binary zero-shot candidate hypotheses as a separate experiment with explicit templates, neutral/contradiction semantics and complete input coverage.
 
-**Evidence to close.** Task-appropriate labels and probability semantics, strong unseen-task performance and measured Q×K cost. Preserve neutral where required; candidate softmax must not silently erase no-valid-option cases.
+**Evidence to close.** Task-appropriate labels and probability semantics, genuinely unseen-task performance and measured Q×K cost. Preserve neutral where required; candidate softmax must not silently erase no-valid-option cases.
 
-**Sources:** U3 §7; U4 §8; W §23.6; DNLI; DZ. **Related / prerequisites:** OQ-17, OQ-19, OQ-38. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
+**Sources:** U3 §7; U4 §8; W §23.6; ER; DNLI; DZ. **Related / prerequisites:** OQ-17, OQ-19, OQ-38. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
 
 ### OQ-11. Can a dynamic-label encoder or option-marker model outperform the current trade-off?
 
-**Priority:** P1 · **Status:** diagnostic blocked at setup (U4 / E42)
+**Priority:** P1 · **Status:** GLiClass recovery measured; dynamic-label scope remains open
 
-**Known and still missing.** GLiClass, released Laya and Von are not equivalent to the specific encoder arms already evaluated. U4 / E42 included a GLiClass dynamic-label model in the classifier comparison suite, which was blocked by the logging helper exception.
+**Known and still missing.** ER's released GLiClass treatment reaches 45.45% field / 3.24% all-six on 216 new authored policy cases, at 65.13 ms p50 / 96.90 ms p95. Its original dynamic fixtures are exposed diagnostics, not independent generalization. On this policy panel it is slower and less accurate than the recovered fine-tuned BERT/ModernBERT treatments. This result applies to the tested checkpoint/rendering and does not evaluate released Laya or Von.
 
-**Test.** Run the pinned GLiClass uni-encoder checkpoint on common policy cases under the repaired logging harness. Add at most one correctly identified typed-decision marker checkpoint after compatibility checks.
+**Test.** Diagnose admissible development errors and verify the dynamic-label rendering/probability contract before another fit or sweep. If a materially different treatment is justified, lock it and compare on common new task families; add at most one correctly identified typed-decision marker checkpoint after compatibility checks.
 
 **Evidence to close.** Accuracy, rejection, full distributions, schema sensitivity and whole-request latency on shared cases. Record all text/label truncation and do not convert independent multilabel scores into an unjustified Choice posterior.
 
-**Sources:** R: Laya, Von, Indecis reviews; GL; GLM; U3 §7; U4 §8; W §23.6. **Related / prerequisites:** OQ-21, OQ-26, OQ-38. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
+**Sources:** R: Laya, Von, Indecis reviews; GL; GLM; U3 §7; U4 §8; W §23.6; ER. **Related / prerequisites:** OQ-21, OQ-26, OQ-38. **Execution scope:** T4/L4; sequential model loading unless the test explicitly requires otherwise.
 
 ### OQ-12. Can open-encoder inference share input encoding across questions without changing its function?
 
@@ -938,21 +939,31 @@ Bracketed source IDs refer to the materials below. Local evidence IDs such as E4
 
 **Explicit conformance question:** the older whitepaper describes entropy-derived confidence in the native adapter, whereas the inspected official pinned adapter gives a different Choice statistic. OQ-52 treats this as an active-code and versioned-contract check, not a freshly demonstrated bug in today’s repository. [W §11.8; CONF]
 
-**No new empirical claim:** no new model training, inference, timing, calibration fit, protected-final access, Drive mutation, or raw-result re-audit was performed for this question register. The supplied U3 review’s prior verification counts are not repeated as work performed here. R29’s source-reported local results remain distinguished from the separately reconciled U3 run.
+**Review boundary:** this revision reads ER's report, manifest, summary and completion record and reconciles their scope with the existing register. No new model training, inference, timing, calibration fit, protected-final access or raw-prediction re-audit is performed. The supplied U3 review's prior verification counts are not repeated as work performed here. R29's source-reported local results remain distinguished from U3 and ER. All 60 broad questions remain open within their stated remaining scope; executing a supporting slice does not close the whole question.
 
-### [W] OpenKind whitepaper, version 0.8.8
+### [W] OpenKind whitepaper, version 0.8.11
 
-**Evidence type:** supplied consolidated local evidence. Sections and E/RUST evidence IDs cited in the question entries; evidence through E40. Supplied file: `WHITEPAPER.md`. Its input digest is in the companion JSON manifest.
+**Evidence type:** consolidated local evidence through E42, including §23. Repository source: [WHITEPAPER.md](WHITEPAPER.md). Historical supplied-input digests retain their original scope.
 
-### [WP] OpenKind working paper, revision 0.8
+### [WP] OpenKind working paper, revision 0.9.3
 
-**Evidence type:** supplied evidence synthesis. Research-question synthesis; local cutoff E40. Supplied file: `WORKING_PAPER(6).md`. Its input digest is in the companion JSON manifest.
+**Evidence type:** research-question synthesis through E42 plus the separately scoped ER encoder recovery. Repository source: [WORKING_PAPER.md](WORKING_PAPER.md). Historical supplied-input digests retain their original scope.
 
 ### [U3] OpenKind Unified Decisions Results Review, 29 September 2026
 
 **Evidence type:** supplied latest completed-run review. Run 20260929T194506_694066Z_dc1f74; prior saved-output reconciliation, not rerun for this document. Supplied file: `OpenKind_Unified_Decisions_Results_20260929.md`. Its input digest is in the companion JSON manifest.
 
 [Primary source](https://drive.google.com/drive/folders/1gLVnuSIHUDAqyQlyxFyKuc2LWcOvklgx)
+
+### [U4] OpenKind T4 integrated research, 1 October 2026
+
+**Evidence type:** completed local run `20261001T105345_828556Z_6e6d92`, protocol `openkind-t4-integrated-research/v4.0.0` (E42), consolidated in [WHITEPAPER.md §23](WHITEPAPER.md). Its classifier setup failure remains historical; ER supplies the later recovered encoder measurements.
+
+### [ER] OpenKind T4 encoder recovery, 1 October 2026
+
+**Evidence type:** local source-reported follow-up, run `20261001T223435_041738Z_f25616`, protocol `openkind-t4-recovery-reliability/v4.1.1`. [Report](https://drive.google.com/file/d/1fpZNrhNLue6q55FYNH1AKrf7Pv1u4iHR/view), [manifest](https://drive.google.com/file/d/1X448XWfV7bnSvUAk5f0Sna-zS441tiiX/view), [summary](https://drive.google.com/file/d/1iVivey4fVpG9SlWTmTel3vuUX2gZ4EH6/view), [completion record](https://drive.google.com/file/d/1qxUWUtqE2Zvr6TTLj_AwDB4E7pASy68w/view).
+
+All 17 scheduled encoder/setup/smoke stages executed; native Qwen, cache and history experiments were disabled. The run is exploratory, with no model/service promotion. Old `u4_*` and regression panels are exposed; `r41_*` panels are newly authored, not independently human-confirmed. A source label is not a new whitepaper experiment ID. The downloaded summary matches the completion record's SHA-256; no raw prediction, checkpoint or archive audit is implied.
 
 ### [R] Jev, Reverse-Engineered: supplied RESEARCH(1).md
 
