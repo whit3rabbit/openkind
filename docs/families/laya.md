@@ -150,6 +150,34 @@ merged/open PRs were surveyed for portable techniques:
   rejected by unsloth itself (30/36 answers flipped) and is not reconsidered
   here; BF16 serving fails openkind's frozen parity gates.
 
+## Third-party Core ML/ANE ports (surveyed 2026-10-02)
+
+The `aac6fef` Hub account (GitHub `mizorewww`, the author of the MLX
+conversions above) also publishes Core ML conversions of all three
+checkpoints (`aac6fef/laya-coreml`, `laya-multilingual-coreml`,
+`laya-typed-decisions-coreml`, plus ANE variants
+`laya-multilingual-coreml-ane` and `-ane-w8`) driven by the open
+[mizorewww/laya-coreml](https://github.com/mizorewww/laya-coreml) project.
+As with MLX, openkind does not depend on these repos — the full assessment
+is recorded in [`../RESEARCH.md`](../RESEARCH.md). The load-bearing
+findings: genuine ANE residency required a bespoke graph rewrite (BC1L
+activations, 1×1 projections, per-head attention); ANE bundles are fixed
+batch-1/L96 (96 total tokens — below every `max_len` budget in the table
+above) plus a slow ~91.7 ms serial ANE L1024 export, so ANE cannot carry the
+openkind request shape as published; W8's 8-bit grouped-K-means palette
+drifts 0.0144 against their fixture, which would fail openkind's 0.005
+gate, while their ANE FP16 drift (≤0.0029) sits inside it; and the project
+independently reproduces the `[0.5, 5.0]` temperature clamp documented under
+Calibration. Their general-purpose configuration is CPU+GPU FP16 at
+enumerated lengths, and the differentiated result is energy (2.78–3.19×
+better than compiled MLX FP16 on M3 Max), not throughput — ANE as measured
+is a short-input, energy-first target, not an upgrade over the in-tree MLX
+backend. If ANE support is ever pursued, the first experiment is ONNX
+Runtime's CoreML execution provider (already available in the pinned ort
+2.0.0-rc.13) through the existing ONNX seam; a native Core ML loader over
+self-exported, digest-pinned bundles would follow the ONNX operator-export
+precedent.
+
 ## Benchmark record
 
 `openkind-bench score` over the standard shape777 workload (777 rows):

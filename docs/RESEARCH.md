@@ -2347,6 +2347,72 @@ The Mac implementation uses PyTorch MPS with a custom DeltaNet path; it does
 not qualify an MLX or Rust loader. Follow the
 [new-family gates](families/NEW_FAMILY.md) before registry or runtime adoption.
 
+### Third-party laya Core ML/ANE ports: ANE parity clears the drift budget, but only at L96 (reviewed 2026-10-02)
+
+The Hub account `aac6fef` (GitHub `mizorewww`) — the same author whose laya
+MLX conversions proved byte-identical weight transport during the
+[MLX backend campaign](benchmarks/2026-09-28-laya-mlx-campaign/README.md) —
+publishes five Core ML conversions of the three convaiinnovations laya
+checkpoints ([laya-coreml](https://huggingface.co/aac6fef/laya-coreml),
+[laya-multilingual-coreml](https://huggingface.co/aac6fef/laya-multilingual-coreml),
+[laya-multilingual-coreml-ane](https://huggingface.co/aac6fef/laya-multilingual-coreml-ane),
+[laya-multilingual-coreml-ane-w8](https://huggingface.co/aac6fef/laya-multilingual-coreml-ane-w8),
+and
+[laya-typed-decisions-coreml](https://huggingface.co/aac6fef/laya-typed-decisions-coreml)),
+driven by an open conversion project
+([mizorewww/laya-coreml](https://github.com/mizorewww/laya-coreml)) that also
+ships a PyPI runtime (macOS 15+, Python 3.11–3.13). All are Apache-2.0
+independent conversions, "not an official Convai Innovations or Apple
+release." The general-purpose configuration is an enumerated-length FP16
+export targeting CPU+GPU; the ANE variants target CPU+Neural Engine.
+
+The measured evidence. ANE residency required a bespoke graph rewrite —
+"BC1L activations, 1×1 projections and per-head attention" — because the
+author's plain SDPA export "defaults to CPU+GPU" after dynamic-shape variants
+failed local fidelity checks; compute-plan and Instruments traces, not
+successful loads, are the stated residency evidence. ANE bundles are fixed
+batch-1/L96 (96 total tokens across state, questions, and options;
+over-capacity inputs raise an error), plus a separately exported ANE L1024
+graph that passes fixtures but measures about 91.7 ms serial per decision; no
+ANE L512 is published. The W8 variant is an 8-bit grouped K-means weight
+palette over FP16 activations with the action head in FP32 on the host; the
+project's 6-bit and 4-bit attempts failed its fidelity gate and are
+unpublished. On an M3 Max the ANE FP16 bundle measures 4.98/5.31 ms P50/P95
+per short question (W8 4.88/5.23 ms) against 6.94 ms for compiled MLX FP16 —
+1.39–1.42× latency and 2.78×/3.19× whole-system energy per decision from SMC
+PSTR sensor readings — and the README states the "requested 10× improvement
+was not achieved." Fidelity: FP16 checkpoints agree with upstream on 189/189
+validation questions (100 repeated calls each), ANE L96 passes 59/59 fixtures
+with calibrated-probability drift ≤0.002925, W8 drift is 0.014393 under the
+project's own 0.02 gate, and a 600-step paired Snake run matched 600/600
+actions. The conversion independently reproduces OpenKind's pinned
+temperature handling: the shipped 0.1006 value over-sharpens and the runtime
+clamps to [0.5, 5.0], the same rule [`families/laya.md`](families/laya.md)
+documents.
+
+Consequences for OpenKind. Against the in-tree laya gates
+([`docs/MLX.md`](MLX.md)), ANE FP16's drift ≤0.0029 would pass the 0.005
+probability budget with unchanged argmax, while the W8 palette's 0.0144 would
+fail it — W8-grade compression is disqualified for decision serving as-is.
+The L96 capacity cannot carry OpenKind's 512-token laya contract, and at
+L1024 the ANE path measures ~91.7 ms serial, far beyond the in-tree MLX FP32
+backend's 18–42 ms full-request figures on M4 Max, so ANE as measured is a
+short-input, energy-first target rather than a throughput or long-context
+upgrade. If ANE support is ever pursued, the cheap first experiment is ONNX
+Runtime's CoreML execution provider — the pinned ort 2.0.0-rc.13 already
+exposes `CPUAndNeuralEngine` compute units and compute-plan profiling —
+through the existing `FamilyExecution::Onnx` seam, with a native
+`objc2-core-ml` loader over self-exported bundles only if that shows real
+residency; OpenKind keeps loading only the digest-pinned checkpoints, and
+third-party bundles stay corroboration. Successful loads are not parity
+evidence; the golden-fixture replay gate (zero flips, ≤0.005 drift) in
+[`tests/laya_parity.rs`](../crates/openkind-backends/tests/laya_parity.rs)
+remains the qualification bar. The scope stays bounded: one author, one
+encoder family across three checkpoints, M3 Max hardware, short-fixture
+fidelity, and energy compared against the author's own compiled MLX FP16 —
+not OpenKind's MLX FP32 backend. It is conditional support for OpenKind's
+existing gate discipline, not a general ANE verdict or an adoption case.
+
 ### Ollaya's Windows Vulkan GGUF attempt: cross-backend parity fails (reviewed 2026-10-01)
 
 Ollaya is the sibling decision-model registry and serving stack whose names
