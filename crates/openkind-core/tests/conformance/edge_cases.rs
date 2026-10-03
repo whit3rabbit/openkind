@@ -259,3 +259,154 @@ fn state_and_answers_round_trip_through_wire_bytes() {
     let parsed: SystemRequest = serde_json::from_slice(&bytes).unwrap();
     assert_eq!(req, parsed);
 }
+
+#[test]
+fn question_rejects_duplicate_fields_in_any_order() {
+    for raw in [
+        r#"{"type":"noul","type":"choice","instructions":"?","criteria":{"a":null}}"#,
+        r#"{"type":"choice","instructions":"?","criteria":{"a":null},"type":"score"}"#,
+        r#"{"instructions":"?","instructions":"?","type":"noul","criteria":null}"#,
+        r#"{"type":"choice","instructions":"?","criteria":{"a":null},"criteria":{"b":null}}"#,
+        r#"{"criteria":{"a":null},"type":"choice","instructions":"?","criteria":{"b":null}}"#,
+    ] {
+        let err = serde_json::from_str::<Question>(raw).unwrap_err();
+        assert!(err.to_string().contains("duplicate field"), "{raw}: {err}");
+    }
+}
+
+#[test]
+fn question_rejects_early_criteria_with_the_wrong_shape() {
+    // Criteria buffered before the tag converts through the selected
+    // variant's type; a shape mismatch is a parse error, not a panic.
+    for raw in [
+        r#"{"criteria": 7, "type": "choice", "instructions": "?"}"#,
+        r#"{"criteria": "text", "type": "score", "instructions": "?"}"#,
+        r#"{"criteria": {"true": "yes"}, "type": "noul", "instructions": "?"}"#,
+        r#"{"criteria": [1, 2], "type": "noul", "instructions": "?"}"#,
+    ] {
+        let err = serde_json::from_str::<Question>(raw).unwrap_err();
+        assert!(
+            !err.to_string().is_empty(),
+            "{raw} must produce a real error"
+        );
+    }
+}
+
+#[test]
+fn question_requires_tag_instructions_and_criteria() {
+    // Unknown fields are deliberately ignored (`QuestionField::Other`), so
+    // only genuinely absent required fields are rejected here.
+    for raw in [
+        r#"{"instructions":"?","criteria":{}}"#,
+        r#"{"type":"choice","criteria":{}}"#,
+    ] {
+        assert!(
+            serde_json::from_str::<Question>(raw).is_err(),
+            "{raw} must be rejected"
+        );
+    }
+    // A missing `criteria` on choice/score is a missing field error even
+    // when the tag and instructions are present.
+    for raw in [
+        r#"{"type":"choice","instructions":"?"}"#,
+        r#"{"type":"score","instructions":"?"}"#,
+    ] {
+        let err = serde_json::from_str::<Question>(raw).unwrap_err();
+        assert!(err.to_string().contains("missing field"), "{raw}: {err}");
+    }
+}
+
+#[test]
+fn answer_rejects_missing_required_variant_fields() {
+    for raw in [
+        // Missing `noul`.
+        r#"{"type":"noul"}"#,
+        // Missing `choice`.
+        r#"{"type":"choice","probabilities":{"a":1.0},"confidence":0.5}"#,
+        // Missing `probabilities`.
+        r#"{"type":"choice","choice":"a","confidence":0.5}"#,
+        // Missing `confidence`.
+        r#"{"type":"choice","choice":"a","probabilities":{"a":1.0}}"#,
+        // Missing `score`.
+        r#"{"type":"score","probabilities":{"0":1.0},"legend":{"0":"low"},"confidence":0.5}"#,
+        // Missing `legend`.
+        r#"{"type":"score","score":0.0,"probabilities":{"0":1.0},"confidence":0.5}"#,
+        // Missing the tag entirely.
+        r#"{"noul":0.5}"#,
+    ] {
+        let err = serde_json::from_str::<Answer>(raw).unwrap_err();
+        assert!(err.to_string().contains("missing field"), "{raw}: {err}");
+    }
+}
+
+#[test]
+fn answer_rejects_duplicate_type_tags_and_bad_early_fields() {
+    // A duplicated `type` tag fails closed whichever order it arrives in.
+    for raw in [
+        r#"{"type":"noul","type":"choice","noul":0.5}"#,
+        r#"{"type":"noul","noul":0.5,"type":"noul"}"#,
+    ] {
+        let err = serde_json::from_str::<Answer>(raw).unwrap_err();
+        assert!(err.to_string().contains("duplicate field"), "{raw}: {err}");
+    }
+    // A variant field arriving before the tag is replayed through the
+    // selected variant; a type mismatch is a parse error.
+    for raw in [
+        r#"{"noul":"not-a-number","type":"noul"}"#,
+        r#"{"choice":7,"type":"choice","probabilities":{"a":1.0},"confidence":0.5}"#,
+    ] {
+        assert!(
+            serde_json::from_str::<Answer>(raw).is_err(),
+            "{raw} must be rejected"
+        );
+    }
+}
+
+#[test]
+fn system_response_rejects_missing_sections_and_overflowing_counters() {
+    for raw in [
+        // Missing `answers`.
+        r#"{"model":"m","usage":{"input_tokens":1,"output_tokens":1}}"#,
+        // Missing `usage`.
+        r#"{"model":"m","answers":{}}"#,
+        // `input_tokens` beyond u32 cannot round-trip the wire contract.
+        r#"{"model":"m","answers":{},"usage":{"input_tokens":4294967296,"output_tokens":1}}"#,
+    ] {
+        assert!(
+            serde_json::from_value::<SystemResponse>(json!(serde_json::from_str::<
+                serde_json::Value,
+            >(raw)
+            .unwrap()))
+            .is_err(),
+            "{raw} must be rejected"
+        );
+    }
+}
+
+#[test]
+fn models_response_deserializes_and_requires_its_fields() {
+    let wire = json!({
+        "models": [
+            {
+                "name": "mock",
+                "description": "Mock engine",
+                "release_date": "1970-01-01"
+            }
+        ]
+    });
+    let parsed: ModelsResponse = serde_json::from_value(wire).expect("wire shape parses");
+    assert_eq!(parsed.models.len(), 1);
+    assert_eq!(parsed.models[0].name, "mock");
+
+    for raw in [
+        json!({}),
+        json!({"models": [{"description": "d", "release_date": "1970-01-01"}]}),
+        json!({"models": [{"name": "n", "release_date": "1970-01-01"}]}),
+        json!({"models": [{"name": "n", "description": "d"}]}),
+    ] {
+        assert!(
+            serde_json::from_value::<ModelsResponse>(raw.clone()).is_err(),
+            "{raw} must be rejected"
+        );
+    }
+}

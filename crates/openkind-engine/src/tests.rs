@@ -491,3 +491,303 @@ async fn registry_unload_preserves_accepted_handles_and_updates_clones() {
     assert!(registry.register_if_absent("model".into(), Arc::new(MockEngine::new())));
     assert!(grpc_registry.get("model").is_some());
 }
+
+// ------------------------------------------------------------------
+// Backend-fault matrix: every contract violation a backend can commit
+// maps to EngineError::Backend (HTTP 500), never to a client 422.
+// ------------------------------------------------------------------
+
+struct FaultBackend {
+    backend_id: &'static str,
+    answer: Answer,
+    extra_id: Option<&'static str>,
+    error: Option<EngineError>,
+}
+
+impl FaultBackend {
+    fn answer(backend_id: &'static str, answer: Answer) -> Self {
+        Self {
+            backend_id,
+            answer,
+            extra_id: None,
+            error: None,
+        }
+    }
+}
+
+#[async_trait]
+impl DecisionEngine for FaultBackend {
+    fn backend_id(&self) -> &str {
+        self.backend_id
+    }
+
+    async fn evaluate(&self, req: SystemRequest) -> EngineResult<SystemResponse> {
+        if let Some(error) = &self.error {
+            return Err(match error {
+                EngineError::Overloaded {
+                    backend,
+                    retry_after_ms,
+                } => EngineError::Overloaded {
+                    backend: backend.clone(),
+                    retry_after_ms: *retry_after_ms,
+                },
+                _ => unreachable!("the fault test only synthesizes Overloaded"),
+            });
+        }
+        let mut answers = HashMap::default();
+        for id in req.questions.keys() {
+            answers.insert(id.clone(), self.answer.clone());
+        }
+        if let Some(extra) = self.extra_id {
+            answers.insert(extra.to_string(), self.answer.clone());
+        }
+        Ok(SystemResponse {
+            model: req.model,
+            answers,
+            usage: Usage {
+                input_tokens: 1,
+                output_tokens: 1,
+            },
+        })
+    }
+}
+
+fn choice_question(keys: &[&str]) -> Question {
+    Question::Choice(ChoiceQuestion {
+        instructions: serde_json::json!("Pick"),
+        criteria: keys.iter().map(|key| ((*key).to_string(), None)).collect(),
+    })
+}
+
+fn score_question() -> Question {
+    Question::Score(ScoreQuestion {
+        instructions: serde_json::json!("Rate"),
+        criteria: vec!["low".into(), "high".into()],
+    })
+}
+
+fn fault_request(question: Question) -> SystemRequest {
+    SystemRequest {
+        state: State::Text("state".into()),
+        model: "faulty".into(),
+        questions: HashMap::from_iter([("q".into(), question)]),
+    }
+}
+
+fn fault_registry(answer: Answer) -> EngineRegistry {
+    let mut registry = EngineRegistry::new();
+    registry.register(
+        "faulty",
+        Arc::new(FaultBackend::answer("faulty-backend", answer)),
+    );
+    registry
+}
+
+fn assert_backend_fault(error: EngineError, needle: &str) {
+    assert!(
+        matches!(error, EngineError::Backend { .. }),
+        "expected a backend fault, got: {error:?}"
+    );
+    assert!(error.to_string().contains(needle), "unexpected: {error}");
+}
+
+#[tokio::test]
+async fn extra_answers_are_a_backend_fault() {
+    let mut registry = EngineRegistry::new();
+    let mut backend = FaultBackend::answer(
+        "faulty-backend",
+        Answer::Choice(ChoiceAnswer {
+            choice: "a".into(),
+            probabilities: HashMap::from_iter([("a".to_string(), 1.0)]),
+            confidence: 0.5,
+        }),
+    );
+    backend.extra_id = Some("ghost");
+    registry.register("faulty", Arc::new(backend));
+
+    let error = dispatch(fault_request(choice_question(&["a"])), &registry)
+        .await
+        .unwrap_err();
+    assert_backend_fault(error, "unknown question `ghost`");
+}
+
+#[tokio::test]
+async fn out_of_list_choices_are_a_backend_fault() {
+    let registry = fault_registry(Answer::Choice(ChoiceAnswer {
+        choice: "z".into(),
+        probabilities: HashMap::from_iter([("a".to_string(), 1.0)]),
+        confidence: 0.5,
+    }));
+    let error = dispatch(fault_request(choice_question(&["a", "b"])), &registry)
+        .await
+        .unwrap_err();
+    assert_backend_fault(error, "not in criteria keys");
+}
+
+#[tokio::test]
+async fn probability_key_mismatches_are_a_backend_fault() {
+    let registry = fault_registry(Answer::Choice(ChoiceAnswer {
+        choice: "a".into(),
+        probabilities: HashMap::from_iter([("ghost".to_string(), 1.0)]),
+        confidence: 0.5,
+    }));
+    let error = dispatch(fault_request(choice_question(&["a", "b"])), &registry)
+        .await
+        .unwrap_err();
+    assert_backend_fault(error, "keys must match criteria");
+}
+
+#[tokio::test]
+async fn out_of_range_probabilities_are_a_backend_fault() {
+    let registry = fault_registry(Answer::Choice(ChoiceAnswer {
+        choice: "a".into(),
+        probabilities: HashMap::from_iter([("a".to_string(), 1.5), ("b".to_string(), -0.5)]),
+        confidence: 0.5,
+    }));
+    let error = dispatch(fault_request(choice_question(&["a", "b"])), &registry)
+        .await
+        .unwrap_err();
+    assert_backend_fault(error, "probability must be in 0..=1");
+}
+
+#[tokio::test]
+async fn non_summing_probabilities_are_a_backend_fault() {
+    let registry = fault_registry(Answer::Choice(ChoiceAnswer {
+        choice: "a".into(),
+        probabilities: HashMap::from_iter([("a".to_string(), 0.5), ("b".to_string(), 0.4)]),
+        confidence: 0.5,
+    }));
+    let error = dispatch(fault_request(choice_question(&["a", "b"])), &registry)
+        .await
+        .unwrap_err();
+    assert_backend_fault(error, "do not sum to 1");
+}
+
+#[tokio::test]
+async fn out_of_range_confidence_is_a_backend_fault() {
+    let registry = fault_registry(Answer::Choice(ChoiceAnswer {
+        choice: "a".into(),
+        probabilities: HashMap::from_iter([("a".to_string(), 1.0)]),
+        confidence: 1.5,
+    }));
+    let error = dispatch(fault_request(choice_question(&["a"])), &registry)
+        .await
+        .unwrap_err();
+    assert_backend_fault(error, "confidence");
+}
+
+#[tokio::test]
+async fn score_legend_mismatch_is_a_backend_fault() {
+    let registry = fault_registry(Answer::Score(ScoreAnswer {
+        score: 0.0,
+        probabilities: HashMap::from_iter([("0".to_string(), 1.0)]),
+        legend: HashMap::from_iter([("1".to_string(), "high".to_string())]),
+        confidence: 0.5,
+    }));
+    let error = dispatch(fault_request(score_question()), &registry)
+        .await
+        .unwrap_err();
+    assert_backend_fault(error, "legend");
+}
+
+#[tokio::test]
+async fn word_keyed_score_legends_violate_the_requested_rubric() {
+    // Through dispatch the rubric always binds first: a self-consistent
+    // word-keyed legend (`low`/`high`) still fails because the requested
+    // two-level rubric pins legend slots `0` and `1`. The non-numeric-index
+    // branch itself is only reachable for rubric-less responses (covered at
+    // the core validator level).
+    let registry = fault_registry(Answer::Score(ScoreAnswer {
+        score: 0.0,
+        probabilities: HashMap::from_iter([("low".to_string(), 1.0), ("high".to_string(), 0.0)]),
+        legend: HashMap::from_iter([
+            ("low".to_string(), "low".to_string()),
+            ("high".to_string(), "high".to_string()),
+        ]),
+        confidence: 0.5,
+    }));
+    let error = dispatch(fault_request(score_question()), &registry)
+        .await
+        .unwrap_err();
+    assert_backend_fault(error, "legend must match");
+}
+
+#[tokio::test]
+async fn out_of_range_scores_are_a_backend_fault() {
+    let registry = fault_registry(Answer::Score(ScoreAnswer {
+        score: 5.0,
+        probabilities: HashMap::from_iter([("0".to_string(), 1.0)]),
+        legend: HashMap::from_iter([("0".to_string(), "low".to_string())]),
+        confidence: 0.5,
+    }));
+    let error = dispatch(fault_request(score_question()), &registry)
+        .await
+        .unwrap_err();
+    assert_backend_fault(error, "score");
+}
+
+#[tokio::test]
+async fn score_expectation_mismatch_is_a_backend_fault() {
+    // A full legend whose mass sits entirely at level 0 cannot produce the
+    // reported score of 1.0.
+    let registry = fault_registry(Answer::Score(ScoreAnswer {
+        score: 1.0,
+        probabilities: HashMap::from_iter([("0".to_string(), 1.0), ("1".to_string(), 0.0)]),
+        legend: HashMap::from_iter([
+            ("0".to_string(), "low".to_string()),
+            ("1".to_string(), "high".to_string()),
+        ]),
+        confidence: 0.5,
+    }));
+    let error = dispatch(fault_request(score_question()), &registry)
+        .await
+        .unwrap_err();
+    assert_backend_fault(error, "expected probability-weighted score 0");
+}
+
+#[tokio::test]
+async fn backend_errors_propagate_unchanged_through_dispatch() {
+    let mut registry = EngineRegistry::new();
+    registry.register(
+        "faulty",
+        Arc::new(FaultBackend {
+            backend_id: "faulty-backend",
+            answer: Answer::Noul(NoulAnswer { noul: 0.5 }),
+            extra_id: None,
+            error: Some(EngineError::Overloaded {
+                backend: "faulty-backend".into(),
+                retry_after_ms: 25,
+            }),
+        }),
+    );
+    let error = dispatch(fault_request(choice_question(&["a"])), &registry)
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(
+            error,
+            EngineError::Overloaded {
+                retry_after_ms: 25,
+                ..
+            }
+        ),
+        "backend errors must not be rewrapped: {error:?}"
+    );
+}
+
+#[tokio::test]
+async fn unknown_model_wins_over_request_validation() {
+    // An invalid request (no questions) naming an unregistered model fails
+    // at the registry lookup, matching the documented precedence.
+    let registry = EngineRegistry::new();
+    let request = SystemRequest {
+        state: State::Text("state".into()),
+        model: "ghost".into(),
+        questions: HashMap::default(),
+    };
+    let error = dispatch(request, &registry).await.unwrap_err();
+    assert!(
+        matches!(error, EngineError::UnknownModel(ref model) if model == "ghost"),
+        "unexpected error: {error:?}"
+    );
+}

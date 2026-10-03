@@ -16,6 +16,7 @@ pub async fn dispatch(
     metrics::counter!("openkind_requests_total").increment(1);
 
     let start = std::time::Instant::now();
+    let requested_model = req.model.clone();
     let engine = registry
         .get(&req.model)
         .ok_or_else(|| EngineError::UnknownModel(req.model.clone()))?;
@@ -24,6 +25,16 @@ pub async fn dispatch(
     let input_tokens = engine.estimate_input_tokens(&req);
 
     let mut resp = engine.evaluate(req).await?;
+
+    if resp.model != requested_model {
+        return Err(EngineError::Backend {
+            backend: engine.backend_id().to_string(),
+            message: format!(
+                "backend returned model `{}`, expected registered alias `{requested_model}`",
+                resp.model
+            ),
+        });
+    }
 
     // Never forward a contract-violating engine response to the client:
     // a bad answer shape is a backend fault, so it maps to Backend (500),

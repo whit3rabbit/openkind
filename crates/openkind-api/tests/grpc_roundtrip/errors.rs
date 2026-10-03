@@ -233,3 +233,104 @@ async fn grpc_conversion_errors_preserve_or_generate_request_ids() {
     let _ = shutdown.send(());
     let _ = server.await;
 }
+
+// ------------------------------------------------------------------
+// gRPC error parity: every EngineError variant maps to its documented
+// tonic status code, matching the HTTP layer's mapping.
+// ------------------------------------------------------------------
+
+struct FaultEngine(openkind_engine::EngineError);
+
+#[async_trait::async_trait]
+impl openkind_engine::DecisionEngine for FaultEngine {
+    fn backend_id(&self) -> &str {
+        "fault-engine"
+    }
+
+    fn model_metadata(&self) -> openkind_core::ModelInfo {
+        openkind_core::ModelInfo {
+            name: "fault".into(),
+            description: "fault injector".into(),
+            release_date: "1970-01-01".into(),
+        }
+    }
+
+    async fn evaluate(
+        &self,
+        _request: openkind_core::SystemRequest,
+    ) -> Result<openkind_core::SystemResponse, openkind_engine::EngineError> {
+        Err(match &self.0 {
+            openkind_engine::EngineError::Overloaded {
+                backend,
+                retry_after_ms,
+            } => openkind_engine::EngineError::Overloaded {
+                backend: backend.clone(),
+                retry_after_ms: *retry_after_ms,
+            },
+            openkind_engine::EngineError::Backend { backend, message } => {
+                openkind_engine::EngineError::Backend {
+                    backend: backend.clone(),
+                    message: message.clone(),
+                }
+            }
+            openkind_engine::EngineError::DeadlineExceeded {
+                backend,
+                timeout_ms,
+            } => openkind_engine::EngineError::DeadlineExceeded {
+                backend: backend.clone(),
+                timeout_ms: *timeout_ms,
+            },
+            other => unreachable!("unexpected injected error {other:?}"),
+        })
+    }
+}
+
+async fn fault_status(error: openkind_engine::EngineError) -> tonic::Status {
+    let mut registry = openkind_engine::EngineRegistry::new();
+    registry.register("fault", std::sync::Arc::new(FaultEngine(error)));
+    let state = AppState::new(registry);
+
+    let (addr, shutdown, server) = run_server(state).await;
+    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+
+    let mut client = SystemOneClient::connect(format!("http://{addr}"))
+        .await
+        .unwrap();
+    let mut questions = HashMap::default();
+    questions.insert("q".to_string(), noul_q());
+    let result = client.evaluate(req("fault", questions)).await;
+    let _ = shutdown.send(());
+    let _ = server.await;
+    result.expect_err("a fault engine always fails")
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn grpc_overloaded_maps_to_unavailable() {
+    let status = fault_status(openkind_engine::EngineError::Overloaded {
+        backend: "fault-engine".into(),
+        retry_after_ms: 25,
+    })
+    .await;
+    assert_eq!(status.code(), tonic::Code::Unavailable, "{status:?}");
+    assert!(status.message().contains("overloaded"), "{status:?}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn grpc_backend_fault_maps_to_internal() {
+    let status = fault_status(openkind_engine::EngineError::Backend {
+        backend: "fault-engine".into(),
+        message: "exploded".into(),
+    })
+    .await;
+    assert_eq!(status.code(), tonic::Code::Internal, "{status:?}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn grpc_deadline_maps_to_deadline_exceeded() {
+    let status = fault_status(openkind_engine::EngineError::DeadlineExceeded {
+        backend: "fault-engine".into(),
+        timeout_ms: 1_500,
+    })
+    .await;
+    assert_eq!(status.code(), tonic::Code::DeadlineExceeded, "{status:?}");
+}

@@ -417,3 +417,88 @@ async fn per_call_options_override_client_policy() {
     assert_eq!(err.status(), Some(500));
     assert_eq!(state.attempts.load(Ordering::SeqCst), 1);
 }
+
+// ------------------------------------------------------------------
+// reqwest-path transport: the production `https://` path. These tests
+// force the reqwest transport so its classification and body limits are
+// exercised, not the fast HTTP/1.1 pool that plain-http test URLs take.
+// ------------------------------------------------------------------
+
+fn reqwest_client(base_url: &str, policy: RetryPolicy) -> Client {
+    Client::builder()
+        .api_key("test-key")
+        .base_url(base_url)
+        .default_model("mock")
+        .timeout(Duration::from_secs(5))
+        .retry(policy)
+        .http_client(reqwest::Client::new())
+        .build()
+        .unwrap()
+}
+
+#[tokio::test]
+async fn reqwest_transport_classifies_timeouts_and_connection_failures() {
+    // A stalled server that accepts the connection but never responds
+    // drives the timeout classification.
+    let stalled = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let stalled_addr = stalled.local_addr().unwrap();
+    tokio::spawn(async move {
+        // Accept and hold the socket open without ever replying.
+        let (_stream, _) = stalled.accept().await.unwrap();
+        tokio::time::sleep(Duration::from_secs(30)).await;
+    });
+
+    let client = Client::builder()
+        .api_key("test-key")
+        .base_url(format!("http://{stalled_addr}"))
+        .default_model("mock")
+        .timeout(Duration::from_millis(200))
+        .retry(RetryPolicy::new().max_retries(0))
+        .http_client(reqwest::Client::new())
+        .build()
+        .unwrap();
+    let err = client.evaluate(evaluate_request()).await.unwrap_err();
+    assert!(
+        matches!(err, Error::Timeout { .. }),
+        "expected Timeout from the reqwest path, got {err:?}"
+    );
+
+    // A refused connection classifies as Connection.
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let refused_addr = listener.local_addr().unwrap();
+    drop(listener);
+    let client = reqwest_client(
+        &format!("http://{refused_addr}"),
+        RetryPolicy::new().max_retries(0),
+    );
+    let err = client.evaluate(evaluate_request()).await.unwrap_err();
+    assert!(
+        matches!(err, Error::Connection(_)),
+        "expected Connection from the reqwest path, got {err:?}"
+    );
+}
+
+#[tokio::test]
+async fn reqwest_transport_enforces_the_response_body_limit() {
+    // Raw server: a declared content-length beyond the 8 MiB cap with no
+    // body needed — the pre-check rejects before reading.
+    let oversized = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = oversized.local_addr().unwrap();
+    tokio::spawn(async move {
+        let (mut stream, _) = oversized.accept().await.unwrap();
+        let mut request = [0_u8; 4096];
+        let _ = tokio::io::AsyncReadExt::read(&mut stream, &mut request).await;
+        let head =
+            "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: 9000000\r\n\r\n";
+        use tokio::io::AsyncWriteExt;
+        let _ = stream.write_all(head.as_bytes()).await;
+        tokio::time::sleep(Duration::from_secs(30)).await;
+    });
+
+    let client = reqwest_client(&format!("http://{addr}"), RetryPolicy::new().max_retries(0));
+    let err = client.evaluate(evaluate_request()).await.unwrap_err();
+    assert!(
+        matches!(err, Error::ResponseTooLarge { .. }),
+        "expected ResponseTooLarge from the reqwest path, got {err:?}"
+    );
+}

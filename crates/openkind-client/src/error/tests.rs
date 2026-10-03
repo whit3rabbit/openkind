@@ -226,3 +226,45 @@ fn kind_maps_permission_denied() {
     let err = ApiError::from_response(403, None, None, b"{}", "GET /v1/models".into());
     assert_eq!(err.kind(), ApiErrorKind::PermissionDenied);
 }
+
+#[test]
+fn api_error_predicates_classify_retryable_later_statuses() {
+    let error = |status| ApiError::from_response(status, None, None, b"{}", "e".into());
+    assert!(error(429).is_rate_limit());
+    assert!(!error(429).is_overloaded());
+    assert!(error(529).is_overloaded());
+    assert!(!error(529).is_rate_limit());
+    assert!(error(429).is_retryable_later());
+    assert!(error(529).is_retryable_later());
+    for status in [400, 401, 404, 500, 502, 503] {
+        assert!(
+            !error(status).is_retryable_later(),
+            "{status} is not a retry-later status"
+        );
+    }
+}
+
+#[test]
+fn non_json_bodies_truncate_at_two_hundred_chars_with_an_ellipsis() {
+    let body = "x".repeat(300).into_bytes();
+    let error = ApiError::from_response(500, None, None, &body, "e".into());
+    let message = error.message.expect("plain body becomes the message");
+    assert_eq!(message.chars().count(), 201, "200 chars plus the ellipsis");
+    assert!(message.ends_with('…'));
+
+    let short = ApiError::from_response(500, None, None, b"boom", "e".into());
+    assert_eq!(short.message.as_deref(), Some("boom"));
+}
+
+#[test]
+fn retry_after_ms_falls_through_to_retry_after_when_unparseable() {
+    let lookup = |name: &str| match name {
+        "retry-after-ms" => Some("garbage"),
+        "retry-after" => Some("3"),
+        _ => None,
+    };
+    assert_eq!(
+        super::parse_retry_after_with(lookup),
+        Some(Duration::from_secs(3))
+    );
+}

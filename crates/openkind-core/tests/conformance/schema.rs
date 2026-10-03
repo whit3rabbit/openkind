@@ -41,3 +41,34 @@ fn model_string_is_preserved_exactly() {
     assert_eq!(req.model, "custom-alias/with-slashes");
     assert_eq!(serde_json::to_value(&req).unwrap(), raw);
 }
+
+// ------------------------------------------------------------------
+// Generated-vs-committed schema drift
+// ------------------------------------------------------------------
+
+/// The committed `schemas/jev-v1-*.json` files must be byte-identical to
+/// what `openkind-gen-schemas` generates from the current wire types. A
+/// wire-type change that skips the regeneration step fails here instead of
+/// silently drifting from the published schema files.
+#[test]
+fn committed_schema_files_match_the_generated_wire_types() {
+    for (file, generated) in [
+        (
+            "schemas/jev-v1-request.json",
+            serde_json::to_string_pretty(&schemars::schema_for!(SystemRequest)).unwrap(),
+        ),
+        (
+            "schemas/jev-v1-response.json",
+            serde_json::to_string_pretty(&schemars::schema_for!(SystemResponse)).unwrap(),
+        ),
+    ] {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(file);
+        let committed = std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("read {}: {error}", path.display()));
+        assert_eq!(
+            committed.trim_end(),
+            generated,
+            "{file} drifted from the generated schema; run `cargo run -p openkind-gen-schemas -- --write`"
+        );
+    }
+}

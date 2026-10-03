@@ -823,3 +823,39 @@ async fn arrow_empty_states_yield_zero_row_stream() {
         "0"
     );
 }
+
+#[test]
+fn bearer_extraction_handles_prefixes_whitespace_and_garbage() {
+    let header = |value: &str| {
+        let mut headers = axum::http::HeaderMap::new();
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            axum::http::HeaderValue::from_str(value).expect("header value"),
+        );
+        headers
+    };
+    let no_header = axum::http::HeaderMap::new();
+    assert_eq!(bearer_of(&no_header), None);
+
+    assert_eq!(bearer_of(&header("Bearer tok")), Some("tok".to_owned()));
+    assert_eq!(bearer_of(&header("bearer tok")), Some("tok".to_owned()));
+    assert_eq!(
+        bearer_of(&header("Bearer   spaced  ")),
+        Some("spaced".to_owned()),
+        "the token is trimmed"
+    );
+    assert_eq!(
+        bearer_of(&header("Bearer ")),
+        None,
+        "an empty token is None"
+    );
+    assert_eq!(bearer_of(&header("Basic dXNlcjpwYXNz")), None);
+    assert_eq!(bearer_of(&header("Bearer")), None);
+    // A raw (non-UTF8) header value cannot carry a bearer token.
+    let mut headers = axum::http::HeaderMap::new();
+    headers.insert(
+        axum::http::header::AUTHORIZATION,
+        axum::http::HeaderValue::from_bytes(&[0xFF, 0xFE]).expect("opaque bytes"),
+    );
+    assert_eq!(bearer_of(&headers), None);
+}

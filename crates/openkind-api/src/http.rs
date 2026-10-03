@@ -21,7 +21,7 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use openkind_core::SystemRequest;
+use openkind_core::{ResponseContract, SystemRequest};
 use openkind_engine::{dispatch, EngineRegistry};
 use tower_http::trace::{DefaultMakeSpan, TraceLayer};
 use tracing::Level;
@@ -226,8 +226,13 @@ async fn systemone(
     // caller's own credentials. Everything else dispatches locally.
     if let Some(proxy) = &state.proxy {
         if proxy.wants(&req) {
+            let contract = ResponseContract::from_request(&req)
+                .map_err(|error| ApiError::InvalidBody(error.to_string()))?;
             let caller_key = bearer_of(&headers);
             let outcome = proxy.evaluate(req, caller_key).await?;
+            contract.validate(&outcome.response).map_err(|error| {
+                ApiError::BadGateway(format!("upstream returned an invalid response: {error}"))
+            })?;
             let mut response = (axum::http::StatusCode::OK, Json(outcome.response)).into_response();
             let headers = response.headers_mut();
             if let Ok(value) = axum::http::HeaderValue::from_str(outcome.source.as_str()) {

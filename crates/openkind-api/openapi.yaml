@@ -553,10 +553,8 @@ components:
     Instructions:
       description: |
         Instructions specifying what judgment or rating is requested (`JSONContent` in Python SDK).
-        Portable values are a non-empty string, object, or array. The current OpenKind
-        parser also accepts JSON numbers and booleans; TypeSafe and Cloudflare schemas
-        exclude those primitives. Null and empty strings, objects, and arrays fail
-        OpenKind request validation.
+        Portable values are a non-empty string, object, or array. Null and empty
+        strings, objects, and arrays fail OpenKind request validation.
       oneOf:
         - type: string
           minLength: 1
@@ -577,8 +575,6 @@ components:
           example:
             - "Check SLA deadline"
             - "Verify customer account standing"
-        - type: number
-        - type: boolean
 
     Question:
       description: |
@@ -965,6 +961,10 @@ components:
             - `rate_limited`: Rate limit budget exceeded (429)
             - `overloaded`: System overloaded (529)
             - `internal_error`: Unexpected runtime or engine failure (500)
+            - `payload_too_large`: Request body exceeds the configured limit (413)
+            - `bad_gateway`: Upstream forwarding failed (502)
+            - `deadline_exceeded`: Backend evaluation deadline elapsed (504)
+            - `backend_error`: Backend execution or response validation failed (500)
           example: "invalid_body"
         message:
           type: string

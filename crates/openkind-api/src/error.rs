@@ -192,6 +192,21 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn bad_gateway_error_into_response() {
+        let err = ApiError::BadGateway("upstream unreachable".into());
+        let (status, _headers, body) = extract_body_json(err.into_response()).await;
+        assert_eq!(status, StatusCode::BAD_GATEWAY);
+        assert_eq!(body["error"]["code"], "bad_gateway");
+        assert!(
+            body["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("upstream unreachable"),
+            "{body}"
+        );
+    }
+
+    #[tokio::test]
     async fn overloaded_error_into_response() {
         let err = ApiError::Overloaded {
             retry_after_ms: 500,

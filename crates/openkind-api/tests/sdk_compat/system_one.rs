@@ -253,3 +253,47 @@ async fn system_one_alias_route_works() {
     assert_eq!(v["model"], "mock");
     assert!(v["answers"]["q"]["noul"].is_number());
 }
+
+#[tokio::test]
+async fn choice_with_none_option_reports_its_semantic_none_mass() {
+    // AGENTS.md invariant 7: native Choice questions must include a
+    // non-empty `__none__` option and report its semantic-none probability
+    // mass on the wire — exercised here through the HTTP contract.
+    let body = json!({
+        "state": "x", "model": "mock",
+        "questions": {
+            "dept": {
+                "type": "choice",
+                "instructions": "?",
+                "criteria": {
+                    "billing": "pay",
+                    "tech": "bugs",
+                    "__none__": "none of the offered departments apply"
+                }
+            }
+        }
+    });
+    let (status, resp) = post_systemone("/v1/systemone", body, &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    let v: Value = serde_json::from_slice(&body_bytes(resp).await).unwrap();
+    let answer = &v["answers"]["dept"];
+    assert_eq!(answer["type"], "choice");
+    let probabilities = answer["probabilities"].as_object().expect("probabilities");
+    let none = probabilities
+        .get("__none__")
+        .and_then(Value::as_f64)
+        .expect("the semantic-none key must carry a probability");
+    assert!(
+        (0.0..=1.0).contains(&none),
+        "semantic-none mass must be a probability, got {none}"
+    );
+    let sum: f64 = probabilities
+        .values()
+        .map(Value::as_f64)
+        .map(Option::unwrap_or_default)
+        .sum();
+    assert!(
+        (sum - 1.0).abs() < 1e-3,
+        "probabilities must sum to 1, got {sum}"
+    );
+}
