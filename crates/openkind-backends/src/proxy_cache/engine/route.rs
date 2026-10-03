@@ -40,6 +40,19 @@ impl TaskEngine {
 
     /// Route one item. `embedding` is the request state's embedding.
     pub fn route(&mut self, embedding: &[f32]) -> RouteDecision {
+        if let Some(production) = &self.production {
+            if embedding.len() != production.embedding_dim
+                || production.student.dim() != production.embedding_dim
+                || production.ood.dim() != production.embedding_dim
+            {
+                return RouteDecision {
+                    reason: RoutingReason::Bootstrap,
+                    channel: Channel::Bootstrap,
+                    local: None,
+                    student_version: None,
+                };
+            }
+        }
         let teacher_only = match self.mode {
             TaskMode::TeacherOnly => true,
             TaskMode::Auto => self.forced_fallback,

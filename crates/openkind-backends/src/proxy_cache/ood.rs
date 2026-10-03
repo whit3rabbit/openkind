@@ -23,6 +23,11 @@ pub struct KnnOod {
 }
 
 impl KnnOod {
+    /// Number of dimensions expected by this gate.
+    pub fn dim(&self) -> usize {
+        self.dim
+    }
+
     /// Fit the gate on training embeddings (optionally stratified by class
     /// label), subsampled to at most `max_ref` rows.
     ///

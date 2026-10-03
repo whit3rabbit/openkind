@@ -95,6 +95,12 @@ impl TaskEngine {
         let Some(candidate) = &self.shadow else {
             return (None, None, None);
         };
+        if embedding.len() != candidate.embedding_dim
+            || candidate.student.dim() != candidate.embedding_dim
+            || candidate.ood.dim() != candidate.embedding_dim
+        {
+            return (None, None, None);
+        }
         let probs = candidate.student.predict_proba(embedding);
         let best = probs
             .iter()

@@ -37,10 +37,10 @@ pub struct ProxyCacheManagerConfig {
     pub max_loaded: usize,
     /// Total tasks on disk.
     pub max_tasks: usize,
+    /// Maximum distinct unadmitted task keys retained in the admission window.
+    pub max_admission_keys: usize,
     /// Tenant label for shared tenancy.
     pub default_tenant: String,
-    /// New tasks each key may create (abuse guard).
-    pub max_new_tasks_per_key: usize,
 }
 
 impl Default for ProxyCacheManagerConfig {
@@ -54,14 +54,15 @@ impl Default for ProxyCacheManagerConfig {
             admission_window: Duration::from_secs(86_400),
             max_loaded: 64,
             max_tasks: 10_000,
+            max_admission_keys: 10_000,
             default_tenant: "default".into(),
-            max_new_tasks_per_key: 100,
         }
     }
 }
 
 struct AdmissionCounter {
     window_start: Instant,
+    last_seen: Instant,
     count: usize,
 }
 
@@ -145,10 +146,48 @@ impl ProxyCacheManager {
         &self.salt
     }
 
+    fn admission_counter<'a>(
+        &self,
+        state: &'a mut ManagerState,
+        key: &str,
+    ) -> &'a mut AdmissionCounter {
+        let now = Instant::now();
+        let window = self.config.admission_window;
+        state
+            .admission
+            .retain(|_, counter| now.saturating_duration_since(counter.window_start) <= window);
+        if !state.admission.contains_key(key)
+            && state.admission.len() >= self.config.max_admission_keys.max(1)
+        {
+            if let Some(oldest) = state
+                .admission
+                .iter()
+                .min_by_key(|(_, counter)| counter.last_seen)
+                .map(|(key, _)| key.clone())
+            {
+                state.admission.remove(&oldest);
+            }
+        }
+        let counter = state
+            .admission
+            .entry(key.to_owned())
+            .or_insert(AdmissionCounter {
+                window_start: now,
+                last_seen: now,
+                count: 0,
+            });
+        if now.saturating_duration_since(counter.window_start) > window {
+            counter.window_start = now;
+            counter.count = 0;
+        }
+        counter.last_seen = now;
+        counter
+    }
+
     /// Resolve (or admit) the task for one request item and return its engine.
     ///
-    /// `admit` drives admission: pass `true` when the caller counted this
-    /// request toward the key already (the proxy counts once per request).
+    /// Each call counts this request once when a new task has not been
+    /// created or restored yet.
     pub fn route_context(
         &self,
         spec: &TaskSpec,
@@ -169,18 +208,8 @@ impl ProxyCacheManager {
                     false
                 } else {
                     // Admission gate.
-                    let counter = state
-                        .admission
-                        .entry(key.clone())
-                        .or_insert(AdmissionCounter {
-                            window_start: Instant::now(),
-                            count: 0,
-                        });
-                    if counter.window_start.elapsed() > self.config.admission_window {
-                        counter.window_start = Instant::now();
-                        counter.count = 0;
-                    }
-                    counter.count += 1;
+                    let counter = self.admission_counter(&mut state, &key);
+                    counter.count = counter.count.saturating_add(1);
                     counter.count < self.config.admission_min_requests.max(1)
                 }
             }
@@ -236,9 +265,16 @@ impl ProxyCacheManager {
             state.tasks_on_disk += 1;
             created
         };
+        let encoder_id = self.embedder.id();
+        if engine.set_embedder_identity(&encoder_id, self.embedder.dim()) {
+            tracing::warn!(
+                "discarded proxy-cache student state incompatible with the active encoder"
+            );
+        }
         engine.set_text_hash_salt(&self.salt);
         let engine = Arc::new(Mutex::new(engine));
         state.engines.insert(key.to_owned(), engine.clone());
+        state.admission.remove(key);
         touch_lru(&mut state.lru, key);
         // Evict beyond the LRU cap (state lives in the store; engines reload
         // on demand).
@@ -249,29 +285,6 @@ impl ProxyCacheManager {
             state.engines.remove(&evict_key);
         }
         Ok(engine)
-    }
-
-    /// Count one request toward admission for every group key it touches.
-    /// The proxy calls this when the request is forwarded (unverified key or
-    /// not-yet-created tasks).
-    pub fn count_toward_admission(&self, spec: &TaskSpec, model: &str) {
-        let key = spec.task_key(&self.config.default_tenant, model);
-        let mut state = match self.state.lock() {
-            Ok(state) => state,
-            Err(_) => return,
-        };
-        if state.engines.contains_key(&key) || self.task_dir(&key).join("task.json").exists() {
-            return;
-        }
-        let counter = state.admission.entry(key).or_insert(AdmissionCounter {
-            window_start: Instant::now(),
-            count: 0,
-        });
-        if counter.window_start.elapsed() > self.config.admission_window {
-            counter.window_start = Instant::now();
-            counter.count = 0;
-        }
-        counter.count += 1;
     }
 
     /// Queue a fit for one task key on the training worker.
@@ -440,12 +453,15 @@ mod tests {
         let built = manager(dir.path(), 3);
         let task = spec();
         assert!(built.route_context(&task, "jev-latest").unwrap().is_none());
+        let key = task.task_key("default", "jev-latest");
+        assert_eq!(built.state.lock().unwrap().admission[&key].count, 1);
         assert!(built.route_context(&task, "jev-latest").unwrap().is_none());
+        assert_eq!(built.state.lock().unwrap().admission[&key].count, 2);
         let engine = built.route_context(&task, "jev-latest").unwrap();
         assert!(engine.is_some());
+        assert!(!built.state.lock().unwrap().admission.contains_key(&key));
 
         // Restart: existing task bypasses admission.
-        let key = task.task_key("default", "jev-latest");
         assert!(dir
             .path()
             .join("tasks")
@@ -457,6 +473,27 @@ mod tests {
             .route_context(&task, "jev-latest")
             .unwrap()
             .is_some());
+    }
+
+    #[test]
+    fn admission_memory_is_bounded_by_configured_key_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut config = ProxyCacheManagerConfig {
+            data_dir: dir.path().to_path_buf(),
+            ..Default::default()
+        };
+        config.admission_min_requests = 3;
+        config.max_admission_keys = 2;
+        let built =
+            ProxyCacheManager::new(config, Arc::new(HashEmbedder::new(64, 0, true).unwrap()))
+                .unwrap();
+        for choice in ["a", "b", "c"] {
+            let mut task = spec();
+            task.instructions = json!(format!("pick {choice}"));
+            assert!(built.route_context(&task, "jev-latest").unwrap().is_none());
+        }
+        let state = built.state.lock().unwrap();
+        assert_eq!(state.admission.len(), 2);
     }
 
     #[test]

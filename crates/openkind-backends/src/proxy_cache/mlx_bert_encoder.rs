@@ -186,11 +186,12 @@ impl Shard {
             .metadata()
             .map_err(|error| MlxError::InvalidState(format!("stat safetensors shard: {error}")))?
             .len();
-        let data_base = 8_u64
-            .checked_add(u64::try_from(header_len).map_err(|_| {
-                MlxError::InvalidState("safetensors header length overflow".into())
-            })?)
-            .ok_or_else(|| MlxError::InvalidState("safetensors data offset overflow".into()))?;
+        let data_base =
+            8_u64
+                .checked_add(u64::try_from(header_len).map_err(|_| {
+                    MlxError::InvalidState("safetensors header length overflow".into())
+                })?)
+                .ok_or_else(|| MlxError::InvalidState("safetensors data offset overflow".into()))?;
         if data_base > file_len {
             return Err(MlxError::InvalidState(
                 "safetensors header extends past the shard".into(),

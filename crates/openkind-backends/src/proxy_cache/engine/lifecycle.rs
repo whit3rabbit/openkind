@@ -239,11 +239,14 @@ impl TaskEngine {
         }
         index.production = Some(version.to_owned());
         self.versions.write_index(&index)?;
+        let embedding_dim = student.dim();
         self.production = Some(Production {
             version: version.to_owned(),
             student,
             ood,
             policy,
+            encoder_id: meta.encoder_id,
+            embedding_dim,
             calib_coverage: meta.calib_coverage,
         });
         self.shadow = None;

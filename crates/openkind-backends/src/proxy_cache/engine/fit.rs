@@ -31,11 +31,19 @@ impl TaskEngine {
                 return Ok(None);
             }
         }
-        let (train_rows, calib_rows) = self.store.labelled_rows(
+        let (mut train_rows, mut calib_rows) = self.store.labelled_rows(
             &self.task_version,
             self.config.max_train_samples,
             self.config.max_calib_samples,
         )?;
+        if !self.active_encoder_id.is_empty() {
+            train_rows.retain(|row| row.encoder_id == self.active_encoder_id);
+            calib_rows.retain(|row| row.encoder_id == self.active_encoder_id);
+        }
+        if self.active_embedding_dim > 0 {
+            train_rows.retain(|row| row.embedding.len() == self.active_embedding_dim);
+            calib_rows.retain(|row| row.embedding.len() == self.active_embedding_dim);
+        }
         if train_rows.len() < self.config.min_train_samples
             || calib_rows.len() < self.config.min_calib_samples
         {
@@ -54,7 +62,13 @@ impl TaskEngine {
         if train_rows.len() < self.config.min_train_samples {
             return Ok(None);
         }
-        let label_counts = self.store.train_label_counts(&self.task_version)?;
+        let mut label_counts = std::collections::BTreeMap::<String, i64>::new();
+        for row in &train_rows {
+            if let Some(label) = &row.teacher_label {
+                *label_counts.entry(label.clone()).or_default() += 1;
+            }
+        }
+        let label_counts = label_counts.into_iter().collect();
         let since_id = if self.forced_fallback && self.last_train_id > 0 {
             self.last_train_id
         } else {
@@ -72,17 +86,29 @@ impl TaskEngine {
     /// Run the fit for a prepared job (CPU-heavy; it only reads immutable
     /// task state, so holding the engine lock is fine).
     pub fn run_fit(&self, input: &FitInput) -> Result<FitOutput, ProxyCacheError> {
-        let dim = input
-            .train_rows
-            .iter()
-            .find_map(|row| {
-                if row.embedding.is_empty() {
-                    None
-                } else {
-                    Some(row.embedding.len())
-                }
-            })
-            .unwrap_or(1);
+        let dim = if self.active_embedding_dim > 0 {
+            self.active_embedding_dim
+        } else {
+            input
+                .train_rows
+                .iter()
+                .find_map(|row| {
+                    if row.embedding.is_empty() {
+                        None
+                    } else {
+                        Some(row.embedding.len())
+                    }
+                })
+                .unwrap_or(1)
+        };
+        if input.train_rows.iter().chain(&input.calib_rows).any(|row| {
+            row.embedding.len() != dim
+                || (!self.active_encoder_id.is_empty() && row.encoder_id != self.active_encoder_id)
+        }) {
+            return Err(ProxyCacheError::Contract(
+                "fit rows do not match the active encoder identity and dimension".into(),
+            ));
+        }
         let class_index =
             |label: &str| -> Option<usize> { self.classes.iter().position(|class| class == label) };
 
@@ -330,11 +356,15 @@ impl TaskEngine {
             created: now(),
         });
         self.versions.write_index(&index)?;
+        let embedding_dim = output.student.dim();
+        let encoder_id = meta.encoder_id.clone();
         self.shadow = Some(ShadowCandidate {
             version: name.clone(),
             student: output.student,
             ood: output.ood,
             policy: output.policy,
+            encoder_id,
+            embedding_dim,
             calib_accepted: output.calib_accepted,
             calib_disagree: output.calib_disagree,
             calib_coverage: candidate_coverage,
@@ -349,6 +379,9 @@ impl TaskEngine {
     }
 
     pub(super) fn current_encoder_id(&self) -> String {
+        if !self.active_encoder_id.is_empty() {
+            return self.active_encoder_id.clone();
+        }
         // The lineage is whatever the newest teacher-labelled rows carry.
         self.store
             .labelled_rows(&self.task_version, 1, 0)

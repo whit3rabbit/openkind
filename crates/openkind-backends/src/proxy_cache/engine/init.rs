@@ -43,6 +43,8 @@ impl TaskEngine {
             classes: spec.classes(),
             task_version: task_version.clone(),
             text_hash_salt: Vec::new(),
+            active_encoder_id: String::new(),
+            active_embedding_dim: 0,
             rng: fastrand::Rng::with_seed(seed),
             production: None,
             shadow: None,
@@ -113,11 +115,14 @@ impl TaskEngine {
         let mut production = None;
         if let Some(name) = &index.production {
             if let Ok((student, ood, policy, meta)) = versions.load_version(name) {
+                let embedding_dim = student.dim();
                 production = Some(Production {
                     version: name.clone(),
                     student,
                     ood,
                     policy,
+                    encoder_id: meta.encoder_id.clone(),
+                    embedding_dim,
                     calib_coverage: meta.calib_coverage,
                 });
             }
@@ -130,11 +135,14 @@ impl TaskEngine {
             .find(|entry| entry.state == "shadow")
         {
             if let Ok((student, ood, policy, meta)) = versions.load_version(&entry.name) {
+                let embedding_dim = student.dim();
                 shadow = Some(ShadowCandidate {
                     version: entry.name.clone(),
                     student,
                     ood,
                     policy,
+                    encoder_id: meta.encoder_id.clone(),
+                    embedding_dim,
                     calib_accepted: meta.calib_accepted,
                     calib_disagree: meta.calib_disagree,
                     calib_coverage: meta.calib_coverage,
@@ -176,6 +184,8 @@ impl TaskEngine {
             classes: Vec::new(),
             task_version,
             text_hash_salt: Vec::new(),
+            active_encoder_id: String::new(),
+            active_embedding_dim: 0,
             rng: fastrand::Rng::with_seed(seed),
             production,
             shadow,
@@ -207,6 +217,61 @@ impl TaskEngine {
         self.text_hash_salt.clear();
         self.text_hash_salt.extend_from_slice(salt);
     }
+
+    /// Bind restored state and future fits to the manager's active encoder.
+    /// Incompatible persisted candidates are ignored so routing falls back to
+    /// the teacher while enough rows are collected for a matching fit.
+    pub(in crate::proxy_cache) fn set_embedder_identity(
+        &mut self,
+        encoder_id: &str,
+        embedding_dim: usize,
+    ) -> bool {
+        self.active_encoder_id = encoder_id.to_owned();
+        self.active_embedding_dim = embedding_dim;
+        let production_incompatible = self.production.as_ref().is_some_and(|production| {
+            !version_matches_embedder(
+                &production.encoder_id,
+                production.embedding_dim,
+                production.student.dim(),
+                production.ood.dim(),
+                encoder_id,
+                embedding_dim,
+            )
+        });
+        let shadow_incompatible = self.shadow.as_ref().is_some_and(|shadow| {
+            !version_matches_embedder(
+                &shadow.encoder_id,
+                shadow.embedding_dim,
+                shadow.student.dim(),
+                shadow.ood.dim(),
+                encoder_id,
+                embedding_dim,
+            )
+        });
+        if production_incompatible {
+            self.production = None;
+        }
+        if shadow_incompatible {
+            self.shadow = None;
+        }
+        production_incompatible || shadow_incompatible
+    }
+}
+
+fn version_matches_embedder(
+    version_encoder_id: &str,
+    version_dim: usize,
+    student_dim: usize,
+    ood_dim: usize,
+    encoder_id: &str,
+    embedding_dim: usize,
+) -> bool {
+    !encoder_id.is_empty()
+        && version_encoder_id == encoder_id
+        && embedding_dim > 0
+        && version_dim == embedding_dim
+        && student_dim == embedding_dim
+        && ood_dim == embedding_dim
 }
 
 pub(super) fn split_seed(config_seed: &u64, task_version: &str) -> u64 {
@@ -230,4 +295,45 @@ pub(super) fn now() -> f64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|duration| duration.as_secs_f64())
         .unwrap_or(0.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::version_matches_embedder;
+
+    #[test]
+    fn restored_students_require_matching_encoder_lineage_and_dimensions() {
+        assert!(version_matches_embedder(
+            "bert-checkpoint-a",
+            768,
+            768,
+            768,
+            "bert-checkpoint-a",
+            768,
+        ));
+        assert!(!version_matches_embedder(
+            "bert-checkpoint-a",
+            768,
+            768,
+            768,
+            "bert-checkpoint-b",
+            768,
+        ));
+        assert!(!version_matches_embedder(
+            "bert-checkpoint-a",
+            768,
+            768,
+            768,
+            "bert-checkpoint-a",
+            384,
+        ));
+        assert!(!version_matches_embedder(
+            "bert-checkpoint-a",
+            768,
+            768,
+            384,
+            "bert-checkpoint-a",
+            768,
+        ));
+    }
 }

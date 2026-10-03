@@ -229,7 +229,7 @@ pub(crate) struct Args {
     #[arg(long, env = "OPENKIND_PROXY_CACHE_DATA_DIR")]
     pub(crate) proxy_cache_data_dir: Option<PathBuf>,
 
-    /// Bearer key used for upstream calls instead of the caller's own key.
+    /// Fallback bearer key used for upstream calls when a caller key is absent.
     #[arg(long, env = "OPENKIND_PROXY_CACHE_UPSTREAM_KEY")]
     pub(crate) proxy_cache_upstream_key: Option<String>,
 

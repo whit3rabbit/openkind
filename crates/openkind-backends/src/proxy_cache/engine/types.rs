@@ -67,6 +67,8 @@ pub(super) struct Production {
     pub(super) student: LinearStudent,
     pub(super) ood: KnnOod,
     pub(super) policy: RoutingPolicy,
+    pub(super) encoder_id: String,
+    pub(super) embedding_dim: usize,
     /// Coverage the candidate showed on its calibration rows (persisted in
     /// the version meta and restored on reload).
     pub(super) calib_coverage: f64,
@@ -79,6 +81,8 @@ pub(super) struct ShadowCandidate {
     pub(super) student: LinearStudent,
     pub(super) ood: KnnOod,
     pub(super) policy: RoutingPolicy,
+    pub(super) encoder_id: String,
+    pub(super) embedding_dim: usize,
     /// Candidate calibration counts (pooled into shadow judgement).
     pub(super) calib_accepted: usize,
     pub(super) calib_disagree: usize,
@@ -116,6 +120,10 @@ pub struct TaskEngine {
     pub(super) task_version: String,
     /// Private manager salt for request-derived text hashes persisted in the store.
     pub(super) text_hash_salt: Vec<u8>,
+    /// Active embedder identity; restored rows from another lineage are excluded.
+    pub(super) active_encoder_id: String,
+    /// Active embedder width; protects restored heads from incompatible inputs.
+    pub(super) active_embedding_dim: usize,
     pub(super) rng: fastrand::Rng,
 
     pub(super) production: Option<Production>,

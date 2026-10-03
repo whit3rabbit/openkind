@@ -371,8 +371,7 @@ impl ProxyService {
 
         for (spec, ids, decision, engine) in &routed {
             let Some(engine) = engine else {
-                // Not admitted: count this request toward admission.
-                self.manager.count_toward_admission(spec, &request.model);
+                // route_context counted this request toward admission.
                 continue;
             };
             // A locally answerable item forwarded with its request becomes a
@@ -462,7 +461,6 @@ impl ProxyService {
                 .ok()
                 .flatten()
             else {
-                self.manager.count_toward_admission(spec, &request.model);
                 continue;
             };
             let Some(answer) = teacher_answer_for(response, ids, &spec.classes()) else {

@@ -91,12 +91,19 @@ fn load_qwen(
     )
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     let args = Args::parse();
     if let Some(runtime) = &args.onnx_runtime {
         std::env::set_var("ORT_DYLIB_PATH", runtime);
     }
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .context("build tokio runtime")?
+        .block_on(run(args))
+}
+
+async fn run(args: Args) -> Result<()> {
     if let Some(probe) = args.probe_backend {
         return backend::probe(probe, args.device_ordinals());
     }
@@ -152,9 +159,11 @@ async fn main() -> Result<()> {
     if auth.is_required() {
         info!("api key auth: enabled (gate on /v1/* and gRPC)");
     } else {
-        if http_addr.ip().is_unspecified() || grpc_addr.is_some_and(|g| g.ip().is_unspecified()) {
+        if !http_addr.ip().is_loopback()
+            || grpc_addr.is_some_and(|grpc_addr| !grpc_addr.ip().is_loopback())
+        {
             tracing::warn!(
-                "SECURITY WARNING: Server is binding to a public interface without authentication! Anyone with network access can execute inference queries."
+                "SECURITY WARNING: Server is binding to a non-loopback interface without authentication! Anyone with network access can execute inference queries."
             );
         } else {
             info!("api key auth: disabled (neither OPENKIND_API_KEY nor TYPESAFE_API_KEY set)");
