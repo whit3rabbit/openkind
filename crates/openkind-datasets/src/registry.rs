@@ -380,4 +380,121 @@ mod tests {
         assert!(!valid_relative_path("../escape.parquet"));
         assert!(!valid_relative_path("a//b.parquet"));
     }
+
+    #[test]
+    fn entry_validate_rejects_each_drifted_field() {
+        let parse = |json: &str| -> DatasetEntry { serde_json::from_str(json).unwrap() };
+        // Patches are applied to the JSON so every rejection path runs
+        // through the same deserialization a real registry file takes.
+        let reject = |patch: &[(&str, &str)], label: &str| {
+            let mut json = entry_json("demo");
+            for (from, to) in patch {
+                assert!(
+                    json.contains(from),
+                    "{label}: fixture lost `{from}`; update the patch"
+                );
+                json = json.replace(from, to);
+            }
+            let entry = parse(&json);
+            assert!(
+                entry.validate().is_err(),
+                "{label}: a drifted entry must be rejected"
+            );
+        };
+
+        reject(
+            &[("\"description\": \"test dataset\"", "\"description\": \"\"")],
+            "empty description",
+        );
+        reject(
+            &[("\"hf_repo\": \"owner/data\"", "\"hf_repo\": \"nodomain\"")],
+            "unslashed repo",
+        );
+        // Unpinned revisions: a 39-char revision fails the length rule.
+        reject(
+            &[(
+                "\"hf_revision\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",
+                "\"hf_revision\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",
+            )],
+            "short hf revision",
+        );
+        reject(
+            &[(
+                "\"splits\": {\"dev\": \"train\", \"eval\": \"test\"}",
+                "\"splits\": {\"dev\": \"train\", \"train\": \"test\"}",
+            )],
+            "missing eval split",
+        );
+        reject(
+            &[(
+                "\"splits\": {\"dev\": \"train\", \"eval\": \"test\"}",
+                "\"splits\": {\"dev\": \"train\", \"eval\": \"train\"}",
+            )],
+            "dev equals eval",
+        );
+        reject(
+            &[("\"configs\": [\"default\"]", "\"configs\": []")],
+            "empty configs",
+        );
+        reject(
+            &[("\"license\": \"mit\"", "\"license\": \"\"")],
+            "empty license",
+        );
+        reject(
+            &[(
+                "\"task_family\": \"classification\"",
+                "\"task_family\": \"\"",
+            )],
+            "empty task family",
+        );
+        reject(
+            &[("\"primitives\": [\"choice\"]", "\"primitives\": []")],
+            "empty primitives",
+        );
+        reject(
+            &[(
+                "\"primitives\": [\"choice\"]",
+                "\"primitives\": [\"alchemy\"]",
+            )],
+            "unknown primitive",
+        );
+        reject(
+            &[(
+                "\"template\": {\"id\": \"t\", \"version\": 1, \"source\": \"src\"}",
+                "\"template\": {\"id\": \"\", \"version\": 1, \"source\": \"src\"}",
+            )],
+            "empty template id",
+        );
+        reject(
+            &[(
+                "\"files\": [{\"path\": \"default/test/0000.parquet\", \"size\": 10",
+                "\"files\": [{\"path\": \"default/test/0000.parquet\", \"size\": 0",
+            )],
+            "zero-size file",
+        );
+        reject(
+            &[("\"sha256\": \"cccc", "\"sha256\": \"CCCC")],
+            "uppercase file digest",
+        );
+    }
+
+    #[test]
+    fn registry_validate_rejects_wrong_schema_and_duplicate_names() {
+        let duplicated = format!(
+            r#"{{"schema": "{DATASET_REGISTRY_SCHEMA}", "datasets": [{}, {}]}}"#,
+            entry_json("demo"),
+            entry_json("demo")
+        );
+        let registry: DatasetRegistry = serde_json::from_str(&duplicated).unwrap();
+        assert!(registry.validate().is_err(), "duplicate names must fail");
+
+        let wrong_schema = format!(
+            r#"{{"schema": "other/v9", "datasets": [{}]}}"#,
+            entry_json("demo")
+        );
+        let registry: DatasetRegistry = serde_json::from_str(&wrong_schema).unwrap();
+        assert!(registry.validate().is_err(), "wrong schema must fail");
+
+        assert!(serde_json::from_str::<DatasetRegistry>("not json").is_err());
+    }
 }

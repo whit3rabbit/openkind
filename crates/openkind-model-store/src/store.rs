@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 use std::fs::{self, File, OpenOptions};
-use std::io::{BufReader, Read};
+use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use fs2::FileExt;
 use futures::StreamExt;
@@ -197,6 +197,8 @@ pub fn default_models_dir() -> Result<PathBuf> {
 impl ModelStore {
     pub fn new(root: PathBuf) -> Result<Self> {
         let client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(15))
+            .read_timeout(Duration::from_secs(120))
             .redirect(reqwest::redirect::Policy::custom(|attempt| {
                 if attempt.previous().len() >= 8 || attempt.url().scheme() != "https" {
                     attempt.stop()
@@ -228,6 +230,14 @@ impl ModelStore {
     }
 
     pub fn list(&self) -> Result<Vec<Manifest>> {
+        self.scan_installed(None, true)
+    }
+
+    fn scan_installed(
+        &self,
+        excluded_name: Option<&str>,
+        skip_invalid: bool,
+    ) -> Result<Vec<Manifest>> {
         let mut models = Vec::new();
         let dir = self.root.join("models");
         if !dir.exists() {
@@ -245,7 +255,14 @@ impl ModelStore {
             let Some(name) = from_disk_name(&raw) else {
                 continue;
             };
-            models.push(self.read_installed_manifest(&name)?);
+            if excluded_name == Some(name.as_str()) {
+                continue;
+            }
+            match self.read_installed_manifest(&name) {
+                Ok(manifest) => models.push(manifest),
+                Err(_) if skip_invalid => continue,
+                Err(error) => return Err(error),
+            }
         }
         models.sort_by(|a, b| a.name.cmp(&b.name));
         Ok(models)
@@ -278,19 +295,28 @@ impl ModelStore {
         }
         let _global = self.global_lock()?;
         let _model = self.model_lock(name, true)?;
-        let manifest = self.read_installed_manifest(name)?;
-        let used: HashSet<String> = self
-            .list()?
-            .into_iter()
-            .filter(|model| model.name != name)
-            .flat_map(|model| model.artifacts.into_iter().map(|a| a.sha256))
-            .collect();
+        let manifest = match self.read_installed_manifest(name) {
+            Ok(manifest) => Some(manifest),
+            Err(Error::NotInstalled(_)) => return Err(Error::NotInstalled(name.to_owned())),
+            // Removing a damaged install is the recovery path. Its digests
+            // cannot be trusted, so retain blobs rather than risk deleting a
+            // blob referenced by another install.
+            Err(_) => None,
+        };
+        let used = self.scan_installed(Some(name), false).ok().map(|models| {
+            models
+                .into_iter()
+                .flat_map(|model| model.artifacts.into_iter().map(|artifact| artifact.sha256))
+                .collect::<HashSet<_>>()
+        });
         fs::remove_dir_all(self.model_dir(name))?;
-        for artifact in manifest.artifacts {
-            if !used.contains(&artifact.sha256) {
-                let blob = self.blob_path(&artifact.sha256);
-                if blob.exists() {
-                    fs::remove_file(blob)?;
+        if let (Some(manifest), Some(used)) = (manifest, used) {
+            for artifact in manifest.artifacts {
+                if !used.contains(&artifact.sha256) {
+                    let blob = self.blob_path(&artifact.sha256);
+                    if blob.exists() {
+                        fs::remove_file(blob)?;
+                    }
                 }
             }
         }
@@ -374,8 +400,16 @@ impl ModelStore {
                 fs::create_dir_all(target.parent().expect("artifact has a parent"))?;
                 fs::hard_link(self.blob_path(&artifact.sha256), target)?;
             }
-            fs::write(stage.join("manifest.json"), &manifest_bytes)?;
+            let manifest_path = stage.join("manifest.json");
+            let mut manifest_file = OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(manifest_path)?;
+            manifest_file.write_all(&manifest_bytes)?;
+            manifest_file.sync_all()?;
+            sync_directory(&stage)?;
             fs::rename(&stage, self.model_dir(&canonical))?;
+            sync_directory(&self.root.join("models"))?;
             Ok(())
         })();
         if install.is_err() {
@@ -622,6 +656,17 @@ impl ModelStore {
         result.map_err(|_| Error::Busy(name.into()))?;
         Ok(file)
     }
+}
+
+#[cfg(unix)]
+fn sync_directory(path: &Path) -> Result<()> {
+    File::open(path)?.sync_all()?;
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn sync_directory(_path: &Path) -> Result<()> {
+    Ok(())
 }
 
 /// Publish a verified `.part` file as its final blob. Windows `rename` does
@@ -1195,5 +1240,333 @@ mod tests {
         );
         assert!(matches!(result, Err(Error::Invalid(_))));
         assert!(!blob.exists());
+    }
+
+    #[cfg(test)]
+    mod serving_integrity_tests {
+        use super::*;
+
+        fn installed(store: &ModelStore, name: &str, bytes: &[u8]) -> Manifest {
+            let manifest = Manifest {
+                schema: "openkind-model/v1".into(),
+                name: name.into(),
+                profile_id: "test-profile".into(),
+                loader_id: "test-loader".into(),
+                description: "Offline fixture".into(),
+                release_date: "2026-09-25".into(),
+                support_status: "rust-loadable".into(),
+                question_types: vec!["choice".into()],
+                artifacts: vec![Artifact {
+                    path: "bundle/head.bin".into(),
+                    size: bytes.len() as u64,
+                    sha256: sha256(bytes),
+                    source: Source {
+                        kind: "github".into(),
+                        repository: "example/models".into(),
+                        revision: "a".repeat(40),
+                        path: "head.bin".into(),
+                    },
+                }],
+            };
+            manifest.validate().unwrap();
+            let root = store.model_dir(name);
+            fs::create_dir_all(root.join("bundle")).unwrap();
+            fs::write(root.join("bundle/head.bin"), bytes).unwrap();
+            fs::write(
+                root.join("manifest.json"),
+                serde_json::to_vec(&manifest).unwrap(),
+            )
+            .unwrap();
+            manifest
+        }
+
+        #[test]
+        fn acquire_serving_detects_a_corrupted_installation() {
+            let dir = tempdir().unwrap();
+            let store = ModelStore::new(dir.path().to_path_buf()).unwrap();
+            let bytes = b"verified bytes";
+            installed(&store, NAME, bytes);
+
+            store.acquire_serving(NAME).expect("intact install serves");
+
+            let root = store.model_dir(NAME);
+            fs::write(root.join("bundle/head.bin"), b"corrupted bytes").unwrap();
+            assert!(matches!(
+                store.acquire_serving(NAME),
+                Err(Error::DigestMismatch(_))
+            ));
+
+            // A truncated artifact fails on size before the digest streams.
+            fs::write(root.join("bundle/head.bin"), &bytes[..3]).unwrap();
+            assert!(matches!(
+                store.acquire_serving(NAME),
+                Err(Error::DigestMismatch(_))
+            ));
+        }
+
+        #[cfg(unix)]
+        #[test]
+        fn verify_file_rejects_symlinked_artifacts_and_bad_identities() {
+            let dir = tempdir().unwrap();
+            let store = ModelStore::new(dir.path().to_path_buf()).unwrap();
+            let bytes = b"verified bytes";
+            let manifest = installed(&store, NAME, bytes);
+            let artifact = &manifest.artifacts[0];
+            let root = store.model_dir(NAME);
+
+            // A symlink pointing at byte-identical content must still be
+            // rejected: artifacts are verified in place, not followed.
+            let outside = dir.path().join("outside.bin");
+            fs::write(&outside, bytes).unwrap();
+            fs::remove_file(root.join("bundle/head.bin")).unwrap();
+            std::os::unix::fs::symlink(&outside, root.join("bundle/head.bin")).unwrap();
+            assert!(matches!(
+                verify_file(
+                    &root.join("bundle/head.bin"),
+                    artifact.size,
+                    &artifact.sha256
+                ),
+                Err(Error::DigestMismatch(_))
+            ));
+
+            fs::remove_file(root.join("bundle/head.bin")).unwrap();
+            fs::write(root.join("bundle/head.bin"), bytes).unwrap();
+            assert!(matches!(
+                verify_file(
+                    &root.join("bundle/head.bin"),
+                    artifact.size,
+                    "A".repeat(64).as_str()
+                ),
+                Err(Error::Invalid(_))
+            ));
+            assert!(verify_file(
+                &root.join("bundle/head.bin"),
+                artifact.size,
+                &artifact.sha256
+            )
+            .is_ok());
+        }
+
+        #[tokio::test]
+        async fn name_guards_cover_pull_show_acquire_and_remove() {
+            let dir = tempdir().unwrap();
+            let store = ModelStore::new(dir.path().to_path_buf()).unwrap();
+            assert!(matches!(
+                store.pull("bad name", |_, _, _| {}).await,
+                Err(Error::Invalid(_))
+            ));
+            assert!(matches!(
+                store.acquire_serving("no spaces"),
+                Err(Error::Invalid(_))
+            ));
+            assert!(matches!(store.rm("no spaces"), Err(Error::Invalid(_))));
+            assert!(matches!(store.show(NAME), Err(Error::NotInstalled(_))));
+            assert!(matches!(
+                store.acquire_serving(NAME),
+                Err(Error::NotInstalled(_))
+            ));
+
+            // An uncurated name fails closed against the offline harness
+            // catalog, before any artifact request.
+            let bytes = b"verified offline fixture";
+            let (_server, store) =
+                super::test_store(vec![super::fixture_manifest(NAME, bytes)]).await;
+            assert!(matches!(
+                store.pull("unknown:v1", |_, _, _| {}).await,
+                Err(Error::NotCurated(_))
+            ));
+            assert!(store.list().unwrap().is_empty());
+        }
+
+        #[tokio::test]
+        async fn repull_rejects_an_installation_that_differs_from_the_manifest() {
+            let bytes = b"verified offline fixture";
+            let (_server, store) =
+                super::test_store(vec![super::fixture_manifest(NAME, bytes)]).await;
+            super::seed_blob(&store, bytes);
+            store.pull(NAME, |_, _, _| {}).await.unwrap();
+
+            // Serve the same catalog with different manifest bytes: the
+            // installation must survive untouched and the pull must fail.
+            let mut drifted = super::fixture_manifest(NAME, bytes);
+            drifted.description = "Drifted fixture".into();
+            let drifted_bytes = serde_json::to_vec(&drifted).unwrap();
+            let served_manifest = drifted_bytes.clone();
+            let entries = [(NAME.to_string(), drifted_bytes.clone())];
+            let catalog = Catalog {
+                schema: "openkind-catalog/v1".into(),
+                models: entries
+                    .iter()
+                    .map(|(name, bytes)| CatalogEntry {
+                        name: name.clone(),
+                        aliases: vec![],
+                        profile_id: "test-profile".into(),
+                        loader_id: "test-loader".into(),
+                        description: drifted.description.clone(),
+                        context_limit: 8192,
+                        support_status: "rust-loadable".into(),
+                        manifest_path: format!("manifests/{}.json", name.replace(':', "-")),
+                        manifest_sha256: sha256(bytes),
+                    })
+                    .collect(),
+            };
+            let catalog_bytes = serde_json::to_vec(&catalog).unwrap();
+            let served_catalog = catalog_bytes.clone();
+            let app = axum::Router::new()
+                .route(
+                    "/catalog.json",
+                    axum::routing::get(move || {
+                        let bytes = served_catalog.clone();
+                        async move { bytes }
+                    }),
+                )
+                .route(
+                    "/manifests/fixture-abc123.json",
+                    axum::routing::get(move || {
+                        let bytes = served_manifest.clone();
+                        async move { bytes }
+                    }),
+                );
+            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+            let address = listener.local_addr().unwrap();
+            tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+            let mut drifted_store = ModelStore::new(store.root().to_path_buf()).unwrap();
+            drifted_store.catalog_url = format!("http://{address}/catalog.json");
+            drifted_store.catalog_sha256 = sha256(&catalog_bytes);
+
+            let result = drifted_store.pull(NAME, |_, _, _| {}).await;
+            assert!(
+                matches!(&result, Err(Error::Invalid(message))
+                if message.contains("differs from the curated manifest")),
+                "unexpected error: {result:?}"
+            );
+            assert_eq!(store.list().unwrap().len(), 1);
+            store.acquire_serving(NAME).expect("installation survives");
+        }
+
+        #[tokio::test]
+        async fn pull_reports_progress_for_present_and_installed_artifacts() {
+            let bytes = b"verified offline fixture";
+            let (_server, store) =
+                super::test_store(vec![super::fixture_manifest(NAME, bytes)]).await;
+            super::seed_blob(&store, bytes);
+            let mut calls: Vec<(String, u64, u64)> = Vec::new();
+            store
+                .pull(NAME, |path, present, total| {
+                    calls.push((path.to_owned(), present, total));
+                })
+                .await
+                .unwrap();
+            assert_eq!(
+                calls,
+                vec![(
+                    "bundle/head.bin".to_owned(),
+                    bytes.len() as u64,
+                    bytes.len() as u64
+                )],
+                "a present blob reports its full size before verification"
+            );
+        }
+
+        #[test]
+        fn list_ignores_files_stages_and_unspellable_entries() {
+            let dir = tempdir().unwrap();
+            let store = ModelStore::new(dir.path().to_path_buf()).unwrap();
+            let bytes = b"verified bytes";
+            installed(&store, NAME, bytes);
+
+            let models = store.root().join("models");
+            // A regular file, a leftover staging directory, and a misspelled
+            // directory must all be skipped without failing the listing.
+            fs::write(models.join("regular-file"), b"").unwrap();
+            fs::create_dir_all(models.join(".stage-1-2-3")).unwrap();
+            fs::create_dir_all(models.join("bogus")).unwrap();
+            #[cfg(unix)]
+            fs::create_dir_all(models.join("fixture@abc123")).unwrap();
+
+            let listed = store.list().unwrap();
+            assert_eq!(
+                listed.iter().map(|m| m.name.as_str()).collect::<Vec<_>>(),
+                vec![NAME],
+                "only the valid installation is listed"
+            );
+            assert!(
+                store
+                    .list()
+                    .unwrap()
+                    .windows(2)
+                    .all(|w| w[0].name <= w[1].name),
+                "listings are sorted by name"
+            );
+        }
+
+        #[test]
+        fn tampered_installed_manifests_fail_closed() {
+            let dir = tempdir().unwrap();
+            let store = ModelStore::new(dir.path().to_path_buf()).unwrap();
+            let bytes = b"verified bytes";
+            installed(&store, NAME, bytes);
+            let manifest_path = store.model_dir(NAME).join("manifest.json");
+
+            // Junk bytes fail to decode.
+            fs::write(&manifest_path, b"not json").unwrap();
+            assert!(matches!(store.show(NAME), Err(Error::Json(_))));
+
+            // A manifest naming a different model is a directory/manifest
+            // mismatch.
+            let swapped = super::fixture_manifest("fixture:other", bytes);
+            fs::write(&manifest_path, serde_json::to_vec(&swapped).unwrap()).unwrap();
+            assert!(matches!(store.show(NAME), Err(Error::Invalid(_))));
+
+            // A manifest failing validation (zero-size artifact) is rejected.
+            let mut invalid = super::fixture_manifest(NAME, bytes);
+            invalid.artifacts[0].size = 0;
+            fs::write(&manifest_path, serde_json::to_vec(&invalid).unwrap()).unwrap();
+            assert!(matches!(store.show(NAME), Err(Error::Invalid(_))));
+        }
+
+        #[test]
+        fn disk_names_round_trip_and_reject_invalid_spellings() {
+            if cfg!(windows) {
+                assert_eq!(on_disk_name("fixture:abc123"), "fixture@abc123");
+                assert_eq!(
+                    from_disk_name("fixture@abc123").as_deref(),
+                    Some("fixture:abc123")
+                );
+            } else {
+                assert_eq!(on_disk_name("fixture:abc123"), "fixture:abc123");
+                assert_eq!(
+                    from_disk_name("fixture:abc123").as_deref(),
+                    Some("fixture:abc123")
+                );
+                assert_eq!(from_disk_name("fixture@abc123"), None);
+            }
+            assert_eq!(from_disk_name("junk"), None);
+            assert_eq!(from_disk_name(""), None);
+        }
+
+        #[test]
+        fn default_models_dir_honors_the_override_and_rejects_an_empty_one() {
+            static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+            let _guard = ENV_LOCK
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+            let previous = std::env::var_os("OPENKIND_MODELS_DIR");
+
+            let override_dir = tempdir().unwrap();
+            std::env::set_var("OPENKIND_MODELS_DIR", override_dir.path());
+            assert_eq!(default_models_dir().unwrap(), override_dir.path());
+
+            std::env::set_var("OPENKIND_MODELS_DIR", "");
+            assert!(matches!(
+                default_models_dir(),
+                Err(Error::Invalid(message)) if message.contains("OPENKIND_MODELS_DIR is empty")
+            ));
+
+            match previous {
+                Some(value) => std::env::set_var("OPENKIND_MODELS_DIR", value),
+                None => std::env::remove_var("OPENKIND_MODELS_DIR"),
+            }
+        }
     }
 }

@@ -13,13 +13,13 @@
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::fs::{self, File, OpenOptions};
-use std::io::{BufReader, Read};
+use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use fs2::FileExt;
 use futures::StreamExt;
-use reqwest::header::{CONTENT_RANGE, RANGE};
+use reqwest::header::{CONTENT_RANGE, LINK, RANGE};
 use sha2::{Digest, Sha256};
 use tokio::io::AsyncWriteExt;
 
@@ -27,13 +27,14 @@ use crate::auth::{resolve_token, TokenSource};
 use crate::definitions::{definition_splits, find_definition, template};
 use crate::registry::{
     valid_name, valid_relative_path, valid_sha256, DatasetEntry, DatasetFile, DatasetRegistry,
+    MAX_DATASET_BYTES,
 };
 use crate::{Error, Result};
 
 const MAX_METADATA_BYTES: u64 = 64 * 1024 * 1024;
+const MAX_TREE_PAGES: usize = 1_000;
 const HF_ENDPOINT: &str = "https://huggingface.co";
 
-#[derive(Debug)]
 pub struct DatasetStore {
     root: PathBuf,
     endpoint: Cow<'static, str>,
@@ -41,6 +42,18 @@ pub struct DatasetStore {
     token: Option<String>,
     token_source: TokenSource,
     client: reqwest::Client,
+}
+
+impl std::fmt::Debug for DatasetStore {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("DatasetStore")
+            .field("root", &self.root)
+            .field("endpoint", &self.endpoint)
+            .field("token_source", &self.token_source)
+            .field("has_token", &self.token.is_some())
+            .finish_non_exhaustive()
+    }
 }
 
 /// A verified local dataset installation. The shared file lock protects it
@@ -118,6 +131,8 @@ impl DatasetStore {
         token_source: TokenSource,
     ) -> Result<Self> {
         let client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(15))
+            .read_timeout(Duration::from_secs(120))
             .redirect(reqwest::redirect::Policy::custom(|attempt| {
                 if attempt.previous().len() >= 8 || attempt.url().scheme() != "https" {
                     attempt.stop()
@@ -151,6 +166,14 @@ impl DatasetStore {
 
     /// Installed datasets with locally verified identity records.
     pub fn list(&self) -> Result<Vec<DatasetEntry>> {
+        self.scan_installed(None, true)
+    }
+
+    fn scan_installed(
+        &self,
+        excluded_name: Option<&str>,
+        skip_invalid: bool,
+    ) -> Result<Vec<DatasetEntry>> {
         let mut datasets = Vec::new();
         let dir = self.root.join("datasets");
         if !dir.exists() {
@@ -165,7 +188,14 @@ impl DatasetStore {
             if name.starts_with('.') || !valid_name(&name) {
                 continue;
             }
-            datasets.push(self.read_installed_entry(&name)?);
+            if excluded_name == Some(name.as_str()) {
+                continue;
+            }
+            match self.read_installed_entry(&name) {
+                Ok(entry) => datasets.push(entry),
+                Err(_) if skip_invalid => continue,
+                Err(error) => return Err(error),
+            }
         }
         datasets.sort_by(|a, b| a.name.cmp(&b.name));
         Ok(datasets)
@@ -202,19 +232,27 @@ impl DatasetStore {
         }
         let _global = self.global_lock()?;
         let _dataset = self.dataset_lock(name, true)?;
-        let entry = self.read_installed_entry(name)?;
-        let used: HashSet<String> = self
-            .list()?
-            .into_iter()
-            .filter(|installed| installed.name != name)
-            .flat_map(|installed| installed.files.into_iter().map(|file| file.sha256))
-            .collect();
+        let entry = match self.read_installed_entry(name) {
+            Ok(entry) => Some(entry),
+            Err(Error::NotInstalled(_)) => return Err(Error::NotInstalled(name.to_owned())),
+            // Removing a damaged install is the recovery path. Retain blobs
+            // because its manifest can no longer establish their ownership.
+            Err(_) => None,
+        };
+        let used = self.scan_installed(Some(name), false).ok().map(|datasets| {
+            datasets
+                .into_iter()
+                .flat_map(|installed| installed.files.into_iter().map(|file| file.sha256))
+                .collect::<HashSet<_>>()
+        });
         fs::remove_dir_all(self.dataset_dir(name))?;
-        for file in entry.files {
-            if !used.contains(&file.sha256) {
-                let blob = self.blob_path(&file.sha256);
-                if blob.exists() {
-                    fs::remove_file(blob)?;
+        if let (Some(entry), Some(used)) = (entry, used) {
+            for file in entry.files {
+                if !used.contains(&file.sha256) {
+                    let blob = self.blob_path(&file.sha256);
+                    if blob.exists() {
+                        fs::remove_file(blob)?;
+                    }
                 }
             }
         }
@@ -266,6 +304,7 @@ impl DatasetStore {
             .await?;
         let used_splits: Vec<&str> = definition.splits.iter().map(|(_, split)| *split).collect();
         let mut files = Vec::new();
+        let mut total_bytes = 0_u64;
         for (path, size) in self
             .list_tree(definition.hf_repo, &convert_revision)
             .await?
@@ -280,6 +319,13 @@ impl DatasetStore {
                 || !used_splits.contains(&split)
             {
                 continue;
+            }
+            total_bytes = total_bytes
+                .checked_add(size)
+                .filter(|total| *total <= MAX_DATASET_BYTES)
+                .ok_or_else(|| Error::Invalid("dataset size exceeds 2 GiB".into()))?;
+            if size == 0 {
+                return Err(Error::Invalid(format!("dataset shard {path} has no size")));
             }
             let url = self.convert_url(definition.hf_repo, &convert_revision, &path);
             let sha256 = self
@@ -377,8 +423,16 @@ impl DatasetStore {
                 fs::create_dir_all(target.parent().expect("shard has a parent"))?;
                 fs::hard_link(self.blob_path(&file.sha256), target)?;
             }
-            fs::write(stage.join("entry.json"), &entry_bytes)?;
+            let entry_path = stage.join("entry.json");
+            let mut entry_file = OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(entry_path)?;
+            entry_file.write_all(&entry_bytes)?;
+            entry_file.sync_all()?;
+            sync_directory(&stage)?;
             fs::rename(&stage, self.dataset_dir(&entry.name))?;
+            sync_directory(&self.root.join("datasets"))?;
             Ok(())
         })();
         if install.is_err() {
@@ -480,11 +534,20 @@ impl DatasetStore {
     }
 
     async fn list_tree(&self, repo: &str, revision: &str) -> Result<Vec<(String, u64)>> {
-        let url = format!(
-            "{endpoint}/api/datasets/{repo}/tree/{revision}?recursive=true",
+        let mut page_url = reqwest::Url::parse(&format!(
+            "{endpoint}/api/datasets/{repo}/tree/{revision}",
             endpoint = self.endpoint
-        );
-        let bytes = self.fetch_small(&url).await?;
+        ))
+        .map_err(|error| Error::Invalid(format!("dataset tree URL: {error}")))?;
+        page_url
+            .query_pairs_mut()
+            .append_pair("recursive", "true")
+            .append_pair("limit", "1000");
+        let trusted_origin = page_url.clone();
+        let mut seen_pages = HashSet::new();
+        let mut total_metadata_bytes = 0_u64;
+        let mut page_count = 0;
+        let mut files = Vec::new();
         #[derive(serde::Deserialize)]
         struct TreeEntry {
             #[serde(rename = "type")]
@@ -493,12 +556,73 @@ impl DatasetStore {
             #[serde(default)]
             size: u64,
         }
-        let tree: Vec<TreeEntry> = serde_json::from_slice(&bytes)?;
-        Ok(tree
-            .into_iter()
-            .filter(|entry| entry.kind == "file")
-            .map(|entry| (entry.path, entry.size))
-            .collect())
+        loop {
+            page_count += 1;
+            if page_count > MAX_TREE_PAGES {
+                return Err(Error::Invalid("dataset tree has too many pages".into()));
+            }
+            let page_key = page_url.as_str().to_owned();
+            if !seen_pages.insert(page_key) {
+                return Err(Error::Invalid(
+                    "dataset tree pagination repeated a page".into(),
+                ));
+            }
+            let response = self
+                .authed(page_url.as_str())
+                .send()
+                .await
+                .map_err(denied)?
+                .error_for_status()
+                .map_err(denied)?;
+            let next_link: Option<String> = response
+                .headers()
+                .get(LINK)
+                .map(|header| -> Result<Option<String>> {
+                    let header = header.to_str().map_err(|_| {
+                        Error::Invalid("dataset tree returned an invalid Link header".into())
+                    })?;
+                    next_page_link(header).map(|opt| opt.map(str::to_owned))
+                })
+                .transpose()?
+                .flatten();
+            let remaining = MAX_METADATA_BYTES - total_metadata_bytes;
+            if response
+                .content_length()
+                .is_some_and(|size| size > remaining)
+            {
+                return Err(Error::Invalid("remote tree metadata exceeds 64 MiB".into()));
+            }
+            let mut bytes = Vec::new();
+            let mut stream = response.bytes_stream();
+            while let Some(chunk) = stream.next().await {
+                let chunk = chunk?;
+                if chunk.len() as u64 > remaining - bytes.len() as u64 {
+                    return Err(Error::Invalid("remote tree metadata exceeds 64 MiB".into()));
+                }
+                bytes.extend_from_slice(&chunk);
+            }
+            total_metadata_bytes += bytes.len() as u64;
+            let tree: Vec<TreeEntry> = serde_json::from_slice(&bytes)?;
+            files.extend(
+                tree.into_iter()
+                    .filter(|entry| entry.kind == "file")
+                    .map(|entry| (entry.path, entry.size)),
+            );
+
+            let Some(next_link) = next_link else {
+                break;
+            };
+            let next_url = page_url.join(&next_link).map_err(|error| {
+                Error::Invalid(format!("invalid dataset tree page URL: {error}"))
+            })?;
+            if !same_origin(&trusted_origin, &next_url) {
+                return Err(Error::Invalid(
+                    "dataset tree pagination escaped the configured endpoint".into(),
+                ));
+            }
+            page_url = next_url;
+        }
+        Ok(files)
     }
 
     async fn fetch_small(&self, url: &str) -> Result<Vec<u8>> {
@@ -541,10 +665,25 @@ impl DatasetStore {
             None => self
                 .root
                 .join("blobs")
-                .join(format!(".pin-{}", sha256(label.as_bytes()))),
+                .join(format!(".pin-{}", sha256(url.as_bytes()))),
         };
         if let Some(parent) = blob.parent() {
             fs::create_dir_all(parent)?;
+        }
+        if expected_sha.is_none() && blob.exists() {
+            let metadata = fs::symlink_metadata(&blob)?;
+            if !metadata.file_type().is_file() {
+                return Err(Error::Invalid(
+                    "staged dataset shard is not a regular file".into(),
+                ));
+            }
+            if metadata.len() == size {
+                let observed = sha256_file(&blob)?;
+                let content_addressed = self.blob_path(&observed);
+                promote_blob(&blob, &content_addressed, size, &observed)?;
+                return Ok(observed);
+            }
+            fs::remove_file(&blob)?;
         }
         let part = blob.with_extension("part");
         let mut present = match part.symlink_metadata() {
@@ -563,10 +702,11 @@ impl DatasetStore {
                 Ok(observed) => {
                     let matches_expected = expected_sha.is_none_or(|expected| observed == expected);
                     if matches_expected {
-                        if let Some(parent) = blob.parent() {
+                        let content_addressed = self.blob_path(&observed);
+                        if let Some(parent) = content_addressed.parent() {
                             fs::create_dir_all(parent)?;
                         }
-                        fs::rename(&part, &blob)?;
+                        promote_blob(&part, &content_addressed, size, &observed)?;
                         return Ok(observed);
                     }
                     fs::remove_file(&part)?;
@@ -654,17 +794,75 @@ impl DatasetStore {
                 return Err(Error::DigestMismatch(label.to_owned()));
             }
         }
-        if let Some(parent) = blob.parent() {
+        let content_addressed = self.blob_path(&observed);
+        if let Some(parent) = content_addressed.parent() {
             fs::create_dir_all(parent)?;
         }
-        if blob.exists() {
-            // A blob for an unknown digest path cannot happen; a known digest
-            // was checked before download. Defensive: replace, never alias.
-            fs::remove_file(&blob)?;
-        }
-        fs::rename(&part, &blob)?;
+        promote_blob(&part, &content_addressed, size, &observed)?;
         Ok(observed)
     }
+}
+
+#[cfg(unix)]
+fn sync_directory(path: &Path) -> Result<()> {
+    File::open(path)?.sync_all()?;
+    Ok(())
+}
+
+#[cfg(not(unix))]
+fn sync_directory(_path: &Path) -> Result<()> {
+    Ok(())
+}
+
+fn next_page_link(header: &str) -> Result<Option<&str>> {
+    for link in header.split(">,") {
+        let link = link.trim();
+        let Some((target, attributes)) = link.split_once('>') else {
+            continue;
+        };
+        let is_next = attributes.split(';').any(|attribute| {
+            attribute
+                .trim()
+                .split_once('=')
+                .is_some_and(|(key, value)| {
+                    key.trim() == "rel"
+                        && value
+                            .trim()
+                            .trim_matches('"')
+                            .split_ascii_whitespace()
+                            .any(|relation| relation == "next")
+                })
+        });
+        if is_next {
+            return target
+                .strip_prefix('<')
+                .filter(|target| !target.is_empty())
+                .map(Some)
+                .ok_or_else(|| {
+                    Error::Invalid("dataset tree returned an invalid next link".into())
+                });
+        }
+    }
+    Ok(None)
+}
+
+fn same_origin(left: &reqwest::Url, right: &reqwest::Url) -> bool {
+    left.scheme() == right.scheme()
+        && left.host_str() == right.host_str()
+        && left.port_or_known_default() == right.port_or_known_default()
+}
+
+fn promote_blob(source: &Path, destination: &Path, size: u64, digest: &str) -> Result<()> {
+    if source == destination {
+        return Ok(());
+    }
+    if destination.exists() {
+        verify_file(destination, size, digest)?;
+        fs::remove_file(source)?;
+    } else {
+        fs::rename(source, destination)?;
+    }
+    Ok(())
 }
 
 /// Attach an actionable hint to authentication failures against gated repos.
@@ -953,5 +1151,105 @@ mod tests {
                 entry.name
             );
         }
+    }
+
+    #[test]
+    fn denied_upstream_repositories_name_the_hf_login_remedy() {
+        // A gated-repo 403 must surface the `hf auth login` hint instead of
+        // a bare HTTP error; other statuses keep their original error.
+        let dir = tempfile::tempdir().unwrap();
+        let rt = runtime();
+        rt.block_on(async {
+            let routes = axum::Router::new().route(
+                "/datasets/owner/data/resolve/{*rest}",
+                get(|| async { (StatusCode::FORBIDDEN, "gated").into_response() }),
+            );
+            let endpoint = spawn_server(routes).await;
+            let store = test_store(dir.path(), &endpoint, &sha256(TEST_BYTES));
+            let error = store
+                .pull("demo", |_, _, _| {})
+                .await
+                .expect_err("a denied dataset must fail");
+            let message = error.to_string();
+            assert!(
+                message.contains("hf auth login") || message.contains("denied the request"),
+                "unexpected error: {message}"
+            );
+        });
+    }
+
+    #[test]
+    fn verify_detects_tampered_truncated_and_swapped_shards() {
+        let dir = tempfile::tempdir().unwrap();
+        let sha = sha256(TEST_BYTES);
+        let rt = runtime();
+        let store = rt.block_on(async {
+            let endpoint = spawn_server(file_routes(true)).await;
+            test_store(dir.path(), &endpoint, &sha)
+        });
+        rt.block_on(store.pull("demo", |_, _, _| {})).unwrap();
+        store.verify("demo").expect("intact installs verify");
+
+        // A flipped byte fails the digest.
+        let shard = store
+            .dataset_dir("demo")
+            .join("files/default/test/0000.parquet");
+        std::fs::write(&shard, b"12345670").unwrap();
+        assert!(matches!(
+            store.verify("demo"),
+            Err(Error::DigestMismatch(_))
+        ));
+
+        // A truncated shard fails on size before the digest.
+        std::fs::write(&shard, b"1234").unwrap();
+        assert!(matches!(
+            store.verify("demo"),
+            Err(Error::DigestMismatch(_))
+        ));
+
+        // Restore and corrupt the other split to cover the multi-file walk.
+        std::fs::write(&shard, TEST_BYTES).unwrap();
+        let other = store
+            .dataset_dir("demo")
+            .join("files/default/train/0000.parquet");
+        std::fs::write(&other, b"87654321").unwrap();
+        assert!(matches!(
+            store.verify("demo"),
+            Err(Error::DigestMismatch(_))
+        ));
+    }
+
+    #[test]
+    fn resume_ranges_are_enforced_by_the_header_arithmetic() {
+        // `resumed_response_end` is the guard behind the resume path; its
+        // full matrix lives in `resumed_response_end_accepts_only_…`.
+        assert_eq!(resumed_response_end("bytes 0-7/8", 0, 8), Some(8));
+        assert_eq!(resumed_response_end("bytes 0-7/9", 0, 8), None);
+    }
+
+    #[test]
+    fn resumed_response_end_accepts_only_consistent_ranges() {
+        // A valid range starting exactly at the resume offset.
+        assert_eq!(resumed_response_end("bytes 4-9/10", 4, 10), Some(10));
+        // Wrong prefix, missing separators, and non-numeric fields.
+        for range in [
+            "bytes4-9/10",
+            "",
+            "bytes 4_9/10",
+            "bytes 4/10",
+            "bytes -9/10",
+            "bytes 4-x/10",
+            "bytes 4-9/x",
+        ] {
+            assert_eq!(resumed_response_end(range, 4, 10), None, "{range}");
+        }
+        // Start must equal the bytes already present.
+        assert_eq!(resumed_response_end("bytes 3-9/10", 4, 10), None);
+        // End may not precede start.
+        assert_eq!(resumed_response_end("bytes 4-3/10", 4, 10), None);
+        // End is exclusive of the total size.
+        assert_eq!(resumed_response_end("bytes 4-10/10", 4, 10), None);
+        // The declared total must match the artifact size.
+        assert_eq!(resumed_response_end("bytes 4-9/999", 4, 10), None);
     }
 }

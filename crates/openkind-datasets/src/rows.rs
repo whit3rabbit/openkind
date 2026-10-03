@@ -112,3 +112,123 @@ fn downcast<A: Array + 'static>(array: &dyn Array) -> Result<&A> {
 fn number(value: impl Into<i64>) -> serde_json::Value {
     serde_json::json!(value.into())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use arrow_array::{
+        ArrayRef, BooleanArray, Float32Array, Float64Array, Int16Array, Int32Array, Int64Array,
+        Int8Array, ListArray, RecordBatch, StringArray, StructArray, UInt64Array, UInt8Array,
+    };
+    use arrow_schema::{DataType, Field, Fields};
+    use parquet::arrow::ArrowWriter;
+    use std::sync::Arc;
+    use tempfile::tempdir;
+
+    fn write_batch(path: &Path, batch: &RecordBatch) {
+        let file = File::create(path).expect("create shard");
+        let mut writer = ArrowWriter::try_new(file, batch.schema(), None).expect("writer");
+        writer.write(batch).expect("write batch");
+        writer.close().expect("close writer");
+    }
+
+    #[test]
+    fn parquet_rows_materialize_every_supported_column_type() {
+        let directory = tempdir().expect("tempdir");
+        let path = directory.path().join("shard.parquet");
+
+        let values_field = Field::new("item", DataType::Int64, true);
+        let list =
+            ListArray::from_iter_primitive::<arrow_array::types::Int64Type, _, _>(vec![Some(
+                vec![Some(1_i64), Some(2), Some(3)],
+            )]);
+        let struct_fields = Fields::from(vec![
+            Field::new("inner", DataType::Utf8, false),
+            Field::new("flag", DataType::Boolean, false),
+        ]);
+        let structure = StructArray::new(
+            struct_fields.clone(),
+            vec![
+                Arc::new(StringArray::from(vec!["inner-value"])) as ArrayRef,
+                Arc::new(BooleanArray::from(vec![true])) as ArrayRef,
+            ],
+            None,
+        );
+        let batch = RecordBatch::try_new(
+            Arc::new(arrow_schema::Schema::new(vec![
+                Field::new("text", DataType::Utf8, false),
+                Field::new("i8", DataType::Int8, true),
+                Field::new("i16", DataType::Int16, false),
+                Field::new("i32", DataType::Int32, false),
+                Field::new("i64", DataType::Int64, false),
+                Field::new("u8", DataType::UInt8, false),
+                Field::new("u64", DataType::UInt64, false),
+                Field::new("f32", DataType::Float32, false),
+                Field::new("f64", DataType::Float64, false),
+                Field::new("flag", DataType::Boolean, false),
+                Field::new("tags", DataType::List(Arc::new(values_field)), false),
+                Field::new("meta", DataType::Struct(struct_fields), true),
+            ])),
+            vec![
+                Arc::new(StringArray::from(vec!["row-a"])),
+                Arc::new(Int8Array::from(vec![None])),
+                Arc::new(Int16Array::from(vec![-2_i16])),
+                Arc::new(Int32Array::from(vec![-3_i32])),
+                Arc::new(Int64Array::from(vec![4_i64])),
+                Arc::new(UInt8Array::from(vec![5_u8])),
+                Arc::new(UInt64Array::from(vec![6_u64])),
+                Arc::new(Float32Array::from(vec![1.5_f32])),
+                Arc::new(Float64Array::from(vec![2.5_f64])),
+                Arc::new(BooleanArray::from(vec![false])),
+                Arc::new(list),
+                Arc::new(structure),
+            ],
+        )
+        .expect("batch");
+
+        write_batch(&path, &batch);
+        let rows = read_parquet_rows(&path).expect("read rows");
+        assert_eq!(rows.len(), 1);
+        let row = &rows[0];
+        assert_eq!(row["text"], "row-a");
+        assert_eq!(row["i8"], serde_json::Value::Null);
+        assert_eq!(row["i16"], -2);
+        assert_eq!(row["i32"], -3);
+        assert_eq!(row["i64"], 4);
+        assert_eq!(row["u8"], 5);
+        assert_eq!(row["u64"], 6);
+        assert_eq!(row["f32"], 1.5);
+        assert_eq!(row["f64"], 2.5);
+        assert_eq!(row["flag"], false);
+        assert_eq!(row["tags"], serde_json::json!([1, 2, 3]));
+        assert_eq!(
+            row["meta"],
+            serde_json::json!({"inner": "inner-value", "flag": true})
+        );
+    }
+
+    #[test]
+    fn unsupported_column_types_name_the_type() {
+        let directory = tempdir().expect("tempdir");
+        let path = directory.path().join("shard.parquet");
+        let batch = RecordBatch::try_new(
+            Arc::new(arrow_schema::Schema::new(vec![Field::new(
+                "when",
+                DataType::Timestamp(arrow_schema::TimeUnit::Second, None),
+                false,
+            )])),
+            vec![Arc::new(arrow_array::TimestampSecondArray::from(vec![
+                1_i64,
+            ]))],
+        )
+        .expect("batch");
+        write_batch(&path, &batch);
+
+        let error = read_parquet_rows(&path).expect_err("timestamps are unsupported");
+        assert!(
+            error.to_string().contains("unsupported column type")
+                && error.to_string().contains("Timestamp"),
+            "unexpected error: {error}"
+        );
+    }
+}

@@ -409,3 +409,256 @@ mod tests {
         assert!(manifest.validate().is_err());
     }
 }
+
+#[cfg(test)]
+mod context_limit_tests {
+    use super::*;
+
+    /// The context-window floor is a catalog-ingestion invariant: an entry
+    /// without a positive `context_limit` is not installable.
+    #[test]
+    fn catalog_rejects_zero_context_limits() {
+        let mut catalog = Catalog {
+            schema: CATALOG_SCHEMA.into(),
+            models: vec![CatalogEntry {
+                name: "fixture:aaaa".into(),
+                aliases: vec![],
+                profile_id: "profile".into(),
+                loader_id: "loader".into(),
+                description: "fixture".into(),
+                context_limit: 0,
+                support_status: "rust-loadable".into(),
+                manifest_path: "manifests/fixture.json".into(),
+                manifest_sha256: "a".repeat(64),
+            }],
+        };
+        let error = catalog.validate().expect_err("zero context must fail");
+        assert!(
+            error.to_string().contains("fixture:aaaa"),
+            "unexpected error: {error}"
+        );
+
+        catalog.models[0].context_limit = 1;
+        catalog
+            .validate()
+            .expect("the smallest positive limit passes");
+    }
+
+    #[test]
+    fn catalog_rejects_bad_schema_duplicate_names_and_metadata() {
+        let base = Catalog {
+            schema: CATALOG_SCHEMA.into(),
+            models: vec![CatalogEntry {
+                name: "fixture:aaaa".into(),
+                aliases: vec![],
+                profile_id: "profile".into(),
+                loader_id: "loader".into(),
+                description: "fixture".into(),
+                context_limit: 8192,
+                support_status: "rust-loadable".into(),
+                manifest_path: "manifests/fixture.json".into(),
+                manifest_sha256: "a".repeat(64),
+            }],
+        };
+        let mut catalog = base.clone();
+        catalog.schema = "other/v1".into();
+        assert!(catalog.validate().is_err(), "wrong schema must fail");
+
+        let mut catalog = base.clone();
+        catalog.models.push(CatalogEntry {
+            name: "fixture:aaaa".into(),
+            ..base.models[0].clone()
+        });
+        assert!(catalog.validate().is_err(), "duplicate names must fail");
+
+        let mut catalog = base.clone();
+        catalog.models[0].manifest_path = "elsewhere/fixture.json".into();
+        assert!(catalog.validate().is_err(), "non-manifests path must fail");
+
+        let mut catalog = base.clone();
+        catalog.models[0].manifest_path = "../fixture.json".into();
+        assert!(catalog.validate().is_err(), "escaping path must fail");
+
+        let mut catalog = base.clone();
+        catalog.models[0].manifest_sha256 = "A".repeat(64);
+        assert!(catalog.validate().is_err(), "uppercase digest must fail");
+
+        let mut catalog = base.clone();
+        catalog.models[0].profile_id = String::new();
+        assert!(catalog.validate().is_err(), "empty profile id must fail");
+
+        let mut catalog = base.clone();
+        catalog.models[0].loader_id = String::new();
+        assert!(catalog.validate().is_err(), "empty loader id must fail");
+
+        let mut catalog = base.clone();
+        catalog.models[0].name = "Fixture:aaaa".into();
+        assert!(catalog.validate().is_err(), "invalid name must fail");
+    }
+
+    #[test]
+    fn valid_sha256_rejects_wrong_length_charset_and_case() {
+        assert!(valid_sha256(&"a".repeat(64)));
+        assert!(!valid_sha256(&"A".repeat(64)), "uppercase must fail");
+        assert!(!valid_sha256(&"g".repeat(64)), "non-hex must fail");
+        assert!(!valid_sha256(&"a".repeat(63)), "short digest must fail");
+        assert!(!valid_sha256(&"a".repeat(65)), "long digest must fail");
+    }
+
+    #[test]
+    fn manifest_rejects_bad_shapes_field_by_field() {
+        let valid_artifact = || Artifact {
+            path: "bundle/head.bin".into(),
+            size: 1,
+            sha256: "a".repeat(64),
+            source: Source {
+                kind: "github".into(),
+                repository: "example/models".into(),
+                revision: "b".repeat(40),
+                path: "source.bin".into(),
+            },
+        };
+        let valid_manifest = || Manifest {
+            schema: MANIFEST_SCHEMA.into(),
+            name: "fixture:v1".into(),
+            profile_id: "test-profile".into(),
+            loader_id: "test-loader".into(),
+            description: "fixture".into(),
+            release_date: "2026-09-25".into(),
+            support_status: "rust-loadable".into(),
+            question_types: vec!["choice".into()],
+            artifacts: vec![valid_artifact()],
+        };
+        valid_manifest().validate().expect("fixture must validate");
+
+        let mut manifest = valid_manifest();
+        manifest.artifacts.clear();
+        assert!(manifest.validate().is_err(), "empty artifacts must fail");
+
+        let mut manifest = valid_manifest();
+        manifest.artifacts.push(valid_artifact());
+        assert!(manifest.validate().is_err(), "duplicate paths must fail");
+
+        let mut manifest = valid_manifest();
+        manifest.artifacts[0].size = 0;
+        assert!(manifest.validate().is_err(), "zero size must fail");
+
+        let mut manifest = valid_manifest();
+        manifest.artifacts[0].sha256 = "A".repeat(64);
+        assert!(
+            manifest.validate().is_err(),
+            "bad artifact digest must fail"
+        );
+
+        let mut manifest = valid_manifest();
+        manifest.description = String::new();
+        assert!(manifest.validate().is_err(), "empty description must fail");
+
+        let mut manifest = valid_manifest();
+        manifest.release_date = "2026-9-5".into();
+        assert!(manifest.validate().is_err(), "short release date must fail");
+
+        let mut manifest = valid_manifest();
+        manifest.support_status = "beta".into();
+        assert!(
+            manifest.validate().is_err(),
+            "unknown support status must fail"
+        );
+
+        let mut manifest = valid_manifest();
+        manifest.question_types = vec![];
+        assert!(
+            manifest.validate().is_err(),
+            "empty question types must fail"
+        );
+
+        let mut manifest = valid_manifest();
+        manifest.question_types = vec!["alchemy".into()];
+        assert!(
+            manifest.validate().is_err(),
+            "unknown question type must fail"
+        );
+
+        let mut manifest = valid_manifest();
+        manifest.artifacts[0].size = MAX_MODEL_BYTES;
+        manifest.artifacts[0].path = "bundle/one.bin".into();
+        manifest.artifacts.push(valid_artifact());
+        manifest.artifacts[1].size = 1;
+        manifest.artifacts[1].path = "bundle/two.bin".into();
+        assert!(
+            manifest.validate().is_err(),
+            "overflowing total size must fail"
+        );
+    }
+
+    #[test]
+    fn source_rejects_bad_shapes_field_by_field() {
+        let source = |kind: &str, repository: &str, revision: &str, path: &str| Source {
+            kind: kind.into(),
+            repository: repository.into(),
+            revision: revision.into(),
+            path: path.into(),
+        };
+        for source in [
+            source("gitlab", "example/models", &"b".repeat(40), "source.bin"),
+            source("", "example/models", &"b".repeat(40), "source.bin"),
+            source("github", "example", &"b".repeat(40), "source.bin"),
+            source("github", "a/b/c", &"b".repeat(40), "source.bin"),
+            source("github", "example/models", &"b".repeat(39), "source.bin"),
+            source("github", "example/models", &"g".repeat(40), "source.bin"),
+            source("github", "example/models", &"b".repeat(40), "../escape"),
+        ] {
+            let manifest = Manifest {
+                schema: MANIFEST_SCHEMA.into(),
+                name: "fixture:v1".into(),
+                profile_id: "test-profile".into(),
+                loader_id: "test-loader".into(),
+                description: "fixture".into(),
+                release_date: "2026-09-25".into(),
+                support_status: "rust-loadable".into(),
+                question_types: vec!["choice".into()],
+                artifacts: vec![Artifact {
+                    path: "bundle/head.bin".into(),
+                    size: 1,
+                    sha256: "a".repeat(64),
+                    source,
+                }],
+            };
+            assert!(
+                manifest.validate().is_err(),
+                "source must be rejected: {:?}",
+                manifest.artifacts[0].source
+            );
+        }
+    }
+
+    #[test]
+    fn source_urls_pin_github_and_huggingface_layouts() {
+        let github = Source {
+            kind: "github".into(),
+            repository: "example/models".into(),
+            revision: "b".repeat(40),
+            path: "weights/head.bin".into(),
+        };
+        assert_eq!(
+            github.url(),
+            format!(
+                "https://raw.githubusercontent.com/example/models/{}/weights/head.bin",
+                "b".repeat(40)
+            )
+        );
+        let huggingface = Source {
+            kind: "huggingface".into(),
+            repository: "example/models".into(),
+            revision: "c".repeat(40),
+            path: "weights/head.bin".into(),
+        };
+        assert_eq!(
+            huggingface.url(),
+            format!(
+                "https://huggingface.co/example/models/resolve/{}/weights/head.bin",
+                "c".repeat(40)
+            )
+        );
+    }
+}

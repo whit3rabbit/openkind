@@ -169,6 +169,12 @@ mod tests {
         for flag in ["--help", "-h"] {
             assert_eq!(parse_args([flag.into()]).unwrap(), Mode::Help);
         }
+        // Help wins over write: a combined invocation must not touch disk.
+        assert_eq!(
+            parse_args(["--write".into(), "--help".into()]).unwrap(),
+            Mode::Help
+        );
+        assert_eq!(parse_args(["-w".into(), "-h".into()]).unwrap(), Mode::Help);
         for invalid in ["--writ", "request.json"] {
             assert_eq!(
                 parse_args(["--write".into(), invalid.into()])
