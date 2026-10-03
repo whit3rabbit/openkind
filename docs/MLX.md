@@ -141,11 +141,11 @@ daemon-registration gates in
 | `strands-decider-2b` | [`Qwen3.5-2B-MLX-bf16`](https://huggingface.co/mlx-community/Qwen3.5-2B-MLX-bf16), [`Jev-Style-2B-Decision-v3-MLX`](https://huggingface.co/chaoliangUNSW/Jev-Style-2B-Decision-v3-MLX) | The Qwen conversion is a base-model lead. Jev-Style is an independent task-trained decision model with its own MLX runtime, readout, and calibration, not a Strands conversion or an OpenKind parity result. |
 | `clef-flash`, `clef-flash-gguf`, `clef-27b-gguf` | [`clef-flash-8bit`](https://huggingface.co/mlx-community/clef-flash-8bit), [`clef-8bit`](https://huggingface.co/mlx-community/clef-8bit) | Exact Cloudflare checkpoints with a separate Python scoring runtime. Its 8-bit spot-check is not an OpenKind parity result; the in-tree 4-bit path remains unqualified. |
 | `winnow-e4b` | [`gemma-4-e4b-it-bf16`](https://huggingface.co/mlx-community/gemma-4-e4b-it-bf16) | Gemma 4 base-family conversion. The Winnow fine-tune and letter-logit profile require separate weights and integration. |
-| `von` | [`tasksource-ModernBERT-base-embed-bf16`](https://huggingface.co/mlx-community/tasksource-ModernBERT-base-embed-bf16/tree/d1ba4cc2280fe323abd82d731d2e178d60313175) | Related ModernBERT sentence-embedding model, not Von's option-marker classifier. No exact Von conversion was found; the Hub card does not declare a license. |
+| `von` | [`answerdotai-ModernBERT-Large-Instruct-bf16`](https://huggingface.co/mlx-community/answerdotai-ModernBERT-Large-Instruct-bf16/tree/3a31b85359b2419b39e8addd4db696218a82c0f9) (also 8-bit, 6-bit, and 4-bit) and [`tasksource-ModernBERT-base-embed-bf16`](https://huggingface.co/mlx-community/tasksource-ModernBERT-base-embed-bf16/tree/d1ba4cc2280fe323abd82d731d2e178d60313175) | The Instruct conversions are separate masked-language-model classifiers, not Von's fine-tuned option-marker checkpoint or an OpenKind parity result. The embedding conversion has a different task and no declared license. |
 | `encoder-nli` | No matching conversion found | Search found no MLX conversion for [`typeform/distilbert-base-uncased-mnli`](https://huggingface.co/typeform/distilbert-base-uncased-mnli). |
 | `schema-scorer` | [`all-MiniLM-L6-v2-bf16`](https://huggingface.co/mlx-community/all-MiniLM-L6-v2-bf16) | Related MiniLM embedding model, not a sentence-pair cross-encoder. OpenKind uses the MS MARCO MiniLM cross-encoder and its single-logit readout. |
 
-Hub repositories and metadata were checked on 2026-10-02. Their commit SHAs,
+Hub repositories and metadata were checked on 2026-10-03. Their commit SHAs,
 reported licenses, and fit assessments are pinned in the supplemental index.
 Recheck those details and qualify the model before using a lead in OpenKind.
 

@@ -1,6 +1,6 @@
 {
   "schema": "openkind-mlx-alternatives/v1",
-  "checked_at": "2026-10-02",
+  "checked_at": "2026-10-03",
   "installable": false,
   "scope": "Every profile in catalog.json. qualified means OpenKind has a parity-qualified MLX path; unqualified means a path exists but parity or evidence is incomplete; none means no OpenKind MLX path is available.",
   "models": [
@@ -31,8 +31,40 @@
     {
       "catalog_name": "von:69219703407bd39cca0c",
       "openkind_mlx_status": "none",
-      "assessment": "No exact MLX conversion of wfzyx/von was found. The related ModernBERT MLX model below is an embedding model, not Von's option-marker classifier.",
+      "assessment": "No exact MLX conversion of wfzyx/von was found. The ModernBERT-Large-Instruct MLX conversions are related masked-language-model classifiers with separate fine-tuning and output behavior, not Von's option-marker checkpoint. The embedding lead below uses a different task.",
       "leads": [
+        {
+          "repository": "mlx-community/answerdotai-ModernBERT-Large-Instruct-bf16",
+          "revision": "3a31b85359b2419b39e8addd4db696218a82c0f9",
+          "license": "apache-2.0",
+          "base_model": "answerdotai/ModernBERT-Large-Instruct",
+          "relationship": "same-task-different-model",
+          "notes": "BF16 MLX conversion of the upstream ModernBERT-Large-Instruct masked-language-model classifier. Its instruction tuning and MASK-token answer format differ from Von's option-marker checkpoint; no OpenKind parity was run."
+        },
+        {
+          "repository": "mlx-community/answerdotai-ModernBERT-Large-Instruct-8bit",
+          "revision": "c64bbb98552852256af216f3b525e32e3be21b7b",
+          "license": "apache-2.0",
+          "base_model": "answerdotai/ModernBERT-Large-Instruct",
+          "relationship": "same-task-different-model",
+          "notes": "8-bit MLX conversion of the same separate ModernBERT-Large-Instruct classifier; not Von's fine-tuned checkpoint or an OpenKind parity result."
+        },
+        {
+          "repository": "mlx-community/answerdotai-ModernBERT-Large-Instruct-6bit",
+          "revision": "a7f483897a682278cd31f81de996ebfe479beaaf",
+          "license": "apache-2.0",
+          "base_model": "answerdotai/ModernBERT-Large-Instruct",
+          "relationship": "same-task-different-model",
+          "notes": "6-bit MLX conversion of the same separate ModernBERT-Large-Instruct classifier; not Von's fine-tuned checkpoint or an OpenKind parity result."
+        },
+        {
+          "repository": "mlx-community/answerdotai-ModernBERT-Large-Instruct-4bit",
+          "revision": "83feba6f7f3346a2ea392d1bc45c48a2c8acd5c8",
+          "license": "apache-2.0",
+          "base_model": "answerdotai/ModernBERT-Large-Instruct",
+          "relationship": "same-task-different-model",
+          "notes": "4-bit MLX conversion of the same separate ModernBERT-Large-Instruct classifier; not Von's fine-tuned checkpoint or an OpenKind parity result."
+        },
         {
           "repository": "mlx-community/tasksource-ModernBERT-base-embed-bf16",
           "revision": "d1ba4cc2280fe323abd82d731d2e178d60313175",
@@ -179,7 +211,7 @@
     {
       "catalog_name": "encoder-nli:1041a4c362338a61b820",
       "openkind_mlx_status": "none",
-      "assessment": "Hub model search found no MLX conversion for typeform/distilbert-base-uncased-mnli as of 2026-10-02.",
+      "assessment": "Hub model search found no MLX conversion for typeform/distilbert-base-uncased-mnli as of 2026-10-03.",
       "leads": []
     },
     {
