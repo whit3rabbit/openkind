@@ -1,0 +1,206 @@
+name: backend release artifacts
+
+on:
+  workflow_call:
+    inputs:
+      revision:
+        type: string
+        required: true
+      version:
+        type: string
+        required: true
+      attest:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build ${{ matrix.target }} ${{ matrix.variant }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-15, target: aarch64-apple-darwin, variant: standard, features: mlx }
+          - { os: macos-15, target: aarch64-apple-darwin, variant: onnx, features: 'mlx,onnx' }
+          - { os: macos-15-intel, target: x86_64-apple-darwin, variant: standard, features: '' }
+          - { os: macos-15-intel, target: x86_64-apple-darwin, variant: onnx, features: onnx }
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, variant: standard, features: cuda }
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, variant: onnx, features: 'cuda,onnx-cuda' }
+          - { os: windows-2022, target: x86_64-pc-windows-msvc, variant: standard, features: cuda }
+          - { os: windows-2022, target: x86_64-pc-windows-msvc, variant: onnx, features: 'cuda,onnx-cuda' }
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-musl, variant: standard, features: '' }
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.revision }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+          components: clippy
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: '32.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install musl tools
+        if: contains(matrix.target, 'musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+      - name: Install CUDA-compatible MSVC toolset
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installation = & "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe" -latest -property installationPath
+          $installer = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/setup.exe"
+          $process = Start-Process $installer -ArgumentList @('modify', '--installPath', "`"$installation`"", '--add', 'Microsoft.VisualStudio.Component.VC.14.39.17.9.x86.x64', '--quiet', '--norestart') -Wait -PassThru
+          if ($process.ExitCode -notin @(0, 3010)) { throw "MSVC installation failed: $($process.ExitCode)" }
+      - name: Initialize MSVC environment
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          toolset: '14.39'
+      - name: Install CUDA toolkit without drivers
+        if: contains(matrix.features, 'cuda')
+        uses: Jimver/cuda-toolkit@v0.2.24
+        with:
+          cuda: '12.6.0'
+          method: local
+          sub-packages: ${{ runner.os == 'Windows' && '["nvcc","cudart","nvrtc","nvrtc_dev","cublas","cublas_dev","curand","curand_dev"]' || '[]' }}
+          linux-local-args: '["--toolkit"]'
+      - name: Prepare release-only Candle manifest override
+        if: contains(matrix.features, 'cuda')
+        run: python scripts/release.py prepare-cuda
+      - name: Build release configurations
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          FEATURES: ${{ matrix.features }}
+          CUDA_COMPUTE_CAP: '80'
+        run: |
+          set -euo pipefail
+          if [[ "$TARGET" == aarch64-apple-darwin ]]; then
+            SDKROOT=$(xcrun --show-sdk-path)
+            export SDKROOT
+            export MLX_RS_METAL_PATH="$PWD/target/release-metallib"
+          fi
+          options=()
+          if [[ "$FEATURES" == *cuda* ]]; then
+            options+=(--config target/release-cargo-config.toml)
+          fi
+          cargo build "${options[@]}" --release --locked --target "$TARGET" --features "$FEATURES" --bin openkind --bin openkindd
+          if [[ "$TARGET" == aarch64-apple-darwin ]]; then
+            cp target/release-metallib/mlx.metallib "target/$TARGET/release/"
+          fi
+          cargo check "${options[@]}" -p openkind-server --all-targets --locked --target "$TARGET" --features "$FEATURES"
+          if [[ "$FEATURES" == *cuda* ]]; then
+            cargo clippy "${options[@]}" -p openkind-backends --all-targets --locked --target "$TARGET" --features "$FEATURES" -- -D warnings
+          fi
+      - name: Package pinned runtime, notices, and checksums
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          VARIANT: ${{ matrix.variant }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          options=()
+          if [[ "$VARIANT" == onnx ]]; then options+=(--onnx); fi
+          python scripts/release.py package --bin-dir "target/$TARGET/release" --target "$TARGET" --version "$VERSION" "${options[@]}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: openkind-${{ matrix.target }}-${{ matrix.variant }}
+          path: dist/*
+          if-no-files-found: error
+
+  smoke:
+    name: clean host ${{ matrix.target }} ${{ matrix.variant }}
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-15, target: aarch64-apple-darwin, variant: standard, features: mlx-fp32 }
+          - { os: macos-15, target: aarch64-apple-darwin, variant: onnx, features: 'mlx-fp32,onnx' }
+          - { os: macos-15-intel, target: x86_64-apple-darwin, variant: standard, features: '' }
+          - { os: macos-15-intel, target: x86_64-apple-darwin, variant: onnx, features: onnx }
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, variant: standard, features: cuda }
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, variant: onnx, features: 'cuda,onnx,onnx-cuda' }
+          - { os: windows-2022, target: x86_64-pc-windows-msvc, variant: standard, features: cuda }
+          - { os: windows-2022, target: x86_64-pc-windows-msvc, variant: onnx, features: 'cuda,onnx,onnx-cuda' }
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-musl, variant: standard, features: '' }
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.revision }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Initialize dependency audit tool
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+      - uses: actions/download-artifact@v8
+        with:
+          name: openkind-${{ matrix.target }}-${{ matrix.variant }}
+          path: dist
+      - name: Verify relocated archive on a fresh runner without CUDA or cuDNN
+        shell: bash
+        env:
+          FEATURES: ${{ matrix.features }}
+        run: |
+          set -euo pipefail
+          for archive in dist/*.tar.gz dist/*.zip; do
+            [[ -f "$archive" ]] || continue
+            python scripts/release.py smoke "$archive" --features "$FEATURES"
+          done
+      - name: Attest verified archive
+        if: inputs.attest
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
+
+  homebrew:
+    name: Homebrew ${{ matrix.target }}
+    needs: [build, smoke]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-15, target: aarch64-apple-darwin }
+          - { os: macos-15-intel, target: x86_64-apple-darwin }
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu }
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.revision }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: Homebrew/actions/setup-homebrew@master
+      - uses: actions/download-artifact@v8
+        with:
+          name: openkind-${{ matrix.target }}-standard
+          path: dist
+      - name: Install and test the rendered formula
+        shell: bash
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+          HOMEBREW_NO_INSTALL_CLEANUP: '1'
+        run: |
+          set -euo pipefail
+          for archive in dist/*.tar.gz; do
+            python scripts/release.py homebrew "$archive"
+          done

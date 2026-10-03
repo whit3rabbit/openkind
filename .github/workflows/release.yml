@@ -84,98 +84,31 @@ jobs:
           check-repo: false
 
   build-binaries:
-    name: build ${{ matrix.target }}
     needs: [resolve-release]
-    runs-on: ${{ matrix.os }}
-    env:
-      RELEASE_TAG: ${{ needs.resolve-release.outputs.tag }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-15
-            target: aarch64-apple-darwin
-          - os: macos-15-intel
-            target: x86_64-apple-darwin
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-musl
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
+    uses: ./.github/workflows/build-release-artifacts.yml
+    with:
+      revision: ${{ needs.resolve-release.outputs.sha }}
+      version: ${{ needs.resolve-release.outputs.tag }}
+      attest: true
+
+  publish-assets:
+    name: publish verified archives
+    needs: [resolve-release, build-binaries]
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
-          ref: ${{ needs.resolve-release.outputs.sha }}
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+          pattern: openkind-*
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v3
         with:
-          targets: ${{ matrix.target }}
-
-      - name: Install musl tools (Linux)
-        if: matrix.target == 'x86_64-unknown-linux-musl'
-        run: sudo apt-get update && sudo apt-get install -y musl-tools
-
-      - name: Build release binaries
-        run: cargo build --release --locked --target ${{ matrix.target }} --bin openkind --bin openkindd
-
-      - name: Package archive and checksum
-        shell: bash
-        run: |
-          set -euo pipefail
-          tag="${RELEASE_TAG}"
-          ver="${tag#v}"
-          name="openkind-${ver}-${{ matrix.target }}"
-          bin_dir="target/${{ matrix.target }}/release"
-
-          # Windows archives are zips holding the .exe binaries; every other
-          # target ships a tarball.
-          if [[ "${{ matrix.target }}" == x86_64-pc-windows-msvc ]]; then
-            powershell -NoProfile -Command \
-              "Compress-Archive -Path '${bin_dir}/openkind.exe','${bin_dir}/openkindd.exe' -DestinationPath '${name}.zip' -Force"
-            asset="${name}.zip"
-          else
-            tar -C "$bin_dir" -czf "${name}.tar.gz" openkind openkindd
-            asset="${name}.tar.gz"
-          fi
-          checksum="${asset}.sha256"
-
-          if command -v sha256sum >/dev/null 2>&1; then
-            sha256sum "${asset}" > "${checksum}"
-          else
-            shasum -a 256 "${asset}" > "${checksum}"
-          fi
-
-          {
-            echo "RELEASE_TAG=${tag}"
-            echo "ASSET=${asset}"
-            echo "CHECKSUM=${checksum}"
-          } >> "$GITHUB_ENV"
-
-      - name: Attest build provenance
-        uses: actions/attest@v4
-        with:
-          subject-path: ${{ env.ASSET }}
-
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          files: |
-            ${{ env.ASSET }}
-            ${{ env.CHECKSUM }}
-
-      - name: Upload artifact for tap update
-        uses: actions/upload-artifact@v7
-        with:
-          name: ${{ env.ASSET }}
-          path: |
-            ${{ env.ASSET }}
-            ${{ env.CHECKSUM }}
+          tag_name: ${{ needs.resolve-release.outputs.tag }}
+          files: dist/*
 
   homebrew-tap:
     name: update homebrew tap
-    needs: [resolve-release, build-binaries]
+    needs: [resolve-release, build-binaries, publish-assets]
     runs-on: ubuntu-latest
     env:
       RELEASE_TAG: ${{ needs.resolve-release.outputs.tag }}
@@ -200,7 +133,7 @@ jobs:
 
           tgz_arm="openkind-${ver}-aarch64-apple-darwin.tar.gz"
           tgz_intel="openkind-${ver}-x86_64-apple-darwin.tar.gz"
-          tgz_linux="openkind-${ver}-x86_64-unknown-linux-musl.tar.gz"
+          tgz_linux="openkind-${ver}-x86_64-unknown-linux-gnu.tar.gz"
 
           sha_arm=$(sha256sum "artifacts/${tgz_arm}" | cut -d' ' -f1)
           sha_intel=$(sha256sum "artifacts/${tgz_intel}" | cut -d' ' -f1)
