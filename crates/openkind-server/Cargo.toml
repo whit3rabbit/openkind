@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+license-file.workspace = true
 repository.workspace = true
 description = "Phase 1: openkindd — the daemon combining HTTP, gRPC, config, tracing, and graceful shutdown."
 
@@ -28,7 +29,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 clap = { workspace = true }
 humantime-serde = { workspace = true }
-openkind-client = { version = "0.1.0", path = "../openkind-client" }
+openkind-client = { workspace = true }
 sha2.workspace = true
 
 [features]
@@ -45,7 +46,7 @@ onnx-rocm = ["onnx", "openkind-backends/onnx-rocm"]
 [dev-dependencies]
 candle-core = { workspace = true }
 criterion = { workspace = true }
-openkind-client = { path = "../openkind-client" }
+openkind-client = { workspace = true }
 openkind-proto = { workspace = true }
 reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls"] }
 tempfile = "3"
