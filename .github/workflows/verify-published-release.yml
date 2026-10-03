@@ -1,0 +1,202 @@
+name: verify published release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Published stable release tag'
+        required: true
+        default: 'v0.1.0'
+
+permissions:
+  contents: read
+  attestations: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
+      sha: ${{ steps.revision.outputs.sha }}
+    steps:
+      - name: Validate the published tag
+        id: tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,tagName > release.json
+          python3 - <<'PY'
+          import json, os
+          release = json.load(open("release.json"))
+          assert release["tagName"] == os.environ["RELEASE_TAG"]
+          assert not release["isDraft"] and not release["isPrerelease"]
+          PY
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${RELEASE_TAG#v}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ steps.tag.outputs.tag }}
+      - name: Record the immutable source
+        id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  archives:
+    name: published archive ${{ matrix.target }} ${{ matrix.variant }}
+    needs: resolve
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-15, target: aarch64-apple-darwin, variant: standard, features: mlx-fp32 }
+          - { os: macos-15, target: aarch64-apple-darwin, variant: onnx, features: 'mlx-fp32,onnx' }
+          - { os: macos-15-intel, target: x86_64-apple-darwin, variant: standard, features: '' }
+          - { os: macos-15-intel, target: x86_64-apple-darwin, variant: onnx, features: onnx }
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, variant: standard, features: cuda }
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-gnu, variant: onnx, features: 'cuda,onnx,onnx-cuda' }
+          - { os: windows-2022, target: x86_64-pc-windows-msvc, variant: standard, features: cuda }
+          - { os: windows-2022, target: x86_64-pc-windows-msvc, variant: onnx, features: 'cuda,onnx,onnx-cuda' }
+          - { os: ubuntu-22.04, target: x86_64-unknown-linux-musl, variant: standard, features: '' }
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - name: Download and verify the published archive
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
+          RELEASE_SHA: ${{ needs.resolve.outputs.sha }}
+          TARGET: ${{ matrix.target }}
+          VARIANT: ${{ matrix.variant }}
+          FEATURES: ${{ matrix.features }}
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          suffix=""
+          [[ "$VARIANT" != onnx ]] || suffix="-onnx"
+          extension="tar.gz"
+          [[ "$TARGET" != *windows* ]] || extension="zip"
+          archive="openkind-${RELEASE_VERSION}-${TARGET}${suffix}.${extension}"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern "$archive" --pattern "$archive.sha256" --dir dist
+          gh attestation verify "dist/$archive" --repo "$GITHUB_REPOSITORY" \
+            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/build-release-artifacts.yml" \
+            --signer-digest "$RELEASE_SHA" \
+            --source-digest "$RELEASE_SHA" --source-ref "refs/tags/$RELEASE_TAG" \
+            --deny-self-hosted-runners --format json > reports/attestation.json
+          python scripts/release.py smoke "dist/$archive" --features "$FEATURES" 2>&1 | tee reports/smoke.log
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: published-archive-${{ matrix.target }}-${{ matrix.variant }}
+          path: reports/*
+          if-no-files-found: warn
+
+  homebrew:
+    name: published Homebrew ${{ matrix.os }}
+    needs: [resolve, archives]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel, ubuntu-22.04]
+    steps:
+      - uses: Homebrew/actions/setup-homebrew@9f17989bd508c794353d974d1756f23b0bcf10c1
+      - name: Install the published formula and verify its version
+        env:
+          RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
+          HOMEBREW_NO_AUTO_UPDATE: '1'
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          brew tap whit3rabbit/tap
+          brew info --json=v2 whit3rabbit/tap/openkind > reports/formula.json
+          python3 - <<'PY'
+          import json, os
+          formula = json.load(open("reports/formula.json"))["formulae"][0]
+          assert formula["versions"]["stable"] == os.environ["RELEASE_VERSION"]
+          PY
+          brew install --formula whit3rabbit/tap/openkind 2>&1 | tee reports/install.log
+          brew test whit3rabbit/tap/openkind 2>&1 | tee reports/test.log
+          "$(brew --prefix openkind)/bin/openkindd" --help > reports/daemon-help.txt
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: published-homebrew-${{ matrix.os }}
+          path: reports/*
+          if-no-files-found: warn
+
+  cargo:
+    name: published Cargo installation
+    needs: resolve
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+      - uses: dtolnay/rust-toolchain@1.98.1
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: '32.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install both binaries from crates.io
+        env:
+          RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+          cargo install --locked --version "$RELEASE_VERSION" --root "$RUNNER_TEMP/openkind-installed" \
+            openkind-cli openkind-server 2>&1 | tee reports/install.log
+          "$RUNNER_TEMP/openkind-installed/bin/openkind" version | tee reports/version.txt
+          "$RUNNER_TEMP/openkind-installed/bin/openkind" doctor --json > reports/doctor.json
+          python3 - <<'PY'
+          import json, os, socket, subprocess, time, urllib.request
+          from pathlib import Path
+          report = json.load(open("reports/doctor.json"))
+          assert next(x for x in report["backends"] if x["backend"] == "native-cpu")["ready"]
+          with socket.socket() as sock:
+              sock.bind(("127.0.0.1", 0))
+              port = sock.getsockname()[1]
+          daemon = Path(os.environ["RUNNER_TEMP"]) / "openkind-installed/bin/openkindd"
+          process = subprocess.Popen([str(daemon), "--models", "jev-latest", "--http-addr", f"127.0.0.1:{port}", "--grpc-addr", "0"])
+          try:
+              for _ in range(100):
+                  assert process.poll() is None, "published daemon exited during startup"
+                  try:
+                      urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=1).close()
+                      break
+                  except OSError:
+                      time.sleep(0.1)
+              request = json.load(open("examples/01_noul.json"))
+              request["model"] = "jev-latest"
+              call = urllib.request.Request(f"http://127.0.0.1:{port}/v1/systemone", data=json.dumps(request).encode(), headers={"Content-Type": "application/json"})
+              with urllib.request.urlopen(call, timeout=10) as response:
+                  result = json.load(response)
+                  assert result.get("answers"), "published daemon returned no answers"
+                  Path("reports/mock-response.json").write_text(json.dumps(result, indent=2) + "\n")
+          finally:
+              process.terminate()
+              try:
+                  process.wait(timeout=10)
+              except subprocess.TimeoutExpired:
+                  process.kill()
+                  process.wait()
+          PY
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: published-cargo-install
+          path: reports/*
+          if-no-files-found: warn
