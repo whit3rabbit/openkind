@@ -1,7 +1,7 @@
 import Foundation
 
 /// Recursive representation of arbitrary JSON-serializable values.
-public indirect enum JSONValue: Codable {
+public indirect enum JSONValue: Codable, Sendable {
     case null
     case bool(Bool)
     case number(Double)
@@ -33,7 +33,7 @@ public indirect enum JSONValue: Codable {
 }
 
 /// Text criteria defining true and false labels for binary noul questions.
-public struct NoulCriteria: Codable {
+public struct NoulCriteria: Codable, Sendable {
     public let `true`: String
     public let `false`: String
 
@@ -44,7 +44,7 @@ public struct NoulCriteria: Codable {
 }
 
 /// Evaluation questions supported by the System One protocol: noul, choice, and score.
-public enum Question: Codable {
+public enum Question: Codable, Sendable {
     /// Binary question evaluated to a probability mass between 0.0 and 1.0.
     case noul(instructions: JSONValue, criteria: NoulCriteria? = nil)
     /// Multiple-choice question evaluated over candidate option criteria.
@@ -89,7 +89,7 @@ public enum Question: Codable {
 }
 
 /// Top-level System One evaluation request containing state context, model alias, and questions.
-public struct SystemRequest: Codable {
+public struct SystemRequest: Codable, Sendable {
     public let state: JSONValue
     public let model: String
     public let questions: [String: Question]
@@ -102,7 +102,7 @@ public struct SystemRequest: Codable {
 }
 
 /// Evaluated answer types matching the requested question types.
-public enum Answer: Codable {
+public enum Answer: Codable, Sendable {
     /// Evaluated binary decision returning probability mass.
     case noul(Double)
     /// Evaluated multiple-choice decision with selected candidate, probabilities, and confidence.
@@ -157,33 +157,33 @@ public enum Answer: Codable {
 }
 
 /// Token usage counters reported for input and output.
-public struct Usage: Codable {
+public struct Usage: Codable, Sendable {
     public let input_tokens: UInt32
     public let output_tokens: UInt32
 }
 
 /// System One evaluation response containing model name, evaluated answers, and token usage.
-public struct SystemResponse: Codable {
+public struct SystemResponse: Codable, Sendable {
     public let model: String
     public let answers: [String: Answer]
     public let usage: Usage
 }
 
 /// Metadata describing an available model profile in the catalog.
-public struct ModelMetadata: Decodable {
+public struct ModelMetadata: Decodable, Sendable {
     public let name: String
     public let description: String
     public let release_date: String
 }
 
 /// Response payload from /v1/models listing available models.
-public struct ModelsResponse: Decodable { public let models: [ModelMetadata] }
+public struct ModelsResponse: Decodable, Sendable { public let models: [ModelMetadata] }
 
 /// Daemon health check status response.
-public struct Health: Decodable { public let status: String }
+public struct Health: Decodable, Sendable { public let status: String }
 
 /// Information describing a locally installed model profile.
-public struct LocalModel: Decodable, Identifiable {
+public struct LocalModel: Decodable, Identifiable, Sendable {
     public let name: String
     public let description: String
     public let source: String
@@ -193,7 +193,7 @@ public struct LocalModel: Decodable, Identifiable {
 }
 
 /// Response payload listing locally installed model profiles.
-public struct LocalModelsResponse: Decodable { public let models: [LocalModel] }
+public struct LocalModelsResponse: Decodable, Sendable { public let models: [LocalModel] }
 private struct LocalModelActionResponse: Decodable { let ok: Bool }
 
 /// Result envelope wrapping decoded response data and optional request ID header.
@@ -201,6 +201,8 @@ public struct ApiResult<Value> {
     public let data: Value
     public let requestID: String?
 }
+
+extension ApiResult: Sendable where Value: Sendable {}
 
 /// Error thrown when an HTTP call to the daemon fails with a non-2xx status code.
 public struct ApiError: Error {
@@ -221,28 +223,41 @@ private struct ErrorEnvelope: Decodable {
     let error: Details
 }
 
+final class RedirectPolicy: NSObject, URLSessionTaskDelegate {
+    func urlSession(_ session: URLSession, task: URLSessionTask,
+                    willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest,
+                    completionHandler: @escaping (URLRequest?) -> Void) {
+        // A configured decision endpoint must not redirect credentials or request state.
+        completionHandler(nil)
+    }
+}
+
 /// Asynchronous HTTP client for interacting with the OpenKind daemon and evaluating decisions.
-public final class OpenKindClient {
+public final class OpenKindClient: Sendable {
     /// Base URL of the target daemon.
     public let baseURL: URL
     /// Default model alias used when omitted from evaluation requests.
     public let defaultModel: String
     private let apiKey: String?
     private let timeout: TimeInterval
+    private let evaluationTimeout: TimeInterval
     private let session: URLSession
 
-    /// Initialize an OpenKindClient with configuration options.
+    /// Initialize a client. An explicit timeout applies to every request; defaults
+    /// are 10 seconds for probes and listings, 600 seconds for evaluation and model loading.
     public init(
         baseURL: URL = URL(string: "http://127.0.0.1:18080")!,
         apiKey: String? = nil,
         defaultModel: String = "jev-latest",
-        timeout: TimeInterval = 10,
+        timeout: TimeInterval? = nil,
         session: URLSession = .shared
     ) {
         self.baseURL = baseURL
         self.apiKey = apiKey
         self.defaultModel = defaultModel
-        self.timeout = timeout
+        self.timeout = timeout ?? 10
+        self.evaluationTimeout = timeout ?? 600
         self.session = session
     }
 
@@ -265,7 +280,7 @@ public final class OpenKindClient {
         if localModelAction {
             request.setValue("1", forHTTPHeaderField: "x-openkind-playground")
         }
-        let (data, urlResponse) = try await session.data(for: request)
+        let (data, urlResponse) = try await session.data(for: request, delegate: RedirectPolicy())
         guard let response = urlResponse as? HTTPURLResponse else { throw ClientError.nonHTTPResponse }
         let requestID = response.value(forHTTPHeaderField: "x-typesafe-request-id")
         guard (200..<300).contains(response.statusCode) else {
@@ -281,7 +296,7 @@ public final class OpenKindClient {
     public func evaluate(_ request: SystemRequest) async throws -> ApiResult<SystemResponse> {
         let result: ApiResult<SystemResponse> = try await send(
             "/v1/systemone", method: "POST", body: JSONEncoder().encode(request),
-            requestTimeout: 600)
+            requestTimeout: evaluationTimeout)
         try validate(result.data, for: request)
         return result
     }
@@ -311,7 +326,7 @@ public final class OpenKindClient {
         let body = try JSONSerialization.data(withJSONObject: ["name": name, "loaded": loaded])
         let result: ApiResult<LocalModelActionResponse> = try await send(
             "/playground/api/models", method: "POST", body: body,
-            localModelAction: true, requestTimeout: 600)
+            localModelAction: true, requestTimeout: evaluationTimeout)
         guard result.data.ok else { throw ClientError.invalidResponse("model action was not applied") }
     }
 }
@@ -343,21 +358,21 @@ public func validate(_ response: SystemResponse, for request: SystemRequest) thr
             }
             try distribution(values, "\(id).probabilities")
             try probability(confidence, "\(id).confidence")
-        case (.score, .score(let score, let legend, let values, let confidence)):
-            guard Set(legend.keys) == Set(values.keys),
-                  legend.keys.allSatisfy({ !$0.isEmpty && $0.allSatisfy(\.isASCIIDigit) }),
-                  let maxIndex = legend.keys.compactMap(UInt32.init).max(),
-                  score.isFinite && score >= 0 && score <= Double(maxIndex) else {
+        case (.score(_, let criteria), .score(let score, let legend, let values, let confidence)):
+            let expectedLegend = Dictionary(uniqueKeysWithValues: criteria.enumerated().map { (String($0.offset), $0.element) })
+            let maxIndex = Double(max(0, criteria.count - 1))
+            guard !criteria.isEmpty, legend == expectedLegend, Set(legend.keys) == Set(values.keys),
+                  score.isFinite && score >= 0 && score <= maxIndex else {
                 throw ClientError.invalidResponse("score legend or value mismatch for \(id)")
             }
             try distribution(values, "\(id).probabilities")
             try probability(confidence, "\(id).confidence")
+            let expectedScore = criteria.indices.reduce(0.0) { $0 + Double($1) * values[String($1)]! }
+            guard abs(score - expectedScore) <= 1e-3 * max(1, maxIndex) else {
+                throw ClientError.invalidResponse("score does not match probabilities for \(id)")
+            }
         default:
             throw ClientError.invalidResponse("answer type mismatch for \(id)")
         }
     }
-}
-
-private extension Character {
-    var isASCIIDigit: Bool { unicodeScalars.allSatisfy { $0.value >= 48 && $0.value <= 57 } }
 }

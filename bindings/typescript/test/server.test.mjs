@@ -56,6 +56,47 @@ test("server reports a missing executable", async () => {
   assert.equal(server.running, false);
 });
 
+test("concurrent starts cannot replace the owned process", async () => {
+  const server = new OpenKindServer({ binary: fixture, httpAddr: `127.0.0.1:${await freePort()}` });
+  const first = server.start();
+  await assert.rejects(server.start(), { name: "ServerError", message: "server has already been started" });
+  try {
+    await first;
+    assert.equal(server.running, true);
+    assert.equal((await server.client().health()).data.status, "ok");
+  } finally {
+    await server.stop();
+  }
+  assert.equal(server.running, false);
+});
+
+test("stop during the port probe cancels startup before spawning", async () => {
+  const server = new OpenKindServer({ binary: fixture, httpAddr: `127.0.0.1:${await freePort()}` });
+  const starting = server.start();
+  const rejected = assert.rejects(starting, { name: "ServerError", message: "openkindd startup was cancelled" });
+  await server.stop();
+  await rejected;
+  assert.equal(server.running, false);
+  await server.start();
+  await server.stop();
+});
+
+test("caller option mutations cannot change validated daemon arguments", async () => {
+  const models = ["mock"];
+  const extraArgs = [];
+  const server = new OpenKindServer({ binary: fixture, httpAddr: `127.0.0.1:${await freePort()}`, models, extraArgs });
+  models[0] = "changed";
+  extraArgs.push("--help");
+  await server.start();
+  try {
+    assert.equal((await server.client().listModels()).data.models[0].name, "mock");
+    await Promise.all([server.stop(), server.stop()]);
+    assert.equal(server.running, false);
+  } finally {
+    await server.stop();
+  }
+});
+
 test("server wrapper starts a real openkindd binary", {
   skip: !process.env.OPENKIND_TEST_BINARY,
 }, async () => {

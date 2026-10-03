@@ -79,6 +79,7 @@ class Server:
                 "--grpc-addr", "0", "--models", ",".join(self.models)]
         child_env = os.environ.copy()
         child_env.pop("OPENKIND_API_KEY", None)
+        child_env.pop("OPENDECISION_API_KEY", None)
         child_env.pop("OPENPICK_API_KEY", None)
         child_env.pop("TYPESAFE_API_KEY", None)
         if self.api_key is not None:
@@ -88,33 +89,43 @@ class Server:
         except OSError as error:
             raise ServerError(f"could not start openkindd: {error}") from error
         deadline = time.monotonic() + self.startup_timeout
-        while time.monotonic() < deadline:
-            if self._process.poll() is not None:
-                code = self._process.returncode
-                self._process = None
-                raise ServerError(f"openkindd exited before readiness with code {code}")
-            try:
-                with urlopen(self.base_url + "/health", timeout=0.25) as response:
-                    if response.status == 200 and json.load(response).get("status") == "ok":
-                        return self
-            except (OSError, URLError, ValueError, AttributeError):
-                pass
-            time.sleep(0.05)
-        self.stop()
-        raise ServerError("openkindd did not become healthy before the startup timeout")
+        try:
+            while time.monotonic() < deadline:
+                if self._process.poll() is not None:
+                    code = self._process.returncode
+                    self._process = None
+                    raise ServerError(f"openkindd exited before readiness with code {code}")
+                try:
+                    with urlopen(self.base_url + "/health", timeout=0.25) as response:
+                        if response.status == 200 and json.load(response).get("status") == "ok":
+                            return self
+                except (OSError, URLError, ValueError, AttributeError):
+                    pass
+                time.sleep(0.05)
+            raise ServerError("openkindd did not become healthy before the startup timeout")
+        except BaseException:
+            # __exit__ is not called when context-manager entry fails or is interrupted.
+            self.stop()
+            raise
 
     def stop(self) -> None:
         process = self._process
         if process is None:
             return
-        self._process = None
         if process.poll() is None:
-            process.terminate()
+            try:
+                process.terminate()
+            except ProcessLookupError:
+                pass
             try:
                 process.wait(timeout=self.shutdown_timeout)
             except subprocess.TimeoutExpired:
-                process.kill()
+                try:
+                    process.kill()
+                except ProcessLookupError:
+                    pass
                 process.wait()
+        self._process = None
 
     def __enter__(self) -> Server:
         return self.start()

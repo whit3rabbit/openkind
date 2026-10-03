@@ -16,10 +16,12 @@ public enum ServerError: Error {
     case exitedBeforeReady(Int32)
     /// Startup timed out waiting for the health check to succeed.
     case readinessTimedOut
+    /// The owned child was stopped while startup was waiting for readiness.
+    case startupStopped
 }
 
 /// Owns one local openkindd process and its HTTP client.
-public final class OpenKindServer {
+public final class OpenKindServer: @unchecked Sendable {
     /// Binary executable name or path to spawn.
     public let binary: String
     /// Local loopback address (`127.0.0.1:<port>`) for HTTP listener.
@@ -35,12 +37,16 @@ public final class OpenKindServer {
     /// Additional command-line flags forwarded to the child process.
     public let extraArguments: [String]
 
+    // Synchronous configuration and all mutable lifecycle state share this lock.
+    private let lifecycleLock = NSLock()
     private var process: Process?
+    private var stopping = false
     // Keep a bounded diagnostic for tests without recording response bodies or credentials.
-    private(set) var lastReadinessFailure: String?
+    private var readinessFailure: String?
+    var lastReadinessFailure: String? { withLifecycleLock { readinessFailure } }
 
     /// True if the child process is currently running.
-    public var running: Bool { process?.isRunning == true }
+    public var running: Bool { withLifecycleLock { process?.isRunning == true } }
 
     /// Client preconfigured to communicate with this local daemon.
     public var client: OpenKindClient {
@@ -86,8 +92,28 @@ public final class OpenKindServer {
 
     /// Start the child server process and wait until the health endpoint reports readiness.
     public func start() async throws {
-        guard process == nil else { throw ServerError.alreadyStarted }
-        lastReadinessFailure = nil
+        try Task.checkCancellation()
+        let child = try withLifecycleLock { try launchChild() }
+        do {
+            try await waitForReadiness(child)
+        } catch {
+            // Cleanup must finish even when the caller canceled its startup task.
+            await stop(child)
+            throw error
+        }
+    }
+
+    private func withLifecycleLock<Value>(_ body: () throws -> Value) rethrows -> Value {
+        lifecycleLock.lock()
+        defer { lifecycleLock.unlock() }
+        return try body()
+    }
+
+    // The caller holds lifecycleLock through launch to reserve ownership across concurrent starts.
+    private func launchChild() throws -> Process {
+        guard process?.isRunning != true else { throw ServerError.alreadyStarted }
+        readinessFailure = nil
+        stopping = false
         let port = UInt16(httpAddress.split(separator: ":")[1])!
         guard Self.portIsFree(port) else { throw ServerError.addressUnavailable(httpAddress) }
 
@@ -98,6 +124,7 @@ public final class OpenKindServer {
         ]
         var environment = ProcessInfo.processInfo.environment
         environment.removeValue(forKey: "OPENKIND_API_KEY")
+        environment.removeValue(forKey: "OPENDECISION_API_KEY")
         environment.removeValue(forKey: "OPENPICK_API_KEY")
         environment.removeValue(forKey: "TYPESAFE_API_KEY")
         if let apiKey { environment["OPENKIND_API_KEY"] = apiKey }
@@ -110,56 +137,90 @@ public final class OpenKindServer {
             throw ServerError.launchFailed(error.localizedDescription)
         }
         process = child
+        return child
+    }
 
-        let deadline = Date().addingTimeInterval(startupTimeout)
-        while Date() < deadline {
+    private func waitForReadiness(_ child: Process) async throws {
+        let deadline = ProcessInfo.processInfo.systemUptime + startupTimeout
+        while ProcessInfo.processInfo.systemUptime < deadline {
+            try Task.checkCancellation()
+            guard withLifecycleLock({ process === child && !stopping }) else {
+                throw ServerError.startupStopped
+            }
             if !child.isRunning {
-                process = nil
                 throw ServerError.exitedBeforeReady(child.terminationStatus)
             }
             do {
                 var request = URLRequest(url: URL(string: "http://\(httpAddress)/health")!)
                 request.timeoutInterval = 0.25
-                let (data, response) = try await URLSession.shared.data(for: request)
+                let (data, response) = try await URLSession.shared.data(for: request, delegate: RedirectPolicy())
                 if let http = response as? HTTPURLResponse, http.statusCode == 200,
-                   try JSONDecoder().decode(Health.self, from: data).status == "ok", child.isRunning {
+                   try JSONDecoder().decode(Health.self, from: data).status == "ok",
+                   withLifecycleLock({ process === child && !stopping && child.isRunning }) {
+                    try Task.checkCancellation()
                     return
                 }
-                lastReadinessFailure = (response as? HTTPURLResponse).map {
+                recordReadinessFailure((response as? HTTPURLResponse).map {
                     "health HTTP \($0.statusCode), status did not report ok"
-                } ?? "health response was not HTTP"
+                } ?? "health response was not HTTP", child: child)
             } catch {
+                try Task.checkCancellation()
                 // The HTTP listener may still be starting.
                 let failure = error as NSError
-                lastReadinessFailure = "\(failure.domain) (\(failure.code))"
+                recordReadinessFailure("\(failure.domain) (\(failure.code))", child: child)
             }
-            try? await Task.sleep(nanoseconds: 50_000_000)
+            try await Task.sleep(nanoseconds: 50_000_000)
         }
-        await stop()
         throw ServerError.readinessTimedOut
+    }
+
+    private func recordReadinessFailure(_ failure: String, child: Process) {
+        withLifecycleLock {
+            if process === child { readinessFailure = failure }
+        }
     }
 
     /// Gracefully stop the running child process using SIGTERM, escalating to SIGKILL if timeout expires.
     public func stop() async {
-        guard let child = process else { return }
-        process = nil
-        guard child.isRunning else { return }
-        Darwin.kill(child.processIdentifier, SIGTERM)
-        let deadline = Date().addingTimeInterval(shutdownTimeout)
-        while child.isRunning && Date() < deadline {
-            try? await Task.sleep(nanoseconds: 50_000_000)
+        guard let child = withLifecycleLock({ process }) else { return }
+        await stop(child)
+    }
+
+    private func stop(_ child: Process) async {
+        let owned = withLifecycleLock {
+            guard process === child else { return false }
+            stopping = true
+            return true
         }
-        if child.isRunning {
-            Darwin.kill(child.processIdentifier, SIGKILL)
-            while child.isRunning { try? await Task.sleep(nanoseconds: 50_000_000) }
+        guard owned else { return }
+        // A canceled startup still needs non-canceled sleeps while its child shuts down.
+        let shutdownTimeout = shutdownTimeout
+        await Task.detached {
+            if child.isRunning { Darwin.kill(child.processIdentifier, SIGTERM) }
+            let deadline = ProcessInfo.processInfo.systemUptime + shutdownTimeout
+            while child.isRunning && ProcessInfo.processInfo.systemUptime < deadline {
+                try? await Task.sleep(nanoseconds: 50_000_000)
+            }
+            if child.isRunning {
+                Darwin.kill(child.processIdentifier, SIGKILL)
+                while child.isRunning { try? await Task.sleep(nanoseconds: 50_000_000) }
+            }
+        }.value
+        withLifecycleLock {
+            if process === child {
+                process = nil
+                stopping = false
+            }
         }
     }
 
     /// Synchronous quit hook for an app that is already terminating.
     public func terminate() {
-        guard let child = process else { return }
-        process = nil
-        if child.isRunning { Darwin.kill(child.processIdentifier, SIGTERM) }
+        withLifecycleLock {
+            guard let child = process else { return }
+            stopping = true
+            if child.isRunning { Darwin.kill(child.processIdentifier, SIGTERM) }
+        }
     }
 
     private static func portIsFree(_ port: UInt16) -> Bool {

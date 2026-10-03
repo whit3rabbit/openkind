@@ -112,6 +112,25 @@ jobs:
       - name: Smoke-test Criterion benchmarks on MSRV
         run: env -u RUST_LOG cargo test --workspace --benches --locked
 
+  bindings:
+    name: TypeScript and Python bindings
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install TypeScript binding dependencies
+        working-directory: bindings/typescript
+        run: npm ci
+
+      - name: Build and test TypeScript bindings
+        working-directory: bindings/typescript
+        run: npm test
+
+      - name: Test Python bindings
+        working-directory: bindings/python
+        run: python3 -m unittest discover -s tests
+
   swift:
     name: Swift package (${{ matrix.runner }})
     runs-on: ${{ matrix.runner }}

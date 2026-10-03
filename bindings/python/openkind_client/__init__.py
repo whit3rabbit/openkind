@@ -38,7 +38,7 @@ _apply_log_level_env()
 
 JSONValue = Union[None, bool, int, float, str, list["JSONValue"], dict[str, "JSONValue"]]
 State = str | list[JSONValue] | dict[str, JSONValue]
-Instructions = str | int | float | bool | list[JSONValue] | dict[str, JSONValue]
+Instructions = str | list[JSONValue] | dict[str, JSONValue]
 
 
 class NoulCriteria(TypedDict):
@@ -176,7 +176,7 @@ def _object(value: object) -> dict[str, object]:
 
 
 def _probability(value: object, label: str) -> None:
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 1:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= 1 or not math.isfinite(value):
         raise InvalidResponseError(f"{label} must be a probability")
 
 
@@ -219,14 +219,16 @@ def validate_response(value: object, request: SystemRequest) -> SystemResponse:
         else:
             legend = _object(answer.get("legend"))
             probabilities = _distribution(answer.get("probabilities"), f"{ident}.probabilities")
-            if legend.keys() != probabilities.keys() or any(
-                not key.isascii() or not key.isdigit() or len(key) > 10 or int(key) > 0xFFFFFFFF or not isinstance(label, str)
-                for key, label in legend.items()
-            ):
+            expected_legend = {str(index): label for index, label in enumerate(question["criteria"])}
+            if legend != expected_legend or legend.keys() != probabilities.keys():
                 raise InvalidResponseError(f"invalid score legend for {ident}")
             score = answer.get("score")
-            if isinstance(score, bool) or not isinstance(score, (int, float)) or not math.isfinite(score) or not 0 <= score <= max((int(key) for key in legend), default=0):
+            max_score = max(len(question["criteria"]) - 1, 0)
+            if isinstance(score, bool) or not isinstance(score, (int, float)) or not 0 <= score <= max_score or not math.isfinite(score):
                 raise InvalidResponseError(f"score out of range for {ident}")
+            expected_score = sum(int(key) * probability for key, probability in probabilities.items())
+            if abs(score - expected_score) > 1e-3 * max(max_score, 1):
+                raise InvalidResponseError(f"score does not match probabilities for {ident}")
             _probability(answer.get("confidence"), f"{ident}.confidence")
     return response  # type: ignore[return-value]  # Runtime checks above establish the wire shape.
 
@@ -283,8 +285,14 @@ class Client:
 
     def evaluate(self, request: SystemRequest) -> ApiResult[SystemResponse]:
         """Submit a SystemRequest evaluation payload to /v1/systemone and validate the response."""
-        result = self._send("/v1/systemone", "POST", request)
-        return ApiResult(validate_response(result.data, request), result.request_id)
+        # Keep response checks bound to the submitted rubric when callers reuse mutable dictionaries.
+        questions = {ident: question.copy() for ident, question in request["questions"].items()}
+        for question in questions.values():
+            if "criteria" in question and question["criteria"] is not None:
+                question["criteria"] = question["criteria"].copy()
+        snapshot = {**request, "questions": questions}
+        result = self._send("/v1/systemone", "POST", snapshot)
+        return ApiResult(validate_response(result.data, snapshot), result.request_id)
 
     def system_one(self, state: State, questions: dict[str, Question], model: str | None = None) -> ApiResult[SystemResponse]:
         """Convenience method to evaluate questions against state using the default or specified model."""

@@ -5,7 +5,7 @@ export type JSONValue = null | boolean | number | string | JSONValue[] | { [key:
 export type State = string | JSONValue[] | { [key: string]: JSONValue };
 
 /** Instruction input for an evaluation question. */
-export type Instructions = boolean | number | string | JSONValue[] | { [key: string]: JSONValue };
+export type Instructions = string | JSONValue[] | { [key: string]: JSONValue };
 
 /** Discriminated union of evaluation questions: binary noul, multiple-choice, or rubric score. */
 export type Question =
@@ -145,17 +145,21 @@ export function validateResponse(value: unknown, request: SystemRequest): assert
       if (!sameKeys(probabilities, question.criteria)) fail(`probability keys mismatch for ${id}`);
       probability(answer.confidence, `${id}.confidence`);
     } else {
-      if (!object(answer.legend)) fail(`invalid score legend for ${id}`);
+      const legend = answer.legend;
+      if (!object(legend)) fail(`invalid score legend for ${id}`);
       const probabilities = distribution(answer.probabilities, `${id}.probabilities`);
-      if (!sameKeys(probabilities, answer.legend)) fail(`score legend mismatch for ${id}`);
-      for (const [key, legend] of Object.entries(answer.legend)) {
-        if (!/^[0-9]+$/.test(key) || Number(key) > 0xFFFFFFFF || typeof legend !== "string") {
-          fail(`invalid score legend for ${id}`);
-        }
+      if (!sameKeys(probabilities, legend)) fail(`score legend mismatch for ${id}`);
+      if (Object.keys(legend).length !== question.criteria.length ||
+          question.criteria.some((level, index) => legend[String(index)] !== level)) {
+        fail(`score legend does not match requested rubric for ${id}`);
       }
-      const max = Math.max(0, ...Object.keys(probabilities).map(Number));
+      const max = Math.max(0, question.criteria.length - 1);
       if (typeof answer.score !== "number" || !Number.isFinite(answer.score) || answer.score < 0 || answer.score > max) {
         fail(`score out of range for ${id}`);
+      }
+      const expected = Object.entries(probabilities).reduce((sum, [key, value]) => sum + Number(key) * value, 0);
+      if (Math.abs(answer.score - expected) > 1e-3 * Math.max(1, max)) {
+        fail(`score does not match probability expectation for ${id}`);
       }
       probability(answer.confidence, `${id}.confidence`);
     }
@@ -183,7 +187,7 @@ export class OpenKindClient {
     if (!Number.isFinite(this.timeoutMs) || this.timeoutMs <= 0) throw new TypeError("timeoutMs must be positive");
   }
 
-  private async send<T>(path: string, method: "GET" | "POST", body?: unknown): Promise<ApiResult<T>> {
+  private async send<T>(path: string, method: "GET" | "POST", body?: string): Promise<ApiResult<T>> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     const headers: Record<string, string> = { Accept: "application/json" };
@@ -193,11 +197,9 @@ export class OpenKindClient {
       const response = await this.fetcher(`${this.baseUrl}${path}`, {
         method,
         headers,
-        body: body === undefined ? undefined : JSON.stringify(body, (_key, value: unknown) => {
-          if (typeof value === "number" && !Number.isFinite(value)) throw new TypeError("request contains a nonfinite number");
-          return value;
-        }),
+        body,
         signal: controller.signal,
+        redirect: "error",
       });
       const requestId = response.headers.get("x-typesafe-request-id");
       const raw = await response.text();
@@ -224,8 +226,14 @@ export class OpenKindClient {
    * @returns Validated response with answers and token usage.
    */
   async evaluate(request: SystemRequest): Promise<ApiResult<SystemResponse>> {
-    const result = await this.send<SystemResponse>("/v1/systemone", "POST", request);
-    validateResponse(result.data, request);
+    const body = JSON.stringify(request, (_key, value: unknown) => {
+      if (typeof value === "number" && !Number.isFinite(value)) throw new TypeError("request contains a nonfinite number");
+      return value;
+    });
+    // Bind validation to the wire request even if callers edit their objects while awaiting HTTP.
+    const submitted = JSON.parse(body) as SystemRequest;
+    const result = await this.send<SystemResponse>("/v1/systemone", "POST", body);
+    validateResponse(result.data, submitted);
     return result;
   }
 

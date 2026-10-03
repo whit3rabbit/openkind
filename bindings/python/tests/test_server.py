@@ -1,9 +1,11 @@
 import os
 import socket
+import subprocess
 import unittest
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import urlopen
+from unittest import mock
 
 from openkind_client import Server, ServerError
 
@@ -18,6 +20,52 @@ def free_port():
 
 
 class ServerTests(unittest.TestCase):
+    def test_does_not_inherit_api_keys(self):
+        aliases = ("OPENKIND_API_KEY", "OPENDECISION_API_KEY", "OPENPICK_API_KEY", "TYPESAFE_API_KEY")
+        with mock.patch.dict(os.environ, {name: "inherited-secret" for name in aliases}):
+            with mock.patch("openkind_client.server.subprocess.Popen", wraps=subprocess.Popen) as spawn:
+                with Server(binary=str(FIXTURE), http_addr=f"127.0.0.1:{free_port()}", models=("mock",)) as server:
+                    self.assertEqual(server.client.list_models().data["models"][0]["name"], "mock")
+                self.assertTrue(all(name not in spawn.call_args.kwargs["env"] for name in aliases))
+
+    def test_start_interruption_stops_owned_child(self):
+        server = Server(binary=str(FIXTURE), http_addr=f"127.0.0.1:{free_port()}")
+        processes = []
+        spawn = subprocess.Popen
+
+        def capture_process(*args, **kwargs):
+            process = spawn(*args, **kwargs)
+            processes.append(process)
+            return process
+
+        with mock.patch("openkind_client.server.subprocess.Popen", side_effect=capture_process):
+            with mock.patch("openkind_client.server.urlopen", side_effect=KeyboardInterrupt):
+                with self.assertRaises(KeyboardInterrupt):
+                    server.start()
+        self.assertFalse(server.running)
+        self.assertIsNone(server._process)
+        self.assertIsNotNone(processes[0].poll())
+
+    def test_stop_reaps_child_that_exits_during_termination(self):
+        process = mock.Mock()
+        process.poll.return_value = None
+        process.terminate.side_effect = ProcessLookupError
+        server = Server(http_addr=f"127.0.0.1:{free_port()}")
+        server._process = process
+        server.stop()
+        process.wait.assert_called_once_with(timeout=server.shutdown_timeout)
+        self.assertIsNone(server._process)
+
+    def test_stop_retains_child_after_failed_termination(self):
+        process = mock.Mock()
+        process.poll.return_value = None
+        process.terminate.side_effect = PermissionError
+        server = Server(http_addr=f"127.0.0.1:{free_port()}")
+        server._process = process
+        with self.assertRaises(PermissionError):
+            server.stop()
+        self.assertIs(server._process, process)
+
     def test_process_lifecycle_and_client(self):
         server = Server(binary=str(FIXTURE), http_addr=f"127.0.0.1:{free_port()}",
                         models=("mock",), api_key="secret")

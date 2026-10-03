@@ -7,11 +7,13 @@ import Darwin
 
 private final class StubProtocol: URLProtocol {
     static var mode = "good"
+    static var timeouts: [String: TimeInterval] = [:]
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
         let path = request.url!.path
+        Self.timeouts[path] = request.timeoutInterval
         var status = 200
         var payload: String
         switch path {
@@ -58,11 +60,53 @@ private final class StubProtocol: URLProtocol {
 }
 
 final class OpenKindTests: XCTestCase {
-    private func makeClient() -> OpenKindClient {
+    private func makeClient(timeout: TimeInterval? = nil) -> OpenKindClient {
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [StubProtocol.self]
         return OpenKindClient(baseURL: URL(string: "http://example.test")!, apiKey: "test-key",
-                              session: URLSession(configuration: config))
+                              timeout: timeout, session: URLSession(configuration: config))
+    }
+
+    func testScoreAnswersPreserveTheRequestedRubricAndExpectation() throws {
+        let request = SystemRequest(state: .string("ticket"), model: "mock", questions: [
+            "severity": .score(instructions: .string("Rate severity"), criteria: ["low", "high"]),
+        ])
+        func response(legend: [String: String], probabilities: [String: Double], score: Double) -> SystemResponse {
+            SystemResponse(model: "mock", answers: [
+                "severity": .score(value: score, legend: legend, probabilities: probabilities, confidence: 0.8),
+            ], usage: Usage(input_tokens: 1, output_tokens: 1))
+        }
+        let legend = ["0": "low", "1": "high"]
+        let probabilities = ["0": 0.25, "1": 0.75]
+        XCTAssertNoThrow(try validate(response(legend: legend, probabilities: probabilities, score: 0.75), for: request))
+        // Matching maps alone do not prove that the server preserved the submitted levels.
+        let invalid = [
+            response(legend: ["0": "low"], probabilities: ["0": 1], score: 0),
+            response(legend: ["0": "high", "1": "low"], probabilities: probabilities, score: 0.75),
+            response(legend: ["0": "low", "100": "high"], probabilities: ["0": 0.25, "100": 0.75], score: 0.75),
+            response(legend: ["00": "low", "01": "high"], probabilities: ["00": 0.25, "01": 0.75], score: 0.75),
+            response(legend: legend, probabilities: probabilities, score: 1),
+        ]
+        for answer in invalid {
+            XCTAssertThrowsError(try validate(answer, for: request)) { error in
+                guard case ClientError.invalidResponse = error else { return XCTFail("unexpected error: \(error)") }
+            }
+        }
+    }
+
+    func testExplicitTimeoutAppliesToEvaluationAndModelLoading() async throws {
+        StubProtocol.mode = "good"
+        for timeout in [nil, TimeInterval(0.75)] {
+            let client = makeClient(timeout: timeout)
+            _ = try await client.health()
+            XCTAssertEqual(StubProtocol.timeouts["/health"], timeout ?? 10)
+            _ = try await client.systemOne(state: .string("ticket"), questions: [
+                "team": .choice(instructions: .string("Which team?"), criteria: ["billing": nil, "sales": nil]),
+            ], model: "mock")
+            XCTAssertEqual(StubProtocol.timeouts["/v1/systemone"], timeout ?? 600)
+            try await client.setLocalModelLoaded("mock", loaded: true)
+            XCTAssertEqual(StubProtocol.timeouts["/playground/api/models"], timeout ?? 600)
+        }
     }
 
     func testEndpointsAndRequestBoundValidation() async throws {
