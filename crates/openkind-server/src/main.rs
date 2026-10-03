@@ -161,8 +161,10 @@ async fn main() -> Result<()> {
         candle_cuda = support.candle_cuda,
         onnx = support.onnx,
         onnx_cuda = support.onnx_cuda,
+        onnx_rocm = support.onnx_rocm,
         mlx = support.mlx,
         cuda_device = args.cuda_device,
+        rocm_device = args.rocm_device,
         "execution backend support compiled into this daemon"
     );
 
@@ -180,7 +182,7 @@ async fn main() -> Result<()> {
     args.family_args.validate(&args.qwen35_aliases)?;
     let family_engines = args
         .family_args
-        .load_requested(&args.models, args.cuda_device)?;
+        .load_requested(&args.models, args.device_ordinals())?;
     for (alias, engine) in &family_engines {
         info!(
             alias,
@@ -268,7 +270,7 @@ async fn main() -> Result<()> {
             siblings,
             args.family_args
                 .winnow_backend
-                .to_execution(args.cuda_device)?,
+                .to_execution(args.device_ordinals())?,
         )
         .map_err(|error| anyhow::anyhow!("compose winnow alias `{alias}`: {error}"))?;
         info!(alias, backend = engine.backend_id(), "registered model");

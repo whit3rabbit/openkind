@@ -27,15 +27,19 @@ It defines:
 3. **Tenant Cache Isolation**:
    - `StateCacheKey` requires an explicit, non-empty tenant namespace. States can never leak or be retrieved across tenant boundaries.
 4. **Hardware Detection Fallbacks**:
-   - `detect_available_devices()` always includes `DeviceType::Cpu`. Metal MPS is detected on macOS Apple Silicon (`aarch64`).
+   - `detect_available_devices()` always includes `DeviceType::Cpu`. Metal MPS is detected on macOS Apple Silicon (`aarch64`), NVIDIA CUDA devices through NVML when the driver is loadable, and AMD ROCm hardware through matched KFD and PCI sysfs entries on Linux (display class `0x03` or processing-accelerator class `0x12`). ROCm discovery reports physical PCI addresses, not HIP execution ordinals.
    - `RuntimeConfig` guarantees at least 1 worker thread to prevent thread pool panics.
 
 ## Key Files & Types
 
 - [`src/lib.rs`](./src/lib.rs):
-  - `DeviceType`: `Cpu`, `Metal { device_id }`, `Cuda { device_id }`.
+  - `DeviceType`: `Cpu`, `Metal { device_id }`, `Cuda { device_id }`, `Rocm { pci_address }`.
+  - `PciAddress`: Physical PCI domain, bus, device, and function; ROCm inventory displays as `rocm-pci:<address>`.
   - `RuntimeConfig`: Configuration for target device, memory limits, and worker thread pool.
   - `detect_available_devices()`: Enumerates host acceleration targets.
+- [`src/accelerators.rs`](./src/accelerators.rs):
+  - `Accelerator`: Compute device description with device kind, descriptive name, and total memory. ROCm names use the KFD architecture label or PCI slot; total VRAM uses the physical PCI attribute.
+  - `detect_accelerators()`: Enumerates host accelerators (CPU, NVML CUDA on Linux/Windows, KFD/PCI AMD ROCm on Linux, Metal on macOS Apple Silicon).
 - [`src/hardware.rs`](./src/hardware.rs):
   - `host_hardware()`: host observation recorded with benchmark evidence — `sysctl` on macOS, `/proc` on Linux; keys the host does not report stay `None`.
   - `cpu_time_seconds()`: cumulative process-wide user+system CPU time (`getrusage` on Unix, `GetProcessTimes` on Windows); callers diff two observations around a measured region.

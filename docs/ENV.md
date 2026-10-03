@@ -132,12 +132,14 @@ Family token variables are prefixed `OPENKIND_`, for example
 | Variable | Meaning | Default |
 |---|---|---|
 | `OPENKIND_CUDA_DEVICE` | Zero-based CUDA device ordinal for every `cuda`/`onnx-cuda` backend selection (daemon and bench) | `0` |
+| `OPENKIND_ROCM_DEVICE` | Zero-based ROCm (HIP) device ordinal for every `onnx-rocm` backend selection (daemon, Linux only) | `0` |
 | `OPENKIND_ONNX_RUNTIME` | Explicit ONNX Runtime shared-library path (sets `ORT_DYLIB_PATH` at daemon startup) | unset; `ORT_DYLIB_PATH` then system search |
 | `ORT_DYLIB_PATH` | ONNX Runtime shared library resolved by `ort` when `OPENKIND_ONNX_RUNTIME` is unset | unset |
 
 Detection at daemon startup logs the hardware accelerators (CPU, CUDA via
-NVML, Apple Silicon Metal) and the backends compiled into the binary. See
-[`CUDA.md`](CUDA.md) and [`ONNX.md`](ONNX.md).
+NVML, AMD ROCm via the PCI/KFD sysfs probe on Linux, Apple Silicon Metal) and
+the backends compiled into the binary. See [`CUDA.md`](CUDA.md),
+[`ONNX.md`](ONNX.md), and [`ROCM.md`](ROCM.md).
 
 ### Surveyed-family execution backends
 
@@ -148,15 +150,15 @@ ONNX export reject the selection with an explanation.
 
 | Variable | Values | Default |
 |---|---|---|
-| `OPENKIND_LAYA_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `mlx-fp32` (macOS arm64) | `native-cpu` |
-| `OPENKIND_ENCODER_INSTRUCT_LABEL_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `mlx-fp32` (macOS arm64) | `native-cpu` |
+| `OPENKIND_LAYA_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux), `mlx-fp32` (macOS arm64) | `native-cpu` |
+| `OPENKIND_ENCODER_INSTRUCT_LABEL_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux), `mlx-fp32` (macOS arm64) | `native-cpu` |
 | `OPENKIND_DECODER_LOGIT_QWEN35_BACKEND` | `native-cpu`, `cuda`, `mlx-fp32` (macOS arm64); no ONNX (hybrid backbone) | `native-cpu` |
-| `OPENKIND_ENCODER_NLI_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda` | `native-cpu` |
-| `OPENKIND_DECODER_LETTER_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda` | `native-cpu` |
-| `OPENKIND_DECODER_LOGIT_QWEN3_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda` (applies to every size) | `native-cpu` |
-| `OPENKIND_SCHEMA_SCORER_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda` | `native-cpu` |
-| `OPENKIND_QWEN3GUARD_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda` | `native-cpu` |
-| `OPENKIND_VON_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda` | `native-cpu` |
+| `OPENKIND_ENCODER_NLI_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux) | `native-cpu` |
+| `OPENKIND_DECODER_LETTER_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux) | `native-cpu` |
+| `OPENKIND_DECODER_LOGIT_QWEN3_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux; applies to every size) | `native-cpu` |
+| `OPENKIND_SCHEMA_SCORER_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux) | `native-cpu` |
+| `OPENKIND_QWEN3GUARD_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux) | `native-cpu` |
+| `OPENKIND_VON_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux) | `native-cpu` |
 | `OPENKIND_KEV_BACKEND` | `native-cpu`, `cuda`; no ONNX (pointer head) | `native-cpu` |
 | `OPENKIND_DECODER_LLM_BACKEND` | `native-cpu`, `cuda`; no ONNX (GGUF) | `native-cpu` |
 | `OPENKIND_DECIDER_4B_BACKEND` | `native-cpu`, `cuda`; no ONNX (hybrid backbone) | `native-cpu` |

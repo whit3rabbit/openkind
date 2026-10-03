@@ -69,6 +69,13 @@ impl Gemma4DecisionEngine {
                 )
                 .into());
             }
+            #[cfg(feature = "onnx-rocm")]
+            FamilyExecution::OnnxRocm { .. } => {
+                return Err(FamilyError::InvalidInput(
+                    "gemma4-decision has no ONNX execution path, so no ROCm execution".to_owned(),
+                )
+                .into());
+            }
         };
         let cfg = Gemma4TextConfig::winnow_e4b();
         let checkpoint = load_checkpoint(&artifacts, &cfg, &device)?;

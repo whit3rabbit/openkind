@@ -5,8 +5,9 @@
 //! it through ONNX Runtime, reusing the family's pinned tokenizer and answer
 //! mapping. Execution is optional at build time (`onnx` feature) and
 //! fail-closed at load time: a missing runtime library, a missing artifact,
-//! an unexpected input/output signature, or an unavailable CUDA execution
-//! provider aborts the engine load instead of silently falling back.
+//! an unexpected input/output signature, or an unavailable CUDA or ROCm
+//! execution provider aborts the engine load instead of silently falling
+//! back.
 //!
 //! The runtime library itself is resolved with `load-dynamic` semantics:
 //! an explicit path, the `ORT_DYLIB_PATH` environment variable, or the
@@ -98,6 +99,11 @@ pub enum OnnxError {
     #[error("ONNX CUDA execution provider unavailable: {0}")]
     CudaProvider(String),
 
+    /// The loaded runtime cannot provide the requested AMD ROCm execution
+    /// provider, or the binary was built without `onnx-rocm`.
+    #[error("ONNX ROCm execution provider unavailable: {0}")]
+    RocmProvider(String),
+
     /// The artifact input/output signature does not match the family
     /// contract.
     #[error("ONNX signature mismatch for `{artifact}`: {message}")]
@@ -125,6 +131,13 @@ pub enum OnnxAcceleration {
     #[cfg(feature = "onnx-cuda")]
     Cuda {
         /// Zero-based CUDA device ordinal.
+        device_id: usize,
+    },
+    /// AMD ROCm execution provider on the given device ordinal (feature
+    /// `onnx-rocm`, Linux only; the loaded runtime must ship ROCm support).
+    #[cfg(feature = "onnx-rocm")]
+    Rocm {
+        /// Zero-based ROCm (HIP) device ordinal.
         device_id: usize,
     },
 }
@@ -155,6 +168,8 @@ impl OnnxAcceleration {
             Self::Cpu => "onnx-cpu".to_owned(),
             #[cfg(feature = "onnx-cuda")]
             Self::Cuda { device_id } => format!("onnx-cuda:{device_id}"),
+            #[cfg(feature = "onnx-rocm")]
+            Self::Rocm { device_id } => format!("onnx-rocm:{device_id}"),
         }
     }
 }
@@ -330,6 +345,21 @@ impl OnnxModel {
                     .build()
                     .error_on_failure()])?;
             }
+            #[cfg(feature = "onnx-rocm")]
+            OnnxAcceleration::Rocm { device_id } => {
+                use ort::ep::{ExecutionProvider, ROCm};
+                if !ROCm::default().is_available().unwrap_or(false) {
+                    return Err(OnnxError::RocmProvider(format!(
+                        "the loaded ONNX Runtime does not ship ROCm support (device {device_id})"
+                    )));
+                }
+                builder = builder.with_execution_providers([ROCm::default()
+                    .with_device_id(i32::try_from(device_id).map_err(|_| {
+                        OnnxError::RocmProvider(format!("device ordinal {device_id} exceeds i32"))
+                    })?)
+                    .build()
+                    .error_on_failure()])?;
+            }
         }
         let session = builder.commit_from_file(model_path)?;
 
@@ -477,6 +507,11 @@ mod tests {
         assert_eq!(
             OnnxAcceleration::Cuda { device_id: 2 }.id_fragment(),
             "onnx-cuda:2"
+        );
+        #[cfg(feature = "onnx-rocm")]
+        assert_eq!(
+            OnnxAcceleration::Rocm { device_id: 3 }.id_fragment(),
+            "onnx-rocm:3"
         );
     }
 

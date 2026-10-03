@@ -97,6 +97,15 @@ impl WinnowEngine {
                 )
                 .into());
             }
+            #[cfg(feature = "onnx-rocm")]
+            crate::device::FamilyExecution::OnnxRocm { .. } => {
+                return Err(FamilyError::ExecutionUnavailable(
+                    "the winnow router decoder has no ONNX export and therefore no ROCm \
+                     execution; select cpu or (with the `cuda` feature) cuda"
+                        .to_owned(),
+                )
+                .into());
+            }
         };
         let model = WinnowModel::load(&artifacts, &Self::pinned_config())?;
         let concurrent = config.limits.max_concurrent_requests.max(1);

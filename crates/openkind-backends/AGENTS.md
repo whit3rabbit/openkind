@@ -77,6 +77,8 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
 - [`src/qwen35/experimental.rs`](./src/qwen35/experimental.rs): Offline scoring probes. The daemon does not register them. See benchmark docs for methodology.
 - [`src/qwen35/mlx/`](./src/qwen35/mlx/): Optional MLX backend. Checkpoint layouts, arithmetic paths, and kernel notes are in [MLX backend internals](../../.claude/docs/mlx-backend-internals.md).
 - [`src/families/`](./src/families/): Surveyed-family adapters and shared readouts. The family registry owns profile names and status.
+- [`src/device.rs`](./src/device.rs): `FamilyExecution` device resolution enum (`Cpu`, `Cuda`, `Onnx`, `OnnxRocm`) and adapter dispatch.
+- [`src/onnx/`](./src/onnx/): ONNX Runtime execution provider integration (`OnnxModel`, `OnnxAcceleration`), optional feature gates (`onnx`, `onnx-cuda`, `onnx-rocm`), and per-family adapters.
 - [`src/proxy_cache/`](./src/proxy_cache/): Distilling cache and training lifecycle. See [`docs/PROXY_CACHE.md`](../../docs/PROXY_CACHE.md).
 - [`examples/`](./examples/): Offline parity and MLX qualification programs. See [`docs/MLX.md`](../../docs/MLX.md).
 
@@ -110,11 +112,11 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
     projections consume the input-layernorm output, exactly like Q.
 12. **Confine Execution Digests to Offline Evidence**:
     Emit role-typed token digests only in explicitly requested offline evidence. Never log request-derived digests because low-entropy inputs can be guessed.
-12. **Complete Candidate Retention in Memory Estimates**:
+13. **Complete Candidate Retention in Memory Estimates**:
     Admission estimates must include every state retained by the selected strategy. For `repeated_full`, sum candidates across questions with saturating arithmetic.
-13. **Canonical State Keys**:
+14. **Canonical State Keys**:
     Structured state object keys serialize in byte-lexicographic order at every nesting level. Construction order must not change model input. This is `state_first` semantics, not a renderer change.
-14. **Explicit Family Profiles**:
+15. **Explicit Family Profiles**:
     Shared family loaders need the selected profile in both CPU and MLX configs. Keep artifact digests, renderer, calibration, limits, and backend identity bound to that profile. JevK5 and Plumb share a backbone but have separate contracts.
 
 ## Verification Commands
@@ -138,7 +140,8 @@ CUDA execution reuses the CPU candle model code with a resolved
 `candle_core::Device`; the only feature-gated surface is device resolution
 (`src/device.rs`) plus per-engine selection arms, so feature-off builds type
 check the device threading. Device selection is `FamilyExecution`
-(`Cpu`, `Cuda { device_id }`, `Onnx { device_id }`); every family engine
+(`Cpu`, `Cuda { device_id }`, `Onnx { device_id }`, `OnnxRocm { device_id }`);
+every family engine
 exposes `load_with_execution`, and `load` stays the CPU reference path.
 Continuation-state arithmetic identity follows the device: the native
 backbone emits `candle-cuda-fp32` on CUDA. No CUDA host has run parity yet;
@@ -158,6 +161,22 @@ load time (fail closed). Family ONNX adapters live in each family's
 `onnx.rs` and must reproduce the candle readout contract exactly; the
 artifact contract, required export digest manifest, and per-family applicability are in
 [`docs/ONNX.md`](../../docs/ONNX.md).
+
+### ROCm feature (Linux runtime; offline build)
+
+```bash
+cargo check -p openkind-backends --features onnx-rocm
+cargo clippy -p openkind-backends --features onnx-rocm --all-targets -- -D warnings
+cargo test  -p openkind-backends --features onnx-rocm
+```
+
+`onnx-rocm` implies `onnx` and only gates the ROCm execution-provider
+registration path in `src/onnx/mod.rs` plus `OnnxRocm` selection arms; the
+build stays offline and needs no HIP toolchain. Runtime selection follows
+the ONNX contract with `FamilyExecution::OnnxRocm { device_id }` and
+`backend_id` fragments like `encoder-nli/onnx-rocm:0`; no ROCm host has run
+parity yet. Build, placement, detection, and evidence gates are in
+[`docs/ROCM.md`](../../docs/ROCM.md).
 
 ### MLX feature (macOS arm64 only)
 

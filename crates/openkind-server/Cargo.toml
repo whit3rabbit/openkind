@@ -39,6 +39,8 @@ cuda = ["openkind-backends/cuda"]
 onnx = ["openkind-backends/onnx"]
 # ONNX sessions may register the CUDA execution provider.
 onnx-cuda = ["openkind-backends/onnx-cuda"]
+# ONNX sessions may register the AMD ROCm execution provider (Linux only).
+onnx-rocm = ["onnx", "openkind-backends/onnx-rocm"]
 
 [dev-dependencies]
 criterion = { workspace = true }

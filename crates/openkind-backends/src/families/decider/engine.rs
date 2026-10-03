@@ -316,6 +316,16 @@ impl DeciderEngine {
                 )
                 .into());
             }
+            #[cfg(feature = "onnx-rocm")]
+            crate::device::FamilyExecution::OnnxRocm { .. } => {
+                return Err(crate::families::support::FamilyError::ExecutionUnavailable(
+                    "the decider slot-logit readout runs on the Qwen3.5 hybrid backbone, which \
+                     has no ONNX export and therefore no ROCm execution; select cpu or (with \
+                     the `cuda` feature) cuda"
+                        .to_owned(),
+                )
+                .into());
+            }
         };
         let model = DeciderModel::load(&artifacts)?;
         let engine = Self {

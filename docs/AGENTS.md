@@ -20,6 +20,7 @@ The documentation suite maintains a strict division of responsibility across pro
 | MLX runtime contract, implementation guide, limitations, and enhancement path | [`MLX.md`](MLX.md) |
 | Native CUDA execution: build flags, selection, detection, and evidence gates | [`CUDA.md`](CUDA.md) |
 | ONNX artifact execution: runtime library, artifact contract, and selection | [`ONNX.md`](ONNX.md) |
+| AMD ROCm execution (ONNX Runtime provider): build flags, selection, detection, and evidence gates | [`ROCM.md`](ROCM.md) |
 | Unofficial Arrow bulk endpoint: mapping, limits, and usage | [`ARROW.md`](ARROW.md) |
 | Research dossier, background, and prior art | [`RESEARCH.md`](RESEARCH.md) |
 | Supported environment variables across binaries, SDKs, and bindings | [`ENV.md`](ENV.md) |

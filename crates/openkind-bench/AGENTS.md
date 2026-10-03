@@ -89,6 +89,14 @@ cargo check -p openkind-bench
 cargo test -p openkind-bench
 ```
 
+Optional backend execution features mirror `openkind-backends` (`cuda`, `onnx`,
+`onnx-cuda`, `onnx-rocm`, and macOS arm64 `mlx`). Feature checks:
+
+```bash
+cargo check -p openkind-bench --features onnx
+cargo check -p openkind-bench --features onnx-rocm
+```
+
 For MLX mappings, also compile all targets and run the offline feature tests
 on macOS arm64. Default workspace checks omit these branches:
 

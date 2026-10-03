@@ -66,6 +66,10 @@ onnx = ["dep:ort", "dep:prost", "dep:memmap2"]
 # Allow ONNX sessions to register the CUDA execution provider. Requires an
 # ONNX Runtime build with CUDA support; loading fails closed otherwise.
 onnx-cuda = ["onnx", "ort/cuda"]
+# Allow ONNX sessions to register the AMD ROCm execution provider (Linux
+# only). Requires an ONNX Runtime build with ROCm support placed by the
+# operator; loading fails closed otherwise. See docs/ROCM.md.
+onnx-rocm = ["onnx", "ort/rocm"]
 
 [lib]
 path = "src/lib.rs"

@@ -2,7 +2,7 @@
 //!
 //! # Purpose & Integration
 //! As documented in `docs/ARCHITECTURE.md`, `openkind-runtime`
-//! provides hardware device detection (CPU, Apple Silicon Metal Performance Shaders, NVIDIA CUDA),
+//! provides hardware device detection (CPU, Apple Silicon Metal, NVIDIA CUDA, AMD ROCm),
 //! memory limit accounting, worker pool sizing, backend-neutral execution capabilities, and the
 //! complete branchable-state contract. Qwen3.5 state captures attention KV, DeltaNet recurrent
 //! state, and convolution state together.
@@ -12,7 +12,7 @@
 
 #![warn(missing_docs)]
 
-/// Hardware accelerator discovery (CPU, CUDA via NVML, Apple Silicon Metal).
+/// Hardware accelerator discovery (CPU, CUDA via NVML, Metal, ROCm via sysfs).
 pub mod accelerators;
 /// Backend-neutral branchable continuation-state contracts.
 pub mod branch;
@@ -26,6 +26,7 @@ pub mod execution;
 pub mod hardware;
 /// Process-memory observations for admission calibration.
 pub mod memory;
+mod rocm;
 
 pub use accelerators::{detect_accelerators, Accelerator};
 pub use digest::{
@@ -40,10 +41,11 @@ pub use evidence::{
 pub use execution::{BackendCapabilities, BatchForwardMode, ExecutionPlan};
 pub use hardware::{cpu_time_seconds, host_hardware, HostHardware};
 pub use memory::peak_resident_bytes;
+pub use rocm::{ParsePciAddressError, PciAddress};
 
 use std::fmt;
 
-/// Compute device types supported by the openkind runtime.
+/// Host compute devices, including physical accelerator inventory identities.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DeviceType {
     /// Host CPU execution fallback.
@@ -58,6 +60,12 @@ pub enum DeviceType {
         /// Zero-based CUDA device ordinal.
         device_id: usize,
     },
+    /// Physical AMD GPU exposed through the ROCm kernel driver on Linux.
+    /// This inventory identity does not select a HIP execution ordinal.
+    Rocm {
+        /// Physical PCI domain, bus, device, and function address.
+        pci_address: PciAddress,
+    },
 }
 
 impl fmt::Display for DeviceType {
@@ -66,6 +74,7 @@ impl fmt::Display for DeviceType {
             DeviceType::Cpu => write!(f, "cpu"),
             DeviceType::Metal { device_id } => write!(f, "metal:{device_id}"),
             DeviceType::Cuda { device_id } => write!(f, "cuda:{device_id}"),
+            DeviceType::Rocm { pci_address } => write!(f, "rocm-pci:{pci_address}"),
         }
     }
 }
@@ -73,7 +82,8 @@ impl fmt::Display for DeviceType {
 /// Runtime configuration for device allocation and execution limits.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RuntimeConfig {
-    /// Target execution device.
+    /// Target device identity. A physical ROCm PCI identity must first be
+    /// resolved by the execution backend to a visible HIP device ordinal.
     pub device: DeviceType,
     /// Maximum memory allocation budget in bytes (None = unbounded).
     pub memory_limit_bytes: Option<usize>,
@@ -112,12 +122,18 @@ impl Default for RuntimeConfig {
 /// Detect available acceleration devices on the current host.
 ///
 /// CUDA devices are enumerated through the NVIDIA Management Library when the
-/// driver is loadable; see [`detect_accelerators`] for names and memory.
+/// driver is loadable, and AMD ROCm devices through the PCI/KFD sysfs probe on
+/// Linux; see [`detect_accelerators`] for names and memory.
 #[must_use]
 pub fn detect_available_devices() -> Vec<DeviceType> {
     let mut devices = vec![DeviceType::Cpu];
     devices.extend(
         accelerators::cuda_accelerators()
+            .into_iter()
+            .map(|accelerator| accelerator.device),
+    );
+    devices.extend(
+        accelerators::rocm_accelerators()
             .into_iter()
             .map(|accelerator| accelerator.device),
     );
@@ -175,6 +191,13 @@ mod tests {
         assert_eq!(DeviceType::Cpu.to_string(), "cpu");
         assert_eq!(DeviceType::Metal { device_id: 0 }.to_string(), "metal:0");
         assert_eq!(DeviceType::Cuda { device_id: 1 }.to_string(), "cuda:1");
+        assert_eq!(
+            DeviceType::Rocm {
+                pci_address: "0001:03:00.0".parse().unwrap(),
+            }
+            .to_string(),
+            "rocm-pci:0001:03:00.0"
+        );
     }
 
     #[test]

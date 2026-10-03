@@ -94,6 +94,13 @@ impl EncoderNliEngine {
                     acceleration,
                 )?)
             }
+            #[cfg(feature = "onnx-rocm")]
+            FamilyExecution::OnnxRocm { device_id } => {
+                Box::new(super::onnx::EncoderNliOnnxModel::load(
+                    &config.model_root,
+                    crate::onnx::OnnxAcceleration::Rocm { device_id },
+                )?)
+            }
         };
         let engine = Self {
             inner: Arc::new(Inner {

@@ -5,7 +5,8 @@
 //! without claiming anything about which execution backends this particular
 //! binary can use. A CUDA device reported here still requires a build with
 //! CUDA support in `openkind-backends` (native candle CUDA or the ONNX CUDA
-//! execution provider) before it can execute work.
+//! execution provider) before it can execute work, and an AMD ROCm device
+//! likewise requires the ONNX ROCm execution provider (see `docs/ROCM.md`).
 
 use serde::Serialize;
 
@@ -15,12 +16,14 @@ use crate::hardware::host_hardware;
 ///
 /// The CPU is always reported. CUDA devices are enumerated through the NVIDIA
 /// Management Library when the driver is loadable; Metal is reported on
-/// Apple Silicon macs. Devices the probe cannot describe are omitted rather
-/// than guessed.
+/// Apple Silicon macs; AMD ROCm devices are probed through the PCI and KFD
+/// sysfs interfaces on Linux. Devices the probe cannot describe are omitted
+/// rather than guessed.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Accelerator {
     /// Compute device kind and index. CUDA indices are physical NVML
     /// indices, which can differ from execution ordinals under CUDA masks.
+    /// ROCm entries carry physical PCI addresses, not HIP execution ordinals.
     pub device: crate::DeviceType,
     /// Hardware name as reported by the platform probe.
     pub name: String,
@@ -54,6 +57,7 @@ pub fn detect_accelerators() -> Vec<Accelerator> {
     }];
 
     accelerators.extend(cuda_accelerators());
+    accelerators.extend(rocm_accelerators());
 
     #[cfg(target_os = "macos")]
     #[cfg(target_arch = "aarch64")]
@@ -96,6 +100,22 @@ pub(crate) fn cuda_accelerators() -> Vec<Accelerator> {
         .collect()
 }
 
+/// Enumerate physical AMD GPUs admitted by KFD, without requiring ROCm
+/// userland. PCI addresses are inventory identities, not HIP ordinals.
+#[cfg(target_os = "linux")]
+pub(crate) fn rocm_accelerators() -> Vec<Accelerator> {
+    crate::rocm::probe(
+        std::path::Path::new("/sys"),
+        std::path::Path::new("/dev/kfd"),
+    )
+}
+
+/// ROCm execution providers are Linux-only; other hosts report nothing.
+#[cfg(not(target_os = "linux"))]
+pub(crate) fn rocm_accelerators() -> Vec<Accelerator> {
+    Vec::new()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -136,6 +156,23 @@ mod tests {
             // identify a different physical GPU.
             assert!(previous.is_none_or(|index| device_id > index));
             previous = Some(device_id);
+            assert!(!accelerator.name.is_empty());
+        }
+    }
+
+    #[test]
+    fn rocm_entries_keep_unique_pci_addresses_and_names() {
+        // Off Linux the probe must report nothing rather than guess.
+        let mut previous = None;
+        for accelerator in detect_accelerators()
+            .into_iter()
+            .filter(|accelerator| matches!(accelerator.device, DeviceType::Rocm { .. }))
+        {
+            let DeviceType::Rocm { pci_address } = accelerator.device else {
+                unreachable!()
+            };
+            assert!(previous.is_none_or(|address| pci_address > address));
+            previous = Some(pci_address);
             assert!(!accelerator.name.is_empty());
         }
     }

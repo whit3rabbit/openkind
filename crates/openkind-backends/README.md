@@ -25,6 +25,7 @@ actually compiled in, next to the NVML hardware detection from
 | `Cpu` | default | FP32 candle. Checkpoint shards are size- and digest-checked in their read-only source directory, then mmap'd in place. Never copied to temporary storage. |
 | `Cuda { device_id }` | `cuda` | Native candle execution on NVIDIA GPUs. Requires the CUDA toolchain (nvcc) at build time; loads fail closed without a driver or a valid ordinal. Kernel numerics can differ, and no CUDA host has run the parity gates yet. See [docs/CUDA.md](../../docs/CUDA.md). |
 | `Onnx { device_id }` | `onnx`, `onnx-cuda` | ONNX Runtime through `ort` with `load-dynamic`: builds stay offline, and the shared library is an operator placement through `ORT_DYLIB_PATH` or standard paths. Eight families ship adapters with load-time signature, manifest, and digest checks that fail closed. No export has run the parity gates. See [docs/ONNX.md](../../docs/ONNX.md). |
+| `OnnxRocm { device_id }` | `onnx-rocm` (Linux) | ONNX Runtime ROCm execution provider on AMD GPUs. Same offline build and operator-placed library as `onnx`; requires a ROCm-enabled ONNX Runtime build. Loads fail closed when the runtime lacks the provider, and there is no fallback to CPU. No ROCm host has run the parity gates. See [docs/ROCM.md](../../docs/ROCM.md). |
 | MLX | `mlx` (macOS arm64) | The Qwen 3.5 backbone plus the laya, encoder-instruct-label, and decoder-logit-qwen35/Plumb family backends. FP32 `ReferenceOps` passes the frozen parity gates; native BF16 is unpromoted. See [docs/MLX.md](../../docs/MLX.md). |
 
 Continuation-state arithmetic identity follows the device: a CUDA load emits
@@ -157,11 +158,11 @@ under `target/verification/native-runs`.
   [Phase 3M follow-up](../../docs/verification/phase3m-2026-09-22/README.md).
   Automatic vectorized scheduling and the packed Metal kernel remain opt-in,
   and MLX service load/soak and promotion remain open.
-- CUDA and ONNX answers are unpromoted candidates. Their promotion gates are
-  listed in [docs/CUDA.md](../../docs/CUDA.md) and
-  [docs/ONNX.md](../../docs/ONNX.md). Throughput numbers never establish task
-  quality; only the labeled-dataset and parity evidence in
-  [docs/BENCHMARKS.md](../../docs/BENCHMARKS.md) does.
+- CUDA, ONNX, and ROCm answers are unpromoted candidates. Their promotion
+  gates are listed in [docs/CUDA.md](../../docs/CUDA.md),
+  [docs/ONNX.md](../../docs/ONNX.md), and [docs/ROCM.md](../../docs/ROCM.md).
+  Throughput numbers never establish task quality; only the labeled-dataset
+  and parity evidence in [docs/BENCHMARKS.md](../../docs/BENCHMARKS.md) does.
 
 ## License
 

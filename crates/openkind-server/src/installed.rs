@@ -249,7 +249,7 @@ pub(crate) fn load_installed_engine(
                         model_root: root.to_path_buf(),
                         limits,
                     },
-                    FamilyBackendArg::NativeCpu.to_execution(args.cuda_device)?,
+                    FamilyBackendArg::NativeCpu.to_execution(args.device_ordinals())?,
                 )
                 .map_err(|error| anyhow!("load installed laya model: {error}"))?,
             ),
@@ -261,7 +261,7 @@ pub(crate) fn load_installed_engine(
                         model_root: root.to_path_buf(),
                         limits,
                     },
-                    FamilyBackendArg::Cuda.to_execution(args.cuda_device)?,
+                    FamilyBackendArg::Cuda.to_execution(args.device_ordinals())?,
                 )
                 .map_err(|error| anyhow!("load installed laya model: {error}"))?,
             ),
@@ -273,7 +273,7 @@ pub(crate) fn load_installed_engine(
                         model_root: root.to_path_buf(),
                         limits,
                     },
-                    FamilyBackendArg::Onnx.to_execution(args.cuda_device)?,
+                    FamilyBackendArg::Onnx.to_execution(args.device_ordinals())?,
                 )
                 .map_err(|error| anyhow!("load installed laya model: {error}"))?,
             ),
@@ -285,7 +285,19 @@ pub(crate) fn load_installed_engine(
                         model_root: root.to_path_buf(),
                         limits,
                     },
-                    FamilyBackendArg::OnnxCuda.to_execution(args.cuda_device)?,
+                    FamilyBackendArg::OnnxCuda.to_execution(args.device_ordinals())?,
+                )
+                .map_err(|error| anyhow!("load installed laya model: {error}"))?,
+            ),
+            #[cfg(feature = "onnx")]
+            LayaBackendArg::OnnxRocm => Arc::new(
+                LayaEngine::load_with_execution(
+                    LayaEngineConfig {
+                        profile,
+                        model_root: root.to_path_buf(),
+                        limits,
+                    },
+                    FamilyBackendArg::OnnxRocm.to_execution(args.device_ordinals())?,
                 )
                 .map_err(|error| anyhow!("load installed laya model: {error}"))?,
             ),
@@ -307,7 +319,7 @@ pub(crate) fn load_installed_engine(
                 },
                 args.family_args
                     .decoder_letter_backend
-                    .to_execution(args.cuda_device)?,
+                    .to_execution(args.device_ordinals())?,
             )
             .map_err(|error| anyhow!("load decoder-logit-letter engine: {error}"))?,
         ),
@@ -319,7 +331,7 @@ pub(crate) fn load_installed_engine(
                 },
                 args.family_args
                     .encoder_nli_backend
-                    .to_execution(args.cuda_device)?,
+                    .to_execution(args.device_ordinals())?,
             )
             .map_err(|error| anyhow!("load encoder-nli engine: {error}"))?,
         ),
@@ -331,7 +343,7 @@ pub(crate) fn load_installed_engine(
                             model_root: root.join("checkpoint"),
                             limits,
                         },
-                        FamilyBackendArg::NativeCpu.to_execution(args.cuda_device)?,
+                        FamilyBackendArg::NativeCpu.to_execution(args.device_ordinals())?,
                     )
                     .map_err(|error| anyhow!("load encoder-instruct-label engine: {error}"))?,
                 ),
@@ -342,7 +354,7 @@ pub(crate) fn load_installed_engine(
                             model_root: root.join("checkpoint"),
                             limits,
                         },
-                        FamilyBackendArg::Cuda.to_execution(args.cuda_device)?,
+                        FamilyBackendArg::Cuda.to_execution(args.device_ordinals())?,
                     )
                     .map_err(|error| anyhow!("load encoder-instruct-label engine: {error}"))?,
                 ),
@@ -353,7 +365,7 @@ pub(crate) fn load_installed_engine(
                             model_root: root.join("checkpoint"),
                             limits,
                         },
-                        FamilyBackendArg::Onnx.to_execution(args.cuda_device)?,
+                        FamilyBackendArg::Onnx.to_execution(args.device_ordinals())?,
                     )
                     .map_err(|error| anyhow!("load encoder-instruct-label engine: {error}"))?,
                 ),
@@ -364,7 +376,18 @@ pub(crate) fn load_installed_engine(
                             model_root: root.join("checkpoint"),
                             limits,
                         },
-                        FamilyBackendArg::OnnxCuda.to_execution(args.cuda_device)?,
+                        FamilyBackendArg::OnnxCuda.to_execution(args.device_ordinals())?,
+                    )
+                    .map_err(|error| anyhow!("load encoder-instruct-label engine: {error}"))?,
+                ),
+                #[cfg(feature = "onnx")]
+                EncoderInstructLabelBackendArg::OnnxRocm => Arc::new(
+                    EncoderInstructLabelEngine::load_with_execution(
+                        EncoderInstructLabelEngineConfig {
+                            model_root: root.join("checkpoint"),
+                            limits,
+                        },
+                        FamilyBackendArg::OnnxRocm.to_execution(args.device_ordinals())?,
                     )
                     .map_err(|error| anyhow!("load encoder-instruct-label engine: {error}"))?,
                 ),
@@ -386,7 +409,7 @@ pub(crate) fn load_installed_engine(
                 },
                 args.family_args
                     .decoder_llm_backend
-                    .to_execution(args.cuda_device)?,
+                    .to_execution(args.device_ordinals())?,
             )
             .map_err(|error| anyhow!("load decoder-logit-llm engine: {error}"))?,
         ),
@@ -398,7 +421,7 @@ pub(crate) fn load_installed_engine(
                 },
                 args.family_args
                     .schema_scorer_backend
-                    .to_execution(args.cuda_device)?,
+                    .to_execution(args.device_ordinals())?,
             )
             .map_err(|error| anyhow!("load schema-scorer engine: {error}"))?,
         ),
@@ -410,7 +433,7 @@ pub(crate) fn load_installed_engine(
                 },
                 args.family_args
                     .qwen3guard_backend
-                    .to_execution(args.cuda_device)?,
+                    .to_execution(args.device_ordinals())?,
             )
             .map_err(|error| anyhow!("load qwen3guard engine: {error}"))?,
         ),
@@ -423,7 +446,7 @@ pub(crate) fn load_installed_engine(
                 },
                 args.family_args
                     .kev_backend
-                    .to_execution(args.cuda_device)?,
+                    .to_execution(args.device_ordinals())?,
             )
             .map_err(|error| anyhow!("load kev engine: {error}"))?,
         ),
@@ -436,7 +459,7 @@ pub(crate) fn load_installed_engine(
                 },
                 args.family_args
                     .strands_decider_backend
-                    .to_execution(args.cuda_device)?,
+                    .to_execution(args.device_ordinals())?,
             )
             .map_err(|error| anyhow!("load strands-decider-2b engine: {error}"))?,
         ),
@@ -458,7 +481,7 @@ pub(crate) fn load_installed_engine(
                             model_root: root.join("checkpoint"),
                             limits,
                         },
-                        FamilyBackendArg::Cuda.to_execution(args.cuda_device)?,
+                        FamilyBackendArg::Cuda.to_execution(args.device_ordinals())?,
                     )
                     .map_err(|error| anyhow!("load decoder-logit-qwen35 engine: {error}"))?,
                 ),
@@ -482,7 +505,7 @@ pub(crate) fn load_installed_engine(
                 },
                 args.family_args
                     .von_backend
-                    .to_execution(args.cuda_device)?,
+                    .to_execution(args.device_ordinals())?,
             )
             .map_err(|error| anyhow!("load von engine: {error}"))?,
         ),
@@ -495,7 +518,7 @@ pub(crate) fn load_installed_engine(
                 },
                 args.family_args
                     .decoder_logit_qwen3_backend
-                    .to_execution(args.cuda_device)?,
+                    .to_execution(args.device_ordinals())?,
             )
             .map_err(|error| anyhow!("load decoder-logit-qwen3 engine: {error}"))?,
         ),
@@ -512,7 +535,7 @@ pub(crate) fn load_installed_engine(
                 },
                 args.family_args
                     .decider_4b_backend
-                    .to_execution(args.cuda_device)?,
+                    .to_execution(args.device_ordinals())?,
             )
             .map_err(|error| anyhow!("load decider-4b engine: {error}"))?,
         ),
@@ -524,7 +547,7 @@ pub(crate) fn load_installed_engine(
                 },
                 args.family_args
                     .winnow_e4b_backend
-                    .to_execution(args.cuda_device)?,
+                    .to_execution(args.device_ordinals())?,
             )
             .map_err(|error| anyhow!("load winnow-e4b engine: {error}"))?,
         ),
@@ -558,7 +581,7 @@ pub(crate) fn load_installed_engine(
                     siblings,
                     args.family_args
                         .winnow_backend
-                        .to_execution(args.cuda_device)?,
+                        .to_execution(args.device_ordinals())?,
                 )
                 .map_err(|error| anyhow!("load winnow engine: {error}"))?,
             )

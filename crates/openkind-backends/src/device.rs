@@ -7,7 +7,8 @@
 //! [`Device::Cpu`] exactly as before; the CUDA path requires the `cuda`
 //! feature and a working CUDA driver at load time and fails closed otherwise.
 //! ONNX execution is selected with the same enum but runs through ONNX
-//! Runtime (see [`crate::onnx`]) instead of candle.
+//! Runtime (see [`crate::onnx`]) instead of candle, on CPU, CUDA, or — with
+//! the `onnx-rocm` feature — an AMD ROCm execution provider.
 
 /// Execution selection for one family engine load.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,6 +30,14 @@ pub enum FamilyExecution {
         /// Optional CUDA device ordinal for the CUDA execution provider.
         device_id: Option<usize>,
     },
+    /// ONNX Runtime execution on the AMD ROCm execution provider (feature
+    /// `onnx-rocm`, Linux only). Fails closed when the loaded ONNX Runtime
+    /// cannot provide ROCm support.
+    #[cfg(feature = "onnx-rocm")]
+    OnnxRocm {
+        /// Zero-based ROCm (HIP) device ordinal.
+        device_id: usize,
+    },
 }
 
 impl FamilyExecution {
@@ -45,6 +54,8 @@ impl FamilyExecution {
             Self::Onnx {
                 device_id: Some(device_id),
             } => format!("onnx-cuda:{device_id}"),
+            #[cfg(feature = "onnx-rocm")]
+            Self::OnnxRocm { device_id } => format!("onnx-rocm:{device_id}"),
         }
     }
 
@@ -66,6 +77,10 @@ impl FamilyExecution {
             Self::Onnx { .. } => Err(candle_core::Error::Msg(
                 "onnx execution does not resolve to a candle device".to_owned(),
             )),
+            #[cfg(feature = "onnx-rocm")]
+            Self::OnnxRocm { .. } => Err(candle_core::Error::Msg(
+                "onnx-rocm execution does not resolve to a candle device".to_owned(),
+            )),
         }
     }
 
@@ -74,6 +89,10 @@ impl FamilyExecution {
     pub fn is_onnx(self) -> bool {
         #[cfg(feature = "onnx")]
         {
+            #[cfg(feature = "onnx-rocm")]
+            if matches!(self, Self::OnnxRocm { .. }) {
+                return true;
+            }
             matches!(self, Self::Onnx { .. })
         }
         #[cfg(not(feature = "onnx"))]
@@ -99,6 +118,10 @@ pub struct ExecutionSupport {
     /// ONNX CUDA execution-provider registration compiled in (feature
     /// `onnx-cuda`). The runtime library must also ship CUDA support.
     pub onnx_cuda: bool,
+    /// ONNX ROCm execution-provider registration compiled in (feature
+    /// `onnx-rocm`, Linux only). The runtime library must also ship ROCm
+    /// support.
+    pub onnx_rocm: bool,
     /// MLX execution compiled in (feature `mlx`, macOS arm64).
     pub mlx: bool,
 }
@@ -111,6 +134,7 @@ pub fn execution_support() -> ExecutionSupport {
         candle_cuda: cfg!(feature = "cuda"),
         onnx: cfg!(feature = "onnx"),
         onnx_cuda: cfg!(feature = "onnx-cuda"),
+        onnx_rocm: cfg!(feature = "onnx-rocm"),
         mlx: cfg!(all(
             feature = "mlx",
             target_os = "macos",
@@ -162,5 +186,23 @@ mod tests {
         assert!(support.candle_cpu);
         assert_eq!(support.candle_cuda, cfg!(feature = "cuda"));
         assert_eq!(support.onnx, cfg!(feature = "onnx"));
+        assert_eq!(support.onnx_rocm, cfg!(feature = "onnx-rocm"));
+    }
+
+    #[test]
+    fn onnx_rocm_execution_never_resolves_to_a_candle_device() {
+        #[cfg(feature = "onnx-rocm")]
+        {
+            // `onnx-rocm` implies `onnx`, so ONNX Runtime execution must
+            // report through `is_onnx` as well.
+            let execution = FamilyExecution::OnnxRocm { device_id: 0 };
+            assert!(execution.is_onnx());
+            assert!(execution.candle_device().is_err());
+            assert_eq!(execution.id_fragment(), "onnx-rocm:0");
+        }
+        #[cfg(not(feature = "onnx-rocm"))]
+        {
+            assert!(!FamilyExecution::Cpu.is_onnx());
+        }
     }
 }

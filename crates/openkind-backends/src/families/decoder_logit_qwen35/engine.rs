@@ -168,6 +168,16 @@ impl DecoderLogitQwen35Engine {
                 )
                 .into());
             }
+            #[cfg(feature = "onnx-rocm")]
+            crate::device::FamilyExecution::OnnxRocm { .. } => {
+                return Err(FamilyError::ExecutionUnavailable(
+                    "the letter-logit readout runs on the Qwen3.5 hybrid backbone, which has \
+                     no ONNX export and therefore no ROCm execution; select cpu or (with the \
+                     `cuda` feature) cuda"
+                        .to_owned(),
+                )
+                .into());
+            }
         };
         let model = Jevk5Model::load(&artifacts)?;
         let engine = Self {

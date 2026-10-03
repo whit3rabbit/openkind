@@ -94,6 +94,12 @@ jobs:
       - name: Check optional ONNX CPU features on MSRV
         run: cargo check --workspace --all-targets --features onnx --locked
 
+      - name: Check ROCm daemon feature alone on MSRV
+        run: cargo check -p openkind-server --all-targets --features onnx-rocm --locked
+
+      - name: Test ROCm backend arguments on MSRV
+        run: env -u RUST_LOG cargo test -p openkind-server --bin openkindd --features onnx-rocm --locked onnx_rocm_
+
       - name: Smoke-test Criterion benchmarks on MSRV
         run: env -u RUST_LOG cargo test --workspace --benches --locked
 

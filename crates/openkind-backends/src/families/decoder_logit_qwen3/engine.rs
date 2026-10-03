@@ -248,6 +248,13 @@ impl DecoderLogitQwen3Engine {
                     acceleration,
                 )?)
             }
+            #[cfg(feature = "onnx-rocm")]
+            FamilyExecution::OnnxRocm { device_id } => {
+                Box::new(super::onnx::Qwen3ControlOnnxModel::load(
+                    &config.model_root,
+                    crate::onnx::OnnxAcceleration::Rocm { device_id },
+                )?)
+            }
         };
         // Reproduces `profile.cpu_backend_id` byte-for-byte on the CPU
         // reference execution.

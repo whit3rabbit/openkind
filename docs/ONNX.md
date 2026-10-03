@@ -7,10 +7,12 @@
 ## Status
 
 ONNX execution is a build-time option behind `--features onnx` (CPU execution
-provider) and `--features onnx-cuda` (CUDA execution provider). Family
-engines reuse their pinned tokenizer, renderer, calibration, and wire
-mapping; only the forward pass swaps candle for ONNX Runtime through the
-[`ort`](https://crates.io/crates/ort) bindings pinned at `2.0.0-rc.13`.
+provider), `--features onnx-cuda` (CUDA execution provider), and
+`--features onnx-rocm` (AMD ROCm execution provider, Linux only; see
+[`ROCM.md`](ROCM.md)). Family engines reuse their pinned tokenizer, renderer,
+calibration, and wire mapping; only the forward pass swaps candle for ONNX
+Runtime through the [`ort`](https://crates.io/crates/ort) bindings pinned at
+`2.0.0-rc.13`.
 
 An ONNX artifact is a **separate candidate identity**, exactly like the MLX
 profiles: no ONNX export has run the parity gates, so ONNX answers do not
@@ -32,8 +34,10 @@ A missing or unloadable library fails closed at engine load with the path in
 the error. Install a release from the
 [ONNX Runtime releases](https://github.com/microsoft/onnxruntime/releases)
 page or the system package manager. For the CUDA execution provider the
-library must be a CUDA-enabled ONNX Runtime build (the default CPU builds
-report the provider unavailable and loads fail closed).
+library must be a CUDA-enabled ONNX Runtime build, and for the ROCm
+execution provider a ROCm-enabled Linux build (default CPU builds report
+the provider unavailable and loads fail closed). No prebuilt distribution
+ships ROCm; that library must be built from source.
 
 ## Artifact contract
 
@@ -102,19 +106,21 @@ fallback.
 ```
 --encoder-nli-backend onnx          # CPU execution provider
 --encoder-nli-backend onnx-cuda     # CUDA execution provider (--cuda-device N)
+--encoder-nli-backend onnx-rocm     # AMD ROCm execution provider (--rocm-device N, Linux)
 --onnx-runtime /path/to/libonnxruntime.dylib
 ```
 
-`--<family>-backend` accepts `onnx`/`onnx-cuda` for the families in the
-table above (`encoder-nli`, `decoder-letter`, `schema-scorer`, `qwen3guard`,
-`von`, `decoder-logit-qwen3`, `laya`, `encoder-instruct-label`). Backend
-identities read `encoder-nli/onnx-cpu` or `encoder-nli/onnx-cuda:0`.
+`--<family>-backend` accepts `onnx`/`onnx-cuda` (and `onnx-rocm`, Linux
+only) for the families in the table above (`encoder-nli`, `decoder-letter`,
+`schema-scorer`, `qwen3guard`, `von`, `decoder-logit-qwen3`, `laya`,
+`encoder-instruct-label`). Backend identities read `encoder-nli/onnx-cpu`,
+`encoder-nli/onnx-cuda:0`, or `encoder-nli/onnx-rocm:1`.
 
 ## Detection
 
 The daemon startup log reports the compiled ONNX support (`onnx`,
-`onnx_cuda`) next to the hardware detection. The search result of the
-runtime library is visible through
+`onnx_cuda`, `onnx_rocm`) next to the hardware detection. The search result
+of the runtime library is visible through
 `openkind_backends::onnx::resolve_dylib_path`.
 
 ## Testing

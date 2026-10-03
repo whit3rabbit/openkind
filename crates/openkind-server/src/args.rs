@@ -98,6 +98,11 @@ pub(crate) struct Args {
     #[arg(long, env = "OPENKIND_CUDA_DEVICE", default_value_t = 0)]
     pub(crate) cuda_device: usize,
 
+    /// Zero-based ROCm (HIP) device ordinal used by every `onnx-rocm`
+    /// backend selection.
+    #[arg(long, env = "OPENKIND_ROCM_DEVICE", default_value_t = 0)]
+    pub(crate) rocm_device: usize,
+
     /// Explicit path to the ONNX Runtime shared library used by `onnx`
     /// backend selections. When unset, `ORT_DYLIB_PATH` and the system
     /// library search path are consulted.
@@ -343,8 +348,28 @@ impl Qwen35BackendArg {
     }
 }
 
+/// Zero-based accelerator ordinals threaded through backend selections.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct DeviceOrdinals {
+    /// CUDA device ordinal used by every `cuda`/`onnx-cuda` selection.
+    pub(crate) cuda: usize,
+    /// ROCm (HIP) device ordinal used by every `onnx-rocm` selection.
+    pub(crate) rocm: usize,
+}
+
+impl Args {
+    /// Collect the accelerator ordinals from `--cuda-device` and
+    /// `--rocm-device`.
+    pub(crate) fn device_ordinals(&self) -> DeviceOrdinals {
+        DeviceOrdinals {
+            cuda: self.cuda_device,
+            rocm: self.rocm_device,
+        }
+    }
+}
+
 /// Shared surveyed-family backend choices for families without a dedicated
-/// backend enum: CPU, CUDA, and ONNX (optionally on CUDA).
+/// backend enum: CPU, CUDA, and ONNX (optionally on CUDA or ROCm).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub(crate) enum FamilyBackendArg {
     /// Candle FP32 CPU reference backend.
@@ -359,24 +384,29 @@ pub(crate) enum FamilyBackendArg {
     /// ordinal).
     #[cfg(feature = "onnx")]
     OnnxCuda,
+    /// ONNX Runtime backend on AMD ROCm (`onnx-rocm` feature,
+    /// `--rocm-device` ordinal, Linux only).
+    #[cfg(feature = "onnx")]
+    OnnxRocm,
 }
 
 impl FamilyBackendArg {
     /// Map to the engine-load execution selection.
     ///
-    /// `cuda_device` is the `--cuda-device` ordinal. Fails closed when an
-    /// ONNX CUDA selection is requested without the `onnx-cuda` feature.
+    /// `devices` carries the `--cuda-device` and `--rocm-device` ordinals.
+    /// Fails closed when an accelerated ONNX selection is requested without
+    /// the matching feature.
     pub(crate) fn to_execution(
         self,
-        cuda_device: usize,
+        devices: DeviceOrdinals,
     ) -> anyhow::Result<openkind_backends::device::FamilyExecution> {
         use openkind_backends::device::FamilyExecution;
-        let _ = cuda_device;
+        let _ = devices;
         match self {
             Self::NativeCpu => Ok(FamilyExecution::Cpu),
             #[cfg(feature = "cuda")]
             Self::Cuda => Ok(FamilyExecution::Cuda {
-                device_id: cuda_device,
+                device_id: devices.cuda,
             }),
             #[cfg(feature = "onnx")]
             Self::Onnx => Ok(FamilyExecution::Onnx { device_id: None }),
@@ -384,14 +414,26 @@ impl FamilyBackendArg {
             Self::OnnxCuda => {
                 #[cfg(not(feature = "onnx-cuda"))]
                 {
-                    let _ = cuda_device;
                     anyhow::bail!(
                         "--*-backend onnx-cuda requires the daemon's `onnx-cuda` feature"
                     );
                 }
                 #[cfg(feature = "onnx-cuda")]
                 Ok(FamilyExecution::Onnx {
-                    device_id: Some(cuda_device),
+                    device_id: Some(devices.cuda),
+                })
+            }
+            #[cfg(feature = "onnx")]
+            Self::OnnxRocm => {
+                #[cfg(not(feature = "onnx-rocm"))]
+                {
+                    anyhow::bail!(
+                        "--*-backend onnx-rocm requires the daemon's `onnx-rocm` feature"
+                    );
+                }
+                #[cfg(feature = "onnx-rocm")]
+                Ok(FamilyExecution::OnnxRocm {
+                    device_id: devices.rocm,
                 })
             }
         }
@@ -413,14 +455,14 @@ impl CudaOnlyBackendArg {
     /// Map to the engine-load execution selection.
     pub(crate) fn to_execution(
         self,
-        cuda_device: usize,
+        devices: DeviceOrdinals,
     ) -> anyhow::Result<openkind_backends::device::FamilyExecution> {
-        let _ = cuda_device;
+        let _ = devices;
         match self {
             Self::NativeCpu => Ok(openkind_backends::device::FamilyExecution::Cpu),
             #[cfg(feature = "cuda")]
             Self::Cuda => Ok(openkind_backends::device::FamilyExecution::Cuda {
-                device_id: cuda_device,
+                device_id: devices.cuda,
             }),
         }
     }
@@ -441,6 +483,10 @@ pub(crate) enum LayaBackendArg {
     /// ordinal).
     #[cfg(feature = "onnx")]
     OnnxCuda,
+    /// ONNX Runtime backend on AMD ROCm (`onnx-rocm` feature,
+    /// `--rocm-device` ordinal, Linux only).
+    #[cfg(feature = "onnx")]
+    OnnxRocm,
     /// MLX FP32 backend on macOS arm64 when the optional feature is enabled.
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     MlxFp32,
@@ -461,6 +507,10 @@ pub(crate) enum EncoderInstructLabelBackendArg {
     /// ordinal).
     #[cfg(feature = "onnx")]
     OnnxCuda,
+    /// ONNX Runtime backend on AMD ROCm (`onnx-rocm` feature,
+    /// `--rocm-device` ordinal, Linux only).
+    #[cfg(feature = "onnx")]
+    OnnxRocm,
     /// MLX FP32 backend on macOS arm64 when the optional feature is enabled.
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     MlxFp32,
@@ -644,6 +694,69 @@ mod tests {
             .find(|arg| arg.get_long() == Some("qwen35-backend"))
             .expect("--qwen35-backend argument");
         assert_eq!(arg.get_env(), Some(OsStr::new("OPENKIND_QWEN35_BACKEND")));
+    }
+
+    #[test]
+    fn rocm_device_environment_alias_is_declared() {
+        let command = Args::command();
+        let arg = command
+            .get_arguments()
+            .find(|arg| arg.get_long() == Some("rocm-device"))
+            .expect("--rocm-device argument");
+        assert_eq!(arg.get_env(), Some(OsStr::new("OPENKIND_ROCM_DEVICE")));
+    }
+
+    #[test]
+    #[cfg(all(feature = "onnx", not(feature = "onnx-rocm")))]
+    fn onnx_rocm_backend_fails_closed_without_the_feature() {
+        let args =
+            Args::try_parse_from(["openkindd", "--encoder-nli-backend", "onnx-rocm"]).unwrap();
+        assert_eq!(
+            args.family_args.encoder_nli_backend,
+            FamilyBackendArg::OnnxRocm
+        );
+
+        let error = args
+            .family_args
+            .encoder_nli_backend
+            .to_execution(DeviceOrdinals { cuda: 0, rocm: 2 })
+            .expect_err("onnx-rocm requires the daemon's onnx-rocm feature");
+        assert!(error.to_string().contains("onnx-rocm"), "{error}");
+    }
+
+    #[test]
+    #[cfg(feature = "onnx-rocm")]
+    fn onnx_rocm_feature_enables_cli_variants_and_preserves_device_ordinal() {
+        let args = Args::try_parse_from([
+            "openkindd",
+            "--encoder-nli-backend",
+            "onnx-rocm",
+            "--laya-backend",
+            "onnx-rocm",
+            "--encoder-instruct-label-backend",
+            "onnx-rocm",
+            "--cuda-device",
+            "1",
+            "--rocm-device",
+            "2",
+        ])
+        .unwrap();
+        // Gating this test on ROCm alone catches a missing local ONNX feature.
+        assert_eq!(
+            args.family_args.encoder_nli_backend,
+            FamilyBackendArg::OnnxRocm
+        );
+        assert_eq!(args.family_args.laya_backend, LayaBackendArg::OnnxRocm);
+        assert_eq!(
+            args.family_args.encoder_instruct_label_backend,
+            EncoderInstructLabelBackendArg::OnnxRocm
+        );
+        let execution = args
+            .family_args
+            .encoder_nli_backend
+            .to_execution(args.device_ordinals())
+            .expect("onnx-rocm resolves with the feature");
+        assert_eq!(execution.id_fragment(), "onnx-rocm:2");
     }
 
     #[test]

@@ -267,6 +267,17 @@ Stop the CPU server before starting this one on the same port. FP32 MLX paths ar
 
 The [MLX guide](docs/MLX.md) covers build requirements and parity checks. The [model guide](docs/MODELS.md) lists measured performance and memory use. BF16 Qwen execution remains experimental and has not passed the FP32 probability tolerance.
 
+## AMD GPUs (ROCm)
+
+On Linux, the eight ONNX-capable surveyed families can execute on AMD GPUs through the ONNX Runtime ROCm execution provider:
+
+```bash
+cargo build --release --locked -p openkind-server --features openkind-server/onnx-rocm
+openkindd --encoder-nli-backend onnx-rocm --onnx-runtime /path/to/libonnxruntime.so --http-addr 127.0.0.1:18080 --grpc-addr 0
+```
+
+This requires a ROCm-enabled ONNX Runtime build placed by the operator; loads fail closed when the provider is unavailable, and there is no fallback to CPU. These paths are unpromoted candidates — no parity gates have run on a ROCm host yet. The [ROCm guide](docs/ROCM.md) covers build flags, detection, and evidence gates.
+
 ## Models and research
 
 The catalog includes Laya decision encoders, NLI and GLiClass classifiers, Qwen-based decision decoders, and the native `qwen35-state-first` research profile. Use `openkind catalog` for pull names and the [model guide](docs/MODELS.md) for each profile's purpose and limits.

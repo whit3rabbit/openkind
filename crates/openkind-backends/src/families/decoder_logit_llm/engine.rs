@@ -63,6 +63,15 @@ impl DecoderLlmEngine {
                 )
                 .into());
             }
+            #[cfg(feature = "onnx-rocm")]
+            crate::device::FamilyExecution::OnnxRocm { .. } => {
+                return Err(FamilyError::ExecutionUnavailable(
+                    "the quantized GGUF readout has no ONNX export and therefore no ROCm \
+                     execution; select cpu or (with the `cuda` feature) cuda"
+                        .to_owned(),
+                )
+                .into());
+            }
         };
         let model = DecoderLlmModel::load(&artifacts)?;
         let engine = Self {

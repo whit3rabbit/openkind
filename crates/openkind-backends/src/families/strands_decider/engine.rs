@@ -129,6 +129,16 @@ impl StrandsDeciderEngine {
                 )
                 .into());
             }
+            #[cfg(feature = "onnx-rocm")]
+            crate::device::FamilyExecution::OnnxRocm { .. } => {
+                return Err(FamilyError::ExecutionUnavailable(
+                    "the strands-decider pointer-head readout over the Qwen3.5 hybrid backbone \
+                     has no ONNX export and therefore no ROCm execution; select cpu or (with \
+                     the `cuda` feature) cuda"
+                        .to_owned(),
+                )
+                .into());
+            }
         };
         let model = StrandsDeciderModel::load(&artifacts)?;
         let engine = Self {
