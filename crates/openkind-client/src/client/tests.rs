@@ -112,6 +112,16 @@ fn base_url_trailing_slashes_trimmed() {
 }
 
 #[test]
+fn base_url_surrounding_whitespace_is_trimmed_before_validation() {
+    let client = Client::builder()
+        .api_key("k")
+        .base_url("  http://example.test/prefix/  ")
+        .build()
+        .unwrap();
+    assert_eq!(client.base_url(), "http://example.test/prefix");
+}
+
+#[test]
 fn invalid_base_url_rejected_at_build() {
     let err = Client::builder()
         .api_key("k")

@@ -138,7 +138,7 @@ impl ClientBuilder {
             (None, None) => resolve_setting(None, "OPENKIND_BASE_URL", "TYPESAFE_BASE_URL")
                 .unwrap_or_else(|| DEFAULT_BASE_URL.to_owned()),
         };
-        let base_url = base_url.trim_end_matches('/').to_owned();
+        let base_url = base_url.trim().trim_end_matches('/').to_owned();
         if !(base_url.starts_with("http://") || base_url.starts_with("https://")) {
             return Err(Error::Config(format!(
                 "base_url must start with http:// or https://, got `{base_url}`"

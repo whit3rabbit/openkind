@@ -23,7 +23,7 @@ use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
-use crate::error::Error;
+use crate::error::{Error, REQUEST_ID_HEADER};
 
 /// Cap on the response head (status line + headers) this transport will
 /// buffer before giving up, so a hostile server cannot grow memory without
@@ -51,10 +51,15 @@ pub(crate) struct FastResponse {
 impl FastResponse {
     /// First header value for a lowercase name, trimmed.
     pub(crate) fn header(&self, name: &str) -> Option<&str> {
-        self.headers
+        let value = self
+            .headers
             .iter()
             .find(|(key, _)| key == name)
-            .map(|(_, value)| value.trim())
+            .map(|(_, value)| value.trim())?;
+        if name == REQUEST_ID_HEADER && value.bytes().any(|byte| !(b' '..=b'~').contains(&byte)) {
+            return None;
+        }
+        Some(value)
     }
 }
 

@@ -83,6 +83,17 @@ async fn ambiguous_content_lengths_are_rejected() {
     );
 }
 
+#[test]
+fn request_id_header_ignores_non_visible_bytes() {
+    let response = FastResponse {
+        status: 200,
+        headers: vec![("x-typesafe-request-id".into(), "bad\u{1b}[31m".into())],
+        body: Vec::new(),
+        reusable: true,
+    };
+    assert_eq!(response.header(crate::error::REQUEST_ID_HEADER), None);
+}
+
 #[tokio::test]
 async fn connections_with_unconsumed_bytes_are_not_reused() {
     let (pool, result) = reply(
