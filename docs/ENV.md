@@ -77,6 +77,8 @@ Each variable also has an `OPENKIND_*` primary name: `OPENKIND_API_KEY`,
 | `OPENKIND_RATE_LIMIT_RPM` | Per-client-IP request budget per minute on `/v1/*`; `0` disables | `120` |
 | `OPENKIND_PLAYGROUND` | Serve the embedded playground and local model controls (`on`/`off`) | `off` |
 | `OPENKIND_ARROW` | Serve the unofficial [Arrow bulk endpoint](ARROW.md) (`on`/`off`) | `off` |
+| `OPENKIND_DIAGNOSE_BACKENDS` | Probe runtimes and exit without models or listeners | `false` |
+| `OPENKIND_DIAGNOSTICS_JSON` | Emit diagnostic JSON (requires diagnostic mode) | `false` |
 | `RUST_LOG` | Log filter, `tracing_subscriber::EnvFilter` syntax | `info` |
 
 ### Native Qwen3.5 engine
@@ -90,7 +92,7 @@ Each variable also has an `OPENKIND_*` primary name: `OPENKIND_API_KEY`,
 | `OPENKIND_QWEN35_CONCURRENCY` | Maximum concurrent native evaluations | `1` |
 | `OPENKIND_QWEN35_QUEUE` | Additional queued native requests | `2` |
 | `OPENKIND_QWEN35_TIMEOUT_MS` | Queue-inclusive deadline per native evaluation | `600000` |
-| `OPENKIND_QWEN35_BACKEND` | `native-cpu`, `cuda` with the `cuda` feature, or `mlx-fp32` on macOS arm64 with the `mlx` feature | `native-cpu` |
+| `OPENKIND_QWEN35_BACKEND` | `auto`, `native-cpu`, `cuda` with the `cuda` feature, or `mlx-fp32` on macOS arm64 with the `mlx` feature | `auto` |
 | `OPENKIND_QWEN35_EXECUTION` | Execution plan override: `auto`, `repeated-full`, `nested-sequential`, `nested-batched` | `auto` |
 | `OPENKIND_QWEN35_MAX_TENSOR_BYTES` | Continuation tensor-payload ceiling per request | unset (policy decides) |
 | `OPENKIND_QWEN35_MAX_PROCESS_BYTES` | Process-memory admission ceiling | unset (policy decides) |
@@ -133,7 +135,7 @@ Family token variables are prefixed `OPENKIND_`, for example
 |---|---|---|
 | `OPENKIND_CUDA_DEVICE` | Zero-based CUDA device ordinal for every `cuda`/`onnx-cuda` backend selection (daemon and bench) | `0` |
 | `OPENKIND_ROCM_DEVICE` | Zero-based ROCm (HIP) device ordinal for every `onnx-rocm` backend selection (daemon, Linux only) | `0` |
-| `OPENKIND_ONNX_RUNTIME` | Explicit ONNX Runtime shared-library path (sets `ORT_DYLIB_PATH` at daemon startup) | unset; `ORT_DYLIB_PATH` then system search |
+| `OPENKIND_ONNX_RUNTIME` | Explicit ONNX Runtime shared-library path (sets `ORT_DYLIB_PATH` at daemon startup) | unset; `ORT_DYLIB_PATH`, bundled runtime, then system search |
 | `ORT_DYLIB_PATH` | ONNX Runtime shared library resolved by `ort` when `OPENKIND_ONNX_RUNTIME` is unset | unset |
 
 Detection at daemon startup logs the hardware accelerators (CPU, CUDA via
@@ -150,25 +152,31 @@ ONNX export reject the selection with an explanation.
 
 | Variable | Values | Default |
 |---|---|---|
-| `OPENKIND_LAYA_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux), `mlx-fp32` (macOS arm64) | `native-cpu` |
-| `OPENKIND_ENCODER_INSTRUCT_LABEL_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux), `mlx-fp32` (macOS arm64) | `native-cpu` |
-| `OPENKIND_DECODER_LOGIT_QWEN35_BACKEND` | `native-cpu`, `cuda`, `mlx-fp32` (macOS arm64); no ONNX (hybrid backbone) | `native-cpu` |
-| `OPENKIND_ENCODER_NLI_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux) | `native-cpu` |
-| `OPENKIND_DECODER_LETTER_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux) | `native-cpu` |
-| `OPENKIND_DECODER_LOGIT_QWEN3_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux; applies to every size) | `native-cpu` |
-| `OPENKIND_SCHEMA_SCORER_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux) | `native-cpu` |
-| `OPENKIND_QWEN3GUARD_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux) | `native-cpu` |
-| `OPENKIND_VON_BACKEND` | `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux) | `native-cpu` |
-| `OPENKIND_KEV_BACKEND` | `native-cpu`, `cuda`; no ONNX (pointer head) | `native-cpu` |
-| `OPENKIND_DECODER_LLM_BACKEND` | `native-cpu`, `cuda`; no ONNX (GGUF) | `native-cpu` |
-| `OPENKIND_DECIDER_4B_BACKEND` | `native-cpu`, `cuda`; no ONNX (hybrid backbone) | `native-cpu` |
-| `OPENKIND_WINNOW_BACKEND` | `native-cpu`, `cuda`; no ONNX (router decoder) | `native-cpu` |
-| `OPENKIND_PROXY_CACHE_ENCODER_BACKEND` | `cpu`, `cuda`, `mlx-fp32` (macOS arm64) | `cpu` |
+| `OPENKIND_LAYA_BACKEND` | `auto`, `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux), `mlx-fp32` (macOS arm64) | `auto` |
+| `OPENKIND_ENCODER_INSTRUCT_LABEL_BACKEND` | `auto`, `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux), `mlx-fp32` (macOS arm64) | `auto` |
+| `OPENKIND_DECODER_LOGIT_QWEN35_BACKEND` | `auto`, `native-cpu`, `cuda`, `mlx-fp32` (macOS arm64); no ONNX (hybrid backbone) | `auto` |
+| `OPENKIND_ENCODER_NLI_BACKEND` | `auto`, `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux) | `auto` |
+| `OPENKIND_DECODER_LETTER_BACKEND` | `auto`, `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux) | `auto` |
+| `OPENKIND_DECODER_LOGIT_QWEN3_BACKEND` | `auto`, `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux; applies to every size) | `auto` |
+| `OPENKIND_SCHEMA_SCORER_BACKEND` | `auto`, `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux) | `auto` |
+| `OPENKIND_QWEN3GUARD_BACKEND` | `auto`, `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux) | `auto` |
+| `OPENKIND_VON_BACKEND` | `auto`, `native-cpu`, `cuda`, `onnx`, `onnx-cuda`, `onnx-rocm` (Linux) | `auto` |
+| `OPENKIND_KEV_BACKEND` | `auto`, `native-cpu`, `cuda`; no ONNX (pointer head) | `auto` |
+| `OPENKIND_DECODER_LLM_BACKEND` | `auto`, `native-cpu`, `cuda`; no ONNX (GGUF) | `auto` |
+| `OPENKIND_DECIDER_4B_BACKEND` | `auto`, `native-cpu`, `cuda`; no ONNX (hybrid backbone) | `auto` |
+| `OPENKIND_WINNOW_BACKEND` | `auto`, `native-cpu`, `cuda`; no ONNX (router decoder) | `auto` |
+| `OPENKIND_PROXY_CACHE_ENCODER_BACKEND` | `auto`, `cpu`, `cuda`, `mlx-fp32` (macOS arm64) | `auto` |
 
 Plumb shares the JevK5 backend selector while retaining its own profile and
 model root.
 
 ## CLI (`openkind`)
+
+`doctor --json` delegates to the paired daemon. `doctor`, `serve`, and
+`playground` resolve it using `OPENKINDD_BINARY`, then the sibling
+`openkindd` executable, then `PATH`. This preserves standard/ONNX archive
+pairing. `doctor` accepts the shared runtime and device environment settings.
+
 
 - `serve` mirrors the daemon flags above: `OPENKIND_HTTP_ADDR` (default
   `0.0.0.0:8080`), `OPENKIND_GRPC_ADDR`, `OPENKIND_MODELS`,

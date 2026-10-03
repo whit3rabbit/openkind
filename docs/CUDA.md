@@ -36,8 +36,18 @@ as an unpromoted candidate until the gates below run on a CUDA host.
 cargo build -p openkind-server --release --features cuda
 ```
 
-The workspace defaults never enable `cuda`; CI and default builds stay
-offline CPU builds.
+Standard Linux x86_64 glibc and Windows x86_64 release archives enable native
+CUDA. Release builds pin toolkit 12.6.0 and `CUDA_COMPUTE_CAP=80`, targeting
+Ampere or newer. NVIDIA drivers and CUDA user libraries remain
+operator-installed. The portable musl archive stays CPU-only.
+
+Release builds vendor the locked dependencies and remove only Candle
+0.8.0's redundant `cudarc/dynamic-linking` declaration. CUDA calls already
+resolve dynamically; the pinned architecture code is preserved. The
+override and package digest are recorded in `cuda-build-override.json`.
+Final dependency audits and fresh-host startup checks reject mandatory CUDA
+imports. Ordinary Cargo defaults remain CPU-only. See
+[backend releases](BACKENDS.md) for the matrix and validation commands.
 
 ## Selecting CUDA at runtime
 
@@ -51,6 +61,15 @@ offline CPU builds.
 Bench probes accept `--backend cuda` with the same `--cuda-device` ordinal.
 
 ## Detection
+
+`openkind doctor --json` checks compiled support and real runtime
+initialization on the selected `--cuda-device` ordinal. Probes run in child
+processes so a missing-library panic cannot terminate the serving process.
+All daemon selectors default to `auto`; explicit `cuda` fails on an
+unavailable runtime. Automatic selection may fall back during model load
+for unsupported capabilities or accelerator allocation failure. Artifact
+integrity and invalid configuration remain fatal.
+
 
 `openkind_runtime::detect_accelerators()` reports the CPU plus every CUDA
 device the NVIDIA Management Library (NVML) enumerates, with name and total

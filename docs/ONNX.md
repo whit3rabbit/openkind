@@ -21,17 +21,30 @@ gates below are the promotion path.
 
 ## Runtime library
 
-Builds stay offline: `ort` runs with `load-dynamic`, so nothing downloads at
-build time and the shared library is an operator placement:
+Cargo builds stay offline: `ort` uses `load-dynamic` and never downloads a
+runtime. Separate `-onnx` release archives bundle ONNX Runtime 1.23.2: CPU
+packages on macOS and GPU packages on Linux glibc and Windows. URLs, byte
+sizes, and SHA-256 digests are pinned in
+[`packaging/onnxruntime.json`](../packaging/onnxruntime.json). Provider
+libraries and upstream license notices accompany the runtime.
+
+Library resolution is:
 
 1. `--onnx-runtime <path>` on the daemon (sets `ORT_DYLIB_PATH`).
 2. `ORT_DYLIB_PATH` in the environment.
-3. Standard library directories (`/opt/homebrew/lib`, `/usr/local/lib`,
+3. Executable-relative `lib/onnxruntime` (Windows: DLLs beside `openkindd`).
+4. Standard library directories (`/opt/homebrew/lib`, `/usr/local/lib`,
    `/usr/lib`, `~/.local/lib`), by file name `libonnxruntime.dylib` /
    `libonnxruntime.so` / `onnxruntime.dll`.
 
-A missing or unloadable library fails closed at engine load with the path in
-the error. Install a release from the
+An explicit path is authoritative, including when it is missing. One runtime
+is initialized per process. Explicit ONNX selections fail when initialization
+fails; `auto` excludes unavailable providers during loading.
+
+NVIDIA drivers, CUDA user libraries, and cuDNN are operator-installed. The
+bundled ORT 1.23.2 GPU package requires CUDA 12.8 or newer and cuDNN 9.x,
+following [ORT requirements](https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html#requirements).
+This differs from the native CUDA compilation toolkit (12.6). Install a release from the
 [ONNX Runtime releases](https://github.com/microsoft/onnxruntime/releases)
 page or the system package manager. For the CUDA execution provider the
 library must be a CUDA-enabled ONNX Runtime build, and for the ROCm
@@ -44,6 +57,11 @@ ships ROCm; that library must be built from source.
 Each ONNX-capable family loads `model.onnx` and its companion
 `model.onnx.manifest.json` from the same model root as the pinned checkpoint.
 The export must use that checkpoint and the family's pinned tokenizer.
+ONNX loading requires the pinned configuration, calibration, and tokenizer
+files, plus the export manifest. Native checkpoint weights may be omitted
+from an export-only directory; any native weights present still undergo
+their pinned digest checks. Installed profiles also require their complete
+registry manifest, verified before selection.
 The manifest pins byte sizes and SHA-256 digests for the graph and every
 external weight file, including weights referenced by nested graphs.
 Paths must stay within the model root. Files are verified in place.
@@ -117,6 +135,13 @@ only) for the families in the table above (`encoder-nli`, `decoder-letter`,
 `encoder-nli/onnx-cuda:0`, or `encoder-nli/onnx-rocm:1`.
 
 ## Detection
+
+`openkind doctor --json` and `openkindd --diagnose-backends --json` execute
+the tiny Gemm graph in isolated provider probes without loading a model or
+opening listeners. A missing runtime fails the release packaging check,
+which never skips this execution. Diagnostic readiness does not establish
+checkpoint parity. Automatic selection and archive layouts are documented
+in [backend releases](BACKENDS.md).
 
 The daemon startup log reports the compiled ONNX support (`onnx`,
 `onnx_cuda`, `onnx_rocm`) next to the hardware detection. The search result

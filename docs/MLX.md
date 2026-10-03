@@ -6,7 +6,11 @@
 
 ## Status
 
-The backend is available on macOS arm64 behind `--features mlx`. It executes
+Standard macOS arm64 releases include this backend and its colocated
+`mlx.metallib`. Source builds enable it with `--features mlx`. Daemon
+selectors default to `auto`, preferring MLX FP32 for supported loaders
+after an isolated runtime probe. Explicit `native-cpu` and `mlx-fp32`
+overrides remain available. See [backend releases](BACKENDS.md). It executes
 the pinned `Qwen/Qwen3.5-4B-Base` profile through MLX 0.32.2 while preserving
 the same renderer, continuation-state, readout, calibration, and policy
 contracts as the Candle CPU oracle.

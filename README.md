@@ -13,7 +13,7 @@ OpenKind researches a custom Qwen3.5 decision model and a Rust inference engine 
 
 ## Install
 
-Install the `openkind` CLI and `openkindd` server using Homebrew, Cargo, or prebuilt binaries. Keep both binaries on `PATH`: `openkind serve` starts the server. macOS, Linux, and Windows (`x86_64`) are supported host platforms; the standard distributions run models on the CPU, and Apple silicon users who want GPU acceleration can [build from source with MLX](#apple-silicon-and-mlx).
+Install the `openkind` CLI and `openkindd` server using Homebrew, Cargo, or prebuilt binaries. Keep both binaries on `PATH`: `openkind serve` starts the server. macOS, Linux, and Windows (`x86_64`) are supported host platforms. Standard releases include MLX FP32 on Apple silicon and native CUDA on Linux glibc and Windows. Model selectors default to `auto`, with CPU fallback during loading. See [backend releases and diagnostics](docs/BACKENDS.md).
 
 ### Homebrew (macOS and Linux)
 
@@ -33,7 +33,7 @@ openkind version
 
 ### Releases
 
-Download prebuilt binary archives for macOS (Apple silicon or Intel), Linux (`x86_64` musl), and Windows (`x86_64` MSVC) from [GitHub Releases](https://github.com/whit3rabbit/openkind/releases). Unpack the tarball — or the zip on Windows — and add `openkind` and `openkindd` to your `PATH`.
+Download archives for macOS (Apple silicon or Intel), Linux (`x86_64` glibc or portable musl), and Windows (`x86_64` MSVC) from [GitHub Releases](https://github.com/whit3rabbit/openkind/releases). Separate `-onnx` archives bundle ONNX Runtime. Unpack the tarball (or Windows zip), keep both binaries together, and run `openkind doctor --json` to check backend readiness. CUDA user libraries and cuDNN remain operator-installed. Runtime availability does not establish model qualification.
 
 ## Run a model
 
