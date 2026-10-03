@@ -63,6 +63,8 @@ class ResponseTests(unittest.TestCase):
 
     def test_evaluate_checks_submitted_request_snapshot(self):
         client = Client(api_key="")
+        self.request["state"] = {"ticket": ["original context"]}
+        self.request["questions"]["severity"]["instructions"] = {"task": ["Rate severity"]}
 
         def send(_path, _method, body):
             self.assertIs(body["state"], self.request["state"])
