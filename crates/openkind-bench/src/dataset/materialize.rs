@@ -259,8 +259,10 @@ fn sst2(raw: &[(String, Vec<Map<String, Value>>)]) -> Result<Vec<Example>> {
     let mut out = Vec::new();
     for (config, rows) in raw {
         for (index, row) in rows.iter().enumerate() {
-            let Some(entry) = t::SENTIMENT_2.get(integer(row, "label")?.unsigned_abs() as usize)
-            else {
+            let Ok(label) = usize::try_from(integer(row, "label")?) else {
+                continue;
+            };
+            let Some(entry) = t::SENTIMENT_2.get(label) else {
                 continue;
             };
             out.push(Example {
@@ -279,8 +281,10 @@ fn ag_news(raw: &[(String, Vec<Map<String, Value>>)]) -> Result<Vec<Example>> {
     let mut out = Vec::new();
     for (config, rows) in raw {
         for (index, row) in rows.iter().enumerate() {
-            let Some(gold) = t::AG_NEWS_LABELS.get(integer(row, "label")?.unsigned_abs() as usize)
-            else {
+            let Ok(label) = usize::try_from(integer(row, "label")?) else {
+                continue;
+            };
+            let Some(gold) = t::AG_NEWS_LABELS.get(label) else {
                 continue;
             };
             out.push(Example {
@@ -329,9 +333,10 @@ fn clinc150(raw: &[(String, Vec<Map<String, Value>>)]) -> Result<Vec<Example>> {
     let mut out = Vec::new();
     for (config, rows) in raw {
         for (index, row) in rows.iter().enumerate() {
-            let Some(gold) =
-                t::CLINC150_INTENTS.get(integer(row, "intent")?.unsigned_abs() as usize)
-            else {
+            let Ok(intent) = usize::try_from(integer(row, "intent")?) else {
+                continue;
+            };
+            let Some(gold) = t::CLINC150_INTENTS.get(intent) else {
                 continue;
             };
             out.push(Example {

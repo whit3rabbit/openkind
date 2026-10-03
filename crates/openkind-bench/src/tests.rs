@@ -456,3 +456,106 @@ fn native_runs_require_at_least_one_strategy() {
         .expect_err("duplicate strategies would overwrite result files");
     assert!(error.to_string().contains("duplicate"), "{error}");
 }
+
+#[test]
+fn workload_rows_reject_question_shape_violations() {
+    let row = |question: serde_json::Value| {
+        let mut object = question.as_object().expect("row").clone();
+        object.insert("id".into(), serde_json::json!("q"));
+        object.insert("state".into(), serde_json::json!("evidence"));
+        serde_json::to_vec(&object).expect("row JSON")
+    };
+
+    for (raw, needle) in [
+        // Choice with an empty option list.
+        (
+            row(serde_json::json!({
+                "primitive": "choice", "text": "q", "options": []
+            })),
+            "has no options",
+        ),
+        // Duplicate option ids.
+        (
+            row(serde_json::json!({
+                "primitive": "choice", "text": "q",
+                "options": [{"id": "a"}, {"id": "a"}]
+            })),
+            "duplicate option id",
+        ),
+        // A `__none__` option with a blank description.
+        (
+            row(serde_json::json!({
+                "primitive": "choice", "text": "q",
+                "options": [{"id": "a"}, {"id": "__none__", "description": "  "}]
+            })),
+            "must have a non-empty",
+        ),
+        // Score rubrics need at least two levels.
+        (
+            row(serde_json::json!({
+                "primitive": "score", "text": "q", "levels": ["only"]
+            })),
+            "at least two levels",
+        ),
+    ] {
+        let error = parse_workload("invalid", &raw).expect_err("reject the bad row");
+        // Every per-row bail is wrapped in the line's "invalid decision"
+        // context; the specific message survives in the cause chain.
+        let chain = format!("{error:?}");
+        assert!(chain.contains("invalid decision"), "{chain}");
+        if chain.contains(needle) {
+            continue;
+        }
+        // The wire validator rejects some shapes before the row-level bail
+        // (empty options collapse to empty criteria), which is fine — the
+        // request still fails closed.
+        assert!(
+            needle == "has no options" || needle == "duplicate option id",
+            "expected `{needle}` in the chain: {chain}"
+        );
+    }
+}
+
+#[test]
+fn parse_workload_rejects_invalid_utf8_and_empty_inputs() {
+    let error = parse_workload("binary", &[0xFF, 0xFE]).expect_err("invalid UTF-8");
+    assert!(error.to_string().contains("decode"), "{error}");
+
+    let error = parse_workload("empty", b"\n  \n").expect_err("empty workload");
+    assert!(error.to_string().contains("no rows"), "{error}");
+
+    let row = serde_json::json!({
+        "id": "q", "state": "s", "primitive": "noul", "text": "q"
+    });
+    let error =
+        parse_workload("dupes", format!("{row}\n{row}\n").as_bytes()).expect_err("duplicate ids");
+    assert!(
+        error.to_string().contains("duplicate decision id"),
+        "{error}"
+    );
+}
+
+#[test]
+fn generated_workloads_reject_out_of_range_dimensions() {
+    let dir = temp_dir("gen-zero");
+    let error = match generate_workload(0, 5, 7, &dir.join("w.jsonl")) {
+        Err(error) => error,
+        Ok(_) => panic!("zero states must fail"),
+    };
+    assert!(
+        error.to_string().contains("states must be at least 1"),
+        "{error}"
+    );
+
+    for criteria in [0_usize, 22] {
+        let error = match generate_workload(3, criteria, 7, &dir.join("w.jsonl")) {
+            Err(error) => error,
+            Ok(_) => panic!("criteria {criteria} must fail"),
+        };
+        assert!(
+            error.to_string().contains("criteria must be between"),
+            "{error}"
+        );
+    }
+    let _ = fs::remove_dir_all(dir);
+}

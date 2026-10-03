@@ -2,15 +2,19 @@
 
 ## Status
 
-The supplemental runner is being stopped after the in-flight Banking77
-evaluation for clef-flash-gguf reaches a terminal result. It must not proceed
-to another dataset or profile. This is a deliberately partial campaign, not a
-claim that every registered profile is fully benchmarked.
+The supplemental runner was stopped by request after the clef-flash-gguf
+Banking77 evaluation completed. It briefly launched the next CLINC150 command,
+which was terminated before it produced a workload or result. No benchmark
+process is active. This is a deliberately partial campaign, not a claim that
+every registered profile is fully benchmarked.
 
-At the time this note was prepared, suite-status.json recorded 210 completed
-dataset evaluations, 23 request-path score runs, 27 skipped combinations, and
-18 failed evaluations. The Banking77 result is not yet included in those
-counts. The runner status and logs are the detailed record.
+suite-status.json records 211 completed dataset evaluations, 23 request-path
+score runs, 27 skipped combinations, and 18 failed evaluations. Across the
+274 regular profile/dataset evaluation cells (encoder-embedding and
+routing-only Winnow are handled separately), 211 are complete, one was
+interrupted at launch, 20 are not started, 18 are logged failures, and 24 were
+skipped for candidate-count capacity. The two undeclared-score skips are also
+outside that 274-cell set. The runner status and logs are the detailed record.
 
 ## Run definition
 
@@ -31,14 +35,13 @@ counts. The runner status and logs are the detailed record.
 
 ## Remaining work
 
-The current Banking77 evaluation is the only run in progress. After it reaches
-a terminal result, stop the supplemental runner before it starts anything
-else. Twenty-one primitive-compatible dataset evaluations and two 12-row
-score runs remain after this evaluation.
+Twenty-one primitive-compatible dataset evaluations and two 12-row score runs
+remain. CLINC150 for clef-flash-gguf was interrupted at launch and has no
+result; the other 20 dataset evaluations have not started.
 
 | Profile | Dataset evaluations still to attempt | Request-path score still to run |
 |---|---|---|
-| clef-flash-gguf | CLINC150, ARC, HellaSwag, WinoGrande, CommonsenseQA, PAWS, BoolQ, STS-B, SST-5, after Banking77 | 12-row smoke |
+| clef-flash-gguf | CLINC150 (interrupted at launch), ARC, HellaSwag, WinoGrande, CommonsenseQA, PAWS, BoolQ, STS-B, SST-5 | 12-row smoke |
 | clef-27b-gguf | SST-2, AG News, Banking77, CLINC150, ARC, HellaSwag, WinoGrande, CommonsenseQA, PAWS, BoolQ, STS-B, SST-5 | 12-row smoke |
 
 The supplemental runner had completed SST-2 and AG News for clef-flash-gguf
@@ -48,8 +51,9 @@ skips, not as quality results. The current status file contains 18 failures;
 the logs show three Laya CLINC150 requests with 152 options against a 100
 option limit, seven requests over frozen input-length limits, and eight
 Qwen3Guard requests whose dataset labels do not match its fixed
-safe/unsafe/controversial schema. These combinations need an input/profile
-change before they can produce comparable dataset results.
+safe/unsafe/controversial schema. These combinations need a task-compatible
+dataset/rendering or a widened profile capability before they can produce
+comparable dataset results.
 
 Other scope boundaries:
 
@@ -73,12 +77,15 @@ score reports are under performance/. The completed 777-row score profiles
 are decoder-logit-qwen3-06b on CPU, plumb-4b on MLX, and router-script. Most
 other profile scores are 12-row smoke records.
 
-The supplemental clef-flash-gguf run produced two labeled dataset results
-before Banking77: SST-2 accuracy 0.96 and macro-F1 0.958; AG News accuracy
-0.90 and macro-F1 0.886, 50 rows each. Both use model revision
+The supplemental clef-flash-gguf run produced three labeled dataset results:
+SST-2 accuracy 0.96 and macro-F1 0.958; AG News accuracy 0.90 and macro-F1
+0.886; Banking77 accuracy 0.98 and macro-F1 0.990, 50 rows each. Banking77's
+95% source-group bootstrap interval for accuracy is [0.94, 1.00]. Its measured
+pass took 8,583.374 seconds (one repetition). All three use model revision
 d7f376ea88c05e7bb1014dd5351a93df9dd8029e. See the [SST-2
 report](quality/clef-flash-gguf/sst2/dataset-eval-sst2-eval.json) and [AG News
-report](quality/clef-flash-gguf/ag_news/dataset-eval-ag_news-eval.json).
+report](quality/clef-flash-gguf/ag_news/dataset-eval-ag_news-eval.json), and
+[Banking77 report](quality/clef-flash-gguf/banking77/dataset-eval-banking77-eval.json).
 These are descriptive 50-row dataset results, not a release or parity gate.
 Separate Clef joint-fixture parity records for the three profiles are in the
 [Clef family campaign](../2026-10-02-clef/README.md).

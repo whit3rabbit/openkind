@@ -501,3 +501,126 @@ pub fn score_metrics(rows: &[ScoreRow]) -> Value {
         "nll": nll,
     })
 }
+
+#[cfg(test)]
+mod metric_tests {
+    use super::*;
+
+    fn noul_row(probability: f64, gold: bool) -> NoulRow {
+        NoulRow {
+            probability,
+            gold,
+            group: "g".to_owned(),
+        }
+    }
+
+    #[test]
+    fn noul_metrics_computes_hand_computed_binary_stats() {
+        // p=0.9/true (hit), p=0.2/false (hit), p=0.4/true (miss at 0.5).
+        let rows = vec![
+            noul_row(0.9, true),
+            noul_row(0.2, false),
+            noul_row(0.4, true),
+        ];
+        let metrics = noul_metrics(&rows);
+        assert_eq!(metrics["rows"], 3);
+        let accuracy = metrics["accuracy_at_0.5"].as_f64().unwrap();
+        assert!((accuracy - 2.0 / 3.0).abs() < 1e-12);
+        let brier = metrics["brier"].as_f64().unwrap();
+        let expected_brier: f64 =
+            ((0.9_f64 - 1.0).powi(2) + (0.2_f64 - 0.0).powi(2) + (0.4_f64 - 1.0).powi(2)) / 3.0;
+        assert!((brier - expected_brier).abs() < 1e-12);
+        assert!((metrics["positive_recall"].as_f64().unwrap() - 0.5).abs() < 1e-12);
+        assert!((metrics["negative_recall"].as_f64().unwrap() - 1.0).abs() < 1e-12);
+        // A perfectly separable ordering gives the top AUROC.
+        assert_eq!(metrics["auroc"].as_f64().unwrap(), 1.0);
+    }
+
+    #[test]
+    fn noul_metrics_renders_null_recalls_when_a_class_is_absent() {
+        let all_positive = vec![noul_row(0.9, true), noul_row(0.3, true)];
+        let metrics = noul_metrics(&all_positive);
+        assert!(metrics["negative_recall"].is_null());
+        assert!((metrics["positive_recall"].as_f64().unwrap() - 0.5).abs() < 1e-12);
+
+        let all_negative = vec![noul_row(0.9, false), noul_row(0.3, false)];
+        let metrics = noul_metrics(&all_negative);
+        assert!(metrics["positive_recall"].is_null());
+        assert!((metrics["negative_recall"].as_f64().unwrap() - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn score_metrics_clamps_levels_and_flags_constant_input_correlations() {
+        let rows = vec![ScoreRow {
+            expected: 5.0, // rounds to 5, clamps to levels-1 = 2
+            gold: 1.6,     // rounds to 2
+            levels: 3,
+            gold_level_probability: 0.5,
+        }];
+        let metrics = score_metrics(&rows);
+        assert_eq!(metrics["rows"], 1);
+        assert_eq!(metrics["argmax_level_accuracy"].as_f64().unwrap(), 1.0);
+        assert!((metrics["mae"].as_f64().unwrap() - 3.4).abs() < 1e-12);
+        // The floor keeps the NLL finite when the gold level carried no mass.
+        let nll = metrics["nll"].as_f64().unwrap();
+        assert!(nll.is_finite() && nll > 0.0);
+
+        // Constant vectors cannot be correlated: both correlations are null.
+        let flat = vec![
+            ScoreRow {
+                expected: 1.0,
+                gold: 0.5,
+                levels: 3,
+                gold_level_probability: 1.0,
+            },
+            ScoreRow {
+                expected: 1.0,
+                gold: 2.0,
+                levels: 3,
+                gold_level_probability: 1.0,
+            },
+        ];
+        let metrics = score_metrics(&flat);
+        assert!(metrics["spearman"].is_null());
+        assert!(metrics["pearson"].is_null());
+
+        // A perfectly monotone pair correlates at 1.0 on both scales.
+        let ordered = vec![
+            ScoreRow {
+                expected: 0.0,
+                gold: 0.0,
+                levels: 3,
+                gold_level_probability: 1.0,
+            },
+            ScoreRow {
+                expected: 2.0,
+                gold: 2.0,
+                levels: 3,
+                gold_level_probability: 1.0,
+            },
+        ];
+        let metrics = score_metrics(&ordered);
+        assert_eq!(metrics["spearman"].as_f64().unwrap(), 1.0);
+        assert!((metrics["pearson"].as_f64().unwrap() - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn bootstrap_ci_on_empty_input_falls_back_to_point_defaults() {
+        let empty: Vec<bool> = vec![];
+        let groups: Vec<String> = vec![];
+        let ci = bootstrap_ci(&empty, &groups);
+        assert_eq!(ci["point"], 0.0);
+        assert_eq!(ci["replicates"], 0);
+
+        let ci = bootstrap_ci(&[true, true, false], &["g"; 3].map(String::from));
+        assert!((ci["point"].as_f64().unwrap() - 2.0 / 3.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn coverage_and_risk_curves_degenerate_to_none_or_zero() {
+        // Coverage 0 keeps no rows.
+        assert!(accuracy_at_coverage(&[0.9, 0.1], &[true, false], 0.0).is_none());
+        // An empty AURC is zero risk.
+        assert_eq!(aurc(&[], &[]), 0.0);
+    }
+}
