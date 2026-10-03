@@ -846,8 +846,20 @@ including a 17-option knockout question and a JSON-object evidence payload.
 
 ## Recorded runs
 
+The [README model table](../README.md#choose-a-local-model) summarizes local
+recommendations using retained performance and labeled-dataset reports from
+the [October 1 local suite](../benchmarks/2026-10-01-local-model-suite/).
+That suite remains partial: most timing rows use the 12-decision smoke
+fixture, while Plumb and Qwen3 0.6B use shape777. Its SST-2 and AG News
+reports contain 50 eval rows per profile and include semantic-none choices.
+These are small public-dataset quality samples, separate from task
+qualification and release promotion. Missing timing or quality reports
+remain pending; the interrupted Qwen run is documented in the
+[host incident record](../benchmarks/2026-10-01-local-model-suite/incident-2026-10-01.md).
+
 | Record | Engine | Status |
 |---|---|---|
+| [`benchmarks/2026-10-01-local-model-suite/`](./benchmarks/2026-10-01-local-model-suite/) | Registry profiles | Partial by request: 50-row dataset evaluations and request-path records for most profiles; the current clef-flash-gguf Banking77 evaluation is the final active run, then clef-flash-gguf and clef-27b-gguf remain; see the campaign README for exact coverage and limits |
 | [`benchmarks/2026-10-02-clef/`](./benchmarks/2026-10-02-clef/) | clef-flash, clef-flash-gguf, clef-27b-gguf | Complete — first records for the Cloudflare Clef joint-schema family: three Rust-loadable profiles (BF16 CPU oracle, Q4_K_M GGUF flash and 27B) with golden-fixture parity across all three on the joint multi-question fixture, plus Clef-Flash BF16 dataset evaluations (SST-2 0.96 accuracy / 0.958 macro-F1, AG News 0.90 / 0.886, 50 rows each); the MLX 4-bit path stays non-loadable pending parity; request-path evidence only, no model-quality claim; see [`families/clef`](./families/clef.md) |
 | [`benchmarks/2026-10-01-qwen3-controls/`](./benchmarks/2026-10-01-qwen3-controls/) | decoder-logit-qwen3-06b, -17b, -4b | Complete — first CPU records for the three raw dense-Qwen3 direct-logit controls (board rows #21/#79/#81) on the smoke workload with golden-fixture replay parity for all three; untrained controls, request-path timing only, no model-quality claim; see [`families/decoder-logit-qwen3`](./families/decoder-logit-qwen3.md) |
 | [`benchmarks/2026-10-01-strands-decider/`](./benchmarks/2026-10-01-strands-decider/) | strands-decider-2b | Complete — first CPU record for the Strands Decider 2B (Hobson v19) pointer-head family on the smoke and shape777 workloads with a 16-case golden-fixture replay and a 17/17-argmax cross-check against the pinned PyTorch reference (Choice probability residual up to 5.9e-2 documented, one-sided softening under the 0.734 choice temperature); request-path timing only, no model-quality claim; see [`families/strands-decider`](./families/strands-decider.md) |
