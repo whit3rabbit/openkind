@@ -116,7 +116,7 @@ def bundle_runtime(target, stage, cache):
 
 def package(binary_dir, target, version, onnx, destination):
     version = version.removeprefix("v")
-    if not re.fullmatch(r"[0-9A-Za-z][0-9A-Za-z._-]*", version):
+    if not re.fullmatch(r"[0-9A-Za-z][0-9A-Za-z._+-]*", version):
         raise ValueError("invalid release version")
     destination.mkdir(parents=True, exist_ok=True)
     name = f"openkind-{version}-{target}" + ("-onnx" if onnx else "")

@@ -16,6 +16,10 @@ on:
 permissions:
   contents: read
 
+env:
+  CARGO_PROFILE_DEV_DEBUG: '0'
+  CARGO_PROFILE_TEST_DEBUG: '0'
+
 jobs:
   build:
     name: build ${{ matrix.target }} ${{ matrix.variant }}
@@ -37,17 +41,23 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.revision }}
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.98.1
         with:
           targets: ${{ matrix.target }}
           components: clippy
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: '3.11'
       - uses: arduino/setup-protoc@v3
         with:
           version: '32.1'
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Record build environment and available disk
+        shell: bash
+        run: |
+          mkdir -p target/release-reports
+          rustc -Vv | tee target/release-reports/rustc.txt
+          df -h | tee target/release-reports/disk-before.txt
       - name: Install musl tools
         if: contains(matrix.target, 'musl')
         run: sudo apt-get update && sudo apt-get install -y musl-tools
@@ -64,18 +74,40 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
         with:
           toolset: '14.39'
-      - name: Install CUDA toolkit without drivers
-        if: contains(matrix.features, 'cuda')
+      - name: Install minimal Linux CUDA compiler without drivers
+        if: runner.os == 'Linux' && contains(matrix.features, 'cuda')
+        uses: Jimver/cuda-toolkit@v0.2.24
+        with:
+          cuda: '12.6.0'
+          method: network
+          sub-packages: '["nvcc"]'
+          non-cuda-sub-packages: '[]'
+          use-github-cache: false
+          use-local-cache: false
+      - name: Release Linux installer space and record resolved CUDA versions
+        if: runner.os == 'Linux' && contains(matrix.features, 'cuda')
+        shell: bash
+        run: |
+          sudo apt-get clean
+          rm -f cuda_keyring.deb
+          nvcc --version | tee target/release-reports/nvcc.txt
+          dpkg-query -W 'cuda-*-12-6' | tee target/release-reports/cuda-packages.txt
+          df -h | tee target/release-reports/disk-after-cuda.txt
+      - name: Install Windows CUDA toolkit without drivers
+        if: runner.os == 'Windows' && contains(matrix.features, 'cuda')
         uses: Jimver/cuda-toolkit@v0.2.24
         with:
           cuda: '12.6.0'
           method: local
-          sub-packages: ${{ runner.os == 'Windows' && '["nvcc","cudart","nvrtc","nvrtc_dev","cublas","cublas_dev","curand","curand_dev"]' || '[]' }}
-          linux-local-args: '["--toolkit"]'
+          sub-packages: '["nvcc","cudart","nvrtc","nvrtc_dev","cublas","cublas_dev","curand","curand_dev"]'
+          use-github-cache: false
+          use-local-cache: false
+          log-file-suffix: '${{ matrix.target }}-${{ matrix.variant }}.txt'
       - name: Prepare release-only Candle manifest override
         if: contains(matrix.features, 'cuda')
         run: python scripts/release.py prepare-cuda
-      - name: Build release configurations
+      - name: Build Unix release configurations
+        if: runner.os != 'Windows'
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
@@ -88,18 +120,45 @@ jobs:
             export SDKROOT
             export MLX_RS_METAL_PATH="$PWD/target/release-metallib"
           fi
-          options=()
+          build=(cargo build)
+          check=(cargo check)
+          clippy=(cargo clippy)
           if [[ "$FEATURES" == *cuda* ]]; then
-            options+=(--config target/release-cargo-config.toml)
+            build+=(--config target/release-cargo-config.toml)
+            check+=(--config target/release-cargo-config.toml)
+            clippy+=(--config target/release-cargo-config.toml)
           fi
-          cargo build "${options[@]}" --release --locked --target "$TARGET" --features "$FEATURES" --bin openkind --bin openkindd
+          "${build[@]}" --release --locked --target "$TARGET" --features "$FEATURES" --bin openkind --bin openkindd \
+            2>&1 | tee target/release-reports/build.log
           if [[ "$TARGET" == aarch64-apple-darwin ]]; then
             cp target/release-metallib/mlx.metallib "target/$TARGET/release/"
           fi
-          cargo check "${options[@]}" -p openkind-server --all-targets --locked --target "$TARGET" --features "$FEATURES"
+          "${check[@]}" -p openkind-server --all-targets --locked --target "$TARGET" --features "$FEATURES" \
+            2>&1 | tee target/release-reports/check.log
           if [[ "$FEATURES" == *cuda* ]]; then
-            cargo clippy "${options[@]}" -p openkind-backends --all-targets --locked --target "$TARGET" --features "$FEATURES" -- -D warnings
+            "${clippy[@]}" -p openkind-backends --all-targets --locked --target "$TARGET" --features "$FEATURES" -- -D warnings \
+              2>&1 | tee target/release-reports/clippy.log
           fi
+      - name: Build Windows release configurations with the MSVC linker
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          TARGET: ${{ matrix.target }}
+          FEATURES: ${{ matrix.features }}
+          CUDA_COMPUTE_CAP: '80'
+        run: |
+          $linker = (Get-Command link.exe).Source
+          if ($linker -notmatch 'VC[\\/]Tools[\\/]MSVC') { throw "MSVC linker was not selected: $linker" }
+          $env:CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_LINKER = $linker
+          $linker | Set-Content target/release-reports/linker.txt
+          nvcc --version | Tee-Object target/release-reports/nvcc.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo build --config target/release-cargo-config.toml --release --locked --target $env:TARGET --features $env:FEATURES --bin openkind --bin openkindd 2>&1 | Tee-Object target/release-reports/build.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo check --config target/release-cargo-config.toml -p openkind-server --all-targets --locked --target $env:TARGET --features $env:FEATURES 2>&1 | Tee-Object target/release-reports/check.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo clippy --config target/release-cargo-config.toml -p openkind-backends --all-targets --locked --target $env:TARGET --features $env:FEATURES -- -D warnings 2>&1 | Tee-Object target/release-reports/clippy.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Package pinned runtime, notices, and checksums
         shell: bash
         env:
@@ -108,14 +167,27 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          options=()
-          if [[ "$VARIANT" == onnx ]]; then options+=(--onnx); fi
-          python scripts/release.py package --bin-dir "target/$TARGET/release" --target "$TARGET" --version "$VERSION" "${options[@]}"
+          command=(python scripts/release.py package --bin-dir "target/$TARGET/release" --target "$TARGET" --version "$VERSION")
+          if [[ "$VARIANT" == onnx ]]; then command+=(--onnx); fi
+          "${command[@]}" 2>&1 | tee target/release-reports/package.log
       - uses: actions/upload-artifact@v7
         with:
+          overwrite: true
           name: openkind-${{ matrix.target }}-${{ matrix.variant }}
           path: dist/*
           if-no-files-found: error
+      - name: Retain build reports on success or failure
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          overwrite: true
+          name: release-build-reports-${{ matrix.target }}-${{ matrix.variant }}
+          path: target/release-reports/*
+          if-no-files-found: warn
+      - name: Record remaining disk
+        if: always()
+        shell: bash
+        run: df -h
 
   smoke:
     name: clean host ${{ matrix.target }} ${{ matrix.variant }}
@@ -145,7 +217,7 @@ jobs:
           ref: ${{ inputs.revision }}
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: '3.11'
       - name: Initialize dependency audit tool
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
@@ -159,10 +231,19 @@ jobs:
           FEATURES: ${{ matrix.features }}
         run: |
           set -euo pipefail
+          mkdir -p target/release-reports
           for archive in dist/*.tar.gz dist/*.zip; do
             [[ -f "$archive" ]] || continue
-            python scripts/release.py smoke "$archive" --features "$FEATURES"
+            python scripts/release.py smoke "$archive" --features "$FEATURES" \
+              2>&1 | tee -a target/release-reports/smoke.log
           done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          overwrite: true
+          name: release-smoke-reports-${{ matrix.target }}-${{ matrix.variant }}
+          path: target/release-reports/*
+          if-no-files-found: warn
       - name: Attest verified archive
         if: inputs.attest
         uses: actions/attest@v4
@@ -188,7 +269,7 @@ jobs:
           ref: ${{ inputs.revision }}
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: '3.11'
       - uses: Homebrew/actions/setup-homebrew@master
       - uses: actions/download-artifact@v8
         with:
@@ -201,6 +282,15 @@ jobs:
           HOMEBREW_NO_INSTALL_CLEANUP: '1'
         run: |
           set -euo pipefail
+          mkdir -p target/release-reports
           for archive in dist/*.tar.gz; do
-            python scripts/release.py homebrew "$archive"
+            python scripts/release.py homebrew "$archive" \
+              2>&1 | tee -a target/release-reports/homebrew.log
           done
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          overwrite: true
+          name: release-homebrew-reports-${{ matrix.target }}
+          path: target/release-reports/*
+          if-no-files-found: warn

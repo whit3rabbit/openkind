@@ -17,6 +17,14 @@ permissions:
   attestations: write
   artifact-metadata: write
 
+concurrency:
+  group: openkind-release
+  cancel-in-progress: false
+
+env:
+  CARGO_PROFILE_DEV_DEBUG: '0'
+  CARGO_PROFILE_TEST_DEBUG: '0'
+
 jobs:
   resolve-release:
     name: resolve release revision
@@ -24,6 +32,7 @@ jobs:
     outputs:
       tag: ${{ steps.release.outputs.tag }}
       sha: ${{ steps.revision.outputs.sha }}
+      prerelease: ${{ steps.revision.outputs.prerelease }}
     steps:
       - name: Validate release tag
         id: release
@@ -34,20 +43,17 @@ jobs:
           INPUT_TAG: ${{ inputs.tag }}
         run: |
           set -euo pipefail
-          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
-            tag="${INPUT_TAG}"
-            if [[ ! "${tag}" =~ ^v[0-9A-Za-z][0-9A-Za-z._-]*$ ]]; then
-              echo "invalid release tag: ${tag}" >&2
-              exit 1
-            fi
-            ref="refs/tags/${tag}"
-          else
-            tag="${EVENT_TAG}"
-            ref="${EVENT_REF}"
-            if [[ "${ref}" != "refs/tags/${tag}" ]]; then
-              echo "release workflow must be triggered by a tag" >&2
-              exit 1
-            fi
+          tag="${EVENT_TAG}"
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then tag="${INPUT_TAG}"; fi
+          # Bound the checkout ref here; the shared publisher validates strict SemVer below.
+          if [[ ! "${tag}" =~ ^v[0-9A-Za-z][0-9A-Za-z.+_-]*$ ]]; then
+            echo "invalid release tag: ${tag}" >&2
+            exit 1
+          fi
+          ref="refs/tags/${tag}"
+          if [[ "${EVENT_NAME}" != "workflow_dispatch" && "${EVENT_REF}" != "${ref}" ]]; then
+            echo "release workflow must be triggered by a tag" >&2
+            exit 1
           fi
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "ref=${ref}" >> "$GITHUB_OUTPUT"
@@ -56,14 +62,54 @@ jobs:
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && steps.release.outputs.ref || github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Validate release version and licenses without upload
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          mkdir -p dist
+          python3 scripts/publish-crates.py plan --tag "$RELEASE_TAG" --commit "$(git rev-parse HEAD)" \
+            --output dist/crate-versions.json 2>&1 | tee dist/preflight.log
+
+      - name: Retain the preflight plan and failure report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          overwrite: true
+          name: release-preflight
+          path: dist/*
+          if-no-files-found: warn
 
       - name: Record immutable release revision
         id: revision
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        env:
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          version="${RELEASE_TAG#v}"
+          core_and_prerelease="${version%%+*}"
+          if [[ "$core_and_prerelease" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  verify:
+    name: verify release revision
+    needs: [resolve-release]
+    uses: ./.github/workflows/ci.yml
+    with:
+      revision: ${{ needs.resolve-release.outputs.sha }}
 
   publish-crates:
     name: publish to crates.io
-    needs: [resolve-release]
+    needs: [resolve-release, verify, build-binaries]
     runs-on: ubuntu-latest
     env:
       RELEASE_TAG: ${{ needs.resolve-release.outputs.tag }}
@@ -72,16 +118,62 @@ jobs:
         uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve-release.outputs.sha }}
+          fetch-depth: 0
 
-      - name: Install stable Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install release Cargo
+        uses: dtolnay/rust-toolchain@1.98.1
 
-      - name: Publish workspace crates to crates.io
-        uses: katyo/publish-crates@v2
+      - uses: actions/setup-python@v6
         with:
-          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-          ignore-unpublished-changes: true
-          check-repo: false
+          python-version: '3.11'
+
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: '32.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-preflight
+          path: target/release-preflight
+
+      - name: Restore publication ledger when rerunning this release
+        if: github.run_attempt > 1
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: release-metadata
+          path: dist
+
+      - name: Publish verified crate versions serially
+        shell: bash
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          RELEASE_SHA: ${{ needs.resolve-release.outputs.sha }}
+        run: |
+          mkdir -p dist
+          cp target/release-preflight/crate-versions.json dist/crate-versions.json
+          python3 scripts/publish-crates.py publish --tag "$RELEASE_TAG" --commit "$RELEASE_SHA" \
+            --report dist/crate-publish-report.json 2>&1 | tee target/release-preflight/publish.log
+
+      - name: Retain version metadata and resumable publication report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          overwrite: true
+          name: release-metadata
+          path: dist/*.json
+          if-no-files-found: warn
+
+      - name: Retain publication logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          overwrite: true
+          name: release-publish-logs
+          path: target/release-preflight/*.log
+          if-no-files-found: warn
 
   build-binaries:
     needs: [resolve-release]
@@ -93,7 +185,7 @@ jobs:
 
   publish-assets:
     name: publish verified archives
-    needs: [resolve-release, build-binaries]
+    needs: [resolve-release, build-binaries, publish-crates]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v8
@@ -101,13 +193,20 @@ jobs:
           pattern: openkind-*
           path: dist
           merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-metadata
+          path: dist
       - uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.resolve-release.outputs.tag }}
+          prerelease: ${{ needs.resolve-release.outputs.prerelease == 'true' }}
+          fail_on_unmatched_files: true
           files: dist/*
 
   homebrew-tap:
     name: update homebrew tap
+    if: needs.resolve-release.outputs.prerelease == 'false'
     needs: [resolve-release, build-binaries, publish-assets]
     runs-on: ubuntu-latest
     env:
@@ -121,6 +220,7 @@ jobs:
       - name: Download all release artifacts
         uses: actions/download-artifact@v8
         with:
+          pattern: openkind-*
           path: artifacts
           merge-multiple: true
 

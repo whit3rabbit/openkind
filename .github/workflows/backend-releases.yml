@@ -5,13 +5,15 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/*release*.yml'
+      - '.github/workflows/ci.yml'
       - 'packaging/**'
       - 'scripts/release.py'
       - 'scripts/tests/test_release.py'
+      - 'scripts/publish-crates.py'
+      - 'scripts/tests/test_publish_crates.py'
       - 'Cargo.*'
-      - 'crates/openkind-backends/**'
-      - 'crates/openkind-server/**'
-      - 'crates/openkind-cli/**'
+      - 'crates/**'
+      - 'proto/**'
   workflow_dispatch:
 
 permissions:

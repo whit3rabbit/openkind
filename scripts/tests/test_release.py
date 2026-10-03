@@ -115,6 +115,20 @@ class ReleaseTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "checksum mismatch"):
                 release.smoke(archive, set())
 
+    def test_archive_version_accepts_build_metadata_and_rejects_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            binaries = root / "bin"
+            binaries.mkdir()
+            for name in ("openkind", "openkindd"):
+                (binaries / name).write_bytes(b"test executable")
+            archive = release.package(binaries, "x86_64-apple-darwin", "v0.1.0+build.7",
+                                      False, root / "dist")
+            self.assertEqual(archive.name, "openkind-0.1.0+build.7-x86_64-apple-darwin.tar.gz")
+            for version in ("../outside", "0.1.0/child", "0.1.0\ninvalid", ""):
+                with self.subTest(version=version), self.assertRaisesRegex(ValueError, "invalid release version"):
+                    release.package(binaries, "x86_64-apple-darwin", version, False, root / "dist")
+
     def test_dependency_audit_rejects_mandatory_cuda(self):
         self.assertTrue(release.CUDA_IMPORT.search("libcublas.so.12"))
         self.assertTrue(release.CUDA_IMPORT.search("cudart64_12.dll"))

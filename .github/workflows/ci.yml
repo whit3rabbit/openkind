@@ -1,12 +1,25 @@
 name: ci
 
 on:
+  workflow_call:
+    inputs:
+      revision:
+        type: string
+        required: true
   push:
     branches:
       - main
   pull_request:
     branches:
       - main
+
+permissions:
+  contents: read
+
+# Large integration binaries exhausted the hosted Linux runner with full debug info.
+env:
+  CARGO_PROFILE_DEV_DEBUG: '0'
+  CARGO_PROFILE_TEST_DEBUG: '0'
 
 jobs:
   check:
@@ -15,6 +28,15 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.revision || github.sha }}
+
+      - name: Record available disk
+        run: df -h
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
 
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
@@ -31,19 +53,20 @@ jobs:
         run: cargo fmt --check
 
       - name: Run clippy linter
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: Run workspace tests
-        run: env -u RUST_LOG cargo test --workspace
+        run: env -u RUST_LOG cargo test --workspace --locked
 
       - name: Check release packaging tooling
-        run: python3 -m unittest discover -s scripts/tests -p test_release.py
-
-      - name: Check offline qualification tooling
-        run: python3 -m unittest discover -s scripts/tests -p 'test_qwen_qualification.py'
+        run: python3 -m unittest discover -s scripts/tests
 
       - name: Smoke-test Criterion benchmarks
         run: env -u RUST_LOG cargo test --workspace --benches --locked
+
+      - name: Record remaining disk
+        if: always()
+        run: df -h
 
   platforms:
     name: clippy and tests (${{ matrix.os }})
@@ -55,6 +78,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.revision || github.sha }}
+
+      - name: Record available disk
+        shell: bash
+        run: df -h
 
       - name: Install stable Rust
         uses: dtolnay/rust-toolchain@stable
@@ -68,11 +97,16 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Run clippy linter
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: Run workspace tests
         shell: bash
-        run: env -u RUST_LOG cargo test --workspace
+        run: env -u RUST_LOG cargo test --workspace --locked
+
+      - name: Record remaining disk
+        if: always()
+        shell: bash
+        run: df -h
 
   msrv:
     name: MSRV Rust 1.88
@@ -80,6 +114,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.revision || github.sha }}
+
+      - name: Record available disk
+        run: df -h
 
       - name: Install workspace MSRV
         uses: dtolnay/rust-toolchain@1.88.0
@@ -97,6 +136,13 @@ jobs:
       - name: Check optional ONNX CPU features on MSRV
         run: cargo check --workspace --all-targets --features onnx --locked
 
+      - name: Check backend ONNX feature combinations on MSRV
+        run: |
+          for feature in onnx onnx-cuda onnx-rocm; do
+            cargo check -p openkind-backends --all-targets --features "$feature" --locked
+            env -u RUST_LOG cargo test -p openkind-backends --lib --features "$feature" --locked
+          done
+
       - name: Check CUDA ONNX feature alone on MSRV
         run: cargo check -p openkind-server --all-targets --features onnx-cuda --locked
 
@@ -112,24 +158,104 @@ jobs:
       - name: Smoke-test Criterion benchmarks on MSRV
         run: env -u RUST_LOG cargo test --workspace --benches --locked
 
+      - name: Record remaining disk
+        if: always()
+        run: df -h
+
+  packages:
+    name: verify crates.io archives (Cargo 1.98.1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.revision || github.sha }}
+      - uses: dtolnay/rust-toolchain@1.98.1
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: '32.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Validate versions, licenses, and package builds without upload
+        shell: bash
+        run: |
+          mkdir -p target/release-reports
+          df -h
+          tag="v$(python3 -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["workspace"]["package"]["version"])')"
+          python3 scripts/publish-crates.py plan --tag "$tag" --commit "$(git rev-parse HEAD)" \
+            --verify --output target/release-reports/crate-versions.json \
+            2>&1 | tee target/release-reports/package-verification.log
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          overwrite: true
+          name: crate-package-verification
+          path: target/release-reports/*
+          if-no-files-found: warn
+      - name: Record remaining disk
+        if: always()
+        run: df -h
+
   bindings:
     name: TypeScript and Python bindings
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.revision || github.sha }}
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '18'
+          cache: npm
+          cache-dependency-path: bindings/typescript/package-lock.json
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - uses: dtolnay/rust-toolchain@1.98.1
+
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: '32.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the mock daemon from this revision
+        run: cargo build --locked -p openkind-server --bin openkindd
 
       - name: Install TypeScript binding dependencies
         working-directory: bindings/typescript
         run: npm ci
 
-      - name: Build and test TypeScript bindings
-        working-directory: bindings/typescript
-        run: npm test
-
-      - name: Test Python bindings
-        working-directory: bindings/python
-        run: python3 -m unittest discover -s tests
+      - name: Test TypeScript and Python clients and wrappers with the fresh daemon
+        shell: bash
+        run: |
+          mkdir -p target/binding-reports
+          export OPENKIND_TEST_BINARY="$PWD/target/debug/openkindd"
+          export OPENKIND_TEST_URL=http://127.0.0.1:18080
+          env -u OPENKIND_API_KEY -u OPENDECISION_API_KEY -u OPENPICK_API_KEY -u TYPESAFE_API_KEY \
+            "$OPENKIND_TEST_BINARY" --models mock,jev-latest --http-addr 127.0.0.1:18080 --grpc-addr 0 \
+            > target/binding-reports/daemon.log 2>&1 &
+          daemon_pid=$!
+          trap 'kill "$daemon_pid" 2>/dev/null || true; wait "$daemon_pid" 2>/dev/null || true' EXIT
+          for _attempt in {1..100}; do
+            kill -0 "$daemon_pid"
+            if curl --fail --silent "$OPENKIND_TEST_URL/health" > /dev/null; then break; fi
+            sleep 0.1
+          done
+          curl --fail --silent "$OPENKIND_TEST_URL/health" > /dev/null
+          (cd bindings/typescript && npm test) 2>&1 | tee target/binding-reports/typescript.log
+          (cd bindings/python && python3 -m unittest discover -s tests) 2>&1 | tee target/binding-reports/python.log
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          overwrite: true
+          name: typescript-python-binding-reports
+          path: target/binding-reports/*
+          if-no-files-found: warn
 
   swift:
     name: Swift package (${{ matrix.runner }})
@@ -145,9 +271,48 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.revision || github.sha }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - uses: dtolnay/rust-toolchain@1.98.1
+
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: '32.1'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build the mock daemon from this revision
+        run: cargo build --locked -p openkind-server --bin openkindd
 
       - name: Validate Swift package manifest
         run: swift package dump-package
 
-      - name: Build and test Swift package
-        run: swift test
+      - name: Build and test Swift clients and wrappers with the fresh daemon
+        shell: bash
+        run: |
+          mkdir -p target/binding-reports
+          export OPENKIND_TEST_BINARY="$PWD/target/debug/openkindd"
+          export OPENKIND_TEST_URL=http://127.0.0.1:18080
+          env -u OPENKIND_API_KEY -u OPENDECISION_API_KEY -u OPENPICK_API_KEY -u TYPESAFE_API_KEY \
+            "$OPENKIND_TEST_BINARY" --models mock,jev-latest --http-addr 127.0.0.1:18080 --grpc-addr 0 \
+            > target/binding-reports/daemon.log 2>&1 &
+          daemon_pid=$!
+          trap 'kill "$daemon_pid" 2>/dev/null || true; wait "$daemon_pid" 2>/dev/null || true' EXIT
+          for _attempt in {1..100}; do
+            kill -0 "$daemon_pid"
+            if curl --fail --silent "$OPENKIND_TEST_URL/health" > /dev/null; then break; fi
+            sleep 0.1
+          done
+          curl --fail --silent "$OPENKIND_TEST_URL/health" > /dev/null
+          swift test 2>&1 | tee target/binding-reports/swift.log
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          overwrite: true
+          name: swift-binding-reports-${{ matrix.runner }}
+          path: target/binding-reports/*
+          if-no-files-found: warn

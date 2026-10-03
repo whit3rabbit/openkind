@@ -24,7 +24,10 @@ openkind version
 
 ### Cargo
 
-Install from crates.io with Rust 1.88+:
+Install from crates.io with Rust 1.88+, a native C/C++ build toolchain, and
+`protoc` on `PATH`. The server compiles its Protobuf interface during installation.
+Install `protobuf` with Homebrew on macOS or `protobuf-compiler` on Debian/Ubuntu.
+On Windows, use the MSVC build tools and a Protobuf compiler installation.
 
 ```bash
 cargo install --locked openkind-cli openkind-server
@@ -181,6 +184,18 @@ openkind status --server http://127.0.0.1:18080
 openkind inspect request.json
 ```
 
+API key checking is optional and off by default. To enable it, generate or
+define a key before starting the server, then give the same key to clients:
+
+```bash
+export OPENKIND_API_KEY="$(openkind keygen)"
+openkind serve --http-addr 127.0.0.1:18080 --grpc-addr 0
+```
+
+Keys are not saved automatically. See the [CLI key guide](crates/openkind-cli/README.md#keygen)
+for explicit keys and PowerShell examples, and the [language bindings](bindings/README.md#api-keys)
+for native generation helpers and local server wrappers.
+
 For a browser interface, start the playground with an installed model:
 
 ```bash
@@ -199,7 +214,10 @@ openkind-client = { path = "../openkind/crates/openkind-client" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 
-With the Laya server above running, put this in `src/main.rs` and run `cargo run`:
+With the Laya server above running, put this in `src/main.rs` and run `cargo run`.
+
+For an authenticated daemon, omit `.api_key("local")` to read
+`OPENKIND_API_KEY`, or supply its configured key explicitly.
 
 ```rust
 use std::time::Duration;
@@ -325,4 +343,6 @@ Report bugs or propose changes through [GitHub issues](https://github.com/whit3r
 
 ## License
 
-See the [MIT license](LICENSE). Cargo metadata declares `MIT OR Apache-2.0`. Each model retains its own license, recorded in the [model catalog](registry/v1/catalog.json) and linked manifests.
+See the [MIT license](LICENSE). Each model retains its own license, recorded in the [model catalog](registry/v1/catalog.json) and linked manifests.
+
+Maintainers: see the [release checklist](release.md) and [changelog](<change log.md>).
