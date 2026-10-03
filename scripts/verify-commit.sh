@@ -96,11 +96,11 @@ if [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
   git status --short >&2
   exit 2
 fi
-if [[ ! -d "${reference_root}" ]]; then
+if [[ "${offline_only}" -eq 0 && ! -d "${reference_root}" ]]; then
   echo "error: reference root not found: ${reference_root}" >&2
   exit 2
 fi
-if [[ ! -d "${head_bundle_root}" ]]; then
+if [[ "${offline_only}" -eq 0 && ! -d "${head_bundle_root}" ]]; then
   echo "error: head bundle root not found: ${head_bundle_root}" >&2
   exit 2
 fi

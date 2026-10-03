@@ -61,6 +61,12 @@ jobs:
       - name: Check release packaging tooling
         run: python3 -m unittest discover -s scripts/tests
 
+      - name: Verify generated schemas match the committed contract
+        run: |
+          cargo run -p openkind-gen-schemas --locked -- --write
+          git diff --exit-code -- crates/openkind-core/schemas
+          test -z "$(git ls-files --others --exclude-standard -- crates/openkind-core/schemas)"
+
       - name: Smoke-test Criterion benchmarks
         run: env -u RUST_LOG cargo test --workspace --benches --locked
 

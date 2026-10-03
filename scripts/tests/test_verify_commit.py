@@ -79,6 +79,26 @@ class VerificationPolicyTests(unittest.TestCase):
         self.assertEqual(rejected.returncode, 2)
         self.assertIn("--cuda requires", rejected.stderr)
 
+    def test_offline_verification_does_not_require_checkpoint_evidence(self):
+        result = self.run_verification("--reference-root", "missing-reference",
+                                       "--head-bundle-root", "missing-head")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("qwen35-full-parity", self.calls.read_text())
+
+    def test_model_verification_requires_checkpoint_evidence_before_compiling(self):
+        for arguments, message in (
+            (("--reference-root", "missing-reference"), "reference root not found"),
+            (("--head-bundle-root", "missing-head"), "head bundle root not found"),
+        ):
+            with self.subTest(message=message):
+                result = subprocess.run(
+                    ["bash", "verify.sh", "--checkpoint-root", str(self.repo), *arguments],
+                    cwd=self.repo, env=self.env, text=True, capture_output=True,
+                )
+                self.assertEqual(result.returncode, 2)
+                self.assertIn(message, result.stderr)
+                self.assertFalse(self.calls.exists())
+
     def test_failure_retains_the_failing_gate_and_exit_status(self):
         self.env["TEST_FAIL_CLIPPY"] = "1"
         result = self.run_verification()
