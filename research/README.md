@@ -16,10 +16,13 @@ Detailed analysis, theoretical foundations, and mathematical formulations are do
 self-contained Colab trainer for a mixed-task Qwen3.5-4B decision LoRA, targeting
 A100 with an L4 NF4 path. It combines public labeled tasks, precomputed Qwen-teacher
 decisions and exact rule examples, with separate development, calibration, gate
-and reserved evaluation groups. Version 3 enables smoothed CE/Brier, with an
-optional six-arm loss sweep, E42 partial-information rules, schema diagnostics
-and bounded reference inference.
-See the [dataset rationale and run guide](./local_decision_training/README.md).
+and reserved evaluation groups. Version 4 uses plain CE, atomic counterfactual
+sampling, and 400 updates at 2,048 tokens. Reasoning data, occurrence-based schema
+augmentation and the six-arm loss sweep are separate opt-in comparisons. E43/E44
+motivate family, class and whole-request diagnostics with group uncertainty.
+Frozen evaluation verifies and loads the exported implementation and artifacts.
+See the [dataset rationale and run guide](./local_decision_training/README.md)
+and [evidence-backed decisions](./local_decision_training/DECISIONS.md).
 An optional [HelpSteer2 data ablation](./local_decision_training/README.md#strands-decider-training-lessons)
 adds answer-adequacy supervision from human ratings, with request-group isolation.
 Status: authored and locally checked with tiny models; full 4B CUDA training and
@@ -1090,7 +1093,7 @@ latency evidence and optimization promotion gates.
   - Combines MultiNLI, BoolQ, Banking77, MultiRC, optional SST-5, precomputed Qwen-teacher decisions, and exact rule examples. Historical final splits and QASPER stay out of this trainer.
   - Enforces separate development, calibration-fit, calibration-gate, and reserved evaluation groups without reopening historical final splits.
   - Implements PEFT rank-16 LoRA adapters with `SDPBackend.MATH` attention consistency.
-  - Version 3 enables smoothed CE/Brier and an optional six-arm development-selected loss sweep with a CE control. It retains Brier guards, option/key diagnostics and isolated-question reference inference. These are bounded follow-ups to E42 and the CLEF review, not measured quality gains.
+  - Version 4 defaults to plain CE and atomic sampling. Optional reasoning data, occurrence-based presentation augmentation and the six-arm loss sweep isolate interventions. E43/E44 motivate group-aware family/class and complete-request diagnostics. Frozen evaluation verifies the exported implementation, adapter, tokenizer and calibration. These mechanisms establish no measured 4B quality gain.
   - TypeSafe data is benchmark-only: a separate frozen-export cell reads five pinned test snapshots, compares the parent, and records coverage and question-level agreement. It does not train or select on those labels or claim official workflow action scores. CLEF-flash's released settings guide the architecture comparison, not the loss coefficients.
 * **Status**: Authored and locally checked with tiny models; full 4B CUDA training and Mac qualification remain unrun.
 * **Supporting Directory**: [`local_decision_training/`](./local_decision_training)

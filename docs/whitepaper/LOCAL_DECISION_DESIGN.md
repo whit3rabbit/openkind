@@ -1,6 +1,6 @@
 # A local decision model and engine for 16–32 GB Macs
 
-Design proposal, reviewed 1 October 2026. Target: text decisions through OpenKind's
+Design proposal, reviewed 3 October 2026. Target: text decisions through OpenKind's
 Choice, Noul and Score contract on an everyday Apple Silicon Mac. The user
 specified 16–32 GB RAM. Workload prevalence and latency requirements remain
 unspecified; the operating budgets below are proposed targets. This document
@@ -32,7 +32,8 @@ or a cross-model hidden-state bridge has a weaker fit to the memory target.
 | Native MLX flat-field execution halves forward calls but is slower on both tested shapes. | Select execution plans by elapsed request time and memory. | Fewer calls do not establish less work. See §17.4. |
 | E41/E42: separate resident native/JSON processes repair the tested history traces with zero drift across X, XR and NJ. | Give execution profiles explicit ownership; retain resident process isolation where mixed traffic requires it. | About 4–6% trace overhead, 12.10 GiB combined T4 memory. Same-process repair, cancellation, concurrency and Mac residency remain unqualified. See §§22.2, 23.5. |
 | E42: all 23 XR eligibility errors confuse missing certification plus known failing points with undetermined eligibility. | Teach partial-information conjunctions and exceptions; missing evidence must not override a decisive fact. | A diagnosed policy-family error, not proof that synthetic counterfactuals fix the general model. See §23.2. |
-| The current evidence retains large schema sensitivity after process isolation; the encoder comparison was blocked by a logging error. | Measure order/key sensitivity and rerun an executable encoder control. | Process stability does not establish presentation invariance. Harness failure does not reject encoders. See §23 and working-paper §§9–11. |
+| E43/E44 recover the encoder comparisons and expose numeric capping, chronological-order errors and majority collapse. | Report family/class distributions and whole-request correctness; retain a matched frozen parent. | Bounded classifier training and compact NLI specialization do not establish a general replacement or an accepted automation policy. See §24. |
+| E43 repairs the targeted eligibility cases but damages retry decisions in the same requests. | Preserve atomic counterfactual units and compare individual fields with complete-request correctness. | A repaired skill is insufficient for promotion; new generated facts and held-out renderings need their own measurement. See §§24.2–24.4. |
 
 The [Laya family](../families/laya.md) is a useful implementation starting point
 for a specialist. Its existing MLX campaign reports 24.34 English and 56.37
@@ -168,11 +169,11 @@ distribution and its expectation. Review is a separate application decision.
 Conditional probabilities from an existing Laya profile cannot be relabeled
 as a distribution with learned semantic-none mass.
 
-For the first bounded comparison, use state lengths through 4,096 tokens,
+For the first bounded training pilot, admit at most 2,048 total prompt tokens,
 Q≤8 and K≤16, with larger shapes as separate tests. These are experimental
 bounds, not changes to the wire contract or claims about current supported
-limits. Count question and option tokens too. Reject an overlength request
-or use an explicitly selected evidence-retrieval profile. Silent truncation
+limits. A 4,096-token study remains a separate experiment. Reject an overlength
+request or use an explicitly selected evidence-retrieval profile. Silent truncation
 would repeat the evidence-visibility failures.
 Retrieval can find supporting evidence, but a retrieval miss cannot establish
 that the full document contains none. Preserve full-evidence evaluation or
@@ -220,18 +221,30 @@ themselves supply calibrated target probabilities. Evidence-selection and
 intermediate-relation supervision are separate ablations. No particular loss
 weight or data mixture is established by the current record.
 
-The [v3 pilot](../../research/local_decision_training/README.md) enables combined
-label-smoothed CE and summed Brier loss. Its optional six-arm sweep retains the
-plain-CE control, isolates each addition, and varies two combined coefficients
-under fixed data, seed, rank, learning rate and update budgets. Development NLL
-and retention guards select one arm; only that winner reaches calibration and
-the gate. These defaults and coefficients are unmeasured pilot choices.
-Brier targets retain the original hard/soft probabilities; smoothing applies
-only to CE. Compare unsmoothed-label NLL/Brier and class/none retention, not
-training loss across objectives. CLEF does not disclose coefficients or enough
-RLCD detail to reproduce its recipe. Rank 256, RL, and exact-record rewards
-therefore remain separate proposed experiments. Single-question rows cannot
-train an exact multi-field record objective.
+The [v4 pilot](../../research/local_decision_training/README.md) starts with
+unsmoothed CE, rank-16 LoRA, 400 updates and a 2,048-token admission limit.
+The [decision records](../../research/local_decision_training/DECISIONS.md)
+connect the E30–E32 retention failures and E43/E44 diagnostics to each choice.
+Keep the broad mixture as the control. A named data arm replaces half the rule
+allocation with exact capping, chronology, decisive-known-fact and instruction-flip
+examples. Split groups prevent leakage; atomic units keep pairs and triplets intact
+after admission. Hold evaluation manifests and non-target source exposure fixed.
+
+Optional presentation arms vary option order, code assignment or opaque keys by
+training occurrence. Split, initialization, sampling and augmentation seeds are
+separate inputs. After those controls are fixed, the optional six-arm loss sweep
+isolates smoothing and Brier under matched budgets. Brier targets preserve original
+probabilities; smoothing affects only CE. Select with unsmoothed development NLL
+and retention guards; only the winner reaches calibration and the gate. A failed
+gate retains its parent without another search.
+
+Family/kind slices, predicted-class distributions, majority controls, paired and
+complete-request correctness expose collateral damage. Group-bootstrap intervals
+report uncertainty; sparse slices and current thresholds remain pilot screens.
+Maximum probability and exported entropy confidence have separate risk/coverage
+reports, without defining an action policy. Larger adapters, KL replay, RLCD and
+exact-record training rewards remain separate experiments. The generated
+multi-question diagnostics do not add a joint training objective.
 
 TypeSafe's published datasets remain evaluation-only. The pilot's separate
 [benchmark helper](../../research/local_decision_training/benchmark.py) opens
@@ -430,7 +443,10 @@ prompt, finite readout and calibration. It admits all questions before any
 forward pass, rejects overlength evidence, requires described Choice none,
 keeps opaque question IDs out of prompts, and uses serial independent prefills.
 It returns entropy-based Choice/Score confidence and no Noul confidence.
-It supplies neither a wire adapter nor a shared hybrid-state cache. The native
+Frozen evaluation verifies and loads the bundled trainer, tokenizer, adapter and
+contract. Synthetic replay vectors record the rendered inputs, logits, mappings,
+probabilities and typed answers needed to start later parity work. The helper
+supplies neither a wire adapter nor a shared hybrid-state cache. The native
 Rust reference remains unchanged until selected weights, renderer vectors,
 probability fixtures and conversion gates exist. A faster untrained head would
 not answer the quality question.
@@ -499,9 +515,9 @@ depth, with ordinary distillation retained as a control.
 **Review provenance.** This proposal uses the working-tree versions of
 [WORKING_PAPER.md](WORKING_PAPER.md), [WHITEPAPER.md](WHITEPAPER.md),
 [RESEARCH.md](../RESEARCH.md), and [laya.md](../families/laya.md), plus the
-linked primary papers and model sources. Whitepaper version: 0.8.11; working
-paper revision: 0.9.2. CLEF sources were checked on 1 October 2026; earlier
-sources retain the 29 September review. The v3 trainer/reference helper has
-offline tiny-model and contract checks, not 4B training or target-Mac evidence.
+linked primary papers and model sources. Whitepaper version: 0.8.12; working
+paper revision: 0.9.3. CLEF sources were checked on 1 October 2026; earlier
+sources retain the 29 September review. The v4 trainer/reference helper has an
+offline validation suite; it adds no 4B training or target-Mac evidence.
 No raw-result re-audit was performed. Numerical targets and new architectures
-remain proposals; E41/E42 values are attributed to the canonical papers.
+remain proposals; E41–E44 values are attributed to the canonical papers.

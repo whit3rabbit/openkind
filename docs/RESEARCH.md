@@ -2876,8 +2876,8 @@ not additional evidence for the released model's recipe.
 
 The following is a source-to-hypothesis crosswalk, not a revision of our local
 measured results. The [working paper](whitepaper/WORKING_PAPER.md), revision
-0.9.2, and [whitepaper](whitepaper/WHITEPAPER.md), version 0.8.11, own the
-current local evidence through E42.
+0.9.3, and [whitepaper](whitepaper/WHITEPAPER.md), version 0.8.12, own the
+current local evidence through E43/E44.
 
 | CLEF or related-source contribution | OpenKind evidence or proposal | Consequence |
 |---|---|---|
@@ -2887,7 +2887,9 @@ current local evidence through E42.
 | Label smoothing, Brier supervision, ordinal/record rewards. | Whitepaper §§18.21–18.25, 22.6; outstanding questions OQ-28–32. | Test calibration and retention directly. Our specialization and replay failures remain counterevidence to an automatic general upgrade. |
 | Full token memory rather than only a cheap state summary. | Working paper §§4.4–4.5; whitepaper's representation/evidence audits. | Test evidence access under long documents and missing evidence before changing model capacity. |
 | One full-schema pass with caching disabled in the release helper. | Whitepaper §§16–17, 23.3; working paper §7. | Distinguish eliminating candidate passes from hybrid-state sharing and persistent prefix reuse. Measure complete request time and retained memory. |
-| Compact Laya and isolated Kev alternatives. | Local design's specialist path; whitepaper §23.8. | Keep encoder and pointer controls. The historical classifier comparison was blocked; source review does not complete it. |
+| Compact Laya and isolated Kev alternatives. | Local design's specialist path; whitepaper §§24.6–24.8. | E44 completes bounded encoder controls and identifies a useful NLI specialist. Neither result establishes general policy replacement or an accepted automation policy. |
+| Targeted instruction and data changes. | Whitepaper §§24.2–24.4; E43 eligibility repair with collateral retry errors. | Measure paired and whole-request correctness. Keep capping, chronology and instruction changes separate from the loss comparison. |
+| Reported accuracy under imbalanced labels. | Whitepaper §24.6; majority-class collapse in recovered classifiers. | Report class predictions, majority controls and independent group counts alongside family/source metrics. |
 
 Recommended bounded experiments, with no training or runtime change implied:
 
@@ -2936,7 +2938,11 @@ review — the evidence-boundary panel, training ablations, and deployment
 comparison — remain open research; landing the loader changes none of that
 assessment. The revised
 [local design](whitepaper/LOCAL_DECISION_DESIGN.md) and
-[experiment 35 v3](../research/local_decision_training/README.md) make the
-bounded training-loss controls and development-only sweep, E42 counterfactuals, schema diagnostics and
-reference inference executable. Their offline checks do not establish a trained
+[experiment 35 v4](../research/local_decision_training/README.md) make the
+plain-CE control, atomic counterfactual sampling, optional reasoning/presentation
+interventions, development-only loss sweep, and grouped retention diagnostics
+executable. The [decision records](../research/local_decision_training/DECISIONS.md)
+link each choice to its evidence and acceptance condition. Frozen evaluation uses
+the verified exported implementation and a synthetic replay pack prepares later
+native qualification. Their offline checks do not establish a trained
 4B improvement, reproduce CLEF, or qualify a new native profile.

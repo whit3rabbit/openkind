@@ -25,6 +25,21 @@ class FakeTokenizer:
         (path / "tokenizer.json").write_text('{}')
 
 
+class ReloadableTinyTokenizer(FakeTokenizer):
+    """Explicit offline bundle seam with code identities inside the tiny model vocabulary."""
+    def encode(self, text, **kwargs):
+        return [20 + ord(c) - ord("A") if c in recipe.CODES else 1 + ord(c) % 18 for c in text]
+
+    def save_pretrained(self, path):
+        path = Path(path); path.mkdir(parents=True)
+        (path / "tokenizer.json").write_text('{"offline_fixture": true}')
+
+    @classmethod
+    def from_pretrained(cls, path):
+        assert json.loads((Path(path) / "tokenizer.json").read_text()) == {"offline_fixture": True}
+        return cls()
+
+
 class DataTests(unittest.TestCase):
     def test_helpsteer2_rating_proxy_and_request_grouping(self):
         raw = dict(prompt="Explain a cancellation", response="Candidate reply", helpfulness=3.5, correctness=3)
@@ -389,7 +404,8 @@ class TrainingTests(unittest.TestCase):
             return torch.tensor(row["target"]).log()
         with mock.patch.object(recipe, "logits", side_effect=semantic_readout):
             result = recipe.schema_diagnostics(mock.Mock(), tokenizer, [encoded], 4096)
-        self.assertEqual(len(result["rows"]), 2)
+        self.assertEqual({r["transform"] for r in result["rows"]},
+                         {"reverse_option_order", "option_order_only", "code_assignment_only", "opaque_option_keys"})
         self.assertTrue(all(r["total_variation"] < 1e-7 and not r["selected_key_changed"] for r in result["rows"]))
         self.assertFalse(result["used_for_selection"])
         self.assertFalse(result["parity_established"])
@@ -397,8 +413,8 @@ class TrainingTests(unittest.TestCase):
     def test_sweep_configs_only_vary_losses_and_require_controls(self):
         configs = recipe.loss_sweep_configs(self.config)
         self.assertEqual(len(configs), 6)
-        self.assertTrue(recipe.DEFAULT_CONFIG["label_smoothing"] > 0)
-        self.assertTrue(recipe.DEFAULT_CONFIG["brier_weight"] > 0)
+        self.assertEqual(recipe.DEFAULT_CONFIG["label_smoothing"], 0.0)
+        self.assertEqual(recipe.DEFAULT_CONFIG["brier_weight"], 0.0)
         for arm in configs:
             fixed = {k: v for k, v in arm["config"].items() if k not in ("label_smoothing", "brier_weight")}
             self.assertEqual(fixed, {k: v for k, v in self.config.items() if k not in ("label_smoothing", "brier_weight")})
@@ -444,8 +460,9 @@ class TrainingTests(unittest.TestCase):
             selection = json.loads((run / "SELECTION.json").read_text())
             full_data = {role: encoded_rows() for role in recipe.ROLES}
             gate = recipe.calibrate_and_gate(winner_model, full_data, result["selected_config"], run, identity, selection)
-            export = recipe.export_bundle(winner_model, FakeTokenizer(), result["selected_config"],
-                                         {"sources": {}}, run, identity, selection, gate)
+            export = recipe.export_bundle(winner_model, ReloadableTinyTokenizer(), result["selected_config"],
+                                         {"sources": {}}, run, identity, selection, gate,
+                                         tokenizer_loader=ReloadableTinyTokenizer.from_pretrained)
             metadata = json.loads((export / "EXPORT.json").read_text())
             self.assertIn("SWEEP_PLAN.json", metadata["files"])
             self.assertIn("SWEEP_RESULT.json", metadata["files"])
@@ -505,28 +522,26 @@ class TrainingTests(unittest.TestCase):
             self.assertEqual(selection, again)
             torch.testing.assert_close(before, recipe.logits(restarted, rows[0]).detach())
             gate = recipe.calibrate_and_gate(restarted, data, self.config, root, identity, selection)
-            export = recipe.export_bundle(restarted, FakeTokenizer(), self.config,
-                {"sources": {"tiny": {"license": "test fixture"}}}, root, identity, selection, gate)
+            export = recipe.export_bundle(restarted, ReloadableTinyTokenizer(), self.config,
+                {"sources": {"tiny": {"license": "test fixture"}}}, root, identity, selection, gate,
+                tokenizer_loader=ReloadableTinyTokenizer.from_pretrained)
             metadata = json.loads((export / "EXPORT.json").read_text())
             self.assertTrue(metadata["files"])
             for name, sha in metadata["files"].items():
                 self.assertEqual(recipe.file_digest(export / name), sha)
             self.assertIn("benchmark.py", metadata["files"])
-            encode = recipe.encode
-            def tiny_encode(*args, **kwargs):
-                row = encode(*args, **kwargs)
-                return {**row, "input_ids": [1, 2, 3], "code_ids": [20, 21]}
-            with mock.patch.object(benchmark, "load_source", return_value=([benchmark_fixture()], {"upstream_split": "test"})) as download:
-                with mock.patch.object(recipe, "encode", side_effect=tiny_encode):
-                    result = benchmark.run_benchmark(restarted, FakeTokenizer(), self.config, root, identity, max_length=4096)
-                    self.assertEqual(download.call_count, 5)
-                    self.assertEqual(set(result["candidate"]), set(benchmark.TYPESAFE_SOURCES))
-                    self.assertFalse(result["plan"]["used_for_training_or_selection"])
-                    self.assertFalse(result["direct_leaderboard_comparison"])
-                    self.assertTrue(result["plan"]["extended_context_unqualified"])
-                    self.assertEqual(result["plan"]["export_max_length"], self.config["max_length"])
-                    self.assertEqual(benchmark.run_benchmark(restarted, FakeTokenizer(), self.config, root, identity, max_length=4096), result)
-                    self.assertEqual(download.call_count, 5)
+            source_loader = mock.Mock(return_value=([benchmark_fixture()], {"upstream_split": "test"}))
+            kwargs = dict(max_length=4096, tokenizer_loader=ReloadableTinyTokenizer.from_pretrained,
+                          source_loader=source_loader)
+            result = benchmark.run_benchmark(restarted, None, self.config, root, identity, **kwargs)
+            self.assertEqual(source_loader.call_count, 5)
+            self.assertEqual(set(result["candidate"]), set(benchmark.TYPESAFE_SOURCES))
+            self.assertFalse(result["plan"]["used_for_training_or_selection"])
+            self.assertFalse(result["direct_leaderboard_comparison"])
+            self.assertTrue(result["plan"]["extended_context_unqualified"])
+            self.assertEqual(result["plan"]["export_max_length"], self.config["max_length"])
+            self.assertEqual(benchmark.run_benchmark(restarted, None, self.config, root, identity, **kwargs), result)
+            self.assertEqual(source_loader.call_count, 5)
             for name, sha in metadata["files"].items():
                 self.assertEqual(recipe.file_digest(export / name), sha)
             with self.assertRaises(AssertionError):

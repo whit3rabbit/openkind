@@ -3,9 +3,14 @@
 Start with [notebook 35](../35_local_decision_training.ipynb). It trains a
 `Qwen/Qwen3.5-4B` decision LoRA on an A100, with an NF4 QLoRA path for L4.
 The deployment target is a 16–32 GB Mac after merge, quantization and native
-qualification. This is a v3 experiment, not a promoted model or a completed
+qualification. This is a v4 experiment, not a promoted model or a completed
 4B training result. The [local design](../../docs/whitepaper/LOCAL_DECISION_DESIGN.md)
 separates this pilot from native integration.
+
+[DECISIONS.md](DECISIONS.md) records the evidence, alternatives and acceptance
+conditions for this design.
+
+## Quickstart
 
 Upload the notebook at [Google Colab](https://colab.research.google.com/), select
 an A100 GPU, and run all cells. Mount Drive when prompted. No prior experiment
@@ -84,13 +89,51 @@ are rejected, never truncated or relabeled. Passing this pilot would not establi
 long-document retention. A subsequent full-document study needs its own admission
 report and source-aligned evaluation.
 
-The [working paper](../../docs/whitepaper/WORKING_PAPER.md) carries evidence
-through E42. Its eligibility errors motivate exact partial-information pairs:
-a known failing conjunct makes the answer `deny` despite a missing fact; a known
-successful disjunct can make it `approve`. The paired unresolved cases still
-require semantic none. All nine rule siblings share their split group. This
-changes the data identity. Current configuration and source hashes prevent
-resuming incompatible v1/v2 runs.
+The [working paper](../../docs/whitepaper/WORKING_PAPER.md) and
+[whitepaper §24](../../docs/whitepaper/WHITEPAPER.md#24-openkind-t4-recovery--classifier-verification-input-reuse-nli-specialization-and-general-policy-limits)
+carry evidence through E43/E44. A targeted eligibility correction also damaged
+retry decisions, so field gains must be checked against complete requests.
+Numeric capping, chronological order and majority-class collapse are explicit
+diagnostics. The recovered encoder comparisons are complete within their bounded
+recipe; they establish neither a general encoder replacement nor Mac readiness.
+
+Split groups prevent leakage. Atomic units preserve declared training pairs and
+triplets. They serve different purposes: related rule rows share a role, but only
+declared units must survive deduplication, token admission and row caps together.
+An incomplete unit is rejected; a complete unit that exceeds remaining capacity
+is skipped. The admission audit records unused capacity. Ordinary large documents
+need not fit a cap as one unit. Configuration, data and implementation hashes
+version v4 runs separately from earlier artifacts.
+
+## Controlled experiment sequence
+
+The default is one 400-update, 2,048-token plain-CE run with the existing broad
+mixture: `data_intervention="control"`, `presentation_augmentation="none"`,
+`label_smoothing=0.0`, and `brier_weight=0.0`.
+
+1. Establish the v4 control with corrected atomic sampling and diagnostics.
+2. For a data comparison, set `data_intervention="reasoning"`. Replace half the
+   rules allocation with exact numeric-capping, chronology, decisive-known-fact,
+   and answer-changing-instruction examples. Preserve other-source exposure,
+   total presentation budget, and evaluation manifests. Independently identified
+   facts and held-out renderings protect historical evaluation material.
+3. For a presentation comparison, hold semantic data and loss fixed. Set
+   `presentation_augmentation` to `option_order`, `code_assignment`, `opaque_keys`,
+   or `all`. Prefer individual transforms first. Each occurrence has a deterministic
+   presentation, with canonical targets remapped exactly and replayed on resume.
+4. Only then run the optional six-arm loss sweep on one frozen data/presentation
+   configuration. Development selects one candidate; calibration and the gate
+   never choose another arm after failure.
+
+`split_seed`, `initialization_seed`, `sampling_seed`, and `augmentation_seed`
+are separate run inputs. Each defaults to the legacy `seed=17` when unset.
+Keep all four fixed across matched arms. Training schedules record source
+exposure; changing a seed, intervention, precision, update budget or implementation
+starts another run. A favorable gate result does not authorize combining treatments.
+
+HelpSteer2 remains a separate opt-in comparison. A 4,096-token study, automatic
+teacher generation, KL replay, larger adapters, and new heads need separate
+experiments. The control does not infer those benefits from external recipes.
 
 ## What CLEF justifies changing
 
@@ -112,7 +155,7 @@ are a useful architecture reference for the intended task:
 | Head | Width 1,024; 2 routing layers; 4 decoder layers; 16 heads; feedforward width 4,096; dropout 0 in released code | No added head |
 | Question interaction | Full schema in backbone, then unmasked field mixing | One isolated question per prefill |
 | Disclosed training adapters | Rank 256 with routing head trained jointly | Rank 16; alpha 32; learning rate `2e-5` |
-| Disclosed loss settings | Smoothed CE plus Brier; coefficients and optimization settings absent | Smoothing 0.05, Brier weight 0.1, optional controlled sweep |
+| Disclosed loss settings | Smoothed CE plus Brier; coefficients and optimization settings absent | Plain CE control; optional six-arm sweep |
 
 The [4B config](https://huggingface.co/Qwen/Qwen3.5-4B/blob/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a/config.json)
 and [flash head code](https://huggingface.co/Cloudflare/clef-flash/blob/17f0b0ad64efb65d273590632833508766b2aae6/joint_schema_model.py)
@@ -121,9 +164,9 @@ merged backbone and separate head, not a recoverable optimizer or adapter recipe
 Its head weights cannot be attached directly to the 4B model. Test a newly trained
 isolated reader first; full-schema mixing and larger rank need separate comparisons.
 
-The default run enables smoothing 0.05 and Brier weight 0.1. For a bounded
+The default run uses unsmoothed CE with zero Brier weight. For a bounded
 comparison, set `RUN_LOSS_SWEEP=True` in the notebook. It runs these six arms
-with identical admitted data, seed, precision, rank, learning rate and update budget:
+with identical admitted data, four seed values, precision, rank, learning rate and update budget:
 
 | Arm | `label_smoothing` | `brier_weight` |
 |---|---:|---:|
@@ -131,7 +174,7 @@ with identical admitted data, seed, precision, rank, learning rate and update bu
 | Smoothing only | 0.05 | 0.0 |
 | Brier only | 0.0 | 0.1 |
 | Combined, lower smoothing | 0.02 | 0.1 |
-| Combined, default | 0.05 | 0.1 |
+| Combined, middle smoothing | 0.05 | 0.1 |
 | Combined, higher Brier | 0.05 | 0.3 |
 
 The nonzero values are pilot settings, not recovered Cloudflare coefficients.
@@ -161,8 +204,9 @@ Do not compare raw training losses across objectives or promote an arm from a
 leaderboard claim. Separate run identities prevent incompatible resume. A repeated
 search using gate results spends that gate and needs fresh acceptance groups.
 
-RLCD, ordinal utility rewards, schema/prompt-template augmentation, and a learned
-head remain separate experiments. The public recipe cannot establish their exact
+RLCD, ordinal utility rewards, meaning-preserving prompt paraphrases, and a
+learned head remain separate experiments. The v4 presentation transforms have
+explicit switches and do not generate paraphrases. The public recipe cannot establish their exact
 settings or individual effects. Exact-record rewards need multi-field training
 records; the current single-question mixture does not provide them.
 
@@ -230,10 +274,12 @@ Retain our proper-score and source-retention gates before adopting any of them.
 - Use only upstream training files. Split normalized state groups 75/8/7/5/5
   into training, development, calibration, gate and reserved test before augmentation.
   Exact cross-source state duplicates share a role; rule counterfactuals share a
-  group. HelpSteer2 response siblings share their request group. Exact duplicate
+  group and declared pairs/triplets are sampled atomically. HelpSteer2 response
+  siblings share their request group. Exact duplicate
   requests are removed and conflicting labels stop preparation.
   This is not comprehensive semantic near-duplicate decontamination.
-- Randomize option/code positions. Omit the correct option in approximately 20%
+- Fix one randomized presentation per admitted row in the control. Optional
+  occurrence augmentation changes only the named presentation dimensions. Omit the correct option in approximately 20%
   of eligible one-hot Choice cases and supervise `__none__`. Preserve natural
   MNLI neutral labels separately from this intervention. MultiRC is binary
   candidate verification because several candidates can be correct.
@@ -251,6 +297,16 @@ Retain our proper-score and source-retention gates before adopting any of them.
   unseen rule composition. Public corpora may be in Qwen pretraining; the split
   protects this fine-tune, not an unknown pretraining history.
 
+Reports include family/kind slices, label and predicted-class distributions,
+majority controls, paired correctness and complete-request correctness where
+fixtures declare complete multi-question requests. Independent group counts and
+paired group-bootstrap intervals accompany comparisons. Sparse slices remain
+pilot screening evidence, even when a numerical guard passes.
+
+Maximum-probability and normalized-entropy confidence have separate risk/coverage
+reports. Entropy confidence matches the exported Choice/Score helper; Noul has
+no confidence field. Neither curve defines an application authorization policy.
+
 All reports include sample counts. The default manifest prepares reserved labels
 for serialization but computes no final model scores. Historical OpenKind final
 splits remain unopened. Turning on `RUN_FINAL_TEST` runs the new final panel only.
@@ -258,7 +314,8 @@ splits remain unopened. Turning on `RUN_FINAL_TEST` runs the new final panel onl
 ## TypeSafe benchmark, evaluation only
 
 Set `RUN_TYPESAFE_BENCHMARK=True` after the export is frozen. The separate
-[benchmark.py](benchmark.py) verifies export hashes, evaluates that exact checkpoint
+[benchmark.py](benchmark.py) uses the shared frozen-bundle verifier and loader,
+evaluates that exact checkpoint
 at its accepted temperature, compares the zero-update parent at temperature 1,
 and restores the export. It never fits or promotes a model. Training preparation,
 training/development selection, calibration and the gate reject benchmark rows;
@@ -326,8 +383,25 @@ Further tuning after seeing these results spends these references as a final tes
 
 Drive receives the admitted dataset manifest, baseline, training history, committed
 checkpoints, selected checkpoint, calibration/gate rows and an export ZIP. The
-export includes the adapter, tokenizer, readout contract and hashes. It contains
-neither base weights nor source datasets. If selection or the gate rejects training,
+export includes the adapter, tokenizer, readout contract, executed implementation
+and hashes. Final evaluation and benchmarking verify and load that implementation
+and its tokenizer, adapter and accepted calibration before computing scores.
+It contains prediction/target records for calibration and the gate, but no original
+source text or base weights. TypeSafe data is never included.
+
+The ZIP preserves `export/` beside `EXPORT_LOCK.json`. Keep both when extracting it:
+the lock binds the bundle manifest, including its parent adapter, to the frozen run.
+These colocated hashes detect changes; they do not authenticate an untrusted bundle.
+When importing Python files directly from an extracted bundle, start Python with
+`PYTHONDONTWRITEBYTECODE=1`; added `__pycache__` files violate its frozen inventory.
+The loader checks the base configuration and adapter configuration. The caller must
+still supply the pinned parent weights; this adapter bundle does not independently
+hash every caller-loaded base tensor.
+
+A small synthetic replay pack records
+rendered inputs, token/code mappings, logits, temperature, probability vectors and
+typed answers for later native qualification. These vectors alone establish no
+native parity or model quality. If selection or the gate rejects training,
 the export contains the zero-update adapter and the candidate remains inspectable.
 
 The exported [train.py](train.py) also supplies `decide(model, tokenizer, state,
@@ -358,27 +432,46 @@ The native Rust engine keeps its existing qualified profiles. Experiment 35 need
 a new renderer/profile, merged artifacts and offline probability fixtures before
 integration. Its serial reference does not implement hybrid-prefix reuse or CLEF's head.
 
-Readable implementation: [train.py](train.py). Offline checks: [test_train.py](test_train.py).
+Readable implementation: [train.py](train.py). Offline checks include
+[test_train.py](test_train.py) and the v4 data, evaluation and bundle suites.
 Regenerate the self-contained notebook with [build_notebook.py](build_notebook.py):
 
 ```bash
-python research/local_decision_training/build_notebook.py
-python -m unittest discover -s research/local_decision_training -p 'test_train.py' -v
+python3.12 -m venv /tmp/openkind-local-decision-tests
+/tmp/openkind-local-decision-tests/bin/python -m pip install \
+  torch==2.14.1 transformers==5.17.0 peft==0.21.1 nbformat==5.11.1 \
+  'tqdm>=4.66' 'pandas>=2.2'
+/tmp/openkind-local-decision-tests/bin/python research/local_decision_training/build_notebook.py
+env HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+  /tmp/openkind-local-decision-tests/bin/python -m unittest discover \
+  -s research/local_decision_training -p 'test*.py' -v
 ```
 
 The tests use tiny randomly initialized models and download no model assets. The
 full 4B CUDA training, L4 NF4 path, Google Drive execution and Mac deployment remain
 unrun. The authored notebook is an executable experiment, not a completed result.
 
-On 1 October 2026, offline tests passed on macOS arm64 CPU with Torch 2.14.1,
-Transformers 5.17.0 and PEFT 0.21.1. A separate tokenizer-only check at the pinned
-Qwen revision verified 16 distinct answer-code tokens and append boundaries on
-90 generated rows and 170 schema variants. It loaded no backbone and establishes
-token/render compatibility only. Sweep checks use tiny hybrid models to verify
-fresh matched initialization, resume, development-only selection and rejection
-of a mismatched parent. The 4B sweep has not been run.
+On 3 October 2026, all 55 v4 offline tests passed in an isolated Python 3.12.11
+environment on macOS arm64 CPU with Torch 2.14.1, Transformers 5.17.0 and PEFT
+0.21.1. These cover atomic admission, exact generators, occurrence augmentation
+and interrupted resume, grouped reports, confidence semantics, tamper rejection
+and frozen reserved-input re-encoding. Sweep checks use tiny hybrid models to
+verify matched initialization, development-only selection and rejection of a
+mismatched parent. The 4B sweep has not been run.
+
+The regenerated notebook validates as 28 cells with 13 compilable code cells.
+Its six embedded Python sources match the reviewed files byte for byte; all
+55 tests also pass after extracting those sources into an isolated directory.
+Regeneration is deterministic. The full Colab workflow was not executed.
+
 TypeSafe checks cover source exclusion, reference schemas and soft targets,
 published metric math, failed-row denominators, frozen-export verification and
 parent comparison without export mutation. HelpSteer2 checks cover proxy thresholds,
-request-group isolation and training-label balance. Twenty-two offline tests pass;
-the tokenizer-only audits are separate evidence from neural evaluation.
+request-group isolation and training-label balance.
+
+A separate v4 check used the cached tokenizer at the pinned Qwen revision, with
+external corpora disabled. Both data arms admitted 1,000 generated training rows;
+all four evaluation manifests matched exactly. Generated prompts used at most
+240 tokens. Twenty training rows also passed token-boundary and length checks
+under each of the four presentation modes. This is generated-data token/render
+compatibility evidence, not a full-corpus admission audit or neural evaluation.

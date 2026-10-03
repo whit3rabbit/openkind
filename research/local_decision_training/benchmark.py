@@ -7,7 +7,9 @@ import math
 from pathlib import Path
 import time
 
-import train as recipe
+# The bundle loader supplies the already verified module when executing saved source.
+if "recipe" not in globals():
+    import train as recipe
 
 TYPESAFE_SOURCES = {
     "onet": dict(repo="typesafe/evalsafe-onet", revision="bda14bdd85be4d93140a842332359f526543b314", license="Apache-2.0"),
@@ -169,23 +171,26 @@ def evaluate(model, ledger, temperature):
                 predictions=predictions)
 
 
-def run_benchmark(model, tokenizer, config, run, identity, excluded_groups=(), cases_per_source=10, max_length=None):
-    """Evaluate the frozen export and matched parent; this result cannot change the bundle."""
+def run_benchmark(model, tokenizer, config, run, identity, excluded_groups=(), cases_per_source=10, max_length=None,
+                  *, tokenizer_loader=None, source_loader=None):
+    """Dispatch into the verified export; optional loaders are for marked offline fixtures."""
+    bundle = recipe.load_frozen_bundle(model, config, run, identity,
+                                      tokenizer_loader=tokenizer_loader, benchmark_path=__file__)
+    assert source_loader is None or bundle.contract["offline_fixture"], "Source overrides are restricted to offline test bundles"
+    return bundle.benchmark._run_frozen_benchmark(bundle, model, run, identity, excluded_groups,
+                                                 cases_per_source, max_length, source_loader)
+
+
+def _run_frozen_benchmark(bundle, model, run, identity, excluded_groups, cases_per_source, max_length, source_loader):
     run = Path(run)
-    export = run / "export"
-    exported = json.loads((export / "EXPORT.json").read_text())
-    assert exported["identity"] == identity
-    for name, sha in exported["files"].items():
-        assert recipe.file_digest(export / name) == sha, "Frozen export changed"
-    assert recipe.file_digest(__file__) == exported["files"]["benchmark.py"], "Benchmark implementation differs from frozen export"
-    contract = json.loads((export / "DECISION_CONTRACT.json").read_text())
-    assert contract["model_revision"] == recipe.MODEL_REVISION
-    assert contract["max_length"] == config["max_length"]
+    export, contract, config = bundle.export, bundle.contract, bundle.config
+    tokenizer = bundle.tokenizer
+    seed = recipe.experiment_seed(config, "sampling")
     max_length = contract["max_length"] if max_length is None else max_length
     assert type(max_length) is int and 0 < max_length <= 16384, "Benchmark length must be within the bounded 16K panel"
     excluded_groups = set(excluded_groups)
     plan = dict(schema="typesafe-frozen-questions-v1", identity=identity, export_sha256=recipe.file_digest(export / "EXPORT.json"),
-                sources=TYPESAFE_SOURCES, seed=config["seed"], cases_per_source=cases_per_source,
+                sources=TYPESAFE_SOURCES, seed=seed, cases_per_source=cases_per_source,
                 max_length=max_length, export_max_length=contract["max_length"],
                 extended_context_unqualified=max_length > contract["max_length"], temperature=contract["temperature"],
                 excluded_groups_sha256=recipe.digest(sorted(excluded_groups)),
@@ -198,11 +203,11 @@ def run_benchmark(model, tokenizer, config, run, identity, excluded_groups=(), c
         return json.loads(result_path.read_text())
     prepared, inventory = {}, {}
     for source, spec in TYPESAFE_SOURCES.items():
-        raw, inventory[source] = load_source(spec)
-        prepared[source], sampling = prepare_source(source, raw, tokenizer, config["seed"],
+        raw, inventory[source] = (load_source if source_loader is None else source_loader)(spec)
+        prepared[source], sampling = prepare_source(source, raw, tokenizer, seed,
                                                     max_length, cases_per_source, excluded_groups)
         inventory[source]["sampling"] = sampling
-    result = dict(plan=plan, sources=inventory, candidate={}, parent={},
+    result = dict(plan=plan, sources=inventory, candidate={}, parent={}, offline_fixture=contract["offline_fixture"],
                   reference="synthetic Astra/Fable consensus, not human ground truth",
                   comparison="O*NET metric definitions; workflow question diagnostics, not exact-action scores",
                   direct_leaderboard_comparison=False,
@@ -210,9 +215,8 @@ def run_benchmark(model, tokenizer, config, run, identity, excluded_groups=(), c
                   timings="serial local evaluation wall time including Python overhead, not service or full-workflow latency",
                   model_promoted=False)
     try:
-        for label, step, temperature in (("candidate", exported["exported_step"], contract["temperature"]),
-                                         ("parent", 0, 1.0)):
-            recipe.restore(run / "checkpoints" / f"step_{step:06d}", model, identity)
+        for label, parent, temperature in (("candidate", False, contract["temperature"]), ("parent", True, 1.0)):
+            recipe.load_bundle_adapter(bundle, model, parent=parent)
             for source, ledger in prepared.items():
                 started = time.perf_counter()
                 report = evaluate(model, ledger, temperature)
@@ -220,6 +224,6 @@ def run_benchmark(model, tokenizer, config, run, identity, excluded_groups=(), c
                 result[label][source]["wall_seconds"] = time.perf_counter() - started
                 recipe.immutable_json(destination / f"{label}_{source}_predictions.json", report["predictions"])
     finally:
-        recipe.restore(run / "checkpoints" / f"step_{exported['exported_step']:06d}", model, identity)
+        recipe.load_bundle_adapter(bundle, model)
     recipe.immutable_json(result_path, result)
     return result
