@@ -5,6 +5,7 @@
 //! requesting a family alias without its artifact configuration fails the
 //! daemon startup instead of falling back to the mock engine.
 
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -327,14 +328,19 @@ pub(crate) struct FamilyArgs {
     #[arg(
         long,
         env = "OPENKIND_DECODER_LOGIT_QWEN3_ALIASES",
-        value_delimiter = ',',
-        help = "comma-separated alias lists of the form                 06b=<alias>[,alias…];17b=<alias>[,alias…];4b=<alias>[,alias…]"
+        value_delimiter = ';',
+        help = "semicolon-separated alias lists of the form 06b=<alias>[,alias…];17b=<alias>[,alias…];4b=<alias>[,alias…]"
     )]
     pub(crate) decoder_logit_qwen3_aliases: Vec<String>,
 
     /// Model roots for the raw decoder-logit-qwen3 controls, of the form
     /// `06b=<path>;17b=<path>;4b=<path>`.
-    #[arg(long, env = "OPENKIND_DECODER_LOGIT_QWEN3_MODEL_ROOTS")]
+    #[arg(
+        long,
+        env = "OPENKIND_DECODER_LOGIT_QWEN3_MODEL_ROOTS",
+        value_delimiter = ';',
+        help = "semicolon-separated model roots of the form 06b=<path>;17b=<path>;4b=<path>"
+    )]
     pub(crate) decoder_logit_qwen3_model_roots: Vec<String>,
 
     /// Aliases in `--models` that should use a pinned Cloudflare Clef
@@ -343,13 +349,18 @@ pub(crate) struct FamilyArgs {
         long,
         env = "OPENKIND_CLEF_ALIASES",
         value_delimiter = ';',
-        help = "comma-separated alias lists of the form        flash=<alias>[,alias…];flash-gguf=<alias>[,alias…];27b=<alias>[,alias…]"
+        help = "semicolon-separated alias lists of the form flash=<alias>[,alias…];flash-gguf=<alias>[,alias…];27b=<alias>[,alias…]"
     )]
     pub(crate) clef_aliases: Vec<String>,
 
     /// Model roots for the pinned Cloudflare Clef profiles, of the form
     /// `flash=<path>;flash-gguf=<path>;27b=<path>`.
-    #[arg(long, env = "OPENKIND_CLEF_MODEL_ROOTS")]
+    #[arg(
+        long,
+        env = "OPENKIND_CLEF_MODEL_ROOTS",
+        value_delimiter = ';',
+        help = "semicolon-separated model roots of the form flash=<path>;flash-gguf=<path>;27b=<path>"
+    )]
     pub(crate) clef_model_roots: Vec<String>,
 
     /// Aliases in `--models` that should use the pinned laya-english engine
@@ -586,7 +597,200 @@ pub(crate) struct FamilyArgs {
     pub(crate) family_timeout_ms: u64,
 }
 
+fn parse_qwen3_size(size: &str) -> Result<&'static str> {
+    match size {
+        "06b" => Ok("06b"),
+        "17b" => Ok("17b"),
+        "4b" => Ok("4b"),
+        other => {
+            bail!("unknown decoder-logit-qwen3 control size `{other}`; expected 06b, 17b, or 4b")
+        }
+    }
+}
+
+fn parse_clef_size(size: &str) -> Result<&'static str> {
+    match size {
+        "flash" => Ok("flash"),
+        "flash-gguf" => Ok("flash-gguf"),
+        "27b" => Ok("27b"),
+        other => {
+            bail!("unknown clef profile key `{other}`; expected flash, flash-gguf, or 27b")
+        }
+    }
+}
+
 impl FamilyArgs {
+    pub(crate) fn parse_decoder_logit_qwen3_aliases(&self) -> Result<Vec<(&'static str, String)>> {
+        let mut result = Vec::new();
+        let mut seen_aliases = HashMap::new();
+        for raw_entry in &self.decoder_logit_qwen3_aliases {
+            for entry in raw_entry.split(';') {
+                let entry = entry.trim();
+                if entry.is_empty() {
+                    continue;
+                }
+                let Some((size_raw, alias_names)) = entry.split_once('=') else {
+                    bail!(
+                        "--decoder-logit-qwen3-aliases entries must look like 06b=<alias>[,alias…]; got {entry}"
+                    );
+                };
+                let size = parse_qwen3_size(size_raw.trim())?;
+                for alias_name in alias_names.split(',') {
+                    let alias_name = alias_name.trim();
+                    if alias_name.is_empty() {
+                        bail!(
+                            "--decoder-logit-qwen3-aliases entries must look like 06b=<alias>[,alias…]; got empty alias name in {entry}"
+                        );
+                    }
+                    if let Some(existing_size) = seen_aliases.get(alias_name) {
+                        if *existing_size != size {
+                            bail!(
+                                "alias `{alias_name}` is assigned to more than one decoder-logit-qwen3 control size (`{existing_size}` and `{size}`)"
+                            );
+                        } else {
+                            bail!(
+                                "duplicate alias `{alias_name}` in --decoder-logit-qwen3-aliases"
+                            );
+                        }
+                    }
+                    seen_aliases.insert(alias_name.to_string(), size);
+                    result.push((size, alias_name.to_string()));
+                }
+            }
+        }
+        Ok(result)
+    }
+
+    pub(crate) fn parse_decoder_logit_qwen3_model_roots(
+        &self,
+    ) -> Result<BTreeMap<&'static str, PathBuf>> {
+        let mut roots = BTreeMap::new();
+        for raw_entry in &self.decoder_logit_qwen3_model_roots {
+            for entry in raw_entry.split(';') {
+                let entry = entry.trim();
+                if entry.is_empty() {
+                    continue;
+                }
+                let Some((size_raw, root_raw)) = entry.split_once('=') else {
+                    bail!(
+                        "--decoder-logit-qwen3-model-roots entries must look like 06b=<path>; got {entry}"
+                    );
+                };
+                let size = parse_qwen3_size(size_raw.trim())?;
+                let root = root_raw.trim();
+                if root.is_empty() {
+                    bail!(
+                        "--decoder-logit-qwen3-model-roots has empty path for size `{size}` in {entry}"
+                    );
+                }
+                if roots.contains_key(size) {
+                    bail!("duplicate decoder-logit-qwen3 model root for size `{size}`");
+                }
+                roots.insert(size, PathBuf::from(root));
+            }
+        }
+        Ok(roots)
+    }
+
+    pub(crate) fn parse_clef_aliases(&self) -> Result<Vec<(&'static str, String)>> {
+        let mut result = Vec::new();
+        let mut seen_aliases = HashMap::new();
+        for raw_entry in &self.clef_aliases {
+            for entry in raw_entry.split(';') {
+                let entry = entry.trim();
+                if entry.is_empty() {
+                    continue;
+                }
+                let Some((size_raw, alias_names)) = entry.split_once('=') else {
+                    bail!(
+                        "--clef-aliases entries must look like flash=<alias>[,alias…]; got {entry}"
+                    );
+                };
+                let size = parse_clef_size(size_raw.trim())?;
+                for alias_name in alias_names.split(',') {
+                    let alias_name = alias_name.trim();
+                    if alias_name.is_empty() {
+                        bail!(
+                            "--clef-aliases entries must look like flash=<alias>[,alias…]; got empty alias name in {entry}"
+                        );
+                    }
+                    if let Some(existing_size) = seen_aliases.get(alias_name) {
+                        if *existing_size != size {
+                            bail!(
+                                "alias `{alias_name}` is assigned to more than one clef profile key (`{existing_size}` and `{size}`)"
+                            );
+                        } else {
+                            bail!("duplicate alias `{alias_name}` in --clef-aliases");
+                        }
+                    }
+                    seen_aliases.insert(alias_name.to_string(), size);
+                    result.push((size, alias_name.to_string()));
+                }
+            }
+        }
+        Ok(result)
+    }
+
+    pub(crate) fn parse_clef_model_roots(&self) -> Result<BTreeMap<&'static str, PathBuf>> {
+        let mut roots = BTreeMap::new();
+        for raw_entry in &self.clef_model_roots {
+            for entry in raw_entry.split(';') {
+                let entry = entry.trim();
+                if entry.is_empty() {
+                    continue;
+                }
+                let Some((size_raw, root_raw)) = entry.split_once('=') else {
+                    bail!("--clef-model-roots entries must look like flash=<path>; got {entry}");
+                };
+                let size = parse_clef_size(size_raw.trim())?;
+                let root = root_raw.trim();
+                if root.is_empty() {
+                    bail!("--clef-model-roots has empty path for size `{size}` in {entry}");
+                }
+                if roots.contains_key(size) {
+                    bail!("duplicate clef model root for key `{size}`");
+                }
+                roots.insert(size, PathBuf::from(root));
+            }
+        }
+        Ok(roots)
+    }
+
+    /// Return the set of all family aliases configured in CLI flags or environment variables.
+    pub(crate) fn claimed_aliases(&self) -> Result<BTreeSet<String>> {
+        let mut claimed = BTreeSet::new();
+        for alias in self
+            .decoder_letter_aliases
+            .iter()
+            .chain(&self.encoder_nli_aliases)
+            .chain(&self.encoder_instruct_label_aliases)
+            .chain(&self.decoder_llm_aliases)
+            .chain(&self.schema_scorer_aliases)
+            .chain(&self.router_script_aliases)
+            .chain(&self.qwen3guard_aliases)
+            .chain(&self.von_aliases)
+            .chain(&self.winnow_aliases)
+            .chain(&self.winnow_e4b_aliases)
+            .chain(&self.kev_aliases)
+            .chain(&self.strands_decider_aliases)
+            .chain(&self.decoder_logit_qwen35_aliases)
+            .chain(&self.plumb_4b_aliases)
+            .chain(&self.decider_4b_aliases)
+            .chain(&self.laya_english_aliases)
+            .chain(&self.laya_multilingual_aliases)
+            .chain(&self.laya_typed_decisions_aliases)
+        {
+            claimed.insert(alias.clone());
+        }
+        for (_, alias) in self.parse_decoder_logit_qwen3_aliases()? {
+            claimed.insert(alias);
+        }
+        for (_, alias) in self.parse_clef_aliases()? {
+            claimed.insert(alias);
+        }
+        Ok(claimed)
+    }
+
     fn admission(&self) -> FamilyAdmission {
         FamilyAdmission {
             concurrency: self.family_concurrency,
@@ -1058,114 +1262,98 @@ impl FamilyArgs {
 
         // Raw decoder-logit-qwen3 controls: size-keyed alias lists and model
         // roots (`06b=`, `17b=`, `4b=` prefixes).
-        let mut qwen3_controls: Vec<(
-            &std::string::String,
-            PathBuf,
-            &'static openkind_backends::families::decoder_logit_qwen3::Qwen3LogitProfile,
-            &str,
-        )> = Vec::new();
-        for entry in &self.decoder_logit_qwen3_model_roots {
-            let Some((size, root)) = entry.split_once('=') else {
-                bail!(
-                    "--decoder-logit-qwen3-model-roots entries must look like 06b=<path>; got {entry}"
-                );
-            };
-            let profile = match size {
-                "06b" => &QWEN3_06B,
-                "17b" => &QWEN3_17B,
-                "4b" => &QWEN3_4B,
-                other => {
-                    bail!("unknown decoder-logit-qwen3 control size `{other}`; expected 06b, 17b, or 4b")
-                }
-            };
-            for alias in &self.decoder_logit_qwen3_aliases {
-                let Some((alias_size, alias_names)) = alias.split_once('=') else {
-                    bail!(
-                        "--decoder-logit-qwen3-aliases entries must look like 06b=<alias>[,alias…]; got {alias}"
-                    );
-                };
-                if alias_size != size {
-                    continue;
-                }
-                for alias_name in alias_names.split(',') {
-                    if let Some(alias_string) = models.iter().find(|model| model == &alias_name) {
-                        qwen3_controls.push((alias_string, PathBuf::from(root), profile, size));
-                    }
-                }
+        let qwen3_aliases = self.parse_decoder_logit_qwen3_aliases()?;
+        let qwen3_roots = self.parse_decoder_logit_qwen3_model_roots()?;
+        let mut qwen3_requested: Vec<(String, &'static str)> = Vec::new();
+        for (size, alias) in qwen3_aliases {
+            if models.contains(&alias) {
+                qwen3_requested.push((alias, size));
             }
         }
-        if !qwen3_controls.is_empty() {
-            for (alias, model_root, profile, size) in &qwen3_controls {
-                let engine: Arc<dyn DecisionEngine> = crate::backend::load(
-                    self.decoder_logit_qwen3_backend,
-                    model_root,
-                    devices,
-                    |backend| {
-                        Ok(Arc::new(
-                            DecoderLogitQwen3Engine::load_with_execution(
-                                DecoderLogitQwen3EngineConfig {
-                                    profile,
-                                    model_root: model_root.clone(),
-                                    limits: admission.limits(),
-                                },
-                                backend.to_execution(devices)?,
-                            )
-                            .with_context(|| format!("load decoder-logit-qwen3-{size} engine"))?,
-                        ) as Arc<dyn DecisionEngine>)
-                    },
-                )?;
-                engines.push(((*alias).clone(), Arc::clone(&engine)));
+        if !qwen3_requested.is_empty() {
+            let mut loaded_engines: HashMap<&'static str, Arc<dyn DecisionEngine>> = HashMap::new();
+            for (alias, size) in qwen3_requested {
+                let model_root = qwen3_roots.get(size).ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "decoder-logit-qwen3-{size} alias `{alias}` requested but --decoder-logit-qwen3-model-roots has no root for {size}"
+                    )
+                })?;
+                let profile = match size {
+                    "06b" => &QWEN3_06B,
+                    "17b" => &QWEN3_17B,
+                    "4b" => &QWEN3_4B,
+                    other => unreachable!("validated size {other}"),
+                };
+                let engine = if let Some(existing) = loaded_engines.get(size) {
+                    Arc::clone(existing)
+                } else {
+                    let engine: Arc<dyn DecisionEngine> = crate::backend::load(
+                        self.decoder_logit_qwen3_backend,
+                        model_root,
+                        devices,
+                        |backend| {
+                            Ok(Arc::new(
+                                DecoderLogitQwen3Engine::load_with_execution(
+                                    DecoderLogitQwen3EngineConfig {
+                                        profile,
+                                        model_root: model_root.clone(),
+                                        limits: admission.limits(),
+                                    },
+                                    backend.to_execution(devices)?,
+                                )
+                                .with_context(|| {
+                                    format!("load decoder-logit-qwen3-{size} engine")
+                                })?,
+                            ) as Arc<dyn DecisionEngine>)
+                        },
+                    )?;
+                    loaded_engines.insert(size, Arc::clone(&engine));
+                    engine
+                };
+                engines.push((alias, engine));
             }
         }
 
         // Cloudflare Clef joint-schema profiles: size-keyed alias lists and
         // model roots (`flash=`, `flash-gguf=`, `27b=` prefixes). Every
         // profile executes on the candle CPU path.
-        let mut clef_controls: Vec<(
-            &std::string::String,
-            PathBuf,
-            &'static openkind_backends::families::clef::ClefProfile,
-            &str,
-        )> = Vec::new();
-        for entry in &self.clef_model_roots {
-            let Some((size, root)) = entry.split_once('=') else {
-                bail!("--clef-model-roots entries must look like flash=<path>; got {entry}");
-            };
-            let profile = match size {
-                "flash" => &openkind_backends::families::clef::CLEF_FLASH,
-                "flash-gguf" => &openkind_backends::families::clef::CLEF_FLASH_GGUF,
-                "27b" => &openkind_backends::families::clef::CLEF_27B_GGUF,
-                other => {
-                    bail!("unknown clef profile key `{other}`; expected flash, flash-gguf, or 27b")
-                }
-            };
-            for alias in &self.clef_aliases {
-                let Some((alias_size, alias_names)) = alias.split_once('=') else {
-                    bail!(
-                        "--clef-aliases entries must look like flash=<alias>[,alias…]; got {alias}"
-                    );
-                };
-                if alias_size != size {
-                    continue;
-                }
-                for alias_name in alias_names.split(',') {
-                    if let Some(alias_string) = models.iter().find(|model| model == &alias_name) {
-                        clef_controls.push((alias_string, PathBuf::from(root), profile, size));
-                    }
-                }
+        let clef_aliases = self.parse_clef_aliases()?;
+        let clef_roots = self.parse_clef_model_roots()?;
+        let mut clef_requested: Vec<(String, &'static str)> = Vec::new();
+        for (size, alias) in clef_aliases {
+            if models.contains(&alias) {
+                clef_requested.push((alias, size));
             }
         }
-        if !clef_controls.is_empty() {
-            for (alias, model_root, profile, size) in &clef_controls {
-                let engine: Arc<dyn DecisionEngine> = Arc::new(
-                    openkind_backends::families::clef::ClefEngine::load(
-                        model_root.clone(),
-                        profile,
-                        admission.limits(),
+        if !clef_requested.is_empty() {
+            let mut loaded_engines: HashMap<&'static str, Arc<dyn DecisionEngine>> = HashMap::new();
+            for (alias, size) in clef_requested {
+                let model_root = clef_roots.get(size).ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "clef-{size} alias `{alias}` requested but --clef-model-roots has no root for {size}"
                     )
-                    .with_context(|| format!("load clef-{size} engine"))?,
-                );
-                engines.push(((*alias).clone(), Arc::clone(&engine)));
+                })?;
+                let profile = match size {
+                    "flash" => &openkind_backends::families::clef::CLEF_FLASH,
+                    "flash-gguf" => &openkind_backends::families::clef::CLEF_FLASH_GGUF,
+                    "27b" => &openkind_backends::families::clef::CLEF_27B_GGUF,
+                    other => unreachable!("validated size {other}"),
+                };
+                let engine = if let Some(existing) = loaded_engines.get(size) {
+                    Arc::clone(existing)
+                } else {
+                    let engine: Arc<dyn DecisionEngine> = Arc::new(
+                        openkind_backends::families::clef::ClefEngine::load(
+                            model_root.clone(),
+                            profile,
+                            admission.limits(),
+                        )
+                        .with_context(|| format!("load clef-{size} engine"))?,
+                    );
+                    loaded_engines.insert(size, Arc::clone(&engine));
+                    engine
+                };
+                engines.push((alias, engine));
             }
         }
 
@@ -1447,13 +1635,32 @@ impl FamilyArgs {
             .chain(&self.decoder_logit_qwen35_aliases)
             .chain(&self.plumb_4b_aliases)
             .chain(&self.decider_4b_aliases)
-            .chain(self.decoder_logit_qwen3_aliases.iter())
-            .chain(&self.clef_aliases)
             .chain(&self.laya_english_aliases)
             .chain(&self.laya_multilingual_aliases)
             .chain(&self.laya_typed_decisions_aliases)
-            .chain(native_aliases)
         {
+            if !seen.insert(alias.as_str()) {
+                bail!("alias `{alias}` is assigned to more than one family engine");
+            }
+        }
+
+        let qwen3_aliases = self.parse_decoder_logit_qwen3_aliases()?;
+        for (_, alias) in &qwen3_aliases {
+            if !seen.insert(alias.as_str()) {
+                bail!("alias `{alias}` is assigned to more than one family engine");
+            }
+        }
+        self.parse_decoder_logit_qwen3_model_roots()?;
+
+        let clef_aliases = self.parse_clef_aliases()?;
+        for (_, alias) in &clef_aliases {
+            if !seen.insert(alias.as_str()) {
+                bail!("alias `{alias}` is assigned to more than one family engine");
+            }
+        }
+        self.parse_clef_model_roots()?;
+
+        for alias in native_aliases {
             if !seen.insert(alias.as_str()) {
                 bail!("alias `{alias}` is assigned to more than one family engine");
             }
@@ -1584,5 +1791,104 @@ mod fail_closed_tests {
             Ok(engines) => panic!("missing root must fail, loaded {} engine(s)", engines.len()),
         };
         assert!(error.contains("06b"), "{error}");
+    }
+
+    #[test]
+    fn missing_qwen3_root_fails_closed() {
+        let args =
+            FamilyArgs::parse_from(["openkindd", "--decoder-logit-qwen3-aliases", "17b=victim17"]);
+        let error = match args.load_requested(&["victim17".to_owned()], DeviceOrdinals::default()) {
+            Err(error) => format!("{error:#}"),
+            Ok(engines) => panic!("expected failure, loaded {} engine(s)", engines.len()),
+        };
+        assert!(
+            error.contains("decoder-logit-qwen3-17b") && error.contains("no root for 17b"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn documented_qwen3_multiprofile_syntax_parses_and_attempts_load() {
+        let args = FamilyArgs::parse_from([
+            "openkindd",
+            "--decoder-logit-qwen3-aliases",
+            "06b=victim06;17b=victim17;4b=victim4",
+            "--decoder-logit-qwen3-model-roots",
+            "06b=/nonexistent/06;17b=/nonexistent/17;4b=/nonexistent/4",
+        ]);
+        let error = match args.load_requested(&["victim17".to_owned()], DeviceOrdinals::default()) {
+            Err(error) => format!("{error:#}"),
+            Ok(engines) => panic!("expected failure, loaded {} engine(s)", engines.len()),
+        };
+        assert!(
+            error.contains("load decoder-logit-qwen3-17b engine"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn qwen3_multiple_aliases_per_size_and_claimed() {
+        let args = FamilyArgs::parse_from([
+            "openkindd",
+            "--decoder-logit-qwen3-aliases",
+            "06b=alias1,alias2;17b=alias3",
+        ]);
+        let claimed = args.claimed_aliases().unwrap();
+        assert!(claimed.contains("alias1"));
+        assert!(claimed.contains("alias2"));
+        assert!(claimed.contains("alias3"));
+    }
+
+    #[test]
+    fn qwen3_duplicate_and_colliding_aliases_fail_validation() {
+        let args = FamilyArgs::parse_from([
+            "openkindd",
+            "--decoder-logit-qwen3-aliases",
+            "06b=dup;17b=dup",
+        ]);
+        assert!(args.validate(&[]).is_err());
+
+        let args =
+            FamilyArgs::parse_from(["openkindd", "--decoder-logit-qwen3-aliases", "06b=dup,dup"]);
+        assert!(args.validate(&[]).is_err());
+
+        let args = FamilyArgs::parse_from([
+            "openkindd",
+            "--decoder-logit-qwen3-aliases",
+            "06b=qwen35-native",
+        ]);
+        assert!(args.validate(&["qwen35-native".into()]).is_err());
+
+        let args = FamilyArgs::parse_from([
+            "openkindd",
+            "--decoder-logit-qwen3-aliases",
+            "06b=decoder-letter-native",
+        ]);
+        assert!(args.validate(&[]).is_err());
+    }
+
+    #[test]
+    fn qwen3_duplicate_model_roots_fail_closed() {
+        let args = FamilyArgs::parse_from([
+            "openkindd",
+            "--decoder-logit-qwen3-model-roots",
+            "06b=/path1;06b=/path2",
+        ]);
+        assert!(args.validate(&[]).is_err());
+        assert!(args.load_requested(&[], DeviceOrdinals::default()).is_err());
+    }
+
+    #[test]
+    fn missing_clef_root_fails_closed() {
+        let args = FamilyArgs::parse_from(["openkindd", "--clef-aliases", "flash=clef-flash"]);
+        let error = match args.load_requested(&["clef-flash".to_owned()], DeviceOrdinals::default())
+        {
+            Err(error) => format!("{error:#}"),
+            Ok(engines) => panic!("expected failure, loaded {} engine(s)", engines.len()),
+        };
+        assert!(
+            error.contains("clef-flash") && error.contains("no root for flash"),
+            "{error}"
+        );
     }
 }

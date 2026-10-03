@@ -94,3 +94,33 @@ fn listener_bind_failures_stop_the_other_protocol() {
     let grpc_error = startup_error(&["--http-addr", "127.0.0.1:0", "--grpc-addr", &address]);
     assert!(grpc_error.contains("grpc serve"), "{grpc_error}");
 }
+
+#[test]
+fn missing_qwen3_root_fails_before_listening() {
+    let stderr = startup_error(&[
+        "--models",
+        "victim17",
+        "--decoder-logit-qwen3-aliases",
+        "17b=victim17",
+    ]);
+    assert!(
+        stderr.contains("decoder-logit-qwen3-17b") && stderr.contains("no root for 17b"),
+        "{stderr}"
+    );
+}
+
+#[test]
+fn documented_qwen3_multiprofile_syntax_fails_on_missing_artifact_instead_of_mock() {
+    let stderr = startup_error(&[
+        "--models",
+        "victim17",
+        "--decoder-logit-qwen3-aliases",
+        "06b=victim06;17b=victim17;4b=victim4",
+        "--decoder-logit-qwen3-model-roots",
+        "06b=/nonexistent/06;17b=/nonexistent/17;4b=/nonexistent/4",
+    ]);
+    assert!(
+        stderr.contains("load decoder-logit-qwen3-17b engine"),
+        "{stderr}"
+    );
+}

@@ -214,6 +214,7 @@ async fn run(args: Args) -> Result<()> {
     let mut registry = EngineRegistry::new();
     let mock = Arc::new(MockEngine::new());
     args.family_args.validate(&args.qwen35_aliases)?;
+    let claimed_family_aliases = args.family_args.claimed_aliases()?;
     let family_engines = args
         .family_args
         .load_requested(&args.models, args.device_ordinals())?;
@@ -268,6 +269,8 @@ async fn run(args: Args) -> Result<()> {
             .find(|(family_alias, _)| family_alias == alias)
         {
             family_engine.clone()
+        } else if claimed_family_aliases.contains(alias) {
+            bail!("alias `{alias}` is configured for a family engine but was not loaded");
         } else {
             mock.clone()
         };
