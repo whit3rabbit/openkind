@@ -174,14 +174,83 @@ impl Shard {
         let mut length_bytes = [0_u8; 8];
         file.read_exact(&mut length_bytes)
             .map_err(|error| MlxError::InvalidState(format!("read safetensors header: {error}")))?;
-        let header_len = u64::from_le_bytes(length_bytes);
-        let mut header = vec![0_u8; header_len as usize];
+        let header_len = usize::try_from(u64::from_le_bytes(length_bytes)).map_err(|_| {
+            MlxError::InvalidState("safetensors header length cannot address this host".into())
+        })?;
+        if header_len == 0 || header_len > MAX_SAFETENSORS_HEADER_BYTES {
+            return Err(MlxError::InvalidState(format!(
+                "invalid safetensors header length {header_len}"
+            )));
+        }
+        let file_len = file
+            .metadata()
+            .map_err(|error| MlxError::InvalidState(format!("stat safetensors shard: {error}")))?
+            .len();
+        let data_base = 8_u64
+            .checked_add(u64::try_from(header_len).map_err(|_| {
+                MlxError::InvalidState("safetensors header length overflow".into())
+            })?)
+            .ok_or_else(|| MlxError::InvalidState("safetensors data offset overflow".into()))?;
+        if data_base > file_len {
+            return Err(MlxError::InvalidState(
+                "safetensors header extends past the shard".into(),
+            ));
+        }
+        let mut header = vec![0_u8; header_len];
         file.read_exact(&mut header)
             .map_err(|error| MlxError::InvalidState(format!("read safetensors header: {error}")))?;
         let tensors = decode_tensor_header(&header)?;
+        for (name, tensor) in &tensors {
+            let [start, end] = tensor.data_offsets;
+            let byte_len = end.checked_sub(start).ok_or_else(|| {
+                MlxError::InvalidState(format!(
+                    "tensor `{name}` has invalid offsets [{start}, {end}]"
+                ))
+            })?;
+            let element_count = tensor
+                .shape
+                .iter()
+                .try_fold(1_u64, |count, dimension| {
+                    count.checked_mul(u64::try_from(*dimension).ok()?)
+                })
+                .ok_or_else(|| {
+                    MlxError::InvalidState(format!("tensor `{name}` shape overflows u64"))
+                })?;
+            let width = match tensor.dtype.as_str() {
+                "F32" => 4,
+                "F16" | "BF16" => 2,
+                other => {
+                    return Err(MlxError::InvalidState(format!(
+                        "tensor `{name}` has unsupported dtype {other}"
+                    )))
+                }
+            };
+            let expected_bytes = element_count.checked_mul(width).ok_or_else(|| {
+                MlxError::InvalidState(format!("tensor `{name}` byte count overflows u64"))
+            })?;
+            if byte_len != expected_bytes {
+                return Err(MlxError::InvalidState(format!(
+                    "tensor `{name}` has {byte_len} bytes, expected {expected_bytes}"
+                )));
+            }
+            if data_base.checked_add(end).is_none_or(|end| end > file_len) {
+                return Err(MlxError::InvalidState(format!(
+                    "tensor `{name}` data extends past the {file_len}-byte shard"
+                )));
+            }
+            if tensor
+                .shape
+                .iter()
+                .any(|dimension| i32::try_from(*dimension).is_err())
+            {
+                return Err(MlxError::InvalidState(format!(
+                    "tensor `{name}` dimension does not fit MLX's shape API"
+                )));
+            }
+        }
         Ok(Self {
             file,
-            data_base: 8 + header_len,
+            data_base,
             tensors,
         })
     }
@@ -206,12 +275,18 @@ impl Shard {
                 raw.shape, expected
             )));
         }
-        let byte_len = (raw.data_offsets[1] - raw.data_offsets[0]) as usize;
+        let [start, end] = raw.data_offsets;
+        let byte_len = end.checked_sub(start).ok_or_else(|| {
+            MlxError::InvalidState(format!("tensor `{name}` has invalid data offsets"))
+        })?;
+        let byte_len = usize::try_from(byte_len)
+            .map_err(|_| MlxError::InvalidState(format!("tensor `{name}` is too large")))?;
         let mut bytes = vec![0_u8; byte_len];
+        let offset = self.data_base.checked_add(start).ok_or_else(|| {
+            MlxError::InvalidState(format!("tensor `{name}` data offset overflows"))
+        })?;
         self.file
-            .seek(std::io::SeekFrom::Start(
-                self.data_base + raw.data_offsets[0],
-            ))
+            .seek(std::io::SeekFrom::Start(offset))
             .map_err(|error| MlxError::InvalidState(format!("seek `{name}`: {error}")))?;
         self.file
             .read_exact(&mut bytes)
@@ -222,7 +297,14 @@ impl Shard {
             .iter()
             .map(|chunk| f32::from_le_bytes(*chunk))
             .collect();
-        let shape: Vec<i32> = expected.iter().map(|&dim| dim as i32).collect();
+        let shape: Vec<i32> = expected
+            .iter()
+            .map(|&dim| {
+                i32::try_from(dim).map_err(|_| {
+                    MlxError::InvalidState(format!("tensor `{name}` shape exceeds MLX limits"))
+                })
+            })
+            .collect::<Result<_, _>>()?;
         Ok(Array::from_slice(&values, &shape))
     }
 
