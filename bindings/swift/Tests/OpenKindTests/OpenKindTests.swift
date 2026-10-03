@@ -2,6 +2,14 @@ import Foundation
 import XCTest
 @testable import OpenKind
 #if os(macOS)
+    private func writeExecutable(_ source: String, in directory: URL) throws -> URL {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let binary = directory.appendingPathComponent("fixture")
+        try Data(source.utf8).write(to: binary)
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: binary.path)
+        return binary
+    }
+
 import Darwin
 #endif
 
@@ -281,6 +289,136 @@ final class OpenKindTests: XCTestCase {
             XCTAssertNotNil(server.lastReadinessFailure)
         }
         XCTAssertFalse(server.running)
+    }
+
+    func testCanceledStartupStopsItsOwnedChildPromptly() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let binary = try writeExecutable("#!/bin/sh\nexec /bin/sleep 10\n", in: directory)
+        let server = try OpenKindServer(binary: binary.path,
+                                        httpAddress: "127.0.0.1:\(freePort())",
+                                        models: ["mock"], startupTimeout: 5, shutdownTimeout: 0.2)
+        let startup = Task { try await server.start() }
+        let deadline = ProcessInfo.processInfo.systemUptime + 1
+        while !server.running && ProcessInfo.processInfo.systemUptime < deadline {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(server.running)
+        let canceledAt = ProcessInfo.processInfo.systemUptime
+        startup.cancel()
+        do {
+            try await startup.value
+            XCTFail("canceled startup reported readiness")
+        } catch is CancellationError { }
+        XCTAssertLessThan(ProcessInfo.processInfo.systemUptime - canceledAt, 1)
+        XCTAssertFalse(server.running)
+    }
+
+    func testShutdownKeepsOwnershipUntilTheChildHasExited() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let marker = directory.appendingPathComponent("ready")
+        let binary = try writeExecutable("""
+        #!/bin/sh
+        trap '' TERM
+        /usr/bin/touch '\(marker.path)'
+        exec /bin/sleep 10
+
+        """, in: directory)
+        let server = try OpenKindServer(binary: binary.path,
+                                        httpAddress: "127.0.0.1:\(freePort())",
+                                        models: ["mock"], startupTimeout: 5, shutdownTimeout: 0.2)
+        let startup = Task { try await server.start() }
+        let deadline = ProcessInfo.processInfo.systemUptime + 1
+        while !FileManager.default.fileExists(atPath: marker.path) && ProcessInfo.processInfo.systemUptime < deadline {
+            try await Task.sleep(nanoseconds: 10_000_000)
+        }
+        XCTAssertTrue(FileManager.default.fileExists(atPath: marker.path))
+        // SIGTERM is ignored so restart would overlap two children unless ownership is retained.
+        server.terminate()
+        do {
+            try await server.start()
+            XCTFail("allowed restart before the old child exited")
+        } catch ServerError.alreadyStarted { }
+        await server.stop()
+        do {
+            try await startup.value
+            XCTFail("stopped startup reported readiness")
+        } catch ServerError.startupStopped { }
+        XCTAssertFalse(server.running)
+    }
+
+    func testServerScrubsTheLegacyInheritedAPIKey() async throws {
+        let key = "OPENDECISION_API_KEY"
+        let inherited = ProcessInfo.processInfo.environment[key]
+        setenv(key, "inherited-test-key", 1)
+        defer {
+            if let inherited { setenv(key, inherited, 1) }
+            else { unsetenv(key) }
+        }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("test/fake_openkindd.py")
+        let binary = try writeExecutable("""
+        #!/bin/sh
+        if [ "${OPENDECISION_API_KEY+present}" = present ]; then exit 23; fi
+        exec '\(fixture.path)' "$@"
+
+        """, in: directory)
+        let server = try OpenKindServer(binary: binary.path,
+                                        httpAddress: "127.0.0.1:\(freePort())", models: ["mock"])
+        try await server.start()
+        await server.stop()
+        XCTAssertFalse(server.running)
+    }
+
+    func testHTTPRedirectsAreReturnedAsErrors() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let binary = try writeExecutable("""
+        #!/usr/bin/python3
+        import argparse, json, signal, threading
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--http-addr')
+        args, _ = parser.parse_known_args()
+        host, port = args.http_addr.split(':')
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_): pass
+            def do_GET(self):
+                if self.path == '/v1/models':
+                    self.send_response(302)
+                    self.send_header('Location', '/redirected')
+                    self.send_header('x-typesafe-request-id', 'redirect-request')
+                    self.end_headers()
+                    return
+                data = json.dumps({'status':'ok'} if self.path == '/health' else {'models':[]}).encode()
+                self.send_response(200)
+                self.send_header('Content-Length', str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+        server = ThreadingHTTPServer((host, int(port)), Handler)
+        signal.signal(signal.SIGTERM, lambda *_: threading.Thread(target=server.shutdown, daemon=True).start())
+        server.serve_forever(poll_interval=0.05)
+        server.server_close()
+
+        """, in: directory)
+        let server = try OpenKindServer(binary: binary.path,
+                                        httpAddress: "127.0.0.1:\(freePort())", models: ["mock"], apiKey: "secret")
+        try await server.start()
+        do {
+            _ = try await server.client.listModels()
+            XCTFail("followed an HTTP redirect")
+        } catch let error as ApiError {
+            XCTAssertEqual(error.status, 302)
+            XCTAssertEqual(error.requestID, "redirect-request")
+        } catch {
+            await server.stop()
+            throw error
+        }
+        await server.stop()
     }
 
     func testServerRefusesOccupiedAddress() async throws {

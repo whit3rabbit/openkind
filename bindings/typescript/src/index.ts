@@ -114,11 +114,25 @@ function sameKeys(a: Record<string, unknown>, b: Record<string, unknown>): boole
   return left.length === Object.keys(b).length && left.every((key) => Object.hasOwn(b, key));
 }
 
+type QuestionContract =
+  | { type: "noul" }
+  | { type: "choice"; criteria: Record<string, string | null> }
+  | { type: "score"; criteria: string[] };
+
+function submittedContract(body: string): { questions: Record<string, QuestionContract> } {
+  const { questions } = JSON.parse(body) as SystemRequest;
+  return { questions: Object.fromEntries(Object.entries(questions).map(([id, question]): [string, QuestionContract] => {
+    if (question.type === "noul") return [id, { type: "noul" }];
+    if (question.type === "choice") return [id, { type: "choice", criteria: question.criteria }];
+    return [id, { type: "score", criteria: question.criteria }];
+  })) };
+}
+
 /**
  * Validate that an evaluation response satisfies the wire contract for the specified request.
  * Throws {@link InvalidResponseError} if the response structure, IDs, distributions, or bounds are invalid.
  */
-export function validateResponse(value: unknown, request: SystemRequest): asserts value is SystemResponse {
+export function validateResponse(value: unknown, request: { questions: Record<string, QuestionContract> }): asserts value is SystemResponse {
   if (!object(value) || typeof value.model !== "string" || !object(value.answers) || !object(value.usage)) {
     fail("invalid evaluation response");
   }
@@ -230,8 +244,8 @@ export class OpenKindClient {
       if (typeof value === "number" && !Number.isFinite(value)) throw new TypeError("request contains a nonfinite number");
       return value;
     });
-    // Bind validation to the wire request even if callers edit their objects while awaiting HTTP.
-    const submitted = JSON.parse(body) as SystemRequest;
+    // Retain only the wire answer contract, allowing parsed state and instructions to be released before HTTP completes.
+    const submitted = submittedContract(body);
     const result = await this.send<SystemResponse>("/v1/systemone", "POST", body);
     validateResponse(result.data, submitted);
     return result;
