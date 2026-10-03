@@ -824,6 +824,7 @@ mod tests {
                     profile_id: "test-profile".into(),
                     loader_id: "test-loader".into(),
                     description: "Offline fixture".into(),
+                    context_limit: 8192,
                     support_status: "rust-loadable".into(),
                     manifest_path: format!("manifests/{}.json", name.replace(':', "-")),
                     manifest_sha256: sha256(bytes),

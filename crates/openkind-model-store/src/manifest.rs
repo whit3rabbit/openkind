@@ -32,6 +32,10 @@ pub struct CatalogEntry {
     pub profile_id: String,
     pub loader_id: String,
     pub description: String,
+    /// Maximum total input sequence length in tokens that the pinned
+    /// checkpoint's own configuration declares (`max_position_embeddings`
+    /// in Hugging Face configs, `context_length` in GGUF metadata).
+    pub context_limit: u64,
     pub support_status: String,
     pub manifest_path: String,
     pub manifest_sha256: String,
@@ -125,6 +129,7 @@ impl Catalog {
                 || !valid_sha256(&entry.manifest_sha256)
                 || entry.profile_id.is_empty()
                 || entry.loader_id.is_empty()
+                || entry.context_limit == 0
             {
                 return Err(Error::Invalid(format!(
                     "invalid catalog entry {}",
@@ -297,6 +302,7 @@ mod tests {
                     profile_id: "profile".into(),
                     loader_id: "loader".into(),
                     description: "fixture".into(),
+                    context_limit: 8192,
                     support_status: "rust-loadable".into(),
                     manifest_path: "manifests/fixture.json".into(),
                     manifest_sha256: "a".repeat(64),

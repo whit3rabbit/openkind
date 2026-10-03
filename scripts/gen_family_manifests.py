@@ -289,6 +289,25 @@ MODELS = [
     },
 ]
 
+# Maximum total input sequence length in tokens each pinned checkpoint's own
+# configuration declares (`max_position_embeddings` in Hugging Face configs,
+# `context_length` in GGUF metadata); emitted as the catalog entry's
+# `context_limit` and mirrored by docs/MODELS.md.
+CONTEXT_LIMITS = {
+    "decoder-logit-letter:5492c97dfcdaf3fe9439": 32768,
+    "encoder-nli:1041a4c362338a61b820": 512,
+    "encoder-instruct-label:9fd68313a5606eca42f2": 8192,
+    "decoder-logit-llm:465963d705b6f35d6208": 32768,
+    "schema-scorer:5a7350af556f0ee66566": 512,
+    "qwen3guard:0fcf416cab16d94f933d": 8192,
+    "kev:39d88c11faeb4ac165fa": 32768,
+    "decoder-logit-qwen35:415bcf4a064e6dadcf85": 262144,
+    "winnow:4dff8c5b03cfbf680db6": 32768,
+    "clef-flash:dfe12a21a5c9dd5b2fb1": 262144,
+    "clef-flash-gguf:c330d9ee7e9cc658ad45": 262144,
+    "clef-27b-gguf:48cb5634b4a258de5a6b": 262144,
+}
+
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -325,6 +344,7 @@ def main() -> int:
             "profile_id": model["profile_id"],
             "loader_id": model["loader_id"],
             "description": model["description"],
+            "context_limit": CONTEXT_LIMITS[model["name"]],
             "support_status": "rust-loadable",
             "manifest_path": f"manifests/{manifest_name}",
             "manifest_sha256": sha256_bytes(manifest_bytes),

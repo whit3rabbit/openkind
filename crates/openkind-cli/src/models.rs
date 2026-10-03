@@ -33,6 +33,7 @@ pub(super) fn catalog(json: bool) -> Result<()> {
                 },
                 model.profile_id,
                 model.support_status,
+                model.context_limit.to_string(),
                 model.description,
             ]
         })
@@ -43,7 +44,14 @@ pub(super) fn catalog(json: bool) -> Result<()> {
     } else {
         output::print_table(
             "Curated catalog profiles available to pull",
-            &["NAME", "ALIASES", "PROFILE", "STATUS", "DESCRIPTION"],
+            &[
+                "NAME",
+                "ALIASES",
+                "PROFILE",
+                "STATUS",
+                "CONTEXT",
+                "DESCRIPTION",
+            ],
             &rows,
         );
     }

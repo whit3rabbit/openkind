@@ -56,8 +56,9 @@
 - [`src/playground.rs`](./src/playground.rs): `cmd_playground` — health probe,
   daemon spawn/supervise, and the per-platform browser opener.
 - [`src/models.rs`](./src/models.rs): Online catalog and pull commands, plus
-  offline installation reads and removal. See the
-  [registry guide](../../docs/MODEL_REGISTRY.md) for public mirror ownership.
+  offline installation reads and removal. `catalog` formats curated models into
+  a table showing name, aliases, profile, status, token context limit, and description.
+  See the [registry guide](../../docs/MODEL_REGISTRY.md) for public mirror ownership.
 - [`src/tests.rs`](./src/tests.rs): Parser, inspect, and input bounds unit tests.
 - [`benches/cli.rs`](./benches/cli.rs): Criterion argument-parsing and in-memory
   inspect benchmarks for 1, 8, and 32 questions.
