@@ -835,7 +835,7 @@ Probability delta, argmax changes, and directed application-policy changes must 
 
 - **Bound work before dispatch.** Admission should account for state tokens, Q, K, model/profile limits, branch-state bytes, temporary batch expansion, and currently available memory.
 - **Do not equate cache budget with process memory.** Model weights, recurrent/convolution/KV state, restored branches, allocator reservations, and backend scratch buffers all matter.
-- **Auth and metrics exposure are deployment decisions.** Non-loopback unauthenticated serving and sensitive telemetry require explicit opt-in and redaction rules.
+- **Auth and metrics exposure are deployment decisions.** Current daemon defaults bind all interfaces (`0.0.0.0:8080` HTTP, `0.0.0.0:9090` gRPC) and authentication is optional. When no API key is configured, the daemon emits a warning on non-loopback binds but continues serving unauthenticated. Production operators must override listener bind addresses (e.g. to loopback), configure `OPENKIND_API_KEY`, or enforce network isolation (firewalls, TLS termination, or an authenticating reverse proxy). Requiring affirmative opt-in before unauthenticated non-loopback serving and sensitive telemetry redaction remain deployment hardening objectives, not active fail-closed runtime controls.
 - **Cancellation must be defined across queue and model execution.** Cancelling an HTTP future is not sufficient if GPU work or retained state remains alive.
 - **Cache identity includes semantic execution identity.** Similar text is not enough; token/profile/position contracts must match exactly.
 - **No silent semantic fallback.** If a backend lacks a required primitive, state operation, precision, or context/Q/K shape, return a precise unsupported-path error.
