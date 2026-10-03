@@ -11,6 +11,7 @@
 //! - graceful shutdown on SIGINT/SIGTERM
 
 mod args;
+mod backend;
 mod families;
 mod installed;
 mod playground;
@@ -65,25 +66,43 @@ fn load_qwen(
                 max_process_bytes,
             });
     }
-    Ok(Arc::new(
-        Qwen35DecisionEngine::load(Qwen35EngineConfig {
-            bundle_root,
-            checkpoint_root,
-            tokenizer_path,
-            backend: backend_from_arg(args.qwen35_backend, args.cuda_device),
-            scheduler,
-            max_concurrent_requests: args.qwen35_concurrency,
-            max_queued_requests: args.qwen35_queue,
-            retry_after_ms: 1_000,
-            evaluation_timeout: Some(std::time::Duration::from_millis(args.qwen35_timeout_ms)),
-        })
-        .context("load native Qwen3.5 engine")?,
-    ))
+    crate::backend::load(
+        args.qwen35_backend,
+        &checkpoint_root,
+        args.device_ordinals(),
+        |backend| {
+            Ok(Arc::new(
+                Qwen35DecisionEngine::load(Qwen35EngineConfig {
+                    bundle_root: bundle_root.clone(),
+                    checkpoint_root: checkpoint_root.clone(),
+                    tokenizer_path: tokenizer_path.clone(),
+                    backend: backend_from_arg(backend, args.cuda_device),
+                    scheduler: scheduler.clone(),
+                    max_concurrent_requests: args.qwen35_concurrency,
+                    max_queued_requests: args.qwen35_queue,
+                    retry_after_ms: 1_000,
+                    evaluation_timeout: Some(std::time::Duration::from_millis(
+                        args.qwen35_timeout_ms,
+                    )),
+                })
+                .context("load native Qwen3.5 engine")?,
+            ) as Arc<dyn DecisionEngine>)
+        },
+    )
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+    if let Some(runtime) = &args.onnx_runtime {
+        std::env::set_var("ORT_DYLIB_PATH", runtime);
+    }
+    if let Some(probe) = args.probe_backend {
+        return backend::probe(probe, args.device_ordinals());
+    }
+    if args.diagnose_backends {
+        return backend::diagnose(args.device_ordinals(), args.json);
+    }
 
     let mut aliases = HashSet::new();
     for alias in &args.models {
@@ -140,12 +159,6 @@ async fn main() -> Result<()> {
         } else {
             info!("api key auth: disabled (neither OPENKIND_API_KEY nor TYPESAFE_API_KEY set)");
         }
-    }
-
-    // Explicit ONNX Runtime library placement precedes any engine load so
-    // the process-global runtime picks it up on first ONNX session.
-    if let Some(runtime) = &args.onnx_runtime {
-        std::env::set_var("ORT_DYLIB_PATH", runtime);
     }
 
     for accelerator in openkind_runtime::detect_accelerators() {
@@ -254,25 +267,30 @@ async fn main() -> Result<()> {
             })?;
             siblings.push((sibling_alias.clone(), engine));
         }
-        let engine = openkind_backends::families::winnow::WinnowEngine::load_with_execution(
-            openkind_backends::families::winnow::WinnowEngineConfig {
-                model_root,
-                adapter_path: adapter,
-                limits: openkind_backends::families::support::FamilyLimits {
-                    max_concurrent_requests: args.family_args.family_concurrency,
-                    max_queued_requests: args.family_args.family_queue,
-                    retry_after_ms: 1_000,
-                    evaluation_timeout: Some(std::time::Duration::from_millis(
-                        args.family_args.family_timeout_ms,
-                    )),
-                },
+        let engine = backend::load(
+            args.family_args.winnow_backend,
+            &model_root,
+            args.device_ordinals(),
+            |backend| {
+                openkind_backends::families::winnow::WinnowEngine::load_with_execution(
+                    openkind_backends::families::winnow::WinnowEngineConfig {
+                        model_root: model_root.clone(),
+                        adapter_path: adapter.clone(),
+                        limits: openkind_backends::families::support::FamilyLimits {
+                            max_concurrent_requests: args.family_args.family_concurrency,
+                            max_queued_requests: args.family_args.family_queue,
+                            retry_after_ms: 1_000,
+                            evaluation_timeout: Some(std::time::Duration::from_millis(
+                                args.family_args.family_timeout_ms,
+                            )),
+                        },
+                    },
+                    siblings.clone(),
+                    backend.to_execution(args.device_ordinals())?,
+                )
+                .with_context(|| format!("compose winnow alias `{alias}`"))
             },
-            siblings,
-            args.family_args
-                .winnow_backend
-                .to_execution(args.device_ordinals())?,
-        )
-        .map_err(|error| anyhow::anyhow!("compose winnow alias `{alias}`: {error}"))?;
+        )?;
         info!(alias, backend = engine.backend_id(), "registered model");
         registry.register(alias, Arc::new(engine));
     }

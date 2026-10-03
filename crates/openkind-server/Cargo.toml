@@ -38,11 +38,12 @@ cuda = ["openkind-backends/cuda"]
 # ONNX artifact execution through ONNX Runtime (see docs/ONNX.md).
 onnx = ["openkind-backends/onnx"]
 # ONNX sessions may register the CUDA execution provider.
-onnx-cuda = ["openkind-backends/onnx-cuda"]
+onnx-cuda = ["onnx", "openkind-backends/onnx-cuda"]
 # ONNX sessions may register the AMD ROCm execution provider (Linux only).
 onnx-rocm = ["onnx", "openkind-backends/onnx-rocm"]
 
 [dev-dependencies]
+candle-core = { workspace = true }
 criterion = { workspace = true }
 openkind-client = { path = "../openkind-client" }
 reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls"] }

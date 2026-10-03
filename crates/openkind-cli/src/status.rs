@@ -308,3 +308,24 @@ mod tests {
         assert!(!view.contains("Health: unavailable"));
     }
 }
+
+#[cfg(test)]
+mod guard_tests {
+    use super::*;
+
+    /// `cargo test` never runs with a TTY on stdin and stdout, so watch
+    /// mode must refuse instead of blocking on a non-interactive session.
+    #[test]
+    fn watch_mode_requires_an_interactive_terminal() {
+        if std::io::stdin().is_terminal() && std::io::stdout().is_terminal() {
+            return;
+        }
+        let error = run("127.0.0.1:8080".to_owned(), None, true).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("requires an interactive terminal"),
+            "unexpected error: {error}"
+        );
+    }
+}

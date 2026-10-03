@@ -46,6 +46,8 @@
     - `Catalog`, `Pull`, `List`, `Show`, `Rm`: Curated discovery and local
       installation management, with JSON output flags for read commands.
     - `Status { server, api_key, watch }`: Checks `/health` and lists aliases from `/v1/models`. `--watch` refreshes the view in a Bubble Tea terminal program.
+    - `Doctor { json, cuda_device, rocm_device, onnx_runtime }`: Reports paired
+      daemon readiness without loading models or opening listeners.
     - `Version`: Prints `openkind_core::api_version()`.
 - [`src/inspect.rs`](./src/inspect.rs): `cmd_inspect` and input file validation bounds.
 - [`src/evaluate.rs`](./src/evaluate.rs): `cmd_evaluate` and `cmd_evaluate_async` HTTP execution.
@@ -53,6 +55,8 @@
 - `status --watch` uses `bubbletea-rs` with Lipgloss styles. Plain `status` stays one-shot.
 - [`src/status.rs`](./src/status.rs): One-shot health and model alias inspection, plus the live `--watch` screen.
 - [`src/serve.rs`](./src/serve.rs): `cmd_serve` process execution delegating to `openkindd`, replacing the CLI process on Unix so shutdown signals reach the daemon directly (on Windows the wrapper blocks on the daemon; both observe the shared console Ctrl-C event).
+- [`src/daemon.rs`](./src/daemon.rs): Shared executable resolution for doctor,
+  serve, and playground: `OPENKINDD_BINARY`, sibling executable, then `PATH`.
 - [`src/playground.rs`](./src/playground.rs): `cmd_playground` — health probe,
   daemon spawn/supervise, and the per-platform browser opener.
 - [`src/models.rs`](./src/models.rs): Online catalog and pull commands, plus

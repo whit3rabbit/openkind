@@ -25,6 +25,21 @@ pub struct Cli {
 /// Subcommands supported by the `openkind` CLI.
 #[derive(Subcommand, Debug)]
 pub enum Commands {
+    /// Report local hardware and daemon backend readiness without loading models.
+    Doctor {
+        /// Print the readiness report as JSON.
+        #[arg(long)]
+        json: bool,
+        /// CUDA execution ordinal to probe (physical inventory indices may differ).
+        #[arg(long, env = "OPENKIND_CUDA_DEVICE", default_value_t = 0)]
+        cuda_device: usize,
+        /// ROCm execution ordinal to probe.
+        #[arg(long, env = "OPENKIND_ROCM_DEVICE", default_value_t = 0)]
+        rocm_device: usize,
+        /// Override the bundled or system ONNX Runtime shared library.
+        #[arg(long, env = "OPENKIND_ONNX_RUNTIME")]
+        onnx_runtime: Option<PathBuf>,
+    },
     /// Validate a request JSON file against the openkind schema.
     Inspect {
         /// Path to the request JSON file.

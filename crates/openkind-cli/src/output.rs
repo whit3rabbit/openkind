@@ -414,3 +414,87 @@ mod tests {
         assert_eq!(lines[2].find("first"), lines[3].find("second"));
     }
 }
+
+#[cfg(test)]
+mod pull_progress_tests {
+    use super::*;
+
+    /// Under `cargo test` stderr is never a terminal, so `PullProgress`
+    /// runs its line-log branch deterministically.
+    #[test]
+    fn progress_tracks_artifacts_resumes_and_restarts() {
+        let mut progress = PullProgress::new();
+        assert!(!progress.has_progress());
+        assert_eq!(progress.downloaded_bytes(), 0);
+
+        // First artifact streams five bytes.
+        progress.update("bundle/head.bin", 0, 10);
+        progress.update("bundle/head.bin", 5, 10);
+        assert_eq!(progress.downloaded_bytes(), 5);
+
+        // A byte-count regression means partial data was discarded: the
+        // artifact restarts from byte zero and the counter stops growing.
+        progress.update("bundle/head.bin", 2, 10);
+        assert_eq!(progress.downloaded_bytes(), 7);
+        progress.update("bundle/head.bin", 10, 10);
+        assert_eq!(progress.downloaded_bytes(), 15);
+
+        // A new artifact path closes the previous one and starts from its
+        // own resume offset (no additional bytes counted for offset 3 of 4).
+        progress.update("bundle/other.bin", 3, 4);
+        assert_eq!(progress.downloaded_bytes(), 15);
+        progress.update("bundle/other.bin", 4, 4);
+        assert_eq!(progress.downloaded_bytes(), 16);
+        assert!(progress.has_progress());
+
+        progress.finish_success();
+        progress.finish_failure(false);
+        assert_eq!(
+            progress.downloaded_bytes(),
+            16,
+            "finishing never moves bytes"
+        );
+    }
+
+    #[test]
+    fn already_present_artifacts_report_verification_without_downloading() {
+        let mut progress = PullProgress::new();
+        progress.update("bundle/head.bin", 10, 10);
+        assert!(
+            progress.has_progress(),
+            "verification still counts as progress"
+        );
+        assert_eq!(progress.downloaded_bytes(), 0);
+        progress.finish_success();
+    }
+
+    #[test]
+    fn finish_failure_distinguishes_mid_download_from_digest_errors() {
+        // A mid-download failure (last_done < total) marks the artifact failed.
+        let mut progress = PullProgress::new();
+        progress.update("bundle/head.bin", 4, 10);
+        progress.finish_failure(false);
+        // A digest mismatch on a fully transferred artifact also fails it.
+        let mut progress = PullProgress::new();
+        progress.update("bundle/head.bin", 10, 10);
+        progress.finish_failure(true);
+        // Without an active artifact or transfer, failure is a no-op.
+        let mut progress = PullProgress::new();
+        progress.finish_failure(true);
+        assert_eq!(progress.downloaded_bytes(), 0);
+    }
+
+    #[test]
+    fn format_bytes_walks_the_unit_ladder() {
+        assert_eq!(format_bytes(0), "0 B");
+        assert_eq!(format_bytes(1), "1 B");
+        assert_eq!(format_bytes(1023), "1023 B");
+        assert_eq!(format_bytes(1024), "1.0 KiB");
+        assert_eq!(format_bytes(2048), "2.0 KiB");
+        assert_eq!(format_bytes(1024 * 1024), "1.0 MiB");
+        assert_eq!(format_bytes(1024_u64.pow(3)), "1.0 GiB");
+        // The ladder saturates at TiB instead of overflowing the unit list.
+        assert_eq!(format_bytes(1024_u64.pow(4)), "1.0 TiB");
+        assert_eq!(format_bytes(u64::MAX), "16777216.0 TiB");
+    }
+}

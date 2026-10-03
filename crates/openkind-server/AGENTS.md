@@ -38,6 +38,9 @@
     - Accelerator ordinals: `--cuda-device` (`OPENKIND_CUDA_DEVICE`, default 0) and `--rocm-device` (`OPENKIND_ROCM_DEVICE`, default 0), collected into `DeviceOrdinals`.
     - Surveyed-family configuration: flattened `family_args: FamilyArgs`.
     - Native Qwen uses bundle/checkpoint/tokenizer paths, backend selection, concurrency and queue limits, and a queue-inclusive timeout (default 600000 ms). Memory ceilings and `--qwen35-execution` configure admission and diagnostic scheduling.
+- [`src/backend.rs`](./src/backend.rs): Isolated runtime probes, diagnostics,
+  and per-loader automatic selection. See [backend releases](../../docs/BACKENDS.md)
+  for fallback policy and readiness boundaries.
 - [`src/playground.rs`](./src/playground.rs): Explicit load/unload of supported local installations and mock aliases. Blocking verification runs outside async workers; mutations serialize across clients. Installation guards stay alive until shutdown, and startup native/composite engines require restart.
 - [`src/installed.rs`](./src/installed.rs): Loads catalog models for startup and the playground. `installed_kind` validates manifest identity against compiled loaders. Winnow binds installed `decoder-logit-letter` to A and `encoder-nli` to B. Missing siblings fall back to aliases or fail closed.
 - [`src/proxy.rs`](./src/proxy.rs): Proxy-cache service (only when `--proxy-cache-upstream` is set):
@@ -64,7 +67,7 @@
 2. **Installed Model Path**: The daemon verifies each installation against a compiled loader and registers its immutable name. It holds a serving lock until shutdown. Missing profiles and alias collisions fail startup. Startup never fetches the public catalog.
 3. **Surveyed-Family Engine Path**: If any alias in `--models` matches `--decoder-letter-aliases`, `--encoder-nli-aliases`, `--encoder-instruct-label-aliases`, `--kev-aliases`, `--decoder-llm-aliases`, `--schema-scorer-aliases`, `--qwen3guard-aliases`, `--decoder-logit-qwen35-aliases`, `--laya-english-aliases`, `--laya-multilingual-aliases`, or `--laya-typed-decisions-aliases`:
    - Validates that the corresponding `--<family>-model-root` is provided (fails fast on startup if omitted).
-   - Loads the family adapter with bounded `FamilyLimits`. Every family defaults to `native-cpu`. Accelerated selections are per family: `--<family>-backend cuda` requires the daemon's `cuda` feature and uses `--cuda-device`; `onnx`/`onnx-cuda`/`onnx-rocm` require the matching ONNX features and `model.onnx` in the model root (`onnx-cuda` uses `--cuda-device`; `onnx-rocm` requires `onnx-rocm` on Linux and uses `--rocm-device`); `mlx-fp32` requires the `mlx` feature on macOS arm64. Unsupported selections fail startup with an explanation.
+   - Loads the family adapter with bounded `FamilyLimits`. Selectors default to `auto`, resolving supported loaders and verified local artifacts against compiled support and runtime readiness. Explicit accelerated selections are per family: `--<family>-backend cuda` requires the daemon's `cuda` feature and uses `--cuda-device`; `onnx`/`onnx-cuda`/`onnx-rocm` require the matching ONNX features and a verified export in the model root (`onnx-cuda` uses `--cuda-device`; `onnx-rocm` requires `onnx-rocm` on Linux and uses `--rocm-device`); `mlx-fp32` requires the `mlx` feature on macOS arm64. Unsupported explicit selections fail startup with an explanation.
    - Registers the shared engine under each matching alias.
 4. **Router-Script Composite Path**: If any alias in `--models` matches `--router-script-aliases`:
    - Parses the routing rule table (`--router-script-rules`).

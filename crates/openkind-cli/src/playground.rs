@@ -258,7 +258,7 @@ fn spawn_daemon(
     models_dir: Option<&std::path::Path>,
     api_key: Option<&str>,
 ) -> Result<std::process::Child> {
-    let mut cmd = Command::new("openkindd");
+    let mut cmd = Command::new(crate::daemon::executable()?);
     cmd.arg("--http-addr")
         .arg(addr.to_string())
         .arg("--grpc-addr")
@@ -439,5 +439,55 @@ mod tests {
         );
         let (program, _) = opener_argv(current_os(), "http://x/p");
         assert!(!program.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod address_guard_tests {
+    use super::*;
+
+    #[test]
+    fn playground_rejects_unparseable_zero_and_non_loopback_addresses() {
+        let error = cmd_playground(
+            "999.1.1.1:notaport".to_owned(),
+            "mock".to_owned(),
+            String::new(),
+            None,
+            None,
+            true,
+        )
+        .unwrap_err();
+        assert!(
+            error.to_string().contains("invalid --http-addr"),
+            "unexpected error: {error}"
+        );
+
+        let error = cmd_playground(
+            "127.0.0.1:0".to_owned(),
+            "mock".to_owned(),
+            String::new(),
+            None,
+            None,
+            true,
+        )
+        .unwrap_err();
+        assert!(
+            error.to_string().contains("non-zero port"),
+            "unexpected error: {error}"
+        );
+
+        let error = cmd_playground(
+            "0.0.0.0:8080".to_owned(),
+            "mock".to_owned(),
+            String::new(),
+            None,
+            None,
+            true,
+        )
+        .unwrap_err();
+        assert!(
+            error.to_string().contains("loopback"),
+            "unexpected error: {error}"
+        );
     }
 }

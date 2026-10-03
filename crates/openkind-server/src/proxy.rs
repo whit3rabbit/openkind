@@ -20,6 +20,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use anyhow::Context;
 use async_trait::async_trait;
 use openkind_api::{ApiError, ProxyOutcome, ProxySource, SystemProxy};
 use openkind_backends::proxy_cache::engine::{
@@ -401,8 +402,8 @@ impl ProxyService {
                     })
                     .unwrap_or_default()
             };
-            for (kind, detail) in events {
-                tracing::info!(task = %spec.fingerprint()[..12], event = %kind, ?detail, "proxy-cache");
+            for (kind, _) in events {
+                tracing::info!(event = %kind, "proxy-cache");
             }
             let tick = {
                 let mut guard = engine
@@ -428,8 +429,8 @@ impl ProxyService {
     }
 
     fn run_tick_outcome(&self, key: &str, outcome: TickOutcome) {
-        for (kind, detail) in outcome.events {
-            tracing::info!(task = %key, event = %kind, ?detail, "proxy-cache");
+        for (kind, _) in outcome.events {
+            tracing::info!(event = %kind, "proxy-cache");
         }
         if outcome.train_requested {
             self.manager.request_training(key);
@@ -679,12 +680,16 @@ impl SystemProxy for ProxyService {
         request: SystemRequest,
         caller_key: Option<String>,
     ) -> Result<ProxyOutcome, ApiError> {
-        match self.evaluate_inner(request, caller_key).await {
+        match self
+            .evaluate_inner(request.clone(), caller_key.clone())
+            .await
+        {
             Ok(outcome) => Ok(outcome),
             // Fail open: any proxy-internal error forwards to the upstream.
-            Err(ApiError::Internal(message)) => {
-                tracing::warn!("proxy-cache internal failure, failing open: {message}");
-                Err(ApiError::BadGateway(message))
+            Err(ApiError::Internal(_)) => {
+                tracing::warn!("proxy-cache internal failure, forwarding upstream");
+                self.plain_forward(request, caller_key.as_deref(), "internal_error")
+                    .await
             }
             Err(error) => Err(error),
         }
@@ -855,29 +860,44 @@ pub async fn resolve_encoder(
         ));
     }
     let artifacts = BertEmbedderArtifacts::from_model_root(&installed.root, "encoder-embedding");
-    let embedder: Arc<dyn TextEmbedder> = match backend {
-        crate::args::ProxyCacheEncoderBackendArg::Cpu => Arc::new(
-            BertEmbedder::load(&artifacts)
-                .map_err(|error| anyhow::anyhow!("load encoder `{encoder_name}`: {error}"))?,
-        ),
-        #[cfg(feature = "cuda")]
-        crate::args::ProxyCacheEncoderBackendArg::Cuda => Arc::new(
-            BertEmbedder::load_with_device(
-                &artifacts,
-                openkind_backends::device::FamilyExecution::Cuda {
-                    device_id: cuda_device,
+    let embedder: Arc<dyn TextEmbedder> = crate::backend::load(
+        backend,
+        &installed.root,
+        crate::args::DeviceOrdinals {
+            cuda: cuda_device,
+            rocm: 0,
+        },
+        |backend| {
+            let embedder: Arc<dyn TextEmbedder> = match backend {
+                crate::args::ProxyCacheEncoderBackendArg::Auto => {
+                    unreachable!("auto resolves before loading")
                 }
-                .candle_device()
-                .map_err(|error| anyhow::anyhow!("open CUDA device: {error}"))?,
-            )
-            .map_err(|error| anyhow::anyhow!("load encoder `{encoder_name}`: {error}"))?,
-        ),
-        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
-        crate::args::ProxyCacheEncoderBackendArg::MlxFp32 => Arc::new(
-            openkind_backends::proxy_cache::mlx_bert_encoder::MlxBertEmbedder::load(&artifacts)
-                .map_err(|error| anyhow::anyhow!("load MLX encoder `{encoder_name}`: {error}"))?,
-        ),
-    };
+                crate::args::ProxyCacheEncoderBackendArg::Cpu => {
+                    Arc::new(BertEmbedder::load(&artifacts).context("load encoder `proxy-cache`")?)
+                }
+                #[cfg(feature = "cuda")]
+                crate::args::ProxyCacheEncoderBackendArg::Cuda => Arc::new(
+                    BertEmbedder::load_with_device(
+                        &artifacts,
+                        openkind_backends::device::FamilyExecution::Cuda {
+                            device_id: cuda_device,
+                        }
+                        .candle_device()
+                        .context("open CUDA device")?,
+                    )
+                    .context("load encoder `proxy-cache`")?,
+                ),
+                #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                crate::args::ProxyCacheEncoderBackendArg::MlxFp32 => Arc::new(
+                    openkind_backends::proxy_cache::mlx_bert_encoder::MlxBertEmbedder::load(
+                        &artifacts,
+                    )
+                    .context("load MLX encoder `proxy-cache`")?,
+                ),
+            };
+            Ok(embedder)
+        },
+    )?;
     Ok((embedder, Some(installed)))
 }
 

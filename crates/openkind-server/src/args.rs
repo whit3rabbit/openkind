@@ -2,14 +2,30 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 
 use anyhow::Result;
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use openkind_runtime::ExecutionPlan;
 
 use crate::families::FamilyArgs;
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(name = "openkindd", about = "openkind inference daemon")]
 pub(crate) struct Args {
+    /// Report backend readiness and exit without loading models or listening.
+    #[arg(long, env = "OPENKIND_DIAGNOSE_BACKENDS")]
+    pub(crate) diagnose_backends: bool,
+
+    /// Emit backend diagnostics as JSON.
+    #[arg(
+        long,
+        env = "OPENKIND_DIAGNOSTICS_JSON",
+        requires = "diagnose_backends"
+    )]
+    pub(crate) json: bool,
+
+    /// Isolated runtime probe used by the parent daemon.
+    #[arg(long, hide = true, value_enum)]
+    pub(crate) probe_backend: Option<crate::backend::Backend>,
+
     /// Surveyed-family engine configuration (aliases and artifact paths).
     #[command(flatten)]
     pub(crate) family_args: FamilyArgs,
@@ -89,7 +105,7 @@ pub(crate) struct Args {
         long,
         env = "OPENKIND_QWEN35_BACKEND",
         value_enum,
-        default_value_t = Qwen35BackendArg::NativeCpu
+        default_value_t = Qwen35BackendArg::Auto
     )]
     pub(crate) qwen35_backend: Qwen35BackendArg,
 
@@ -205,7 +221,7 @@ pub(crate) struct Args {
         long,
         env = "OPENKIND_PROXY_CACHE_ENCODER_BACKEND",
         value_enum,
-        default_value_t = ProxyCacheEncoderBackendArg::Cpu
+        default_value_t = ProxyCacheEncoderBackendArg::Auto
     )]
     pub(crate) proxy_cache_encoder_backend: ProxyCacheEncoderBackendArg,
 
@@ -309,6 +325,8 @@ pub(crate) enum ArrowArg {
 /// Proxy-cache encoder backend choices exposed by the daemon.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub(crate) enum ProxyCacheEncoderBackendArg {
+    /// Prefer a ready compatible accelerator, falling back during loading.
+    Auto,
     /// Candle FP32 CPU reference backend.
     Cpu,
     /// Candle FP32 CUDA backend (`cuda` feature, `--cuda-device` ordinal).
@@ -322,6 +340,8 @@ pub(crate) enum ProxyCacheEncoderBackendArg {
 /// Native backbone choices exposed by the daemon.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub(crate) enum Qwen35BackendArg {
+    /// Prefer a ready compatible accelerator, falling back during loading.
+    Auto,
     /// Candle FP32 CPU reference backend.
     NativeCpu,
     /// Candle FP32 CUDA backend (`cuda` feature, `--cuda-device` ordinal).
@@ -337,6 +357,7 @@ impl Qwen35BackendArg {
     pub(crate) fn to_backend(self, cuda_device: usize) -> openkind_backends::qwen35::Qwen35Backend {
         let _ = cuda_device;
         match self {
+            Self::Auto => unreachable!("automatic selection resolves before engine loading"),
             Self::NativeCpu => openkind_backends::qwen35::Qwen35Backend::NativeCpu,
             #[cfg(feature = "cuda")]
             Self::Cuda => openkind_backends::qwen35::Qwen35Backend::Cuda {
@@ -372,6 +393,8 @@ impl Args {
 /// backend enum: CPU, CUDA, and ONNX (optionally on CUDA or ROCm).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub(crate) enum FamilyBackendArg {
+    /// Prefer a ready compatible accelerator, falling back during loading.
+    Auto,
     /// Candle FP32 CPU reference backend.
     NativeCpu,
     /// Candle FP32 CUDA backend (`cuda` feature, `--cuda-device` ordinal).
@@ -403,6 +426,7 @@ impl FamilyBackendArg {
         use openkind_backends::device::FamilyExecution;
         let _ = devices;
         match self {
+            Self::Auto => unreachable!("automatic selection resolves before engine loading"),
             Self::NativeCpu => Ok(FamilyExecution::Cpu),
             #[cfg(feature = "cuda")]
             Self::Cuda => Ok(FamilyExecution::Cuda {
@@ -444,6 +468,8 @@ impl FamilyBackendArg {
 /// CUDA only.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub(crate) enum CudaOnlyBackendArg {
+    /// Prefer a ready compatible accelerator, falling back during loading.
+    Auto,
     /// Candle FP32 CPU reference backend.
     NativeCpu,
     /// Candle FP32 CUDA backend (`cuda` feature, `--cuda-device` ordinal).
@@ -459,6 +485,7 @@ impl CudaOnlyBackendArg {
     ) -> anyhow::Result<openkind_backends::device::FamilyExecution> {
         let _ = devices;
         match self {
+            Self::Auto => unreachable!("automatic selection resolves before engine loading"),
             Self::NativeCpu => Ok(openkind_backends::device::FamilyExecution::Cpu),
             #[cfg(feature = "cuda")]
             Self::Cuda => Ok(openkind_backends::device::FamilyExecution::Cuda {
@@ -471,6 +498,8 @@ impl CudaOnlyBackendArg {
 /// Laya decision-encoder backend choices exposed by the daemon.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub(crate) enum LayaBackendArg {
+    /// Prefer a ready compatible accelerator, falling back during loading.
+    Auto,
     /// Candle FP32 CPU reference backend.
     NativeCpu,
     /// Candle FP32 CUDA backend (`cuda` feature, `--cuda-device` ordinal).
@@ -495,6 +524,8 @@ pub(crate) enum LayaBackendArg {
 /// Encoder-instruct-label backend choices exposed by the daemon.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub(crate) enum EncoderInstructLabelBackendArg {
+    /// Prefer a ready compatible accelerator, falling back during loading.
+    Auto,
     /// Candle FP32 CPU reference backend.
     NativeCpu,
     /// Candle FP32 CUDA backend (`cuda` feature, `--cuda-device` ordinal).
@@ -520,6 +551,8 @@ pub(crate) enum EncoderInstructLabelBackendArg {
 /// hybrid backbone has no ONNX export, so ONNX selections are not offered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub(crate) enum DecoderLogitQwen35BackendArg {
+    /// Prefer a ready compatible accelerator, falling back during loading.
+    Auto,
     /// Candle FP32 CPU reference backend.
     NativeCpu,
     /// Candle FP32 CUDA backend (`cuda` feature, `--cuda-device` ordinal).
@@ -583,6 +616,162 @@ pub(crate) fn parse_grpc_addr(
     }
 }
 
+impl crate::backend::Selector for ProxyCacheEncoderBackendArg {
+    fn backend(self) -> crate::backend::Backend {
+        match self {
+            Self::Auto => crate::backend::Backend::Auto,
+            Self::Cpu => crate::backend::Backend::NativeCpu,
+            #[cfg(feature = "cuda")]
+            Self::Cuda => crate::backend::Backend::Cuda,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            Self::MlxFp32 => crate::backend::Backend::MlxFp32,
+        }
+    }
+    fn from_backend(backend: crate::backend::Backend) -> Option<Self> {
+        Self::value_variants()
+            .iter()
+            .copied()
+            .find(|selection| crate::backend::Selector::backend(*selection) == backend)
+    }
+}
+
+impl crate::backend::Selector for Qwen35BackendArg {
+    fn backend(self) -> crate::backend::Backend {
+        match self {
+            Self::Auto => crate::backend::Backend::Auto,
+            Self::NativeCpu => crate::backend::Backend::NativeCpu,
+            #[cfg(feature = "cuda")]
+            Self::Cuda => crate::backend::Backend::Cuda,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            Self::MlxFp32 => crate::backend::Backend::MlxFp32,
+        }
+    }
+    fn from_backend(backend: crate::backend::Backend) -> Option<Self> {
+        Self::value_variants()
+            .iter()
+            .copied()
+            .find(|selection| crate::backend::Selector::backend(*selection) == backend)
+    }
+}
+
+impl crate::backend::Selector for FamilyBackendArg {
+    fn supports_onnx_artifact() -> bool {
+        true
+    }
+    fn backend(self) -> crate::backend::Backend {
+        match self {
+            Self::Auto => crate::backend::Backend::Auto,
+            Self::NativeCpu => crate::backend::Backend::NativeCpu,
+            #[cfg(feature = "cuda")]
+            Self::Cuda => crate::backend::Backend::Cuda,
+            #[cfg(feature = "onnx")]
+            Self::Onnx => crate::backend::Backend::Onnx,
+            #[cfg(feature = "onnx")]
+            Self::OnnxCuda => crate::backend::Backend::OnnxCuda,
+            #[cfg(feature = "onnx")]
+            Self::OnnxRocm => crate::backend::Backend::OnnxRocm,
+        }
+    }
+    fn from_backend(backend: crate::backend::Backend) -> Option<Self> {
+        Self::value_variants()
+            .iter()
+            .copied()
+            .find(|selection| crate::backend::Selector::backend(*selection) == backend)
+    }
+}
+
+impl crate::backend::Selector for CudaOnlyBackendArg {
+    fn backend(self) -> crate::backend::Backend {
+        match self {
+            Self::Auto => crate::backend::Backend::Auto,
+            Self::NativeCpu => crate::backend::Backend::NativeCpu,
+            #[cfg(feature = "cuda")]
+            Self::Cuda => crate::backend::Backend::Cuda,
+        }
+    }
+    fn from_backend(backend: crate::backend::Backend) -> Option<Self> {
+        Self::value_variants()
+            .iter()
+            .copied()
+            .find(|selection| crate::backend::Selector::backend(*selection) == backend)
+    }
+}
+
+impl crate::backend::Selector for LayaBackendArg {
+    fn supports_onnx_artifact() -> bool {
+        true
+    }
+    fn backend(self) -> crate::backend::Backend {
+        match self {
+            Self::Auto => crate::backend::Backend::Auto,
+            Self::NativeCpu => crate::backend::Backend::NativeCpu,
+            #[cfg(feature = "cuda")]
+            Self::Cuda => crate::backend::Backend::Cuda,
+            #[cfg(feature = "onnx")]
+            Self::Onnx => crate::backend::Backend::Onnx,
+            #[cfg(feature = "onnx")]
+            Self::OnnxCuda => crate::backend::Backend::OnnxCuda,
+            #[cfg(feature = "onnx")]
+            Self::OnnxRocm => crate::backend::Backend::OnnxRocm,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            Self::MlxFp32 => crate::backend::Backend::MlxFp32,
+        }
+    }
+    fn from_backend(backend: crate::backend::Backend) -> Option<Self> {
+        Self::value_variants()
+            .iter()
+            .copied()
+            .find(|selection| crate::backend::Selector::backend(*selection) == backend)
+    }
+}
+
+impl crate::backend::Selector for EncoderInstructLabelBackendArg {
+    fn supports_onnx_artifact() -> bool {
+        true
+    }
+    fn backend(self) -> crate::backend::Backend {
+        match self {
+            Self::Auto => crate::backend::Backend::Auto,
+            Self::NativeCpu => crate::backend::Backend::NativeCpu,
+            #[cfg(feature = "cuda")]
+            Self::Cuda => crate::backend::Backend::Cuda,
+            #[cfg(feature = "onnx")]
+            Self::Onnx => crate::backend::Backend::Onnx,
+            #[cfg(feature = "onnx")]
+            Self::OnnxCuda => crate::backend::Backend::OnnxCuda,
+            #[cfg(feature = "onnx")]
+            Self::OnnxRocm => crate::backend::Backend::OnnxRocm,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            Self::MlxFp32 => crate::backend::Backend::MlxFp32,
+        }
+    }
+    fn from_backend(backend: crate::backend::Backend) -> Option<Self> {
+        Self::value_variants()
+            .iter()
+            .copied()
+            .find(|selection| crate::backend::Selector::backend(*selection) == backend)
+    }
+}
+
+impl crate::backend::Selector for DecoderLogitQwen35BackendArg {
+    fn backend(self) -> crate::backend::Backend {
+        match self {
+            Self::Auto => crate::backend::Backend::Auto,
+            Self::NativeCpu => crate::backend::Backend::NativeCpu,
+            #[cfg(feature = "cuda")]
+            Self::Cuda => crate::backend::Backend::Cuda,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            Self::MlxFp32 => crate::backend::Backend::MlxFp32,
+        }
+    }
+    fn from_backend(backend: crate::backend::Backend) -> Option<Self> {
+        Self::value_variants()
+            .iter()
+            .copied()
+            .find(|selection| crate::backend::Selector::backend(*selection) == backend)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -602,7 +791,7 @@ mod tests {
         assert_eq!(args.arrow, ArrowArg::Off);
         assert_eq!(args.log_filter, "info");
         assert_eq!(args.qwen35_execution, ExecutionArg::Auto);
-        assert_eq!(args.qwen35_backend, Qwen35BackendArg::NativeCpu);
+        assert_eq!(args.qwen35_backend, Qwen35BackendArg::Auto);
         assert_eq!(args.qwen35_timeout_ms, 600_000);
     }
 
@@ -762,7 +951,7 @@ mod tests {
     #[test]
     fn laya_backend_cli_values_and_diagnostics() {
         let default = Args::try_parse_from(["openkindd"]).unwrap();
-        assert_eq!(default.family_args.laya_backend, LayaBackendArg::NativeCpu);
+        assert_eq!(default.family_args.laya_backend, LayaBackendArg::Auto);
 
         #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
         {
@@ -877,5 +1066,112 @@ mod tests {
     fn renamed_setting_rejects_conflicting_values() {
         let error = resolve_alias(Some("new"), Some("old"), "NEW", "OLD").unwrap_err();
         assert!(error.to_string().contains("conflicting values for NEW"));
+    }
+}
+
+#[cfg(all(test, feature = "onnx-cuda"))]
+mod onnx_cuda_regression {
+    use super::*;
+    #[test]
+    fn feature_alone_enables_onnx_cli_and_device_selection() {
+        let args = Args::try_parse_from([
+            "openkindd",
+            "--encoder-nli-backend",
+            "onnx-cuda",
+            "--cuda-device",
+            "2",
+        ])
+        .unwrap();
+        let execution = args
+            .family_args
+            .encoder_nli_backend
+            .to_execution(args.device_ordinals())
+            .unwrap();
+        assert_eq!(execution.id_fragment(), "onnx-cuda:2");
+    }
+}
+
+#[cfg(test)]
+mod conversion_tests {
+    use super::*;
+
+    #[test]
+    fn qwen35_backend_arg_maps_to_the_native_backend() {
+        assert!(matches!(
+            Qwen35BackendArg::NativeCpu.to_backend(3),
+            openkind_backends::qwen35::Qwen35Backend::NativeCpu
+        ));
+        #[cfg(feature = "cuda")]
+        assert!(matches!(
+            Qwen35BackendArg::Cuda.to_backend(3),
+            openkind_backends::qwen35::Qwen35Backend::Cuda { device_id: 3 }
+        ));
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        assert!(matches!(
+            Qwen35BackendArg::MlxFp32.to_backend(3),
+            openkind_backends::qwen35::Qwen35Backend::MlxFp32
+        ));
+    }
+
+    #[test]
+    fn family_backend_args_map_to_execution_selections() {
+        let devices = DeviceOrdinals { cuda: 2, rocm: 1 };
+        let execution = FamilyBackendArg::NativeCpu
+            .to_execution(devices)
+            .expect("cpu always maps");
+        assert_eq!(execution.id_fragment(), "cpu-fp32");
+
+        #[cfg(feature = "onnx")]
+        {
+            let execution = FamilyBackendArg::Onnx
+                .to_execution(devices)
+                .expect("onnx maps with the feature");
+            assert_eq!(execution.id_fragment(), "onnx-cpu");
+        }
+        #[cfg(feature = "onnx-cuda")]
+        {
+            let execution = FamilyBackendArg::OnnxCuda
+                .to_execution(devices)
+                .expect("onnx-cuda maps with the feature");
+            assert_eq!(execution.id_fragment(), "onnx-cuda:2");
+        }
+        #[cfg(all(feature = "onnx", not(feature = "onnx-cuda")))]
+        {
+            let error = FamilyBackendArg::OnnxCuda
+                .to_execution(devices)
+                .expect_err("onnx-cuda without the feature must fail closed");
+            assert!(error.to_string().contains("onnx-cuda"), "{error}");
+        }
+        #[cfg(feature = "onnx-rocm")]
+        {
+            let execution = FamilyBackendArg::OnnxRocm
+                .to_execution(devices)
+                .expect("onnx-rocm maps with the feature");
+            assert_eq!(execution.id_fragment(), "onnx-rocm:1");
+        }
+        #[cfg(all(feature = "onnx", not(feature = "onnx-rocm")))]
+        {
+            let error = FamilyBackendArg::OnnxRocm
+                .to_execution(devices)
+                .expect_err("onnx-rocm without the feature must fail closed");
+            assert!(error.to_string().contains("onnx-rocm"), "{error}");
+        }
+    }
+
+    #[test]
+    fn cuda_only_backend_args_map_cpu_without_cuda_and_cuda_with_the_feature() {
+        let devices = DeviceOrdinals { cuda: 5, rocm: 0 };
+        #[cfg(feature = "cuda")]
+        {
+            let execution = CudaOnlyBackendArg::Cuda.to_execution(devices).unwrap();
+            assert!(execution.candle_device().is_ok());
+        }
+        #[cfg(not(feature = "cuda"))]
+        {
+            // Without the `cuda` feature the only constructible variant is
+            // `Cpu`; assert it resolves to the CPU candle device.
+            let execution = CudaOnlyBackendArg::NativeCpu.to_execution(devices).unwrap();
+            assert!(execution.candle_device().is_ok());
+        }
     }
 }

@@ -83,7 +83,7 @@ pub fn cmd_inspect(file: PathBuf) -> Result<()> {
     println!(
         "{} ✓ (model={}, {} questions)",
         file.display(),
-        req.model,
+        crate::output::terminal_safe(&req.model),
         req.questions.len()
     );
     Ok(())

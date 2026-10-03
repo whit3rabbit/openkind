@@ -257,7 +257,8 @@ fn empty_installed_model_selection_is_forwarded_to_both_daemon_commands() {
         child
             .args([command, "--installed-models", "", "--http-addr", &address])
             .env("OPENKIND_INSTALLED_MODELS", "inherited:profile")
-            .env("PATH", &path);
+            .env("PATH", &path)
+            .env("OPENKINDD_BINARY", dir.0.join("openkindd"));
         if command == "playground" {
             child.arg("--no-open");
         }
@@ -283,6 +284,7 @@ fn serve_preserves_the_pid_targeted_by_process_supervisors() {
     let mut child = cli()
         .arg("serve")
         .env("PATH", &dir.0)
+        .env("OPENKINDD_BINARY", &daemon)
         .env("OPENKIND_CLI_TEST_PID", &record)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
@@ -381,6 +383,7 @@ fn playground_supervises_startup_and_ready_signals_and_preserves_exit_codes() {
         let mut child = cli()
             .args(["playground", "--http-addr", &address, "--no-open"])
             .env("PATH", &dir.0)
+            .env("OPENKINDD_BINARY", &daemon)
             .env("OPENKIND_CLI_TEST_PID", &pid_file)
             .env("OPENKIND_CLI_TEST_STOP", &stop_file)
             .env("OPENKIND_CLI_TEST_SIGNAL", &signal_file)

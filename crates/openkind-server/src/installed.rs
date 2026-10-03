@@ -7,7 +7,7 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use openkind_backends::families::clef::{
     ClefEngine, ClefProfile, CLEF_27B_GGUF, CLEF_FLASH, CLEF_FLASH_GGUF,
 };
@@ -226,6 +226,54 @@ pub(crate) fn load_installed_engine(
     root: &Path,
     registry: &EngineRegistry,
 ) -> Result<Arc<dyn DecisionEngine>> {
+    macro_rules! selected {
+        ($field:ident, $model_root:expr) => {
+            crate::backend::load(
+                args.family_args.$field,
+                $model_root,
+                args.device_ordinals(),
+                |backend| {
+                    let mut explicit = args.clone();
+                    explicit.family_args.$field = backend;
+                    load_installed_explicit(&explicit, kind, root, registry)
+                },
+            )
+        };
+    }
+    match kind {
+        InstalledKind::Qwen35StateFirst | InstalledKind::Clef(_) => {
+            load_installed_explicit(args, kind, root, registry)
+        }
+        InstalledKind::Laya(_) => selected!(laya_backend, root),
+        InstalledKind::DecoderLetter => selected!(decoder_letter_backend, &root.join("checkpoint")),
+        InstalledKind::EncoderNli => selected!(encoder_nli_backend, &root.join("checkpoint")),
+        InstalledKind::EncoderInstructLabel => {
+            selected!(encoder_instruct_label_backend, &root.join("checkpoint"))
+        }
+        InstalledKind::DecoderLlm => selected!(decoder_llm_backend, &root.join("checkpoint")),
+        InstalledKind::SchemaScorer => selected!(schema_scorer_backend, &root.join("checkpoint")),
+        InstalledKind::Qwen3Guard => selected!(qwen3guard_backend, &root.join("checkpoint")),
+        InstalledKind::Kev => selected!(kev_backend, root),
+        InstalledKind::StrandsDecider2b => selected!(strands_decider_backend, root),
+        InstalledKind::DecoderLogitQwen35(_) => {
+            selected!(decoder_logit_qwen35_backend, &root.join("checkpoint"))
+        }
+        InstalledKind::DecoderLogitQwen3(_) => {
+            selected!(decoder_logit_qwen3_backend, &root.join("checkpoint"))
+        }
+        InstalledKind::Decider4b => selected!(decider_4b_backend, &root.join("checkpoint")),
+        InstalledKind::Von => selected!(von_backend, root),
+        InstalledKind::Winnow => selected!(winnow_backend, &root.join("checkpoint")),
+        InstalledKind::WinnowE4b => selected!(winnow_e4b_backend, &root.join("checkpoint")),
+    }
+}
+
+fn load_installed_explicit(
+    args: &Args,
+    kind: InstalledKind,
+    root: &Path,
+    registry: &EngineRegistry,
+) -> Result<Arc<dyn DecisionEngine>> {
     let limits = FamilyLimits {
         max_concurrent_requests: args.family_args.family_concurrency,
         max_queued_requests: args.family_args.family_queue,
@@ -242,6 +290,7 @@ pub(crate) fn load_installed_engine(
             root.join("checkpoint/tokenizer.json"),
         )?,
         InstalledKind::Laya(profile) => match args.family_args.laya_backend {
+            LayaBackendArg::Auto => unreachable!("auto resolves before loading"),
             LayaBackendArg::NativeCpu => Arc::new(
                 LayaEngine::load_with_execution(
                     LayaEngineConfig {
@@ -251,7 +300,7 @@ pub(crate) fn load_installed_engine(
                     },
                     FamilyBackendArg::NativeCpu.to_execution(args.device_ordinals())?,
                 )
-                .map_err(|error| anyhow!("load installed laya model: {error}"))?,
+                .context("load installed laya model")?,
             ),
             #[cfg(feature = "cuda")]
             LayaBackendArg::Cuda => Arc::new(
@@ -263,7 +312,7 @@ pub(crate) fn load_installed_engine(
                     },
                     FamilyBackendArg::Cuda.to_execution(args.device_ordinals())?,
                 )
-                .map_err(|error| anyhow!("load installed laya model: {error}"))?,
+                .context("load installed laya model")?,
             ),
             #[cfg(feature = "onnx")]
             LayaBackendArg::Onnx => Arc::new(
@@ -275,7 +324,7 @@ pub(crate) fn load_installed_engine(
                     },
                     FamilyBackendArg::Onnx.to_execution(args.device_ordinals())?,
                 )
-                .map_err(|error| anyhow!("load installed laya model: {error}"))?,
+                .context("load installed laya model")?,
             ),
             #[cfg(feature = "onnx")]
             LayaBackendArg::OnnxCuda => Arc::new(
@@ -287,7 +336,7 @@ pub(crate) fn load_installed_engine(
                     },
                     FamilyBackendArg::OnnxCuda.to_execution(args.device_ordinals())?,
                 )
-                .map_err(|error| anyhow!("load installed laya model: {error}"))?,
+                .context("load installed laya model")?,
             ),
             #[cfg(feature = "onnx")]
             LayaBackendArg::OnnxRocm => Arc::new(
@@ -299,7 +348,7 @@ pub(crate) fn load_installed_engine(
                     },
                     FamilyBackendArg::OnnxRocm.to_execution(args.device_ordinals())?,
                 )
-                .map_err(|error| anyhow!("load installed laya model: {error}"))?,
+                .context("load installed laya model")?,
             ),
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             LayaBackendArg::MlxFp32 => Arc::new(
@@ -308,7 +357,7 @@ pub(crate) fn load_installed_engine(
                     model_root: root.to_path_buf(),
                     limits,
                 })
-                .map_err(|error| anyhow!("load installed laya mlx model: {error}"))?,
+                .context("load installed laya mlx model")?,
             ),
         },
         InstalledKind::DecoderLetter => Arc::new(
@@ -321,7 +370,7 @@ pub(crate) fn load_installed_engine(
                     .decoder_letter_backend
                     .to_execution(args.device_ordinals())?,
             )
-            .map_err(|error| anyhow!("load decoder-logit-letter engine: {error}"))?,
+            .context("load decoder-logit-letter engine")?,
         ),
         InstalledKind::EncoderNli => Arc::new(
             EncoderNliEngine::load_with_execution(
@@ -333,10 +382,13 @@ pub(crate) fn load_installed_engine(
                     .encoder_nli_backend
                     .to_execution(args.device_ordinals())?,
             )
-            .map_err(|error| anyhow!("load encoder-nli engine: {error}"))?,
+            .context("load encoder-nli engine")?,
         ),
         InstalledKind::EncoderInstructLabel => {
             match args.family_args.encoder_instruct_label_backend {
+                EncoderInstructLabelBackendArg::Auto => {
+                    unreachable!("auto resolves before loading")
+                }
                 EncoderInstructLabelBackendArg::NativeCpu => Arc::new(
                     EncoderInstructLabelEngine::load_with_execution(
                         EncoderInstructLabelEngineConfig {
@@ -345,7 +397,7 @@ pub(crate) fn load_installed_engine(
                         },
                         FamilyBackendArg::NativeCpu.to_execution(args.device_ordinals())?,
                     )
-                    .map_err(|error| anyhow!("load encoder-instruct-label engine: {error}"))?,
+                    .context("load encoder-instruct-label engine")?,
                 ),
                 #[cfg(feature = "cuda")]
                 EncoderInstructLabelBackendArg::Cuda => Arc::new(
@@ -356,7 +408,7 @@ pub(crate) fn load_installed_engine(
                         },
                         FamilyBackendArg::Cuda.to_execution(args.device_ordinals())?,
                     )
-                    .map_err(|error| anyhow!("load encoder-instruct-label engine: {error}"))?,
+                    .context("load encoder-instruct-label engine")?,
                 ),
                 #[cfg(feature = "onnx")]
                 EncoderInstructLabelBackendArg::Onnx => Arc::new(
@@ -367,7 +419,7 @@ pub(crate) fn load_installed_engine(
                         },
                         FamilyBackendArg::Onnx.to_execution(args.device_ordinals())?,
                     )
-                    .map_err(|error| anyhow!("load encoder-instruct-label engine: {error}"))?,
+                    .context("load encoder-instruct-label engine")?,
                 ),
                 #[cfg(feature = "onnx")]
                 EncoderInstructLabelBackendArg::OnnxCuda => Arc::new(
@@ -378,7 +430,7 @@ pub(crate) fn load_installed_engine(
                         },
                         FamilyBackendArg::OnnxCuda.to_execution(args.device_ordinals())?,
                     )
-                    .map_err(|error| anyhow!("load encoder-instruct-label engine: {error}"))?,
+                    .context("load encoder-instruct-label engine")?,
                 ),
                 #[cfg(feature = "onnx")]
                 EncoderInstructLabelBackendArg::OnnxRocm => Arc::new(
@@ -389,7 +441,7 @@ pub(crate) fn load_installed_engine(
                         },
                         FamilyBackendArg::OnnxRocm.to_execution(args.device_ordinals())?,
                     )
-                    .map_err(|error| anyhow!("load encoder-instruct-label engine: {error}"))?,
+                    .context("load encoder-instruct-label engine")?,
                 ),
                 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
                 EncoderInstructLabelBackendArg::MlxFp32 => Arc::new(
@@ -397,7 +449,7 @@ pub(crate) fn load_installed_engine(
                         model_root: root.join("checkpoint"),
                         limits,
                     })
-                    .map_err(|error| anyhow!("load encoder-instruct-label mlx engine: {error}"))?,
+                    .context("load encoder-instruct-label mlx engine")?,
                 ),
             }
         }
@@ -411,7 +463,7 @@ pub(crate) fn load_installed_engine(
                     .decoder_llm_backend
                     .to_execution(args.device_ordinals())?,
             )
-            .map_err(|error| anyhow!("load decoder-logit-llm engine: {error}"))?,
+            .context("load decoder-logit-llm engine")?,
         ),
         InstalledKind::SchemaScorer => Arc::new(
             SchemaScorerEngine::load_with_execution(
@@ -423,7 +475,7 @@ pub(crate) fn load_installed_engine(
                     .schema_scorer_backend
                     .to_execution(args.device_ordinals())?,
             )
-            .map_err(|error| anyhow!("load schema-scorer engine: {error}"))?,
+            .context("load schema-scorer engine")?,
         ),
         InstalledKind::Qwen3Guard => Arc::new(
             Qwen3GuardEngine::load_with_execution(
@@ -435,7 +487,7 @@ pub(crate) fn load_installed_engine(
                     .qwen3guard_backend
                     .to_execution(args.device_ordinals())?,
             )
-            .map_err(|error| anyhow!("load qwen3guard engine: {error}"))?,
+            .context("load qwen3guard engine")?,
         ),
         InstalledKind::Kev => Arc::new(
             KevEngine::load_with_execution(
@@ -448,7 +500,7 @@ pub(crate) fn load_installed_engine(
                     .kev_backend
                     .to_execution(args.device_ordinals())?,
             )
-            .map_err(|error| anyhow!("load kev engine: {error}"))?,
+            .context("load kev engine")?,
         ),
         InstalledKind::StrandsDecider2b => Arc::new(
             StrandsDeciderEngine::load_with_execution(
@@ -461,17 +513,18 @@ pub(crate) fn load_installed_engine(
                     .strands_decider_backend
                     .to_execution(args.device_ordinals())?,
             )
-            .map_err(|error| anyhow!("load strands-decider-2b engine: {error}"))?,
+            .context("load strands-decider-2b engine")?,
         ),
         InstalledKind::DecoderLogitQwen35(profile) => {
             match args.family_args.decoder_logit_qwen35_backend {
+                DecoderLogitQwen35BackendArg::Auto => unreachable!("auto resolves before loading"),
                 DecoderLogitQwen35BackendArg::NativeCpu => Arc::new(
                     DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
                         profile,
                         model_root: root.join("checkpoint"),
                         limits,
                     })
-                    .map_err(|error| anyhow!("load decoder-logit-qwen35 engine: {error}"))?,
+                    .context("load decoder-logit-qwen35 engine")?,
                 ),
                 #[cfg(feature = "cuda")]
                 DecoderLogitQwen35BackendArg::Cuda => Arc::new(
@@ -483,7 +536,7 @@ pub(crate) fn load_installed_engine(
                         },
                         FamilyBackendArg::Cuda.to_execution(args.device_ordinals())?,
                     )
-                    .map_err(|error| anyhow!("load decoder-logit-qwen35 engine: {error}"))?,
+                    .context("load decoder-logit-qwen35 engine")?,
                 ),
                 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
                 DecoderLogitQwen35BackendArg::MlxFp32 => Arc::new(
@@ -492,7 +545,7 @@ pub(crate) fn load_installed_engine(
                         model_root: root.join("checkpoint"),
                         limits,
                     })
-                    .map_err(|error| anyhow!("load decoder-logit-qwen35 mlx engine: {error}"))?,
+                    .context("load decoder-logit-qwen35 mlx engine")?,
                 ),
             }
         }
@@ -507,7 +560,7 @@ pub(crate) fn load_installed_engine(
                     .von_backend
                     .to_execution(args.device_ordinals())?,
             )
-            .map_err(|error| anyhow!("load von engine: {error}"))?,
+            .context("load von engine")?,
         ),
         InstalledKind::DecoderLogitQwen3(profile) => Arc::new(
             DecoderLogitQwen3Engine::load_with_execution(
@@ -520,11 +573,11 @@ pub(crate) fn load_installed_engine(
                     .decoder_logit_qwen3_backend
                     .to_execution(args.device_ordinals())?,
             )
-            .map_err(|error| anyhow!("load decoder-logit-qwen3 engine: {error}"))?,
+            .context("load decoder-logit-qwen3 engine")?,
         ),
         InstalledKind::Clef(profile) => Arc::new(
             ClefEngine::load(root.join("checkpoint"), profile, limits)
-                .map_err(|error| anyhow!("load clef engine: {error}"))?,
+                .context("load clef engine")?,
         ),
         InstalledKind::Decider4b => Arc::new(
             DeciderEngine::load_with_execution(
@@ -537,7 +590,7 @@ pub(crate) fn load_installed_engine(
                     .decider_4b_backend
                     .to_execution(args.device_ordinals())?,
             )
-            .map_err(|error| anyhow!("load decider-4b engine: {error}"))?,
+            .context("load decider-4b engine")?,
         ),
         InstalledKind::WinnowE4b => Arc::new(
             Gemma4DecisionEngine::load_with_execution(
@@ -549,7 +602,7 @@ pub(crate) fn load_installed_engine(
                     .winnow_e4b_backend
                     .to_execution(args.device_ordinals())?,
             )
-            .map_err(|error| anyhow!("load winnow-e4b engine: {error}"))?,
+            .context("load winnow-e4b engine")?,
         ),
         InstalledKind::Winnow => {
             let mut siblings: Vec<(String, Arc<dyn DecisionEngine>)> = Vec::new();
@@ -583,7 +636,7 @@ pub(crate) fn load_installed_engine(
                         .winnow_backend
                         .to_execution(args.device_ordinals())?,
                 )
-                .map_err(|error| anyhow!("load winnow engine: {error}"))?,
+                .context("load winnow engine")?,
             )
         }
     };
@@ -599,12 +652,12 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         match load_installed_engine(args, kind, root.path(), &EngineRegistry::new()) {
             Ok(_) => panic!("empty model directory must fail loading"),
-            Err(error) => error.to_string(),
+            Err(error) => format!("{error:#}"),
         }
     }
 
     #[test]
-    fn installed_accelerated_families_default_to_cpu() {
+    fn installed_accelerated_families_auto_uses_cpu_when_probes_are_unavailable() {
         let args = Args::parse_from(["openkindd"]);
         for (kind, context) in [
             (
@@ -649,5 +702,198 @@ mod tests {
             let error = empty_model_error(&args, kind);
             assert!(error.starts_with(context), "{error}");
         }
+    }
+}
+
+#[cfg(test)]
+mod classifier_tests {
+    use super::*;
+
+    fn manifest(name: &str, loader: &str, profile: &str) -> Manifest {
+        Manifest {
+            schema: "openkind-model/v1".into(),
+            name: name.into(),
+            profile_id: profile.into(),
+            loader_id: loader.into(),
+            description: "fixture".into(),
+            release_date: "2026-01-01".into(),
+            support_status: "rust-loadable".into(),
+            question_types: vec!["choice".into()],
+            artifacts: vec![],
+        }
+    }
+
+    /// Every curated identity classifies to exactly one loader kind, and
+    /// any drift in the (name, loader, profile) triple fails closed.
+    #[test]
+    fn installed_kind_classifies_curated_identities_and_rejects_drift() {
+        let cases: Vec<(Manifest, &str)> = vec![
+            (
+                manifest(
+                    QWEN35_STATE_FIRST_MODEL_NAME,
+                    "qwen35-state-first",
+                    openkind_backends::qwen35::PROFILE_ID,
+                ),
+                "qwen35",
+            ),
+            (
+                manifest(
+                    LAYA_ENGLISH_MODEL_NAME,
+                    "laya-english",
+                    LAYA_ENGLISH.profile_id,
+                ),
+                "laya",
+            ),
+            (
+                manifest(
+                    LAYA_MULTILINGUAL_MODEL_NAME,
+                    "laya-multilingual",
+                    LAYA_MULTILINGUAL.profile_id,
+                ),
+                "laya",
+            ),
+            (
+                manifest(
+                    LAYA_TYPED_DECISIONS_MODEL_NAME,
+                    "laya-typed-decisions",
+                    LAYA_TYPED_DECISIONS.profile_id,
+                ),
+                "laya",
+            ),
+            (
+                manifest(
+                    DECODER_LOGIT_LETTER_MODEL_NAME,
+                    "decoder-logit-letter",
+                    DECODER_LETTER_PROFILE,
+                ),
+                "letter",
+            ),
+            (
+                manifest(ENCODER_NLI_MODEL_NAME, "encoder-nli", ENCODER_NLI_PROFILE),
+                "encoder-nli",
+            ),
+            (
+                manifest(
+                    ENCODER_INSTRUCT_LABEL_MODEL_NAME,
+                    "encoder-instruct-label",
+                    ENCODER_INSTRUCT_LABEL_PROFILE,
+                ),
+                "label",
+            ),
+            (
+                manifest(
+                    DECODER_LOGIT_LLM_MODEL_NAME,
+                    "decoder-logit-llm",
+                    DECODER_LLM_PROFILE,
+                ),
+                "llm",
+            ),
+            (
+                manifest(
+                    SCHEMA_SCORER_MODEL_NAME,
+                    "schema-scorer",
+                    SCHEMA_SCORER_PROFILE,
+                ),
+                "schema",
+            ),
+            (
+                manifest(QWEN3GUARD_MODEL_NAME, "qwen3guard", QWEN3GUARD_PROFILE),
+                "guard",
+            ),
+            (manifest(KEV_MODEL_NAME, "kev", KEV_PROFILE), "kev"),
+            (
+                manifest(
+                    STRANDS_DECIDER_2B_MODEL_NAME,
+                    "strands-decider-2b",
+                    STRANDS_DECIDER_PROFILE,
+                ),
+                "strands",
+            ),
+            (
+                manifest(
+                    DECODER_LOGIT_QWEN35_MODEL_NAME,
+                    "decoder-logit-qwen35",
+                    DECODER_LOGIT_QWEN35_PROFILE,
+                ),
+                "qwen35-logit",
+            ),
+            (
+                manifest(PLUMB_4B_MODEL_NAME, "plumb-4b", PLUMB_4B.profile_id),
+                "plumb",
+            ),
+            (
+                manifest(
+                    DECODER_LOGIT_QWEN3_06B_MODEL_NAME,
+                    "decoder-logit-qwen3-06b",
+                    QWEN3_06B.profile_id,
+                ),
+                "qwen3",
+            ),
+            (
+                manifest(CLEF_FLASH_MODEL_NAME, "clef-flash", CLEF_FLASH.profile_id),
+                "clef",
+            ),
+            (
+                manifest(
+                    CLEF_FLASH_GGUF_MODEL_NAME,
+                    "clef-flash-gguf",
+                    CLEF_FLASH_GGUF.profile_id,
+                ),
+                "clef-gguf",
+            ),
+            (
+                manifest(
+                    CLEF_27B_GGUF_MODEL_NAME,
+                    "clef-27b-gguf",
+                    CLEF_27B_GGUF.profile_id,
+                ),
+                "clef-27b",
+            ),
+            (
+                manifest(DECIDER_4B_MODEL_NAME, "decider-4b", DECIDER_4B.profile_id),
+                "decider",
+            ),
+            (manifest(VON_MODEL_NAME, "von", VON_PROFILE), "von"),
+            (
+                manifest(WINNOW_MODEL_NAME, "winnow", WINNOW_PROFILE),
+                "winnow",
+            ),
+            (
+                manifest(
+                    WINNOW_E4B_MODEL_NAME,
+                    "winnow-e4b",
+                    openkind_backends::families::gemma4::PROFILE_ID,
+                ),
+                "gemma4",
+            ),
+        ];
+        assert_eq!(cases.len(), 22, "one row per curated installed identity");
+        for (manifest, label) in &cases {
+            assert!(
+                installed_kind(manifest).is_some(),
+                "{label}: a curated identity must classify"
+            );
+        }
+
+        // Mutating any leg of the triple must fail closed so a tampered or
+        // foreign installation never silently loads.
+        let good = manifest(
+            QWEN35_STATE_FIRST_MODEL_NAME,
+            "qwen35-state-first",
+            openkind_backends::qwen35::PROFILE_ID,
+        );
+        let mut drifted = good.clone();
+        drifted.profile_id = "0".repeat(20);
+        assert!(installed_kind(&drifted).is_none(), "wrong profile");
+
+        let mut drifted = good.clone();
+        drifted.loader_id = "impostor".into();
+        assert!(installed_kind(&drifted).is_none(), "wrong loader");
+
+        let mut drifted = good.clone();
+        drifted.name = "fixture:v1".into();
+        assert!(installed_kind(&drifted).is_none(), "wrong name");
+
+        assert!(installed_kind(&manifest("fixture:v1", "fixture", "p")).is_none());
     }
 }

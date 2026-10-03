@@ -77,7 +77,7 @@ impl FamilyAdmission {
 }
 
 /// Surveyed-family daemon configuration.
-#[derive(Debug, Parser)]
+#[derive(Debug, Parser, Clone)]
 pub(crate) struct FamilyArgs {
     /// Aliases in `--models` that should use the pinned decoder-logit-letter
     /// engine (Qwen2.5-0.5B-Instruct letter readout).
@@ -404,7 +404,7 @@ pub(crate) struct FamilyArgs {
         long,
         env = "OPENKIND_LAYA_BACKEND",
         value_enum,
-        default_value_t = LayaBackendArg::NativeCpu
+        default_value_t = LayaBackendArg::Auto
     )]
     pub(crate) laya_backend: LayaBackendArg,
 
@@ -416,7 +416,7 @@ pub(crate) struct FamilyArgs {
         long,
         env = "OPENKIND_ENCODER_INSTRUCT_LABEL_BACKEND",
         value_enum,
-        default_value_t = EncoderInstructLabelBackendArg::NativeCpu
+        default_value_t = EncoderInstructLabelBackendArg::Auto
     )]
     pub(crate) encoder_instruct_label_backend: EncoderInstructLabelBackendArg,
 
@@ -427,7 +427,7 @@ pub(crate) struct FamilyArgs {
         long,
         env = "OPENKIND_DECODER_LOGIT_QWEN35_BACKEND",
         value_enum,
-        default_value_t = DecoderLogitQwen35BackendArg::NativeCpu
+        default_value_t = DecoderLogitQwen35BackendArg::Auto
     )]
     pub(crate) decoder_logit_qwen35_backend: DecoderLogitQwen35BackendArg,
 
@@ -438,7 +438,7 @@ pub(crate) struct FamilyArgs {
         long,
         env = "OPENKIND_ENCODER_NLI_BACKEND",
         value_enum,
-        default_value_t = FamilyBackendArg::NativeCpu
+        default_value_t = FamilyBackendArg::Auto
     )]
     pub(crate) encoder_nli_backend: FamilyBackendArg,
 
@@ -449,7 +449,7 @@ pub(crate) struct FamilyArgs {
         long,
         env = "OPENKIND_DECODER_LETTER_BACKEND",
         value_enum,
-        default_value_t = FamilyBackendArg::NativeCpu
+        default_value_t = FamilyBackendArg::Auto
     )]
     pub(crate) decoder_letter_backend: FamilyBackendArg,
 
@@ -459,7 +459,7 @@ pub(crate) struct FamilyArgs {
         long,
         env = "OPENKIND_KEV_BACKEND",
         value_enum,
-        default_value_t = CudaOnlyBackendArg::NativeCpu
+        default_value_t = CudaOnlyBackendArg::Auto
     )]
     pub(crate) kev_backend: CudaOnlyBackendArg,
 
@@ -470,7 +470,7 @@ pub(crate) struct FamilyArgs {
         long,
         env = "OPENKIND_STRANDS_DECIDER_BACKEND",
         value_enum,
-        default_value_t = CudaOnlyBackendArg::NativeCpu
+        default_value_t = CudaOnlyBackendArg::Auto
     )]
     pub(crate) strands_decider_backend: CudaOnlyBackendArg,
 
@@ -480,7 +480,7 @@ pub(crate) struct FamilyArgs {
         long,
         env = "OPENKIND_DECODER_LLM_BACKEND",
         value_enum,
-        default_value_t = CudaOnlyBackendArg::NativeCpu
+        default_value_t = CudaOnlyBackendArg::Auto
     )]
     pub(crate) decoder_llm_backend: CudaOnlyBackendArg,
 
@@ -491,7 +491,7 @@ pub(crate) struct FamilyArgs {
         long,
         env = "OPENKIND_SCHEMA_SCORER_BACKEND",
         value_enum,
-        default_value_t = FamilyBackendArg::NativeCpu
+        default_value_t = FamilyBackendArg::Auto
     )]
     pub(crate) schema_scorer_backend: FamilyBackendArg,
 
@@ -502,7 +502,7 @@ pub(crate) struct FamilyArgs {
         long,
         env = "OPENKIND_QWEN3GUARD_BACKEND",
         value_enum,
-        default_value_t = FamilyBackendArg::NativeCpu
+        default_value_t = FamilyBackendArg::Auto
     )]
     pub(crate) qwen3guard_backend: FamilyBackendArg,
 
@@ -513,7 +513,7 @@ pub(crate) struct FamilyArgs {
         long,
         env = "OPENKIND_VON_BACKEND",
         value_enum,
-        default_value_t = FamilyBackendArg::NativeCpu
+        default_value_t = FamilyBackendArg::Auto
     )]
     pub(crate) von_backend: FamilyBackendArg,
 
@@ -524,7 +524,7 @@ pub(crate) struct FamilyArgs {
         long,
         env = "OPENKIND_DECODER_LOGIT_QWEN3_BACKEND",
         value_enum,
-        default_value_t = FamilyBackendArg::NativeCpu
+        default_value_t = FamilyBackendArg::Auto
     )]
     pub(crate) decoder_logit_qwen3_backend: FamilyBackendArg,
 
@@ -534,7 +534,7 @@ pub(crate) struct FamilyArgs {
         long,
         env = "OPENKIND_DECIDER_4B_BACKEND",
         value_enum,
-        default_value_t = CudaOnlyBackendArg::NativeCpu
+        default_value_t = CudaOnlyBackendArg::Auto
     )]
     pub(crate) decider_4b_backend: CudaOnlyBackendArg,
 
@@ -559,7 +559,7 @@ pub(crate) struct FamilyArgs {
         long,
         env = "OPENKIND_WINNOW_E4B_BACKEND",
         value_enum,
-        default_value_t = CudaOnlyBackendArg::NativeCpu
+        default_value_t = CudaOnlyBackendArg::Auto
     )]
     pub(crate) winnow_e4b_backend: CudaOnlyBackendArg,
 
@@ -569,7 +569,7 @@ pub(crate) struct FamilyArgs {
         long,
         env = "OPENKIND_WINNOW_BACKEND",
         value_enum,
-        default_value_t = CudaOnlyBackendArg::NativeCpu
+        default_value_t = CudaOnlyBackendArg::Auto
     )]
     pub(crate) winnow_backend: CudaOnlyBackendArg,
 
@@ -616,17 +616,23 @@ impl FamilyArgs {
             let model_root = self.decoder_letter_model_root.clone().context(
                 "decoder-letter alias requested but --decoder-letter-model-root is missing",
             )?;
-            let execution = self.decoder_letter_backend.to_execution(devices)?;
-            let engine: Arc<dyn DecisionEngine> = Arc::new(
-                DecoderLetterEngine::load_with_execution(
-                    DecoderLetterEngineConfig {
-                        model_root,
-                        limits: admission.limits(),
-                    },
-                    execution,
-                )
-                .map_err(|error| anyhow::anyhow!("load decoder-logit-letter engine: {error}"))?,
-            );
+            let engine: Arc<dyn DecisionEngine> = crate::backend::load(
+                self.decoder_letter_backend,
+                &model_root,
+                devices,
+                |backend| {
+                    Ok(Arc::new(
+                        DecoderLetterEngine::load_with_execution(
+                            DecoderLetterEngineConfig {
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            },
+                            backend.to_execution(devices)?,
+                        )
+                        .context("load decoder-logit-letter engine")?,
+                    ) as Arc<dyn DecisionEngine>)
+                },
+            )?;
             for alias in decoder_letter {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
@@ -642,17 +648,19 @@ impl FamilyArgs {
                 .encoder_nli_model_root
                 .clone()
                 .context("encoder-nli alias requested but --encoder-nli-model-root is missing")?;
-            let execution = self.encoder_nli_backend.to_execution(devices)?;
-            let engine: Arc<dyn DecisionEngine> = Arc::new(
-                EncoderNliEngine::load_with_execution(
-                    EncoderNliEngineConfig {
-                        model_root,
-                        limits: admission.limits(),
-                    },
-                    execution,
-                )
-                .map_err(|error| anyhow::anyhow!("load encoder-nli engine: {error}"))?,
-            );
+            let engine: Arc<dyn DecisionEngine> =
+                crate::backend::load(self.encoder_nli_backend, &model_root, devices, |backend| {
+                    Ok(Arc::new(
+                        EncoderNliEngine::load_with_execution(
+                            EncoderNliEngineConfig {
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            },
+                            backend.to_execution(devices)?,
+                        )
+                        .context("load encoder-nli engine")?,
+                    ) as Arc<dyn DecisionEngine>)
+                })?;
             for alias in encoder_nli {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
@@ -670,82 +678,82 @@ impl FamilyArgs {
                 .context(
                     "encoder-instruct-label alias requested but                      --encoder-instruct-label-model-root is missing",
                 )?;
-            let engine: Arc<dyn DecisionEngine> = match self.encoder_instruct_label_backend {
-                EncoderInstructLabelBackendArg::NativeCpu => Arc::new(
-                    EncoderInstructLabelEngine::load_with_execution(
-                        EncoderInstructLabelEngineConfig {
-                            model_root,
-                            limits: admission.limits(),
-                        },
-                        FamilyBackendArg::NativeCpu.to_execution(devices)?,
-                    )
-                    .map_err(|error| {
-                        anyhow::anyhow!("load encoder-instruct-label engine: {error}")
-                    })?,
-                ),
-                #[cfg(feature = "cuda")]
-                EncoderInstructLabelBackendArg::Cuda => Arc::new(
-                    EncoderInstructLabelEngine::load_with_execution(
-                        EncoderInstructLabelEngineConfig {
-                            model_root,
-                            limits: admission.limits(),
-                        },
-                        FamilyBackendArg::Cuda.to_execution(devices)?,
-                    )
-                    .map_err(|error| {
-                        anyhow::anyhow!("load encoder-instruct-label engine: {error}")
-                    })?,
-                ),
-                #[cfg(feature = "onnx")]
-                EncoderInstructLabelBackendArg::Onnx => Arc::new(
-                    EncoderInstructLabelEngine::load_with_execution(
-                        EncoderInstructLabelEngineConfig {
-                            model_root,
-                            limits: admission.limits(),
-                        },
-                        FamilyBackendArg::Onnx.to_execution(devices)?,
-                    )
-                    .map_err(|error| {
-                        anyhow::anyhow!("load encoder-instruct-label engine: {error}")
-                    })?,
-                ),
-                #[cfg(feature = "onnx")]
-                EncoderInstructLabelBackendArg::OnnxCuda => Arc::new(
-                    EncoderInstructLabelEngine::load_with_execution(
-                        EncoderInstructLabelEngineConfig {
-                            model_root,
-                            limits: admission.limits(),
-                        },
-                        FamilyBackendArg::OnnxCuda.to_execution(devices)?,
-                    )
-                    .map_err(|error| {
-                        anyhow::anyhow!("load encoder-instruct-label engine: {error}")
-                    })?,
-                ),
-                #[cfg(feature = "onnx")]
-                EncoderInstructLabelBackendArg::OnnxRocm => Arc::new(
-                    EncoderInstructLabelEngine::load_with_execution(
-                        EncoderInstructLabelEngineConfig {
-                            model_root,
-                            limits: admission.limits(),
-                        },
-                        FamilyBackendArg::OnnxRocm.to_execution(devices)?,
-                    )
-                    .map_err(|error| {
-                        anyhow::anyhow!("load encoder-instruct-label engine: {error}")
-                    })?,
-                ),
-                #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
-                EncoderInstructLabelBackendArg::MlxFp32 => Arc::new(
-                    EncoderInstructLabelMlxEngine::load(EncoderInstructLabelMlxEngineConfig {
-                        model_root,
-                        limits: admission.limits(),
-                    })
-                    .map_err(|error| {
-                        anyhow::anyhow!("load encoder-instruct-label mlx engine: {error}")
-                    })?,
-                ),
-            };
+            let engine: Arc<dyn DecisionEngine> = crate::backend::load(
+                self.encoder_instruct_label_backend,
+                &model_root,
+                devices,
+                |backend| {
+                    Ok(match backend {
+                        EncoderInstructLabelBackendArg::Auto => {
+                            unreachable!("auto resolves before loading")
+                        }
+                        EncoderInstructLabelBackendArg::NativeCpu => Arc::new(
+                            EncoderInstructLabelEngine::load_with_execution(
+                                EncoderInstructLabelEngineConfig {
+                                    model_root: model_root.clone(),
+                                    limits: admission.limits(),
+                                },
+                                FamilyBackendArg::NativeCpu.to_execution(devices)?,
+                            )
+                            .context("load encoder-instruct-label engine")?,
+                        ),
+                        #[cfg(feature = "cuda")]
+                        EncoderInstructLabelBackendArg::Cuda => Arc::new(
+                            EncoderInstructLabelEngine::load_with_execution(
+                                EncoderInstructLabelEngineConfig {
+                                    model_root: model_root.clone(),
+                                    limits: admission.limits(),
+                                },
+                                FamilyBackendArg::Cuda.to_execution(devices)?,
+                            )
+                            .context("load encoder-instruct-label engine")?,
+                        ),
+                        #[cfg(feature = "onnx")]
+                        EncoderInstructLabelBackendArg::Onnx => Arc::new(
+                            EncoderInstructLabelEngine::load_with_execution(
+                                EncoderInstructLabelEngineConfig {
+                                    model_root: model_root.clone(),
+                                    limits: admission.limits(),
+                                },
+                                FamilyBackendArg::Onnx.to_execution(devices)?,
+                            )
+                            .context("load encoder-instruct-label engine")?,
+                        ),
+                        #[cfg(feature = "onnx")]
+                        EncoderInstructLabelBackendArg::OnnxCuda => Arc::new(
+                            EncoderInstructLabelEngine::load_with_execution(
+                                EncoderInstructLabelEngineConfig {
+                                    model_root: model_root.clone(),
+                                    limits: admission.limits(),
+                                },
+                                FamilyBackendArg::OnnxCuda.to_execution(devices)?,
+                            )
+                            .context("load encoder-instruct-label engine")?,
+                        ),
+                        #[cfg(feature = "onnx")]
+                        EncoderInstructLabelBackendArg::OnnxRocm => Arc::new(
+                            EncoderInstructLabelEngine::load_with_execution(
+                                EncoderInstructLabelEngineConfig {
+                                    model_root: model_root.clone(),
+                                    limits: admission.limits(),
+                                },
+                                FamilyBackendArg::OnnxRocm.to_execution(devices)?,
+                            )
+                            .context("load encoder-instruct-label engine")?,
+                        ),
+                        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                        EncoderInstructLabelBackendArg::MlxFp32 => Arc::new(
+                            EncoderInstructLabelMlxEngine::load(
+                                EncoderInstructLabelMlxEngineConfig {
+                                    model_root: model_root.clone(),
+                                    limits: admission.limits(),
+                                },
+                            )
+                            .context("load encoder-instruct-label mlx engine")?,
+                        ),
+                    } as Arc<dyn DecisionEngine>)
+                },
+            )?;
             for alias in encoder_instruct_label {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
@@ -761,17 +769,19 @@ impl FamilyArgs {
                 .decoder_llm_model_root
                 .clone()
                 .context("decoder-llm alias requested but --decoder-llm-model-root is missing")?;
-            let execution = self.decoder_llm_backend.to_execution(devices)?;
-            let engine: Arc<dyn DecisionEngine> = Arc::new(
-                DecoderLlmEngine::load_with_execution(
-                    DecoderLlmEngineConfig {
-                        model_root,
-                        limits: admission.limits(),
-                    },
-                    execution,
-                )
-                .map_err(|error| anyhow::anyhow!("load decoder-logit-llm engine: {error}"))?,
-            );
+            let engine: Arc<dyn DecisionEngine> =
+                crate::backend::load(self.decoder_llm_backend, &model_root, devices, |backend| {
+                    Ok(Arc::new(
+                        DecoderLlmEngine::load_with_execution(
+                            DecoderLlmEngineConfig {
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            },
+                            backend.to_execution(devices)?,
+                        )
+                        .context("load decoder-logit-llm engine")?,
+                    ) as Arc<dyn DecisionEngine>)
+                })?;
             for alias in decoder_llm {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
@@ -791,18 +801,20 @@ impl FamilyArgs {
                 .kev_base_root
                 .clone()
                 .context("kev alias requested but --kev-base-root is missing")?;
-            let execution = self.kev_backend.to_execution(devices)?;
-            let engine: Arc<dyn DecisionEngine> = Arc::new(
-                KevEngine::load_with_execution(
-                    KevEngineConfig {
-                        model_root,
-                        base_root,
-                        limits: admission.limits(),
-                    },
-                    execution,
-                )
-                .map_err(|error| anyhow::anyhow!("load kev engine: {error}"))?,
-            );
+            let engine: Arc<dyn DecisionEngine> =
+                crate::backend::load(self.kev_backend, &model_root, devices, |backend| {
+                    Ok(Arc::new(
+                        KevEngine::load_with_execution(
+                            KevEngineConfig {
+                                model_root: model_root.clone(),
+                                base_root: base_root.clone(),
+                                limits: admission.limits(),
+                            },
+                            backend.to_execution(devices)?,
+                        )
+                        .context("load kev engine")?,
+                    ) as Arc<dyn DecisionEngine>)
+                })?;
             for alias in kev {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
@@ -820,18 +832,24 @@ impl FamilyArgs {
             let base_root = self.strands_decider_base_root.clone().context(
                 "strands-decider alias requested but --strands-decider-base-root is missing",
             )?;
-            let execution = self.strands_decider_backend.to_execution(devices)?;
-            let engine: Arc<dyn DecisionEngine> = Arc::new(
-                StrandsDeciderEngine::load_with_execution(
-                    StrandsDeciderEngineConfig {
-                        model_root,
-                        base_root,
-                        limits: admission.limits(),
-                    },
-                    execution,
-                )
-                .map_err(|error| anyhow::anyhow!("load strands-decider-2b engine: {error}"))?,
-            );
+            let engine: Arc<dyn DecisionEngine> = crate::backend::load(
+                self.strands_decider_backend,
+                &model_root,
+                devices,
+                |backend| {
+                    Ok(Arc::new(
+                        StrandsDeciderEngine::load_with_execution(
+                            StrandsDeciderEngineConfig {
+                                model_root: model_root.clone(),
+                                base_root: base_root.clone(),
+                                limits: admission.limits(),
+                            },
+                            backend.to_execution(devices)?,
+                        )
+                        .context("load strands-decider-2b engine")?,
+                    ) as Arc<dyn DecisionEngine>)
+                },
+            )?;
             for alias in strands_decider {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
@@ -846,17 +864,23 @@ impl FamilyArgs {
             let model_root = self.schema_scorer_model_root.clone().context(
                 "schema-scorer alias requested but --schema-scorer-model-root is missing",
             )?;
-            let execution = self.schema_scorer_backend.to_execution(devices)?;
-            let engine: Arc<dyn DecisionEngine> = Arc::new(
-                SchemaScorerEngine::load_with_execution(
-                    SchemaScorerEngineConfig {
-                        model_root,
-                        limits: admission.limits(),
-                    },
-                    execution,
-                )
-                .map_err(|error| anyhow::anyhow!("load schema-scorer engine: {error}"))?,
-            );
+            let engine: Arc<dyn DecisionEngine> = crate::backend::load(
+                self.schema_scorer_backend,
+                &model_root,
+                devices,
+                |backend| {
+                    Ok(Arc::new(
+                        SchemaScorerEngine::load_with_execution(
+                            SchemaScorerEngineConfig {
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            },
+                            backend.to_execution(devices)?,
+                        )
+                        .context("load schema-scorer engine")?,
+                    ) as Arc<dyn DecisionEngine>)
+                },
+            )?;
             for alias in schema_scorer {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
@@ -872,17 +896,19 @@ impl FamilyArgs {
                 .qwen3guard_model_root
                 .clone()
                 .context("qwen3guard alias requested but --qwen3guard-model-root is missing")?;
-            let execution = self.qwen3guard_backend.to_execution(devices)?;
-            let engine: Arc<dyn DecisionEngine> = Arc::new(
-                Qwen3GuardEngine::load_with_execution(
-                    Qwen3GuardEngineConfig {
-                        model_root,
-                        limits: admission.limits(),
-                    },
-                    execution,
-                )
-                .map_err(|error| anyhow::anyhow!("load qwen3guard engine: {error}"))?,
-            );
+            let engine: Arc<dyn DecisionEngine> =
+                crate::backend::load(self.qwen3guard_backend, &model_root, devices, |backend| {
+                    Ok(Arc::new(
+                        Qwen3GuardEngine::load_with_execution(
+                            Qwen3GuardEngineConfig {
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            },
+                            backend.to_execution(devices)?,
+                        )
+                        .context("load qwen3guard engine")?,
+                    ) as Arc<dyn DecisionEngine>)
+                })?;
             for alias in qwen3guard {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
@@ -898,18 +924,20 @@ impl FamilyArgs {
                 .von_model_root
                 .clone()
                 .context("von alias requested but --von-model-root is missing")?;
-            let execution = self.von_backend.to_execution(devices)?;
-            let engine: Arc<dyn DecisionEngine> = Arc::new(
-                VonEngine::load_with_execution(
-                    VonEngineConfig {
-                        profile: &VON,
-                        model_root,
-                        limits: admission.limits(),
-                    },
-                    execution,
-                )
-                .map_err(|error| anyhow::anyhow!("load von engine: {error}"))?,
-            );
+            let engine: Arc<dyn DecisionEngine> =
+                crate::backend::load(self.von_backend, &model_root, devices, |backend| {
+                    Ok(Arc::new(
+                        VonEngine::load_with_execution(
+                            VonEngineConfig {
+                                profile: &VON,
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            },
+                            backend.to_execution(devices)?,
+                        )
+                        .context("load von engine")?,
+                    ) as Arc<dyn DecisionEngine>)
+                })?;
             for alias in von {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
@@ -927,43 +955,46 @@ impl FamilyArgs {
                 .context(
                     "decoder-logit-qwen35 alias requested but                      --decoder-logit-qwen35-model-root is missing",
                 )?;
-            let engine: Arc<dyn DecisionEngine> = match self.decoder_logit_qwen35_backend {
+            let engine: Arc<dyn DecisionEngine> =
+                crate::backend::load(
+                    self.decoder_logit_qwen35_backend,
+                    &model_root,
+                    devices,
+                    |backend| {
+                        Ok(match backend {
+                DecoderLogitQwen35BackendArg::Auto => unreachable!("auto resolves before loading"),
                 DecoderLogitQwen35BackendArg::NativeCpu => Arc::new(
                     DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
                         profile: &openkind_backends::families::decoder_logit_qwen35::JEVK5,
-                        model_root,
+                        model_root: model_root.clone(),
                         limits: admission.limits(),
                     })
-                    .map_err(|error| {
-                        anyhow::anyhow!("load decoder-logit-qwen35 engine: {error}")
-                    })?,
+                    .context("load decoder-logit-qwen35 engine")?,
                 ),
                 #[cfg(feature = "cuda")]
                 DecoderLogitQwen35BackendArg::Cuda => Arc::new(
                     DecoderLogitQwen35Engine::load_with_execution(
                         DecoderLogitQwen35EngineConfig {
                             profile: &openkind_backends::families::decoder_logit_qwen35::JEVK5,
-                            model_root,
+                            model_root: model_root.clone(),
                             limits: admission.limits(),
                         },
                         FamilyBackendArg::Cuda.to_execution(devices)?,
                     )
-                    .map_err(|error| {
-                        anyhow::anyhow!("load decoder-logit-qwen35 engine: {error}")
-                    })?,
+                    .context("load decoder-logit-qwen35 engine")?,
                 ),
                 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
                 DecoderLogitQwen35BackendArg::MlxFp32 => Arc::new(
                     DecoderLogitQwen35MlxEngine::load(DecoderLogitQwen35MlxEngineConfig {
                         profile: &openkind_backends::families::decoder_logit_qwen35::JEVK5,
-                        model_root,
+                        model_root: model_root.clone(),
                         limits: admission.limits(),
                     })
-                    .map_err(|error| {
-                        anyhow::anyhow!("load decoder-logit-qwen35 mlx engine: {error}")
-                    })?,
+                    .context("load decoder-logit-qwen35 mlx engine")?,
                 ),
-            };
+            } as Arc<dyn DecisionEngine>)
+                    },
+                )?;
             for alias in decoder_logit_qwen35 {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
@@ -979,37 +1010,47 @@ impl FamilyArgs {
                 .plumb_4b_model_root
                 .clone()
                 .context("plumb-4b alias requested but --plumb-4b-model-root is missing")?;
-            let engine: Arc<dyn DecisionEngine> = match self.decoder_logit_qwen35_backend {
-                DecoderLogitQwen35BackendArg::NativeCpu => Arc::new(
-                    DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
-                        profile: &PLUMB_4B,
-                        model_root,
-                        limits: admission.limits(),
-                    })
-                    .map_err(|error| anyhow::anyhow!("load plumb-4b engine: {error}"))?,
-                ),
-                #[cfg(feature = "cuda")]
-                DecoderLogitQwen35BackendArg::Cuda => Arc::new(
-                    DecoderLogitQwen35Engine::load_with_execution(
-                        DecoderLogitQwen35EngineConfig {
-                            profile: &PLUMB_4B,
-                            model_root,
-                            limits: admission.limits(),
-                        },
-                        FamilyBackendArg::Cuda.to_execution(devices)?,
-                    )
-                    .map_err(|error| anyhow::anyhow!("load plumb-4b engine: {error}"))?,
-                ),
-                #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
-                DecoderLogitQwen35BackendArg::MlxFp32 => Arc::new(
-                    DecoderLogitQwen35MlxEngine::load(DecoderLogitQwen35MlxEngineConfig {
-                        profile: &PLUMB_4B,
-                        model_root,
-                        limits: admission.limits(),
-                    })
-                    .map_err(|error| anyhow::anyhow!("load plumb-4b mlx engine: {error}"))?,
-                ),
-            };
+            let engine: Arc<dyn DecisionEngine> = crate::backend::load(
+                self.decoder_logit_qwen35_backend,
+                &model_root,
+                devices,
+                |backend| {
+                    Ok(match backend {
+                        DecoderLogitQwen35BackendArg::Auto => {
+                            unreachable!("auto resolves before loading")
+                        }
+                        DecoderLogitQwen35BackendArg::NativeCpu => Arc::new(
+                            DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
+                                profile: &PLUMB_4B,
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            })
+                            .context("load plumb-4b engine")?,
+                        ),
+                        #[cfg(feature = "cuda")]
+                        DecoderLogitQwen35BackendArg::Cuda => Arc::new(
+                            DecoderLogitQwen35Engine::load_with_execution(
+                                DecoderLogitQwen35EngineConfig {
+                                    profile: &PLUMB_4B,
+                                    model_root: model_root.clone(),
+                                    limits: admission.limits(),
+                                },
+                                FamilyBackendArg::Cuda.to_execution(devices)?,
+                            )
+                            .context("load plumb-4b engine")?,
+                        ),
+                        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                        DecoderLogitQwen35BackendArg::MlxFp32 => Arc::new(
+                            DecoderLogitQwen35MlxEngine::load(DecoderLogitQwen35MlxEngineConfig {
+                                profile: &PLUMB_4B,
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            })
+                            .context("load plumb-4b mlx engine")?,
+                        ),
+                    } as Arc<dyn DecisionEngine>)
+                },
+            )?;
             for alias in plumb_4b {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
@@ -1054,21 +1095,25 @@ impl FamilyArgs {
             }
         }
         if !qwen3_controls.is_empty() {
-            let qwen3_execution = self.decoder_logit_qwen3_backend.to_execution(devices)?;
             for (alias, model_root, profile, size) in &qwen3_controls {
-                let engine: Arc<dyn DecisionEngine> = Arc::new(
-                    DecoderLogitQwen3Engine::load_with_execution(
-                        DecoderLogitQwen3EngineConfig {
-                            profile,
-                            model_root: model_root.clone(),
-                            limits: admission.limits(),
-                        },
-                        qwen3_execution,
-                    )
-                    .map_err(|error| {
-                        anyhow::anyhow!("load decoder-logit-qwen3-{size} engine: {error}")
-                    })?,
-                );
+                let engine: Arc<dyn DecisionEngine> = crate::backend::load(
+                    self.decoder_logit_qwen3_backend,
+                    model_root,
+                    devices,
+                    |backend| {
+                        Ok(Arc::new(
+                            DecoderLogitQwen3Engine::load_with_execution(
+                                DecoderLogitQwen3EngineConfig {
+                                    profile,
+                                    model_root: model_root.clone(),
+                                    limits: admission.limits(),
+                                },
+                                backend.to_execution(devices)?,
+                            )
+                            .with_context(|| format!("load decoder-logit-qwen3-{size} engine"))?,
+                        ) as Arc<dyn DecisionEngine>)
+                    },
+                )?;
                 engines.push(((*alias).clone(), Arc::clone(&engine)));
             }
         }
@@ -1118,7 +1163,7 @@ impl FamilyArgs {
                         profile,
                         admission.limits(),
                     )
-                    .map_err(|error| anyhow::anyhow!("load clef-{size} engine: {error}"))?,
+                    .with_context(|| format!("load clef-{size} engine"))?,
                 );
                 engines.push(((*alias).clone(), Arc::clone(&engine)));
             }
@@ -1134,18 +1179,20 @@ impl FamilyArgs {
                 .decider_4b_model_root
                 .clone()
                 .context("decider-4b alias requested but --decider-4b-model-root is missing")?;
-            let execution = self.decider_4b_backend.to_execution(devices)?;
-            let engine: Arc<dyn DecisionEngine> = Arc::new(
-                DeciderEngine::load_with_execution(
-                    DeciderEngineConfig {
-                        profile: &DECIDER_4B,
-                        model_root,
-                        limits: admission.limits(),
-                    },
-                    execution,
-                )
-                .map_err(|error| anyhow::anyhow!("load decider-4b engine: {error}"))?,
-            );
+            let engine: Arc<dyn DecisionEngine> =
+                crate::backend::load(self.decider_4b_backend, &model_root, devices, |backend| {
+                    Ok(Arc::new(
+                        DeciderEngine::load_with_execution(
+                            DeciderEngineConfig {
+                                profile: &DECIDER_4B,
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            },
+                            backend.to_execution(devices)?,
+                        )
+                        .context("load decider-4b engine")?,
+                    ) as Arc<dyn DecisionEngine>)
+                })?;
             for alias in decider_4b {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
@@ -1161,17 +1208,19 @@ impl FamilyArgs {
                 .winnow_e4b_model_root
                 .clone()
                 .context("winnow-e4b alias requested but --winnow-e4b-model-root is missing")?;
-            let execution = self.winnow_e4b_backend.to_execution(devices)?;
-            let engine: Arc<dyn DecisionEngine> = Arc::new(
-                Gemma4DecisionEngine::load_with_execution(
-                    Gemma4EngineConfig {
-                        model_root,
-                        limits: admission.limits(),
-                    },
-                    execution,
-                )
-                .map_err(|error| anyhow::anyhow!("load winnow-e4b engine: {error}"))?,
-            );
+            let engine: Arc<dyn DecisionEngine> =
+                crate::backend::load(self.winnow_e4b_backend, &model_root, devices, |backend| {
+                    Ok(Arc::new(
+                        Gemma4DecisionEngine::load_with_execution(
+                            Gemma4EngineConfig {
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            },
+                            backend.to_execution(devices)?,
+                        )
+                        .context("load winnow-e4b engine")?,
+                    ) as Arc<dyn DecisionEngine>)
+                })?;
             for alias in winnow_e4b {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
@@ -1216,76 +1265,80 @@ impl FamilyArgs {
             laya_requested.push((requested, model_root, profile, name));
         }
         for (requested, model_root, profile, name) in laya_requested {
-            let engine: Arc<dyn DecisionEngine> = match self.laya_backend {
-                LayaBackendArg::NativeCpu => Arc::new(
-                    LayaEngine::load_with_execution(
-                        LayaEngineConfig {
-                            profile,
-                            model_root,
-                            limits: admission.limits(),
-                        },
-                        FamilyBackendArg::NativeCpu.to_execution(devices)?,
-                    )
-                    .map_err(|error| anyhow::anyhow!("load {name} engine: {error}"))?,
-                ),
-                #[cfg(feature = "cuda")]
-                LayaBackendArg::Cuda => Arc::new(
-                    LayaEngine::load_with_execution(
-                        LayaEngineConfig {
-                            profile,
-                            model_root,
-                            limits: admission.limits(),
-                        },
-                        FamilyBackendArg::Cuda.to_execution(devices)?,
-                    )
-                    .map_err(|error| anyhow::anyhow!("load {name} engine: {error}"))?,
-                ),
-                #[cfg(feature = "onnx")]
-                LayaBackendArg::Onnx => Arc::new(
-                    LayaEngine::load_with_execution(
-                        LayaEngineConfig {
-                            profile,
-                            model_root,
-                            limits: admission.limits(),
-                        },
-                        FamilyBackendArg::Onnx.to_execution(devices)?,
-                    )
-                    .map_err(|error| anyhow::anyhow!("load {name} engine: {error}"))?,
-                ),
-                #[cfg(feature = "onnx")]
-                LayaBackendArg::OnnxCuda => Arc::new(
-                    LayaEngine::load_with_execution(
-                        LayaEngineConfig {
-                            profile,
-                            model_root,
-                            limits: admission.limits(),
-                        },
-                        FamilyBackendArg::OnnxCuda.to_execution(devices)?,
-                    )
-                    .map_err(|error| anyhow::anyhow!("load {name} engine: {error}"))?,
-                ),
-                #[cfg(feature = "onnx")]
-                LayaBackendArg::OnnxRocm => Arc::new(
-                    LayaEngine::load_with_execution(
-                        LayaEngineConfig {
-                            profile,
-                            model_root,
-                            limits: admission.limits(),
-                        },
-                        FamilyBackendArg::OnnxRocm.to_execution(devices)?,
-                    )
-                    .map_err(|error| anyhow::anyhow!("load {name} engine: {error}"))?,
-                ),
-                #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
-                LayaBackendArg::MlxFp32 => Arc::new(
-                    LayaMlxEngine::load(LayaMlxEngineConfig {
-                        profile,
-                        model_root,
-                        limits: admission.limits(),
-                    })
-                    .map_err(|error| anyhow::anyhow!("load {name} mlx engine: {error}"))?,
-                ),
-            };
+            let engine: Arc<dyn DecisionEngine> =
+                crate::backend::load(self.laya_backend, &model_root, devices, |backend| {
+                    Ok(match backend {
+                        LayaBackendArg::Auto => unreachable!("auto resolves before loading"),
+                        LayaBackendArg::NativeCpu => Arc::new(
+                            LayaEngine::load_with_execution(
+                                LayaEngineConfig {
+                                    profile,
+                                    model_root: model_root.clone(),
+                                    limits: admission.limits(),
+                                },
+                                FamilyBackendArg::NativeCpu.to_execution(devices)?,
+                            )
+                            .with_context(|| format!("load {name} engine"))?,
+                        ),
+                        #[cfg(feature = "cuda")]
+                        LayaBackendArg::Cuda => Arc::new(
+                            LayaEngine::load_with_execution(
+                                LayaEngineConfig {
+                                    profile,
+                                    model_root: model_root.clone(),
+                                    limits: admission.limits(),
+                                },
+                                FamilyBackendArg::Cuda.to_execution(devices)?,
+                            )
+                            .with_context(|| format!("load {name} engine"))?,
+                        ),
+                        #[cfg(feature = "onnx")]
+                        LayaBackendArg::Onnx => Arc::new(
+                            LayaEngine::load_with_execution(
+                                LayaEngineConfig {
+                                    profile,
+                                    model_root: model_root.clone(),
+                                    limits: admission.limits(),
+                                },
+                                FamilyBackendArg::Onnx.to_execution(devices)?,
+                            )
+                            .with_context(|| format!("load {name} engine"))?,
+                        ),
+                        #[cfg(feature = "onnx")]
+                        LayaBackendArg::OnnxCuda => Arc::new(
+                            LayaEngine::load_with_execution(
+                                LayaEngineConfig {
+                                    profile,
+                                    model_root: model_root.clone(),
+                                    limits: admission.limits(),
+                                },
+                                FamilyBackendArg::OnnxCuda.to_execution(devices)?,
+                            )
+                            .with_context(|| format!("load {name} engine"))?,
+                        ),
+                        #[cfg(feature = "onnx")]
+                        LayaBackendArg::OnnxRocm => Arc::new(
+                            LayaEngine::load_with_execution(
+                                LayaEngineConfig {
+                                    profile,
+                                    model_root: model_root.clone(),
+                                    limits: admission.limits(),
+                                },
+                                FamilyBackendArg::OnnxRocm.to_execution(devices)?,
+                            )
+                            .with_context(|| format!("load {name} engine"))?,
+                        ),
+                        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                        LayaBackendArg::MlxFp32 => Arc::new(
+                            LayaMlxEngine::load(LayaMlxEngineConfig {
+                                profile,
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            })
+                            .with_context(|| format!("load {name} mlx engine"))?,
+                        ),
+                    } as Arc<dyn DecisionEngine>)
+                })?;
             for alias in requested {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
@@ -1366,9 +1419,8 @@ impl FamilyArgs {
                 .chain(std::iter::repeat(&self.router_script_rules[0])),
         ) {
             if models.contains(alias) {
-                let table = ScriptRuleTable::parse(rules).map_err(|error| {
-                    anyhow::anyhow!("parse --router-script-rules for `{alias}`: {error}")
-                })?;
+                let table = ScriptRuleTable::parse(rules)
+                    .context("parse --router-script-rules for `{alias}`")?;
                 requested.push((alias.clone(), table));
             }
         }
@@ -1389,6 +1441,7 @@ impl FamilyArgs {
             .chain(&self.qwen3guard_aliases)
             .chain(&self.von_aliases)
             .chain(&self.winnow_aliases)
+            .chain(&self.winnow_e4b_aliases)
             .chain(&self.kev_aliases)
             .chain(&self.strands_decider_aliases)
             .chain(&self.decoder_logit_qwen35_aliases)
@@ -1447,5 +1500,89 @@ mod tests {
         assert!(args.validate(&["qwen35-native".into()]).is_ok());
         assert!(args.validate(&["decoder-letter-native".into()]).is_err());
         assert!(args.validate(&["router-script".into()]).is_err());
+    }
+}
+
+#[cfg(test)]
+mod fail_closed_tests {
+    use super::*;
+    use crate::args::DeviceOrdinals;
+
+    /// Requesting a family alias without its `--*-model-root` (or the
+    /// clef/decoder-logit-qwen3 per-profile roots) must fail closed before
+    /// any artifact is touched.
+    #[test]
+    fn missing_model_roots_fail_closed_per_family() {
+        for (alias, needle) in [
+            (
+                "decoder-letter-native",
+                "--decoder-letter-model-root is missing",
+            ),
+            ("encoder-nli-native", "--encoder-nli-model-root is missing"),
+        ] {
+            let args = FamilyArgs::parse_from(["openkindd"]);
+            let error = match args.load_requested(&[alias.to_owned()], DeviceOrdinals::default()) {
+                Err(error) => format!("{error:#}"),
+                Ok(engines) => panic!(
+                    "{alias}: expected failure, loaded {} engine(s)",
+                    engines.len()
+                ),
+            };
+            assert!(
+                error.contains(needle),
+                "{alias}: expected `{needle}` in: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn decoder_logit_qwen3_root_entries_must_carry_sizes_and_known_keys() {
+        let args =
+            FamilyArgs::parse_from(["openkindd", "--decoder-logit-qwen3-model-roots", "badentry"]);
+        let error = match args.load_requested(
+            &["decoder-logit-qwen3-06b-native".to_owned()],
+            DeviceOrdinals::default(),
+        ) {
+            Err(error) => format!("{error:#}"),
+            Ok(engines) => panic!("expected failure, loaded {} engine(s)", engines.len()),
+        };
+        // A malformed entry fails even before the alias/root lookup.
+        assert!(
+            error.contains("badentry") || error.contains("model-root is missing"),
+            "{error}"
+        );
+
+        let args = FamilyArgs::parse_from([
+            "openkindd",
+            "--decoder-logit-qwen3-model-roots",
+            "99b=/tmp/nowhere",
+        ]);
+        let error = match args.load_requested(
+            &["decoder-logit-qwen3-06b-native".to_owned()],
+            DeviceOrdinals::default(),
+        ) {
+            Err(error) => format!("{error:#}"),
+            Ok(engines) => panic!("unknown size must fail, loaded {} engine(s)", engines.len()),
+        };
+        assert!(
+            error.contains("99b") && error.contains("expected 06b"),
+            "{error}"
+        );
+
+        let args = FamilyArgs::parse_from([
+            "openkindd",
+            "--decoder-logit-qwen3-aliases",
+            "06b=decoder-logit-qwen3-06b-native",
+            "--decoder-logit-qwen3-model-roots",
+            "06b=/tmp/nowhere",
+        ]);
+        let error = match args.load_requested(
+            &["decoder-logit-qwen3-06b-native".to_owned()],
+            DeviceOrdinals::default(),
+        ) {
+            Err(error) => format!("{error:#}"),
+            Ok(engines) => panic!("missing root must fail, loaded {} engine(s)", engines.len()),
+        };
+        assert!(error.contains("06b"), "{error}");
     }
 }

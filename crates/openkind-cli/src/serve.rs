@@ -16,7 +16,7 @@ pub fn cmd_serve(
     models_dir: Option<PathBuf>,
     api_key: Option<String>,
 ) -> Result<()> {
-    let mut cmd = std::process::Command::new("openkindd");
+    let mut cmd = std::process::Command::new(crate::daemon::executable()?);
     cmd.arg("--http-addr").arg(http_addr);
     cmd.arg("--grpc-addr").arg(grpc_addr);
     cmd.arg("--models").arg(models);

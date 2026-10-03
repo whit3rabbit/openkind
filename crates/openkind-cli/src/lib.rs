@@ -4,6 +4,7 @@
 //! to tests and benchmarks without spawning the `openkind` process.
 
 mod args;
+mod daemon;
 mod evaluate;
 mod inspect;
 mod models;
@@ -27,6 +28,12 @@ use serve::cmd_serve;
 /// Dispatch a parsed command using the same path as the `openkind` binary.
 pub fn run(cli: Cli) -> Result<()> {
     match cli.command {
+        Commands::Doctor {
+            json,
+            cuda_device,
+            rocm_device,
+            onnx_runtime,
+        } => daemon::doctor(json, cuda_device, rocm_device, onnx_runtime),
         Commands::Inspect { file } => cmd_inspect(file),
         Commands::Evaluate {
             file,
