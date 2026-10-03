@@ -43,6 +43,7 @@
 - Daemon startup stack overflow in Windows debug builds.
 - Proxy-cache integration assertions that treated random upstream audits as failures.
 - ROCm backend test compilation and missing optional-feature CI coverage.
+- CUDA family loader error conversion and an unused backbone import.
 - Repeated ONNX initialization after a missing-library failure. Repair the
   runtime path and restart the process before retrying.
 - Binding daemon lifecycle, request snapshots, packaged license metadata,

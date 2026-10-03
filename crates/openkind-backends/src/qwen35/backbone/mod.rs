@@ -57,8 +57,6 @@ pub(crate) use embedding::verify_decoder_shard;
 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
 pub(crate) use embedding::{CONFIG_SHA256, MODEL_INDEX_SHA256};
 pub use layer0::{Layer0Output, Qwen35Layer0};
-#[cfg(feature = "cuda")]
-pub(crate) use model::candle_cuda_arithmetic_id;
 pub use model::{BackboneOutput, BackboneState, Qwen35Backbone};
 pub(crate) use nested::ControlledExecutor;
 pub use nested::{

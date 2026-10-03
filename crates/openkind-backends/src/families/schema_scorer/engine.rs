@@ -75,7 +75,7 @@ impl SchemaScorerEngine {
             FamilyExecution::Cpu => Box::new(SchemaScorerModel::load(&artifacts, Device::Cpu)?),
             #[cfg(feature = "cuda")]
             FamilyExecution::Cuda { .. } => {
-                let device = execution.candle_device()?;
+                let device = execution.candle_device().map_err(FamilyError::from)?;
                 Box::new(SchemaScorerModel::load(&artifacts, device)?)
             }
             #[cfg(feature = "onnx")]

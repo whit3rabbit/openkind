@@ -73,7 +73,7 @@ impl WinnowEngine {
             crate::device::FamilyExecution::Cpu => "winnow/cpu-fp32-lora".to_owned(),
             #[cfg(feature = "cuda")]
             crate::device::FamilyExecution::Cuda { .. } => {
-                let device = execution.candle_device()?;
+                let device = execution.candle_device().map_err(FamilyError::from)?;
                 let model =
                     WinnowModel::load_with_device(&artifacts, &Self::pinned_config(), device)?;
                 let concurrent = config.limits.max_concurrent_requests.max(1);

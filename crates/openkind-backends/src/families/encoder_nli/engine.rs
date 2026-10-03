@@ -82,7 +82,7 @@ impl EncoderNliEngine {
             FamilyExecution::Cpu => Box::new(EncoderNliModel::load(&artifacts, Device::Cpu)?),
             #[cfg(feature = "cuda")]
             FamilyExecution::Cuda { .. } => {
-                let device = execution.candle_device()?;
+                let device = execution.candle_device().map_err(FamilyError::from)?;
                 Box::new(EncoderNliModel::load(&artifacts, device)?)
             }
             #[cfg(feature = "onnx")]

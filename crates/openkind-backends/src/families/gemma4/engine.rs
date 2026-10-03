@@ -77,7 +77,7 @@ impl Gemma4DecisionEngine {
         let device = match execution {
             FamilyExecution::Cpu => Device::Cpu,
             #[cfg(feature = "cuda")]
-            FamilyExecution::Cuda { .. } => execution.candle_device()?,
+            FamilyExecution::Cuda { .. } => execution.candle_device().map_err(FamilyError::from)?,
             #[cfg(feature = "onnx")]
             FamilyExecution::Onnx { .. } => {
                 return Err(FamilyError::ExecutionUnavailable(

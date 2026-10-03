@@ -237,7 +237,7 @@ impl DecoderLogitQwen3Engine {
             )?),
             #[cfg(feature = "cuda")]
             FamilyExecution::Cuda { .. } => {
-                let device = execution.candle_device()?;
+                let device = execution.candle_device().map_err(FamilyError::from)?;
                 Box::new(Qwen3ControlModel::load(&artifacts, config.profile, device)?)
             }
             #[cfg(feature = "onnx")]

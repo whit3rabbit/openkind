@@ -116,7 +116,7 @@ impl Qwen3GuardEngine {
             FamilyExecution::Cpu => Box::new(Qwen3GuardModel::load(&artifacts, Device::Cpu)?),
             #[cfg(feature = "cuda")]
             FamilyExecution::Cuda { .. } => {
-                let device = execution.candle_device()?;
+                let device = execution.candle_device().map_err(FamilyError::from)?;
                 Box::new(Qwen3GuardModel::load(&artifacts, device)?)
             }
             #[cfg(feature = "onnx")]

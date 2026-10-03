@@ -104,7 +104,7 @@ impl EncoderInstructLabelEngine {
             }
             #[cfg(feature = "cuda")]
             FamilyExecution::Cuda { .. } => {
-                let device = execution.candle_device()?;
+                let device = execution.candle_device().map_err(FamilyError::from)?;
                 Box::new(EncoderInstructLabelModel::load(&artifacts, device)?)
             }
             #[cfg(feature = "onnx")]

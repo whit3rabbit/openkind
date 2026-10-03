@@ -253,7 +253,7 @@ impl VonEngine {
             FamilyExecution::Cpu => Box::new(VonModel::load(profile, &artifacts, Device::Cpu)?),
             #[cfg(feature = "cuda")]
             FamilyExecution::Cuda { .. } => {
-                let device = execution.candle_device()?;
+                let device = execution.candle_device().map_err(FamilyError::from)?;
                 Box::new(VonModel::load(profile, &artifacts, device)?)
             }
             #[cfg(feature = "onnx")]

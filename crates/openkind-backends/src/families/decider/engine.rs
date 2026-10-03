@@ -296,7 +296,7 @@ impl DeciderEngine {
             crate::device::FamilyExecution::Cpu => config.profile.cpu_backend_id.to_owned(),
             #[cfg(feature = "cuda")]
             crate::device::FamilyExecution::Cuda { .. } => {
-                let device = execution.candle_device()?;
+                let device = execution.candle_device().map_err(FamilyError::from)?;
                 let model = DeciderModel::load_with_device(&artifacts, device)?;
                 let engine = Self {
                     inner: Arc::new(Inner {

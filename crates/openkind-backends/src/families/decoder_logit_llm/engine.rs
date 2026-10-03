@@ -43,7 +43,7 @@ impl DecoderLlmEngine {
             crate::device::FamilyExecution::Cpu => "decoder-logit-llm/cpu-q8_0".to_owned(),
             #[cfg(feature = "cuda")]
             crate::device::FamilyExecution::Cuda { .. } => {
-                let device = execution.candle_device()?;
+                let device = execution.candle_device().map_err(FamilyError::from)?;
                 let model = DecoderLlmModel::load_with_device(&artifacts, device)?;
                 let engine = Self {
                     inner: Arc::new(Inner {

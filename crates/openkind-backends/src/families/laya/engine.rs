@@ -287,7 +287,7 @@ impl LayaEngine {
             FamilyExecution::Cpu => Box::new(LayaModel::load(profile, &artifacts, Device::Cpu)?),
             #[cfg(feature = "cuda")]
             FamilyExecution::Cuda { .. } => {
-                let device = execution.candle_device()?;
+                let device = execution.candle_device().map_err(FamilyError::from)?;
                 Box::new(LayaModel::load(profile, &artifacts, device)?)
             }
             #[cfg(feature = "onnx")]
