@@ -16,13 +16,18 @@ pub fn cmd_serve(
     models_dir: Option<PathBuf>,
     api_key: Option<String>,
 ) -> Result<()> {
+    crate::api_key::validate(api_key.as_deref())?;
     let mut cmd = std::process::Command::new(crate::daemon::executable()?);
     cmd.arg("--http-addr").arg(http_addr);
     cmd.arg("--grpc-addr").arg(grpc_addr);
     cmd.arg("--models").arg(models);
-    // Forward empty selections too, so an inherited environment setting
-    // cannot restore installations explicitly cleared by the CLI caller.
-    cmd.arg("--installed-models").arg(installed_models);
+    if installed_models.is_empty() {
+        // An empty flag becomes an empty model name in clap's list parser.
+        // Clear the inherited selection so omitting the flag means no models.
+        cmd.env_remove("OPENKIND_INSTALLED_MODELS");
+    } else {
+        cmd.arg("--installed-models").arg(installed_models);
+    }
     if let Some(dir) = models_dir {
         cmd.arg("--models-dir").arg(dir);
     }

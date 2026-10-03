@@ -1,8 +1,14 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { randomBytes } from "node:crypto";
 import { createServer } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { OpenKindClient } from "./index.js";
+
+/** Generate a key explicitly, without starting a process or storing credentials. */
+export function generateApiKey(): string {
+  return `ok_${randomBytes(32).toString("hex")}`;
+}
 
 export interface ServerOptions {
   binary?: string;
@@ -52,6 +58,10 @@ export class OpenKindServer {
   private stopping: Promise<void> | null = null;
 
   constructor(options: ServerOptions = {}) {
+    if (options.apiKey !== undefined && (typeof options.apiKey !== "string" ||
+        options.apiKey.length === 0 || /[^\x21-\x7e]/.test(options.apiKey))) {
+      throw new TypeError("apiKey must be nonempty visible ASCII without whitespace");
+    }
     this.binary = options.binary ?? "openkindd";
     this.httpAddr = options.httpAddr ?? "127.0.0.1:18080";
     const match = /^127\.0\.0\.1:(\d+)$/.exec(this.httpAddr);

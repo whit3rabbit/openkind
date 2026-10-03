@@ -2,7 +2,7 @@
 
 > Command-line client for the `openkind` decision engine.
 
-`openkind-cli` provides the `openkind` binary for validating request files offline, evaluating them against a running daemon, launching `openkindd` and the web playground, checking daemon status, and managing curated model installations.
+`openkind-cli` provides the `openkind` binary for validating request files offline, evaluating them against a running daemon, launching `openkindd` and the web playground, generating API keys, checking daemon status, and managing curated model installations.
 
 ## Installation & Build
 
@@ -73,9 +73,39 @@ Flags:
 - `--models <ALIASES>`: Comma-separated model aliases to expose (default: `mock,jev-latest`).
 - `--installed-models <MODELS>`: Comma-separated installed models to load at daemon startup.
 - `--models-dir <PATH>`: Directory shared by model commands and the daemon.
-- `--api-key <KEY>`: Bearer token required for `/v1/*`. Forwarded through the daemon's environment instead of the process table.
+- `--api-key <KEY>`: Bearer token required for `/v1/*` and gRPC. Forwarded through the daemon's environment instead of the process table.
 
 Each flag also reads its `OPENKIND_*` environment variable (`OPENKIND_HTTP_ADDR`, `OPENKIND_GRPC_ADDR`, `OPENKIND_MODELS`, `OPENKIND_INSTALLED_MODELS`, `OPENKIND_MODELS_DIR`, `OPENKIND_API_KEY`). The [server guide](../openkind-server/README.md) documents the daemon's full option set.
+
+### `keygen`
+
+Generates one API key from 32 bytes of operating-system randomness (256 bits):
+
+```bash
+openkind keygen
+```
+
+Stdout contains only the `ok_` prefix, 64 lowercase hexadecimal characters, and a newline. The command does not start a daemon or save the key.
+
+Authentication remains disabled when no API key is configured. To enable it on macOS or Linux, generate a key in the current shell and start the daemon:
+
+```bash
+export OPENKIND_API_KEY="$(openkind keygen)"
+openkind serve --http-addr 127.0.0.1:8080 --grpc-addr 127.0.0.1:9090
+```
+
+On Windows, use PowerShell:
+
+```powershell
+$env:OPENKIND_API_KEY = (openkind keygen)
+openkind serve --http-addr 127.0.0.1:8080 --grpc-addr 127.0.0.1:9090
+```
+
+You can also define a key with `--api-key <KEY>` on `openkind serve` or `openkindd`. Configured keys must be nonempty visible ASCII with no whitespace; invalid keys fail daemon startup.
+
+Clients send `Authorization: Bearer <KEY>` for `/v1/*` and gRPC. `/health` and `/metrics` remain public. `openkind evaluate` and `openkind status` read `OPENKIND_API_KEY` or accept `--api-key <KEY>`. In the web playground, enter the key under Settings; it stays in browser memory until the page closes.
+
+Keys are not saved to `~/.openkind` or a configuration file. Supply the same key again when restarting the daemon in a new shell or environment. See the [environment reference](../../docs/ENV.md) for key resolution and compatibility aliases.
 
 ### Model profiles
 

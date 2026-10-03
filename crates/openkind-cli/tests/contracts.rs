@@ -1,8 +1,6 @@
 use std::io::{Read, Write};
 use std::net::TcpListener;
-#[cfg(unix)]
-use std::path::Path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -38,6 +36,8 @@ fn cli() -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_openkind"));
     for variable in [
         "OPENKIND_API_KEY",
+        "OPENDECISION_API_KEY",
+        "OPENPICK_API_KEY",
         "TYPESAFE_API_KEY",
         "OPENKIND_HTTP_ADDR",
         "OPENKIND_GRPC_ADDR",
@@ -48,6 +48,115 @@ fn cli() -> Command {
         command.env_remove(variable);
     }
     command
+}
+
+#[test]
+fn keygen_prints_one_random_key_without_a_daemon_or_model_store() {
+    let dir = TempDir::new();
+    let mut keys = Vec::new();
+    for _ in 0..2 {
+        let output = cli()
+            .arg("keygen")
+            .env("OPENKINDD_BINARY", dir.0.join("missing-daemon"))
+            .env("OPENKIND_MODELS_DIR", dir.0.join("missing-models"))
+            .current_dir(&dir.0)
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        assert!(output.stderr.is_empty());
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        assert_eq!(stdout.lines().count(), 1);
+        let key = stdout
+            .strip_suffix('\n')
+            .expect("newline for shell capture");
+        assert_eq!(key.len(), 67);
+        let token = key.strip_prefix("ok_").expect("OpenKind key prefix");
+        assert!(token.bytes().all(|byte| byte.is_ascii_hexdigit()));
+        keys.push(key.to_owned());
+    }
+    assert_ne!(keys[0], keys[1]);
+    assert_eq!(std::fs::read_dir(&dir.0).unwrap().count(), 0);
+}
+
+#[test]
+fn help_does_not_print_configured_api_keys() {
+    for command in ["serve", "playground", "evaluate", "status"] {
+        let output = cli()
+            .args([command, "--help"])
+            .env("OPENKIND_API_KEY", "help-output-secret")
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("OPENKIND_API_KEY"));
+        assert!(!stdout.contains("help-output-secret"));
+        assert!(!String::from_utf8_lossy(&output.stderr).contains("help-output-secret"));
+    }
+}
+
+#[test]
+fn invalid_server_keys_fail_before_startup_without_echoing_secrets() {
+    for command in ["serve", "playground"] {
+        for key in [
+            "",
+            " ",
+            "secret with spaces",
+            "-secret with spaces",
+            "secret\tvalue",
+            "secret\nvalue",
+            "sëcret",
+        ] {
+            for from_env in [false, true] {
+                let mut child = cli();
+                child.arg(command).env("OPENKINDD_BINARY", "missing-daemon");
+                if from_env {
+                    child.env("OPENKIND_API_KEY", key);
+                } else {
+                    child.args(["--api-key", key]);
+                }
+                let output = child.output().unwrap();
+                assert_eq!(output.status.code(), Some(1), "{command}: {from_env}");
+                assert!(output.stdout.is_empty());
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                assert!(stderr.contains("API key must be non-empty visible ASCII"));
+                if key.len() > 1 {
+                    assert!(!stderr.contains(key));
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn serve_forwards_optional_keys_via_environment_only() {
+    let dir = TempDir::new();
+    let daemon = fake_daemon(&dir.0);
+    for (env_key, flag_key, expected) in [
+        (None, None, "unset"),
+        (Some("env-token"), None, "env-token"),
+        (None, Some("flag-token"), "flag-token"),
+        (Some("env-token"), Some("flag-token"), "flag-token"),
+    ] {
+        let mut child = cli();
+        child
+            .arg("serve")
+            .env("OPENKINDD_BINARY", &daemon)
+            .env("OPENKIND_CLI_TEST_EXPECTED_KEY", expected);
+        if let Some(key) = env_key {
+            child.env("OPENKIND_API_KEY", key);
+        }
+        if let Some(key) = flag_key {
+            child.args(["--api-key", key]);
+        }
+        let output = child.output().unwrap();
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("DAEMON_ARG:--models"));
+        assert!(!stdout.contains("--api-key"));
+        assert!(!stdout.contains("env-token"));
+        assert!(!stdout.contains("flag-token"));
+        assert!(output.stderr.is_empty());
+    }
 }
 
 fn evaluate(request: &str, status: &str, body: &str, flags: &[&str]) -> Output {
@@ -232,23 +341,28 @@ fn non_utf8_string_environment_values_use_clap_diagnostics() {
     }
 }
 
-#[cfg(unix)]
-fn fake_daemon(path: &Path) {
-    use std::os::unix::fs::PermissionsExt;
-    std::fs::write(path, "#!/bin/sh\nprintf 'DAEMON_ARG:%s\\n' \"$@\"\n").unwrap();
-    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o755)).unwrap();
+fn fake_daemon(directory: &Path) -> PathBuf {
+    // Compile a native fixture so subprocess contracts run on Windows without a shell.
+    let path = directory.join(format!("openkindd{}", std::env::consts::EXE_SUFFIX));
+    let output = Command::new(std::env::var_os("RUSTC").unwrap_or_else(|| "rustc".into()))
+        .arg("--edition=2021")
+        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/daemon.rs"))
+        .arg("-o")
+        .arg(&path)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "compile daemon fixture: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    path
 }
 
-#[cfg(unix)]
 #[test]
-fn empty_installed_model_selection_is_forwarded_to_both_daemon_commands() {
+fn empty_installed_model_selection_clears_inherited_models_for_both_daemon_commands() {
     let dir = TempDir::new();
-    fake_daemon(&dir.0.join("openkindd"));
-    let mut paths = vec![dir.0.clone()];
-    paths.extend(std::env::split_paths(
-        &std::env::var_os("PATH").unwrap_or_default(),
-    ));
-    let path = std::env::join_paths(paths).unwrap();
+    let daemon = fake_daemon(&dir.0);
     let socket = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = socket.local_addr().unwrap().to_string();
     drop(socket);
@@ -257,15 +371,15 @@ fn empty_installed_model_selection_is_forwarded_to_both_daemon_commands() {
         child
             .args([command, "--installed-models", "", "--http-addr", &address])
             .env("OPENKIND_INSTALLED_MODELS", "inherited:profile")
-            .env("PATH", &path)
-            .env("OPENKINDD_BINARY", dir.0.join("openkindd"));
+            .env("OPENKINDD_BINARY", &daemon);
         if command == "playground" {
             child.arg("--no-open");
         }
         let output = child.output().unwrap();
+        let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(
-            String::from_utf8_lossy(&output.stdout)
-                .contains("DAEMON_ARG:--installed-models\nDAEMON_ARG:\n"),
+            stdout.contains("DAEMON_INSTALLED_MODELS:unset\n")
+                && !stdout.contains("DAEMON_ARG:--installed-models\n"),
             "{command}: {}",
             String::from_utf8_lossy(&output.stderr)
         );

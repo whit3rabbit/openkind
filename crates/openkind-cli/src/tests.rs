@@ -382,6 +382,7 @@ fn fast_path_parity_with_clap() {
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let shapes: &[&[&str]] = &[
         // Well-formed fast-path shapes.
+        &["openkind", "keygen"],
         &["openkind", "version"],
         &["openkind", "inspect", "request.json"],
         &["openkind", "inspect", "a b/c.json"],
@@ -438,6 +439,9 @@ fn fast_path_parity_with_clap() {
         &["openkind", "inspect", "--", "-weird.json"],
         &["openkind", "inspect", "--", "--pretty"],
         // Diagnostic shapes: fast path defers to clap, errors must be identical.
+        &["openkind", "keygen", "--help"],
+        &["openkind", "keygen", "extra"],
+        &["openkind", "keygen", "--save"],
         &["openkind"],
         &["openkind", "bogus"],
         &["openkind", "version", "extra"],

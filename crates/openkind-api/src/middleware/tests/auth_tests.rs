@@ -90,6 +90,48 @@ async fn auth_enabled_with_correct_token_passes() {
 }
 
 #[tokio::test]
+async fn malformed_credentials_are_rejected_with_the_request_id() {
+    let router = app(AuthConfig::new(Some("secret".into())));
+    let mut credentials = [
+        "",
+        "Bearer",
+        "Bearer ",
+        "Bearer  secret",
+        "Bearer secret ",
+        "Bearer\tsecret",
+        "Basic secret",
+    ]
+    .into_iter()
+    .map(|value| axum::http::HeaderValue::from_str(value).unwrap())
+    .collect::<Vec<_>>();
+    credentials.push(axum::http::HeaderValue::from_bytes(b"Bearer \xff").unwrap());
+
+    for authorization in credentials {
+        let response = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/ping")
+                    .header(&AUTH_HEADER, authorization)
+                    .header(&REQUEST_ID_HEADER, "auth-regression")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        assert_eq!(response.headers()[&REQUEST_ID_HEADER], "auth-regression");
+        assert_eq!(response.headers()["www-authenticate"], "Bearer");
+        let body = axum::body::to_bytes(response.into_body(), 1024)
+            .await
+            .unwrap();
+        let error: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(error["error"]["code"], "unauthorized");
+        assert_eq!(error["error"]["message"], "missing or invalid API key");
+    }
+}
+
+#[tokio::test]
 async fn bearer_scheme_is_case_insensitive_while_tokens_remain_case_sensitive() {
     let router = app(AuthConfig::new(Some("secret".into())));
     for (authorization, expected) in [

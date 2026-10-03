@@ -110,6 +110,7 @@ async fn run(args: Args) -> Result<()> {
     if args.diagnose_backends {
         return backend::diagnose(args.device_ordinals(), args.json);
     }
+    let api_key = args.resolve_api_key()?;
 
     let mut aliases = HashSet::new();
     for alias in &args.models {
@@ -147,27 +148,7 @@ async fn run(args: Args) -> Result<()> {
     let grpc_addr = parse_grpc_addr(&grpc_addr_value)
         .context("invalid --grpc-addr (expected host:port, or `0` to disable)")?;
 
-    let api_key = resolve_aliases(&[
-        (
-            "OPENKIND_API_KEY",
-            args.api_key.clone().filter(|s| !s.is_empty()),
-        ),
-        (
-            "OPENDECISION_API_KEY",
-            args.opendecision_api_key.clone().filter(|s| !s.is_empty()),
-        ),
-        (
-            "TYPESAFE_API_KEY",
-            args.typesafe_api_key.clone().filter(|s| !s.is_empty()),
-        ),
-        (
-            "OPENPICK_API_KEY",
-            args.legacy_api_key.clone().filter(|s| !s.is_empty()),
-        ),
-    ])?;
-    let auth = api_key
-        .map(|k| AuthConfig::new(Some(k)))
-        .unwrap_or_else(AuthConfig::from_env);
+    let auth = AuthConfig::new(api_key);
     if auth.is_required() {
         info!("api key auth: enabled (gate on /v1/* and gRPC)");
     } else {

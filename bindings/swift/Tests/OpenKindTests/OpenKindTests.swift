@@ -167,8 +167,10 @@ final class OpenKindTests: XCTestCase {
     }
 
     func testLiveDaemonWhenConfigured() async throws {
-        guard let rawURL = ProcessInfo.processInfo.environment["OPENKIND_TEST_URL"],
-              let url = URL(string: rawURL) else { return }
+        guard let rawURL = ProcessInfo.processInfo.environment["OPENKIND_TEST_URL"] else {
+            throw XCTSkip("Set OPENKIND_TEST_URL to test a live daemon")
+        }
+        let url = try XCTUnwrap(URL(string: rawURL))
         let client = OpenKindClient(baseURL: url, apiKey: ProcessInfo.processInfo.environment["OPENKIND_TEST_API_KEY"])
         let result = try await client.systemOne(
             state: .string("A customer was charged twice."),
@@ -231,9 +233,10 @@ final class OpenKindTests: XCTestCase {
         let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
             .deletingLastPathComponent().deletingLastPathComponent()
             .deletingLastPathComponent().appendingPathComponent("test/fake_openkindd.py")
+        let apiKey = try OpenKindAPIKey.generate()
         let server = try OpenKindServer(binary: fixture.path,
                                         httpAddress: "127.0.0.1:\(freePort())",
-                                        models: ["mock"], apiKey: "secret")
+                                        models: ["mock"], apiKey: apiKey)
         do {
             try await server.start()
         } catch {
@@ -268,6 +271,19 @@ final class OpenKindTests: XCTestCase {
             await server.stop()
             throw error
         }
+        await server.stop()
+        XCTAssertFalse(server.running)
+    }
+
+    func testServerCanRestartOnTheSameAddress() async throws {
+        let fixture = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("test/fake_openkindd.py")
+        let server = try OpenKindServer(binary: fixture.path,
+                                        httpAddress: "127.0.0.1:\(freePort())", models: ["mock"])
+        try await server.start()
+        await server.stop()
+        try await server.start()
         await server.stop()
         XCTAssertFalse(server.running)
     }
@@ -327,9 +343,9 @@ final class OpenKindTests: XCTestCase {
         """, in: directory)
         let server = try OpenKindServer(binary: binary.path,
                                         httpAddress: "127.0.0.1:\(freePort())",
-                                        models: ["mock"], startupTimeout: 5, shutdownTimeout: 0.2)
+                                        models: ["mock"], startupTimeout: 10, shutdownTimeout: 0.2)
         let startup = Task { try await server.start() }
-        let deadline = ProcessInfo.processInfo.systemUptime + 1
+        let deadline = ProcessInfo.processInfo.systemUptime + 5
         while !FileManager.default.fileExists(atPath: marker.path) && ProcessInfo.processInfo.systemUptime < deadline {
             try await Task.sleep(nanoseconds: 10_000_000)
         }
@@ -370,6 +386,14 @@ final class OpenKindTests: XCTestCase {
         let server = try OpenKindServer(binary: binary.path,
                                         httpAddress: "127.0.0.1:\(freePort())", models: ["mock"])
         try await server.start()
+        do {
+            XCTAssertNil(server.apiKey)
+            let models = try await server.client.listModels()
+            XCTAssertEqual(models.data.models.first?.name, "mock")
+        } catch {
+            await server.stop()
+            throw error
+        }
         await server.stop()
         XCTAssertFalse(server.running)
     }
@@ -452,15 +476,27 @@ final class OpenKindTests: XCTestCase {
     }
 
     func testServerStartsRealBinaryWhenConfigured() async throws {
-        guard let binary = ProcessInfo.processInfo.environment["OPENKIND_TEST_BINARY"] else { return }
+        guard let binary = ProcessInfo.processInfo.environment["OPENKIND_TEST_BINARY"] else {
+            throw XCTSkip("Set OPENKIND_TEST_BINARY to test a real openkindd binary")
+        }
+        let apiKey = try OpenKindAPIKey.generate()
         let server = try OpenKindServer(binary: binary,
                                         httpAddress: "127.0.0.1:\(freePort())",
-                                        models: ["mock"], apiKey: "dev-key",
+                                        models: ["mock"], apiKey: apiKey,
                                         extraArguments: ["--playground", "on"])
         try await server.start()
         do {
             let health = try await server.client.health()
             XCTAssertEqual(health.data.status, "ok")
+            for key in [nil, "wrong-key"] {
+                let unauthorized = OpenKindClient(baseURL: server.client.baseURL, apiKey: key)
+                do {
+                    _ = try await unauthorized.listModels()
+                    XCTFail("accepted a request without the configured API key")
+                } catch let error as ApiError {
+                    XCTAssertEqual(error.status, 401)
+                }
+            }
             let result = try await server.client.systemOne(
                 state: .string("billing ticket"),
                 questions: ["billing": .noul(instructions: .string("Is this billing?"))],

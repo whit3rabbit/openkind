@@ -317,6 +317,7 @@ class Client:
         return ApiResult(result.data, result.request_id)  # type: ignore[arg-type]
 
 
+from .api_key import generate_api_key
 from .server import Server, ServerError
 
 
@@ -324,5 +325,6 @@ __all__ = [
     "Answer", "ApiError", "ApiResult", "ChoiceAnswer", "ChoiceQuestion", "Client",
     "Health", "Instructions", "InvalidResponseError", "JSONValue", "ModelMetadata", "ModelsResponse",
     "NoulAnswer", "NoulCriteria", "NoulQuestion", "Question", "ScoreAnswer", "ScoreQuestion",
-    "Server", "ServerError", "State", "SystemRequest", "SystemResponse", "Usage", "validate_response",
+    "Server", "ServerError", "State", "SystemRequest", "SystemResponse", "Usage", "generate_api_key",
+    "validate_response",
 ]

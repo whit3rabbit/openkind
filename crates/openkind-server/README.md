@@ -46,8 +46,27 @@ openkindd [OPTIONS]
 | `--qwen35-queue <N>` | `OPENKIND_QWEN35_QUEUE` | `2` | Additional native requests allowed to wait |
 | `--qwen35-max-tensor-bytes <N>` | `OPENKIND_QWEN35_MAX_TENSOR_BYTES` | *(none)* | Optional continuation tensor-payload ceiling per request |
 | `--qwen35-max-process-bytes <N>` | `OPENKIND_QWEN35_MAX_PROCESS_BYTES` | *(none)* | Optional process-memory admission ceiling |
-| `--api-key <TOKEN>` | `OPENKIND_API_KEY` | *(none)* | Optional bearer token required for `/v1/*` routes |
+| `--api-key <TOKEN>` | `OPENKIND_API_KEY` | *(none)* | Optional bearer token required for `/v1/*` and gRPC |
 | `--log-filter <FILTER>` | `RUST_LOG` | `info` | Tracing filter (e.g. `info`, `debug`, `openkind=trace`) |
+
+### Optional API keys
+
+Authentication is off when no key is configured. `--api-key <TOKEN>` or
+`OPENKIND_API_KEY` enables checking on `/v1/*` and gRPC. `/health` and
+`/metrics` stay public. Clients must send the configured key as a bearer token.
+
+Generate a key with the CLI and supply it before starting the daemon:
+
+```bash
+export OPENKIND_API_KEY="$(openkind keygen)"
+openkindd --http-addr 127.0.0.1:18080 --grpc-addr 0 --models mock
+```
+
+Configured keys must be nonempty visible ASCII without whitespace. Invalid
+values fail startup without printing the secret. Keys are not persisted.
+The [CLI guide](../openkind-cli/README.md#keygen) covers generation and
+PowerShell; the [environment reference](../../docs/ENV.md) covers aliases and
+conflicting settings.
 
 ## Example
 

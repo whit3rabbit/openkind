@@ -168,22 +168,44 @@ pub(crate) struct Args {
     )]
     pub(crate) qwen35_allocator_headroom_bytes: usize,
 
-    /// Optional bearer token required for `/v1/*`. If unset, the env
-    /// `OPENKIND_API_KEY` is consulted; if both are unset, auth is off
-    /// (matches Phase 1 dev behavior).
-    #[arg(long, env = "OPENKIND_API_KEY")]
+    /// Optional bearer token required for `/v1/*` and gRPC. Authentication
+    /// is off when no key is configured. Keys must be non-empty visible ASCII.
+    #[arg(
+        long,
+        env = "OPENKIND_API_KEY",
+        hide_env_values = true,
+        allow_hyphen_values = true
+    )]
     pub(crate) api_key: Option<String>,
 
     /// Deprecated pre-rename API-key environment variable (OpenDecision).
-    #[arg(long, env = "OPENDECISION_API_KEY", hide = true)]
+    #[arg(
+        long,
+        env = "OPENDECISION_API_KEY",
+        hide = true,
+        hide_env_values = true,
+        allow_hyphen_values = true
+    )]
     pub(crate) opendecision_api_key: Option<String>,
 
     /// Deprecated pre-rename API-key environment variable (OpenPick).
-    #[arg(long, env = "OPENPICK_API_KEY", hide = true)]
+    #[arg(
+        long,
+        env = "OPENPICK_API_KEY",
+        hide = true,
+        hide_env_values = true,
+        allow_hyphen_values = true
+    )]
     pub(crate) legacy_api_key: Option<String>,
 
     /// TypeSafe compatibility API-key environment variable.
-    #[arg(long, env = "TYPESAFE_API_KEY", hide = true)]
+    #[arg(
+        long,
+        env = "TYPESAFE_API_KEY",
+        hide = true,
+        hide_env_values = true,
+        allow_hyphen_values = true
+    )]
     pub(crate) typesafe_api_key: Option<String>,
 
     /// Per-client-IP request budget per minute on `/v1/*` routes.
@@ -395,6 +417,26 @@ pub(crate) struct DeviceOrdinals {
 }
 
 impl Args {
+    /// Validate after parsing so clap cannot echo an invalid secret in its diagnostics.
+    pub(crate) fn resolve_api_key(&self) -> Result<Option<String>> {
+        let candidates = [
+            ("OPENKIND_API_KEY", self.api_key.clone()),
+            ("OPENDECISION_API_KEY", self.opendecision_api_key.clone()),
+            ("TYPESAFE_API_KEY", self.typesafe_api_key.clone()),
+            ("OPENPICK_API_KEY", self.legacy_api_key.clone()),
+        ];
+        for (source, value) in &candidates {
+            if let Some(value) = value {
+                if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_graphic()) {
+                    anyhow::bail!(
+                        "invalid API key for {source}: expected non-empty visible ASCII without whitespace"
+                    );
+                }
+            }
+        }
+        resolve_aliases(&candidates)
+    }
+
     /// Collect the accelerator ordinals from `--cuda-device` and
     /// `--rocm-device`.
     pub(crate) fn device_ordinals(&self) -> DeviceOrdinals {
@@ -834,6 +876,7 @@ mod tests {
         assert_eq!(args.models, vec!["mock", "jev-latest"]);
         assert!(args.installed_models.is_empty());
         assert_eq!(args.api_key, None);
+        assert_eq!(args.resolve_api_key().unwrap(), None);
         assert_eq!(args.rate_limit_rpm, 120);
         assert_eq!(args.playground, PlaygroundArg::Off);
         assert_eq!(args.arrow, ArrowArg::Off);
@@ -1081,6 +1124,70 @@ mod tests {
         assert_eq!(args.api_key.as_deref(), Some("secret-token"));
         assert_eq!(args.rate_limit_rpm, 0);
         assert_eq!(args.log_filter, "debug");
+    }
+
+    #[test]
+    fn api_key_aliases_resolve_and_hide_environment_values() {
+        let command = Args::command();
+        for flag in [
+            "api-key",
+            "opendecision-api-key",
+            "legacy-api-key",
+            "typesafe-api-key",
+        ] {
+            let arg = command
+                .get_arguments()
+                .find(|arg| arg.get_long() == Some(flag))
+                .unwrap();
+            assert!(arg.is_hide_env_values_set(), "--{flag}");
+
+            let args =
+                Args::try_parse_from(["openkindd", &format!("--{flag}"), "normal-token_123"])
+                    .unwrap();
+            assert_eq!(
+                args.resolve_api_key().unwrap().as_deref(),
+                Some("normal-token_123")
+            );
+        }
+
+        let args = Args::try_parse_from([
+            "openkindd",
+            "--api-key",
+            "same-token",
+            "--typesafe-api-key",
+            "same-token",
+        ])
+        .unwrap();
+        assert_eq!(
+            args.resolve_api_key().unwrap().as_deref(),
+            Some("same-token")
+        );
+    }
+
+    #[test]
+    fn configured_api_keys_reject_unusable_tokens_without_echoing_them() {
+        for flag in [
+            "--api-key",
+            "--opendecision-api-key",
+            "--legacy-api-key",
+            "--typesafe-api-key",
+        ] {
+            for value in [
+                "",
+                "sensitive token",
+                "-sensitive token",
+                "sensitive\ttoken",
+                "sensitive\ntoken",
+                "sensitive\u{1f}token",
+                "sensitive\u{7f}token",
+                "sensitive-tokén",
+            ] {
+                let args = Args::try_parse_from(["openkindd", flag, value]).unwrap();
+                let error = args.resolve_api_key().unwrap_err().to_string();
+                assert!(error.contains("invalid API key"), "{error}");
+                assert!(!error.contains("sensitive"), "API key leaked in diagnostic");
+            }
+        }
     }
 
     #[test]

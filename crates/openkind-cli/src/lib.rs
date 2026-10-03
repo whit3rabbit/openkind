@@ -3,6 +3,7 @@
 //! The library surface keeps command dispatch and request inspection available
 //! to tests and benchmarks without spawning the `openkind` process.
 
+mod api_key;
 mod args;
 mod daemon;
 mod evaluate;
@@ -28,6 +29,7 @@ use serve::cmd_serve;
 /// Dispatch a parsed command using the same path as the `openkind` binary.
 pub fn run(cli: Cli) -> Result<()> {
     match cli.command {
+        Commands::Keygen => api_key::cmd_keygen(),
         Commands::Doctor {
             json,
             cuda_device,

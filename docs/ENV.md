@@ -13,7 +13,7 @@ Where a client setting can come from the environment, resolution is:
 3. `TYPESAFE_*` environment variable.
 4. Built-in default.
 
-Empty and whitespace-only environment values are ignored, matching the
+The Rust client ignores empty and whitespace-only environment values, matching the
 [`typesafe-sdk` Python SDK](https://github.com/typesafe-ai/typesafe-sdk-python).
 The `TYPESAFE_*` names exist so scripts written against the official
 `typesafe_sdk` package run unchanged against `openkind`; see
@@ -48,10 +48,13 @@ Notes:
   SDK. The Rust client emits `tracing` events to the host application's
   subscriber and has no log-level variable of its own.
 - The TypeScript and Swift clients read no environment variables; all
-  settings come from constructor options. Their server wrappers scrub
+  settings come from constructor options. All three binding server wrappers scrub
   `OPENKIND_API_KEY`, `OPENDECISION_API_KEY`, `OPENPICK_API_KEY`, and
   `TYPESAFE_API_KEY` from the child process environment and re-set
   `OPENKIND_API_KEY` when a key is configured.
+- Binding wrappers require explicit `apiKey` or `api_key` options; they do
+  not inherit a key from the parent environment. See the
+  [binding key generators](../bindings/README.md#api-keys) for native generation.
 
 A hosted-SDK-style workflow works as-is against a local daemon:
 
@@ -74,13 +77,18 @@ Each variable also has an `OPENKIND_*` primary name: `OPENKIND_API_KEY`,
 | `OPENKIND_MODELS` | Comma-separated model aliases to expose | `mock,jev-latest` |
 | `OPENKIND_INSTALLED_MODELS` | Comma-separated installed profile names loaded at startup | empty |
 | `OPENKIND_MODELS_DIR` | Shared model store directory | platform default (below) |
-| `OPENKIND_API_KEY` | Bearer token required for `/v1/*`; unset disables auth | unset |
+| `OPENKIND_API_KEY` | Bearer token required for `/v1/*` and gRPC; auth is off when no key is configured through any supported source | unset |
 | `OPENKIND_RATE_LIMIT_RPM` | Per-client-IP request budget per minute on `/v1/*`; `0` disables | `120` |
 | `OPENKIND_PLAYGROUND` | Serve the embedded playground and local model controls (`on`/`off`) | `off` |
 | `OPENKIND_ARROW` | Serve the unofficial [Arrow bulk endpoint](ARROW.md) (`on`/`off`) | `off` |
 | `OPENKIND_DIAGNOSE_BACKENDS` | Probe runtimes and exit without models or listeners | `false` |
 | `OPENKIND_DIAGNOSTICS_JSON` | Emit diagnostic JSON (requires diagnostic mode) | `false` |
 | `RUST_LOG` | Log filter, `tracing_subscriber::EnvFilter` syntax | `info` |
+
+Daemon API keys must be nonempty visible ASCII with no whitespace. Invalid
+configured values fail startup, including empty or whitespace-only values.
+See [`openkind keygen`](../crates/openkind-cli/README.md#keygen) for generation
+and shell configuration; keys are not persisted by openkind.
 
 ### Native Qwen3.5 engine
 

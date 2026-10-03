@@ -25,6 +25,9 @@ pub struct Cli {
 /// Subcommands supported by the `openkind` CLI.
 #[derive(Subcommand, Debug)]
 pub enum Commands {
+    /// Generate an API key on stdout without saving it or starting a server.
+    Keygen,
+
     /// Report local hardware and daemon backend readiness without loading models.
     Doctor {
         /// Print the readiness report as JSON.
@@ -54,7 +57,12 @@ pub enum Commands {
         #[arg(long, default_value = "http://127.0.0.1:8080")]
         server: String,
         /// Optional API key for bearer authentication.
-        #[arg(long, env = "OPENKIND_API_KEY")]
+        #[arg(
+            long,
+            env = "OPENKIND_API_KEY",
+            hide_env_values = true,
+            allow_hyphen_values = true
+        )]
         api_key: Option<String>,
         /// Print the response as pretty JSON.
         #[arg(long)]
@@ -84,8 +92,13 @@ pub enum Commands {
         /// Directory shared by model commands and the daemon.
         #[arg(long, env = "OPENKIND_MODELS_DIR")]
         models_dir: Option<PathBuf>,
-        /// Optional bearer token required for /v1/*.
-        #[arg(long, env = "OPENKIND_API_KEY")]
+        /// Optional API key required for /v1/* and gRPC (auth is off when unset).
+        #[arg(
+            long,
+            env = "OPENKIND_API_KEY",
+            hide_env_values = true,
+            allow_hyphen_values = true
+        )]
         api_key: Option<String>,
     },
 
@@ -106,7 +119,12 @@ pub enum Commands {
         #[arg(long, env = "OPENKIND_MODELS_DIR")]
         models_dir: Option<PathBuf>,
         /// Optional API key for bearer authentication (spawned daemon only).
-        #[arg(long, env = "OPENKIND_API_KEY")]
+        #[arg(
+            long,
+            env = "OPENKIND_API_KEY",
+            hide_env_values = true,
+            allow_hyphen_values = true
+        )]
         api_key: Option<String>,
         /// Print the playground URL instead of opening a browser.
         #[arg(long)]
@@ -156,7 +174,12 @@ pub enum Commands {
         #[arg(long, default_value = "http://127.0.0.1:8080")]
         server: String,
         /// Optional API key for bearer authentication.
-        #[arg(long, env = "OPENKIND_API_KEY")]
+        #[arg(
+            long,
+            env = "OPENKIND_API_KEY",
+            hide_env_values = true,
+            allow_hyphen_values = true
+        )]
         api_key: Option<String>,
         /// Refresh daemon health and registered model aliases until quit.
         #[arg(long)]
@@ -288,6 +311,9 @@ fn fast_parse(argv: &[OsString]) -> Option<Cli> {
         return None;
     };
     match *subcommand {
+        "keygen" if rest.is_empty() => Some(Cli {
+            command: Commands::Keygen,
+        }),
         "version" if rest.is_empty() => Some(Cli {
             command: Commands::Version,
         }),

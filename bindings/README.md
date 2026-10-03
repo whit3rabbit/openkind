@@ -15,18 +15,45 @@ From the repository root, start the mock engine without model artifacts:
 cargo run -p openkind-server --bin openkindd -- \
   --http-addr 127.0.0.1:18080 \
   --grpc-addr 0 \
-  --models mock \
-  --api-key dev-key
+  --models mock
 ```
 
-Use `http://127.0.0.1:18080` as the client base URL and `dev-key` as its API
-key. Each package has a runnable example:
+Use `http://127.0.0.1:18080` as the client base URL. Authentication is off
+for this example; omit the client's API key. Each package has a runnable example:
 
 | Language | Package guide | Requirement |
 |---|---|---|
 | TypeScript | [typescript](typescript/README.md) | Node 18+ for the client; Node process APIs for the server wrapper |
 | Python | [python](python/README.md) | Python 3.11+ |
 | Swift | [swift](swift/README.md) | SwiftPM on macOS 12+ or iOS 15+; server wrapper on macOS only |
+
+## API keys
+
+Key checking is opt-in. Define a key with the daemon's `--api-key` flag or
+`OPENKIND_API_KEY`, then supply the same key to each client. The
+[`openkind keygen` command](../crates/openkind-cli/README.md#keygen) prints a
+random key for shell configuration, including PowerShell.
+
+The bindings also generate keys without invoking the CLI:
+
+| Language | Generator | Import |
+|---|---|---|
+| TypeScript (Node) | `generateApiKey()` | `@openkind/client/server` |
+| Python | `generate_api_key()` | `openkind_client` |
+| Swift (macOS and iOS) | `try OpenKindAPIKey.generate()` | `OpenKind` |
+
+Each generator uses 32 bytes of operating-system randomness and returns `ok_`
+followed by 64 lowercase hexadecimal characters. Generation does not start a
+server, enable authentication, or save the key. Pass the returned value to the
+local server wrapper's `apiKey` or `api_key` option to enable authentication;
+the wrapper configures its client with the same key. Omit that option to leave
+authentication off. Configured wrapper keys must be nonempty visible ASCII
+without whitespace and are checked before launching the daemon.
+
+For an existing daemon, configure its key separately and reuse that exact
+value in the client. A newly generated client key will not match a daemon
+already configured with another key. Keys remain caller-managed and are not
+saved to `~/.openkind` or another configuration file.
 
 ## Shared contract
 
@@ -51,8 +78,9 @@ probabilities and Score legends fail validation. The
 ## Local server lifecycle
 
 The server wrappers bind HTTP to an explicit `127.0.0.1` port, disable gRPC,
-and pass the API key through the child environment. They wait for `/health`
-before returning a client. `stop()` terminates only the process the wrapper
+and pass a configured API key through the child environment. Inherited API-key
+variables are cleared so an omitted wrapper key keeps authentication off.
+They wait for `/health` before returning a client. `stop()` terminates only the process the wrapper
 started. They reject an occupied port before launch and do not control an
 already running daemon. For other bind addresses, gRPC, or deployment, start
 `openkindd` yourself and use a client with its URL.
@@ -76,10 +104,13 @@ All three packages also have opt-in live daemon tests for the covered HTTP
 routes. Start the daemon above, then run:
 
 ```bash
-(cd bindings/typescript && OPENKIND_TEST_URL=http://127.0.0.1:18080 OPENKIND_TEST_API_KEY=dev-key npm test)
-(cd bindings/python && OPENKIND_TEST_URL=http://127.0.0.1:18080 OPENKIND_TEST_API_KEY=dev-key python3 -m unittest discover -s tests)
-(cd bindings/swift && OPENKIND_TEST_URL=http://127.0.0.1:18080 OPENKIND_TEST_API_KEY=dev-key swift test)
+(cd bindings/typescript && OPENKIND_TEST_URL=http://127.0.0.1:18080 npm test)
+(cd bindings/python && OPENKIND_TEST_URL=http://127.0.0.1:18080 python3 -m unittest discover -s tests)
+(cd bindings/swift && OPENKIND_TEST_URL=http://127.0.0.1:18080 swift test)
 ```
+
+When the daemon has authentication enabled, set `OPENKIND_TEST_API_KEY` to
+its configured key in those commands.
 
 Set `OPENKIND_TEST_BINARY` to an absolute `openkindd` path in those commands
 to also test each server wrapper against the real binary. The wrappers use

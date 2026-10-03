@@ -7,12 +7,13 @@ import math
 import os
 import socket
 import subprocess
+import threading
 import time
 from collections.abc import Sequence
-from urllib.error import URLError
-from urllib.request import urlopen
+from urllib.error import HTTPError, URLError
 
-from . import Client
+from . import Client, _OPENER
+from .api_key import _validate_api_key
 
 
 class ServerError(RuntimeError):
@@ -32,6 +33,7 @@ class Server:
         shutdown_timeout: float = 5.0,
         extra_args: Sequence[str] = (),
     ) -> None:
+        _validate_api_key(api_key)
         try:
             host, port_text = http_addr.rsplit(":", 1)
             port = int(port_text)
@@ -57,61 +59,81 @@ class Server:
                for arg in self.extra_args for flag in managed_flags):
             raise ValueError("extra_args cannot override managed server flags")
         self._process: subprocess.Popen[bytes] | None = None
+        self._lock = threading.RLock()
 
     @property
     def running(self) -> bool:
-        return self._process is not None and self._process.poll() is None
+        with self._lock:
+            return self._process is not None and self._process.poll() is None
 
     @property
     def client(self) -> Client:
         return Client(base_url=self.base_url, api_key=self.api_key if self.api_key is not None else "")
 
     def start(self) -> Server:
-        if self._process is not None:
-            raise ServerError("server has already been started")
-        host, port_text = self.http_addr.rsplit(":", 1)
-        with socket.socket() as probe:
+        with self._lock:
+            if self._process is not None:
+                raise ServerError("server has already been started")
+            _validate_api_key(self.api_key)
+            host, port_text = self.http_addr.rsplit(":", 1)
+            with socket.socket() as probe:
+                # Match daemon listener reuse so an owned server can restart after TIME_WAIT.
+                probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                try:
+                    probe.bind((host, int(port_text)))
+                except OSError as error:
+                    raise ServerError(f"HTTP address is unavailable: {self.http_addr}") from error
+            args = [self.binary, *self.extra_args, "--http-addr", self.http_addr,
+                    "--grpc-addr", "0", "--models", ",".join(self.models)]
+            child_env = os.environ.copy()
+            child_env.pop("OPENKIND_API_KEY", None)
+            child_env.pop("OPENDECISION_API_KEY", None)
+            child_env.pop("OPENPICK_API_KEY", None)
+            child_env.pop("TYPESAFE_API_KEY", None)
+            if self.api_key is not None:
+                child_env["OPENKIND_API_KEY"] = self.api_key
             try:
-                probe.bind((host, int(port_text)))
+                process = subprocess.Popen(args, env=child_env)
             except OSError as error:
-                raise ServerError(f"HTTP address is unavailable: {self.http_addr}") from error
-        args = [self.binary, *self.extra_args, "--http-addr", self.http_addr,
-                "--grpc-addr", "0", "--models", ",".join(self.models)]
-        child_env = os.environ.copy()
-        child_env.pop("OPENKIND_API_KEY", None)
-        child_env.pop("OPENDECISION_API_KEY", None)
-        child_env.pop("OPENPICK_API_KEY", None)
-        child_env.pop("TYPESAFE_API_KEY", None)
-        if self.api_key is not None:
-            child_env["OPENKIND_API_KEY"] = self.api_key
-        try:
-            self._process = subprocess.Popen(args, env=child_env)
-        except OSError as error:
-            raise ServerError(f"could not start openkindd: {error}") from error
+                raise ServerError(f"could not start openkindd: {error}") from error
+            self._process = process
         deadline = time.monotonic() + self.startup_timeout
         try:
             while time.monotonic() < deadline:
-                if self._process.poll() is not None:
-                    code = self._process.returncode
-                    self._process = None
-                    raise ServerError(f"openkindd exited before readiness with code {code}")
+                self._check_starting_process(process)
                 try:
-                    with urlopen(self.base_url + "/health", timeout=0.25) as response:
+                    with _OPENER.open(self.base_url + "/health", timeout=0.25) as response:
                         if response.status == 200 and json.load(response).get("status") == "ok":
-                            return self
+                            with self._lock:
+                                self._check_starting_process(process)
+                                return self
+                except HTTPError as error:
+                    error.close()
                 except (OSError, URLError, ValueError, AttributeError):
                     pass
                 time.sleep(0.05)
             raise ServerError("openkindd did not become healthy before the startup timeout")
         except BaseException:
             # __exit__ is not called when context-manager entry fails or is interrupted.
-            self.stop()
+            with self._lock:
+                if self._process is process:
+                    self._stop_process(process)
             raise
 
+    def _check_starting_process(self, process: subprocess.Popen[bytes]) -> None:
+        with self._lock:
+            if self._process is not process:
+                raise ServerError("openkindd startup was cancelled")
+            if process.poll() is not None:
+                raise ServerError(f"openkindd exited before readiness with code {process.returncode}")
+
     def stop(self) -> None:
-        process = self._process
-        if process is None:
-            return
+        with self._lock:
+            if self._process is not None:
+                self._stop_process(self._process)
+
+    def _stop_process(self, process: subprocess.Popen[bytes]) -> None:
+        # Callers hold the lifecycle lock until this owned child has been reaped.
         if process.poll() is None:
             try:
                 process.terminate()

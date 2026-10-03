@@ -71,6 +71,11 @@ public final class OpenKindServer: @unchecked Sendable {
         guard !models.isEmpty, models.allSatisfy({ !$0.isEmpty && !$0.contains(",") }) else {
             throw ServerError.invalidConfiguration("models must contain nonempty aliases without commas")
         }
+        if let apiKey {
+            guard !apiKey.isEmpty, apiKey.utf8.allSatisfy({ (0x21...0x7e).contains($0) }) else {
+                throw ServerError.invalidConfiguration("apiKey must be nonempty visible ASCII without whitespace")
+            }
+        }
         guard startupTimeout.isFinite, shutdownTimeout.isFinite,
               startupTimeout > 0, shutdownTimeout > 0 else {
             throw ServerError.invalidConfiguration("timeouts must be positive")
@@ -227,6 +232,10 @@ public final class OpenKindServer: @unchecked Sendable {
         let descriptor = Darwin.socket(AF_INET, SOCK_STREAM, 0)
         guard descriptor >= 0 else { return false }
         defer { Darwin.close(descriptor) }
+        // A closed daemon can leave TIME_WAIT connections; these do not own a listener.
+        var reuseAddress: Int32 = 1
+        guard Darwin.setsockopt(descriptor, SOL_SOCKET, SO_REUSEADDR, &reuseAddress,
+                                socklen_t(MemoryLayout<Int32>.size)) == 0 else { return false }
         var address = sockaddr_in()
         address.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
         address.sin_family = sa_family_t(AF_INET)

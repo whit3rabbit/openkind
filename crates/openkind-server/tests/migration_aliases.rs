@@ -74,7 +74,11 @@ fn startup_error_with_env(envs: &[(&str, &str)], extra_args: &[&str]) -> String 
         !output.status.success(),
         "daemon should fail startup for conflicting/invalid configuration"
     );
-    String::from_utf8(output.stderr).unwrap()
+    format!(
+        "{}{}",
+        String::from_utf8(output.stdout).unwrap(),
+        String::from_utf8(output.stderr).unwrap()
+    )
 }
 
 #[tokio::test]
@@ -245,6 +249,103 @@ fn conflicting_cli_and_opendecision_api_key_fail_startup() {
     );
     assert!(!stderr.contains(s1));
     assert!(!stderr.contains(s2));
+}
+
+#[test]
+fn help_does_not_print_api_keys_from_environment() {
+    let sources = [
+        ("OPENKIND_API_KEY", "sensitive-current-token"),
+        ("OPENDECISION_API_KEY", "sensitive-opendecision-token"),
+        ("OPENPICK_API_KEY", "sensitive-openpick-token"),
+        ("TYPESAFE_API_KEY", "sensitive-typesafe-token"),
+    ];
+    for help in ["-h", "--help"] {
+        let mut command = clean_command();
+        for (source, value) in sources {
+            command.env(source, value);
+        }
+        let output = command.arg(help).output().unwrap();
+        assert!(output.status.success());
+        for content in [output.stdout, output.stderr] {
+            let text = String::from_utf8(content).unwrap();
+            assert!(!text.contains("sensitive-"), "API key leaked in help");
+        }
+    }
+}
+
+#[test]
+fn diagnostic_modes_ignore_invalid_inherited_api_keys() {
+    for args in [
+        ["--probe-backend", "native-cpu"],
+        ["--diagnose-backends", "--json"],
+    ] {
+        let mut command = clean_command();
+        command.env("OPENKIND_API_KEY", "sensitive invalid key");
+        command.env("OPENDECISION_API_KEY", "");
+        command.env("OPENPICK_API_KEY", "sensitive-tokén");
+        command.env("TYPESAFE_API_KEY", "sensitive\nkey");
+        let output = command.args(args).output().unwrap();
+        assert!(output.status.success());
+        let text = String::from_utf8(output.stdout).unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(!text.contains("sensitive"));
+        assert!(!stderr.contains("sensitive"));
+        if args[0] == "--probe-backend" {
+            let result: Result<(), String> = serde_json::from_str(&text).unwrap();
+            assert_eq!(result, Ok(()));
+        } else {
+            let report: serde_json::Value = serde_json::from_str(&text).unwrap();
+            assert_eq!(report["schema_version"], 1);
+        }
+    }
+}
+
+#[test]
+fn invalid_api_keys_fail_before_loading_models_without_leaking_secrets() {
+    for (source, flag) in [
+        ("OPENKIND_API_KEY", "--api-key"),
+        ("OPENDECISION_API_KEY", "--opendecision-api-key"),
+        ("OPENPICK_API_KEY", "--legacy-api-key"),
+        ("TYPESAFE_API_KEY", "--typesafe-api-key"),
+    ] {
+        for key in [
+            "",
+            "sensitive token",
+            "-sensitive token",
+            "sensitive\ntokén",
+        ] {
+            // A requested native engine keeps this test bounded if an invalid key is ignored.
+            let stderr = startup_error_with_env(
+                &[(source, key)],
+                &["--models", "qwen35-native", "--grpc-addr", "0"],
+            );
+            assert!(stderr.contains(&format!("invalid API key for {source}")));
+            assert!(
+                !stderr.contains("sensitive"),
+                "API key leaked in diagnostic"
+            );
+
+            let stderr = startup_error_with_env(
+                &[],
+                &[flag, key, "--models", "qwen35-native", "--grpc-addr", "0"],
+            );
+            assert!(stderr.contains(&format!("invalid API key for {source}")));
+            assert!(
+                !stderr.contains("sensitive"),
+                "API key leaked in diagnostic"
+            );
+        }
+    }
+
+    let stderr = startup_error_with_env(
+        &[
+            ("OPENKIND_API_KEY", "valid-current-token"),
+            ("OPENPICK_API_KEY", ""),
+        ],
+        &["--models", "qwen35-native", "--grpc-addr", "0"],
+    );
+    assert!(stderr.contains("invalid API key for OPENPICK_API_KEY"));
+    assert!(!stderr.contains("valid-current-token"));
 }
 
 #[test]

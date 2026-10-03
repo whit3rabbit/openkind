@@ -28,6 +28,7 @@ pub fn cmd_playground(
     api_key: Option<String>,
     no_open: bool,
 ) -> Result<()> {
+    crate::api_key::validate(api_key.as_deref())?;
     let addr: SocketAddr = http_addr
         .parse()
         .with_context(|| format!("invalid --http-addr `{http_addr}` (expected host:port)"))?;
@@ -269,7 +270,12 @@ fn spawn_daemon(
         .arg("0")
         .arg("--models")
         .arg(models);
-    cmd.arg("--installed-models").arg(installed_models);
+    if installed_models.is_empty() {
+        // Omit the empty model name while preserving an explicitly cleared selection.
+        cmd.env_remove("OPENKIND_INSTALLED_MODELS");
+    } else {
+        cmd.arg("--installed-models").arg(installed_models);
+    }
     if let Some(dir) = models_dir {
         cmd.arg("--models-dir").arg(dir);
     }

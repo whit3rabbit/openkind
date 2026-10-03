@@ -4,12 +4,65 @@ use openkind_api::{grpc, AppState, AuthConfig};
 use openkind_engine::MockEngine;
 use openkind_proto::openkind::state::Value as PbStateValue;
 use openkind_proto::openkind::system_one_client::SystemOneClient;
+use openkind_proto::openkind::system_one_server::SystemOne;
 use openkind_proto::openkind::State as PbState;
 use openkind_proto::openkind::SystemOneRequest as PbRequest;
 use tokio::sync::oneshot;
 use tonic::transport::Server;
 
 use super::helpers::{noul_q, req, run_server};
+
+#[tokio::test]
+async fn grpc_auth_is_opt_in_and_rejects_malformed_credentials() {
+    let mut registry = openkind_engine::EngineRegistry::new();
+    registry.register("mock", std::sync::Arc::new(MockEngine::new()));
+    let open = grpc::SystemOneService::new(registry.clone());
+    let protected = grpc::SystemOneService::with_auth(
+        registry,
+        AuthConfig::new(Some("secret-grpc-token".into())),
+    );
+    let request = req("mock", HashMap::from([("q".into(), noul_q())]));
+
+    for authorization in [
+        None,
+        Some(""),
+        Some("Bearer"),
+        Some("Bearer "),
+        Some("Bearer  secret-grpc-token"),
+        Some("Bearer secret-grpc-token "),
+        Some("Basic secret-grpc-token"),
+    ] {
+        let mut request = tonic::Request::new(request.clone());
+        if let Some(value) = authorization {
+            request
+                .metadata_mut()
+                .insert("authorization", value.parse().unwrap());
+        }
+        request
+            .metadata_mut()
+            .insert("x-typesafe-request-id", "auth-regression".parse().unwrap());
+
+        // Disabling auth must ignore credentials supplied by shared clients.
+        let mut open_request = tonic::Request::new(request.get_ref().clone());
+        *open_request.metadata_mut() = request.metadata().clone();
+        assert_eq!(
+            open.evaluate(open_request).await.unwrap().get_ref().model,
+            "mock"
+        );
+        let error = protected.evaluate(request).await.unwrap_err();
+        assert_eq!(error.code(), tonic::Code::Unauthenticated);
+        assert_eq!(error.message(), "missing or invalid API key");
+        assert_eq!(
+            error
+                .metadata()
+                .get("x-typesafe-request-id")
+                .unwrap()
+                .to_str()
+                .unwrap(),
+            "auth-regression"
+        );
+    }
+}
 
 #[tokio::test(flavor = "multi_thread")]
 async fn grpc_auth_enforces_bearer_token() {
