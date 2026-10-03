@@ -210,7 +210,7 @@ impl GgufRowTable {
             file.read_exact(&mut block_bytes)
                 .map_err(candle_core::Error::wrap)?;
             values.reserve(self.width);
-            #[allow(clippy::chunks_exact_to_as_chunks)]
+            #[allow(unknown_lints, clippy::chunks_exact_to_as_chunks)]
             for block in block_bytes.chunks_exact(Q8_0_BLOCK_BYTES) {
                 let scale_bits = u16::from_le_bytes([block[0], block[1]]);
                 let scale = half::f16::from_bits(scale_bits).to_f32();
@@ -336,7 +336,7 @@ pub(crate) fn load_checkpoint(
                 return Err(FamilyError::contract(
                     "gguf.tensor.shape",
                     format!("non-empty rows with width {width}"),
-                    format!("{} elements", element_count),
+                    format!("{element_count} elements"),
                 ));
             }
             let row_count = element_count / width;

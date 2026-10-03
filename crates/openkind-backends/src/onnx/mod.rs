@@ -277,20 +277,36 @@ pub fn resolve_dylib_path(explicit: Option<&Path>) -> Option<PathBuf> {
 }
 
 /// Guard ensuring the process-global ONNX Runtime environment is committed
-/// exactly once, before the first session is created. Failed initialization
-/// remains retryable after an operator repairs the library configuration.
-static ENVIRONMENT: OnceLock<Mutex<bool>> = OnceLock::new();
+/// exactly once, before the first session is created. A failed library load
+/// requires a process restart because the pinned ort loader cannot safely retry.
+static ENVIRONMENT: OnceLock<Mutex<EnvironmentState>> = OnceLock::new();
+
+enum EnvironmentState {
+    Uninitialized,
+    Initialized,
+    Failed(String),
+}
 
 fn ensure_environment(settings: &OnnxRuntimeSettings) -> Result<(), OnnxError> {
     let mut initialized = ENVIRONMENT
-        .get_or_init(|| Mutex::new(false))
+        .get_or_init(|| Mutex::new(EnvironmentState::Uninitialized))
         .lock()
         .map_err(|_| OnnxError::RuntimeLibrary("runtime environment mutex poisoned".into()))?;
-    if *initialized {
-        return Ok(());
+    match &*initialized {
+        EnvironmentState::Initialized => return Ok(()),
+        EnvironmentState::Failed(message) => {
+            return Err(OnnxError::RuntimeLibrary(message.clone()))
+        }
+        EnvironmentState::Uninitialized => {}
     }
-    initialize_environment(settings)?;
-    *initialized = true;
+    if let Err(error) = initialize_environment(settings) {
+        if let OnnxError::RuntimeLibrary(message) = &error {
+            // ort's failed OnceLock initialization cannot be reentered safely.
+            *initialized = EnvironmentState::Failed(message.clone());
+        }
+        return Err(error);
+    }
+    *initialized = EnvironmentState::Initialized;
     Ok(())
 }
 
@@ -608,6 +624,16 @@ mod tests {
             });
             assert!(errors.iter().all(|message| message == &errors[0]));
             assert!(errors[0].contains("missing-runtime-library"));
+
+            // Changing the library configuration must not reenter the failed ort loader.
+            let changed = OnnxRuntimeSettings {
+                dylib: Some(std::env::current_exe().expect("test binary")),
+                intra_threads: None,
+            };
+            assert!(matches!(
+                ensure_environment(&changed),
+                Err(OnnxError::RuntimeLibrary(message)) if message == errors[0]
+            ));
             return;
         }
         // ort's library and environment are process-global. Isolate a failed
@@ -901,6 +927,8 @@ mod tests {
     #[cfg(feature = "onnx-rocm")]
     #[test]
     fn rocm_acceleration_fails_closed_without_a_rocm_provider() {
+        use ort::ep::ExecutionProvider;
+
         let Some(dylib) = resolve_dylib_path(None) else {
             eprintln!("skipping: no ONNX Runtime library found (set ORT_DYLIB_PATH)");
             return;

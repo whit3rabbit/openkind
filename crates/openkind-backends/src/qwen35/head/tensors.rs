@@ -27,7 +27,7 @@ pub(crate) fn validate_tensor(
 }
 
 // Keep the chunks_exact form for compatibility with the workspace MSRV.
-#[allow(clippy::chunks_exact_to_as_chunks)]
+#[allow(unknown_lints, clippy::chunks_exact_to_as_chunks)]
 pub(crate) fn tensor_values(
     tensors: &SafeTensors<'_>,
     name: &str,

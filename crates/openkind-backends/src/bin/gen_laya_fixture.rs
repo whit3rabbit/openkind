@@ -451,8 +451,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 .and_then(Value::as_str);
             if our_choice != reference_choice {
                 selection_flips.push(format!(
-                    "{name}: ours={:?} reference={:?}",
-                    our_choice, reference_choice
+                    "{name}: ours={our_choice:?} reference={reference_choice:?}"
                 ));
             }
             answer_deltas(response, reference_response, name, &mut deltas);

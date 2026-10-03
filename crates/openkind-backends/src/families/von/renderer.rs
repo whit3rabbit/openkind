@@ -187,9 +187,7 @@ impl VonRenderer {
         let total_option_bytes: usize = options.iter().map(|opt| opt.len()).sum();
         if total_option_bytes > max_text_bytes {
             return Err(FamilyError::InvalidInput(format!(
-                "question options total length {} bytes exceeds maximum allowed text limit {} bytes",
-                total_option_bytes,
-                max_text_bytes
+                "question options total length {total_option_bytes} bytes exceeds maximum allowed text limit {max_text_bytes} bytes"
             )));
         }
 

@@ -41,6 +41,12 @@ An explicit path is authoritative, including when it is missing. One runtime
 is initialized per process. Explicit ONNX selections fail when initialization
 fails; `auto` excludes unavailable providers during loading.
 
+After a runtime initialization error, repair the library installation or path
+and restart `openkindd` (or the embedding process). OpenKind retains the first
+typed initialization failure because the pinned `ort` loader cannot safely
+retry a failed library load in the same process. Artifact validation failures
+before runtime initialization remain independent of this process-wide state.
+
 NVIDIA drivers, CUDA user libraries, and cuDNN are operator-installed. The
 bundled ORT 1.23.2 GPU package requires CUDA 12.8 or newer and cuDNN 9.x,
 following [ORT requirements](https://onnxruntime.ai/docs/execution-providers/CUDA-ExecutionProvider.html#requirements).

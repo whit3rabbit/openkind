@@ -302,7 +302,7 @@ impl ContinuationTrace {
 }
 
 // Keep the chunks_exact form for compatibility with the workspace MSRV.
-#[allow(clippy::chunks_exact_to_as_chunks)]
+#[allow(unknown_lints, clippy::chunks_exact_to_as_chunks)]
 fn load_vectors(
     bytes: &[u8],
     index: &BTreeMap<String, TensorRecord>,

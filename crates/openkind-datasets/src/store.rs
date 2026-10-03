@@ -430,6 +430,8 @@ impl DatasetStore {
                 .open(entry_path)?;
             entry_file.write_all(&entry_bytes)?;
             entry_file.sync_all()?;
+            // Windows cannot rename the staging directory while its entry file is open.
+            drop(entry_file);
             sync_directory(&stage)?;
             fs::rename(&stage, self.dataset_dir(&entry.name))?;
             sync_directory(&self.root.join("datasets"))?;

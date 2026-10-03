@@ -82,8 +82,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "B"
         };
         eprintln!(
-            "[fixture] {:<18} expected {expected:<12} routed {routed} p = {probabilities:.6?}",
-            name
+            "[fixture] {name:<18} expected {expected:<12} routed {routed} p = {probabilities:.6?}"
         );
         assert_eq!(
             routed,
