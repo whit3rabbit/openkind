@@ -165,7 +165,7 @@ impl Inner {
         instruction: &str,
         options: &[String],
         control: &FamilyControl,
-    ) -> Result<Vec<f64>, FamilyError> {
+    ) -> Result<(Vec<f64>, u64), FamilyError> {
         control.check()?;
         let QuestionRow { ids, decide, opts } =
             self.renderer
@@ -184,7 +184,7 @@ impl Inner {
                 actual: format!("{} logits", logits.len()),
             });
         }
-        Ok(logits)
+        Ok((logits, u64::try_from(row_len).unwrap_or(u64::MAX)))
     }
 }
 
@@ -250,10 +250,10 @@ impl FamilyEvaluator for KevEngine {
             // The instruction renders like any other JSON value (a string
             // instruction stays verbatim).
             let instruction = render_json(question_instructions(question));
-            let logits = self
-                .inner
-                .logits(&state_tokens, &instruction, &options, control)?;
-            input_tokens = input_tokens.saturating_add(state_tokens.len() as u64);
+            let (logits, row_tokens) =
+                self.inner
+                    .logits(&state_tokens, &instruction, &options, control)?;
+            input_tokens = input_tokens.saturating_add(row_tokens);
             let probabilities = temperature_softmax(&logits, CALIBRATION_TEMPERATURE)?;
             let answer =
                 crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?;

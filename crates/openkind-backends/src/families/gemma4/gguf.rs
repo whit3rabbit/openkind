@@ -164,6 +164,8 @@ pub struct GgufRowTable {
     path: PathBuf,
     /// Absolute file offset of row 0.
     start: u64,
+    /// Number of rows in the tensor, used to reject invalid row IDs before I/O.
+    row_count: usize,
     /// Q8_0 blocks per row (width / 32).
     row_blocks: usize,
     /// Elements per row.
@@ -180,13 +182,30 @@ impl GgufRowTable {
     /// Read `ids.len()` rows as an F32 tensor of shape `(ids.len(), width)`
     /// on the loading device.
     pub fn rows(&self, ids: &[u32]) -> candle_core::Result<Tensor> {
-        let row_bytes = self.row_blocks * Q8_0_BLOCK_BYTES;
+        let row_bytes = self
+            .row_blocks
+            .checked_mul(Q8_0_BLOCK_BYTES)
+            .ok_or_else(|| candle_core::Error::Msg("GGUF row byte count overflow".into()))?;
+        if ids
+            .iter()
+            .any(|id| usize::try_from(*id).map_or(true, |id| id >= self.row_count))
+        {
+            return Err(candle_core::Error::Msg(
+                "GGUF row index is out of bounds".into(),
+            ));
+        }
         let mut block_bytes = vec![0u8; row_bytes];
         let mut values = Vec::with_capacity(ids.len() * self.width);
         let mut file = std::fs::File::open(&self.path).map_err(candle_core::Error::wrap)?;
         for id in ids {
             let row = u64::from(*id);
-            file.seek(SeekFrom::Start(self.start + row * row_bytes as u64))
+            let offset =
+                self.start
+                    .checked_add(row.checked_mul(row_bytes as u64).ok_or_else(|| {
+                        candle_core::Error::Msg("GGUF row offset overflow".into())
+                    })?)
+                    .ok_or_else(|| candle_core::Error::Msg("GGUF row offset overflow".into()))?;
+            file.seek(SeekFrom::Start(offset))
                 .map_err(candle_core::Error::wrap)?;
             file.read_exact(&mut block_bytes)
                 .map_err(candle_core::Error::wrap)?;
@@ -308,9 +327,49 @@ pub(crate) fn load_checkpoint(
                     format!("{:?}", info.ggml_dtype),
                 ));
             }
+            let element_count = info.shape.elem_count();
+            if width == 0
+                || !width.is_multiple_of(QK8_0)
+                || element_count == 0
+                || !element_count.is_multiple_of(width)
+            {
+                return Err(FamilyError::contract(
+                    "gguf.tensor.shape",
+                    format!("non-empty rows with width {width}"),
+                    format!("{} elements", element_count),
+                ));
+            }
+            let row_count = element_count / width;
+            let tensor_bytes = element_count
+                .checked_div(QK8_0)
+                .and_then(|blocks| blocks.checked_mul(Q8_0_BLOCK_BYTES))
+                .ok_or_else(|| FamilyError::Numerical("GGUF tensor byte count overflow".into()))?;
+            let start = content
+                .tensor_data_offset
+                .checked_add(info.offset)
+                .ok_or_else(|| FamilyError::Numerical("GGUF tensor offset overflow".into()))?;
+            let end = start
+                .checked_add(u64::try_from(tensor_bytes).map_err(|_| {
+                    FamilyError::Numerical("GGUF tensor byte count exceeds u64".into())
+                })?)
+                .ok_or_else(|| FamilyError::Numerical("GGUF tensor end overflow".into()))?;
+            let checkpoint_len = std::fs::metadata(&artifacts.checkpoint)
+                .map_err(|source| FamilyError::Io {
+                    path: artifacts.checkpoint.clone(),
+                    source,
+                })?
+                .len();
+            if end > checkpoint_len {
+                return Err(FamilyError::contract(
+                    "gguf.tensor.range",
+                    format!("within checkpoint length {checkpoint_len}"),
+                    format!("ends at byte {end}"),
+                ));
+            }
             Ok(GgufRowTable {
                 path: artifacts.checkpoint.clone(),
-                start: content.tensor_data_offset + info.offset,
+                start,
+                row_count,
                 row_blocks: width / QK8_0,
                 width,
                 device: device.clone(),
@@ -430,6 +489,22 @@ mod tests {
         assert_eq!(labels[26], "AA");
         assert_eq!(labels[27], "AB");
         assert_eq!(letter_labels(64).len(), 64);
+    }
+
+    #[test]
+    fn row_reader_rejects_out_of_bounds_ids_before_opening_the_checkpoint() {
+        let table = GgufRowTable {
+            path: PathBuf::from("missing.gguf"),
+            start: 0,
+            row_count: 1,
+            row_blocks: 1,
+            width: QK8_0,
+            device: Device::Cpu,
+        };
+        let error = table
+            .rows(&[1])
+            .expect_err("out-of-range row must be rejected");
+        assert!(error.to_string().contains("out of bounds"));
     }
 
     #[test]

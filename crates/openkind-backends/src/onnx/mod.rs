@@ -277,15 +277,21 @@ pub fn resolve_dylib_path(explicit: Option<&Path>) -> Option<PathBuf> {
 }
 
 /// Guard ensuring the process-global ONNX Runtime environment is committed
-/// exactly once, before the first session is created.
-static ENVIRONMENT: OnceLock<Result<(), String>> = OnceLock::new();
+/// exactly once, before the first session is created. Failed initialization
+/// remains retryable after an operator repairs the library configuration.
+static ENVIRONMENT: OnceLock<Mutex<bool>> = OnceLock::new();
 
 fn ensure_environment(settings: &OnnxRuntimeSettings) -> Result<(), OnnxError> {
-    ENVIRONMENT
-        .get_or_init(|| initialize_environment(settings).map_err(|error| error.to_string()))
-        .as_ref()
-        .copied()
-        .map_err(|message| OnnxError::RuntimeLibrary(message.clone()))
+    let mut initialized = ENVIRONMENT
+        .get_or_init(|| Mutex::new(false))
+        .lock()
+        .map_err(|_| OnnxError::RuntimeLibrary("runtime environment mutex poisoned".into()))?;
+    if *initialized {
+        return Ok(());
+    }
+    initialize_environment(settings)?;
+    *initialized = true;
+    Ok(())
 }
 
 fn initialize_environment(settings: &OnnxRuntimeSettings) -> Result<(), OnnxError> {

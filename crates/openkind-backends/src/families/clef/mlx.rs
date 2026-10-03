@@ -312,40 +312,6 @@ impl MlxClefModel {
             .map(|head| (head / groups) as u32)
             .collect();
         let key_index = Array::from_slice(&key_index, &[value_heads as i32]);
-        if false && prefix.ends_with("layers.0") {
-            let dump = |array: &Array| -> Vec<f32> {
-                host_f32(
-                    &array
-                        .reshape(&[-1])
-                        .map_err(mlx_error("dump flat"))
-                        .unwrap_or_else(|_| Array::from_slice(&[f32::NAN], &[])),
-                )
-                .unwrap_or_default()
-            };
-            let qkv_values = dump(&raw_qkv);
-            let z_values = dump(&z_all);
-            let beta_values = dump(&beta_all);
-            let decay_values = dump(&decay_all);
-            let payload = serde_json::json!({
-                "token_count": token_count,
-                "qkv": qkv_values,
-                "z": z_values,
-                "beta": beta_values,
-                "decay": decay_values,
-            });
-            std::fs::write(
-                "/tmp/clef-mlx-layer0-inputs.json",
-                serde_json::to_vec(&payload).map_err(|error| FamilyError::Json {
-                    path: std::path::PathBuf::from("dump"),
-                    source: error,
-                })?,
-            )
-            .map_err(|source| FamilyError::Io {
-                path: std::path::PathBuf::from("/tmp/clef-mlx-layer0-inputs.json"),
-                source,
-            })?;
-            eprintln!("mlx debug: dumped layer 0 inputs");
-        }
         let mut mixed_rows: Vec<Array> = Vec::with_capacity(token_count);
         for row in 0..token_count {
             let index = Array::from_slice(&[row as u32], &[1]);
@@ -420,21 +386,22 @@ impl MlxClefModel {
                 .map_err(mlx_error("z row"))?
                 .reshape(&[value_heads as i32, head_dim as i32])
                 .map_err(mlx_error("z heads"))?;
-            // Offset RMSNorm over each head, then expand q/k per value head.
-            let normalize = |heads: &Array| -> Result<Array, FamilyError> {
+            // Match the CPU oracle: q uses L2 normalization plus 1/sqrt(d),
+            // while k uses L2 normalization without the query scale.
+            let normalize = |heads: &Array, multiplier: f64| -> Result<Array, FamilyError> {
                 let scale = (heads.clone() * heads.clone())
-                    .mean_axis(-1, Some(true))
-                    .map_err(mlx_error("qk mean"))?
+                    .sum_axis(-1, Some(true))
+                    .map_err(mlx_error("qk sum"))?
                     + scalar_f32(1e-6);
                 let scale = scale
                     .sqrt()
                     .map_err(mlx_error("qk sqrt"))?
                     .reciprocal()
                     .map_err(mlx_error("qk recip"))?;
-                Ok(heads * scale)
+                Ok(heads * scale * scalar_f32(multiplier))
             };
-            let queries = normalize(&queries)?;
-            let keys = normalize(&keys)?;
+            let queries = normalize(&queries, (head_dim as f64).sqrt().recip())?;
+            let keys = normalize(&keys, 1.0)?;
             let queries_e = queries
                 .take_axis(&key_index, 0)
                 .map_err(mlx_error("q expand"))?;

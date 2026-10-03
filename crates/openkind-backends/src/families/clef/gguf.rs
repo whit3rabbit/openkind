@@ -264,8 +264,8 @@ impl GgufModel {
         let ids = Tensor::from_vec(input_ids.to_vec(), input_ids.len(), &self.device)?;
         let rows = self
             .embedding
-            .to_dtype(DType::F32)?
             .index_select(&ids, 0)?
+            .to_dtype(DType::F32)?
             .to_vec2::<f32>()?;
         Ok(rows.into_iter().flatten().collect())
     }
@@ -683,8 +683,8 @@ impl LexicalLookup for GgufLexical<'_> {
         let ids = Tensor::from_vec(token_ids.to_vec(), token_ids.len(), self.device)?;
         let rows = self
             .lm_head
-            .to_dtype(DType::F32)?
             .index_select(&ids, 0)?
+            .to_dtype(DType::F32)?
             .to_vec2::<f32>()?;
         Ok(rows.into_iter().flatten().collect())
     }

@@ -75,6 +75,22 @@ fn class_index(label: &str, none_used: &mut bool) -> Result<usize, FamilyError> 
     }
 }
 
+fn offered_classes(labels: &[String]) -> Result<Vec<usize>, FamilyError> {
+    let mut none_used = false;
+    let mut seen = [false; 3];
+    let mut classes = Vec::with_capacity(labels.len());
+    for label in labels {
+        let class = class_index(label, &mut none_used)?;
+        if std::mem::replace(&mut seen[class], true) {
+            return Err(FamilyError::InvalidInput(
+                "guard question offers multiple labels for the same risk class".to_owned(),
+            ));
+        }
+        classes.push(class);
+    }
+    Ok(classes)
+}
+
 impl Qwen3GuardEngine {
     /// Load every pinned artifact offline and build the bounded engine.
     ///
@@ -207,11 +223,7 @@ impl FamilyEvaluator for Qwen3GuardEngine {
                 crate::families::wire::QuestionPrimitive::Choice => {
                     // Every offered option must map onto a guard class; the
                     // readout is the softmax over the offered classes' logits.
-                    let mut none_used = false;
-                    let mut classes: Vec<usize> = Vec::with_capacity(unpacked.labels.len());
-                    for label in &unpacked.labels {
-                        classes.push(class_index(label, &mut none_used)?);
-                    }
+                    let classes = offered_classes(&unpacked.labels)?;
                     let offered_logits: Vec<f64> =
                         classes.iter().map(|index| logits[*index]).collect();
                     let probabilities =
@@ -284,5 +296,16 @@ mod tests {
             "unexpected error: {error}"
         );
         assert!(!none, "a rejected label must not arm the none flag");
+    }
+
+    #[test]
+    fn offered_classes_reject_case_variant_duplicates() {
+        let error = offered_classes(&["safe".into(), "SAFE".into()]).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("multiple labels for the same risk class"),
+            "unexpected error: {error}"
+        );
     }
 }
