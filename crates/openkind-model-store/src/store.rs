@@ -407,6 +407,8 @@ impl ModelStore {
                 .open(manifest_path)?;
             manifest_file.write_all(&manifest_bytes)?;
             manifest_file.sync_all()?;
+            // Windows cannot rename a staging directory while its manifest is open.
+            drop(manifest_file);
             sync_directory(&stage)?;
             fs::rename(&stage, self.model_dir(&canonical))?;
             sync_directory(&self.root.join("models"))?;
