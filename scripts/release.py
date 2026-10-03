@@ -255,7 +255,8 @@ def homebrew(archive):
             url = f"http://127.0.0.1:{server.server_port}/{archive.name}"
             formula = re.sub(r'url "[^"\n]+"', f'url "{url}"', formula)
             formula = re.sub(r'@@SHA_[A-Z_]+@@', digest(archive), formula).replace("@@VERSION@@", "0.0.0")
-            subprocess.run(["brew", "tap-new", "openkind/release-ci"], check=True)
+            # The local formula test needs no Git history or runner identity.
+            subprocess.run(["brew", "tap-new", "--no-git", "openkind/release-ci"], check=True)
             repository = Path(subprocess.check_output(["brew", "--repository", "openkind/release-ci"], text=True).strip())
             (repository / "Formula/openkind.rb").write_text(formula)
             subprocess.run(["brew", "install", "--formula", "openkind/release-ci/openkind"], check=True)
