@@ -182,7 +182,7 @@ Rust-loadable prototype still carries no model-quality claim.
 | [`decoder-logit-letter`](decoder-logit-letter.md) | Rust-loadable prototype (Qwen2.5-0.5B letter logits; no sampled tokens). Task qualification remains separate. |
 | [`decoder-logit-llm`](decoder-logit-llm.md) | Rust-loadable prototype (candle GGUF q8_0 loader; no llama.cpp binding). Task qualification remains separate. |
 | [`kev`](kev.md) | Rust-loadable prototype over the published open checkpoint (unblocked 2026-09-26). Task qualification remains separate. |
-| [`von`](von.md) | Remains external-reference-only until contract, weights, training pipeline, and evaluation rights are available. |
+| [`von`](von.md) | Rust-loadable prototype (ModernBERT option-marker encoder over the published open checkpoint). Task qualification and release promotion remain separate. |
 | [`schema-scorer`](schema-scorer.md) | Rust-loadable prototype realized on open weights (MS MARCO MiniLM cross-encoder). Task qualification remains separate. |
 | [`router-script`](router-script.md) | Rust-loadable composite; deterministic Unicode-script rules over registered sibling engines. |
 | [`winnow`](winnow.md) | Rust-loadable learned router (in-house LoRA); sibling set locked to decoder-letter and encoder-nli. |

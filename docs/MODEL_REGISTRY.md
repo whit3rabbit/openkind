@@ -75,6 +75,13 @@ repositories. Downloads and tests are separate: builds and tests never fetch
 model assets. A real Qwen pull and decision smoke test is an explicit,
 multi-gigabyte operator gate.
 
+[`registry/v1/mlx-alternatives.json`](../registry/v1/mlx-alternatives.json)
+records the MLX status of every catalog model and pinned Hugging Face
+discovery leads. It is supplemental research metadata: `openkind catalog` and
+`openkind pull` do not treat these leads as installable profiles. Each still
+needs an OpenKind loader, profile-level offline parity, and daemon registration
+before it can become an executable MLX entry.
+
 ## Execution backends and benchmark evidence per registry model
 
 Each catalog model records which execution backends can serve it on Apple
@@ -152,11 +159,12 @@ python3 scripts/sync-model-registry.py --write
 python3 scripts/sync-model-registry.py --remote
 ```
 
-Without flags, the script checks local copies. `--write` copies only catalog
-and manifest files, refuses a dirty mirror metadata tree, and never commits
-or pushes. After the public push, `--remote` checks exact catalog and manifest
-bytes and all pinned profile assets through public HTTPS. It does not fetch
-checkpoint shards. The default mirror checkout is
+Without flags, the script checks local copies. `--write` copies every metadata
+file under `registry/v1` (the catalog, manifests, and supplemental indexes),
+refuses a dirty mirror metadata tree, and never commits or pushes. After the
+public push, `--remote` checks exact metadata bytes and all pinned profile
+assets through public HTTPS. It does not fetch checkpoint shards. The default
+mirror checkout is
 `~/Documents/GitHub/openkind-model-registry`; pass `--mirror PATH` to each
 command if the public checkout is elsewhere.
 Keep prior asset commits available so existing manifests remain reproducible.
@@ -175,6 +183,7 @@ Kev and Qwen3Guard have since cleared their blockers as Rust-loadable
 prototype profiles; the Laya-style decision encoders landed 2026-09-27 as
 three registry-installable rust-loadable profiles (`laya-english`,
 `laya-multilingual`, `laya-typed-decisions`) with reference-parity fixtures;
-Von remains surveyed and external-reference-only.
+Von is now a Rust-loadable prototype over the published open checkpoint;
+task qualification and release promotion remain separate.
 A family page or catalog description does
 not make a model runnable.

@@ -106,16 +106,48 @@ no MLX adapter yet.
 Backend selection: `openkindd --encoder-instruct-backend mlx-fp32` /
 `--decoder-logit-qwen35-backend mlx-fp32`, and
 `openkind-bench --engine encoder-instruct-label-mlx-fp32` /
-`decoder-logit-qwen35-mlx-fp32`. The remaining surveyed families (Qwen2.5
-and Qwen3 dense decoders, DistilBERT, MiniLM) have no MLX execution path;
-Hub MLX conversions of their backbones exist but no openkind loader reads
-them, and a conversion is not a backend.
+`decoder-logit-qwen35-mlx-fp32`. The conversion leads below cover catalog
+profiles that still lack a qualified MLX result. A Hub conversion, even when
+it uses the same backbone, does not by itself provide an OpenKind execution
+path.
 
 The proxy-cache BGE sentence encoder also has a macOS arm64 MLX FP32 path. Its
 checkpoint-backed CPU/MLX replay passed with max element delta `2.980e-7` and
 minimum cosine `0.999999881`; its single-host component timings are recorded
 in [`benchmarks/2026-09-30-encoder-embedding/`](benchmarks/2026-09-30-encoder-embedding/README.md).
 This profile embeds proxy-cache state and is not a `DecisionEngine`.
+
+## Hugging Face MLX conversion survey
+
+The catalog has 18 profiles without a qualified MLX result. The supplemental
+[`registry/v1/mlx-alternatives.json`](../registry/v1/mlx-alternatives.json)
+records every catalog profile's current MLX status and pins each discovered
+Hugging Face lead to an immutable revision. These leads are research metadata,
+not pullable model entries. Most conversions cover only a backbone; a matching
+model size leaves profile fine-tuning, readout head, renderer, calibration,
+and artifact format unverified. A new executable `registry/v1` profile needs
+a Rust loader for its pinned artifacts and the offline parity and
+daemon-registration gates in
+[`families/NEW_FAMILY.md`](families/NEW_FAMILY.md).
+
+| OpenKind profile(s) | Hugging Face MLX lead | Identity and integration boundary |
+|---|---|---|
+| `decoder-logit-qwen3-06b`, `decoder-logit-qwen3-17b`, `decoder-logit-qwen3-4b` | [`Qwen3-0.6B-4bit`](https://huggingface.co/mlx-community/Qwen3-0.6B-4bit), [`Qwen3-1.7B-bf16`](https://huggingface.co/mlx-community/Qwen3-1.7B-bf16), [`Qwen3-4B-Instruct-2507-bf16`](https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-bf16), [`Qwen3-4B-Instruct-2507-4bit`](https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit) | Same upstream checkpoints. The 4-bit 4B card reports 2.26 GB; OpenKind has no Qwen3 MLX loader or direct-logit parity gate. |
+| `kev` | [`Qwen3-0.6B-Base-bf16`](https://huggingface.co/mlx-community/Qwen3-0.6B-Base-bf16) | Base-backbone lead only. Kev's LoRA and pointer head are separate profile artifacts. |
+| `qwen3guard` | [`Qwen3Guard-Stream-0.6B-mxfp4-mlx`](https://huggingface.co/abnormalmapstudio/Qwen3Guard-Stream-0.6B-mxfp4-mlx/tree/7d27a40cfe7800748c0d68b9ed56c02a6017b81a) | Conversion of the exact upstream profile checkpoint. The Hub card uses generic text generation; token-level classifier semantics and parity remain unverified in OpenKind. |
+| `decoder-logit-letter`, `decoder-logit-llm`, `winnow` | [`Qwen2.5-0.5B-Instruct-4bit`](https://huggingface.co/mlx-community/Qwen2.5-0.5B-Instruct-4bit) | Shared Qwen2.5 backbone conversion. Its MLX representation differs from `decoder-logit-llm`'s q8_0 GGUF artifact, and Winnow's LoRA needs a separate port. |
+| `plumb-4b` | No additional conversion needed | The profile already has a `plumb-4b/mlx-fp32` execution path through the Qwen3.5 MLX backend. Its reported replay lacks archived evidence for a qualified result; see the [Plumb and Decider record](benchmarks/2026-09-30-jevbench-expansion/README.md). |
+| `decider-4b` | [`Qwen3.5-4B-MLX-bf16`](https://huggingface.co/mlx-community/Qwen3.5-4B-MLX-bf16) | Related Qwen3.5 conversion. The source weights differ from Mapika's merged Decider checkpoint, which has no MLX adapter. |
+| `strands-decider-2b` | [`Qwen3.5-2B-MLX-bf16`](https://huggingface.co/mlx-community/Qwen3.5-2B-MLX-bf16), [`Jev-Style-2B-Decision-v3-MLX`](https://huggingface.co/chaoliangUNSW/Jev-Style-2B-Decision-v3-MLX) | The Qwen conversion is a base-model lead. Jev-Style is an independent task-trained decision model with its own MLX runtime, readout, and calibration, not a Strands conversion or an OpenKind parity result. |
+| `clef-flash`, `clef-flash-gguf`, `clef-27b-gguf` | [`clef-flash-8bit`](https://huggingface.co/mlx-community/clef-flash-8bit), [`clef-8bit`](https://huggingface.co/mlx-community/clef-8bit) | Exact Cloudflare checkpoints with a separate Python scoring runtime. Its 8-bit spot-check is not an OpenKind parity result; the in-tree 4-bit path remains unqualified. |
+| `winnow-e4b` | [`gemma-4-e4b-it-bf16`](https://huggingface.co/mlx-community/gemma-4-e4b-it-bf16) | Gemma 4 base-family conversion. The Winnow fine-tune and letter-logit profile require separate weights and integration. |
+| `von` | [`tasksource-ModernBERT-base-embed-bf16`](https://huggingface.co/mlx-community/tasksource-ModernBERT-base-embed-bf16/tree/d1ba4cc2280fe323abd82d731d2e178d60313175) | Related ModernBERT sentence-embedding model, not Von's option-marker classifier. No exact Von conversion was found; the Hub card does not declare a license. |
+| `encoder-nli` | No matching conversion found | Search found no MLX conversion for [`typeform/distilbert-base-uncased-mnli`](https://huggingface.co/typeform/distilbert-base-uncased-mnli). |
+| `schema-scorer` | [`all-MiniLM-L6-v2-bf16`](https://huggingface.co/mlx-community/all-MiniLM-L6-v2-bf16) | Related MiniLM embedding model, not a sentence-pair cross-encoder. OpenKind uses the MS MARCO MiniLM cross-encoder and its single-logit readout. |
+
+Hub repositories and metadata were checked on 2026-10-02. Their commit SHAs,
+reported licenses, and fit assessments are pinned in the supplemental index.
+Recheck those details and qualify the model before using a lead in OpenKind.
 
 ## Pinned runtime and model identity
 

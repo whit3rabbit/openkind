@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Check or copy the checked-in catalog to its public, asset-pinned mirror."""
+"""Check or copy checked-in registry metadata to its public, asset-pinned mirror."""
 
 import argparse
+import datetime
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -66,6 +68,81 @@ def check_assets(mirror: Path, manifest: dict, remote: bool) -> int:
     return checked
 
 
+def validate_mlx_alternatives(document: dict, catalog_names: set[str]) -> None:
+    """Keep the supplemental MLX survey pinned and aligned with the catalog."""
+    if not isinstance(document, dict):
+        raise ValueError("MLX alternatives metadata must be an object")
+    required = {"schema", "checked_at", "installable", "scope", "models"}
+    if set(document) != required:
+        raise ValueError("MLX alternatives metadata has unexpected fields")
+    if document["schema"] != "openkind-mlx-alternatives/v1":
+        raise ValueError("unsupported MLX alternatives schema")
+    try:
+        if datetime.date.fromisoformat(document["checked_at"]).isoformat() != document["checked_at"]:
+            raise ValueError("MLX alternatives checked_at must be an ISO date")
+    except (TypeError, ValueError) as error:
+        raise ValueError("MLX alternatives checked_at must be an ISO date") from error
+    if document["installable"] is not False:
+        raise ValueError("MLX alternatives must remain non-installable")
+    if not isinstance(document["scope"], str) or not document["scope"].strip():
+        raise ValueError("MLX alternatives scope must be non-empty")
+    if not isinstance(document["models"], list):
+        raise ValueError("MLX alternatives models must be an array")
+
+    observed_names = set()
+    statuses = {"qualified", "unqualified", "none"}
+    lead_fields = {
+        "repository",
+        "revision",
+        "license",
+        "base_model",
+        "relationship",
+        "notes",
+    }
+    for model in document["models"]:
+        if not isinstance(model, dict) or set(model) != {
+            "catalog_name",
+            "openkind_mlx_status",
+            "assessment",
+            "leads",
+        }:
+            raise ValueError("MLX alternatives model has unexpected fields")
+        name = model["catalog_name"]
+        if not isinstance(name, str) or name not in catalog_names:
+            raise ValueError(f"MLX alternatives references unknown catalog model: {name}")
+        if name in observed_names:
+            raise ValueError(f"duplicate MLX alternatives entry: {name}")
+        observed_names.add(name)
+        status = model["openkind_mlx_status"]
+        if not isinstance(status, str) or status not in statuses:
+            raise ValueError(f"invalid OpenKind MLX status for {name}")
+        if not isinstance(model["assessment"], str) or not model["assessment"].strip():
+            raise ValueError(f"missing MLX assessment for {name}")
+        if not isinstance(model["leads"], list):
+            raise ValueError(f"MLX leads must be an array for {name}")
+        for lead in model["leads"]:
+            if not isinstance(lead, dict) or set(lead) != lead_fields:
+                raise ValueError(f"MLX lead has unexpected fields for {name}")
+            repository = lead["repository"]
+            if not isinstance(repository, str) or repository.count("/") != 1:
+                raise ValueError(f"invalid Hugging Face repository for {name}")
+            if not isinstance(lead["revision"], str) or not re.fullmatch(
+                r"[0-9a-f]{40}", lead["revision"]
+            ):
+                raise ValueError(f"MLX lead revision must be a pinned commit for {name}")
+            if lead["license"] is not None and not isinstance(lead["license"], str):
+                raise ValueError(f"invalid MLX lead license for {name}")
+            if lead["base_model"] is not None and not isinstance(lead["base_model"], str):
+                raise ValueError(f"invalid MLX lead base model for {name}")
+            for field in ("relationship", "notes"):
+                if not isinstance(lead[field], str) or not lead[field].strip():
+                    raise ValueError(f"missing MLX lead {field} for {name}")
+
+    missing = catalog_names - observed_names
+    if missing:
+        raise ValueError(f"MLX alternatives omit catalog models: {sorted(missing)}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -109,6 +186,10 @@ def main() -> int:
             raise ValueError(f"mirror metadata differs: {relative}")
 
     catalog = json.loads((SOURCE / "catalog.json").read_bytes())
+    mlx_alternatives = json.loads((SOURCE / "mlx-alternatives.json").read_bytes())
+    validate_mlx_alternatives(
+        mlx_alternatives, {entry["name"] for entry in catalog["models"]}
+    )
     checked_assets = 0
     for entry in catalog["models"]:
         relative = Path(entry["manifest_path"])

@@ -1,0 +1,318 @@
+{
+  "schema": "openkind-mlx-alternatives/v1",
+  "checked_at": "2026-10-02",
+  "installable": false,
+  "scope": "Every profile in catalog.json. qualified means OpenKind has a parity-qualified MLX path; unqualified means a path exists but parity or evidence is incomplete; none means no OpenKind MLX path is available.",
+  "models": [
+    {
+      "catalog_name": "qwen35-state-first:a047d6802c3f06f085b8",
+      "openkind_mlx_status": "qualified",
+      "assessment": "The profile has a parity-qualified Qwen3.5 MLX FP32 path.",
+      "leads": []
+    },
+    {
+      "catalog_name": "laya-english:c8ea29bf1e33a343c4b7",
+      "openkind_mlx_status": "qualified",
+      "assessment": "The profile has a parity-qualified MLX FP32 encoder path.",
+      "leads": []
+    },
+    {
+      "catalog_name": "laya-multilingual:f4064eb56fb7f7d325e1",
+      "openkind_mlx_status": "qualified",
+      "assessment": "The profile has a parity-qualified MLX FP32 encoder path.",
+      "leads": []
+    },
+    {
+      "catalog_name": "laya-typed-decisions:9d28cfa9567902801ed1",
+      "openkind_mlx_status": "qualified",
+      "assessment": "The profile has a parity-qualified MLX FP32 encoder path.",
+      "leads": []
+    },
+    {
+      "catalog_name": "von:69219703407bd39cca0c",
+      "openkind_mlx_status": "none",
+      "assessment": "No exact MLX conversion of wfzyx/von was found. The related ModernBERT MLX model below is an embedding model, not Von's option-marker classifier.",
+      "leads": [
+        {
+          "repository": "mlx-community/tasksource-ModernBERT-base-embed-bf16",
+          "revision": "d1ba4cc2280fe323abd82d731d2e178d60313175",
+          "license": null,
+          "base_model": "answerdotai/ModernBERT-base",
+          "relationship": "same-family-different-task",
+          "notes": "Sentence-embedding conversion only. The Hub card has no license field; this is not a candidate for Von's classifier without a separate model and license review."
+        }
+      ]
+    },
+    {
+      "catalog_name": "decider-4b:0529bf6f2bed84641701",
+      "openkind_mlx_status": "none",
+      "assessment": "No MLX conversion of Mapika/decider-4b was found. This conversion uses its Qwen3.5 base model, not Decider's fine-tuned weights and readout.",
+      "leads": [
+        {
+          "repository": "mlx-community/Qwen3.5-4B-MLX-bf16",
+          "revision": "475632ded9a95863da4e4b235ab9ccbc5d3cc6bf",
+          "license": "apache-2.0",
+          "base_model": "Qwen/Qwen3.5-4B",
+          "relationship": "base-model-only",
+          "notes": "MLX VLM-format conversion of the related Qwen3.5 base. Decider's fine-tuning, answer head, and calibration are absent."
+        }
+      ]
+    },
+    {
+      "catalog_name": "plumb-4b:c1f080794d38e94a0bc2",
+      "openkind_mlx_status": "unqualified",
+      "assessment": "An OpenKind MLX path exists through the Qwen3.5 backend. The reported replay lacks archived evidence, so it is not qualified.",
+      "leads": []
+    },
+    {
+      "catalog_name": "encoder-embedding:8d9498269ef05d95d93c",
+      "openkind_mlx_status": "qualified",
+      "assessment": "The proxy-cache BGE encoder has a parity-checked MLX FP32 path. It is an embedding component, not a DecisionEngine.",
+      "leads": []
+    },
+    {
+      "catalog_name": "decoder-logit-qwen3-06b:d900f4af57509fe02e62",
+      "openkind_mlx_status": "none",
+      "assessment": "The matching Qwen3 backbone conversion is a 4-bit MLX checkpoint. OpenKind has no Qwen3 MLX loader for this profile.",
+      "leads": [
+        {
+          "repository": "mlx-community/Qwen3-0.6B-4bit",
+          "revision": "73e3e38d981303bc594367cd910ea6eb48349da8",
+          "license": "apache-2.0",
+          "base_model": "Qwen/Qwen3-0.6B",
+          "relationship": "same-base-conversion",
+          "notes": "Same upstream backbone at 4-bit precision. It does not establish OpenKind loader compatibility or parity against the raw-weight profile."
+        }
+      ]
+    },
+    {
+      "catalog_name": "decoder-logit-qwen3-17b:8119b9271f8d011e7d03",
+      "openkind_mlx_status": "none",
+      "assessment": "The matching Qwen3 backbone conversion is available in BF16. OpenKind has no Qwen3 MLX loader for this profile.",
+      "leads": [
+        {
+          "repository": "mlx-community/Qwen3-1.7B-bf16",
+          "revision": "9cd6692855d3e06772228e9a962b2606359b2d24",
+          "license": "apache-2.0",
+          "base_model": "Qwen/Qwen3-1.7B",
+          "relationship": "same-base-conversion",
+          "notes": "Same upstream backbone in BF16. OpenKind still needs an MLX loader and direct-logit parity checks."
+        }
+      ]
+    },
+    {
+      "catalog_name": "decoder-logit-qwen3-4b:9dfaf11792a8d061b6b8",
+      "openkind_mlx_status": "none",
+      "assessment": "Matching Qwen3-4B-Instruct-2507 MLX conversions are available in BF16 and 4-bit. OpenKind has no Qwen3 MLX loader for this profile.",
+      "leads": [
+        {
+          "repository": "mlx-community/Qwen3-4B-Instruct-2507-bf16",
+          "revision": "f9e77d4283734966e9cd641bf35547f0cff5d427",
+          "license": "apache-2.0",
+          "base_model": "Qwen/Qwen3-4B-Instruct-2507",
+          "relationship": "same-base-conversion",
+          "notes": "Same upstream checkpoint in BF16. OpenKind still needs an MLX loader and direct-logit parity checks."
+        },
+        {
+          "repository": "mlx-community/Qwen3-4B-Instruct-2507-4bit",
+          "revision": "50d427756c6b1b2fe0c0a10f67fbda1fc8e82c1b",
+          "license": "apache-2.0",
+          "base_model": "Qwen/Qwen3-4B-Instruct-2507",
+          "relationship": "same-base-conversion",
+          "notes": "Same upstream checkpoint in 4-bit MLX format (2.26 GB on its Hub card). OpenKind still needs an MLX loader and direct-logit parity checks; this precision has not been evaluated here."
+        }
+      ]
+    },
+    {
+      "catalog_name": "winnow-e4b:656ac636ce450cf79c7d",
+      "openkind_mlx_status": "none",
+      "assessment": "No MLX conversion of EldanRing/Winnow-E4B was found. The lead below converts its Gemma 4 base model only.",
+      "leads": [
+        {
+          "repository": "mlx-community/gemma-4-e4b-it-bf16",
+          "revision": "eec12d0899edea9b738ab1009af9159cdfd70d71",
+          "license": "gemma",
+          "base_model": "google/gemma-4-E4B-it",
+          "relationship": "base-model-only",
+          "notes": "The MLX repository converts the Gemma 4 base, not Winnow's fine-tuned decision model. The Gemma license must be reviewed before any use."
+        }
+      ]
+    },
+    {
+      "catalog_name": "strands-decider-2b:6a02bb0d1c6b25cae74b",
+      "openkind_mlx_status": "none",
+      "assessment": "No MLX conversion of the Strands decision profile was found. The leads below are its Qwen3.5 base model and a separate task-trained decision model.",
+      "leads": [
+        {
+          "repository": "chaoliangUNSW/Jev-Style-2B-Decision-v3-MLX",
+          "revision": "b86e4cbc6f420f5d7d1691299d62db272934ebf4",
+          "license": "apache-2.0",
+          "base_model": "chaoliangUNSW/Jev-Style-2B-Decision-v3",
+          "relationship": "same-task-different-model",
+          "notes": "Independent typed-decision model with its own MLX runtime, readout, and calibration. It is not a conversion of Strands' LoRA and pointer head or an OpenKind parity result; evaluate its separate contract and runtime before considering integration."
+        },
+        {
+          "repository": "mlx-community/Qwen3.5-2B-MLX-bf16",
+          "revision": "05ce45420036b812fe0be3f72cdc1fb62bae6891",
+          "license": "apache-2.0",
+          "base_model": "Qwen/Qwen3.5-2B",
+          "relationship": "base-model-only",
+          "notes": "The Strands LoRA, pointer head, tokenizer contract, and calibration are not included in this base conversion."
+        }
+      ]
+    },
+    {
+      "catalog_name": "decoder-logit-letter:5492c97dfcdaf3fe9439",
+      "openkind_mlx_status": "none",
+      "assessment": "A Qwen2.5-0.5B-Instruct MLX conversion is available. OpenKind has no decoder-logit-letter MLX loader.",
+      "leads": [
+        {
+          "repository": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+          "revision": "a5339a4131f135d0fdc6a5c8b5bbed2753bbe0f3",
+          "license": "apache-2.0",
+          "base_model": "Qwen/Qwen2.5-0.5B",
+          "relationship": "same-base-conversion",
+          "notes": "Same instruction-tuned backbone in 4-bit precision. The OpenKind loader currently consumes the author checkpoint in BF16."
+        }
+      ]
+    },
+    {
+      "catalog_name": "encoder-nli:1041a4c362338a61b820",
+      "openkind_mlx_status": "none",
+      "assessment": "Hub model search found no MLX conversion for typeform/distilbert-base-uncased-mnli as of 2026-10-02.",
+      "leads": []
+    },
+    {
+      "catalog_name": "encoder-instruct-label:9fd68313a5606eca42f2",
+      "openkind_mlx_status": "qualified",
+      "assessment": "The profile has a parity-qualified MLX FP32 encoder path.",
+      "leads": []
+    },
+    {
+      "catalog_name": "decoder-logit-llm:465963d705b6f35d6208",
+      "openkind_mlx_status": "none",
+      "assessment": "A Qwen2.5-0.5B-Instruct MLX conversion is available, but this profile's primary checkpoint is GGUF q8_0 and OpenKind has no MLX loader for it.",
+      "leads": [
+        {
+          "repository": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+          "revision": "a5339a4131f135d0fdc6a5c8b5bbed2753bbe0f3",
+          "license": "apache-2.0",
+          "base_model": "Qwen/Qwen2.5-0.5B",
+          "relationship": "same-base-different-artifact",
+          "notes": "The MLX conversion is not the profile's q8_0 GGUF artifact. Loading it would need a distinct MLX implementation and parity check."
+        }
+      ]
+    },
+    {
+      "catalog_name": "schema-scorer:5a7350af556f0ee66566",
+      "openkind_mlx_status": "none",
+      "assessment": "No MLX conversion of the MS MARCO cross-encoder profile was found. The related MiniLM lead below is a sentence-similarity model with a different objective.",
+      "leads": [
+        {
+          "repository": "mlx-community/all-MiniLM-L6-v2-bf16",
+          "revision": "b6691709eacd8f0afcc3faace288cf50e611f3aa",
+          "license": "apache-2.0",
+          "base_model": null,
+          "relationship": "same-family-different-task",
+          "notes": "This is a sentence-embedding model. OpenKind's schema-scorer uses cross-encoder/ms-marco-MiniLM-L-6-v2 and its single-logit readout."
+        }
+      ]
+    },
+    {
+      "catalog_name": "qwen3guard:0fcf416cab16d94f933d",
+      "openkind_mlx_status": "none",
+      "assessment": "An MLX conversion of the exact Qwen3Guard-Stream-0.6B source checkpoint was found. Its generic text-generation usage does not establish compatibility with OpenKind's token-classification readout.",
+      "leads": [
+        {
+          "repository": "abnormalmapstudio/Qwen3Guard-Stream-0.6B-mxfp4-mlx",
+          "revision": "7d27a40cfe7800748c0d68b9ed56c02a6017b81a",
+          "license": "apache-2.0",
+          "base_model": "Qwen/Qwen3Guard-Stream-0.6B",
+          "relationship": "profile-source-conversion",
+          "notes": "The Hub card identifies the exact Qwen3Guard source and an mlx-lm 4-bit conversion. Review the custom model code and token-level classification semantics, then require offline parity before integration."
+        }
+      ]
+    },
+    {
+      "catalog_name": "kev:39d88c11faeb4ac165fa",
+      "openkind_mlx_status": "none",
+      "assessment": "A Qwen3-0.6B-Base conversion is available, but it is only the backbone of the Kev decision profile.",
+      "leads": [
+        {
+          "repository": "mlx-community/Qwen3-0.6B-Base-bf16",
+          "revision": "e8e73ff38f0eb570eb57ed044ef3f95588c43bc8",
+          "license": "apache-2.0",
+          "base_model": "Qwen/Qwen3-0.6B-Base",
+          "relationship": "base-model-only",
+          "notes": "Kev's adapter and pointer head are separate profile artifacts and are absent from this backbone conversion."
+        }
+      ]
+    },
+    {
+      "catalog_name": "decoder-logit-qwen35:415bcf4a064e6dadcf85",
+      "openkind_mlx_status": "qualified",
+      "assessment": "The profile has a parity-qualified MLX FP32 path using the same pinned BF16 checkpoint.",
+      "leads": []
+    },
+    {
+      "catalog_name": "winnow:4dff8c5b03cfbf680db6",
+      "openkind_mlx_status": "none",
+      "assessment": "A Qwen2.5-0.5B-Instruct MLX conversion is available, but Winnow's learned routing adapter and sibling contracts are not included.",
+      "leads": [
+        {
+          "repository": "mlx-community/Qwen2.5-0.5B-Instruct-4bit",
+          "revision": "a5339a4131f135d0fdc6a5c8b5bbed2753bbe0f3",
+          "license": "apache-2.0",
+          "base_model": "Qwen/Qwen2.5-0.5B",
+          "relationship": "base-model-only",
+          "notes": "Winnow's LoRA adapter, label mapping, and installed-sibling dependencies are not part of this conversion."
+        }
+      ]
+    },
+    {
+      "catalog_name": "clef-flash:dfe12a21a5c9dd5b2fb1",
+      "openkind_mlx_status": "unqualified",
+      "assessment": "OpenKind's in-tree 4-bit MLX path has not passed joint-head parity. The Hub lead below includes a separate MLX scoring runtime and a small 8-bit parity spot-check.",
+      "leads": [
+        {
+          "repository": "mlx-community/clef-flash-8bit",
+          "revision": "dfa0993decb4f8507a0eae01afd1b2d33a4bb734",
+          "license": "apache-2.0",
+          "base_model": "Cloudflare/clef-flash",
+          "relationship": "profile-checkpoint-with-separate-runtime",
+          "notes": "The repository supplies clef_mlx.py and its own parity spot-check; OpenKind would need to review and port that runtime or adopt an independently qualified loader."
+        }
+      ]
+    },
+    {
+      "catalog_name": "clef-flash-gguf:c330d9ee7e9cc658ad45",
+      "openkind_mlx_status": "unqualified",
+      "assessment": "OpenKind's in-tree 4-bit MLX path has not passed joint-head parity. The Hub lead below uses the original Cloudflare checkpoint with a separate MLX scoring runtime.",
+      "leads": [
+        {
+          "repository": "mlx-community/clef-flash-8bit",
+          "revision": "dfa0993decb4f8507a0eae01afd1b2d33a4bb734",
+          "license": "apache-2.0",
+          "base_model": "Cloudflare/clef-flash",
+          "relationship": "profile-checkpoint-with-separate-runtime",
+          "notes": "The MLX conversion is not the catalog profile's GGUF representation and cannot be installed by this manifest. The bundled runtime requires separate review and parity work."
+        }
+      ]
+    },
+    {
+      "catalog_name": "clef-27b-gguf:48cb5634b4a258de5a6b",
+      "openkind_mlx_status": "unqualified",
+      "assessment": "OpenKind's in-tree 4-bit MLX path has not passed joint-head parity. The Hub lead below uses the original Cloudflare checkpoint with a separate MLX scoring runtime.",
+      "leads": [
+        {
+          "repository": "mlx-community/clef-8bit",
+          "revision": "ffcdb6132b3cc94e523860321dd9ed58bc1ee9a1",
+          "license": "apache-2.0",
+          "base_model": "Cloudflare/clef",
+          "relationship": "profile-checkpoint-with-separate-runtime",
+          "notes": "The MLX conversion is not the catalog profile's GGUF representation and cannot be installed by this manifest. The bundled runtime requires separate review and parity work."
+        }
+      ]
+    }
+  ]
+}
