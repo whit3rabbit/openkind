@@ -220,7 +220,7 @@ impl BertEmbedder {
 }
 
 fn candle_error(error: candle_core::Error) -> ProxyCacheError {
-    ProxyCacheError::Encoder(format!("candle execution failed: {error}"))
+    ProxyCacheError::Candle(error)
 }
 
 impl TextEmbedder for BertEmbedder {

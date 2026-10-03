@@ -48,6 +48,17 @@ pub enum ProxyCacheError {
     /// The encoder failed to produce an embedding.
     #[error("proxy-cache encoder failure: {0}")]
     Encoder(String),
+    /// Retain the tensor error so load-time policy can distinguish allocation
+    /// failures from invalid checkpoint shapes.
+    #[error("proxy-cache candle execution failed: {0}")]
+    Candle(#[from] candle_core::Error),
+    /// Retain artifact validation failures as typed sources.
+    #[error("proxy-cache artifact failure: {0}")]
+    Family(#[from] crate::families::support::FamilyError),
+    /// Retain MLX allocation errors for load-time accelerator fallback.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[error("proxy-cache MLX execution failed: {0}")]
+    Mlx(#[from] crate::qwen35::mlx::MlxError),
     /// The sample store failed.
     #[error("proxy-cache store failure: {0}")]
     Store(String),

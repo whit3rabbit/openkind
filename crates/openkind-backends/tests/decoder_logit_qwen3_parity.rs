@@ -176,8 +176,7 @@ fn load_fails_closed_without_artifacts() {
 }
 
 #[test]
-fn load_fails_closed_on_wide_questions_without_a_model() {
-    // The renderer rejects >16-option passes before any checkpoint access.
+fn load_fails_closed_without_a_model_root() {
     let error = match DecoderLogitQwen3Engine::load(DecoderLogitQwen3EngineConfig {
         profile: &QWEN3_06B,
         model_root: std::env::temp_dir().join(format!("missing-{}", std::process::id())),

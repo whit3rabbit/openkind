@@ -223,8 +223,9 @@ impl DecoderLogitQwen3Engine {
         config: DecoderLogitQwen3EngineConfig,
         execution: FamilyExecution,
     ) -> Result<BoundedFamilyEngine, DecoderLogitQwen3Error> {
-        let artifacts = VerifiedArtifacts::verify(&config.model_root, config.profile)?;
-        let renderer = super::renderer::Qwen3ControlRenderer::load(
+        let artifacts =
+            VerifiedArtifacts::verify_for_execution(&config.model_root, config.profile, execution)?;
+        let renderer = crate::families::decoder_logit_qwen3::renderer::Qwen3ControlRenderer::load(
             &artifacts.tokenizer,
             config.profile.assistant_tail,
         )?;
@@ -268,5 +269,100 @@ impl DecoderLogitQwen3Engine {
             }),
         };
         Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A source that must never be reached: the wide-question guard has to
+    /// fire before any forward pass.
+    struct RejectingSource;
+
+    impl LetterLogits for RejectingSource {
+        fn letter_logits(
+            &self,
+            _prompt_ids: &[u32],
+            _letter_ids: &[u32],
+            _control: &FamilyControl,
+        ) -> Result<Vec<f64>, FamilyError> {
+            panic!("no forward may run before question validation")
+        }
+    }
+
+    fn offline_engine() -> DecoderLogitQwen3Engine {
+        let tokenizer_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+            "tests/fixtures/decoder_logit_qwen35_415bcf4a064e6dadcf85/synthetic_control_tokenizer.json",
+        );
+        crate::families::support::verify_digest(
+            &tokenizer_path,
+            "790e5d78a52353fcb7766098a8e0044c6d229448602eb78b05a81c3f875315c4",
+        )
+        .expect("synthetic tokenizer digest");
+        let renderer = crate::families::decoder_logit_qwen3::renderer::Qwen3ControlRenderer::load(
+            &tokenizer_path,
+            crate::families::decoder_logit_qwen3::AssistantTail::EmptyThinkBlock,
+        )
+        .expect("renderer");
+        DecoderLogitQwen3Engine {
+            inner: Arc::new(Inner {
+                profile: &super::super::QWEN3_06B,
+                renderer,
+                model: Box::new(RejectingSource),
+                backend_id: "test/raw-controls".to_owned(),
+            }),
+        }
+    }
+
+    #[test]
+    fn wide_questions_fail_closed_before_any_forward() {
+        let engine = offline_engine();
+        let mut criteria = HashMap::new();
+        for index in 0..(super::super::MAX_OPTIONS_PER_PASS + 1) {
+            criteria.insert(
+                format!("option{index}"),
+                Some(format!("Description {index}")),
+            );
+        }
+        let request: SystemRequest = serde_json::from_value(serde_json::json!({
+            "state": "evidence",
+            "model": "test",
+            "questions": {
+                "wide": {
+                    "type": "choice",
+                    "instructions": "Pick one",
+                    "criteria": criteria,
+                }
+            }
+        }))
+        .expect("request");
+        let control =
+            FamilyControl::new(Arc::new(std::sync::atomic::AtomicBool::new(false)), None, 0);
+        let error = FamilyEvaluator::evaluate(&engine, request, &control)
+            .expect_err("a 17-option question must fail closed");
+        assert!(
+            error.to_string().contains("serves at most") && error.to_string().contains("`wide`"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn empty_requests_fail_closed_before_any_forward() {
+        let engine = offline_engine();
+        let request: SystemRequest = serde_json::from_value(serde_json::json!({
+            "state": "evidence",
+            "model": "test",
+            "questions": {}
+        }))
+        .expect("request");
+        let control =
+            FamilyControl::new(Arc::new(std::sync::atomic::AtomicBool::new(false)), None, 0);
+        let error = FamilyEvaluator::evaluate(&engine, request, &control)
+            .expect_err("an empty request must fail closed");
+        assert!(
+            error.to_string().contains("no questions"),
+            "unexpected error: {error}"
+        );
     }
 }

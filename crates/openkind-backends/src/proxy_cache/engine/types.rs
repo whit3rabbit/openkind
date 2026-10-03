@@ -114,6 +114,8 @@ pub struct TaskEngine {
     pub(super) versions: VersionRegistry,
     pub(super) classes: Vec<String>,
     pub(super) task_version: String,
+    /// Private manager salt for request-derived text hashes persisted in the store.
+    pub(super) text_hash_salt: Vec<u8>,
     pub(super) rng: fastrand::Rng,
 
     pub(super) production: Option<Production>,

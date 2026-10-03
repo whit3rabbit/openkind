@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use thiserror::Error;
@@ -69,7 +69,7 @@ pub enum CacheError {
 }
 
 struct Entry<S> {
-    state: S,
+    state: Arc<S>,
     tensor_bytes: usize,
     inserted_at: Instant,
     last_used: u64,
@@ -141,7 +141,7 @@ impl<S: BranchableState> BranchStateCache<S> {
         }
         inner.clock = inner.clock.wrapping_add(1);
         let entry = Entry {
-            state,
+            state: Arc::new(state),
             tensor_bytes: state_bytes,
             inserted_at: now,
             last_used: inner.clock,
@@ -153,19 +153,21 @@ impl<S: BranchableState> BranchStateCache<S> {
 
     /// Fork one unexpired state into an independent reader state from its tenant namespace.
     pub fn get(&self, key: &StateCacheKey) -> Result<Option<S>, CacheError> {
-        let mut inner = self.inner.lock().map_err(|_| CacheError::Poisoned)?;
-        purge_expired(&mut inner, Instant::now(), self.ttl);
-        inner.clock = inner.clock.wrapping_add(1);
-        let clock = inner.clock;
-        inner
-            .entries
-            .get_mut(key)
-            .map(|entry| {
+        let state = {
+            let mut inner = self.inner.lock().map_err(|_| CacheError::Poisoned)?;
+            purge_expired(&mut inner, Instant::now(), self.ttl);
+            inner.clock = inner.clock.wrapping_add(1);
+            let clock = inner.clock;
+            inner.entries.get_mut(key).map(|entry| {
                 entry.last_used = clock;
-                // Clone may alias mutable tensors; only fork_one promises isolation.
-                entry.state.fork_one()
+                Arc::clone(&entry.state)
             })
-            .transpose()
+        };
+        // State implementations may re-enter this cache while forking. Keep
+        // arbitrary trait code outside the shared cache mutex.
+        state
+            .map(|state| state.fork_one().map(Some))
+            .unwrap_or(Ok(None))
             .map_err(CacheError::State)
     }
 

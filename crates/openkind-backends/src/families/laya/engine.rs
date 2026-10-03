@@ -280,7 +280,8 @@ impl LayaEngine {
         execution: FamilyExecution,
     ) -> Result<BoundedFamilyEngine, LayaError> {
         let profile = config.profile;
-        let artifacts = VerifiedArtifacts::verify(&config.model_root, profile)?;
+        let artifacts =
+            VerifiedArtifacts::verify_for_execution(&config.model_root, profile, execution)?;
         let renderer = LayaRenderer::load(&artifacts.tokenizer, &profile.specials)?;
         let model: Box<dyn LayaOptionLogits> = match execution {
             FamilyExecution::Cpu => Box::new(LayaModel::load(profile, &artifacts, Device::Cpu)?),

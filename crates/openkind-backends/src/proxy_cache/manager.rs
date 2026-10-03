@@ -208,7 +208,7 @@ impl ProxyCacheManager {
             return Ok(engine);
         }
         let dir = self.task_dir(key);
-        let engine = if dir.join("task.json").exists() {
+        let mut engine = if dir.join("task.json").exists() {
             TaskEngine::load(
                 &dir,
                 key.to_owned(),
@@ -236,6 +236,7 @@ impl ProxyCacheManager {
             state.tasks_on_disk += 1;
             created
         };
+        engine.set_text_hash_salt(&self.salt);
         let engine = Arc::new(Mutex::new(engine));
         state.engines.insert(key.to_owned(), engine.clone());
         touch_lru(&mut state.lru, key);
@@ -299,7 +300,7 @@ impl ProxyCacheManager {
                 Ok(Some(input)) => Some(input),
                 Ok(None) => None,
                 Err(error) => {
-                    tracing::warn!(task = %key, "proxy-cache fit preparation failed: {error}");
+                    tracing::warn!("proxy-cache fit preparation failed: {error}");
                     None
                 }
             }
@@ -326,12 +327,12 @@ impl ProxyCacheManager {
                 if let Ok(mut guard) = engine.lock() {
                     match guard.apply_fit(output) {
                         Ok(events) => {
-                            for (kind, detail) in events {
-                                tracing::info!(task = %key, event = %kind, ?detail, "proxy-cache");
+                            for (kind, _) in events {
+                                tracing::info!(event = %kind, "proxy-cache");
                             }
                         }
                         Err(error) => {
-                            tracing::warn!(task = %key, "proxy-cache fit apply failed: {error}");
+                            tracing::warn!("proxy-cache fit apply failed: {error}");
                         }
                     }
                 }
@@ -340,7 +341,7 @@ impl ProxyCacheManager {
                 if let Ok(mut guard) = engine.lock() {
                     guard.clear_training_in_flight(false);
                 }
-                tracing::warn!(task = %key, "proxy-cache fit failed: {error}");
+                tracing::warn!("proxy-cache fit failed: {error}");
             }
         }
     }

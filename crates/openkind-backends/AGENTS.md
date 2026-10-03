@@ -156,7 +156,8 @@ cargo test  -p openkind-backends --features onnx
 ```
 
 `ort` runs with `load-dynamic`: no binary downloads at build time, and the
-ONNX Runtime library resolves through `ORT_DYLIB_PATH` or standard paths at
+ONNX Runtime library resolves through an explicit setting, `ORT_DYLIB_PATH`,
+the executable-relative bundle, then standard paths at
 load time (fail closed). Family ONNX adapters live in each family's
 `onnx.rs` and must reproduce the candle readout contract exactly; the
 artifact contract, required export digest manifest, and per-family applicability are in

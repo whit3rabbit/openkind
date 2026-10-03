@@ -42,6 +42,7 @@ impl TaskEngine {
             versions,
             classes: spec.classes(),
             task_version: task_version.clone(),
+            text_hash_salt: Vec::new(),
             rng: fastrand::Rng::with_seed(seed),
             production: None,
             shadow: None,
@@ -174,6 +175,7 @@ impl TaskEngine {
             versions,
             classes: Vec::new(),
             task_version,
+            text_hash_salt: Vec::new(),
             rng: fastrand::Rng::with_seed(seed),
             production,
             shadow,
@@ -197,6 +199,13 @@ impl TaskEngine {
         // Lineage continues from the newest teacher-labelled row.
         engine.lineage_model = engine.store.latest_teacher_model(&engine.task_version)?;
         Ok(engine)
+    }
+}
+
+impl TaskEngine {
+    pub(in crate::proxy_cache) fn set_text_hash_salt(&mut self, salt: &[u8]) {
+        self.text_hash_salt.clear();
+        self.text_hash_salt.extend_from_slice(salt);
     }
 }
 

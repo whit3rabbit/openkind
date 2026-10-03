@@ -52,7 +52,29 @@ fn require(model_root: &Path, relative: &str) -> Result<PathBuf, FamilyError> {
 impl VerifiedArtifacts {
     /// Verify the pinned artifacts in place and contract-check both configs.
     pub fn verify(model_root: &Path, profile: &VonProfile) -> Result<Self, FamilyError> {
-        let checkpoint = require(model_root, "checkpoint/option_marker.pt")?;
+        Self::verify_artifacts(model_root, profile, true)
+    }
+
+    // ONNX needs the pinned renderer/config plus its own digest manifest.
+    // Native weights are optional there, but any present bytes still verify.
+    pub(crate) fn verify_for_execution(
+        model_root: &Path,
+        profile: &VonProfile,
+        execution: crate::device::FamilyExecution,
+    ) -> Result<Self, FamilyError> {
+        if execution.is_onnx() {
+            Self::verify_artifacts(model_root, profile, false)
+        } else {
+            Self::verify(model_root, profile)
+        }
+    }
+
+    fn verify_artifacts(
+        model_root: &Path,
+        profile: &VonProfile,
+        native: bool,
+    ) -> Result<Self, FamilyError> {
+        let checkpoint = model_root.join("checkpoint/option_marker.pt");
         let config = require(model_root, "checkpoint/config.json")?;
         let tokenizer = require(model_root, "checkpoint/tokenizer.json")?;
         let tokenizer_config = require(model_root, "checkpoint/tokenizer_config.json")?;
@@ -66,7 +88,9 @@ impl VerifiedArtifacts {
         check_contract(&calibration_json, &profile.pinned_calibration())?;
         verify_digest(&tokenizer_config, profile.tokenizer_config_sha256)?;
         verify_digest(&tokenizer, profile.tokenizer_json_sha256)?;
-        verify_digest(&checkpoint, profile.checkpoint_sha256)?;
+        if native || checkpoint.exists() {
+            verify_digest(&checkpoint, profile.checkpoint_sha256)?;
+        }
         Ok(Self {
             checkpoint,
             tokenizer,

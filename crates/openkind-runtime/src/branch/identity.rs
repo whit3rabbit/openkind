@@ -190,7 +190,7 @@ impl TensorStorageBreakdown {
 
 #[cfg(test)]
 mod tests {
-    use super::TensorStorageBreakdown;
+    use super::*;
 
     #[test]
     fn tensor_storage_total_saturates_instead_of_wrapping() {
@@ -200,5 +200,67 @@ mod tests {
             convolution_bytes: 1,
         };
         assert_eq!(breakdown.tensor_storage_bytes(), usize::MAX);
+    }
+
+    fn identity() -> StateIdentity {
+        StateIdentity::new(
+            "profile-a",
+            "backbone",
+            "rev-1",
+            "renderer",
+            "tokenizer-digest",
+            "arithmetic",
+        )
+        .expect("complete identity")
+    }
+
+    #[test]
+    fn state_identity_preserves_every_field() {
+        let identity = identity();
+        assert_eq!(identity.profile().as_str(), "profile-a");
+        assert_eq!(identity.backbone_id(), "backbone");
+        assert_eq!(identity.backbone_revision(), "rev-1");
+        assert_eq!(identity.renderer_id(), "renderer");
+        assert_eq!(identity.tokenizer_digest(), "tokenizer-digest");
+        assert_eq!(identity.arithmetic_id(), "arithmetic");
+        let display = identity.to_string();
+        assert!(
+            display.contains("profile `profile-a`") && display.contains("arithmetic `arithmetic`"),
+            "display covers every field: {display}"
+        );
+    }
+
+    #[test]
+    fn state_identity_rejects_each_empty_field_by_name() {
+        for (field, args) in [
+            ("profile_id", ("", "b", "r", "e", "t", "a")),
+            ("backbone_id", ("p", "", "r", "e", "t", "a")),
+            ("backbone_revision", ("p", "b", "", "e", "t", "a")),
+            ("renderer_id", ("p", "b", "r", "", "t", "a")),
+            ("tokenizer_digest", ("p", "b", "r", "e", "", "a")),
+            ("arithmetic_id", ("p", "b", "r", "e", "t", "")),
+        ] {
+            let error = StateIdentity::new(args.0, args.1, args.2, args.3, args.4, args.5)
+                .expect_err("an empty field must fail");
+            assert!(
+                matches!(error, StateError::EmptyIdentityField { field: name } if name == field),
+                "expected `{field}`: {error}"
+            );
+        }
+    }
+
+    #[test]
+    fn state_lineage_tracks_root_and_depth_across_forks() {
+        let root = StateLineage::new_root();
+        assert_eq!(root.fork_depth(), 0);
+        let fork = root.forked();
+        assert_eq!(fork.root_id(), root.root_id(), "forks keep the root id");
+        assert_eq!(fork.fork_depth(), 1);
+        let deeper = fork.forked();
+        assert_eq!(deeper.root_id(), root.root_id());
+        assert_eq!(deeper.fork_depth(), 2);
+        // Roots are process-unique.
+        let other = StateLineage::new_root();
+        assert_ne!(other.root_id(), root.root_id());
     }
 }

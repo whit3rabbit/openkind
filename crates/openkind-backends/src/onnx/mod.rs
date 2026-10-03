@@ -10,8 +10,8 @@
 //! back.
 //!
 //! The runtime library itself is resolved with `load-dynamic` semantics:
-//! an explicit path, the `ORT_DYLIB_PATH` environment variable, or the
-//! system library search path. Builds stay offline — nothing downloads at
+//! an explicit path, `ORT_DYLIB_PATH`, an executable-relative runtime
+//! bundle, then the system library search path. Builds stay offline — nothing downloads at
 //! build time. See `docs/ONNX.md` for the artifact and runtime contract.
 
 use std::path::{Path, PathBuf};
@@ -21,9 +21,12 @@ use ort::value::{TensorElementType, ValueType};
 use thiserror::Error;
 
 mod artifact;
+mod probe;
+pub use probe::probe_runtime;
 
 /// A tensor's name, element type, and compatible shape in a family export.
 /// A dimension of `-1` accepts any nonnegative or dynamic dimension.
+#[derive(Debug)]
 pub struct OnnxTensorSpec<'a> {
     name: &'a str,
     element_type: TensorElementType,
@@ -93,6 +96,10 @@ pub enum OnnxError {
     /// ONNX Runtime reported an error during session setup or execution.
     #[error("ONNX Runtime failure: {0}")]
     Runtime(String),
+
+    /// A GPU allocation failed while constructing a model session.
+    #[error("ONNX accelerator memory unavailable: {0}")]
+    AcceleratorMemory(String),
 
     /// The loaded runtime cannot provide the requested CUDA execution
     /// provider, or the binary was built without `onnx-cuda`.
@@ -231,7 +238,7 @@ fn dylib_search_directories() -> Vec<PathBuf> {
 
 /// Resolve the ONNX Runtime library path for detection and diagnostics.
 ///
-/// Order: explicit setting, `ORT_DYLIB_PATH`, then standard library
+/// Order: explicit setting, `ORT_DYLIB_PATH`, bundled runtime, then standard library
 /// directories. Returns `None` when nothing resolvable is found; this is a
 /// detection helper and performs no loading.
 #[must_use]
@@ -241,6 +248,23 @@ pub fn resolve_dylib_path(explicit: Option<&Path>) -> Option<PathBuf> {
     }
     if let Some(path) = std::env::var_os("ORT_DYLIB_PATH").filter(|path| !path.is_empty()) {
         return Some(PathBuf::from(path));
+    }
+    if let Ok(executable) = std::env::current_exe() {
+        if let Some(directory) = executable.parent() {
+            for name in DYLIB_CANDIDATES {
+                #[cfg(target_os = "windows")]
+                {
+                    let bundled = directory.join(name);
+                    if bundled.is_file() {
+                        return Some(bundled);
+                    }
+                }
+                let bundled = directory.join("lib/onnxruntime").join(name);
+                if bundled.is_file() {
+                    return Some(bundled);
+                }
+            }
+        }
     }
     dylib_search_directories()
         .into_iter()
@@ -338,12 +362,17 @@ impl OnnxModel {
                         "the loaded ONNX Runtime does not ship CUDA support (device {device_id})"
                     )));
                 }
-                builder = builder.with_execution_providers([CUDA::default()
-                    .with_device_id(i32::try_from(device_id).map_err(|_| {
-                        OnnxError::CudaProvider(format!("device ordinal {device_id} exceeds i32"))
-                    })?)
-                    .build()
-                    .error_on_failure()])?;
+                builder = builder
+                    .with_execution_providers([CUDA::default()
+                        .with_device_id(i32::try_from(device_id).map_err(|_| {
+                            OnnxError::CudaProvider(format!(
+                                "device ordinal {device_id} exceeds i32"
+                            ))
+                        })?)
+                        .build()
+                        .error_on_failure()])
+                    .map_err(|error| OnnxError::CudaProvider(error.to_string()))?
+                    .with_config_entry("session.disable_cpu_ep_fallback", "1")?;
             }
             #[cfg(feature = "onnx-rocm")]
             OnnxAcceleration::Rocm { device_id } => {
@@ -353,15 +382,32 @@ impl OnnxModel {
                         "the loaded ONNX Runtime does not ship ROCm support (device {device_id})"
                     )));
                 }
-                builder = builder.with_execution_providers([ROCm::default()
-                    .with_device_id(i32::try_from(device_id).map_err(|_| {
-                        OnnxError::RocmProvider(format!("device ordinal {device_id} exceeds i32"))
-                    })?)
-                    .build()
-                    .error_on_failure()])?;
+                builder = builder
+                    .with_execution_providers([ROCm::default()
+                        .with_device_id(i32::try_from(device_id).map_err(|_| {
+                            OnnxError::RocmProvider(format!(
+                                "device ordinal {device_id} exceeds i32"
+                            ))
+                        })?)
+                        .build()
+                        .error_on_failure()])
+                    .map_err(|error| OnnxError::RocmProvider(error.to_string()))?
+                    .with_config_entry("session.disable_cpu_ep_fallback", "1")?;
             }
         }
-        let session = builder.commit_from_file(model_path)?;
+        let session = builder.commit_from_file(model_path).map_err(|error| {
+            let message = error.to_string();
+            let lower = message.to_ascii_lowercase();
+            if !matches!(acceleration, OnnxAcceleration::Cpu)
+                && (lower.contains("cuda_error_out_of_memory")
+                    || lower.contains("hiperroroutofmemory")
+                    || (lower.contains("cuda") && lower.contains("out of memory")))
+            {
+                OnnxError::AcceleratorMemory(message)
+            } else {
+                OnnxError::Runtime(message)
+            }
+        })?;
 
         let input_names: Vec<String> = session
             .inputs()
@@ -577,142 +623,7 @@ mod tests {
         );
     }
 
-    /// Minimal protobuf wire-format writer for the hand-encoded test graph.
-    #[cfg(test)]
-    mod proto {
-        pub(crate) fn push_varint(buffer: &mut Vec<u8>, mut value: u64) {
-            loop {
-                let byte = (value & 0x7f) as u8;
-                value >>= 7;
-                if value == 0 {
-                    buffer.push(byte);
-                    break;
-                }
-                buffer.push(byte | 0x80);
-            }
-        }
-
-        pub(crate) fn push_tag(buffer: &mut Vec<u8>, field: u32, wire_type: u8) {
-            push_varint(buffer, ((u64::from(field)) << 3) | u64::from(wire_type));
-        }
-
-        pub(crate) fn push_len_delimited(buffer: &mut Vec<u8>, field: u32, payload: &[u8]) {
-            push_tag(buffer, field, 2);
-            push_varint(buffer, payload.len() as u64);
-            buffer.extend_from_slice(payload);
-        }
-
-        pub(crate) fn push_string(buffer: &mut Vec<u8>, field: u32, value: &str) {
-            push_len_delimited(buffer, field, value.as_bytes());
-        }
-
-        pub(crate) fn push_int64(buffer: &mut Vec<u8>, field: u32, value: i64) {
-            push_tag(buffer, field, 0);
-            push_varint(buffer, value as u64);
-        }
-
-        pub(crate) fn push_packed_int64(buffer: &mut Vec<u8>, field: u32, values: &[i64]) {
-            let mut packed = Vec::new();
-            for &value in values {
-                push_varint(&mut packed, value as u64);
-            }
-            push_len_delimited(buffer, field, &packed);
-        }
-
-        pub(crate) fn push_packed_float(buffer: &mut Vec<u8>, field: u32, values: &[f32]) {
-            let mut packed = Vec::new();
-            for &value in values {
-                packed.extend_from_slice(&value.to_le_bytes());
-            }
-            push_len_delimited(buffer, field, &packed);
-        }
-
-        fn tensor_type_message(elem_type: i32, shape: &[i64]) -> Vec<u8> {
-            // TypeProto.tensor_type = 1
-            let mut tensor = Vec::new();
-            push_int64(&mut tensor, 1, i64::from(elem_type));
-            // TensorShapeProto.dim = 1 (repeated Dimension{dim_value=1})
-            let mut shape_message = Vec::new();
-            for &dim in shape {
-                let mut dimension = Vec::new();
-                push_int64(&mut dimension, 1, dim);
-                push_len_delimited(&mut shape_message, 1, &dimension);
-            }
-            push_len_delimited(&mut tensor, 2, &shape_message);
-            let mut type_proto = Vec::new();
-            push_len_delimited(&mut type_proto, 1, &tensor);
-            type_proto
-        }
-
-        fn value_info_message(name: &str, elem_type: i32, shape: &[i64]) -> Vec<u8> {
-            let mut message = Vec::new();
-            push_string(&mut message, 1, name);
-            push_len_delimited(&mut message, 2, &tensor_type_message(elem_type, shape));
-            message
-        }
-
-        fn initializer_message(name: &str, dims: &[i64], data: &[f32]) -> Vec<u8> {
-            let mut message = Vec::new();
-            push_packed_int64(&mut message, 1, dims);
-            // data_type = 1 (FLOAT)
-            push_int64(&mut message, 2, 1);
-            push_packed_float(&mut message, 4, data);
-            push_string(&mut message, 8, name);
-            message
-        }
-
-        /// Encode `y = x @ w + b` over float32 tensors:
-        /// `x` input `[1, 2]`, `w` initializer `[2, 3]`, `b` initializer
-        /// `[3]`, `y` output `[1, 3]`.
-        pub(crate) fn tiny_gemm_model() -> Vec<u8> {
-            tiny_gemm_model_with_extra_input(false)
-        }
-
-        pub(crate) fn tiny_gemm_model_with_extra_input(extra_input: bool) -> Vec<u8> {
-            let mut graph = Vec::new();
-            // GraphProto.node = 1: Gemm(x, w, b) -> y
-            let mut node = Vec::new();
-            push_string(&mut node, 1, "x");
-            push_string(&mut node, 1, "w");
-            push_string(&mut node, 1, "b");
-            push_string(&mut node, 2, "y");
-            push_string(&mut node, 4, "Gemm");
-            push_string(&mut node, 3, "gemm_node");
-            push_len_delimited(&mut graph, 1, &node);
-            // GraphProto.name = 2
-            push_string(&mut graph, 2, "tiny_gemm");
-            // GraphProto.initializer = 5
-            push_len_delimited(
-                &mut graph,
-                5,
-                &initializer_message("w", &[2, 3], &[1.0, 2.0, 3.0, 4.0, 5.0, 6.0]),
-            );
-            push_len_delimited(
-                &mut graph,
-                5,
-                &initializer_message("b", &[3], &[0.0, 0.0, 0.0]),
-            );
-            // GraphProto.input = 11
-            push_len_delimited(&mut graph, 11, &value_info_message("x", 1, &[1, 2]));
-            if extra_input {
-                push_len_delimited(&mut graph, 11, &value_info_message("extra", 1, &[1]));
-            }
-            // GraphProto.output = 12
-            push_len_delimited(&mut graph, 12, &value_info_message("y", 1, &[1, 3]));
-
-            let mut model = Vec::new();
-            // ModelProto.ir_version = 1 (IR 8 = ONNX 1.13)
-            push_int64(&mut model, 1, 8);
-            // ModelProto.graph = 7
-            push_len_delimited(&mut model, 7, &graph);
-            // ModelProto.opset_import = 8: {domain: "", version: 13}
-            let mut opset = Vec::new();
-            push_string(&mut opset, 1, "");
-            push_int64(&mut opset, 2, 13);
-            push_len_delimited(&mut model, 8, &opset);
-            model
-        }
-    }
+    use super::probe::proto;
 
     /// End-to-end ONNX Runtime execution over a hand-encoded Gemm graph.
     ///
@@ -773,7 +684,7 @@ mod tests {
         let extra_model_path = directory.path().join("extra.onnx");
         std::fs::write(
             &extra_model_path,
-            proto::tiny_gemm_model_with_extra_input(true),
+            proto::tiny_gemm_model_shaped(&[1, 2], &[1, 3], true),
         )
         .expect("write model with an unsupported input");
         artifact::write_test_manifest(&extra_model_path, &[]);
@@ -837,5 +748,285 @@ mod tests {
             Ok(_) => panic!("missing artifact must fail closed"),
         };
         assert!(matches!(error, OnnxError::Io { .. }));
+    }
+
+    /// Supplying an input the artifact does not declare fails closed, the
+    /// mirror of the missing-input guard.
+    #[test]
+    fn run_rejects_extra_supplied_inputs() {
+        let Some(dylib) = resolve_dylib_path(None) else {
+            eprintln!("skipping: no ONNX Runtime library found (set ORT_DYLIB_PATH)");
+            return;
+        };
+        let directory = tempfile::tempdir().expect("tempdir");
+        let model_path = directory.path().join("model.onnx");
+        std::fs::write(&model_path, proto::tiny_gemm_model()).expect("write tiny model");
+        artifact::write_test_manifest(&model_path, &[]);
+        let settings = OnnxRuntimeSettings {
+            dylib: Some(dylib),
+            intra_threads: Some(1),
+        };
+        let model = OnnxModel::load(
+            &model_path,
+            &settings,
+            OnnxAcceleration::Cpu,
+            &[OnnxTensorSpec::f32("x", &[1, 2])],
+            &[OnnxTensorSpec::f32("y", &[1, 3])],
+        )
+        .expect("load tiny gemm model");
+
+        let extra = ort::value::Tensor::from_array((vec![1_usize], vec![1.0_f32]))
+            .expect("extra tensor")
+            .into_dyn();
+        let required = ort::value::Tensor::from_array((vec![1_usize, 2], vec![1.0_f32, 2.0_f32]))
+            .expect("input tensor")
+            .into_dyn();
+        let error = model
+            .run(
+                vec![("x".to_owned(), required), ("extra".to_owned(), extra)],
+                |_outputs| Ok::<(), OnnxError>(()),
+            )
+            .expect_err("extra supplied inputs must fail closed");
+        assert!(
+            matches!(error, OnnxError::Signature { .. }),
+            "unexpected error: {error}"
+        );
+    }
+
+    /// Dynamic exported dimensions satisfy specs that pin them, specs that
+    /// leave them dynamic, and specs that pin a different static value —
+    /// and the session executes across the dynamic dimension.
+    #[test]
+    fn dynamic_dimension_specs_accept_and_reject_session_shapes() {
+        let Some(dylib) = resolve_dylib_path(None) else {
+            eprintln!("skipping: no ONNX Runtime library found (set ORT_DYLIB_PATH)");
+            return;
+        };
+        let directory = tempfile::tempdir().expect("tempdir");
+        let model_path = directory.path().join("dynamic.onnx");
+        std::fs::write(
+            &model_path,
+            proto::tiny_gemm_model_shaped(&[-1, 2], &[-1, 3], false),
+        )
+        .expect("write dynamic model");
+        artifact::write_test_manifest(&model_path, &[]);
+        let settings = OnnxRuntimeSettings {
+            dylib: Some(dylib),
+            intra_threads: Some(1),
+        };
+
+        // A fully dynamic spec and a batch-pinned spec both accept the
+        // dynamic export: `expected == -1` and `actual == -1` arms.
+        for (inputs, outputs) in [
+            (
+                [OnnxTensorSpec::f32("x", &[1, -1])],
+                [OnnxTensorSpec::f32("y", &[1, -1])],
+            ),
+            (
+                [OnnxTensorSpec::f32("x", &[3, 2])],
+                [OnnxTensorSpec::f32("y", &[3, 3])],
+            ),
+        ] {
+            OnnxModel::load(
+                &model_path,
+                &settings,
+                OnnxAcceleration::Cpu,
+                &inputs,
+                &outputs,
+            )
+            .unwrap_or_else(|error| {
+                panic!("specs {inputs:?}/{outputs:?} must accept a dynamic export: {error}")
+            });
+        }
+
+        // A spec pinning the last dimension to the wrong static width must
+        // still be rejected.
+        let error = match OnnxModel::load(
+            &model_path,
+            &settings,
+            OnnxAcceleration::Cpu,
+            &[OnnxTensorSpec::f32("x", &[1, 5])],
+            &[OnnxTensorSpec::f32("y", &[1, 3])],
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("wrong static width must be rejected"),
+        };
+        assert!(matches!(error, OnnxError::Signature { .. }));
+
+        // Execution crosses the dynamic dimension: a batch of two rows.
+        let model = OnnxModel::load(
+            &model_path,
+            &settings,
+            OnnxAcceleration::Cpu,
+            &[OnnxTensorSpec::f32("x", &[-1, 2])],
+            &[OnnxTensorSpec::f32("y", &[-1, 3])],
+        )
+        .expect("load dynamic model");
+        let observed = model
+            .run(
+                vec![(
+                    "x".to_owned(),
+                    ort::value::Tensor::from_array((
+                        vec![2_usize, 2],
+                        vec![1.0_f32, 2.0, 3.0, 4.0],
+                    ))
+                    .expect("input tensor")
+                    .into_dyn(),
+                )],
+                |outputs| {
+                    let (shape, data) = outputs["y"].try_extract_tensor::<f32>()?;
+                    assert_eq!(&shape[..], &[2_i64, 3]);
+                    Ok(data.to_vec())
+                },
+            )
+            .expect("run dynamic gemm");
+        // y = [[1, 2], [3, 4]] @ [[1, 2, 3], [4, 5, 6]]
+        assert!(
+            observed
+                .iter()
+                .zip([9.0_f32, 12.0, 15.0, 19.0, 26.0, 33.0])
+                .all(|(observed, expected)| (observed - expected).abs() < 1e-5),
+            "unexpected dynamic gemm output {observed:?}"
+        );
+    }
+
+    /// An unresolvable ROCm provider fails closed at load time, and an
+    /// out-of-range ROCm ordinal fails closed even where ROCm exists.
+    #[cfg(feature = "onnx-rocm")]
+    #[test]
+    fn rocm_acceleration_fails_closed_without_a_rocm_provider() {
+        let Some(dylib) = resolve_dylib_path(None) else {
+            eprintln!("skipping: no ONNX Runtime library found (set ORT_DYLIB_PATH)");
+            return;
+        };
+        let directory = tempfile::tempdir().expect("tempdir");
+        let model_path = directory.path().join("model.onnx");
+        std::fs::write(&model_path, proto::tiny_gemm_model()).expect("write tiny model");
+        artifact::write_test_manifest(&model_path, &[]);
+        let settings = OnnxRuntimeSettings {
+            dylib: Some(dylib),
+            intra_threads: Some(1),
+        };
+
+        // An ordinal beyond i32 fails in both worlds: unavailable ROCm hits
+        // the provider check first; available ROCm overflows the i32 cast.
+        let error = match OnnxModel::load(
+            &model_path,
+            &settings,
+            OnnxAcceleration::Rocm {
+                device_id: usize::MAX,
+            },
+            &[OnnxTensorSpec::f32("x", &[1, 2])],
+            &[OnnxTensorSpec::f32("y", &[1, 3])],
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("an out-of-range ROCm ordinal must fail closed"),
+        };
+        assert!(
+            matches!(error, OnnxError::RocmProvider(_)),
+            "unexpected error: {error}"
+        );
+
+        // On hosts without ROCm support in the loaded runtime, ordinal 0
+        // must also fail closed instead of silently falling back.
+        if !ort::ep::ROCm::default().is_available().unwrap_or(false) {
+            let error = match OnnxModel::load(
+                &model_path,
+                &settings,
+                OnnxAcceleration::Rocm { device_id: 0 },
+                &[OnnxTensorSpec::f32("x", &[1, 2])],
+                &[OnnxTensorSpec::f32("y", &[1, 3])],
+            ) {
+                Err(error) => error,
+                Ok(_) => panic!("missing ROCm support must fail closed"),
+            };
+            assert!(
+                matches!(error, OnnxError::RocmProvider(_)),
+                "unexpected error: {error}"
+            );
+        }
+    }
+
+    /// An out-of-range CUDA ordinal fails closed even where CUDA exists.
+    #[cfg(feature = "onnx-cuda")]
+    #[test]
+    fn cuda_acceleration_fails_closed_on_an_out_of_range_ordinal() {
+        let Some(dylib) = resolve_dylib_path(None) else {
+            eprintln!("skipping: no ONNX Runtime library found (set ORT_DYLIB_PATH)");
+            return;
+        };
+        let directory = tempfile::tempdir().expect("tempdir");
+        let model_path = directory.path().join("model.onnx");
+        std::fs::write(&model_path, proto::tiny_gemm_model()).expect("write tiny model");
+        artifact::write_test_manifest(&model_path, &[]);
+        let error = match OnnxModel::load(
+            &model_path,
+            &OnnxRuntimeSettings {
+                dylib: Some(dylib),
+                intra_threads: Some(1),
+            },
+            OnnxAcceleration::Cuda {
+                device_id: usize::MAX,
+            },
+            &[OnnxTensorSpec::f32("x", &[1, 2])],
+            &[OnnxTensorSpec::f32("y", &[1, 3])],
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("an out-of-range CUDA ordinal must fail closed"),
+        };
+        assert!(
+            matches!(error, OnnxError::CudaProvider(_)),
+            "unexpected error: {error}"
+        );
+    }
+
+    /// The `ORT_DYLIB_PATH` environment branch of resolution.
+    #[test]
+    fn dylib_resolution_honors_the_environment_variable() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let dylib = directory.path().join("libonnxruntime.dylib");
+        std::fs::write(&dylib, b"not a real library").expect("write dylib placeholder");
+
+        // Environment mutation is process-global; serialize against other
+        // env-sensitive resolution tests and restore afterwards.
+        static ENV_LOCK: Mutex<()> = Mutex::new(());
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let previous = std::env::var_os("ORT_DYLIB_PATH");
+        std::env::set_var("ORT_DYLIB_PATH", &dylib);
+        let resolved = resolve_dylib_path(None);
+        match previous {
+            Some(value) => std::env::set_var("ORT_DYLIB_PATH", value),
+            None => std::env::remove_var("ORT_DYLIB_PATH"),
+        }
+        assert_eq!(resolved, Some(dylib));
+    }
+
+    /// An empty `ORT_DYLIB_PATH` is ignored, falling through to the search.
+    #[test]
+    fn dylib_resolution_ignores_an_empty_environment_variable() {
+        static ENV_LOCK: Mutex<()> = Mutex::new(());
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let previous = std::env::var_os("ORT_DYLIB_PATH");
+        std::env::set_var("ORT_DYLIB_PATH", "");
+        let resolved = resolve_dylib_path(None);
+        match previous {
+            Some(value) => std::env::set_var("ORT_DYLIB_PATH", value),
+            None => std::env::remove_var("ORT_DYLIB_PATH"),
+        }
+        assert_eq!(
+            resolved,
+            dylib_search_directories()
+                .into_iter()
+                .find_map(|directory| {
+                    DYLIB_CANDIDATES
+                        .iter()
+                        .map(|name| directory.join(name))
+                        .find(|candidate| candidate.is_file())
+                })
+        );
     }
 }

@@ -188,3 +188,69 @@ fn rejected_requests_fail_closed() {
     assert!(bogus.is_err(), "missing artifacts must fail the load");
     let _ = fixture_dir;
 }
+
+#[test]
+fn load_fails_closed_without_artifacts() {
+    let empty = std::env::temp_dir().join(format!("openkind-von-missing-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&empty);
+    fs::create_dir_all(&empty).expect("create empty root");
+    let error = match VonEngine::load(VonEngineConfig {
+        profile: &VON,
+        model_root: empty.clone(),
+        limits: limits(),
+    }) {
+        Err(error) => error,
+        Ok(_) => panic!("missing artifacts must fail closed"),
+    };
+    assert!(
+        error.to_string().contains("missing") || error.to_string().contains("read"),
+        "unexpected error: {error}"
+    );
+    let _ = fs::remove_dir_all(&empty);
+}
+
+#[test]
+fn load_fails_closed_on_config_digest_mismatch() {
+    let Some(root) = model_root() else {
+        eprintln!("skipping: OPENKIND_VON_MODEL_ROOT is not set");
+        return;
+    };
+    let staged = std::env::temp_dir().join(format!("openkind-von-config-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&staged);
+    fs::create_dir_all(staged.join("checkpoint")).expect("stage root");
+    // Copy only the cheap artifacts; the checkpoint is deliberately absent
+    // so a drifted config fails before any large file is streamed.
+    for file in [
+        "config.json",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "marker_calibration.json",
+    ] {
+        fs::copy(
+            root.join("checkpoint").join(file),
+            staged.join("checkpoint").join(file),
+        )
+        .expect("stage artifact");
+    }
+    let mut config: serde_json::Value = serde_json::from_slice(
+        &fs::read(staged.join("checkpoint/config.json")).expect("read config"),
+    )
+    .expect("decode config");
+    config["hidden_size"] = serde_json::json!(127);
+    fs::write(staged.join("checkpoint/config.json"), config.to_string())
+        .expect("write drifted config");
+
+    let error = match VonEngine::load(VonEngineConfig {
+        profile: &VON,
+        model_root: staged.clone(),
+        limits: limits(),
+    }) {
+        Err(error) => error,
+        Ok(_) => panic!("drifted config must fail closed"),
+    };
+    assert!(
+        error.to_string().contains("SHA-256 mismatch"),
+        "unexpected error: {error}"
+    );
+    let _ = fs::remove_dir_all(&staged);
+}

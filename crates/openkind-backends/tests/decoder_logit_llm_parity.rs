@@ -246,3 +246,55 @@ fn golden_replay_matches_the_pinned_checkpoint() {
 // response; the helpers below re-derive requests from the fixture names via
 // the generator's public case construction (kept in sync by the fixture
 // provenance fields).
+
+/// Accelerated ONNX selections fail closed on a family whose GGUF decoder
+/// has no ONNX export; checkpoint-gated because artifact verification runs
+/// before the execution selection.
+#[test]
+fn accelerated_executions_fail_closed_without_an_export() {
+    let Some(root) = model_root() else {
+        eprintln!("skipping: OPENKIND_DECODER_LLM_MODEL_ROOT is not set");
+        return;
+    };
+
+    #[cfg(feature = "onnx")]
+    {
+        let error = match DecoderLlmEngine::load_with_execution(
+            DecoderLlmEngineConfig {
+                model_root: root.clone(),
+                limits: limits(),
+            },
+            openkind_backends::device::FamilyExecution::Onnx { device_id: None },
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("onnx execution must fail closed for the decoder-logit-llm family"),
+        };
+        assert!(
+            error.to_string().contains("execution backend unavailable"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[cfg(feature = "onnx-rocm")]
+    {
+        let error = match DecoderLlmEngine::load_with_execution(
+            DecoderLlmEngineConfig {
+                model_root: root.clone(),
+                limits: limits(),
+            },
+            openkind_backends::device::FamilyExecution::OnnxRocm { device_id: 0 },
+        ) {
+            Err(error) => error,
+            Ok(_) => {
+                panic!("onnx-rocm execution must fail closed for the decoder-logit-llm family")
+            }
+        };
+        assert!(
+            error.to_string().contains("execution backend unavailable"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[cfg(not(any(feature = "onnx", feature = "onnx-rocm")))]
+    let _ = root;
+}

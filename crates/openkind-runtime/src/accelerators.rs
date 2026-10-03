@@ -190,3 +190,61 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod serialization_tests {
+    use super::*;
+    use crate::DeviceType;
+
+    #[test]
+    fn accelerator_json_serializes_device_strings_and_null_memory() {
+        let cpu = serde_json::to_value(Accelerator {
+            device: DeviceType::Cpu,
+            name: "Test CPU".to_owned(),
+            total_memory_bytes: Some(16 * 1024 * 1024 * 1024),
+        })
+        .unwrap();
+        assert_eq!(cpu["device"], "cpu");
+        assert_eq!(cpu["name"], "Test CPU");
+        assert_eq!(cpu["total_memory_bytes"], 16_u64 * 1024 * 1024 * 1024);
+
+        let cuda = serde_json::to_value(Accelerator {
+            device: DeviceType::Cuda { device_id: 2 },
+            name: "Test GPU".to_owned(),
+            total_memory_bytes: None,
+        })
+        .unwrap();
+        assert_eq!(cuda["device"], "cuda:2");
+        assert!(cuda["total_memory_bytes"].is_null());
+
+        let metal = serde_json::to_value(Accelerator {
+            device: DeviceType::Metal { device_id: 0 },
+            name: "Apple Silicon GPU".to_owned(),
+            total_memory_bytes: None,
+        })
+        .unwrap();
+        assert_eq!(metal["device"], "metal:0");
+    }
+
+    /// `detect_available_devices` must be exactly the device set of
+    /// `detect_accelerators` — the ROCm/CUDA extend branches feed both.
+    #[test]
+    fn available_devices_match_the_accelerator_probe() {
+        let mut accelerator_devices: Vec<String> = detect_accelerators()
+            .iter()
+            .map(|accelerator| format!("{:?}", accelerator.device))
+            .collect();
+        accelerator_devices.sort();
+        accelerator_devices.dedup();
+        let mut devices: Vec<String> = crate::detect_available_devices()
+            .into_iter()
+            .map(|device| format!("{:?}", device))
+            .collect();
+        devices.sort();
+        devices.dedup();
+        assert_eq!(
+            accelerator_devices, devices,
+            "device detection must agree with accelerator detection"
+        );
+    }
+}

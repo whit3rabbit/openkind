@@ -183,3 +183,80 @@ async fn composite_engine_delegates_to_the_routed_sibling() {
         "routed sibling answered"
     );
 }
+
+/// Accelerated ONNX selections fail closed on a family whose LoRA-merged
+/// decoder has no ONNX export; checkpoint-gated because artifact
+/// verification runs before the execution selection.
+#[test]
+fn accelerated_executions_fail_closed_without_an_export() {
+    let Some(root) = model_root() else {
+        eprintln!("skipping: OPENKIND_WINNOW_MODEL_ROOT is not set");
+        return;
+    };
+
+    #[cfg(feature = "onnx")]
+    {
+        let error = match WinnowEngine::load_with_execution(
+            config(root.clone()),
+            siblings(),
+            openkind_backends::device::FamilyExecution::Onnx { device_id: None },
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("onnx execution must fail closed for the winnow family"),
+        };
+        assert!(
+            error.to_string().contains("execution backend unavailable"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[cfg(feature = "onnx-rocm")]
+    {
+        let error = match WinnowEngine::load_with_execution(
+            config(root.clone()),
+            siblings(),
+            openkind_backends::device::FamilyExecution::OnnxRocm { device_id: 0 },
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("onnx-rocm execution must fail closed for the winnow family"),
+        };
+        assert!(
+            error.to_string().contains("execution backend unavailable"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[cfg(not(any(feature = "onnx", feature = "onnx-rocm")))]
+    let _ = root;
+}
+
+/// The router binds exactly two siblings; the check runs before artifact
+/// verification so it is testable offline.
+#[test]
+fn load_rejects_sibling_counts_other_than_two_before_verification() {
+    let empty =
+        std::env::temp_dir().join(format!("openkind-winnow-siblings-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&empty);
+    std::fs::create_dir_all(&empty).expect("create empty root");
+
+    for count in [1_usize, 3] {
+        let mut group: Vec<(String, std::sync::Arc<dyn DecisionEngine>)> = siblings();
+        while group.len() < count {
+            group.push((
+                format!("extra-sibling-{count}"),
+                std::sync::Arc::new(MockEngine::new()),
+            ));
+        }
+        group.truncate(count);
+
+        let error = match WinnowEngine::load(config(empty.clone()), group) {
+            Err(error) => error,
+            Ok(_) => panic!("{count} siblings must fail closed"),
+        };
+        assert!(
+            error.to_string().contains("exactly two labels"),
+            "unexpected error for {count} siblings: {error}"
+        );
+    }
+    let _ = std::fs::remove_dir_all(&empty);
+}

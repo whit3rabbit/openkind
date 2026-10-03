@@ -143,9 +143,102 @@ pub fn execution_support() -> ExecutionSupport {
     }
 }
 
+/// A runtime failed initialization before any model artifacts were loaded.
+#[derive(Debug, thiserror::Error)]
+#[error("accelerator unavailable: {0}")]
+pub struct AcceleratorUnavailable(pub String);
+
+/// Test CUDA driver, matrix multiplication, and compiled tensor kernels.
+///
+/// # Errors
+/// Returns an initialization failure; run this in an isolated process because
+/// vendor libraries may panic while resolving missing dependencies.
+#[cfg(feature = "cuda")]
+pub fn probe_cuda(device_id: usize) -> Result<(), AcceleratorUnavailable> {
+    let run = || -> candle_core::Result<()> {
+        let device = candle_core::Device::new_cuda(device_id)?;
+        let tensor = candle_core::Tensor::ones((2, 2), candle_core::DType::F32, &device)?;
+        let values = tensor.matmul(&tensor)?.affine(1.0, 1.0)?.to_vec2::<f32>()?;
+        if values != vec![vec![3.0; 2]; 2] {
+            candle_core::bail!("CUDA probe produced invalid arithmetic");
+        }
+        Ok(())
+    };
+    run().map_err(|error| AcceleratorUnavailable(error.to_string()))
+}
+
+/// Test the pinned MLX runtime and a synchronized GPU operation.
+///
+/// # Errors
+/// Returns an initialization failure. This belongs in an isolated probe.
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub fn probe_mlx() -> Result<(), AcceleratorUnavailable> {
+    use crate::qwen35::mlx::{MlxRuntime, MlxRuntimeConfig};
+    let runtime = MlxRuntime::new(MlxRuntimeConfig::default())
+        .map_err(|error| AcceleratorUnavailable(error.to_string()))?;
+    runtime
+        .execute(|| {
+            let input = mlx_rs::Array::from_slice(&[1.0f32, 2.0], &[2]);
+            let output = input.add(&input)?;
+            output.eval()?;
+            if output.as_slice::<f32>() != [2.0, 4.0] {
+                return Err(mlx_rs::error::Exception::from(
+                    "invalid MLX probe arithmetic",
+                ));
+            }
+            Ok(())
+        })
+        .map_err(|error| AcceleratorUnavailable(error.to_string()))?
+        .map_err(|error: mlx_rs::error::Exception| AcceleratorUnavailable(error.to_string()))
+}
+
+/// Identify accelerator allocation failures without treating malformed
+/// artifacts or tensor shapes as reasons to switch arithmetic backends.
+#[must_use]
+pub fn is_accelerator_allocation_failure(error: &(dyn std::error::Error + 'static)) -> bool {
+    fn allocation(message: &str) -> bool {
+        let message = message.to_ascii_lowercase();
+        message.contains("out_of_memory")
+            || message.contains("out of memory")
+            || message.contains("failed to allocate")
+            || message.contains("memory allocation failed")
+    }
+    match error.downcast_ref::<candle_core::Error>() {
+        Some(candle_core::Error::Cuda(error)) => return allocation(&error.to_string()),
+        Some(candle_core::Error::WithBacktrace { inner, .. }) => {
+            return is_accelerator_allocation_failure(inner.as_ref())
+        }
+        _ => {}
+    }
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    {
+        if let Some(crate::qwen35::mlx::MlxError::Operation { message, .. }) = error.downcast_ref()
+        {
+            return allocation(message);
+        }
+        if let Some(crate::families::support::FamilyError::Mlx(message)) = error.downcast_ref() {
+            return allocation(message);
+        }
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn only_typed_accelerator_allocation_errors_allow_fallback() {
+        let allocation =
+            candle_core::Error::Cuda(Box::new(std::io::Error::other("CUDA_ERROR_OUT_OF_MEMORY")));
+        assert!(is_accelerator_allocation_failure(&allocation));
+        let device_error = candle_core::Error::Cuda(Box::new(std::io::Error::other(
+            "CUDA_ERROR_ILLEGAL_ADDRESS",
+        )));
+        assert!(!is_accelerator_allocation_failure(&device_error));
+        let input_error = std::io::Error::other("out of memory in invalid model metadata");
+        assert!(!is_accelerator_allocation_failure(&input_error));
+    }
 
     #[test]
     fn cpu_execution_resolves_to_the_candle_cpu_device() {

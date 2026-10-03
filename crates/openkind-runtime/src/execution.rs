@@ -193,6 +193,58 @@ mod tests {
     use super::*;
 
     #[test]
+    fn plan_names_cover_every_execution_plan() {
+        assert_eq!(ExecutionPlan::RepeatedFull.as_str(), "repeated_full");
+        assert_eq!(
+            ExecutionPlan::NestedSequential.as_str(),
+            "nested_sequential"
+        );
+        assert_eq!(ExecutionPlan::NestedBatched.as_str(), "nested_batched");
+        assert_eq!(ExecutionPlan::all().len(), 3);
+    }
+
+    #[test]
+    fn half_vectorized_capabilities_stay_per_lane() {
+        // A backend that vectorizes only one fan-out direction cannot run
+        // the fully nested batched forward.
+        let questions_only = BackendCapabilities::new(true, false);
+        assert!(!questions_only.supports_vectorized_nested_forward());
+        let candidates_only = BackendCapabilities::new(false, true);
+        assert!(!candidates_only.supports_vectorized_nested_forward());
+        // Default lane ceilings: usize::MAX when enabled, 1 when disabled.
+        assert_eq!(questions_only.max_vectorized_question_lanes(), usize::MAX);
+        assert_eq!(questions_only.max_vectorized_candidate_lanes(), 1);
+        assert_eq!(candidates_only.max_vectorized_question_lanes(), 1);
+        assert_eq!(candidates_only.max_vectorized_candidate_lanes(), usize::MAX);
+
+        assert_eq!(
+            ExecutionPlan::NestedBatched.batch_forward_mode(questions_only, 2, true, 2, 2),
+            BatchForwardMode::PerLane
+        );
+    }
+
+    #[test]
+    fn inverted_lane_bounds_downgrade_nested_batched_to_per_lane() {
+        let capabilities = BackendCapabilities::fully_vectorized();
+        assert_eq!(
+            ExecutionPlan::NestedBatched.batch_forward_mode(capabilities, 2, true, 3, 2),
+            BatchForwardMode::PerLane,
+            "max_candidates below min_candidates must not vectorize"
+        );
+    }
+
+    #[test]
+    fn single_lane_plans_are_always_per_lane() {
+        let capabilities = BackendCapabilities::fully_vectorized();
+        for plan in [ExecutionPlan::RepeatedFull, ExecutionPlan::NestedSequential] {
+            assert_eq!(
+                plan.batch_forward_mode(capabilities, 4, true, 4, 4),
+                BatchForwardMode::PerLane
+            );
+        }
+    }
+
+    #[test]
     fn per_lane_and_vectorized_capabilities_are_distinct() {
         assert!(!BackendCapabilities::per_lane().supports_vectorized_nested_forward());
         assert!(BackendCapabilities::fully_vectorized().supports_vectorized_nested_forward());

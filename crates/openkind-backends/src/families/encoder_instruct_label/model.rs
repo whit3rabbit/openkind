@@ -68,10 +68,30 @@ pub struct VerifiedArtifacts {
 impl VerifiedArtifacts {
     /// Verify the pinned artifacts in place and contract-check the config.
     pub fn verify(model_root: &Path) -> Result<Self, FamilyError> {
+        Self::verify_artifacts(model_root, true)
+    }
+
+    // ONNX needs the pinned renderer/config plus its own digest manifest.
+    // Native weights are optional there, but any present bytes still verify.
+    pub(crate) fn verify_for_execution(
+        model_root: &Path,
+        execution: crate::device::FamilyExecution,
+    ) -> Result<Self, FamilyError> {
+        if execution.is_onnx() {
+            Self::verify_artifacts(model_root, false)
+        } else {
+            Self::verify(model_root)
+        }
+    }
+
+    fn verify_artifacts(model_root: &Path, native: bool) -> Result<Self, FamilyError> {
         let checkpoint = model_root.join("model.safetensors");
         let tokenizer = model_root.join("tokenizer.json");
         let config_path = model_root.join("config.json");
         for path in [&checkpoint, &tokenizer, &config_path] {
+            if path == &checkpoint && (!native) && !path.exists() {
+                continue;
+            }
             if !path.is_file() {
                 return Err(FamilyError::Io {
                     path: path.to_path_buf(),
@@ -85,7 +105,9 @@ impl VerifiedArtifacts {
         // Cheap contract checks first; the checkpoint digest streams last.
         verify_digest(&config_path, CONFIG_JSON_SHA256)?;
         verify_digest(&tokenizer, TOKENIZER_JSON_SHA256)?;
-        verify_digest(&checkpoint, CHECKPOINT_SHA256)?;
+        if native || checkpoint.exists() {
+            verify_digest(&checkpoint, CHECKPOINT_SHA256)?;
+        }
         let config_json: serde_json::Value = crate::families::support::read_json(&config_path)?;
         for (field, expected) in pinned_config() {
             let actual = resolve_config_field(&config_json, field).ok_or_else(|| {

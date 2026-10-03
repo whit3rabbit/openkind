@@ -19,24 +19,13 @@ use mlx_rs::ops;
 use mlx_rs::Array;
 use tokenizers::Tokenizer;
 
-use crate::families::support::FamilyError;
 use crate::qwen35::mlx::{MlxError, MlxRuntime, MlxRuntimeConfig};
 
 use super::bert_encoder::{BertEmbedderArtifacts, MAX_LENGTH};
 use super::encoder::{l2_normalize, TextEmbedder};
 use super::ProxyCacheError;
 
-impl From<MlxError> for ProxyCacheError {
-    fn from(error: MlxError) -> Self {
-        ProxyCacheError::Encoder(error.to_string())
-    }
-}
-
-impl From<FamilyError> for ProxyCacheError {
-    fn from(error: FamilyError) -> Self {
-        ProxyCacheError::Encoder(error.to_string())
-    }
-}
+const MAX_SAFETENSORS_HEADER_BYTES: usize = 16 * 1024 * 1024;
 
 /// Map an operation name onto an [`MlxError::Operation`] constructor.
 fn op<E: std::fmt::Display>(name: &'static str) -> impl Fn(E) -> MlxError {
@@ -328,7 +317,7 @@ impl BertLayer {
             .matmul(weight)
             .map_err(op(name))?
             .add(bias)
-            .map_err(op(format!("{name} bias").leak()))
+            .map_err(op("linear bias"))
     }
 
     fn forward(

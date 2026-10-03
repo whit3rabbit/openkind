@@ -33,6 +33,28 @@ impl VerifiedArtifacts {
     /// fails before the multi-gigabyte shards are streamed for their
     /// digests.
     pub fn verify(model_root: &Path, profile: &Qwen3LogitProfile) -> Result<Self, FamilyError> {
+        Self::verify_artifacts(model_root, profile, true)
+    }
+
+    // ONNX needs the pinned renderer/config plus its own digest manifest.
+    // Native weights are optional there, but any present bytes still verify.
+    pub(crate) fn verify_for_execution(
+        model_root: &Path,
+        profile: &Qwen3LogitProfile,
+        execution: crate::device::FamilyExecution,
+    ) -> Result<Self, FamilyError> {
+        if execution.is_onnx() {
+            Self::verify_artifacts(model_root, profile, false)
+        } else {
+            Self::verify(model_root, profile)
+        }
+    }
+
+    fn verify_artifacts(
+        model_root: &Path,
+        profile: &Qwen3LogitProfile,
+        native: bool,
+    ) -> Result<Self, FamilyError> {
         let tokenizer = model_root.join("tokenizer.json");
         let config_path = model_root.join("config.json");
         for path in [&tokenizer, &config_path] {
@@ -70,6 +92,9 @@ impl VerifiedArtifacts {
             .zip(profile.checkpoint_sha256s)
         {
             let shard = model_root.join(name);
+            if (!native) && !shard.exists() {
+                continue;
+            }
             if !shard.is_file() {
                 return Err(FamilyError::Io {
                     path: shard,

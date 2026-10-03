@@ -64,14 +64,14 @@ impl Gemma4DecisionEngine {
             FamilyExecution::Cuda { .. } => execution.candle_device()?,
             #[cfg(feature = "onnx")]
             FamilyExecution::Onnx { .. } => {
-                return Err(FamilyError::InvalidInput(
+                return Err(FamilyError::ExecutionUnavailable(
                     "gemma4-decision has no ONNX execution path".to_owned(),
                 )
                 .into());
             }
             #[cfg(feature = "onnx-rocm")]
             FamilyExecution::OnnxRocm { .. } => {
-                return Err(FamilyError::InvalidInput(
+                return Err(FamilyError::ExecutionUnavailable(
                     "gemma4-decision has no ONNX execution path, so no ROCm execution".to_owned(),
                 )
                 .into());

@@ -443,4 +443,14 @@ mod tests {
             "2 colon later: text"
         );
     }
+
+    #[test]
+    fn described_option_annotates_only_described_words() {
+        assert_eq!(described_option("yes", ""), "yes");
+        assert_eq!(described_option("yes", "   "), "yes");
+        assert_eq!(
+            described_option("yes", "the request is malicious"),
+            "yes: the request is malicious"
+        );
+    }
 }

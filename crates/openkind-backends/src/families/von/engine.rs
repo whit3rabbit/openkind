@@ -246,7 +246,8 @@ impl VonEngine {
         execution: FamilyExecution,
     ) -> Result<BoundedFamilyEngine, VonError> {
         let profile = config.profile;
-        let artifacts = VerifiedArtifacts::verify(&config.model_root, profile)?;
+        let artifacts =
+            VerifiedArtifacts::verify_for_execution(&config.model_root, profile, execution)?;
         let renderer = VonRenderer::load(&artifacts.tokenizer, &profile.specials)?;
         let model: Box<dyn VonOptionLogits> = match execution {
             FamilyExecution::Cpu => Box::new(VonModel::load(profile, &artifacts, Device::Cpu)?),
@@ -439,12 +440,16 @@ pub(crate) fn effective_temperature(
         .iter()
         .map(|l| (l - max_logit).exp() / sum_exp)
         .collect();
-    let entropy = -probs
-        .iter()
-        .filter(|p| **p > 0.0)
-        .map(|p| p * p.ln())
-        .sum::<f64>()
-        / (n as f64).ln();
+    let entropy = if n == 1 {
+        0.0
+    } else {
+        -probs
+            .iter()
+            .filter(|p| **p > 0.0)
+            .map(|p| p * p.ln())
+            .sum::<f64>()
+            / (n as f64).ln()
+    };
     let tokens = (state_tokens.len() as f64).max(1.0);
     let raw = map.bias
         + map.entropy * entropy
@@ -528,5 +533,61 @@ mod tests {
         out.clear();
         python_quote("line\nbreak", &mut out);
         assert_eq!(out, "'line\\nbreak'");
+    }
+
+    #[test]
+    fn render_question_inputs_matches_the_reference_option_rules() {
+        // Choice: caller descriptions fall back to the bare label.
+        let mut criteria = std::collections::HashMap::new();
+        criteria.insert("a".to_owned(), Some("alpha text".to_owned()));
+        criteria.insert("b".to_owned(), None);
+        let choice = Question::Choice(openkind_core::ChoiceQuestion {
+            instructions: serde_json::json!("pick"),
+            criteria,
+        });
+        let rendered = render_question_inputs(&choice).expect("choice inputs");
+        assert!(rendered.has_explicit_criteria);
+        assert_eq!(rendered.options.len(), 2);
+        assert!(rendered.options.contains(&"alpha text".to_owned()));
+        assert!(rendered.options.contains(&"b".to_owned()));
+
+        // Score: level criteria are trimmed verbatim.
+        let score = Question::Score(openkind_core::ScoreQuestion {
+            instructions: serde_json::json!("rate"),
+            criteria: vec!["  bad  ".to_owned(), "good".to_owned()],
+        });
+        let rendered = render_question_inputs(&score).expect("score inputs");
+        assert!(rendered.has_explicit_criteria);
+        assert_eq!(rendered.options, vec!["bad".to_owned(), "good".to_owned()]);
+
+        // Noul without criteria: reference defaults, true first.
+        let noul = Question::Noul(openkind_core::NoulQuestion {
+            instructions: serde_json::json!("judge"),
+            criteria: None,
+        });
+        let rendered = render_question_inputs(&noul).expect("default noul inputs");
+        assert!(!rendered.has_explicit_criteria);
+        assert_eq!(
+            rendered.options,
+            vec![
+                "Yes, condition holds true.".to_owned(),
+                "No, condition is false.".to_owned(),
+            ]
+        );
+
+        // Noul with criteria: explicit texts, true first.
+        let noul = Question::Noul(openkind_core::NoulQuestion {
+            instructions: serde_json::json!("judge"),
+            criteria: Some(openkind_core::NoulCriteria {
+                r#true: "helpful".to_owned(),
+                r#false: "not helpful".to_owned(),
+            }),
+        });
+        let rendered = render_question_inputs(&noul).expect("explicit noul inputs");
+        assert!(rendered.has_explicit_criteria);
+        assert_eq!(
+            rendered.options,
+            vec!["helpful".to_owned(), "not helpful".to_owned()]
+        );
     }
 }

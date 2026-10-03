@@ -69,7 +69,7 @@ impl SchemaScorerEngine {
         config: SchemaScorerEngineConfig,
         execution: FamilyExecution,
     ) -> Result<BoundedFamilyEngine, SchemaScorerError> {
-        let artifacts = VerifiedArtifacts::verify(&config.model_root)?;
+        let artifacts = VerifiedArtifacts::verify_for_execution(&config.model_root, execution)?;
         let renderer = SchemaScorerRenderer::load(&artifacts.tokenizer)?;
         let model: Box<dyn RelevanceLogits> = match execution {
             FamilyExecution::Cpu => Box::new(SchemaScorerModel::load(&artifacts, Device::Cpu)?),

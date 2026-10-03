@@ -96,7 +96,7 @@ impl EncoderInstructLabelEngine {
         config: EncoderInstructLabelEngineConfig,
         execution: FamilyExecution,
     ) -> Result<BoundedFamilyEngine, EncoderInstructLabelError> {
-        let artifacts = VerifiedArtifacts::verify(&config.model_root)?;
+        let artifacts = VerifiedArtifacts::verify_for_execution(&config.model_root, execution)?;
         let renderer = EncoderInstructLabelRenderer::load(&artifacts.tokenizer)?;
         let model: Box<dyn MarkerLogits> = match execution {
             FamilyExecution::Cpu => {
@@ -312,4 +312,59 @@ where
             output_tokens: 0,
         },
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn calibrated_sigmoid_rejects_non_finite_logits_and_spans_the_range() {
+        assert!(calibrated_sigmoid(f64::NAN, 1.0).is_err());
+        assert!(calibrated_sigmoid(f64::INFINITY, 1.0).is_err());
+        assert!(calibrated_sigmoid(f64::NEG_INFINITY, 1.0).is_err());
+
+        for logit in [-800.0_f64, -30.0, -1.0, 0.0, 1.0, 30.0, 800.0] {
+            let probability = calibrated_sigmoid(logit, 1.0).expect("finite logit");
+            assert!(
+                (0.0..=1.0).contains(&probability),
+                "logit {logit} produced {probability}"
+            );
+        }
+        assert!((calibrated_sigmoid(0.0, 1.0).unwrap() - 0.5).abs() < 1e-12);
+        // The two stability arms must agree where they overlap.
+        assert!(
+            (calibrated_sigmoid(-2.0, 1.0).unwrap()
+                - (1.0 - calibrated_sigmoid(2.0, 1.0).unwrap()))
+            .abs()
+                < 1e-12
+        );
+    }
+
+    #[test]
+    fn renormalize_rejects_unusable_support_mass() {
+        assert!(renormalize(&[0.0, 0.0]).is_err());
+        assert!(renormalize(&[f64::NAN, 1.0]).is_err());
+        assert!(renormalize(&[1.0, f64::INFINITY]).is_err());
+
+        let probabilities = renormalize(&[1.0, 3.0]).expect("usable support");
+        assert!((probabilities[0] - 0.25).abs() < 1e-12);
+        assert!((probabilities[1] - 0.75).abs() < 1e-12);
+    }
+
+    #[test]
+    fn noul_marker_selects_the_true_criterion_when_explicit() {
+        let unpacked = crate::families::wire::UnpackedQuestion {
+            id: "q".to_owned(),
+            primitive: crate::families::wire::QuestionPrimitive::Noul,
+            labels: vec!["false".to_owned(), "true".to_owned()],
+            criteria: vec!["not helpful".to_owned(), "helpful".to_owned()],
+            ordered: false,
+        };
+        assert_eq!(noul_marker(&unpacked, "default text", true), "helpful");
+        assert_eq!(
+            noul_marker(&unpacked, "default text", false),
+            "default text"
+        );
+    }
 }

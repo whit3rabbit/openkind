@@ -235,3 +235,56 @@ fn golden_replay_matches_the_pinned_checkpoint() {
         );
     }
 }
+
+/// Accelerated ONNX selections fail closed on a family whose slot-logit
+/// readout has no ONNX export. The failure surfaces only after artifact
+/// verification, so the check is checkpoint-gated like the golden replay;
+/// the ROCm selection is additionally feature-gated.
+#[test]
+fn accelerated_executions_fail_closed_without_an_export() {
+    let Some(root) = model_root() else {
+        eprintln!("skipping: OPENKIND_DECIDER_4B_MODEL_ROOT is not set");
+        return;
+    };
+
+    #[cfg(feature = "onnx")]
+    {
+        let error = match DeciderEngine::load_with_execution(
+            DeciderEngineConfig {
+                profile: &DECIDER_4B,
+                model_root: root.clone(),
+                limits: limits(),
+            },
+            openkind_backends::device::FamilyExecution::Onnx { device_id: None },
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("onnx execution must fail closed for the decider family"),
+        };
+        assert!(
+            error.to_string().contains("execution backend unavailable"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[cfg(feature = "onnx-rocm")]
+    {
+        let error = match DeciderEngine::load_with_execution(
+            DeciderEngineConfig {
+                profile: &DECIDER_4B,
+                model_root: root.clone(),
+                limits: limits(),
+            },
+            openkind_backends::device::FamilyExecution::OnnxRocm { device_id: 0 },
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("onnx-rocm execution must fail closed for the decider family"),
+        };
+        assert!(
+            error.to_string().contains("execution backend unavailable"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[cfg(not(any(feature = "onnx", feature = "onnx-rocm")))]
+    let _ = root;
+}

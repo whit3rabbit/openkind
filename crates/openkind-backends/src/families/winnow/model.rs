@@ -211,9 +211,9 @@ impl WinnowModel {
                 .model
                 .lock()
                 .map_err(|_| FamilyError::InvalidInput("winnow model lock poisoned".to_owned()))?;
-            let logits = model.forward(&input, 0)?;
+            let logits = model.forward(&input, 0);
             model.clear_kv_cache();
-            logits
+            logits?
         };
         let logits = logits.squeeze(0)?.squeeze(0)?.to_vec1::<f32>()?;
         Ok(letter_ids

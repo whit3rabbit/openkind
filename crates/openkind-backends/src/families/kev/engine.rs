@@ -270,3 +270,73 @@ impl FamilyEvaluator for KevEngine {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn question_options_annotates_noul_only_with_explicit_criteria() {
+        let unpacked = crate::families::wire::UnpackedQuestion {
+            id: "q".to_owned(),
+            primitive: crate::families::wire::QuestionPrimitive::Noul,
+            labels: vec!["false".to_owned(), "true".to_owned()],
+            criteria: vec!["not spam".to_owned(), "spam".to_owned()],
+            ordered: false,
+        };
+        let question = openkind_core::Question::Noul(openkind_core::NoulQuestion {
+            instructions: serde_json::json!("classify"),
+            criteria: None,
+        });
+        assert_eq!(
+            question_options(&unpacked, &question, false),
+            vec!["no".to_owned(), "yes".to_owned()]
+        );
+        assert_eq!(
+            question_options(&unpacked, &question, true),
+            vec!["no: not spam".to_owned(), "yes: spam".to_owned(),]
+        );
+    }
+
+    #[test]
+    fn question_options_filters_blank_choice_descriptions() {
+        let mut criteria = std::collections::HashMap::new();
+        criteria.insert("a".to_owned(), Some("alpha".to_owned()));
+        criteria.insert("b".to_owned(), Some("   ".to_owned()));
+        criteria.insert("c".to_owned(), None);
+        let unpacked = crate::families::wire::UnpackedQuestion {
+            id: "q".to_owned(),
+            primitive: crate::families::wire::QuestionPrimitive::Choice,
+            labels: vec!["a".to_owned(), "b".to_owned(), "c".to_owned()],
+            criteria: vec!["a".to_owned(), "b".to_owned(), "c".to_owned()],
+            ordered: false,
+        };
+        let question = openkind_core::Question::Choice(openkind_core::ChoiceQuestion {
+            instructions: serde_json::json!("pick"),
+            criteria,
+        });
+        assert_eq!(
+            question_options(&unpacked, &question, false),
+            vec!["a: alpha".to_owned(), "b".to_owned(), "c".to_owned()]
+        );
+    }
+
+    #[test]
+    fn question_options_passes_score_criteria_through() {
+        let unpacked = crate::families::wire::UnpackedQuestion {
+            id: "q".to_owned(),
+            primitive: crate::families::wire::QuestionPrimitive::Score,
+            labels: vec!["0".to_owned(), "1".to_owned()],
+            criteria: vec!["bad".to_owned(), "good".to_owned()],
+            ordered: true,
+        };
+        let question = openkind_core::Question::Score(openkind_core::ScoreQuestion {
+            instructions: serde_json::json!("rate"),
+            criteria: vec!["bad".to_owned(), "good".to_owned()],
+        });
+        assert_eq!(
+            question_options(&unpacked, &question, false),
+            vec!["bad".to_owned(), "good".to_owned()]
+        );
+    }
+}

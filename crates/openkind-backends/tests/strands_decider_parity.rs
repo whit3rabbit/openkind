@@ -218,3 +218,112 @@ fn golden_replay_matches_the_pinned_checkpoint() {
         );
     }
 }
+
+/// Accelerated ONNX selections fail closed on a family whose pointer-head
+/// readout has no ONNX export; checkpoint-gated because artifact
+/// verification runs before the execution selection.
+#[test]
+fn accelerated_executions_fail_closed_without_an_export() {
+    let Some(root) = model_root() else {
+        eprintln!("skipping: OPENKIND_STRANDS_DECIDER_MODEL_ROOT is not set");
+        return;
+    };
+    let Some(base) = base_root() else {
+        eprintln!("skipping: OPENKIND_STRANDS_DECIDER_BASE_ROOT is not set");
+        return;
+    };
+
+    #[cfg(feature = "onnx")]
+    {
+        let error = match StrandsDeciderEngine::load_with_execution(
+            StrandsDeciderEngineConfig {
+                model_root: root.clone(),
+                base_root: base.clone(),
+                limits: limits(),
+            },
+            openkind_backends::device::FamilyExecution::Onnx { device_id: None },
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("onnx execution must fail closed for the strands-decider family"),
+        };
+        assert!(
+            error.to_string().contains("execution backend unavailable"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[cfg(feature = "onnx-rocm")]
+    {
+        let error = match StrandsDeciderEngine::load_with_execution(
+            StrandsDeciderEngineConfig {
+                model_root: root.clone(),
+                base_root: base.clone(),
+                limits: limits(),
+            },
+            openkind_backends::device::FamilyExecution::OnnxRocm { device_id: 0 },
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("onnx-rocm execution must fail closed for the strands-decider family"),
+        };
+        assert!(
+            error.to_string().contains("execution backend unavailable"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[cfg(not(any(feature = "onnx", feature = "onnx-rocm")))]
+    let _ = (root, base);
+}
+
+#[test]
+fn load_fails_closed_on_artifact_digest_mismatch() {
+    let Some(root) = model_root() else {
+        eprintln!("skipping: OPENKIND_STRANDS_DECIDER_MODEL_ROOT is not set");
+        return;
+    };
+    let Some(base) = base_root() else {
+        eprintln!("skipping: OPENKIND_STRANDS_DECIDER_BASE_ROOT is not set");
+        return;
+    };
+    let staged_model =
+        std::env::temp_dir().join(format!("openkind-strands-model-{}", std::process::id()));
+    let staged_base =
+        std::env::temp_dir().join(format!("openkind-strands-base-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&staged_model);
+    let _ = fs::remove_dir_all(&staged_base);
+    fs::create_dir_all(&staged_model).expect("stage model root");
+    fs::create_dir_all(&staged_base).expect("stage base root");
+    // Stage every cheap artifact verbatim; the base checkpoint is replaced
+    // with a placeholder because the drifted config fails before the base
+    // checkpoint digest ever streams.
+    for file in [
+        "adapter_model.safetensors",
+        "adapter_config.json",
+        "tokenizer.json",
+        "head.safetensors",
+        "hobson_config.json",
+    ] {
+        fs::copy(root.join(file), staged_model.join(file)).expect("stage model artifact");
+    }
+    fs::copy(base.join("config.json"), staged_base.join("config.json")).expect("stage config");
+    fs::write(staged_base.join("model.safetensors"), b"placeholder").expect("stage checkpoint");
+
+    let mut config = fs::read(staged_model.join("hobson_config.json")).expect("read config");
+    config.push(b' ');
+    fs::write(staged_model.join("hobson_config.json"), config).expect("write drifted config");
+
+    let error = match StrandsDeciderEngine::load(StrandsDeciderEngineConfig {
+        model_root: staged_model.clone(),
+        base_root: staged_base.clone(),
+        limits: limits(),
+    }) {
+        Err(error) => error,
+        Ok(_) => panic!("drifted hobson config must fail closed"),
+    };
+    assert!(
+        error.to_string().contains("SHA-256 mismatch"),
+        "unexpected error: {error}"
+    );
+    let _ = fs::remove_dir_all(&staged_model);
+    let _ = fs::remove_dir_all(&staged_base);
+}

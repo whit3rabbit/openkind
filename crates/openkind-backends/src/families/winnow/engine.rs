@@ -342,3 +342,79 @@ fn deadline_error(backend: &str, deadline: Instant, started: Instant) -> EngineE
             .min(u128::from(u64::MAX)) as u64,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn execution_slot_acquires_and_recovers() {
+        let slots = Arc::new(Semaphore::new(1));
+        let permit = acquire_execution_slot(slots.clone(), None, "winnow", None)
+            .await
+            .expect("open slot must be acquirable");
+        assert_eq!(slots.available_permits(), 0);
+        drop(permit);
+        assert_eq!(slots.available_permits(), 1);
+    }
+
+    #[tokio::test]
+    async fn execution_slot_fails_closed_when_admission_shuts_down() {
+        let slots = Arc::new(Semaphore::new(0));
+        slots.close();
+        let error = acquire_execution_slot(slots, None, "winnow", None)
+            .await
+            .expect_err("a closed pool must fail closed");
+        assert!(
+            matches!(error, EngineError::Backend { ref backend, .. } if backend == "winnow"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[tokio::test]
+    async fn execution_slot_reports_deadlines_elapsed_while_queued() {
+        let slots = Arc::new(Semaphore::new(1));
+        let held = slots
+            .clone()
+            .acquire_owned()
+            .await
+            .expect("park the only slot");
+
+        let error = acquire_execution_slot(
+            slots.clone(),
+            Some(Instant::now() + Duration::from_millis(20)),
+            "winnow",
+            Some(Duration::from_millis(20)),
+        )
+        .await
+        .expect_err("an elapsed deadline must fail while queued");
+        assert!(
+            matches!(
+                error,
+                EngineError::DeadlineExceeded { ref backend, timeout_ms: 20 }
+                    if backend == "winnow"
+            ),
+            "unexpected error: {error}"
+        );
+
+        drop(held);
+        let permit = acquire_execution_slot(slots, None, "winnow", None)
+            .await
+            .expect("slot recovers after the deadline failure");
+        drop(permit);
+    }
+
+    #[test]
+    fn deadline_error_reports_the_remaining_budget() {
+        let started = Instant::now();
+        let error = deadline_error("winnow", started + Duration::from_millis(1_500), started);
+        assert!(
+            matches!(
+                error,
+                EngineError::DeadlineExceeded { ref backend, timeout_ms }
+                    if backend == "winnow" && (1_400..=1_500).contains(&timeout_ms)
+            ),
+            "unexpected error: {error}"
+        );
+    }
+}

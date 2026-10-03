@@ -249,7 +249,6 @@ impl TaskEngine {
         self.shadow = None;
         self.suspicious = false;
         tracing::info!(
-            task = %self.key,
             version = %version,
             calib_accepted = meta.calib_accepted,
             calib_disagree = meta.calib_disagree,

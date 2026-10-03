@@ -720,4 +720,132 @@ mod tests {
             .bytes()
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)));
     }
+
+    #[test]
+    fn family_control_fails_on_elapsed_deadlines_and_cancellation() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+
+        // A deadline already in the past fails before the cancellation flag
+        // is even consulted.
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let control = FamilyControl::new(
+            cancelled.clone(),
+            Some(Instant::now() - Duration::from_millis(1)),
+            4_000,
+        );
+        let error = control.check().expect_err("elapsed deadline must fail");
+        assert!(
+            matches!(error, FamilyError::DeadlineExceeded { timeout_ms: 4_000 }),
+            "unexpected error: {error}"
+        );
+
+        // Cancellation fires when the deadline has not elapsed.
+        let control = FamilyControl::new(
+            cancelled.clone(),
+            Some(Instant::now() + Duration::from_secs(60)),
+            60_000,
+        );
+        control.check().expect("open control must pass");
+        cancelled.store(true, Ordering::Release);
+        let error = control.check().expect_err("cancellation must fail");
+        assert!(
+            matches!(error, FamilyError::Cancelled),
+            "unexpected error: {error}"
+        );
+
+        // A control without a deadline still honors cancellation only.
+        let control = FamilyControl::new(cancelled, None, 0);
+        assert!(matches!(
+            control.check().expect_err("still cancelled"),
+            FamilyError::Cancelled
+        ));
+    }
+
+    #[test]
+    fn map_family_error_preserves_the_error_taxonomy() {
+        let invalid_input =
+            map_family_error("b", FamilyError::InvalidInput("bad question".to_owned()));
+        assert!(
+            matches!(
+                invalid_input,
+                EngineError::Unsupported { ref backend, ref message }
+                    if backend == "b" && message.contains("bad question")
+            ),
+            "unexpected error: {invalid_input}"
+        );
+
+        let deadline = map_family_error("b", FamilyError::DeadlineExceeded { timeout_ms: 1_234 });
+        assert!(
+            matches!(
+                deadline,
+                EngineError::DeadlineExceeded { ref backend, timeout_ms: 1_234 }
+                    if backend == "b"
+            ),
+            "unexpected error: {deadline}"
+        );
+
+        let other = map_family_error("b", FamilyError::Cancelled);
+        assert!(
+            matches!(other, EngineError::Backend { ref backend, .. } if backend == "b"),
+            "unexpected error: {other}"
+        );
+    }
+
+    #[tokio::test]
+    async fn execution_slot_acquires_and_recovers() {
+        let slots = Arc::new(Semaphore::new(1));
+        let permit = acquire_execution_slot(slots.clone(), None, "test-family", None)
+            .await
+            .expect("open slot must be acquirable");
+        assert_eq!(slots.available_permits(), 0);
+        drop(permit);
+        assert_eq!(slots.available_permits(), 1);
+    }
+
+    #[tokio::test]
+    async fn execution_slot_fails_closed_when_admission_shuts_down() {
+        let slots = Arc::new(Semaphore::new(0));
+        slots.close();
+        let error = acquire_execution_slot(slots, None, "test-family", None)
+            .await
+            .expect_err("a closed pool must fail closed");
+        assert!(
+            matches!(error, EngineError::Backend { ref backend, .. } if backend == "test-family"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[tokio::test]
+    async fn execution_slot_reports_deadlines_elapsed_while_queued() {
+        let slots = Arc::new(Semaphore::new(1));
+        let held = slots
+            .clone()
+            .acquire_owned()
+            .await
+            .expect("park the only slot");
+
+        let error = acquire_execution_slot(
+            slots.clone(),
+            Some(Instant::now() + Duration::from_millis(20)),
+            "test-family",
+            Some(Duration::from_millis(20)),
+        )
+        .await
+        .expect_err("an elapsed deadline must fail while queued");
+        assert!(
+            matches!(
+                error,
+                EngineError::DeadlineExceeded { ref backend, timeout_ms: 20 }
+                    if backend == "test-family"
+            ),
+            "unexpected error: {error}"
+        );
+
+        // Releasing the slot makes the next acquisition succeed again.
+        drop(held);
+        let permit = acquire_execution_slot(slots, None, "test-family", None)
+            .await
+            .expect("slot recovers after the deadline failure");
+        drop(permit);
+    }
 }

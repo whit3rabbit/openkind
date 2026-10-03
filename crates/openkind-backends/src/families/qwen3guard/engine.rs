@@ -94,7 +94,7 @@ impl Qwen3GuardEngine {
         config: Qwen3GuardEngineConfig,
         execution: FamilyExecution,
     ) -> Result<BoundedFamilyEngine, Qwen3GuardError> {
-        let artifacts = VerifiedArtifacts::verify(&config.model_root)?;
+        let artifacts = VerifiedArtifacts::verify_for_execution(&config.model_root, execution)?;
         let renderer = Qwen3GuardRenderer::load(&artifacts.tokenizer)?;
         let model: Box<dyn RiskLogits> = match execution {
             FamilyExecution::Cpu => Box::new(Qwen3GuardModel::load(&artifacts, Device::Cpu)?),
@@ -230,5 +230,59 @@ impl FamilyEvaluator for Qwen3GuardEngine {
                 output_tokens: 0,
             },
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn class_index_maps_the_fixed_preset_case_insensitively() {
+        let mut none = false;
+        assert_eq!(class_index("safe", &mut none).unwrap(), CLASS_SAFE);
+        assert_eq!(class_index("SAFE", &mut none).unwrap(), CLASS_SAFE);
+        assert_eq!(class_index("unsafe", &mut none).unwrap(), CLASS_UNSAFE);
+        assert_eq!(class_index("UnSafe", &mut none).unwrap(), CLASS_UNSAFE);
+        assert!(!none, "preset labels must not arm the none flag");
+    }
+
+    #[test]
+    fn class_index_maps_none_and_controversial_to_one_class() {
+        let mut none = false;
+        assert_eq!(
+            class_index("__none__", &mut none).unwrap(),
+            CLASS_CONTROVERSIAL
+        );
+        assert!(none);
+        let error = class_index("controversial", &mut none).unwrap_err();
+        assert!(
+            error.to_string().contains("map to the same class"),
+            "unexpected error: {error}"
+        );
+
+        let mut none = false;
+        assert_eq!(
+            class_index("Controversial", &mut none).unwrap(),
+            CLASS_CONTROVERSIAL
+        );
+        let error = class_index("__NONE__", &mut none).unwrap_err();
+        assert!(
+            error.to_string().contains("map to the same class"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn class_index_rejects_labels_outside_the_preset() {
+        let mut none = false;
+        let error = class_index("maybe", &mut none).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("outside the fixed preset schema"),
+            "unexpected error: {error}"
+        );
+        assert!(!none, "a rejected label must not arm the none flag");
     }
 }

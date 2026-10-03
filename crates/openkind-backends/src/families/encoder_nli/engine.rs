@@ -76,7 +76,7 @@ impl EncoderNliEngine {
         config: EncoderNliEngineConfig,
         execution: FamilyExecution,
     ) -> Result<BoundedFamilyEngine, EncoderNliError> {
-        let artifacts = VerifiedArtifacts::verify(&config.model_root)?;
+        let artifacts = VerifiedArtifacts::verify_for_execution(&config.model_root, execution)?;
         let renderer = EncoderNliRenderer::load(&artifacts.vocab)?;
         let model: Box<dyn NliLogits> = match execution {
             FamilyExecution::Cpu => Box::new(EncoderNliModel::load(&artifacts, Device::Cpu)?),

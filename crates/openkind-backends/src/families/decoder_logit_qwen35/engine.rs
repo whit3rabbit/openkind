@@ -554,3 +554,175 @@ mod cancellation_tests {
         }
     }
 }
+
+#[cfg(test)]
+mod question_probability_tests {
+    use super::*;
+    use std::cell::Cell;
+    use std::sync::atomic::AtomicBool;
+    use std::sync::Arc;
+
+    /// A source with deterministic letter logits: within multi-option
+    /// passes the first letter always loses all mass, so the knockout
+    /// schedule yields an exact zero weight for the first option.
+    struct ZeroingSource {
+        renderer: super::super::renderer::Jevk5Renderer,
+        calls: Cell<usize>,
+    }
+
+    impl ZeroingSource {
+        fn profile(&self) -> &'static Qwen35LogitProfile {
+            &super::super::JEVK5
+        }
+    }
+
+    impl Jevk5PassSource for ZeroingSource {
+        fn renderer(&self) -> &super::super::renderer::Jevk5Renderer {
+            &self.renderer
+        }
+
+        fn letter_logits(
+            &self,
+            pass: &RenderedPass,
+            _control: &FamilyControl,
+        ) -> Result<Vec<f64>, FamilyError> {
+            self.calls.set(self.calls.get() + 1);
+            let letters = pass.letter_ids().len();
+            let mut logits = vec![0.0_f64; letters];
+            if letters > 1 {
+                logits[0] = f64::NEG_INFINITY;
+            }
+            Ok(logits)
+        }
+    }
+
+    fn synthetic_renderer() -> super::super::renderer::Jevk5Renderer {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(
+            "tests/fixtures/decoder_logit_qwen35_415bcf4a064e6dadcf85/synthetic_control_tokenizer.json",
+        );
+        crate::families::support::verify_digest(
+            &path,
+            "790e5d78a52353fcb7766098a8e0044c6d229448602eb78b05a81c3f875315c4",
+        )
+        .expect("synthetic tokenizer digest");
+        super::super::renderer::Jevk5Renderer::load(&path, super::super::JEVK5.max_sequence_tokens)
+            .expect("renderer")
+    }
+
+    fn open_control() -> FamilyControl {
+        FamilyControl::new(Arc::new(AtomicBool::new(false)), None, 0)
+    }
+
+    fn options(count: usize) -> Vec<(String, String)> {
+        (0..count)
+            .map(|index| (format!("option{index}"), format!("Description {index}")))
+            .collect()
+    }
+
+    #[test]
+    fn question_probabilities_rejects_too_few_candidates() {
+        let renderer = synthetic_renderer();
+        let source = ZeroingSource {
+            renderer,
+            calls: Cell::new(0),
+        };
+        let error = question_probabilities(
+            &source,
+            source.profile(),
+            QuestionKind::Choice,
+            &serde_json::json!("evidence"),
+            "Pick an option",
+            &options(1),
+            &Cell::new(0),
+            &open_control(),
+        )
+        .expect_err("one option must fail closed");
+        assert!(
+            error.to_string().contains("needs at least 2 candidates"),
+            "unexpected error: {error}"
+        );
+        assert_eq!(source.calls.get(), 0, "no forward may run");
+    }
+
+    #[test]
+    fn question_probabilities_rejects_candidates_beyond_the_profile() {
+        let renderer = synthetic_renderer();
+        let source = ZeroingSource {
+            renderer,
+            calls: Cell::new(0),
+        };
+        let error = question_probabilities(
+            &source,
+            source.profile(),
+            QuestionKind::Choice,
+            &serde_json::json!("evidence"),
+            "Pick an option",
+            &options(super::super::JEVK5.max_candidates + 1),
+            &Cell::new(0),
+            &open_control(),
+        )
+        .expect_err("over-max candidates must fail closed");
+        assert!(
+            error.to_string().contains("covers at most"),
+            "unexpected error: {error}"
+        );
+        assert_eq!(source.calls.get(), 0, "no forward may run");
+    }
+
+    #[test]
+    fn knockout_sharpening_maps_zero_weights_to_zero_probability() {
+        let renderer = synthetic_renderer();
+        let source = ZeroingSource {
+            renderer,
+            calls: Cell::new(0),
+        };
+        let count = super::super::MAX_OPTIONS_PER_PASS + 1;
+        let probabilities = question_probabilities(
+            &source,
+            source.profile(),
+            QuestionKind::Choice,
+            &serde_json::json!("evidence"),
+            "Pick an option",
+            &options(count),
+            &Cell::new(0),
+            &open_control(),
+        )
+        .expect("knockout schedule must produce a distribution");
+        assert_eq!(probabilities.len(), count);
+        assert_eq!(
+            probabilities[0], 0.0,
+            "a knockout weight of zero must sharpen to an exact zero probability"
+        );
+        let total: f64 = probabilities.iter().sum();
+        assert!((total - 1.0).abs() < 1e-9, "distribution must sum to one");
+        assert!(
+            probabilities.iter().any(|p| *p > 0.0),
+            "the surviving finalists must carry the mass"
+        );
+        // Group passes plus the finalist pass.
+        assert!(source.calls.get() >= 2, "knockout must run multiple passes");
+    }
+
+    #[test]
+    fn single_pass_questions_read_once() {
+        let renderer = synthetic_renderer();
+        let source = ZeroingSource {
+            renderer,
+            calls: Cell::new(0),
+        };
+        let probabilities = question_probabilities(
+            &source,
+            source.profile(),
+            QuestionKind::Choice,
+            &serde_json::json!("evidence"),
+            "Pick an option",
+            &options(4),
+            &Cell::new(0),
+            &open_control(),
+        )
+        .expect("single-pass read");
+        assert_eq!(probabilities.len(), 4);
+        assert_eq!(probabilities[0], 0.0, "the first letter loses all mass");
+        assert_eq!(source.calls.get(), 1);
+    }
+}

@@ -82,7 +82,7 @@ impl DecoderLetterEngine {
         config: DecoderLetterEngineConfig,
         execution: FamilyExecution,
     ) -> Result<BoundedFamilyEngine, DecoderLetterError> {
-        let artifacts = VerifiedArtifacts::verify(&config.model_root)?;
+        let artifacts = VerifiedArtifacts::verify_for_execution(&config.model_root, execution)?;
         let renderer = LetterRenderer::load(&artifacts.tokenizer, super::MAX_SEQUENCE_TOKENS)?;
         let model: Box<dyn LetterLogits> = match execution {
             FamilyExecution::Cpu => Box::new(DecoderLetterModel::load(&artifacts, Device::Cpu)?),

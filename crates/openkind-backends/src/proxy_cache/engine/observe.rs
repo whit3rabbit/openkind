@@ -45,7 +45,7 @@ impl TaskEngine {
             } else {
                 String::new()
             },
-            text_hash: super::super::text::text_hash(state_text, self.task_version.as_bytes()),
+            text_hash: super::super::text::text_hash(state_text, &self.text_hash_salt),
             encoder_id: encoder_id.to_owned(),
             embedding: embedding.to_vec(),
             state_type: state_type.to_owned(),
@@ -131,7 +131,7 @@ impl TaskEngine {
             } else {
                 String::new()
             },
-            text_hash: super::super::text::text_hash(state_text, self.task_version.as_bytes()),
+            text_hash: super::super::text::text_hash(state_text, &self.text_hash_salt),
             encoder_id: encoder_id.to_owned(),
             embedding: embedding.to_vec(),
             state_type: state_type.to_owned(),

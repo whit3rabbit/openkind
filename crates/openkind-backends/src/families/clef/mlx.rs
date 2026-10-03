@@ -16,7 +16,6 @@
 
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::sync::Arc;
 
 use mlx_rs::ops::indexing::TryIndexOp as _;
 use mlx_rs::Array;
@@ -75,7 +74,7 @@ impl MlxClefModel {
         runtime: SharedMlxRuntime,
     ) -> Result<Self, FamilyError> {
         let model_root = model_root.as_ref();
-        let tensors = load_tensors(model_root, profile)?;
+        let tensors = runtime.execute(|| load_tensors(model_root, profile))??;
         let head = JointSchemaHead::load(
             &profile.joint_head_config,
             &model_root.join(profile.joint_head.0),
@@ -482,7 +481,7 @@ impl MlxClefModel {
                         .map_err(mlx_error("delta t"))?,
                 )
                 .map_err(mlx_error("outer matmul"))?;
-            recurrent = recurrent + update;
+            recurrent += update;
             if std::env::var("OPENKIND_CLEF_MLX_DEBUG").is_ok()
                 && row == 0
                 && prefix.ends_with("layers.0")
@@ -659,7 +658,7 @@ impl MlxClefModel {
             let second = tokens_axis
                 .try_index((.., .., half..rotary_dim as i32))
                 .map_err(mlx_error("rope second"))?;
-            let head_count = x.shape()[0] as i32;
+            let head_count = x.shape()[0];
             let broadcast_shape = [token_count as i32, head_count, half];
             let cos_b =
                 mlx_rs::ops::broadcast_to(&cos, &broadcast_shape).map_err(mlx_error("cos b"))?;
@@ -681,13 +680,19 @@ impl MlxClefModel {
         let keys_h = rotate(&keys_h)?;
         // Grouped-query attention.
         let group = heads / kv_heads;
+        // Put the KV-head axis before the repeat axis so query head `h`
+        // uses KV head `h / group`, matching contiguous GQA head mapping.
         let keys_r = mlx_rs::ops::stack(&(0..group).map(|_| keys_h.clone()).collect::<Vec<_>>(), 0)
             .map_err(mlx_error("k repeat"))?
+            .transpose_axes(&[1, 0, 2, 3])
+            .map_err(mlx_error("k repeat transpose"))?
             .reshape(&[heads as i32, token_count as i32, head_dim as i32])
             .map_err(mlx_error("k repeat reshape"))?;
         let values_r =
             mlx_rs::ops::stack(&(0..group).map(|_| values_h.clone()).collect::<Vec<_>>(), 0)
                 .map_err(mlx_error("v repeat"))?
+                .transpose_axes(&[1, 0, 2, 3])
+                .map_err(mlx_error("v repeat transpose"))?
                 .reshape(&[heads as i32, token_count as i32, head_dim as i32])
                 .map_err(mlx_error("v repeat reshape"))?;
         let scores = query
@@ -703,7 +708,7 @@ impl MlxClefModel {
         let mixed = probabilities
             .matmul(&values_r)
             .map_err(mlx_error("mix"))?
-            .transpose_axes(&[1, 2, 0])
+            .transpose_axes(&[1, 0, 2])
             .map_err(mlx_error("mix heads"))?
             .reshape(&[token_count as i32, geometry.attention_size() as i32])
             .map_err(mlx_error("mix flatten"))?;
@@ -744,7 +749,9 @@ impl ClefExecutionModel for MlxClefModel {
                 lexical_ids.extend_from_slice(&encoded.input_ids[*start..*end]);
             }
         }
-        let lexical = ResolvedLexical::resolve(&self.tensors, &lexical_ids, hidden_size)?;
+        let lexical = self
+            .runtime
+            .execute(|| ResolvedLexical::resolve(&self.tensors, &lexical_ids, hidden_size))??;
         let result = self.head.forward(
             &hidden,
             token_count,
@@ -991,28 +998,36 @@ fn read_safetensors(path: &Path) -> Result<BTreeMap<String, MlxWeight>, FamilyEr
         let array = match entry.dtype.as_str() {
             "U32" => {
                 let values: Vec<u32> = bytes
-                    .chunks_exact(4)
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
                     .map(|chunk| u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
                     .collect();
                 Array::from_slice(&values, &shape)
             }
             "F16" => {
                 let values: Vec<half::f16> = bytes
-                    .chunks_exact(2)
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
                     .map(|chunk| half::f16::from_le_bytes([chunk[0], chunk[1]]))
                     .collect();
                 Array::from_slice(&values, &shape)
             }
             "BF16" => {
                 let values: Vec<half::bf16> = bytes
-                    .chunks_exact(2)
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
                     .map(|chunk| half::bf16::from_le_bytes([chunk[0], chunk[1]]))
                     .collect();
                 Array::from_slice(&values, &shape)
             }
             "F32" => {
                 let values: Vec<f32> = bytes
-                    .chunks_exact(4)
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
                     .map(|chunk| f32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]))
                     .collect();
                 Array::from_slice(&values, &shape)
@@ -1059,6 +1074,3 @@ fn read_safetensors(path: &Path) -> Result<BTreeMap<String, MlxWeight>, FamilyEr
     }
     Ok(weights)
 }
-
-/// Shared Arc alias matching the engine's constructor expectations.
-pub type SharedMlxClefModel = Arc<MlxClefModel>;
