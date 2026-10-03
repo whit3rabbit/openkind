@@ -25,9 +25,10 @@ The feature is experimental and off by default. It changes nothing unless
    only when the student's confidence passes a calibrated threshold, the
    embedding passes a kNN out-of-distribution gate, and the predicted label
    is not deferred. Otherwise the whole request goes upstream.
-4. **Forward.** Upstream calls carry the caller's own bearer key. A key is
-   trusted only after the upstream answered a request made with it; raw
-   keys are never stored (only salted hashes, in memory).
+4. **Forward.** Upstream calls carry the caller's own bearer key (or the
+   configured `--proxy-cache-upstream-key` when set). When caller keys are
+   forwarded, a key is trusted only after the upstream answered a request made
+   with it; raw keys are never stored (only salted hashes, in memory).
 5. **Record.** Teacher answers become training rows: state text (optional),
    embedding, full probability distribution, routing decision, and the
    resolved teacher model. A seeded per-request draw reserves a fraction of

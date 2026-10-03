@@ -859,3 +859,127 @@ fn bearer_extraction_handles_prefixes_whitespace_and_garbage() {
     );
     assert_eq!(bearer_of(&headers), None);
 }
+
+#[tokio::test]
+async fn proxy_credential_isolation_respects_forwards_caller_credentials() {
+    struct TestProxy {
+        forwards_caller: bool,
+        captured_key: std::sync::Mutex<Option<Option<String>>>,
+    }
+
+    #[async_trait::async_trait]
+    impl crate::proxy::SystemProxy for TestProxy {
+        fn wants(&self, req: &openkind_core::SystemRequest) -> bool {
+            req.model == "proxied-model"
+        }
+        fn forwards_caller_credentials(&self) -> bool {
+            self.forwards_caller
+        }
+        async fn evaluate(
+            &self,
+            _req: openkind_core::SystemRequest,
+            caller_key: Option<String>,
+        ) -> Result<crate::proxy::ProxyOutcome, ApiError> {
+            *self.captured_key.lock().unwrap() = Some(caller_key);
+            Ok(crate::proxy::ProxyOutcome {
+                response: openkind_core::SystemResponse {
+                    model: "upstream-model".into(),
+                    answers: [(
+                        "q1".into(),
+                        openkind_core::Answer::Choice(openkind_core::ChoiceAnswer {
+                            choice: "alpha".into(),
+                            probabilities: [("alpha".into(), 1.0)].into_iter().collect(),
+                            confidence: 1.0,
+                        }),
+                    )]
+                    .into_iter()
+                    .collect(),
+                    usage: openkind_core::Usage {
+                        input_tokens: 0,
+                        output_tokens: 0,
+                    },
+                },
+                source: crate::proxy::ProxySource::Upstream,
+                detail: None,
+            })
+        }
+        async fn models(&self) -> Option<crate::models::ModelsResponse> {
+            None
+        }
+    }
+
+    let request_body = json!({
+        "model": "proxied-model",
+        "state": "sample state",
+        "questions": {
+            "q1": {
+                "type": "choice",
+                "instructions": "classify",
+                "criteria": {"alpha": "is alpha"}
+            }
+        }
+    });
+
+    // 1. When forwards_caller_credentials is false, inbound bearer token is not extracted or passed.
+    {
+        let proxy = Arc::new(TestProxy {
+            forwards_caller: false,
+            captured_key: std::sync::Mutex::new(None),
+        });
+        let mut state = AppState::new(EngineRegistry::new());
+        state.proxy = Some(proxy.clone());
+        let auth = AuthConfig::new(Some("local-daemon-key".to_string()));
+        let app = router_with_state(state, auth);
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/systemone")
+                    .header("Authorization", "Bearer local-daemon-key")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(request_body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(
+            *proxy.captured_key.lock().unwrap(),
+            Some(None),
+            "inbound bearer token must NOT be passed to proxy when forwards_caller_credentials is false"
+        );
+    }
+
+    // 2. When forwards_caller_credentials is true, inbound bearer token IS passed to proxy.
+    {
+        let proxy = Arc::new(TestProxy {
+            forwards_caller: true,
+            captured_key: std::sync::Mutex::new(None),
+        });
+        let mut state = AppState::new(EngineRegistry::new());
+        state.proxy = Some(proxy.clone());
+        let app = router_with_state(state, AuthConfig::default());
+
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/v1/systemone")
+                    .header("Authorization", "Bearer caller-upstream-key")
+                    .header("Content-Type", "application/json")
+                    .body(Body::from(request_body.to_string()))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(
+            *proxy.captured_key.lock().unwrap(),
+            Some(Some("caller-upstream-key".to_string())),
+            "inbound bearer token must be passed to proxy when forwards_caller_credentials is true"
+        );
+    }
+}

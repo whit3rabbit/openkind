@@ -228,7 +228,11 @@ async fn systemone(
         if proxy.wants(&req) {
             let contract = ResponseContract::from_request(&req)
                 .map_err(|error| ApiError::InvalidBody(error.to_string()))?;
-            let caller_key = bearer_of(&headers);
+            let caller_key = if proxy.forwards_caller_credentials() {
+                bearer_of(&headers)
+            } else {
+                None
+            };
             let outcome = proxy.evaluate(req, caller_key).await?;
             contract.validate(&outcome.response).map_err(|error| {
                 ApiError::BadGateway(format!("upstream returned an invalid response: {error}"))

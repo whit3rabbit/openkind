@@ -54,6 +54,16 @@ pub trait SystemProxy: Send + Sync {
     /// proxied alias). Cheap and synchronous.
     fn wants(&self, request: &SystemRequest) -> bool;
 
+    /// Whether the proxy forwards caller credentials to the upstream Jev API.
+    ///
+    /// When `false` (for example, when a fixed upstream key is configured on
+    /// the daemon), the HTTP handler does not extract the inbound `Authorization`
+    /// bearer token or supply it to [`Self::evaluate`], preventing local daemon
+    /// bearer credentials from crossing the proxy boundary.
+    fn forwards_caller_credentials(&self) -> bool {
+        true
+    }
+
     /// Handle the request: answer locally when the cache is confident,
     /// otherwise forward upstream with the caller's credentials.
     async fn evaluate(

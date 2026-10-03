@@ -172,7 +172,7 @@ impl ProxyService {
 
     /// A client bound to one bearer key (or the configured upstream key).
     fn client_for(&self, caller_key: Option<&str>) -> Result<Client, ApiError> {
-        let effective_key = caller_key.or(self.upstream_key.as_deref());
+        let effective_key = self.upstream_key.as_deref().or(caller_key);
         let Some(key) = effective_key else {
             return Err(ApiError::Unauthorized);
         };
@@ -236,11 +236,19 @@ impl ProxyService {
                 .await;
         }
 
-        let caller_hash = caller_key.as_deref().map(|key| self.key_hash(key));
-        let key_verified = caller_hash
-            .as_deref()
-            .map(|hash| self.keys.verified(hash))
-            .unwrap_or(false);
+        let caller_hash = if self.upstream_key.is_none() {
+            caller_key.as_deref().map(|key| self.key_hash(key))
+        } else {
+            None
+        };
+        let key_verified = if self.upstream_key.is_some() {
+            true
+        } else {
+            caller_hash
+                .as_deref()
+                .map(|hash| self.keys.verified(hash))
+                .unwrap_or(false)
+        };
 
         if !key_verified {
             // Forward first; only a parsed 2xx answer makes the key trusted.
@@ -673,6 +681,10 @@ impl SystemProxy for ProxyService {
         self.proxied_models.contains(&request.model)
     }
 
+    fn forwards_caller_credentials(&self) -> bool {
+        self.upstream_key.is_none()
+    }
+
     async fn evaluate(
         &self,
         request: SystemRequest,
@@ -943,5 +955,69 @@ mod tests {
 
         let student = decision(RoutingReason::Confident, Channel::Student);
         assert_eq!(decision_for_teacher(&student).channel, Channel::CoDeferred);
+    }
+
+    #[test]
+    fn upstream_key_precedence_and_credential_forwarding() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let embedder =
+            Arc::new(openkind_backends::proxy_cache::HashEmbedder::new(512, 0, true).unwrap());
+        let manager = openkind_backends::proxy_cache::ProxyCacheManager::new(
+            openkind_backends::proxy_cache::ProxyCacheManagerConfig {
+                data_dir: temp_dir.path().to_path_buf(),
+                ..Default::default()
+            },
+            embedder,
+        )
+        .unwrap();
+
+        // 1. With fixed upstream_key configured:
+        let fixed_service = ProxyService::new(
+            manager.clone(),
+            ProxyCacheServiceConfig {
+                upstream: "http://127.0.0.1:9090".to_string(),
+                upstream_key: Some("fixed-secret".to_string()),
+                upstream_timeout_ms: 1000,
+                proxied_models: vec!["jev-latest".to_string()],
+            },
+        );
+        assert!(!fixed_service.forwards_caller_credentials());
+
+        // When caller_key is supplied alongside fixed upstream_key, upstream_key takes precedence:
+        let _client_with_caller = fixed_service.client_for(Some("caller-secret")).unwrap();
+        let _client_without_caller = fixed_service.client_for(None).unwrap();
+
+        // Both clients should resolve to the hash of "fixed-secret":
+        let expected_hash = fixed_service.key_hash("fixed-secret");
+        let guard = fixed_service.clients.lock().unwrap();
+        assert!(guard.contains_key(&expected_hash));
+        assert!(!guard.contains_key(&fixed_service.key_hash("caller-secret")));
+        drop(guard);
+
+        // 2. Without fixed upstream_key (caller-key forwarding mode):
+        let caller_mode_service = ProxyService::new(
+            manager,
+            ProxyCacheServiceConfig {
+                upstream: "http://127.0.0.1:9090".to_string(),
+                upstream_key: None,
+                upstream_timeout_ms: 1000,
+                proxied_models: vec!["jev-latest".to_string()],
+            },
+        );
+        assert!(caller_mode_service.forwards_caller_credentials());
+
+        // Without caller key, client_for fails with Unauthorized:
+        assert!(matches!(
+            caller_mode_service.client_for(None),
+            Err(ApiError::Unauthorized)
+        ));
+
+        // With caller key, client_for succeeds and keys by caller key hash:
+        let _ = caller_mode_service
+            .client_for(Some("caller-secret"))
+            .unwrap();
+        let caller_hash = caller_mode_service.key_hash("caller-secret");
+        let guard = caller_mode_service.clients.lock().unwrap();
+        assert!(guard.contains_key(&caller_hash));
     }
 }
