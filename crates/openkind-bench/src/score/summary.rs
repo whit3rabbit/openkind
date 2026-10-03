@@ -1,6 +1,7 @@
 //! Summary construction, metadata extraction, and JSON file output.
 
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::path::Path;
 
 use anyhow::{Context, Result};
@@ -95,7 +96,13 @@ pub(crate) fn write_json(path: &Path, value: &Value, pretty: bool) -> Result<()>
     } else {
         serde_json::to_string(value).context("serialize summary")?
     };
-    fs::write(path, body).with_context(|| format!("write {}", path.display()))?;
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(path)
+        .with_context(|| format!("create new output {}", path.display()))?;
+    file.write_all(body.as_bytes())
+        .with_context(|| format!("write {}", path.display()))?;
     Ok(())
 }
 
@@ -204,6 +211,17 @@ mod tests {
         // Report construction must use the pinned family identity without
         // loading weights or reaching the native Qwen backend mapping.
         build_summary(&args, &fixture, &groups, &[], None)
+    }
+
+    #[test]
+    fn summary_write_refuses_to_clobber_existing_evidence() {
+        let dir = tempfile::tempdir().expect("temporary output directory");
+        let path = dir.path().join("summary.json");
+        write_json(&path, &json!({"run": 1}), false).expect("first output");
+        let error = write_json(&path, &json!({"run": 2}), false)
+            .expect_err("an existing evidence file must be preserved");
+        assert!(error.to_string().contains("create new output"), "{error:#}");
+        assert_eq!(std::fs::read_to_string(path).unwrap(), "{\"run\":1}");
     }
 
     #[test]

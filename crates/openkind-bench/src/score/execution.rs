@@ -113,7 +113,7 @@ pub(crate) async fn run_strategy_pass(
     };
     let mut sorted_totals = rep_totals.clone();
     sorted_totals.sort_by(|left, right| left.total_cmp(right));
-    let p50 = sorted_totals[sorted_totals.len() / 2];
+    let p50 = median(&sorted_totals);
     let p95 = sorted_totals[(0.95 * sorted_totals.len() as f64).ceil() as usize - 1];
     let timed_wall_seconds: f64 = rep_totals.iter().sum();
     let cpu_time_seconds = cpu_started
@@ -161,6 +161,16 @@ pub(crate) async fn run_strategy_pass(
     Ok((report, predictions))
 }
 
+fn median(sorted: &[f64]) -> f64 {
+    let middle = sorted.len() / 2;
+    if sorted.len().is_multiple_of(2) {
+        let lower = sorted[middle - 1];
+        lower + (sorted[middle] - lower) / 2.0
+    } else {
+        sorted[middle]
+    }
+}
+
 pub(crate) fn answers_of(predictions_per_strategy: &[String]) -> Vec<Value> {
     predictions_per_strategy
         .last()
@@ -185,4 +195,15 @@ pub(crate) fn mock_registry() -> EngineRegistry {
     let mut registry = EngineRegistry::new();
     registry.register(BENCH_ALIAS, std::sync::Arc::new(MockEngine::new()));
     registry
+}
+
+#[cfg(test)]
+mod tests {
+    use super::median;
+
+    #[test]
+    fn median_averages_the_middle_pair_for_even_samples() {
+        assert_eq!(median(&[1.0, 9.0]), 5.0);
+        assert_eq!(median(&[1.0, 5.0, 9.0]), 5.0);
+    }
 }

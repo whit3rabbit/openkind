@@ -19,7 +19,8 @@ mod execution;
 mod summary;
 mod types;
 
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::io::Write;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -674,16 +675,32 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
     let summary_path = args
         .output_dir
         .join(format!("summary-{}.json", types::engine_slug(args.engine)));
+    let prediction_paths: Vec<_> = strategy_reports
+        .iter()
+        .map(|report| {
+            args.output_dir.join(format!(
+                "predictions-{}-{}.jsonl",
+                types::engine_slug(args.engine),
+                report["strategy"].as_str().unwrap_or("strategy")
+            ))
+        })
+        .collect();
+    for path in std::iter::once(&summary_path).chain(&prediction_paths) {
+        anyhow::ensure!(
+            !path.exists(),
+            "refusing to overwrite existing benchmark evidence {}; choose a fresh --output-dir",
+            path.display()
+        );
+    }
     summary::write_json(&summary_path, &summary, args.pretty)?;
-    let mut prediction_paths = Vec::with_capacity(predictions_per_strategy.len());
-    for (report, predictions) in strategy_reports.iter().zip(&predictions_per_strategy) {
-        let path = args.output_dir.join(format!(
-            "predictions-{}-{}.jsonl",
-            types::engine_slug(args.engine),
-            report["strategy"].as_str().unwrap_or("strategy")
-        ));
-        fs::write(&path, predictions).with_context(|| format!("write {}", path.display()))?;
-        prediction_paths.push(path);
+    for (path, predictions) in prediction_paths.iter().zip(&predictions_per_strategy) {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(path)
+            .with_context(|| format!("create new output {}", path.display()))?;
+        file.write_all(predictions.as_bytes())
+            .with_context(|| format!("write {}", path.display()))?;
     }
     eprintln!("[bench] summary {}", summary_path.display());
     Ok(ScoreOutcome { summary })
