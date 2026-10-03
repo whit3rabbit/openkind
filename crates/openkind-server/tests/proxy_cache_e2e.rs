@@ -253,22 +253,50 @@ async fn drive(base: &str, upstream_log: &std::sync::Arc<UpstreamLog>) -> Result
     // Debug builds run the fit 20-50x slower and hold the engine lock while
     // fitting, so a single request can stall briefly during promotion.
     let deadline = Instant::now() + Duration::from_secs(240);
+    let http = reqwest::Client::builder()
+        .timeout(Duration::from_secs(60))
+        .build()
+        .map_err(|error| format!("raw client: {error}"))?;
     let mut forwarded = 0usize;
     let mut local_answer = None;
-    let mut local_index = None;
     while Instant::now() < deadline {
         // Mixed traffic on both clusters keeps the task's classes balanced.
         // Local answers carry the resolved upstream model name too, so
         // detect them by their zero token usage (the fake upstream
         // reports real usage on forwarded responses).
-        let response = client
-            .evaluate(request_for(forwarded))
+        let raw = http
+            .post(format!("{base}/v1/systemone"))
+            .bearer_auth("sk-caller-key-1")
+            .json(&request_for(forwarded))
+            .send()
             .await
             .map_err(|error| format!("loop evaluate at {forwarded}: {error}"))?;
+        assert_eq!(raw.status(), axum::http::StatusCode::OK);
+        let cache_header = raw
+            .headers()
+            .get("x-openkind-cache")
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned)
+            .unwrap_or_default();
+        let detail = raw
+            .headers()
+            .get("x-openkind-cache-detail")
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned)
+            .unwrap_or_default();
+        let response: SystemResponse = raw
+            .json()
+            .await
+            .map_err(|error| format!("loop response at {forwarded}: {error}"))?;
         forwarded += 1;
         if response.usage.input_tokens == 0 {
+            // Check the same response: a repeat can legitimately audit upstream.
+            assert_eq!(cache_header, "local", "confident traffic is served locally");
+            assert!(
+                detail.contains("student-v"),
+                "detail names the student version: {detail}"
+            );
             local_answer = Some(response);
-            local_index = Some(forwarded - 1);
             break;
         }
     }
@@ -302,38 +330,6 @@ async fn drive(base: &str, upstream_log: &std::sync::Arc<UpstreamLog>) -> Result
         "probabilities must sum to one"
     );
     assert_eq!(local.usage.input_tokens, 0, "local answers cost no tokens");
-
-    // The local path reports which student version answered.
-    // (Header detail is asserted through a raw HTTP call below.)
-
-    // Raw request to read the cache headers.
-    // Reuse traffic that qualified locally; another paraphrase may legitimately forward.
-    let http = reqwest::Client::new();
-    let raw = http
-        .post(format!("{base}/v1/systemone"))
-        .bearer_auth("sk-caller-key-1")
-        .json(&request_for(local_index.expect("local request index")))
-        .send()
-        .await
-        .map_err(|error| format!("raw evaluate: {error}"))?;
-    assert_eq!(raw.status(), axum::http::StatusCode::OK);
-    let cache_header = raw
-        .headers()
-        .get("x-openkind-cache")
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_owned)
-        .unwrap_or_default();
-    assert_eq!(cache_header, "local", "confident traffic is served locally");
-    let detail = raw
-        .headers()
-        .get("x-openkind-cache-detail")
-        .and_then(|value| value.to_str().ok())
-        .map(str::to_owned)
-        .unwrap_or_default();
-    assert!(
-        detail.contains("student-v"),
-        "detail names the student version: {detail}"
-    );
 
     // Out-of-distribution text forwards upstream.
     let novel = http

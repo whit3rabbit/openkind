@@ -39,7 +39,9 @@
 
 - macOS release command handling under Bash 3.2, Windows MSVC linker selection,
   and Linux CI/CUDA installation disk pressure.
-- Windows dataset staging renames while metadata files remained open.
+- Windows dataset and model staging renames while metadata files remained open.
+- Daemon startup stack overflow in Windows debug builds.
+- Proxy-cache integration assertions that treated random upstream audits as failures.
 - ROCm backend test compilation and missing optional-feature CI coverage.
 - Repeated ONNX initialization after a missing-library failure. Repair the
   runtime path and restart the process before retrying.
