@@ -211,8 +211,17 @@
     {
       "catalog_name": "encoder-nli:1041a4c362338a61b820",
       "openkind_mlx_status": "none",
-      "assessment": "Hub model search found no MLX conversion for typeform/distilbert-base-uncased-mnli as of 2026-10-03.",
-      "leads": []
+      "assessment": "No MLX conversion matching typeform/distilbert-base-uncased-mnli or its zero-shot classification head was found. The lead below is a DistilBERT sparse-retrieval encoder with separate weights and output behavior.",
+      "leads": [
+        {
+          "repository": "NomaDamas/splade-v3-distilbert-mlx",
+          "revision": "b639afadb020ad5041c9fc78495dd8c0fea656f1",
+          "license": "cc-by-nc-sa-4.0",
+          "base_model": "naver/splade-v3-distilbert",
+          "relationship": "same-family-different-task",
+          "notes": "BF16 MLX conversion of a separate SPLADE-v3 DistilBERT sparse-retrieval encoder. It does not include Typeform's MNLI fine-tune or sequence-classification head, and its CC BY-NC-SA 4.0 license is non-commercial. This is a family lead, not an OpenKind classifier alternative or parity result."
+        }
+      ]
     },
     {
       "catalog_name": "encoder-instruct-label:9fd68313a5606eca42f2",
