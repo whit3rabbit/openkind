@@ -299,7 +299,9 @@ pub(crate) fn resolve_api_key(
 ) -> Result<String, String> {
     let resolved = match explicit {
         Some(value) => Some(value.trim().to_owned()),
-        None => lookup("OPENKIND_API_KEY").or_else(|| lookup("TYPESAFE_API_KEY")),
+        None => lookup("OPENKIND_API_KEY")
+            .or_else(|| lookup("OPENDECISION_API_KEY"))
+            .or_else(|| lookup("TYPESAFE_API_KEY")),
     }
     .filter(|key| !key.is_empty());
     match resolved {

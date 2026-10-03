@@ -228,16 +228,34 @@ fn resolve_api_key_preference() {
     });
     assert_eq!(key3, Some("typesafe-key".into()));
 
-    // 4. Fall back to the deprecated pre-rename variable during upgrades
+    // 4. Fall back to the deprecated OPENDECISION_API_KEY during upgrades
     let key4 = AuthConfig::resolve_api_key_with(|k| match k {
         "OPENKIND_API_KEY" => Ok("".into()),
+        "OPENDECISION_API_KEY" => Ok("opendecision-key".into()),
+        "TYPESAFE_API_KEY" => Ok("typesafe-key".into()),
+        _ => Err(std::env::VarError::NotPresent),
+    });
+    assert_eq!(key4, Some("opendecision-key".into()));
+
+    // 5. OPENKIND_API_KEY takes precedence over OPENDECISION_API_KEY
+    let key5 = AuthConfig::resolve_api_key_with(|k| match k {
+        "OPENKIND_API_KEY" => Ok("openkind-key".into()),
+        "OPENDECISION_API_KEY" => Ok("opendecision-key".into()),
+        _ => Err(std::env::VarError::NotPresent),
+    });
+    assert_eq!(key5, Some("openkind-key".into()));
+
+    // 6. Fall back to the older deprecated OPENPICK_API_KEY if others absent
+    let key6 = AuthConfig::resolve_api_key_with(|k| match k {
+        "OPENKIND_API_KEY" => Ok("".into()),
+        "OPENDECISION_API_KEY" => Ok("".into()),
         "TYPESAFE_API_KEY" => Ok("".into()),
         "OPENPICK_API_KEY" => Ok("legacy-key".into()),
         _ => Err(std::env::VarError::NotPresent),
     });
-    assert_eq!(key4, Some("legacy-key".into()));
+    assert_eq!(key6, Some("legacy-key".into()));
 
-    // 5. None if all variables are absent or empty
-    let key5 = AuthConfig::resolve_api_key_with(|_| Err(std::env::VarError::NotPresent));
-    assert_eq!(key5, None);
+    // 7. None if all variables are absent or empty
+    let key7 = AuthConfig::resolve_api_key_with(|_| Err(std::env::VarError::NotPresent));
+    assert_eq!(key7, None);
 }

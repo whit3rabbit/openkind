@@ -36,7 +36,7 @@ openkindd [OPTIONS]
 | Flag | Environment Variable | Default | Description |
 |---|---|---|---|
 | `--http-addr <ADDR>` | `OPENKIND_HTTP_ADDR` | `0.0.0.0:8080` | Address to bind HTTP server on |
-| `--grpc-addr <ADDR>` | `OPENKIND_GRPC_ADDR` | `0.0.0.0:9090` | Address to bind gRPC server on (the literal value `0` — or `off`/`none`/`disabled` — disables gRPC) |
+| `--grpc-addr <ADDR>` | `OPENKIND_GRPC_ADDR` | `0.0.0.0:9090` | Address to bind gRPC server on (port 0 or literal `0`/`off`/`none`/`disabled` disables gRPC) |
 | `--models <ALIASES>` | `OPENKIND_MODELS` | `mock,jev-latest` | Comma-separated list of model aliases to register |
 | `--qwen35-aliases <ALIASES>` | `OPENKIND_QWEN35_ALIASES` | `qwen35-native` | Aliases in `--models` that use the native Qwen engine |
 | `--qwen35-bundle-root <PATH>` | `OPENKIND_QWEN35_BUNDLE_ROOT` | *(none)* | Offline selected-profile bundle root required by native aliases |

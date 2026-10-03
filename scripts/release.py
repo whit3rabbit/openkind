@@ -179,7 +179,7 @@ def smoke(archive, expected_features):
         for binary in (cli, daemon):
             audit(binary)
         env = {key: value for key, value in os.environ.items()
-               if not key.startswith(("OPENKIND_", "OPENPICK_", "ORT_", "CUDA_", "CUDNN_", "MLX_"))
+               if not key.startswith(("OPENKIND_", "OPENDECISION_", "OPENPICK_", "ORT_", "CUDA_", "CUDNN_", "MLX_"))
                and key not in ("LD_LIBRARY_PATH", "DYLD_LIBRARY_PATH", "RUST_LOG", "TYPESAFE_API_KEY", "OPENKINDD_BINARY")}
         env["PATH"] = os.pathsep.join(p for p in env.get("PATH", "").split(os.pathsep)
                                      if "cuda" not in p.lower() and "cudnn" not in p.lower())

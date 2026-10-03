@@ -17,7 +17,7 @@
 
 1. **Dual Protocol Listener Support**:
    - HTTP and gRPC bind to separate sockets (`--http-addr` default `0.0.0.0:8080`, `--grpc-addr` default `0.0.0.0:9090`).
-   - The literal `--grpc-addr 0` (also `off`, `none`, or `disabled`) disables gRPC. A normal `host:0` address requests an ephemeral port and is not the disable sentinel.
+   - If `--grpc-addr` has port 0 (e.g. `0.0.0.0:0`, `127.0.0.1:0`, `[::]:0`) or a disable sentinel (`0`, `off`, `none`, `disabled`), gRPC is cleanly disabled.
 2. **Graceful Shutdown**:
    - Both HTTP and gRPC listener tasks share a shutdown signal future that listens for Ctrl-C (`SIGINT`), plus Unix `SIGTERM`.
    - On signal receipt, active in-flight inference requests complete before the process exits.

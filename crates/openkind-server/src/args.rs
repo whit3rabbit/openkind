@@ -34,7 +34,11 @@ pub(crate) struct Args {
     #[arg(long, env = "OPENKIND_HTTP_ADDR")]
     pub(crate) http_addr: Option<SocketAddr>,
 
-    /// Deprecated pre-rename HTTP listener environment variable.
+    /// Deprecated pre-rename HTTP listener environment variable (OpenDecision).
+    #[arg(long, env = "OPENDECISION_HTTP_ADDR", hide = true)]
+    pub(crate) opendecision_http_addr: Option<SocketAddr>,
+
+    /// Deprecated pre-rename HTTP listener environment variable (OpenPick).
     #[arg(long, env = "OPENPICK_HTTP_ADDR", hide = true)]
     pub(crate) legacy_http_addr: Option<SocketAddr>,
 
@@ -42,7 +46,11 @@ pub(crate) struct Args {
     #[arg(long, env = "OPENKIND_GRPC_ADDR")]
     pub(crate) grpc_addr: Option<String>,
 
-    /// Deprecated pre-rename gRPC listener environment variable.
+    /// Deprecated pre-rename gRPC listener environment variable (OpenDecision).
+    #[arg(long, env = "OPENDECISION_GRPC_ADDR", hide = true)]
+    pub(crate) opendecision_grpc_addr: Option<String>,
+
+    /// Deprecated pre-rename gRPC listener environment variable (OpenPick).
     #[arg(long, env = "OPENPICK_GRPC_ADDR", hide = true)]
     pub(crate) legacy_grpc_addr: Option<String>,
 
@@ -166,9 +174,17 @@ pub(crate) struct Args {
     #[arg(long, env = "OPENKIND_API_KEY")]
     pub(crate) api_key: Option<String>,
 
-    /// Deprecated pre-rename API-key environment variable.
+    /// Deprecated pre-rename API-key environment variable (OpenDecision).
+    #[arg(long, env = "OPENDECISION_API_KEY", hide = true)]
+    pub(crate) opendecision_api_key: Option<String>,
+
+    /// Deprecated pre-rename API-key environment variable (OpenPick).
     #[arg(long, env = "OPENPICK_API_KEY", hide = true)]
     pub(crate) legacy_api_key: Option<String>,
+
+    /// TypeSafe compatibility API-key environment variable.
+    #[arg(long, env = "TYPESAFE_API_KEY", hide = true)]
+    pub(crate) typesafe_api_key: Option<String>,
 
     /// Per-client-IP request budget per minute on `/v1/*` routes.
     /// `0` disables rate limiting entirely.
@@ -588,31 +604,63 @@ impl From<ExecutionArg> for Option<ExecutionPlan> {
     }
 }
 
+/// Resolve a setting across current and deprecated aliases while refusing ambiguous migration configuration.
+pub(crate) fn resolve_aliases<T: PartialEq + Clone>(
+    candidates: &[(&str, Option<T>)],
+) -> Result<Option<T>> {
+    let present: Vec<(&str, &T)> = candidates
+        .iter()
+        .filter_map(|(name, val)| val.as_ref().map(|v| (*name, v)))
+        .collect();
+
+    if present.is_empty() {
+        return Ok(None);
+    }
+
+    let (first_name, first_val) = present[0];
+    for (name, val) in &present[1..] {
+        if *val != first_val {
+            let desc = if name.starts_with("TYPESAFE_") {
+                name.to_string()
+            } else {
+                format!("deprecated {name}")
+            };
+            anyhow::bail!(
+                "conflicting values for {first_name} and {desc}; remove {name} after migration"
+            );
+        }
+    }
+
+    Ok(Some(first_val.clone()))
+}
+
 /// Resolve a renamed setting while refusing ambiguous migration configuration.
-pub(crate) fn resolve_alias<T: PartialEq>(
+#[allow(dead_code)]
+pub(crate) fn resolve_alias<T: PartialEq + Clone>(
     current: Option<T>,
     legacy: Option<T>,
     current_name: &str,
     legacy_name: &str,
 ) -> Result<Option<T>> {
-    match (current, legacy) {
-        (Some(current), Some(legacy)) if current != legacy => anyhow::bail!(
-            "conflicting values for {current_name} and deprecated {legacy_name}; remove {legacy_name} after migration"
-        ),
-        (Some(current), _) => Ok(Some(current)),
-        (None, legacy) => Ok(legacy),
-    }
+    resolve_aliases(&[(current_name, current), (legacy_name, legacy)])
 }
 
 /// Parse the `--grpc-addr` value. The literal `0` (also `off`/`none`/`disabled`,
-/// case-insensitive) disables the gRPC listener; anything else must be a
-/// `host:port` socket address.
+/// case-insensitive) or any valid socket address with port `0` disables the gRPC
+/// listener (returns `None`); anything else must be a valid `host:port` socket address.
 pub(crate) fn parse_grpc_addr(
     value: &str,
 ) -> std::result::Result<Option<SocketAddr>, std::net::AddrParseError> {
     match value.trim().to_ascii_lowercase().as_str() {
         "0" | "off" | "none" | "disabled" => Ok(None),
-        _ => value.trim().parse::<SocketAddr>().map(Some),
+        _ => {
+            let addr = value.trim().parse::<SocketAddr>()?;
+            if addr.port() == 0 {
+                Ok(None)
+            } else {
+                Ok(Some(addr))
+            }
+        }
     }
 }
 
@@ -1042,6 +1090,9 @@ mod tests {
         assert_eq!(parse_grpc_addr("None").unwrap(), None);
         assert_eq!(parse_grpc_addr("disabled").unwrap(), None);
         assert_eq!(parse_grpc_addr("  DISABLED  ").unwrap(), None);
+        assert_eq!(parse_grpc_addr("0.0.0.0:0").unwrap(), None);
+        assert_eq!(parse_grpc_addr("127.0.0.1:0").unwrap(), None);
+        assert_eq!(parse_grpc_addr("[::]:0").unwrap(), None);
         assert_eq!(
             parse_grpc_addr("127.0.0.1:19090").unwrap(),
             Some("127.0.0.1:19090".parse().unwrap())
@@ -1066,6 +1117,62 @@ mod tests {
     fn renamed_setting_rejects_conflicting_values() {
         let error = resolve_alias(Some("new"), Some("old"), "NEW", "OLD").unwrap_err();
         assert!(error.to_string().contains("conflicting values for NEW"));
+    }
+
+    #[test]
+    fn resolve_aliases_multi_source() {
+        // Fallback to opendecision alias when current is None
+        assert_eq!(
+            resolve_aliases(&[
+                ("OPENKIND", None),
+                ("OPENDECISION", Some("opendecision-val")),
+                ("OPENPICK", None),
+            ])
+            .unwrap(),
+            Some("opendecision-val")
+        );
+
+        // Matching aliases succeed
+        assert_eq!(
+            resolve_aliases(&[
+                ("OPENKIND", Some("same")),
+                ("OPENDECISION", Some("same")),
+                ("OPENPICK", Some("same")),
+            ])
+            .unwrap(),
+            Some("same")
+        );
+
+        // Conflicting opendecision rejects
+        let err = resolve_aliases(&[("OPENKIND", Some("current")), ("OPENDECISION", Some("old"))])
+            .unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("conflicting values for OPENKIND and deprecated OPENDECISION"));
+
+        // Conflicting opendecision and openpick rejects
+        let err = resolve_aliases(&[
+            ("OPENKIND", None),
+            ("OPENDECISION", Some("val1")),
+            ("OPENPICK", Some("val2")),
+        ])
+        .unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("conflicting values for OPENDECISION and deprecated OPENPICK"));
+
+        // Conflicting typesafe api key rejects
+        let err = resolve_aliases(&[
+            ("OPENKIND_API_KEY", Some("secret1")),
+            ("TYPESAFE_API_KEY", Some("secret2")),
+        ])
+        .unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("conflicting values for OPENKIND_API_KEY and TYPESAFE_API_KEY"));
+        // Never leaks secrets in the error!
+        assert!(!err.to_string().contains("secret1"));
+        assert!(!err.to_string().contains("secret2"));
     }
 }
 

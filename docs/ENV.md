@@ -38,19 +38,20 @@ Notes:
   `ClientBuilder::api_key`, `OPENKIND_API_KEY`, or `TYPESAFE_API_KEY` fails.
   The Python binding sends `Authorization: Bearer <key>` only when a key
   resolves.
-- `openkindd` consults `TYPESAFE_API_KEY` as a fallback for the expected
-  token when `--api-key` and `OPENKIND_API_KEY` are unset (precedence:
-  `OPENKIND_API_KEY` → `TYPESAFE_API_KEY` → `OPENPICK_API_KEY`). With no key
-  anywhere, auth is off.
+- `openkindd` consults `OPENDECISION_API_KEY`, `TYPESAFE_API_KEY`, and
+  `OPENPICK_API_KEY` as fallbacks for the expected token when `--api-key`
+  and `OPENKIND_API_KEY` are unset (precedence: `OPENKIND_API_KEY` →
+  `OPENDECISION_API_KEY` → `TYPESAFE_API_KEY` → `OPENPICK_API_KEY`).
+  Conflicting keys fail startup; with no key anywhere, auth is off.
 - The Python binding applies `TYPESAFE_LOG_LEVEL` to its `openkind_client`
   logger once at import and ignores unknown values, mirroring the official
   SDK. The Rust client emits `tracing` events to the host application's
   subscriber and has no log-level variable of its own.
 - The TypeScript and Swift clients read no environment variables; all
   settings come from constructor options. Their server wrappers scrub
-  `OPENKIND_API_KEY`, `OPENPICK_API_KEY`, and `TYPESAFE_API_KEY` from the
-  child process environment and re-set `OPENKIND_API_KEY` when a key is
-  configured.
+  `OPENKIND_API_KEY`, `OPENDECISION_API_KEY`, `OPENPICK_API_KEY`, and
+  `TYPESAFE_API_KEY` from the child process environment and re-set
+  `OPENKIND_API_KEY` when a key is configured.
 
 A hosted-SDK-style workflow works as-is against a local daemon:
 
@@ -208,10 +209,11 @@ set so requests still traverse the proxy.
 
 ## Deprecated Variables
 
-`OPENPICK_HTTP_ADDR`, `OPENPICK_GRPC_ADDR`, and `OPENPICK_API_KEY` are
-pre-rename fallbacks accepted by `openkindd` when the `OPENKIND_*` variable
-is unset. Setting both to conflicting values fails startup; remove the
-`OPENPICK_*` names after migrating. The binding wrappers scrub
+`OPENDECISION_HTTP_ADDR`, `OPENDECISION_GRPC_ADDR`, and `OPENDECISION_API_KEY`
+(as well as older `OPENPICK_*` aliases) are pre-rename fallbacks accepted by
+`openkindd` when the corresponding `OPENKIND_*` variable is unset. Setting
+multiple aliases to conflicting values fails startup; remove deprecated
+names after migrating. The binding wrappers scrub `OPENDECISION_API_KEY` and
 `OPENPICK_API_KEY` alongside `OPENKIND_API_KEY` from child processes.
 
 ## Test and Offline Evidence Variables

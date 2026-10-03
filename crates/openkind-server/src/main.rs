@@ -22,7 +22,7 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
 use openkind_api::{grpc, http, AppState, AuthConfig};
 use openkind_backends::qwen35::{
@@ -37,7 +37,7 @@ use tracing::info;
 use tracing_subscriber::EnvFilter;
 
 use crate::args::{
-    parse_grpc_addr, resolve_alias, Args, ArrowArg, PlaygroundArg, Qwen35BackendArg,
+    parse_grpc_addr, resolve_aliases, Args, ArrowArg, PlaygroundArg, Qwen35BackendArg,
 };
 
 fn backend_from_arg(backend: Qwen35BackendArg, cuda_device: usize) -> Qwen35Backend {
@@ -128,32 +128,44 @@ async fn run(args: Args) -> Result<()> {
 
     init_tracing(&args.log_filter)?;
 
-    let http_addr = resolve_alias(
-        args.http_addr,
-        args.legacy_http_addr,
-        "OPENKIND_HTTP_ADDR",
-        "OPENPICK_HTTP_ADDR",
-    )?
+    let http_addr = resolve_aliases(&[
+        ("OPENKIND_HTTP_ADDR", args.http_addr),
+        ("OPENDECISION_HTTP_ADDR", args.opendecision_http_addr),
+        ("OPENPICK_HTTP_ADDR", args.legacy_http_addr),
+    ])?
     .unwrap_or_else(|| "0.0.0.0:8080".parse().expect("valid default HTTP address"));
     validate_playground_bind(args.playground, http_addr)?;
-    let grpc_addr_value = resolve_alias(
-        args.grpc_addr.clone(),
-        args.legacy_grpc_addr.clone(),
-        "OPENKIND_GRPC_ADDR",
-        "OPENPICK_GRPC_ADDR",
-    )?
+    let grpc_addr_value = resolve_aliases(&[
+        ("OPENKIND_GRPC_ADDR", args.grpc_addr.clone()),
+        (
+            "OPENDECISION_GRPC_ADDR",
+            args.opendecision_grpc_addr.clone(),
+        ),
+        ("OPENPICK_GRPC_ADDR", args.legacy_grpc_addr.clone()),
+    ])?
     .unwrap_or_else(|| "0.0.0.0:9090".to_owned());
     let grpc_addr = parse_grpc_addr(&grpc_addr_value)
         .context("invalid --grpc-addr (expected host:port, or `0` to disable)")?;
 
-    let api_key = resolve_alias(
-        args.api_key.clone().filter(|s| !s.is_empty()),
-        args.legacy_api_key.clone().filter(|s| !s.is_empty()),
-        "OPENKIND_API_KEY",
-        "OPENPICK_API_KEY",
-    )?;
+    let api_key = resolve_aliases(&[
+        (
+            "OPENKIND_API_KEY",
+            args.api_key.clone().filter(|s| !s.is_empty()),
+        ),
+        (
+            "OPENDECISION_API_KEY",
+            args.opendecision_api_key.clone().filter(|s| !s.is_empty()),
+        ),
+        (
+            "TYPESAFE_API_KEY",
+            args.typesafe_api_key.clone().filter(|s| !s.is_empty()),
+        ),
+        (
+            "OPENPICK_API_KEY",
+            args.legacy_api_key.clone().filter(|s| !s.is_empty()),
+        ),
+    ])?;
     let auth = api_key
-        .filter(|s| !s.is_empty())
         .map(|k| AuthConfig::new(Some(k)))
         .unwrap_or_else(AuthConfig::from_env);
     if auth.is_required() {

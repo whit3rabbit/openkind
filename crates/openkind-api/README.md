@@ -56,7 +56,7 @@ The response reports `answers.billing.noul` as a probability in `[0, 1]`.
 ## Middleware and cross-cutting behavior
 
 1. **Request ID tracking (`x-typesafe-request-id`)**: the outermost layer stamps every response, including 401s, 429s, and 5xx errors. An inbound header from a proxy is honored only if it is non-empty, at most 128 characters, and limited to ASCII letters, digits, `.`, `-`, and `_`; otherwise a fresh UUIDv4 is minted.
-2. **Bearer token authentication**: enabled via `OPENKIND_API_KEY` or `TYPESAFE_API_KEY` (deprecated `OPENPICK_API_KEY` fallback). `/v1/*` routes are gated; `/health`, `/metrics`, and the playground HTML shell stay open for probes and scrapers. Tokens are compared as SHA-256 digests in constant time.
+2. **Bearer token authentication**: enabled via `OPENKIND_API_KEY` or `TYPESAFE_API_KEY` (deprecated `OPENDECISION_API_KEY` and `OPENPICK_API_KEY` fallbacks). `/v1/*` routes are gated; `/health`, `/metrics`, and the playground HTML shell stay open for probes and scrapers. Tokens are compared as SHA-256 digests in constant time.
 3. **Rate limiting**: a per-IP fixed-window limiter emits 429 with `Retry-After` and `retry-after-ms`. The daemon enables it by default at 120 requests per minute. Set `--rate-limit-rpm 0` to disable it.
 4. **Payload limit**: request bodies are capped at 16 MB by default, returning 413 `payload_too_large` beyond that.
 5. **Tracing**: `TraceLayer` spans exclude request headers, so credentials and caller-supplied request IDs never enter telemetry.

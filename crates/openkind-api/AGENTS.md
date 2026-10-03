@@ -59,7 +59,7 @@ It defines:
 - [`src/middleware/`](./src/middleware/):
   - Modular middleware stack:
     - [`src/middleware/request_id.rs`](./src/middleware/request_id.rs): `REQUEST_ID_HEADER = "x-typesafe-request-id"`, `request_id_layer` (checks for inbound client header, falls back to `Uuid::new_v4()`).
-    - [`src/middleware/auth.rs`](./src/middleware/auth.rs): `auth_layer` hashes both bearer tokens with SHA-256 via `ring` and compares them with `subtle::ConstantTimeEq`. It supports `OPENKIND_API_KEY`, `TYPESAFE_API_KEY`, and deprecated `OPENPICK_API_KEY`.
+    - [`src/middleware/auth.rs`](./src/middleware/auth.rs): `auth_layer` hashes both bearer tokens with SHA-256 via `ring` and compares them with `subtle::ConstantTimeEq`. It supports `OPENKIND_API_KEY`, `TYPESAFE_API_KEY`, and deprecated `OPENDECISION_API_KEY` and `OPENPICK_API_KEY`.
     - [`src/middleware/rate_limit.rs`](./src/middleware/rate_limit.rs): `rate_limit_layer` (per-IP fixed-window rate limiter emitting 429 status and retry headers).
     - [`src/middleware/tests/`](./src/middleware/tests/): Dedicated test suites (`request_id_tests.rs`, `auth_tests.rs`, `rate_limit_tests.rs`).
 - [`src/error.rs`](./src/error.rs):
