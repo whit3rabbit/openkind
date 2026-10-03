@@ -92,7 +92,7 @@ fn load_qwen(
 }
 
 fn main() -> Result<()> {
-    let args = Args::parse();
+    let args = parse_args_from(std::env::args_os())?;
     if let Some(runtime) = &args.onnx_runtime {
         std::env::set_var("ORT_DYLIB_PATH", runtime);
     }
@@ -101,6 +101,20 @@ fn main() -> Result<()> {
         .build()
         .context("build tokio runtime")?
         .block_on(run(args))
+}
+
+fn parse_args_from(
+    arguments: impl IntoIterator<Item = impl Into<std::ffi::OsString>>,
+) -> Result<Args> {
+    let arguments: Vec<std::ffi::OsString> = arguments.into_iter().map(Into::into).collect();
+    // Clap's nested generated builders exceed Windows' main-thread stack in debug builds.
+    std::thread::Builder::new()
+        .name("openkindd-args".into())
+        .stack_size(2 * 1024 * 1024)
+        .spawn(move || Args::parse_from(arguments))
+        .context("start argument parser")?
+        .join()
+        .map_err(|_| anyhow::anyhow!("argument parser panicked"))
 }
 
 async fn run(args: Args) -> Result<()> {
@@ -603,6 +617,29 @@ async fn shutdown_signal() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn startup_validation_runs_on_a_small_stack() {
+        let worker = std::thread::Builder::new()
+            .stack_size(512 * 1024)
+            .spawn(|| {
+                let args = parse_args_from([
+                    "openkindd",
+                    "--models",
+                    "mock",
+                    "--installed-models",
+                    "mock",
+                ])
+                .unwrap();
+                let runtime = tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .unwrap();
+                runtime.block_on(run(args)).unwrap_err().to_string()
+            })
+            .unwrap();
+        assert!(worker.join().unwrap().contains("collides with --models"));
+    }
 
     #[tokio::test]
     async fn listener_panic_notifies_peer_shutdown() {
