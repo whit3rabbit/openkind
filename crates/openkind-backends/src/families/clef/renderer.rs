@@ -15,6 +15,12 @@
 //! - Noul option descriptions come from the wire's materialized criteria
 //!   (openkind defaults), not the Clef defaults: the caller's wire payload
 //!   governs.
+//! - The reference silently truncates the state to whatever remains of
+//!   `max_length`. openkind instead rejects any state that does not fit the
+//!   profile's operational context (see [`MAX_LENGTH_TOKENS`] and
+//!   `ClefProfile::operational_context_tokens`): silent truncation of a
+//!   remote caller's state would both mis-decide and let one request drive
+//!   the scalar CPU backbones at their full quadratic window.
 //!
 //! JSON serialization for the state and option payloads follows Python
 //! `json.dumps(..., ensure_ascii=False, separators=(",", ":"), sort_keys=True)`.
@@ -91,13 +97,19 @@ pub(crate) struct EncodedRecord {
 /// Offline renderer over the pinned Clef tokenizer.
 pub(crate) struct ClefRenderer {
     tokenizer: Tokenizer,
-    /// Frozen maximum encoded prompt length (`max_length` in the reference).
+    /// Operational encoded-prompt bound of the loading profile. This is the
+    /// reference `max_length` window on accelerated backends and a smaller
+    /// serving bound on the scalar candle CPU profiles.
     max_length: usize,
 }
 
 impl ClefRenderer {
-    /// Load the digest-verified tokenizer.
-    pub(crate) fn load(tokenizer_path: &std::path::Path) -> Result<Self, FamilyError> {
+    /// Load the digest-verified tokenizer with the profile's operational
+    /// encoded-prompt bound.
+    pub(crate) fn load(
+        tokenizer_path: &std::path::Path,
+        max_length: usize,
+    ) -> Result<Self, FamilyError> {
         let bytes = std::fs::read(tokenizer_path).map_err(|source| FamilyError::Io {
             path: tokenizer_path.to_path_buf(),
             source,
@@ -106,8 +118,17 @@ impl ClefRenderer {
             .map_err(|error| FamilyError::Tokenizer(error.to_string()))?;
         Ok(Self {
             tokenizer,
-            max_length: MAX_LENGTH_TOKENS,
+            max_length,
         })
+    }
+
+    /// Assemble a renderer over an already-loaded tokenizer (tests).
+    #[cfg(test)]
+    pub(crate) fn from_tokenizer(tokenizer: Tokenizer, max_length: usize) -> Self {
+        Self {
+            tokenizer,
+            max_length,
+        }
     }
 
     fn tokens(&self, text: &str) -> Result<Vec<u32>, FamilyError> {
@@ -180,8 +201,18 @@ impl ClefRenderer {
                 actual: format!("schema requires {fixed_length} tokens before state"),
             });
         }
-        let mut state_ids = state_ids;
-        state_ids.truncate(self.max_length - fixed_length);
+        // Reject rather than truncate: the state is remote input, and
+        // silently dropping its tail both mis-decides and lets one request
+        // drive the scalar candle kernels at the profile's full window.
+        let state_budget = self.max_length - fixed_length;
+        if state_ids.len() > state_budget {
+            return Err(FamilyError::InvalidInput(format!(
+                "state requires {state_tokens} encoded tokens but only {state_budget} remain \
+                 inside this profile's {max}-token operational context; shorten the state",
+                state_tokens = state_ids.len(),
+                max = self.max_length,
+            )));
+        }
         let schema_offset = prefix_ids.len() + state_ids.len();
         let shifted_questions: Vec<EncodedQuestion> = encoded_questions
             .into_iter()
@@ -216,8 +247,9 @@ impl ClefRenderer {
     }
 }
 
-/// Frozen encoded-prompt bound shared by every Clef profile (the reference
-/// `max_length` default).
+/// Frozen model-window bound shared by every Clef profile (the reference
+/// `max_length` default). The candle CPU profiles serve under the smaller
+/// `ClefProfile::operational_context_tokens` bound instead.
 pub(crate) const MAX_LENGTH_TOKENS: usize = 16_384;
 
 /// Serialize like Python `json.dumps(value, ensure_ascii=False,
@@ -293,5 +325,74 @@ mod tests {
     #[test]
     fn option_payload_uses_compact_sorted_semantics() {
         assert_eq!(python_string("true"), "\"true\"");
+    }
+
+    /// Whitespace-delimited word tokenizer for offline renderer tests: one
+    /// token per word, `[UNK]` for out-of-vocabulary words.
+    fn word_tokenizer() -> Tokenizer {
+        use std::collections::HashMap;
+        use tokenizers::models::wordlevel::WordLevel;
+        use tokenizers::pre_tokenizers::whitespace::Whitespace;
+
+        let mut vocab = HashMap::new();
+        vocab.insert("[UNK]".to_string(), 0_u32);
+        vocab.insert("alpha".to_string(), 1);
+        vocab.insert("beta".to_string(), 2);
+        let model = WordLevel::builder()
+            .vocab(vocab)
+            .unk_token("[UNK]".to_string())
+            .build()
+            .expect("wordlevel model");
+        let mut tokenizer = Tokenizer::new(model);
+        tokenizer.with_pre_tokenizer(Some(Whitespace));
+        tokenizer
+    }
+
+    fn render_questions() -> Vec<super::super::engine::RenderQuestion> {
+        vec![super::super::engine::RenderQuestion {
+            id: "q".into(),
+            question_type: ClefQuestionType::Noul,
+            instruction: "Decide.".into(),
+            options: vec![("true".into(), "yes".into()), ("false".into(), "no".into())],
+        }]
+    }
+
+    #[test]
+    fn encode_rejects_state_beyond_the_operational_context() {
+        // Measure the fixed prompt+schema+suffix cost with an empty state,
+        // then serve under an operational context four tokens wider.
+        let measuring = ClefRenderer::from_tokenizer(word_tokenizer(), 100_000);
+        let empty = measuring
+            .encode(&json!(""), &render_questions())
+            .expect("empty state encodes");
+        let fixed = empty.input_ids.len();
+        assert!(fixed > 0);
+        let renderer = ClefRenderer::from_tokenizer(word_tokenizer(), fixed + 4);
+
+        // A state that exactly fills the remaining budget is accepted.
+        renderer
+            .encode(&json!("alpha beta alpha beta"), &render_questions())
+            .expect("state within the operational context must encode");
+
+        // A state one token beyond the budget is rejected — never silently
+        // truncated to the window.
+        let error = renderer
+            .encode(&json!("alpha beta alpha beta alpha"), &render_questions())
+            .expect_err("oversized state must be rejected");
+        assert!(
+            matches!(&error, FamilyError::InvalidInput(message) if message.contains("operational context")),
+            "unexpected error: {error}"
+        );
+
+        // A schema that alone exceeds the bound still fails the window
+        // contract before the state is considered.
+        let tiny = ClefRenderer::from_tokenizer(word_tokenizer(), fixed.saturating_sub(1).max(1));
+        let error = tiny
+            .encode(&json!(""), &render_questions())
+            .expect_err("schema beyond the window must fail");
+        assert!(
+            matches!(error, FamilyError::ContractMismatch { .. }),
+            "unexpected error: {error}"
+        );
     }
 }

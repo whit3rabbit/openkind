@@ -24,6 +24,15 @@
 //!   options the request offers; the distribution over offered options sums
 //!   to one and no semantic-none mass exists. An offered `__none__` key is
 //!   scored as an ordinary option.
+//! - Operational context: each profile pins an encoded-prompt bound
+//!   ([`ClefProfile::operational_context_tokens`]). The candle CPU profiles
+//!   serve under 4 096 tokens — a fraction of the 16 384-token model window
+//!   — because their scalar full-attention kernels are quadratic in the
+//!   sequence length and remotely selectable; state that does not fit is
+//!   rejected, not truncated. The GGUF forward additionally checks
+//!   [`FamilyControl`](crate::families::support::FamilyControl) between
+//!   layers and between full-attention row chunks so deadlines and caller
+//!   disconnects reclaim the execution slot mid-forward.
 //! - Continuation state: none — every request is an independent
 //!   full-sequence forward and nothing is retained across questions.
 //! - Text generation: none. Vision: none — image and video inputs are
@@ -116,6 +125,13 @@ pub struct ClefProfile {
     pub geometry: crate::qwen35::Qwen35Geometry,
     /// Joint-head configuration of this profile.
     pub joint_head_config: head::JointHeadConfig,
+    /// Operational encoded-prompt bound enforced at render time. State that
+    /// does not fit inside this budget (after the fixed prompt and schema
+    /// tokens) is rejected instead of truncated. The candle CPU profiles
+    /// pin a substantially smaller bound than the model window because
+    /// their scalar attention kernels are quadratic in the sequence length
+    /// and remotely selectable.
+    pub operational_context_tokens: usize,
     /// Backend id of the candle CPU execution path.
     pub cpu_backend_id: &'static str,
     /// Execution backend this profile loads.
@@ -172,6 +188,7 @@ pub static CLEF_FLASH: ClefProfile = ClefProfile {
     config_path: "config.json",
     geometry: crate::qwen35::Qwen35Geometry::CLEF_FLASH,
     joint_head_config: joint_head_config(4_096),
+    operational_context_tokens: CANDLE_OPERATIONAL_CONTEXT_TOKENS,
     cpu_backend_id: "clef-flash/cpu-bf16w-fp32c",
     execution: ClefExecution::CandleBf16,
     release_date: "2026-10-01",
@@ -197,6 +214,7 @@ pub static CLEF_FLASH_GGUF: ClefProfile = ClefProfile {
     config_path: CLEF_FLASH.config_path,
     geometry: crate::qwen35::Qwen35Geometry::CLEF_FLASH,
     joint_head_config: joint_head_config(4_096),
+    operational_context_tokens: CANDLE_OPERATIONAL_CONTEXT_TOKENS,
     cpu_backend_id: "clef-flash-gguf/cpu-q4km",
     execution: ClefExecution::CandleGguf,
     release_date: CLEF_FLASH.release_date,
@@ -228,6 +246,7 @@ pub static CLEF_FLASH_MLX_4BIT: ClefProfile = ClefProfile {
     config_path: "config.json",
     geometry: crate::qwen35::Qwen35Geometry::CLEF_FLASH,
     joint_head_config: joint_head_config(4_096),
+    operational_context_tokens: renderer::MAX_LENGTH_TOKENS,
     cpu_backend_id: "clef-flash-mlx-4bit/mlx-q4",
     execution: ClefExecution::Mlx4Bit,
     release_date: CLEF_FLASH.release_date,
@@ -257,11 +276,23 @@ pub static CLEF_27B_GGUF: ClefProfile = ClefProfile {
     config_path: CLEF_FLASH.config_path,
     geometry: crate::qwen35::Qwen35Geometry::CLEF,
     joint_head_config: joint_head_config(5_120),
+    operational_context_tokens: CANDLE_OPERATIONAL_CONTEXT_TOKENS,
     cpu_backend_id: "clef-27b-gguf/cpu-q4km",
     execution: ClefExecution::CandleGguf,
     release_date: CLEF_FLASH.release_date,
     description: "Cloudflare Clef 27B Q4_K_M GGUF backbone with the official joint head.",
 };
+
+/// Operational encoded-prompt bound for the scalar candle CPU profiles.
+///
+/// The reference `max_length` window (16 384 tokens) is safe on accelerated
+/// kernels but invites remote availability abuse on the scalar CPU path:
+/// full-attention layers cost `(rows^2 / 2) * heads * head_dim` multiply
+/// each, so a near-window request holds the execution slot far beyond the
+/// family deadline even with cooperative checks. 4 096 tokens keeps the
+/// quadratic term (and the FP32 activation buffers) 16x smaller while
+/// covering the decision workloads this family serves.
+pub const CANDLE_OPERATIONAL_CONTEXT_TOKENS: usize = 4_096;
 
 /// Every loadable profile of this family.
 ///
@@ -321,5 +352,28 @@ mod tests {
         let count = ids.len();
         ids.dedup();
         assert_eq!(ids.len(), count);
+    }
+
+    #[test]
+    fn candle_profiles_pin_a_reduced_operational_context() {
+        // Every remotely dispatchable (candle CPU) profile must enforce an
+        // operational bound strictly below the 16 384-token model window so
+        // the scalar quadratic kernels cannot be driven at full context.
+        for profile in PROFILES {
+            assert_eq!(
+                profile.operational_context_tokens, CANDLE_OPERATIONAL_CONTEXT_TOKENS,
+                "profile {} must pin the candle operational context",
+                profile.loader_id
+            );
+        }
+        assert_eq!(
+            CLEF_FLASH_MLX_4BIT.operational_context_tokens,
+            renderer::MAX_LENGTH_TOKENS
+        );
+        // Compared through the pinned profiles (not the consts) so the
+        // relation fails at runtime if a profile drifts.
+        assert!(
+            CLEF_FLASH.operational_context_tokens < CLEF_FLASH_MLX_4BIT.operational_context_tokens
+        );
     }
 }

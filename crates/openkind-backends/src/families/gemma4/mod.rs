@@ -87,8 +87,62 @@ pub const DECLARED_PROBABILITY_SPACE: ProbabilitySpace =
     ProbabilitySpace::ConditionalOnOfferedOptions;
 
 /// Frozen maximum rendered prompt length. Longer requests fail closed;
-/// truncation is forbidden.
+/// truncation is forbidden. The effective accepted length is derived at load
+/// time by capping this constant with the largest sequence whose estimated
+/// peak scratch fits the configured budget (see
+/// [`DEFAULT_SCRATCH_BUDGET_BYTES`]); attention is banded, so the cost of an
+/// accepted prompt grows linearly, never quadratically, with its length.
 pub const MAX_SEQUENCE_TOKENS: usize = 8_192;
+
+/// Default cap, in bytes, on a single forward's estimated transient scratch
+/// (banded attention blocks, expanded K/V, FFN intermediates, per-layer
+/// inputs, retained donor K/V) on top of the mapped checkpoint. Loaders
+/// derive the effective context length from it and fail closed before
+/// allocating anything when a request's estimate exceeds it.
+pub const DEFAULT_SCRATCH_BUDGET_BYTES: u64 = 4 << 30;
+
+/// Operator override of [`DEFAULT_SCRATCH_BUDGET_BYTES`], in MiB. Must be a
+/// positive integer; an unparseable or zero value fails the load closed.
+pub const SCRATCH_BUDGET_ENV: &str = "OPENKIND_GEMMA4_SCRATCH_BUDGET_MB";
+
+/// Smallest effective context length the profile will load with. Budgets
+/// that cannot fit this floor cannot serve any realistic prompt, so loaders
+/// reject them instead of registering a permanently-useless alias.
+pub const MIN_VIABLE_SEQUENCE_TOKENS: usize = 512;
+
+/// Resolve the scratch budget from [`SCRATCH_BUDGET_ENV`], defaulting to
+/// [`DEFAULT_SCRATCH_BUDGET_BYTES`]. Unparseable or zero overrides fail
+/// closed.
+pub(crate) fn scratch_budget_bytes() -> Result<u64, crate::families::support::FamilyError> {
+    match std::env::var(SCRATCH_BUDGET_ENV) {
+        Ok(value) => scratch_budget_from_env_value(Some(value.trim())),
+        Err(std::env::VarError::NotPresent) => scratch_budget_from_env_value(None),
+        Err(std::env::VarError::NotUnicode(value)) => {
+            scratch_budget_from_env_value(Some(&value.to_string_lossy()))
+        }
+    }
+}
+
+/// Pure core of [`scratch_budget_bytes`] for tests: an optional raw
+/// (already-trimmed) env value to the budget in bytes.
+pub(crate) fn scratch_budget_from_env_value(
+    raw: Option<&str>,
+) -> Result<u64, crate::families::support::FamilyError> {
+    let Some(raw) = raw else {
+        return Ok(DEFAULT_SCRATCH_BUDGET_BYTES);
+    };
+    let mib = raw.parse::<u64>().map_err(|_| {
+        crate::families::support::FamilyError::InvalidInput(format!(
+            "{SCRATCH_BUDGET_ENV} must be a positive integer number of MiB, found `{raw}`"
+        ))
+    })?;
+    if mib == 0 {
+        return Err(crate::families::support::FamilyError::InvalidInput(
+            format!("{SCRATCH_BUDGET_ENV} must be positive, found `{raw}`"),
+        ));
+    }
+    Ok(mib.saturating_mul(1024 * 1024))
+}
 
 /// Provisional application-policy threshold recorded with the profile.
 ///
@@ -195,6 +249,36 @@ mod tests {
         assert!(metadata.contains(&("gemma4.block_count", "42")));
         assert!(metadata.contains(&("gemma4.attention.shared_kv_layers", "18")));
         assert_eq!(metadata.len(), 14);
+    }
+
+    #[test]
+    fn scratch_budget_parses_and_fails_closed() {
+        assert_eq!(
+            scratch_budget_from_env_value(None).expect("default"),
+            DEFAULT_SCRATCH_BUDGET_BYTES
+        );
+        assert_eq!(
+            scratch_budget_from_env_value(Some("1024")).expect("mib"),
+            1024 * 1024 * 1024
+        );
+        assert_eq!(
+            scratch_budget_from_env_value(Some("512")).expect("trimmed"),
+            512 * 1024 * 1024
+        );
+        assert!(scratch_budget_from_env_value(Some("0")).is_err());
+        assert!(scratch_budget_from_env_value(Some("generous")).is_err());
+        assert!(scratch_budget_from_env_value(Some("-1")).is_err());
+    }
+
+    #[test]
+    fn default_budget_admits_the_frozen_maximum() {
+        let cfg = backbone::Gemma4TextConfig::winnow_e4b();
+        let effective = cfg.max_sequence_tokens_for_scratch_budget(DEFAULT_SCRATCH_BUDGET_BYTES);
+        assert_eq!(effective, MAX_SEQUENCE_TOKENS);
+        // A budget that cannot fit the viability floor leaves the loader
+        // nothing to serve and must be distinguishable from a workable cap.
+        let starved = cfg.max_sequence_tokens_for_scratch_budget(1 << 20);
+        assert!(starved < MIN_VIABLE_SEQUENCE_TOKENS);
     }
 
     /// Operator-gated smoke run against the locally downloaded checkpoint:
@@ -317,6 +401,14 @@ mod tests {
                 "active_departure": "14:05",
             }
         });
+        // The controlled path the engine takes, with a live (never-firing)
+        // control, so the smoke run also exercises the per-layer
+        // cancellation hook end to end.
+        let control = crate::families::support::FamilyControl::new(
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            None,
+            0,
+        );
         #[allow(clippy::type_complexity)]
         let cases: &[(
             &str,
@@ -404,7 +496,7 @@ mod tests {
             let ids = rendered.prompt_ids();
             assert_eq!(ids[0], 2, "prompt starts with the Gemma BOS token");
             let logits = model
-                .letter_logits(&ids, rendered.letter_ids())
+                .letter_logits_controlled(&ids, rendered.letter_ids(), &control)
                 .expect("forward");
             let probabilities =
                 crate::families::support::temperature_softmax(&logits, CALIBRATION_TEMPERATURE)

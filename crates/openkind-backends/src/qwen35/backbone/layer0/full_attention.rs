@@ -212,6 +212,11 @@ pub(crate) fn apply_rotary(
     }
 }
 
+/// Query-row interval between cooperative control checks inside
+/// [`causal_grouped_query_attention_checked`]. The check costs one atomic
+/// load and one clock read; 64 rows of causal attention dwarf both.
+const CONTROL_CHECK_ROWS: usize = 64;
+
 pub(crate) fn causal_grouped_query_attention(
     queries: &[f32],
     keys: &[f32],
@@ -220,6 +225,28 @@ pub(crate) fn causal_grouped_query_attention(
     past_rows: usize,
     geometry: Qwen35Geometry,
 ) -> Vec<f32> {
+    causal_grouped_query_attention_checked(queries, keys, values, rows, past_rows, geometry, || {
+        Ok::<(), std::convert::Infallible>(())
+    })
+    .expect("control check without a failure mode cannot fail")
+}
+
+/// Causal grouped-query attention with a cooperative control check every
+/// [`CONTROL_CHECK_ROWS`] query rows.
+///
+/// The scalar kernel is quadratic in the caller-selected row count, so a
+/// deadline or disconnect must be observable inside the loop, not only
+/// around the whole call: a remote caller otherwise occupies the execution
+/// slot for the full cost of one attention layer however long that takes.
+pub(crate) fn causal_grouped_query_attention_checked<E>(
+    queries: &[f32],
+    keys: &[f32],
+    values: &[f32],
+    rows: usize,
+    past_rows: usize,
+    geometry: Qwen35Geometry,
+    mut check: impl FnMut() -> Result<(), E>,
+) -> Result<Vec<f32>, E> {
     let attention_heads = geometry.attention_heads;
     let kv_heads = geometry.kv_heads;
     let attention_head_dim = geometry.attention_head_dim;
@@ -228,9 +255,13 @@ pub(crate) fn causal_grouped_query_attention(
     debug_assert_eq!(queries.len(), rows * attention_size);
     debug_assert_eq!(keys.len(), (past_rows + rows) * kv_size);
     debug_assert_eq!(values.len(), (past_rows + rows) * kv_size);
+    check()?;
     let mut output = vec![0.0_f32; rows * attention_size];
     let scale = (attention_head_dim as f32).sqrt().recip();
     for row in 0..rows {
+        if row % CONTROL_CHECK_ROWS == 0 {
+            check()?;
+        }
         for query_head in 0..attention_heads {
             let kv_head = query_head / (attention_heads / kv_heads);
             let query_offset = (row * attention_heads + query_head) * attention_head_dim;
@@ -265,5 +296,5 @@ pub(crate) fn causal_grouped_query_attention(
             }
         }
     }
-    output
+    Ok(output)
 }

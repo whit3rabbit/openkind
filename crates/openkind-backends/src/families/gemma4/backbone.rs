@@ -9,6 +9,15 @@
 //! the verified GGUF on demand, so the loaded footprint stays near the
 //! on-disk artifact size instead of a dequantized copy.
 //!
+//! Attention is banded, never dense: queries attend in fixed-size blocks over
+//! only the keys the mask would admit (the causal prefix for full-attention
+//! layers, a `window + block` band for sliding layers), so no `seq x seq`
+//! score or mask tensor is ever materialized and per-forward scratch grows
+//! linearly with prompt length. Forwards re-check the request control between
+//! layers so cancellation and deadlines release the execution slot during a
+//! long pass, and a load-time scratch budget caps the accepted context length
+//! before any tensor is allocated.
+//!
 //! The implementation follows the two agreeing references for Gemma 4
 //! (mistral.rs `vision_models/gemma4` and llama.cpp `src/models/gemma4.cpp`):
 //!
@@ -38,6 +47,15 @@ use candle_core::{DType, Device, Module, Result, Tensor, D};
 use candle_nn::Activation;
 
 use super::gguf::Gemma4Checkpoint;
+use crate::families::support::{FamilyControl, FamilyError};
+
+/// Query-block size of the banded attention. Every score tensor the forward
+/// materializes is bounded by `(heads, CHUNK, CHUNK + sliding_window)` on
+/// sliding layers and `(heads, CHUNK, seq)` on full-attention layers, so
+/// attention scratch grows linearly with sequence length instead of
+/// quadratically and an accepted prompt can never allocate a
+/// `heads x seq x seq` tensor.
+const ATTENTION_QUERY_CHUNK: usize = 256;
 
 /// Pinned Gemma 4 E4B text geometry.
 ///
@@ -135,6 +153,58 @@ impl Gemma4TextConfig {
         } else {
             first_shared - 1
         })
+    }
+
+    /// Conservative over-estimate, in bytes, of the transient scratch one
+    /// full-sequence forward allocates for `seq` tokens on top of the mapped
+    /// checkpoint: the widest layer's banded attention blocks and expanded
+    /// K/V, the FFN intermediates that are live together, the shared
+    /// per-layer-input buffers, and the donor K/V retained to the end of the
+    /// pass. Every term is linear in `seq` — attention is banded, so a
+    /// quadratic term here (or in the execution path) is a regression.
+    pub fn estimated_peak_scratch_bytes(&self, seq: usize) -> u64 {
+        let bytes = |values: u64| values.saturating_mul(4);
+        let seq = seq as u64;
+        let heads = self.num_attention_heads as u64;
+        let max_head_dim = self.head_dim.max(self.global_head_dim) as u64;
+        // Attention is executed one layer at a time; budget the widest layer:
+        // expanded Q/K/V, the block outputs, the largest (full-attention)
+        // score block plus its softmax copy, and the hidden residual streams
+        // crossing the layer.
+        let attention = bytes(heads * seq * max_head_dim * 6)
+            + bytes(heads * ATTENTION_QUERY_CHUNK as u64 * seq)
+            + bytes(3 * seq * self.hidden_size as u64);
+        // gate, gelu(gate), up, and their product are live together when the
+        // product is formed.
+        let ffn = bytes(4 * seq * self.intermediate_size as u64);
+        // The shared (seq, layers, ple_dim) per-layer-input buffer plus the
+        // contiguous per-layer slice retained for the whole forward.
+        let ple = bytes(2 * seq * self.num_hidden_layers as u64 * self.per_layer_input_dim as u64);
+        // One sliding and one full-attention donor's K/V, both counted at the
+        // larger head dim, retained until the last shared layer.
+        let donors = bytes(2 * self.num_key_value_heads as u64 * seq * max_head_dim * 2);
+        // Token embeddings and the hidden stream crossing a layer boundary.
+        let stream = bytes(2 * seq * self.hidden_size as u64);
+        attention.max(ffn) + ple + donors + stream
+    }
+
+    /// Largest accepted sequence length whose estimated peak scratch stays
+    /// within `budget_bytes`, capped at the frozen family maximum. Returns a
+    /// length below the viability floor only when the budget cannot fit even
+    /// a minimal prompt, which loaders must treat as fail-closed.
+    pub fn max_sequence_tokens_for_scratch_budget(&self, budget_bytes: u64) -> usize {
+        let ceiling = crate::families::gemma4::MAX_SEQUENCE_TOKENS;
+        let mut low = 0usize;
+        let mut high = ceiling;
+        while low < high {
+            let mid = low + (high - low).div_ceil(2);
+            if self.estimated_peak_scratch_bytes(mid) <= budget_bytes {
+                low = mid;
+            } else {
+                high = mid - 1;
+            }
+        }
+        low
     }
 }
 
@@ -296,6 +366,7 @@ struct Attention {
     num_kv_heads: usize,
     head_dim: usize,
     is_sliding: bool,
+    sliding_window: usize,
     kv_donor: Option<usize>,
     rms_norm_eps: f64,
 }
@@ -346,6 +417,7 @@ impl Attention {
             num_kv_heads: cfg.num_key_value_heads,
             head_dim,
             is_sliding,
+            sliding_window: cfg.sliding_window,
             kv_donor,
             rms_norm_eps: cfg.rms_norm_eps,
         })
@@ -357,14 +429,15 @@ impl Attention {
     /// softmax scale is the Gemma 4 constant `1.0`: the learned Q/K norms
     /// carry the magnitude and both reference runtimes pin the scale to one.
     ///
-    /// Returns the attention output and, for layers with their own
-    /// projections, the post-rope K/V for later KV-shared consumers.
+    /// The score tensor is computed per query block over only the keys the
+    /// dense mask would admit — never as one `heads x seq x seq` tensor — so
+    /// a maximum-length prompt costs linear scratch, not a 2 GiB score plus
+    /// dense masks. Returns the attention output and, for layers with their
+    /// own projections, the post-rope K/V for later KV-shared consumers.
     fn forward(
         &self,
         xs: &Tensor,
         donor_kv: Option<&(Tensor, Tensor)>,
-        causal_mask: &Tensor,
-        sliding_mask: &Tensor,
     ) -> Result<(Tensor, Option<(Tensor, Tensor)>)> {
         let (b, seq, _) = xs.dims3()?;
         let q = self
@@ -378,7 +451,9 @@ impl Attention {
         } else {
             self.rotary_global.apply(&q, 0)?
         };
-        let (k, v, own_kv) = match (&self.k_proj, &self.v_proj, donor_kv) {
+        let window = self.is_sliding.then_some(self.sliding_window);
+        let rep = self.num_heads / self.num_kv_heads;
+        let (attn, own_kv) = match (&self.k_proj, &self.v_proj, donor_kv) {
             (Some(k_proj), Some(v_proj), _) => {
                 let k = k_proj
                     .forward(xs)?
@@ -399,22 +474,16 @@ impl Attention {
                 } else {
                     self.rotary_global.apply(&k, 0)?
                 };
-                (k.clone(), v.clone(), Some((k, v)))
+                let attn =
+                    chunked_attention(&q, &repeat_kv(&k, rep)?, &repeat_kv(&v, rep)?, window)?;
+                (attn, Some((k, v)))
             }
-            (None, None, Some((dk, dv))) => ((*dk).clone(), (*dv).clone(), None),
+            (None, None, Some((dk, dv))) => (
+                chunked_attention(&q, &repeat_kv(dk, rep)?, &repeat_kv(dv, rep)?, window)?,
+                None,
+            ),
             _ => candle_core::bail!("attention needs own projections or donor K/V"),
         };
-        let k = repeat_kv(k.contiguous()?, self.num_heads / self.num_kv_heads)?;
-        let v = repeat_kv(v.contiguous()?, self.num_heads / self.num_kv_heads)?;
-        let scores = q.matmul(&k.transpose(2, 3)?)?;
-        let mask = if self.is_sliding {
-            sliding_mask
-        } else {
-            causal_mask
-        };
-        let scores = scores.broadcast_add(mask)?;
-        let weights = candle_nn::ops::softmax_last_dim(&scores)?;
-        let attn = weights.matmul(&v)?;
         let out = attn
             .transpose(1, 2)?
             .reshape((b, seq, ()))?
@@ -423,8 +492,98 @@ impl Attention {
     }
 }
 
-fn repeat_kv(xs: Tensor, n_rep: usize) -> Result<Tensor> {
-    candle_transformers::utils::repeat_kv(xs, n_rep)
+/// Grouped-query expansion of K/V to query heads. Takes the source by
+/// reference so KV-shared layers expand their donor's K/V without cloning
+/// the full per-sequence tensors.
+fn repeat_kv(xs: &Tensor, n_rep: usize) -> Result<Tensor> {
+    if n_rep == 1 {
+        return Ok(xs.clone());
+    }
+    let (b, kv_heads, seq, head_dim) = xs.dims4()?;
+    xs.unsqueeze(2)?
+        .expand((b, kv_heads, n_rep, seq, head_dim))?
+        .reshape((b, kv_heads * n_rep, seq, head_dim))
+}
+
+/// Key span `[key_start, key_end)` that the query block
+/// `[query_start, query_end)` can attend to: the trailing causal range,
+/// narrowed to the last `window` positions on sliding layers.
+fn block_key_span(
+    query_start: usize,
+    query_end: usize,
+    sliding_window: Option<usize>,
+) -> (usize, usize) {
+    match sliding_window {
+        Some(window) => (query_start.saturating_sub(window), query_end),
+        None => (0, query_end),
+    }
+}
+
+/// Compact block-local attention mask, shaped `(1, 1, query_len, key_len)`.
+/// Entry is `0` where the query may attend the key and `-inf` where the
+/// dense mask would have blocked it (causal `key <= query`, plus
+/// `key + window >= query` on sliding layers). Every row keeps at least one
+/// `0` (the query's own position always lies inside the span), so the
+/// softmax never sees an all-masked row.
+fn attention_block_mask(
+    query_start: usize,
+    query_len: usize,
+    key_start: usize,
+    key_len: usize,
+    sliding_window: Option<usize>,
+    dtype: DType,
+    dev: &Device,
+) -> Result<Tensor> {
+    let mut data = Vec::with_capacity(query_len * key_len);
+    for qi in 0..query_len {
+        let query = query_start + qi;
+        for ki in 0..key_len {
+            let key = key_start + ki;
+            let allowed = key <= query && sliding_window.is_none_or(|window| key + window >= query);
+            data.push(if allowed { 0f32 } else { f32::NEG_INFINITY });
+        }
+    }
+    Tensor::from_vec(data, (query_len, key_len), dev)?
+        .unsqueeze(0)?
+        .unsqueeze(0)?
+        .to_dtype(dtype)
+}
+
+/// Banded attention over query blocks: each block of queries multiplies only
+/// the keys it can attend to and applies a compact block-local mask before
+/// the softmax. Numerically this is the same attention as the dense masked
+/// form — masked-out keys contribute `exp(-inf) = 0` to the softmax, so
+/// dropping them changes only the matmul blocking, not the math.
+fn chunked_attention(
+    q: &Tensor,
+    k: &Tensor,
+    v: &Tensor,
+    sliding_window: Option<usize>,
+) -> Result<Tensor> {
+    let seq = q.dim(2)?;
+    let mut blocks = Vec::with_capacity(seq.div_ceil(ATTENTION_QUERY_CHUNK));
+    for query_start in (0..seq).step_by(ATTENTION_QUERY_CHUNK) {
+        let query_end = (query_start + ATTENTION_QUERY_CHUNK).min(seq);
+        let (key_start, key_end) = block_key_span(query_start, query_end, sliding_window);
+        let key_len = key_end - key_start;
+        let q_block = q.narrow(2, query_start, query_end - query_start)?;
+        let k_block = k.narrow(2, key_start, key_len)?;
+        let v_block = v.narrow(2, key_start, key_len)?;
+        let scores = q_block.matmul(&k_block.transpose(2, 3)?)?;
+        let mask = attention_block_mask(
+            query_start,
+            query_end - query_start,
+            key_start,
+            key_len,
+            sliding_window,
+            scores.dtype(),
+            scores.device(),
+        )?;
+        let scores = scores.broadcast_add(&mask)?;
+        let weights = candle_nn::ops::softmax_last_dim(&scores)?;
+        blocks.push(weights.matmul(&v_block)?);
+    }
+    Tensor::cat(&blocks, 2)
 }
 
 /// One Gemma 4 decoder layer: attention, FFN, and the per-layer-embedding
@@ -502,14 +661,10 @@ impl DecoderLayer {
         xs: &Tensor,
         donor_kv: Option<&(Tensor, Tensor)>,
         per_layer_input: Option<&Tensor>,
-        causal_mask: &Tensor,
-        sliding_mask: &Tensor,
     ) -> Result<(Tensor, Option<(Tensor, Tensor)>)> {
         let residual = xs;
         let normed = self.input_layernorm.forward(xs)?;
-        let (xs, own_kv) = self
-            .self_attn
-            .forward(&normed, donor_kv, causal_mask, sliding_mask)?;
+        let (xs, own_kv) = self.self_attn.forward(&normed, donor_kv)?;
         let xs = self.post_attention_layernorm.forward(&xs)?;
         let xs = (&xs + residual)?;
         let residual = &xs;
@@ -540,6 +695,7 @@ impl DecoderLayer {
 /// Gemma 4 text model executing the pinned q8_0 checkpoint.
 #[derive(Clone)]
 pub struct Gemma4TextModel {
+    config: Gemma4TextConfig,
     layers: Vec<DecoderLayer>,
     norm: RmsNorm,
     embed_rows: Arc<super::gguf::GgufRowTable>,
@@ -550,7 +706,14 @@ pub struct Gemma4TextModel {
     final_logit_softcapping: Option<f64>,
     hidden_size: usize,
     per_layer_input_dim: usize,
-    sliding_window: usize,
+    /// Whether any later KV-shared layer consumes this layer's K/V. Layers
+    /// whose K/V has no consumer drop it at the end of their forward instead
+    /// of retaining every layer's K/V to the end of the pass.
+    retains_donor_kv: Vec<bool>,
+    /// Cap on the estimated per-forward scratch; `forward_with_check` fails
+    /// closed before allocating anything when a sequence's estimate exceeds
+    /// it. `None` (tests, bring-up) skips the estimate gate.
+    scratch_budget: Option<u64>,
 }
 
 impl Gemma4TextModel {
@@ -627,7 +790,14 @@ impl Gemma4TextModel {
         } else {
             (None, None)
         };
+        let retains_donor_kv = (0..cfg.num_hidden_layers)
+            .map(|layer| {
+                (layer + 1..cfg.num_hidden_layers)
+                    .any(|consumer| cfg.kv_donor(consumer) == Some(layer))
+            })
+            .collect();
         Ok(Self {
+            config: cfg.clone(),
             layers,
             norm,
             embed_rows: Arc::new(ckpt.token_embd_rows.clone()),
@@ -638,7 +808,8 @@ impl Gemma4TextModel {
             final_logit_softcapping: cfg.final_logit_softcapping,
             hidden_size: cfg.hidden_size,
             per_layer_input_dim: ple,
-            sliding_window: cfg.sliding_window,
+            retains_donor_kv,
+            scratch_budget: None,
         })
     }
 
@@ -692,85 +863,114 @@ impl Gemma4TextModel {
         Ok(Some(per_layer))
     }
 
-    /// Attention masks for the full sequence: the plain causal mask and the
-    /// sliding-window mask (a query attends keys at most `sliding_window`
-    /// positions back). Shapes are `(1, 1, seq, seq)` for broadcasting over
-    /// batch and heads.
-    fn attention_masks(&self, seq: usize, dtype: DType, dev: &Device) -> Result<(Tensor, Tensor)> {
-        let causal: Vec<f32> = (0..seq)
-            .flat_map(|i| (0..seq).map(move |j| if i < j { f32::NEG_INFINITY } else { 0f32 }))
-            .collect();
-        let sliding = self.sliding_window;
-        let windowed: Vec<f32> = (0..seq)
-            .flat_map(|i| {
-                (0..seq).map(move |j| {
-                    if i < j || j + sliding < i {
-                        f32::NEG_INFINITY
-                    } else {
-                        0f32
-                    }
-                })
-            })
-            .collect();
-        let causal = Tensor::from_slice(&causal, (seq, seq), dev)?
-            .unsqueeze(0)?
-            .unsqueeze(0)?
-            .to_dtype(dtype)?;
-        let windowed = Tensor::from_slice(&windowed, (seq, seq), dev)?
-            .unsqueeze(0)?
-            .unsqueeze(0)?
-            .to_dtype(dtype)?;
-        Ok((causal, windowed))
+    /// Cap the per-forward scratch estimate enforced by
+    /// [`Self::forward_with_check`]. Engines set this at load time from the
+    /// configured budget.
+    pub fn set_scratch_budget(&mut self, budget_bytes: u64) {
+        self.scratch_budget = Some(budget_bytes);
     }
 
     /// Full-sequence forward returning the final-position logits (after
-    /// softcapping when configured) as `(1, vocab)`.
+    /// softcapping when configured) as `(1, vocab)`. Uncancelled bring-up
+    /// entry point (chat probes); production paths use
+    /// [`Self::forward_with_check`].
+    #[allow(dead_code)]
     pub fn forward(&self, input_ids: &[u32]) -> Result<Tensor> {
+        self.forward_with_check(input_ids, || Ok::<(), candle_core::Error>(()))
+    }
+
+    /// [`Self::forward`] with a cooperative check invoked before the pass,
+    /// between every decoder layer, and before the LM head, so cancellation
+    /// and deadlines release the execution slot during a long forward instead
+    /// of only between questions. The check's error type must also absorb the
+    /// backbone's candle errors.
+    pub fn forward_with_check<E>(
+        &self,
+        input_ids: &[u32],
+        mut check: impl FnMut() -> std::result::Result<(), E>,
+    ) -> std::result::Result<Tensor, E>
+    where
+        E: From<candle_core::Error>,
+    {
+        check()?;
         let seq = input_ids.len();
         if seq == 0 || seq > crate::families::gemma4::MAX_SEQUENCE_TOKENS {
-            candle_core::bail!(
+            return Err(candle_core::Error::Msg(format!(
                 "sequence length {seq} outside (0, {}]",
                 crate::families::gemma4::MAX_SEQUENCE_TOKENS
-            );
+            ))
+            .into());
         }
-        let dev = &self.embed_rows.device;
-        let xs = self.embed_tokens(input_ids)?;
-        let per_layer_inputs = self.compute_per_layer_inputs(input_ids, &xs)?;
-        let (causal_mask, sliding_mask) = self.attention_masks(seq, xs.dtype(), dev)?;
+        if let Some(budget) = self.scratch_budget {
+            let estimate = self.config.estimated_peak_scratch_bytes(seq);
+            if estimate > budget {
+                return Err(candle_core::Error::Msg(format!(
+                    "estimated peak scratch of a {seq}-token forward is {estimate} bytes, \
+                     over the configured {budget}-byte budget; refusing to allocate \
+                     (lower the prompt or raise OPENKIND_GEMMA4_SCRATCH_BUDGET_MB)"
+                ))
+                .into());
+            }
+        }
+        let xs = self.embed_tokens(input_ids).map_err(E::from)?;
+        let per_layer_inputs = self
+            .compute_per_layer_inputs(input_ids, &xs)
+            .map_err(E::from)?;
 
-        // Post-rope K/V of the layers that donate to KV-shared layers. The
-        // pinned geometry's donors sit before every consumer, so the entries
-        // are filled in by the time a shared layer reads them.
+        // Post-rope K/V of the layers that donate to KV-shared layers. Only
+        // layers a later consumer actually reads retain their K/V; the pinned
+        // geometry's donors sit before every consumer, so the entries are
+        // filled in by the time a shared layer reads them.
         let mut donors: Vec<Option<(Tensor, Tensor)>> = vec![None; self.layers.len()];
         let mut xs = xs;
         for (layer_idx, layer) in self.layers.iter().enumerate() {
+            check()?;
             let donor_kv = layer.self_attn.kv_donor.map(|donor| {
                 donors[donor]
                     .clone()
                     .expect("donor K/V computed before its consumer")
             });
             let pli = per_layer_inputs.as_ref().map(|inputs| &inputs[layer_idx]);
-            let (out, own_kv) =
-                layer.forward(&xs, donor_kv.as_ref(), pli, &causal_mask, &sliding_mask)?;
-            if own_kv.is_some() {
+            let (out, own_kv) = layer
+                .forward(&xs, donor_kv.as_ref(), pli)
+                .map_err(E::from)?;
+            if own_kv.is_some() && self.retains_donor_kv[layer_idx] {
                 donors[layer_idx] = own_kv;
             }
             xs = out;
             if std::env::var_os("OPENKIND_GEMMA4_NO_SCALE").is_some() {
-                xs = xs.affine(1.0, 0.0)?;
+                xs = xs.affine(1.0, 0.0).map_err(E::from)?;
             }
             if std::env::var_os("OPENKIND_GEMMA4_DEBUG").is_some() {
-                let flat = xs.flatten_all()?.to_vec1::<f32>()?;
+                let flat = xs
+                    .flatten_all()
+                    .map_err(E::from)?
+                    .to_vec1::<f32>()
+                    .map_err(E::from)?;
                 let max_abs = flat.iter().fold(0f32, |acc, v| acc.max(v.abs()));
                 let non_finite = flat.iter().filter(|v| !v.is_finite()).count();
                 eprintln!("layer {layer_idx}: max_abs={max_abs:.4} non_finite={non_finite}");
             }
         }
-        let last = xs.narrow(1, seq - 1, 1)?.squeeze(1)?;
-        let logits = self.lm_head.forward(&self.norm.forward(&last)?)?;
+        check()?;
+        let last = xs
+            .narrow(1, seq - 1, 1)
+            .map_err(E::from)?
+            .squeeze(1)
+            .map_err(E::from)?;
+        let logits = self
+            .lm_head
+            .forward(&self.norm.forward(&last).map_err(E::from)?)
+            .map_err(E::from)?;
         match self.final_logit_softcapping {
             None => Ok(logits),
-            Some(sc) => Ok(logits.affine(1f64 / sc, 0f64)?.tanh()?.affine(sc, 0f64)?),
+            Some(sc) => Ok(logits
+                .affine(1f64 / sc, 0f64)
+                .map_err(E::from)?
+                .tanh()
+                .map_err(E::from)?
+                .affine(sc, 0f64)
+                .map_err(E::from)?),
         }
     }
 
@@ -778,6 +978,7 @@ impl Gemma4TextModel {
     /// restricted to `letter_ids` (after softcapping). The answer slot is
     /// the last prompt position; nothing is sampled and no continuation
     /// tokens exist.
+    #[allow(dead_code)]
     pub fn letter_logits(&self, prompt_ids: &[u32], letter_ids: &[u32]) -> Result<Vec<f64>> {
         if prompt_ids.is_empty() {
             candle_core::bail!("prompt token ids are empty");
@@ -786,21 +987,55 @@ impl Gemma4TextModel {
             candle_core::bail!("letter token ids are empty");
         }
         let logits = self.forward(prompt_ids)?.squeeze(0)?.to_vec1::<f32>()?;
-        letter_ids
-            .iter()
-            .map(|token| {
-                usize::try_from(*token)
-                    .ok()
-                    .and_then(|index| logits.get(index).copied())
-                    .map(f64::from)
-                    .ok_or_else(|| {
-                        candle_core::Error::Msg(format!(
-                            "letter token id {token} outside the model vocabulary"
-                        ))
-                    })
-            })
-            .collect()
+        select_letter_logits(&logits, letter_ids)
     }
+
+    /// [`Self::letter_logits`] running the forward under the request
+    /// control: the pass aborts with the control's error when the caller
+    /// disconnects or the queue-inclusive deadline elapses between layers.
+    pub fn letter_logits_controlled(
+        &self,
+        prompt_ids: &[u32],
+        letter_ids: &[u32],
+        control: &FamilyControl,
+    ) -> std::result::Result<Vec<f64>, FamilyError> {
+        if prompt_ids.is_empty() {
+            return Err(FamilyError::InvalidInput(
+                "prompt token ids are empty".to_owned(),
+            ));
+        }
+        if letter_ids.is_empty() {
+            return Err(FamilyError::InvalidInput(
+                "letter token ids are empty".to_owned(),
+            ));
+        }
+        let logits = self
+            .forward_with_check(prompt_ids, || control.check())?
+            .squeeze(0)
+            .map_err(FamilyError::from)?
+            .to_vec1::<f32>()
+            .map_err(FamilyError::from)?;
+        select_letter_logits(&logits, letter_ids).map_err(FamilyError::from)
+    }
+}
+
+/// Restrict a final-position logit row to the letter tokens, in candidate
+/// order.
+fn select_letter_logits(logits: &[f32], letter_ids: &[u32]) -> Result<Vec<f64>> {
+    letter_ids
+        .iter()
+        .map(|token| {
+            usize::try_from(*token)
+                .ok()
+                .and_then(|index| logits.get(index).copied())
+                .map(f64::from)
+                .ok_or_else(|| {
+                    candle_core::Error::Msg(format!(
+                        "letter token id {token} outside the model vocabulary"
+                    ))
+                })
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -843,5 +1078,152 @@ mod tests {
                 assert!(!allowed(i, i - window - 1));
             }
         }
+    }
+
+    /// Dense masked attention — the pre-banding implementation's math — as
+    /// the offline reference for [`chunked_attention`].
+    fn dense_attention_reference(
+        q: &Tensor,
+        k: &Tensor,
+        v: &Tensor,
+        sliding_window: Option<usize>,
+    ) -> Result<Tensor> {
+        let seq = q.dim(2)?;
+        let scores = q.matmul(&k.transpose(2, 3)?)?;
+        let mut dense = Vec::with_capacity(seq * seq);
+        for i in 0..seq {
+            for j in 0..seq {
+                let allowed = j <= i && sliding_window.is_none_or(|window| j + window >= i);
+                dense.push(if allowed { 0f32 } else { f32::NEG_INFINITY });
+            }
+        }
+        let mask = Tensor::from_vec(dense, (seq, seq), q.device())?
+            .unsqueeze(0)?
+            .unsqueeze(0)?;
+        let scores = scores.broadcast_add(&mask)?;
+        let weights = candle_nn::ops::softmax_last_dim(&scores)?;
+        weights.matmul(v)
+    }
+
+    #[test]
+    fn chunked_attention_matches_dense_masked_attention() {
+        let dev = Device::Cpu;
+        // Windows on both sides of the query chunk plus the full-attention
+        // case, with a sequence long enough to span several query blocks and
+        // a short one that fits inside a single (partial) block.
+        for (seq, window) in [
+            (600, Some(64)),
+            (600, Some(512)),
+            (600, None),
+            (37, Some(4)),
+        ] {
+            let shape = (1usize, 2usize, seq, 8usize);
+            let q = Tensor::randn(0f32, 1.0, shape, &dev).expect("q");
+            let k = Tensor::randn(0f32, 1.0, shape, &dev).expect("k");
+            let v = Tensor::randn(0f32, 1.0, shape, &dev).expect("v");
+            let dense = dense_attention_reference(&q, &k, &v, window).expect("dense");
+            let banded = chunked_attention(&q, &k, &v, window).expect("banded");
+            let a = dense.flatten_all().unwrap().to_vec1::<f32>().unwrap();
+            let b = banded.flatten_all().unwrap().to_vec1::<f32>().unwrap();
+            assert_eq!(a.len(), b.len());
+            let max_diff = a
+                .iter()
+                .zip(&b)
+                .map(|(x, y)| (x - y).abs())
+                .fold(0f32, f32::max);
+            assert!(
+                max_diff < 1e-5,
+                "seq={seq} window={window:?}: banded attention diverged from the dense reference by {max_diff:e}"
+            );
+        }
+    }
+
+    #[test]
+    fn block_key_span_bounds_the_attention_band() {
+        for start in (0..600).step_by(64) {
+            let end = (start + ATTENTION_QUERY_CHUNK).min(600);
+            let (key_start, key_end) = block_key_span(start, end, Some(64));
+            assert_eq!(key_start, start.saturating_sub(64));
+            assert!(key_end - key_start <= ATTENTION_QUERY_CHUNK + 64);
+            let (key_start, key_end) = block_key_span(start, end, None);
+            assert_eq!((key_start, key_end), (0, end));
+        }
+    }
+
+    #[test]
+    fn block_masks_match_the_dense_predicate_and_keep_a_diagonal() {
+        // A middle block of a sliding layer: query range [256, 512), key
+        // range [192, 512) — causal corner plus windowed head, the general
+        // case. The first and final blocks are covered by the equivalence
+        // test above.
+        let mask = attention_block_mask(256, 256, 192, 320, Some(64), DType::F32, &Device::Cpu)
+            .expect("mask");
+        let rows = mask
+            .squeeze(0)
+            .unwrap()
+            .squeeze(0)
+            .unwrap()
+            .to_vec2::<f32>()
+            .unwrap();
+        assert_eq!(rows.len(), 256);
+        assert_eq!(rows[0].len(), 320);
+        for (qi, row) in rows.iter().enumerate() {
+            let query = 256 + qi;
+            for (ki, &value) in row.iter().enumerate() {
+                let key = 192 + ki;
+                let allowed = key <= query && key + 64 >= query;
+                assert_eq!(value == 0f32, allowed, "query {query} key {key}");
+                assert_eq!(value == f32::NEG_INFINITY, !allowed);
+            }
+            assert!(
+                row.contains(&0f32),
+                "a mask row must always keep at least the query's own position"
+            );
+        }
+    }
+
+    #[test]
+    fn peak_scratch_estimate_is_linear_and_derives_the_context_cap() {
+        let cfg = Gemma4TextConfig::winnow_e4b();
+        let half = cfg.estimated_peak_scratch_bytes(4_096);
+        let full = cfg.estimated_peak_scratch_bytes(8_192);
+        assert_eq!(
+            full,
+            half * 2,
+            "the scratch estimate must stay linear; a quadratic term is a dense-attention regression"
+        );
+        assert!(full > 0 && full < 4 << 30);
+        assert!(cfg.estimated_peak_scratch_bytes(64) < half);
+        assert_eq!(
+            cfg.max_sequence_tokens_for_scratch_budget(u64::MAX),
+            crate::families::gemma4::MAX_SEQUENCE_TOKENS
+        );
+        assert_eq!(cfg.max_sequence_tokens_for_scratch_budget(0), 0);
+        let capped = cfg.max_sequence_tokens_for_scratch_budget(full - 1);
+        assert!(capped < crate::families::gemma4::MAX_SEQUENCE_TOKENS);
+        assert_eq!(
+            cfg.max_sequence_tokens_for_scratch_budget(full),
+            crate::families::gemma4::MAX_SEQUENCE_TOKENS
+        );
+    }
+
+    #[test]
+    fn only_consumed_donors_retain_their_kv() {
+        let cfg = Gemma4TextConfig::winnow_e4b();
+        let retains: Vec<bool> = (0..cfg.num_hidden_layers)
+            .map(|layer| {
+                (layer + 1..cfg.num_hidden_layers)
+                    .any(|consumer| cfg.kv_donor(consumer) == Some(layer))
+            })
+            .collect();
+        // Exactly the two donor layers of the pinned geometry retain K/V;
+        // the other own-projection layers drop theirs at the end of the
+        // forward instead of holding every layer's K/V to the last layer.
+        let donors: Vec<usize> = retains
+            .iter()
+            .enumerate()
+            .filter_map(|(layer, &keeps)| keeps.then_some(layer))
+            .collect();
+        assert_eq!(donors, [22, 23]);
     }
 }

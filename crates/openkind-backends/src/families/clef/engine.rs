@@ -65,7 +65,10 @@ impl ClefEngine {
                 ))
             }
         };
-        let renderer = ClefRenderer::load(&model_root.join(profile.tokenizer_path))?;
+        let renderer = ClefRenderer::load(
+            &model_root.join(profile.tokenizer_path),
+            profile.operational_context_tokens,
+        )?;
         Ok(Self::from_shared(model, renderer, profile, limits))
     }
 
@@ -143,6 +146,7 @@ fn evaluate_with(
     request: &SystemRequest,
     control: &FamilyControl,
 ) -> Result<(usize, HashMap<String, Answer, WireHashState>), FamilyError> {
+    control.check()?;
     // Questions render in sorted-id order: the wire map is unordered, and a
     // deterministic order keeps the joint head's cross-question attention
     // reproducible.

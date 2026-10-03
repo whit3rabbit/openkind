@@ -37,7 +37,7 @@ use serde::Deserialize;
 
 use crate::families::support::{read_json, verify_digest, FamilyControl, FamilyError};
 use crate::qwen35::{
-    apply_rotary, causal_depthwise_conv_silu_with_state, causal_grouped_query_attention,
+    apply_rotary, causal_depthwise_conv_silu_with_state, causal_grouped_query_attention_checked,
     gated_delta_recurrent_with_state, rms_norm_heads, rms_norm_zero_centered, split_query_gate,
     Qwen35Geometry,
 };
@@ -271,7 +271,18 @@ impl GgufModel {
     }
 
     /// Run the full hybrid forward, returning final-norm hidden states.
-    fn forward_hidden(&self, input_ids: &[u32]) -> Result<Vec<f32>, FamilyError> {
+    ///
+    /// The forward is cooperative: `control` is checked before the loop and
+    /// around every layer, and full-attention layers check again between
+    /// query-row chunks of the scalar attention kernel, so a deadline or
+    /// caller disconnect reclaims the execution slot instead of waiting out
+    /// the whole quadratic forward.
+    fn forward_hidden(
+        &self,
+        input_ids: &[u32],
+        control: &FamilyControl,
+    ) -> Result<Vec<f32>, FamilyError> {
+        control.check()?;
         if input_ids.is_empty() {
             return Err(FamilyError::InvalidInput(
                 "clef input must contain at least one token".into(),
@@ -280,6 +291,7 @@ impl GgufModel {
         let token_count = input_ids.len();
         let mut hidden = self.embed(input_ids)?;
         for layer in &self.layers {
+            control.check()?;
             let normalized = rms_norm_zero_centered(
                 &hidden,
                 token_count,
@@ -290,9 +302,13 @@ impl GgufModel {
                 Mixer::Linear(mixer) => {
                     mixer.forward(&normalized, token_count, self.geometry, &self.device)?
                 }
-                Mixer::Full(mixer) => {
-                    mixer.forward(&normalized, token_count, self.geometry, &self.device)?
-                }
+                Mixer::Full(mixer) => mixer.forward(
+                    &normalized,
+                    token_count,
+                    self.geometry,
+                    &self.device,
+                    control,
+                )?,
             };
             let mut mixed = hidden;
             for (hidden_value, attention_value) in mixed.iter_mut().zip(&attention) {
@@ -317,6 +333,7 @@ impl GgufModel {
                 }
             }
             hidden = mixed;
+            control.check()?;
         }
         Ok(rms_norm_zero_centered(
             &hidden,
@@ -603,6 +620,7 @@ impl FullAttention {
         token_count: usize,
         geometry: Qwen35Geometry,
         device: &Device,
+        control: &FamilyControl,
     ) -> Result<Vec<f32>, FamilyError> {
         let flatten = |tensor: Tensor| -> Result<Vec<f32>, FamilyError> {
             let rows = tensor.to_vec2::<f32>()?;
@@ -628,8 +646,15 @@ impl FullAttention {
             geometry,
         );
         apply_rotary(&mut keys, geometry.kv_heads, token_count, 0, geometry);
-        let mut mixed =
-            causal_grouped_query_attention(&queries, &keys, &projected_v, token_count, 0, geometry);
+        let mut mixed = causal_grouped_query_attention_checked(
+            &queries,
+            &keys,
+            &projected_v,
+            token_count,
+            0,
+            geometry,
+            || control.check(),
+        )?;
         for (value, gate) in mixed.iter_mut().zip(gates) {
             *value *= sigmoid(gate);
         }
@@ -650,7 +675,7 @@ impl super::model::ClefExecutionModel for GgufModel {
         control: &FamilyControl,
     ) -> Result<Vec<Vec<f64>>, FamilyError> {
         control.check()?;
-        let hidden = self.forward_hidden(&encoded.input_ids)?;
+        let hidden = self.forward_hidden(&encoded.input_ids, control)?;
         let token_count = encoded.input_ids.len();
         if hidden.len() != token_count * self.hidden_size {
             return Err(FamilyError::InvalidInput(

@@ -45,17 +45,33 @@ impl Gemma4DecisionEngine {
     ///
     /// Artifact verification (digests, pinned GGUF metadata, letter-token
     /// contract) is identical on every backend; only the execution device
-    /// differs. Loads fail closed when a backend is unavailable.
+    /// differs. Loads fail closed when a backend is unavailable. The
+    /// effective accepted context length is derived at load time from the
+    /// configured scratch budget, and the forward enforces that budget per
+    /// question before allocating anything.
     pub fn load_with_execution(
         config: Gemma4EngineConfig,
         execution: FamilyExecution,
     ) -> Result<BoundedFamilyEngine, Gemma4Error> {
+        let budget = super::scratch_budget_bytes()?;
+        let cfg = Gemma4TextConfig::winnow_e4b();
+        let effective_max_tokens = cfg.max_sequence_tokens_for_scratch_budget(budget);
+        if effective_max_tokens < super::MIN_VIABLE_SEQUENCE_TOKENS {
+            return Err(FamilyError::InvalidInput(format!(
+                "scratch budget {budget} bytes caps the effective context at \
+                 {effective_max_tokens} tokens, below the {}-token viability floor; \
+                 raise {} or lower the frozen maximum",
+                super::MIN_VIABLE_SEQUENCE_TOKENS,
+                super::SCRATCH_BUDGET_ENV
+            ))
+            .into());
+        }
         let artifacts = VerifiedArtifacts::verify(&config.model_root)?;
         let gguf_letters =
             super::gguf::gguf_letter_token_ids(&artifacts, super::renderer::LETTER_MAX_OPTIONS)?;
         let renderer = WinnowRenderer::load(
             &artifacts.tokenizer,
-            super::MAX_SEQUENCE_TOKENS,
+            effective_max_tokens,
             Some(&gguf_letters),
         )?;
         let device = match execution {
@@ -77,9 +93,9 @@ impl Gemma4DecisionEngine {
                 .into());
             }
         };
-        let cfg = Gemma4TextConfig::winnow_e4b();
         let checkpoint = load_checkpoint(&artifacts, &cfg, &device)?;
-        let model = Gemma4TextModel::new(&cfg, &checkpoint).map_err(FamilyError::from)?;
+        let mut model = Gemma4TextModel::new(&cfg, &checkpoint).map_err(FamilyError::from)?;
+        model.set_scratch_budget(budget);
         let engine = Self {
             inner: Arc::new(Inner {
                 renderer,
@@ -156,10 +172,15 @@ impl FamilyEvaluator for Gemma4DecisionEngine {
             input_tokens = input_tokens
                 .saturating_add(u64::from(self.inner.renderer.prompt_token_count(&rendered)));
             let prompt_ids = rendered.prompt_ids();
-            let logits = self
-                .inner
-                .model
-                .letter_logits(&prompt_ids, rendered.letter_ids())?;
+            // The renderer already rejects prompts over the budget-derived
+            // effective maximum; this second, estimate-based gate covers the
+            // forward itself (and any non-renderer caller) and fails closed
+            // before embeddings or attention blocks are allocated.
+            let logits = self.inner.model.letter_logits_controlled(
+                &prompt_ids,
+                rendered.letter_ids(),
+                control,
+            )?;
             let probabilities = temperature_softmax(&logits, super::CALIBRATION_TEMPERATURE)?;
             let answer =
                 crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?;

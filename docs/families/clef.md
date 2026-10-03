@@ -61,7 +61,8 @@ state between requests, no semantic-none mass.
 | Noul options | rendered `(true, false)` with the caller's wire criteria; scored, then reversed back to the wire's `[false, true]` |
 | Choice options | sorted lexicographically (wire order preserved) |
 | Score options | positional levels |
-| Sequence bound | 16 384 encoded tokens (reference `max_length`) |
+| Sequence bound | operational encoded-prompt bound per profile: 4 096 tokens on every candle CPU profile (state that does not fit is **rejected**, not truncated — a declared divergence from the reference, which silently truncates at its 16 384 `max_length`); 16 384 tokens on the MLX path |
+| Cancellation | the GGUF forward checks `FamilyControl` between layers and between full-attention row chunks; the BF16 oracle checks between layers through `forward_hidden_with_check` |
 | Calibration | none — softmax at temperature 1.0 |
 | Generation | none |
 | Vision | none exposed (text decision surface only) |
@@ -74,6 +75,25 @@ group and interleaved group-first, the DeltaNet decay as `A = -exp(A_log)`
 instead of the log, and every RMSNorm weight pre-folded as `1 + w`. The
 loader undoes all three; the forward kernels are the parity-verified shared
 Qwen3.5 kernels.
+
+## Serving availability
+
+The candle CPU profiles execute scalar kernels whose full-attention layers
+cost work quadratic in the encoded sequence length, and the daemon registers
+them behind ordinary remote inference calls. Two bounds keep one request
+from monopolizing the family execution slot:
+
+- Every candle profile serves under a 4 096-token operational context
+  (16× below the model window). The renderer rejects state that does not
+  fit instead of truncating it, so a remote caller cannot drive the
+  quadratic term (or the FP32 activation buffers, which shrink by the same
+  factor) at full window.
+- The GGUF forward is cooperative: `FamilyControl` is checked around every
+  layer and between 64-row chunks of each full-attention call, so the
+  queue-inclusive family deadline and caller disconnect reclaim the
+  execution slot mid-forward instead of after it. Regression tests in
+  `crates/openkind-backends/src/families/support.rs` pin both reclaim
+  paths against the real `BoundedFamilyEngine`.
 
 ## JevBench systems covered
 

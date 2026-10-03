@@ -42,6 +42,7 @@ const LOGITS: &str = "logits";
 /// through ONNX Runtime.
 pub struct VonOnnxModel {
     model: OnnxModel,
+    max_sequence_tokens: usize,
 }
 
 impl VonOnnxModel {
@@ -51,7 +52,11 @@ impl VonOnnxModel {
     /// # Errors
     /// Fails closed on a missing artifact, an unloadable runtime library, an
     /// unavailable CUDA execution provider, or a signature mismatch.
-    pub fn load(model_root: &Path, acceleration: OnnxAcceleration) -> Result<Self, FamilyError> {
+    pub fn load(
+        model_root: &Path,
+        acceleration: OnnxAcceleration,
+        max_sequence_tokens: usize,
+    ) -> Result<Self, FamilyError> {
         let model = OnnxModel::load(
             &model_root.join(MODEL_FILE),
             &OnnxRuntimeSettings::system(),
@@ -63,7 +68,10 @@ impl VonOnnxModel {
             ],
             &[OnnxTensorSpec::f32(LOGITS, &[1, -1])],
         )?;
-        Ok(Self { model })
+        Ok(Self {
+            model,
+            max_sequence_tokens,
+        })
     }
 
     /// Forward one packed sequence and return one logit per option marker
@@ -87,6 +95,13 @@ impl VonOnnxModel {
             return Err(FamilyError::InvalidInput(
                 "packed sequence carries no option markers".to_owned(),
             ));
+        }
+        if token_ids.len() > self.max_sequence_tokens {
+            return Err(FamilyError::InvalidInput(format!(
+                "token sequence length {} exceeds maximum sequence window {}",
+                token_ids.len(),
+                self.max_sequence_tokens
+            )));
         }
         let length = token_ids.len();
         let input_ids: Vec<i64> = token_ids.iter().map(|&id| i64::from(id)).collect();

@@ -70,7 +70,36 @@ measurement host:
 
 Every question is an independent full-sequence forward; no KV state is
 retained across questions (numerically the reference's cold-prefix path).
-Peak RSS in bring-up was 8.5 GB with the pinned Q8_0 checkpoint.
+
+Attention is banded, never dense: queries attend in fixed 256-token blocks
+over only the keys the mask would admit — the causal prefix on the seven
+full-attention layers, a `window + block` (512 + 256) key band on sliding
+layers — with a compact block-local mask applied before the softmax. No
+`heads x seq x seq` score tensor and no `seq x seq` mask is ever
+materialized, so attention scratch grows linearly with prompt length: at
+the frozen 8,192-token maximum the largest single score tensor is 64 MiB
+(the final full-attention block), where a dense implementation would
+allocate a 2 GiB score plus two 256 MiB masks per layer. Offline tests
+assert the banded path matches the dense masked reference.
+
+Admission is cost-aware, not only count-based. Loading derives the
+effective accepted context length by capping the frozen 8,192-token
+maximum at the largest sequence whose conservative linear scratch estimate
+(banded attention blocks, expanded K/V, FFN intermediates, per-layer
+inputs, retained donor K/V) fits the scratch budget — 4 GiB by default,
+`OPENKIND_GEMMA4_SCRATCH_BUDGET_MB` to override. The forward re-checks
+that estimate per question and fails closed before allocating anything,
+and only the two donor layers (22 sliding, 23 full) retain their K/V for
+the KV-shared tail instead of every layer's K/V.
+
+Long forwards are cooperatively cancellable: the pass re-checks the
+request control before the first layer, between every decoder layer, and
+before the LM head, so a disconnect or an expired queue-inclusive deadline
+releases the execution permit within one layer of the 42-layer pass
+instead of only between questions.
+
+Peak RSS in bring-up was 8.5 GB with the pinned Q8_0 checkpoint (short
+prompts, dense attention).
 
 ## Readout
 
@@ -112,8 +141,10 @@ The daemon serves flag-configured aliases with
 `--winnow-e4b-model-root`/`--winnow-e4b-aliases`.
 
 Offline tests cover the profile identity, pinned GGUF metadata contract,
-letter-label discovery order, tensor-name mapping, KV-donor rule, and
-mask windowing. The operator-gated smoke test
+letter-label discovery order, tensor-name mapping, KV-donor rule, banded
+attention block masks and their equivalence to the dense masked reference,
+the linear scratch estimate with its budget-derived context cap, and the
+scratch budget override parsing. The operator-gated smoke test
 (`OPENKIND_GEMMA4_MODEL_ROOT=<dir> cargo test -p openkind-backends --lib --
 --ignored --nocapture gemma4::tests::pinned_checkpoint_smoke`) loads the
 real checkpoint and asserts the argmax of four obvious ground-truth

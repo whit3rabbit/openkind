@@ -118,6 +118,8 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
     Structured state object keys serialize in byte-lexicographic order at every nesting level. Construction order must not change model input. This is `state_first` semantics, not a renderer change.
 15. **Explicit Family Profiles**:
     Shared family loaders need the selected profile in both CPU and MLX configs. Keep artifact digests, renderer, calibration, limits, and backend identity bound to that profile. JevK5 and Plumb share a backbone but have separate contracts.
+16. **Gemma 4 Attention Stays Banded**:
+    gemma4 attention must never materialize dense `seq x seq` score or mask tensors. Sliding layers attend a `window + block` key band and full-attention layers the causal prefix, per `ATTENTION_QUERY_CHUNK` query block; the scratch estimate must stay linear and caps the effective context length through the load-time scratch budget (`OPENKIND_GEMMA4_SCRATCH_BUDGET_MB`). Forwards re-check `FamilyControl` between layers, and only KV donors a later layer actually consumes retain their K/V.
 
 ## Verification Commands
 

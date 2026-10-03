@@ -23,6 +23,7 @@ pub struct VonModel {
     body: ModernBertModel,
     scorer: VonScorer,
     device: Device,
+    pub(crate) max_sequence_tokens: usize,
 }
 
 /// Digest-verified, contract-checked artifacts required by the loader.
@@ -186,6 +187,7 @@ impl VonModel {
             body,
             scorer,
             device,
+            max_sequence_tokens: profile.max_sequence_tokens,
         })
     }
 
@@ -205,6 +207,13 @@ impl VonModel {
             return Err(FamilyError::InvalidInput(
                 "packed sequence carries no option markers".to_owned(),
             ));
+        }
+        if token_ids.len() > self.max_sequence_tokens {
+            return Err(FamilyError::InvalidInput(format!(
+                "token sequence length {} exceeds maximum sequence window {}",
+                token_ids.len(),
+                self.max_sequence_tokens
+            )));
         }
         let hidden = self.body.forward(token_ids, &self.device)?;
         let seq_len = hidden.dim(0)?;
@@ -233,5 +242,48 @@ impl VonModel {
             });
         }
         Ok(logits)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::families::modernbert::ModernBertConfig;
+    use candle_nn::VarBuilder;
+
+    #[test]
+    fn option_logits_rejects_sequence_exceeding_max_sequence_tokens() {
+        let cfg = ModernBertConfig {
+            vocab_size: 100,
+            hidden_size: 16,
+            num_attention_heads: 2,
+            num_hidden_layers: 1,
+            intermediate_size: 32,
+            local_attention: 16,
+            global_attn_every_n_layers: 1,
+            global_rope_theta: 10_000.0,
+            local_rope_theta: 10_000.0,
+            norm_eps: 1e-5,
+            max_sequence_tokens: 10,
+        };
+        let vb = VarBuilder::zeros(DType::F32, &Device::Cpu);
+        let body = ModernBertModel::load(&cfg, vb.pp("encoder")).expect("load dummy body");
+        let scorer = VonScorer::load(&VonScorerConfig { hidden_size: 16 }, vb.pp("scorer"))
+            .expect("load dummy scorer");
+        let model = VonModel {
+            body,
+            scorer,
+            device: Device::Cpu,
+            max_sequence_tokens: 10,
+        };
+        let token_ids = vec![1u32; 11];
+        let markers = vec![0usize];
+        let error = model
+            .option_logits(&token_ids, &markers)
+            .expect_err("must reject sequence > 10");
+        assert!(
+            matches!(&error, FamilyError::InvalidInput(msg) if msg.contains("exceeds maximum sequence window 10")),
+            "unexpected error: {error}"
+        );
     }
 }

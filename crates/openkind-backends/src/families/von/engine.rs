@@ -263,12 +263,14 @@ impl VonEngine {
                 Box::new(super::onnx::VonOnnxModel::load(
                     &config.model_root,
                     acceleration,
+                    profile.max_sequence_tokens,
                 )?)
             }
             #[cfg(feature = "onnx-rocm")]
             FamilyExecution::OnnxRocm { device_id } => Box::new(super::onnx::VonOnnxModel::load(
                 &config.model_root,
                 crate::onnx::OnnxAcceleration::Rocm { device_id },
+                profile.max_sequence_tokens,
             )?),
         };
         let engine = Self {
@@ -369,6 +371,13 @@ impl FamilyEvaluator for VonEngine {
                     inputs.options.len()
                 )));
             }
+            if rendered.ids.len() > profile.max_sequence_tokens {
+                return Err(FamilyError::InvalidInput(format!(
+                    "question `{id}` rendered {} tokens, exceeding maximum sequence window {}",
+                    rendered.ids.len(),
+                    profile.max_sequence_tokens
+                )));
+            }
             input_tokens = input_tokens.saturating_add(rendered.ids.len() as u64);
             let mut logits = self
                 .inner
@@ -382,6 +391,20 @@ impl FamilyEvaluator for VonEngine {
             if is_noul && !inputs.has_explicit_criteria {
                 let null_packed = self.inner.renderer.pack("", &instructions, &inputs.options);
                 let null_rendered = self.inner.renderer.encode_packed(&null_packed)?;
+                if null_rendered.ids.len() > profile.max_sequence_tokens {
+                    return Err(FamilyError::InvalidInput(format!(
+                        "question `{id}` debias sequence rendered {} tokens, exceeding maximum sequence window {}",
+                        null_rendered.ids.len(),
+                        profile.max_sequence_tokens
+                    )));
+                }
+                if null_rendered.markers.len() != inputs.options.len() {
+                    return Err(FamilyError::InvalidInput(format!(
+                        "question `{id}` packed {} option markers for {} debias options; packing is corrupt",
+                        null_rendered.markers.len(),
+                        inputs.options.len()
+                    )));
+                }
                 input_tokens = input_tokens.saturating_add(null_rendered.ids.len() as u64);
                 let null_logits = self
                     .inner

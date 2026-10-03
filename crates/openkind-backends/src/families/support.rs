@@ -695,6 +695,96 @@ mod tests {
         assert!(recovered.is_ok(), "engine recovers after the slot frees");
     }
 
+    /// Evaluator that performs open-ended work but honors
+    /// [`FamilyControl`] while doing so, like a cooperative native forward.
+    struct CooperativeWorker;
+
+    impl FamilyEvaluator for CooperativeWorker {
+        fn backend_id(&self) -> &str {
+            "cooperative-family"
+        }
+        fn model_metadata(&self) -> ModelInfo {
+            ModelInfo {
+                name: String::new(),
+                description: "cooperative".into(),
+                release_date: "1970-01-01".into(),
+            }
+        }
+        fn evaluate(
+            &self,
+            _request: SystemRequest,
+            control: &FamilyControl,
+        ) -> Result<SystemResponse, FamilyError> {
+            loop {
+                control.check()?;
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn cooperative_deadline_failure_reclaims_execution_capacity() {
+        let engine = BoundedFamilyEngine::new(
+            Arc::new(CooperativeWorker),
+            FamilyLimits {
+                max_concurrent_requests: 1,
+                max_queued_requests: 0,
+                retry_after_ms: 10,
+                evaluation_timeout: Some(Duration::from_millis(50)),
+            },
+        );
+        let result = tokio::time::timeout(Duration::from_secs(30), engine.evaluate(request()))
+            .await
+            .expect("a cooperative evaluator must return once its deadline elapses");
+        let error = match result {
+            Ok(_) => panic!("the elapsed deadline must fail the evaluation"),
+            Err(error) => error,
+        };
+        assert!(
+            matches!(error, EngineError::DeadlineExceeded { timeout_ms: 50, .. }),
+            "unexpected error: {error}"
+        );
+        // The blocking task exited through the cooperative check, so both
+        // the execution and admission permits are back.
+        assert_eq!(engine.execution_slots.available_permits(), 1);
+        assert_eq!(engine.admission_slots.available_permits(), 1);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn caller_disconnect_reclaims_capacity_from_a_cooperative_evaluator() {
+        let engine = Arc::new(BoundedFamilyEngine::new(
+            Arc::new(CooperativeWorker),
+            FamilyLimits {
+                max_concurrent_requests: 1,
+                max_queued_requests: 0,
+                retry_after_ms: 10,
+                evaluation_timeout: Some(Duration::from_secs(600)),
+            },
+        ));
+        let busy_engine = Arc::clone(&engine);
+        let busy = tokio::spawn(async move { busy_engine.evaluate(request()).await });
+        tokio::time::sleep(Duration::from_millis(200)).await;
+        assert_eq!(
+            engine.execution_slots.available_permits(),
+            0,
+            "the running evaluation holds the only execution slot"
+        );
+
+        // A dropped caller only sets the cancellation flag; the cooperative
+        // evaluator must observe it and release the slot promptly.
+        busy.abort();
+        let deadline = Instant::now() + Duration::from_secs(30);
+        while Instant::now() < deadline && engine.execution_slots.available_permits() < 1 {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert_eq!(
+            engine.execution_slots.available_permits(),
+            1,
+            "caller disconnect must reclaim the execution slot via cooperative cancellation"
+        );
+        assert_eq!(engine.admission_slots.available_permits(), 1);
+    }
+
     #[test]
     fn temperature_softmax_normalizes_and_respects_order() {
         let probabilities = temperature_softmax(&[1.0, 2.0, 3.0], 1.0).expect("softmax");

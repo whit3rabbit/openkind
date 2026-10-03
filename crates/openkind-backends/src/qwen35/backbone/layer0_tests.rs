@@ -82,6 +82,65 @@ fn cached_causal_attention_matches_one_pass_execution() {
 }
 
 #[test]
+fn checked_causal_attention_matches_the_unchecked_kernel() {
+    let rows = 200;
+    let queries = vec![0.125_f32; rows * ATTENTION_SIZE];
+    let keys = vec![0.25_f32; rows * KV_SIZE];
+    let values: Vec<_> = (0..rows * KV_SIZE)
+        .map(|index| index as f32 / 10_000.0)
+        .collect();
+    let mut checks = 0;
+    let checked = causal_grouped_query_attention_checked(
+        &queries,
+        &keys,
+        &values,
+        rows,
+        0,
+        PINNED,
+        || -> Result<(), ()> {
+            checks += 1;
+            Ok(())
+        },
+    )
+    .expect("open control must not fail");
+    let unchecked = causal_grouped_query_attention(&queries, &keys, &values, rows, 0, PINNED);
+    assert_eq!(checked, unchecked);
+    // One check before the loop plus one per 64-row chunk (including row 0).
+    assert_eq!(checks, 1 + rows.div_ceil(64));
+}
+
+#[test]
+fn checked_causal_attention_stops_between_row_chunks() {
+    let rows = 200;
+    let queries = vec![0.125_f32; rows * ATTENTION_SIZE];
+    let keys = vec![0.25_f32; rows * KV_SIZE];
+    let values: Vec<_> = (0..rows * KV_SIZE)
+        .map(|index| index as f32 / 10_000.0)
+        .collect();
+    let mut checks = 0;
+    let result = causal_grouped_query_attention_checked(
+        &queries,
+        &keys,
+        &values,
+        rows,
+        0,
+        PINNED,
+        || -> Result<(), ()> {
+            checks += 1;
+            if checks > 2 {
+                Err(())
+            } else {
+                Ok(())
+            }
+        },
+    );
+    // The failure surfaces at the third control check — deep inside the
+    // loop, long before the 200-row kernel finishes.
+    assert!(result.is_err());
+    assert_eq!(checks, 3);
+}
+
+#[test]
 fn cached_delta_recurrence_matches_one_pass_execution() {
     let rows = 3;
     let qkv = vec![0.01_f32; rows * QKV_SIZE];
