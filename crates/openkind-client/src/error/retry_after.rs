@@ -15,7 +15,7 @@ pub(crate) const RETRY_AFTER_MS_HEADER: &str = "retry-after-ms";
 ///    such as `Sun, 06 Nov 1994 08:49:37 GMT`.
 ///
 /// Returns `None` when neither header is present, or their values are
-/// negative, non-finite, or unparseable.
+/// negative, non-finite, unrepresentable in milliseconds, or unparseable.
 pub fn parse_retry_after(headers: &HeaderMap) -> Option<Duration> {
     parse_retry_after_with(|name| {
         headers
@@ -55,12 +55,19 @@ fn finite_millis(raw: &str, multiplier: f64) -> Option<Duration> {
     if raw.is_empty() {
         return None;
     }
+    // Keep exact integer boundaries, which f64 cannot represent near u64::MAX.
+    if let Ok(value) = raw.parse::<u64>() {
+        let millis = value.checked_mul(multiplier as u64)?;
+        return Some(Duration::from_millis(millis));
+    }
     let value: f64 = raw.parse().ok()?;
     if !value.is_finite() || value < 0.0 {
         return None;
     }
     let millis = value * multiplier;
-    if !millis.is_finite() {
+    // Reject an unrepresentable delay instead of saturating the float cast
+    // into a practically infinite sleep when the total timeout is disabled.
+    if !millis.is_finite() || millis >= u64::MAX as f64 {
         return None;
     }
     Some(Duration::from_millis(millis as u64))

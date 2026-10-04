@@ -38,6 +38,8 @@
 
 ## Critical Gotchas & Pitfalls
 
+- `ClientBuilder::allow_unauthenticated()` permits a missing API key for keyless daemons and omits Authorization. Supplied or environment keys still validate and retain normal precedence. Default construction still requires a key.
+
 1. **Rust Orphan Rule & `IntoState`**:
    Because both `&str` and `openkind_core::State` are foreign types, standard `From`/`Into` cannot be implemented in `openkind-client`. Always use the [`IntoState`](src/client/options.rs) trait for ergonomic conversion.
 2. **Protected Header Precedence**:
@@ -46,6 +48,10 @@
    Unknown answer `"type"` tags fail decoding with an error (intentional strict divergence from Python SDK's silent drop). Known tags must still match the originating question type, and Choice options must match the caller's criteria.
 4. **Timing-Sensitive Tests**:
    Integration tests must use millisecond-scale delays and generous wall-clock bounds; never assert exact sleep durations.
+5. **Retry Delay Bounds & Representation**:
+   `parse_retry_after` preserves exact 64-bit integer millisecond values up to `u64::MAX`. Unrepresentable or overflowing values are ignored rather than saturated to infinite sleeps, falling back to valid secondary headers.
+6. **Bounded Error Display**:
+   `ApiError`'s `Display` formatting truncates overly long upstream error messages to 200 characters with an ellipsis (`…`) while preserving the full unmodified message in the struct's `message` field.
 
 ## Testing Mandate & Parity Mapping
 

@@ -2,7 +2,7 @@
 
 use std::time::Duration;
 
-use super::builder::{clean_env_value, resolve_api_key, resolve_lookup};
+use super::builder::{clean_env_value, resolve_api_key, resolve_lookup, resolve_optional_api_key};
 use super::core::Client;
 use super::transport::is_user_overridable;
 use crate::error::Error;
@@ -99,6 +99,28 @@ fn client_debug_does_not_leak_api_key() {
     let client = Client::new("super-secret-key").unwrap();
     let rendered = format!("{client:?}");
     assert!(!rendered.contains("super-secret-key"), "{rendered}");
+}
+
+#[test]
+fn unauthenticated_mode_only_allows_a_missing_key() {
+    assert_eq!(resolve_optional_api_key(None, |_| None).unwrap(), None);
+    assert!(resolve_api_key(None, |_| None).is_err());
+    assert_eq!(
+        resolve_optional_api_key(None, |_| Some("env-key".into())).unwrap(),
+        Some("env-key".into())
+    );
+    assert_eq!(
+        resolve_optional_api_key(Some("explicit".into()), |_| Some("env-key".into())).unwrap(),
+        Some("explicit".into())
+    );
+    for key in ["", "   ", "invalid key", "invalid\nkey", "sécret"] {
+        assert!(resolve_optional_api_key(Some(key.into()), |_| Some("valid".into())).is_err());
+        assert!(Client::builder()
+            .allow_unauthenticated()
+            .api_key(key)
+            .build()
+            .is_err());
+    }
 }
 
 #[test]

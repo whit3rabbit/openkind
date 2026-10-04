@@ -18,7 +18,8 @@ use crate::retry::RetryPolicy;
 /// Settings resolve in priority order: explicit builder value →
 /// `OPENKIND_*` environment variable → `TYPESAFE_*` environment variable
 /// (for drop-in parity with the Python SDK) → SDK default. The API key is
-/// required; everything else has a default. Cloudflare mode selects its own
+/// required unless [`allow_unauthenticated`](Self::allow_unauthenticated) is
+/// selected; everything else has a default. Cloudflare mode selects its own
 /// account URL and `typesafe/jev` model unless overridden explicitly.
 ///
 /// # Examples
@@ -40,6 +41,7 @@ use crate::retry::RetryPolicy;
 #[derive(Clone, Default)]
 pub struct ClientBuilder {
     api_key: Option<String>,
+    allow_unauthenticated: bool,
     base_url: Option<String>,
     cloudflare_account: Option<String>,
     default_model: Option<String>,
@@ -60,6 +62,13 @@ impl ClientBuilder {
     /// `TYPESAFE_API_KEY`, when unset.
     pub fn api_key(mut self, api_key: impl Into<String>) -> Self {
         self.api_key = Some(api_key.into());
+        self
+    }
+
+    /// Allow a missing API key when connecting to an unauthenticated daemon.
+    /// Supplied and environment keys still resolve and validate normally.
+    pub fn allow_unauthenticated(mut self) -> Self {
+        self.allow_unauthenticated = true;
         self
     }
 
@@ -122,7 +131,11 @@ impl ClientBuilder {
 
     /// Validate settings and construct the [`Client`].
     pub fn build(self) -> Result<Client, Error> {
-        let api_key = resolve_api_key(self.api_key, non_empty_env).map_err(Error::Config)?;
+        let api_key = if self.allow_unauthenticated {
+            resolve_optional_api_key(self.api_key, non_empty_env).map_err(Error::Config)?
+        } else {
+            Some(resolve_api_key(self.api_key, non_empty_env).map_err(Error::Config)?)
+        };
 
         let cloudflare_account = self.cloudflare_account;
         if let Some(id) = &cloudflare_account {
@@ -203,11 +216,14 @@ impl ClientBuilder {
             }
         }
         let sdk_version = env!("CARGO_PKG_VERSION");
-        base_headers.insert(
-            AUTHORIZATION,
-            HeaderValue::from_str(&format!("Bearer {api_key}"))
-                .map_err(|_| Error::Config("api_key contains invalid header characters".into()))?,
-        );
+        if let Some(api_key) = api_key {
+            base_headers.insert(
+                AUTHORIZATION,
+                HeaderValue::from_str(&format!("Bearer {api_key}")).map_err(|_| {
+                    Error::Config("api_key contains invalid header characters".into())
+                })?,
+            );
+        }
         base_headers.insert(ACCEPT, HeaderValue::from_static("application/json"));
         base_headers.insert(
             USER_AGENT_HEADER,
@@ -297,6 +313,18 @@ pub(crate) fn resolve_api_key(
     explicit: Option<String>,
     lookup: impl Fn(&str) -> Option<String>,
 ) -> Result<String, String> {
+    resolve_optional_api_key(explicit, lookup)?.ok_or_else(|| {
+        "no API key provided; pass ClientBuilder::api_key or set \
+         OPENKIND_API_KEY (or TYPESAFE_API_KEY)"
+            .into()
+    })
+}
+
+pub(crate) fn resolve_optional_api_key(
+    explicit: Option<String>,
+    lookup: impl Fn(&str) -> Option<String>,
+) -> Result<Option<String>, String> {
+    let explicitly_supplied = explicit.is_some();
     let resolved = match explicit {
         Some(value) => Some(value.trim().to_owned()),
         None => lookup("OPENKIND_API_KEY")
@@ -305,13 +333,12 @@ pub(crate) fn resolve_api_key(
     }
     .filter(|key| !key.is_empty());
     match resolved {
-        Some(key) if key.chars().all(|c| matches!(c, '!'..='~')) => Ok(key),
+        Some(key) if key.chars().all(|c| matches!(c, '!'..='~')) => Ok(Some(key)),
         Some(_) => {
             Err("API key must contain only printable ASCII characters without whitespace".into())
         }
-        None => Err("no API key provided; pass ClientBuilder::api_key or set \
-             OPENKIND_API_KEY (or TYPESAFE_API_KEY)"
-            .into()),
+        None if explicitly_supplied => Err("API key must be nonempty".into()),
+        None => Ok(None),
     }
 }
 

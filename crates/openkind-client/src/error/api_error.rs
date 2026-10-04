@@ -92,7 +92,17 @@ impl std::fmt::Display for ApiError {
             write!(f, " {code}")?;
         }
         if let Some(message) = &self.message {
-            write!(f, ": {message}")?;
+            write!(f, ": ")?;
+            for ch in message.chars().take(super::envelope::MAX_ERROR_BODY_LENGTH) {
+                write!(f, "{ch}")?;
+            }
+            if message
+                .chars()
+                .nth(super::envelope::MAX_ERROR_BODY_LENGTH)
+                .is_some()
+            {
+                write!(f, "…")?;
+            }
         }
         if let Some(endpoint) = &self.endpoint {
             write!(f, " ({endpoint})")?;

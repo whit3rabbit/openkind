@@ -268,3 +268,48 @@ fn retry_after_ms_falls_through_to_retry_after_when_unparseable() {
         Some(Duration::from_secs(3))
     );
 }
+
+#[test]
+fn overflowing_retry_delays_are_ignored_and_allow_header_fallback() {
+    for header in ["retry-after", "retry-after-ms"] {
+        for value in ["1e300", "18446744073709551616"] {
+            assert_eq!(parse_retry_after(&headers(&[(header, value)])), None);
+        }
+    }
+    assert_eq!(
+        parse_retry_after(&headers(&[
+            ("retry-after-ms", "1e300"),
+            ("retry-after", "1.5")
+        ])),
+        Some(Duration::from_millis(1500))
+    );
+}
+
+#[test]
+fn displayed_json_error_message_is_bounded_without_changing_inspection() {
+    let message = "é".repeat(1000);
+    let body = serde_json::to_vec(&serde_json::json!({"error":{"message":message}})).unwrap();
+    let error = ApiError::from_response(500, None, None, &body, "e".into());
+    assert_eq!(error.message.as_deref(), Some(message.as_str()));
+    assert!(error.to_string().contains(&format!("{}…", "é".repeat(200))));
+    assert!(error.to_string().chars().count() < 240);
+}
+
+#[test]
+fn retry_delay_preserves_representable_integer_boundaries() {
+    let mut headers = reqwest::header::HeaderMap::new();
+    headers.insert("retry-after-ms", u64::MAX.to_string().parse().unwrap());
+    assert_eq!(
+        super::retry_after::parse_retry_after(&headers),
+        Some(std::time::Duration::from_millis(u64::MAX))
+    );
+    headers.remove("retry-after-ms");
+    let seconds = u64::MAX / 1000;
+    headers.insert("retry-after", seconds.to_string().parse().unwrap());
+    assert_eq!(
+        super::retry_after::parse_retry_after(&headers),
+        Some(std::time::Duration::from_millis(seconds * 1000))
+    );
+    headers.insert("retry-after", (seconds + 1).to_string().parse().unwrap());
+    assert_eq!(super::retry_after::parse_retry_after(&headers), None);
+}

@@ -47,9 +47,13 @@ async fn main() -> Result<(), openkind_client::Error> {
 
 For full control, build an `openkind_client::SystemRequest` and call `client.evaluate(request)`.
 
+For JSONL files or stdin pipes with durable stop, status, resume, and export,
+use [`openkind batch`](../openkind-cli/README.md#batch). The CLI owns the local
+job journal and uses this client's transport and retry policy.
+
 ### Local API keys
 
-The daemon's authentication is optional. The Rust client requires a key to
+The daemon's authentication is optional. The Rust client requires a key by default to
 match the TypeSafe SDK configuration contract. For an authenticated local
 server, generate a key once and share it through the environment:
 
@@ -60,8 +64,17 @@ openkindd --http-addr 127.0.0.1:18080 --grpc-addr 0 --models mock
 
 In an application with the same environment, omit `.api_key(...)` so the
 builder reads `OPENKIND_API_KEY`. An explicit builder key must match the
-daemon's configured key. When the daemon has auth disabled, a nonempty client
-placeholder is accepted. Keys are not stored by the CLI or client. See the
+daemon's configured key. For a keyless daemon, explicitly allow a missing key:
+
+```rust
+let client = openkind_client::Client::builder()
+    .allow_unauthenticated()
+    .base_url("http://127.0.0.1:18080")
+    .build()?;
+```
+
+Supplied or environment keys still resolve and validate normally; the option
+only permits a missing key. Keys are not stored by the CLI or client. See the
 [CLI key guide](../openkind-cli/README.md#keygen) for generation and PowerShell.
 
 ## Provider setup
