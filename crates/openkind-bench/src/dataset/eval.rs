@@ -8,8 +8,9 @@
 //! the workload/prediction digests that bind the numbers to exact bytes.
 
 use std::collections::BTreeMap;
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::fs::{self, File};
+use std::io::Write;
+use std::path::PathBuf;
 
 use anyhow::{bail, ensure, Context, Result};
 use openkind_datasets::DatasetStore;
@@ -63,21 +64,18 @@ pub fn run_eval(args: &EvalArgs) -> Result<Value> {
         args.name
     );
 
-    let tuned = if args.tune_threshold && primitive == "noul" && args.split == "eval" {
-        Some(tune_threshold_on_dev(&store, args)?)
-    } else {
-        None
-    };
-
     let rows = materialize(&installed, &args.split, args.limit)?;
     if rows.rows.is_empty() {
         bail!("dataset {} produced no {} rows", args.name, args.split);
     }
-    fs::create_dir_all(&args.output_dir)?;
-    let workload_path = args
-        .output_dir
-        .join(format!("workload-{}-{}.jsonl", args.name, args.split));
-    write_workload(&workload_path, &rows.rows)?;
+    let workload_name = format!("workload-{}-{}.jsonl", args.name, args.split);
+    let report_name = format!("dataset-eval-{}-{}.json", args.name, args.split);
+    let [workload_file, mut report_file] = crate::quality::evidence::reserve_outputs(
+        &args.output_dir,
+        [&workload_name, &report_name],
+    )?;
+    let workload_path = args.output_dir.join(&workload_name);
+    write_workload(workload_file, &rows.rows)?;
 
     let score_args = ScoreArgs {
         input: workload_path.clone(),
@@ -97,7 +95,13 @@ pub fn run_eval(args: &EvalArgs) -> Result<Value> {
         model_root: args.model_root.clone(),
         adapter: args.adapter.clone(),
     };
-    let outcome = run_score(&score_args)?;
+    let outputs = crate::score::reserve_score_outputs(&score_args)?;
+    let tuned = if args.tune_threshold && primitive == "noul" && args.split == "eval" {
+        Some(tune_threshold_on_dev(&store, args)?)
+    } else {
+        None
+    };
+    let outcome = crate::score::run_score_reserved(&score_args, Some(outputs))?;
     let summary = outcome.summary;
     let engine_slug = summary_engine_slug(&summary)?.to_owned();
     let strategy = summary["strategies"][0]["strategy"]
@@ -127,19 +131,16 @@ pub fn run_eval(args: &EvalArgs) -> Result<Value> {
             "duplicate prediction {id}"
         );
     }
-    ensure!(
-        by_id.len() == rows.rows.len(),
-        "prediction coverage mismatch: {} predictions for {} workload rows",
-        by_id.len(),
-        rows.rows.len()
-    );
+    validate_prediction_ids(&rows.rows, &by_id)?;
 
     let metrics = match primitive.as_str() {
         "choice" => {
             let mut scored = Vec::new();
             let mut groups = Vec::new();
             for row in &rows.rows {
-                let answer = &by_id[&row.row.id]["answer"];
+                let answer = &by_id
+                    .get(&row.row.id)
+                    .context("prediction coverage changed")?["answer"];
                 let probabilities = parse_distribution(answer)?;
                 scored.push(ChoiceRow {
                     probabilities,
@@ -152,7 +153,9 @@ pub fn run_eval(args: &EvalArgs) -> Result<Value> {
         "noul" => {
             let mut scored = Vec::new();
             for row in &rows.rows {
-                let answer = &by_id[&row.row.id]["answer"];
+                let answer = &by_id
+                    .get(&row.row.id)
+                    .context("prediction coverage changed")?["answer"];
                 let probability = answer["noul"]
                     .as_f64()
                     .with_context(|| format!("row {}: noul answer", row.row.id))?;
@@ -192,31 +195,17 @@ pub fn run_eval(args: &EvalArgs) -> Result<Value> {
         "score" => {
             let mut scored = Vec::new();
             for row in &rows.rows {
-                let answer = &by_id[&row.row.id]["answer"];
+                let answer = &by_id
+                    .get(&row.row.id)
+                    .context("prediction coverage changed")?["answer"];
                 let levels = level_count(&row.row);
-                let probabilities = answer["probabilities"]
-                    .as_object()
-                    .with_context(|| format!("row {}: score probabilities", row.row.id))?;
-                ensure!(
-                    probabilities.len() == levels,
-                    "row {}: expected {levels} level probabilities",
-                    row.row.id
-                );
-                let mut expected = 0.0;
-                let mut total = 0.0;
-                let mut level_probabilities = vec![0.0; levels];
-                for (index, probability) in probabilities {
-                    let index: usize = index.parse().context("level index")?;
-                    let probability = probability.as_f64().context("level probability")?;
-                    expected += index as f64 * probability;
-                    total += probability;
-                    level_probabilities[index] = probability;
-                }
-                ensure!(
-                    (total - 1.0).abs() < 1e-6,
-                    "row {}: probabilities do not sum to one",
-                    row.row.id
-                );
+                let level_probabilities = score_distribution(answer, levels, &row.row.id)?;
+                let expected: f64 = level_probabilities
+                    .iter()
+                    .enumerate()
+                    .map(|(index, probability)| index as f64 * probability)
+                    .sum();
+                let total: f64 = level_probabilities.iter().sum();
                 let gold: f64 = row.gold.parse().context("gold level")?;
                 let nearest = gold.round().clamp(0.0, levels as f64 - 1.0) as usize;
                 scored.push(ScoreRow {
@@ -276,15 +265,13 @@ pub fn run_eval(args: &EvalArgs) -> Result<Value> {
         },
         "evidence_class": "model-quality (public-dataset); no model or policy promotion",
     });
-    let report_path = args
-        .output_dir
-        .join(format!("dataset-eval-{}-{}.json", args.name, args.split));
     let bytes = if args.pretty {
         serde_json::to_vec_pretty(&report)?
     } else {
         serde_json::to_vec(&report)?
     };
-    fs::write(&report_path, bytes)?;
+    report_file.write_all(&bytes)?;
+    report_file.sync_all()?;
     Ok(report)
 }
 
@@ -298,6 +285,57 @@ fn strategy_selection(engine: EngineKind) -> Result<Vec<StrategySpec>> {
     } else {
         Ok(Vec::new())
     }
+}
+
+fn validate_prediction_ids(
+    rows: &[DatasetRow],
+    predictions: &BTreeMap<String, Map<String, Value>>,
+) -> Result<()> {
+    let expected: std::collections::BTreeSet<_> =
+        rows.iter().map(|row| row.row.id.as_str()).collect();
+    let actual: std::collections::BTreeSet<_> = predictions.keys().map(String::as_str).collect();
+    ensure!(expected.len() == rows.len(), "duplicate workload IDs");
+    ensure!(
+        expected == actual,
+        "prediction coverage mismatch: missing {:?}, unexpected {:?}",
+        expected.difference(&actual).collect::<Vec<_>>(),
+        actual.difference(&expected).collect::<Vec<_>>()
+    );
+    Ok(())
+}
+
+fn score_distribution(answer: &Value, levels: usize, id: &str) -> Result<Vec<f64>> {
+    let probabilities = answer["probabilities"]
+        .as_object()
+        .with_context(|| format!("row {id}: score probabilities"))?;
+    ensure!(
+        levels >= 2 && probabilities.len() == levels,
+        "row {id}: expected {levels} level probabilities"
+    );
+    let mut distribution = vec![0.0; levels];
+    for (key, probability) in probabilities {
+        let index: usize = key
+            .parse()
+            .with_context(|| format!("row {id}: level index {key}"))?;
+        ensure!(
+            index < levels && index.to_string() == *key,
+            "row {id}: invalid level index {key}"
+        );
+        let probability = probability
+            .as_f64()
+            .with_context(|| format!("row {id}: level probability {key}"))?;
+        ensure!(
+            probability.is_finite() && (0.0..=1.0).contains(&probability),
+            "row {id}: level probability {key} out of range"
+        );
+        distribution[index] = probability;
+    }
+    let total: f64 = distribution.iter().sum();
+    ensure!(
+        (total - 1.0).abs() < 1e-6,
+        "row {id}: probabilities do not sum to one"
+    );
+    Ok(distribution)
 }
 
 fn level_count(row: &WorkloadRow) -> usize {
@@ -343,13 +381,14 @@ fn parse_predictions(bytes: &[u8]) -> Result<Vec<Map<String, Value>>> {
     Ok(out)
 }
 
-fn write_workload(path: &Path, rows: &[DatasetRow]) -> Result<()> {
+fn write_workload(mut file: File, rows: &[DatasetRow]) -> Result<()> {
     let mut bytes = Vec::new();
     for row in rows {
         bytes.extend_from_slice(serde_json::to_string(row)?.as_bytes());
         bytes.push(b'\n');
     }
-    fs::write(path, bytes)?;
+    file.write_all(&bytes)?;
+    file.sync_all()?;
     Ok(())
 }
 
@@ -380,8 +419,11 @@ fn tune_threshold_on_dev(store: &DatasetStore, args: &EvalArgs) -> Result<(f64, 
     }
     let dev_dir = args.output_dir.join(format!("tuning-{}", args.name));
     fs::create_dir_all(&dev_dir)?;
-    let workload_path = dev_dir.join(format!("workload-{}-dev.jsonl", args.name));
-    write_workload(&workload_path, &dev.rows)?;
+    let workload_name = format!("workload-{}-dev.jsonl", args.name);
+    let workload_path = dev_dir.join(&workload_name);
+    let [workload_file] =
+        crate::quality::evidence::reserve_outputs(&dev_dir, [workload_name.as_str()])?;
+    write_workload(workload_file, &dev.rows)?;
     let score_args = ScoreArgs {
         input: workload_path,
         engine: args.engine,
@@ -410,18 +452,33 @@ fn tune_threshold_on_dev(store: &DatasetStore, args: &EvalArgs) -> Result<(f64, 
     let predictions_bytes =
         fs::read(dev_dir.join(format!("predictions-{engine_slug}-{strategy}.jsonl")))?;
     let predictions = parse_predictions(&predictions_bytes)?;
-    ensure!(
-        predictions.len() == dev.rows.len(),
-        "dev prediction coverage mismatch"
-    );
+    let mut by_id = BTreeMap::new();
+    for prediction in predictions {
+        let id = prediction["id"]
+            .as_str()
+            .context("dev prediction ID")?
+            .to_owned();
+        ensure!(
+            by_id.insert(id.clone(), prediction).is_none(),
+            "duplicate dev prediction {id}"
+        );
+    }
+    validate_prediction_ids(&dev.rows, &by_id)?;
     let mut probabilities = Vec::new();
     let mut gold = Vec::new();
     for row in &dev.rows {
-        let answer = predictions
-            .iter()
-            .find(|prediction| prediction["id"].as_str() == Some(row.row.id.as_str()))
+        let answer = by_id
+            .get(&row.row.id)
             .with_context(|| format!("dev row {}", row.row.id))?;
-        probabilities.push(answer["answer"]["noul"].as_f64().context("noul answer")?);
+        let probability = answer["answer"]["noul"]
+            .as_f64()
+            .with_context(|| format!("dev row {}: noul answer", row.row.id))?;
+        ensure!(
+            probability.is_finite() && (0.0..=1.0).contains(&probability),
+            "dev row {}: invalid noul probability",
+            row.row.id
+        );
+        probabilities.push(probability);
         gold.push(row.gold == "true");
     }
     let (threshold, accuracy) =
@@ -445,5 +502,63 @@ mod tests {
 
         let legacy = json!({"engine": "laya"});
         assert_eq!(summary_engine_slug(&legacy).expect("legacy engine"), "laya");
+    }
+    #[test]
+    fn score_distribution_rejects_bad_keys_and_probabilities_without_panicking() {
+        for probabilities in [
+            json!({"0": 0.5, "+1": 0.5}),
+            json!({"0": 0.5, "01": 0.5}),
+            json!({"0": 0.5, "2": 0.5}),
+            json!({"0": 0.5, "-1": 0.5}),
+            json!({"0": 0.5, "9999999999999999999999999": 0.5}),
+            json!({"0": -0.5, "1": 1.5}),
+            json!({"0": null, "1": 1.0}),
+        ] {
+            let error = super::score_distribution(
+                &json!({"probabilities": probabilities}),
+                2,
+                "example-42",
+            )
+            .unwrap_err();
+            assert!(error.to_string().contains("example-42"), "{error}");
+        }
+        assert_eq!(
+            super::score_distribution(&json!({"probabilities":{"0":0.25,"1":0.75}}), 2, "ok")
+                .unwrap(),
+            vec![0.25, 0.75]
+        );
+    }
+
+    #[test]
+    fn prediction_ids_must_exactly_cover_unique_workload_ids() {
+        let rows: Vec<super::DatasetRow> = ["a", "b"]
+            .into_iter()
+            .map(|id| super::DatasetRow {
+                row: serde_json::from_value(
+                    json!({"id":id,"state":"s","primitive":"noul","text":"?"}),
+                )
+                .unwrap(),
+                gold: "true".into(),
+                task: "test".into(),
+                source_group: "test".into(),
+                split: "eval".into(),
+                subset: "default".into(),
+            })
+            .collect();
+        let mut predictions = std::collections::BTreeMap::new();
+        predictions.insert("a".into(), serde_json::Map::new());
+        predictions.insert("c".into(), serde_json::Map::new());
+        let error = super::validate_prediction_ids(&rows, &predictions)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.contains("missing [\"b\"]") && error.contains("unexpected [\"c\"]"),
+            "{error}"
+        );
+        predictions.remove("c");
+        predictions.insert("b".into(), serde_json::Map::new());
+        super::validate_prediction_ids(&rows, &predictions).unwrap();
+        let duplicate = vec![rows[0].clone(), rows[0].clone()];
+        assert!(super::validate_prediction_ids(&duplicate, &predictions).is_err());
     }
 }

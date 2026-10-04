@@ -489,3 +489,27 @@ fn mock_engine_predictions_reparse_as_choices() {
     }
     assert!(saw_none);
 }
+
+#[test]
+fn macro_f1_preserves_gold_supported_class_policy_for_none_predictions() {
+    let golds = vec!["a".to_owned(), "a".to_owned()];
+    let predictions = vec!["a".to_owned(), "__none__".to_owned()];
+    assert!((macro_f1(&golds, &predictions).unwrap() - 2.0 / 3.0).abs() < 1e-12);
+    assert_eq!(
+        macro_f1(&golds, &["__none__".into(), "__none__".into()]),
+        Some(0.0)
+    );
+}
+
+#[test]
+fn dataset_cli_rejects_empty_explicit_roots() {
+    use clap::Parser;
+    for command in ["list", "pull", "rm", "verify", "pin", "build", "eval"] {
+        let mut args = vec!["openkind-bench", "dataset", command];
+        if command != "list" {
+            args.push("sst2");
+        }
+        args.extend(["--datasets-dir", ""]);
+        assert!(crate::args::Cli::try_parse_from(args).is_err(), "{command}");
+    }
+}

@@ -164,3 +164,45 @@ fn reference_card_intervention_changes_only_the_reference_option() {
         }
     }
 }
+
+#[test]
+fn comparison_and_calibration_conflicts_precede_model_loading() {
+    let fixtures = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fixtures");
+    let dir = tempfile::tempdir().unwrap();
+    let summary = dir.path().join("summary.json");
+    fs::write(&summary, b"retained evidence").unwrap();
+    let compare = CompareArgs {
+        input: fixtures.join("joint_choice_diagnostic.jsonl"),
+        bundle_root: dir.path().join("missing-bundle"),
+        checkpoint_root: dir.path().join("missing-checkpoint"),
+        tokenizer: dir.path().join("missing-tokenizer"),
+        backend: Qwen35Backend::NativeCpu,
+        output_dir: dir.path().to_owned(),
+        host: "test".into(),
+        commit: "test".into(),
+    };
+    let error = run(&compare).unwrap_err();
+    assert!(error.to_string().contains("reserve evidence"), "{error:#}");
+    assert!(!dir.path().join("predictions.jsonl").exists());
+    let calibrate = CalibrateArgs {
+        calibration: fixtures.join("joint_calibration_diagnostic.jsonl"),
+        gate: fixtures.join("joint_gate_diagnostic.jsonl"),
+        bundle_root: compare.bundle_root,
+        checkpoint_root: compare.checkpoint_root,
+        tokenizer: compare.tokenizer,
+        backend: compare.backend,
+        output_dir: compare.output_dir,
+        host: compare.host,
+        commit: compare.commit,
+    };
+    let error = run_calibration(&calibrate).unwrap_err();
+    assert!(error.to_string().contains("reserve evidence"), "{error:#}");
+    for name in [
+        "calibration-predictions.jsonl",
+        "predictions.jsonl",
+        "reverse-transfer-predictions.jsonl",
+    ] {
+        assert!(!dir.path().join(name).exists());
+    }
+    assert_eq!(fs::read(summary).unwrap(), b"retained evidence");
+}

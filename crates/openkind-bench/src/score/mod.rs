@@ -19,7 +19,6 @@ mod execution;
 mod summary;
 mod types;
 
-use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::sync::Arc;
 use std::time::Instant;
@@ -106,6 +105,47 @@ fn load_laya_engine(
     ))
 }
 
+pub(crate) struct ScoreOutputs {
+    summary_path: std::path::PathBuf,
+    prediction_paths: Vec<std::path::PathBuf>,
+    summary_file: std::fs::File,
+    outputs: Vec<std::fs::File>,
+}
+
+pub(crate) fn reserve_score_outputs(args: &ScoreArgs) -> Result<ScoreOutputs> {
+    let summary_path = args
+        .output_dir
+        .join(format!("summary-{}.json", types::engine_slug(args.engine)));
+    let labels = if args.engine == EngineKind::Mock {
+        vec!["mock"]
+    } else if types::is_family_engine(args.engine) {
+        vec![types::engine_slug(args.engine)]
+    } else {
+        args.strategies.iter().map(|spec| spec.name()).collect()
+    };
+    let prediction_paths: Vec<_> = labels
+        .iter()
+        .map(|label| {
+            args.output_dir.join(format!(
+                "predictions-{}-{label}.jsonl",
+                types::engine_slug(args.engine)
+            ))
+        })
+        .collect();
+    let paths: Vec<_> = std::iter::once(summary_path.clone())
+        .chain(prediction_paths.iter().cloned())
+        .collect();
+    let mut outputs = crate::quality::evidence::reserve_paths(&paths)?;
+    let summary_file = outputs.remove(0);
+
+    Ok(ScoreOutputs {
+        summary_path,
+        prediction_paths,
+        summary_file,
+        outputs,
+    })
+}
+
 /// Execute one scoring run.
 ///
 /// # Errors
@@ -113,6 +153,13 @@ fn load_laya_engine(
 /// errors surface as errors too: a benchmark run that cannot score is not a
 /// benchmark result.
 pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
+    run_score_reserved(args, None)
+}
+
+pub(crate) fn run_score_reserved(
+    args: &ScoreArgs,
+    reserved: Option<ScoreOutputs>,
+) -> Result<ScoreOutcome> {
     let workload = workload::load_workload(&args.input)?;
     eprintln!("[bench] workload {}: {}", args.input.display(), workload);
     if args.history_aba {
@@ -145,6 +192,16 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
     );
     anyhow::ensure!(args.reps >= 1, "reps must be at least 1");
     validate_strategy_selection(args.engine, &args.strategies)?;
+
+    let ScoreOutputs {
+        summary_path,
+        prediction_paths,
+        mut summary_file,
+        mut outputs,
+    } = match reserved {
+        Some(outputs) => outputs,
+        None => reserve_score_outputs(args)?,
+    };
 
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -670,37 +727,15 @@ pub fn run_score(args: &ScoreArgs) -> Result<ScoreOutcome> {
         })
         .collect();
     summary["prediction_sha256"] = Value::Object(prediction_hashes);
-    fs::create_dir_all(&args.output_dir)
-        .with_context(|| format!("create {}", args.output_dir.display()))?;
-    let summary_path = args
-        .output_dir
-        .join(format!("summary-{}.json", types::engine_slug(args.engine)));
-    let prediction_paths: Vec<_> = strategy_reports
+    summary::write_reserved_json(&mut summary_file, &summary, args.pretty)?;
+    for ((path, file), predictions) in prediction_paths
         .iter()
-        .map(|report| {
-            args.output_dir.join(format!(
-                "predictions-{}-{}.jsonl",
-                types::engine_slug(args.engine),
-                report["strategy"].as_str().unwrap_or("strategy")
-            ))
-        })
-        .collect();
-    for path in std::iter::once(&summary_path).chain(&prediction_paths) {
-        anyhow::ensure!(
-            !path.exists(),
-            "refusing to overwrite existing benchmark evidence {}; choose a fresh --output-dir",
-            path.display()
-        );
-    }
-    summary::write_json(&summary_path, &summary, args.pretty)?;
-    for (path, predictions) in prediction_paths.iter().zip(&predictions_per_strategy) {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(path)
-            .with_context(|| format!("create new output {}", path.display()))?;
+        .zip(&mut outputs)
+        .zip(&predictions_per_strategy)
+    {
         file.write_all(predictions.as_bytes())
             .with_context(|| format!("write {}", path.display()))?;
+        file.sync_all()?;
     }
     eprintln!("[bench] summary {}", summary_path.display());
     Ok(ScoreOutcome { summary })

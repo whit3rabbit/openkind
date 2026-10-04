@@ -1,8 +1,7 @@
 //! Summary construction, metadata extraction, and JSON file output.
 
-use std::fs::{self, OpenOptions};
+use std::fs;
 use std::io::Write;
-use std::path::Path;
 
 use anyhow::{Context, Result};
 use openkind_backends::qwen35::PROFILE_ID;
@@ -90,20 +89,18 @@ pub(crate) fn build_summary(
     })
 }
 
-pub(crate) fn write_json(path: &Path, value: &Value, pretty: bool) -> Result<()> {
+pub(crate) fn write_reserved_json(
+    file: &mut std::fs::File,
+    value: &Value,
+    pretty: bool,
+) -> Result<()> {
     let body = if pretty {
         serde_json::to_string_pretty(value).context("serialize summary")?
     } else {
         serde_json::to_string(value).context("serialize summary")?
     };
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(path)
-        .with_context(|| format!("create new output {}", path.display()))?;
-    file.write_all(body.as_bytes())
-        .with_context(|| format!("write {}", path.display()))?;
-    Ok(())
+    file.write_all(body.as_bytes()).context("write summary")?;
+    file.sync_all().context("sync summary")
 }
 
 /// Context-token limits the engine accepts, so request-path evidence can be
@@ -217,10 +214,13 @@ mod tests {
     fn summary_write_refuses_to_clobber_existing_evidence() {
         let dir = tempfile::tempdir().expect("temporary output directory");
         let path = dir.path().join("summary.json");
-        write_json(&path, &json!({"run": 1}), false).expect("first output");
-        let error = write_json(&path, &json!({"run": 2}), false)
+        let mut file = crate::quality::evidence::reserve_paths(std::slice::from_ref(&path))
+            .unwrap()
+            .remove(0);
+        write_reserved_json(&mut file, &json!({"run": 1}), false).expect("first output");
+        let error = crate::quality::evidence::reserve_paths(std::slice::from_ref(&path))
             .expect_err("an existing evidence file must be preserved");
-        assert!(error.to_string().contains("create new output"), "{error:#}");
+        assert!(error.to_string().contains("reserve evidence"), "{error:#}");
         assert_eq!(std::fs::read_to_string(path).unwrap(), "{\"run\":1}");
     }
 

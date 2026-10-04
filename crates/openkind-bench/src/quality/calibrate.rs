@@ -104,6 +104,16 @@ pub fn run(args: &CalibrateArgs) -> Result<Value> {
         .copied()
         .collect();
 
+    let [calibration_file, predictions_file, reverse_file, mut summary_file] =
+        super::evidence::reserve_outputs(
+            &args.output_dir,
+            [
+                "calibration-predictions.jsonl",
+                "predictions.jsonl",
+                "reverse-transfer-predictions.jsonl",
+                "summary.json",
+            ],
+        )?;
     let start = Instant::now();
     let probe = Qwen35ScoringProbe::load(
         &args.bundle_root,
@@ -235,16 +245,9 @@ pub fn run(args: &CalibrateArgs) -> Result<Value> {
         true,
     )?;
 
-    fs::create_dir_all(&args.output_dir)?;
-    write_predictions(
-        &args.output_dir.join("calibration-predictions.jsonl"),
-        &calibration_records,
-    )?;
-    write_predictions(&args.output_dir.join("predictions.jsonl"), &gate_records)?;
-    write_predictions(
-        &args.output_dir.join("reverse-transfer-predictions.jsonl"),
-        &gate_reverse_records,
-    )?;
+    write_predictions(calibration_file, &calibration_records)?;
+    write_predictions(predictions_file, &gate_records)?;
+    write_predictions(reverse_file, &gate_reverse_records)?;
 
     let gate_refs: Vec<_> = gate_records.iter().collect();
     let overall: BTreeMap<_, _> = arms
@@ -314,10 +317,8 @@ pub fn run(args: &CalibrateArgs) -> Result<Value> {
         Sha256::digest(fs::read(std::env::current_exe()?)?)
     ));
     summary["load_seconds"] = json!(load_seconds);
-    fs::write(
-        args.output_dir.join("summary.json"),
-        serde_json::to_vec_pretty(&summary)?,
-    )?;
+    serde_json::to_writer_pretty(&mut summary_file, &summary)?;
+    summary_file.sync_all()?;
     Ok(summary)
 }
 
@@ -463,8 +464,8 @@ fn score_partition(
     Ok(records)
 }
 
-fn write_predictions(path: &std::path::Path, records: &[Record]) -> Result<()> {
-    let mut writer = BufWriter::new(File::create(path)?);
+fn write_predictions(file: File, records: &[Record]) -> Result<()> {
+    let mut writer = BufWriter::new(file);
     for record in records {
         serde_json::to_writer(&mut writer, record)?;
         writeln!(writer)?;

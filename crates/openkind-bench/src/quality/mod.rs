@@ -1,6 +1,7 @@
 //! Paired labeled Choice comparison, separate from synthetic timing workloads.
 
 mod calibrate;
+pub(crate) mod evidence;
 mod metrics;
 mod report;
 
@@ -10,7 +11,7 @@ mod tests;
 pub(crate) use calibrate::{run as run_calibration, CalibrateArgs};
 
 use std::collections::BTreeMap;
-use std::fs::{self, File};
+use std::fs;
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -178,6 +179,8 @@ pub fn run(args: &CompareArgs) -> Result<serde_json::Value> {
         "host and commit attribution required"
     );
     let (rows, digest) = load(&args.input)?;
+    let [predictions_file, mut summary_file] =
+        evidence::reserve_outputs(&args.output_dir, ["predictions.jsonl", "summary.json"])?;
     let start = Instant::now();
     let probe = Qwen35ScoringProbe::load(
         &args.bundle_root,
@@ -197,8 +200,7 @@ pub fn run(args: &CompareArgs) -> Result<serde_json::Value> {
     probe.joint(&prepared[0], true)?;
     probe.joint_text_rotate(&prepared[0])?;
     probe.joint_code_rotate(&prepared[0])?;
-    fs::create_dir_all(&args.output_dir)?;
-    let mut writer = BufWriter::new(File::create(args.output_dir.join("predictions.jsonl"))?);
+    let mut writer = BufWriter::new(predictions_file);
     let mut records = Vec::new();
     for (index, (row, input)) in rows.iter().zip(&prepared).enumerate() {
         // Rotate execution order across rows after the shared warmup so no
@@ -280,9 +282,7 @@ pub fn run(args: &CompareArgs) -> Result<serde_json::Value> {
         "{:x}",
         Sha256::digest(fs::read(std::env::current_exe()?)?)
     ));
-    fs::write(
-        args.output_dir.join("summary.json"),
-        serde_json::to_vec_pretty(&summary)?,
-    )?;
+    serde_json::to_writer_pretty(&mut summary_file, &summary)?;
+    summary_file.sync_all()?;
     Ok(summary)
 }

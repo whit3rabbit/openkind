@@ -50,6 +50,7 @@ Methodology, timing scope, and recorded results are owned by
 - [`src/args.rs`](./src/args.rs): `EngineArg` mirrors available engines. Surveyed families require `--model-root`; winnow also requires `--adapter`. `--no-warmup` and `--history-aba` control diagnostic runs.
 - [`src/quality/`](./src/quality/): Offline paired Choice diagnostics, separate from timing workloads.
 - [`src/quality/calibrate.rs`](./src/quality/calibrate.rs): Fits calibration values and rejects calibration/gate partitions that share source groups or row IDs.
+- [`src/quality/evidence.rs`](./src/quality/evidence.rs): Reserves evidence output paths (`reserve_paths`, `reserve_outputs`) before model loading or scoring without overwriting earlier evidence.
 - Quality methodology and fixture evidence live in [`docs/BENCHMARKS.md`](../../docs/BENCHMARKS.md) and [`docs/benchmarks/`](../../docs/benchmarks/).
 - [`src/workload.rs`](./src/workload.rs): `WorkloadRow` (flattened `primitive` tag),
   `load_workload`/`parse_workload` (SHA-256 recorded), `state_groups`,
@@ -57,14 +58,14 @@ Methodology, timing scope, and recorded results are owned by
   injected when absent so native Choice evaluation keeps semantic-none mass on wire.
 - [`src/gen.rs`](./src/gen.rs): Seeded ticket-grid generator (`states × criteria` binary
   noul rows), byte-identical for identical seeds.
-- [`src/score/mod.rs`](./src/score/mod.rs): Native sweeps force each strategy while preserving admission and check answer equality. Surveyed-family engines use one pinned plan.
+- [`src/score/mod.rs`](./src/score/mod.rs): Native sweeps force each strategy while preserving admission and check answer equality. Surveyed-family engines use one pinned plan. Output files are reserved before execution via `reserve_score_outputs`.
 - [`src/score/types.rs`](./src/score/types.rs): `EngineKind`, `native_backend`, `family_identity`,
   and `is_family_engine` helpers.
 - [`src/score/summary.rs`](./src/score/summary.rs): Records family `engine`, profile/backend `engine_variant`,
   profile ID, and checkpoint revision. Its offline regression tests need no model assets.
 - [`src/dataset/`](./src/dataset/): Materialization, evaluation, and metrics. [`templates.rs`](./src/dataset/templates.rs)
   freezes Bonn MIT wording. Changes need new versions.
-  [`eval.rs`](./src/dataset/eval.rs) binds predictions to gold by digest.
+  [`eval.rs`](./src/dataset/eval.rs) binds predictions to gold by digest, enforces exact prediction ID coverage without duplicates or missing rows, validates canonical score decimal keys, and averages macro-F1 over gold-supported classes only.
   `openkind-dataset-eval/v1` reports provide quality evidence.
 - [`src/tests.rs`](./src/tests.rs): Offline tests (fixture parsing, grouping, `__none__`
   injection, generator determinism, mock end-to-end run).
@@ -74,7 +75,7 @@ Methodology, timing scope, and recorded results are owned by
 1. **Grouped Requests Share One Root**: Every question in a grouped request must tokenize to the same root prefix. Grouping uses exact state serialization. `--no-group` emits one request per row.
 2. **Request Latency Is Not Row Latency**: Grouped rows report their shared request latency. Do not sum them. Use `decisions_per_second` for per-decision throughput.
 3. **Strategy Sweep Is Native-Only**: Mock and family engines reject `--strategies`. On Qwen 3.5, `choose_strategy` uses the scheduler. Named strategies force a plan through `SchedulerConfig::with_forced_strategy`.
-4. **Published Attribution**: `--commit` is caller-supplied metadata. It does not verify the measured source. Records need attributable hardware, the exact fixture, and source state. Follow the [evidence-retention rules](../../docs/BENCHMARKS.md#evidence-retention).
+4. **Published Attribution & Evidence Retention**: `--commit` is caller-supplied metadata. It does not verify the measured source. Records need attributable hardware (distinguishing online `logical_cores` from process `available_parallelism`), the exact fixture, and source state. Output files must be reserved before expensive loading without overwriting prior evidence. Follow the [evidence-retention rules](../../docs/BENCHMARKS.md#evidence-retention).
 5. **Dataset Bytes Never Enter the Repo**: Acquisition uses
    [`openkind-datasets`](../openkind-datasets/AGENTS.md) and the external cache.
    Plain `score` ignores gold labels. Choice requests inject `__none__`, so

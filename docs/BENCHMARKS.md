@@ -214,6 +214,12 @@ results are quoted anywhere.
 
 ### Evidence retention
 
+`score`, `compare-choice`, `calibrate-choice`, and `dataset eval` reserve output
+files with exclusive creation before model loading. An existing destination
+fails the run without replacing earlier evidence. Use a fresh output directory
+for each run. Interrupted runs can leave empty or incomplete reserved files;
+retain them as interrupted evidence and choose a new directory for a retry.
+
 `--commit` records the supplied string. The scoring harness does not verify
 that revision or capture dirty source changes. A commit label alone cannot
 reproduce a run built from later edits.
@@ -448,6 +454,10 @@ Paired fresh-process native compute runs find it slower than the current
 `nested_batched` traversal at Q2/K2 and Q8/K4. The flat path is diagnostic and
 does not change the service or automatic scheduler.
 
+Host attribution keeps `logical_cores` separate from `available_parallelism`.
+On Linux, logical cores are online OS CPUs; available parallelism observes the
+process capacity, which may reflect affinity or quota constraints.
+
 ### Outputs
 
 - `summary-<engine>.json` — schema `openkind-bench/v1`: provenance
@@ -456,7 +466,8 @@ does not change the service or automatic scheduler.
   per-strategy `samples_seconds` / `p50_seconds` / `p95_seconds` /
   `decisions_per_second` / `input_tokens_total` / `cpu_time_seconds` /
   `avg_cpu_percent`, peak resident bytes, a `host_hardware` block
-  (model identifier, CPU brand, logical cores, total memory), a `context`
+  (model identifier, CPU brand, OS logical cores, process available parallelism,
+  total memory), a `context`
   block with the engine's frozen per-sequence token budgets, and
   `cross_strategy_answer_parity_clean`. CPU fields diff process-wide
   user+system time across the timed region only; percentages exceed 100
@@ -546,6 +557,16 @@ Brier, 10-bin ECE, AURC, accuracy at 50%/80% coverage, none recall and
 false-none rate. Noul rows add AUROC, binary Brier and ECE, class recalls,
 and the optional dev-tuned threshold arm. Score rows report Spearman and
 Pearson correlation, MAE, level accuracy, and NLL.
+
+Prediction IDs must exactly cover the materialized workload, with no duplicates
+or extra rows. Score keys must be canonical decimal indices within the rubric;
+probabilities must be finite, within `[0,1]`, and sum to one. Invalid evidence
+returns a contextual error.
+
+Macro-F1 averages only classes with gold support in the evaluated split. A
+predicted `__none__` without gold support is excluded from that average, but
+counts as a false negative for the gold class. Gold classes never predicted
+have F1 zero. This class policy preserves the existing report semantics.
 
 Interpretation rules:
 

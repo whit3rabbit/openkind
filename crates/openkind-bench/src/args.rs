@@ -154,33 +154,33 @@ pub enum DatasetCommand {
     /// List curated datasets and their install state.
     List {
         /// Dataset cache root (default: the per-OS openkind data dir).
-        #[arg(long, env = "OPENKIND_DATASETS_DIR")]
+        #[arg(long, env = "OPENKIND_DATASETS_DIR", value_parser = nonempty_store_root())]
         datasets_dir: Option<PathBuf>,
     },
     /// Download and verify a pinned dataset. Explicit and networked.
     Pull {
         /// Dataset pull name from the registry.
         name: String,
-        #[arg(long, env = "OPENKIND_DATASETS_DIR")]
+        #[arg(long, env = "OPENKIND_DATASETS_DIR", value_parser = nonempty_store_root())]
         datasets_dir: Option<PathBuf>,
     },
     /// Remove an installed dataset and its unshared blobs.
     Rm {
         name: String,
-        #[arg(long, env = "OPENKIND_DATASETS_DIR")]
+        #[arg(long, env = "OPENKIND_DATASETS_DIR", value_parser = nonempty_store_root())]
         datasets_dir: Option<PathBuf>,
     },
     /// Re-verify every installed file digest.
     Verify {
         name: String,
-        #[arg(long, env = "OPENKIND_DATASETS_DIR")]
+        #[arg(long, env = "OPENKIND_DATASETS_DIR", value_parser = nonempty_store_root())]
         datasets_dir: Option<PathBuf>,
     },
     /// Resolve current upstream revisions for a curated dataset, download and
     /// hash the shards, install, and print the registry entry to commit.
     Pin {
         name: String,
-        #[arg(long, env = "OPENKIND_DATASETS_DIR")]
+        #[arg(long, env = "OPENKIND_DATASETS_DIR", value_parser = nonempty_store_root())]
         datasets_dir: Option<PathBuf>,
     },
     /// Materialize a labeled workload JSONL from an installed dataset.
@@ -189,7 +189,7 @@ pub enum DatasetCommand {
         /// Split to materialize; `dev` for prompt work, `eval` to report.
         #[arg(long, value_enum, default_value_t = SplitArg::Eval)]
         split: SplitArg,
-        #[arg(long, env = "OPENKIND_DATASETS_DIR")]
+        #[arg(long, env = "OPENKIND_DATASETS_DIR", value_parser = nonempty_store_root())]
         datasets_dir: Option<PathBuf>,
         /// Deterministic nested sample (subsets of larger limits).
         #[arg(long)]
@@ -204,7 +204,7 @@ pub enum DatasetCommand {
         name: String,
         #[arg(long, value_enum, default_value_t = SplitArg::Eval)]
         split: SplitArg,
-        #[arg(long, env = "OPENKIND_DATASETS_DIR")]
+        #[arg(long, env = "OPENKIND_DATASETS_DIR", value_parser = nonempty_store_root())]
         datasets_dir: Option<PathBuf>,
         #[arg(long)]
         limit: Option<usize>,
@@ -461,4 +461,15 @@ pub struct GenWorkloadOutcome {
     pub output: PathBuf,
     /// The generated workload.
     pub workload: GeneratedWorkload,
+}
+
+fn nonempty_store_root() -> impl clap::builder::TypedValueParser<Value = PathBuf> {
+    use clap::builder::TypedValueParser;
+    clap::builder::OsStringValueParser::new().try_map(|value| {
+        if value.is_empty() {
+            Err("store directory must be nonempty".to_owned())
+        } else {
+            Ok(PathBuf::from(value))
+        }
+    })
 }

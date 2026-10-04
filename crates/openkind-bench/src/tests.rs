@@ -275,8 +275,20 @@ fn mock_score_run_end_to_end_writes_summary_and_predictions() {
         "router-script/detector"
     );
 
+    let error = run_score(&args).expect_err("evidence conflicts precede execution");
+    assert!(error.to_string().contains("reserve evidence"));
+    let mut conflict_before_loading = args.clone();
+    conflict_before_loading.engine = EngineKind::Qwen35;
+    let native_summary = output_dir.join("summary-qwen35.json");
+    fs::write(&native_summary, b"prior native evidence").unwrap();
+    let error = run_score(&conflict_before_loading)
+        .expect_err("conflict must precede missing model assets");
+    assert!(error.to_string().contains("reserve evidence"), "{error:#}");
+    assert_eq!(fs::read(native_summary).unwrap(), b"prior native evidence");
+
     let mut oversized_reps = args.clone();
     oversized_reps.reps = usize::MAX;
+    oversized_reps.output_dir = dir.join("oversized");
     let error =
         run_score(&oversized_reps).expect_err("oversized repetition count must return an error");
     assert!(error.to_string().contains("reserve repetition samples"));
