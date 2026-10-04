@@ -1,15 +1,20 @@
-# openkind
+<div align="center">
 
-`openkind` runs a Typesafe server and cli (Jev) with local hosted models for the server.
+<img src="assets/openkind_logo.png" alt="openkind" width="360" />
+
+[![CI](https://github.com/whit3rabbit/openkind/actions/workflows/ci.yml/badge.svg)](https://github.com/whit3rabbit/openkind/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+[Install](#install) | [Run a model](#run-a-model) | [Choose a local model](#choose-a-local-model) | [CLI and playground](#cli-and-playground) | [Use from Rust](#use-from-rust) | [API compatibility](#api-compatibility) | [Apple silicon and MLX](#apple-silicon-and-mlx) | [AMD GPUs (ROCm)](#amd-gpus-rocm) | [Models and research](#models-and-research) | [Development](#development) | [License](#license)
+
+</div>
+
+`openkind` runs a TypeSafe server and CLI (Jev) with locally hosted models for the server.
 
 I highly recommend using: https://github.com/ollaya-dev/ollaya
 
 We seem to have had the same idea when I started working and their public release is a lot more polished.
 
 OpenKind researches a custom Qwen3.5 decision model and a Rust inference engine that shares input processing across questions.
-
-[![CI](https://github.com/whit3rabbit/openkind/actions/workflows/ci.yml/badge.svg)](https://github.com/whit3rabbit/openkind/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## Install
 
@@ -184,6 +189,15 @@ openkind status --server http://127.0.0.1:18080
 openkind inspect request.json
 ```
 
+Process JSONL requests as a resumable batch, with optional inclusive source row bounds:
+
+```bash
+openkind batch run requests.jsonl --job-dir ./job --server http://127.0.0.1:18080 --start-row 100 --end-row 500
+openkind batch resume ./job
+```
+
+The [batch guide](crates/openkind-cli/README.md#batch) covers stdin pipes, pacing, stop/status, the last successful row, and result export.
+
 API key checking is optional and off by default. To enable it, generate or
 define a key before starting the server, then give the same key to clients:
 
@@ -216,8 +230,8 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 With the Laya server above running, put this in `src/main.rs` and run `cargo run`.
 
-For an authenticated daemon, omit `.api_key("local")` to read
-`OPENKIND_API_KEY`, or supply its configured key explicitly.
+For an authenticated daemon, replace `.allow_unauthenticated()` with
+`.api_key("server-configured-key")`, or remove it to read `OPENKIND_API_KEY`.
 
 ```rust
 use std::time::Duration;
@@ -227,7 +241,7 @@ use openkind_client::{question, Client, RetryPolicy};
 #[tokio::main]
 async fn main() -> Result<(), openkind_client::Error> {
     let client = Client::builder()
-        .api_key("local") // The client requires a key; this local server has auth disabled.
+        .allow_unauthenticated() // This local server has auth disabled.
         .base_url("http://127.0.0.1:18080")
         .default_model("laya-english:c8ea29bf1e33a343c4b7")
         .timeout(Duration::from_secs(600))
@@ -345,4 +359,4 @@ Report bugs or propose changes through [GitHub issues](https://github.com/whit3r
 
 See the [MIT license](LICENSE). Each model retains its own license, recorded in the [model catalog](registry/v1/catalog.json) and linked manifests.
 
-Maintainers: see the [release checklist](release.md) and [changelog](<change log.md>).
+Maintainers: see the [release checklist](release.md) and [changelog](CHANGELOG.md).
