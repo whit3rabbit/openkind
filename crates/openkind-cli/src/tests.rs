@@ -262,8 +262,8 @@ fn cli_parse_serve_defaults_and_custom() {
             api_key,
             ..
         } => {
-            assert_eq!(http_addr, "0.0.0.0:8080");
-            assert_eq!(grpc_addr, "0.0.0.0:9090");
+            assert_eq!(http_addr, "127.0.0.1:8080");
+            assert_eq!(grpc_addr, "127.0.0.1:9090");
             assert_eq!(models, "mock,jev-latest");
             assert_eq!(api_key, None);
         }
@@ -564,4 +564,35 @@ fn fast_path_defers_non_utf8_argv_to_clap() {
             panic!("outcomes diverge: fast={fast:?} clap={reference:?}");
         }
     }
+}
+
+#[test]
+fn empty_model_directories_are_rejected_by_fast_and_clap_paths() {
+    let _lock = ENV_LOCK.lock().unwrap();
+    for command in ["serve", "list", "pull"] {
+        let mut arguments = vec!["openkind", command];
+        if command == "pull" {
+            arguments.push("fixture:v1");
+        }
+        arguments.extend(["--models-dir", ""]);
+        assert!(Cli::try_parse_from(arguments).is_err(), "{command}");
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn model_directory_preserves_non_utf8_paths() {
+    use std::{ffi::OsString, os::unix::ffi::OsStringExt};
+    let path = OsString::from_vec(b"/models-\xff".to_vec());
+    let cli = Cli::try_parse_from([
+        OsString::from("openkind"),
+        OsString::from("serve"),
+        OsString::from("--models-dir"),
+        path.clone(),
+    ])
+    .unwrap();
+    let Commands::Serve { models_dir, .. } = cli.command else {
+        panic!("expected serve")
+    };
+    assert_eq!(models_dir.unwrap().into_os_string(), path);
 }

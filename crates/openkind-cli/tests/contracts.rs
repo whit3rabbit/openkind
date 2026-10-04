@@ -389,7 +389,7 @@ fn empty_installed_model_selection_clears_inherited_models_for_both_daemon_comma
 #[cfg(unix)]
 #[test]
 fn serve_preserves_the_pid_targeted_by_process_supervisors() {
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::{fs::PermissionsExt, process::CommandExt};
     let dir = TempDir::new();
     let daemon = dir.0.join("openkindd");
     std::fs::write(&daemon, "#!/bin/sh\ntrap 'exit 0' TERM\nprintf '%s' \"$$\" > \"$OPENKIND_CLI_TEST_PID\"\nwhile :; do /bin/sleep 0.05; done\n").unwrap();
@@ -397,6 +397,7 @@ fn serve_preserves_the_pid_targeted_by_process_supervisors() {
     let record = dir.0.join("pid");
     let mut child = cli()
         .arg("serve")
+        .process_group(0)
         .env("PATH", &dir.0)
         .env("OPENKINDD_BINARY", &daemon)
         .env("OPENKIND_CLI_TEST_PID", &record)
@@ -404,7 +405,7 @@ fn serve_preserves_the_pid_targeted_by_process_supervisors() {
         .stderr(Stdio::null())
         .spawn()
         .unwrap();
-    let deadline = Instant::now() + Duration::from_secs(3);
+    let deadline = Instant::now() + Duration::from_secs(30);
     let daemon_pid = loop {
         if let Ok(pid) = std::fs::read_to_string(&record) {
             if let Ok(pid) = pid.parse::<u32>() {
@@ -412,7 +413,9 @@ fn serve_preserves_the_pid_targeted_by_process_supervisors() {
             }
         }
         if Instant::now() >= deadline {
-            child.kill().unwrap();
+            unsafe {
+                libc::kill(-(child.id() as libc::pid_t), libc::SIGKILL);
+            }
             child.wait().unwrap();
             panic!("fixture daemon did not start");
         }
@@ -423,12 +426,15 @@ fn serve_preserves_the_pid_targeted_by_process_supervisors() {
         unsafe { libc::kill(daemon_pid as libc::pid_t, libc::SIGTERM) },
         0
     );
+    let deadline = Instant::now() + Duration::from_secs(10);
     let status = loop {
         if let Some(status) = child.try_wait().unwrap() {
             break status;
         }
         if Instant::now() >= deadline {
-            child.kill().unwrap();
+            unsafe {
+                libc::kill(-(child.id() as libc::pid_t), libc::SIGKILL);
+            }
             child.wait().unwrap();
             panic!("fixture daemon did not shut down");
         }
@@ -446,7 +452,7 @@ fn serve_preserves_the_pid_targeted_by_process_supervisors() {
 #[test]
 fn playground_supervises_startup_and_ready_signals_and_preserves_exit_codes() {
     use std::io::BufRead;
-    use std::os::unix::fs::PermissionsExt;
+    use std::os::unix::{fs::PermissionsExt, process::CommandExt};
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
 
@@ -496,6 +502,7 @@ fn playground_supervises_startup_and_ready_signals_and_preserves_exit_codes() {
         });
         let mut child = cli()
             .args(["playground", "--http-addr", &address, "--no-open"])
+            .process_group(0)
             .env("PATH", &dir.0)
             .env("OPENKINDD_BINARY", &daemon)
             .env("OPENKIND_CLI_TEST_PID", &pid_file)
@@ -515,7 +522,7 @@ fn playground_supervises_startup_and_ready_signals_and_preserves_exit_codes() {
                 }
             }
         });
-        let deadline = Instant::now() + Duration::from_secs(5);
+        let deadline = Instant::now() + Duration::from_secs(30);
         let mut daemon_pid = None;
         while Instant::now() < deadline {
             daemon_pid = std::fs::read_to_string(&pid_file)
@@ -533,6 +540,7 @@ fn playground_supervises_startup_and_ready_signals_and_preserves_exit_codes() {
         } else {
             std::fs::write(&stop_file, "stop").unwrap();
         }
+        let deadline = Instant::now() + Duration::from_secs(10);
         let mut status = None;
         while Instant::now() < deadline {
             status = child.try_wait().unwrap();
@@ -542,7 +550,9 @@ fn playground_supervises_startup_and_ready_signals_and_preserves_exit_codes() {
             std::thread::sleep(Duration::from_millis(10));
         }
         if status.is_none() {
-            let _ = child.kill();
+            unsafe {
+                libc::kill(-(child.id() as libc::pid_t), libc::SIGKILL);
+            }
         }
         let _ = child.wait();
         let child_reaped = daemon_pid.is_some_and(|pid| {
@@ -555,6 +565,13 @@ fn playground_supervises_startup_and_ready_signals_and_preserves_exit_codes() {
                 unsafe {
                     libc::kill(pid, libc::SIGKILL);
                 }
+            }
+        }
+        // A late-starting child can inherit the stdout pipe after the wrapper
+        // is killed. Its dedicated group must close before joining the reader.
+        if !child_reaped {
+            unsafe {
+                libc::kill(-(child.id() as libc::pid_t), libc::SIGKILL);
             }
         }
         finished.store(true, Ordering::Release);

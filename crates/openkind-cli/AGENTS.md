@@ -7,6 +7,7 @@
 `openkind-cli` provides the `openkind` command-line utility. It is designed for:
 - Developers validating request payloads offline without a running server (`inspect`).
 - Operators sending test evaluations to a running daemon via HTTP (`evaluate`).
+- Scripts running sequential, resumable JSONL evaluation jobs (`batch`).
 - Launching the standalone `openkindd` server binary (`serve`).
 - Discovering and installing curated models (`catalog`, `pull`) and managing
   local installations without network access (`list`, `show`, `rm`).
@@ -17,6 +18,7 @@
 
 1. **Self-Contained Client Dependencies**:
    - Uses `reqwest` for issuing HTTP POST calls to `/v1/systemone`.
+   - Batch jobs use `openkind-client` for typed transport, validation, and retries.
    - Does NOT depend on `openkind-api` or `openkind-server`. It declares
      `openkind-core`, `openkind-engine`, and `openkind-model-store` as workspace
      dependencies; the model store owns discovery and local installations.
@@ -51,6 +53,7 @@
     - `Version`: Prints `openkind_core::api_version()`.
 - [`src/inspect.rs`](./src/inspect.rs): `cmd_inspect` and input file validation bounds.
 - [`src/evaluate.rs`](./src/evaluate.rs): `cmd_evaluate` and `cmd_evaluate_async` HTTP execution.
+- `src/batch/`: Sequential JSONL jobs, bounded demand-driven input, SQLite recovery journal, and signal/stop handling. Save requests before dispatch and commit responses with completion progress before emitting stdout. Keys never enter saved settings or diagnostics. File resume verifies source identity and SHA-256; pipe resume recovers only captured records.
 - [`src/output.rs`](./src/output.rs): Shared text tables, color policy, and pull progress rendering.
 - `status --watch` uses `bubbletea-rs` with Lipgloss styles. Plain `status` stays one-shot.
 - [`src/status.rs`](./src/status.rs): One-shot health and model alias inspection, plus the live `--watch` screen.
@@ -64,6 +67,8 @@
   a table showing name, aliases, profile, status, token context limit, and description.
   See the [registry guide](../../docs/MODEL_REGISTRY.md) for public mirror ownership.
 - [`src/tests.rs`](./src/tests.rs): Parser, inspect, and input bounds unit tests.
+- [`tests/batch.rs`](./tests/batch.rs): Integration tests for `openkind batch` execution, SQLite job journaling, streaming ranges, interrupts, and resume.
+- [`tests/store_roots.rs`](./tests/store_roots.rs): Integration tests verifying rejection of empty store roots before CLI or daemon I/O.
 - [`benches/cli.rs`](./benches/cli.rs): Criterion argument-parsing and in-memory
   inspect benchmarks for 1, 8, and 32 questions.
 

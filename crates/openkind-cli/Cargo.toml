@@ -10,12 +10,17 @@ description = "Phase 1: `openkind` command-line tool — serve, evaluate, inspec
 
 [dependencies]
 openkind-core = { workspace = true }
+openkind-client = { workspace = true }
 openkind-engine = { workspace = true }
 openkind-model-store = { workspace = true }
 clap = { workspace = true }
 smallvec = { workspace = true }
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls"] }
 serde_json = { workspace = true }
+serde = { workspace = true }
+sha2 = { workspace = true }
+rusqlite = { version = "0.37", features = ["bundled"] }
+fs2 = "0.4"
 # Faster JSON parse for the inspect/evaluate request path; serde_json
 # remains the fallback and the authority on parse-error messages.
 sonic-rs = { workspace = true }

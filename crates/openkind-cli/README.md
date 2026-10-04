@@ -59,6 +59,50 @@ Flags:
 
 HTTP status and error details go to stderr. Noul text rows show their Noul value and label confidence as not provided.
 
+### `batch`
+
+Evaluates JSONL files or stdin one request at a time. Each nonblank line must contain a complete Jev request, including its model, state, and questions. CRLF and a final line without a newline are accepted. The 32 MiB limit applies to each record; the whole file is streamed.
+
+```bash
+jq -c . examples/01_noul.json > requests.jsonl
+openkind batch run requests.jsonl --job-dir ./job
+producer | openkind batch run - --job-dir ./pipe-job
+openkind batch run requests.jsonl --job-dir ./slice --start-row 1001 --end-row 2000
+
+openkind batch status ./job --json
+openkind batch stop ./job
+openkind batch resume ./job
+openkind batch export ./job > results.jsonl
+```
+
+`run` accepts `--server` (default `http://127.0.0.1:8080`), `--api-key`, and `--interval-ms` (default `0`). The interval is a delay between a saved response and the next record's dispatch. The Rust client's bounded retry policy honors server retry delays while keeping one logical request in flight. Request attempts have a 30-second timeout. Keyless daemons are supported; configured keys still resolve and validate through the Rust client.
+
+`--start-row` defaults to `1`; `--end-row` defaults to the end of the source. Either argument can be used alone. Both are inclusive, one-based source line numbers, with blank lines counted. Only nonblank rows within the range are validated, captured, and sent. Resume preserves the saved range. A finite range can finish while the stdin producer remains open. Reaching EOF before the range starts completes with no requests. `source_complete` in status indicates source EOF, so it can remain false when a range finishes earlier.
+
+Successful results are JSONL on stdout; progress and failures go to stderr. Each result contains `record` (one-based captured request number within the job), `line` (one-based source line), and `response` (the typed Jev response). For example:
+
+```json
+{"record":1,"line":1,"response":{"model":"mock","answers":{"q":{"type":"noul","noul":0.75}},"usage":{"input_tokens":1,"output_tokens":1}}}
+```
+
+The job directory stores captured requests, responses, settings, and progress in `job.sqlite3`, with a `runner.lock` preventing two runners from owning the same job. API keys are not stored. Requests are saved before dispatch; responses and completion progress commit together before stdout delivery. `export` reconstructs all saved successes in source order, including results whose stdout delivery was interrupted.
+
+The first Ctrl-C, SIGTERM, or `batch stop` stops intake and dispatch, finishes and saves the active logical request (including its bounded retries), and exits. A second Ctrl-C exits immediately. Idle stdin and interval waits can be stopped without closing the producer. Stopping a client does not guarantee cancellation at the server.
+
+The runner's stop message reports the last source row whose validated successful response was saved, or `none` when no request succeeded. Failed, skipped, and unfinished records do not advance it. `batch stop` reports the last successful row so far; the active request can still finish afterward, and the runner reports the final row on exit. `batch status` shows the same value as `last_successful_row` in JSON (or `null` before any success). Use `batch export` to recover its response along with all other saved successes.
+
+Malformed requests, invalid responses, and exhausted retries pause the job before later records are sent. `resume` retries the failed or unfinished record and skips saved successes. It restores the saved server and interval; `--server`, `--api-key`, and `--interval-ms` can override them. Supply credentials again through flags or environment variables. Use `resume --skip-failed` to deliberately skip the currently failed record. Completed jobs with skipped records still exit `1`. Changed file content or identity is rejected before replay; start a new job for corrected input.
+
+Pipe recovery covers complete records already saved locally. Buffered or partially read stdin, unread producer output, and the producer's restart position are not captured. To supply the remaining output explicitly:
+
+```bash
+remaining-producer | openkind batch resume ./pipe-job --input -
+```
+
+Without `--input -`, resume processes captured records and pauses if neither source EOF nor the saved end row has been reached. Source line numbering continues from the saved cursor, including any blank or unselected rows already consumed. The producer must manage its own restart position. Automatic restart and deduplication are not provided. After a crash or immediate interrupt, an in-flight record has an uncertain outcome; retrying it can repeat server work or billing.
+
+Completed successful jobs exit `0`. Paused, interrupted, failed, or completed jobs with skipped records exit `1`; argument errors exit `2`. CSV input and HTTP proxying are not supported.
+
 ### `serve`
 
 Launches `openkindd`, which must be built and on `PATH`. On Unix the CLI process replaces itself with the daemon, so shutdown signals reach the daemon directly:
@@ -68,8 +112,8 @@ openkind serve --installed-models qwen35-state-first:a047d6802c3f06f085b8
 ```
 
 Flags:
-- `--http-addr <ADDR>`: Address to bind the HTTP server on (default: `0.0.0.0:8080`).
-- `--grpc-addr <ADDR>`: Address to bind the gRPC server on (default: `0.0.0.0:9090`).
+- `--http-addr <ADDR>`: Address to bind the HTTP server on (default: `127.0.0.1:8080`).
+- `--grpc-addr <ADDR>`: Address to bind the gRPC server on (default: `127.0.0.1:9090`).
 - `--models <ALIASES>`: Comma-separated model aliases to expose (default: `mock,jev-latest`).
 - `--installed-models <MODELS>`: Comma-separated installed models to load at daemon startup.
 - `--models-dir <PATH>`: Directory shared by model commands and the daemon.

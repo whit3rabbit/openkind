@@ -5,6 +5,7 @@
 
 mod api_key;
 mod args;
+mod batch;
 mod daemon;
 mod evaluate;
 mod inspect;
@@ -19,7 +20,7 @@ mod tests;
 
 use anyhow::Result;
 
-pub use args::{Cli, Commands, EvaluateFormat};
+pub use args::{BatchCommands, Cli, Commands, EvaluateFormat};
 pub use inspect::{parse_and_validate_request, MAX_CLI_INPUT_BYTES};
 
 use evaluate::cmd_evaluate;
@@ -29,6 +30,7 @@ use serve::cmd_serve;
 /// Dispatch a parsed command using the same path as the `openkind` binary.
 pub fn run(cli: Cli) -> Result<()> {
     match cli.command {
+        Commands::Batch { command } => batch::run(command),
         Commands::Keygen => api_key::cmd_keygen(),
         Commands::Doctor {
             json,

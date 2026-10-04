@@ -233,7 +233,7 @@ openkind/
 │   ├── openkind-engine/      # DecisionEngine + profile/execution boundary
 │   ├── openkind-api/         # HTTP (axum) + gRPC (tonic)
 │   ├── openkind-server/      # openkindd binary
-│   ├── openkind-cli/         # openkind binary
+│   ├── openkind-cli/         # openkind binary, local resumable JSONL jobs
 │   ├── openkind-client/      # Rust client SDK (HTTP, retries, provider routes)
 │   ├── openkind-runtime/     # device/scheduler/state/cache lifecycle
 │   ├── openkind-backends/    # supported native model drivers
@@ -249,6 +249,11 @@ openkind/
 ```
 
 ### Layering
+
+[`openkind batch`](../crates/openkind-cli/README.md#batch) owns a local SQLite
+job journal and sends sequential requests through `openkind-client`. Stop,
+status, and resume operate on the job directory. Batch execution uses the
+existing evaluation endpoint and leaves the Jev wire contract unchanged.
 
 ```mermaid
 flowchart TD
