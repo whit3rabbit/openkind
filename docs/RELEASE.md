@@ -79,8 +79,8 @@ env -u RUST_LOG cargo test --workspace --locked
 # Benchmark compilation and test battery
 env -u RUST_LOG cargo test --workspace --benches --locked
 
-# Minimum Supported Rust Version check (Rust 1.88)
-cargo +1.88.0 check --workspace --all-targets --locked
+# Minimum Supported Rust Version check (Rust 1.90)
+cargo +1.90.0 check --workspace --all-targets --locked
 
 # JSON Schema generation and drift check
 cargo run -p openkind-gen-schemas --locked -- --write

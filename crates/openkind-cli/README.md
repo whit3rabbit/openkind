@@ -14,7 +14,7 @@ brew install whit3rabbit/tap/openkind
 
 ### Cargo
 
-Install from crates.io with Rust 1.88 or newer:
+Install from crates.io with Rust 1.90 or newer:
 
 ```bash
 cargo install --locked openkind-cli

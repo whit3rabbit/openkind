@@ -29,7 +29,7 @@ openkind version
 
 ### Cargo
 
-Install from crates.io with Rust 1.88+, a native C/C++ build toolchain, and
+Install from crates.io with Rust 1.90+, a native C/C++ build toolchain, and
 `protoc` on `PATH`. The server compiles its Protobuf interface during installation.
 Install `protobuf` with Homebrew on macOS or `protobuf-compiler` on Debian/Ubuntu.
 On Windows, use the MSVC build tools and a Protobuf compiler installation.
@@ -331,7 +331,7 @@ The new mixed-task Qwen3.5 decision LoRA trainer has been checked with tiny mode
 
 ### Build from source
 
-To build from source, install Rust 1.88 or newer and the Protocol Buffers compiler (`protoc`):
+To build from source, install Rust 1.90 or newer and the Protocol Buffers compiler (`protoc`):
 
 ```bash
 git clone https://github.com/whit3rabbit/openkind.git

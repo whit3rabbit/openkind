@@ -809,9 +809,8 @@ The external DGX study observed campaign-to-campaign differences from identical 
 
 Use the verification commands in the root `AGENTS.md` instead of copying a test
 total into this document. The backend parity suite must also pass under the
-workspace's Rust 1.88 minimum. CI verifies this floor with locked,
-all-features workspace tests because the tonic 0.14.6 service stack requires
-Rust 1.88.
+workspace's Rust 1.90 minimum. CI tests this floor with locked CPU workspace
+tests and separate ONNX feature checks.
 
 ### Regression suite and remaining expansion
 

@@ -29,6 +29,7 @@
 
 ### Changed
 
+- Minimum supported Rust version raised from 1.88 to 1.90.
 - `openkind serve` and `openkindd` default HTTP and gRPC bind addresses to
   loopback (`127.0.0.1:8080` / `127.0.0.1:9090`) rather than `0.0.0.0`.
 - Graceful shutdown handles a second `SIGINT` or `SIGTERM` to force an immediate

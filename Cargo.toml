@@ -19,9 +19,8 @@ members = [
 [workspace.package]
 version = "0.2.0"
 edition = "2021"
-# Raised from 1.75 for the optional Phase 3M MLX/Metal backend: mlx-rs 0.32.0
-# (pinned in the Phase 3M dependency block below) requires 1.88.
-rust-version = "1.88"
+# The locked dependency set requires Rust 1.90 (ordered-float 5.5.0).
+rust-version = "1.90"
 license = "MIT"
 license-file = "LICENSE"
 repository = "https://github.com/whit3rabbit/openkind"
@@ -64,7 +63,7 @@ humantime = "2"
 humantime-serde = "1"
 
 # Development benchmarking. Pin the patch release so future Criterion MSRV
-# changes cannot silently move the workspace above Rust 1.88.
+# changes cannot silently move the workspace above Rust 1.90.
 criterion = { version = "=0.8.2", features = ["async_tokio", "html_reports"] }
 
 # Observability
