@@ -6,14 +6,52 @@ use super::helpers::{body_bytes, get, post_systemone};
 /// Verifies that all endpoints declared in `openapi.yaml` are implemented and live in the router.
 #[tokio::test]
 async fn openapi_all_paths_are_registered_in_router() {
-    let spec = include_str!("../../openapi.yaml");
-
-    // Check that expected paths exist in the spec text
-    assert!(spec.contains("/v1/systemone:"));
-    assert!(spec.contains("/v1/system_one:"));
-    assert!(spec.contains("/v1/models:"));
-    assert!(spec.contains("/health:"));
-    assert!(spec.contains("/metrics:"));
+    let spec: Value = serde_yaml_ng::from_str(include_str!("../../openapi.yaml")).unwrap();
+    let expected = [
+        ("/v1/systemone", "post"),
+        ("/v1/system_one", "post"),
+        ("/v1/models", "get"),
+        ("/health", "get"),
+        ("/metrics", "get"),
+    ];
+    assert_eq!(spec["paths"].as_object().unwrap().len(), expected.len());
+    for (path, method) in expected {
+        let methods = spec["paths"][path].as_object().unwrap();
+        assert_eq!(
+            methods.keys().map(String::as_str).collect::<Vec<_>>(),
+            vec![method]
+        );
+        assert!(methods[method]["responses"]["200"].is_object());
+    }
+    for path in ["/v1/systemone", "/v1/system_one"] {
+        for (status, component) in [
+            ("400", "BadRequest"),
+            ("401", "Unauthorized"),
+            ("404", "NotFound"),
+            ("413", "PayloadTooLarge"),
+            ("422", "UnprocessableEntity"),
+            ("429", "RateLimited"),
+            ("500", "InternalServerError"),
+            ("502", "BadGateway"),
+            ("504", "GatewayTimeout"),
+            ("529", "Overloaded"),
+        ] {
+            let reference = format!("#/components/responses/{component}");
+            assert_eq!(
+                spec["paths"][path]["post"]["responses"][status]["$ref"],
+                reference
+            );
+            assert_eq!(
+                spec["components"]["responses"][component]["content"]["application/json"]["schema"]
+                    ["$ref"],
+                "#/components/schemas/ErrorEnvelope"
+            );
+        }
+    }
+    assert_eq!(
+        spec["paths"]["/v1/systemone"]["post"]["responses"],
+        spec["paths"]["/v1/system_one"]["post"]["responses"]
+    );
 
     // Verify GET /health
     let (health_status, health_resp) = get("/health", &[]).await;
@@ -200,4 +238,89 @@ async fn openapi_example_extra_body_metadata_evaluates() {
     assert_eq!(status, StatusCode::OK);
     let v: Value = serde_json::from_slice(&body_bytes(resp).await).unwrap();
     assert!(v["answers"]["infra_issue"]["noul"].is_number());
+}
+
+#[tokio::test]
+async fn documented_error_responses_are_executable_on_both_aliases() {
+    use async_trait::async_trait;
+    use axum::{body::Body, http::Request};
+    use openkind_api::{
+        http, ApiError, AppState, AuthConfig, ModelsResponse, ProxyOutcome, SystemProxy,
+    };
+    use openkind_core::{SystemRequest, SystemResponse};
+    use openkind_engine::{DecisionEngine, EngineError, EngineRegistry, EngineResult};
+    use std::sync::Arc;
+    use tower::ServiceExt;
+
+    struct DeadlineEngine;
+    #[async_trait]
+    impl DecisionEngine for DeadlineEngine {
+        fn backend_id(&self) -> &str {
+            "deadline"
+        }
+        async fn evaluate(&self, _: SystemRequest) -> EngineResult<SystemResponse> {
+            Err(EngineError::DeadlineExceeded {
+                backend: "deadline".into(),
+                timeout_ms: 1,
+            })
+        }
+    }
+    struct FailedProxy;
+    #[async_trait]
+    impl SystemProxy for FailedProxy {
+        fn wants(&self, _: &SystemRequest) -> bool {
+            true
+        }
+        async fn evaluate(
+            &self,
+            _: SystemRequest,
+            _: Option<String>,
+        ) -> Result<ProxyOutcome, ApiError> {
+            Err(ApiError::BadGateway("upstream unavailable".into()))
+        }
+        async fn models(&self) -> Option<ModelsResponse> {
+            None
+        }
+    }
+    let mut registry = EngineRegistry::new();
+    registry.register("mock", Arc::new(DeadlineEngine));
+    let deadline = AppState::new(registry.clone());
+    let mut proxy = AppState::new(registry);
+    proxy.proxy = Some(Arc::new(FailedProxy));
+    let spec: Value = serde_yaml_ng::from_str(include_str!("../../openapi.yaml")).unwrap();
+    for path in ["/v1/systemone", "/v1/system_one"] {
+        for (status, code, state, limit) in [
+            (413, "payload_too_large", deadline.clone(), 1),
+            (
+                502,
+                "bad_gateway",
+                proxy.clone(),
+                http::MAX_PAYLOAD_SIZE_BYTES,
+            ),
+            (
+                504,
+                "deadline_exceeded",
+                deadline.clone(),
+                http::MAX_PAYLOAD_SIZE_BYTES,
+            ),
+        ] {
+            let app = http::router_with_state_and_limit(state, AuthConfig::default(), limit);
+            let request = Request::builder().method("POST").uri(path).header("content-type", "application/json")
+                .body(Body::from(serde_json::to_vec(&serde_json::json!({"model":"mock","state":"state","questions":{"q":{"type":"noul","instructions":"?"}}})).unwrap())).unwrap();
+            let response = app.oneshot(request).await.unwrap();
+            assert_eq!(response.status().as_u16(), status);
+            assert!(response.headers().contains_key("x-typesafe-request-id"));
+            let body: Value = serde_json::from_slice(&body_bytes(response).await).unwrap();
+            assert_eq!(body["error"]["code"], code);
+            let reference = spec["paths"][path]["post"]["responses"][status.to_string()]["$ref"]
+                .as_str()
+                .unwrap();
+            let component = reference.strip_prefix("#/components/responses/").unwrap();
+            assert_eq!(
+                spec["components"]["responses"][component]["content"]["application/json"]
+                    ["example"]["error"]["code"],
+                code
+            );
+        }
+    }
 }

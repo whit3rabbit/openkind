@@ -295,7 +295,7 @@ async fn rejected_auth_does_not_consume_rate_limit_budget() {
         }),
     );
 
-    for _ in 0..2 {
+    for expected in [StatusCode::UNAUTHORIZED, StatusCode::TOO_MANY_REQUESTS] {
         let resp = limited_app
             .clone()
             .oneshot(
@@ -307,7 +307,7 @@ async fn rejected_auth_does_not_consume_rate_limit_budget() {
             )
             .await
             .unwrap();
-        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+        assert_eq!(resp.status(), expected);
     }
 
     let resp = limited_app

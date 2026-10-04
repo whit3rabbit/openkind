@@ -59,13 +59,14 @@ It defines:
 - [`src/middleware/`](./src/middleware/):
   - Modular middleware stack:
     - [`src/middleware/request_id.rs`](./src/middleware/request_id.rs): `REQUEST_ID_HEADER = "x-typesafe-request-id"`, `request_id_layer` (checks for inbound client header, falls back to `Uuid::new_v4()`).
-    - [`src/middleware/auth.rs`](./src/middleware/auth.rs): `auth_layer` hashes both bearer tokens with SHA-256 via `ring` and compares them with `subtle::ConstantTimeEq`. It supports `OPENKIND_API_KEY`, `TYPESAFE_API_KEY`, and deprecated `OPENDECISION_API_KEY` and `OPENPICK_API_KEY`.
-    - [`src/middleware/rate_limit.rs`](./src/middleware/rate_limit.rs): `rate_limit_layer` (per-IP fixed-window rate limiter emitting 429 status and retry headers).
+    - [`src/middleware/auth.rs`](./src/middleware/auth.rs): `auth_layer` and `auth_layer_with_rate_limit` hash bearer tokens with SHA-256 via `ring` and compare with `subtle::ConstantTimeEq`. Rejected credentials increment `openkind_auth_failures_total` (with a fixed `transport` label) and consume an independent `failed_auth` rate limit budget without spending the evaluation quota.
+    - [`src/middleware/rate_limit.rs`](./src/middleware/rate_limit.rs): `rate_limit_layer`, `RateLimiter`, and `RequestLimits` (independent evaluation and failed-authentication budgets emitting 429 status and retry headers).
     - [`src/middleware/tests/`](./src/middleware/tests/): Dedicated test suites (`request_id_tests.rs`, `auth_tests.rs`, `rate_limit_tests.rs`).
 - [`src/error.rs`](./src/error.rs):
   - `ApiError` enum and `IntoResponse` implementation:
     - Formats body as `{"error":{"code": ..., "message": ...}}`.
     - Handles `Retry-After` (seconds, via `ms.div_ceil(1000)`) and `retry-after-ms` (milliseconds) headers for rate-limiting (429) and overload (529).
+    - Maps `EngineError::BackendValidation` to HTTP 500 (`internal_error`) / gRPC `Code::Internal`.
 - [`tests/sdk_compat.rs`](./tests/sdk_compat.rs) & [`tests/sdk_compat/`](./tests/sdk_compat/):
   - Executable compatibility contract with the TypeSafe Python SDK modularized into:
     - [`helpers.rs`](./tests/sdk_compat/helpers.rs): Test server routing and HTTP helper functions.
@@ -85,13 +86,15 @@ It defines:
     - [`evaluate.rs`](./tests/grpc_roundtrip/evaluate.rs): All-question-type evaluation and state roundtripping.
     - [`errors.rs`](./tests/grpc_roundtrip/errors.rs): Malformed requests, empty questions, unknown models, and request ID metadata.
     - [`auth.rs`](./tests/grpc_roundtrip/auth.rs): gRPC metadata bearer token validation, `x-api-key`, and request ID sanitization.
+- [`tests/transport_limits.rs`](./tests/transport_limits.rs):
+  - End-to-end integration tests confirming HTTP and gRPC listeners share evaluation budgets while failed authentication uses an independent budget.
 
 ## Gotchas & Wire Subtleties
 
 1. **Dual SystemOne Endpoints**:
    Both `/v1/systemone` and `/v1/system_one` must be routed to the same handler for SDK compatibility.
 2. **Overload Header Symmetry (529)**:
-   When `EngineError::Overloaded` occurs, the API layer emits status 529 and both `Retry-After` (seconds) and `retry-after-ms` (milliseconds) headers.
+   When `EngineError::Overloaded` occurs, the API layer emits status 529 and both `Retry-After` (seconds) and `retry-after-ms` (milliseconds) headers in HTTP, or metadata keys `retry-after` and `retry-after-ms` in gRPC.
 3. **Public Endpoints**:
    Keep `/health` and `/metrics` outside `auth_layer` for probes and scrapers. `/playground` exposes only inert HTML. Evaluation and model-control routes remain gated.
 4. **Playground Is Not in `openapi.yaml`** (deliberate):

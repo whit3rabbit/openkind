@@ -45,7 +45,7 @@ pub fn router_with_state_and_limit(
         state,
         auth,
         max_payload_bytes,
-        crate::middleware::RateLimiter::new(crate::middleware::RateLimitConfig::default()),
+        crate::middleware::RequestLimits::default(),
         false,
         false,
     )
@@ -58,7 +58,14 @@ pub fn router_with_state_auth_rate_limit(
     max_payload_bytes: usize,
     rate_limiter: crate::middleware::RateLimiter,
 ) -> Router {
-    router_full(state, auth, max_payload_bytes, rate_limiter, false, false)
+    router_full(
+        state,
+        auth,
+        max_payload_bytes,
+        rate_limiter.into(),
+        false,
+        false,
+    )
 }
 
 /// Build the daemon HTTP router: explicit payload size limit, rate limiting,
@@ -75,7 +82,7 @@ pub fn router_daemon(
         state,
         auth,
         max_payload_bytes,
-        rate_limiter,
+        rate_limiter.into(),
         playground,
         false,
     )
@@ -95,17 +102,29 @@ pub fn router_daemon_with_arrow(
         state,
         auth,
         max_payload_bytes,
-        rate_limiter,
+        rate_limiter.into(),
         playground,
         arrow,
     )
+}
+
+/// Build the daemon router with budgets shared with other transports.
+pub fn router_daemon_with_arrow_and_limits(
+    state: AppState,
+    auth: AuthConfig,
+    max_payload_bytes: usize,
+    limits: crate::middleware::RequestLimits,
+    playground: bool,
+    arrow: bool,
+) -> Router {
+    router_full(state, auth, max_payload_bytes, limits, playground, arrow)
 }
 
 fn router_full(
     state: AppState,
     auth: AuthConfig,
     max_payload_bytes: usize,
-    rate_limiter: crate::middleware::RateLimiter,
+    limits: crate::middleware::RequestLimits,
     playground: bool,
     arrow: bool,
 ) -> Router {
@@ -143,9 +162,9 @@ fn router_full(
     };
     // A disabled limiter has no observable effect. Leave its middleware
     // off the router so it cannot allocate or dispatch on every request.
-    let routes = if rate_limiter.is_enabled() {
+    let routes = if limits.evaluation.is_enabled() {
         routes.layer(axum::middleware::from_fn_with_state(
-            rate_limiter,
+            limits.evaluation,
             crate::middleware::rate_limit_layer,
         ))
     } else {
@@ -160,8 +179,8 @@ fn router_full(
         // credentials cannot exhaust the budget shared by requests from
         // the same TCP peer (for example, a reverse proxy).
         .layer(axum::middleware::from_fn_with_state(
-            auth,
-            crate::middleware::auth_layer,
+            (auth, limits.failed_auth),
+            crate::middleware::auth_layer_with_rate_limit,
         ))
         .layer(axum::middleware::from_fn(
             crate::middleware::request_id_layer,

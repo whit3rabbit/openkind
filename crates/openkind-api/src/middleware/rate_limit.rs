@@ -45,6 +45,40 @@ pub struct RateLimiter {
     >,
 }
 
+/// Shared transport budgets with an independent failed-authentication allowance.
+#[derive(Debug, Clone)]
+pub struct RequestLimits {
+    /// Budget for authenticated or anonymous API work.
+    pub evaluation: RateLimiter,
+    /// Budget charged only when credentials fail verification.
+    pub failed_auth: RateLimiter,
+}
+
+impl RequestLimits {
+    /// Construct independent budgets with the same configured limit and window.
+    pub fn new(config: RateLimitConfig) -> Self {
+        Self {
+            evaluation: RateLimiter::new(config.clone()),
+            failed_auth: RateLimiter::new(config),
+        }
+    }
+}
+
+impl Default for RequestLimits {
+    fn default() -> Self {
+        Self::new(RateLimitConfig::default())
+    }
+}
+
+impl From<RateLimiter> for RequestLimits {
+    fn from(evaluation: RateLimiter) -> Self {
+        Self {
+            failed_auth: RateLimiter::new(evaluation.config.clone()),
+            evaluation,
+        }
+    }
+}
+
 /// Per-request handle used by bulk handlers to charge work beyond the one
 /// unit already recorded by [`rate_limit_layer`].
 #[doc(hidden)]
@@ -85,7 +119,7 @@ impl RateLimiter {
 
     /// Record one request for `ip`. Returns `Ok(())` when under the limit,
     /// or `Err(retry_after_ms)` when the client has exhausted its window.
-    fn check(&self, ip: std::net::IpAddr) -> Result<(), u64> {
+    pub(crate) fn check(&self, ip: std::net::IpAddr) -> Result<(), u64> {
         self.check_n(ip, 1)
     }
 

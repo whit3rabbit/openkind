@@ -301,3 +301,47 @@ fn resolve_api_key_preference() {
     let key7 = AuthConfig::resolve_api_key_with(|_| Err(std::env::VarError::NotPresent));
     assert_eq!(key7, None);
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn failed_authentication_metrics_use_only_fixed_transport_labels() {
+    use metrics_util::debugging::{DebugValue, DebuggingRecorder};
+    use openkind_proto::openkind::{self as pb, system_one_server::SystemOne};
+    let recorder = DebuggingRecorder::new();
+    let _guard = metrics::set_default_local_recorder(&recorder);
+    let auth = AuthConfig::new(Some("private-token".into()));
+    let response = app(auth.clone())
+        .oneshot(
+            Request::builder()
+                .uri("/v1/ping")
+                .header("authorization", "Bearer private-invalid-token")
+                .body(Body::from("private request"))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    let service =
+        crate::grpc::SystemOneService::with_auth(openkind_engine::EngineRegistry::new(), auth);
+    assert_eq!(
+        service
+            .evaluate(tonic::Request::new(pb::SystemOneRequest::default()))
+            .await
+            .unwrap_err()
+            .code(),
+        tonic::Code::Unauthenticated
+    );
+    let mut transports = std::collections::BTreeSet::new();
+    for (key, _, _, value) in recorder.snapshotter().snapshot().into_vec() {
+        if key.key().name() == "openkind_auth_failures_total" {
+            assert_eq!(value, DebugValue::Counter(1));
+            let labels: Vec<_> = key.key().labels().collect();
+            assert_eq!(labels.len(), 1);
+            assert_eq!(labels[0].key(), "transport");
+            transports.insert(labels[0].value().to_owned());
+        }
+    }
+    assert_eq!(
+        transports,
+        ["http".to_owned(), "grpc".to_owned()].into_iter().collect()
+    );
+}

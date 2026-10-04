@@ -40,7 +40,7 @@ pub use error::ApiError;
 pub use http::{
     router, router_daemon, router_daemon_with_arrow, router_with_auth, router_with_state,
 };
-pub use middleware::{AuthConfig, RateLimitConfig, RateLimiter, REQUEST_ID_HEADER};
+pub use middleware::{AuthConfig, RateLimitConfig, RateLimiter, RequestLimits, REQUEST_ID_HEADER};
 pub use models::{ModelInfo, ModelsResponse};
 pub use proxy::{ProxyOutcome, ProxySource, SystemProxy};
 

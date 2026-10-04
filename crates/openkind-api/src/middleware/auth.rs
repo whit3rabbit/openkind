@@ -96,6 +96,14 @@ pub async fn auth_layer(
     req: Request<Body>,
     next: Next,
 ) -> Response {
+    auth_layer_with_rate_limit(State((auth, super::RateLimiter::disabled())), req, next).await
+}
+
+pub(crate) async fn auth_layer_with_rate_limit(
+    State((auth, failed_auth)): State<(AuthConfig, super::RateLimiter)>,
+    req: Request<Body>,
+    next: Next,
+) -> Response {
     let path = req.uri().path();
     if !auth.is_required()
         || path == "/health"
@@ -118,6 +126,15 @@ pub async fn auth_layer(
     let ok = supplied.is_some_and(|token| auth.token_matches(token));
 
     if !ok {
+        metrics::counter!("openkind_auth_failures_total", "transport" => "http").increment(1);
+        if let Some(peer) = req
+            .extensions()
+            .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        {
+            if let Err(retry_after_ms) = failed_auth.check(peer.0.ip()) {
+                return crate::ApiError::RateLimited { retry_after_ms }.into_response();
+            }
+        }
         let body = Json(serde_json::json!({
             "error": {
                 "code": "unauthorized",

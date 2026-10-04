@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: openkind API (Jev System One)
-  version: 0.1.0
+  version: 0.2.0
   description: |
     Open-source, high-throughput decision-inference engine speaking the Jev protocol.
     Implements the System One request and response shape used by TypeSafe's hosted API.
@@ -166,6 +166,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
         '429':
@@ -174,6 +176,10 @@ paths:
           $ref: '#/components/responses/Overloaded'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
 
   /v1/system_one:
     post:
@@ -208,6 +214,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/UnprocessableEntity'
         '429':
@@ -216,6 +224,10 @@ paths:
           $ref: '#/components/responses/Overloaded'
         '500':
           $ref: '#/components/responses/InternalServerError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+        '504':
+          $ref: '#/components/responses/GatewayTimeout'
 
   /v1/models:
     get:
@@ -491,6 +503,48 @@ components:
             error:
               code: "internal_error"
               message: "engine failed to complete evaluation"
+
+    PayloadTooLarge:
+      description: Request exceeds the configured payload limit (413).
+      headers:
+        x-typesafe-request-id:
+          $ref: '#/components/headers/XTypesafeRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: "payload_too_large"
+              message: "request exceeds the configured payload limit"
+
+    BadGateway:
+      description: Upstream service failed (502).
+      headers:
+        x-typesafe-request-id:
+          $ref: '#/components/headers/XTypesafeRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: "bad_gateway"
+              message: "upstream service failed"
+
+    GatewayTimeout:
+      description: Evaluation deadline elapsed (504).
+      headers:
+        x-typesafe-request-id:
+          $ref: '#/components/headers/XTypesafeRequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+          example:
+            error:
+              code: "deadline_exceeded"
+              message: "evaluation deadline elapsed"
 
   schemas:
     SystemRequest:

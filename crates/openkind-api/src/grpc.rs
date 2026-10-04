@@ -10,7 +10,7 @@ use openkind_engine::{dispatch, EngineRegistry};
 use openkind_proto::openkind as pb;
 use tonic::{Request, Response, Status};
 
-use crate::middleware::AuthConfig;
+use crate::middleware::{AuthConfig, RequestLimits};
 use crate::AppState;
 
 /// gRPC service implementation of the `openkind.SystemOne` service contract.
@@ -19,6 +19,8 @@ pub struct SystemOneService {
     pub state: AppState,
     /// Authentication configuration.
     pub auth: AuthConfig,
+    /// Transport budgets, optionally shared with the HTTP listener.
+    pub limits: RequestLimits,
 }
 
 impl SystemOneService {
@@ -29,9 +31,19 @@ impl SystemOneService {
 
     /// Construct a new `SystemOneService` backed by the specified engine registry and auth configuration.
     pub fn with_auth(registry: EngineRegistry, auth: AuthConfig) -> Self {
+        Self::with_auth_and_limits(registry, auth, RequestLimits::default())
+    }
+
+    /// Construct the service with explicit, potentially shared transport budgets.
+    pub fn with_auth_and_limits(
+        registry: EngineRegistry,
+        auth: AuthConfig,
+        limits: RequestLimits,
+    ) -> Self {
         Self {
             state: AppState::new(registry),
             auth,
+            limits,
         }
     }
 }
@@ -55,10 +67,31 @@ impl pb::system_one_server::SystemOne for SystemOneService {
 
         // Authenticate request if an API key is configured.
         if self.auth.is_required() && !check_grpc_auth(request.metadata(), &self.auth) {
+            metrics::counter!("openkind_auth_failures_total", "transport" => "grpc").increment(1);
+            if let Some(peer) = request.remote_addr() {
+                if let Err(ms) = self.limits.failed_auth.check(peer.ip()) {
+                    return Err(status_with_request_id(
+                        status_with_retry(
+                            Status::resource_exhausted("authentication rate limited"),
+                            ms,
+                        ),
+                        &req_id,
+                    ));
+                }
+            }
             return Err(status_with_request_id(
                 Status::unauthenticated("missing or invalid API key"),
                 &req_id,
             ));
+        }
+
+        if let Some(peer) = request.remote_addr() {
+            if let Err(ms) = self.limits.evaluation.check(peer.ip()) {
+                return Err(status_with_request_id(
+                    status_with_retry(Status::resource_exhausted("rate limited"), ms),
+                    &req_id,
+                ));
+            }
         }
 
         let pb_req = request.into_inner();
@@ -90,6 +123,16 @@ impl pb::system_one_server::SystemOne for SystemOneService {
         );
         Ok(response)
     }
+}
+
+fn status_with_retry(mut status: Status, ms: u64) -> Status {
+    if let Ok(value) = ms.to_string().parse() {
+        status.metadata_mut().insert("retry-after-ms", value);
+    }
+    if let Ok(value) = ms.div_ceil(1000).to_string().parse() {
+        status.metadata_mut().insert("retry-after", value);
+    }
+    status
 }
 
 fn status_with_request_id(mut status: Status, request_id: &str) -> Status {
@@ -268,9 +311,11 @@ fn status_from_engine(e: openkind_engine::EngineError) -> Status {
         Invalid(_) => Status::invalid_argument(e.to_string()),
         UnknownModel(_) => Status::not_found(e.to_string()),
         Unsupported { .. } => Status::invalid_argument(e.to_string()),
-        Overloaded { .. } => Status::unavailable(e.to_string()),
+        Overloaded { retry_after_ms, .. } => {
+            status_with_retry(Status::unavailable(e.to_string()), retry_after_ms)
+        }
         DeadlineExceeded { .. } => Status::deadline_exceeded(e.to_string()),
-        Backend { .. } => Status::internal(e.to_string()),
+        Backend { .. } | BackendValidation { .. } => Status::internal(e.to_string()),
     }
 }
 
@@ -304,4 +349,17 @@ pub fn service_with_auth(
     auth: AuthConfig,
 ) -> pb::system_one_server::SystemOneServer<SystemOneService> {
     server_with_auth(registry, auth)
+}
+
+/// Build a gRPC service using transport budgets shared with the HTTP router.
+pub fn service_with_auth_and_limits(
+    registry: EngineRegistry,
+    auth: AuthConfig,
+    limits: RequestLimits,
+) -> pb::system_one_server::SystemOneServer<SystemOneService> {
+    pb::system_one_server::SystemOneServer::new(SystemOneService::with_auth_and_limits(
+        registry, auth, limits,
+    ))
+    .max_decoding_message_size(16 * 1024 * 1024)
+    .max_encoding_message_size(16 * 1024 * 1024)
 }

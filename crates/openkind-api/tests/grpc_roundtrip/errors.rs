@@ -280,6 +280,12 @@ impl openkind_engine::DecisionEngine for FaultEngine {
                 backend: backend.clone(),
                 timeout_ms: *timeout_ms,
             },
+            openkind_engine::EngineError::BackendValidation { backend, .. } => {
+                openkind_engine::EngineError::BackendValidation {
+                    backend: backend.clone(),
+                    source: openkind_core::ValidationError::MissingAnswer("q".into()),
+                }
+            }
             other => unreachable!("unexpected injected error {other:?}"),
         })
     }
@@ -313,6 +319,8 @@ async fn grpc_overloaded_maps_to_unavailable() {
     .await;
     assert_eq!(status.code(), tonic::Code::Unavailable, "{status:?}");
     assert!(status.message().contains("overloaded"), "{status:?}");
+    assert!(status.metadata().get("retry-after-ms").is_some());
+    assert!(status.metadata().get("retry-after").is_some());
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -333,4 +341,15 @@ async fn grpc_deadline_maps_to_deadline_exceeded() {
     })
     .await;
     assert_eq!(status.code(), tonic::Code::DeadlineExceeded, "{status:?}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn grpc_backend_validation_maps_to_internal() {
+    let status = fault_status(openkind_engine::EngineError::BackendValidation {
+        backend: "fault-engine".into(),
+        source: openkind_core::ValidationError::MissingAnswer("q".into()),
+    })
+    .await;
+    assert_eq!(status.code(), tonic::Code::Internal);
+    assert!(status.message().contains("missing an answer"));
 }

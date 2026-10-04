@@ -95,9 +95,9 @@ impl ApiError {
             ApiError::Engine(EngineError::DeadlineExceeded { .. }) => {
                 (StatusCode::GATEWAY_TIMEOUT, "deadline_exceeded")
             }
-            ApiError::Engine(EngineError::Backend { .. }) => {
-                (StatusCode::INTERNAL_SERVER_ERROR, "backend_error")
-            }
+            ApiError::Engine(
+                EngineError::Backend { .. } | EngineError::BackendValidation { .. },
+            ) => (StatusCode::INTERNAL_SERVER_ERROR, "backend_error"),
             ApiError::BadGateway(_) => (StatusCode::BAD_GATEWAY, "bad_gateway"),
             ApiError::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "internal_error"),
         }
@@ -254,6 +254,14 @@ mod tests {
         let (status, _, body) = extract_body_json(err_val.into_response()).await;
         assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
         assert_eq!(body["error"]["code"], "invalid_body");
+
+        let err_validation = ApiError::Engine(EngineError::BackendValidation {
+            backend: "mock".into(),
+            source: ValidationError::MissingAnswer("q".into()),
+        });
+        let (status, _, body) = extract_body_json(err_validation.into_response()).await;
+        assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(body["error"]["code"], "backend_error");
 
         let err_backend = ApiError::Engine(EngineError::Backend {
             backend: "mock".into(),
