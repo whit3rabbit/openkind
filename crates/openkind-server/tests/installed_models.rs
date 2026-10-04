@@ -14,7 +14,8 @@ fn startup_error(args: &[&str]) -> String {
         .stderr(Stdio::piped())
         .spawn()
         .unwrap();
-    let deadline = Instant::now() + Duration::from_secs(5);
+    // Allow cold executable startup before checking configuration failures.
+    let deadline = Instant::now() + Duration::from_secs(30);
     loop {
         if let Some(status) = child.try_wait().unwrap() {
             assert!(!status.success());
@@ -22,8 +23,12 @@ fn startup_error(args: &[&str]) -> String {
             return String::from_utf8(output.stderr).unwrap();
         }
         if Instant::now() >= deadline {
-            child.kill().unwrap();
-            panic!("daemon did not fail startup for invalid configuration");
+            let _ = child.kill();
+            let output = child.wait_with_output().unwrap();
+            panic!(
+                "daemon did not fail startup for invalid configuration: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
         }
         thread::sleep(Duration::from_millis(20));
     }

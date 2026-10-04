@@ -16,11 +16,11 @@
 ### Critical Invariants
 
 1. **Dual Protocol Listener Support**:
-   - HTTP and gRPC bind to separate sockets (`--http-addr` default `0.0.0.0:8080`, `--grpc-addr` default `0.0.0.0:9090`).
+   - HTTP and gRPC bind to separate sockets (`--http-addr` default `127.0.0.1:8080`, `--grpc-addr` default `127.0.0.1:9090`).
    - If `--grpc-addr` has port 0 (e.g. `0.0.0.0:0`, `127.0.0.1:0`, `[::]:0`) or a disable sentinel (`0`, `off`, `none`, `disabled`), gRPC is cleanly disabled.
 2. **Graceful Shutdown**:
    - Both HTTP and gRPC listener tasks share a shutdown signal future that listens for Ctrl-C (`SIGINT`), plus Unix `SIGTERM`.
-   - On signal receipt, active in-flight inference requests complete before the process exits.
+   - On the first signal, active in-flight inference requests complete before the process exits. A second signal forces a nonzero exit.
 3. **Environment Variable Parity**:
    - Every CLI flag has an identical environment variable fallback (e.g. `--http-addr` / `OPENKIND_HTTP_ADDR`, `--models` / `OPENKIND_MODELS`, `--qwen35-bundle-root` / `OPENKIND_QWEN35_BUNDLE_ROOT`).
 4. **Metrics Recorder Initialization**:
@@ -46,7 +46,7 @@
 - [`src/proxy.rs`](./src/proxy.rs): Proxy-cache service (only when `--proxy-cache-upstream` is set):
   - Flags cover upstream, model aliases, encoder, backend, data directory, credentials, timeout, agreement, text storage, and bootstrap thresholds. Each flag has an `OPENKIND_PROXY_CACHE_*` environment alias.
   - `ProxyService` implements the [`openkind-api`](../openkind-api/AGENTS.md) `SystemProxy` hook. It groups choice questions, embeds state once, routes through the [`openkind-backends`](../openkind-backends/AGENTS.md) manager, and forwards other requests with the caller's bearer key. Responses include cache headers.
-  - Internal errors fail open to upstream. Unverified keys are forwarded and trusted only after a parsed answer. The daemon keeps only salted key hashes in memory.
+  - Internal errors fail open to upstream. Unverified keys are forwarded and trusted only after a parsed answer. The daemon keeps only salted key hashes in memory, sweeps expired verified keys on admission, and caps in-memory verified keys at 4,096 (untrusted keys continue upstream directly).
   - Encoder resolution is fail-closed: a missing installation errors with the `openkind pull` instruction (regular or MLX profile). The daemon never downloads during startup (model-store invariant).
 - [`src/families.rs`](./src/families.rs):
   - `FamilyArgs` holds aliases and model roots for surveyed families and composite routers. MLX-capable family backends are feature-gated and macOS arm64 only.
@@ -54,6 +54,7 @@
   - Fail-closed validation for duplicate or missing artifact configurations.
 - [`benches/server.rs`](./benches/server.rs): Criterion coverage for the complete
   authenticated in-memory Axum path with rate limiting disabled and MockEngine.
+- [`tests/shutdown.rs`](./tests/shutdown.rs): Integration test verifying that a second operator signal interrupts a stuck graceful drain with a nonzero exit status.
 
 ## Engine Registration Architecture
 

@@ -192,6 +192,17 @@ async fn test_fixed_upstream_key_precedence() {
         }
     });
 
+    // Invalid local credentials cannot spend the configured upstream key.
+    let rejected = http
+        .post(format!("{daemon_url}/v1/systemone"))
+        .bearer_auth("wrong")
+        .json(&choice_req)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(rejected.status(), 401);
+    assert!(upstream_log.received_keys.lock().unwrap().is_empty());
+
     let resp = http
         .post(format!("{daemon_url}/v1/systemone"))
         .bearer_auth("local-daemon-secret-key")

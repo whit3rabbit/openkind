@@ -83,9 +83,12 @@ pub struct ProxyCacheServiceConfig {
     pub proxied_models: Vec<String>,
 }
 
+const MAX_VERIFIED_KEYS: usize = 4096;
+
 /// Verified caller keys: a key is accepted after the upstream answered a
 /// request made with it, and expires after the TTL. Only salted hashes are
-/// stored; raw keys never touch disk or logs.
+/// stored; raw keys never touch disk or logs. At capacity, new keys keep
+/// forwarding upstream without gaining cached verification.
 pub struct KeyRegistry {
     verified: Mutex<HashMap<String, Instant>>,
     ttl: Duration,
@@ -116,7 +119,12 @@ impl KeyRegistry {
 
     fn accept(&self, hash: &str) {
         if let Ok(mut guard) = self.verified.lock() {
-            guard.insert(hash.to_owned(), Instant::now());
+            guard.retain(|_, accepted| accepted.elapsed() <= self.ttl);
+            if guard.len() < MAX_VERIFIED_KEYS || guard.contains_key(hash) {
+                guard.insert(hash.to_owned(), Instant::now());
+            }
+            // At capacity this key still works upstream, but cannot authorize
+            // local answers until it can be retained after a later sweep.
         }
     }
 
@@ -776,18 +784,22 @@ pub fn default_proxy_cache_dir() -> Result<PathBuf, ProxyCacheError> {
     }
     #[cfg(target_os = "macos")]
     {
-        let home = std::env::var_os("HOME").ok_or_else(|| {
-            ProxyCacheError::Contract(
-                "HOME is unavailable; set OPENKIND_PROXY_CACHE_DATA_DIR".into(),
-            )
-        })?;
+        let home = std::env::var_os("HOME")
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                ProxyCacheError::Contract(
+                    "HOME is unavailable; set OPENKIND_PROXY_CACHE_DATA_DIR".into(),
+                )
+            })?;
         Ok(PathBuf::from(home).join("Library/Application Support/openkind/proxy-cache"))
     }
     #[cfg(target_os = "windows")]
     {
         let base = std::env::var_os("APPDATA")
+            .filter(|value| !value.is_empty())
             .or_else(|| {
                 std::env::var_os("USERPROFILE")
+                    .filter(|value| !value.is_empty())
                     .map(|home| PathBuf::from(home).join("AppData/Roaming").into_os_string())
             })
             .ok_or_else(|| {
@@ -800,9 +812,12 @@ pub fn default_proxy_cache_dir() -> Result<PathBuf, ProxyCacheError> {
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         let base = std::env::var_os("XDG_DATA_HOME")
+            .filter(|value| !value.is_empty())
             .map(PathBuf::from)
             .or_else(|| {
-                std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share"))
+                std::env::var_os("HOME")
+                    .filter(|value| !value.is_empty())
+                    .map(|home| PathBuf::from(home).join(".local/share"))
             })
             .ok_or_else(|| {
                 ProxyCacheError::Contract(
@@ -1019,5 +1034,93 @@ mod tests {
         let caller_hash = caller_mode_service.key_hash("caller-secret");
         let guard = caller_mode_service.clients.lock().unwrap();
         assert!(guard.contains_key(&caller_hash));
+    }
+    #[test]
+    fn verified_key_registry_sweeps_expiration_and_stays_bounded() {
+        let registry = KeyRegistry::new(Duration::from_secs(60));
+        {
+            let mut keys = registry.verified.lock().unwrap();
+            keys.insert("expired".into(), Instant::now() - Duration::from_secs(61));
+        }
+        registry.accept("fresh");
+        assert!(!registry.verified.lock().unwrap().contains_key("expired"));
+        for index in 0..MAX_VERIFIED_KEYS {
+            registry.accept(&format!("key-{index}"));
+        }
+        assert_eq!(registry.verified.lock().unwrap().len(), MAX_VERIFIED_KEYS);
+        registry.accept("overflow");
+        assert!(!registry.verified("overflow"));
+        registry.accept("fresh");
+        assert!(registry.verified("fresh"));
+    }
+
+    #[tokio::test]
+    async fn uncached_keys_keep_forwarding_when_verified_registry_is_full() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let calls = Arc::new(AtomicUsize::new(0));
+        let received = calls.clone();
+        let app = axum::Router::new().route(
+            "/v1/systemone",
+            axum::routing::post(move |axum::Json(request): axum::Json<SystemRequest>| {
+                let received = received.clone();
+                async move {
+                    received.fetch_add(1, Ordering::Relaxed);
+                    axum::Json(
+                        openkind_engine::MockEngine::new()
+                            .evaluate(request)
+                            .await
+                            .unwrap(),
+                    )
+                }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let upstream = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let dir = tempfile::tempdir().unwrap();
+        let manager = ProxyCacheManager::new(
+            openkind_backends::proxy_cache::ProxyCacheManagerConfig {
+                data_dir: dir.path().to_owned(),
+                ..Default::default()
+            },
+            Arc::new(openkind_backends::proxy_cache::HashEmbedder::new(32, 0, true).unwrap()),
+        )
+        .unwrap();
+        let service = ProxyService::new(
+            manager,
+            ProxyCacheServiceConfig {
+                upstream: format!("http://{upstream}"),
+                upstream_key: None,
+                upstream_timeout_ms: 1000,
+                proxied_models: vec!["remote".into()],
+            },
+        );
+        {
+            let mut keys = service.keys.verified.lock().unwrap();
+            keys.extend((0..MAX_VERIFIED_KEYS).map(|i| (format!("key-{i}"), Instant::now())));
+        }
+        let request: SystemRequest = serde_json::from_value(serde_json::json!({
+            "model": "remote", "state": "state", "questions": {
+                "q": {"type": "choice", "instructions": "?", "criteria": {
+                    "alpha": "alpha", "__none__": "none of these"
+                }}
+            }
+        }))
+        .unwrap();
+        let hash = service.key_hash("overflow");
+        for _ in 0..2 {
+            let outcome = service
+                .evaluate(request.clone(), Some("overflow".into()))
+                .await
+                .unwrap();
+            assert!(matches!(outcome.source, ProxySource::Upstream));
+            assert!(!service.keys.verified(&hash));
+            assert_eq!(
+                service.keys.verified.lock().unwrap().len(),
+                MAX_VERIFIED_KEYS
+            );
+        }
+        assert_eq!(calls.load(Ordering::Relaxed), 2);
+        server.abort();
     }
 }

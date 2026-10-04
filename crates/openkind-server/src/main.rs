@@ -141,6 +141,26 @@ async fn run(args: Args) -> Result<()> {
         }
     }
 
+    if args.proxy_cache_upstream_key.is_some() {
+        if args
+            .proxy_cache_upstream_key
+            .as_deref()
+            .is_none_or(|key| key.trim().is_empty())
+        {
+            anyhow::bail!("--proxy-cache-upstream-key must be nonempty");
+        }
+        if api_key.as_deref().is_none_or(|key| key.trim().is_empty()) {
+            anyhow::bail!("--proxy-cache-upstream-key requires a nonempty local --api-key");
+        }
+    }
+    if args.proxy_cache_upstream.is_some() {
+        for alias in &args.proxy_cache_models {
+            if !aliases.insert(alias) {
+                anyhow::bail!("proxy-cache alias `{alias}` collides with a local or installed model, or is duplicated");
+            }
+        }
+    }
+
     init_tracing(&args.log_filter)?;
 
     let http_addr = resolve_aliases(&[
@@ -148,7 +168,11 @@ async fn run(args: Args) -> Result<()> {
         ("OPENDECISION_HTTP_ADDR", args.opendecision_http_addr),
         ("OPENPICK_HTTP_ADDR", args.legacy_http_addr),
     ])?
-    .unwrap_or_else(|| "0.0.0.0:8080".parse().expect("valid default HTTP address"));
+    .unwrap_or_else(|| {
+        "127.0.0.1:8080"
+            .parse()
+            .expect("valid default HTTP address")
+    });
     validate_playground_bind(args.playground, http_addr)?;
     let grpc_addr_value = resolve_aliases(&[
         ("OPENKIND_GRPC_ADDR", args.grpc_addr.clone()),
@@ -158,7 +182,7 @@ async fn run(args: Args) -> Result<()> {
         ),
         ("OPENPICK_GRPC_ADDR", args.legacy_grpc_addr.clone()),
     ])?
-    .unwrap_or_else(|| "0.0.0.0:9090".to_owned());
+    .unwrap_or_else(|| "127.0.0.1:9090".to_owned());
     let grpc_addr = parse_grpc_addr(&grpc_addr_value)
         .context("invalid --grpc-addr (expected host:port, or `0` to disable)")?;
 
@@ -480,32 +504,26 @@ async fn run(args: Args) -> Result<()> {
 
     // Spawn signal watcher.
     let sig_tx = shutdown_tx.clone();
-    tokio::spawn(async move {
-        shutdown_signal().await;
-        let _ = sig_tx.send(true);
-    });
+    tokio::spawn(shutdown_signal(sig_tx));
 
     // Spawn HTTP server.
     let http_state = state.clone();
     let http_auth = auth.clone();
     let http_tx = shutdown_tx.clone();
-    let rate_limiter = if args.rate_limit_rpm > 0 {
-        openkind_api::RateLimiter::new(openkind_api::RateLimitConfig {
-            max_requests: args.rate_limit_rpm,
-            window: std::time::Duration::from_secs(60),
-        })
-    } else {
-        openkind_api::RateLimiter::disabled()
-    };
+    let limits = openkind_api::RequestLimits::new(openkind_api::RateLimitConfig {
+        max_requests: args.rate_limit_rpm,
+        window: std::time::Duration::from_secs(60),
+    });
+    let http_limits = limits.clone();
     let playground_enabled = matches!(args.playground, PlaygroundArg::On);
     let arrow_enabled = matches!(args.arrow, ArrowArg::On);
     let http_handle = tokio::spawn(async move {
         let _shutdown = ShutdownOnDrop(http_tx);
-        let router = http::router_daemon_with_arrow(
+        let router = http::router_daemon_with_arrow_and_limits(
             http_state,
             http_auth,
             openkind_api::http::MAX_PAYLOAD_SIZE_BYTES,
-            rate_limiter,
+            http_limits,
             playground_enabled,
             arrow_enabled,
         );
@@ -528,7 +546,11 @@ async fn run(args: Args) -> Result<()> {
     let grpc_state = state.clone();
     let grpc_tx = shutdown_tx.clone();
     let grpc_handle = if let Some(grpc_addr) = grpc_addr {
-        let svc = grpc::service_with_auth((*grpc_state.registry).clone(), auth.clone());
+        let svc = grpc::service_with_auth_and_limits(
+            (*grpc_state.registry).clone(),
+            auth.clone(),
+            limits,
+        );
         Some(tokio::spawn(async move {
             let _shutdown = ShutdownOnDrop(grpc_tx);
             info!(%grpc_addr, "grpc listening");
@@ -589,28 +611,36 @@ fn validate_playground_bind(playground: PlaygroundArg, http_addr: SocketAddr) ->
     Ok(())
 }
 
-/// Future that resolves on SIGINT (Ctrl-C) or SIGTERM.
-async fn shutdown_signal() {
-    let ctrl_c = async {
-        tokio::signal::ctrl_c()
-            .await
-            .expect("install Ctrl-C handler");
-    };
-
+/// Drain on the first signal; terminate with a failure status on the second.
+async fn shutdown_signal(shutdown: tokio::sync::watch::Sender<bool>) {
     #[cfg(unix)]
-    let terminate = async {
-        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-            .expect("install SIGTERM handler")
-            .recv()
-            .await;
-    };
+    let mut interrupt = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt())
+        .expect("install SIGINT handler");
+    #[cfg(unix)]
+    let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+        .expect("install SIGTERM handler");
 
-    #[cfg(not(unix))]
-    let terminate = std::future::pending::<()>();
-
-    tokio::select! {
-        _ = ctrl_c => info!("received SIGINT"),
-        _ = terminate => info!("received SIGTERM"),
+    for attempt in 0..2 {
+        #[cfg(unix)]
+        let code = tokio::select! {
+            Some(_) = interrupt.recv() => 130,
+            Some(_) = terminate.recv() => 143,
+        };
+        #[cfg(not(unix))]
+        let code = {
+            tokio::signal::ctrl_c()
+                .await
+                .expect("install Ctrl-C handler");
+            130
+        };
+        if attempt == 0 {
+            info!("received shutdown signal; draining listeners");
+            let _ = shutdown.send(true);
+        } else {
+            // The operator explicitly interrupted the graceful drain again.
+            tracing::warn!("received second shutdown signal; forcing termination");
+            std::process::exit(code);
+        }
     }
 }
 
@@ -666,5 +696,42 @@ mod tests {
         assert!(error.to_string().contains("requires a loopback"));
 
         validate_playground_bind(PlaygroundArg::Off, "0.0.0.0:8080".parse().unwrap()).unwrap();
+    }
+    #[tokio::test]
+    async fn proxy_validation_precedes_encoder_resolution_and_listeners() {
+        for arguments in [
+            vec![
+                "openkindd",
+                "--proxy-cache-upstream",
+                "http://127.0.0.1:1",
+                "--proxy-cache-upstream-key",
+                "sponsored",
+                "--models",
+                "mock",
+            ],
+            vec![
+                "openkindd",
+                "--proxy-cache-upstream",
+                "http://127.0.0.1:1",
+                "--models",
+                "jev-latest",
+            ],
+            vec![
+                "openkindd",
+                "--proxy-cache-upstream",
+                "http://127.0.0.1:1",
+                "--models",
+                "mock",
+                "--installed-models",
+                "jev-latest",
+            ],
+        ] {
+            let args = parse_args_from(arguments).unwrap();
+            let error = run(args).await.unwrap_err().to_string();
+            assert!(
+                error.contains("requires a nonempty") || error.contains("collides"),
+                "{error}"
+            );
+        }
     }
 }

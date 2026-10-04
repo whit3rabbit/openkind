@@ -70,7 +70,7 @@ pub(crate) struct Args {
     pub(crate) installed_models: Vec<String>,
 
     /// Shared model store directory.
-    #[arg(long, env = "OPENKIND_MODELS_DIR")]
+    #[arg(long, env = "OPENKIND_MODELS_DIR", value_parser = nonempty_store_root())]
     pub(crate) models_dir: Option<PathBuf>,
 
     /// Aliases in `--models` that should use the native Qwen3.5 engine.
@@ -267,7 +267,7 @@ pub(crate) struct Args {
     #[arg(long, env = "OPENKIND_PROXY_CACHE_DATA_DIR")]
     pub(crate) proxy_cache_data_dir: Option<PathBuf>,
 
-    /// Fallback bearer key used for upstream calls when a caller key is absent.
+    /// Bearer key used instead of caller credentials; requires a nonempty local API key.
     #[arg(long, env = "OPENKIND_PROXY_CACHE_UPSTREAM_KEY")]
     pub(crate) proxy_cache_upstream_key: Option<String>,
 
@@ -1388,4 +1388,15 @@ mod conversion_tests {
             assert!(execution.candle_device().is_ok());
         }
     }
+}
+
+fn nonempty_store_root() -> impl clap::builder::TypedValueParser<Value = PathBuf> {
+    use clap::builder::TypedValueParser;
+    clap::builder::OsStringValueParser::new().try_map(|value| {
+        if value.is_empty() {
+            Err("store directory must be nonempty".to_owned())
+        } else {
+            Ok(PathBuf::from(value))
+        }
+    })
 }

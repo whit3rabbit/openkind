@@ -72,13 +72,13 @@ Each variable also has an `OPENKIND_*` primary name: `OPENKIND_API_KEY`,
 
 | Variable | Meaning | Default |
 |---|---|---|
-| `OPENKIND_HTTP_ADDR` | HTTP bind address | `0.0.0.0:8080` |
-| `OPENKIND_GRPC_ADDR` | gRPC bind address; `0`, `off`, `none`, or `disabled` (case-insensitive) disables the listener | `0.0.0.0:9090` |
+| `OPENKIND_HTTP_ADDR` | HTTP bind address | `127.0.0.1:8080` |
+| `OPENKIND_GRPC_ADDR` | gRPC bind address; `0`, `off`, `none`, or `disabled` (case-insensitive) disables the listener | `127.0.0.1:9090` |
 | `OPENKIND_MODELS` | Comma-separated model aliases to expose | `mock,jev-latest` |
 | `OPENKIND_INSTALLED_MODELS` | Comma-separated installed profile names loaded at startup | empty |
 | `OPENKIND_MODELS_DIR` | Shared model store directory | platform default (below) |
 | `OPENKIND_API_KEY` | Bearer token required for `/v1/*` and gRPC; auth is off when no key is configured through any supported source | unset |
-| `OPENKIND_RATE_LIMIT_RPM` | Per-client-IP request budget per minute on `/v1/*`; `0` disables | `120` |
+| `OPENKIND_RATE_LIMIT_RPM` | Per-client-IP evaluation budget per minute shared by HTTP `/v1/*` and gRPC; `0` disables both budgets | `120` |
 | `OPENKIND_PLAYGROUND` | Serve the embedded playground and local model controls (`on`/`off`) | `off` |
 | `OPENKIND_ARROW` | Serve the unofficial [Arrow bulk endpoint](ARROW.md) (`on`/`off`) | `off` |
 | `OPENKIND_DIAGNOSE_BACKENDS` | Probe runtimes and exit without models or listeners | `false` |
@@ -89,6 +89,20 @@ Daemon API keys must be nonempty visible ASCII with no whitespace. Invalid
 configured values fail startup, including empty or whitespace-only values.
 See [`openkind keygen`](../crates/openkind-cli/README.md#keygen) for generation
 and shell configuration; keys are not persisted by openkind.
+
+The listeners default to loopback. Explicit remote binds without an API key
+remain allowed and emit a warning. HTTP and gRPC share the evaluation budget.
+Failed authentication uses a separate budget with the same limit and window,
+so invalid credentials do not spend valid callers' allowance. Rate-limit and
+overload errors include retry delays in HTTP headers or gRPC metadata.
+
+The first SIGINT or SIGTERM drains accepted requests. A second signal forces
+termination with a nonzero status (130 for SIGINT, 143 for SIGTERM on Unix).
+
+Dispatch telemetry records fractional-millisecond durations and a fixed outcome
+for successes, failures, and cancelled requests. `openkind_responses_total`
+counts successful dispatches. `openkind_auth_failures_total` counts rejected
+credentials with only a fixed transport label.
 
 ### Native Qwen3.5 engine
 
@@ -188,7 +202,7 @@ pairing. `doctor` accepts the shared runtime and device environment settings.
 
 
 - `serve` mirrors the daemon flags above: `OPENKIND_HTTP_ADDR` (default
-  `0.0.0.0:8080`), `OPENKIND_GRPC_ADDR`, `OPENKIND_MODELS`,
+  `127.0.0.1:8080`), `OPENKIND_GRPC_ADDR`, `OPENKIND_MODELS`,
   `OPENKIND_INSTALLED_MODELS`, `OPENKIND_MODELS_DIR`, `OPENKIND_API_KEY`.
 - Artifact subcommands (`pull`, `list`, `show`, `rm`) read
   `OPENKIND_MODELS_DIR`.
@@ -206,6 +220,10 @@ error). Without it, the platform default applies:
 | macOS | `$HOME/Library/Application Support/openkind/models` |
 | Windows | `%APPDATA%\openkind\models`, falling back to `%USERPROFILE%\AppData\Roaming\openkind\models` |
 | Linux and other | `$XDG_DATA_HOME/openkind/models`, or `$HOME/.local/share/openkind/models` when `XDG_DATA_HOME` is unset |
+
+Explicit store roots, including `--models-dir` and `--datasets-dir`, must be
+nonempty. Empty platform fallback variables are ignored; when a fallback
+needs a home directory, an empty or unavailable home is an error.
 
 ## Proxy Variables
 
@@ -255,7 +273,9 @@ build path consults them.
 | `HF_HOME` | Locates the `token` file written by `hf auth login` when `HF_TOKEN`/`HF_TOKEN_PATH` are unset | `~/.cache/huggingface` |
 
 Token resolution order is `HF_TOKEN`, then `HF_TOKEN_PATH`, then the
-`hf auth login` token file; downloads are anonymous when none is present.
+`hf auth login` token file. Missing, unreadable, empty, or oversized implicitly
+discovered token files fall back to anonymous access. Explicit `HF_TOKEN_PATH`
+files remain strict: read failures and unusable contents are errors.
 The token value is never logged — only its source.
 
 ## Verification
