@@ -17,9 +17,14 @@ uses its offline read and serving-lock path.
 - Never download during construction, serving startup, builds, or tests.
   Downloads happen only under the explicit `openkind pull` command.
 - Verify artifact size and SHA-256 before making an installation visible.
-  Keep partial downloads in the store and resume them by byte range.
+  Existing cached blobs are verified before reuse; digest mismatches unlink the
+  corrupted blob so it can be re-fetched cleanly.
+- Keep partial downloads in the store and resume them by byte range.
 - Never copy multi-gigabyte checkpoint shards into `/tmp`. The store links
   verified blobs into a staged snapshot on the same filesystem.
+- Store operations (`pull`, `rm`) clean up abandoned `.stage-*` directories
+  and unlinked stage symlinks under the store lock without following external
+  targets. Empty store roots are rejected before I/O.
 - Keep serving locks alive for the daemon lifetime so `rm` cannot remove an
   active model. Never log credentials, request content, or token digests.
 - Model names are `family:version`, but `:` is illegal in Windows filenames:

@@ -66,6 +66,12 @@ installations. Playground controls use the configured bearer key.
 Use `--models-dir` or `OPENKIND_MODELS_DIR` to share a store location between
 the CLI and daemon. The default is the user's platform data directory.
 
+Model and dataset stores verify reusable blobs before installation. A corrupt
+blob name is unlinked, downloaded again, and verified before promotion; other
+I/O failures propagate. Installation and removal clear abandoned staging
+directories under the exclusive store lock, while preserving installed
+snapshots, serving locks, and resumable partial downloads.
+
 The versioned catalog and manifests live under [`../registry/v1/`](../registry/v1/).
 The operator-facing model index that mirrors them is
 [`MODELS.md`](MODELS.md); update both together when the catalog changes.

@@ -145,6 +145,8 @@ pub struct ModelStore {
     catalog_url: String,
     catalog_sha256: String,
     client: reqwest::Client,
+    #[cfg(test)]
+    artifact_base_url: Option<String>,
 }
 
 /// A verified local installation. The shared file lock protects it from `rm`
@@ -157,7 +159,11 @@ pub struct InstalledModel {
 }
 
 pub fn default_models_dir() -> Result<PathBuf> {
-    if let Some(path) = std::env::var_os("OPENKIND_MODELS_DIR") {
+    default_models_dir_from(&|key| std::env::var_os(key))
+}
+
+fn default_models_dir_from(env: &dyn Fn(&str) -> Option<std::ffi::OsString>) -> Result<PathBuf> {
+    if let Some(path) = env("OPENKIND_MODELS_DIR") {
         if path.is_empty() {
             return Err(Error::Invalid("OPENKIND_MODELS_DIR is empty".into()));
         }
@@ -165,15 +171,18 @@ pub fn default_models_dir() -> Result<PathBuf> {
     }
     #[cfg(target_os = "macos")]
     {
-        let home = std::env::var_os("HOME")
+        let home = env("HOME")
+            .filter(|value| !value.is_empty())
             .ok_or_else(|| Error::Invalid("HOME is unavailable; set OPENKIND_MODELS_DIR".into()))?;
         Ok(PathBuf::from(home).join("Library/Application Support/openkind/models"))
     }
     #[cfg(target_os = "windows")]
     {
-        let base = std::env::var_os("APPDATA")
+        let base = env("APPDATA")
+            .filter(|value| !value.is_empty())
             .or_else(|| {
-                std::env::var_os("USERPROFILE")
+                env("USERPROFILE")
+                    .filter(|value| !value.is_empty())
                     .map(|p| PathBuf::from(p).join("AppData/Roaming").into_os_string())
             })
             .ok_or_else(|| {
@@ -183,11 +192,11 @@ pub fn default_models_dir() -> Result<PathBuf> {
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        let base = match std::env::var_os("XDG_DATA_HOME") {
+        let base = match env("XDG_DATA_HOME").filter(|value| !value.is_empty()) {
             Some(path) => PathBuf::from(path),
-            None => PathBuf::from(std::env::var_os("HOME").ok_or_else(|| {
-                Error::Invalid("HOME is unavailable; set OPENKIND_MODELS_DIR".into())
-            })?)
+            None => PathBuf::from(env("HOME").filter(|value| !value.is_empty()).ok_or_else(
+                || Error::Invalid("HOME is unavailable; set OPENKIND_MODELS_DIR".into()),
+            )?)
             .join(".local/share"),
         };
         Ok(base.join("openkind/models"))
@@ -196,6 +205,9 @@ pub fn default_models_dir() -> Result<PathBuf> {
 
 impl ModelStore {
     pub fn new(root: PathBuf) -> Result<Self> {
+        if root.as_os_str().is_empty() {
+            return Err(Error::Invalid("model directory is empty".into()));
+        }
         let client = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(15))
             .read_timeout(Duration::from_secs(120))
@@ -212,7 +224,33 @@ impl ModelStore {
             catalog_url: CATALOG_URL.to_owned(),
             catalog_sha256: CATALOG_SHA256.to_owned(),
             client,
+            #[cfg(test)]
+            artifact_base_url: None,
         })
+    }
+
+    fn cleanup_stages(&self) -> Result<()> {
+        // Every stage is created while the exclusive store lock is held.
+        // Once that lock is acquired again, surviving stages are abandoned.
+        let entries = match fs::read_dir(self.root.join("models")) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) => return Err(error.into()),
+        };
+        for entry in entries {
+            let entry = entry?;
+            if !entry.file_name().to_string_lossy().starts_with(".stage-") {
+                continue;
+            }
+            let file_type = entry.file_type()?;
+            if file_type.is_dir() {
+                fs::remove_dir_all(entry.path())?;
+            } else if file_type.is_symlink() {
+                // Unlink the stage name without following an external target.
+                fs::remove_file(entry.path())?;
+            }
+        }
+        Ok(())
     }
 
     pub fn root(&self) -> &Path {
@@ -294,6 +332,7 @@ impl ModelStore {
             return Err(Error::Invalid("invalid model name".into()));
         }
         let _global = self.global_lock()?;
+        self.cleanup_stages()?;
         let _model = self.model_lock(name, true)?;
         let manifest = match self.read_installed_manifest(name) {
             Ok(manifest) => Some(manifest),
@@ -340,6 +379,7 @@ impl ModelStore {
             return Err(Error::Invalid("invalid model name".into()));
         }
         let _global = self.global_lock()?;
+        self.cleanup_stages()?;
         let catalog = self.catalog().await?;
         let entry = catalog
             .models
@@ -376,9 +416,8 @@ impl ModelStore {
         fs::create_dir_all(self.root.join("blobs/sha256"))?;
         for artifact in &manifest.artifacts {
             let blob = self.blob_path(&artifact.sha256);
-            if blob.exists() {
+            if reusable_blob(&blob, artifact.size, &artifact.sha256)? {
                 progress(&artifact.path, artifact.size, artifact.size);
-                verify_file(&blob, artifact.size, &artifact.sha256)?;
             } else {
                 self.download_artifact(artifact, &blob, &mut progress)
                     .await?;
@@ -476,8 +515,14 @@ impl ModelStore {
     where
         F: FnMut(&str, u64, u64),
     {
-        self.download_from_url(&artifact.source.url(), artifact, blob, progress)
-            .await
+        let url = artifact.source.url();
+        #[cfg(test)]
+        let url = self
+            .artifact_base_url
+            .as_ref()
+            .map(|base| format!("{base}/{}", artifact.source.path))
+            .unwrap_or(url);
+        self.download_from_url(&url, artifact, blob, progress).await
     }
 
     async fn download_from_url<F>(
@@ -712,6 +757,26 @@ fn resumed_response_end(range: &str, present: u64, size: u64) -> Option<u64> {
     let end = end.parse::<u64>().ok()?;
     let total = total.parse::<u64>().ok()?;
     (start == present && end >= start && end < size && total == size).then(|| end + 1)
+}
+
+fn reusable_blob(path: &Path, size: u64, sha: &str) -> Result<bool> {
+    match path.symlink_metadata() {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(error.into()),
+        Ok(metadata) if !metadata.file_type().is_file() => {
+            return Err(Error::Invalid("blob is not a regular file".into()));
+        }
+        Ok(_) => {}
+    }
+    match verify_file(path, size, sha) {
+        Ok(()) => Ok(true),
+        Err(Error::DigestMismatch(_)) => {
+            // Unlink the name, rather than rewriting a possibly shared inode.
+            fs::remove_file(path)?;
+            Ok(false)
+        }
+        Err(error) => Err(error),
+    }
 }
 
 fn verify_file(path: &Path, size: u64, sha: &str) -> Result<()> {
@@ -1021,17 +1086,26 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn corrupt_blob_never_becomes_installed() {
+    async fn pull_replaces_corrupt_blobs_and_cleans_abandoned_stages() {
         let bytes = b"correct";
-        let (_dir, store) = test_store(vec![fixture_manifest(NAME, bytes)]).await;
-        seed_blob(&store, b"incorrect");
-        // Put wrong bytes under the expected digest, as could happen after a disk error.
-        fs::write(store.blob_path(&sha256(bytes)), b"incorrect").unwrap();
-        assert!(matches!(
-            store.pull(NAME, |_, _, _| {}).await,
-            Err(Error::DigestMismatch(_))
-        ));
-        assert!(store.list().unwrap().is_empty());
+        let (_dir, mut store) = test_store(vec![fixture_manifest(NAME, bytes)]).await;
+        store.artifact_base_url = Some(
+            mock_url(Router::new().route("/artifact/head.bin", get(|| async { "correct" }))).await,
+        );
+        seed_blob(&store, bytes);
+        let blob = store.blob_path(&sha256(bytes));
+        fs::write(&blob, b"corrupt").unwrap();
+        let stage = store.root.join("models/.stage-interrupted");
+        fs::create_dir_all(&stage).unwrap();
+        fs::hard_link(&blob, stage.join("head.bin")).unwrap();
+        store.pull(NAME, |_, _, _| {}).await.unwrap();
+        assert!(!stage.exists());
+        assert_eq!(fs::read(&blob).unwrap(), bytes);
+        let serving = store.acquire_serving(NAME).unwrap();
+        assert_eq!(
+            fs::read(serving.root.join("bundle/head.bin")).unwrap(),
+            bytes
+        );
     }
 
     #[tokio::test]
@@ -1570,5 +1644,69 @@ mod tests {
                 None => std::env::remove_var("OPENKIND_MODELS_DIR"),
             }
         }
+    }
+    #[test]
+    fn empty_model_root_is_rejected_before_io() {
+        assert!(matches!(
+            ModelStore::new(PathBuf::new()),
+            Err(Error::Invalid(_))
+        ));
+    }
+
+    #[test]
+    fn reusable_blob_propagates_nonregular_file_errors() {
+        let dir = tempdir().unwrap();
+        let path = dir.path().join("blob");
+        fs::create_dir(&path).unwrap();
+        assert!(matches!(
+            reusable_blob(&path, 0, &sha256(b"")),
+            Err(Error::Invalid(_))
+        ));
+        assert!(path.is_dir());
+    }
+    #[test]
+    fn empty_platform_fallbacks_require_a_usable_home() {
+        let blank = |key: &str| match key {
+            "HOME" | "USERPROFILE" | "APPDATA" | "XDG_DATA_HOME" => Some(std::ffi::OsString::new()),
+            _ => None,
+        };
+        assert!(default_models_dir_from(&blank).is_err());
+        let home = |key: &str| match key {
+            "HOME" | "USERPROFILE" => Some(std::ffi::OsString::from("/usable-home")),
+            "APPDATA" | "XDG_DATA_HOME" => Some(std::ffi::OsString::new()),
+            _ => None,
+        };
+        assert!(default_models_dir_from(&home)
+            .unwrap()
+            .starts_with("/usable-home"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn stage_cleanup_preserves_snapshots_partial_downloads_and_external_targets() {
+        let root = tempfile::tempdir().unwrap();
+        let external = tempfile::tempdir().unwrap();
+        fs::write(external.path().join("keep"), b"external").unwrap();
+        let store = ModelStore::new(root.path().to_owned()).unwrap();
+        let installs = root.path().join("models");
+        fs::create_dir_all(installs.join("installed-snapshot")).unwrap();
+        fs::create_dir_all(root.path().join("blobs/sha256")).unwrap();
+        let part = root.path().join("blobs/sha256/resumable.part");
+        fs::write(&part, b"partial").unwrap();
+        std::os::unix::fs::symlink(external.path(), installs.join(".stage-link")).unwrap();
+        let _lock = store.global_lock().unwrap();
+        store.cleanup_stages().unwrap();
+        assert!(!installs.join(".stage-link").exists());
+        assert!(installs.join("installed-snapshot").is_dir());
+        assert_eq!(fs::read(&part).unwrap(), b"partial");
+        assert_eq!(fs::read(external.path().join("keep")).unwrap(), b"external");
+    }
+    #[test]
+    fn reusable_blob_does_not_hide_unrelated_io_failures() {
+        let dir = tempfile::tempdir().unwrap();
+        let blocker = dir.path().join("not-a-directory");
+        fs::write(&blocker, b"keep").unwrap();
+        assert!(reusable_blob(&blocker.join("blob"), 0, &sha256(b"")).is_err());
+        assert_eq!(fs::read(blocker).unwrap(), b"keep");
     }
 }

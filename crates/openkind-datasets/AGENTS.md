@@ -67,7 +67,8 @@ Boundaries:
   `O_NOFOLLOW` on Unix; a `symlink_metadata` pre-check plus post-open size
   check elsewhere), content-addressed blobs, fs2 locks, staged installs (the
   model-store discipline adapted to
-  `huggingface.co/datasets/.../resolve/<sha>/<path>`).
+  `huggingface.co/datasets/.../resolve/<sha>/<path>`), and stage cleanup
+  removing abandoned `.stage-*` directories without following symlink targets.
 - [`src/rows.rs`](./src/rows.rs): parquet → JSON rows for the installed
   column types; unsupported types fail with the type name.
 - [`registry/v1/datasets.json`](./registry/v1/datasets.json): the committed
@@ -91,6 +92,12 @@ Boundaries:
 5. **banking77's option set** is derived from the eval split's `label_text`
    values (sorted, deduplicated) — both splits must be offered the same
    option set; do not "fix" this to be split-local.
+6. **Reusable Blob Verification & Stage Cleanup**:
+   Existing blobs must be verified before reuse; digest mismatches unlink the
+   corrupted blob so it can be cleanly refetched. Store operations clean up
+   leftover `.stage-*` directories under the global lock while preserving
+   installed snapshots and resumable partial downloads. Empty store roots are
+   rejected before I/O.
 
 ## Verification Commands
 

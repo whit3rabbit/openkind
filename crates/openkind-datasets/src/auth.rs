@@ -6,7 +6,7 @@
 //! Anonymous access is used when no token is available; the token value
 //! itself is never logged.
 
-use std::path::PathBuf;
+use std::{io::Read, path::PathBuf};
 
 use crate::{Error, Result};
 
@@ -79,15 +79,26 @@ fn resolve_token_from(
     }
     if let Some(path) = default_file() {
         if path.is_file() {
-            let token = read_token_file(path)?;
-            return Ok((Some(token), TokenSource::DefaultTokenFile));
+            // A discovered cache is optional; only explicit credentials are
+            // configuration errors when they cannot be used.
+            if let Ok(token) = read_token_file(path) {
+                return Ok((Some(token), TokenSource::DefaultTokenFile));
+            }
         }
     }
     Ok((None, TokenSource::Anonymous))
 }
 
 fn read_token_file(path: PathBuf) -> Result<String> {
-    let bytes = std::fs::read(&path).map_err(|error| {
+    let read = || -> std::io::Result<Vec<u8>> {
+        let mut bytes = Vec::new();
+        // Check the limit while reading, including files that grow after open.
+        std::fs::File::open(&path)?
+            .take(4097)
+            .read_to_end(&mut bytes)?;
+        Ok(bytes)
+    };
+    let bytes = read().map_err(|error| {
         Error::Invalid(format!(
             "cannot read the Hugging Face token file at {}: {error}",
             path.display()
@@ -176,5 +187,35 @@ mod tests {
             )
         );
         assert_eq!(default_token_file_from(&env(&[])), None);
+    }
+    #[test]
+    fn broken_discovered_token_is_anonymous_but_explicit_token_is_strict() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("token");
+        for content in ["", " \n", &"x".repeat(4097)] {
+            std::fs::write(&path, content).unwrap();
+            let (token, source) = resolve_token_from(&env(&[]), &|| Some(path.clone())).unwrap();
+            assert!(token.is_none());
+            assert_eq!(source, TokenSource::Anonymous);
+            assert!(resolve_token_from(
+                &env(&[("HF_TOKEN_PATH", path.to_str().unwrap())]),
+                &|| None
+            )
+            .is_err());
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn oversized_token_files_are_rejected_without_reading_the_whole_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("token");
+        let file = std::fs::File::create(&path).unwrap();
+        file.set_len(4 * 1024 * 1024 * 1024).unwrap();
+        let error = read_token_file(path.clone()).unwrap_err();
+        assert!(error.to_string().contains("unexpectedly large"));
+        let (token, source) = resolve_token_from(&env(&[]), &|| Some(path.clone())).unwrap();
+        assert!(token.is_none());
+        assert_eq!(source, TokenSource::Anonymous);
     }
 }

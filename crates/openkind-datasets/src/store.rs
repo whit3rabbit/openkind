@@ -73,7 +73,11 @@ impl InstalledDataset {
 }
 
 pub fn default_datasets_dir() -> Result<PathBuf> {
-    if let Some(path) = std::env::var_os("OPENKIND_DATASETS_DIR") {
+    default_datasets_dir_from(&|key| std::env::var_os(key))
+}
+
+fn default_datasets_dir_from(env: &dyn Fn(&str) -> Option<std::ffi::OsString>) -> Result<PathBuf> {
+    if let Some(path) = env("OPENKIND_DATASETS_DIR") {
         if path.is_empty() {
             return Err(Error::Invalid("OPENKIND_DATASETS_DIR is empty".into()));
         }
@@ -81,16 +85,20 @@ pub fn default_datasets_dir() -> Result<PathBuf> {
     }
     #[cfg(target_os = "macos")]
     {
-        let home = std::env::var_os("HOME").ok_or_else(|| {
-            Error::Invalid("HOME is unavailable; set OPENKIND_DATASETS_DIR".into())
-        })?;
+        let home = env("HOME")
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                Error::Invalid("HOME is unavailable; set OPENKIND_DATASETS_DIR".into())
+            })?;
         Ok(PathBuf::from(home).join("Library/Application Support/openkind/datasets"))
     }
     #[cfg(target_os = "windows")]
     {
-        let base = std::env::var_os("APPDATA")
+        let base = env("APPDATA")
+            .filter(|value| !value.is_empty())
             .or_else(|| {
-                std::env::var_os("USERPROFILE")
+                env("USERPROFILE")
+                    .filter(|value| !value.is_empty())
                     .map(|p| PathBuf::from(p).join("AppData/Roaming").into_os_string())
             })
             .ok_or_else(|| {
@@ -100,11 +108,11 @@ pub fn default_datasets_dir() -> Result<PathBuf> {
     }
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
-        let base = match std::env::var_os("XDG_DATA_HOME") {
+        let base = match env("XDG_DATA_HOME").filter(|value| !value.is_empty()) {
             Some(path) => PathBuf::from(path),
-            None => PathBuf::from(std::env::var_os("HOME").ok_or_else(|| {
-                Error::Invalid("HOME is unavailable; set OPENKIND_DATASETS_DIR".into())
-            })?)
+            None => PathBuf::from(env("HOME").filter(|value| !value.is_empty()).ok_or_else(
+                || Error::Invalid("HOME is unavailable; set OPENKIND_DATASETS_DIR".into()),
+            )?)
             .join(".local/share"),
         };
         Ok(base.join("openkind/datasets"))
@@ -113,6 +121,9 @@ pub fn default_datasets_dir() -> Result<PathBuf> {
 
 impl DatasetStore {
     pub fn new(root: PathBuf) -> Result<Self> {
+        if root.as_os_str().is_empty() {
+            return Err(Error::Invalid("dataset directory is empty".into()));
+        }
         let (token, token_source) = resolve_token()?;
         Self::build(
             root,
@@ -149,6 +160,30 @@ impl DatasetStore {
             token_source,
             client,
         })
+    }
+
+    fn cleanup_stages(&self) -> Result<()> {
+        // Every stage is created while the exclusive store lock is held.
+        // Once that lock is acquired again, surviving stages are abandoned.
+        let entries = match fs::read_dir(self.root.join("datasets")) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(error) => return Err(error.into()),
+        };
+        for entry in entries {
+            let entry = entry?;
+            if !entry.file_name().to_string_lossy().starts_with(".stage-") {
+                continue;
+            }
+            let file_type = entry.file_type()?;
+            if file_type.is_dir() {
+                fs::remove_dir_all(entry.path())?;
+            } else if file_type.is_symlink() {
+                // Unlink the stage name without following an external target.
+                fs::remove_file(entry.path())?;
+            }
+        }
+        Ok(())
     }
 
     pub fn root(&self) -> &Path {
@@ -231,6 +266,7 @@ impl DatasetStore {
             return Err(Error::Invalid("invalid dataset name".into()));
         }
         let _global = self.global_lock()?;
+        self.cleanup_stages()?;
         let _dataset = self.dataset_lock(name, true)?;
         let entry = match self.read_installed_entry(name) {
             Ok(entry) => Some(entry),
@@ -279,6 +315,7 @@ impl DatasetStore {
             )));
         }
         let _global = self.global_lock()?;
+        self.cleanup_stages()?;
         self.install(&entry, &mut progress).await
     }
 
@@ -293,6 +330,7 @@ impl DatasetStore {
     {
         let definition = find_definition(name).ok_or_else(|| Error::NotCurated(name.into()))?;
         let _global = self.global_lock()?;
+        self.cleanup_stages()?;
         if self.dataset_dir(name).exists() {
             return Err(Error::Invalid(format!(
                 "dataset {name} is already installed; `dataset rm {name}` before re-pinning"
@@ -398,9 +436,8 @@ impl DatasetStore {
         fs::create_dir_all(self.root.join("blobs/sha256"))?;
         for file in &entry.files {
             let blob = self.blob_path(&file.sha256);
-            if blob.exists() {
+            if reusable_blob(&blob, file.size, &file.sha256)? {
                 progress(&file.path, file.size, file.size);
-                verify_file(&blob, file.size, &file.sha256)?;
             } else {
                 let url = self.convert_url(&entry.hf_repo, &entry.convert_revision, &file.path);
                 self.fetch_to_blob(&url, &file.path, file.size, Some(&file.sha256), progress)
@@ -907,6 +944,26 @@ fn sha256_file(path: &Path) -> Result<String> {
     Ok(format!("{:x}", hasher.finalize()))
 }
 
+fn reusable_blob(path: &Path, size: u64, sha: &str) -> Result<bool> {
+    match path.symlink_metadata() {
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(error.into()),
+        Ok(metadata) if !metadata.file_type().is_file() => {
+            return Err(Error::Invalid("blob is not a regular file".into()));
+        }
+        Ok(_) => {}
+    }
+    match verify_file(path, size, sha) {
+        Ok(()) => Ok(true),
+        Err(Error::DigestMismatch(_)) => {
+            // Unlink the name, rather than rewriting a possibly shared inode.
+            fs::remove_file(path)?;
+            Ok(false)
+        }
+        Err(error) => Err(error),
+    }
+}
+
 fn verify_file(path: &Path, size: u64, sha: &str) -> Result<()> {
     if !valid_sha256(sha)
         || !valid_relative_path(path.file_name().and_then(|s| s.to_str()).unwrap_or(""))
@@ -1138,7 +1195,16 @@ mod tests {
             let entry = registry.find(definition.name).unwrap_or_else(|| {
                 panic!("definition {} missing from the registry", definition.name)
             });
+            assert_eq!(entry.name, definition.name);
+            assert_eq!(entry.description, definition.description);
             assert_eq!(entry.hf_repo, definition.hf_repo);
+            assert_eq!(entry.splits, definition_splits(definition));
+            assert_eq!(entry.configs, definition.configs);
+            assert_eq!(entry.license, definition.license);
+            assert_eq!(entry.gated, definition.gated);
+            assert_eq!(entry.access_note, definition.access_note);
+            assert_eq!(entry.task_family, definition.task_family);
+            assert_eq!(entry.primitives, definition.primitives);
             assert_eq!(entry.template, template());
             assert!(
                 !entry.files.is_empty(),
@@ -1253,5 +1319,81 @@ mod tests {
         assert_eq!(resumed_response_end("bytes 4-10/10", 4, 10), None);
         // The declared total must match the artifact size.
         assert_eq!(resumed_response_end("bytes 4-9/999", 4, 10), None);
+    }
+    #[test]
+    fn pull_repairs_corrupt_blob_and_cleans_stages_before_blob_gc() {
+        let dir = tempfile::tempdir().unwrap();
+        let rt = runtime();
+        let store = rt.block_on(async {
+            let endpoint = spawn_server(file_routes(false)).await;
+            test_store(dir.path(), &endpoint, &sha256(TEST_BYTES))
+        });
+        let blob = store.blob_path(&sha256(TEST_BYTES));
+        fs::create_dir_all(blob.parent().unwrap()).unwrap();
+        fs::write(&blob, b"corrupt").unwrap();
+        let stage = store.root.join("datasets/.stage-interrupted");
+        fs::create_dir_all(&stage).unwrap();
+        fs::hard_link(&blob, stage.join("shard.parquet")).unwrap();
+        rt.block_on(store.pull("demo", |_, _, _| {})).unwrap();
+        assert!(!stage.exists());
+        assert_eq!(fs::read(&blob).unwrap(), TEST_BYTES);
+        fs::create_dir_all(&stage).unwrap();
+        fs::hard_link(&blob, stage.join("shard.parquet")).unwrap();
+        store.rm("demo").unwrap();
+        assert!(!stage.exists());
+        assert!(!blob.exists());
+    }
+
+    #[test]
+    fn empty_dataset_root_is_rejected_before_credentials_or_io() {
+        assert!(matches!(
+            DatasetStore::new(PathBuf::new()),
+            Err(Error::Invalid(_))
+        ));
+    }
+    #[test]
+    fn empty_platform_fallbacks_require_a_usable_home() {
+        let blank = |key: &str| match key {
+            "HOME" | "USERPROFILE" | "APPDATA" | "XDG_DATA_HOME" => Some(std::ffi::OsString::new()),
+            _ => None,
+        };
+        assert!(default_datasets_dir_from(&blank).is_err());
+        let home = |key: &str| match key {
+            "HOME" | "USERPROFILE" => Some(std::ffi::OsString::from("/usable-home")),
+            "APPDATA" | "XDG_DATA_HOME" => Some(std::ffi::OsString::new()),
+            _ => None,
+        };
+        assert!(default_datasets_dir_from(&home)
+            .unwrap()
+            .starts_with("/usable-home"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn stage_cleanup_preserves_snapshots_partial_downloads_and_external_targets() {
+        let root = tempfile::tempdir().unwrap();
+        let external = tempfile::tempdir().unwrap();
+        fs::write(external.path().join("keep"), b"external").unwrap();
+        let store = DatasetStore::new(root.path().to_owned()).unwrap();
+        let installs = root.path().join("datasets");
+        fs::create_dir_all(installs.join("installed-snapshot")).unwrap();
+        fs::create_dir_all(root.path().join("blobs/sha256")).unwrap();
+        let part = root.path().join("blobs/sha256/resumable.part");
+        fs::write(&part, b"partial").unwrap();
+        std::os::unix::fs::symlink(external.path(), installs.join(".stage-link")).unwrap();
+        let _lock = store.global_lock().unwrap();
+        store.cleanup_stages().unwrap();
+        assert!(!installs.join(".stage-link").exists());
+        assert!(installs.join("installed-snapshot").is_dir());
+        assert_eq!(fs::read(&part).unwrap(), b"partial");
+        assert_eq!(fs::read(external.path().join("keep")).unwrap(), b"external");
+    }
+    #[test]
+    fn reusable_blob_does_not_hide_unrelated_io_failures() {
+        let dir = tempfile::tempdir().unwrap();
+        let blocker = dir.path().join("not-a-directory");
+        fs::write(&blocker, b"keep").unwrap();
+        assert!(reusable_blob(&blocker.join("blob"), 0, &sha256(b"")).is_err());
+        assert_eq!(fs::read(blocker).unwrap(), b"keep");
     }
 }
