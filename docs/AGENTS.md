@@ -31,6 +31,7 @@ The documentation suite maintains a strict division of responsibility across pro
 | HTTP wire specification | [`../crates/openkind-api/openapi.yaml`](../crates/openkind-api/openapi.yaml) |
 | JSON Schema definitions | [`../crates/openkind-core/schemas/`](../crates/openkind-core/schemas/) |
 | Protobuf contract | [`../proto/proto/openkind.proto`](../proto/proto/openkind.proto) |
+| Release procedure, packaging verification, and publishing checklist | [`RELEASE.md`](RELEASE.md) |
 | Module-specific rules and invariants | Each crate's `AGENTS.md` |
 
 - `families/README.md` owns the catalogue. `families/NEW_FAMILY.md` defines

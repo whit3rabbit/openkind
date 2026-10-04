@@ -359,4 +359,4 @@ Report bugs or propose changes through [GitHub issues](https://github.com/whit3r
 
 See the [MIT license](LICENSE). Each model retains its own license, recorded in the [model catalog](registry/v1/catalog.json) and linked manifests.
 
-Maintainers: see the [release checklist](release.md) and [changelog](CHANGELOG.md).
+Maintainers: see the [release checklist](docs/RELEASE.md) and [changelog](CHANGELOG.md).
