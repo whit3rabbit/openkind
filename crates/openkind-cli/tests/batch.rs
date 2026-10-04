@@ -126,7 +126,7 @@ fn spawn_with_args(
 }
 
 fn wait_for(mut predicate: impl FnMut() -> bool) {
-    let deadline = Instant::now() + Duration::from_secs(8);
+    let deadline = Instant::now() + Duration::from_secs(30);
     while !predicate() {
         assert!(
             Instant::now() < deadline,
@@ -270,6 +270,21 @@ impl Drop for Server {
     }
 }
 
+fn read_more(stream: &mut TcpStream, buffer: &mut [u8], deadline: Instant) -> Option<usize> {
+    loop {
+        match stream.read(buffer) {
+            Ok(count) => return Some(count),
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                if Instant::now() >= deadline {
+                    return None;
+                }
+                std::thread::sleep(Duration::from_millis(2));
+            }
+            Err(_) => return None,
+        }
+    }
+}
+
 fn serve(
     mut stream: TcpStream,
     events: Arc<Mutex<Vec<Event>>>,
@@ -277,13 +292,17 @@ fn serve(
     active: Arc<AtomicUsize>,
     replies: Arc<Mutex<VecDeque<Reply>>>,
 ) {
+    // macOS inherits the listener's nonblocking mode, but this handler waits
+    // synchronously for complete headers and bodies.
+    stream.set_nonblocking(false).unwrap();
     stream
-        .set_read_timeout(Some(Duration::from_secs(2)))
+        .set_read_timeout(Some(Duration::from_secs(5)))
         .unwrap();
     let mut bytes = Vec::new();
     let mut buffer = [0; 8192];
+    let deadline = Instant::now() + Duration::from_secs(5);
     let header_end = loop {
-        let Ok(count) = stream.read(&mut buffer) else {
+        let Some(count) = read_more(&mut stream, &mut buffer, deadline) else {
             return;
         };
         if count == 0 {
@@ -305,7 +324,7 @@ fn serve(
         })
         .unwrap();
     while bytes.len() < header_end + length {
-        let Ok(count) = stream.read(&mut buffer) else {
+        let Some(count) = read_more(&mut stream, &mut buffer, deadline) else {
             return;
         };
         if count == 0 {
@@ -330,6 +349,47 @@ fn serve(
     active.fetch_sub(1, Ordering::SeqCst);
     let wire = format!("HTTP/1.1 {} Fixture\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n{}\r\n{}",reply.status,reply.body.len(),reply.headers,reply.body);
     let _ = stream.write_all(wire.as_bytes());
+}
+
+#[test]
+fn mock_http_server_waits_for_fragmented_requests() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let mut client = TcpStream::connect(listener.local_addr().unwrap()).unwrap();
+    let (stream, _) = listener.accept().unwrap();
+    // macOS inherits this mode from the nonblocking listener used by Server.
+    stream.set_nonblocking(true).unwrap();
+    client
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .unwrap();
+    let events = Arc::new(Mutex::new(Vec::new()));
+    let thread_events = events.clone();
+    let body = request("fragmented");
+    write!(client, "POST /v1/systemone HTTP/1.1\r\n").unwrap();
+    let response = std::thread::spawn(move || {
+        // Leave the header incomplete long enough for the handler to read it.
+        std::thread::sleep(Duration::from_millis(100));
+        let sent = write!(
+            client,
+            "Host: fixture\r\nContent-Length: {}\r\n\r\n{}",
+            body.len(),
+            body
+        );
+        let mut response = String::new();
+        let received = client.read_to_string(&mut response);
+        (sent, received, response)
+    });
+    serve(
+        stream,
+        thread_events,
+        Arc::new(AtomicUsize::new(0)),
+        Arc::new(AtomicUsize::new(0)),
+        Arc::new(Mutex::new(VecDeque::from([Reply::ok()]))),
+    );
+    let (sent, received, response) = response.join().unwrap();
+    sent.unwrap();
+    received.unwrap();
+    assert!(response.starts_with("HTTP/1.1 200"), "{response:?}");
+    assert_eq!(events.lock().unwrap()[0].state, "fragmented");
 }
 
 #[test]

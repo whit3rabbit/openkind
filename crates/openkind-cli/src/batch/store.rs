@@ -17,27 +17,47 @@ pub struct RunnerLock {
     _file: File,
 }
 
+fn is_lock_contended(error: &std::io::Error) -> bool {
+    let contended = error.kind() == std::io::ErrorKind::WouldBlock;
+    // Windows reports lock and sharing violations as other error kinds.
+    #[cfg(windows)]
+    let contended = contended || matches!(error.raw_os_error(), Some(32 | 33));
+    contended
+}
+
 impl RunnerLock {
     pub fn acquire(directory: &Path) -> Result<Self> {
-        let file = OpenOptions::new()
+        let file = match OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .truncate(false)
             .open(directory.join(LOCK))
-            .context("open batch runner lock")?;
+        {
+            Ok(file) => file,
+            Err(error) if is_lock_contended(&error) => {
+                anyhow::bail!("another runner already owns this job");
+            }
+            Err(error) => return Err(error).context("open batch runner lock"),
+        };
         fs2::FileExt::try_lock_exclusive(&file).context("another runner already owns this job")?;
         Ok(Self { _file: file })
     }
 
     fn active(directory: &Path) -> Result<bool> {
-        let file = OpenOptions::new()
+        let file = match OpenOptions::new()
             .read(true)
             .write(true)
-            .open(directory.join(LOCK))?;
+            .open(directory.join(LOCK))
+        {
+            Ok(file) => file,
+            Err(error) if is_lock_contended(&error) => return Ok(true),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            Err(error) => return Err(error.into()),
+        };
         match fs2::FileExt::try_lock_exclusive(&file) {
             Ok(()) => Ok(false),
-            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => Ok(true),
+            Err(error) if is_lock_contended(&error) => Ok(true),
             Err(error) => Err(error.into()),
         }
     }
@@ -432,6 +452,45 @@ mod tests {
             number: 7,
             offset: 100,
             oversized: false,
+        }
+    }
+
+    #[test]
+    fn runner_lock_reports_ownership_and_releases_on_drop() {
+        let directory = TempDir::new();
+        assert!(!RunnerLock::active(&directory.0).unwrap());
+        let lock = RunnerLock::acquire(&directory.0).unwrap();
+        assert!(RunnerLock::active(&directory.0).unwrap());
+        let error = RunnerLock::acquire(&directory.0).err().unwrap();
+        assert!(error.to_string().contains("another runner"));
+        drop(lock);
+        assert!(!RunnerLock::active(&directory.0).unwrap());
+        let _lock = RunnerLock::acquire(&directory.0).unwrap();
+        assert!(RunnerLock::active(&directory.0).unwrap());
+    }
+
+    #[test]
+    fn runner_lock_does_not_hide_other_file_errors() {
+        let directory = TempDir::new();
+        std::fs::create_dir(directory.0.join(LOCK)).unwrap();
+        assert!(RunnerLock::active(&directory.0).is_err());
+        assert!(RunnerLock::acquire(&directory.0).is_err());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_lock_violations_are_contention() {
+        for code in [32, 33] {
+            assert!(is_lock_contended(&std::io::Error::from_raw_os_error(code)));
+        }
+        assert!(!is_lock_contended(&std::io::Error::from_raw_os_error(5)));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn unix_error_codes_are_not_windows_lock_violations() {
+        for code in [32, 33] {
+            assert!(!is_lock_contended(&std::io::Error::from_raw_os_error(code)));
         }
     }
 
