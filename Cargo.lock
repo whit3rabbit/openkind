@@ -2262,7 +2262,9 @@ dependencies = [
  "crossbeam-epoch",
  "crossbeam-utils",
  "hashbrown 0.16.1",
+ "indexmap",
  "metrics",
+ "ordered-float",
  "quanta",
  "rand 0.9.5",
  "rand_xoshiro",
@@ -2631,7 +2633,7 @@ checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
 
 [[package]]
 name = "openkind-api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "arrow-array",
@@ -2641,7 +2643,9 @@ dependencies = [
  "axum",
  "http-body-util",
  "hyper",
+ "metrics",
  "metrics-exporter-prometheus",
+ "metrics-util",
  "openkind-core",
  "openkind-engine",
  "openkind-proto",
@@ -2650,6 +2654,7 @@ dependencies = [
  "ring",
  "serde",
  "serde_json",
+ "serde_yaml_ng",
  "subtle",
  "thiserror 2.0.20",
  "tokio",
@@ -2664,7 +2669,7 @@ dependencies = [
 
 [[package]]
 name = "openkind-backends"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "candle-core",
@@ -2696,7 +2701,7 @@ dependencies = [
 
 [[package]]
 name = "openkind-bench"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "arrow-array",
@@ -2719,22 +2724,27 @@ dependencies = [
 
 [[package]]
 name = "openkind-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "bubbletea-rs",
  "clap",
  "criterion",
  "crossterm",
+ "fs2",
  "indicatif",
  "libc",
  "lipgloss",
+ "openkind-client",
  "openkind-core",
  "openkind-engine",
  "openkind-model-store",
  "reqwest",
  "ring",
+ "rusqlite",
+ "serde",
  "serde_json",
+ "sha2",
  "smallvec",
  "sonic-rs",
  "tokio",
@@ -2744,7 +2754,7 @@ dependencies = [
 
 [[package]]
 name = "openkind-client"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "bytes",
@@ -2763,7 +2773,7 @@ dependencies = [
 
 [[package]]
 name = "openkind-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "foldhash 0.1.5",
  "schemars",
@@ -2774,7 +2784,7 @@ dependencies = [
 
 [[package]]
 name = "openkind-datasets"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "arrow-array",
  "arrow-schema",
@@ -2794,10 +2804,11 @@ dependencies = [
 
 [[package]]
 name = "openkind-engine"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "async-trait",
  "metrics",
+ "metrics-util",
  "openkind-core",
  "serde",
  "serde_json",
@@ -2808,7 +2819,7 @@ dependencies = [
 
 [[package]]
 name = "openkind-gen-schemas"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "openkind-core",
  "schemars",
@@ -2817,7 +2828,7 @@ dependencies = [
 
 [[package]]
 name = "openkind-model-store"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "axum",
  "fs2",
@@ -2834,7 +2845,7 @@ dependencies = [
 
 [[package]]
 name = "openkind-proto"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bytes",
  "prost",
@@ -2848,7 +2859,7 @@ dependencies = [
 
 [[package]]
 name = "openkind-runtime"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "libc",
  "nvml-wrapper",
@@ -2863,7 +2874,7 @@ dependencies = [
 
 [[package]]
 name = "openkind-server"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2899,6 +2910,15 @@ name = "openssl-probe"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c87def4c32ab89d880effc9e097653c8da5d6ef28e6b539d313baaacfbafcbe"
+
+[[package]]
+name = "ordered-float"
+version = "5.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8c7c9e0d9b23589f26070720bac724174bfec1083e82f7854cdd0267518343c0"
+dependencies = [
+ "num-traits",
+]
 
 [[package]]
 name = "ort"
@@ -4030,6 +4050,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_yaml_ng"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b4db627b98b36d4203a7b458cf3573730f2bb591b28871d916dfa9efabfd41f"
+dependencies = [
+ "indexmap",
+ "itoa",
+ "ryu",
+ "serde",
+ "unsafe-libyaml",
+]
+
+[[package]]
 name = "sha2"
 version = "0.10.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4828,6 +4861,12 @@ name = "unit-prefix"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "81e544489bf3d8ef66c953931f56617f423cd4b5494be343d9b9d3dda037b9a3"
+
+[[package]]
+name = "unsafe-libyaml"
+version = "0.2.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 
 [[package]]
 name = "untrusted"

@@ -16,8 +16,8 @@ license, and identify the tagged source commit.
 
 - [x] Review the release diff, including existing uncommitted work. Use a clean
   release commit and preserve changes that belong to other work.
-- [x] Update [change log.md](<change log.md>) for the code included in that commit.
-- [x] Confirm every Rust package and internal dependency matches `0.1.0`.
+- [x] Update [CHANGELOG.md](CHANGELOG.md) for the code included in that commit.
+- [x] Confirm every Rust package and internal dependency matches `0.2.0`.
 - [x] Confirm each crate archive contains the repository's [MIT license](LICENSE).
 - [x] Check that `CARGO_REGISTRY_TOKEN` can publish the intended crates and that
   `HOMEBREW_TAP_TOKEN` can update `whit3rabbit/homebrew-tap`. Store them as GitHub
@@ -70,20 +70,20 @@ the registry. `dist/crate-publish-report.json` records attempts and completion.
 
 | Order | Package | Version | Minimum upload interval |
 |---:|---|---|---|
-| 1 | `openkind-core` | `0.1.0` | 600 seconds if new, 60 seconds for an update |
-| 2 | `openkind-datasets` | `0.1.0` | 600 seconds if new, 60 seconds for an update |
-| 3 | `openkind-model-store` | `0.1.0` | 600 seconds if new, 60 seconds for an update |
-| 4 | `openkind-proto` | `0.1.0` | 600 seconds if new, 60 seconds for an update |
-| 5 | `openkind-engine` | `0.1.0` | 600 seconds if new, 60 seconds for an update |
-| 6 | `openkind-runtime` | `0.1.0` | 600 seconds if new, 60 seconds for an update |
-| 7 | `openkind-api` | `0.1.0` | 600 seconds if new, 60 seconds for an update |
-| 8 | `openkind-backends` | `0.1.0` | 600 seconds if new, 60 seconds for an update |
-| 9 | `openkind-cli` | `0.1.0` | 600 seconds if new, 60 seconds for an update |
-| 10 | `openkind-bench` | `0.1.0` | 600 seconds if new, 60 seconds for an update |
-| 11 | `openkind-client` | `0.1.0` | 600 seconds if new, 60 seconds for an update |
-| 12 | `openkind-server` | `0.1.0` | 600 seconds if new, 60 seconds for an update |
+| 1 | `openkind-core` | `0.2.0` | 600 seconds if new, 60 seconds for an update |
+| 2 | `openkind-datasets` | `0.2.0` | 600 seconds if new, 60 seconds for an update |
+| 3 | `openkind-model-store` | `0.2.0` | 600 seconds if new, 60 seconds for an update |
+| 4 | `openkind-proto` | `0.2.0` | 600 seconds if new, 60 seconds for an update |
+| 5 | `openkind-engine` | `0.2.0` | 600 seconds if new, 60 seconds for an update |
+| 6 | `openkind-runtime` | `0.2.0` | 600 seconds if new, 60 seconds for an update |
+| 7 | `openkind-api` | `0.2.0` | 600 seconds if new, 60 seconds for an update |
+| 8 | `openkind-backends` | `0.2.0` | 600 seconds if new, 60 seconds for an update |
+| 9 | `openkind-cli` | `0.2.0` | 600 seconds if new, 60 seconds for an update |
+| 10 | `openkind-bench` | `0.2.0` | 600 seconds if new, 60 seconds for an update |
+| 11 | `openkind-client` | `0.2.0` | 600 seconds if new, 60 seconds for an update |
+| 12 | `openkind-server` | `0.2.0` | 600 seconds if new, 60 seconds for an update |
 
-`openkind-gen-schemas` tracks `0.1.0` but has `publish = false`.
+`openkind-gen-schemas` tracks `0.2.0` but has `publish = false`.
 The Cargo packages `openkind-cli` and `openkind-server` install the binaries
 `openkind` and `openkindd`.
 
