@@ -25,8 +25,14 @@ See the [dataset rationale and run guide](./local_decision_training/README.md)
 and [evidence-backed decisions](./local_decision_training/DECISIONS.md).
 An optional [HelpSteer2 data ablation](./local_decision_training/README.md#strands-decider-training-lessons)
 adds answer-adequacy supervision from human ratings, with request-group isolation.
-Status: authored and locally checked with tiny models; full 4B CUDA training and
-Mac qualification are unrun. It does not reopen historical final splits.
+A self-contained [unattended T4 variant](./local_decision_training/local_decision_training_t4.ipynb)
+embeds the same reviewed trainer for BF16-less Colab T4 GPUs under a separate
+`nf4_fp16` run identity (1,024-token cap, shorter budgets, local-disk outputs) and
+adds bounded single-dimension learning-rate and rank sweeps beside the existing loss
+sweep: it sweeps, selects the development winner, calibrates, gates and exports
+automatically with no interactive prompts. Status: authored and locally checked with
+tiny models; full 4B CUDA training, the T4 FP16 run and Mac qualification are unrun.
+It does not reopen historical final splits.
 
 ## CLEF and related decision-model research
 

@@ -7,6 +7,12 @@ qualification. This is a v4 experiment, not a promoted model or a completed
 4B training result. The [local design](../../docs/whitepaper/LOCAL_DECISION_DESIGN.md)
 separates this pilot from native integration.
 
+For T4-class Colab GPUs, which have no BF16 support,
+[local_decision_training_t4.ipynb](local_decision_training_t4.ipynb) embeds the same
+reviewed trainer and test suite under a separate `nf4_fp16` run identity with a
+1,024-token cap, shorter budgets and predeclared parameter sweeps. It runs end to
+end unattended and is a distinct experiment, not a cheaper notebook 35.
+
 [DECISIONS.md](DECISIONS.md) records the evidence, alternatives and acceptance
 conditions for this design.
 
@@ -16,6 +22,38 @@ Upload the notebook at [Google Colab](https://colab.research.google.com/), selec
 an A100 GPU, and run all cells. Mount Drive when prompted. No prior experiment
 folder, teacher API key or repository clone is needed. Training resumes from
 the last verified optimizer checkpoint when rerun with the same configuration.
+
+**T4, unattended.** Upload [local_decision_training_t4.ipynb](local_decision_training_t4.ipynb),
+select a T4 GPU, and run all cells without further interaction. Nothing prompts:
+outputs stay on the Colab disk and are lost when the runtime dies (set
+`USE_DRIVE=True` to persist on Drive, which requires interactive authorization).
+The default run performs a three-arm learning-rate sweep, selects the development
+winner automatically, calibrates, gates and exports. Interrupted arms resume from
+committed checkpoints when rerun with unchanged settings.
+
+## T4 fp16 pilot differences
+
+| Setting | Notebook 35 (A100/L4) | T4 notebook |
+|---|---|---|
+| Precision identity | `bf16` or `nf4` (BF16 compute) | `nf4_fp16` (FP16 compute), resolved by `resolve_precision` |
+| Token admission cap | 2,048 total prompt tokens | 1,024 total prompt tokens |
+| Default updates | 400 × effective batch 16 | 150 × effective batch 16 |
+| Default study | single plain-CE control | three learning rates, then automatic selection |
+| Storage | Google Drive | local Colab disk; Drive optional and interactive |
+| Minimum GPU memory | 35 GiB BF16 / 20 GiB NF4 | 14 GiB |
+
+The 1,024-token cap rejects overlength records whole, never truncates them, and
+the admission audit quantifies the difference. Changing precision, token cap,
+update budget, seeds, data settings or the embedded source creates a different run
+identity, so a T4 run neither resumes nor numerically compares against a notebook 35
+run. `SWEEP_MODE` selects one predeclared study per run identity: `"learning_rate"`
+or `"rank"` use the bounded single-dimension parameter sweep, `"loss"` runs the
+existing six-arm loss sweep (which can exceed one T4 session), and `"none"` runs a
+single control fit. `CUSTOM_SWEEP_ARMS` may replace the default arms with 2–6
+alternatives that include the control value and vary nothing else. FP16 activations
+and gradients on T4 are a hypothesis this notebook exists to measure; its gradient
+preflight still requires finite nonzero adapter gradients before any training, and
+a completed run is not T4 deployment qualification or Mac evidence.
 
 ## What I would train on
 
@@ -199,6 +237,13 @@ the winner's export.
 Sweep only loss settings first. Change learning rate or rank in a separate study
 if learning curves show stalled optimization or a capacity limit. Sweeping all
 three together would obscure the source of a gain and multiply the GPU budget.
+The T4 notebook's `SWEEP_MODE` implements those separate studies directly:
+`learning_rate` and `rank` run the bounded single-dimension parameter sweep
+(`PARAMETER_SWEEP_ARMS`, control value required, `alpha` pinned to twice `rank`)
+with the loss sweep's matched seeds, fresh optimizers, step-zero parity checks,
+protected-role isolation and development-NLL selection. Rank arms rebuild the
+adapters; each arm's identity binds its shapes. Only the selected arm reaches
+calibration and the gate.
 
 Do not compare raw training losses across objectives or promote an arm from a
 leaderboard claim. Separate run identities prevent incompatible resume. A repeated
@@ -434,7 +479,9 @@ integration. Its serial reference does not implement hybrid-prefix reuse or CLEF
 
 Readable implementation: [train.py](train.py). Offline checks include
 [test_train.py](test_train.py) and the v4 data, evaluation and bundle suites.
-Regenerate the self-contained notebook with [build_notebook.py](build_notebook.py):
+Regenerate the self-contained notebooks with [build_notebook.py](build_notebook.py)
+for the A100/L4 run and [build_t4_notebook.py](build_t4_notebook.py) for the
+unattended T4 run:
 
 ```bash
 python3.12 -m venv /tmp/openkind-local-decision-tests
@@ -442,27 +489,31 @@ python3.12 -m venv /tmp/openkind-local-decision-tests
   torch==2.14.1 transformers==5.17.0 peft==0.21.1 nbformat==5.11.1 \
   'tqdm>=4.66' 'pandas>=2.2'
 /tmp/openkind-local-decision-tests/bin/python research/local_decision_training/build_notebook.py
+/tmp/openkind-local-decision-tests/bin/python research/local_decision_training/build_t4_notebook.py
 env HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
   /tmp/openkind-local-decision-tests/bin/python -m unittest discover \
   -s research/local_decision_training -p 'test*.py' -v
 ```
 
 The tests use tiny randomly initialized models and download no model assets. The
-full 4B CUDA training, L4 NF4 path, Google Drive execution and Mac deployment remain
-unrun. The authored notebook is an executable experiment, not a completed result.
+full 4B CUDA training, L4 NF4 path, T4 NF4 FP16 path, Google Drive execution and
+Mac deployment remain unrun. The authored notebooks are executable experiments,
+not completed results.
 
-On 3 October 2026, all 55 v4 offline tests passed in an isolated Python 3.12.11
+On 3 October 2026, all 58 v4 offline tests passed in an isolated Python 3.12.11
 environment on macOS arm64 CPU with Torch 2.14.1, Transformers 5.17.0 and PEFT
 0.21.1. These cover atomic admission, exact generators, occurrence augmentation
 and interrupted resume, grouped reports, confidence semantics, tamper rejection
 and frozen reserved-input re-encoding. Sweep checks use tiny hybrid models to
 verify matched initialization, development-only selection and rejection of a
-mismatched parent. The 4B sweep has not been run.
+mismatched parent, now including the new learning-rate and rank parameter sweeps
+and the `resolve_precision` capability floors. The 4B sweep has not been run.
 
-The regenerated notebook validates as 28 cells with 13 compilable code cells.
-Its six embedded Python sources match the reviewed files byte for byte; all
-55 tests also pass after extracting those sources into an isolated directory.
-Regeneration is deterministic. The full Colab workflow was not executed.
+The regenerated notebooks each validate as 28 cells with 13 compilable code cells.
+Their six embedded Python sources match the reviewed files byte for byte; all 58
+tests also pass after extracting those sources from either notebook into an
+isolated directory. Regeneration is deterministic. The full Colab workflows were
+not executed.
 
 TypeSafe checks cover source exclusion, reference schemas and soft targets,
 published metric math, failed-row denominators, frozen-export verification and

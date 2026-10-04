@@ -31,8 +31,11 @@ logits from one forward pass with ordinary unsmoothed CE. New reasoning data, pr
 augmentation and the existing six-arm loss sweep are separate opt-in comparisons. It does not generate reasoning or answer text.
 
 **Recommended runtime: Colab A100.** An L4 uses NF4 QLoRA automatically. Both require native
-BF16; this notebook does not qualify T4 training. Deployment remains targeted at a 16–32 GB
-Mac, after adapter merge, quantization and native-runtime evaluation.
+BF16; T4-class GPUs have no BF16 support and use the dedicated unattended
+[local_decision_training_t4.ipynb](local_decision_training/local_decision_training_t4.ipynb)
+instead, whose `nf4_fp16` run identity and 1,024-token pilot are separate experiments. Deployment
+remains targeted at a 16–32 GB Mac, after adapter merge, quantization and native-runtime
+evaluation.
 
 Upload this `.ipynb` to [Colab](https://colab.research.google.com/), select a GPU, and choose
 **Runtime > Run all**. Mount Drive when prompted. No teacher API key or previous OpenKind
@@ -137,7 +140,7 @@ requirements = [
 subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", *requirements])
 import torch
 assert torch.cuda.is_available(), "Select Runtime > Change runtime type > A100 or L4 GPU."
-assert torch.cuda.is_bf16_supported(), "Use A100/L4. T4's FP16 route is not qualified here."
+assert torch.cuda.is_bf16_supported(including_emulation=False), "Use A100/L4. T4's FP16 route is not qualified here."
 print("Torch:", torch.__version__, "GPU:", torch.cuda.get_device_name(0))
 """)
 

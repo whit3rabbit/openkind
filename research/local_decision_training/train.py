@@ -624,14 +624,32 @@ def math_contexts():
     return sdpa_kernel(SDPBackend.MATH), sdpa_kernel(SDPBackend.MATH)
 
 
-def setup_adapters(base, config, quantized=False):
+# Reported torch.cuda totals fall below nominal card size; T4 reports about 15 GiB.
+PRECISION_MINIMUM_GIB = {"bf16": 35.0, "nf4": 20.0, "nf4_fp16": 14.0}
+
+
+def resolve_precision(requested, total_gib, bf16_supported):
+    """Precision is part of run identity; fp16-only GPUs run the separate NF4 path."""
+    if requested == "auto":
+        requested = ("bf16" if bf16_supported and total_gib >= PRECISION_MINIMUM_GIB["bf16"]
+                     else "nf4" if bf16_supported else "nf4_fp16")
+    assert requested in PRECISION_MINIMUM_GIB, "precision must be auto, bf16, nf4, or nf4_fp16"
+    if requested in ("bf16", "nf4"):
+        assert bf16_supported, "BF16 compute needs a supported GPU; FP16-only GPUs use precision='nf4_fp16'."
+    assert total_gib >= PRECISION_MINIMUM_GIB[requested], (
+        f"precision={requested} needs at least {PRECISION_MINIMUM_GIB[requested]:.0f} GiB; reported {total_gib:.1f} GiB")
+    return requested
+
+
+def setup_adapters(base, config, quantized=False, compute_dtype=None):
     from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
     if quantized:
-        # Keep the large tied embedding in BF16 rather than the helper's default FP32 promotion.
+        # Keep the large tied embedding in its compute dtype rather than the helper's default FP32 promotion.
         prepare_model_for_kbit_training(base, use_gradient_checkpointing=False)
         import torch
-        base.get_input_embeddings().to(dtype=torch.bfloat16)
-        base.get_output_embeddings().to(dtype=torch.bfloat16)
+        compute_dtype = compute_dtype or torch.bfloat16
+        base.get_input_embeddings().to(dtype=compute_dtype)
+        base.get_output_embeddings().to(dtype=compute_dtype)
     targets = ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj",
                "in_proj_qkv", "in_proj_z", "in_proj_b", "in_proj_a", "out_proj"]
     peft = get_peft_model(base, LoraConfig(r=config["rank"], lora_alpha=config["alpha"],
@@ -652,22 +670,20 @@ def load_model(config):
     from transformers import BitsAndBytesConfig, Qwen3_5ForCausalLM
     random.seed(experiment_seed(config, "initialization"))
     torch.manual_seed(experiment_seed(config, "initialization"))
-    assert torch.cuda.is_available(), "Choose Runtime > Change runtime type > A100 or L4 GPU."
-    assert torch.cuda.is_bf16_supported(), "This recipe requires native BF16 (L4/A100). T4 is not qualified."
+    assert torch.cuda.is_available(), "Choose Runtime > Change runtime type > a GPU."
     gib = torch.cuda.get_device_properties(0).total_memory / 1024**3
-    precision = config["precision"]
-    if precision == "auto":
-        precision = "bf16" if gib >= 35 else "nf4"
-    assert precision in ("bf16", "nf4") and gib >= (35 if precision == "bf16" else 20)
+    precision = resolve_precision(config["precision"], gib,
+                                  torch.cuda.is_bf16_supported(including_emulation=False))
+    compute_dtype = torch.float16 if precision == "nf4_fp16" else torch.bfloat16
     quant = (BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_quant_type="nf4",
-                              bnb_4bit_use_double_quant=True, bnb_4bit_compute_dtype=torch.bfloat16)
-             if precision == "nf4" else None)
+                              bnb_4bit_use_double_quant=True, bnb_4bit_compute_dtype=compute_dtype)
+             if precision != "bf16" else None)
     torch.backends.cuda.matmul.allow_tf32 = False
     torch.backends.cudnn.allow_tf32 = False
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     base, loading = Qwen3_5ForCausalLM.from_pretrained(
-        MODEL_ID, revision=MODEL_REVISION, dtype=torch.bfloat16, device_map={"": 0},
+        MODEL_ID, revision=MODEL_REVISION, dtype=compute_dtype, device_map={"": 0},
         quantization_config=quant, attn_implementation="sdpa", trust_remote_code=False,
         output_loading_info=True,
     )
@@ -675,9 +691,9 @@ def load_model(config):
     unexpected = loading.get("unexpected_keys", [])
     assert all("visual" in k or "mtp" in k for k in unexpected), loading
     base.config.use_cache = False
-    model = setup_adapters(base, config, precision == "nf4")
+    model = setup_adapters(base, config, precision != "bf16", compute_dtype=compute_dtype)
     report = dict(gpu=torch.cuda.get_device_name(0), compute_capability=list(torch.cuda.get_device_capability(0)),
-                  total_gib=gib, precision=precision,
+                  total_gib=gib, precision=precision, compute_dtype=str(compute_dtype),
                   trainable_parameters=sum(p.numel() for p in model.parameters() if p.requires_grad),
                   loading_info=loading, checkpoint_attention="math for forward and recomputation",
                   delta_backend="installed Transformers path; no optional CUDA kernels installed by notebook")
@@ -1257,20 +1273,74 @@ def loss_sweep_configs(config, arms=None):
 
 def run_loss_sweep(model_factory, data, config, output_root, context, arms=None, *, tokenizer=None):
     """Fresh sequential fits; select one development winner before any gate access."""
+    configs = loss_sweep_configs(config, arms)
+    plan = dict(schema=VERSION, kind="loss", context=context, model_revision=MODEL_REVISION, arms=configs,
+                selection_rule="minimum unsmoothed source-macro development NLL subject to retention; ties prefer earlier step then arm order",
+                calibration_used=False, gate_used=False, test_opened=False)
+    return _run_matched_sweep(model_factory, data, output_root, plan, tokenizer=tokenizer)
+
+
+# One bounded optimization study changes exactly one training parameter against the configured control.
+PARAMETER_SWEEP_LIMITS = {"learning_rate": (1e-6, 1e-2), "rank": (1, 128)}
+PARAMETER_SWEEP_ARMS = {
+    "learning_rate": (dict(name="lr_1e_05", learning_rate=1e-5),
+                      dict(name="lr_2e_05", learning_rate=2e-5),
+                      dict(name="lr_4e_05", learning_rate=4e-5)),
+    "rank": (dict(name="rank_8", rank=8, alpha=16),
+             dict(name="rank_16", rank=16, alpha=32),
+             dict(name="rank_32", rank=32, alpha=64)),
+}
+
+
+def parameter_sweep_configs(config, arms, dimension):
+    """Validate a single-dimension study; the control value must be one arm and nothing else varies."""
+    assert dimension in PARAMETER_SWEEP_LIMITS, dimension
+    assert 2 <= len(arms) <= 6, "Use a bounded sweep of 2 to 6 arms"
+    if dimension == "rank":
+        # Otherwise the arm at the control rank silently changes its alpha.
+        assert config["alpha"] == 2 * config["rank"], "The rank control must preserve the pilot alpha/rank ratio of 2"
+    keys = {"name", dimension} | ({"alpha"} if dimension == "rank" else set())
+    names, values, result = set(), set(), []
+    for arm in arms:
+        assert set(arm) == keys, "Sweep only " + dimension
+        name = arm["name"]
+        assert isinstance(name, str) and name and all(c in "abcdefghijklmnopqrstuvwxyz0123456789_" for c in name)
+        assert name not in names, "Duplicate sweep name"
+        value = arm[dimension]
+        low, high = PARAMETER_SWEEP_LIMITS[dimension]
+        if dimension == "rank":
+            assert type(value) is int and low <= value <= high, "rank must be an integer within the bounded range"
+            assert arm["alpha"] == 2 * value, "Preserve the pilot alpha/rank ratio of 2"
+        else:
+            assert math.isfinite(value) and low <= value <= high, "learning_rate must be finite within the bounded range"
+        assert value not in values, "Duplicate sweep settings"
+        names.add(name); values.add(value)
+        result.append(dict(name=name, config={**config, **{k: v for k, v in arm.items() if k != "name"}}))
+    assert config[dimension] in values, "The configured control value must be one arm"
+    return result
+
+
+def run_parameter_sweep(model_factory, data, config, output_root, context, dimension, arms=None, *, tokenizer=None):
+    """Fresh sequential fits over one training parameter; select one development winner before any gate access."""
+    configs = parameter_sweep_configs(config, list(PARAMETER_SWEEP_ARMS[dimension] if arms is None else arms), dimension)
+    plan = dict(schema=VERSION, kind="parameter", dimension=dimension, context=context, model_revision=MODEL_REVISION,
+                arms=configs,
+                selection_rule="minimum unsmoothed source-macro development NLL subject to retention; ties prefer earlier step then arm order",
+                calibration_used=False, gate_used=False, test_opened=False)
+    return _run_matched_sweep(model_factory, data, output_root, plan, tokenizer=tokenizer)
+
+
+def _run_matched_sweep(model_factory, data, output_root, plan, *, tokenizer=None):
     import gc
     import torch
     # Passing only these roles to fit prevents a sweep from inspecting protected panels.
     admitted = {role: data[role] for role in ("train", "development")}
-    configs = loss_sweep_configs(config, arms)
-    plan = dict(schema=VERSION, context=context, model_revision=MODEL_REVISION, arms=configs,
-                data_hashes={role: digest(rows) for role, rows in admitted.items()},
-                selection_rule="minimum unsmoothed source-macro development NLL subject to retention; ties prefer earlier step then arm order",
-                calibration_used=False, gate_used=False, test_opened=False)
+    plan = dict(plan, data_hashes={role: digest(rows) for role, rows in admitted.items()})
     sweep_identity = digest(plan)
     sweep = Path(output_root) / ("sweep_" + sweep_identity[:16])
     immutable_json(sweep / "SWEEP_PLAN.json", plan)
     results, baseline_hash, execution = [], None, None
-    for index, arm in enumerate(configs):
+    for index, arm in enumerate(plan["arms"]):
         arm_config = arm["config"]
         random.seed(experiment_seed(arm_config, "initialization"))
         torch.manual_seed(experiment_seed(arm_config, "initialization"))
@@ -1286,9 +1356,9 @@ def run_loss_sweep(model_factory, data, config, output_root, context, arms=None,
             assert current_execution == execution, "Sweep precision or device changed"
             identity = digest(dict(sweep_identity=sweep_identity, arm=arm, execution=execution))
             run = sweep / arm["name"]
-            immutable_json(run / "CONFIG.json", dict(identity=identity, config=arm_config, context=context,
+            immutable_json(run / "CONFIG.json", dict(identity=identity, config=arm_config, context=plan["context"],
                                                      sweep_identity=sweep_identity))
-            atomic_json(run / "ENVIRONMENT.json", dict(context=context, model=model_report))
+            atomic_json(run / "ENVIRONMENT.json", dict(context=plan["context"], model=model_report))
             preflight = gradient_preflight(model, admitted["train"][0], arm_config)
             atomic_json(run / "GRADIENT_PREFLIGHT.json", preflight)
             selection = fit(model, admitted, arm_config, run, identity, baseline_report_sha256=baseline_hash,

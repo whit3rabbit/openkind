@@ -166,10 +166,73 @@ replay semantics and frozen-parent restoration. TypeSafe/reference labels remain
 outside fitting and selection, and failed-question denominators remain intact.
 The notebook must embed the reviewed runtime and test sources exactly.
 
+## D8. Extend execution to FP16-only GPUs as a separate identity
+
+**Evidence.** Colab T4 GPUs lack BF16, so the reviewed loader refused them,
+confining the pilot to paid A100/L4 sessions. The [T4/L4 open-questions lab
+(34)](../34_qwen35_9b_t4_l4_open_questions_lab.ipynb) established that a T4 admits
+pinned 4-bit execution on this stack, and
+[bitsandbytes NF4 with FP16 compute](https://huggingface.co/docs/peft/developer_guides/quantization)
+is the standard QLoRA path for FP16-only GPUs.
+
+**Limit.** FP16's narrower exponent range can overflow or underflow activations and
+gradients in ways BF16 does not; no 4B T4 run has measured it. A T4 result says
+nothing about L4/A100 runs, and conversely, because precision is part of run identity.
+
+**Decision.** Add `resolve_precision` with `nf4_fp16` as a third precision identity:
+BF16 compute where supported, FP16 compute with a 14 GiB floor otherwise, FP32 LoRA
+adapters in both cases, and `auto` resolving by device capability and reported
+memory. The T4 notebook embeds the same reviewed trainer and tests, caps admission
+at 1,024 tokens to bound MATH-attention memory, and stores outputs locally so an
+unsupervised session never prompts for Drive authorization.
+
+**Alternative.** Excluding T4 preserves one fewer path but blocks free-GPU evidence
+gathering; FP32 base weights do not fit a 16 GB card; emulating BF16 on T4 would be
+an unqualified kernel change. Sharing a run identity across precisions would let an
+fp16 resume contaminate a bf16 run.
+
+**Experiment and acceptance.** Offline tests cover the resolver's floors, the
+fp16-only auto resolution and rejection of invalid requests, and the gradient
+preflight still requires finite nonzero adapter gradients in attention, DeltaNet
+and MLP families before training. The first T4 session is a separate measured run;
+its completion is not T4 deployment qualification, notebook 35 equivalence, or Mac
+evidence.
+
+## D9. Keep optimization sweeps single-dimension
+
+**Evidence.** The run guide already required learning-rate and rank studies to be
+separate from the six-arm loss sweep. Sweeping dimensions together obscures
+attribution and multiplies GPU cost, which an unsupervised T4 session cannot spare.
+
+**Limit.** Development selection uses small panels, so sweep winners are screening
+results, not confirmed quality. Step-zero matching across rank arms relies on
+zero-initialized LoRA B matrices, which hold the parent's step-zero report by
+construction rather than by measured invariance.
+
+**Decision.** Add `parameter_sweep_configs` and `run_parameter_sweep`: 2–6 arms that
+vary exactly one of `learning_rate` or `rank` (with `alpha` pinned to twice `rank`),
+always including the configured control value, reusing the loss sweep's matched
+seeds, fresh optimizers, step-zero parity, protected-role isolation, per-arm resume
+and development-NLL selection. Only the selected arm reaches calibration and the
+gate; a failed gate retains the frozen parent without trying another arm. The T4
+notebook's `SWEEP_MODE` exposes `"learning_rate"`, `"rank"`, `"loss"`, and `"none"`
+as mutually exclusive choices per run identity.
+
+**Alternative.** A combined learning-rate × rank × loss grid maximizes coverage per
+session but cannot attribute a gain, and a search driven by gate or final results
+would spend reserved panels as selection signals.
+
+**Experiment and acceptance.** Offline tests validate single-dimension enforcement,
+control inclusion, value bounds, the alpha ratio, matched initial states, resume
+equality and that no arm opens calibration, gate or reserved panels. A repeated
+search after viewing gate or final results spends those panels and needs fresh
+acceptance groups.
+
 ## Completion boundary
 
 Run the offline suite, validate notebook structure and embedded source identity,
-and run repository-required checks. Full Colab 4B training, L4 NF4 execution,
-Drive resume, adapter merge, quantization and native Mac qualification require
-separate measured runs. A 4,096-token study and learned pointer/evidence reader
-also remain separate experiments. None is implied by completion of this code.
+and run repository-required checks. Full Colab 4B training, L4 NF4 execution, T4
+NF4 FP16 execution, Drive resume, adapter merge, quantization and native Mac
+qualification require separate measured runs. A 4,096-token study and learned
+pointer/evidence reader also remain separate experiments. None is implied by
+completion of this code.

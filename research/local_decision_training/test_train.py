@@ -410,6 +410,111 @@ class TrainingTests(unittest.TestCase):
         self.assertFalse(result["used_for_selection"])
         self.assertFalse(result["parity_established"])
 
+    def test_resolve_precision_matches_device_capabilities(self):
+        pick = recipe.resolve_precision
+        self.assertEqual(pick("auto", 40.0, True), "bf16")
+        self.assertEqual(pick("auto", 40.0, False), "nf4_fp16")
+        self.assertEqual(pick("auto", 24.0, True), "nf4")
+        self.assertEqual(pick("auto", 24.0, False), "nf4_fp16")
+        self.assertEqual(pick("auto", 15.0, False), "nf4_fp16")
+        self.assertEqual(pick("nf4_fp16", 15.0, True), "nf4_fp16")
+        for requested, gib, supported in (("bf16", 24.0, True), ("bf16", 40.0, False), ("nf4", 24.0, False),
+                                          ("nf4_fp16", 10.0, False), ("fp8", 40.0, True)):
+            with self.assertRaises(AssertionError):
+                pick(requested, gib, supported)
+
+        import torch
+        from transformers import Qwen3_5ForCausalLM
+        # BF16 tensor emulation is insufficient for the native-compute paths.
+        with mock.patch.object(torch.cuda, "is_available", return_value=True), \
+             mock.patch.object(torch.cuda, "get_device_properties", return_value=mock.Mock(total_memory=15 * 1024**3)), \
+             mock.patch.object(torch.cuda, "is_bf16_supported", side_effect=lambda including_emulation=True: including_emulation) as capability, \
+             mock.patch.object(recipe, "resolve_precision", side_effect=RuntimeError("precision boundary")) as resolution, \
+             mock.patch.object(Qwen3_5ForCausalLM, "from_pretrained") as loader:
+            with self.assertRaisesRegex(RuntimeError, "precision boundary"):
+                recipe.load_model({**self.config, "precision": "auto"})
+            capability.assert_called_once_with(including_emulation=False)
+            resolution.assert_called_once_with("auto", 15.0, False)
+            loader.assert_not_called()
+
+    def test_parameter_sweep_configs_vary_one_dimension_and_require_control(self):
+        arms = [dict(name="lr_5e_04", learning_rate=5e-4), dict(name="lr_1e_03", learning_rate=1e-3),
+                dict(name="lr_2e_03", learning_rate=2e-3)]
+        configs = recipe.parameter_sweep_configs(self.config, arms, "learning_rate")
+        self.assertEqual([arm["name"] for arm in configs], ["lr_5e_04", "lr_1e_03", "lr_2e_03"])
+        for arm in configs:
+            fixed = {k: v for k, v in arm["config"].items() if k != "learning_rate"}
+            self.assertEqual(fixed, {k: v for k, v in self.config.items() if k != "learning_rate"})
+        ranked = recipe.parameter_sweep_configs(self.config, [dict(name="rank_1", rank=1, alpha=2),
+                                                             dict(name="rank_2", rank=2, alpha=4)], "rank")
+        self.assertEqual([(arm["config"]["rank"], arm["config"]["alpha"]) for arm in ranked], [(1, 2), (2, 4)])
+        self.assertTrue(all(arm["config"]["max_steps"] == self.config["max_steps"] for arm in ranked))
+        with self.assertRaises(AssertionError):
+            recipe.parameter_sweep_configs({**self.config, "alpha": 8},
+                                           [dict(name="rank_1", rank=1, alpha=2), dict(name="rank_2", rank=2, alpha=4)], "rank")
+        invalid_learning_rate = ([], arms[:1], arms[:1] + arms[:1],
+                                 [dict(name="x", learning_rate=5e-4), dict(name="y", learning_rate=5e-4)],
+                                 [dict(name="x", learning_rate=5e-4), dict(name="y", learning_rate=1e-3, rank=64)],
+                                 [dict(name="x", learning_rate=1e-1), dict(name="y", learning_rate=1e-3)],
+                                 [dict(name="x", learning_rate=1e-7), dict(name="y", learning_rate=1e-3)],
+                                 [dict(name="x", learning_rate=5e-4), dict(name="y", learning_rate=2e-3)])
+        for invalid in invalid_learning_rate:
+            with self.assertRaises(AssertionError):
+                recipe.parameter_sweep_configs(self.config, invalid, "learning_rate")
+        invalid_rank = ([dict(name="rank_1", rank=1), dict(name="rank_2", rank=2, alpha=4)],
+                        [dict(name="rank_1", rank=1, alpha=4), dict(name="rank_2", rank=2, alpha=4)],
+                        [dict(name="rank_1", rank=1.0, alpha=2), dict(name="rank_2", rank=2, alpha=4)],
+                        [dict(name="rank_1", rank=1, alpha=2), dict(name="rank_2", rank=3, alpha=6)],
+                        [dict(name="lr_1e_03", learning_rate=1e-3), dict(name="rank_2", rank=2, alpha=4)])
+        for invalid in invalid_rank:
+            with self.assertRaises(AssertionError):
+                recipe.parameter_sweep_configs(self.config, invalid, "rank")
+
+    def test_parameter_sweep_fresh_matched_fits_resume_and_selection(self):
+        import torch
+        class ProtectedRoles(dict):
+            def __getitem__(self, role):
+                if role not in ("train", "development"):
+                    raise AssertionError("protected panel opened: " + role)
+                return super().__getitem__(role)
+        data = ProtectedRoles(train=encoded_rows(), development=encoded_rows())
+        initial_states = []
+        def factory(config):
+            model = tiny_model(config)
+            initial_states.append({n: p.detach().clone() for n, p in model.named_parameters() if p.requires_grad})
+            return model, dict(precision="fp32-cpu", compute_capability=[])
+        lr_arms = [dict(name="lr_5e_04", learning_rate=5e-4), dict(name="lr_1e_03", learning_rate=1e-3)]
+        with tempfile.TemporaryDirectory() as tmp:
+            result = recipe.run_parameter_sweep(factory, data, self.config, tmp, {"source_sha": "tiny-test"},
+                                                "learning_rate", lr_arms)
+            self.assertEqual(len(result["results"]), 2)
+            expected = min(result["results"], key=lambda r: (r["metrics"]["macro_nll"], r["selected_step"], r["index"]))
+            self.assertEqual(result["selected_arm"], expected["name"])
+            self.assertEqual(result["selected_config"]["learning_rate"], expected["config"]["learning_rate"])
+            self.assertTrue(all(not result[k] for k in ("calibration_used", "gate_used", "test_opened", "model_promoted")))
+            for arm in result["results"]:
+                path = Path(arm["run"])
+                self.assertEqual(recipe.verify_checkpoint(path / "checkpoints/step_000002", arm["identity"])["step"], 2)
+                self.assertFalse((path / "GATE_RESULT.json").exists())
+            resumed = recipe.run_parameter_sweep(factory, data, self.config, tmp, {"source_sha": "tiny-test"},
+                                                 "learning_rate", lr_arms)
+            self.assertEqual(resumed, result)
+            for state in initial_states[1:]:
+                for name, value in initial_states[0].items():
+                    torch.testing.assert_close(state[name], value, rtol=0, atol=0)
+        # Rank arms rebuild adapters at a different capacity; step-zero reports still match.
+        rank_arms = [dict(name="rank_1", rank=1, alpha=2), dict(name="rank_2", rank=2, alpha=4)]
+        with tempfile.TemporaryDirectory() as tmp:
+            ranked = recipe.run_parameter_sweep(factory, data, self.config, tmp, {"source_sha": "tiny-test"},
+                                                "rank", rank_arms)
+            self.assertEqual(len(ranked["results"]), 2)
+            winner = min(ranked["results"], key=lambda r: (r["metrics"]["macro_nll"], r["selected_step"], r["index"]))
+            self.assertEqual(ranked["selected_arm"], winner["name"])
+            self.assertEqual(ranked["selected_config"]["rank"], winner["config"]["rank"])
+            plan = json.loads((Path(ranked["selected_run"]).parent / "SWEEP_PLAN.json").read_text())
+            self.assertEqual(plan["dimension"], "rank")
+            self.assertEqual(plan["kind"], "parameter")
+
     def test_sweep_configs_only_vary_losses_and_require_controls(self):
         configs = recipe.loss_sweep_configs(self.config)
         self.assertEqual(len(configs), 6)
