@@ -946,7 +946,24 @@ fn sha256_file(path: &Path) -> Result<String> {
 
 fn reusable_blob(path: &Path, size: u64, sha: &str) -> Result<bool> {
     match path.symlink_metadata() {
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            if let Some(parent) = path.parent() {
+                match parent.metadata() {
+                    Ok(metadata) if !metadata.is_dir() => {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::NotADirectory,
+                            "blob parent path is not a directory",
+                        )
+                        .into());
+                    }
+                    Err(parent_error) if parent_error.kind() != std::io::ErrorKind::NotFound => {
+                        return Err(parent_error.into());
+                    }
+                    _ => {}
+                }
+            }
+            return Ok(false);
+        }
         Err(error) => return Err(error.into()),
         Ok(metadata) if !metadata.file_type().is_file() => {
             return Err(Error::Invalid("blob is not a regular file".into()));
