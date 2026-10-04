@@ -129,7 +129,16 @@ async fn dispatch_rejects_backend_answer_with_wrong_primitive() {
         )]),
     };
     let err = dispatch(request, &registry).await.unwrap_err();
-    assert!(matches!(err, EngineError::Backend { .. }), "{err:?}");
+    assert!(
+        matches!(
+            &err,
+            EngineError::BackendValidation {
+                source: ValidationError::AnswerTypeMismatch { .. },
+                ..
+            }
+        ),
+        "{err:?}"
+    );
     assert!(err.to_string().contains("expected choice answer, got noul"));
 }
 
@@ -315,7 +324,7 @@ async fn dispatch_rejects_backend_that_skips_answers() {
     let req = make_test_request("drop");
     let err = dispatch(req, &reg).await.unwrap_err();
     assert!(
-        matches!(err, EngineError::Backend { ref backend, .. } if backend == "drop"),
+        matches!(err, EngineError::BackendValidation { ref backend, .. } if backend == "drop"),
         "expected Backend error, got {err:?}"
     );
 }
@@ -349,7 +358,7 @@ async fn dispatch_rejects_backend_with_nan_probabilities() {
     let req = make_test_request("nan");
     let err = dispatch(req, &reg).await.unwrap_err();
     assert!(
-        matches!(err, EngineError::Backend { ref backend, .. } if backend == "nan"),
+        matches!(err, EngineError::BackendValidation { ref backend, .. } if backend == "nan"),
         "expected Backend error due to NaN in answer, got {err:?}"
     );
 }
@@ -585,7 +594,7 @@ fn fault_registry(answer: Answer) -> EngineRegistry {
 
 fn assert_backend_fault(error: EngineError, needle: &str) {
     assert!(
-        matches!(error, EngineError::Backend { .. }),
+        matches!(error, EngineError::BackendValidation { .. }),
         "expected a backend fault, got: {error:?}"
     );
     assert!(error.to_string().contains(needle), "unexpected: {error}");

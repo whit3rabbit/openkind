@@ -581,3 +581,35 @@ fn validate_response_rejects_nan_noul() {
         ValidationError::NoulOutOfRange { .. }
     ));
 }
+
+#[test]
+fn unbound_score_validation_rejects_noncanonical_integer_keys() {
+    for key in ["+1", "01", "007", "000", "4294967296"] {
+        let response = SystemResponse {
+            model: "mock".into(),
+            answers: HashMap::from_iter([(
+                "rating".into(),
+                Answer::Score(ScoreAnswer {
+                    score: 0.5,
+                    legend: HashMap::from_iter([
+                        ("0".into(), "Low".into()),
+                        (key.into(), "High".into()),
+                    ]),
+                    probabilities: HashMap::from_iter([("0".into(), 0.5), (key.into(), 0.5)]),
+                    confidence: 0.5,
+                }),
+            )]),
+            usage: Usage {
+                input_tokens: 1,
+                output_tokens: 1,
+            },
+        };
+        assert!(
+            matches!(
+                validate_response(&response, &HashMap::default()),
+                Err(ValidationError::ScoreIndexNotNumeric { .. })
+            ),
+            "{key}"
+        );
+    }
+}

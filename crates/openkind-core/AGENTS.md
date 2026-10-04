@@ -68,7 +68,7 @@
 2. **Choice Criteria Null Values**:
    In `ChoiceQuestion`, criteria values are `Option<String>`. A `null` value is valid in Jev JSON; it means the choice label has no separate description text.
 3. **Score Level Indexing**:
-   Score questions require at least 2 rubric levels. In the response, `score` is a weighted expectation ($E[\text{level}] = \sum i \cdot P(i)$), and probabilities keys are stringified numeric indices (`"0"`, `"1"`, ...).
+   Score questions require at least 2 rubric levels. In the response, `score` is a weighted expectation ($E[\text{level}] = \sum i \cdot P(i)$), and probabilities keys are stringified numeric indices (`"0"`, `"1"`, ...). Validation strictly enforces canonical unsigned decimal formatting (rejecting signs or leading zeroes like `"+1"`, `"01"`, or `"007"`).
 4. **Permissive Instructions**:
    `Instructions` is not just a plain string; it accepts raw strings, JSON objects, or arrays. Serializers and renderers must handle this polymorphism without panicking.
 5. **Request-Bound Response Checks**:

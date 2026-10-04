@@ -194,6 +194,12 @@ fn validate_response_inner<'a>(
                                 id: id.clone(),
                                 key: k.to_string(),
                             })?;
+                    if idx.to_string() != *k {
+                        return Err(ValidationError::ScoreIndexNotNumeric {
+                            id: id.clone(),
+                            key: k.to_string(),
+                        });
+                    }
                     max_idx = max_idx.max(idx);
                 }
                 let max_score = max_idx as f64;

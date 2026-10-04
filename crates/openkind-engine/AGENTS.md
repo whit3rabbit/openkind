@@ -24,7 +24,7 @@
    - `dispatch()` guarantees that `resp.usage.input_tokens` is populated (falling back to `engine.estimate_input_tokens(req)`) and `resp.usage.output_tokens` is calculated via `estimate_output_tokens(&resp.answers)`.
 4. **Backend Response Contract**:
    - `dispatch()` captures request-bound answer expectations before passing the request to the engine. Missing,
-     extra, wrong-type, or out-of-list backend answers are `EngineError::Backend` faults, not input errors.
+     extra, wrong-type, or out-of-list backend answers are `EngineError::BackendValidation` faults carrying the original validation error.
 
 ## Key Files & Types
 
@@ -41,7 +41,7 @@
   - `pub async fn dispatch(req, registry) -> EngineResult<SystemResponse>`:
     - Captures and validates `openkind_core::ResponseContract` from the request.
     - Looks up model alias in `registry`.
-    - Records metrics: `openkind_requests_total`, `openkind_responses_total`, and `openkind_request_duration_ms`.
+    - Records metrics: `openkind_requests_total`, `openkind_responses_total`, `openkind_request_duration_ms` (fractional milliseconds), and `openkind_request_outcomes_total` (fixed outcomes, including cancellation).
     - Executes `engine.evaluate()`, validates its response against the contract, and ensures token usage is populated.
     - `estimate_output_tokens(resp)`: Calculates fallback output token counts across answer types.
 - [`src/error.rs`](./src/error.rs):
@@ -51,6 +51,7 @@
     - `Overloaded { backend, retry_after_ms }`: Concurrency/admission limit exceeded (mapped to HTTP 529 / retry headers).
     - `Unsupported { backend, message }`: Unsupported feature for backend (mapped to HTTP 422).
     - `DeadlineExceeded { backend, timeout_ms }`: Queue-inclusive evaluation deadline elapsed (mapped to HTTP 504).
+    - `BackendValidation { backend, source }`: Backend response contract failure with the original validation error (HTTP 500 / gRPC Internal).
     - `Backend { backend, message }`: Internal execution failure (mapped to HTTP 500).
   - `EngineResult<T>` type alias.
 - [`src/mock.rs`](./src/mock.rs):

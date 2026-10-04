@@ -43,6 +43,16 @@ pub enum EngineError {
         timeout_ms: u64,
     },
 
+    /// Backend returned an answer that violates the request contract. Mapped to HTTP 500.
+    #[error("backend `{backend}` returned an invalid response: {source}")]
+    BackendValidation {
+        /// Identifier of the failing backend.
+        backend: String,
+        /// Original request-bound validation failure.
+        #[source]
+        source: ValidationError,
+    },
+
     /// Underlying backend driver encountered an internal execution failure. Mapped to HTTP 500.
     #[error("backend `{backend}` failed: {message}")]
     Backend {
