@@ -33,7 +33,7 @@ fn small_config() -> TaskConfig {
     TaskConfig {
         min_train_samples: 60,
         min_samples_per_class: 10,
-        min_calib_samples: 30,
+        min_calib_samples: 36,
         min_new_samples: 500,
         shadow_min_samples: 30,
         audit_rate: 0.05,
@@ -180,25 +180,27 @@ fn full_loop_bootstrap_train_promote_serve_locally() {
     )
     .unwrap();
 
-    // Bootstrap: alternate clusters until the first fit is ready. 160
-    // samples keep ~48 calibration rows, enough for the fixed-sequence
-    // Clopper-Pearson scan to certify a 10% budget with zero disagreements
-    // (needs ~29 answered rows after the 15% fit headroom).
-    for index in 0..160 {
-        let cluster = index % 2;
+    // Bootstrap: alternate clusters until the first fit is ready.
+    // The Clopper-Pearson scan certifies a 10% budget with 15% fit headroom
+    // at 95% confidence with zero disagreements, which requires at least 34
+    // calibration rows, including requests that the policy would forward.
+    let mut bootstrap_index = 0;
+    while !request_training_quietly(&mut engine) {
+        let cluster = bootstrap_index % 2;
         feed(
             &mut engine,
             &embedder,
-            &cluster_text(cluster, index),
+            &cluster_text(cluster, bootstrap_index),
             cluster,
         )
         .unwrap();
+        bootstrap_index += 1;
+        assert!(
+            bootstrap_index <= 300,
+            "readiness should request the first fit within 300 samples"
+        );
     }
     assert!(!engine.has_production());
-    assert!(
-        request_training_quietly(&mut engine),
-        "readiness should request the first fit after 160 samples"
-    );
 
     // Fit (the manager runs this off the engine lock in production).
     let input = engine.prepare_fit().unwrap().expect("fit input ready");
@@ -214,7 +216,7 @@ fn full_loop_bootstrap_train_promote_serve_locally() {
     // Keep feeding: shadow rows accumulate (bootstrap channel continues
     // because production is still empty).
     let mut promoted = false;
-    for index in 160..300 {
+    for index in bootstrap_index..bootstrap_index + 200 {
         let cluster = index % 2;
         feed(
             &mut engine,
@@ -231,7 +233,7 @@ fn full_loop_bootstrap_train_promote_serve_locally() {
     }
     assert!(
         promoted,
-        "candidate should promote within 140 further samples"
+        "candidate should promote within 200 further samples"
     );
     assert!(engine.has_production());
 
@@ -318,22 +320,28 @@ fn teacher_change_falls_back_and_new_lineage_blocks_old_shadow() {
     .unwrap();
 
     // Bootstrap and promote a production student of the first lineage.
-    for index in 0..160 {
-        let cluster = index % 2;
+    let mut bootstrap_index = 0;
+    while !request_training_quietly(&mut engine) {
+        let cluster = bootstrap_index % 2;
         feed(
             &mut engine,
             &embedder,
-            &cluster_text(cluster, index),
+            &cluster_text(cluster, bootstrap_index),
             cluster,
         )
         .unwrap();
+        bootstrap_index += 1;
+        assert!(
+            bootstrap_index <= 300,
+            "readiness should request the first fit within 300 samples"
+        );
     }
-    assert!(request_training_quietly(&mut engine));
     let input = engine.prepare_fit().unwrap().expect("fit ready");
     let output = engine.run_fit(&input).unwrap();
+    assert!(output.usable, "clean clusters must fit the 10% budget");
     engine.apply_fit(output).unwrap();
     let mut promoted = false;
-    for index in 160..300 {
+    for index in bootstrap_index..bootstrap_index + 200 {
         let cluster = index % 2;
         feed(
             &mut engine,
