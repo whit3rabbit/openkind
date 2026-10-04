@@ -61,7 +61,7 @@ running the proxy cache without a model download.
 
 ```bash
 openkind pull encoder-embedding:8d9498269ef05d95d93c
-openkindd --proxy-cache-upstream https://api.typesafe.ai \
+openkindd --models mock --proxy-cache-upstream https://api.typesafe.ai \
   --proxy-cache-encoder encoder-embedding:8d9498269ef05d95d93c
 ```
 

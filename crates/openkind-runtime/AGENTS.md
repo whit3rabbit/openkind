@@ -41,7 +41,7 @@ It defines:
   - `Accelerator`: Compute device description with device kind, descriptive name, and total memory. ROCm names use the KFD architecture label or PCI slot; total VRAM uses the physical PCI attribute.
   - `detect_accelerators()`: Enumerates host accelerators (CPU, NVML CUDA on Linux/Windows, KFD/PCI AMD ROCm on Linux, Metal on macOS Apple Silicon).
 - [`src/hardware.rs`](./src/hardware.rs):
-  - `host_hardware()`: host observation recorded with benchmark evidence — `sysctl` on macOS, `/proc` on Linux; keys the host does not report stay `None`.
+  - `host_hardware()`: host observation recorded with benchmark evidence — `sysctl` on macOS, `/proc` and `sysconf` on Linux; reports `logical_cores` (online OS CPUs) and `available_parallelism` (process capacity, which may reflect cgroup quota or CPU affinity); keys the host does not report stay `None`.
   - `cpu_time_seconds()`: cumulative process-wide user+system CPU time (`getrusage` on Unix, `GetProcessTimes` on Windows); callers diff two observations around a measured region.
 - [`src/memory.rs`](./src/memory.rs):
   - `peak_resident_bytes()`: OS high-water mark — `getrusage` on Unix (macOS reports bytes, other Unix targets are converted from KiB), `GetProcessMemoryInfo` peak working set on Windows. It is peak RSS, not current RSS.

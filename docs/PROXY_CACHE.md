@@ -1,6 +1,6 @@
 # Proxy cache: a distilling cache in front of a remote Jev API
 
-`openkindd --proxy-cache-upstream <url>` turns the daemon into a transparent
+`openkindd --models mock --proxy-cache-upstream <url>` starts a transparent
 proxy that sits in front of a Jev-compatible API (TypeSafe System One). It
 forwards every request it cannot answer confidently and records the teacher's
 answers as training rows. Per task — one (tenant, model, instructions,
@@ -29,6 +29,9 @@ The feature is experimental and off by default. It changes nothing unless
    configured `--proxy-cache-upstream-key` when set). When caller keys are
    forwarded, a key is trusted only after the upstream answered a request made
    with it; raw keys are never stored (only salted hashes, in memory).
+   Expired verification entries are swept when admitting a verified key. The
+   in-memory registry retains at most 4,096 keys; at capacity, new caller keys
+   continue upstream without gaining cached verification.
 5. **Record.** Teacher answers become training rows: state text (optional),
    embedding, full probability distribution, routing decision, and the
    resolved teacher model. A seeded per-request draw reserves a fraction of
@@ -70,7 +73,7 @@ Any proxy-internal failure fails open to the upstream.
 | `--proxy-cache-encoder <name>` | `OPENKIND_PROXY_CACHE_ENCODER` | `hash` | Embedder: `hash`, or an `openkind pull` name such as `encoder-embedding:8d9498269ef05d95d93c`. |
 | `--proxy-cache-encoder-backend` | `OPENKIND_PROXY_CACHE_ENCODER_BACKEND` | `cpu` | `cpu` (candle FP32) or `mlx-fp32` (macOS arm64, `mlx` feature). |
 | `--proxy-cache-data-dir <dir>` | `OPENKIND_PROXY_CACHE_DATA_DIR` | platform data dir | Task stores, student versions, key salt. |
-| `--proxy-cache-upstream-key <key>` | `OPENKIND_PROXY_CACHE_UPSTREAM_KEY` | caller's key | Bearer key used for upstream calls instead of the caller's. |
+| `--proxy-cache-upstream-key <key>` | `OPENKIND_PROXY_CACHE_UPSTREAM_KEY` | caller's key | Bearer key used for upstream calls instead of the caller's; requires a nonempty local API key. |
 | `--proxy-cache-upstream-timeout-ms` | `OPENKIND_PROXY_CACHE_UPSTREAM_TIMEOUT_MS` | `9000` | Per-attempt upstream timeout. |
 | `--proxy-cache-target-agreement` | `OPENKIND_PROXY_CACHE_TARGET_AGREEMENT` | `0.98` | Per-task budget: at most `1 - agreement` probability mass of answered-and-disagreed. |
 | `--proxy-cache-store-text` | `OPENKIND_PROXY_CACHE_STORE_TEXT` | `true` | Store request text in training rows (`false` keeps salted hashes + embeddings only). |
@@ -90,7 +93,7 @@ the pinned sentence encoder:
 
 ```bash
 openkind pull encoder-embedding:8d9498269ef05d95d93c
-openkindd --proxy-cache-upstream https://api.typesafe.ai \
+openkindd --models mock --proxy-cache-upstream https://api.typesafe.ai \
   --proxy-cache-encoder encoder-embedding:8d9498269ef05d95d93c
 ```
 
@@ -109,6 +112,11 @@ macOS arm64 (build the daemon with `--features mlx`). See
 [`families/encoder-embedding.md`](families/encoder-embedding.md) for the
 pinned profile.
 
+A configured upstream key requires a nonempty local API key, even on loopback.
+Startup checks this and rejects proxy aliases that collide with local or
+installed models before loading the encoder or model weights.
+`--models mock` selects the local mock engine and leaves `jev-latest` to the proxy.
+
 ## On-disk layout
 
 ```
@@ -122,6 +130,9 @@ pinned profile.
       student-v1/               # head.safetensors, ood.safetensors,
                                 # policy.json, meta.json
 ```
+
+Sample retention prunes co-deferred calibration rows separately using the
+training retention budget. IID calibration keeps its own retention budget.
 
 Task identity hashes the canonical (instructions, criteria) JSON with the
 tenant and requested model. Any wording change is a new task that trains

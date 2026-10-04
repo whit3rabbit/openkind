@@ -469,6 +469,15 @@ impl SampleStore {
                  ORDER BY id DESC LIMIT -1 OFFSET ?2)",
                 keep_calib,
             ),
+            // Deferred calibration rows are diagnostic history, never IID
+            // calibration. Bound them independently of the calibration pool.
+            (
+                "DELETE FROM samples WHERE id IN (\
+                 SELECT id FROM samples WHERE task_version = ?1 AND split = 'calib' \
+                   AND channel = 'co_deferred' \
+                 ORDER BY id DESC LIMIT -1 OFFSET ?2)",
+                keep_train,
+            ),
             (
                 "DELETE FROM samples WHERE id IN (\
                  SELECT id FROM samples WHERE task_version = ?1 AND served_by = 'student' \
@@ -772,5 +781,33 @@ mod tests {
         let rows = store.recent_audit_rows("v1", 3).unwrap();
         assert_eq!(rows.len(), 3);
         assert_eq!(rows[0].text, "audit 9");
+    }
+    #[test]
+    fn prune_bounds_deferred_calibration_without_spending_iid_retention() {
+        let (_dir, store) = temp_store("samples.sqlite");
+        for i in 0..10 {
+            let mut deferred = row("v1", "co_deferred", "calib", Some("a"));
+            deferred.text = format!("deferred {i}");
+            store.insert(&deferred).unwrap();
+        }
+        for i in 0..4 {
+            let mut iid = row("v1", "audit", "calib", Some("a"));
+            iid.text = format!("iid {i}");
+            store.insert(&iid).unwrap();
+        }
+        assert_eq!(store.prune("v1", 2, 3, 0).unwrap(), 9);
+        let (_, calib) = store.labelled_rows("v1", 100, 100).unwrap();
+        assert_eq!(calib.len(), 3);
+        let count: i64 = store
+            .connection
+            .lock()
+            .unwrap()
+            .query_row(
+                "SELECT count(*) FROM samples WHERE channel = 'co_deferred'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 2);
     }
 }

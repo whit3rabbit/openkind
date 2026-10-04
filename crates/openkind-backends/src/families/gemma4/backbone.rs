@@ -923,6 +923,8 @@ impl Gemma4TextModel {
         // filled in by the time a shared layer reads them.
         let mut donors: Vec<Option<(Tensor, Tensor)>> = vec![None; self.layers.len()];
         let mut xs = xs;
+        let no_scale = std::env::var_os("OPENKIND_GEMMA4_NO_SCALE").is_some();
+        let debug = std::env::var_os("OPENKIND_GEMMA4_DEBUG").is_some();
         for (layer_idx, layer) in self.layers.iter().enumerate() {
             check()?;
             let donor_kv = layer.self_attn.kv_donor.map(|donor| {
@@ -938,10 +940,10 @@ impl Gemma4TextModel {
                 donors[layer_idx] = own_kv;
             }
             xs = out;
-            if std::env::var_os("OPENKIND_GEMMA4_NO_SCALE").is_some() {
+            if no_scale {
                 xs = xs.affine(1.0, 0.0).map_err(E::from)?;
             }
-            if std::env::var_os("OPENKIND_GEMMA4_DEBUG").is_some() {
+            if debug {
                 let flat = xs
                     .flatten_all()
                     .map_err(E::from)?

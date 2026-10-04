@@ -17,6 +17,8 @@ pub struct HostHardware {
     pub cpu_brand: Option<String>,
     /// Logical CPU cores visible to the operating system.
     pub logical_cores: Option<u32>,
+    /// CPU capacity available to this process, including quota and affinity limits.
+    pub available_parallelism: Option<u32>,
     /// Total physical memory in bytes.
     pub total_memory_bytes: Option<u64>,
 }
@@ -29,6 +31,9 @@ pub fn host_hardware() -> HostHardware {
             model: sysctl_string("hw.model"),
             cpu_brand: sysctl_string("machdep.cpu.brand_string"),
             logical_cores: sysctl_int("hw.ncpu").and_then(|value| u32::try_from(value).ok()),
+            available_parallelism: std::thread::available_parallelism()
+                .ok()
+                .and_then(|value| u32::try_from(value.get()).ok()),
             total_memory_bytes: sysctl_int("hw.memsize"),
         }
     }
@@ -37,9 +42,10 @@ pub fn host_hardware() -> HostHardware {
         HostHardware {
             model: None,
             cpu_brand: linux_cpu_brand(),
-            logical_cores: std::thread::available_parallelism()
+            logical_cores: linux_logical_cores(),
+            available_parallelism: std::thread::available_parallelism()
                 .ok()
-                .map(|value| value.get() as u32),
+                .and_then(|value| u32::try_from(value.get()).ok()),
             total_memory_bytes: linux_total_memory(),
         }
     }
@@ -51,9 +57,20 @@ pub fn host_hardware() -> HostHardware {
             logical_cores: std::thread::available_parallelism()
                 .ok()
                 .map(|value| value.get() as u32),
+            available_parallelism: std::thread::available_parallelism()
+                .ok()
+                .and_then(|value| u32::try_from(value.get()).ok()),
             total_memory_bytes: None,
         }
     }
+}
+
+#[cfg(target_os = "linux")]
+fn linux_logical_cores() -> Option<u32> {
+    // SAFETY: sysconf takes no pointers and reports online system CPUs,
+    // rather than the process's cgroup quota or affinity allocation.
+    let count = unsafe { libc::sysconf(libc::_SC_NPROCESSORS_ONLN) };
+    u32::try_from(count).ok().filter(|count| *count > 0)
 }
 
 /// Read `MemTotal:` from `/proc/meminfo` and convert KiB to bytes.
@@ -264,5 +281,30 @@ mod tests {
         std::hint::black_box(sink);
         let end = cpu_time_seconds().expect("read CPU time");
         assert!(end >= start);
+    }
+}
+
+#[cfg(test)]
+mod attribution_tests {
+    #[test]
+    fn process_capacity_is_a_separate_host_observation() {
+        let hardware = super::host_hardware();
+        let expected = std::thread::available_parallelism()
+            .ok()
+            .and_then(|n| u32::try_from(n.get()).ok());
+        assert_eq!(hardware.available_parallelism, expected);
+        let json = serde_json::to_value(hardware).unwrap();
+        assert!(json.get("logical_cores").is_some());
+        assert!(json.get("available_parallelism").is_some());
+    }
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn logical_cores_are_online_system_cpus() {
+        // SAFETY: sysconf takes no pointers.
+        let expected = unsafe { libc::sysconf(libc::_SC_NPROCESSORS_ONLN) };
+        assert_eq!(
+            super::host_hardware().logical_cores,
+            u32::try_from(expected).ok().filter(|n| *n > 0)
+        );
     }
 }

@@ -102,10 +102,10 @@ fn python_repr(value: &serde_json::Value, out: &mut String) {
         Value::Bool(false) => out.push_str("False"),
         Value::Number(number) => {
             use std::fmt::Write;
-            if let Some(int) = number
-                .as_i64()
-                .or_else(|| number.as_u64().map(|u| u as i64))
-            {
+            if let Some(int) = number.as_i64() {
+                let _ = write!(out, "{int}");
+            } else if let Some(int) = number.as_u64() {
+                // Python integers preserve the full unsigned JSON integer range.
                 let _ = write!(out, "{int}");
             } else {
                 let float = number.as_f64().unwrap_or(f64::NAN);
@@ -612,5 +612,16 @@ mod tests {
             rendered.options,
             vec!["helpful".to_owned(), "not helpful".to_owned()]
         );
+    }
+    #[test]
+    fn integer_rendering_preserves_unsigned_boundaries_and_nested_values() {
+        for integer in [i64::MAX as u64, 1u64 << 63, u64::MAX] {
+            let mut rendered = String::new();
+            python_repr(
+                &serde_json::json!([integer, {"value": integer}]),
+                &mut rendered,
+            );
+            assert_eq!(rendered, format!("[{integer}, {{'value': {integer}}}]"));
+        }
     }
 }

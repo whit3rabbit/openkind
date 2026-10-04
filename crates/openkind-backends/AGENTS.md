@@ -120,6 +120,10 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
     Shared family loaders need the selected profile in both CPU and MLX configs. Keep artifact digests, renderer, calibration, limits, and backend identity bound to that profile. JevK5 and Plumb share a backbone but have separate contracts.
 16. **Gemma 4 Attention Stays Banded**:
     gemma4 attention must never materialize dense `seq x seq` score or mask tensors. Sliding layers attend a `window + block` key band and full-attention layers the causal prefix, per `ATTENTION_QUERY_CHUNK` query block; the scratch estimate must stay linear and caps the effective context length through the load-time scratch budget (`OPENKIND_GEMMA4_SCRATCH_BUDGET_MB`). Forwards re-check `FamilyControl` between layers, and only KV donors a later layer actually consumes retain their K/V.
+17. **Integer Representation Preservation**:
+    Python repr rendering for Von decision formatting preserves the full unsigned 64-bit integer range (`u64`) without truncating or wrapping signed bounds.
+18. **Proxy-Cache Deferred Calibration Pruning**:
+    `SampleStore::prune` treats `co_deferred` diagnostic samples independently using the training retention budget (`keep_train`) so diagnostic history never displaces IID calibration rows.
 
 ## Verification Commands
 
