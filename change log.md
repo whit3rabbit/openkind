@@ -2,10 +2,10 @@
 
 ## Unreleased
 
-- No release has been published yet. Complete the [release checklist](release.md)
-  against the final `v0.1.0` commit before assigning a release date.
+- A manual workflow verifies published archive attestations, fresh Cargo
+  installations, and Homebrew installations on macOS and Linux.
 
-## 0.1.0 (planned)
+## 0.1.0 (2026-10-03)
 
 ### Added
 
