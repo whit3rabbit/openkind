@@ -22,10 +22,9 @@ use crate::families::support::{verify_digest, FamilyControl, FamilyError};
 use crate::qwen35::{EmbeddingLayout, Qwen35Embedding, TextBackbone};
 
 use super::{
-    pinned_adapter_config, pinned_base_config, pinned_hobson_config, ADAPTER_CONFIG_SHA256,
-    ADAPTER_SHA256, BASE_CHECKPOINT_SHA256, BASE_CONFIG_SHA256, HEAD_SHA256, HIDDEN_SIZE,
-    HOBSON_CONFIG_SHA256, LAYER_NORM_EPSILON, LORA_RANK, LORA_SCALE, POINTER_DIM,
-    TOKENIZER_JSON_SHA256, VOCAB_SIZE,
+    pinned_adapter_config, pinned_base_config, StrandsDeciderProfile, BASE_CHECKPOINT_SHA256,
+    BASE_CONFIG_SHA256, HIDDEN_SIZE, HOBSON_V19, HOBSON_V21, LAYER_NORM_EPSILON, LORA_RANK,
+    LORA_SCALE, POINTER_DIM, VOCAB_SIZE,
 };
 
 /// Digest-verified artifacts required by the loader.
@@ -38,22 +37,34 @@ pub struct VerifiedArtifacts {
     pub head: PathBuf,
     /// Path to the verified tokenizer.
     pub tokenizer: PathBuf,
+    /// The verified profile (Hobson v19 or Hobson v21).
+    pub profile: &'static StrandsDeciderProfile,
 }
 
 impl VerifiedArtifacts {
-    /// Verify the pinned artifacts in place.
+    /// Verify the pinned artifacts in place with an optional explicit profile.
     ///
     /// Cheap contract checks run first so a drifted config, adapter, head,
     /// or tokenizer digest fails before the multi-gigabyte base checkpoint
     /// is streamed for its digest.
-    pub fn verify(model_root: &Path, base_root: &Path) -> Result<Self, FamilyError> {
+    pub fn verify_with_profile(
+        model_root: &Path,
+        base_root: &Path,
+        profile: Option<&'static StrandsDeciderProfile>,
+    ) -> Result<Self, FamilyError> {
         let base_checkpoint = base_root.join("model.safetensors");
         let base_config = base_root.join("config.json");
         let adapter = model_root.join("adapter_model.safetensors");
         let adapter_config = model_root.join("adapter_config.json");
         let head = model_root.join("head.safetensors");
         let tokenizer = model_root.join("tokenizer.json");
-        let hobson_config = model_root.join("hobson_config.json");
+        let hobson_config = if model_root.join("hobson_config.json").is_file() {
+            model_root.join("hobson_config.json")
+        } else if model_root.join("strands_decider_config.json").is_file() {
+            model_root.join("strands_decider_config.json")
+        } else {
+            model_root.join("hobson_config.json")
+        };
         // Cheap artifacts first: existence, digest, and contract checks fail
         // fast before the multi-gigabyte checkpoint is even opened.
         for path in [
@@ -74,11 +85,24 @@ impl VerifiedArtifacts {
                 });
             }
         }
-        verify_digest(&hobson_config, HOBSON_CONFIG_SHA256)?;
-        verify_digest(&adapter_config, ADAPTER_CONFIG_SHA256)?;
-        verify_digest(&tokenizer, TOKENIZER_JSON_SHA256)?;
-        verify_digest(&head, HEAD_SHA256)?;
-        verify_digest(&adapter, ADAPTER_SHA256)?;
+
+        let profile = match profile {
+            Some(profile) => profile,
+            None => {
+                let adapter_config_hash = crate::families::support::sha256_file(&adapter_config)?;
+                if adapter_config_hash == HOBSON_V21.adapter_config_sha256 {
+                    &HOBSON_V21
+                } else {
+                    &HOBSON_V19
+                }
+            }
+        };
+
+        verify_digest(&hobson_config, profile.hobson_config_sha256)?;
+        verify_digest(&adapter_config, profile.adapter_config_sha256)?;
+        verify_digest(&tokenizer, profile.tokenizer_json_sha256)?;
+        verify_digest(&head, profile.head_sha256)?;
+        verify_digest(&adapter, profile.adapter_sha256)?;
         verify_digest(&base_config, BASE_CONFIG_SHA256)?;
 
         let base_json: serde_json::Value = crate::families::support::read_json(&base_config)?;
@@ -95,7 +119,7 @@ impl VerifiedArtifacts {
             }
         }
         let hobson_json: serde_json::Value = crate::families::support::read_json(&hobson_config)?;
-        for (field, expected) in pinned_hobson_config() {
+        for (field, expected) in profile.pinned_hobson_config() {
             let actual = resolve_config_field(&hobson_json, field).ok_or_else(|| {
                 FamilyError::ContractMismatch {
                     field,
@@ -123,7 +147,7 @@ impl VerifiedArtifacts {
 
         if !base_checkpoint.is_file() {
             return Err(FamilyError::Io {
-                path: base_checkpoint.clone(),
+                path: base_checkpoint,
                 source: std::io::Error::new(
                     std::io::ErrorKind::NotFound,
                     "required pinned artifact is missing",
@@ -136,6 +160,7 @@ impl VerifiedArtifacts {
             adapter,
             head,
             tokenizer,
+            profile,
         })
     }
 }

@@ -20,7 +20,7 @@ use crate::families::support::{
 use super::model::{StrandsDeciderModel, VerifiedArtifacts};
 use super::renderer::{question_layout, StrandsRenderer};
 use super::{
-    StrandsDeciderEngineConfig, StrandsDeciderError, BACKBONE_ID, BASE_MODEL_ID, CALIBRATION,
+    StrandsDeciderEngineConfig, StrandsDeciderError, StrandsDeciderProfile, BASE_MODEL_ID,
 };
 
 /// Loaded pinned strands-decider engine.
@@ -32,6 +32,7 @@ struct Inner {
     renderer: StrandsRenderer,
     model: StrandsDeciderModel,
     backend_id: String,
+    profile: &'static StrandsDeciderProfile,
 }
 
 /// The raw instruction payload of any question primitive.
@@ -77,7 +78,7 @@ impl Inner {
                 actual: format!("{} logits", logits.len()),
             });
         }
-        let temperature = CALIBRATION.resolve(match unpacked.primitive {
+        let temperature = self.profile.calibration.resolve(match unpacked.primitive {
             crate::families::wire::QuestionPrimitive::Noul => QuestionKind::Noul,
             crate::families::wire::QuestionPrimitive::Choice => QuestionKind::Choice,
             crate::families::wire::QuestionPrimitive::Score => QuestionKind::Score,
@@ -88,6 +89,11 @@ impl Inner {
 }
 
 impl StrandsDeciderEngine {
+    /// Pinned profile of the loaded engine.
+    pub fn profile(&self) -> &'static StrandsDeciderProfile {
+        self.inner.profile
+    }
+
     /// Load every pinned artifact offline and build the bounded engine.
     pub fn load(
         config: StrandsDeciderEngineConfig,
@@ -103,10 +109,15 @@ impl StrandsDeciderEngine {
         config: StrandsDeciderEngineConfig,
         execution: crate::device::FamilyExecution,
     ) -> Result<BoundedFamilyEngine, StrandsDeciderError> {
-        let artifacts = VerifiedArtifacts::verify(&config.model_root, &config.base_root)?;
+        let artifacts = VerifiedArtifacts::verify_with_profile(
+            &config.model_root,
+            &config.base_root,
+            config.profile,
+        )?;
+        let profile = artifacts.profile;
         let renderer = StrandsRenderer::load(&artifacts.tokenizer)?;
         let backend_id = match execution {
-            crate::device::FamilyExecution::Cpu => "strands-decider-2b/cpu-fp32".to_owned(),
+            crate::device::FamilyExecution::Cpu => profile.cpu_backend_id.to_owned(),
             #[cfg(feature = "cuda")]
             crate::device::FamilyExecution::Cuda { .. } => {
                 let device = execution.candle_device().map_err(FamilyError::from)?;
@@ -115,7 +126,8 @@ impl StrandsDeciderEngine {
                     inner: Arc::new(Inner {
                         renderer,
                         model,
-                        backend_id: "strands-decider-2b/cuda-fp32".to_owned(),
+                        backend_id: profile.cuda_backend_id.to_owned(),
+                        profile,
                     }),
                 };
                 return Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits));
@@ -146,6 +158,7 @@ impl StrandsDeciderEngine {
                 renderer,
                 model,
                 backend_id,
+                profile,
             }),
         };
         Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))
@@ -161,11 +174,10 @@ impl FamilyEvaluator for StrandsDeciderEngine {
         ModelInfo {
             name: String::new(),
             description: format!(
-                "Pinned {BACKBONE_ID} pointer decision engine on {BASE_MODEL_ID} \
-                 ({}).",
-                self.inner.backend_id
+                "Pinned {} pointer decision engine on {} ({}).",
+                self.inner.profile.backbone_id, BASE_MODEL_ID, self.inner.backend_id
             ),
-            release_date: "2026-10-01".into(),
+            release_date: self.inner.profile.release_date.into(),
         }
     }
 

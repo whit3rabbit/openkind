@@ -67,17 +67,149 @@ use crate::families::support::FamilyLimits;
 
 /// Family slug used for identity derivation and telemetry.
 pub const FAMILY_SLUG: &str = "strands-decider";
-/// Pinned checkpoint repository (adapter, head, tokenizer, serving config).
-pub const BACKBONE_ID: &str = "StrandsAgents/strands-decider-2B-hobson-v19";
-/// Pinned immutable checkpoint revision.
-pub const BACKBONE_REVISION: &str = "bb282d786bc251fd4e3068de3ada9ddbb38127cd";
+/// Everything pinned about one profile of the strands-decider family.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct StrandsDeciderProfile {
+    /// Loader name: `strands-decider-2b`.
+    pub loader_id: &'static str,
+    /// Pinned checkpoint repository (adapter, head, tokenizer, serving config).
+    pub backbone_id: &'static str,
+    /// Pinned immutable checkpoint revision.
+    pub backbone_revision: &'static str,
+    /// Stable derived profile ID.
+    pub profile_id: &'static str,
+    /// SHA-256 of the pinned LoRA adapter (`lora/adapter_model.safetensors`).
+    pub adapter_sha256: &'static str,
+    /// SHA-256 of the pinned adapter config (`lora/adapter_config.json`).
+    pub adapter_config_sha256: &'static str,
+    /// SHA-256 of the pinned pointer head (`head.safetensors`).
+    pub head_sha256: &'static str,
+    /// SHA-256 of the pinned tokenizer (`tokenizer.json`).
+    pub tokenizer_json_sha256: &'static str,
+    /// SHA-256 of the pinned serving config (`hobson_config.json` or `strands_decider_config.json`).
+    pub hobson_config_sha256: &'static str,
+    /// Per-type calibration temperatures from the serving config.
+    pub calibration: Calibration,
+    /// Uniform temperature from `hobson_config.json` / `strands_decider_config.json`.
+    pub uniform_temperature: f64,
+    /// Backend id reported by the CPU engine serving this profile.
+    pub cpu_backend_id: &'static str,
+    /// Backend id reported by the CUDA engine serving this profile.
+    pub cuda_backend_id: &'static str,
+    /// Release date of the profile (the day it was pinned here).
+    pub release_date: &'static str,
+    /// Catalog/manifest description of the profile.
+    pub description: &'static str,
+}
+
+impl StrandsDeciderProfile {
+    /// Pinned serving config values the loader enforces before trusting weights.
+    pub(crate) fn pinned_hobson_config(&self) -> Vec<(&'static str, serde_json::Value)> {
+        use serde_json::json;
+        let (choice_temp, score_temp, noul_temp) = match self.calibration {
+            Calibration::ByType {
+                choice,
+                score,
+                noul,
+            } => (choice, score, noul),
+            _ => unreachable!(),
+        };
+        vec![
+            ("base_model", json!("Qwen/Qwen3.5-2B-Base")),
+            ("head_type", json!("pointer")),
+            ("head_hidden", json!(0)),
+            ("pointer_dim", json!(256)),
+            ("max_length", json!(4_096)),
+            ("torch_dtype", json!("bfloat16")),
+            ("use_lora", json!(true)),
+            ("lora_r", json!(16)),
+            ("lora_alpha", json!(32)),
+            ("temperature", json!(self.uniform_temperature)),
+            ("temperature_by_kind.noul", json!(noul_temp)),
+            ("temperature_by_kind.choice", json!(choice_temp)),
+            ("temperature_by_kind.score", json!(score_temp)),
+        ]
+    }
+}
+
+/// Pinned `StrandsAgents/strands-decider-2B-hobson-v19` at
+/// `bb282d786bc251fd4e3068de3ada9ddbb38127cd`.
+pub const HOBSON_V19: StrandsDeciderProfile = StrandsDeciderProfile {
+    loader_id: "strands-decider-2b",
+    backbone_id: "StrandsAgents/strands-decider-2B-hobson-v19",
+    backbone_revision: "bb282d786bc251fd4e3068de3ada9ddbb38127cd",
+    profile_id: "6a02bb0d1c6b25cae74b",
+    adapter_sha256: "701bdb895887097f7954ec7eb06f7937d3b790035b5462195eb26abd80a4aebc",
+    adapter_config_sha256: "eb48e4ff81569664c4dd2a504b53da598eeaa390c265c2269ce4fe7526eab38a",
+    head_sha256: "daad0727152b6185447cee36f78230c144312feb7b19f02749b19645238b5287",
+    tokenizer_json_sha256: "a2cdd2e108566b09079afa8d266e9e65e7c280f27b771218237a06de5ba9cd86",
+    hobson_config_sha256: "2ae86f2ed56975f68e8f2f368104df8ce0ff4b7d9d146dcaf8eec5626d62449d",
+    calibration: Calibration::ByType {
+        choice: 0.734_189_596_436_441,
+        score: 1.327_809_421_423_48,
+        noul: 0.910_713_699_846_042_8,
+    },
+    uniform_temperature: 0.962_772_160_767_736_2,
+    cpu_backend_id: "strands-decider-2b/cpu-fp32",
+    cuda_backend_id: "strands-decider-2b/cuda-fp32",
+    release_date: "2026-10-01",
+    description: "Pinned Strands Decider 2B (Hobson v19) LoRA decision decoder with pointer head over Qwen3.5-2B-Base (Apache-2.0); prototype readout, research status",
+};
+
+/// Pinned `StrandsAgents/strands-decider-2B-hobson-v21` at
+/// `2b52a6235c1b8306bbfa30b00b9d4b74b63a39f5`.
+pub const HOBSON_V21: StrandsDeciderProfile = StrandsDeciderProfile {
+    loader_id: "strands-decider-2b",
+    backbone_id: "StrandsAgents/strands-decider-2B-hobson-v21",
+    backbone_revision: "2b52a6235c1b8306bbfa30b00b9d4b74b63a39f5",
+    profile_id: "f7156bf28400a79ea1b8",
+    adapter_sha256: "59be987f5eb664a7f74f11ef69383a0de526fe30c684932102984eb9c11f4028",
+    adapter_config_sha256: "d225e3224e1bdff50aed5967bdc1026a51d40db1b21f3b55e49726d820ac25df",
+    head_sha256: "0fc78684d7504d334082d6ac8e6cb7825b5eb0e230601181cd273757f9f6ebef",
+    tokenizer_json_sha256: "a2cdd2e108566b09079afa8d266e9e65e7c280f27b771218237a06de5ba9cd86",
+    hobson_config_sha256: "9b660cabb91ab9683dd62dee83e00a5ca30dff8657489e6ce473136f8d9eb529",
+    calibration: Calibration::ByType {
+        choice: 0.817_701_977_348_168_2,
+        score: 1.192_199_469_079_091,
+        noul: 0.817_701_977_348_168_2,
+    },
+    uniform_temperature: 0.935_220_152_138_837,
+    cpu_backend_id: "strands-decider-2b/cpu-fp32",
+    cuda_backend_id: "strands-decider-2b/cuda-fp32",
+    release_date: "2026-10-05",
+    description: "Pinned Strands Decider 2B (Hobson v21) LoRA decision decoder with pointer head over Qwen3.5-2B-Base (Apache-2.0); prototype readout, research status",
+};
+
+/// All pinned profiles of the strands-decider family.
+pub const PROFILES: &[&StrandsDeciderProfile] = &[&HOBSON_V19, &HOBSON_V21];
+
+/// The profile with the given loader ID, if this build pins it.
+pub fn profile_by_loader_id(loader_id: &str) -> Option<&'static StrandsDeciderProfile> {
+    PROFILES
+        .iter()
+        .copied()
+        .find(|profile| profile.loader_id == loader_id)
+}
+
+/// The profile with the given derived profile ID, if this build pins it.
+pub fn profile_by_id(profile_id: &str) -> Option<&'static StrandsDeciderProfile> {
+    PROFILES
+        .iter()
+        .copied()
+        .find(|profile| profile.profile_id == profile_id)
+}
+
+/// Pinned checkpoint repository for Hobson v19 (backward compatibility alias).
+pub const BACKBONE_ID: &str = HOBSON_V19.backbone_id;
+/// Pinned immutable checkpoint revision for Hobson v19 (backward compatibility alias).
+pub const BACKBONE_REVISION: &str = HOBSON_V19.backbone_revision;
 /// Pinned base-model repository (the checkpoint's `hobson_config.json`
 /// `base_model` and `provenance.json` base revision).
 pub const BASE_MODEL_ID: &str = "Qwen/Qwen3.5-2B-Base";
 /// Pinned immutable base-model revision.
 pub const BASE_MODEL_REVISION: &str = "b1485b2fa6dfa1287294f269f5fb618e03d52d7c";
-/// Stable derived profile ID for this pinned profile.
-pub const PROFILE_ID: &str = "6a02bb0d1c6b25cae74b";
+/// Stable derived profile ID for Hobson v19 (backward compatibility alias).
+pub const PROFILE_ID: &str = HOBSON_V19.profile_id;
 /// SHA-256 of the pinned base checkpoint
 /// (`model.safetensors-00001-of-00001.safetensors`).
 pub const BASE_CHECKPOINT_SHA256: &str =
@@ -85,19 +217,16 @@ pub const BASE_CHECKPOINT_SHA256: &str =
 /// SHA-256 of the pinned base `config.json`.
 pub const BASE_CONFIG_SHA256: &str =
     "ed1c1723241f23f7f4e23430759cbd7dcfb4103cbdfe052bfe7626b57c2615b4";
-/// SHA-256 of the pinned LoRA adapter (`lora/adapter_model.safetensors`).
-pub const ADAPTER_SHA256: &str = "701bdb895887097f7954ec7eb06f7937d3b790035b5462195eb26abd80a4aebc";
-/// SHA-256 of the pinned adapter config (`lora/adapter_config.json`).
-pub const ADAPTER_CONFIG_SHA256: &str =
-    "eb48e4ff81569664c4dd2a504b53da598eeaa390c265c2269ce4fe7526eab38a";
-/// SHA-256 of the pinned pointer head (`head.safetensors`).
-pub const HEAD_SHA256: &str = "daad0727152b6185447cee36f78230c144312feb7b19f02749b19645238b5287";
+/// SHA-256 of the pinned LoRA adapter for Hobson v19 (backward compatibility alias).
+pub const ADAPTER_SHA256: &str = HOBSON_V19.adapter_sha256;
+/// SHA-256 of the pinned adapter config for Hobson v19 (backward compatibility alias).
+pub const ADAPTER_CONFIG_SHA256: &str = HOBSON_V19.adapter_config_sha256;
+/// SHA-256 of the pinned pointer head for Hobson v19 (backward compatibility alias).
+pub const HEAD_SHA256: &str = HOBSON_V19.head_sha256;
 /// SHA-256 of the pinned tokenizer (`tokenizer.json`).
-pub const TOKENIZER_JSON_SHA256: &str =
-    "a2cdd2e108566b09079afa8d266e9e65e7c280f27b771218237a06de5ba9cd86";
-/// SHA-256 of the pinned serving config (`hobson_config.json`).
-pub const HOBSON_CONFIG_SHA256: &str =
-    "2ae86f2ed56975f68e8f2f368104df8ce0ff4b7d9d146dcaf8eec5626d62449d";
+pub const TOKENIZER_JSON_SHA256: &str = HOBSON_V19.tokenizer_json_sha256;
+/// SHA-256 of the pinned serving config for Hobson v19 (backward compatibility alias).
+pub const HOBSON_CONFIG_SHA256: &str = HOBSON_V19.hobson_config_sha256;
 /// Arithmetic/device identity of the family execution path.
 pub const EXECUTION_ARITHMETIC_ID: &str = "candle-cpu-fp32-qwen35-text";
 /// Declared probability space of the profile.
@@ -133,13 +262,8 @@ pub(crate) const VOCAB_SIZE: usize = 248_320;
 /// LayerNorm epsilon of the pointer head (torch `nn.LayerNorm` default).
 pub(crate) const LAYER_NORM_EPSILON: f32 = 1e-5;
 
-/// Per-type calibration temperatures from `hobson_config.json`
-/// (`temperature_by_kind`, fitted by the reference `calibrate` command).
-pub const CALIBRATION: Calibration = Calibration::ByType {
-    choice: 0.734_189_596_436_441,
-    score: 1.327_809_421_423_48,
-    noul: 0.910_713_699_846_042_8,
-};
+/// Per-type calibration temperatures for Hobson v19 (backward compatibility alias).
+pub const CALIBRATION: Calibration = HOBSON_V19.calibration;
 
 /// Reference default Noul criteria, rendered when the wire question carries
 /// none (`prompting.py`: `NOUL_DEFAULT_CRITERIA`).
@@ -175,30 +299,6 @@ pub(crate) fn pinned_base_config() -> Vec<(&'static str, serde_json::Value)> {
         ("text_config.attention_bias", json!(false)),
         ("text_config.dtype", json!("bfloat16")),
         ("text_config.rope_parameters.rope_theta", json!(10_000_000)),
-    ]
-}
-
-/// Pinned `hobson_config.json` values the loader enforces before trusting
-/// weights. These freeze the serving semantics the engine reproduces: a
-/// config that changes the head geometry, the adapter rank, the window, or
-/// the fitted temperatures fails the load instead of silently changing
-/// answers.
-pub(crate) fn pinned_hobson_config() -> Vec<(&'static str, serde_json::Value)> {
-    use serde_json::json;
-    vec![
-        ("base_model", json!("Qwen/Qwen3.5-2B-Base")),
-        ("head_type", json!("pointer")),
-        ("head_hidden", json!(0)),
-        ("pointer_dim", json!(256)),
-        ("max_length", json!(4_096)),
-        ("torch_dtype", json!("bfloat16")),
-        ("use_lora", json!(true)),
-        ("lora_r", json!(16)),
-        ("lora_alpha", json!(32)),
-        ("temperature", json!(0.962_772_160_767_736_2)),
-        ("temperature_by_kind.noul", json!(0.910_713_699_846_042_8)),
-        ("temperature_by_kind.choice", json!(0.734_189_596_436_441)),
-        ("temperature_by_kind.score", json!(1.327_809_421_423_48)),
     ]
 }
 
@@ -240,6 +340,8 @@ pub struct StrandsDeciderEngineConfig {
     pub base_root: PathBuf,
     /// Admission and deadline settings.
     pub limits: FamilyLimits,
+    /// Explicit profile to load. When `None`, auto-detected from artifacts.
+    pub profile: Option<&'static StrandsDeciderProfile>,
 }
 
 impl StrandsDeciderEngineConfig {
@@ -254,6 +356,7 @@ impl StrandsDeciderEngineConfig {
                 retry_after_ms: 1_000,
                 evaluation_timeout: Some(Duration::from_secs(600)),
             },
+            profile: None,
         }
     }
 }
@@ -264,14 +367,16 @@ mod tests {
 
     #[test]
     fn profile_id_matches_the_derivation_rule() {
-        assert_eq!(
-            PROFILE_ID,
-            crate::families::support::derive_profile_id(
-                FAMILY_SLUG,
-                BACKBONE_ID,
-                BACKBONE_REVISION
-            )
-        );
+        for profile in PROFILES {
+            assert_eq!(
+                profile.profile_id,
+                crate::families::support::derive_profile_id(
+                    FAMILY_SLUG,
+                    profile.backbone_id,
+                    profile.backbone_revision
+                )
+            );
+        }
     }
 
     #[test]

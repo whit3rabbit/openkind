@@ -194,6 +194,29 @@
       ]
     },
     {
+      "catalog_name": "strands-decider-2b:f7156bf28400a79ea1b8",
+      "openkind_mlx_status": "none",
+      "assessment": "No MLX conversion of the Strands decision profile was found. The leads below are its Qwen3.5 base model and a separate task-trained decision model.",
+      "leads": [
+        {
+          "repository": "chaoliangUNSW/Jev-Style-2B-Decision-v3-MLX",
+          "revision": "b86e4cbc6f420f5d7d1691299d62db272934ebf4",
+          "license": "apache-2.0",
+          "base_model": "chaoliangUNSW/Jev-Style-2B-Decision-v3",
+          "relationship": "same-task-different-model",
+          "notes": "Independent typed-decision model with its own MLX runtime, readout, and calibration. It is not a conversion of Strands' LoRA and pointer head or an OpenKind parity result; evaluate its separate contract and runtime before considering integration."
+        },
+        {
+          "repository": "mlx-community/Qwen3.5-2B-MLX-bf16",
+          "revision": "05ce45420036b812fe0be3f72cdc1fb62bae6891",
+          "license": "apache-2.0",
+          "base_model": "Qwen/Qwen3.5-2B",
+          "relationship": "base-model-only",
+          "notes": "The Strands LoRA, pointer head, tokenizer contract, and calibration are not included in this base conversion."
+        }
+      ]
+    },
+    {
       "catalog_name": "decoder-logit-letter:5492c97dfcdaf3fe9439",
       "openkind_mlx_status": "none",
       "assessment": "A Qwen2.5-0.5B-Instruct MLX conversion is available. OpenKind has no decoder-logit-letter MLX loader.",

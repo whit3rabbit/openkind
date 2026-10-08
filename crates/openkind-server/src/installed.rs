@@ -56,7 +56,7 @@ use openkind_backends::families::schema_scorer::{
     SchemaScorerEngine, SchemaScorerEngineConfig, PROFILE_ID as SCHEMA_SCORER_PROFILE,
 };
 use openkind_backends::families::strands_decider::{
-    StrandsDeciderEngine, StrandsDeciderEngineConfig, PROFILE_ID as STRANDS_DECIDER_PROFILE,
+    StrandsDeciderEngine, StrandsDeciderEngineConfig, StrandsDeciderProfile, HOBSON_V19, HOBSON_V21,
 };
 use openkind_backends::families::support::FamilyLimits;
 use openkind_backends::families::von::{
@@ -74,8 +74,8 @@ use openkind_model_store::{
     ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME, KEV_MODEL_NAME,
     LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME, LAYA_TYPED_DECISIONS_MODEL_NAME,
     PLUMB_4B_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME, QWEN3GUARD_MODEL_NAME,
-    SCHEMA_SCORER_MODEL_NAME, STRANDS_DECIDER_2B_MODEL_NAME, VON_MODEL_NAME, WINNOW_E4B_MODEL_NAME,
-    WINNOW_MODEL_NAME,
+    SCHEMA_SCORER_MODEL_NAME, STRANDS_DECIDER_2B_MODEL_NAME, STRANDS_DECIDER_2B_V21_MODEL_NAME,
+    VON_MODEL_NAME, WINNOW_E4B_MODEL_NAME, WINNOW_MODEL_NAME,
 };
 
 use crate::args::{
@@ -96,7 +96,7 @@ pub(crate) enum InstalledKind {
     SchemaScorer,
     Qwen3Guard,
     Kev,
-    StrandsDecider2b,
+    StrandsDecider2b(&'static StrandsDeciderProfile),
     DecoderLogitQwen35(&'static Qwen35LogitProfile),
     DecoderLogitQwen3(&'static Qwen3LogitProfile),
     Clef(&'static ClefProfile),
@@ -153,9 +153,14 @@ pub(crate) fn installed_kind(manifest: &Manifest) -> Option<InstalledKind> {
         }
         (KEV_MODEL_NAME, "kev") if profile == KEV_PROFILE => Some(InstalledKind::Kev),
         (STRANDS_DECIDER_2B_MODEL_NAME, "strands-decider-2b")
-            if profile == STRANDS_DECIDER_PROFILE =>
+            if profile == HOBSON_V19.profile_id =>
         {
-            Some(InstalledKind::StrandsDecider2b)
+            Some(InstalledKind::StrandsDecider2b(&HOBSON_V19))
+        }
+        (STRANDS_DECIDER_2B_V21_MODEL_NAME, "strands-decider-2b")
+            if profile == HOBSON_V21.profile_id =>
+        {
+            Some(InstalledKind::StrandsDecider2b(&HOBSON_V21))
         }
         (DECODER_LOGIT_QWEN35_MODEL_NAME, "decoder-logit-qwen35")
             if profile == DECODER_LOGIT_QWEN35_PROFILE =>
@@ -254,7 +259,7 @@ pub(crate) fn load_installed_engine(
         InstalledKind::SchemaScorer => selected!(schema_scorer_backend, &root.join("checkpoint")),
         InstalledKind::Qwen3Guard => selected!(qwen3guard_backend, &root.join("checkpoint")),
         InstalledKind::Kev => selected!(kev_backend, root),
-        InstalledKind::StrandsDecider2b => selected!(strands_decider_backend, root),
+        InstalledKind::StrandsDecider2b(_) => selected!(strands_decider_backend, root),
         InstalledKind::DecoderLogitQwen35(_) => {
             selected!(decoder_logit_qwen35_backend, &root.join("checkpoint"))
         }
@@ -502,12 +507,13 @@ fn load_installed_explicit(
             )
             .context("load kev engine")?,
         ),
-        InstalledKind::StrandsDecider2b => Arc::new(
+        InstalledKind::StrandsDecider2b(profile) => Arc::new(
             StrandsDeciderEngine::load_with_execution(
                 StrandsDeciderEngineConfig {
                     model_root: root.join("adapter"),
                     base_root: root.join("base"),
                     limits,
+                    profile: Some(profile),
                 },
                 args.family_args
                     .strands_decider_backend
@@ -805,9 +811,17 @@ mod classifier_tests {
                 manifest(
                     STRANDS_DECIDER_2B_MODEL_NAME,
                     "strands-decider-2b",
-                    STRANDS_DECIDER_PROFILE,
+                    HOBSON_V19.profile_id,
                 ),
-                "strands",
+                "strands-v19",
+            ),
+            (
+                manifest(
+                    STRANDS_DECIDER_2B_V21_MODEL_NAME,
+                    "strands-decider-2b",
+                    HOBSON_V21.profile_id,
+                ),
+                "strands-v21",
             ),
             (
                 manifest(
@@ -867,7 +881,7 @@ mod classifier_tests {
                 "gemma4",
             ),
         ];
-        assert_eq!(cases.len(), 22, "one row per curated installed identity");
+        assert_eq!(cases.len(), 23, "one row per curated installed identity");
         for (manifest, label) in &cases {
             assert!(
                 installed_kind(manifest).is_some(),

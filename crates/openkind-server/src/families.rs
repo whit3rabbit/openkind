@@ -1047,6 +1047,7 @@ impl FamilyArgs {
                                 model_root: model_root.clone(),
                                 base_root: base_root.clone(),
                                 limits: admission.limits(),
+                                profile: None,
                             },
                             backend.to_execution(devices)?,
                         )

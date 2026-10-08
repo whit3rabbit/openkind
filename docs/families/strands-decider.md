@@ -1,7 +1,7 @@
 # Family: strands-decider
 
 > LoRA adapter + pointer head over the Qwen3.5-2B hybrid text backbone,
-> serving the published Strands Decider 2B (Hobson v19) decision contract.
+> serving the published Strands Decider 2B (Hobson v19 and v21) decision contracts.
 
 ## Status in openkind
 
@@ -21,20 +21,27 @@ a separate pointer head. A changed readout is a new family per
 [`NEW_FAMILY.md`](./NEW_FAMILY.md), not a second `decider` profile.
 
 It is catalog-installable offline-first: `openkind pull
-strands-decider-2b:6a02bb0d1c6b25cae74b` downloads the pinned artifacts,
+strands-decider-2b:6a02bb0d1c6b25cae74b` or `openkind pull
+strands-decider-2b:f7156bf28400a79ea1b8` downloads the pinned artifacts,
 verifies every SHA-256, and installs them for `--installed-models` (see
 [`../MODELS.md`](../MODELS.md)).
 
-The pinned profile is `StrandsAgents/strands-decider-2B-hobson-v19` at
-revision `bb282d786bc251fd4e3068de3ada9ddbb38127cd` over
-`Qwen/Qwen3.5-2B-Base` at `b1485b2fa6dfa1287294f269f5fb618e03d52d7c`,
-profile ID `6a02bb0d1c6b25cae74b`. The release's `provenance.json` labels
-that base revision "inferred" (training hosts did not pin it); it is the
-base repository's current and only revision, and this profile pins the exact
-bytes it verified. The profile implements `DecisionEngine` behind the
-bounded family scaffold, registers in `openkindd` via
+Two pinned profiles are supported:
+- **Hobson v19**: `StrandsAgents/strands-decider-2B-hobson-v19` at
+  revision `bb282d786bc251fd4e3068de3ada9ddbb38127cd` over
+  `Qwen/Qwen3.5-2B-Base` at `b1485b2fa6dfa1287294f269f5fb618e03d52d7c`,
+  profile ID `6a02bb0d1c6b25cae74b`.
+- **Hobson v21**: `StrandsAgents/strands-decider-2B-hobson-v21` at
+  revision `2b52a6235c1b8306bbfa30b00b9d4b74b63a39f5` over
+  `Qwen/Qwen3.5-2B-Base` at `b1485b2fa6dfa1287294f269f5fb618e03d52d7c`,
+  profile ID `f7156bf28400a79ea1b8`.
+
+The release's `provenance.json` labels that base revision "inferred" (training hosts did not pin it); it is the
+base repository's current and only revision, and these profiles pin the exact
+bytes verified. The profiles implement `DecisionEngine` behind the
+bounded family scaffold, register in `openkindd` via
 `--strands-decider-aliases` / `--strands-decider-model-root` /
-`--strands-decider-base-root`, and is benchmarked through
+`--strands-decider-base-root`, and are benchmarked through
 `openkind-bench --engine strands-decider-2b`.
 
 ## Architectural shape
@@ -48,7 +55,7 @@ bounded family scaffold, registers in `openkindd` via
 | Readout | Pointer head in FP32: LayerNorm (torch default ε 1e-5), query from the final `<answer>` position, keys from each option's last token, score `q(h_answer) · k(h_option) / sqrt(256)`; softmax over offered options |
 | Continuation state | None — rows are independent; nothing is retained across questions or requests |
 | Text generation | None |
-| Calibration | Per-type temperatures shipped fitted in the release's `hobson_config.json` (`temperature_by_kind`: choice 0.7342, score 1.3278, noul 0.9107), pinned verbatim and enforced against the artifact at load |
+| Calibration | Per-type temperatures shipped fitted in the release config (`hobson_config.json` for v19: choice 0.7342, score 1.3278, noul 0.9107; `strands_decider_config.json` for v21: choice 0.8177, score 1.1922, noul 0.8177), pinned verbatim and enforced against the artifact at load |
 | Semantic none | ConditionalOnOfferedOptions — no none mass is invented; an offered `__none__` key is scored as an ordinary option |
 
 ## Implementation notes

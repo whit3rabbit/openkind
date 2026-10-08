@@ -255,6 +255,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             retry_after_ms: 100,
             evaluation_timeout: None,
         },
+        profile: None,
     })?;
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()

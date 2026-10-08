@@ -13,7 +13,7 @@ use thiserror::Error;
 /// The production catalog mirrors the static file in this repository. Its
 /// digest is pinned below so the mutable mirror cannot authorize new content.
 pub const CATALOG_URL: &str = "https://raw.githubusercontent.com/whit3rabbit/openkind-model-registry/main/registry/v1/catalog.json";
-pub const CATALOG_SHA256: &str = "0c8b3b7bdbda3a16520460e659d46a92986a3c326e96d29f1550f6675ba79455";
+pub const CATALOG_SHA256: &str = "c26a2e0aa097ff28c44a8a70395e403e87356470eeec862b471b9658e6c99d34";
 pub const QWEN35_STATE_FIRST_MODEL_NAME: &str = "qwen35-state-first:a047d6802c3f06f085b8";
 /// Pinned laya English decision-encoder model name.
 pub const LAYA_ENGLISH_MODEL_NAME: &str = "laya-english:c8ea29bf1e33a343c4b7";
@@ -59,6 +59,8 @@ pub const WINNOW_MODEL_NAME: &str = "winnow:4dff8c5b03cfbf680db6";
 pub const WINNOW_E4B_MODEL_NAME: &str = "winnow-e4b:656ac636ce450cf79c7d";
 /// Pinned Strands Decider 2B (Hobson v19) model name.
 pub const STRANDS_DECIDER_2B_MODEL_NAME: &str = "strands-decider-2b:6a02bb0d1c6b25cae74b";
+/// Pinned Strands Decider 2B (Hobson v21) model name.
+pub const STRANDS_DECIDER_2B_V21_MODEL_NAME: &str = "strands-decider-2b:f7156bf28400a79ea1b8";
 /// Pinned BGE-small sentence-embedding encoder for the proxy-cache student.
 pub const ENCODER_EMBEDDING_MODEL_NAME: &str = "encoder-embedding:8d9498269ef05d95d93c";
 

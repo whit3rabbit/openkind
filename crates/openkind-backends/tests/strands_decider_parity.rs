@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 
 use openkind_backends::families::strands_decider::{
     StrandsDeciderEngine, StrandsDeciderEngineConfig, BACKBONE_REVISION, BASE_MODEL_ID,
-    BASE_MODEL_REVISION, PROFILE_ID,
+    BASE_MODEL_REVISION, HOBSON_V21, PROFILE_ID,
 };
 use openkind_backends::families::support::FamilyLimits;
 use openkind_engine::DecisionEngine;
@@ -139,8 +139,17 @@ fn profile_constants_are_self_consistent() {
             "bb282d786bc251fd4e3068de3ada9ddbb38127cd",
         )
     );
+    assert_eq!(
+        HOBSON_V21.profile_id,
+        openkind_backends::families::support::derive_profile_id(
+            "strands-decider",
+            HOBSON_V21.backbone_id,
+            HOBSON_V21.backbone_revision,
+        )
+    );
     assert_eq!(BASE_MODEL_ID, "Qwen/Qwen3.5-2B-Base");
     assert_eq!(BACKBONE_REVISION.len(), 40);
+    assert_eq!(HOBSON_V21.backbone_revision.len(), 40);
     assert_eq!(BASE_MODEL_REVISION.len(), 40);
 }
 
@@ -156,6 +165,7 @@ fn load_fails_closed_without_artifacts() {
         model_root: empty.clone(),
         base_root: empty.clone(),
         limits: limits(),
+        profile: None,
     }) {
         Err(error) => error,
         Ok(_) => panic!("missing artifacts must fail closed"),
@@ -187,6 +197,7 @@ fn golden_replay_matches_the_pinned_checkpoint() {
         model_root: root,
         base_root: base,
         limits: limits(),
+        profile: None,
     })
     .expect("load pinned engine");
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -316,6 +327,7 @@ fn load_fails_closed_on_artifact_digest_mismatch() {
         model_root: staged_model.clone(),
         base_root: staged_base.clone(),
         limits: limits(),
+        profile: None,
     }) {
         Err(error) => error,
         Ok(_) => panic!("drifted hobson config must fail closed"),

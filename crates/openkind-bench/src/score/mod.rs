@@ -575,6 +575,7 @@ pub(crate) fn run_score_reserved(
                             retry_after_ms: 250,
                             evaluation_timeout: None,
                         },
+                        profile: None,
                     })
                     .map_err(|error| anyhow::anyhow!("load strands-decider-2b engine: {error}"))?,
                 )

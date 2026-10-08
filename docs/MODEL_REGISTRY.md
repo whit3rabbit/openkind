@@ -8,22 +8,22 @@ verification milestones. Pull progress stays on stderr. `openkind list`,
 `show NAME`, and `rm NAME` operate on local installations without a daemon or
 network request. Read commands accept `--json` for scripts.
 
-Twenty-five profiles are catalog-installable: the native Qwen3.5 state-first
+Twenty-six profiles are catalog-installable: the native Qwen3.5 state-first
 profile, the three laya decision encoders, and the surveyed-family
 prototypes (`decoder-logit-letter`, `encoder-nli`, `encoder-instruct-label`,
 `decoder-logit-llm`, `schema-scorer`, `qwen3guard`, `kev`,
 `decoder-logit-qwen35`, `plumb-4b`, `decider-4b`, `von`, `winnow`,
-`winnow-e4b`, `strands-decider-2b`, `clef-flash`, `clef-flash-gguf`,
-`clef-27b-gguf`), plus the proxy-cache
+`winnow-e4b`, `strands-decider-2b` [Hobson v19 and v21], `clef-flash`,
+`clef-flash-gguf`, `clef-27b-gguf`), plus the proxy-cache
 `encoder-embedding` sentence encoder. Every manifest pins each artifact's
 source revision, byte size, and SHA-256; `rust-loadable` status describes
 implementation and parity coverage, not reviewed task quality or release
 approval. Derived assets that no upstream publishes — kev's converted
 `head.safetensors` and the in-house winnow LoRA adapter — are pinned as
 `github` assets in the public mirror at the commit recorded in their
-manifests. The strands-decider-2b profile needs no such conversion: its
-`head.safetensors` ships from the release, so every artifact pins directly
-to its authors' Hugging Face repositories.
+manifests. The strands-decider-2b profiles need no such conversion: their
+`head.safetensors` ship from the releases, so every artifact pins directly
+to their authors' Hugging Face repositories.
 
 Pull names follow the `loader-id:profile-digest` schema. A catalog entry may
 also declare `name:tag` aliases — the schema the
@@ -87,6 +87,14 @@ discovery leads. It is supplemental research metadata: `openkind catalog` and
 `openkind pull` do not treat these leads as installable profiles. Each still
 needs an OpenKind loader, profile-level offline parity, and daemon registration
 before it can become an executable MLX entry.
+[`registry/v1/jev-decision-index.json`](../registry/v1/jev-decision-index.json)
+is a second supplemental index in the same spirit: it pins the top 10 open
+reproductions on the [Jev Decision Index
+leaderboard](https://huggingface.co/spaces/multimodalart/jev-decision-index)
+(excluding Jev itself) as of 2026-10-05 — per-entry rank, score, surveyed
+base-model and weights revisions, and MLX conversion leads. Nothing in it is
+installable, and every entry records why it is not loadable today;
+[`RESEARCH.md`](RESEARCH.md) owns the survey and its architecture verdicts.
 
 ## Execution backends and benchmark evidence per registry model
 
@@ -119,7 +127,8 @@ so they are not listed per row until qualified runs land.
 | `decoder-logit-qwen35:415bcf4a064e6dadcf85` | Candle CPU fp32 over BF16 checkpoint (`--engine decoder-logit-qwen35`; daemon `--decoder-logit-qwen35-aliases` / `--decoder-logit-qwen35-model-root` / `--decoder-logit-qwen35-backend mlx-fp32`), MLX FP32 over the same BF16 checkpoint widened on load (`--engine decoder-logit-qwen35-mlx-fp32`, `--features mlx`) | `decoder-logit-qwen35-mlx-fp32` — golden-fixture parity gates through the Qwen3.5 MLX backbone (max probability drift 1.003e-6, zero selection flips) | [BENCHMARKS.md](BENCHMARKS.md) records, the [2026-09-29 mlx counterparts campaign](benchmarks/2026-09-29-mlx-counterparts/README.md), and the CPU [summary](benchmarks/2026-09-27-decoder-logit-qwen35/summary-decoder-logit-qwen35.json) |
 | `plumb-4b:c1f080794d38e94a0bc2` | Candle CPU fp32 over BF16 checkpoint (`--engine plumb-4b`; daemon `--plumb-4b-aliases` / `--plumb-4b-model-root` / `--decoder-logit-qwen35-backend mlx-fp32`), MLX FP32 over the same BF16 checkpoint widened on load (`--engine plumb-4b-mlx-fp32`, `--features mlx`) | `plumb-4b-mlx-fp32`: reported golden-fixture replay through the Qwen3.5 MLX backbone (max probability drift 1.274e-5, zero selection flips; replay logs unarchived); CPU smoke + choice diagnostic in the [2026-09-30 jevbench expansion](benchmarks/2026-09-30-jevbench-expansion/README.md) | [2026-09-30 jevbench expansion](benchmarks/2026-09-30-jevbench-expansion/README.md) |
 | `von:69219703407bd39cca0c` | Candle CPU fp32 over the author's `option_marker.pt` pickle (`--engine von`; daemon `--von-aliases` / `--von-model-root`) | CPU fp32 — no MLX path | [summary](benchmarks/2026-09-30-von/summary-von.json) |
-| `strands-decider-2b:6a02bb0d1c6b25cae74b` | Candle CPU fp32 over BF16 checkpoint with the LoRA merged at load (`--engine strands-decider-2b`; daemon `--strands-decider-aliases` / `--strands-decider-model-root` / `--strands-decider-base-root`) | CPU fp32 — no MLX path | [bring-up](benchmarks/2026-10-01-strands-decider/README.md) |
+| `strands-decider-2b:6a02bb0d1c6b25cae74b` | Candle CPU fp32 over BF16 checkpoint with the LoRA merged at load (Hobson v19; `--engine strands-decider-2b`; daemon `--strands-decider-aliases` / `--strands-decider-model-root` / `--strands-decider-base-root`) | CPU fp32 — no MLX path | [bring-up](benchmarks/2026-10-01-strands-decider/README.md) |
+| `strands-decider-2b:f7156bf28400a79ea1b8` | Candle CPU fp32 over BF16 checkpoint with the LoRA merged at load (Hobson v21; `--engine strands-decider-2b`; daemon `--strands-decider-aliases` / `--strands-decider-model-root` / `--strands-decider-base-root`) | CPU fp32 — no MLX path | [model card](https://huggingface.co/StrandsAgents/strands-decider-2B-hobson-v21) |
 | `winnow:4dff8c5b03cfbf680db6` | Candle CPU fp32 router over registered siblings (daemon `--winnow-aliases` / `--winnow-model-root` / `--winnow-adapter`) | CPU fp32 — no MLX path; installed winnow binds label `A` to the installed `decoder-logit-letter` profile and label `B` to `encoder-nli` (falling back to the `--models` aliases) | [summary](benchmarks/2026-09-26-surveyed-families/summary-winnow.json) |
 | `encoder-embedding:8d9498269ef05d95d93c` | Candle CPU fp32 and MLX FP32 (`--proxy-cache-encoder-backend mlx-fp32`, macOS arm64); embedding only, not a `DecisionEngine` | MLX FP32 measured 5.4x CPU throughput in one M4 Max component run; CPU remains the numerical oracle | [encoder parity and component benchmark](benchmarks/2026-09-30-encoder-embedding/README.md) |
 | `clef-flash:dfe12a21a5c9dd5b2fb1` | Candle CPU, BF16 weights with FP32 compute (`--engine clef-flash`; daemon `--clef-aliases` / `--clef-model-roots`) | CPU bf16w/fp32c — no MLX path qualified | [bring-up + cross-check](benchmarks/2026-10-02-clef/README.md) |
