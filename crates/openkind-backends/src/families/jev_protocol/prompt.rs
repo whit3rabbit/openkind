@@ -50,6 +50,18 @@ impl ChoiceLabels {
         Ok(Self { names, token_ids })
     }
 
+    /// 256 distinct synthetic labels with unique token ids, for adapter tests.
+    #[cfg(test)]
+    pub(crate) fn synthetic() -> Self {
+        let names: Vec<String> = (0..MAX_CHOICE_OPTIONS)
+            .map(|index| format!("L{index}"))
+            .collect();
+        let token_ids = (0..MAX_CHOICE_OPTIONS as u32)
+            .map(|index| 1_000 + index)
+            .collect();
+        Self { names, token_ids }
+    }
+
     /// GEV: the fixed `A`..`P` labels, with no vocabulary tokens.
     pub fn gev() -> Self {
         Self {

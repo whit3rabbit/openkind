@@ -10,7 +10,13 @@
 - `openkind_backends::families::jev_protocol`: hardware-neutral JEV/GEV readout ported from
   the mlx-vlm `feat/jev` and `feat/gev` branches (config validation, prompt rendering,
   choice-label token derivation, bias and per-kind temperature readout, GEV softcap, and the
-  more-than-16-option tournament) with reference-value tests. It is not a backbone or engine.
+  more-than-16-option tournament) with reference-value tests.
+- JEV-27B-VL 8-bit: `QuantizedQwen35` (affine 8-bit Qwen3.5 hybrid decoder on MLX, any geometry),
+  `JevEngine`, `JevConfig` with an exact tensor-layout contract checked against the real
+  checkpoint headers, an `mlx_engine::load` loader that digest-verifies the pinned files, the
+  `jev_mlx_smoke` operator binary, and `scripts/jev-mlx-compare.py`. Verified against the Candle
+  CPU oracle on a tiny random model; not yet run on the real weights or registered with the
+  daemon, CLI, or catalog.
 
 ## 0.2.1 (2026-10-07)
 

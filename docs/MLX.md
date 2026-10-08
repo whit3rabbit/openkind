@@ -53,10 +53,14 @@ ran a local decision smoke on the M4 Max; same-host timing comparisons are in
 [`JEV-27B-VL-MLX-8bit`](./families/jev-gev.md) (Qwen3.5 hybrid) and
 [`GEV-26B-Decide-MLX-8bit`](./families/jev-gev.md) (Gemma 4 MoE) are pinned in
 [`registry/v1/jev-gev-mlx-models.json`](../registry/v1/jev-gev-mlx-models.json).
-Both are affine 8-bit (group size 64) with the LoRA merged. The Qwen3.5 MLX
-backbone here does not load quantized weights, and no Gemma 4 MLX backbone
-exists, so neither runs in OpenKind. Their JEV-protocol readout is implemented
-in `families::jev_protocol` and tested without a backbone.
+Both are affine 8-bit (group size 64) with the LoRA merged.
+
+For JEV, `families::jev_protocol::qwen35_quantized` runs the Qwen3.5 text
+decoder over the packed triples with `quantized_matmul`, independent of the
+shared 4B layer stack. It matches the Candle CPU oracle on a tiny random model
+and the real checkpoint's tensor layout exactly, but it has not run on the real
+weights; see the family page for the Mac verification steps. GEV has no
+Gemma 4 MLX backbone, so only its readout exists.
 
 ## Encoder family backend: laya (2026-09-28)
 

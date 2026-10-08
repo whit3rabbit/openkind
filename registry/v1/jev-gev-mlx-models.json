@@ -234,7 +234,7 @@
         }
       ],
       "openkind_loadable": false,
-      "blocker": "No Rust 8-bit affine loader for the Qwen3.5 MLX backbone (its MLX path loads FP32, BF16, and survey checkpoints), no 27B parity fixtures, no JEV adapter, so no OpenKind parity evidence exists. The hardware-neutral readout is implemented in openkind_backends::families::jev_protocol."
+      "blocker": "A Rust loader, quantized MLX backbone, and engine exist (openkind_backends::families::jev_protocol) and match the Candle CPU oracle on a tiny random model, but they have not run against the real 30.7 GB weights, there is no real-forward parity fixture, and the profile is not registered with the daemon, CLI, benchmark harness, or catalog."
     },
     {
       "name": "gev-26b-decide-mlx-8bit",
