@@ -19,7 +19,7 @@ questions. For a more polished, related implementation, see
 Install the `openkind` CLI and `openkindd` server using one of these options:
 
 - **Homebrew:** macOS and Linux.
-- **Cargo:** install the published `0.2.0` crates. Requires Rust 1.90+, a native
+- **Cargo:** install the published `0.2.1` crates. Requires Rust 1.90+, a native
   C/C++ build toolchain, and `protoc` on `PATH`.
 - **Prebuilt archives:** macOS, Linux, and Windows (`x86_64`).
 
@@ -37,14 +37,14 @@ openkind version
 
 ### Cargo
 
-The currently published CLI and server crates are version `0.2.0`. Install
+The currently published CLI and server crates are version `0.2.1`. Install
 them from crates.io with Rust 1.90+, a native C/C++ build toolchain, and `protoc`
 on `PATH`. The server compiles its Protobuf interface during installation.
 Install `protobuf` with Homebrew on macOS or `protobuf-compiler` on Debian/Ubuntu.
 On Windows, use the MSVC build tools and a Protobuf compiler installation.
 
 ```bash
-cargo install --locked --version 0.2.0 openkind-cli openkind-server
+cargo install --locked --version 0.2.1 openkind-cli openkind-server
 openkind version
 ```
 
@@ -256,7 +256,7 @@ Use [`openkind-client`](crates/openkind-client/README.md) to call the local serv
 
 ```toml
 [dependencies]
-openkind-client = "0.2.0"
+openkind-client = "0.2.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 

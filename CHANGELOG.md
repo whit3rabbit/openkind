@@ -2,7 +2,25 @@
 
 ## Unreleased
 
-## 0.2.0 (planned)
+## 0.2.1 (2026-10-07)
+
+### Added
+
+- Model support for Strands Decider 2B (Hobson v21, `StrandsAgents/strands-decider-2B-hobson-v21`
+  at revision `2b52a6235c1b8306bbfa30b00b9d4b74b63a39f5`, profile ID `f7156bf28400a79ea1b8`)
+  with fitted calibration temperatures (`strands_decider_config.json`) and multi-profile
+  daemon loading.
+- Leaderboard survey metadata in `registry/v1/jev-decision-index.json` indexing the top 10
+  open reproductions on the Jev Decision Index (0.2.1).
+- Local decision fine-tuning, post-training (RL/PPO/DPO), and release packaging notebooks
+  and test validation tooling under `research/`.
+
+### Changed
+
+- Updated curated catalog to 26 models, including Hobson v19 and Hobson v21 profiles.
+- Synced `whit3rabbit/openkind-model-registry` with the Hobson v21 profile and updated manifests.
+
+## 0.2.0 (2026-10-04)
 
 ### Added
 
