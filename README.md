@@ -8,17 +8,25 @@
 
 </div>
 
-`openkind` runs a TypeSafe server and CLI (Jev) with locally hosted models for the server.
-
-I highly recommend using: https://github.com/ollaya-dev/ollaya
-
-We seem to have had the same idea when I started working and their public release is a lot more polished.
-
-OpenKind researches a custom Qwen3.5 decision model and a Rust inference engine that shares input processing across questions.
+OpenKind is a Rust decision engine with a CLI and server that implement the
+TypeSafe Jev protocol. The server runs locally hosted models, while the project
+researches custom Qwen 3.5 decision models and shared input processing across
+questions. For a more polished, related implementation, see
+[Ollaya](https://github.com/ollaya-dev/ollaya).
 
 ## Install
 
-Install the `openkind` CLI and `openkindd` server using Homebrew, Cargo, or prebuilt binaries. Keep both binaries on `PATH`: `openkind serve` starts the server. macOS, Linux, and Windows (`x86_64`) are supported host platforms. Standard releases include MLX FP32 on Apple silicon and native CUDA on Linux glibc and Windows. Model selectors default to `auto`, with CPU fallback during loading. See [backend releases and diagnostics](docs/BACKENDS.md).
+Install the `openkind` CLI and `openkindd` server using one of these options:
+
+- **Homebrew:** macOS and Linux.
+- **Cargo:** install the published `0.2.0` crates. Requires Rust 1.90+, a native
+  C/C++ build toolchain, and `protoc` on `PATH`.
+- **Prebuilt archives:** macOS, Linux, and Windows (`x86_64`).
+
+After installation, keep both binaries on `PATH`; run `openkind serve` to start
+the server. Standard releases include MLX FP32 on Apple silicon and native CUDA
+on Linux glibc and Windows. Model selectors default to `auto`, with CPU fallback
+during loading. See [backend releases and diagnostics](docs/BACKENDS.md).
 
 ### Homebrew (macOS and Linux)
 
@@ -29,19 +37,28 @@ openkind version
 
 ### Cargo
 
-Install from crates.io with Rust 1.90+, a native C/C++ build toolchain, and
-`protoc` on `PATH`. The server compiles its Protobuf interface during installation.
+The currently published CLI and server crates are version `0.2.0`. Install
+them from crates.io with Rust 1.90+, a native C/C++ build toolchain, and `protoc`
+on `PATH`. The server compiles its Protobuf interface during installation.
 Install `protobuf` with Homebrew on macOS or `protobuf-compiler` on Debian/Ubuntu.
 On Windows, use the MSVC build tools and a Protobuf compiler installation.
 
 ```bash
-cargo install --locked openkind-cli openkind-server
+cargo install --locked --version 0.2.0 openkind-cli openkind-server
 openkind version
 ```
 
 ### Releases
 
-Download archives for macOS (Apple silicon or Intel), Linux (`x86_64` glibc or portable musl), and Windows (`x86_64` MSVC) from [GitHub Releases](https://github.com/whit3rabbit/openkind/releases). Separate `-onnx` archives bundle ONNX Runtime. Unpack the tarball (or Windows zip), keep both binaries together, and run `openkind doctor --json` to check backend readiness. CUDA user libraries and cuDNN remain operator-installed. Runtime availability does not establish model qualification.
+Download an archive from [GitHub Releases](https://github.com/whit3rabbit/openkind/releases):
+
+- **macOS:** Apple silicon or Intel.
+- **Linux:** `x86_64` glibc or portable musl.
+- **Windows:** `x86_64` MSVC.
+
+Separate `-onnx` archives bundle ONNX Runtime. Unpack the tarball or Windows
+zip, and keep both binaries together. CUDA user libraries and cuDNN remain
+operator-installed.
 
 ## Run a model
 
@@ -55,6 +72,10 @@ openkind serve \
   --http-addr 127.0.0.1:18080 \
   --grpc-addr 0
 ```
+
+Use `openkind doctor --json` to inspect backend readiness after installation.
+Runtime availability does not establish model qualification. See the
+[backend guide](docs/BACKENDS.md) for MLX, CUDA, and ONNX details.
 
 `pull` downloads pinned model files and verifies their SHA-256 digests. Builds and tests do not download weights. See the [model guide](docs/MODELS.md) for download sizes, memory requirements, and available backends.
 
@@ -198,17 +219,28 @@ openkind batch resume ./job
 
 The [batch guide](crates/openkind-cli/README.md#batch) covers stdin pipes, pacing, stop/status, the last successful row, and result export.
 
-API key checking is optional and off by default. To enable it, generate or
-define a key before starting the server, then give the same key to clients:
+### API keys
+
+API key checking is optional and off by default. Generate a key with
+`openkind keygen`, then configure the server to require it. The key is printed
+once and is not saved automatically:
 
 ```bash
 export OPENKIND_API_KEY="$(openkind keygen)"
 openkind serve --http-addr 127.0.0.1:18080 --grpc-addr 0
 ```
 
-Keys are not saved automatically. See the [CLI key guide](crates/openkind-cli/README.md#keygen)
-for explicit keys and PowerShell examples, and the [language bindings](bindings/README.md#api-keys)
-for native generation helpers and local server wrappers.
+You can also set the key explicitly with `openkind serve --api-key <KEY>`.
+Pass it to CLI commands that call a protected server, such as:
+
+```bash
+openkind status --server http://127.0.0.1:18080 --api-key "$OPENKIND_API_KEY"
+openkind evaluate request.json --server http://127.0.0.1:18080 --api-key "$OPENKIND_API_KEY"
+```
+
+`OPENKIND_API_KEY` supplies the key to these commands automatically. See the
+[CLI key guide](crates/openkind-cli/README.md#keygen) for PowerShell examples,
+and [language bindings](bindings/README.md#api-keys) for client libraries.
 
 For a browser interface, start the playground with an installed model:
 
@@ -224,7 +256,7 @@ Use [`openkind-client`](crates/openkind-client/README.md) to call the local serv
 
 ```toml
 [dependencies]
-openkind-client = { path = "../openkind/crates/openkind-client" }
+openkind-client = "0.2.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 ```
 

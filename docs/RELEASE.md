@@ -51,6 +51,9 @@ tap formula, and crates.io packages are released together.
     - [`bindings/typescript/package.json`](../bindings/typescript/package.json) (`version`)
     - [`bindings/python/pyproject.toml`](../bindings/python/pyproject.toml) (`version`)
   - Run `cargo check` to update and synchronize [`Cargo.lock`](../Cargo.lock).
+  - Update the published version shown in [`README.md`](../README.md), including
+    the pinned `cargo install` command and the `openkind-client` dependency
+    example. Keep these at the version being prepared for the tag.
 - [ ] **Verify License Inheritance**:
   - Confirm every published crate manifest inherits the workspace MIT license
     and `license-file = "LICENSE"`.
