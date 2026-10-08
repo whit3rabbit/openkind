@@ -77,7 +77,7 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
 - [`src/qwen35/experimental.rs`](./src/qwen35/experimental.rs): Offline scoring probes. The daemon does not register them. See benchmark docs for methodology.
 - [`src/qwen35/mlx/`](./src/qwen35/mlx/): Optional MLX backend. Checkpoint layouts, arithmetic paths, and kernel notes are in [MLX backend internals](../../.claude/docs/mlx-backend-internals.md).
 - [`src/families/`](./src/families/): Surveyed-family adapters and shared readouts. The family registry owns profile names and status.
-- [`src/families/jev_protocol/`](./src/families/jev_protocol/): Hardware-neutral JEV/GEV readout (config, prompt, label tokens, bias/temperature softmax, GEV tournament). No backbone and no `DecisionEngine`; see [`jev-gev.md`](../../docs/families/jev-gev.md).
+- [`src/families/jev_protocol/`](./src/families/jev_protocol/): JEV/GEV readout (config, prompt, label tokens, bias/temperature softmax, GEV tournament) plus the JEV-27B-VL 8-bit engine: `qwen35_quantized` (affine 8-bit Qwen3.5 on MLX), `layout` (config and tensor contract), `engine`, and `mlx_engine`. Not yet run on real weights or registered; see [`jev-gev.md`](../../docs/families/jev-gev.md).
 - [`src/device.rs`](./src/device.rs): `FamilyExecution` device resolution enum (`Cpu`, `Cuda`, `Onnx`, `OnnxRocm`) and adapter dispatch.
 - [`src/onnx/`](./src/onnx/): ONNX Runtime execution provider integration (`OnnxModel`, `OnnxAcceleration`), optional feature gates (`onnx`, `onnx-cuda`, `onnx-rocm`), and per-family adapters.
 - [`src/proxy_cache/`](./src/proxy_cache/): Distilling cache and training lifecycle. See [`docs/PROXY_CACHE.md`](../../docs/PROXY_CACHE.md).

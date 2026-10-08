@@ -1,9 +1,10 @@
-# Family: jev-gev (surveyed, readout implemented)
+# Family: jev-gev (JEV: loader implemented, unverified on real weights; GEV: readout only)
 
 > JEV-27B-VL and GEV-26B-Decide answer typed `bool`, `score`, and `choice`
 > questions from one forward pass over a fixed prompt. Both ship as 8-bit
-> MLX conversions. OpenKind has pinned them and implemented their
-> hardware-neutral readout, but it has no backbone that runs the weights.
+> MLX conversions. OpenKind has pinned both. For JEV it also has a quantized
+> MLX backbone, a loader, and an engine that pass offline contract tests but
+> have not run on the real weights. For GEV it has only the readout.
 
 ## Pinned sources
 
@@ -70,7 +71,10 @@ share of that final pass.
 ## What is implemented
 
 [`families::jev_protocol`](../../crates/openkind-backends/src/families/jev_protocol/mod.rs)
-ports the hardware-neutral parts of the reference:
+holds everything below. None of it is registered with the daemon, CLI,
+benchmark harness, or catalog.
+
+**Readout, shared by JEV and GEV** (runs on any host):
 
 - `DecisionConfig`: validates the `decision_config` object and fails closed on
   the other protocol's fields, unequal slot widths, or a non-positive
@@ -83,28 +87,73 @@ ports the hardware-neutral parts of the reference:
 Its tests use the two pinned `decision_config` objects as fixtures, kept equal
 to the registry index by a test. Expected values come from a line-for-line
 Python port of the mlx-vlm functions run in f64; the tournament is checked at
-17, 40, and 256 options. Prompts are checked against the reference format. The
-tests run offline on any host.
+17, 40, and 256 options. Prompts are checked against the reference format.
 
-## What is not implemented
+**JEV engine** (runs on any host with a mock backbone; the MLX parts need
+`--features mlx` on macOS arm64):
 
-This is not a Rust-loadable profile. It has no `DecisionEngine`, daemon alias,
-catalog entry, or parity fixture from a real forward pass.
+- `JevConfig` parses the pinned root `config.json` and rejects any other
+  geometry or quantization. `expected_tensors` lists every tensor the loader
+  needs, and a test proves the list equals the real checkpoint's 2,178 tensor
+  headers, apart from the vision tower: no missing or extra names, with the
+  same dtypes and shapes. The headers are vendored in
+  `tests/fixtures/jev_gev/jev_tensor_manifest.json`.
+- `JevEngine` renders one prompt per question, tokenizes it with the pinned
+  tokenizer, reads the option logits, and builds the wire answer. It rejects
+  booleans with criteria, score questions without six levels, more than 256
+  choice options, and prompts over 8,192 tokens. The backbone sits behind the
+  `JevForward` trait.
+- `qwen35_quantized::QuantizedQwen35` runs the Qwen3.5 hybrid decoder over
+  affine 8-bit triples with `quantized_matmul`, at any geometry, with an
+  explicit causal mask. It is not the shared 4B MLX layer stack, which fixes
+  2,560-wide dimensions. It matches the Candle CPU oracle (the shared
+  `TextBackbone`) to about 1e-5 per layer on a tiny random model with three
+  DeltaNet layers, one full-attention layer, and one more DeltaNet layer. The
+  test runs MLX's CPU backend; the repo's Mac gates cover the same code.
+- `mlx_engine::load` verifies the size and SHA-256 of every pinned file in
+  place, builds the engine, and checks every loaded tensor's shape.
+- `jev_mlx_smoke` and `scripts/jev-mlx-compare.py` run the engine and the
+  mlx-vlm reference on the same requests (see below).
 
-- **JEV backbone.** The Qwen3.5 MLX backbone loads FP32, BF16, and survey
-  checkpoints, not affine 8-bit `weight`/`scales`/`biases` triples. A JEV
-  adapter needs quantized projections and embeddings (see
-  `quantized_matmul` use in [`clef/mlx.rs`](../../crates/openkind-backends/src/families/clef/mlx.rs),
-  whose 4-bit path still fails parity), at 64 layers and hidden 5120.
-- **GEV backbone.** There is no Gemma 4 MoE port. The in-tree `gemma4` family
-  is fail-closed to E4B GGUF geometry. The port needs the 128-expert top-8
-  router with its `per_expert_scale`, the parallel dense MLP, `attention_k_eq_v`
-  on global layers, proportional partial RoPE, per-layer `layer_scalar`, and
-  sliding-window masks.
-- **Evidence.** Fixtures from a real forward pass need the Python reference on
-  Apple silicon and 28 to 31 GB of weights. None exist, so the model cards'
-  agreement claims (largest probability gap 0.0006 for JEV and 0.018 for GEV)
-  are upstream evidence, not OpenKind parity.
+## What is not done
+
+- **No run on the real weights.** The loader has never read the 30.7 GB
+  checkpoint, and no forward has been compared with mlx-vlm. The model card's
+  agreement claims (largest probability gap 0.0006) are upstream evidence, not
+  OpenKind parity. Speed and memory are unmeasured: the DeltaNet recurrence
+  advances one token at a time, activations are FP32, and each question
+  re-reads its whole prompt.
+- **Not registered.** There is no daemon alias, `openkind pull` entry,
+  catalog manifest, or benchmark engine for JEV, and no golden fixture from a
+  real forward.
+- **The GEV backbone.** There is no Gemma 4 MoE port. The in-tree `gemma4`
+  family is fail-closed to E4B GGUF geometry. The port needs the 128-expert
+  top-8 router with its `per_expert_scale`, the parallel dense MLP,
+  `attention_k_eq_v` on global layers, proportional partial RoPE, per-layer
+  `layer_scalar`, and sliding-window masks.
+
+## Verify JEV on a Mac
+
+Operator steps only; tests never download. This needs Apple silicon, about
+31 GB of free disk, and enough unified memory for the weights.
+
+```bash
+hf download nativ-community/JEV-27B-VL-MLX-8bit \
+  --revision a871d5f8787b3d8ce9d618e7260e959393030c7b \
+  --local-dir "$HOME/.cache/openkind/jev-27b-vl-mlx-8bit"
+pip install "git+https://github.com/Lazarus-931/mlx-vlm.git@6ef5c0d13b847ef2a3c3586276af9c4b75da4686"
+cargo run -p openkind-backends --release --features mlx --bin jev_mlx_smoke -- \
+  --model-root "$HOME/.cache/openkind/jev-27b-vl-mlx-8bit" > rust.json
+python3 scripts/jev-mlx-compare.py \
+  --model-root "$HOME/.cache/openkind/jev-27b-vl-mlx-8bit" --rust rust.json
+```
+
+The script prints mlx-vlm's probabilities and the largest difference per
+question. The reference computes in BF16 and this engine in FP32, so expect a
+small gap. A gap near 0.1, or a different argmax, is a bug. The first load
+hashes all 30.7 GB. If the numbers agree, the next steps are golden fixtures
+from this run, a throughput and memory record, and daemon registration per
+[`NEW_FAMILY.md`](NEW_FAMILY.md).
 
 ## Wire differences to resolve in an adapter
 
@@ -120,7 +169,8 @@ catalog entry, or parity fixture from a real forward pass.
   report its probability mass. Both models score it as an ordinary option.
 - The reference accepts images in the state. The Jev wire here is text, so an
   adapter can skip the vision tower.
-- Memory admission must account for 28 to 31 GB of resident weights.
+- Memory admission must account for 28 to 31 GB of resident weights. The
+  JEV engine does not yet enforce an admission estimate.
 
 ## Reproduce the pins
 

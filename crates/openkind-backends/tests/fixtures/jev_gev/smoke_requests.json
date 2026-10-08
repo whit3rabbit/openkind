@@ -1,0 +1,52 @@
+[
+  {
+    "model": "jev",
+    "state": "The parcel arrived damaged and I want my money back.",
+    "questions": {
+      "refund": {
+        "type": "noul",
+        "instructions": "Is the customer asking for a refund?"
+      },
+      "route": {
+        "type": "choice",
+        "instructions": "Which team should handle this message?",
+        "criteria": {
+          "billing": "Charges, refunds, invoices",
+          "logistics": "Shipping and delivery problems",
+          "security": "Account takeover, phishing"
+        }
+      },
+      "urgency": {
+        "type": "score",
+        "instructions": "How urgent is this message?",
+        "criteria": ["none", "very low", "low", "moderate", "high", "critical"]
+      }
+    }
+  },
+  {
+    "model": "jev",
+    "state": {
+      "ticket": "A-771",
+      "priority": "high",
+      "category": "billing",
+      "refund_approved": true,
+      "amount_usd": 412.5
+    },
+    "questions": {
+      "approved": {
+        "type": "noul",
+        "instructions": "Was the refund approved?"
+      },
+      "category": {
+        "type": "choice",
+        "instructions": "Which category does the ticket belong to?",
+        "criteria": {
+          "billing": "Charges, refunds, invoices",
+          "performance": "Latency and outages",
+          "security": null,
+          "__none__": "None of these apply"
+        }
+      }
+    }
+  }
+]

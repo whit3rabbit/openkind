@@ -19,12 +19,31 @@
 //! profile Rust-loadable.
 
 mod config;
+mod engine;
+mod layout;
+mod pins;
 mod prompt;
 mod readout;
 
+/// MLX loader for the pinned JEV-27B-VL 8-bit profile.
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub mod mlx_engine;
+/// Affine-quantized Qwen3.5 backbone on MLX (feature `mlx`, macOS arm64).
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub mod qwen35_quantized;
+#[cfg(all(test, feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+mod qwen35_quantized_tests;
+
+#[cfg(test)]
+mod engine_tests;
 #[cfg(test)]
 mod tests;
 
 pub use config::{DecisionConfig, DecisionKind, Protocol, MAX_CHOICE_OPTIONS};
+pub use engine::{JevEngine, JevForward, BACKEND_ID, MAX_PROMPT_TOKENS};
+pub use layout::{
+    expected_tensors, ExpectedTensor, JevConfig, QuantParams, Storage, DECODER_PREFIX, LM_HEAD,
+    VISION_PREFIX,
+};
 pub use prompt::{choice_option_text, render_prompt, ChoiceLabels, GEV_BOS, GEV_GROUP_LABELS};
 pub use readout::{gev_choice_tournament, GEV_MAX_GROUP};
