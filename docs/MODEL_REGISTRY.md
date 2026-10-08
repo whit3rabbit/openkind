@@ -105,6 +105,11 @@ since landed as catalog profiles (the five d3 profiles and `sieve-4b`) set
 `openkind_loadable` and name their `catalog_profile`. Every other entry
 records why it is not loadable today. [`RESEARCH.md`](RESEARCH.md) owns the
 survey and its architecture verdicts.
+[`registry/v1/jev-gev-mlx-models.json`](../registry/v1/jev-gev-mlx-models.json)
+is another supplemental index: it pins the `nativ-community` 8-bit MLX
+conversions of JEV-27B-VL and GEV-26B-Decide (revisions, per-file sizes and
+SHA-256 digests, `decision_config`, and the mlx-vlm reference commits). Neither
+entry is installable; see [`families/jev-gev.md`](families/jev-gev.md).
 
 ## Execution backends and benchmark evidence per registry model
 

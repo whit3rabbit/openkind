@@ -1,0 +1,394 @@
+{
+  "schema": "openkind-jev-gev-mlx/v1",
+  "checked_at": "2026-10-08",
+  "installable": false,
+  "scope": "Two Hugging Face MLX conversions of decision models that speak the JEV protocol (typed choice, score, and bool answered from one forward pass, no generation). Supplemental research metadata only: neither entry is a catalog profile and no OpenKind backbone loads these 8-bit affine-quantized checkpoints today. Each entry pins the converted weights, the upstream source model, and the mlx-vlm reference implementation so qualification starts from immutable sources.",
+  "reference_implementation": {
+    "repository": "Lazarus-931/mlx-vlm",
+    "note": "Forks of Blaizzy/mlx-vlm; not in an mlx-vlm release. The JEV readout, prompt, and label derivation live in mlx_vlm/models/jev/jev.py. GEV subclasses it in mlx_vlm/models/gev/gev.py.",
+    "jev": {
+      "branch": "feat/jev",
+      "revision": "6ef5c0d13b847ef2a3c3586276af9c4b75da4686",
+      "model_commit": "47473c309a63f369e8c739eedb93226665ca5975",
+      "text_only_9b_commit": "24b24bb471dd36039fa5933f063f7dbc30a68c04"
+    },
+    "gev": {
+      "branch": "feat/gev",
+      "revision": "227940979130cbeb3518d07182d4fa2b6ea68de6"
+    }
+  },
+  "entries": [
+    {
+      "name": "jev-27b-vl-mlx-8bit",
+      "protocol": "jev",
+      "repository": "nativ-community/JEV-27B-VL-MLX-8bit",
+      "revision": "a871d5f8787b3d8ce9d618e7260e959393030c7b",
+      "license": "apache-2.0",
+      "source_model": {
+        "repository": "autotrust/JEV-27B-VL",
+        "revision": "4000d2393be6718e604f8e7dca563a780ab78e78",
+        "license": "apache-2.0",
+        "adapted_from": "Qwen/Qwen3.8-27B"
+      },
+      "conversion": {
+        "quantization": "affine",
+        "bits": 8,
+        "group_size": 64,
+        "lora_merged": true,
+        "unquantized": [
+          "language_model.lm_head",
+          "vision_tower"
+        ],
+        "safetensors_total_size": 30692874720
+      },
+      "architecture": {
+        "root_architecture": "Qwen3_5ForConditionalGeneration",
+        "text": {
+          "model_type": "qwen3_5_text",
+          "layers": 64,
+          "layer_pattern": "3 linear_attention : 1 full_attention",
+          "hidden_size": 5120,
+          "intermediate_size": 17408,
+          "attention_heads": 24,
+          "kv_heads": 4,
+          "head_dim": 256,
+          "linear_key_heads": 16,
+          "linear_value_heads": 48,
+          "linear_head_dim": 128,
+          "conv_kernel": 4,
+          "partial_rotary_factor": 0.25,
+          "rope_theta": 10000000,
+          "vocab_size": 248320,
+          "tie_word_embeddings": false
+        },
+        "vision": {
+          "depth": 27,
+          "hidden_size": 1152,
+          "patch_size": 16,
+          "spatial_merge_size": 2,
+          "out_hidden_size": 5120
+        }
+      },
+      "decision_config": {
+        "ranges": {
+          "noul": [
+            0,
+            2
+          ],
+          "score": [
+            2,
+            8
+          ],
+          "choice": [
+            8,
+            24
+          ]
+        },
+        "verbalizer_ids": [
+          3721,
+          1802,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47
+        ],
+        "bias": [
+          0.00011960109259234741,
+          -0.00011981795250903815,
+          -0.001826660125516355,
+          -0.0008995002135634422,
+          1.2772755326295737e-05,
+          0.001714941579848528,
+          0.0009451315272599459,
+          -0.0020803064107894897,
+          -0.00017852929886430502,
+          -0.00010998119250871241,
+          -0.00011865551641676575,
+          7.452104182448238e-05,
+          -8.196464477805421e-05,
+          8.958959369920194e-06,
+          -0.002271531615406275,
+          -0.0069303084164857864,
+          -0.0064850919879972935,
+          -0.004779351409524679,
+          -0.002676677191630006,
+          -0.0025728552136570215,
+          -0.002822346054017544,
+          -0.002843661466613412,
+          -0.0031860454473644495,
+          -0.002381357364356518
+        ],
+        "temperature_by_type": {
+          "noul": 1.0143134751376188,
+          "choice": 1.0161280671450397,
+          "score": 1.0036213515883572
+        },
+        "lora_alpha": 64.0,
+        "lora_r": 32
+      },
+      "readout": "Vocabulary logits at the final prompt position. bool: tokens 3721, 1802 (false, true). score: tokens for 0 to 5. choice: single-token letters A to Z then AA to ZZ, up to 256 options. Logits plus slot bias, divided by the per-kind temperature, then softmax.",
+      "reference_verification": "The model card reports the same answer as the source recipe on 7 of 7 questions, identical token ids on 7 of 7 forward passes, and a largest probability gap of 0.0006. These are upstream claims, not OpenKind parity.",
+      "files": [
+        {
+          "path": "README.md",
+          "size": 1596,
+          "sha256": "a3448d5ae3eb03dc127fe4a17a1d5a49a08a2242b914639fc8baae7b3642d416"
+        },
+        {
+          "path": "chat_template.jinja",
+          "size": 8952,
+          "sha256": "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041"
+        },
+        {
+          "path": "config.json",
+          "size": 6741,
+          "sha256": "9b588e1ba7933712469bbf3830c655ab450cd53da163fc63b1a01381ac99872c"
+        },
+        {
+          "path": "generation_config.json",
+          "size": 202,
+          "sha256": "e70c136c1b78ddc1fb0905bac8e733a4dc448d4f852a5dd75143fffc70be550e"
+        },
+        {
+          "path": "model-00001-of-00006.safetensors",
+          "size": 5317707581,
+          "sha256": "45cfd0a4a0326065426dd3a6b25ad5baa40380d213d7663f0174938d933c0361"
+        },
+        {
+          "path": "model-00002-of-00006.safetensors",
+          "size": 5354102610,
+          "sha256": "fd2e136ac54e9b4a236d5ff270437ba85c2e989f51bd53c936b862b2f0d83a31"
+        },
+        {
+          "path": "model-00003-of-00006.safetensors",
+          "size": 5354184694,
+          "sha256": "8374a6c7d6e1f380e93c0bcd7043317ff77c61d0ca46a9cc5f55ae172d11d370"
+        },
+        {
+          "path": "model-00004-of-00006.safetensors",
+          "size": 5337309653,
+          "sha256": "4748aa1f9608f72798acd071716ce927ef6f5cb06d320f44d53750554993379f"
+        },
+        {
+          "path": "model-00005-of-00006.safetensors",
+          "size": 5292848464,
+          "sha256": "b00f38282bf9b14b92e4f58e096a5afa5e149938801113796bedabf84cc16817"
+        },
+        {
+          "path": "model-00006-of-00006.safetensors",
+          "size": 4037001250,
+          "sha256": "d2c4bd8b312fe5bcb7ccdc6c422e010929c11d5e60afb5496d2abc2e4617a1e0"
+        },
+        {
+          "path": "model.safetensors.index.json",
+          "size": 218127,
+          "sha256": "b62bce6b2acbc06dfa48c5602cda610350f3379310fb255f1d96e523440d649b"
+        },
+        {
+          "path": "preprocessor_config.json",
+          "size": 390,
+          "sha256": "27225450ac9c6529872ee1924fcb0962ff5634834f817040f444118116f4e516"
+        },
+        {
+          "path": "processor_config.json",
+          "size": 991,
+          "sha256": "45fc17c8dd2474af6b493b52483c26c0584b0082d368c480f9fa611e73070040"
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 19989325,
+          "sha256": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 1481,
+          "sha256": "16ba6c0a0f8a99bed82f4d04e789ddc11da057d583cae3f4e7603126ef4b7f03"
+        },
+        {
+          "path": "video_preprocessor_config.json",
+          "size": 385,
+          "sha256": "7768af27c1fafa9cc9011c1dc20067e03f8915e03b63504550e11d5066986d13"
+        },
+        {
+          "path": "vocab.json",
+          "size": 6722759,
+          "sha256": "ce99b4cb2983d118806ce0a8b777a35b093e2000a503ebde25853284c9dfa003"
+        }
+      ],
+      "openkind_loadable": false,
+      "blocker": "No Rust 8-bit affine loader for the Qwen3.5 MLX backbone (its MLX path loads FP32, BF16, and survey checkpoints), no 27B parity fixtures, no JEV adapter, so no OpenKind parity evidence exists. The hardware-neutral readout is implemented in openkind_backends::families::jev_protocol."
+    },
+    {
+      "name": "gev-26b-decide-mlx-8bit",
+      "protocol": "gev",
+      "repository": "nativ-community/GEV-26B-Decide-MLX-8bit",
+      "revision": "8f04bf3f3204f067625a2716c54dd68de7200ec6",
+      "license": "apache-2.0",
+      "source_model": {
+        "repository": "autotrust/GEV-26B-Decide",
+        "revision": "7c89590ead085bf77630b4bf68264ea30b6ddc78",
+        "license": "apache-2.0",
+        "adapted_from": "google/gemma-4-26B-A4B-it"
+      },
+      "conversion": {
+        "quantization": "affine",
+        "bits": 8,
+        "group_size": 64,
+        "lora_merged": true,
+        "unquantized": [
+          "head"
+        ],
+        "head_dtype": "float32",
+        "safetensors_total_size": 27956729084
+      },
+      "architecture": {
+        "root_architecture": "Gemma4ForConditionalGeneration",
+        "text": {
+          "model_type": "gemma4_text",
+          "layers": 30,
+          "hidden_size": 2816,
+          "dense_intermediate_size": 2112,
+          "moe_intermediate_size": 704,
+          "experts": 128,
+          "top_k_experts": 8,
+          "enable_moe_block": true,
+          "attention_heads": 16,
+          "kv_heads": 8,
+          "global_kv_heads": 2,
+          "head_dim": 256,
+          "global_head_dim": 512,
+          "attention_k_eq_v": true,
+          "sliding_window": 1024,
+          "final_logit_softcapping": 30.0,
+          "vocab_size": 262144,
+          "tie_word_embeddings": true
+        },
+        "vision": {
+          "depth": 27,
+          "hidden_size": 1152,
+          "patch_size": 16,
+          "pooling_kernel_size": 3,
+          "soft_tokens_per_image": 280
+        }
+      },
+      "decision_config": {
+        "ranges": {
+          "noul": [
+            0,
+            2
+          ],
+          "score": [
+            2,
+            8
+          ],
+          "choice": [
+            8,
+            24
+          ]
+        },
+        "softcap": 30.0,
+        "temperature_by_type": {
+          "noul": 1.0027465035537586,
+          "choice": 1.017196267473986,
+          "score": 0.9992906948414192
+        },
+        "lora_alpha": 64,
+        "lora_r": 32
+      },
+      "readout": "A 24-wide linear head over the final-position hidden state, computed in FP32 and softcapped as softcap * tanh(x / softcap). bool: slots 0 to 1. score: slots 2 to 7. choice: slots 8 to 23 (16 labels, A to P). More than 16 options use a grouped tournament.",
+      "reference_verification": "The model card reports the same answer as the transformers and peft reference on 7 of 7 questions, identical token ids on 9 of 9 forward passes, and a largest probability gap of 0.018. These are upstream claims, not OpenKind parity.",
+      "files": [
+        {
+          "path": "README.md",
+          "size": 1493,
+          "sha256": "46ed8da41d89c10d43e65cfa7653b3d7a6c108a64a579e1364c1a135aa5afb80"
+        },
+        {
+          "path": "chat_template.jinja",
+          "size": 18683,
+          "sha256": "ae53464bf3be25802b3a5b37def7fd89667067d7577049b3b2d74c4d8de4c6d4"
+        },
+        {
+          "path": "config.json",
+          "size": 12702,
+          "sha256": "737c04b4a6c41f69b9d4126c2baaabc48ae4bfcce24eae7e29b11ed98975acef"
+        },
+        {
+          "path": "generation_config.json",
+          "size": 208,
+          "sha256": "d4226bbe3117d2d253ba4609720ba82c6c4ce4627a9a6ae05387c78983ac03de"
+        },
+        {
+          "path": "model-00001-of-00006.safetensors",
+          "size": 5180812050,
+          "sha256": "c65930ccde3efd9ea636a9f68b497087dd1f85bffc9c7f16bfb6411feca966d1"
+        },
+        {
+          "path": "model-00002-of-00006.safetensors",
+          "size": 5205340944,
+          "sha256": "6a37845ce343122c5b279f2103bf18d7bfd17a56515a1582c2d80513db1df26b"
+        },
+        {
+          "path": "model-00003-of-00006.safetensors",
+          "size": 5205341183,
+          "sha256": "9c9c711c819929e1ea0a15777adfde3921bfd07406d0d2b9aa6fdf20ccc23da3"
+        },
+        {
+          "path": "model-00004-of-00006.safetensors",
+          "size": 5205341191,
+          "sha256": "86d14aab479ebfa88d096734998732427243ffc2de4feb0a570db151cb43a4e7"
+        },
+        {
+          "path": "model-00005-of-00006.safetensors",
+          "size": 5205341163,
+          "sha256": "c9b0fbde2955c9960b2a0fa621497ead09f3bbfa28d4311c3cb1856f7b64f110"
+        },
+        {
+          "path": "model-00006-of-00006.safetensors",
+          "size": 1954776541,
+          "sha256": "613fe6b121a5230fae5964e6501c74b56774107919b26cd9ebf47399b190906b"
+        },
+        {
+          "path": "model.safetensors.index.json",
+          "size": 176880,
+          "sha256": "54423aa84955af740a4a3f0145ba802a1d855904691e1c9c3ad41ee775d380e7"
+        },
+        {
+          "path": "processor_config.json",
+          "size": 1339,
+          "sha256": "daf597419c03cb3f20ac4f894cef7e4ab4a56dd07fef5131aa82ceffa1693fd2"
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 32169626,
+          "sha256": "cc8d3a0ce36466ccc1278bf987df5f71db1719b9ca6b4118264f45cb627bfe0f"
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 3727,
+          "sha256": "ae79d5349f543e549ca2721755b030dbba92614e25585f4c7e9aaa3734dfa6ae"
+        }
+      ],
+      "openkind_loadable": false,
+      "blocker": "OpenKind has no Gemma 4 MoE backbone (its gemma4 family is fail-closed to E4B GGUF geometry), no MLX Gemma 4 port, no 8-bit affine loader, and no 26B parity fixtures. The hardware-neutral readout, including the grouped tournament, is implemented in openkind_backends::families::jev_protocol."
+    }
+  ]
+}
