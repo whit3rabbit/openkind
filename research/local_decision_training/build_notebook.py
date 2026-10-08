@@ -122,8 +122,10 @@ relicense or redistribute the source datasets.
 md("""
 ## 2. Install the training stack
 
-Keep Colab's existing Torch/CUDA installation. Install the pinned Transformers/PEFT/data
-stack before importing it. If Colab asks for a restart, restart the session and run all again.
+Keep Colab's existing Torch/CUDA installation. Remove Colab's unused `torchao`, whose older
+preinstalled version can make PEFT's ordinary LoRA dispatch fail, then install the pinned
+Transformers/PEFT/data stack before importing it. NF4 uses bitsandbytes here.
+If Colab asks for a restart, restart the session and run all again.
 Optional custom DeltaNet kernels are deliberately absent from this initial recipe: the
 Transformers reference path is slower but avoids an unqualified backward kernel change.
 """)
@@ -132,6 +134,8 @@ import importlib.metadata
 import subprocess
 import sys
 
+# PEFT probes installed torchao even for ordinary LoRA; this recipe uses bitsandbytes instead.
+subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "-y", "torchao"])
 requirements = [
     "transformers==5.17.0", "peft==0.21.1", "datasets==5.0.1",
     "accelerate==1.15.0", "bitsandbytes==0.50.2", "huggingface_hub==1.33.0",
@@ -160,7 +164,7 @@ WORK = Path("/content/openkind_local_decision_training")
 WORK.mkdir(parents=True, exist_ok=True)
 OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
 """)
-embedded_names = ("train.py", "benchmark.py", *sorted(p.name for p in HERE.glob("test*.py")))
+embedded_names = ("train.py", "benchmark.py", "wandb_tracking.py", "release.py", "decision_rl.py", *sorted(p.name for p in HERE.glob("test*.py")))
 code("# @title Embedded training implementation and offline tests\n"
      + f"EMBEDDED_SOURCE_FILES = {embedded_names!r}\n" + "\n".join(
     f"(WORK / {name!r}).write_text({(HERE/name).read_text()!r}, encoding='utf-8')"
@@ -233,6 +237,7 @@ RUN_TYPESAFE_BENCHMARK = False  # Evaluation only, after freezing the export.
 TYPESAFE_CASES_PER_SOURCE = 10  # None evaluates all cases. Sample whole cases before token admission.
 TYPESAFE_MAX_LENGTH = 12288  # Benchmark-only long-input panel; None enforces the export's 2,048-token cap.
 PREPARE_ONLY = False  # True stops before loading model weights or training.
+CONTROL_CONFIG = dict(CONFIG)
 initialization_seed = recipe.experiment_seed(CONFIG, "initialization")
 random.seed(initialization_seed)
 torch.manual_seed(initialization_seed)
@@ -251,7 +256,9 @@ occurrence augmentation/resume, group uncertainty, confidence semantics and tamp
 not download model assets or establish 4B model quality.
 """)
 code("""
-subprocess.check_call([sys.executable, "-m", "unittest", "discover", "-s", str(WORK), "-p", "test*.py", "-v"])
+import os
+test_environment = dict(os.environ, HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1", OMP_NUM_THREADS="1")
+subprocess.check_call([sys.executable, "-m", "unittest", "discover", "-s", str(WORK), "-p", "test*.py", "-v"], env=test_environment)
 """)
 
 md("""
@@ -266,6 +273,7 @@ code("""
 from transformers import AutoTokenizer
 import pandas as pd
 
+CONFIG = dict(CONTROL_CONFIG)
 tokenizer = AutoTokenizer.from_pretrained(recipe.MODEL_ID, revision=recipe.MODEL_REVISION, trust_remote_code=False)
 source_hashes = {name: recipe.file_digest(WORK / name) for name in EMBEDDED_SOURCE_FILES}
 source_sha = source_hashes["train.py"]
@@ -322,7 +330,8 @@ if not PREPARE_ONLY:
                                       precision=model_report["precision"], compute_capability=model_report["compute_capability"], software=software))
         RUN = OUTPUT_ROOT / ("run_" + identity[:16])
         RUN.mkdir(parents=True, exist_ok=True)
-        recipe.immutable_json(RUN / "CONFIG.json", dict(identity=identity, config=CONFIG, software=software, source_sha=source_sha, source_hashes=source_hashes))
+        recipe.immutable_json(RUN / "CONFIG.json", dict(identity=identity, config=CONFIG, software=software, source_sha=source_sha, source_hashes=source_hashes,
+                                                        data_manifest_sha256=recipe.digest(manifest), data_directory=str(DATA_DIR)))
         recipe.atomic_json(RUN / "ENVIRONMENT.json", dict(python=platform.python_version(), software=software, model=model_report))
         started = time.perf_counter()
         preflight = recipe.gradient_preflight(model, data["train"][0], CONFIG)
@@ -360,6 +369,7 @@ a search over acceptance/final labels.
 code("""
 if not PREPARE_ONLY:
     if RUN_LOSS_SWEEP:
+        CONFIG = dict(CONTROL_CONFIG)
         if "model" in globals():
             del model
         gc.collect(); torch.cuda.empty_cache()
@@ -405,9 +415,11 @@ separately. Neither defines an application authorization policy. Noul has no con
 code("""
 if not PREPARE_ONLY:
     gate = recipe.calibrate_and_gate(model, data, CONFIG, RUN, identity, selection)
+    print("Evaluated checkpoint:", selection["selected_step"],
+          "(frozen parent)" if selection["selected_step"] == 0 else "(trained checkpoint)")
     display(pd.DataFrame(gate["candidate_raw"]["by_source"]).T[["n", "accuracy", "nll", "brier", "ece", "none_recall", "false_none_rate"]])
     print("Decision:", gate["decision"])
-    print("Temperature:", gate["deployed_temperature"], "accepted:", gate["calibration_accepted"])
+    print("Evaluated temperature:", gate["deployed_temperature"], "accepted:", gate["calibration_accepted"])
     print("Retention gate:", gate["retention"])
 """)
 
@@ -431,12 +443,19 @@ if not PREPARE_ONLY and CONFIG["schema_diagnostics"]:
     selected_path = RUN / "checkpoints" / f"step_{selection['selected_step']:06d}"
     recipe.restore(selected_path, model, identity)
     candidate_schema = recipe.schema_diagnostics(model, tokenizer, data["gate"], CONFIG["max_length"], gate["deployed_temperature"])
-    recipe.restore(RUN / "checkpoints/step_000000", model, identity)
-    parent_schema = recipe.schema_diagnostics(model, tokenizer, data["gate"], CONFIG["max_length"])
+    same_parent = selection["selected_step"] == 0 and gate["deployed_temperature"] == 1.0
+    if same_parent:
+        parent_schema = candidate_schema
+    else:
+        recipe.restore(RUN / "checkpoints/step_000000", model, identity)
+        parent_schema = recipe.schema_diagnostics(model, tokenizer, data["gate"], CONFIG["max_length"])
     recipe.restore(selected_path, model, identity)
     recipe.immutable_json(RUN / "SCHEMA_DIAGNOSTICS.json", dict(identity=identity, selected_step=selection["selected_step"], candidate=candidate_schema, parent=parent_schema))
-    print("Candidate schema sensitivity:", json.dumps(candidate_schema["by_transform_and_source"], indent=2))
-    print("Parent schema sensitivity:", json.dumps(parent_schema["by_transform_and_source"], indent=2))
+    print(f"Selected checkpoint schema sensitivity (step {selection['selected_step']}):", json.dumps(candidate_schema["by_transform_and_source"], indent=2))
+    if same_parent:
+        print("Selected checkpoint is the frozen parent; reusing the identical schema diagnostics.")
+    else:
+        print("Parent schema sensitivity:", json.dumps(parent_schema["by_transform_and_source"], indent=2))
 """)
 
 md("""

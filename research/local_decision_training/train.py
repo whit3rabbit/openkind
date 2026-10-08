@@ -547,14 +547,32 @@ def admit_and_sample(pool, cap, config, tokenizer, audit, seen_requests, seen_st
     return accepted
 
 
-def prepare_data(config, tokenizer, directory):
+def prepare_data(config, tokenizer, directory, *, excluded_groups=()):
     """Only published train files are opened. Historical OpenKind corpora are untouched."""
     reject_benchmark_data(sources=SOURCES.values())
     assert config.get("data_intervention", "control") in ("control", "reasoning")
     assert 0 < config.get("reasoning_fraction", 0.5) < 1
     assert config.get("presentation_augmentation", "none") in ("none", "option_order", "code_assignment", "opaque_keys", "all")
+    excluded_groups = sorted(set(excluded_groups))
+    excluded_group_set = set(excluded_groups)
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
+    backend = getattr(tokenizer, "backend_tokenizer", None)
+    cache_key = (dict(schema=VERSION, config=config, trainer_sha256=file_digest(__file__), model_revision=MODEL_REVISION,
+                      sources=SOURCES, excluded_groups=excluded_groups, tokenizer_sha256=digest(dict(backend=backend.to_str(),
+                          chat_template=tokenizer.chat_template, special_tokens_map=tokenizer.special_tokens_map)))
+                 if backend is not None else None)
+    cache_path = directory / "DATA_CACHE_KEY.json"
+    if cache_key is not None and cache_path.exists():
+        cached = json.loads(cache_path.read_text())
+        assert cached["identity"] == cache_key, "Prepared data identity changed"
+        assert cached["manifest_sha256"] == file_digest(directory / "DATA_MANIFEST.json"), "Prepared data manifest changed"
+        manifest = json.loads((directory / "DATA_MANIFEST.json").read_text())
+        assert manifest["schema"] == VERSION and manifest["config"] == config
+        selected = {role: json.loads((directory / f"{role}.json").read_text()) for role in ROLES}
+        for role, rows in selected.items():
+            assert digest(rows) == manifest["hashes"][role] and len(rows) == manifest["counts"][role], "Prepared data changed: " + role
+        return selected, manifest
     inventory, candidates, audit = {}, collections.defaultdict(list), collections.Counter()
     active = [s for s in SOURCES if (s != "sst5" or config["include_sst5"])
               and (s != "plumb" or config["include_teacher"])
@@ -577,9 +595,15 @@ def prepare_data(config, tokenizer, directory):
             if abs(row.get("teacher_mass_before_normalization", 1.0) - 1.0) > 1e-8:
                 audit[f"{source}:rounded_distribution_renormalized"] += 1
             row["role"] = split_group(row["group"], experiment_seed(config, "split"))
+            if row["group"] in excluded_group_set:
+                audit[f"{source}:excluded_previous_evidence"] += 1
+                continue
             candidates[(source, row["role"], "control")].append(row)
     for row in reasoning_rows(config["synthetic_groups"], experiment_seed(config, "split")):
         row["role"] = split_group(row["group"], experiment_seed(config, "split"))
+        if row["group"] in excluded_group_set:
+            audit["rules:excluded_previous_evidence"] += 1
+            continue
         if row["role"] != "train" or config.get("data_intervention", "control") == "reasoning":
             candidates[("rules", row["role"], "reasoning")].append(row)
     selected = {role: [] for role in ROLES}
@@ -600,6 +624,7 @@ def prepare_data(config, tokenizer, directory):
         assert len({r["id"] for r in rows}) == len(rows)
         immutable_json(directory / f"{role}.json", rows)
     manifest = dict(schema=VERSION, config=config, sources=inventory, audit=dict(audit),
+                    excluded_groups_sha256=digest(excluded_groups),
                     seeds={kind: experiment_seed(config, kind) for kind in ("split", "initialization", "sampling", "augmentation")},
                     counts={k: len(v) for k, v in selected.items()},
                     family_counts={k: dict(collections.Counter(f"{r['source']}/{r['family']}" for r in v))
@@ -616,6 +641,9 @@ def prepare_data(config, tokenizer, directory):
     examples = [r for source in sorted({r["source"] for r in selected["train"]})
                 for r in [x for x in selected["train"] if x["source"] == source][:2]]
     immutable_json(directory / "INSPECT_TRAINING_EXAMPLES.json", examples)
+    if cache_key is not None:
+        # Written last, so interrupted admission never looks like a complete reusable cache.
+        immutable_json(cache_path, dict(identity=cache_key, manifest_sha256=file_digest(directory / "DATA_MANIFEST.json")))
     return selected, manifest
 
 
@@ -665,6 +693,17 @@ def setup_adapters(base, config, quantized=False, compute_dtype=None):
     return peft
 
 
+def _loading_info_json(value):
+    """Transformers 5 loading diagnostics contain sets, including empty ones."""
+    if isinstance(value, dict):
+        return {key: _loading_info_json(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_loading_info_json(item) for item in value]
+    if isinstance(value, (set, frozenset)):
+        return sorted((_loading_info_json(item) for item in value), key=canonical)
+    return value
+
+
 def load_model(config):
     import torch
     from transformers import BitsAndBytesConfig, Qwen3_5ForCausalLM
@@ -687,6 +726,7 @@ def load_model(config):
         quantization_config=quant, attn_implementation="sdpa", trust_remote_code=False,
         output_loading_info=True,
     )
+    loading = _loading_info_json(loading)
     assert not loading.get("missing_keys") and not loading.get("mismatched_keys"), loading
     unexpected = loading.get("unexpected_keys", [])
     assert all("visual" in k or "mtp" in k for k in unexpected), loading
@@ -1180,13 +1220,16 @@ def build_training_schedule(rows, config):
     return schedule
 
 
-def fit(model, data, config, run, identity, baseline_report_sha256=None, *, tokenizer=None):
+def fit(model, data, config, run, identity, baseline_report_sha256=None, *, tokenizer=None, on_event=None):
     reject_benchmark_data(rows=data["train"])
     reject_benchmark_data(rows=data["development"])
     import torch
     from transformers import get_cosine_schedule_with_warmup
     from tqdm.auto import tqdm
     run = Path(run); checkpoints = run / "checkpoints"
+    started = time.perf_counter()
+    performance = dict(schema="local-training-timing-v1", resumed_from=0, optimizer_updates=0,
+                       presented_tokens=0, training_seconds=0.0, development_seconds=0.0, checkpoint_seconds=0.0)
     order = build_training_schedule(data["train"], config)
     augment = config.get("presentation_augmentation", "none") != "none"
     assert not augment or tokenizer is not None, "Presentation augmentation requires the admitted tokenizer"
@@ -1209,18 +1252,27 @@ def fit(model, data, config, run, identity, baseline_report_sha256=None, *, toke
     if completed:
         meta = restore(completed[-1].parent, model, identity, optimizer, scheduler)
         step, history = meta["step"], meta["history"]
+        performance["resumed_from"] = step
     else:
+        phase_started = time.perf_counter()
         baseline = report(predict(model, data["development"]))
+        performance["development_seconds"] += time.perf_counter() - phase_started
         immutable_json(run / "BASELINE_DEVELOPMENT.json", baseline)
         step, history = 0, [dict(step=0, metrics=baseline, retention=dict(passed=True, reasons=[]))]
+        phase_started = time.perf_counter()
         checkpoint(checkpoints, model, optimizer, scheduler, 0, history, identity)
+        performance["checkpoint_seconds"] += time.perf_counter() - phase_started
     baseline = history[0]["metrics"]
     if baseline_report_sha256 is not None:
         assert digest(baseline) == baseline_report_sha256, "Step-zero development reports differ across matched arms"
+    if on_event is not None:
+        for entry in history:
+            on_event("development", entry)
     try:
         for step in tqdm(range(step+1, config["max_steps"]+1), desc="Optimizer updates"):
+            phase_started = time.perf_counter()
             model.train(); optimizer.zero_grad(set_to_none=True)
-            loss_value = 0.0
+            loss_value, tokens = None, 0
             for micro in range(config["accumulation"]):
                 occurrence = (step-1)*config["accumulation"]+micro
                 row = data["train"][order[occurrence]]
@@ -1228,20 +1280,41 @@ def fit(model, data, config, run, identity, baseline_report_sha256=None, *, toke
                     row = training_presentation(row, tokenizer, config, occurrence)
                 loss = loss_for(model, row, config) / config["accumulation"]
                 assert torch.isfinite(loss), "Nonfinite loss"
-                loss.backward(); loss_value += float(loss.detach())
+                loss.backward()
+                # Keep the loss total on device until the update finishes, avoiding a scalar transfer per microbatch.
+                loss_value = loss.detach() if loss_value is None else loss_value + loss.detach()
+                tokens += len(row["input_ids"])
             norm = torch.nn.utils.clip_grad_norm_(params, 1.0, error_if_nonfinite=True)
             optimizer.step(); scheduler.step()
+            loss_value, norm = float(loss_value), float(norm)
+            seconds = time.perf_counter() - phase_started
+            performance["optimizer_updates"] += 1
+            performance["presented_tokens"] += tokens
+            performance["training_seconds"] += seconds
+            if on_event is not None:
+                on_event("update", dict(step=step, train_loss=loss_value, grad_norm=norm,
+                                        learning_rate=optimizer.param_groups[0]["lr"], seconds=seconds, tokens=tokens))
             if step % config["evaluate_every"] == 0 or step == config["max_steps"]:
+                phase_started = time.perf_counter()
                 result = report(predict(model, data["development"]))
-                history.append(dict(step=step, train_loss=loss_value, grad_norm=float(norm), metrics=result,
+                performance["development_seconds"] += time.perf_counter() - phase_started
+                history.append(dict(step=step, train_loss=loss_value, grad_norm=norm, metrics=result,
                                     retention=retention(result, baseline, config)))
                 print({"step": step, "macro_nll": result["macro_nll"], "retention": history[-1]["retention"]}, flush=True)
+                if on_event is not None:
+                    on_event("development", history[-1])
             if step % config["checkpoint_every"] == 0 or step % config["evaluate_every"] == 0 or step == config["max_steps"]:
+                phase_started = time.perf_counter()
                 checkpoint(checkpoints, model, optimizer, scheduler, step, history, identity)
+                performance["checkpoint_seconds"] += time.perf_counter() - phase_started
     except BaseException as exc:
         atomic_json(run / "INTERRUPTED.json", dict(error=type(exc).__name__, message=str(exc), attempted_step=step,
                     recovery="Rerun unchanged config to restore the last committed optimizer checkpoint. No rows are skipped on OOM."))
         raise
+    finally:
+        performance.update(completed_step=performance["resumed_from"] + performance["optimizer_updates"], elapsed_seconds=time.perf_counter() - started,
+                           timing_scope="this invocation; includes no model loading, calibration or gate")
+        atomic_json(run / "PERFORMANCE.json", performance)
     eligible = [h for h in history if h["retention"]["passed"]]
     selected = min(eligible, key=lambda h: (h["metrics"]["macro_nll"], h["step"]))
     selection = dict(identity=identity, selected_step=selected["step"], history=history,
@@ -1271,13 +1344,13 @@ def loss_sweep_configs(config, arms=None):
     return result
 
 
-def run_loss_sweep(model_factory, data, config, output_root, context, arms=None, *, tokenizer=None):
+def run_loss_sweep(model_factory, data, config, output_root, context, arms=None, *, tokenizer=None, arm_context=None):
     """Fresh sequential fits; select one development winner before any gate access."""
     configs = loss_sweep_configs(config, arms)
     plan = dict(schema=VERSION, kind="loss", context=context, model_revision=MODEL_REVISION, arms=configs,
                 selection_rule="minimum unsmoothed source-macro development NLL subject to retention; ties prefer earlier step then arm order",
                 calibration_used=False, gate_used=False, test_opened=False)
-    return _run_matched_sweep(model_factory, data, output_root, plan, tokenizer=tokenizer)
+    return _run_matched_sweep(model_factory, data, output_root, plan, tokenizer=tokenizer, arm_context=arm_context)
 
 
 # One bounded optimization study changes exactly one training parameter against the configured control.
@@ -1295,7 +1368,7 @@ PARAMETER_SWEEP_ARMS = {
 def parameter_sweep_configs(config, arms, dimension):
     """Validate a single-dimension study; the control value must be one arm and nothing else varies."""
     assert dimension in PARAMETER_SWEEP_LIMITS, dimension
-    assert 2 <= len(arms) <= 6, "Use a bounded sweep of 2 to 6 arms"
+    assert 2 <= len(arms) <= 6, "Use a bounded sweep of 2 to 6 arms; pass the complete study, not one arm at a time"
     if dimension == "rank":
         # Otherwise the arm at the control rank silently changes its alpha.
         assert config["alpha"] == 2 * config["rank"], "The rank control must preserve the pilot alpha/rank ratio of 2"
@@ -1320,17 +1393,18 @@ def parameter_sweep_configs(config, arms, dimension):
     return result
 
 
-def run_parameter_sweep(model_factory, data, config, output_root, context, dimension, arms=None, *, tokenizer=None):
+def run_parameter_sweep(model_factory, data, config, output_root, context, dimension, arms=None, *, tokenizer=None, arm_context=None):
     """Fresh sequential fits over one training parameter; select one development winner before any gate access."""
+    assert dimension in PARAMETER_SWEEP_LIMITS, dimension
     configs = parameter_sweep_configs(config, list(PARAMETER_SWEEP_ARMS[dimension] if arms is None else arms), dimension)
     plan = dict(schema=VERSION, kind="parameter", dimension=dimension, context=context, model_revision=MODEL_REVISION,
                 arms=configs,
                 selection_rule="minimum unsmoothed source-macro development NLL subject to retention; ties prefer earlier step then arm order",
                 calibration_used=False, gate_used=False, test_opened=False)
-    return _run_matched_sweep(model_factory, data, output_root, plan, tokenizer=tokenizer)
+    return _run_matched_sweep(model_factory, data, output_root, plan, tokenizer=tokenizer, arm_context=arm_context)
 
 
-def _run_matched_sweep(model_factory, data, output_root, plan, *, tokenizer=None):
+def _run_matched_sweep(model_factory, data, output_root, plan, *, tokenizer=None, arm_context=None):
     import gc
     import torch
     # Passing only these roles to fit prevents a sweep from inspecting protected panels.
@@ -1339,6 +1413,13 @@ def _run_matched_sweep(model_factory, data, output_root, plan, *, tokenizer=None
     sweep_identity = digest(plan)
     sweep = Path(output_root) / ("sweep_" + sweep_identity[:16])
     immutable_json(sweep / "SWEEP_PLAN.json", plan)
+    if (sweep / "SWEEP_RESULT.json").exists():
+        result, selections = _verified_completed_sweep(sweep, sweep_identity, plan)
+        if arm_context is not None:
+            for arm, item, selection in zip(plan["arms"], result["results"], selections):
+                with arm_context(arm, Path(item["run"]), item["identity"], sweep_identity) as log_arm:
+                    log_arm(selection, item)
+        return result
     results, baseline_hash, execution = [], None, None
     for index, arm in enumerate(plan["arms"]):
         arm_config = arm["config"]
@@ -1348,44 +1429,91 @@ def _run_matched_sweep(model_factory, data, output_root, plan, *, tokenizer=None
             torch.cuda.manual_seed_all(experiment_seed(arm_config, "initialization"))
         model = None
         try:
-            model, model_report = model_factory(arm_config)
-            current_execution = dict(precision=model_report["precision"],
-                                     compute_capability=model_report["compute_capability"])
-            if execution is None:
-                execution = current_execution
-            assert current_execution == execution, "Sweep precision or device changed"
-            identity = digest(dict(sweep_identity=sweep_identity, arm=arm, execution=execution))
-            run = sweep / arm["name"]
-            immutable_json(run / "CONFIG.json", dict(identity=identity, config=arm_config, context=plan["context"],
-                                                     sweep_identity=sweep_identity))
-            atomic_json(run / "ENVIRONMENT.json", dict(context=plan["context"], model=model_report))
-            preflight = gradient_preflight(model, admitted["train"][0], arm_config)
-            atomic_json(run / "GRADIENT_PREFLIGHT.json", preflight)
-            selection = fit(model, admitted, arm_config, run, identity, baseline_report_sha256=baseline_hash,
-                            tokenizer=tokenizer)
-            baseline = selection["history"][0]["metrics"]
-            current_baseline = digest(baseline)
-            if baseline_hash is None:
-                baseline_hash = current_baseline
-            assert current_baseline == baseline_hash, "Step-zero development reports differ across matched arms"
-            selected = next(h for h in selection["history"] if h["step"] == selection["selected_step"])
-            assert selected["retention"]["passed"]
-            results.append(dict(name=arm["name"], index=index, config=arm_config, run=str(run),
-                                identity=identity, selected_step=selection["selected_step"],
-                                metrics=selected["metrics"], retention=selected["retention"]))
+            with contextlib.ExitStack() as resources:
+                model, model_report = model_factory(arm_config)
+                current_execution = dict(precision=model_report["precision"],
+                                         compute_capability=model_report["compute_capability"])
+                if execution is None:
+                    execution = current_execution
+                assert current_execution == execution, "Sweep precision or device changed"
+                identity = digest(dict(sweep_identity=sweep_identity, arm=arm, execution=execution))
+                run = sweep / arm["name"]
+                immutable_json(run / "CONFIG.json", dict(identity=identity, config=arm_config, context=plan["context"],
+                                                         sweep_identity=sweep_identity))
+                atomic_json(run / "ENVIRONMENT.json", dict(context=plan["context"], model=model_report))
+                # Tracking observes an arm inside the validated study, so it cannot turn it into a singleton sweep.
+                log_arm = (resources.enter_context(arm_context(arm, run, identity, sweep_identity))
+                           if arm_context is not None else None)
+                preflight = gradient_preflight(model, admitted["train"][0], arm_config)
+                atomic_json(run / "GRADIENT_PREFLIGHT.json", preflight)
+                selection = fit(model, admitted, arm_config, run, identity, baseline_report_sha256=baseline_hash,
+                                tokenizer=tokenizer, on_event=getattr(log_arm, "on_event", None))
+                baseline = selection["history"][0]["metrics"]
+                current_baseline = digest(baseline)
+                if baseline_hash is None:
+                    baseline_hash = current_baseline
+                assert current_baseline == baseline_hash, "Step-zero development reports differ across matched arms"
+                selected = next(h for h in selection["history"] if h["step"] == selection["selected_step"])
+                assert selected["retention"]["passed"]
+                result = dict(name=arm["name"], index=index, config=arm_config, run=str(run),
+                              identity=identity, selected_step=selection["selected_step"],
+                              metrics=selected["metrics"], retention=selected["retention"])
+                results.append(result)
+                if log_arm is not None:
+                    log_arm(selection, result)
         finally:
             del model
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+    result = _sweep_result(sweep_identity, results, baseline_hash, execution, plan["selection_rule"])
+    immutable_json(sweep / "SWEEP_RESULT.json", result)
+    return result
+
+
+def _sweep_result(sweep_identity, results, baseline_hash, execution, selection_rule):
     winner = min(results, key=lambda r: (r["metrics"]["macro_nll"], r["selected_step"], r["index"]))
     result = dict(sweep_identity=sweep_identity, selected_arm=winner["name"], selected_run=winner["run"],
                   selected_identity=winner["identity"], selected_config=winner["config"], results=results,
                   matched_baseline_report_sha256=baseline_hash, execution=execution,
-                  selection_rule=plan["selection_rule"], calibration_used=False, gate_used=False,
+                  selection_rule=selection_rule, calibration_used=False, gate_used=False,
                   test_opened=False, model_promoted=False)
-    immutable_json(sweep / "SWEEP_RESULT.json", result)
     return result
+
+
+def _verified_completed_sweep(sweep, sweep_identity, plan):
+    """Reuse completed work only after checking every arm and its committed final and selected checkpoints."""
+    saved = json.loads((sweep / "SWEEP_RESULT.json").read_text())
+    assert saved["sweep_identity"] == sweep_identity, "Completed sweep identity changed"
+    results, selections, baseline_hash = [], [], None
+    execution = saved["execution"]
+    for index, arm in enumerate(plan["arms"]):
+        run = sweep / arm["name"]
+        identity = digest(dict(sweep_identity=sweep_identity, arm=arm, execution=execution))
+        assert json.loads((run / "CONFIG.json").read_text()) == dict(
+            identity=identity, config=arm["config"], context=plan["context"], sweep_identity=sweep_identity)
+        environment = json.loads((run / "ENVIRONMENT.json").read_text())
+        assert {k: environment["model"][k] for k in ("precision", "compute_capability")} == execution
+        selection = json.loads((run / "SELECTION.json").read_text())
+        assert selection["identity"] == identity
+        final = verify_checkpoint(run / "checkpoints" / f"step_{arm['config']['max_steps']:06d}", identity)
+        assert final["step"] == arm["config"]["max_steps"], "Completed sweep final step changed"
+        assert selection["history"] == final["history"], "Completed sweep history changed"
+        baseline = selection["history"][0]["metrics"]
+        assert json.loads((run / "BASELINE_DEVELOPMENT.json").read_text()) == baseline
+        current_baseline = digest(baseline)
+        baseline_hash = current_baseline if baseline_hash is None else baseline_hash
+        assert current_baseline == baseline_hash, "Completed sweep baselines differ"
+        eligible = [entry for entry in selection["history"] if entry["retention"]["passed"]]
+        selected = min(eligible, key=lambda entry: (entry["metrics"]["macro_nll"], entry["step"]))
+        assert selected["step"] == selection["selected_step"], "Completed sweep selection changed"
+        verify_checkpoint(run / "checkpoints" / f"step_{selected['step']:06d}", identity)
+        results.append(dict(name=arm["name"], index=index, config=arm["config"], run=str(run), identity=identity,
+                            selected_step=selected["step"], metrics=selected["metrics"], retention=selected["retention"]))
+        selections.append(selection)
+    result = _sweep_result(sweep_identity, results, baseline_hash, execution, plan["selection_rule"])
+    assert saved == result, "Completed sweep result changed"
+    return result, selections
 
 
 def calibrate_and_gate(model, data, config, run, identity, selection):
@@ -1644,6 +1772,20 @@ def export_bundle(model, tokenizer, config, manifest, run, identity, selection, 
                     engine_status="research adapter; not installed in the OpenKind registry",
                     merge_and_quantization_status="not performed; requalify quality, calibration and memory on Mac after conversion")
     atomic_json(temp / "DECISION_CONTRACT.json", contract)
+    if (run / "POSTTRAINING_PLAN.json").exists():
+        plan = json.loads((run / "POSTTRAINING_PLAN.json").read_text())
+        assert plan["identity"] == identity and plan["trainer_sha256"] == file_digest(Path(__file__).with_name("decision_rl.py"))
+        contract.update(training_stage="calibration-aware-decision-optimization-v1",
+                        posttraining=plan["rl_config"], supervised_parent=plan["source"],
+                        loss=dict(label_smoothing=0.0, ce_weight=plan["rl_config"]["ce_weight"],
+                                  brier_weight=plan["rl_config"]["brier_weight"],
+                                  brier_target="original distribution", brier_reduction="sum over outcomes",
+                                  reference_kl_weight=plan["rl_config"]["kl_weight"],
+                                  policy_weight=plan["rl_config"]["policy_weight"]),
+                        parent_semantics="step zero is the uncalibrated supervised checkpoint, not the original Qwen adapter")
+        atomic_json(temp / "DECISION_CONTRACT.json", contract)
+        shutil.copy2(run / "POSTTRAINING_PLAN.json", temp / "POSTTRAINING_PLAN.json")
+        shutil.copy2(Path(__file__).with_name("decision_rl.py"), temp / "decision_rl.py")
     atomic_json(temp / "TRAINING_CONFIG.json", config)
     for name in ("CONFIG.json", "ENVIRONMENT.json", "SELECTION.json", "GATE_RESULT.json", "CALIBRATION_ROWS.json", "GATE_ROWS.json"):
         shutil.copy2(run / name, temp / name)

@@ -16,6 +16,204 @@ end unattended and is a distinct experiment, not a cheaper notebook 35.
 [DECISIONS.md](DECISIONS.md) records the evidence, alternatives and acceptance
 conditions for this design.
 
+## Model workflow
+
+| Stage | Notebook | Output |
+|---|---|---|
+| Compare bounded recipes | [T4 experiments](local_decision_training_t4.ipynb), or [A100/L4 control](../35_local_decision_training.ipynb) | Development-selected configuration and retention evidence |
+| Fine-tune one fixed recipe | [Fine-tuning](local_decision_finetuning.ipynb) | One LoRA run, calibration, gate and locked research export |
+| Optional decision RL | [Post-training](local_decision_posttraining.ipynb) | Warm-started adapter, reward/reference diagnostics and development retention; acceptance disabled by default |
+| Prepare a release | [Release preparation](local_decision_release.ipynb) | Pinned PEFT adapter, tokenizer, decision contract, model card and file manifest |
+
+The fixed-recipe notebook accepts a local `SWEEP_RESULT.json` through
+`CHOSEN_RECIPE_PATH`, or runs the bounded control. It starts from the pinned Qwen
+base with a fresh optimizer; it does not continue another arm's adapter. Exact
+reruns resume committed checkpoints. Gate results must not inform further tuning
+while those same groups are presented as fresh acceptance evidence.
+An experiment that already produced a suitable frozen export can go straight to
+release preparation. Repeating the same fit is optional, not a required stage.
+Declare any longer budget or changed recipe before consulting acceptance results.
+
+### Dataset fine-tuning and optional decision RL
+
+The fixed-recipe notebook trains on datasets, not just a configuration file:
+MNLI, BoolQ, Banking77, MultiRC, SST-5, Plumb teacher decisions and generated
+rules use the same pinned conversion, admission and group splits as the T4
+experiment. `include_helpsteer2=True` adds the human-rating adequacy proxy.
+`data_intervention="reasoning"` replaces part of the rules training allocation
+with exact reasoning cases and complete multi-field requests. These are
+declared interventions; neither is enabled implicitly in supervised control
+fits. PAWS, SciQ and TypeSafe remain evaluation-only. ContractNLI and QASPER
+remain later long-document studies, outside the current bounded mixture.
+
+The [decision-RL trainer](decision_rl.py) implements an optional second stage
+from the trained supervised adapter. It uses a fresh optimizer and records the
+source checkpoint, adapter digest, original dataset binding, stage configuration
+and code hashes. It refuses a step-zero warm start. If the supervised selector
+retained its parent, an explicitly supplied positive `SUPERVISED_STEP` can start
+an experimental recovery study from a rejected checkpoint. This does not certify
+that checkpoint or the RL result. Preserve the full run and prepared-data folder;
+the export ZIP does not contain rejected checkpoints or training rows.
+
+Configure `SUPERVISED_RUN` and `SUPERVISED_DATA_DIR`, then declare one method:
+
+| `RL_CONFIG["method"]` | Objective |
+|---|---|
+| `supervised` | Direct CE + Brier + frozen-reference KL; no utility gradient |
+| `expected_utility` | Same anchors plus exact finite-action expected utility |
+| `reinforce` | Same anchors plus sampled actions and a leave-one-out policy gradient |
+
+The default reward coefficients are experimental starting values, not recovered
+Clef settings. Adjacent numeric ordinal levels receive partial credit; answer
+code positions never define distance. `__none__` receives exact credit only.
+Complete-record credit requires every field in a declared, exact-label request
+to be correct. Counterfactual pairs are not treated as joint records. Teacher
+probabilities remain soft targets and retain the supervised half loss weight.
+The stage enables the reasoning intervention to supply complete training requests.
+
+CE and Brier use their direct gradients. Assigning the same detached Brier score
+to every sampled action would cancel under the leave-one-out baseline and would
+not train calibration. A positive `kl_weight` constrains the decision distribution
+against cached logits from the supervised checkpoint. Only those finite logits
+are cached, so a second 4B backbone is not retained on the T4. Code permutations
+and admission bounds bind every reference presentation. Record updates retain
+multiple field graphs and can cost more memory than single-question updates.
+
+The initial budget is 50 updates with accumulation over eight complete units.
+Compare all three methods with matched inputs and budgets on development first.
+Selection still minimizes source-macro development NLL subject to the existing
+retention guards. Reward and complete-record utility are diagnostics, not
+substitutes for proper scores or acceptance evidence. `RUN_ACCEPTANCE=False`
+keeps calibration scores, gate scores and exports closed by default.
+
+Fresh acceptance excludes calibration, gate and test groups from the source
+data, plus every additional directory listed in `PRIOR_EVIDENCE_DATA_DIRS`.
+Split roles are not reassigned. Exclusion is part of the admission cache identity;
+insufficient new groups stop preparation. The notebook cannot discover evidence
+you viewed in other runs, so supply those directories. After freezing the method,
+enable acceptance once. Failure exports the uncalibrated supervised checkpoint,
+which is this stage's step zero, and does not qualify a new RL improvement.
+
+W&B records policy rewards, exact-record rewards, CE, Brier, entropy, reference
+KL, development utility and timing on the optimizer-step axis. Local checkpoints,
+reference locks, per-update diagnostics and `POSTTRAINING_SUMMARY.json` also work
+without W&B. An accepted export locks the RL plan, trainer and supervised lineage
+and works with the existing release notebook. No public upload is automatic.
+
+This is an open calibration-aware decision optimization experiment inspired by
+[Clef's disclosure](https://blog.cloudflare.com/clef-decision-models/), not a
+reproduction of its unreleased reward implementation. Offline tiny-model tests
+cover policy-gradient agreement with an exact expectation, ordinal remapping,
+complete requests, warm-start binding, interruption/resume, reference tampering,
+fresh-group admission and frozen export. Full 4B CUDA/T4 quality, memory and speed
+remain unmeasured.
+
+The release notebook uses a frozen export directory or its portable ZIP. It
+rejects step-zero exports as a new trained model, preserves the locked bundle,
+and pins the base revision in the conventional PEFT entry files. A local package
+is the default. Optional upload requires an explicit token and a new private Hub
+repository, then checks the inventory at the returned commit. It does not merge
+the base, publish publicly, or install a registry profile. Review the model card
+and source terms before public distribution; SST-5's mirror still declares no
+license. [Hub uploads](https://huggingface.co/docs/huggingface_hub/guides/upload)
+and [model cards](https://huggingface.co/docs/huggingface_hub/guides/model-cards)
+define the external packaging contract.
+
+### What counts as our model
+
+The first deliverable should be a named, versioned **decision adapter** on the
+pinned Qwen3.5-4B base. The trained weights, renderer, dynamic-option readout,
+semantic-none rule, calibration and qualification evidence form the model.
+This is fine-tuning of pretrained weights, not pretraining a new architecture.
+Its custom readout needs the supplied reference code; a generic generation
+pipeline does not implement the decision contract.
+
+After an adapter passes meaningful held-out comparisons, load the unquantized
+pinned base, merge with PEFT, and recheck probabilities, calibration and task
+quality. Then quantize and qualify the native Mac path with matched memory and
+latency evidence. Merge changes the artifact and quantization changes numerics;
+neither inherits the training screen automatically.
+[PEFT checkpoint guidance](https://huggingface.co/docs/peft/developer_guides/checkpoint)
+describes adapter and merged artifacts.
+
+A later architecture study could compare a smaller pretrained encoder with a
+dynamic option-ranking head against this 4B baseline. That head must learn
+abstention, preserve option descriptions and expose typed score distributions.
+Treat it as a new family with its own loss, renderer, calibration, native runtime
+and qualification fixtures. Keep pretraining from scratch in a separate campaign
+with a declared corpus and compute budget. The current capped mixture and pilot
+update count do not establish a useful general backbone.
+
+### W&B and speed
+
+`USE_WANDB=True` in the T4 or fixed-recipe notebook logs live loss, gradient norm,
+learning rate, update timing, token throughput and development metrics. The
+optimizer-step axis is separate from W&B's internal log sequence. Online runs use
+a stable ID and skip already logged events on resume; offline runs need no login
+and produce separate logs in the same group. `WANDB_LOG_EVERY=10` limits update
+logging. W&B observes local selection and never runs its own search over gate or
+test data. After export it records the actual gate decision, exported step and
+calibration, including parent fallback. `WANDB_LOG_REPORTS=True` optionally
+attaches small qualification reports; weights and row-level predictions are excluded.
+
+Prepared-data reuse checks the fast tokenizer, chat template, source pins,
+configuration, trainer hash, provenance manifest and every role's stored content hash. A completed
+sweep verifies each arm's final and selected checkpoints before returning its
+saved winner, without reloading model weights or rerunning preflight. Loss totals
+stay on device until an update completes. `PERFORMANCE.json` separates training,
+development evaluation and checkpoint time for the latest invocation; it is not
+a GPU benchmark or a quality result.
+
+The pasted run shows a 150-update loop taking 1:13:28, with a final progress-rate
+estimate near 83 seconds per update. That smoothed estimate includes stalls and
+does not measure isolated update time. The reference
+DeltaNet/convolution warnings identify a plausible bottleneck, but no kernel
+timing attributes that wall time yet. Keep the math attention/checkpoint path as
+the control. Test optimized kernels, SDPA changes or larger microbatches in
+separate paired runs on the target GPU, including real backward, memory,
+probability and quality checks. Do not assume an A100 result applies to T4.
+FP16-only training also needs a dedicated scaling/numerics qualification; this
+audit has not qualified a GradScaler path or established T4 quality gains.
+
+Regenerate and validate locally:
+
+```bash
+python research/local_decision_training/build_notebook.py
+python research/local_decision_training/build_t4_notebook.py
+python research/local_decision_training/build_finetuning_notebook.py
+python research/local_decision_training/build_posttraining_notebook.py
+python research/local_decision_training/build_release_notebook.py
+env HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 OMP_NUM_THREADS=1 python -m unittest discover -s research/local_decision_training -p 'test*.py' -v
+env HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 OMP_NUM_THREADS=1 python research/local_decision_training/validate_notebooks.py
+```
+
+Validation uses offline fixtures. It cannot establish a complete 4B Colab run,
+native Mac qualification or a successful Hub upload.
+
+When development selection retains step zero, the gate's `candidate_raw` table
+and selected-checkpoint schema panel evaluate the frozen parent. A parent can
+also violate an absolute false-none cap; retaining it does not qualify it.
+Identical step-zero schema diagnostics at temperature 1 are reused. The summary
+separates the lowest observed development NLL from the retention-selected
+checkpoint, and candidate evaluation temperature from the actual export temperature.
+The export ZIP contains the exported weights, not rejected trained checkpoints.
+Preserve the full run directory to keep those checkpoints for further inspection.
+
+### Colab setup and loading diagnostics
+
+The training notebooks remove the unused preinstalled `torchao` before installing
+the pinned stack. PEFT 0.21.1 rejects `torchao` 0.10.0 even during ordinary LoRA
+dispatch; NF4 in this recipe uses bitsandbytes. Keep Colab's Torch/CUDA build.
+If upgrading an already imported stack, restart the Python session and rerun setup.
+[PEFT's compatibility check](https://github.com/huggingface/peft/blob/v0.21.1/src/peft/import_utils.py)
+defines this dependency constraint.
+
+Transformers 5.17.0 returns sets in `output_loading_info`. The loader normalizes
+them to deterministic JSON arrays before writing `ENVIRONMENT.json`, including
+empty sets. Missing or mismatched weights and unreviewed text keys still fail the
+loading checks. Regression tests load an actual local tiny checkpoint; they do
+not download the 4B weights.
+
 ## Quickstart
 
 Upload the notebook at [Google Colab](https://colab.research.google.com/), select
@@ -249,11 +447,12 @@ Do not compare raw training losses across objectives or promote an arm from a
 leaderboard claim. Separate run identities prevent incompatible resume. A repeated
 search using gate results spends that gate and needs fresh acceptance groups.
 
-RLCD, ordinal utility rewards, meaning-preserving prompt paraphrases, and a
+Decision RL and ordinal/complete-record utility rewards now have their own
+optional post-training notebook. Meaning-preserving prompt paraphrases and a
 learned head remain separate experiments. The v4 presentation transforms have
 explicit switches and do not generate paraphrases. The public recipe cannot establish their exact
-settings or individual effects. Exact-record rewards need multi-field training
-records; the current single-question mixture does not provide them.
+settings or individual effects. Exact-record rewards use the reasoning generator's
+declared multi-field requests; the single-question control does not provide them.
 
 ## Strands Decider training lessons
 

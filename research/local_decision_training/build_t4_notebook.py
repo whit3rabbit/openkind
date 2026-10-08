@@ -5,7 +5,8 @@ import textwrap
 import nbformat as nbf
 
 HERE = Path(__file__).resolve().parent
-TARGET = HERE / "local_decision_training_t4.ipynb"
+FIXED_RECIPE_NOTEBOOK = globals().get("FIXED_RECIPE_NOTEBOOK", False)
+TARGET = globals().get("NOTEBOOK_TARGET", HERE / ("local_decision_finetuning.ipynb" if FIXED_RECIPE_NOTEBOOK else "local_decision_training_t4.ipynb"))
 cells = []
 
 
@@ -23,7 +24,7 @@ def code(text, hidden=False):
 md("""
 # Train a local decision model on a free Colab T4, unattended
 
-**OpenKind experiment 40, version 4. Reviewed 3 October 2026.**
+**OpenKind experiment 40, version 4. Reviewed 4 October 2026.**
 
 This notebook is the T4 sibling of [notebook 35](../35_local_decision_training.ipynb). It embeds
 the same reviewed trainer and test suite and trains a `Qwen/Qwen3.5-4B` rank-16 LoRA for typed
@@ -46,15 +47,15 @@ data recipe, split rules, retention guards and export contract.
   acceptance gate, schema diagnostics and export. The gate accepts or rejects; it never tries
   another arm. Set `SWEEP_MODE` to `"rank"`, `"loss"`, or `"none"` for other studies.
 
-Allow roughly 5–8 hours at defaults: downloads and data admission (about 40–70 minutes), the
-offline test suite (about 10 minutes), three 150-update fits with evaluation, then calibration,
-gate and export. Six-arm loss mode or 400-update budgets can exceed a free session. Estimating
-T4 wall time precisely is not possible from the A100 evidence; a completed `SWEEP_RESULT.json`
+Budget for downloads, data admission, three 150-update fits, development evaluation,
+calibration, gate and export. A full sweep can exceed a free session. Use this session's
+`PERFORMANCE.json` to separate update, evaluation and checkpoint time before extrapolating;
+T4 wall time cannot be estimated reliably from A100 evidence. A completed `SWEEP_RESULT.json`
 and `GATE_RESULT.json` are the record.
 
 **Status discipline.** Offline tests exercise data semantics, tiny hybrid gradients, sweeps,
-resume, selection, calibration and export. A full 4B CUDA training run, the FP16 numerics on T4,
-and Mac quality/speed measurements have not been performed. Successful training is not evidence
+resume, selection, calibration and export. This revised notebook has not completed 4B CUDA
+validation, FP16 numerics qualification on T4 or Mac quality/speed measurements. Successful training is not evidence
 that the adapted model beats its parent, and the exported adapter is a research bundle, not a
 registered OpenKind profile.
 """)
@@ -95,7 +96,9 @@ md("""
 ## 2. Install the training stack
 
 Keep Colab's existing Torch/CUDA installation and pin the reviewed Transformers/PEFT/data stack
-around it. If Colab asks for a restart, restart the session and choose Run all again. Optional
+around it. Remove Colab's unused `torchao`: an older preinstalled version can make PEFT's
+ordinary LoRA dispatch fail. This recipe uses bitsandbytes for NF4.
+If Colab asks for a restart, restart the session and choose Run all again. Optional
 custom DeltaNet kernels are deliberately absent; the Transformers reference path is slower but
 avoids an unqualified backward kernel change.
 """)
@@ -104,10 +107,13 @@ import importlib.metadata
 import subprocess
 import sys
 
+# PEFT probes installed torchao even for ordinary LoRA; this recipe uses bitsandbytes instead.
+subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "-y", "torchao"])
 requirements = [
     "transformers==5.17.0", "peft==0.21.1", "datasets==5.0.1",
     "accelerate==1.15.0", "bitsandbytes==0.50.2", "huggingface_hub==1.33.0",
     "safetensors==0.8.0", "tokenizers==0.23.2", "tqdm>=4.66", "pandas>=2.2",
+    "wandb==0.28.1",
 ]
 subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", *requirements])
 import torch
@@ -145,7 +151,7 @@ if USE_DRIVE:
 WORK.mkdir(parents=True, exist_ok=True)
 OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
 """)
-embedded_names = ("train.py", "benchmark.py", *sorted(p.name for p in HERE.glob("test*.py")))
+embedded_names = ("train.py", "benchmark.py", "wandb_tracking.py", "release.py", "decision_rl.py", *sorted(p.name for p in HERE.glob("test*.py")))
 code("# @title Embedded training implementation and offline tests\n"
      + f"EMBEDDED_SOURCE_FILES = {embedded_names!r}\n" + "\n".join(
     f"(WORK / {name!r}).write_text({(HERE/name).read_text()!r}, encoding='utf-8')"
@@ -167,6 +173,13 @@ truncated, and the admission audit reports them. `SWEEP_MODE` selects the one pr
 configured control value and vary nothing else; the validators reject mixed dimensions. Leave
 `RUN_FINAL_TEST` and `RUN_TYPESAFE_BENCHMARK` off until a recipe is frozen; viewing those
 results spends the reserved panels.
+
+`USE_WANDB=True` tracks live optimizer metrics and development reports for each sweep arm,
+or for a single fixed recipe. Local checkpoint and selection files govern the result.
+`WANDB_MODE="offline"` saves logs without login. For `"online"`, set `WANDB_API_KEY` in the
+environment or Colab Secrets with notebook access enabled, and optionally set `WANDB_ENTITY`.
+Missing credentials stop before data preparation. Online runs resume under a stable run ID;
+offline reruns produce a new log in the same group. `WANDB_LOG_EVERY` bounds update logging.
 """)
 code("""
 import importlib
@@ -204,6 +217,12 @@ CONFIG.update(
 )
 SWEEP_MODE = "learning_rate"  # "learning_rate", "rank", "loss", or "none".
 CUSTOM_SWEEP_ARMS = None      # Optional 2-6 arms including the control value; one dimension only.
+USE_WANDB = False
+WANDB_PROJECT = "openkind-local-decisions"
+WANDB_ENTITY = None          # Set your W&B account or team for online tracking.
+WANDB_MODE = "offline"       # "online" requires WANDB_API_KEY; neither mode asks for login.
+WANDB_LOG_EVERY = 10
+WANDB_LOG_REPORTS = False    # Optional small qualification reports; no weights or row-level predictions.
 RUN_FINAL_TEST = False
 RUN_TYPESAFE_BENCHMARK = False  # Evaluation only, after freezing the export.
 TYPESAFE_CASES_PER_SOURCE = 10  # None evaluates all cases. Sample whole cases before token admission.
@@ -211,6 +230,28 @@ TYPESAFE_MAX_LENGTH = 12288     # Benchmark-only long-input panel; None enforces
 PREPARE_ONLY = False            # True stops before loading model weights or training.
 assert SWEEP_MODE in ("learning_rate", "rank", "loss", "none"), SWEEP_MODE
 assert CONFIG["max_steps"] > 0 and CONFIG["accumulation"] > 0
+# Validate the complete study before downloads, model loading or tracking initialization.
+if SWEEP_MODE == "loss":
+    sweep_configs = recipe.loss_sweep_configs(CONFIG, CUSTOM_SWEEP_ARMS)
+elif SWEEP_MODE in ("learning_rate", "rank"):
+    sweep_configs = recipe.parameter_sweep_configs(
+        CONFIG, recipe.PARAMETER_SWEEP_ARMS[SWEEP_MODE] if CUSTOM_SWEEP_ARMS is None else CUSTOM_SWEEP_ARMS, SWEEP_MODE)
+else:
+    assert CUSTOM_SWEEP_ARMS is None, "CUSTOM_SWEEP_ARMS requires a sweep mode"
+    sweep_configs = []
+CONTROL_CONFIG = dict(CONFIG)  # Later cells use the winner; rerunning this study keeps the original control.
+if USE_WANDB:
+    assert WANDB_MODE in ("offline", "online"), WANDB_MODE
+    assert type(WANDB_LOG_EVERY) is int and WANDB_LOG_EVERY > 0
+    import os
+    if WANDB_MODE == "online" and not os.environ.get("WANDB_API_KEY"):
+        from google.colab import userdata
+        try:
+            os.environ["WANDB_API_KEY"] = userdata.get("WANDB_API_KEY")
+        except (userdata.SecretNotFoundError, userdata.NotebookAccessError) as exc:
+            raise ValueError("Set WANDB_API_KEY in Colab Secrets with notebook access, or use WANDB_MODE='offline'.") from exc
+    import wandb_tracking
+    importlib.reload(wandb_tracking)
 initialization_seed = recipe.experiment_seed(CONFIG, "initialization")
 random.seed(initialization_seed)
 import torch
@@ -228,7 +269,9 @@ selection, calibration, export and tamper rejection. They download no model asse
 measure 4B quality. A failure here stops the session before any GPU time is spent.
 """)
 code("""
-subprocess.check_call([sys.executable, "-m", "unittest", "discover", "-s", str(WORK), "-p", "test*.py", "-v"])
+import os
+test_environment = dict(os.environ, HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1", OMP_NUM_THREADS="1")
+subprocess.check_call([sys.executable, "-m", "unittest", "discover", "-s", str(WORK), "-p", "test*.py", "-v"], env=test_environment)
 """)
 
 md("""
@@ -243,6 +286,7 @@ code("""
 from transformers import AutoTokenizer
 import pandas as pd
 
+CONFIG = dict(CONTROL_CONFIG)
 tokenizer = AutoTokenizer.from_pretrained(recipe.MODEL_ID, revision=recipe.MODEL_REVISION, trust_remote_code=False)
 source_hashes = {name: recipe.file_digest(WORK / name) for name in EMBEDDED_SOURCE_FILES}
 source_sha = source_hashes["train.py"]
@@ -297,8 +341,14 @@ if not PREPARE_ONLY:
                          python=platform.python_version(), gpu=torch.cuda.get_device_name(0),
                          compute_capability=list(torch.cuda.get_device_capability(0)),
                          total_gib=torch.cuda.get_device_properties(0).total_memory/1024**3)
+    CONFIG = dict(CONTROL_CONFIG)
     sweep = None
-    if SWEEP_MODE == "loss":
+    if USE_WANDB and SWEEP_MODE != "none":
+        sweep = wandb_tracking.run_sweep_with_wandb(
+            recipe.load_model, data, CONFIG, OUTPUT_ROOT, sweep_context, SWEEP_MODE,
+            arms=CUSTOM_SWEEP_ARMS, tokenizer=tokenizer,
+            project=WANDB_PROJECT, entity=WANDB_ENTITY, mode=WANDB_MODE, log_every=WANDB_LOG_EVERY)
+    elif SWEEP_MODE == "loss":
         sweep = recipe.run_loss_sweep(recipe.load_model, data, CONFIG, OUTPUT_ROOT, sweep_context,
                                       arms=CUSTOM_SWEEP_ARMS, tokenizer=tokenizer)
     elif SWEEP_MODE in ("learning_rate", "rank"):
@@ -313,7 +363,8 @@ if not PREPARE_ONLY:
         RUN = OUTPUT_ROOT / ("run_" + identity[:16])
         RUN.mkdir(parents=True, exist_ok=True)
         recipe.immutable_json(RUN / "CONFIG.json", dict(identity=identity, config=CONFIG, software=software,
-                                                        source_sha=source_sha, source_hashes=source_hashes))
+                                                        source_sha=source_sha, source_hashes=source_hashes,
+                                                        data_manifest_sha256=recipe.digest(manifest), data_directory=str(DATA_DIR)))
         recipe.atomic_json(RUN / "ENVIRONMENT.json", dict(python=platform.python_version(), software=software,
                                                           model=model_report))
         started = time.perf_counter()
@@ -323,7 +374,12 @@ if not PREPARE_ONLY:
         recipe.atomic_json(RUN / "GRADIENT_PREFLIGHT.json", preflight)
         print("Run directory:", RUN)
         print("Gradient preflight:", preflight)
-        selection = recipe.fit(model, data, CONFIG, RUN, identity, tokenizer=tokenizer)
+        if USE_WANDB:
+            selection = wandb_tracking.run_finetune_with_wandb(
+                model, data, CONFIG, RUN, identity, tokenizer=tokenizer,
+                project=WANDB_PROJECT, entity=WANDB_ENTITY, mode=WANDB_MODE, log_every=WANDB_LOG_EVERY)
+        else:
+            selection = recipe.fit(model, data, CONFIG, RUN, identity, tokenizer=tokenizer)
     if sweep is not None:
         varying = sorted({k for r in sweep["results"] for k in r["config"]
                           if len({other["config"].get(k) for other in sweep["results"]}) > 1})
@@ -347,6 +403,8 @@ if not PREPARE_ONLY:
                                  reasons="; ".join(h["retention"]["reasons"])) for h in selection["history"]])
     display(history)
     print("Selected update:", selection["selected_step"], "(0 means retain the frozen parent)")
+    if (RUN / "PERFORMANCE.json").exists():
+        print("Timing (latest training invocation):", json.loads((RUN / "PERFORMANCE.json").read_text()))
 """)
 
 md("""
@@ -360,9 +418,11 @@ not trigger another checkpoint, temperature or sweep-arm search.
 code("""
 if not PREPARE_ONLY:
     gate = recipe.calibrate_and_gate(model, data, CONFIG, RUN, identity, selection)
+    print("Evaluated checkpoint:", selection["selected_step"],
+          "(frozen parent)" if selection["selected_step"] == 0 else "(trained checkpoint)")
     display(pd.DataFrame(gate["candidate_raw"]["by_source"]).T[["n", "accuracy", "nll", "brier", "ece", "none_recall", "false_none_rate"]])
     print("Decision:", gate["decision"])
-    print("Temperature:", gate["deployed_temperature"], "accepted:", gate["calibration_accepted"])
+    print("Evaluated temperature:", gate["deployed_temperature"], "accepted:", gate["calibration_accepted"])
     print("Retention gate:", gate["retention"])
 """)
 
@@ -379,12 +439,19 @@ if not PREPARE_ONLY and CONFIG["schema_diagnostics"]:
     selected_path = RUN / "checkpoints" / f"step_{selection['selected_step']:06d}"
     recipe.restore(selected_path, model, identity)
     candidate_schema = recipe.schema_diagnostics(model, tokenizer, data["gate"], CONFIG["max_length"], gate["deployed_temperature"])
-    recipe.restore(RUN / "checkpoints/step_000000", model, identity)
-    parent_schema = recipe.schema_diagnostics(model, tokenizer, data["gate"], CONFIG["max_length"])
+    same_parent = selection["selected_step"] == 0 and gate["deployed_temperature"] == 1.0
+    if same_parent:
+        parent_schema = candidate_schema
+    else:
+        recipe.restore(RUN / "checkpoints/step_000000", model, identity)
+        parent_schema = recipe.schema_diagnostics(model, tokenizer, data["gate"], CONFIG["max_length"])
     recipe.restore(selected_path, model, identity)
     recipe.immutable_json(RUN / "SCHEMA_DIAGNOSTICS.json", dict(identity=identity, selected_step=selection["selected_step"], candidate=candidate_schema, parent=parent_schema))
-    print("Candidate schema sensitivity:", json.dumps(candidate_schema["by_transform_and_source"], indent=2))
-    print("Parent schema sensitivity:", json.dumps(parent_schema["by_transform_and_source"], indent=2))
+    print(f"Selected checkpoint schema sensitivity (step {selection['selected_step']}):", json.dumps(candidate_schema["by_transform_and_source"], indent=2))
+    if same_parent:
+        print("Selected checkpoint is the frozen parent; reusing the identical schema diagnostics.")
+    else:
+        print("Parent schema sensitivity:", json.dumps(parent_schema["by_transform_and_source"], indent=2))
 """)
 
 md("""
@@ -392,7 +459,8 @@ md("""
 
 The export contains the PEFT adapter, tokenizer, exact prompt/readout contract, source pins,
 sweep plan and result, selection/calibration reports, the executed implementation and file
-hashes. A failed gate exports step zero with the trained candidate preserved for inspection.
+hashes. A failed gate exports step zero. Trained checkpoints remain in the run directory,
+outside the export ZIP; preserve that full directory to keep their weights for inspection.
 Keep `export/` beside `EXPORT_LOCK.json` when extracting. The caller supplies the pinned parent
 weights; the bundle does not redistribute base tensors. This is not a registry installation: Mac
 deployment still needs adapter merge, quantization, and paired native quality, calibration,
@@ -419,17 +487,29 @@ new bounded study, not an edit to this one.
 code("""
 if not PREPARE_ONLY:
     winner = selection["selected_step"] > 0 and gate["decision"] == "experimental_candidate_passed"
+    best_observed = min(selection["history"], key=lambda h: (h["metrics"]["macro_nll"], h["step"]))
+    exported_contract = json.loads((export / "DECISION_CONTRACT.json").read_text())
     summary = dict(schema=recipe.VERSION, sweep_mode=SWEEP_MODE,
                    selected_arm=sweep["selected_arm"] if sweep else "control",
                    selected_step=selection["selected_step"],
                    macro_nll=selection["history"][[h["step"] for h in selection["history"]]
                                                  .index(selection["selected_step"])]["metrics"]["macro_nll"],
+                   best_observed_development_step=best_observed["step"],
+                   best_observed_development_macro_nll=best_observed["metrics"]["macro_nll"],
+                   best_observed_development_passes_retention=best_observed["retention"]["passed"],
+                   development_rejections=[dict(step=h["step"], reasons=h["retention"]["reasons"])
+                                           for h in selection["history"] if not h["retention"]["passed"]],
                    fitted_temperature=gate["fitted_temperature"],
-                   deployed_temperature=gate["deployed_temperature"],
-                   gate_decision=gate["decision"], candidate_deployed=bool(winner),
+                   evaluated_temperature=gate["deployed_temperature"],
+                   deployed_temperature=exported_contract["temperature"],
+                   gate_decision=gate["decision"], experimental_candidate_exported=bool(winner),
+                   model_promoted=False,
                    run_directory=str(RUN), export_directory=str(export), archive=str(archive))
     recipe.atomic_json(RUN / "BEST_MODEL_SUMMARY.json", summary)
     print(json.dumps(summary, indent=2))
+    if USE_WANDB:
+        wandb_tracking.log_qualification(RUN, identity, project=WANDB_PROJECT, entity=WANDB_ENTITY,
+                                        mode=WANDB_MODE, log_reports=WANDB_LOG_REPORTS)
 """)
 
 md("""
@@ -509,6 +589,60 @@ notebook = nbf.v4.new_notebook(cells=cells, metadata={
 })
 for i, cell in enumerate(notebook.cells):
     cell.id = f"local-decisions-t4-{i:02d}"
+if FIXED_RECIPE_NOTEBOOK:
+    notebook.cells[0].source = """# Fine-tune a fixed OpenKind decision recipe
+
+Choose one recipe from development evidence before running this notebook. It performs one
+Qwen3.5-4B LoRA fit, selection, calibration, the retention gate and a frozen research export.
+It shares the trainer and tests with the T4 experiment notebook. Defaults are a bounded
+T4 control (1,024 tokens, 150 updates); larger BF16 GPUs can use a separately declared recipe.
+
+This is fine-tuning of pretrained weights. No model is pretrained from scratch here.
+Use `CHOSEN_RECIPE_PATH` for a local `SWEEP_RESULT.json` or a complete configuration JSON.
+The notebook trains from the pinned base, without another arm's optimizer or adapter.
+Changing the recipe creates a new run identity. If gate results informed any tuning,
+those groups cannot serve as fresh acceptance evidence.
+
+Fine-tuning consumes the pinned MNLI, BoolQ, Banking77, MultiRC, SST-5, Plumb and generated
+rules dataset mix. HelpSteer2 adequacy and generated reasoning are optional dataset interventions.
+The separate [decision-RL notebook](local_decision_posttraining.ipynb) continues a trained
+supervised checkpoint with task rewards and a frozen reference; RL is never enabled implicitly.
+
+The [release notebook](local_decision_release.ipynb) prepares a verified adapter package
+after export. An experiment's existing suitable export can also go straight to that notebook.
+Hugging Face publishing is a separate, explicit step; this notebook never uploads.
+"""
+    for cell in notebook.cells:
+        if cell.cell_type == "code" and 'SWEEP_MODE = "learning_rate"' in cell.source:
+            cell.source = cell.source.replace('SWEEP_MODE = "learning_rate"', '''CHOSEN_RECIPE_PATH = ""  # Optional local SWEEP_RESULT.json or complete configuration JSON.
+if CHOSEN_RECIPE_PATH:
+    from pathlib import Path
+    declared = json.loads(Path(CHOSEN_RECIPE_PATH).read_text())
+    CONFIG = dict(declared.get("selected_config", declared))
+    assert set(CONFIG) == set(recipe.DEFAULT_CONFIG), "Use a complete reviewed configuration"
+SWEEP_MODE = "none"''', 1)
+            cell.source += '\nassert SWEEP_MODE == "none", "Use the experiment notebook for sweeps"\n'
+            cell.source += 'if not torch.cuda.is_bf16_supported(including_emulation=False):\n    assert CONFIG["max_length"] <= 1024, "The T4 recipe is bounded to 1,024 tokens"\n'
+        elif cell.cell_type == "markdown" and cell.source.startswith("## 4. Parameters"):
+            cell.source = """## 4. Declare the fixed recipe
+
+Leave `CHOSEN_RECIPE_PATH` empty for the bounded plain-CE control, or point it at a local
+development-selected sweep result. Inspect the complete configuration before training.
+Use Drive for persistent checkpoints when interactive authorization is available.
+`USE_WANDB=True` enables live training and development metrics; offline mode needs no login.
+Keep final evaluation and TypeSafe benchmarks off until the recipe and export are frozen.
+"""
+        elif cell.cell_type == "markdown" and cell.source.startswith("## 7."):
+            cell.source = """## 7. Fine-tune the declared recipe
+
+One freshly seeded model trains with a fresh optimizer, or resumes this exact run's last
+committed checkpoint. Development selection may retain step zero. Calibration and the
+gate evaluate the selected outcome once; they never search alternative recipes.
+"""
+        if cell.cell_type == "markdown":
+            cell.source = cell.source.replace("three learning rates, then automatic selection", "one fixed plain-CE recipe")
+    for i, cell in enumerate(notebook.cells):
+        cell.id = f"local-decisions-finetune-{i:02d}"
 nbf.validate(notebook)
 nbf.write(notebook, TARGET)
 print(TARGET)

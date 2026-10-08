@@ -25,6 +25,12 @@ See the [dataset rationale and run guide](./local_decision_training/README.md)
 and [evidence-backed decisions](./local_decision_training/DECISIONS.md).
 An optional [HelpSteer2 data ablation](./local_decision_training/README.md#strands-decider-training-lessons)
 adds answer-adequacy supervision from human ratings, with request-group isolation.
+The [fixed-recipe fine-tuning notebook](./local_decision_training/local_decision_finetuning.ipynb)
+uses that same dataset pipeline. A separate [decision-RL stage](./local_decision_training/local_decision_posttraining.ipynb)
+continues a trained supervised adapter with discrete utility rewards, proper-score
+anchors and a frozen-reference constraint. It supports supervised and exact-expectation
+comparators and keeps acceptance closed by default. The [release notebook](./local_decision_training/local_decision_release.ipynb)
+packages a verified frozen export; public publishing remains a separate step.
 A self-contained [unattended T4 variant](./local_decision_training/local_decision_training_t4.ipynb)
 embeds the same reviewed trainer for BF16-less Colab T4 GPUs under a separate
 `nf4_fp16` run identity (1,024-token cap, shorter budgets, local-disk outputs) and
