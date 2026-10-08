@@ -2946,3 +2946,90 @@ link each choice to its evidence and acceptance condition. Frozen evaluation use
 the verified exported implementation and a synthetic replay pack prepares later
 native qualification. Their offline checks do not establish a trained
 4B improvement, reproduce CLEF, or qualify a new native profile.
+
+## Jev Decision Index 0.2.1: The Top-10 Open Reproductions (Surveyed 2026-10-05)
+
+The [Jev Decision Index](https://huggingface.co/spaces/multimodalart/jev-decision-index)
+ranks open Jev reproductions on a frozen 120,340-request suite. On the
+pinned 0.2.1 board Jev itself scores 57.91 on the headline `balanced_skill`
+metric (68.09 raw); this survey covers the ten entries ranked directly below
+it. [`registry/v1/jev-decision-index.json`](../registry/v1/jev-decision-index.json)
+owns the pinned facts — per-entry rank and score, base-model and weights
+revisions, artifact formats, licenses, and MLX conversion leads, all against
+the leaderboard bundle snapshot (generated 2026-09-28, bundle SHA-256
+recorded in the file). This section records the architecture verdicts and
+what they mean for OpenKind support; none of the ten is loadable or
+catalog-installable today.
+
+### What the top 10 are
+
+| Rank | Entry | Skill | Raw | Built on | Artifact |
+|---|---|---|---|---|---|
+| 1 | rune-26b-a4b-v3 | 57.44 | 67.30 | google/gemma-4-26B-A4B-it | merged BF16 fine-tune (gated; open mirror) |
+| 2 | decider-chat-gemma4-31b | 57.33 | 67.22 | google/gemma-4-31B-it | unchanged weights + `decider_config.json` readout |
+| 3 | autojev-27b | 56.40 | 66.89 | Qwen/Qwen3.8-27B | merged BF16 + separate readout head, custom-code loader |
+| 4 | simple-jev-qwen3.8-27b | 55.74 | 66.26 | Qwen/Qwen3.8-27B | decoding technique, no weights |
+| 5 | jebadiah-27b | 54.67 | 65.62 | Qwen/Qwen3.8-27B | merged BF16 LoRA, `/v1/systemone` |
+| 6 | eikos-27b-fp8 | 53.13 | 63.64 | Qwen/Qwen3.8-27B | merged FP8-only (vLLM ≥ 0.30 required) |
+| 7 | reflex-27b-v2 | 52.16 | 63.84 | Qwen/Qwen3.8-27B-FP8 | decoding technique, no weights |
+| 8 | decider-chat-qwen3.6-27b | 51.35 | 63.06 | Qwen/Qwen3.6-27B | unchanged weights + `decider_config.json` readout |
+| 9 | winnow-12b-q8 | 50.02 | 61.91 | google/gemma-4-12B-it | GGUF-only merged fine-tune (Q8_0 12.67 GB) |
+| 10 | joshua-diffusion-full | 49.47 | 61.28 | google/diffusiongemma-26B-A4B-it | diffusion technique, no weights |
+
+### Architecture verdicts
+
+1. **The four trainable Qwen entries run the hybrid openkind already
+   implements.** Qwen3.8-27B and Qwen3.6-27B are config-equivalent scale-ups
+   of the `qwen3_5` architecture — gated DeltaNet (16 key / 48 value heads ×
+   128, conv kernel 4) interleaved 3:1 with GQA (24/4 × 256), partial 0.25
+   rotary — at hidden 5120 over 64 layers. Those are exactly the dimensions
+   the clef family parameterized, so the answer to "do we already support
+   these fine-tunes" is: the architecture yes, the profile no. What each
+   still needs is a 27B backbone path inside its family plus per-entry
+   readout adapters and parity evidence: `pplx-decider-v1-27b` ships a
+   custom record encoding with a separate `readout.safetensors` head (a new
+   family contract); `jebadiah-27b` is the decoder-logit pattern at 27B, but
+   its 55.56 GB BF16 checkpoint exceeds this project's 36 GB reference host
+   for full-precision execution; `Eikos-27B-FP8` distributes FP8-only
+   weights and openkind has no FP8 execution path; and
+   `decider-chat-qwen3.6-27b` is the decider letter-slot contract at 27B —
+   the nearest target in the ten, because the decider readout already runs
+   at 4B and the hybrid kernels already run at 5120/64, just never together.
+2. **The Gemma 4 entries are not E4B siblings.** `rune-26b-a4b-v3` is the
+   Gemma 4 MoE (128 experts, top 8 active) with no expert-routing support
+   anywhere in the workspace; `decider-chat-gemma4-31b` is plain-dense Gemma
+   4 (no per-layer-input embeddings, no KV sharing, sliding window 1024)
+   whose readout is nonetheless the same decider letter-slot scheme; and
+   `winnow-12b-q8` sits on the `gemma4_unified` class, a different
+   `model_type` from the pinned E4B, though it serves the same winnow
+   letter-logit protocol openkind already implements. Each needs a second
+   fail-closed config in the gemma4 family (plus MoE routing for rune)
+   before any profile work makes sense.
+3. **Three entries are pure inference techniques** (simple-jev, reflex,
+   joshua diffusion): constrained decoding or diffusion loops over stock
+   checkpoints, with no fine-tune artifact to pin. Their execution model is
+   outside openkind's single-forward readout contract by construction, so
+   they stay leaderboard context only.
+
+### MLX landscape
+
+The mlx-community conversions cover all four *backbones* generously (the
+Qwen3.8-27B, Qwen3.6-27B, gemma-4-12B, gemma-4-31B, and gemma-4-26B-A4B
+grids each span 4/8-bit, BF16, and MXFP/NVFP variants; pinned revisions are
+in the registry file), but exactly one top-10 *fine-tune* has any MLX build:
+the author-published `caiovicentino1/Eikos-27B-MLX-4bit`. No MLX conversion
+exists for rune, jebadiah, pplx-decider, xor (the rank-12 entry outside this
+scope), or Winnow-12B. Per the registry rule that an MLX conversion of a
+backbone openkind cannot load is not an executable equivalent, none of these
+leads was downloaded or exercised: there is no OpenKind loader path for any
+top-10 checkpoint to test against, so a download would be evidence of
+nothing.
+
+### Evidence boundary
+
+Leaderboard numbers are point estimates from one bundle snapshot,
+chance-corrected and coverage-adjusted (rows an entrant trained on count as
+wrong), with no uncertainty intervals. They establish relative leaderboard
+position only. They are not OpenKind task-quality evidence, and per-entry
+extension paths in the registry file are engineering leads, not qualified
+support claims.

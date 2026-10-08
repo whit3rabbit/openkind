@@ -1,0 +1,464 @@
+{
+  "schema": "openkind-jev-decision-index/v1",
+  "checked_at": "2026-10-05",
+  "installable": false,
+  "scope": "The top 10 ranked open reproductions on the Jev Decision Index leaderboard, excluding Jev itself. Supplemental research metadata only: none of these entries is a catalog profile, and no OpenKind loader accepts these checkpoints today. Each entry pins the surveyed revisions of the upstream weights and any MLX conversion leads so later qualification starts from immutable sources.",
+  "source": {
+    "leaderboard": "https://huggingface.co/spaces/multimodalart/jev-decision-index",
+    "bundle": "https://huggingface.co/spaces/multimodalart/jev-decision-index/resolve/main/data/index.json",
+    "bundle_sha256": "37526dd3f3d8f06e37722ef749344a7c877ed31260bad37de2e348cca1220d50",
+    "space_revision": "cdbd1cab3b6eb1811ebd82d2686ad563a4d0fc0d",
+    "bundle_generated_utc": "2026-09-28T00:39:36+00:00",
+    "edition": "Decision Index 0.2.1",
+    "suite_edition": "release-v2.1",
+    "suite_panel_id": "decision-index-0.2.1",
+    "ranking_field": "scores.balanced_skill",
+    "ranking_field_note": "The Space's suite.headline is balanced_skill; the site leaderboard ranks on it. scores.balanced_raw is recorded alongside as decision_index_raw."
+  },
+  "openkind_summary": {
+    "qwen35_hybrid_entries": [
+      "autojev-27b",
+      "jebadiah-27b",
+      "eikos-27b-fp8",
+      "decider-chat-qwen3.6-27b"
+    ],
+    "qwen35_hybrid_note": "Qwen3.8-27B and Qwen3.6-27B are config-equivalent qwen3_5 hybrid checkpoints (gated DeltaNet + causal depthwise conv interleaved 3:1 with GQA, partial 0.25 rotary) at hidden 5120 / 64 layers — exactly the dims the clef family already parameterized. The architecture is implemented; the 27B scale, the per-entry readout adapters, and the multi-gigabyte parity evidence are not.",
+    "gemma4_entries": [
+      "rune-26b-a4b-v3",
+      "decider-chat-gemma4-31b",
+      "winnow-12b-q8"
+    ],
+    "gemma4_note": "None of the three is an E4B sibling: rune is Gemma 4 MoE (128 experts, top 8), decider-chat-gemma4-31b is plain-dense Gemma 4 (no per-layer-input embeddings or KV sharing, sliding window 1024), and Winnow-12B sits on the gemma4_unified class. The gemma4 family loader is fail-closed pinned to E4B geometry.",
+    "technique_entries": [
+      "simple-jev-qwen3.8-27b",
+      "reflex-27b-v2",
+      "joshua-diffusion-full"
+    ],
+    "technique_note": "Inference techniques over stock checkpoints with no fine-tune artifact: nothing to pin beyond the base model they serve, and their decoding/diffusion execution loops are outside openkind's single-forward readout contract."
+  },
+  "entries": [
+    {
+      "rank": 1,
+      "engine": "rune-26b-a4b-v3",
+      "leaderboard_name": "Surogate Rune 26B-A4B v3",
+      "decision_index": 57.44,
+      "decision_index_raw": 67.3,
+      "kind": "full fine-tune",
+      "technique": "autoregressive",
+      "served_params": 25805936206,
+      "base_model": {
+        "repository": "google/gemma-4-26B-A4B-it",
+        "revision": "4d7ae4984b7db7de8f8457170b3f1a419ee76d52",
+        "architecture": "Gemma4ForConditionalGeneration MoE text stack: hidden 2816, 30 layers in a 5:1 sliding:full pattern, sliding window 1024, head_dim 256 / global 512, 128 experts with top 8 active, moe_intermediate 704, dual rope, final_logit_softcapping 30.0"
+      },
+      "weights": {
+        "repository": "surogate/rune-26b-a4b-GGUF",
+        "revision": "c6b360d47895bb77bdf3805a13ee5a5557ab1921",
+        "format": "merged BF16 safetensors on main (11 shards, about 51.7 GB); despite the repository name, the v1 GGUF builds live only in repository history",
+        "license": "apache-2.0",
+        "gated": true,
+        "leaderboard_served_revision": "bd4a7cbbed66af1a95dfbac12cabf52e6e677411",
+        "mirror": {
+          "repository": "michaelfeil/rune-26b-a4b",
+          "revision": "d9507c3d09de24e948f69aaa53c7bcb4a271effb",
+          "relationship": "open byte-identical mirror of the gated checkpoint (same 11 shard sizes)"
+        }
+      },
+      "openkind_loadable": false,
+      "blocker": "No MoE path exists in the gemma4 family. Its loader is fail-closed pinned to Gemma 4 E4B geometry (per-layer-input embeddings, KV sharing, sliding window 512) and rejects any other config; a 26B-A4B profile needs expert routing plus a new pinned config and parity fixtures.",
+      "nearest_openkind_path": "The gemma4 family (banded attention, GGUF runner) is the closest code; treat a rune profile as a new-family effort per docs/families/NEW_FAMILY.md.",
+      "mlx_leads": [
+        {
+          "repository": "mlx-community/gemma-4-26b-a4b-it-4bit",
+          "revision": "0d77464eeb233a2da68ebf9d7dc4edaac7db956d",
+          "quantization": "4-bit MoE",
+          "base_model": "google/gemma-4-26B-A4B-it",
+          "relationship": "base-model-only",
+          "notes": "No MLX conversion of rune-26b-a4b itself exists anywhere surveyed; this lead covers the backbone only and does not carry the fine-tune."
+        },
+        {
+          "repository": "mlx-community/gemma-4-26b-a4b-bf16",
+          "revision": "172bfb9cbb6d91ef04b69a26baf348670ebf8432",
+          "quantization": "BF16 MoE",
+          "base_model": "google/gemma-4-26B-A4B",
+          "relationship": "base-model-only",
+          "notes": "Unquantized backbone conversion; same caveat — not the fine-tune."
+        }
+      ]
+    },
+    {
+      "rank": 2,
+      "engine": "decider-chat-gemma4-31b",
+      "leaderboard_name": "Decider chat · Gemma-4-31B",
+      "decision_index": 57.33,
+      "decision_index_raw": 67.22,
+      "kind": "inference technique",
+      "technique": "autoregressive",
+      "served_params": 32682372656,
+      "base_model": {
+        "repository": "google/gemma-4-31B-it",
+        "revision": "842da3794eaa0b77d5f08bae87a17459d91ff475",
+        "architecture": "Gemma4ForConditionalGeneration dense text stack: hidden 5376, 60 layers in a 5:1 sliding:full pattern, sliding window 1024, 32 query / 16 KV heads plus 4 global KV heads, head_dim 256 / global 512, attention_k_eq_v true, no per-layer-input embeddings and no KV sharing, dual rope, final_logit_softcapping 30.0"
+      },
+      "weights": {
+        "repository": "Mapika/decider-chat-gemma4-31b",
+        "revision": "22975cbd1716170264a1d2a7e1105787e08c5d95",
+        "format": "the unchanged gemma-4-31B-it BF16 weights (2 shards, about 62.5 GB) redistributed with a decider_config.json readout: option-letter at an answer slot, softmax over letters, fitted per-n-options temperature T(n) = max(0.05, 10.124 - 1.633 ln n); requires decider-ai >= 1.8.0; no training",
+        "license": "gemma",
+        "gated": false
+      },
+      "openkind_loadable": false,
+      "blocker": "The gemma4 family loader is pinned to E4B geometry; the 31B dense stack differs structurally (attention_k_eq_v, global KV heads, sliding window 1024, no per-layer-input). The readout contract itself is the decider letter-slot scheme openkind already implements at 4B.",
+      "nearest_openkind_path": "The decider family readout over a new gemma4 dense-31B backbone config; the leaderboard classifies the entry as an inference technique because the weights are unmodified.",
+      "mlx_leads": [
+        {
+          "repository": "mlx-community/gemma-4-31b-it-4bit",
+          "revision": "696d436c404745a59f30e4939a658162b0a9e57f",
+          "quantization": "4-bit",
+          "base_model": "google/gemma-4-31B-it",
+          "relationship": "base-model-only",
+          "notes": "No decider-chat MLX conversion exists; SirSahOl's decider-chat-mlx builds cover decider-2b only."
+        },
+        {
+          "repository": "mlx-community/gemma-4-31b-bf16",
+          "revision": "19f0f1af698c51edaf1e93b3a3a5435b282de30f",
+          "quantization": "BF16",
+          "base_model": "google/gemma-4-31B",
+          "relationship": "base-model-only",
+          "notes": "Unquantized backbone conversion; not the decider-chat serving config."
+        }
+      ]
+    },
+    {
+      "rank": 3,
+      "engine": "autojev-27b",
+      "leaderboard_name": "pplx-decider-v1-27b",
+      "decision_index": 56.4,
+      "decision_index_raw": 66.89,
+      "kind": "full fine-tune",
+      "technique": "autoregressive",
+      "served_params": 27781427952,
+      "base_model": {
+        "repository": "Qwen/Qwen3.8-27B",
+        "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+        "architecture": "Qwen3_5ForConditionalGeneration hybrid: hidden 5120, 64 layers in a 3:1 linear:full pattern, DeltaNet 16 key / 48 value heads x 128 with conv kernel 4, GQA 24 query / 4 KV heads x 256, full_attention_interval 4, partial rotary 0.25 theta 1e7, vocab 248320 — the same architecture openkind implements, at exactly the clef-27B dims"
+      },
+      "weights": {
+        "repository": "perplexity-ai/pplx-decider-v1-27b",
+        "revision": "5117a6c7fe73b19308dc1a6b0fb529a40c2ecad4",
+        "format": "merged BF16, about 52.2 GB across 11 shards; config declares Qwen3_5Model (backbone without LM head) plus a separate 2.6 MB readout.safetensors head, decision_config.json, and a custom-code inference.py; Apache-2.0",
+        "license": "apache-2.0",
+        "gated": false
+      },
+      "openkind_loadable": false,
+      "blocker": "The pplx record encoding and readout head are a custom contract that needs its own family adapter, and the 27B BF16 checkpoint needs a 27B backbone path in that family with multi-gigabyte parity evidence. The backbone kernels exist: the clef family parameterized the qwen3.5 hybrid to hidden 5120 / 64 layers without changing the pinned 4B fixtures.",
+      "nearest_openkind_path": "A clef-style BF16 27B backbone execution plus a new pplx readout adapter, qualified per docs/families/NEW_FAMILY.md.",
+      "mlx_leads": [
+        {
+          "repository": "mlx-community/Qwen3.8-27B-4bit",
+          "revision": "10c35caafbb80f7dc6a7a432cdd11af10a6d4818",
+          "quantization": "4-bit",
+          "base_model": "Qwen/Qwen3.8-27B",
+          "relationship": "base-model-only",
+          "notes": "No MLX conversion of pplx-decider-v1-27b exists; the only third-party quant is ramgpt/pplx-decider-v1-27b-EXL3 (EXL3, not MLX)."
+        },
+        {
+          "repository": "mlx-community/Qwen3.8-27B-8bit",
+          "revision": "815b83c0df8ffd1d1b5244cf75fd6ef14fca9ef9",
+          "quantization": "8-bit",
+          "base_model": "Qwen/Qwen3.8-27B",
+          "relationship": "base-model-only",
+          "notes": "Backbone-only lead."
+        },
+        {
+          "repository": "mlx-community/Qwen3.8-27B-bf16",
+          "revision": "6f265714824f3c38d4452baa1628aef3d9b9aae9",
+          "quantization": "BF16",
+          "base_model": "Qwen/Qwen3.8-27B",
+          "relationship": "base-model-only",
+          "notes": "Unquantized backbone conversion; the closest MLX stand-in for parity work against the BF16 fine-tune, still not the fine-tune."
+        }
+      ]
+    },
+    {
+      "rank": 4,
+      "engine": "simple-jev-qwen3.8-27b",
+      "leaderboard_name": "simple-jev · Qwen3.8-27B (featherless)",
+      "decision_index": 55.74,
+      "decision_index_raw": 66.26,
+      "kind": "inference technique",
+      "technique": "autoregressive",
+      "served_params": 27781427952,
+      "base_model": {
+        "repository": "Qwen/Qwen3.8-27B",
+        "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+        "architecture": "Same qwen3_5 hybrid as rank 3"
+      },
+      "weights": null,
+      "technique_reference": {
+        "code_url": "https://github.com/featherless-ai/simple-jev",
+        "served_checkpoint": "Qwen/Qwen3.8-27B"
+      },
+      "openkind_loadable": false,
+      "blocker": "A decoding technique over stock weights — no fine-tune artifact exists to pin. Its constrained decoding loop is outside openkind's single-forward readout contract, which never generates text.",
+      "nearest_openkind_path": "None; the stock base remains a research lead only.",
+      "mlx_leads": [
+        {
+          "repository": "mlx-community/Qwen3.8-27B-4bit",
+          "revision": "10c35caafbb80f7dc6a7a432cdd11af10a6d4818",
+          "quantization": "4-bit",
+          "base_model": "Qwen/Qwen3.8-27B",
+          "relationship": "base-model-only",
+          "notes": "The served checkpoint's MLX conversion; carries none of the technique."
+        }
+      ]
+    },
+    {
+      "rank": 5,
+      "engine": "jebadiah-27b",
+      "leaderboard_name": "Jebadiah 27B",
+      "decision_index": 54.67,
+      "decision_index_raw": 65.62,
+      "kind": "LoRA",
+      "technique": "autoregressive",
+      "served_params": 27781427952,
+      "base_model": {
+        "repository": "Qwen/Qwen3.8-27B",
+        "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+        "architecture": "Same qwen3_5 hybrid as rank 3; the README pins this exact base revision"
+      },
+      "weights": {
+        "repository": "frontier-infra/jebadiah-27b",
+        "revision": "4d3ed81640bbc015b47976bedae67212a5fb39cd",
+        "format": "full BF16 weights with the LoRA merged into the base (18 shards, 55.56 GB, byte-identical shard layout to the base); serves a TypeSafe-compatible /v1/systemone surface; Apache-2.0; siblings jebadiah-9b-v2 and jebadiah-4b-v2",
+        "license": "apache-2.0",
+        "gated": false,
+        "leaderboard_served_revision": "1c0d794fc24b24b15175c6a912654fa5cd76e1bb"
+      },
+      "openkind_loadable": false,
+      "blocker": "Structurally the decoder-logit pattern openkind already serves (merged Qwen3.5 hybrid, probability over option labels, one forward pass), but the decoder-logit-qwen35 family is pinned to Qwen3.5-4B geometry and this is a 55.56 GB 27B checkpoint — above this project's 36 GB reference host for BF16 execution. A 27B decoder-logit profile needs the backbone parameterized in that family plus fixtures.",
+      "nearest_openkind_path": "Extend the decoder-logit-qwen35 family with a 27B config (the clef family already proved those dims), or wait for a GGUF conversion to follow the clef-flash-gguf quantized route.",
+      "mlx_leads": [
+        {
+          "repository": "mlx-community/Qwen3.8-27B-4bit",
+          "revision": "10c35caafbb80f7dc6a7a432cdd11af10a6d4818",
+          "quantization": "4-bit",
+          "base_model": "Qwen/Qwen3.8-27B",
+          "relationship": "base-model-only",
+          "notes": "No MLX or GGUF conversion of jebadiah-27b exists surveyed."
+        }
+      ]
+    },
+    {
+      "rank": 6,
+      "engine": "eikos-27b-fp8",
+      "leaderboard_name": "Eikos-27B",
+      "decision_index": 53.13,
+      "decision_index_raw": 63.64,
+      "kind": "LoRA",
+      "technique": "autoregressive",
+      "served_params": 27781427952,
+      "base_model": {
+        "repository": "Qwen/Qwen3.8-27B",
+        "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+        "architecture": "Same qwen3_5 hybrid as rank 3; the FP8 build is a quantized merge of caiovicentino1/Eikos-27B, itself a Qwen3.8-27B fine-tune"
+      },
+      "weights": {
+        "repository": "caiovicentino1/Eikos-27B-FP8",
+        "revision": "8b053df4e225b6acca8ce4aeed49ee3c74e5b3fd",
+        "format": "merged FP8-only weights (compressed-tensors FP8_DYNAMIC via llm-compressor; 2 shards plus MTP, 31.2 GB total; embeddings, LM head, MTP, and vision-tower blocks kept BF16); requires vLLM >= 0.30.0 on this hybrid architecture; MIT",
+        "license": "mit",
+        "gated": false
+      },
+      "openkind_loadable": false,
+      "blocker": "FP8-only weights and openkind has no FP8 execution path (CPU and MLX backends run FP32/BF16 or MLX quantization). The card also documents that older serving stacks mis-score this hybrid under batching, so any future path needs its own parity evidence.",
+      "nearest_openkind_path": "The author's 4-bit MLX build (lead below) is the practical Apple-silicon artifact; it still requires an openkind qwen3.5-27B MLX backbone before it could be executable.",
+      "mlx_leads": [
+        {
+          "repository": "caiovicentino1/Eikos-27B-MLX-4bit",
+          "revision": "32c9df65779ced261835e9dbac788d862fe0634c",
+          "quantization": "4-bit",
+          "base_model": "caiovicentino1/Eikos-27B",
+          "relationship": "fine-tune-conversion",
+          "notes": "The only top-10 fine-tune with any MLX build: the author's own 4-bit conversion, 15.13 GB. Not an OpenKind-qualified path; no parity was run."
+        },
+        {
+          "repository": "mlx-community/Qwen3.8-27B-4bit",
+          "revision": "10c35caafbb80f7dc6a7a432cdd11af10a6d4818",
+          "quantization": "4-bit",
+          "base_model": "Qwen/Qwen3.8-27B",
+          "relationship": "base-model-only",
+          "notes": "Backbone-only lead for calibration comparisons."
+        }
+      ]
+    },
+    {
+      "rank": 7,
+      "engine": "reflex-27b-v2",
+      "leaderboard_name": "reflex 27B",
+      "decision_index": 52.16,
+      "decision_index_raw": 63.84,
+      "kind": "inference technique",
+      "technique": "autoregressive",
+      "served_params": 27781427952,
+      "base_model": {
+        "repository": "Qwen/Qwen3.8-27B-FP8",
+        "revision": null,
+        "architecture": "The FP8 build of the same qwen3_5 hybrid as rank 3; variant FP8 · wide choice"
+      },
+      "weights": null,
+      "technique_reference": {
+        "code_url": "https://github.com/kshetrajna12/reflex",
+        "served_checkpoint": "Qwen/Qwen3.8-27B-FP8"
+      },
+      "openkind_loadable": false,
+      "blocker": "A decoding technique over stock weights — no fine-tune artifact exists to pin, and the served FP8 checkpoint adds the missing-FP8-path blocker of rank 6.",
+      "nearest_openkind_path": "None; the stock base remains a research lead only.",
+      "mlx_leads": [
+        {
+          "repository": "mlx-community/Qwen3.8-27B-4bit",
+          "revision": "10c35caafbb80f7dc6a7a432cdd11af10a6d4818",
+          "quantization": "4-bit",
+          "base_model": "Qwen/Qwen3.8-27B",
+          "relationship": "base-model-only",
+          "notes": "The community also publishes mxfp4/mxfp8/nvfp4 variants of this base; none carries the reflex technique."
+        }
+      ]
+    },
+    {
+      "rank": 8,
+      "engine": "decider-chat-qwen3.6-27b",
+      "leaderboard_name": "Decider chat · Qwen3.6-27B",
+      "decision_index": 51.35,
+      "decision_index_raw": 63.06,
+      "kind": "inference technique",
+      "technique": "autoregressive",
+      "served_params": 27781427952,
+      "base_model": {
+        "repository": "Qwen/Qwen3.6-27B",
+        "revision": "6a9e13bd6fc8f0983b9b99948120bc37f49c13e9",
+        "architecture": "Config-equivalent to Qwen3.8-27B in every architecture field (hidden 5120, 64 layers, same DeltaNet/GQA/rotary); a prior post-training generation on the same qwen3_5 hybrid"
+      },
+      "weights": {
+        "repository": "Mapika/decider-chat-qwen3.6-27b",
+        "revision": "f18c9385bbfd30572b59ae1e2949139baa4c25f4",
+        "format": "full merged qwen3_5 weights (15 shards) redistributed with decider_config.json — the same decider-package readout contract openkind implements in the decider family, with no training on the weights",
+        "license": "apache-2.0",
+        "gated": false
+      },
+      "openkind_loadable": false,
+      "blocker": "The decider family is pinned to the Qwen3.5-4B geometry (32 layers, hidden 2560) and fails closed on the 27B stack; the readout contract is already implemented, the backbone scale is not.",
+      "nearest_openkind_path": "The decider family readout over a 27B qwen3_5 backbone config — the closest pair in the top 10, since both halves (decider contract at 4B, hybrid kernels at 5120/64) exist separately.",
+      "mlx_leads": [
+        {
+          "repository": "mlx-community/Qwen3.6-27B-4bit",
+          "revision": "c000ac2c2057d94be3fa931000c31723aac53282",
+          "quantization": "4-bit",
+          "base_model": "Qwen/Qwen3.6-27B",
+          "relationship": "base-model-only",
+          "notes": "No decider-chat MLX conversion exists surveyed."
+        },
+        {
+          "repository": "mlx-community/Qwen3.6-27B-8bit",
+          "revision": "c5a593c1475a746e43a543b0a02bd2b357e5745f",
+          "quantization": "8-bit",
+          "base_model": "Qwen/Qwen3.6-27B",
+          "relationship": "base-model-only",
+          "notes": "Backbone-only lead."
+        },
+        {
+          "repository": "mlx-community/Qwen3.6-27B-bf16",
+          "revision": "e3d7ee20c3abdb072783ea696b2fe044aa85bf89",
+          "quantization": "BF16",
+          "base_model": "Qwen/Qwen3.6-27B",
+          "relationship": "base-model-only",
+          "notes": "Unquantized backbone conversion."
+        }
+      ]
+    },
+    {
+      "rank": 9,
+      "engine": "winnow-12b-q8",
+      "leaderboard_name": "Winnow-12B",
+      "decision_index": 50.02,
+      "decision_index_raw": 61.91,
+      "kind": "LoRA",
+      "technique": "autoregressive",
+      "served_params": 11959730224,
+      "base_model": {
+        "repository": "google/gemma-4-12B-it",
+        "revision": "707f0a3b8a3c7ad586ed01e27eafbad8a27dd0f7",
+        "architecture": "Gemma4UnifiedForConditionalGeneration (gemma4_unified) text stack: hidden 3840, 48 layers in a 5:1 sliding:full pattern, sliding window 1024, 16 query / 8 KV heads plus 1 global KV head, head_dim 256 / global 512, attention_k_eq_v true, no per-layer-input embeddings — a different architecture class from the pinned gemma-4-E4B"
+      },
+      "weights": {
+        "repository": "EldanRing/Winnow-12B",
+        "revision": "abb21621114b10690259a7517fa59b153675176e",
+        "format": "GGUF-only merged fine-tune, no safetensors shards: gguf/Winnow-12B-Q8_0.gguf 12,669,646,592 bytes (the leaderboard variant), Winnow-12B-BF16.gguf 23,832,065,792 bytes, Winnow-12B-NVFP4.gguf 8,163,448,416 bytes, plus an mmproj vision projector; serves the winnow-inference letter-logit protocol (the same protocol as openkind's winnow-e4b profile); Apache-2.0",
+        "license": "apache-2.0",
+        "gated": false
+      },
+      "openkind_loadable": false,
+      "blocker": "The gemma4 family loader is fail-closed pinned to E4B geometry and rejects the gemma4_unified 12B stack (different model_type, attention_k_eq_v, global KV head with global_head_dim 512, sliding window 1024, no per-layer-input).",
+      "nearest_openkind_path": "A second pinned config in the gemma4 family for the unified 12B text stack; the winnow letter-logit protocol and the GGUF runner already exist for E4B.",
+      "mlx_leads": [
+        {
+          "repository": "mlx-community/gemma-4-12B-4bit",
+          "revision": "7d7c99c4d1b1d2ec2b52e2c46821cef2fa22ce0c",
+          "quantization": "4-bit",
+          "base_model": "google/gemma-4-12B",
+          "relationship": "base-model-only",
+          "notes": "No MLX conversion of Winnow-12B exists surveyed; the GGUF artifacts above remain the only quantized fine-tune weights."
+        },
+        {
+          "repository": "mlx-community/gemma-4-12B-it-4bit",
+          "revision": "73bcf09092aa277861d5a191b989b666f7f32e8f",
+          "quantization": "4-bit",
+          "base_model": "google/gemma-4-12B-it",
+          "relationship": "base-model-only",
+          "notes": "The exact -it base the fine-tune declares."
+        },
+        {
+          "repository": "mlx-community/gemma-4-12B-bf16",
+          "revision": "e61ef6842dc9407c3ceba8800b7200c0b07f816f",
+          "quantization": "BF16",
+          "base_model": "google/gemma-4-12B",
+          "relationship": "base-model-only",
+          "notes": "Unquantized backbone conversion."
+        }
+      ]
+    },
+    {
+      "rank": 10,
+      "engine": "joshua-diffusion-full",
+      "leaderboard_name": "JoshuaSP diffusiongemma (open-jev)",
+      "decision_index": 49.47,
+      "decision_index_raw": 61.28,
+      "kind": "inference technique",
+      "technique": "diffusion",
+      "served_params": 25823778864,
+      "base_model": {
+        "repository": "google/diffusiongemma-26B-A4B-it",
+        "revision": null,
+        "architecture": "The diffusion variant of the gemma-4-26B-A4B MoE stack; run in a Jev mode through a text-diffusion loop"
+      },
+      "weights": null,
+      "technique_reference": {
+        "code_url": "https://github.com/JoshuaSP/open-jev",
+        "served_checkpoint": "google/diffusiongemma-26B-A4B-it"
+      },
+      "openkind_loadable": false,
+      "blocker": "A diffusion execution technique over stock weights — no fine-tune artifact exists to pin, and iterative diffusion denoising is outside openkind's single-forward decision readout by construction.",
+      "nearest_openkind_path": "None; recorded for leaderboard completeness only.",
+      "mlx_leads": [
+        {
+          "repository": "mlx-community/gemma-4-26b-a4b-it-4bit",
+          "revision": "0d77464eeb233a2da68ebf9d7dc4edaac7db956d",
+          "quantization": "4-bit MoE",
+          "base_model": "google/gemma-4-26B-A4B-it",
+          "relationship": "base-model-only",
+          "notes": "mlx-community also publishes diffusiongemma-26B-A4B-it conversions; none carries the open-jev technique."
+        }
+      ]
+    }
+  ]
+}
