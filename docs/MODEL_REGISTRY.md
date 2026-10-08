@@ -95,6 +95,11 @@ leaderboard](https://huggingface.co/spaces/multimodalart/jev-decision-index)
 base-model and weights revisions, and MLX conversion leads. Nothing in it is
 installable, and every entry records why it is not loadable today;
 [`RESEARCH.md`](RESEARCH.md) owns the survey and its architecture verdicts.
+[`registry/v1/jev-gev-mlx-models.json`](../registry/v1/jev-gev-mlx-models.json)
+is a third supplemental index: it pins the `nativ-community` 8-bit MLX
+conversions of JEV-27B-VL and GEV-26B-Decide (revisions, per-file sizes and
+SHA-256 digests, `decision_config`, and the mlx-vlm reference commits). Neither
+entry is installable; see [`families/jev-gev.md`](families/jev-gev.md).
 
 ## Execution backends and benchmark evidence per registry model
 

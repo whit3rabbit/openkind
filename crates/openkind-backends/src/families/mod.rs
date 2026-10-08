@@ -28,6 +28,8 @@ pub mod encoder_instruct_label;
 pub mod encoder_nli;
 /// Gemma 4 backbone letter-logit decision family adapter.
 pub mod gemma4;
+/// JEV-protocol readout shared by the JEV and GEV decision models.
+pub mod jev_protocol;
 /// KEV family model loader and decision engine adapter.
 pub mod kev;
 /// Laya encoder decision readout family adapter.

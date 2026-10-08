@@ -48,6 +48,16 @@ load this 2B profile. Both upstream precision folders were hash-verified and
 ran a local decision smoke on the M4 Max; same-host timing comparisons are in
 [`BENCHMARKS.md`](BENCHMARKS.md#jev-style-2b-mlx-survey).
 
+## External JEV-protocol MLX conversions
+
+[`JEV-27B-VL-MLX-8bit`](./families/jev-gev.md) (Qwen3.5 hybrid) and
+[`GEV-26B-Decide-MLX-8bit`](./families/jev-gev.md) (Gemma 4 MoE) are pinned in
+[`registry/v1/jev-gev-mlx-models.json`](../registry/v1/jev-gev-mlx-models.json).
+Both are affine 8-bit (group size 64) with the LoRA merged. The Qwen3.5 MLX
+backbone here does not load quantized weights, and no Gemma 4 MLX backbone
+exists, so neither runs in OpenKind. Their JEV-protocol readout is implemented
+in `families::jev_protocol` and tested without a backbone.
+
 ## Encoder family backend: laya (2026-09-28)
 
 The laya decision-encoder family has a second execution backend:

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- Pinned survey of the `nativ-community` JEV-27B-VL and GEV-26B-Decide 8-bit MLX conversions
+  in `registry/v1/jev-gev-mlx-models.json` (immutable revisions, shard sizes and SHA-256
+  digests, `decision_config`, and the mlx-vlm reference commits). Neither is installable.
+- `openkind_backends::families::jev_protocol`: hardware-neutral JEV/GEV readout ported from
+  the mlx-vlm `feat/jev` and `feat/gev` branches (config validation, prompt rendering,
+  choice-label token derivation, bias and per-kind temperature readout, GEV softcap, and the
+  more-than-16-option tournament) with reference-value tests. It is not a backbone or engine.
+
 ## 0.2.1 (2026-10-07)
 
 ### Added
