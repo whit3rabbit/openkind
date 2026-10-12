@@ -15,7 +15,7 @@ use openkind_backends::families::support::FamilyLimits;
 use openkind_engine::DecisionEngine;
 use serde::Deserialize;
 
-const DEFAULT_FIXTURE_DIR: &str = "tests/fixtures/d3_664f9ead734372935286";
+const DEFAULT_FIXTURE_DIR: &str = "d3_664f9ead734372935286";
 const PROBABILITY_TOLERANCE: f64 = 0.005;
 
 /// The fixture to replay. Set `OPENKIND_D3_FIXTURE` to the profile's
