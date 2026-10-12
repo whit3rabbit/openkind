@@ -36,6 +36,14 @@
   conditional, which renders the same empty `<think>` block for the
   reference's calls. Prompt byte-parity, golden replay, and catalog pull
   support (alias `d3:mini`).
+- A fifth d3-family profile, `d3-flash:b2a4750f8bf4a1fa58cb`, serving
+  `vllm-sr/d3-flash` at its v3.1.0 release commit
+  (`521525effa79469d899a570726547dd7f00da3af`) — the full 32-layer
+  Qwen3.5-9B hybrid (the clef-flash dims) with the same noncausal
+  code-readout contract, prompt byte-parity, golden replay, and catalog
+  pull support (alias `d3:flash`). This completes every d3 sibling that
+  fits the project's 36 GB reference host; the 27B d3 stays pinned as
+  research metadata above that host.
 - `registry/v1/jev-decision-index-0.3.1.json` (schema `openkind-jev-decision-index/v2`),
   superseding the 0.2.1 top-10 survey: 35 tier-1 and tier-2 entries covering the
   Decision Index 0.3.1 board leaders (d3, Decider 31B, Darwin-27B-ZTC, pplx v1.1), the

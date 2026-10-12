@@ -51,6 +51,9 @@ pub enum EngineKind {
     /// Pinned d3-mini engine (noncausal 255-code readout).
     #[allow(dead_code)]
     D3Mini,
+    /// Pinned d3-flash engine (noncausal 255-code readout).
+    #[allow(dead_code)]
+    D3Flash,
     /// Pinned winnow-e4b engine (Gemma 4 backbone letter-logit readout).
     WinnowE4b,
     /// Pinned Cloudflare Clef joint-schema engines.
@@ -123,6 +126,7 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
         | EngineKind::D3Lite
         | EngineKind::D3Nano
         | EngineKind::D3Mini
+        | EngineKind::D3Flash
         | EngineKind::WinnowE4b
         | EngineKind::ClefFlash
         | EngineKind::ClefFlashGguf
@@ -174,6 +178,7 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
         | EngineKind::D3Lite
         | EngineKind::D3Nano
         | EngineKind::D3Mini
+        | EngineKind::D3Flash
         | EngineKind::WinnowE4b
         | EngineKind::ClefFlash
         | EngineKind::ClefFlashGguf
@@ -216,6 +221,7 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
             EngineKind::D3Lite => "d3-lite",
             EngineKind::D3Nano => "d3-nano",
             EngineKind::D3Mini => "d3-mini",
+            EngineKind::D3Flash => "d3-flash",
             EngineKind::WinnowE4b => "winnow-e4b",
             EngineKind::ClefFlash => "clef-flash",
             EngineKind::ClefFlashGguf => "clef-flash-gguf",
@@ -259,6 +265,7 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
             EngineKind::D3Lite => "d3-lite",
             EngineKind::D3Nano => "d3-nano",
             EngineKind::D3Mini => "d3-mini",
+            EngineKind::D3Flash => "d3-flash",
             EngineKind::WinnowE4b => "winnow-e4b",
             EngineKind::ClefFlash => "clef-flash",
             EngineKind::ClefFlashGguf => "clef-flash-gguf",
@@ -308,6 +315,7 @@ pub fn is_family_engine_public(engine: EngineKind) -> bool {
             | EngineKind::D3Lite
             | EngineKind::D3Nano
             | EngineKind::D3Mini
+            | EngineKind::D3Flash
             | EngineKind::WinnowE4b
             | EngineKind::ClefFlash
             | EngineKind::ClefFlashGguf
@@ -412,6 +420,11 @@ pub(crate) fn family_identity(
             openkind_backends::families::d3::FAMILY_SLUG,
             openkind_backends::families::d3::D3_MINI.profile_id,
             openkind_backends::families::d3::D3_MINI.backbone_revision,
+        )),
+        EngineKind::D3Flash => Some((
+            openkind_backends::families::d3::FAMILY_SLUG,
+            openkind_backends::families::d3::D3_FLASH.profile_id,
+            openkind_backends::families::d3::D3_FLASH.backbone_revision,
         )),
         EngineKind::WinnowE4b => Some((
             openkind_backends::families::gemma4::FAMILY_SLUG,

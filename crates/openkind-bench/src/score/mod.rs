@@ -408,6 +408,21 @@ pub(crate) fn run_score_reserved(
                 )
                 .map_err(|error| anyhow::anyhow!("load d3-mini engine: {error}"))?,
             ),
+            EngineKind::D3Flash => Arc::new(
+                openkind_backends::families::d3::D3Engine::load(
+                    openkind_backends::families::d3::D3EngineConfig {
+                        profile: &openkind_backends::families::d3::D3_FLASH,
+                        model_root: model_root.expect("gated").clone(),
+                        limits: FamilyLimits {
+                            max_concurrent_requests: 1,
+                            max_queued_requests: 0,
+                            retry_after_ms: 250,
+                            evaluation_timeout: None,
+                        },
+                    },
+                )
+                .map_err(|error| anyhow::anyhow!("load d3-flash engine: {error}"))?,
+            ),
             EngineKind::WinnowE4b => Arc::new(
                 openkind_backends::families::gemma4::Gemma4DecisionEngine::load(
                     openkind_backends::families::gemma4::Gemma4EngineConfig {

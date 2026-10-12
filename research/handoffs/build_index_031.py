@@ -400,9 +400,9 @@ TIER1 = [
                 "runtime server files; every weight and readout blob is byte-identical between "
                 "pin and HEAD, so HEAD is recorded as equivalent."),
         "Same noncausal-plus-255-row-readout family adapter need as vllm-sr/d3 at a 16.79 GB "
-        "size; the only d3 sibling openkind's reference host could run at BF16.",
-        "The d3 family adapter over a 4096/32 qwen3_5 backbone config; the semantic-router "
-        "parity record gives a CPU-served reference to diff against.",
+        "size; the only d3 sibling openkind's reference host could run at BF16. Landed as the "
+        "d3-flash:b2a4750f8bf4a1fa58cb catalog profile; see docs/families/d3.md.",
+        "Landed as the d3-flash catalog profile over the 4096/32 noncausal backbone.",
         [lead("ahmedandaloes/d3-flash-mlx", "77adb3bea9abde92d1f32158743a0cbbb0bf7aa3",
               "MLX (bit depth unstated)", "vllm-sr/d3-flash",
               "Unverified third-party conversion, same layout as ahmedandaloes/d3-mlx; no "
@@ -420,6 +420,7 @@ TIER1 = [
                       "carries no decision readout.",
          }],
         off_board_scores={"source": "author-run public suite 0.3 score from the model card", "public": 57.79, "note": "d3 siblings are not ranked on the 0.3.1 board; cards give author-run public numbers."},
+        already_catalog=True,
     ),
     entry(
         "d3-mini",

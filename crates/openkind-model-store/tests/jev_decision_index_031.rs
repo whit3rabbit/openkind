@@ -327,8 +327,14 @@ fn catalog_families_are_marked_and_other_engines_do_not_shadow_the_catalog() {
     let index = parsed_index();
     for entry in &index.entries {
         if entry.already_catalog {
-            const CURATED_ENGINES: [&str; 6] = [
-                "clef", "clef-flash", "d3-edge", "d3-lite", "d3-nano", "d3-mini",
+            const CURATED_ENGINES: [&str; 7] = [
+                "clef",
+                "clef-flash",
+                "d3-edge",
+                "d3-lite",
+                "d3-nano",
+                "d3-mini",
+                "d3-flash",
             ];
             assert!(
                 CURATED_ENGINES.contains(&entry.engine.as_str()),
