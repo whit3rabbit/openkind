@@ -22,9 +22,15 @@ pub struct Qwen35Geometry {
     pub intermediate_size: usize,
     /// Decoder block count.
     pub layer_count: usize,
-    /// Every layer whose index satisfies `index % interval == interval - 1`
-    /// is a full-attention layer; the others are gated-DeltaNet layers.
+    /// Documentation/verification field: the declared 3:1 interval of the
+    /// published uniform checkpoints. The authoritative per-layer split is
+    /// [`Self::full_attention_layers`]; pruned checkpoints (the d3 family)
+    /// keep the declared interval while their actual table is irregular.
     pub full_attention_interval: usize,
+    /// Per-layer mixer table: `true` marks a full-attention layer, `false`
+    /// a gated-DeltaNet layer. Indexes at and beyond `layer_count` are
+    /// ignored.
+    pub full_attention_layers: [bool; 64],
     /// Gated-DeltaNet key heads.
     pub key_heads: usize,
     /// Gated-DeltaNet value heads.
@@ -42,9 +48,28 @@ pub struct Qwen35Geometry {
     /// RMSNorm epsilon (shared by input/post norms, DeltaNet norms, and the
     /// final norm).
     pub rms_epsilon: f32,
+    /// Whether full-attention layers apply the causal mask. Every published
+    /// Qwen3.5 base checkpoint is causal; decision checkpoints of the d3
+    /// family opt out (bidirectional full attention) through
+    /// [`Self::with_causal`]. Gated-DeltaNet layers stay causal regardless:
+    /// their recurrent scan is causal by construction.
+    pub causal: bool,
 }
 
 impl Qwen35Geometry {
+    /// Layer table of the published uniform checkpoints: every layer whose
+    /// index satisfies `index % interval == interval - 1` takes full
+    /// attention.
+    pub const fn interval_layers(interval: usize, layer_count: usize) -> [bool; 64] {
+        let mut layers = [false; 64];
+        let mut index = interval - 1;
+        while index < layer_count {
+            layers[index] = true;
+            index += interval;
+        }
+        layers
+    }
+
     /// Geometry of the pinned `Qwen/Qwen3.5-4B` text backbone that the CPU
     /// oracle, MLX backend, and every pinned survey profile execute.
     pub const PINNED: Self = Self {
@@ -60,6 +85,8 @@ impl Qwen35Geometry {
         kv_heads: 4,
         attention_head_dim: 256,
         rms_epsilon: 1e-6,
+        full_attention_layers: Self::interval_layers(4, 32),
+        causal: true,
     };
 
     /// Geometry of the `Cloudflare/clef-flash` text backbone.
@@ -76,6 +103,8 @@ impl Qwen35Geometry {
         kv_heads: 4,
         attention_head_dim: 256,
         rms_epsilon: 1e-6,
+        full_attention_layers: Self::interval_layers(4, 32),
+        causal: true,
     };
 
     /// Geometry of the `Qwen/Qwen3.5-2B-Base` text backbone (the base every
@@ -93,6 +122,8 @@ impl Qwen35Geometry {
         kv_heads: 2,
         attention_head_dim: 256,
         rms_epsilon: 1e-6,
+        full_attention_layers: Self::interval_layers(4, 24),
+        causal: true,
     };
 
     /// Geometry of the `Cloudflare/clef` (27B) text backbone.
@@ -109,7 +140,46 @@ impl Qwen35Geometry {
         kv_heads: 4,
         attention_head_dim: 256,
         rms_epsilon: 1e-6,
+        full_attention_layers: Self::interval_layers(4, 64),
+        causal: true,
     };
+
+    /// Geometry of the `Qwen/Qwen3.5-0.8B` text backbone (the base the d3
+    /// lite and edge checkpoints prune and fine-tune).
+    pub const BASE_08B: Self = Self {
+        hidden_size: 1_024,
+        intermediate_size: 3_584,
+        layer_count: 24,
+        full_attention_interval: 4,
+        key_heads: 16,
+        value_heads: 16,
+        head_dim: 128,
+        conv_kernel: 4,
+        attention_heads: 8,
+        kv_heads: 2,
+        attention_head_dim: 256,
+        rms_epsilon: 1e-6,
+        full_attention_layers: Self::interval_layers(4, 24),
+        causal: true,
+    };
+
+    /// Copy of this geometry with the causal flag set. A const so profile
+    /// definitions can derive noncausal variants from the published base
+    /// geometries at compile time.
+    pub const fn with_causal(self, causal: bool) -> Self {
+        let mut geometry = self;
+        geometry.causal = causal;
+        geometry
+    }
+
+    /// Geometry with the decoder block count replaced. The per-layer table
+    /// is unchanged; pruned checkpoints supply their own table through a
+    /// struct-update at the profile definition.
+    pub const fn with_layer_count(self, layer_count: usize) -> Self {
+        let mut geometry = self;
+        geometry.layer_count = layer_count;
+        geometry
+    }
 
     /// Gated-DeltaNet key projection width.
     pub const fn key_size(&self) -> usize {
@@ -145,8 +215,9 @@ impl Qwen35Geometry {
     /// Rotary base shared by every supported checkpoint.
     pub const ROPE_THETA: f32 = 10_000_000.0;
 
-    /// True when `layer_index` is a full-attention layer.
+    /// True when `layer_index` is a full-attention layer. Callers only pass
+    /// indexes below `layer_count`, where the pinned table is defined.
     pub const fn is_full_attention(&self, layer_index: usize) -> bool {
-        layer_index % self.full_attention_interval == self.full_attention_interval - 1
+        self.full_attention_layers[layer_index]
     }
 }

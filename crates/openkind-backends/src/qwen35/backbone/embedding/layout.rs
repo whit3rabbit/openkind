@@ -45,6 +45,18 @@ impl EmbeddingLayout {
         vocab_size: usize,
         hidden_size: usize,
     ) -> Result<Self, Qwen35Error> {
+        Self::read_named(path, EMBEDDING_TENSOR, vocab_size, hidden_size)
+    }
+
+    /// Read the layout of a named BF16 `[vocab, hidden]` embedding tensor
+    /// (text-only checkpoints nest the table under `language_model.` without
+    /// the `model.` prefix).
+    pub(crate) fn read_named(
+        path: &Path,
+        embedding_tensor: &str,
+        vocab_size: usize,
+        hidden_size: usize,
+    ) -> Result<Self, Qwen35Error> {
         let mut file = File::open(path).map_err(|source| Qwen35Error::Io {
             path: path.to_path_buf(),
             source,
@@ -57,13 +69,13 @@ impl EmbeddingLayout {
             })?;
         let header_len = usize::try_from(u64::from_le_bytes(length_bytes)).map_err(|_| {
             Qwen35Error::InvalidTensor {
-                name: EMBEDDING_TENSOR.to_owned(),
+                name: embedding_tensor.to_owned(),
                 message: "safetensors header length cannot address this host".to_owned(),
             }
         })?;
         if header_len == 0 || header_len > MAX_HEADER_BYTES {
             return Err(Qwen35Error::InvalidTensor {
-                name: EMBEDDING_TENSOR.to_owned(),
+                name: embedding_tensor.to_owned(),
                 message: format!("invalid safetensors header length {header_len}"),
             });
         }
@@ -80,9 +92,9 @@ impl EmbeddingLayout {
             })?;
         let metadata: TensorMetadata = serde_json::from_value(
             tensors
-                .get(EMBEDDING_TENSOR)
+                .get(embedding_tensor)
                 .ok_or_else(|| Qwen35Error::InvalidTensor {
-                    name: EMBEDDING_TENSOR.to_owned(),
+                    name: embedding_tensor.to_owned(),
                     message: "missing from safetensors header".to_owned(),
                 })?
                 .clone(),
@@ -93,7 +105,7 @@ impl EmbeddingLayout {
         })?;
         if metadata.dtype != "BF16" || metadata.shape != [vocab_size, hidden_size] {
             return Err(Qwen35Error::InvalidTensor {
-                name: EMBEDDING_TENSOR.to_owned(),
+                name: embedding_tensor.to_owned(),
                 message: format!(
                     "expected BF16 [{vocab_size}, {hidden_size}], found {} {:?}",
                     metadata.dtype, metadata.shape
@@ -105,13 +117,13 @@ impl EmbeddingLayout {
             .and_then(|elements| elements.checked_mul(2))
             .and_then(|bytes| u64::try_from(bytes).ok())
             .ok_or_else(|| Qwen35Error::InvalidTensor {
-                name: EMBEDDING_TENSOR.to_owned(),
+                name: embedding_tensor.to_owned(),
                 message: "embedding tensor byte count overflow".to_owned(),
             })?;
         let [start, end] = metadata.data_offsets;
         if end.checked_sub(start) != Some(expected_bytes) {
             return Err(Qwen35Error::InvalidTensor {
-                name: EMBEDDING_TENSOR.to_owned(),
+                name: embedding_tensor.to_owned(),
                 message: format!(
                     "expected {expected_bytes} data bytes, found offsets [{start}, {end}]"
                 ),
@@ -120,32 +132,32 @@ impl EmbeddingLayout {
         let data_start = 8_u64
             .checked_add(
                 u64::try_from(header_len).map_err(|_| Qwen35Error::InvalidTensor {
-                    name: EMBEDDING_TENSOR.to_owned(),
+                    name: embedding_tensor.to_owned(),
                     message: "safetensors header length overflow".to_owned(),
                 })?,
             )
             .ok_or_else(|| Qwen35Error::InvalidTensor {
-                name: EMBEDDING_TENSOR.to_owned(),
+                name: embedding_tensor.to_owned(),
                 message: "safetensors data offset overflow".to_owned(),
             })?;
         let tensor_data_start =
             data_start
                 .checked_add(start)
                 .ok_or_else(|| Qwen35Error::InvalidTensor {
-                    name: EMBEDDING_TENSOR.to_owned(),
+                    name: embedding_tensor.to_owned(),
                     message: "embedding data offset overflow".to_owned(),
                 })?;
         let required_len =
             data_start
                 .checked_add(end)
                 .ok_or_else(|| Qwen35Error::InvalidTensor {
-                    name: EMBEDDING_TENSOR.to_owned(),
+                    name: embedding_tensor.to_owned(),
                     message: "embedding data end overflow".to_owned(),
                 })?;
         let actual_len = file_len(path)?;
         if actual_len < required_len {
             return Err(Qwen35Error::InvalidTensor {
-                name: EMBEDDING_TENSOR.to_owned(),
+                name: embedding_tensor.to_owned(),
                 message: format!(
                     "tensor ends at byte {required_len}, but shard has {actual_len} bytes"
                 ),

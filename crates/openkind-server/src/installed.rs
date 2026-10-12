@@ -11,6 +11,7 @@ use anyhow::{anyhow, Context, Result};
 use openkind_backends::families::clef::{
     ClefEngine, ClefProfile, CLEF_27B_GGUF, CLEF_FLASH, CLEF_FLASH_GGUF,
 };
+use openkind_backends::families::d3::{D3Engine, D3EngineConfig, D3_EDGE};
 use openkind_backends::families::decider::{DeciderEngine, DeciderEngineConfig, DECIDER_4B};
 use openkind_backends::families::decoder_logit_letter::{
     DecoderLetterEngine, DecoderLetterEngineConfig, PROFILE_ID as DECODER_LETTER_PROFILE,
@@ -68,7 +69,8 @@ use openkind_backends::families::winnow::{
 use openkind_engine::{DecisionEngine, EngineRegistry};
 use openkind_model_store::{
     Manifest, CLEF_27B_GGUF_MODEL_NAME, CLEF_FLASH_GGUF_MODEL_NAME, CLEF_FLASH_MODEL_NAME,
-    DECIDER_4B_MODEL_NAME, DECODER_LOGIT_LETTER_MODEL_NAME, DECODER_LOGIT_LLM_MODEL_NAME,
+    D3_EDGE_MODEL_NAME, DECIDER_4B_MODEL_NAME, DECODER_LOGIT_LETTER_MODEL_NAME,
+    DECODER_LOGIT_LLM_MODEL_NAME,
     DECODER_LOGIT_QWEN35_MODEL_NAME, DECODER_LOGIT_QWEN3_06B_MODEL_NAME,
     DECODER_LOGIT_QWEN3_17B_MODEL_NAME, DECODER_LOGIT_QWEN3_4B_MODEL_NAME,
     ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME, KEV_MODEL_NAME,
@@ -101,6 +103,7 @@ pub(crate) enum InstalledKind {
     DecoderLogitQwen3(&'static Qwen3LogitProfile),
     Clef(&'static ClefProfile),
     Decider4b,
+    D3(&'static openkind_backends::families::d3::D3Profile),
     Von,
     Winnow,
     WinnowE4b,
@@ -199,6 +202,9 @@ pub(crate) fn installed_kind(manifest: &Manifest) -> Option<InstalledKind> {
         (DECIDER_4B_MODEL_NAME, "decider-4b") if profile == DECIDER_4B.profile_id => {
             Some(InstalledKind::Decider4b)
         }
+        (D3_EDGE_MODEL_NAME, "d3-edge") if profile == D3_EDGE.profile_id => {
+            Some(InstalledKind::D3(&D3_EDGE))
+        }
         (VON_MODEL_NAME, "von") if profile == VON_PROFILE => Some(InstalledKind::Von),
         (WINNOW_MODEL_NAME, "winnow") if profile == WINNOW_PROFILE => Some(InstalledKind::Winnow),
         (WINNOW_E4B_MODEL_NAME, "winnow-e4b")
@@ -267,6 +273,7 @@ pub(crate) fn load_installed_engine(
             selected!(decoder_logit_qwen3_backend, &root.join("checkpoint"))
         }
         InstalledKind::Decider4b => selected!(decider_4b_backend, &root.join("checkpoint")),
+        InstalledKind::D3(_) => selected!(d3_backend, &root.join("checkpoint")),
         InstalledKind::Von => selected!(von_backend, root),
         InstalledKind::Winnow => selected!(winnow_backend, &root.join("checkpoint")),
         InstalledKind::WinnowE4b => selected!(winnow_e4b_backend, &root.join("checkpoint")),
@@ -597,6 +604,19 @@ fn load_installed_explicit(
                     .to_execution(args.device_ordinals())?,
             )
             .context("load decider-4b engine")?,
+        ),
+        InstalledKind::D3(profile) => Arc::new(
+            D3Engine::load_with_execution(
+                D3EngineConfig {
+                    profile,
+                    model_root: root.join("checkpoint"),
+                    limits,
+                },
+                args.family_args
+                    .d3_backend
+                    .to_execution(args.device_ordinals())?,
+            )
+            .context("load d3 engine")?,
         ),
         InstalledKind::WinnowE4b => Arc::new(
             Gemma4DecisionEngine::load_with_execution(

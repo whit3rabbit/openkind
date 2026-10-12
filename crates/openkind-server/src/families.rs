@@ -16,6 +16,7 @@ use crate::args::{
 };
 use anyhow::{bail, Context, Result};
 use clap::Parser;
+use openkind_backends::families::d3::{D3Engine, D3EngineConfig, D3_EDGE};
 use openkind_backends::families::decider::{DeciderEngine, DeciderEngineConfig, DECIDER_4B};
 use openkind_backends::families::decoder_logit_letter::{
     DecoderLetterEngine, DecoderLetterEngineConfig,
@@ -323,6 +324,23 @@ pub(crate) struct FamilyArgs {
     #[arg(long, env = "OPENKIND_DECIDER_4B_MODEL_ROOT")]
     pub(crate) decider_4b_model_root: Option<PathBuf>,
 
+    /// Aliases in `--models` that should use the pinned d3 engine
+    /// (noncausal 255-code readout on the Qwen3.5 hybrid backbone).
+    #[arg(
+        long,
+        env = "OPENKIND_D3_ALIASES",
+        value_delimiter = ',',
+        default_value = "d3-native"
+    )]
+    pub(crate) d3_aliases: Vec<String>,
+
+    /// Model root with the pinned checkpoint shard, `readout.safetensors`,
+    /// `config.json`, `decision_config.json`, `tokenizer.json`,
+    /// `tokenizer_config.json`, and `chat_template.jinja` required by d3
+    /// aliases.
+    #[arg(long, env = "OPENKIND_D3_MODEL_ROOT")]
+    pub(crate) d3_model_root: Option<PathBuf>,
+
     /// Aliases in `--models` that should use the pinned raw decoder-logit-
     /// qwen3 controls (letter-logit readout on the dense Qwen3 checkpoints).
     #[arg(
@@ -548,6 +566,17 @@ pub(crate) struct FamilyArgs {
         default_value_t = CudaOnlyBackendArg::Auto
     )]
     pub(crate) decider_4b_backend: CudaOnlyBackendArg,
+
+    /// d3 backend. The noncausal code readout runs on the Qwen3.5 hybrid
+    /// backbone and has no ONNX export; `cuda` requires the daemon's `cuda`
+    /// feature.
+    #[arg(
+        long,
+        env = "OPENKIND_D3_BACKEND",
+        value_enum,
+        default_value_t = CudaOnlyBackendArg::Auto
+    )]
+    pub(crate) d3_backend: CudaOnlyBackendArg,
 
     /// Aliases in `--models` that should use the pinned winnow-e4b engine
     /// (Gemma 4 backbone letter readout on the Winnow-E4B Q8_0 GGUF).
@@ -776,6 +805,7 @@ impl FamilyArgs {
             .chain(&self.decoder_logit_qwen35_aliases)
             .chain(&self.plumb_4b_aliases)
             .chain(&self.decider_4b_aliases)
+            .chain(&self.d3_aliases)
             .chain(&self.laya_english_aliases)
             .chain(&self.laya_multilingual_aliases)
             .chain(&self.laya_typed_decisions_aliases)
@@ -1387,6 +1417,35 @@ impl FamilyArgs {
             }
         }
 
+        let d3: Vec<_> = self
+            .d3_aliases
+            .iter()
+            .filter(|alias| models.contains(alias))
+            .collect();
+        if !d3.is_empty() {
+            let model_root = self
+                .d3_model_root
+                .clone()
+                .context("d3 alias requested but --d3-model-root is missing")?;
+            let engine: Arc<dyn DecisionEngine> =
+                crate::backend::load(self.d3_backend, &model_root, devices, |backend| {
+                    Ok(Arc::new(
+                        D3Engine::load_with_execution(
+                            D3EngineConfig {
+                                profile: &D3_EDGE,
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            },
+                            backend.to_execution(devices)?,
+                        )
+                        .context("load d3 engine")?,
+                    ) as Arc<dyn DecisionEngine>)
+                })?;
+            for alias in d3 {
+                engines.push((alias.to_string(), Arc::clone(&engine)));
+            }
+        }
+
         let winnow_e4b: Vec<_> = self
             .winnow_e4b_aliases
             .iter()
@@ -1636,6 +1695,7 @@ impl FamilyArgs {
             .chain(&self.decoder_logit_qwen35_aliases)
             .chain(&self.plumb_4b_aliases)
             .chain(&self.decider_4b_aliases)
+            .chain(&self.d3_aliases)
             .chain(&self.laya_english_aliases)
             .chain(&self.laya_multilingual_aliases)
             .chain(&self.laya_typed_decisions_aliases)

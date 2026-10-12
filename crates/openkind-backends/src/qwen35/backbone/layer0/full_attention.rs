@@ -265,7 +265,17 @@ pub(crate) fn causal_grouped_query_attention_checked<E>(
         for query_head in 0..attention_heads {
             let kv_head = query_head / (attention_heads / kv_heads);
             let query_offset = (row * attention_heads + query_head) * attention_head_dim;
-            let visible_rows = past_rows + row + 1;
+            // Causal checkpoints let a query row see the keys up to and
+            // including its own position; noncausal checkpoints (the d3
+            // family's `noncausal_full_attention` mode) lift the mask so
+            // every position sees the whole prompt. The rotary positions are
+            // absolute either way, and the recurrent DeltaNet layers stay
+            // causal by construction.
+            let visible_rows = if geometry.causal {
+                past_rows + row + 1
+            } else {
+                past_rows + rows
+            };
             let mut scores = Vec::with_capacity(visible_rows);
             let mut maximum = f32::NEG_INFINITY;
             for key_row in 0..visible_rows {

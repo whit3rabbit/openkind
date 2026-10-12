@@ -180,3 +180,89 @@ fn cached_delta_recurrence_matches_one_pass_execution() {
     assert_eq!([prefix, suffix].concat(), full);
     assert_eq!(suffix_state, full_state);
 }
+
+#[test]
+fn noncausal_attention_matches_a_naive_bidirectional_reference() {
+    // The d3 family lifts the causal mask through `Qwen35Geometry::causal`;
+    // pin the kernel branch against a naive f64 bidirectional reference and
+    // against the causal kernel it must differ from on later rows.
+    let geometry = crate::qwen35::Qwen35Geometry {
+        causal: false,
+        ..PINNED
+    };
+    let heads = geometry.attention_heads;
+    let head_dim = geometry.attention_head_dim;
+    let kv_heads = geometry.kv_heads;
+    let rows = 5;
+    let queries: Vec<_> = (0..rows * heads * head_dim)
+        .map(|index| ((index % 17) as f32 - 8.0) * 0.05)
+        .collect();
+    let keys: Vec<_> = (0..rows * kv_heads * head_dim)
+        .map(|index| ((index % 13) as f32 - 6.0) * 0.07)
+        .collect();
+    let values: Vec<_> = (0..rows * kv_heads * head_dim)
+        .map(|index| ((index % 11) as f32 - 5.0) * 0.09)
+        .collect();
+    let noncausal = causal_grouped_query_attention(&queries, &keys, &values, rows, 0, geometry);
+    let causal = causal_grouped_query_attention(&queries, &keys, &values, rows, 0, PINNED);
+    let kv_size = kv_heads * head_dim;
+    let attention_size = heads * head_dim;
+    for row in 0..rows {
+        for head in 0..heads {
+            let kv_head = head / (heads / kv_heads);
+            let query = &queries[row * attention_size + head * head_dim..][..head_dim];
+            let mut scores = Vec::with_capacity(rows);
+            for key_row in 0..rows {
+                let key = &keys[key_row * kv_size + kv_head * head_dim..][..head_dim];
+                scores.push(
+                    query
+                        .iter()
+                        .zip(key)
+                        .map(|(q, k)| f64::from(*q) * f64::from(*k))
+                        .sum::<f64>()
+                        / (head_dim as f64).sqrt(),
+                );
+            }
+            let max = scores.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+            let weights: Vec<f64> = scores.iter().map(|score| (score - max).exp()).collect();
+            let total: f64 = weights.iter().sum();
+            for column in 0..head_dim {
+                let expected: f64 = weights
+                    .iter()
+                    .enumerate()
+                    .map(|(key_row, weight)| {
+                        weight / total
+                            * f64::from(values[key_row * kv_size + kv_head * head_dim + column])
+                    })
+                    .sum();
+                let actual = f64::from(noncausal[row * attention_size + head * head_dim + column]);
+                assert!(
+                    (actual - expected).abs() < 2e-5,
+                    "noncausal kernel ({row}, {head}, {column}): {actual} vs {expected}"
+                );
+            }
+        }
+    }
+    // Row 0 under the causal mask sees only its own key, so the two masks
+    // already differ there; assert the difference is real and widespread.
+    let differing: usize = (0..rows * attention_size)
+        .filter(|index| (f64::from(causal[*index]) - f64::from(noncausal[*index])).abs() > 1e-4)
+        .count();
+    assert!(
+        differing > rows * attention_size / 2,
+        "the mask flag must change most outputs: {differing} of {}",
+        rows * attention_size
+    );
+    // The causal kernel's row-0 output must match a single-key reference.
+    for head in 0..heads {
+        let kv_head = head / (heads / kv_heads);
+        for column in 0..head_dim {
+            let expected = f64::from(values[kv_head * head_dim + column]);
+            let actual = f64::from(causal[head * head_dim + column]);
+            assert!(
+                (actual - expected).abs() < 2e-5,
+                "causal row 0 must attend only to its own key"
+            );
+        }
+    }
+}

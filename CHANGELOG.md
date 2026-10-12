@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+### Added
+
+- Model support for the d3 family: the pinned `d3-edge:664f9ead734372935286`
+  profile serves `vllm-sr/d3-edge` at the evaluated v3.1.0 release commit
+  (`18d61df78684675463af9ae732872478845c5a79`) — the pruned 12-layer
+  Qwen3.5-0.8B hybrid with noncausal full attention and the
+  `d3-code-readout-v1` 255-row float32 readout. Backbone changes: a causal
+  flag on `Qwen35Geometry` with the noncausal branch pinned against a naive
+  bidirectional reference, an explicit per-layer mixer table (the prune keeps
+  an irregular `layer_types` subset), and a text-only tensor-namespace
+  constructor. Prompt rendering is byte-verified against the shipped
+  `d3_format.py` over the checkpoint's real chat template and tokenizer
+  (all seven fixture cases match); golden-fixture replay, fail-closed load
+  tests, daemon aliases (`--d3-aliases`/`--d3-model-root`), and bench engine
+  (`openkind-bench score --engine d3-edge`) are wired.
+- `registry/v1/jev-decision-index-0.3.1.json` (schema `openkind-jev-decision-index/v2`),
+  superseding the 0.2.1 top-10 survey: 35 tier-1 and tier-2 entries covering the
+  Decision Index 0.3.1 board leaders (d3, Decider 31B, Darwin-27B-ZTC, pplx v1.1), the
+  whole six-model d3 family, and the remaining surveyed open entries, plus 11 pinned
+  base models. Every revision was re-resolved against the Hub API on 2026-10-12 with
+  file-level pin-versus-HEAD equivalence checks; all three board bundle files
+  hash-match the pinned Space revision (`f6571b3`). Research metadata only —
+  `installable: false` throughout, enforced by a new structural test
+  (`jev_decision_index_031.rs`); the 0.2.1 file is retained as history.
+
 ## 0.2.1 (2026-10-07)
 
 ### Added
