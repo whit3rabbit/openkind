@@ -213,8 +213,43 @@ pub const D3_LITE: D3Profile = D3Profile {
     description: "Pinned d3-lite noncausal 24-layer Qwen3.5-0.8B code-readout decision engine                   (Apache-2.0, d3-code-readout-v1); prototype readout, research status",
 };
 
+/// Pinned `vllm-sr/d3-nano` (the `d3-nano v3.1.0` release commit pinned by
+/// the semantic-router parity record, Apache-2.0) at
+/// `3aeb1c22a5632aac72353c36b3d0111c40e7dbf4`: the full 24-layer
+/// Qwen3.5-2B hybrid fine-tune (noncausal full attention on the uniform
+/// 3:1 table) plus a separate `[255, 2048]` float32 code readout.
+pub const D3_NANO: D3Profile = D3Profile {
+    loader_id: "d3-nano",
+    backbone_id: "vllm-sr/d3-nano",
+    backbone_revision: "3aeb1c22a5632aac72353c36b3d0111c40e7dbf4",
+    profile_id: "0198af5b5c8e8835605e",
+    geometry: crate::qwen35::Qwen35Geometry::BASE_2B.with_causal(false),
+    shards: &[(
+        "model.safetensors",
+        4_426_555_160,
+        "7269b3260f1106f3443bfdb028a76143be2e679db3f29a31f4dfd1d595f03155",
+    )],
+    readout_sha256: "662e8a26d8016b2d479f1ca66bf64944603316c2b5e074ab7ac3304b8ae045e9",
+    readout_bytes: 2_089_040,
+    config_json_sha256: "9caa6ab8956c859c3852328dda6322893a18b30826d3916db91d938d6c74ac4f",
+    decision_config_sha256: "9175a0f42d5886def9c8429fdf8b0be58a3c97d106b94520e2ac38fe326302bf",
+    tokenizer_json_sha256: "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42",
+    tokenizer_config_json_sha256: "49e2b6e395f959f077f1e992b338919c0d4a9732fc6e613995e06557f843500c",
+    chat_template_sha256: "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+    temperature: 1.0,
+    declared_base_id: "Qwen/Qwen3.5-2B",
+    declared_base_revision: "15852e8c16360a2fea060d615a32b45270f8a8fc",
+    max_candidates: 255,
+    max_score_levels: 10,
+    max_row_tokens: 262_144,
+    cpu_backend_id: "d3-nano/cpu-fp32",
+    cuda_backend_id: "d3-nano/cuda-fp32",
+    release_date: "2026-10-12",
+    description: "Pinned d3-nano noncausal 24-layer Qwen3.5-2B code-readout decision engine                   (Apache-2.0, d3-code-readout-v1); prototype readout, research status",
+};
+
 /// Profiles of this family, in catalog order.
-pub const PROFILES: &[&D3Profile] = &[&D3_EDGE, &D3_LITE];
+pub const PROFILES: &[&D3Profile] = &[&D3_EDGE, &D3_LITE, &D3_NANO];
 
 /// Resolve a CLI short name (`edge`, `lite`, ...) to its profile. The short
 /// names are the `--d3-aliases` / `--d3-model-roots` entry keys.
@@ -222,6 +257,7 @@ pub fn profile_by_short_name(short: &str) -> Option<&'static D3Profile> {
     match short {
         "edge" => Some(&D3_EDGE),
         "lite" => Some(&D3_LITE),
+        "nano" => Some(&D3_NANO),
         _ => None,
     }
 }

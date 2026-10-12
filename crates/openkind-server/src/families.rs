@@ -740,7 +740,7 @@ impl FamilyArgs {
                 let profile = openkind_backends::families::d3::profile_by_short_name(loader)
                     .ok_or_else(|| {
                         anyhow::anyhow!(
-                            "--d3-aliases names unknown d3 profile `{loader}`; known: edge, lite"
+                            "--d3-aliases names unknown d3 profile `{loader}`; known: edge, lite, nano"
                         )
                     })?;
                 for alias_name in alias_names.split(',') {

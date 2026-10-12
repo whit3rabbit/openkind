@@ -11,7 +11,7 @@ use anyhow::{anyhow, Context, Result};
 use openkind_backends::families::clef::{
     ClefEngine, ClefProfile, CLEF_27B_GGUF, CLEF_FLASH, CLEF_FLASH_GGUF,
 };
-use openkind_backends::families::d3::{D3Engine, D3EngineConfig, D3_EDGE, D3_LITE};
+use openkind_backends::families::d3::{D3Engine, D3EngineConfig, D3_EDGE, D3_LITE, D3_NANO};
 use openkind_backends::families::decider::{DeciderEngine, DeciderEngineConfig, DECIDER_4B};
 use openkind_backends::families::decoder_logit_letter::{
     DecoderLetterEngine, DecoderLetterEngineConfig, PROFILE_ID as DECODER_LETTER_PROFILE,
@@ -69,8 +69,8 @@ use openkind_backends::families::winnow::{
 use openkind_engine::{DecisionEngine, EngineRegistry};
 use openkind_model_store::{
     Manifest, CLEF_27B_GGUF_MODEL_NAME, CLEF_FLASH_GGUF_MODEL_NAME, CLEF_FLASH_MODEL_NAME,
-    D3_EDGE_MODEL_NAME, D3_LITE_MODEL_NAME, DECIDER_4B_MODEL_NAME, DECODER_LOGIT_LETTER_MODEL_NAME,
-    DECODER_LOGIT_LLM_MODEL_NAME, DECODER_LOGIT_QWEN35_MODEL_NAME,
+    D3_EDGE_MODEL_NAME, D3_LITE_MODEL_NAME, D3_NANO_MODEL_NAME, DECIDER_4B_MODEL_NAME,
+    DECODER_LOGIT_LETTER_MODEL_NAME, DECODER_LOGIT_LLM_MODEL_NAME, DECODER_LOGIT_QWEN35_MODEL_NAME,
     DECODER_LOGIT_QWEN3_06B_MODEL_NAME, DECODER_LOGIT_QWEN3_17B_MODEL_NAME,
     DECODER_LOGIT_QWEN3_4B_MODEL_NAME, ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME,
     KEV_MODEL_NAME, LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME,
@@ -206,6 +206,9 @@ pub(crate) fn installed_kind(manifest: &Manifest) -> Option<InstalledKind> {
         }
         (D3_LITE_MODEL_NAME, "d3-lite") if profile == D3_LITE.profile_id => {
             Some(InstalledKind::D3(&D3_LITE))
+        }
+        (D3_NANO_MODEL_NAME, "d3-nano") if profile == D3_NANO.profile_id => {
+            Some(InstalledKind::D3(&D3_NANO))
         }
         (VON_MODEL_NAME, "von") if profile == VON_PROFILE => Some(InstalledKind::Von),
         (WINNOW_MODEL_NAME, "winnow") if profile == WINNOW_PROFILE => Some(InstalledKind::Winnow),

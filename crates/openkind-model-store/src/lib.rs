@@ -13,7 +13,7 @@ use thiserror::Error;
 /// The production catalog mirrors the static file in this repository. Its
 /// digest is pinned below so the mutable mirror cannot authorize new content.
 pub const CATALOG_URL: &str = "https://raw.githubusercontent.com/whit3rabbit/openkind-model-registry/main/registry/v1/catalog.json";
-pub const CATALOG_SHA256: &str = "87a87e3b70a183b8f49f0f80c71a97871a45c63a50262c4368ea1d12c8baf6de";
+pub const CATALOG_SHA256: &str = "e7df6e47bf0e2f1e90e7e55ddc73d07ad441af4544cd0149ac14fa280c954d80";
 pub const QWEN35_STATE_FIRST_MODEL_NAME: &str = "qwen35-state-first:a047d6802c3f06f085b8";
 /// Pinned laya English decision-encoder model name.
 pub const LAYA_ENGLISH_MODEL_NAME: &str = "laya-english:c8ea29bf1e33a343c4b7";
@@ -51,6 +51,8 @@ pub const DECIDER_4B_MODEL_NAME: &str = "decider-4b:0529bf6f2bed84641701";
 pub const D3_EDGE_MODEL_NAME: &str = "d3-edge:664f9ead734372935286";
 /// Pinned d3-lite (noncausal d3-code-readout-v1) model name.
 pub const D3_LITE_MODEL_NAME: &str = "d3-lite:e0dd32dbc16b27546692";
+/// Pinned d3-nano (noncausal d3-code-readout-v1) model name.
+pub const D3_NANO_MODEL_NAME: &str = "d3-nano:0198af5b5c8e8835605e";
 /// Pinned raw decoder-logit-qwen3 control model names.
 pub const DECODER_LOGIT_QWEN3_06B_MODEL_NAME: &str = "decoder-logit-qwen3-06b:d900f4af57509fe02e62";
 pub const DECODER_LOGIT_QWEN3_17B_MODEL_NAME: &str = "decoder-logit-qwen3-17b:8119b9271f8d011e7d03";

@@ -479,8 +479,9 @@ TIER1 = [
                 "pin and HEAD, so HEAD is recorded as equivalent."),
         "The d3 family adapter at a 4.43 GB size on a backbone openkind has no pinned profile "
         "for (Qwen3.5-2B); quality drops steeply in the small d3 siblings (42.22 author-run "
-        "public versus 54.90 for d3-mini).",
-        "The d3 family adapter over a 2048/24 backbone config.",
+        "public versus 54.90 for d3-mini). Landed as the "
+        "d3-nano:0198af5b5c8e8835605e catalog profile; see docs/families/d3.md.",
+        "Landed as the d3-nano catalog profile over the 2048/24 noncausal backbone.",
         [lead("ahmedandaloes/d3-nano-mlx", "b503613cd2bdbbaef1cfbd09c6e348a5758b255b",
               "MLX (bit depth unstated)", "vllm-sr/d3-nano",
               "Unverified third-party conversion, same layout as ahmedandaloes/d3-mlx; no "
@@ -494,6 +495,7 @@ TIER1 = [
               "Ternary 3-bit quantization; ships a VERIFY.json that has not been read here. "
               "Not parity evidence.")],
         off_board_scores={"source": "author-run public suite 0.3 score from the model card", "public": 42.22, "note": "d3 siblings are not ranked on the 0.3.1 board; cards give author-run public numbers."},
+        already_catalog=True,
     ),
     entry(
         "d3-lite",

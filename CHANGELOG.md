@@ -23,6 +23,11 @@
   Qwen3.5-0.8B hybrid with the same noncausal code-readout contract,
   prompt byte-parity, golden replay, and catalog pull support (alias
   `d3:lite`).
+- A third d3-family profile, `d3-nano:0198af5b5c8e8835605e`, serving
+  `vllm-sr/d3-nano` at its v3.1.0 release commit
+  (`3aeb1c22a5632aac72353c36b3d0111c40e7dbf4`) — the full 24-layer
+  Qwen3.5-2B hybrid with the same noncausal code-readout contract, prompt
+  byte-parity, golden replay, and catalog pull support (alias `d3:nano`).
 - `registry/v1/jev-decision-index-0.3.1.json` (schema `openkind-jev-decision-index/v2`),
   superseding the 0.2.1 top-10 survey: 35 tier-1 and tier-2 entries covering the
   Decision Index 0.3.1 board leaders (d3, Decider 31B, Darwin-27B-ZTC, pplx v1.1), the
