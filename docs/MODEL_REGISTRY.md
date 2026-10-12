@@ -92,9 +92,15 @@ is a second supplemental index in the same spirit: it pins the top 10 open
 reproductions on the [Jev Decision Index
 leaderboard](https://huggingface.co/spaces/multimodalart/jev-decision-index)
 (excluding Jev itself) as of 2026-10-05 — per-entry rank, score, surveyed
-base-model and weights revisions, and MLX conversion leads. Nothing in it is
-installable, and every entry records why it is not loadable today;
-[`RESEARCH.md`](RESEARCH.md) owns the survey and its architecture verdicts.
+base-model and weights revisions, and MLX conversion leads.
+[`registry/v1/jev-decision-index-0.3.1.json`](../registry/v1/jev-decision-index-0.3.1.json)
+supersedes it for the 0.3.1 edition (2026-10-12): thirty-five tier-1 and
+tier-2 entries — the board leaders, the best small open entries, the whole
+d3 family, and their base models — pinned to re-resolved revisions with
+file-level pin-versus-HEAD equivalence checks. Both files are research
+metadata: nothing in either is installable, and every entry records why it
+is not loadable today; [`RESEARCH.md`](RESEARCH.md) owns the survey and its
+architecture verdicts.
 
 ## Execution backends and benchmark evidence per registry model
 

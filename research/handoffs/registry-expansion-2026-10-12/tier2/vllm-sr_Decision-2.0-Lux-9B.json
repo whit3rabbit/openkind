@@ -1,0 +1,308 @@
+{
+  "config": {
+    "architectures": [
+      "Decision2Model"
+    ],
+    "auto_map": {
+      "AutoConfig": "configuration_decision2.Decision2Config",
+      "AutoModel": "modeling_decision2.Decision2Model"
+    },
+    "chat_template_jinja": "{%- set image_count = namespace(value=0) %}\n{%- set video_count = namespace(value=0) %}\n{%- macro render_content(content, do_vision_count, is_system_content=false) %}\n    {%- if content is string %}\n        {{- content }}\n    {%- elif content is iterable and content is not mapping %}\n        {%- for item in content %}\n            {%- if 'image' in item or 'image_url' in item or item.type == 'image' %}\n                {%- if is_system_content %}\n                    {{- raise_exception('System message cannot contain images.') }}\n                {%- endif %}\n                {%- if do_vision_count %}\n                    {%- set image_count.value = image_count.value + 1 %}\n                {%- endif %}\n                {%- if add_vision_id %}\n                    {{- 'Picture ' ~ image_count.value ~ ': ' }}\n                {%- endif %}\n                {{- '<|vision_start|><|image_pad|><|vision_end|>' }}\n            {%- elif 'video' in item or item.type == 'video' %}\n                {%- if is_system_content %}\n                    {{- raise_exception('System message cannot contain videos.') }}\n                {%- endif %}\n                {%- if do_vision_count %}\n                    {%- set video_count.value = video_count.value + 1 %}\n                {%- endif %}\n                {%- if add_vision_id %}\n                    {{- 'Video ' ~ video_count.value ~ ': ' }}\n                {%- endif %}\n                {{- '<|vision_start|><|video_pad|><|vision_end|>' }}\n            {%- elif 'text' in item %}\n                {{- item.text }}\n            {%- else %}\n                {{- raise_exception('Unexpected item type in content.') }}\n            {%- endif %}\n        {%- endfor %}\n    {%- elif content is none or content is undefined %}\n        {{- '' }}\n    {%- else %}\n        {{- raise_exception('Unexpected content type.') }}\n    {%- endif %}\n{%- endmacro %}\n{%- if not messages %}\n    {{- raise_exception('No messages provided.') }}\n{%- endif %}\n{%- if tools and tools is iterable and tools is not mapping %}\n    {{- '<|im_start|>system\\n' }}\n    {{- \"# Tools\\n\\nYou have access to the following functions:\\n\\n<tools>\" }}\n    {%- for tool in tools %}\n        {{- \"\\n\" }}\n        {{- tool | tojson }}\n    {%- endfor %}\n    {{- \"\\n</tools>\" }}\n    {{- '\\n\\nIf you choose to call a function ONLY reply in the following format with NO suffix:\\n\\n<tool_call>\\n<function=example_function_name>\\n<parameter=example_parameter_1>\\nvalue_1\\n</parameter>\\n<parameter=example_parameter_2>\\nThis is the value for the second parameter\\nthat can span\\nmultiple lines\\n</parameter>\\n</function>\\n</tool_call>\\n\\n<IMPORTANT>\\nReminder:\\n- Function calls MUST follow the specified format: an inner <function=...></function> block must be nested within <tool_call></tool_call> XML tags\\n- Required parameters MUST be specified\\n- You may provide optional reasoning for your function call in natural language BEFORE the function call, but NOT after\\n- If there is no function call available, answer the question like normal with your current knowledge and do not tell the user about function calls\\n</IMPORTANT>' }}\n    {%- if messages[0].role == 'system' %}\n        {%- set content = render_content(messages[0].content, false, true)|trim %}\n        {%- if content %}\n            {{- '\\n\\n' + content }}\n        {%- endif %}\n    {%- endif %}\n    {{- '<|im_end|>\\n' }}\n{%- else %}\n    {%- if messages[0].role == 'system' %}\n        {%- set content = render_content(messages[0].content, false, true)|trim %}\n        {{- '<|im_start|>system\\n' + content + '<|im_end|>\\n' }}\n    {%- endif %}\n{%- endif %}\n{%- set ns = namespace(multi_step_tool=true, last_query_index=messages|length - 1) %}\n{%- for message in messages[::-1] %}\n    {%- set index = (messages|length - 1) - loop.index0 %}\n    {%- if ns.multi_step_tool and message.role == \"user\" %}\n        {%- set content = render_content(message.content, false)|trim %}\n        {%- if not(content.startswith('<tool_response>') and content.endswith('</tool_response>')) %}\n            {%- set ns.multi_step_tool = false %}\n            {%- set ns.last_query_index = index %}\n        {%- endif %}\n    {%- endif %}\n{%- endfor %}\n{%- if ns.multi_step_tool %}\n    {{- raise_exception('No user query found in messages.') }}\n{%- endif %}\n{%- for message in messages %}\n    {%- set content = render_content(message.content, true)|trim %}\n    {%- if message.role == \"system\" %}\n        {%- if not loop.first %}\n            {{- raise_exception('System message must be at the beginning.') }}\n        {%- endif %}\n    {%- elif message.role == \"user\" %}\n        {{- '<|im_start|>' + message.role + '\\n' + content + '<|im_end|>' + '\\n' }}\n    {%- elif message.role == \"assistant\" %}\n        {%- set reasoning_content = '' %}\n        {%- if message.reasoning_content is string %}\n            {%- set reasoning_content = message.reasoning_content %}\n        {%- else %}\n            {%- if '</think>' in content %}\n                {%- set reasoning_content = content.split('</think>')[0].rstrip('\\n').split('<think>')[-1].lstrip('\\n') %}\n                {%- set content = content.split('</think>')[-1].lstrip('\\n') %}\n            {%- endif %}\n        {%- endif %}\n        {%- set reasoning_content = reasoning_content|trim %}\n        {%- if loop.index0 > ns.last_query_index %}\n            {{- '<|im_start|>' + message.role + '\\n<think>\\n' + reasoning_content + '\\n</think>\\n\\n' + content }}\n        {%- else %}\n            {{- '<|im_start|>' + message.role + '\\n' + content }}\n        {%- endif %}\n        {%- if message.tool_calls and message.tool_calls is iterable and message.tool_calls is not mapping %}\n            {%- for tool_call in message.tool_calls %}\n                {%- if tool_call.function is defined %}\n                    {%- set tool_call = tool_call.function %}\n                {%- endif %}\n                {%- if loop.first %}\n                    {%- if content|trim %}\n                        {{- '\\n\\n<tool_call>\\n<function=' + tool_call.name + '>\\n' }}\n                    {%- else %}\n                        {{- '<tool_call>\\n<function=' + tool_call.name + '>\\n' }}\n                    {%- endif %}\n                {%- else %}\n                    {{- '\\n<tool_call>\\n<function=' + tool_call.name + '>\\n' }}\n                {%- endif %}\n                {%- if tool_call.arguments is defined %}\n                    {%- for args_name, args_value in tool_call.arguments|items %}\n                        {{- '<parameter=' + args_name + '>\\n' }}\n                        {%- set args_value = args_value | tojson | safe if args_value is mapping or (args_value is sequence and args_value is not string) else args_value | string %}\n                        {{- args_value }}\n                        {{- '\\n</parameter>\\n' }}\n                    {%- endfor %}\n                {%- endif %}\n                {{- '</function>\\n</tool_call>' }}\n            {%- endfor %}\n        {%- endif %}\n        {{- '<|im_end|>\\n' }}\n    {%- elif message.role == \"tool\" %}\n        {%- if loop.previtem and loop.previtem.role != \"tool\" %}\n            {{- '<|im_start|>user' }}\n        {%- endif %}\n        {{- '\\n<tool_response>\\n' }}\n        {{- content }}\n        {{- '\\n</tool_response>' }}\n        {%- if not loop.last and loop.nextitem.role != \"tool\" %}\n            {{- '<|im_end|>\\n' }}\n        {%- elif loop.last %}\n            {{- '<|im_end|>\\n' }}\n        {%- endif %}\n    {%- else %}\n        {{- raise_exception('Unexpected message role.') }}\n    {%- endif %}\n{%- endfor %}\n{%- if add_generation_prompt %}\n    {{- '<|im_start|>assistant\\n' }}\n    {%- if enable_thinking is defined and enable_thinking is false %}\n        {{- '<think>\\n\\n</think>\\n\\n' }}\n    {%- else %}\n        {{- '<think>\\n' }}\n    {%- endif %}\n{%- endif %}",
+    "model_type": "decision2",
+    "tokenizer_config": {
+      "bos_token": null,
+      "eos_token": "<|im_end|>",
+      "pad_token": "<|endoftext|>",
+      "unk_token": null
+    }
+  },
+  "gated": false,
+  "lastModified": "2026-10-10T21:21:21.000Z",
+  "license": "apache-2.0",
+  "pipeline_tag": "zero-shot-classification",
+  "private": false,
+  "repository": "vllm-sr/Decision-2.0-Lux-9B",
+  "resolved_at_utc": "2026-10-12T13:19:11Z",
+  "sha": "1dcd1e7f240eab37ac09a6d0b0f77654b59411f9",
+  "siblings": [
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": ".gitattributes",
+      "size": 1941
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "LICENSE",
+      "size": 11544
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "MODEL_MANIFEST.json",
+      "size": 21907
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "README.md",
+      "size": 4112
+    },
+    {
+      "lfs_sha256": "cd8cf74248b705f52cdd008aaeca93a87b34e8a8623e8370e2ecd9bc5f159aae",
+      "lfs_size": 1791660,
+      "path": "assets/banner.png",
+      "size": 1791660
+    },
+    {
+      "lfs_sha256": "78067b2d89311a2b1e9f94d6fa66679d8e691a332d94bafb3f3faba705dedc5c",
+      "lfs_size": 147100,
+      "path": "assets/index-areas.png",
+      "size": 147100
+    },
+    {
+      "lfs_sha256": "4107012b592fc7fe8423b145f732b92dd82dfd3caf605821975cf09561fb13da",
+      "lfs_size": 211038,
+      "path": "assets/index-pareto.png",
+      "size": 211038
+    },
+    {
+      "lfs_sha256": "eb97275fb1b7019d7f98a5dad1dbc3344793ecb763556194c2eaa34adc4d3773",
+      "lfs_size": 105013,
+      "path": "assets/jevarena-types.png",
+      "size": 105013
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "assets/jevarena.png",
+      "size": 59308
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "backbone/config.json",
+      "size": 1979
+    },
+    {
+      "lfs_sha256": "03cd850d6640dc2f50192e8334b15b2a6ef6c82025c9a6411302f253a0a0e38c",
+      "lfs_size": 4068475016,
+      "path": "backbone/model-00001-of-00009.safetensors",
+      "size": 4068475016
+    },
+    {
+      "lfs_sha256": "cad4b1e5f7ca61301b58f6136dfef108eb1d2d9793c31ca9818ffecaa64a79dc",
+      "lfs_size": 1965715032,
+      "path": "backbone/model-00002-of-00009.safetensors",
+      "size": 1965715032
+    },
+    {
+      "lfs_sha256": "6ac88bf9ed3b67465bd99db21aa0191a7d06deafc76dd638fb15e3e7e97617e0",
+      "lfs_size": 1999285240,
+      "path": "backbone/model-00003-of-00009.safetensors",
+      "size": 1999285240
+    },
+    {
+      "lfs_sha256": "0e2f45de6cc1a30cb076dcb5dfa0391aaac7dd92afee0d787514751d83a46d35",
+      "lfs_size": 1998596904,
+      "path": "backbone/model-00004-of-00009.safetensors",
+      "size": 1998596904
+    },
+    {
+      "lfs_sha256": "214acdbdf53852cf7a1ed8d89d4cfd1c20f102be97fd345ea3be7802f5826a9d",
+      "lfs_size": 1965731600,
+      "path": "backbone/model-00005-of-00009.safetensors",
+      "size": 1965731600
+    },
+    {
+      "lfs_sha256": "05b290c542834fc7ab33f24994728efe6bb7cc32bc25fd3a7c1fa04773451e6e",
+      "lfs_size": 1931487216,
+      "path": "backbone/model-00006-of-00009.safetensors",
+      "size": 1931487216
+    },
+    {
+      "lfs_sha256": "5e934511ffe2a8cce6826dd126e388f017338c56d29a4b2b24a4e43fcb414e88",
+      "lfs_size": 1931520176,
+      "path": "backbone/model-00007-of-00009.safetensors",
+      "size": 1931520176
+    },
+    {
+      "lfs_sha256": "17476a3923855fb4f4423f8352600706d9ed38e915ecf0907def771a54474e94",
+      "lfs_size": 1973449200,
+      "path": "backbone/model-00008-of-00009.safetensors",
+      "size": 1973449200
+    },
+    {
+      "lfs_sha256": "30952702ff21f6748554b1c0a4c8c970f6187771d81655f295512b852d91d320",
+      "lfs_size": 75514184,
+      "path": "backbone/model-00009-of-00009.safetensors",
+      "size": 75514184
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "backbone/model.safetensors.index.json",
+      "size": 33048
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "chat_template.jinja",
+      "size": 7756
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "config.json",
+      "size": 1612
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "configuration_decision2.py",
+      "size": 692
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "decision2/__init__.py",
+      "size": 164
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "decision2/_vendor/__init__.py",
+      "size": 40
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "decision2/_vendor/dev2model/__init__.py",
+      "size": 40
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "decision2/_vendor/dev2model/calibration.py",
+      "size": 11472
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "decision2/_vendor/dev2model/data.py",
+      "size": 7172
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "decision2/_vendor/dev2model/decision_model.py",
+      "size": 31910
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "decision2/_vendor/dev2model/infer.py",
+      "size": 28254
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "decision2/_vendor/dev2model/lora.py",
+      "size": 10902
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "decision2/_vendor/dev2model/score_bias.py",
+      "size": 3648
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "decision2/_vendor/dev2model/source.py",
+      "size": 1785
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "decision2/api.py",
+      "size": 9624
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "decision2/fast.py",
+      "size": 32395
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "decision2/fast_kernels.py",
+      "size": 16737
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "decision2/qwen.py",
+      "size": 16827
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "decision2/shared_ctx.py",
+      "size": 36730
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "decision_config.json",
+      "size": 3496
+    },
+    {
+      "lfs_sha256": "47f7b4d7e781b1648bdedcd176175889d284d5e982a3be6e70281fddb144d102",
+      "lfs_size": 16845656,
+      "path": "decision_head.safetensors",
+      "size": 16845656
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "modeling_decision2.py",
+      "size": 19865
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "pipeline_decision2.py",
+      "size": 2094
+    },
+    {
+      "lfs_sha256": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "lfs_size": 19989325,
+      "path": "tokenizer.json",
+      "size": 19989325
+    },
+    {
+      "lfs_sha256": null,
+      "lfs_size": null,
+      "path": "tokenizer_config.json",
+      "size": 1123
+    }
+  ],
+  "tags": [
+    "transformers",
+    "safetensors",
+    "decision2",
+    "feature-extraction",
+    "zero-shot-classification",
+    "decision-model",
+    "classification",
+    "system-one",
+    "custom_code",
+    "base_model:vllm-sr/Decision-1.0-Lux-9B",
+    "base_model:finetune:vllm-sr/Decision-1.0-Lux-9B",
+    "license:apache-2.0",
+    "region:us"
+  ]
+}
