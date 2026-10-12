@@ -16,7 +16,7 @@ use crate::args::{
 };
 use anyhow::{bail, Context, Result};
 use clap::Parser;
-use openkind_backends::families::d3::{D3Engine, D3EngineConfig, D3_EDGE};
+use openkind_backends::families::d3::{D3Engine, D3EngineConfig};
 use openkind_backends::families::decider::{DeciderEngine, DeciderEngineConfig, DECIDER_4B};
 use openkind_backends::families::decoder_logit_letter::{
     DecoderLetterEngine, DecoderLetterEngineConfig,
@@ -324,22 +324,23 @@ pub(crate) struct FamilyArgs {
     #[arg(long, env = "OPENKIND_DECIDER_4B_MODEL_ROOT")]
     pub(crate) decider_4b_model_root: Option<PathBuf>,
 
-    /// Aliases in `--models` that should use the pinned d3 engine
-    /// (noncausal 255-code readout on the Qwen3.5 hybrid backbone).
+    /// Aliases in `--models` that should use the pinned d3 engines
+    /// (noncausal 255-code readout on the Qwen3.5 hybrid backbone). Entries
+    /// look like `edge=<alias>[,alias…];lite=<alias>`.
     #[arg(
         long,
         env = "OPENKIND_D3_ALIASES",
-        value_delimiter = ',',
-        default_value = "d3-native"
+        value_delimiter = ';',
+        default_value = "edge=d3-native"
     )]
     pub(crate) d3_aliases: Vec<String>,
 
-    /// Model root with the pinned checkpoint shard, `readout.safetensors`,
+    /// Model roots with the pinned checkpoint shard, `readout.safetensors`,
     /// `config.json`, `decision_config.json`, `tokenizer.json`,
     /// `tokenizer_config.json`, and `chat_template.jinja` required by d3
-    /// aliases.
-    #[arg(long, env = "OPENKIND_D3_MODEL_ROOT")]
-    pub(crate) d3_model_root: Option<PathBuf>,
+    /// aliases. Entries look like `edge=<path>;lite=<path>`.
+    #[arg(long, env = "OPENKIND_D3_MODEL_ROOTS", value_delimiter = ';')]
+    pub(crate) d3_model_roots: Vec<String>,
 
     /// Aliases in `--models` that should use the pinned raw decoder-logit-
     /// qwen3 controls (letter-logit readout on the dense Qwen3 checkpoints).
@@ -721,6 +722,81 @@ impl FamilyArgs {
         Ok(roots)
     }
 
+    /// Parse `--d3-aliases` entries (`edge=<alias>[,alias…];lite=…`) into
+    /// (loader id, alias) pairs against the family's pinned profiles.
+    pub(crate) fn parse_d3_aliases(&self) -> Result<Vec<(&'static str, String)>> {
+        let mut result = Vec::new();
+        let mut seen_aliases = std::collections::HashMap::new();
+        for raw_entry in &self.d3_aliases {
+            for entry in raw_entry.split(';') {
+                let entry = entry.trim();
+                if entry.is_empty() {
+                    continue;
+                }
+                let Some((loader_raw, alias_names)) = entry.split_once('=') else {
+                    bail!("--d3-aliases entries must look like edge=<alias>[,alias…]; got {entry}");
+                };
+                let loader = loader_raw.trim();
+                let profile = openkind_backends::families::d3::profile_by_short_name(loader)
+                    .ok_or_else(|| {
+                        anyhow::anyhow!(
+                            "--d3-aliases names unknown d3 profile `{loader}`; known: edge, lite"
+                        )
+                    })?;
+                for alias_name in alias_names.split(',') {
+                    let alias_name = alias_name.trim();
+                    if alias_name.is_empty() {
+                        bail!("--d3-aliases has an empty alias for profile `{loader}`");
+                    }
+                    if let Some(existing) = seen_aliases.get(alias_name) {
+                        bail!(
+                            "alias `{alias_name}` is assigned to more than one d3 profile (`{existing}` and `{loader}`)"
+                        );
+                    }
+                    seen_aliases.insert(alias_name.to_string(), loader);
+                    result.push((profile.loader_id, alias_name.to_string()));
+                }
+            }
+        }
+        Ok(result)
+    }
+
+    /// Parse `--d3-model-roots` entries (`edge=<path>;lite=<path>`).
+    pub(crate) fn parse_d3_model_roots(&self) -> Result<BTreeMap<&'static str, PathBuf>> {
+        let mut roots = BTreeMap::new();
+        for raw_entry in &self.d3_model_roots {
+            for entry in raw_entry.split(';') {
+                let entry = entry.trim();
+                if entry.is_empty() {
+                    continue;
+                }
+                let Some((loader_raw, root_raw)) = entry.split_once('=') else {
+                    bail!("--d3-model-roots entries must look like edge=<path>; got {entry}");
+                };
+                let loader = loader_raw.trim();
+                let profile = openkind_backends::families::d3::profile_by_short_name(loader)
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("--d3-model-roots names unknown d3 profile `{loader}`")
+                    })?;
+                let root = root_raw.trim();
+                if root.is_empty() {
+                    bail!(
+                        "--d3-model-roots has an empty path for profile `{}`",
+                        profile.loader_id
+                    );
+                }
+                if roots.contains_key(profile.loader_id) {
+                    bail!(
+                        "duplicate d3 model root for profile `{}`",
+                        profile.loader_id
+                    );
+                }
+                roots.insert(profile.loader_id, PathBuf::from(root));
+            }
+        }
+        Ok(roots)
+    }
+
     pub(crate) fn parse_clef_aliases(&self) -> Result<Vec<(&'static str, String)>> {
         let mut result = Vec::new();
         let mut seen_aliases = HashMap::new();
@@ -805,12 +881,14 @@ impl FamilyArgs {
             .chain(&self.decoder_logit_qwen35_aliases)
             .chain(&self.plumb_4b_aliases)
             .chain(&self.decider_4b_aliases)
-            .chain(&self.d3_aliases)
             .chain(&self.laya_english_aliases)
             .chain(&self.laya_multilingual_aliases)
             .chain(&self.laya_typed_decisions_aliases)
         {
             claimed.insert(alias.clone());
+        }
+        for (_, alias) in self.parse_d3_aliases()? {
+            claimed.insert(alias);
         }
         for (_, alias) in self.parse_decoder_logit_qwen3_aliases()? {
             claimed.insert(alias);
@@ -1417,22 +1495,27 @@ impl FamilyArgs {
             }
         }
 
-        let d3: Vec<_> = self
-            .d3_aliases
-            .iter()
-            .filter(|alias| models.contains(alias))
-            .collect();
-        if !d3.is_empty() {
-            let model_root = self
-                .d3_model_root
-                .clone()
-                .context("d3 alias requested but --d3-model-root is missing")?;
+        let d3_roots = self.parse_d3_model_roots()?;
+        let d3_aliases = self.parse_d3_aliases()?;
+        for profile in openkind_backends::families::d3::PROFILES {
+            let requested: Vec<_> = d3_aliases
+                .iter()
+                .filter(|(loader, alias)| *loader == profile.loader_id && models.contains(alias))
+                .map(|(_, alias)| alias)
+                .collect();
+            if requested.is_empty() {
+                continue;
+            }
+            let model_root = d3_roots.get(profile.loader_id).cloned().context(format!(
+                "d3 alias requested for `{}` but --d3-model-roots has no `{0}=<path>` entry",
+                profile.loader_id
+            ))?;
             let engine: Arc<dyn DecisionEngine> =
                 crate::backend::load(self.d3_backend, &model_root, devices, |backend| {
                     Ok(Arc::new(
                         D3Engine::load_with_execution(
                             D3EngineConfig {
-                                profile: &D3_EDGE,
+                                profile,
                                 model_root: model_root.clone(),
                                 limits: admission.limits(),
                             },
@@ -1441,7 +1524,7 @@ impl FamilyArgs {
                         .context("load d3 engine")?,
                     ) as Arc<dyn DecisionEngine>)
                 })?;
-            for alias in d3 {
+            for alias in requested {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
         }
@@ -1695,11 +1778,16 @@ impl FamilyArgs {
             .chain(&self.decoder_logit_qwen35_aliases)
             .chain(&self.plumb_4b_aliases)
             .chain(&self.decider_4b_aliases)
-            .chain(&self.d3_aliases)
             .chain(&self.laya_english_aliases)
             .chain(&self.laya_multilingual_aliases)
             .chain(&self.laya_typed_decisions_aliases)
         {
+            if !seen.insert(alias.as_str()) {
+                bail!("alias `{alias}` is assigned to more than one family engine");
+            }
+        }
+        let d3_alias_pairs = self.parse_d3_aliases()?;
+        for (_, alias) in &d3_alias_pairs {
             if !seen.insert(alias.as_str()) {
                 bail!("alias `{alias}` is assigned to more than one family engine");
             }

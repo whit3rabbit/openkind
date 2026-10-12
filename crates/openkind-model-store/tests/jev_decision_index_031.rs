@@ -327,9 +327,11 @@ fn catalog_families_are_marked_and_other_engines_do_not_shadow_the_catalog() {
     let index = parsed_index();
     for entry in &index.entries {
         if entry.already_catalog {
+            const CURATED_ENGINES: [&str; 4] = ["clef", "clef-flash", "d3-edge", "d3-lite"];
             assert!(
-                entry.engine == "clef" || entry.engine == "clef-flash" || entry.engine == "d3-edge",
-                "only entries with a curated catalog profile may overlap catalog families"
+                CURATED_ENGINES.contains(&entry.engine.as_str()),
+                "only entries with a curated catalog profile may overlap catalog families: {}",
+                entry.engine
             );
             continue;
         }

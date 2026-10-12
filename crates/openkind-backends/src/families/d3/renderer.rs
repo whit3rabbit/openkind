@@ -118,9 +118,7 @@ pub fn instruction_text(instructions: &serde_json::Value) -> String {
     match instructions {
         // Python `or` also falls through on the empty string.
         serde_json::Value::String(text) if !text.is_empty() => text.clone(),
-        serde_json::Value::String(_) | serde_json::Value::Null => {
-            DEFAULT_INSTRUCTIONS.to_owned()
-        }
+        serde_json::Value::String(_) | serde_json::Value::Null => DEFAULT_INSTRUCTIONS.to_owned(),
         value => describe(value),
     }
 }

@@ -8,7 +8,7 @@ records per-case prompt byte/token statistics for comparison against the
 Rust renderer.
 
 Usage:
-  python3 d3_reference_parity.py <model-root> <out-json>
+  python3 d3_reference_parity.py <model-root> <out-json> [repo_id] [revision]
 
 The model root must contain tokenizer.json, chat_template.jinja,
 decision_config.json, and config.json at the pinned revision. Nothing here
@@ -103,6 +103,8 @@ def stats(text: str) -> dict:
 def main() -> int:
     model_root = Path(sys.argv[1])
     out_path = Path(sys.argv[2])
+    repo_id = sys.argv[3] if len(sys.argv) > 3 else "vllm-sr/d3-edge"
+    revision = sys.argv[4] if len(sys.argv) > 4 else "18d61df78684675463af9ae732872478845c5a79"
     tokenizer = Tokenizer.from_file(str(model_root / "tokenizer.json"))
     decision_config = json.loads((model_root / "decision_config.json").read_text())
     template = load_template(model_root)
@@ -174,7 +176,8 @@ def main() -> int:
         print(f"  {name}: {entry['token_count']} tokens, prompt {entry['prompt_bytes']} bytes")
 
     document = {
-        "model_root_revision": "18d61df78684675463af9ae732872478845c5a79",
+        "repository": repo_id,
+        "model_root_revision": revision,
         "format_id": decision_config["format_id"],
         "derivation_prefix_sha256": hashlib.sha256(prefix.encode("utf-8")).hexdigest(),
         "code_table_matches_decision_config": derivation_matches,

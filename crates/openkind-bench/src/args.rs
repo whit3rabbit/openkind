@@ -327,6 +327,10 @@ pub enum EngineArg {
     /// Qwen3.5-0.8B hybrid backbone).
     #[value(name = "d3-edge")]
     D3Edge,
+    /// Pinned d3-lite engine (noncausal 255-code readout on the Qwen3.5-0.8B
+    /// hybrid backbone).
+    #[value(name = "d3-lite")]
+    D3Lite,
     /// Pinned winnow-e4b engine (Gemma 4 backbone letter-logit readout).
     #[value(name = "winnow-e4b")]
     WinnowE4b,
@@ -399,6 +403,7 @@ impl From<EngineArg> for EngineKind {
             EngineArg::Plumb4b => EngineKind::Plumb4b,
             EngineArg::Decider4b => EngineKind::Decider4b,
             EngineArg::D3Edge => EngineKind::D3Edge,
+            EngineArg::D3Lite => EngineKind::D3Lite,
             EngineArg::WinnowE4b => EngineKind::WinnowE4b,
             EngineArg::ClefFlash => EngineKind::ClefFlash,
             EngineArg::ClefFlashGguf => EngineKind::ClefFlashGguf,

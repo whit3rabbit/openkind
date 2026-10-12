@@ -18,10 +18,7 @@ use crate::families::decoder_logit_qwen35::model::resolve_config_field;
 use crate::families::support::{read_json, verify_digest, FamilyControl, FamilyError};
 use crate::qwen35::{EmbeddingLayout, Qwen35Geometry, TextBackbone};
 
-use super::{pinned_config, pinned_decision_config, D3Profile, CODE_TABLE_WIDTH};
-
-/// Vocab size the pinned embedding table must have.
-pub(super) const VOCAB_SIZE: usize = 248_320;
+use super::{pinned_config, pinned_decision_config, D3Profile, CODE_TABLE_WIDTH, VOCAB_SIZE};
 
 /// Tensor namespace of the text-only `Qwen3_5Model` checkpoints (no
 /// `model.` prefix and no vision-tower indirection; the shipped vision
@@ -93,7 +90,7 @@ impl VerifiedArtifacts {
         }
 
         let config_json: serde_json::Value = read_json(&config_path)?;
-        for (field, expected) in pinned_config() {
+        for (field, expected) in pinned_config(profile) {
             let actual = resolve_config_field(&config_json, field).ok_or_else(|| {
                 FamilyError::ContractMismatch {
                     field,
@@ -101,12 +98,21 @@ impl VerifiedArtifacts {
                     actual: "missing".to_owned(),
                 }
             })?;
-            if actual != expected {
+            // RMS epsilon is pinned as f32; a config's decimal `1e-6` is the
+            // f64 nearest that value, so compare through the f32 rounding.
+            let matches = if field == "text_config.rms_norm_eps" {
+                actual
+                    .as_f64()
+                    .is_some_and(|value| value as f32 == profile.geometry.rms_epsilon)
+            } else {
+                actual == expected
+            };
+            if !matches {
                 return Err(FamilyError::contract(field, expected, actual));
             }
         }
         let decision_config: serde_json::Value = read_json(&decision_config_path)?;
-        for (field, expected) in pinned_decision_config() {
+        for (field, expected) in pinned_decision_config(profile) {
             let actual = resolve_config_field(&decision_config, field).ok_or_else(|| {
                 FamilyError::ContractMismatch {
                     field,
@@ -279,7 +285,7 @@ fn read_rows(path: &Path, rows: usize, hidden: usize) -> Result<Vec<f32>, Family
     let flattened = tensor
         .flatten_all()
         .map_err(|error| FamilyError::InvalidInput(error.to_string()))?;
-    flattened.to_vec1::<f32>().map_err(|error| {
-        FamilyError::InvalidInput(format!("readout tensor unreadable: {error}"))
-    })
+    flattened
+        .to_vec1::<f32>()
+        .map_err(|error| FamilyError::InvalidInput(format!("readout tensor unreadable: {error}")))
 }

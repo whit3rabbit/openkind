@@ -17,6 +17,12 @@
   (all seven fixture cases match); golden-fixture replay, fail-closed load
   tests, daemon aliases (`--d3-aliases`/`--d3-model-root`), and bench engine
   (`openkind-bench score --engine d3-edge`) are wired.
+- A second d3-family profile, `d3-lite:e0dd32dbc16b27546692`, serving
+  `vllm-sr/d3-lite` at its v3.1.0 release commit
+  (`a8d25a91ef75552803f7009d25b7bd435991abd9`) — the full 24-layer
+  Qwen3.5-0.8B hybrid with the same noncausal code-readout contract,
+  prompt byte-parity, golden replay, and catalog pull support (alias
+  `d3:lite`).
 - `registry/v1/jev-decision-index-0.3.1.json` (schema `openkind-jev-decision-index/v2`),
   superseding the 0.2.1 top-10 survey: 35 tier-1 and tier-2 entries covering the
   Decision Index 0.3.1 board leaders (d3, Decider 31B, Darwin-27B-ZTC, pplx v1.1), the

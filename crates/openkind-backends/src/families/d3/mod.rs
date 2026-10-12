@@ -103,6 +103,10 @@ pub struct D3Profile {
     pub chat_template_sha256: &'static str,
     /// Scalar temperature from `decision_config.json`.
     pub temperature: f64,
+    /// `decision_config.json` `base_model` the loader pins.
+    pub declared_base_id: &'static str,
+    /// `decision_config.json` base `revision` the loader pins.
+    pub declared_base_revision: &'static str,
     /// Width of the code readout (`d3_format.MAX_OPTIONS`).
     pub max_candidates: usize,
     /// Frozen maximum Score levels per question (reference `SCORE_LEVELS`).
@@ -162,6 +166,8 @@ pub const D3_EDGE: D3Profile = D3Profile {
     chat_template_sha256: "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
     // decision_config.json: "temperature": 1.0.
     temperature: 1.0,
+    declared_base_id: "Qwen/Qwen3.5-0.8B",
+    declared_base_revision: "2fc06364715b967f1860aea9cf38778875588b17",
     max_candidates: 255,
     max_score_levels: 10,
     max_row_tokens: 262_144,
@@ -172,8 +178,53 @@ pub const D3_EDGE: D3Profile = D3Profile {
                   (Apache-2.0, d3-code-readout-v1); prototype readout, research status",
 };
 
+/// Pinned `vllm-sr/d3-lite` (the `d3-lite v3.1.0` release commit pinned by
+/// the semantic-router parity record, Apache-2.0) at
+/// `a8d25a91ef75552803f7009d25b7bd435991abd9`: the full 24-layer
+/// Qwen3.5-0.8B hybrid fine-tune (noncausal full attention on the uniform
+/// 3:1 table) plus a separate `[255, 1024]` float32 code readout.
+pub const D3_LITE: D3Profile = D3Profile {
+    loader_id: "d3-lite",
+    backbone_id: "vllm-sr/d3-lite",
+    backbone_revision: "a8d25a91ef75552803f7009d25b7bd435991abd9",
+    profile_id: "e0dd32dbc16b27546692",
+    geometry: crate::qwen35::Qwen35Geometry::BASE_08B.with_causal(false),
+    shards: &[(
+        "model-00001-of-00001.safetensors",
+        1_706_027_688,
+        "ca6222dbf2b72899ae45580ed84d26d1f0e69a8de212edda295072000e34a4c2",
+    )],
+    readout_sha256: "fe11cfac5c79b6a83e35b707581b1260214279bb22b003c215c62719186ef629",
+    readout_bytes: 1_044_560,
+    config_json_sha256: "a9071195384e1fc2c68f9fe0fae007a22182ab77eb14fe8228a1a24b37d3cee9",
+    decision_config_sha256: "30b6095b945d5a93697868afdf9be9123ea892085fbaff3078112c48da20dc6b",
+    tokenizer_json_sha256: "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42",
+    tokenizer_config_json_sha256: "49e2b6e395f959f077f1e992b338919c0d4a9732fc6e613995e06557f843500c",
+    chat_template_sha256: "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+    temperature: 1.0,
+    declared_base_id: "Qwen/Qwen3.5-0.8B",
+    declared_base_revision: "2fc06364715b967f1860aea9cf38778875588b17",
+    max_candidates: 255,
+    max_score_levels: 10,
+    max_row_tokens: 262_144,
+    cpu_backend_id: "d3-lite/cpu-fp32",
+    cuda_backend_id: "d3-lite/cuda-fp32",
+    release_date: "2026-10-12",
+    description: "Pinned d3-lite noncausal 24-layer Qwen3.5-0.8B code-readout decision engine                   (Apache-2.0, d3-code-readout-v1); prototype readout, research status",
+};
+
 /// Profiles of this family, in catalog order.
-pub const PROFILES: &[&D3Profile] = &[&D3_EDGE];
+pub const PROFILES: &[&D3Profile] = &[&D3_EDGE, &D3_LITE];
+
+/// Resolve a CLI short name (`edge`, `lite`, ...) to its profile. The short
+/// names are the `--d3-aliases` / `--d3-model-roots` entry keys.
+pub fn profile_by_short_name(short: &str) -> Option<&'static D3Profile> {
+    match short {
+        "edge" => Some(&D3_EDGE),
+        "lite" => Some(&D3_LITE),
+        _ => None,
+    }
+}
 
 /// The profile with the given loader ID, if this build pins it.
 pub fn profile_by_loader_id(loader_id: &str) -> Option<&'static D3Profile> {
@@ -196,43 +247,63 @@ pub fn profile_by_id(profile_id: &str) -> Option<&'static D3Profile> {
 /// uppercase strings, 255 entries.
 pub const CODE_TABLE_WIDTH: usize = 255;
 
+/// Vocab size every pinned d3 checkpoint's embedding table must have.
+pub(crate) const VOCAB_SIZE: usize = 248_320;
+
 /// Pinned `config.json` values the loader enforces before trusting weights.
-pub(crate) fn pinned_config() -> Vec<(&'static str, serde_json::Value)> {
+pub(crate) fn pinned_config(profile: &D3Profile) -> Vec<(&'static str, serde_json::Value)> {
     use serde_json::json;
+    let geometry = profile.geometry;
+    let layer_types: Vec<serde_json::Value> = geometry.full_attention_layers
+        [..geometry.layer_count]
+        .iter()
+        .map(|full| {
+            if *full {
+                json!("full_attention")
+            } else {
+                json!("linear_attention")
+            }
+        })
+        .collect();
     vec![
         ("model_type", json!("qwen3_5")),
         ("architectures", json!(["Qwen3_5Model"])),
-        ("text_config.hidden_size", json!(1024)),
-        ("text_config.intermediate_size", json!(3584)),
-        ("text_config.num_hidden_layers", json!(12)),
-        ("text_config.full_attention_interval", json!(4)),
-        ("text_config.linear_num_key_heads", json!(16)),
-        ("text_config.linear_num_value_heads", json!(16)),
-        ("text_config.linear_key_head_dim", json!(128)),
-        ("text_config.linear_value_head_dim", json!(128)),
-        ("text_config.linear_conv_kernel_dim", json!(4)),
-        ("text_config.num_attention_heads", json!(8)),
-        ("text_config.num_key_value_heads", json!(2)),
-        ("text_config.head_dim", json!(256)),
-        ("text_config.rms_norm_eps", json!(1e-6)),
-        ("text_config.vocab_size", json!(248_320)),
+        ("text_config.hidden_size", json!(geometry.hidden_size)),
         (
-            "text_config.layer_types",
-            json!([
-                "linear_attention",
-                "linear_attention",
-                "full_attention",
-                "linear_attention",
-                "linear_attention",
-                "full_attention",
-                "linear_attention",
-                "linear_attention",
-                "full_attention",
-                "full_attention",
-                "full_attention",
-                "full_attention"
-            ]),
+            "text_config.intermediate_size",
+            json!(geometry.intermediate_size),
         ),
+        ("text_config.num_hidden_layers", json!(geometry.layer_count)),
+        (
+            "text_config.full_attention_interval",
+            json!(geometry.full_attention_interval),
+        ),
+        (
+            "text_config.linear_num_key_heads",
+            json!(geometry.key_heads),
+        ),
+        (
+            "text_config.linear_num_value_heads",
+            json!(geometry.value_heads),
+        ),
+        ("text_config.linear_key_head_dim", json!(geometry.head_dim)),
+        (
+            "text_config.linear_value_head_dim",
+            json!(geometry.head_dim),
+        ),
+        (
+            "text_config.linear_conv_kernel_dim",
+            json!(geometry.conv_kernel),
+        ),
+        (
+            "text_config.num_attention_heads",
+            json!(geometry.attention_heads),
+        ),
+        ("text_config.num_key_value_heads", json!(geometry.kv_heads)),
+        ("text_config.head_dim", json!(geometry.attention_head_dim)),
+        ("text_config.rms_norm_eps", json!(geometry.rms_epsilon)),
+        ("text_config.vocab_size", json!(VOCAB_SIZE)),
+        ("text_config.layer_types", json!(layer_types)),
     ]
 }
 
@@ -241,7 +312,9 @@ pub(crate) fn pinned_config() -> Vec<(&'static str, serde_json::Value)> {
 /// config that changes the format, re-enables causal attention, moves the
 /// pooling position, or retunes the temperature fails the load instead of
 /// silently changing answers.
-pub(crate) fn pinned_decision_config() -> Vec<(&'static str, serde_json::Value)> {
+pub(crate) fn pinned_decision_config(
+    profile: &D3Profile,
+) -> Vec<(&'static str, serde_json::Value)> {
     use serde_json::json;
     vec![
         ("format_id", json!("d3-code-readout-v1")),
@@ -250,12 +323,9 @@ pub(crate) fn pinned_decision_config() -> Vec<(&'static str, serde_json::Value)>
         ("attention_mode", json!("noncausal_full_attention")),
         ("pooling", json!("last")),
         ("readout_dtype", json!("float32")),
-        ("temperature", json!(1.0)),
-        ("base_model", json!("Qwen/Qwen3.5-0.8B")),
-        (
-            "revision",
-            json!("2fc06364715b967f1860aea9cf38778875588b17"),
-        ),
+        ("temperature", json!(profile.temperature)),
+        ("base_model", json!(profile.declared_base_id)),
+        ("revision", json!(profile.declared_base_revision)),
     ]
 }
 

@@ -16,7 +16,8 @@
 use std::path::PathBuf;
 
 use openkind_backends::families::d3::{
-    D3Engine, D3EngineConfig, D3Renderer, D3_EDGE, EXECUTION_ARITHMETIC_ID, FAMILY_SLUG,
+    profile_by_short_name, D3Engine, D3EngineConfig, D3Renderer, EXECUTION_ARITHMETIC_ID,
+    FAMILY_SLUG,
 };
 use openkind_backends::families::support::FamilyLimits;
 use openkind_core::{Question, SystemRequest};
@@ -194,6 +195,7 @@ fn cases() -> Vec<Case> {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut model_root: Option<PathBuf> = None;
     let mut output: Option<PathBuf> = None;
+    let mut profile_loader = "edge";
     let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
@@ -201,11 +203,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 model_root = Some(PathBuf::from(args.next().expect("--model-root value")))
             }
             "--output" => output = Some(PathBuf::from(args.next().expect("--output value"))),
+            "--profile" => {
+                profile_loader = Box::leak(
+                    args.next()
+                        .expect("--profile value")
+                        .trim()
+                        .to_owned()
+                        .into_boxed_str(),
+                );
+            }
             other => return Err(format!("unknown argument {other}").into()),
         }
     }
     let model_root = model_root.ok_or("--model-root is required")?;
     let output = output.ok_or("--output is required")?;
+    let profile = profile_by_short_name(profile_loader)
+        .ok_or_else(|| format!("unknown --profile {profile_loader}; known: edge, lite"))?;
 
     let engine = D3Engine::load(D3EngineConfig {
         model_root: model_root.clone(),
@@ -215,7 +228,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             retry_after_ms: 100,
             evaluation_timeout: None,
         },
-        profile: &D3_EDGE,
+        profile,
     })?;
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -261,7 +274,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let token_ids: Vec<u64> = serde_json::from_value(config["token_ids"].clone())?;
             token_ids
         },
-        &D3_EDGE,
+        profile,
     )?;
     let mut prompt_stats = Vec::new();
     for case in case_values.iter().zip(cases()) {
@@ -295,11 +308,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     let golden = json!({
-        "profile_id": D3_EDGE.profile_id,
+        "profile_id": profile.profile_id,
         "family": FAMILY_SLUG,
         "backbone": {
-            "id": D3_EDGE.backbone_id,
-            "revision": D3_EDGE.backbone_revision,
+            "id": profile.backbone_id,
+            "revision": profile.backbone_revision,
         },
         "execution_arithmetic": EXECUTION_ARITHMETIC_ID,
         "probability_tolerance": 0.005,

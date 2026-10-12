@@ -15,17 +15,40 @@ use openkind_backends::families::support::FamilyLimits;
 use openkind_engine::DecisionEngine;
 use serde::Deserialize;
 
-const FIXTURE_DIR: &str = "tests/fixtures/d3_664f9ead734372935286";
+const DEFAULT_FIXTURE_DIR: &str = "tests/fixtures/d3_664f9ead734372935286";
 const PROBABILITY_TOLERANCE: f64 = 0.005;
 
+/// The fixture to replay. Set `OPENKIND_D3_FIXTURE` to the profile's
+/// fixture directory name (for example `d3_e0dd32dbc16b27546692`) when the
+/// downloaded weights belong to another family profile.
 fn fixture_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join(FIXTURE_DIR)
+    let name =
+        std::env::var("OPENKIND_D3_FIXTURE").unwrap_or_else(|_| DEFAULT_FIXTURE_DIR.to_owned());
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures")
+        .join(name)
 }
 
 fn model_root() -> Option<PathBuf> {
     std::env::var_os("OPENKIND_D3_MODEL_ROOT")
         .map(PathBuf::from)
         .filter(|root| root.is_dir())
+}
+
+/// The profile id recorded in a fixture's golden, for fail-closed tests.
+fn golden_profile_id(dir: &Path) -> String {
+    #[derive(Deserialize)]
+    struct Id {
+        profile_id: String,
+    }
+    serde_json::from_slice::<Id>(&fs::read(dir.join("golden.json")).expect("read golden"))
+        .expect("golden profile id")
+        .profile_id
+}
+
+fn profile_for_fixture(profile_id: &str) -> &'static openkind_backends::families::d3::D3Profile {
+    openkind_backends::families::d3::profile_by_id(profile_id)
+        .unwrap_or_else(|| panic!("golden names unknown profile {profile_id}"))
 }
 
 fn limits() -> FamilyLimits {
@@ -39,6 +62,7 @@ fn limits() -> FamilyLimits {
 
 #[derive(Debug, Deserialize)]
 struct Golden {
+    profile_id: String,
     cases: Vec<GoldenCase>,
 }
 
@@ -214,10 +238,12 @@ fn golden_replay_matches_the_pinned_checkpoint() {
     .expect("decode golden fixture");
     assert!(!golden.cases.is_empty(), "golden fixture has cases");
 
+    let profile = openkind_backends::families::d3::profile_by_id(&golden.profile_id)
+        .unwrap_or_else(|| panic!("golden names unknown profile {}", golden.profile_id));
     let engine = D3Engine::load(D3EngineConfig {
         model_root: root,
         limits: limits(),
-        profile: &D3_EDGE,
+        profile,
     })
     .expect("load pinned engine");
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -280,7 +306,7 @@ fn load_fails_closed_on_artifact_digest_mismatch() {
     let error = match D3Engine::load(D3EngineConfig {
         model_root: staged.clone(),
         limits: limits(),
-        profile: &D3_EDGE,
+        profile: profile_for_fixture(&golden_profile_id(&fixture_dir())),
     }) {
         Err(error) => error,
         Ok(_) => panic!("drifted decision config must fail closed"),

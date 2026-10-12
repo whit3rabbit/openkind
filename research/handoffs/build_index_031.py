@@ -515,13 +515,15 @@ TIER1 = [
                 "runtime server files; every weight and readout blob is byte-identical between "
                 "pin and HEAD, so HEAD is recorded as equivalent."),
         "The d3 family adapter at a 1.71 GB size; 36.93 author-run public makes it a "
-        "convenience target for adapter bring-up rather than a quality lead.",
-        "The d3 family adapter over a 1024/24 backbone config.",
+        "convenience target for adapter bring-up rather than a quality lead. Landed as the "
+        "d3-lite:e0dd32dbc16b27546692 catalog profile; see docs/families/d3.md.",
+        "Landed as the d3-lite catalog profile over the 1024/24 noncausal backbone.",
         [lead("ahmedandaloes/d3-lite-mlx", "235b1fb6ed8d20ab911e10801a4f4cec9cadc24a",
               "MLX (bit depth unstated)", "vllm-sr/d3-lite",
               "Unverified third-party conversion, same layout as ahmedandaloes/d3-mlx; no "
               "license field. Not parity evidence.")],
         off_board_scores={"source": "author-run public suite 0.3 score from the model card", "public": 36.93, "note": "d3 siblings are not ranked on the 0.3.1 board; cards give author-run public numbers."},
+        already_catalog=True,
     ),
     entry(
         "d3-edge",
