@@ -423,6 +423,21 @@ pub(crate) fn run_score_reserved(
                 )
                 .map_err(|error| anyhow::anyhow!("load d3-flash engine: {error}"))?,
             ),
+            EngineKind::Sieve4b => Arc::new(
+                openkind_backends::families::sieve::SieveEngine::load(
+                    openkind_backends::families::sieve::SieveEngineConfig {
+                        profile: &openkind_backends::families::sieve::SIEVE_4B,
+                        model_root: model_root.expect("gated").clone(),
+                        limits: FamilyLimits {
+                            max_concurrent_requests: 1,
+                            max_queued_requests: 0,
+                            retry_after_ms: 250,
+                            evaluation_timeout: None,
+                        },
+                    },
+                )
+                .map_err(|error| anyhow::anyhow!("load sieve-4b engine: {error}"))?,
+            ),
             EngineKind::WinnowE4b => Arc::new(
                 openkind_backends::families::gemma4::Gemma4DecisionEngine::load(
                     openkind_backends::families::gemma4::Gemma4EngineConfig {

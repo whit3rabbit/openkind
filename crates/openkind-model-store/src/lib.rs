@@ -13,7 +13,7 @@ use thiserror::Error;
 /// The production catalog mirrors the static file in this repository. Its
 /// digest is pinned below so the mutable mirror cannot authorize new content.
 pub const CATALOG_URL: &str = "https://raw.githubusercontent.com/whit3rabbit/openkind-model-registry/main/registry/v1/catalog.json";
-pub const CATALOG_SHA256: &str = "dba358d070013db8c1f2c9a0f149793efe3be7c48d39943cbf59346bb6edc42e";
+pub const CATALOG_SHA256: &str = "e8cb84286ca46e9e43b89f9b59b91821d010dc6e6988aace04886d4a1f010efd";
 pub const QWEN35_STATE_FIRST_MODEL_NAME: &str = "qwen35-state-first:a047d6802c3f06f085b8";
 /// Pinned laya English decision-encoder model name.
 pub const LAYA_ENGLISH_MODEL_NAME: &str = "laya-english:c8ea29bf1e33a343c4b7";
@@ -57,6 +57,8 @@ pub const D3_NANO_MODEL_NAME: &str = "d3-nano:0198af5b5c8e8835605e";
 pub const D3_MINI_MODEL_NAME: &str = "d3-mini:434dbc50d3b581663e52";
 /// Pinned d3-flash (noncausal d3-code-readout-v1) model name.
 pub const D3_FLASH_MODEL_NAME: &str = "d3-flash:b2a4750f8bf4a1fa58cb";
+/// Pinned sieve-4b (causal LoRA-merged code-readout) model name.
+pub const SIEVE_4B_MODEL_NAME: &str = "sieve-4b:8b97b56524b55c41fbf4";
 /// Pinned raw decoder-logit-qwen3 control model names.
 pub const DECODER_LOGIT_QWEN3_06B_MODEL_NAME: &str = "decoder-logit-qwen3-06b:d900f4af57509fe02e62";
 pub const DECODER_LOGIT_QWEN3_17B_MODEL_NAME: &str = "decoder-logit-qwen3-17b:8119b9271f8d011e7d03";

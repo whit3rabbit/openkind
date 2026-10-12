@@ -1009,12 +1009,17 @@ TIER2 = [
                 "2,611,288-byte head.safetensors ([255, 2560] float32 rows by size), and a "
                 "small sieve4b Python engine",
                 "apache-2.0", "ea7cd1edee29590a82ed9fbfcb644227a8eed5f1", [],
-                "HEAD at survey time and unchanged on re-resolution."),
+                "HEAD at survey time and unchanged on re-resolution. Landed as the "
+                "sieve-4b:8b97b56524b55c41fbf4 catalog profile (LoRA merge over the pinned "
+                "Qwen3.5-4B base plus the trained head, sieve4b prompt contract); see "
+                "docs/families/sieve.md."),
         "The same adapter-plus-head pattern at openkind's pinned geometry with the head "
-        "already in safetensors; the sieve4b engine's prompt bytes still need re-expression.",
-        "The closest Sieve to a loader: adapter merge over the decoder-logit-qwen35 geometry "
-        "plus the 255-row head.",
+        "already in safetensors; the sieve4b engine's prompt bytes still need re-expression. "
+        "Landed as the sieve-4b catalog profile.",
+        "Landed: adapter merge over the pinned geometry plus the 255-row head and the "
+        "re-expressed sieve4b prompt bytes.",
         [],
+        already_catalog=True,
     ),
     entry(
         "nimble-v3",

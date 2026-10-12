@@ -44,6 +44,14 @@
   pull support (alias `d3:flash`). This completes every d3 sibling that
   fits the project's 36 GB reference host; the 27B d3 stays pinned as
   research metadata above that host.
+- Model support for the sieve family: the pinned
+  `sieve-4b:8b97b56524b55c41fbf4` profile serves `sthanika-ai/Sieve-4B`
+  (rank-32 LoRA over `Qwen/Qwen3.5-4B`, causal, fenced-state branch
+  prompts, per-type temperatures, two-order noul averaging) with the
+  LoRA merge computed per load through the shared merged backend, prompt
+  byte-parity against the shipped `sieve4b/prompt.py` (all seven fixture
+  cases match), golden replay, and catalog pull support (alias
+  `sieve:4b`).
 - `registry/v1/jev-decision-index-0.3.1.json` (schema `openkind-jev-decision-index/v2`),
   superseding the 0.2.1 top-10 survey: 35 tier-1 and tier-2 entries covering the
   Decision Index 0.3.1 board leaders (d3, Decider 31B, Darwin-27B-ZTC, pplx v1.1), the

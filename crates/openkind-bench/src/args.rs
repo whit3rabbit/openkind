@@ -343,6 +343,10 @@ pub enum EngineArg {
     /// hybrid backbone).
     #[value(name = "d3-flash")]
     D3Flash,
+    /// Pinned sieve-4b engine (causal LoRA-merged code-readout on the
+    /// Qwen3.5-4B hybrid backbone).
+    #[value(name = "sieve-4b")]
+    Sieve4b,
     /// Pinned winnow-e4b engine (Gemma 4 backbone letter-logit readout).
     #[value(name = "winnow-e4b")]
     WinnowE4b,
@@ -419,6 +423,7 @@ impl From<EngineArg> for EngineKind {
             EngineArg::D3Nano => EngineKind::D3Nano,
             EngineArg::D3Mini => EngineKind::D3Mini,
             EngineArg::D3Flash => EngineKind::D3Flash,
+            EngineArg::Sieve4b => EngineKind::Sieve4b,
             EngineArg::WinnowE4b => EngineKind::WinnowE4b,
             EngineArg::ClefFlash => EngineKind::ClefFlash,
             EngineArg::ClefFlashGguf => EngineKind::ClefFlashGguf,

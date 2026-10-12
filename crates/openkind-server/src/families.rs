@@ -29,6 +29,7 @@ use openkind_backends::families::decoder_logit_qwen35::{
     DecoderLogitQwen35Engine, DecoderLogitQwen35EngineConfig, PLUMB_4B,
 };
 use openkind_backends::families::gemma4::{Gemma4DecisionEngine, Gemma4EngineConfig};
+use openkind_backends::families::sieve::{SieveEngine, SieveEngineConfig, SIEVE_4B};
 
 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
 use openkind_backends::families::decoder_logit_qwen35::{
@@ -341,6 +342,32 @@ pub(crate) struct FamilyArgs {
     /// aliases. Entries look like `edge=<path>;lite=<path>`.
     #[arg(long, env = "OPENKIND_D3_MODEL_ROOTS", value_delimiter = ';')]
     pub(crate) d3_model_roots: Vec<String>,
+
+    /// Aliases in `--models` that should use the pinned sieve engine
+    /// (causal LoRA-merged code-readout on the Qwen3.5-4B backbone).
+    #[arg(
+        long,
+        env = "OPENKIND_SIEVE_ALIASES",
+        value_delimiter = ',',
+        default_value = "sieve-native"
+    )]
+    pub(crate) sieve_aliases: Vec<String>,
+
+    /// Model root with the pinned sieve installation (`checkpoint/` with the
+    /// adapter, head, configs, and tokenizer; `base/` with the pinned base
+    /// checkpoint shards and config).
+    #[arg(long, env = "OPENKIND_SIEVE_MODEL_ROOT")]
+    pub(crate) sieve_model_root: Option<PathBuf>,
+
+    /// Sieve backend. The code head runs on the Qwen3.5 hybrid backbone and
+    /// has no ONNX export; `cuda` requires the daemon's `cuda` feature.
+    #[arg(
+        long,
+        env = "OPENKIND_SIEVE_BACKEND",
+        value_enum,
+        default_value_t = CudaOnlyBackendArg::Auto
+    )]
+    pub(crate) sieve_backend: CudaOnlyBackendArg,
 
     /// Aliases in `--models` that should use the pinned raw decoder-logit-
     /// qwen3 controls (letter-logit readout on the dense Qwen3 checkpoints).
@@ -881,6 +908,7 @@ impl FamilyArgs {
             .chain(&self.decoder_logit_qwen35_aliases)
             .chain(&self.plumb_4b_aliases)
             .chain(&self.decider_4b_aliases)
+            .chain(&self.sieve_aliases)
             .chain(&self.laya_english_aliases)
             .chain(&self.laya_multilingual_aliases)
             .chain(&self.laya_typed_decisions_aliases)
@@ -1529,6 +1557,35 @@ impl FamilyArgs {
             }
         }
 
+        let sieve: Vec<_> = self
+            .sieve_aliases
+            .iter()
+            .filter(|alias| models.contains(alias))
+            .collect();
+        if !sieve.is_empty() {
+            let model_root = self
+                .sieve_model_root
+                .clone()
+                .context("sieve alias requested but --sieve-model-root is missing")?;
+            let engine: Arc<dyn DecisionEngine> =
+                crate::backend::load(self.sieve_backend, &model_root, devices, |backend| {
+                    Ok(Arc::new(
+                        SieveEngine::load_with_execution(
+                            SieveEngineConfig {
+                                profile: &SIEVE_4B,
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            },
+                            backend.to_execution(devices)?,
+                        )
+                        .context("load sieve engine")?,
+                    ) as Arc<dyn DecisionEngine>)
+                })?;
+            for alias in sieve {
+                engines.push((alias.to_string(), Arc::clone(&engine)));
+            }
+        }
+
         let winnow_e4b: Vec<_> = self
             .winnow_e4b_aliases
             .iter()
@@ -1778,6 +1835,7 @@ impl FamilyArgs {
             .chain(&self.decoder_logit_qwen35_aliases)
             .chain(&self.plumb_4b_aliases)
             .chain(&self.decider_4b_aliases)
+            .chain(&self.sieve_aliases)
             .chain(&self.laya_english_aliases)
             .chain(&self.laya_multilingual_aliases)
             .chain(&self.laya_typed_decisions_aliases)

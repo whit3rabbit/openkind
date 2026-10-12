@@ -41,6 +41,7 @@ pub mod qwen3guard;
 pub mod router_script;
 /// Schema scorer decision family adapter.
 pub mod schema_scorer;
+pub mod sieve;
 /// Strands Decider 2B pointer-head family adapter.
 pub mod strands_decider;
 /// Shared bounded family engine scaffold, limits, controls, and error types.

@@ -58,6 +58,7 @@ use openkind_backends::families::qwen3guard::{
 use openkind_backends::families::schema_scorer::{
     SchemaScorerEngine, SchemaScorerEngineConfig, PROFILE_ID as SCHEMA_SCORER_PROFILE,
 };
+use openkind_backends::families::sieve::{SieveEngine, SieveEngineConfig, SIEVE_4B};
 use openkind_backends::families::strands_decider::{
     StrandsDeciderEngine, StrandsDeciderEngineConfig, StrandsDeciderProfile, HOBSON_V19, HOBSON_V21,
 };
@@ -78,8 +79,9 @@ use openkind_model_store::{
     DECODER_LOGIT_QWEN3_4B_MODEL_NAME, ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME,
     KEV_MODEL_NAME, LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME,
     LAYA_TYPED_DECISIONS_MODEL_NAME, PLUMB_4B_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME,
-    QWEN3GUARD_MODEL_NAME, SCHEMA_SCORER_MODEL_NAME, STRANDS_DECIDER_2B_MODEL_NAME,
-    STRANDS_DECIDER_2B_V21_MODEL_NAME, VON_MODEL_NAME, WINNOW_E4B_MODEL_NAME, WINNOW_MODEL_NAME,
+    QWEN3GUARD_MODEL_NAME, SCHEMA_SCORER_MODEL_NAME, SIEVE_4B_MODEL_NAME,
+    STRANDS_DECIDER_2B_MODEL_NAME, STRANDS_DECIDER_2B_V21_MODEL_NAME, VON_MODEL_NAME,
+    WINNOW_E4B_MODEL_NAME, WINNOW_MODEL_NAME,
 };
 
 use crate::args::{
@@ -106,6 +108,7 @@ pub(crate) enum InstalledKind {
     Clef(&'static ClefProfile),
     Decider4b,
     D3(&'static openkind_backends::families::d3::D3Profile),
+    Sieve(&'static openkind_backends::families::sieve::SieveProfile),
     Von,
     Winnow,
     WinnowE4b,
@@ -219,6 +222,9 @@ pub(crate) fn installed_kind(manifest: &Manifest) -> Option<InstalledKind> {
         (D3_FLASH_MODEL_NAME, "d3-flash") if profile == D3_FLASH.profile_id => {
             Some(InstalledKind::D3(&D3_FLASH))
         }
+        (SIEVE_4B_MODEL_NAME, "sieve-4b") if profile == SIEVE_4B.profile_id => {
+            Some(InstalledKind::Sieve(&SIEVE_4B))
+        }
         (VON_MODEL_NAME, "von") if profile == VON_PROFILE => Some(InstalledKind::Von),
         (WINNOW_MODEL_NAME, "winnow") if profile == WINNOW_PROFILE => Some(InstalledKind::Winnow),
         (WINNOW_E4B_MODEL_NAME, "winnow-e4b")
@@ -288,6 +294,7 @@ pub(crate) fn load_installed_engine(
         }
         InstalledKind::Decider4b => selected!(decider_4b_backend, &root.join("checkpoint")),
         InstalledKind::D3(_) => selected!(d3_backend, &root.join("checkpoint")),
+        InstalledKind::Sieve(_) => selected!(sieve_backend, root),
         InstalledKind::Von => selected!(von_backend, root),
         InstalledKind::Winnow => selected!(winnow_backend, &root.join("checkpoint")),
         InstalledKind::WinnowE4b => selected!(winnow_e4b_backend, &root.join("checkpoint")),
@@ -631,6 +638,19 @@ fn load_installed_explicit(
                     .to_execution(args.device_ordinals())?,
             )
             .context("load d3 engine")?,
+        ),
+        InstalledKind::Sieve(profile) => Arc::new(
+            SieveEngine::load_with_execution(
+                SieveEngineConfig {
+                    profile,
+                    model_root: root.to_path_buf(),
+                    limits,
+                },
+                args.family_args
+                    .sieve_backend
+                    .to_execution(args.device_ordinals())?,
+            )
+            .context("load sieve engine")?,
         ),
         InstalledKind::WinnowE4b => Arc::new(
             Gemma4DecisionEngine::load_with_execution(
