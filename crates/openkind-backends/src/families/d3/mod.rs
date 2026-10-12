@@ -248,8 +248,55 @@ pub const D3_NANO: D3Profile = D3Profile {
     description: "Pinned d3-nano noncausal 24-layer Qwen3.5-2B code-readout decision engine                   (Apache-2.0, d3-code-readout-v1); prototype readout, research status",
 };
 
+/// Pinned `vllm-sr/d3-mini` (the `d3-mini v3.1.0` release commit pinned by
+/// the semantic-router parity record, Apache-2.0) at
+/// `a475367de0d8133a3c1a2a0dc12303d89cfa2ab4`: the full 32-layer
+/// Qwen3.5-4B hybrid fine-tune (the dims the pinned qwen3.5 geometry
+/// serves, noncausal full attention) plus a separate `[255, 2560]`
+/// float32 code readout. Its chat template inverts the thinking
+/// conditional relative to the smaller siblings, which renders the same
+/// empty `<think>` block for the reference's `enable_thinking=False`
+/// calls; the per-profile template digest pins which file the bytes
+/// reproduce.
+pub const D3_MINI: D3Profile = D3Profile {
+    loader_id: "d3-mini",
+    backbone_id: "vllm-sr/d3-mini",
+    backbone_revision: "a475367de0d8133a3c1a2a0dc12303d89cfa2ab4",
+    profile_id: "434dbc50d3b581663e52",
+    geometry: crate::qwen35::Qwen35Geometry::PINNED.with_causal(false),
+    shards: &[
+        (
+            "model-00001-of-00002.safetensors",
+            4_973_332_144,
+            "60621cb8c3f90e634b98f0ffaf609159ee2c450630386f09dd5f7fd7938d7598",
+        ),
+        (
+            "model-00002-of-00002.safetensors",
+            4_105_283_936,
+            "6189569fbe9245030d7ffb0b60a52268b7386e7a85a57aee1274a5178c1cc53d",
+        ),
+    ],
+    readout_sha256: "d570665c1da72cb9fca7ad7b23a25720eb691362694dd69d4c80c17d7656ed55",
+    readout_bytes: 2_611_280,
+    config_json_sha256: "8f5f404a71ecc53c4ff26fc42cb4c778ffacfb4c9623f5e2d51245166d6b5057",
+    decision_config_sha256: "588bc0ac7644479b9adde0498d80b6fb7c576388992564ac67599c05d29add07",
+    tokenizer_json_sha256: "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42",
+    tokenizer_config_json_sha256: "316230d6a809701f4db5ea8f8fc862bc3a6f3229c937c174e674ff3ca0a64ac8",
+    chat_template_sha256: "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715",
+    temperature: 1.0,
+    declared_base_id: "Qwen/Qwen3.5-4B",
+    declared_base_revision: "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+    max_candidates: 255,
+    max_score_levels: 10,
+    max_row_tokens: 262_144,
+    cpu_backend_id: "d3-mini/cpu-fp32",
+    cuda_backend_id: "d3-mini/cuda-fp32",
+    release_date: "2026-10-12",
+    description: "Pinned d3-mini noncausal 32-layer Qwen3.5-4B code-readout decision engine                   (Apache-2.0, d3-code-readout-v1); prototype readout, research status",
+};
+
 /// Profiles of this family, in catalog order.
-pub const PROFILES: &[&D3Profile] = &[&D3_EDGE, &D3_LITE, &D3_NANO];
+pub const PROFILES: &[&D3Profile] = &[&D3_EDGE, &D3_LITE, &D3_NANO, &D3_MINI];
 
 /// Resolve a CLI short name (`edge`, `lite`, ...) to its profile. The short
 /// names are the `--d3-aliases` / `--d3-model-roots` entry keys.
@@ -258,6 +305,7 @@ pub fn profile_by_short_name(short: &str) -> Option<&'static D3Profile> {
         "edge" => Some(&D3_EDGE),
         "lite" => Some(&D3_LITE),
         "nano" => Some(&D3_NANO),
+        "mini" => Some(&D3_MINI),
         _ => None,
     }
 }

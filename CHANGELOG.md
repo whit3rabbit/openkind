@@ -28,6 +28,14 @@
   (`3aeb1c22a5632aac72353c36b3d0111c40e7dbf4`) — the full 24-layer
   Qwen3.5-2B hybrid with the same noncausal code-readout contract, prompt
   byte-parity, golden replay, and catalog pull support (alias `d3:nano`).
+- A fourth d3-family profile, `d3-mini:434dbc50d3b581663e52`, serving
+  `vllm-sr/d3-mini` at its v3.1.0 release commit
+  (`a475367de0d8133a3c1a2a0dc12303d89cfa2ab4`) — the full 32-layer
+  Qwen3.5-4B hybrid (the pinned qwen3.5 dims) with the same noncausal
+  code-readout contract; its chat template inverts the thinking
+  conditional, which renders the same empty `<think>` block for the
+  reference's calls. Prompt byte-parity, golden replay, and catalog pull
+  support (alias `d3:mini`).
 - `registry/v1/jev-decision-index-0.3.1.json` (schema `openkind-jev-decision-index/v2`),
   superseding the 0.2.1 top-10 survey: 35 tier-1 and tier-2 entries covering the
   Decision Index 0.3.1 board leaders (d3, Decider 31B, Darwin-27B-ZTC, pplx v1.1), the

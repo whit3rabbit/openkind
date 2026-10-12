@@ -217,8 +217,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let model_root = model_root.ok_or("--model-root is required")?;
     let output = output.ok_or("--output is required")?;
-    let profile = profile_by_short_name(profile_loader)
-        .ok_or_else(|| format!("unknown --profile {profile_loader}; known: edge, lite, nano"))?;
+    let profile = profile_by_short_name(profile_loader).ok_or_else(|| {
+        format!("unknown --profile {profile_loader}; known: edge, lite, nano, mini")
+    })?;
 
     let engine = D3Engine::load(D3EngineConfig {
         model_root: model_root.clone(),

@@ -443,9 +443,9 @@ TIER1 = [
         "The d3 family adapter at the most practical size: the backbone dims (2560/32) match "
         "the decoder-logit-qwen35 family's pinned geometry, but the noncausal mask, the 255-row "
         "float32 readout, and the d3 prompt bytes are all new family surface, and the base is "
-        "Qwen3.5-4B (instruct), not the -Base checkpoint openkind's selected profile pins.",
-        "The d3 family adapter over a 2560/32 backbone config; best next loader target among "
-        "the tier 1 entries (54.90 author-run public at 9.08 GB).",
+        "Qwen3.5-4B (instruct), not the -Base checkpoint openkind's selected profile pins. "
+        "Landed as the d3-mini:434dbc50d3b581663e52 catalog profile; see docs/families/d3.md.",
+        "Landed as the d3-mini catalog profile over the 2560/32 noncausal backbone.",
         [lead("ahmedandaloes/d3-mini-mlx", "c645173f5729051d473916283f9e37208b5113bb",
               "MLX (bit depth unstated)", "vllm-sr/d3-mini",
               "Unverified third-party conversion, same layout as ahmedandaloes/d3-mlx; no "
@@ -457,6 +457,7 @@ TIER1 = [
               "Apache-2.0 ternary quantization with allocation.json; accuracy impact unknown. "
               "Not parity evidence.")],
         off_board_scores={"source": "author-run public suite 0.3 score from the model card", "public": 54.9, "note": "d3 siblings are not ranked on the 0.3.1 board; cards give author-run public numbers."},
+        already_catalog=True,
     ),
     entry(
         "d3-nano",
