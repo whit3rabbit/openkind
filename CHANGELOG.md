@@ -96,8 +96,13 @@
   process-ceiling guard. `auto` covers CPU shard-backed weights only, and
   adapter-backed engines need `on`. Outputs are bit-identical to the
   per-forward path (synthetic-checkpoint test over both mixers,
-  mutation-checked). No timing is claimed. The speedup is unmeasured on this
-  host and the checkpoint-gated parity replays were skipped.
+  mutation-checked). On an M4 Max that was busy with other jobs, an
+  in-process off/on comparison over the golden requests took d3-edge from
+  about 119 to 75 ms per request and d3-lite from about 243 to 158 ms, with
+  answers exactly equal across three alternating rounds. That is indicative
+  only, not a frozen benchmark row. The d3-edge and d3-lite golden replays
+  pass on the pinned weights. The decider, sieve, strands and
+  decoder-logit-qwen35 replays were not run.
 
 - The d3 daemon flags take per-profile size entries —
   `--d3-aliases "edge=<alias>;lite=<alias>;nano=<alias>;mini=<alias>;flash=<alias>"`
