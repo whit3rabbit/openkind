@@ -85,6 +85,15 @@
 
 ### Changed
 
+- The native scheduler can plan for a root the prefix cache already holds
+  (`choose_strategy_with_cached_root`). The root forward leaves the shared
+  strategies' token work while repeated-full still pays it per candidate, so
+  the unchanged `2.52` gate then picks the shared plan for small requests it
+  would otherwise repeat. Without a cache hit nothing changes. The gate
+  itself is untouched, and `docs/ARCHITECTURE.md` now records that a
+  recorded Q=1, K=2 measurement ran nested faster than the gate allows, as an
+  open question that needs a re-measurement on the pinned 4B checkpoint.
+
 - The native Qwen3.5 sequential nested runner advances each question and
   candidate from a borrowed parent state instead of deep-copying the parent
   first. `continue_from` already returns a new state that owns its tensors,

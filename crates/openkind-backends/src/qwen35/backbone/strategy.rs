@@ -32,8 +32,8 @@ use super::{run_batched_nested, run_sequential_nested};
 mod policy;
 
 pub use policy::{
-    choose_strategy, run_with_scheduler, ProcessMemoryEnvelope, RetentionEstimates,
-    SchedulerConfig, StrategyDecision, StrategyEstimates, StrategyRequest,
+    choose_strategy, choose_strategy_with_cached_root, run_with_scheduler, ProcessMemoryEnvelope,
+    RetentionEstimates, SchedulerConfig, StrategyDecision, StrategyEstimates, StrategyRequest,
 };
 
 /// Executor wrapper that counts forward invocations for cost accounting.

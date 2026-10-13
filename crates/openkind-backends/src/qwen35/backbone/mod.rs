@@ -72,9 +72,10 @@ pub use reference::BackboneReference;
 pub(crate) use root_cache::RootCachingExecutor;
 pub use root_cache::{RootCacheConfig, RootPrefixCache};
 pub use strategy::{
-    choose_strategy, run_repeated_full, run_strategy, run_with_scheduler, CountingExecutor,
-    ExecutionStrategy, ProcessMemoryEnvelope, RetentionEstimates, SchedulerConfig,
-    StrategyDecision, StrategyEstimates, StrategyOutput, StrategyRequest,
+    choose_strategy, choose_strategy_with_cached_root, run_repeated_full, run_strategy,
+    run_with_scheduler, CountingExecutor, ExecutionStrategy, ProcessMemoryEnvelope,
+    RetentionEstimates, SchedulerConfig, StrategyDecision, StrategyEstimates, StrategyOutput,
+    StrategyRequest,
 };
 pub(crate) use text::TextBackbone;
 pub use types::{FullSequenceRecord, StageComparison, TraceStage};

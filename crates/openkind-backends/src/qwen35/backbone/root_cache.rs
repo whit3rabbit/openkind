@@ -124,6 +124,23 @@ impl<S: BranchableState> RootPrefixCache<S> {
         (inner.entries.len(), inner.tensor_bytes)
     }
 
+    /// Whether an unexpired root for exactly `ids` is held. This does not
+    /// refresh the entry, so asking cannot keep an unused root alive.
+    #[must_use]
+    pub fn contains(&self, ids: &[u32]) -> bool {
+        if !self.config.is_enabled() {
+            return false;
+        }
+        let Ok(mut inner) = self.inner.lock() else {
+            return false;
+        };
+        purge_expired(&mut inner, Instant::now(), self.config.ttl);
+        inner
+            .entries
+            .get(&digest(ids))
+            .is_some_and(|entry| &*entry.ids == ids)
+    }
+
     /// An independent copy of the cached root for exactly `ids`, if one is
     /// held and unexpired.
     ///

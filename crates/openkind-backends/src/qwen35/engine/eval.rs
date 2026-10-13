@@ -13,7 +13,8 @@ use super::mapping::{
 use super::EngineInner;
 use crate::qwen35::backbone::{ControlledExecutor, NestedQuestion, RootCachingExecutor};
 use crate::qwen35::{
-    choose_strategy, run_strategy, CandidateText, ExecutionControl, Qwen35Error, StrategyRequest,
+    choose_strategy, choose_strategy_with_cached_root, run_strategy, CandidateText,
+    ExecutionControl, Qwen35Error, StrategyRequest,
 };
 
 pub(super) fn evaluate_request(
@@ -107,7 +108,16 @@ pub(super) fn evaluate_request(
     // Choose explicitly (rather than through `run_with_scheduler`) so the
     // decision itself is telemetered on both the admitted and rejected paths.
     let strategy_request = StrategyRequest::from_plans(root_ids.len(), &plans);
-    let decision = choose_strategy(&scheduler, &strategy_request);
+    // A root already held by the cache costs no forward under the shared
+    // strategies, which the scheduler must see or it would price work that
+    // will not run. The entry can expire before execution. The request is then
+    // still correct, only slower than planned.
+    let root_cached = inner.root_cache.contains(&root_ids);
+    let decision = if root_cached {
+        choose_strategy_with_cached_root(&scheduler, &strategy_request)
+    } else {
+        choose_strategy(&scheduler, &strategy_request)
+    };
     if !decision.admitted {
         metrics::counter!(
             "openkind_execution_admission_rejected_total",
@@ -125,6 +135,7 @@ pub(super) fn evaluate_request(
     tracing::debug!(
         rationale = %decision.rationale,
         savings_ratio = decision.estimates.savings_ratio,
+        root_cached,
         repeated_tokens = decision.estimates.repeated_tokens,
         shared_tokens = decision.estimates.shared_tokens,
         "scheduler decision detail"

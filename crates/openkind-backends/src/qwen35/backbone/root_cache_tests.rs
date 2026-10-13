@@ -282,3 +282,23 @@ fn reinserting_a_root_replaces_it_without_double_counting() {
     cache.insert(ROOT_IDS, &feature, &state).expect("second");
     assert_eq!(cache.usage(), once);
 }
+
+#[test]
+fn contains_reports_a_live_root_without_refreshing_it() {
+    let cache = RootPrefixCache::new(RootCacheConfig {
+        max_tensor_bytes: AMPLE,
+        ttl: Duration::from_millis(80),
+    });
+    assert!(!cache.contains(ROOT_IDS));
+    let (feature, state) = SyntheticExecutor.prefill(ROOT_IDS).expect("prefill");
+    cache.insert(ROOT_IDS, &feature, &state).expect("insert");
+    assert!(cache.contains(ROOT_IDS));
+    assert!(!cache.contains(&ROOT_IDS[..2]), "exact ids only");
+    // Polling must not extend the lifetime: the entry still expires on schedule.
+    for _ in 0..4 {
+        std::thread::sleep(Duration::from_millis(30));
+        let _ = cache.contains(ROOT_IDS);
+    }
+    assert!(!cache.contains(ROOT_IDS));
+    assert!(!RootPrefixCache::<BackboneState>::new(RootCacheConfig::DISABLED).contains(ROOT_IDS));
+}
