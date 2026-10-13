@@ -174,21 +174,19 @@ impl FamilyEvaluator for Qwen3GuardEngine {
     ) -> Result<SystemResponse, FamilyError> {
         control.check()?;
         let state = crate::families::wire::state_text(&request.state)?;
-        let question_ids = crate::families::wire::sorted_question_ids(&request)?;
+        let questions = crate::families::wire::into_sorted_questions(request.questions)?;
 
         let mut answers =
             std::collections::HashMap::<String, Answer, openkind_core::WireHashState>::with_capacity_and_hasher(
-                question_ids.len(),
+                questions.len(),
                 Default::default(),
             );
         let mut input_tokens: u64 = 0;
         let mut forward: Option<(usize, [f64; 3])> = None;
-        for id in &question_ids {
+        for (question_id, question) in questions {
             control.check()?;
-            let question = request
-                .questions
-                .get(id)
-                .expect("question id came from the request map");
+            let id = &question_id;
+            let question = &question;
             let unpacked = crate::families::wire::unpack_question(id, question)?;
             // The prompt renders from the state alone, so every question of
             // the request reads the same logits: run the forward once. Usage
@@ -233,7 +231,7 @@ impl FamilyEvaluator for Qwen3GuardEngine {
                     crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?
                 }
             };
-            answers.insert(id.clone(), answer);
+            answers.insert(question_id, answer);
         }
         control.check()?;
         Ok(crate::families::wire::system_response(

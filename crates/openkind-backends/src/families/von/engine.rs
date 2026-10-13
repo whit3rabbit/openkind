@@ -50,35 +50,27 @@ struct Inner {
 /// Python `str()`: string states pass through; object states render as
 /// `f"{k}: {v}"` lines (values `str()`-ed, strings unquoted); array states
 /// render as Python `str(list)`.
-pub(crate) fn von_state_text(state: &State) -> Result<String, FamilyError> {
+pub(crate) fn von_state_text(state: State) -> String {
     match state {
-        State::Text(text) => Ok(text.clone()),
-        State::Object(map) => {
-            let value = serde_json::to_value(map).map_err(|error| {
-                FamilyError::InvalidInput(format!("state serialization failed: {error}"))
-            })?;
+        State::Text(text) => text,
+        State::Object(entries) => {
             let mut out = String::new();
-            if let serde_json::Value::Object(entries) = value {
-                for (key, item) in &entries {
-                    out.push_str(key);
-                    out.push_str(": ");
-                    python_str(item, &mut out);
-                    out.push('\n');
-                }
+            for (key, item) in &entries {
+                out.push_str(key);
+                out.push_str(": ");
+                python_str(item, &mut out);
+                out.push('\n');
             }
             // Trim the trailing newline the reference's join leaves off.
             while out.ends_with('\n') {
                 out.pop();
             }
-            Ok(out)
+            out
         }
         State::Array(items) => {
-            let value = serde_json::to_value(items).map_err(|error| {
-                FamilyError::InvalidInput(format!("state serialization failed: {error}"))
-            })?;
             let mut out = String::new();
-            python_repr(&value, &mut out);
-            Ok(out)
+            python_repr(&serde_json::Value::Array(items), &mut out);
+            out
         }
     }
 }
@@ -313,28 +305,24 @@ impl FamilyEvaluator for VonEngine {
     ) -> Result<SystemResponse, FamilyError> {
         control.check()?;
         let profile = self.inner.profile;
-        let state_serialized = von_state_text(&request.state)?;
+        let state_serialized = von_state_text(request.state);
         if state_serialized.trim().is_empty() {
             return Err(FamilyError::InvalidInput(
                 "state must contain non-whitespace text".to_owned(),
             ));
         }
-        let question_ids = crate::families::wire::sorted_question_ids(&request)?;
+        let questions = crate::families::wire::into_sorted_questions(request.questions)?;
 
         let mut answers = std::collections::HashMap::<
             String,
             openkind_core::Answer,
             openkind_core::WireHashState,
-        >::with_capacity_and_hasher(
-            question_ids.len(), Default::default()
-        );
+        >::with_capacity_and_hasher(questions.len(), Default::default());
         let mut input_tokens: u64 = 0;
-        for id in &question_ids {
+        for (question_id, question) in questions {
             control.check()?;
-            let question = request
-                .questions
-                .get(id)
-                .expect("question id came from the request map");
+            let id = &question_id;
+            let question = &question;
             let unpacked = crate::families::wire::unpack_question(id, question)?;
             if unpacked.labels.len() > MAX_CANDIDATES {
                 return Err(FamilyError::InvalidInput(format!(
@@ -430,7 +418,7 @@ impl FamilyEvaluator for VonEngine {
             };
             let answer =
                 crate::families::wire::answer_from_probabilities(&unpacked, &wire_probabilities)?;
-            answers.insert(id.clone(), answer);
+            answers.insert(question_id, answer);
         }
         control.check()?;
         Ok(crate::families::wire::system_response(
@@ -526,7 +514,7 @@ mod tests {
             .into_iter()
             .collect(),
         );
-        let text = von_state_text(&state).expect("serialize");
+        let text = von_state_text(state);
         assert_eq!(text, "asset: Windows\ncount: 3\nflag: True");
     }
 
@@ -536,7 +524,7 @@ mod tests {
             serde_json::json!("first turn"),
             serde_json::json!({"who": "user"}),
         ]);
-        let text = von_state_text(&state).expect("serialize");
+        let text = von_state_text(state);
         assert_eq!(text, "['first turn', {'who': 'user'}]");
     }
 

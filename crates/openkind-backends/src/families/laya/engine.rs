@@ -107,21 +107,13 @@ pub(crate) fn resolve_temperature(
 /// Serialize the wire state as the reference's `json.dumps` payload:
 /// compact separators `", "` / `": "`, non-ASCII kept, keys in the parsed
 /// map's (sorted) order. Strings pass through untouched.
-pub(crate) fn laya_state_text(state: &State) -> Result<String, FamilyError> {
+pub(crate) fn laya_state_text(state: State) -> String {
     match state {
-        State::Text(text) => Ok(text.clone()),
-        State::Object(_) | State::Array(_) => {
-            let value = match state {
-                State::Object(map) => serde_json::to_value(map),
-                State::Array(items) => serde_json::to_value(items),
-                _ => unreachable!("matched above"),
-            }
-            .map_err(|error| {
-                FamilyError::InvalidInput(format!("state serialization failed: {error}"))
-            })?;
+        State::Text(text) => text,
+        structured => {
             let mut out = String::new();
-            write_python_json(&value, &mut out);
-            Ok(out)
+            write_python_json(&crate::families::wire::state_value(structured), &mut out);
+            out
         }
     }
 }
@@ -370,32 +362,30 @@ where
     L: Fn(&[u32], &[usize], usize) -> Result<Vec<f64>, FamilyError>,
 {
     control.check()?;
-    let state_serialized = laya_state_text(&request.state)?;
+    // A chronological conversation list truncates from the left so the
+    // newest turn survives; every other state keeps its first tokens.
+    let truncate_left = matches!(request.state, State::Array(_));
+    let state_serialized = laya_state_text(request.state);
     if state_serialized.trim().is_empty() {
         return Err(FamilyError::InvalidInput(
             "state must contain non-whitespace text".to_owned(),
         ));
     }
-    // A chronological conversation list truncates from the left so the
-    // newest turn survives; every other state keeps its first tokens.
-    let truncate_left = matches!(request.state, State::Array(_));
     let state_text = state_serialized.replace(super::model::mask_token_of(&profile.specials), " ");
     let state_ids = renderer.encode_plain(&state_text)?;
 
-    let question_ids = crate::families::wire::sorted_question_ids(&request)?;
+    let questions = crate::families::wire::into_sorted_questions(request.questions)?;
 
     let mut answers = std::collections::HashMap::<
         String,
         openkind_core::Answer,
         openkind_core::WireHashState,
-    >::with_capacity_and_hasher(question_ids.len(), Default::default());
+    >::with_capacity_and_hasher(questions.len(), Default::default());
     let mut input_tokens: u64 = 0;
-    for id in &question_ids {
+    for (question_id, question) in questions {
         control.check()?;
-        let question = request
-            .questions
-            .get(id)
-            .expect("question id came from the request map");
+        let id = &question_id;
+        let question = &question;
         let inputs = render_question_inputs(question)?;
         if inputs.options.len() > MAX_CANDIDATES {
             return Err(FamilyError::InvalidInput(format!(
@@ -428,7 +418,7 @@ where
         let probabilities = temperature_softmax(&logits, temperature)?;
         let unpacked = crate::families::wire::unpack_question(id, question)?;
         let answer = crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?;
-        answers.insert(id.clone(), answer);
+        answers.insert(question_id, answer);
     }
     control.check()?;
     Ok(crate::families::wire::system_response(
@@ -486,7 +476,6 @@ mod tests {
 
     #[test]
     fn text_state_passes_through_untouched() {
-        let state = State::Text("plain".into());
-        assert_eq!(laya_state_text(&state).expect("serialize"), "plain");
+        assert_eq!(laya_state_text(State::Text("plain".into())), "plain");
     }
 }

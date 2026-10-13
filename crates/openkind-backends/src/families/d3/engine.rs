@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use openkind_core::{ModelInfo, State, SystemRequest, SystemResponse};
+use openkind_core::{ModelInfo, SystemRequest, SystemResponse};
 
 use crate::families::support::{
     temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
@@ -172,19 +172,6 @@ fn plan_question(
     }
 }
 
-/// The wire state as the JSON value the renderer describes.
-fn state_value(state: &State) -> Result<serde_json::Value, FamilyError> {
-    match state {
-        State::Text(text) => Ok(serde_json::Value::String(text.clone())),
-        State::Object(map) => serde_json::to_value(map).map_err(|error| {
-            FamilyError::InvalidInput(format!("state serialization failed: {error}"))
-        }),
-        State::Array(items) => serde_json::to_value(items).map_err(|error| {
-            FamilyError::InvalidInput(format!("state serialization failed: {error}"))
-        }),
-    }
-}
-
 /// Validate, render, and budget every question of `request` before any
 /// forward runs, so an invalid or over-budget request costs no model work.
 ///
@@ -198,24 +185,34 @@ fn plan_request(
     renderer: &D3Renderer,
     request: &SystemRequest,
 ) -> Result<PlannedRequest, FamilyError> {
-    let state = state_value(&request.state)?;
-    let question_ids = crate::families::wire::sorted_question_ids(request)?;
-    let mut questions = Vec::with_capacity(question_ids.len());
+    // Offline tools plan borrowed requests; only they pay for these copies.
+    plan_owned_request(
+        profile,
+        renderer,
+        wire::state_value(request.state.clone()),
+        wire::into_sorted_questions(request.questions.clone())?,
+    )
+}
+
+/// [`plan_request`] over a request whose state and questions are already
+/// owned, so serving a request moves them instead of copying.
+fn plan_owned_request(
+    profile: &D3Profile,
+    renderer: &D3Renderer,
+    state: serde_json::Value,
+    sorted: Vec<(String, openkind_core::Question)>,
+) -> Result<PlannedRequest, FamilyError> {
+    let mut questions = Vec::with_capacity(sorted.len());
     let mut input_tokens: u64 = 0;
-    for id in question_ids {
-        let question = request
-            .questions
-            .get(&id)
-            .expect("question id came from the request map");
-        let planned =
-            plan_question(profile, renderer, &id, question, &state).map_err(
-                |error| match error {
-                    FamilyError::InvalidInput(message) => {
-                        FamilyError::InvalidInput(format!("question `{id}`: {message}"))
-                    }
-                    other => other,
-                },
-            )?;
+    for (id, question) in sorted {
+        let planned = plan_question(profile, renderer, &id, &question, &state).map_err(
+            |error| match error {
+                FamilyError::InvalidInput(message) => {
+                    FamilyError::InvalidInput(format!("question `{id}`: {message}"))
+                }
+                other => other,
+            },
+        )?;
         let question_tokens = planned.rows.iter().fold(0_u64, |sum, planned_row| {
             sum.saturating_add(u64::from(renderer.row_token_count(&planned_row.row)))
         });
@@ -437,7 +434,12 @@ impl FamilyEvaluator for D3Engine {
         let PlannedRequest {
             questions,
             input_tokens,
-        } = plan_request(self.inner.profile, &self.inner.renderer, &request)?;
+        } = plan_owned_request(
+            self.inner.profile,
+            &self.inner.renderer,
+            wire::state_value(request.state),
+            wire::into_sorted_questions(request.questions)?,
+        )?;
         let mut answers: HashMap<String, openkind_core::Answer, openkind_core::WireHashState> =
             HashMap::with_capacity_and_hasher(questions.len(), Default::default());
         for (id, planned) in questions {

@@ -191,22 +191,18 @@ impl FamilyEvaluator for EncoderNliEngine {
                 "state must contain non-whitespace text".to_owned(),
             ));
         }
-        let question_ids = crate::families::wire::sorted_question_ids(&request)?;
+        let questions = crate::families::wire::into_sorted_questions(request.questions)?;
 
         let mut answers = std::collections::HashMap::<
             String,
             openkind_core::Answer,
             openkind_core::WireHashState,
-        >::with_capacity_and_hasher(
-            question_ids.len(), Default::default()
-        );
+        >::with_capacity_and_hasher(questions.len(), Default::default());
         let mut input_tokens: u64 = 0;
-        for id in &question_ids {
+        for (question_id, question) in questions {
             control.check()?;
-            let question = request
-                .questions
-                .get(id)
-                .expect("question id came from the request map");
+            let id = &question_id;
+            let question = &question;
             let unpacked = crate::families::wire::unpack_question(id, question)?;
             if unpacked.criteria.len() > MAX_CANDIDATES {
                 return Err(FamilyError::InvalidInput(format!(
@@ -272,7 +268,7 @@ impl FamilyEvaluator for EncoderNliEngine {
                     crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?
                 }
             };
-            answers.insert(id.clone(), answer);
+            answers.insert(question_id, answer);
         }
         control.check()?;
         Ok(crate::families::wire::system_response(

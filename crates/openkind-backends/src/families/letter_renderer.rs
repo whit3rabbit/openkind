@@ -180,26 +180,22 @@ where
 {
     control.check()?;
     let state = wire::state_text(&request.state)?;
-    let question_ids = wire::sorted_question_ids(&request)?;
+    let questions = wire::into_sorted_questions(request.questions)?;
 
     let mut answers: HashMap<String, Answer, WireHashState> =
-        HashMap::with_capacity_and_hasher(question_ids.len(), Default::default());
+        HashMap::with_capacity_and_hasher(questions.len(), Default::default());
     let mut input_tokens: u64 = 0;
-    for id in &question_ids {
+    for (id, question) in questions {
         control.check()?;
-        let question = request
-            .questions
-            .get(id)
-            .expect("question id came from the request map");
-        let instruction = wire::instruction_text(question)?;
-        let unpacked = wire::unpack_question(id, question)?;
+        let instruction = wire::instruction_text(&question)?;
+        let unpacked = wire::unpack_question(&id, &question)?;
         let rendered = renderer.render(&state, &instruction, &unpacked.criteria)?;
         input_tokens =
             input_tokens.saturating_add(u64::from(renderer.prompt_token_count(&rendered)));
         let logits = letter_logits(rendered.prompt_ids(), rendered.letter_ids())?;
         let probabilities = temperature_softmax(&logits, calibration_temperature)?;
         let answer = wire::answer_from_probabilities(&unpacked, &probabilities)?;
-        answers.insert(id.clone(), answer);
+        answers.insert(id, answer);
     }
     control.check()?;
     Ok(wire::system_response(request.model, answers, input_tokens))

@@ -9,8 +9,7 @@
 use std::collections::HashMap;
 
 use openkind_core::{
-    Answer, ChoiceAnswer, NoulAnswer, Question, ScoreAnswer, SystemRequest, SystemResponse, Usage,
-    WireHashState,
+    Answer, ChoiceAnswer, NoulAnswer, Question, ScoreAnswer, SystemResponse, Usage, WireHashState,
 };
 use openkind_engine::EngineError;
 
@@ -333,20 +332,36 @@ pub(crate) fn compact_state_text(
     }
 }
 
-/// Question ids of `request` in byte-lexicographic order.
+/// Take the questions of a request in byte-lexicographic id order.
 ///
 /// The wire map is unordered, and every family evaluates questions in this
 /// order so the same request always runs the same forward passes. A request
 /// without questions is rejected here, matching what each engine did inline.
-pub(crate) fn sorted_question_ids(request: &SystemRequest) -> Result<Vec<String>, FamilyError> {
-    let mut question_ids: Vec<String> = request.questions.keys().cloned().collect();
-    question_ids.sort();
-    if question_ids.is_empty() {
+/// The ids and questions move out of the map, so callers key their answers
+/// by the owned id instead of cloning it.
+pub(crate) fn into_sorted_questions(
+    questions: HashMap<String, Question, WireHashState>,
+) -> Result<Vec<(String, Question)>, FamilyError> {
+    if questions.is_empty() {
         return Err(FamilyError::InvalidInput(
             "request contains no questions".to_owned(),
         ));
     }
-    Ok(question_ids)
+    let mut questions: Vec<(String, Question)> = questions.into_iter().collect();
+    // Ids are unique map keys, so an unstable sort yields the same order as
+    // sorting the ids themselves.
+    questions.sort_unstable_by(|left, right| left.0.cmp(&right.0));
+    Ok(questions)
+}
+
+/// The wire state as an owned JSON value. The payload moves into the value
+/// instead of being re-serialized, so structured states are not copied.
+pub(crate) fn state_value(state: openkind_core::State) -> serde_json::Value {
+    match state {
+        openkind_core::State::Text(text) => serde_json::Value::String(text),
+        openkind_core::State::Object(map) => serde_json::Value::Object(map),
+        openkind_core::State::Array(items) => serde_json::Value::Array(items),
+    }
 }
 
 /// Assemble a family response. `input_tokens` saturates at `u32::MAX`
@@ -369,7 +384,7 @@ pub(crate) fn system_response(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openkind_core::{ChoiceQuestion, NoulQuestion, ScoreQuestion};
+    use openkind_core::{ChoiceQuestion, NoulQuestion, ScoreQuestion, SystemRequest};
 
     #[test]
     fn noul_defaults_to_false_true_pair_and_uses_supplied_criteria() {
@@ -545,26 +560,54 @@ mod tests {
     }
 
     #[test]
-    fn question_ids_sort_bytewise_and_reject_an_empty_request() {
-        let request = |questions: serde_json::Value| -> SystemRequest {
-            serde_json::from_value(serde_json::json!({
-                "state": "text",
-                "model": "m",
-                "questions": questions,
-            }))
-            .expect("request")
-        };
-        let noul = serde_json::json!({"type": "noul", "instructions": "q"});
-        let ids = sorted_question_ids(&request(serde_json::json!({
-            "b": noul, "B": noul, "a": noul, "10": noul, "9": noul,
-        })))
-        .expect("ids");
-        assert_eq!(ids, ["10", "9", "B", "a", "b"]);
-        let error = sorted_question_ids(&request(serde_json::json!({}))).unwrap_err();
+    fn questions_sort_bytewise_and_reject_an_empty_request() {
+        let request: SystemRequest = serde_json::from_value(serde_json::json!({
+            "state": "text",
+            "model": "m",
+            "questions": {
+                "b": {"type": "noul", "instructions": "b"},
+                "B": {"type": "noul", "instructions": "B"},
+                "a": {"type": "noul", "instructions": "a"},
+                "10": {"type": "noul", "instructions": "10"},
+                "9": {"type": "noul", "instructions": "9"},
+            },
+        }))
+        .expect("request");
+        let mut expected: Vec<String> = request.questions.keys().cloned().collect();
+        expected.sort();
+        assert_eq!(expected, ["10", "9", "B", "a", "b"]);
+        let owned = into_sorted_questions(request.questions).expect("owned");
+        let owned_ids: Vec<&str> = owned.iter().map(|(id, _)| id.as_str()).collect();
+        assert_eq!(owned_ids, expected);
+        for (id, question) in &owned {
+            match question {
+                Question::Noul(noul) => assert_eq!(noul.instructions, serde_json::json!(id)),
+                other => panic!("unexpected question {other:?}"),
+            }
+        }
+        let empty = into_sorted_questions(HashMap::with_hasher(WireHashState::default()));
         assert!(matches!(
-            error,
-            FamilyError::InvalidInput(message) if message == "request contains no questions"
+            empty,
+            Err(FamilyError::InvalidInput(message)) if message == "request contains no questions"
         ));
+    }
+
+    #[test]
+    fn owned_state_value_matches_the_serialized_state() {
+        use openkind_core::State;
+        let object: State =
+            serde_json::from_value(serde_json::json!({"b": [1.5, null], "a": {"c": "x"}}))
+                .expect("object");
+        let array: State =
+            serde_json::from_value(serde_json::json!([1, "x", {"k": 2}])).expect("array");
+        for state in [State::Text("plain".into()), object, array] {
+            let serialized = match &state {
+                State::Text(text) => serde_json::Value::String(text.clone()),
+                State::Object(map) => serde_json::to_value(map).expect("object"),
+                State::Array(items) => serde_json::to_value(items).expect("array"),
+            };
+            assert_eq!(state_value(state), serialized);
+        }
     }
 
     #[test]
