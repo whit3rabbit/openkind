@@ -35,6 +35,8 @@ pub mod kev;
 pub mod laya;
 pub(crate) mod letter_renderer;
 pub(crate) mod modernbert;
+/// Python `json.dumps` byte shapes shared by the prompt renderers.
+pub(crate) mod python_json;
 /// Qwen3Guard safety and classification family adapter.
 pub mod qwen3guard;
 /// Router-script dynamic decision family adapter.

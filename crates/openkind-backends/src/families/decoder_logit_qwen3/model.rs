@@ -12,9 +12,10 @@ use std::path::{Path, PathBuf};
 use candle_core::{DType, Device};
 use candle_nn::VarBuilder;
 
-use crate::families::decoder_logit_qwen35::model::resolve_config_field;
 use crate::families::qwen3guard::arch::{Qwen3Config, Qwen3Model};
-use crate::families::support::{read_json, verify_digest, FamilyControl, FamilyError};
+use crate::families::support::{
+    check_pinned_fields, read_json, require_file, verify_digest, FamilyControl, FamilyError,
+};
 
 use super::{pinned_config, Qwen3LogitProfile};
 
@@ -58,32 +59,13 @@ impl VerifiedArtifacts {
         let tokenizer = model_root.join("tokenizer.json");
         let config_path = model_root.join("config.json");
         for path in [&tokenizer, &config_path] {
-            if !path.is_file() {
-                return Err(FamilyError::Io {
-                    path: path.to_path_buf(),
-                    source: std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "required pinned artifact is missing",
-                    ),
-                });
-            }
+            require_file(path)?;
         }
         verify_digest(&config_path, profile.config_json_sha256)?;
         verify_digest(&tokenizer, profile.tokenizer_json_sha256)?;
 
         let config_json: serde_json::Value = read_json(&config_path)?;
-        for (field, expected) in pinned_config(profile) {
-            let actual = resolve_config_field(&config_json, field).ok_or_else(|| {
-                FamilyError::ContractMismatch {
-                    field,
-                    expected: expected.to_string(),
-                    actual: "missing".to_owned(),
-                }
-            })?;
-            if actual != expected {
-                return Err(FamilyError::contract(field, expected, actual));
-            }
-        }
+        check_pinned_fields(&config_json, &pinned_config(profile))?;
 
         let mut checkpoints = Vec::with_capacity(profile.checkpoint_shards.len());
         for (name, digest) in profile
@@ -95,15 +77,7 @@ impl VerifiedArtifacts {
             if (!native) && !shard.exists() {
                 continue;
             }
-            if !shard.is_file() {
-                return Err(FamilyError::Io {
-                    path: shard,
-                    source: std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "required pinned artifact is missing",
-                    ),
-                });
-            }
+            require_file(&shard)?;
             verify_digest(&shard, digest)?;
             checkpoints.push(shard);
         }

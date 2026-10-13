@@ -5,10 +5,15 @@ use std::path::Path;
 use candle_core::{DType, Device};
 
 use crate::families::modernbert::ModernBertModel;
-use crate::families::support::{verify_digest, FamilyError};
+use crate::families::support::{
+    check_pinned_fields_tolerant, require_file, verify_digest, FamilyError,
+};
 
 use super::arch::{LayaDecisionHead, LayaHeadConfig};
 use super::{LayaProfile, LayaSpecials};
+
+#[cfg(test)]
+mod load_order_tests;
 
 /// The pinned laya model: ModernBERT body plus the typed decision head.
 pub struct LayaModel {
@@ -65,23 +70,15 @@ impl VerifiedArtifacts {
             if path == &checkpoint && (!native) && !path.exists() {
                 continue;
             }
-            if !path.is_file() {
-                return Err(FamilyError::Io {
-                    path: path.to_path_buf(),
-                    source: std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "required pinned artifact is missing",
-                    ),
-                });
-            }
+            require_file(path)?;
         }
         // Cheap contract checks first; the checkpoint digest streams last.
         verify_digest(&agent_config, profile.agent_config_sha256)?;
         let agent_json: serde_json::Value = crate::families::support::read_json(&agent_config)?;
-        check_contract(&agent_json, &profile.pinned_agent_config())?;
+        check_pinned_fields_tolerant(&agent_json, &profile.pinned_agent_config())?;
         verify_digest(&encoder_config, profile.encoder_config_sha256)?;
         let encoder_json: serde_json::Value = crate::families::support::read_json(&encoder_config)?;
-        check_contract(&encoder_json, &profile.pinned_encoder_config())?;
+        check_pinned_fields_tolerant(&encoder_json, &profile.pinned_encoder_config())?;
         verify_digest(&tokenizer_config, profile.tokenizer_config_sha256)?;
         verify_digest(&tokenizer, profile.tokenizer_json_sha256)?;
         if native || checkpoint.exists() {
@@ -92,64 +89,6 @@ impl VerifiedArtifacts {
             tokenizer,
         })
     }
-}
-
-/// Contract comparison with exact integer/string/bool equality and a
-/// parser-epsilon tolerance for floats: serde_json's default decimal parse
-/// can land one ulp away from the correctly rounded double, which must not
-/// fail a pinned checkpoint.
-fn values_match(expected: &serde_json::Value, actual: &serde_json::Value) -> bool {
-    use serde_json::Value;
-    match (expected, actual) {
-        (Value::Number(a), Value::Number(b)) => match (a.as_f64(), b.as_f64()) {
-            (Some(a), Some(b)) => (a - b).abs() <= 1e-9,
-            _ => a == b,
-        },
-        (Value::Array(a), Value::Array(b)) => {
-            a.len() == b.len() && a.iter().zip(b).all(|(x, y)| values_match(x, y))
-        }
-        (Value::Object(a), Value::Object(b)) => {
-            a.len() == b.len()
-                && a.iter()
-                    .all(|(key, value)| b.get(key).is_some_and(|other| values_match(value, other)))
-        }
-        (a, b) => a == b,
-    }
-}
-
-fn check_contract(
-    json: &serde_json::Value,
-    pinned: &[(&'static str, serde_json::Value)],
-) -> Result<(), FamilyError> {
-    for (field, expected) in pinned {
-        let actual =
-            resolve_config_field(json, field).ok_or_else(|| FamilyError::ContractMismatch {
-                field,
-                expected: expected.to_string(),
-                actual: "missing".to_owned(),
-            })?;
-        if !values_match(expected, &actual) {
-            return Err(FamilyError::contract(
-                field,
-                expected.to_string(),
-                actual.to_string(),
-            ));
-        }
-    }
-    Ok(())
-}
-
-fn resolve_config_field(value: &serde_json::Value, field: &str) -> Option<serde_json::Value> {
-    let mut current = value;
-    let mut segment = field;
-    while let Some((head, rest)) = segment.split_once('.') {
-        current = current.get(head)?;
-        segment = rest;
-    }
-    if let Some(name) = segment.strip_suffix("[0]") {
-        return current.get(name).and_then(|items| items.get(0)).cloned();
-    }
-    current.get(segment).cloned()
 }
 
 impl LayaModel {

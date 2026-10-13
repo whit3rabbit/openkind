@@ -15,7 +15,9 @@ use std::path::{Path, PathBuf};
 use candle_core::DType;
 use serde::Deserialize;
 
-use crate::families::support::{read_json, verify_digest, FamilyControl, FamilyError};
+use crate::families::support::{
+    read_json, verify_digest, verify_sized_digest, FamilyControl, FamilyError,
+};
 use crate::qwen35::Qwen35Embedding;
 
 use super::head::{JointSchemaHead, LexicalLookup};
@@ -86,37 +88,17 @@ impl VerifiedArtifacts {
         let model_root = model_root.as_ref().to_path_buf();
         for (name, digest, bytes) in profile.checkpoint_shards {
             let path = model_root.join(name);
-            let length = std::fs::metadata(&path)
-                .map_err(|source| FamilyError::Io {
-                    path: path.clone(),
-                    source,
-                })?
-                .len();
-            if length != *bytes {
-                return Err(FamilyError::ContractMismatch {
-                    field: "checkpoint_size",
-                    expected: format!("{name} is {bytes} bytes"),
-                    actual: format!("{length} bytes"),
-                });
-            }
-            verify_digest(&path, digest)?;
+            verify_sized_digest(&path, name, *bytes, digest, "checkpoint_size")?;
         }
         let (head_name, head_digest, head_bytes) = profile.joint_head;
         let head_path = model_root.join(head_name);
-        let head_length = std::fs::metadata(&head_path)
-            .map_err(|source| FamilyError::Io {
-                path: head_path.clone(),
-                source,
-            })?
-            .len();
-        if head_length != head_bytes {
-            return Err(FamilyError::ContractMismatch {
-                field: "joint_head_size",
-                expected: format!("{head_name} is {head_bytes} bytes"),
-                actual: format!("{head_length} bytes"),
-            });
-        }
-        verify_digest(&head_path, head_digest)?;
+        verify_sized_digest(
+            &head_path,
+            head_name,
+            head_bytes,
+            head_digest,
+            "joint_head_size",
+        )?;
         verify_digest(
             &model_root.join(profile.tokenizer_path),
             profile.tokenizer_json_sha256,

@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use openkind_core::{ModelInfo, State, SystemRequest, SystemResponse, Usage};
 
-use crate::families::decoder_logit_qwen35::QuestionKind;
+use crate::families::support::QuestionKind;
 use crate::families::support::{
     temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
 };
@@ -27,12 +27,12 @@ struct Inner {
     backend_id: String,
 }
 
-/// One scoring row of a planned question: the rendered prompt, the number of
-/// label logits to read, and the row's answer-type temperature key.
+/// One scoring row of a planned question: the rendered prompt and the number
+/// of label logits to read. Every row of a question shares the question's
+/// answer type, so the temperature key lives on [`PlannedQuestion::kind`].
 struct PlannedRow {
     row: RenderedRow,
     label_count: usize,
-    kind: QuestionKind,
 }
 
 /// The rows of one planned question plus its unpacked wire form.
@@ -113,7 +113,6 @@ impl Inner {
                     rows: vec![PlannedRow {
                         row,
                         label_count: count,
-                        kind: QuestionKind::Choice,
                     }],
                 })
             }
@@ -159,7 +158,6 @@ impl Inner {
                     rows: vec![PlannedRow {
                         row,
                         label_count: 2,
-                        kind: QuestionKind::Noul,
                     }],
                 })
             }
@@ -188,7 +186,6 @@ impl Inner {
                     rows.push(PlannedRow {
                         row,
                         label_count: 2,
-                        kind: QuestionKind::Score,
                     });
                 }
                 let unpacked = wire::unpack_question(id, question)?;
@@ -209,11 +206,7 @@ impl Inner {
         control: &FamilyControl,
         token_count: &mut u64,
     ) -> Result<openkind_core::Answer, FamilyError> {
-        let temperature_for = |kind| match kind {
-            QuestionKind::Choice => self.profile.calibration.resolve(kind),
-            QuestionKind::Noul => self.profile.calibration.resolve(kind),
-            QuestionKind::Score => self.profile.calibration.resolve(kind),
-        };
+        let temperature = self.profile.calibration.resolve(planned.kind);
         let mut row_probabilities = Vec::with_capacity(planned.rows.len());
         for planned_row in &planned.rows {
             control.check()?;
@@ -226,10 +219,7 @@ impl Inner {
             let logits =
                 self.model
                     .slot_logits(planned_row.row.prompt_ids(), &label_ids, control)?;
-            row_probabilities.push(temperature_softmax(
-                &logits,
-                temperature_for(planned_row.kind),
-            )?);
+            row_probabilities.push(temperature_softmax(&logits, temperature)?);
         }
         let probabilities = match planned.kind {
             // Choice and Noul read one row whose distribution is the answer.

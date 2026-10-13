@@ -352,7 +352,7 @@ pub(super) fn write_test_manifest(model_path: &Path, external_files: &[&str]) {
             name.to_owned(),
             FilePin {
                 size_bytes: bytes.len() as u64,
-                sha256: format!("{:x}", Sha256::digest(&bytes)),
+                sha256: openkind_runtime::hashing::sha256_hex(&bytes),
             },
         );
     }

@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use candle_core::{DType, Device, Tensor};
 use candle_transformers::models::qwen2::{Config, ModelForCausalLM};
 
-use crate::families::support::{verify_digest, FamilyError};
+use crate::families::support::{check_pinned_fields, require_file, verify_digest, FamilyError};
 
 use super::{pinned_config, CHECKPOINT_SHA256, CONFIG_JSON_SHA256, TOKENIZER_JSON_SHA256};
 
@@ -61,15 +61,7 @@ impl VerifiedArtifacts {
             if path == &checkpoint && (!native) && !path.exists() {
                 continue;
             }
-            if !path.is_file() {
-                return Err(FamilyError::Io {
-                    path: path.to_path_buf(),
-                    source: std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "required pinned artifact is missing",
-                    ),
-                });
-            }
+            require_file(path)?;
         }
         // Cheap contract checks first: config digest/contract and tokenizer
         // digest fail fast before the multi-hundred-megabyte checkpoint is
@@ -81,18 +73,7 @@ impl VerifiedArtifacts {
         }
 
         let config_json: serde_json::Value = crate::families::support::read_json(&config_path)?;
-        for (field, expected) in pinned_config() {
-            let actual = resolve_config_field(&config_json, field).ok_or_else(|| {
-                FamilyError::ContractMismatch {
-                    field,
-                    expected: expected.to_string(),
-                    actual: "missing".to_owned(),
-                }
-            })?;
-            if actual != expected {
-                return Err(FamilyError::contract(field, expected, actual));
-            }
-        }
+        check_pinned_fields(&config_json, &pinned_config())?;
         let config: Config =
             serde_json::from_value(config_json).map_err(|error| FamilyError::Json {
                 path: config_path.to_path_buf(),
@@ -104,13 +85,6 @@ impl VerifiedArtifacts {
             tokenizer: tokenizer_path,
         })
     }
-}
-
-fn resolve_config_field(value: &serde_json::Value, field: &str) -> Option<serde_json::Value> {
-    if let Some(name) = field.strip_suffix("[0]") {
-        return value.get(name).and_then(|items| items.get(0)).cloned();
-    }
-    value.get(field).cloned()
 }
 
 impl DecoderLetterModel {
@@ -172,21 +146,5 @@ impl DecoderLetterModel {
             })
             .collect::<Result<Vec<f64>, FamilyError>>()?;
         Ok(selected)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn config_field_resolution_reads_architecture_lists() {
-        let value = serde_json::json!({"architectures": ["Qwen2ForCausalLM"]});
-        assert_eq!(
-            resolve_config_field(&value, "architectures[0]"),
-            Some(serde_json::json!("Qwen2ForCausalLM"))
-        );
-        assert_eq!(resolve_config_field(&value, "architectures[1]"), None);
-        assert_eq!(resolve_config_field(&value, "model_type"), None);
     }
 }

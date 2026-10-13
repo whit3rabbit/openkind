@@ -7,7 +7,7 @@ use candle_core::Device;
 use openkind_core::{ModelInfo, State, SystemRequest, SystemResponse, Usage};
 
 use crate::device::FamilyExecution;
-use crate::families::decoder_logit_qwen35::QuestionKind;
+use crate::families::support::QuestionKind;
 use crate::families::support::{
     temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
 };

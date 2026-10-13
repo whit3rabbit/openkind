@@ -54,7 +54,7 @@ use thiserror::Error;
 
 pub use self::engine::{plan_request as plan_sieve_request, SieveEngine, SieveRequestPlan};
 pub use self::renderer::{derive_answer_codes as derive_sieve_answer_codes, SieveRenderer};
-use crate::families::decoder_logit_qwen35::Calibration;
+use crate::families::support::Calibration;
 use crate::families::support::FamilyLimits;
 
 /// Family slug used for identity derivation and telemetry.

@@ -108,6 +108,15 @@ impl SchemaScorerOnnxModel {
                     message: format!("`{LOGITS}` must be [1, 1], got {shape:?}"),
                 });
             }
+            // The declared shape was checked above; also require the buffer
+            // to carry that value so indexing can never panic on a malformed
+            // export.
+            if data.len() != 1 {
+                return Err(OnnxError::Signature {
+                    artifact: PathBuf::new(),
+                    message: format!("`{LOGITS}` carried {} values, expected 1", data.len()),
+                });
+            }
             Ok(data[0])
         })?;
         Ok(f64::from(logit))

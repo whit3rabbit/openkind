@@ -2,11 +2,10 @@
 
 use std::collections::BTreeMap;
 use std::fs::{self, File};
-use std::io::{BufReader, Read};
+use std::io::Read;
 use std::path::Path;
 
 use serde::Deserialize;
-use sha2::{Digest, Sha256};
 
 use crate::qwen35::Qwen35Error;
 
@@ -180,7 +179,7 @@ pub(super) fn verify_small_artifact(
         path: path.to_path_buf(),
         source,
     })?;
-    let actual_digest = format!("{:x}", Sha256::digest(&bytes));
+    let actual_digest = openkind_runtime::hashing::sha256_hex(&bytes);
     if actual_digest != expected_digest {
         return Err(Qwen35Error::DigestMismatch {
             path: relative.to_owned(),
@@ -192,24 +191,10 @@ pub(super) fn verify_small_artifact(
 }
 
 pub(super) fn sha256_file(path: &Path) -> Result<String, Qwen35Error> {
-    let file = File::open(path).map_err(|source| Qwen35Error::Io {
+    openkind_runtime::hashing::sha256_file(path).map_err(|source| Qwen35Error::Io {
         path: path.to_path_buf(),
         source,
-    })?;
-    let mut reader = BufReader::with_capacity(1024 * 1024, file);
-    let mut hasher = Sha256::new();
-    let mut buffer = vec![0_u8; 1024 * 1024];
-    loop {
-        let read = reader.read(&mut buffer).map_err(|source| Qwen35Error::Io {
-            path: path.to_path_buf(),
-            source,
-        })?;
-        if read == 0 {
-            break;
-        }
-        hasher.update(&buffer[..read]);
-    }
-    Ok(format!("{:x}", hasher.finalize()))
+    })
 }
 
 pub(super) fn file_len(path: &Path) -> Result<u64, Qwen35Error> {

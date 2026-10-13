@@ -215,17 +215,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let digest = {
             // Same serialization as the reference-parity script: the
             // comma-joined decimal ids, UTF-8 hashed.
-            use sha2::Digest as _;
-            use std::fmt::Write as _;
             let joined = ids.iter().map(u32::to_string).collect::<Vec<_>>().join(",");
-            let mut hasher = sha2::Sha256::new();
-            hasher.update(joined.as_bytes());
-            let digest = hasher.finalize();
-            let mut text = String::new();
-            for byte in digest {
-                write!(&mut text, "{byte:02x}").expect("hex");
-            }
-            text
+            openkind_runtime::hashing::sha256_hex(joined.as_bytes())
         };
         prompt_stats.push(json!({
             "name": case.name,

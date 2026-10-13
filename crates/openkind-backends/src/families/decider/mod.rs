@@ -45,7 +45,7 @@ use openkind_engine::ProbabilitySpace;
 use thiserror::Error;
 
 pub use self::engine::DeciderEngine;
-use crate::families::decoder_logit_qwen35::Calibration;
+use crate::families::support::Calibration;
 use crate::families::support::FamilyLimits;
 
 /// Family slug used for identity derivation and telemetry.
@@ -161,7 +161,7 @@ pub const NARROW_OPTIONS: usize = 10;
 /// Pinned `config.json` values the loader enforces before trusting weights
 /// (the same frozen backbone geometry as the `decoder-logit-qwen35` family).
 pub(crate) fn pinned_config() -> Vec<(&'static str, serde_json::Value)> {
-    crate::families::decoder_logit_qwen35::pinned_config_shared()
+    crate::families::support::pinned_config_shared()
 }
 
 /// Pinned `decider_config.json` values the loader enforces before trusting
