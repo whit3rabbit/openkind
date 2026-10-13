@@ -85,6 +85,24 @@
 
 ### Changed
 
+- The FP32 MLX DeltaNet layer now does its row-independent work once over all
+  rows instead of once per token. The causal convolution window, the q/k/v
+  split and L2 norms, the beta and gate math, and the output norm and SiLU
+  gate never read the recurrent state, and they accounted for most of a
+  per-token loop of about a hundred operations. Only the state update stays
+  sequential, through the unchanged reference step. Outputs and carried states
+  are bit-identical to the loop (tests over fresh and continued states and row
+  counts around the convolution window, mutation-checked), so the arithmetic
+  identity is unchanged. With seeded synthetic weights at the pinned layer
+  shapes, a DeltaNet layer at 192 rows went from 45.9 to 16.5 ms and an 8-layer
+  stack from about 0.28 to 0.10 s, and the 24 DeltaNet layers had been about
+  94% of a 32-layer forward. Per-layer evaluation was also measured and costs
+  nothing, so it stays. `stack_rows` is now a single concatenation instead of a
+  quadratic pairwise join. The loop remains for traced runs, native BF16, and
+  `MetalTree`, and `OPENKIND_QWEN35_MLX_ROW_LOOP=1` selects it for FP32. The
+  pinned 4B checkpoint is not installed here, so the checkpoint-gated MLX
+  parity examples and a real-checkpoint timing were not run.
+
 - The d3, sieve, decider, and decoder-logit-qwen35 engines read only the final
   token of their backbone, yet the last decoder layer computed its query path,
   output projection, MLP, and final norm for every row. `TextBackbone` now has

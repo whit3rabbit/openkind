@@ -233,6 +233,21 @@ pub(crate) fn repeat_heads(heads: &Array) -> Result<Array, MlxError> {
         .map_err(op("repeat flatten"))
 }
 
+/// [`repeat_heads`] over a leading row axis: `[rows, KEY_HEADS, width]` to
+/// `[rows, VALUE_HEADS, width]`, repeating each head the same way per row.
+pub(crate) fn repeat_heads_rows(heads: &Array) -> Result<Array, MlxError> {
+    let shape = heads.shape().to_vec();
+    let times = (VALUE_HEADS / KEY_HEADS) as i32;
+    let reshaped = heads
+        .clone()
+        .reshape(&[shape[0], shape[1], 1, shape[2]])
+        .map_err(op("repeat rows reshape"))?;
+    broadcast_to(&reshaped, &[shape[0], shape[1], times, shape[2]])
+        .map_err(op("repeat rows broadcast"))?
+        .reshape(&[shape[0], shape[1] * times, shape[2]])
+        .map_err(op("repeat rows flatten"))
+}
+
 /// Shift the conv window: drop the oldest tap column, append the raw (pre-
 /// silu) current row as the newest column.
 ///
@@ -255,24 +270,19 @@ pub(crate) fn shift_window(conv: &Array, raw_current: &Array) -> Result<Array, M
 }
 
 /// Stack per-token flat rows into `[rows, width]`.
+///
+/// One concatenation of all rows. Joining them pairwise instead rebuilds the
+/// growing array on every row, which copies quadratically many elements.
 pub(crate) fn stack_rows(rows: &[Array], width: usize) -> Result<Array, MlxError> {
-    let mut stacked = rows[0]
-        .clone()
-        .reshape(&[1, width as i32])
-        .map_err(op("stack reshape"))?;
-    for row in &rows[1..] {
-        stacked = concatenate(
-            &[
-                &stacked,
-                &row.clone()
-                    .reshape(&[1, width as i32])
-                    .map_err(op("stack row"))?,
-            ],
-            0,
-        )
-        .map_err(op("stack concat"))?;
-    }
-    Ok(stacked)
+    let shaped = rows
+        .iter()
+        .map(|row| {
+            row.clone()
+                .reshape(&[1, width as i32])
+                .map_err(op("stack reshape"))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    concatenate(&shaped, 0).map_err(op("stack concat"))
 }
 
 pub(crate) fn zeros(shape: &[i32]) -> Array {
@@ -384,7 +394,8 @@ pub(crate) fn folded_vector(
 
 #[cfg(test)]
 mod vectorized_tests {
-    use super::{gather_last_real_token, lane_of, prefix_axis0};
+    use super::{gather_last_real_token, lane_of, prefix_axis0, stack_rows};
+    use mlx_rs::ops::concatenate;
     use mlx_rs::Array;
 
     #[test]
@@ -415,5 +426,50 @@ mod vectorized_tests {
         let truncated = prefix_axis0(&lane_cache, 3).unwrap();
         assert_eq!(truncated.shape(), [3, 1]);
         assert_eq!(truncated.to_vec_cast::<f32>().unwrap(), vec![1.0, 2.0, 3.0]);
+    }
+
+    /// The pairwise join `stack_rows` replaced, kept as the reference.
+    fn stack_rows_pairwise(rows: &[Array], width: usize) -> Array {
+        let mut stacked = rows[0].clone().reshape(&[1, width as i32]).unwrap();
+        for row in &rows[1..] {
+            stacked = concatenate(
+                &[&stacked, &row.clone().reshape(&[1, width as i32]).unwrap()],
+                0,
+            )
+            .unwrap();
+        }
+        stacked
+    }
+
+    #[test]
+    fn stack_rows_matches_the_pairwise_join_bit_for_bit() {
+        use crate::qwen35::mlx::runtime::{MlxRuntime, MlxRuntimeConfig};
+        // Evaluate under the process-wide MLX lock, as the layer tests do.
+        let runtime = MlxRuntime::new(MlxRuntimeConfig::default()).expect("runtime");
+        runtime
+            .execute(|| {
+                for (count, width) in [(1_usize, 5_usize), (2, 5), (7, 3), (64, 33)] {
+                    let rows: Vec<Array> = (0..count)
+                        .map(|row| {
+                            let values: Vec<f32> = (0..width)
+                                .map(|column| (row * 1_009 + column * 17) as f32 / 7.0 - 3.5)
+                                .collect();
+                            Array::from_slice(&values, &[width as i32])
+                        })
+                        .collect();
+                    let joined = stack_rows(&rows, width).unwrap();
+                    let reference = stack_rows_pairwise(&rows, width);
+                    assert_eq!(joined.shape(), reference.shape(), "{count}x{width} shape");
+                    let (a, b) = (
+                        joined.to_vec_cast::<f32>().unwrap(),
+                        reference.to_vec_cast::<f32>().unwrap(),
+                    );
+                    assert!(
+                        a.iter().zip(&b).all(|(x, y)| x.to_bits() == y.to_bits()),
+                        "{count}x{width} values"
+                    );
+                }
+            })
+            .expect("execute");
     }
 }
