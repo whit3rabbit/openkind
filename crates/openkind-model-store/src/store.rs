@@ -344,9 +344,18 @@ impl ModelStore {
         let lock = self.model_lock(name, false)?;
         let manifest = self.read_installed_manifest(name)?;
         let root = self.model_dir(name);
-        for artifact in &manifest.artifacts {
-            verify_file(&root.join(&artifact.path), artifact.size, &artifact.sha256)?;
-        }
+        let artifacts: Vec<(PathBuf, u64, &str)> = manifest
+            .artifacts
+            .iter()
+            .map(|artifact| {
+                (
+                    root.join(&artifact.path),
+                    artifact.size,
+                    artifact.sha256.as_str(),
+                )
+            })
+            .collect();
+        verify_files_parallel(&artifacts)?;
         Ok(InstalledModel {
             manifest,
             root,
@@ -836,6 +845,59 @@ fn verify_file(path: &Path, size: u64, sha: &str) -> Result<()> {
     }
     if sha256_file(path)? != sha {
         return Err(Error::DigestMismatch(path.display().to_string()));
+    }
+    Ok(())
+}
+
+/// Upper bound on concurrent hashers. Multi-shard checkpoints are the case
+/// worth parallelizing; more threads than this only add disk contention.
+const MAX_VERIFY_THREADS: usize = 4;
+
+/// Verify artifacts concurrently, reporting the failure of the earliest
+/// artifact in manifest order, which is the one the sequential loop reported.
+///
+/// Workers claim indices in increasing order and stop claiming once any file
+/// has failed, so a bad install does not hash the remaining shards. Every
+/// skipped index is therefore later than the failure that caused the skip.
+fn verify_files_parallel(files: &[(PathBuf, u64, &str)]) -> Result<()> {
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    use std::sync::Mutex;
+
+    let threads = std::thread::available_parallelism()
+        .map_or(1, std::num::NonZeroUsize::get)
+        .min(MAX_VERIFY_THREADS)
+        .min(files.len());
+    if threads <= 1 {
+        for (path, size, sha) in files {
+            verify_file(path, *size, sha)?;
+        }
+        return Ok(());
+    }
+    let next = AtomicUsize::new(0);
+    let failed = AtomicBool::new(false);
+    let results: Vec<Mutex<Option<Result<()>>>> = files.iter().map(|_| Mutex::new(None)).collect();
+    std::thread::scope(|scope| {
+        for _ in 0..threads {
+            scope.spawn(|| loop {
+                if failed.load(Ordering::Acquire) {
+                    return;
+                }
+                let index = next.fetch_add(1, Ordering::AcqRel);
+                let Some((path, size, sha)) = files.get(index) else {
+                    return;
+                };
+                let outcome = verify_file(path, *size, sha);
+                if outcome.is_err() {
+                    failed.store(true, Ordering::Release);
+                }
+                *results[index].lock().expect("verify result slot") = Some(outcome);
+            });
+        }
+    });
+    for slot in results {
+        if let Some(outcome) = slot.into_inner().expect("verify result slot") {
+            outcome?;
+        }
     }
     Ok(())
 }
@@ -1396,6 +1458,52 @@ mod tests {
         );
         assert!(matches!(result, Err(Error::Invalid(_))));
         assert!(!blob.exists());
+    }
+
+    #[cfg(test)]
+    mod parallel_verify_tests {
+        use super::*;
+
+        fn write_artifact(dir: &Path, name: &str, bytes: &[u8]) -> (PathBuf, u64, String) {
+            let path = dir.join(name);
+            fs::write(&path, bytes).unwrap();
+            (path, bytes.len() as u64, sha256(bytes))
+        }
+
+        #[test]
+        fn accepts_many_good_artifacts() {
+            let dir = tempdir().unwrap();
+            let owned: Vec<_> = (0..9u8)
+                .map(|i| write_artifact(dir.path(), &format!("shard-{i}.bin"), &[i; 4096]))
+                .collect();
+            let files: Vec<_> = owned
+                .iter()
+                .map(|(path, size, sha)| (path.clone(), *size, sha.as_str()))
+                .collect();
+            verify_files_parallel(&files).unwrap();
+        }
+
+        #[test]
+        fn reports_the_earliest_failure_in_manifest_order() {
+            let dir = tempdir().unwrap();
+            let mut owned: Vec<_> = (0..8u8)
+                .map(|i| write_artifact(dir.path(), &format!("shard-{i}.bin"), &[i; 4096]))
+                .collect();
+            // Corrupt shard 2 and shard 5 by recording the wrong digest. The
+            // sequential loop reported shard 2, so the parallel one must too.
+            owned[2].2 = sha256(b"wrong");
+            owned[5].2 = sha256(b"also wrong");
+            let files: Vec<_> = owned
+                .iter()
+                .map(|(path, size, sha)| (path.clone(), *size, sha.as_str()))
+                .collect();
+            match verify_files_parallel(&files) {
+                Err(Error::DigestMismatch(path)) => {
+                    assert!(path.ends_with("shard-2.bin"), "{path}")
+                }
+                other => panic!("expected shard-2 mismatch, got {other:?}"),
+            }
+        }
     }
 
     #[cfg(test)]
