@@ -1,4 +1,4 @@
-# Owner decision record: remaining Decision Index 0.3.1 entries stay as pinned metadata
+# Decision record: remaining Decision Index 0.3.1 entries stay as pinned metadata
 
 Written 2026-10-12 after the registry expansion and the feasible loader
 campaigns. The handoff
@@ -24,10 +24,12 @@ equivalence checks.
 
 ## Decision: the remaining entries stay as pinned metadata
 
-The entries below keep `openkind_loadable: false` and
-`installable: false` in
-[`registry/v1/jev-decision-index-0.3.1.json`](../../registry/v1/jev-decision-index-0.3.1.json).
-Each blocker is recorded per entry in that file; grouped:
+In
+[`registry/v1/jev-decision-index-0.3.1.json`](../../registry/v1/jev-decision-index-0.3.1.json),
+only the six profiles above set `openkind_loadable: true` (each names its
+`catalog_profile`), and every entry keeps `installable: false`. The entries
+below keep `openkind_loadable: false`. Each blocker is recorded per entry in
+that file, grouped here:
 
 1. **Above the 36 GB reference host (27B-31B BF16):** d3 27B, pplx v1.1,
    Darwin-27B-ZTC, Sieve-27B, Kev-27b, Shisa DE-2, Matilda, RSI-Jev v6.1
@@ -45,12 +47,20 @@ Each blocker is recorded per entry in that file; grouped:
    sieve-4b but over 27B/9B bases with a torch-pickle `head.pt` needing
    safe re-expression); Bespoke Nimble v3 (adapter whose readout is defined
    by the non-commercial Nimble serving stack); garas (adapter plus custom
-   engine code needing re-expression).
+   engine code needing re-expression); RSI-Jev v6.1 VL 4B (Apache-2.0,
+   9.68 GB on the Qwen3.5-4B-Base checkpoint, so it fits the host, but its
+   tapped-layer readout and calibration contract match no openkind family
+   and need their own adapter plus parity fixtures).
 4. **Superseded:** Decision 2.0 Vega/Lux/Nox — the d3 family supersedes
    them at every size; kept as predecessor baselines.
 5. **Unresolvable provenance:** Matilda's declared base repository
    (`Maincode/MATILDA`) returned HTTP 401 on 2026-10-12; Darwin's base
    lineage is author-disclosed only.
+
+The Cloudflare clef and clef-flash entries also keep
+`openkind_loadable: false`. They re-pin the upstream revisions behind the
+existing `clef-27b-gguf`, `clef-flash`, and `clef-flash-gguf` catalog
+profiles, which load earlier pinned revisions, so they need no new loader.
 
 ## What would change the decision
 
@@ -58,12 +68,15 @@ Each blocker is recorded per entry in that file; grouped:
   group 1 with the d3-family adapter already in tree for the Qwen3.8-27B
   entries.
 - An NVFP4 backend unlocks group 2.
-- A gemma4 MoE config and the StartLux letter readout unlock their groups.
+- A gemma4 MoE config, the StartLux letter readout, and an RSI-Jev
+  tapped-layer readout adapter unlock their parts of group 3.
 - Any of these reuse the pins in the 0.3.1 registry file as immutable
   starting sources, which is exactly what the pins were recorded for.
 
-Signed: agent run 2026-10-12, per the session goal's "after exhausting
-feasible entries" clause. Feasible entries are exhausted: every handoff
-model that fits the reference host, has an execution path, carries a
-re-expressible contract, and is license-compatible now has a loadable,
-pullable catalog profile.
+Recorded by the agent run of 2026-10-12, per the session goal's "after
+exhausting feasible entries" clause. No owner sign-off is recorded here.
+Feasible entries are exhausted: every handoff model that fits the reference
+host, has an execution path, carries a re-expressible contract, and is
+license-compatible now has a loadable, pullable catalog profile. RSI-Jev
+v6.1 VL 4B meets the host, execution-path, and license criteria; it stays
+here only because no adapter re-expresses its tapped-layer readout yet.

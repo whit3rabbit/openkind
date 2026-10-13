@@ -116,7 +116,10 @@ def board(rank, full, public, same_skills, new_domains, tied):
 
 def entry(engine, leaderboard_name, tier, kind, board_row, base_model, weights,
           blocker, nearest_openkind_path, mlx_leads, off_board_scores=None,
-          already_catalog=False):
+          already_catalog=False, catalog_profile=None):
+    # A landed entry names the catalog profile that loads its pinned weights
+    # and has no blocker; every other entry records why it is not loadable.
+    assert (catalog_profile is None) != (blocker is None), engine
     data = {
         "engine": engine,
         "leaderboard_name": leaderboard_name,
@@ -127,7 +130,8 @@ def entry(engine, leaderboard_name, tier, kind, board_row, base_model, weights,
         "kind": kind,
         "base_model": base_model,
         "weights": weights,
-        "openkind_loadable": False,
+        "openkind_loadable": catalog_profile is not None,
+        "catalog_profile": catalog_profile,
         "blocker": blocker,
         "nearest_openkind_path": nearest_openkind_path,
         "mlx_leads": mlx_leads,
@@ -184,7 +188,7 @@ TIER1 = [
              ARCH_QWEN38_27B,
              "declared by decision_config.json base_model/revision"),
         weights("vllm-sr/d3", "cbff3a3cb0b074b6585fe9f747b9f9f5557a0e75",
-                "merged BF16 safetensors, 12 shards, 52,176,025,120 bytes, plus a separate "
+                "merged BF16 safetensors, 11 shards, 52,170,802,640 bytes, plus a separate "
                 "5,222,480-byte readout.safetensors ([255, 5120] float32 rows); decision_config.json "
                 "declares format d3-code-readout-v1 version 1, attention_mode "
                 "noncausal_full_attention, pooling last, temperature 1.0, and 255 answer codes "
@@ -252,7 +256,7 @@ TIER1 = [
              "declared by decision_config.json as a local-sha256 revision; the Hub repository "
              "was resolved separately on 2026-10-12"),
         weights("FINAL-Bench/Darwin-27B-ZTC", "2b4bb9e22687b89e3c5703696b575ea2d2774da8",
-                "merged BF16 safetensors, 12 shards, 51,251,905,248 bytes, plus a "
+                "merged BF16 safetensors, 11 shards, 51,249,293,960 bytes, plus a "
                 "2,611,288-byte readout.safetensors ([255, 5120] half-precision rows by size); "
                 "config declares Qwen3_5TextModel (text-only 5120/64 hybrid without a vision "
                 "tower); decision_config.json records training provenance digests (step 675, "
@@ -282,7 +286,7 @@ TIER1 = [
              ARCH_QWEN38_27B,
              "declared by decision_config.json base_model/revision"),
         weights("perplexity-ai/pplx-decider-v1.1-27b", "db124e5056059be396ec5ba69b97a33dd6adb815",
-                "merged BF16 safetensors, 12 shards, 52,173,413,928 bytes (about 49 GiB), plus a "
+                "merged BF16 safetensors, 11 shards, 52,170,802,640 bytes (about 49 GiB), plus a "
                 "2,611,288-byte readout.safetensors ([255, 5120] half-precision rows by size); "
                 "config declares Qwen3_5Model (backbone without an LM head); decision_config.json "
                 "declares format_version 1, attention_mode noncausal_full_attention, pooling "
@@ -389,7 +393,7 @@ TIER1 = [
         base("Qwen/Qwen3.5-9B", "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
              ARCH_QWEN35_9B, "declared by decision_config.json base_model/revision"),
         weights("vllm-sr/d3-flash", "521525effa79469d899a570726547dd7f00da3af",
-                "merged BF16 safetensors, 5 shards, 16,789,656,976 bytes, plus a "
+                "merged BF16 safetensors, 4 shards, 16,785,478,976 bytes, plus a "
                 "4,178,000-byte readout.safetensors ([255, 4096] float32 rows); the same "
                 "d3-code-readout-v1 decision_config contract as vllm-sr/d3; "
                 + D3_RUNTIME_NOTE,
@@ -399,9 +403,7 @@ TIER1 = [
                 "parity record; the Hub tag v3.1.0 points elsewhere. HEAD differs only in "
                 "runtime server files; every weight and readout blob is byte-identical between "
                 "pin and HEAD, so HEAD is recorded as equivalent."),
-        "Same noncausal-plus-255-row-readout family adapter need as vllm-sr/d3 at a 16.79 GB "
-        "size; the only d3 sibling openkind's reference host could run at BF16. Landed as the "
-        "d3-flash:b2a4750f8bf4a1fa58cb catalog profile; see docs/families/d3.md.",
+        None,
         "Landed as the d3-flash catalog profile over the 4096/32 noncausal backbone.",
         [lead("ahmedandaloes/d3-flash-mlx", "77adb3bea9abde92d1f32158743a0cbbb0bf7aa3",
               "MLX (bit depth unstated)", "vllm-sr/d3-flash",
@@ -421,6 +423,7 @@ TIER1 = [
          }],
         off_board_scores={"source": "author-run public suite 0.3 score from the model card", "public": 57.79, "note": "d3 siblings are not ranked on the 0.3.1 board; cards give author-run public numbers."},
         already_catalog=True,
+        catalog_profile="d3-flash:b2a4750f8bf4a1fa58cb",
     ),
     entry(
         "d3-mini",
@@ -431,7 +434,7 @@ TIER1 = [
         base("Qwen/Qwen3.5-4B", "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
              ARCH_QWEN35_4B, "declared by decision_config.json base_model/revision"),
         weights("vllm-sr/d3-mini", "a475367de0d8133a3c1a2a0dc12303d89cfa2ab4",
-                "merged BF16 safetensors, 3 shards, 9,081,227,360 bytes, plus a "
+                "merged BF16 safetensors, 2 shards, 9,078,616,080 bytes, plus a "
                 "2,611,280-byte readout.safetensors ([255, 2560] float32 rows); the same "
                 "d3-code-readout-v1 decision_config contract as vllm-sr/d3; "
                 + D3_RUNTIME_NOTE,
@@ -441,11 +444,7 @@ TIER1 = [
                 "parity record; the Hub tag v3.1.0 points elsewhere. HEAD differs only in "
                 "runtime server files; every weight and readout blob is byte-identical between "
                 "pin and HEAD, so HEAD is recorded as equivalent."),
-        "The d3 family adapter at the most practical size: the backbone dims (2560/32) match "
-        "the decoder-logit-qwen35 family's pinned geometry, but the noncausal mask, the 255-row "
-        "float32 readout, and the d3 prompt bytes are all new family surface, and the base is "
-        "Qwen3.5-4B (instruct), not the -Base checkpoint openkind's selected profile pins. "
-        "Landed as the d3-mini:434dbc50d3b581663e52 catalog profile; see docs/families/d3.md.",
+        None,
         "Landed as the d3-mini catalog profile over the 2560/32 noncausal backbone.",
         [lead("ahmedandaloes/d3-mini-mlx", "c645173f5729051d473916283f9e37208b5113bb",
               "MLX (bit depth unstated)", "vllm-sr/d3-mini",
@@ -459,6 +458,7 @@ TIER1 = [
               "Not parity evidence.")],
         off_board_scores={"source": "author-run public suite 0.3 score from the model card", "public": 54.9, "note": "d3 siblings are not ranked on the 0.3.1 board; cards give author-run public numbers."},
         already_catalog=True,
+        catalog_profile="d3-mini:434dbc50d3b581663e52",
     ),
     entry(
         "d3-nano",
@@ -469,7 +469,7 @@ TIER1 = [
         base("Qwen/Qwen3.5-2B", "15852e8c16360a2fea060d615a32b45270f8a8fc",
              ARCH_QWEN35_2B, "declared by decision_config.json base_model/revision"),
         weights("vllm-sr/d3-nano", "3aeb1c22a5632aac72353c36b3d0111c40e7dbf4",
-                "merged BF16 safetensors, 2 shards, 4,428,644,200 bytes, plus a "
+                "merged BF16 safetensors, 1 shard, 4,426,555,160 bytes, plus a "
                 "2,089,040-byte readout.safetensors ([255, 2048] float32 rows); the same "
                 "d3-code-readout-v1 decision_config contract as vllm-sr/d3; "
                 + D3_RUNTIME_NOTE,
@@ -479,10 +479,7 @@ TIER1 = [
                 "parity record; the Hub tag v3.1.0 points elsewhere. HEAD differs only in "
                 "runtime server files; every weight and readout blob is byte-identical between "
                 "pin and HEAD, so HEAD is recorded as equivalent."),
-        "The d3 family adapter at a 4.43 GB size on a backbone openkind has no pinned profile "
-        "for (Qwen3.5-2B); quality drops steeply in the small d3 siblings (42.22 author-run "
-        "public versus 54.90 for d3-mini). Landed as the "
-        "d3-nano:0198af5b5c8e8835605e catalog profile; see docs/families/d3.md.",
+        None,
         "Landed as the d3-nano catalog profile over the 2048/24 noncausal backbone.",
         [lead("ahmedandaloes/d3-nano-mlx", "b503613cd2bdbbaef1cfbd09c6e348a5758b255b",
               "MLX (bit depth unstated)", "vllm-sr/d3-nano",
@@ -498,6 +495,7 @@ TIER1 = [
               "Not parity evidence.")],
         off_board_scores={"source": "author-run public suite 0.3 score from the model card", "public": 42.22, "note": "d3 siblings are not ranked on the 0.3.1 board; cards give author-run public numbers."},
         already_catalog=True,
+        catalog_profile="d3-nano:0198af5b5c8e8835605e",
     ),
     entry(
         "d3-lite",
@@ -508,7 +506,7 @@ TIER1 = [
         base("Qwen/Qwen3.5-0.8B", "2fc06364715b967f1860aea9cf38778875588b17",
              ARCH_QWEN35_08B, "declared by decision_config.json base_model/revision"),
         weights("vllm-sr/d3-lite", "a8d25a91ef75552803f7009d25b7bd435991abd9",
-                "merged BF16 safetensors, 2 shards, 1,707,072,248 bytes, plus a "
+                "merged BF16 safetensors, 1 shard, 1,706,027,688 bytes, plus a "
                 "1,044,560-byte readout.safetensors ([255, 1024] float32 rows); the same "
                 "d3-code-readout-v1 decision_config contract as vllm-sr/d3; "
                 + D3_RUNTIME_NOTE,
@@ -518,9 +516,7 @@ TIER1 = [
                 "parity record; the Hub tag v3.1.0 points elsewhere. HEAD differs only in "
                 "runtime server files; every weight and readout blob is byte-identical between "
                 "pin and HEAD, so HEAD is recorded as equivalent."),
-        "The d3 family adapter at a 1.71 GB size; 36.93 author-run public makes it a "
-        "convenience target for adapter bring-up rather than a quality lead. Landed as the "
-        "d3-lite:e0dd32dbc16b27546692 catalog profile; see docs/families/d3.md.",
+        None,
         "Landed as the d3-lite catalog profile over the 1024/24 noncausal backbone.",
         [lead("ahmedandaloes/d3-lite-mlx", "235b1fb6ed8d20ab911e10801a4f4cec9cadc24a",
               "MLX (bit depth unstated)", "vllm-sr/d3-lite",
@@ -528,6 +524,7 @@ TIER1 = [
               "license field. Not parity evidence.")],
         off_board_scores={"source": "author-run public suite 0.3 score from the model card", "public": 36.93, "note": "d3 siblings are not ranked on the 0.3.1 board; cards give author-run public numbers."},
         already_catalog=True,
+        catalog_profile="d3-lite:e0dd32dbc16b27546692",
     ),
     entry(
         "d3-edge",
@@ -539,7 +536,7 @@ TIER1 = [
              ARCH_QWEN35_08B + "; the fine-tune prunes the backbone to 12 of the 24 layers",
              "declared by decision_config.json base_model/revision"),
         weights("vllm-sr/d3-edge", "18d61df78684675463af9ae732872478845c5a79",
-                "merged BF16 safetensors, 2 shards, 1,189,722,528 bytes, plus a "
+                "merged BF16 safetensors, 1 shard, 1,188,677,968 bytes, plus a "
                 "1,044,560-byte readout.safetensors ([255, 1024] float32 rows); the same "
                 "d3-code-readout-v1 decision_config contract as vllm-sr/d3; the backbone is "
                 "pruned to 12 layers, so a loader needs a per-checkpoint pruned layer list; "
@@ -551,12 +548,7 @@ TIER1 = [
                 "v3.1.0 points elsewhere. HEAD differs only in runtime server files; every "
                 "weight and readout blob is byte-identical between pin and HEAD, so HEAD is "
                 "recorded as equivalent."),
-        "The d3 family adapter plus support for a pruned (12-layer) layer list; smallest and "
-        "weakest of the family at 28.82 author-run public, but also the cheapest to execute. "
-        "This entry is the one tier-1 checkpoint with a loadable OpenKind profile: the d3 "
-        "family adapter (noncausal mask, per-layer mixer table, 255-row float32 readout) "
-        "landed as d3-edge:664f9ead734372935286 with prompt byte-parity against the shipped "
-        "d3_format.py; see docs/families/d3.md.",
+        None,
         "Landed as the d3-edge catalog profile over the pruned 1024/12 noncausal backbone.",
         [lead("ahmedandaloes/d3-edge-mlx", "33e8fdb0adb076d7af3d5d1a0049b60cdc1d7939",
               "MLX (bit depth unstated)", "vllm-sr/d3-edge",
@@ -564,6 +556,7 @@ TIER1 = [
               "license field. Not parity evidence.")],
         off_board_scores={"source": "author-run public suite 0.3 score from the model card", "public": 28.82, "note": "d3 siblings are not ranked on the 0.3.1 board; cards give author-run public numbers."},
         already_catalog=True,
+        catalog_profile="d3-edge:664f9ead734372935286",
     ),
 ]
 
@@ -584,7 +577,7 @@ TIER2 = [
              "declares base_model Maincode/MATILDA at revision 'unknown', and that repository "
              "returned HTTP 401 on 2026-10-12 (moved, renamed, or private)"),
         weights("Maincode/matilda-jev-v1.5", "931662e8f54244d3713fcef8df113346c9e79fc6",
-                "merged BF16 safetensors, 12 shards, 52,173,414,024 bytes, plus a "
+                "merged BF16 safetensors, 11 shards, 52,170,802,736 bytes, plus a "
                 "2,611,288-byte readout.safetensors ([255, 5120] half-precision rows by size) "
                 "and a custom configuration_matilda_jev.py; decision_config.json records "
                 "temperature 1.5354",
@@ -942,8 +935,8 @@ TIER2 = [
         base("Qwen/Qwen3.5-9B", "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
              ARCH_QWEN35_9B, "declared by the model card"),
         weights("vllm-sr/Decision-2.0-Lux-9B", "1dcd1e7f240eab37ac09a6d0b0f77654b59411f9",
-                "backbone/ directory with the merged fine-tuned backbone (10 shards, "
-                "17,926,620,224 bytes) plus a 16,845,656-byte decision_head.safetensors and the "
+                "backbone/ directory with the merged fine-tuned backbone (9 shards, "
+                "17,909,774,568 bytes) plus a 16,845,656-byte decision_head.safetensors and the "
                 "vendored decision2 runtime",
                 "apache-2.0", "1dcd1e7f240eab37ac09a6d0b0f77654b59411f9", [],
                 "HEAD at survey time and unchanged on re-resolution."),
@@ -965,8 +958,8 @@ TIER2 = [
              ARCH_QWEN35_4B,
              "declared by the model card; the same base revision openkind's selected profile pins"),
         weights("vllm-sr/Decision-2.0-Nox-4B", "ae269ecf34a0b3a89026bc1afd9c995279212fad",
-                "backbone/ directory with the merged fine-tuned backbone (6 shards, "
-                "9,695,398,936 bytes) plus a 10,529,624-byte decision_head.safetensors and the "
+                "backbone/ directory with the merged fine-tuned backbone (5 shards, "
+                "9,684,869,312 bytes) plus a 10,529,624-byte decision_head.safetensors and the "
                 "vendored decision2 runtime",
                 "apache-2.0", "ae269ecf34a0b3a89026bc1afd9c995279212fad", [],
                 "HEAD at survey time and unchanged on re-resolution."),
@@ -1013,13 +1006,12 @@ TIER2 = [
                 "sieve-4b:8b97b56524b55c41fbf4 catalog profile (LoRA merge over the pinned "
                 "Qwen3.5-4B base plus the trained head, sieve4b prompt contract); see "
                 "docs/families/sieve.md."),
-        "The same adapter-plus-head pattern at openkind's pinned geometry with the head "
-        "already in safetensors; the sieve4b engine's prompt bytes still need re-expression. "
-        "Landed as the sieve-4b catalog profile.",
+        None,
         "Landed: adapter merge over the pinned geometry plus the 255-row head and the "
         "re-expressed sieve4b prompt bytes.",
         [],
         already_catalog=True,
+        catalog_profile="sieve-4b:8b97b56524b55c41fbf4",
     ),
     entry(
         "nimble-v3",
@@ -1049,7 +1041,7 @@ TIER2 = [
         base("Qwen/Qwen3.8-27B", "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
              ARCH_QWEN38_27B, "declared by the shipped config"),
         weights("Cloudflare/clef", "0b331204bb13fbd2ca93a64df1956f5b55478ce5",
-                "merged BF16 safetensors, 13 shards, 54,969,731,792 bytes, plus "
+                "merged BF16 safetensors, 12 shards, 54,713,606,768 bytes, plus "
                 "joint_head.safetensors and joint_head_config.json",
                 "apache-2.0", "0b331204bb13fbd2ca93a64df1956f5b55478ce5", [],
                 "HEAD at survey time and unchanged on re-resolution. The clef family is already "
@@ -1079,7 +1071,7 @@ TIER2 = [
         base("Qwen/Qwen3.5-9B", "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
              ARCH_QWEN35_9B, "declared by the shipped config"),
         weights("Cloudflare/clef-flash", "8b2e5fd17c09fd49bc2880b805d5323ec7ff4ff3",
-                "merged BF16 safetensors, 5 shards, 19,063,259,136 bytes, plus "
+                "merged BF16 safetensors, 4 shards, 18,819,721,120 bytes, plus "
                 "joint_head.safetensors and joint_head_config.json",
                 "apache-2.0", "8b2e5fd17c09fd49bc2880b805d5323ec7ff4ff3", [],
                 "HEAD at survey time and unchanged on re-resolution. Already catalog-installable "
@@ -1167,9 +1159,12 @@ DOCUMENT = {
         "The open-weight Decision Index 0.3.1 leaders plus the best small open entries and "
         "their base models: tier 1 (twelve repositories the next family effort should start "
         "from, including the whole d3 family) and tier 2 (the remaining board entries surveyed, "
-        "several under non-commercial licenses). Supplemental research metadata only: none of "
-        "these entries is a catalog profile, and no OpenKind loader accepts these checkpoints "
-        "today. Each entry pins the re-resolved revisions of the upstream weights and any MLX "
+        "several under non-commercial licenses). Supplemental research metadata, not a "
+        "catalog: nothing installs from this file. Six entries (d3-edge, d3-lite, d3-nano, "
+        "d3-mini, d3-flash, and sieve-4b) have since landed as catalog profiles that load their "
+        "pinned weights; they set openkind_loadable and name their catalog_profile. Every other "
+        "entry records the blocker that keeps OpenKind's loaders from accepting it today. Each "
+        "entry pins the re-resolved revisions of the upstream weights and any MLX "
         "conversion leads so later qualification starts from immutable sources. Supersedes "
         "registry/v1/jev-decision-index.json (Decision Index 0.2.1), which is retained as "
         "history."
@@ -1213,15 +1208,21 @@ DOCUMENT = {
 def check(document):
     import re
     hex40 = re.compile(r"^[0-9a-f]{40}$")
+    catalog = json.loads((ROOT / "registry/v1/catalog.json").read_text())
+    catalog_names = {model["name"] for model in catalog["models"]}
     repos = set()
     engines = set()
     for entry in document["entries"]:
         assert entry["engine"] not in engines, entry["engine"]
         engines.add(entry["engine"])
-        assert entry["openkind_loadable"] is False
+        if entry["openkind_loadable"]:
+            assert entry["catalog_profile"] in catalog_names, entry["engine"]
+            assert entry["already_catalog"] and entry["blocker"] is None, entry["engine"]
+        else:
+            assert entry["catalog_profile"] is None, entry["engine"]
+            assert entry["blocker"].strip(), entry["engine"]
         assert entry["tier"] in (1, 2)
-        for field in ("blocker", "nearest_openkind_path"):
-            assert entry[field].strip(), entry["engine"]
+        assert entry["nearest_openkind_path"].strip(), entry["engine"]
         if entry["board"] is None:
             assert entry["off_board_scores"] or entry["already_catalog"], entry["engine"]
         for revision in [entry["base_model"]["revision"], entry["weights"]["revision"],

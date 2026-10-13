@@ -2,7 +2,7 @@
   "schema": "openkind-jev-decision-index/v2",
   "checked_at": "2026-10-12",
   "installable": false,
-  "scope": "The open-weight Decision Index 0.3.1 leaders plus the best small open entries and their base models: tier 1 (twelve repositories the next family effort should start from, including the whole d3 family) and tier 2 (the remaining board entries surveyed, several under non-commercial licenses). Supplemental research metadata only: none of these entries is a catalog profile, and no OpenKind loader accepts these checkpoints today. Each entry pins the re-resolved revisions of the upstream weights and any MLX conversion leads so later qualification starts from immutable sources. Supersedes registry/v1/jev-decision-index.json (Decision Index 0.2.1), which is retained as history.",
+  "scope": "The open-weight Decision Index 0.3.1 leaders plus the best small open entries and their base models: tier 1 (twelve repositories the next family effort should start from, including the whole d3 family) and tier 2 (the remaining board entries surveyed, several under non-commercial licenses). Supplemental research metadata, not a catalog: nothing installs from this file. Six entries (d3-edge, d3-lite, d3-nano, d3-mini, d3-flash, and sieve-4b) have since landed as catalog profiles that load their pinned weights; they set openkind_loadable and name their catalog_profile. Every other entry records the blocker that keeps OpenKind's loaders from accepting it today. Each entry pins the re-resolved revisions of the upstream weights and any MLX conversion leads so later qualification starts from immutable sources. Supersedes registry/v1/jev-decision-index.json (Decision Index 0.2.1), which is retained as history.",
   "source": {
     "leaderboard": "https://huggingface.co/spaces/multimodalart/jev-decision-index",
     "bundle": "https://huggingface.co/spaces/multimodalart/jev-decision-index/resolve/f6571b3212a95c770d6c101ec5bb2157218d8cb1/data/v03.json",
@@ -42,7 +42,7 @@
       "weights": {
         "repository": "vllm-sr/d3",
         "revision": "cbff3a3cb0b074b6585fe9f747b9f9f5557a0e75",
-        "format": "merged BF16 safetensors, 12 shards, 52,176,025,120 bytes, plus a separate 5,222,480-byte readout.safetensors ([255, 5120] float32 rows); decision_config.json declares format d3-code-readout-v1 version 1, attention_mode noncausal_full_attention, pooling last, temperature 1.0, and 255 answer codes mapped to token ids; Ships d3_format.py, d3_runtime.py, and d3_server.py implementing the d3-code-readout-v1 contract: tokenizer.encode the rendered prompt, one noncausal forward, softmax the 255 code logits at the last position at temperature 1.0, and map codes to answer tokens",
+        "format": "merged BF16 safetensors, 11 shards, 52,170,802,640 bytes, plus a separate 5,222,480-byte readout.safetensors ([255, 5120] float32 rows); decision_config.json declares format d3-code-readout-v1 version 1, attention_mode noncausal_full_attention, pooling last, temperature 1.0, and 255 answer codes mapped to token ids; Ships d3_format.py, d3_runtime.py, and d3_server.py implementing the d3-code-readout-v1 contract: tokenizer.encode the rendered prompt, one noncausal forward, softmax the 255 code logits at the last position at temperature 1.0, and map codes to answer tokens",
         "license": "apache-2.0",
         "gated": false,
         "head_at_survey": "093cffbaa7be6f5dfe14252ae7e80c396c06dbd9",
@@ -52,6 +52,7 @@
         "notes": "The pin is the commit the Decision Index board run and the vLLM semantic-router parity record evaluated (the 'd3 v3.1.0' release commit; the Hub tag v3.1.0 points elsewhere). HEAD moved four times on 2026-10-12 over runtime server files only; every weight, readout, and config blob is byte-identical (same sizes and LFS sha256) between the pin and HEAD, so HEAD is recorded as equivalent. The Hub tag v3.1.1 and v3.1.2 exist and were not evaluated by the board."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "The qwen3_5 hybrid backbone kernels exist at these dims (the clef family), but the checkpoint needs what no openkind family has yet: the noncausal full-attention mask in the 16 full-attention layers (repeated_full execution only, no state forking), the separate 255-row float32 readout, the d3-code-readout-v1 prompt bytes, and the vision tower for image and video input.",
       "nearest_openkind_path": "A d3 family adapter (noncausal mask + d3-code-readout-v1 readout) over the existing qwen3_5 27B-class backbone execution, with the vision path as a later increment; text-only entries of the same family are the practical first targets.",
       "mlx_leads": [
@@ -107,6 +108,7 @@
         "notes": "The pin is the commit the card says produced its 64.27 public run. HEAD (e12ddf20) differs only in README.md; all four weight shards are byte-identical between pin and HEAD, so HEAD is recorded as equivalent."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "Three stacked blockers: NVFP4 weights and openkind has no NVFP4 execution path; the gemma4 family loader is fail-closed pinned to E4B geometry and rejects the dense 31B stack; and the two-reading rule is a per-question re-read with reversed options that changes the serving contract for Choice questions. The decider letter-slot readout contract itself is the one openkind already implements at 4B.",
       "nearest_openkind_path": "Decider-family letter readout over a new gemma4 dense-31B backbone config once an NVFP4-capable or dequantized execution path exists; the two-reading rule would be a profile-level policy.",
       "mlx_leads": [
@@ -144,7 +146,7 @@
       "weights": {
         "repository": "FINAL-Bench/Darwin-27B-ZTC",
         "revision": "2b4bb9e22687b89e3c5703696b575ea2d2774da8",
-        "format": "merged BF16 safetensors, 12 shards, 51,251,905,248 bytes, plus a 2,611,288-byte readout.safetensors ([255, 5120] half-precision rows by size); config declares Qwen3_5TextModel (text-only 5120/64 hybrid without a vision tower); decision_config.json records training provenance digests (step 675, temperature 1.0692) and no attention_mode field",
+        "format": "merged BF16 safetensors, 11 shards, 51,249,293,960 bytes, plus a 2,611,288-byte readout.safetensors ([255, 5120] half-precision rows by size); config declares Qwen3_5TextModel (text-only 5120/64 hybrid without a vision tower); decision_config.json records training provenance digests (step 675, temperature 1.0692) and no attention_mode field",
         "license": "apache-2.0",
         "gated": false,
         "head_at_survey": "2b4bb9e22687b89e3c5703696b575ea2d2774da8",
@@ -152,6 +154,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution; the weights upload commit is 3ccdb11a9f6ad6a1d6adab8bd16f0477a97a1d56 and HEAD adds a decision_config cleanup plus the server files."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "Same noncausal-format questions as d3 minus vision, plus an unresolved base lineage: the declared base Darwin-27B-RSI is itself an author-published checkpoint whose training provenance is a local digest, so a loader would pin a two-step chain with one unverified link. The pplx-shaped 255-row readout and any mask policy need a new family adapter either way.",
       "nearest_openkind_path": "The qwen3_5 text-only backbone path (once a text-only variant config is parameterized) plus the pplx-style 255-row readout adapter; treat the base lineage as unverified until the Darwin-27B-RSI config is compared against Qwen/Qwen3.8-27B.",
       "mlx_leads": []
@@ -180,7 +183,7 @@
       "weights": {
         "repository": "perplexity-ai/pplx-decider-v1.1-27b",
         "revision": "db124e5056059be396ec5ba69b97a33dd6adb815",
-        "format": "merged BF16 safetensors, 12 shards, 52,173,413,928 bytes (about 49 GiB), plus a 2,611,288-byte readout.safetensors ([255, 5120] half-precision rows by size); config declares Qwen3_5Model (backbone without an LM head); decision_config.json declares format_version 1, attention_mode noncausal_full_attention, pooling last, step 2446, temperature 1.0087; the release ships the full training source (source/src/autojev) and data manifest",
+        "format": "merged BF16 safetensors, 11 shards, 52,170,802,640 bytes (about 49 GiB), plus a 2,611,288-byte readout.safetensors ([255, 5120] half-precision rows by size); config declares Qwen3_5Model (backbone without an LM head); decision_config.json declares format_version 1, attention_mode noncausal_full_attention, pooling last, step 2446, temperature 1.0087; the release ships the full training source (source/src/autojev) and data manifest",
         "license": "apache-2.0",
         "gated": false,
         "head_at_survey": "14c9d90137962d300f3de95633f7b6535e80c5ce",
@@ -190,6 +193,7 @@
         "notes": "The pin is the 'Release evaluated step-02446 checkpoint' commit. HEAD (14c9d901) edits README.md, processor_config.json, and source/src/autojev/model.py; the 12 weight shards and readout.safetensors are byte-identical between pin and HEAD, so HEAD is recorded as equivalent. The card calls the repository private, but the Hub API reported private: false and gated: false on 2026-10-12 and unauthenticated fetches succeeded (source identity before access status)."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "The enable_noncausal_full_attention hook lifts the causal mask in the 16 full-attention layers, which forces the repeated_full execution strategy and gives up state forking; the separate 255-row half-precision readout, the autojev record-style prompt, the 8,192-token cap, and the optional image path all need a new family adapter. The BF16 checkpoint is also about 49 GiB, above this project's 36 GB reference host.",
       "nearest_openkind_path": "A pplx family adapter (noncausal mask + 255-row readout) over the existing qwen3_5 27B-class backbone execution; MLX 4-bit conversion exists but is unverified, so parity would start from the BF16 checkpoint on larger hardware.",
       "mlx_leads": [
@@ -235,6 +239,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "Adapter-plus-torch-head release: openkind would need the 27B base download, an adapter merge at load time or offline, and a head.pt parser (the openkind contract never executes model-supplied code, so the torch pickle needs a safe re-expression as safetensors or an in-tree equivalent). The readout shape and any mask policy are undocumented outside the pickle.",
       "nearest_openkind_path": "The decider/pplx pattern: re-express head.pt as a safetensors readout, then an adapter merge over the existing qwen3_5 27B-class backbone path.",
       "mlx_leads": [
@@ -280,6 +285,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "Structurally the decoder-logit pattern openkind serves, but the kev family is pinned to small backbones and this is a 51.25 GB 27B checkpoint above the 36 GB reference host; the head is a torch pickle needing the same safe re-expression as Sieve's.",
       "nearest_openkind_path": "Extend the kev family with a 27B qwen3_5 backbone config and a converted head; the kev catalog family (kev:39d88c11faeb4ac165fa) is the existing executable relative.",
       "mlx_leads": [
@@ -325,6 +331,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "No MoE path exists in the gemma4 family: its loader is fail-closed pinned to Gemma 4 E4B geometry and rejects the 26B-A4B stack (128 experts, top 8). The readout lives in the repeated chat template rather than a separate head, so a loader also needs the template-exact prompt bytes.",
       "nearest_openkind_path": "A rune-style new-family effort per docs/families/NEW_FAMILY.md: gemma4 MoE routing plus the repeat-template readout.",
       "mlx_leads": [
@@ -359,7 +366,7 @@
       "weights": {
         "repository": "vllm-sr/d3-flash",
         "revision": "521525effa79469d899a570726547dd7f00da3af",
-        "format": "merged BF16 safetensors, 5 shards, 16,789,656,976 bytes, plus a 4,178,000-byte readout.safetensors ([255, 4096] float32 rows); the same d3-code-readout-v1 decision_config contract as vllm-sr/d3; Ships d3_format.py, d3_runtime.py, and d3_server.py implementing the d3-code-readout-v1 contract: tokenizer.encode the rendered prompt, one noncausal forward, softmax the 255 code logits at the last position at temperature 1.0, and map codes to answer tokens",
+        "format": "merged BF16 safetensors, 4 shards, 16,785,478,976 bytes, plus a 4,178,000-byte readout.safetensors ([255, 4096] float32 rows); the same d3-code-readout-v1 decision_config contract as vllm-sr/d3; Ships d3_format.py, d3_runtime.py, and d3_server.py implementing the d3-code-readout-v1 contract: tokenizer.encode the rendered prompt, one noncausal forward, softmax the 255 code logits at the last position at temperature 1.0, and map codes to answer tokens",
         "license": "apache-2.0",
         "gated": false,
         "head_at_survey": "f6075bff3c0f7d5704e353d0fb2ebf94888d1691",
@@ -368,8 +375,9 @@
         ],
         "notes": "The pin is the 'd3-flash v3.1.0' release commit pinned by the semantic-router parity record; the Hub tag v3.1.0 points elsewhere. HEAD differs only in runtime server files; every weight and readout blob is byte-identical between pin and HEAD, so HEAD is recorded as equivalent."
       },
-      "openkind_loadable": false,
-      "blocker": "Same noncausal-plus-255-row-readout family adapter need as vllm-sr/d3 at a 16.79 GB size; the only d3 sibling openkind's reference host could run at BF16. Landed as the d3-flash:b2a4750f8bf4a1fa58cb catalog profile; see docs/families/d3.md.",
+      "openkind_loadable": true,
+      "catalog_profile": "d3-flash:b2a4750f8bf4a1fa58cb",
+      "blocker": null,
       "nearest_openkind_path": "Landed as the d3-flash catalog profile over the 4096/32 noncausal backbone.",
       "mlx_leads": [
         {
@@ -419,7 +427,7 @@
       "weights": {
         "repository": "vllm-sr/d3-mini",
         "revision": "a475367de0d8133a3c1a2a0dc12303d89cfa2ab4",
-        "format": "merged BF16 safetensors, 3 shards, 9,081,227,360 bytes, plus a 2,611,280-byte readout.safetensors ([255, 2560] float32 rows); the same d3-code-readout-v1 decision_config contract as vllm-sr/d3; Ships d3_format.py, d3_runtime.py, and d3_server.py implementing the d3-code-readout-v1 contract: tokenizer.encode the rendered prompt, one noncausal forward, softmax the 255 code logits at the last position at temperature 1.0, and map codes to answer tokens",
+        "format": "merged BF16 safetensors, 2 shards, 9,078,616,080 bytes, plus a 2,611,280-byte readout.safetensors ([255, 2560] float32 rows); the same d3-code-readout-v1 decision_config contract as vllm-sr/d3; Ships d3_format.py, d3_runtime.py, and d3_server.py implementing the d3-code-readout-v1 contract: tokenizer.encode the rendered prompt, one noncausal forward, softmax the 255 code logits at the last position at temperature 1.0, and map codes to answer tokens",
         "license": "apache-2.0",
         "gated": false,
         "head_at_survey": "0e78bbdbe3cf480ed1461c185c9e0c4fa9258011",
@@ -428,8 +436,9 @@
         ],
         "notes": "The pin is the 'd3-mini v3.1.0' release commit pinned by the semantic-router parity record; the Hub tag v3.1.0 points elsewhere. HEAD differs only in runtime server files; every weight and readout blob is byte-identical between pin and HEAD, so HEAD is recorded as equivalent."
       },
-      "openkind_loadable": false,
-      "blocker": "The d3 family adapter at the most practical size: the backbone dims (2560/32) match the decoder-logit-qwen35 family's pinned geometry, but the noncausal mask, the 255-row float32 readout, and the d3 prompt bytes are all new family surface, and the base is Qwen3.5-4B (instruct), not the -Base checkpoint openkind's selected profile pins. Landed as the d3-mini:434dbc50d3b581663e52 catalog profile; see docs/families/d3.md.",
+      "openkind_loadable": true,
+      "catalog_profile": "d3-mini:434dbc50d3b581663e52",
+      "blocker": null,
       "nearest_openkind_path": "Landed as the d3-mini catalog profile over the 2560/32 noncausal backbone.",
       "mlx_leads": [
         {
@@ -479,7 +488,7 @@
       "weights": {
         "repository": "vllm-sr/d3-nano",
         "revision": "3aeb1c22a5632aac72353c36b3d0111c40e7dbf4",
-        "format": "merged BF16 safetensors, 2 shards, 4,428,644,200 bytes, plus a 2,089,040-byte readout.safetensors ([255, 2048] float32 rows); the same d3-code-readout-v1 decision_config contract as vllm-sr/d3; Ships d3_format.py, d3_runtime.py, and d3_server.py implementing the d3-code-readout-v1 contract: tokenizer.encode the rendered prompt, one noncausal forward, softmax the 255 code logits at the last position at temperature 1.0, and map codes to answer tokens",
+        "format": "merged BF16 safetensors, 1 shard, 4,426,555,160 bytes, plus a 2,089,040-byte readout.safetensors ([255, 2048] float32 rows); the same d3-code-readout-v1 decision_config contract as vllm-sr/d3; Ships d3_format.py, d3_runtime.py, and d3_server.py implementing the d3-code-readout-v1 contract: tokenizer.encode the rendered prompt, one noncausal forward, softmax the 255 code logits at the last position at temperature 1.0, and map codes to answer tokens",
         "license": "apache-2.0",
         "gated": false,
         "head_at_survey": "9d9b937f5f117f78c030ea7ba677c0b3d328ec58",
@@ -488,8 +497,9 @@
         ],
         "notes": "The pin is the 'd3-nano v3.1.0' release commit pinned by the semantic-router parity record; the Hub tag v3.1.0 points elsewhere. HEAD differs only in runtime server files; every weight and readout blob is byte-identical between pin and HEAD, so HEAD is recorded as equivalent."
       },
-      "openkind_loadable": false,
-      "blocker": "The d3 family adapter at a 4.43 GB size on a backbone openkind has no pinned profile for (Qwen3.5-2B); quality drops steeply in the small d3 siblings (42.22 author-run public versus 54.90 for d3-mini). Landed as the d3-nano:0198af5b5c8e8835605e catalog profile; see docs/families/d3.md.",
+      "openkind_loadable": true,
+      "catalog_profile": "d3-nano:0198af5b5c8e8835605e",
+      "blocker": null,
       "nearest_openkind_path": "Landed as the d3-nano catalog profile over the 2048/24 noncausal backbone.",
       "mlx_leads": [
         {
@@ -547,7 +557,7 @@
       "weights": {
         "repository": "vllm-sr/d3-lite",
         "revision": "a8d25a91ef75552803f7009d25b7bd435991abd9",
-        "format": "merged BF16 safetensors, 2 shards, 1,707,072,248 bytes, plus a 1,044,560-byte readout.safetensors ([255, 1024] float32 rows); the same d3-code-readout-v1 decision_config contract as vllm-sr/d3; Ships d3_format.py, d3_runtime.py, and d3_server.py implementing the d3-code-readout-v1 contract: tokenizer.encode the rendered prompt, one noncausal forward, softmax the 255 code logits at the last position at temperature 1.0, and map codes to answer tokens",
+        "format": "merged BF16 safetensors, 1 shard, 1,706,027,688 bytes, plus a 1,044,560-byte readout.safetensors ([255, 1024] float32 rows); the same d3-code-readout-v1 decision_config contract as vllm-sr/d3; Ships d3_format.py, d3_runtime.py, and d3_server.py implementing the d3-code-readout-v1 contract: tokenizer.encode the rendered prompt, one noncausal forward, softmax the 255 code logits at the last position at temperature 1.0, and map codes to answer tokens",
         "license": "apache-2.0",
         "gated": false,
         "head_at_survey": "3c49f5c0bd48a4b28e29b8ec1f38f56e199f3d61",
@@ -556,8 +566,9 @@
         ],
         "notes": "The pin is the 'd3-lite v3.1.0' release commit pinned by the semantic-router parity record; the Hub tag v3.1.0 points elsewhere. HEAD differs only in runtime server files; every weight and readout blob is byte-identical between pin and HEAD, so HEAD is recorded as equivalent."
       },
-      "openkind_loadable": false,
-      "blocker": "The d3 family adapter at a 1.71 GB size; 36.93 author-run public makes it a convenience target for adapter bring-up rather than a quality lead. Landed as the d3-lite:e0dd32dbc16b27546692 catalog profile; see docs/families/d3.md.",
+      "openkind_loadable": true,
+      "catalog_profile": "d3-lite:e0dd32dbc16b27546692",
+      "blocker": null,
       "nearest_openkind_path": "Landed as the d3-lite catalog profile over the 1024/24 noncausal backbone.",
       "mlx_leads": [
         {
@@ -591,7 +602,7 @@
       "weights": {
         "repository": "vllm-sr/d3-edge",
         "revision": "18d61df78684675463af9ae732872478845c5a79",
-        "format": "merged BF16 safetensors, 2 shards, 1,189,722,528 bytes, plus a 1,044,560-byte readout.safetensors ([255, 1024] float32 rows); the same d3-code-readout-v1 decision_config contract as vllm-sr/d3; the backbone is pruned to 12 layers, so a loader needs a per-checkpoint pruned layer list; Ships d3_format.py, d3_runtime.py, and d3_server.py implementing the d3-code-readout-v1 contract: tokenizer.encode the rendered prompt, one noncausal forward, softmax the 255 code logits at the last position at temperature 1.0, and map codes to answer tokens",
+        "format": "merged BF16 safetensors, 1 shard, 1,188,677,968 bytes, plus a 1,044,560-byte readout.safetensors ([255, 1024] float32 rows); the same d3-code-readout-v1 decision_config contract as vllm-sr/d3; the backbone is pruned to 12 layers, so a loader needs a per-checkpoint pruned layer list; Ships d3_format.py, d3_runtime.py, and d3_server.py implementing the d3-code-readout-v1 contract: tokenizer.encode the rendered prompt, one noncausal forward, softmax the 255 code logits at the last position at temperature 1.0, and map codes to answer tokens",
         "license": "apache-2.0",
         "gated": false,
         "head_at_survey": "20c745653400d191ecacd99c4eafc0c5900dc15e",
@@ -600,8 +611,9 @@
         ],
         "notes": "The pin is the 'd3-edge v3.1.0' release commit pinned by the semantic-router parity record (a second commit 391af2ac has the same title); the Hub tag v3.1.0 points elsewhere. HEAD differs only in runtime server files; every weight and readout blob is byte-identical between pin and HEAD, so HEAD is recorded as equivalent."
       },
-      "openkind_loadable": false,
-      "blocker": "The d3 family adapter plus support for a pruned (12-layer) layer list; smallest and weakest of the family at 28.82 author-run public, but also the cheapest to execute. This entry is the one tier-1 checkpoint with a loadable OpenKind profile: the d3 family adapter (noncausal mask, per-layer mixer table, 255-row float32 readout) landed as d3-edge:664f9ead734372935286 with prompt byte-parity against the shipped d3_format.py; see docs/families/d3.md.",
+      "openkind_loadable": true,
+      "catalog_profile": "d3-edge:664f9ead734372935286",
+      "blocker": null,
       "nearest_openkind_path": "Landed as the d3-edge catalog profile over the pruned 1024/12 noncausal backbone.",
       "mlx_leads": [
         {
@@ -638,7 +650,7 @@
       "weights": {
         "repository": "Maincode/matilda-jev-v1.5",
         "revision": "931662e8f54244d3713fcef8df113346c9e79fc6",
-        "format": "merged BF16 safetensors, 12 shards, 52,173,414,024 bytes, plus a 2,611,288-byte readout.safetensors ([255, 5120] half-precision rows by size) and a custom configuration_matilda_jev.py; decision_config.json records temperature 1.5354",
+        "format": "merged BF16 safetensors, 11 shards, 52,170,802,736 bytes, plus a 2,611,288-byte readout.safetensors ([255, 5120] half-precision rows by size) and a custom configuration_matilda_jev.py; decision_config.json records temperature 1.5354",
         "license": "apache-2.0",
         "gated": false,
         "head_at_survey": "931662e8f54244d3713fcef8df113346c9e79fc6",
@@ -646,6 +658,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "The pplx-shaped 255-row readout over a declared base whose repository is unresolvable (Maincode/MATILDA, HTTP 401), plus a custom config class; the strong public score (63.47) with weak new-domain transfer (48.51) repeats the board's public-overfit pattern.",
       "nearest_openkind_path": "The pplx-style readout adapter over the qwen3_5 27B-class backbone; pin the true training base only if Maincode/MATILDA reappears or the config class discloses it.",
       "mlx_leads": []
@@ -682,6 +695,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "A self-contained 54.47 GB release whose readout is the tapped-layer scheme described by meta.json rather than a separate safetensors head; openkind would need to re-express that readout before any loader work, and the 27B BF16 execution exceeds the 36 GB reference host.",
       "nearest_openkind_path": "The decoder-logit pattern at 27B once a tapped-layer readout adapter exists; the 4B sibling below is the practical size.",
       "mlx_leads": []
@@ -718,6 +732,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "Same base as openkind's selected profile, but the readout and calibration contract differ from every openkind family and need their own adapter plus parity fixtures; no Decision Index loader exists for the tapped-layer scheme at 4B either.",
       "nearest_openkind_path": "The most useful MLX comparison target against openkind's selected profile (the first-party MLX conversions below share the base), pending a readout adapter.",
       "mlx_leads": [
@@ -771,6 +786,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution. CC BY-NC 4.0 may rule out catalog distribution; recorded here as research metadata only."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "The letter-logit readout reads 26 lm_head rows (grouped rounds above 26 options), per-type temperatures (noul 1.421, choice 1.2098, score 1.2294), and the jev_render_v3 prompt; none of that surface exists in an openkind family, and the license is non-commercial.",
       "nearest_openkind_path": "The StartLux-Decision-v1 readout adapter over the qwen3_5 27B-class backbone; the license keeps it out of any distributable profile.",
       "mlx_leads": []
@@ -804,6 +820,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution. No Decision Index entry; the card's 203/231 (87.88%) is an author-run JevBench public figure."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "The gemma4 family loader rejects the gemma4_unified 12B stack (same class as Winnow-12B), and the StartLux letter readout plus non-commercial license apply here too.",
       "nearest_openkind_path": "A second pinned config in a future gemma4 unified family plus the StartLux readout adapter; mradermacher publishes third-party GGUFs.",
       "mlx_leads": []
@@ -837,6 +854,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution. No Decision Index entry."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "The StartLux letter readout, the commit-floor policy, and the non-commercial license; the base dims match openkind's pinned geometry, but nothing else in the serving contract does.",
       "nearest_openkind_path": "The StartLux readout adapter at 4B if the license policy ever allows it.",
       "mlx_leads": []
@@ -870,6 +888,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution. The card reports 63.88 on Decision Index 0.2.1; the entry is not on the 0.3.1 board (it is the base of torchcast-decision-27b)."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "The StartLux-Decision-v1 letter readout and per-type calibration, plus the non-commercial license; the causal shared-prefix serving is the part closest to openkind's nested execution.",
       "nearest_openkind_path": "The StartLux readout adapter over the qwen3_5 27B-class backbone.",
       "mlx_leads": []
@@ -903,6 +922,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution. The card reports 58.63 on Decision Index 0.2.1; not on the 0.3.1 board."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "The StartLux letter readout plus the non-commercial license at a 19.31 GB size.",
       "nearest_openkind_path": "The StartLux readout adapter over a 4096/32 backbone config.",
       "mlx_leads": []
@@ -936,6 +956,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution. The card reports 52.75 on Decision Index 0.2.1; not on the 0.3.1 board."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "The StartLux letter readout plus the non-commercial license at openkind's pinned geometry.",
       "nearest_openkind_path": "The StartLux readout adapter over a 2560/32 backbone config.",
       "mlx_leads": []
@@ -972,6 +993,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "The pplx-style autojev release in adapter form: noncausal mask (repeated_full only), the 255-row readout, and an adapter merge over the 27B base; a second noncausal data point for the mask ablation alongside pplx v1.1.",
       "nearest_openkind_path": "The pplx family adapter with an adapter-merge front end; the published training manifest makes it a useful reproduction reference for the mask ablation.",
       "mlx_leads": []
@@ -1008,6 +1030,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "A 55.56 GB merged checkpoint whose readout lives in custom serving code (linne_engine.py) rather than a pinned config artifact; openkind would have to re-express that engine before any loader work.",
       "nearest_openkind_path": "The decoder-logit pattern at 27B once the linne engine's readout is re-expressed.",
       "mlx_leads": []
@@ -1044,6 +1067,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "The gemma4 dense-31B backbone blocker plus a quyet_config.json readout contract that would need its own adapter.",
       "nearest_openkind_path": "The decider-family letter readout pattern over a future gemma4 dense-31B config.",
       "mlx_leads": [
@@ -1089,6 +1113,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "No MoE path exists in the gemma4 family (fail-closed pinned to E4B geometry); the readout contract ships inside the serving tarball rather than a pinned config.",
       "nearest_openkind_path": "A rune-style gemma4 MoE new-family effort per docs/families/NEW_FAMILY.md.",
       "mlx_leads": [
@@ -1134,6 +1159,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "NVFP4 weights with no openkind execution path, stacked on the missing gemma4 MoE router.",
       "nearest_openkind_path": "Blocked until both an NVFP4 path and a gemma4 MoE family exist.",
       "mlx_leads": [
@@ -1179,6 +1205,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "Adapter plus a custom engine whose readout is expressed in Python code, not a pinned config artifact, over the gemma4 dense-31B backbone the family loader rejects.",
       "nearest_openkind_path": "Re-express the garas engine readout, then the gemma4 dense-31B backbone config.",
       "mlx_leads": [
@@ -1224,6 +1251,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "The rank-512 adapter is nearly a full-parameter delta, so the adapter-merge cost approaches a full 27B download; the d3 family supersedes this predecessor and the decision2 runtime is Python code openkind would have to re-express.",
       "nearest_openkind_path": "The d3 family adapter is the forward path; this entry is kept as the predecessor baseline and for its first-party GGUF.",
       "mlx_leads": [
@@ -1261,7 +1289,7 @@
       "weights": {
         "repository": "vllm-sr/Decision-2.0-Lux-9B",
         "revision": "1dcd1e7f240eab37ac09a6d0b0f77654b59411f9",
-        "format": "backbone/ directory with the merged fine-tuned backbone (10 shards, 17,926,620,224 bytes) plus a 16,845,656-byte decision_head.safetensors and the vendored decision2 runtime",
+        "format": "backbone/ directory with the merged fine-tuned backbone (9 shards, 17,909,774,568 bytes) plus a 16,845,656-byte decision_head.safetensors and the vendored decision2 runtime",
         "license": "apache-2.0",
         "gated": false,
         "head_at_survey": "1dcd1e7f240eab37ac09a6d0b0f77654b59411f9",
@@ -1269,6 +1297,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "The decision2 head contract plus the predecessor runtime; d3-flash supersedes it at the same size with a documented contract.",
       "nearest_openkind_path": "The d3 family adapter is the forward path; kept as the predecessor baseline.",
       "mlx_leads": [
@@ -1306,7 +1335,7 @@
       "weights": {
         "repository": "vllm-sr/Decision-2.0-Nox-4B",
         "revision": "ae269ecf34a0b3a89026bc1afd9c995279212fad",
-        "format": "backbone/ directory with the merged fine-tuned backbone (6 shards, 9,695,398,936 bytes) plus a 10,529,624-byte decision_head.safetensors and the vendored decision2 runtime",
+        "format": "backbone/ directory with the merged fine-tuned backbone (5 shards, 9,684,869,312 bytes) plus a 10,529,624-byte decision_head.safetensors and the vendored decision2 runtime",
         "license": "apache-2.0",
         "gated": false,
         "head_at_survey": "ae269ecf34a0b3a89026bc1afd9c995279212fad",
@@ -1314,6 +1343,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "The decision2 head contract at openkind's pinned base geometry; d3-mini supersedes it.",
       "nearest_openkind_path": "The d3 family adapter is the forward path; kept as the predecessor baseline sharing openkind's base revision.",
       "mlx_leads": [
@@ -1359,6 +1389,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "The Sieve adapter-plus-torch-head pattern at 9B; same head.pt re-expression problem as Sieve-27B.",
       "nearest_openkind_path": "The Sieve head re-expression followed by the 9B backbone path.",
       "mlx_leads": []
@@ -1394,8 +1425,9 @@
         "equivalent_revisions": [],
         "notes": "HEAD at survey time and unchanged on re-resolution. Landed as the sieve-4b:8b97b56524b55c41fbf4 catalog profile (LoRA merge over the pinned Qwen3.5-4B base plus the trained head, sieve4b prompt contract); see docs/families/sieve.md."
       },
-      "openkind_loadable": false,
-      "blocker": "The same adapter-plus-head pattern at openkind's pinned geometry with the head already in safetensors; the sieve4b engine's prompt bytes still need re-expression. Landed as the sieve-4b catalog profile.",
+      "openkind_loadable": true,
+      "catalog_profile": "sieve-4b:8b97b56524b55c41fbf4",
+      "blocker": null,
       "nearest_openkind_path": "Landed: adapter merge over the pinned geometry plus the 255-row head and the re-expressed sieve4b prompt bytes.",
       "mlx_leads": []
     },
@@ -1431,6 +1463,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution. CC BY-NC 4.0 may rule out catalog distribution; Nimble also supplies pplx training converters."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "Adapter-only release whose readout is defined by the Nimble serving stack, plus the non-commercial license.",
       "nearest_openkind_path": "ggml-org publishes a GGUF; any loader still needs the Nimble readout contract re-expressed first.",
       "mlx_leads": []
@@ -1459,7 +1492,7 @@
       "weights": {
         "repository": "Cloudflare/clef",
         "revision": "0b331204bb13fbd2ca93a64df1956f5b55478ce5",
-        "format": "merged BF16 safetensors, 13 shards, 54,969,731,792 bytes, plus joint_head.safetensors and joint_head_config.json",
+        "format": "merged BF16 safetensors, 12 shards, 54,713,606,768 bytes, plus joint_head.safetensors and joint_head_config.json",
         "license": "apache-2.0",
         "gated": false,
         "head_at_survey": "0b331204bb13fbd2ca93a64df1956f5b55478ce5",
@@ -1467,6 +1500,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution. The clef family is already curated (clef-27b-gguf:48cb5634b4a258de5a6b and clef-flash profiles); this entry re-pins the upstream BF16 source at its surveyed HEAD and defers to the catalog profiles as the executable path."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "The upstream BF16 checkpoint is 54.97 GB, above the 36 GB reference host; the catalog's GGUF profile is the executable relative. No new blocker beyond scale.",
       "nearest_openkind_path": "clef-27b-gguf remains the executable path; re-pinning here records the upstream source revision the catalog derives from.",
       "mlx_leads": [
@@ -1512,7 +1546,7 @@
       "weights": {
         "repository": "Cloudflare/clef-flash",
         "revision": "8b2e5fd17c09fd49bc2880b805d5323ec7ff4ff3",
-        "format": "merged BF16 safetensors, 5 shards, 19,063,259,136 bytes, plus joint_head.safetensors and joint_head_config.json",
+        "format": "merged BF16 safetensors, 4 shards, 18,819,721,120 bytes, plus joint_head.safetensors and joint_head_config.json",
         "license": "apache-2.0",
         "gated": false,
         "head_at_survey": "8b2e5fd17c09fd49bc2880b805d5323ec7ff4ff3",
@@ -1520,6 +1554,7 @@
         "notes": "HEAD at survey time and unchanged on re-resolution. Already catalog-installable as clef-flash:dfe12a21a5c9dd5b2fb1 (BF16) and clef-flash-gguf:c330d9ee7e9cc658ad45."
       },
       "openkind_loadable": false,
+      "catalog_profile": null,
       "blocker": "No new blocker: this entry records the upstream source revision behind the existing installable profiles.",
       "nearest_openkind_path": "clef-flash:dfe12a21a5c9dd5b2fb1 remains the executable path.",
       "mlx_leads": [

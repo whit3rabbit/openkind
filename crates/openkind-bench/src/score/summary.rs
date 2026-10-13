@@ -248,6 +248,48 @@ mod tests {
                 "656ac636ce450cf79c7d",
                 "1b257e8fa80b270a62338362a8b35e37f7890273",
             ),
+            (
+                EngineKind::D3Edge,
+                "d3",
+                "d3-edge",
+                "664f9ead734372935286",
+                "18d61df78684675463af9ae732872478845c5a79",
+            ),
+            (
+                EngineKind::D3Lite,
+                "d3",
+                "d3-lite",
+                "e0dd32dbc16b27546692",
+                "a8d25a91ef75552803f7009d25b7bd435991abd9",
+            ),
+            (
+                EngineKind::D3Nano,
+                "d3",
+                "d3-nano",
+                "0198af5b5c8e8835605e",
+                "3aeb1c22a5632aac72353c36b3d0111c40e7dbf4",
+            ),
+            (
+                EngineKind::D3Mini,
+                "d3",
+                "d3-mini",
+                "434dbc50d3b581663e52",
+                "a475367de0d8133a3c1a2a0dc12303d89cfa2ab4",
+            ),
+            (
+                EngineKind::D3Flash,
+                "d3",
+                "d3-flash",
+                "b2a4750f8bf4a1fa58cb",
+                "521525effa79469d899a570726547dd7f00da3af",
+            ),
+            (
+                EngineKind::Sieve4b,
+                "sieve",
+                "sieve-4b",
+                "8b97b56524b55c41fbf4",
+                "ea7cd1edee29590a82ed9fbfcb644227a8eed5f1",
+            ),
         ] {
             let summary = profile_summary(engine);
             assert_eq!(summary["engine"], family);
