@@ -6,9 +6,7 @@ use std::time::Duration;
 use axum::Router;
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput};
 use openkind_api::{http, AppState, AuthConfig, RateLimiter};
-use openkind_client::{
-    Client, NoulQuestion, Question, RetryPolicy, State, SystemRequest, SystemResponse,
-};
+use openkind_client::{question, Client, RetryPolicy, State, SystemRequest, SystemResponse};
 use openkind_engine::{EngineRegistry, MockEngine};
 use tokio::sync::oneshot;
 
@@ -48,10 +46,7 @@ fn request(question_count: usize) -> SystemRequest {
         .map(|index| {
             (
                 format!("q{index}"),
-                Question::Noul(NoulQuestion {
-                    instructions: serde_json::json!(format!("Question {index}?")),
-                    criteria: None,
-                }),
+                question::noul(format!("Question {index}?")),
             )
         })
         .collect::<HashMap<_, _, _>>();

@@ -6,6 +6,9 @@
 //! 2. When `--proxy-cache-upstream-key` is NOT configured, caller-key forwarding
 //!    remains active.
 
+mod common;
+
+use common::free_port;
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -27,11 +30,6 @@ async fn main() {
     test_fixed_upstream_key_precedence().await;
     test_caller_key_forwarding_when_no_fixed_key().await;
     println!("proxy_key_precedence: PASS");
-}
-
-async fn free_port() -> u16 {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    listener.local_addr().unwrap().port()
 }
 
 async fn wait_for_ready(base_url: &str) {
@@ -142,7 +140,7 @@ async fn spawn_fake_upstream() -> (SocketAddr, Arc<UpstreamLog>) {
 
 async fn test_fixed_upstream_key_precedence() {
     let (upstream_addr, upstream_log) = spawn_fake_upstream().await;
-    let http_port = free_port().await;
+    let http_port = free_port();
     let data_dir = tempfile::tempdir().unwrap();
 
     let exe = env!("CARGO_BIN_EXE_openkindd");
@@ -287,7 +285,7 @@ async fn test_fixed_upstream_key_precedence() {
 
 async fn test_caller_key_forwarding_when_no_fixed_key() {
     let (upstream_addr, upstream_log) = spawn_fake_upstream().await;
-    let http_port = free_port().await;
+    let http_port = free_port();
     let data_dir = tempfile::tempdir().unwrap();
 
     let exe = env!("CARGO_BIN_EXE_openkindd");
