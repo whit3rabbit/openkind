@@ -5,5 +5,6 @@
 //! port, not weight loading.
 
 mod attention_tests;
+mod hoisted_tests;
 mod host_reference;
 mod linear_tests;

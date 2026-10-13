@@ -101,7 +101,7 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
 8. **Persisted State Is Pinned**:
    Restore only the selected execution identity and exact Qwen layout. Restored states need fresh lineage and must reproduce `ContentFingerprint`; never serialize `SchedulingFingerprint` as content evidence.
 9. **MLX Execution Discipline**:
-   MLX requires macOS arm64 and the `mlx` feature. Set `SDKROOT=$(xcrun --show-sdk-path)`. `MlxRuntime::execute` holds a non-reentrant process lock. Never call it around code that takes the lock. Requalify after toolchain changes.
+   MLX requires macOS arm64 and the `mlx` feature. Set `SDKROOT=$(xcrun --show-sdk-path)`. `MlxRuntime::execute` holds a non-reentrant process lock. Never call it around code that takes the lock. Evaluate and read arrays inside it, in tests too: a lazy array returned from `execute` and then evaluated (`eval`, `to_vec_cast`) outside the lock runs GPU work concurrently with other tests' locked work and aborts the process in Metal (`Completed handler provided after commit call`). Requalify after toolchain changes.
 10. **MLX Identity and Gates**:
     MLX identity includes precision and kernel family. Never mix MLX and Candle states. BF16 is a separate candidate, not an FP32 equivalent. Use the [benchmark guide](../openkind-bench/AGENTS.md) for comparison rules.
 11. **Gemma 4 Attention Numerics**: Gemma 4 pins the attention softmax
@@ -124,6 +124,8 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
     Python repr rendering for Von decision formatting preserves the full unsigned 64-bit integer range (`u64`) without truncating or wrapping signed bounds.
 18. **Proxy-Cache Deferred Calibration Pruning**:
     `SampleStore::prune` treats `co_deferred` diagnostic samples independently using the training retention budget (`keep_train`) so diagnostic history never displaces IID calibration rows.
+19. **Root Prefix Cache Is Opt-In and Exact**:
+    `RootPrefixCache` (`src/qwen35/backbone/root_cache.rs`) keeps the shared-root prefill across requests and is off unless `--qwen35-root-cache-bytes` is set. It serves only a prefill of exactly the root ids and compares the stored ids on every digest match. A hit returns a `fork_one` copy and must reproduce a miss bit for bit. Never log its key or digest (invariant 8). Hits are visible to callers as latency and the wire request has no tenant, so do not turn it on by default or share one cache across tenants. The byte budget is extra resident memory, so keep it below the process ceiling. Concurrent misses on one root are collapsed by `claim_fill`: a waiter keeps checking its own `ExecutionControl`, and the `FillGuard` releases waiters on every exit path, including errors and panics. Do not hold the cache lock across a forward. When the engine finds a request's root in the cache it plans with `choose_strategy_with_cached_root`, which drops the root forward from the shared work and leaves the ratio gate and admission otherwise unchanged. The bench harness keeps the cache disabled so timings stay cold.
 
 ## Verification Commands
 

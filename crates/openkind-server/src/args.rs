@@ -127,6 +127,27 @@ pub(crate) struct Args {
     )]
     pub(crate) qwen35_resident_weights: ResidentWeightsArg,
 
+    /// Byte budget for a cross-request cache of the shared-root prefill, in
+    /// continuation tensor bytes. 0 (the default) disables it. A hit skips
+    /// the request's largest forward, but it is also visible to callers as
+    /// lower latency, entries keep activations derived from request state in
+    /// memory until they expire, and the budget is resident memory on top of
+    /// weights and per-request state. A root costs about 54 MB plus 64 KB per
+    /// token (roughly 170 MB at the 1,792-token limit). Enable it only where
+    /// every caller may learn whether a recent request used the same state.
+    /// Results are bit-identical.
+    #[arg(long, env = "OPENKIND_QWEN35_ROOT_CACHE_BYTES", default_value_t = 0)]
+    pub(crate) qwen35_root_cache_bytes: usize,
+
+    /// Seconds a cached root may be served after it was computed. Applies
+    /// only when `--qwen35-root-cache-bytes` is above 0.
+    #[arg(
+        long,
+        env = "OPENKIND_QWEN35_ROOT_CACHE_TTL_SECS",
+        default_value_t = 300
+    )]
+    pub(crate) qwen35_root_cache_ttl_secs: u64,
+
     /// Native model backend. `cuda` requires the daemon's `cuda` feature
     /// and a CUDA device; `mlx-fp32` is available on macOS arm64 with the
     /// daemon's `mlx` feature enabled.
@@ -925,6 +946,9 @@ mod tests {
         assert_eq!(args.log_filter, "info");
         assert_eq!(args.qwen35_execution, ExecutionArg::Auto);
         assert_eq!(args.qwen35_resident_weights, ResidentWeightsArg::Auto);
+        // The cross-request root cache is opt-in.
+        assert_eq!(args.qwen35_root_cache_bytes, 0);
+        assert_eq!(args.qwen35_root_cache_ttl_secs, 300);
         assert_eq!(args.qwen35_backend, Qwen35BackendArg::Auto);
         assert_eq!(args.qwen35_timeout_ms, 600_000);
     }

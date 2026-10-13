@@ -300,6 +300,45 @@ The production default uses ordinary MLX array operations for the recurrent
 update. It processes suffix tokens sequentially and remains the independent
 differential comparator for any fused kernel.
 
+For FP32 the row-independent work no longer runs once per token. The causal
+convolution window, the q/k/v split and L2 norms, the beta and gate math, and
+the output RMSNorm and SiLU gate read no recurrent state, so
+[`forward_hoisted`](../crates/openkind-backends/src/qwen35/mlx/layers/linear_attention.rs)
+runs each as one array operation over `[rows, ...]`. Only the state update
+stays a per-row loop, through the same `reference_gated_delta`. Every
+elementwise operation, reduction axis, and matmul shape is the one the loop
+uses per row, and the tests hold the two paths bit-identical for outputs and
+carried states (`differential_tests/hoisted_tests.rs`, mutation-checked), so
+the arithmetic identity is unchanged. Traced runs, native BF16, and `MetalTree`
+keep the per-row loop, and `OPENKIND_QWEN35_MLX_ROW_LOOP=1` selects it for
+FP32 as a diagnostic and rollback switch.
+
+Measured on an M4 Max at the pinned layer shapes with seeded synthetic weights
+(one layer or an 8-layer stack, medians, not a frozen benchmark row and not a
+real-checkpoint number):
+
+| rows | DeltaNet layer, loop | DeltaNet layer, hoisted | 8-layer stack, loop | 8-layer stack, hoisted |
+| ---: | ---: | ---: | ---: | ---: |
+| 8 | 3.4 ms | 3.1 ms | 21 ms | 20 ms |
+| 64 | 11.6 ms | 5.8 ms | 70 ms | 41 ms |
+| 192 | 45.9 ms | 16.5 ms | 276 to 322 ms | 99 to 109 ms |
+
+Before the change the 24 DeltaNet layers were about 94% of a 32-layer forward at
+192 rows (47 ms against 8.4 ms for a full-attention layer), and the loop cost
+roughly 0.2 ms per row. The same measurement showed that evaluating after every
+layer, which bounds the lazy graph, costs nothing measurable (0.312 s with it,
+0.338 s without, identical bits), so removing it is not a lever. What remains
+per DeltaNet layer is about 11 ms of sequential state updates at 192 rows,
+which only a fused recurrence can reduce.
+
+Full attention is not a lever on this host. At 1,792 tokens one layer's
+attention takes 17 ms (about 136 ms over the 8 full-attention layers), of which
+rebuilding the causal mask on the host is 0.8 ms and rotary 2.2 ms, against
+roughly 2.4 s for the 24 DeltaNet layers' state updates at the same length
+(extrapolated from 0.057 ms per row, not measured at that length). Caching the
+mask or tables, or moving to a fused attention primitive, would change little
+and the latter changes arithmetic, so neither is planned.
+
 ### `MetalTree`
 
 [`gated_delta_kernel/mod.rs`](../crates/openkind-backends/src/qwen35/mlx/layers/gated_delta_kernel/mod.rs)
@@ -379,7 +418,14 @@ are localization diagnostics, not replacement acceptance tolerances.
 1. **Profile before changing the recurrence.** Separate kernel launch count,
    preparation ops, recurrent-state bandwidth, normalization, and output
    projection. The current negative result says recurrence fusion alone is
-   insufficient.
+   insufficient. A synthetic-shape measurement now exists (see
+   `ReferenceOps`): preparation and normalization were most of the cost and are
+   hoisted, leaving the sequential state update. On the pinned 4B (bench
+   harness, 2 states and 6 rows, M4 Max) the hoisted path gave exactly the
+   baseline's answers for all four strategies and cut repeated-full from
+   18.2 to 20.5 s to 6.8 to 7.2 s and nested-sequential from 4.3 to 4.7 s to
+   2.8 to 2.9 s. The checkpoint-gated parity examples are still open, because
+   the Phase 3B reference outputs they need are not on this machine.
 2. **Measure the vectorized continuation path.** The FP32 path now batches
    question and candidate lanes in MLX tensors, carries true suffix lengths,
    and restores lane positions. Compare it with the per-lane path over matched
