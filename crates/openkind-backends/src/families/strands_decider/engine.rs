@@ -10,7 +10,7 @@
 
 use std::sync::Arc;
 
-use openkind_core::{ModelInfo, State, SystemRequest, SystemResponse, Usage};
+use openkind_core::{ModelInfo, State, SystemRequest, SystemResponse};
 
 use crate::families::support::QuestionKind;
 use crate::families::support::{
@@ -203,13 +203,7 @@ impl FamilyEvaluator for StrandsDeciderEngine {
             State::Object(map) => serde_json::Value::Object(map.clone()),
             State::Array(items) => serde_json::Value::Array(items.clone()),
         };
-        let mut question_ids: Vec<_> = request.questions.keys().cloned().collect();
-        question_ids.sort();
-        if question_ids.is_empty() {
-            return Err(FamilyError::InvalidInput(
-                "request contains no questions".to_owned(),
-            ));
-        }
+        let question_ids = crate::families::wire::sorted_question_ids(&request)?;
 
         let mut answers = std::collections::HashMap::<
             String,
@@ -235,13 +229,10 @@ impl FamilyEvaluator for StrandsDeciderEngine {
             answers.insert(id.clone(), answer);
         }
         control.check()?;
-        Ok(SystemResponse {
-            model: request.model,
+        Ok(crate::families::wire::system_response(
+            request.model,
             answers,
-            usage: Usage {
-                input_tokens: u32::try_from(input_tokens).unwrap_or(u32::MAX),
-                output_tokens: 0,
-            },
-        })
+            input_tokens,
+        ))
     }
 }

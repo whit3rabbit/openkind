@@ -8,7 +8,11 @@
 
 use std::collections::HashMap;
 
-use openkind_core::{Answer, ChoiceAnswer, NoulAnswer, Question, ScoreAnswer};
+use openkind_core::{
+    Answer, ChoiceAnswer, NoulAnswer, Question, ScoreAnswer, SystemRequest, SystemResponse, Usage,
+    WireHashState,
+};
+use openkind_engine::EngineError;
 
 use crate::families::support::FamilyError;
 
@@ -212,12 +216,16 @@ pub fn answer_from_probabilities(
             argmax = index;
         }
     }
-    let per_label: HashMap<String, f64> = question
-        .labels
-        .iter()
-        .cloned()
-        .zip(probabilities.iter().copied())
-        .collect();
+    // Noul answers carry a single probability, so only Choice and Score pay
+    // for the per-label map.
+    let per_label = || -> HashMap<String, f64> {
+        question
+            .labels
+            .iter()
+            .cloned()
+            .zip(probabilities.iter().copied())
+            .collect()
+    };
     match question.primitive {
         QuestionPrimitive::Noul => {
             let _ = question.ordered;
@@ -230,7 +238,7 @@ pub fn answer_from_probabilities(
             Ok(Answer::Choice(ChoiceAnswer {
                 choice: question.labels[argmax].clone(),
                 confidence: distribution_confidence(probabilities),
-                probabilities: per_label,
+                probabilities: per_label(),
             }))
         }
         QuestionPrimitive::Score => {
@@ -255,7 +263,7 @@ pub fn answer_from_probabilities(
                 score,
                 legend,
                 confidence: distribution_confidence(probabilities),
-                probabilities: per_label,
+                probabilities: per_label(),
             }))
         }
     }
@@ -302,6 +310,59 @@ pub fn state_text(state: &openkind_core::State) -> Result<String, FamilyError> {
                 FamilyError::InvalidInput(format!("state serialization failed: {error}"))
             })
         }
+    }
+}
+
+/// Render the wire state as compact JSON text for a router prompt.
+///
+/// Router engines surface a serialization failure as an engine-level
+/// `Unsupported` for `backend` instead of a family error, so this stays apart
+/// from [`state_text`].
+pub(crate) fn compact_state_text(
+    state: &openkind_core::State,
+    backend: &str,
+) -> Result<String, EngineError> {
+    let unsupported = |error: serde_json::Error| EngineError::Unsupported {
+        backend: backend.to_owned(),
+        message: format!("state serialization failed: {error}"),
+    };
+    match state {
+        openkind_core::State::Text(text) => Ok(text.clone()),
+        openkind_core::State::Object(map) => serde_json::to_string(map).map_err(unsupported),
+        openkind_core::State::Array(items) => serde_json::to_string(items).map_err(unsupported),
+    }
+}
+
+/// Question ids of `request` in byte-lexicographic order.
+///
+/// The wire map is unordered, and every family evaluates questions in this
+/// order so the same request always runs the same forward passes. A request
+/// without questions is rejected here, matching what each engine did inline.
+pub(crate) fn sorted_question_ids(request: &SystemRequest) -> Result<Vec<String>, FamilyError> {
+    let mut question_ids: Vec<String> = request.questions.keys().cloned().collect();
+    question_ids.sort();
+    if question_ids.is_empty() {
+        return Err(FamilyError::InvalidInput(
+            "request contains no questions".to_owned(),
+        ));
+    }
+    Ok(question_ids)
+}
+
+/// Assemble a family response. `input_tokens` saturates at `u32::MAX`
+/// instead of wrapping, and the engines never generate output tokens.
+pub(crate) fn system_response(
+    model: String,
+    answers: HashMap<String, Answer, WireHashState>,
+    input_tokens: u64,
+) -> SystemResponse {
+    SystemResponse {
+        model,
+        answers,
+        usage: Usage {
+            input_tokens: u32::try_from(input_tokens).unwrap_or(u32::MAX),
+            output_tokens: 0,
+        },
     }
 }
 
@@ -481,5 +542,56 @@ mod tests {
                 Err(FamilyError::InvalidInput(_))
             ));
         }
+    }
+
+    #[test]
+    fn question_ids_sort_bytewise_and_reject_an_empty_request() {
+        let request = |questions: serde_json::Value| -> SystemRequest {
+            serde_json::from_value(serde_json::json!({
+                "state": "text",
+                "model": "m",
+                "questions": questions,
+            }))
+            .expect("request")
+        };
+        let noul = serde_json::json!({"type": "noul", "instructions": "q"});
+        let ids = sorted_question_ids(&request(serde_json::json!({
+            "b": noul, "B": noul, "a": noul, "10": noul, "9": noul,
+        })))
+        .expect("ids");
+        assert_eq!(ids, ["10", "9", "B", "a", "b"]);
+        let error = sorted_question_ids(&request(serde_json::json!({}))).unwrap_err();
+        assert!(matches!(
+            error,
+            FamilyError::InvalidInput(message) if message == "request contains no questions"
+        ));
+    }
+
+    #[test]
+    fn response_assembly_saturates_input_tokens_and_reports_no_output() {
+        let answers = HashMap::with_hasher(WireHashState::default());
+        let response = system_response("m".to_owned(), answers.clone(), 7);
+        assert_eq!(response.model, "m");
+        assert_eq!(response.usage.input_tokens, 7);
+        assert_eq!(response.usage.output_tokens, 0);
+        let saturated = system_response("m".to_owned(), answers, u64::from(u32::MAX) + 1);
+        assert_eq!(saturated.usage.input_tokens, u32::MAX);
+    }
+
+    #[test]
+    fn compact_state_text_is_compact_and_names_the_backend_on_failure() {
+        use openkind_core::State;
+        assert_eq!(
+            compact_state_text(&State::Text("plain".into()), "r").unwrap(),
+            "plain"
+        );
+        let object: State =
+            serde_json::from_value(serde_json::json!({"b": 1, "a": [true]})).expect("state");
+        assert_eq!(
+            compact_state_text(&object, "r").unwrap(),
+            "{\"a\":[true],\"b\":1}"
+        );
+        let array: State = serde_json::from_value(serde_json::json!([1, "x"])).expect("state");
+        assert_eq!(compact_state_text(&array, "r").unwrap(), "[1,\"x\"]");
     }
 }

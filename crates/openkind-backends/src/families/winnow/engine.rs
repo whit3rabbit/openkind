@@ -13,6 +13,7 @@ use crate::families::support::{
     error_outcome_label, map_family_error, outcome_label, saturating_millis, temperature_softmax,
     AdmissionGate, FamilyControl, FamilyError, FAMILY_GATE_METRICS,
 };
+use crate::families::wire::compact_state_text;
 
 use super::model::{VerifiedArtifacts, WinnowModel};
 use super::renderer::WinnowRenderer;
@@ -266,7 +267,7 @@ impl WinnowEngine {
             .map(saturating_millis)
             .unwrap_or_default();
 
-        let state = match state_text(&request.state) {
+        let state = match compact_state_text(&request.state, super::FAMILY_SLUG) {
             Ok(state) => state,
             Err(error) => {
                 self.gate.record(started, "invalid");
@@ -326,25 +327,6 @@ impl WinnowEngine {
     }
 }
 
-/// The request state as the compact JSON text the router prompt embeds.
-fn state_text(state: &openkind_core::State) -> Result<String, EngineError> {
-    match state {
-        openkind_core::State::Text(text) => Ok(text.clone()),
-        openkind_core::State::Object(map) => {
-            serde_json::to_string(map).map_err(|error| EngineError::Unsupported {
-                backend: super::FAMILY_SLUG.to_owned(),
-                message: format!("state serialization failed: {error}"),
-            })
-        }
-        openkind_core::State::Array(items) => {
-            serde_json::to_string(items).map_err(|error| EngineError::Unsupported {
-                backend: super::FAMILY_SLUG.to_owned(),
-                message: format!("state serialization failed: {error}"),
-            })
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -355,17 +337,5 @@ mod tests {
             backend_id_for(crate::device::FamilyExecution::Cpu),
             "winnow/cpu-fp32"
         );
-    }
-
-    #[test]
-    fn state_text_passes_text_through_and_serializes_structures_compactly() {
-        use openkind_core::State;
-        assert_eq!(state_text(&State::Text("plain".into())).unwrap(), "plain");
-        let object: State =
-            serde_json::from_value(serde_json::json!({"b": 1, "a": [true]})).expect("object state");
-        assert_eq!(state_text(&object).unwrap(), "{\"a\":[true],\"b\":1}");
-        let array: State =
-            serde_json::from_value(serde_json::json!([1, "x"])).expect("array state");
-        assert_eq!(state_text(&array).unwrap(), "[1,\"x\"]");
     }
 }

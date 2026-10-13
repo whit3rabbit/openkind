@@ -10,7 +10,7 @@
 
 use std::sync::Arc;
 
-use openkind_core::{ModelInfo, State, SystemRequest, SystemResponse, Usage};
+use openkind_core::{ModelInfo, State, SystemRequest, SystemResponse};
 
 use crate::families::support::{
     temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
@@ -226,13 +226,7 @@ impl FamilyEvaluator for KevEngine {
             ));
         }
         let state_tokens = self.inner.renderer.state_tokens(&state)?;
-        let mut question_ids: Vec<_> = request.questions.keys().cloned().collect();
-        question_ids.sort();
-        if question_ids.is_empty() {
-            return Err(FamilyError::InvalidInput(
-                "request contains no questions".to_owned(),
-            ));
-        }
+        let question_ids = crate::families::wire::sorted_question_ids(&request)?;
 
         let mut answers = std::collections::HashMap::<
             String,
@@ -264,14 +258,11 @@ impl FamilyEvaluator for KevEngine {
             answers.insert(id.clone(), answer);
         }
         control.check()?;
-        Ok(SystemResponse {
-            model: request.model,
+        Ok(crate::families::wire::system_response(
+            request.model,
             answers,
-            usage: Usage {
-                input_tokens: u32::try_from(input_tokens).unwrap_or(u32::MAX),
-                output_tokens: 0,
-            },
-        })
+            input_tokens,
+        ))
     }
 }
 

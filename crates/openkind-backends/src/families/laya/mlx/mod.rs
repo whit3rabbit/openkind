@@ -137,13 +137,7 @@ impl FamilyEvaluator for LayaMlxEngine {
         let state_text = state_serialized.replace(mask_token_of(&profile.specials), " ");
         let state_ids = self.inner.renderer.encode_plain(&state_text)?;
 
-        let mut question_ids: Vec<_> = request.questions.keys().cloned().collect();
-        question_ids.sort();
-        if question_ids.is_empty() {
-            return Err(FamilyError::InvalidInput(
-                "request contains no questions".to_owned(),
-            ));
-        }
+        let question_ids = crate::families::wire::sorted_question_ids(&request)?;
 
         let mut answers = std::collections::HashMap::<
             String,
@@ -199,13 +193,10 @@ impl FamilyEvaluator for LayaMlxEngine {
             answers.insert(id.clone(), answer);
         }
         control.check()?;
-        Ok(SystemResponse {
-            model: request.model,
+        Ok(crate::families::wire::system_response(
+            request.model,
             answers,
-            usage: openkind_core::Usage {
-                input_tokens: u32::try_from(input_tokens).unwrap_or(u32::MAX),
-                output_tokens: 0,
-            },
-        })
+            input_tokens,
+        ))
     }
 }

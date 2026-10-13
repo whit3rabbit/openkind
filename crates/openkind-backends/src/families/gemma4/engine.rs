@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use candle_core::Device;
-use openkind_core::{ModelInfo, Question, State, SystemRequest, SystemResponse, Usage};
+use openkind_core::{ModelInfo, Question, State, SystemRequest, SystemResponse};
 
 use crate::device::FamilyExecution;
 use crate::families::support::{
@@ -148,13 +148,7 @@ impl FamilyEvaluator for Gemma4DecisionEngine {
             State::Object(map) => serde_json::Value::Object(map.clone()),
             State::Array(items) => serde_json::Value::Array(items.clone()),
         };
-        let mut question_ids: Vec<_> = request.questions.keys().cloned().collect();
-        question_ids.sort();
-        if question_ids.is_empty() {
-            return Err(FamilyError::InvalidInput(
-                "request contains no questions".to_owned(),
-            ));
-        }
+        let question_ids = crate::families::wire::sorted_question_ids(&request)?;
 
         let mut answers: HashMap<String, openkind_core::Answer, openkind_core::WireHashState> =
             HashMap::with_capacity_and_hasher(question_ids.len(), Default::default());
@@ -191,13 +185,10 @@ impl FamilyEvaluator for Gemma4DecisionEngine {
             answers.insert(id.clone(), answer);
         }
         control.check()?;
-        Ok(SystemResponse {
-            model: request.model,
+        Ok(crate::families::wire::system_response(
+            request.model,
             answers,
-            usage: Usage {
-                input_tokens: u32::try_from(input_tokens).unwrap_or(u32::MAX),
-                output_tokens: 0,
-            },
-        })
+            input_tokens,
+        ))
     }
 }
