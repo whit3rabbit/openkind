@@ -99,6 +99,10 @@
 - `jev-decision-index-0.3.1.json` marks the six landed d3 and sieve
   entries `openkind_loadable: true` with their catalog profile, and its
   shard counts no longer count a separate readout as a model shard.
+- `openkind-datasets` follows download redirects itself and attaches the
+  Hugging Face token only to the configured endpoint origin, so CDN hops are
+  followed without it. This makes the existing cross-host stripping explicit
+  and tested; redirects still stay on HTTPS and stop after eight hops.
 
 ### Fixed
 

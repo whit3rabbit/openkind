@@ -32,6 +32,14 @@ uses its offline read and serving-lock path.
   replace it with `@` on Windows and keep the raw name on Unix, where
   existing stores already use it. `list()` applies the inverse mapping.
 - `rust-loadable`, task qualification, and release promotion are distinct.
+- The sibling downloader in [`openkind-datasets`](../openkind-datasets/AGENTS.md)
+  is intentionally separate (about 60 percent overlap, no shared module).
+  Identical functions, as a map for a future leaf-crate extraction:
+  `cleanup_stages`, `global_lock`, `sync_directory`, `resumed_response_end`,
+  `reusable_blob`, `blob_path`. The redirect closure also matched until the
+  datasets crate moved to explicit redirect handling so its bearer token never
+  leaves the endpoint origin. This store sends no token, so its policy stays
+  the plain HTTPS-only, 8-hop closure.
 
 Run `cargo test -p openkind-model-store` and the workspace verification battery
 after changes to manifests or store behavior.
