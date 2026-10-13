@@ -125,6 +125,16 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
 18. **Proxy-Cache Deferred Calibration Pruning**:
     `SampleStore::prune` treats `co_deferred` diagnostic samples independently using the training retention budget (`keep_train`) so diagnostic history never displaces IID calibration rows.
 
+19. **Option Description Rules**:
+    `wire::unpack_question` treats a null, empty, or whitespace-only Choice
+    description as absent (`wire::option_description`), so HTTP `null` and
+    gRPC `""` give the same model input. d3, decider, sieve, and laya
+    intentionally read the raw `choice.criteria` map instead, because each
+    follows its reference runtime's own rule for option text (strands reads
+    the shared unpacked criteria and then collapses whitespace). d3 renders
+    `label: ` for an empty description because the reference does; do not
+    normalize it.
+
 ## Verification Commands
 
 ```bash
