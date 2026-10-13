@@ -146,9 +146,13 @@ impl FullAttention {
             ))
             .into());
         }
-        let mut all_keys = previous_keys.map_or_else(Vec::new, <[f32]>::to_vec);
+        // Size each buffer once: `to_vec` followed by `extend_from_slice`
+        // would copy the cached prefix again when the vector grows.
+        let mut all_keys = Vec::with_capacity(past_tokens * kv_size + keys.len());
+        all_keys.extend_from_slice(previous_keys.unwrap_or_default());
         all_keys.extend_from_slice(&keys);
-        let mut all_values = previous_values.map_or_else(Vec::new, <[f32]>::to_vec);
+        let mut all_values = Vec::with_capacity(past_tokens * kv_size + current_values.len());
+        all_values.extend_from_slice(previous_values.unwrap_or_default());
         all_values.extend_from_slice(&current_values);
         let mut mixed = match check {
             None => causal_grouped_query_attention(
@@ -573,6 +577,95 @@ mod attention_tests {
                 }
             }
         }
+    }
+
+    fn tiny_layer(geometry: Qwen35Geometry) -> FullAttention {
+        let tensor = |rows: usize, columns: usize, seed: u32| {
+            Tensor::from_vec(values(rows * columns, seed), (rows, columns), &Device::Cpu)
+                .expect("synthetic projection")
+        };
+        FullAttention {
+            geometry,
+            q_proj: tensor(geometry.attention_size() * 2, geometry.hidden_size, 31),
+            k_proj: tensor(geometry.kv_size(), geometry.hidden_size, 32),
+            v_proj: tensor(geometry.kv_size(), geometry.hidden_size, 33),
+            q_norm: values(geometry.attention_head_dim, 34),
+            k_norm: values(geometry.attention_head_dim, 35),
+            out_proj: tensor(geometry.hidden_size, geometry.attention_size(), 36),
+        }
+    }
+
+    #[test]
+    fn continuing_from_a_cached_prefix_matches_one_pass_bit_for_bit() {
+        let geometry = Qwen35Geometry {
+            hidden_size: 16,
+            attention_heads: 4,
+            kv_heads: 2,
+            attention_head_dim: 8,
+            ..Qwen35Geometry::PINNED
+        };
+        let layer = tiny_layer(geometry);
+        let rows = 7;
+        let prefix_rows = 4;
+        let input = values(rows * geometry.hidden_size, 41);
+        let run = |slice: &[f32], count: usize, start: usize, cache: Option<(&[f32], &[f32])>| {
+            layer
+                .forward_with_state_and_check::<Qwen35Error>(
+                    slice,
+                    count,
+                    start,
+                    &Device::Cpu,
+                    cache,
+                    None,
+                )
+                .expect("attention forward")
+        };
+        let (full_output, full_state) = run(&input, rows, 0, None);
+        let split = prefix_rows * geometry.hidden_size;
+        let (prefix_output, prefix_state) = run(&input[..split], prefix_rows, 0, None);
+        let LayerState::Full { keys, values } = &prefix_state else {
+            panic!("full attention returns a key/value cache");
+        };
+        let before = (keys.clone(), values.clone());
+        let (suffix_output, suffix_state) = run(
+            &input[split..],
+            rows - prefix_rows,
+            prefix_rows,
+            Some((keys, values)),
+        );
+
+        let joined: Vec<f32> = prefix_output.into_iter().chain(suffix_output).collect();
+        assert_eq!(joined.len(), full_output.len());
+        for (index, (a, e)) in joined.iter().zip(&full_output).enumerate() {
+            assert_eq!(a.to_bits(), e.to_bits(), "output[{index}]");
+        }
+        // The extended cache is the whole prefix followed by the new rows.
+        let (
+            LayerState::Full {
+                keys: a_keys,
+                values: a_values,
+            },
+            LayerState::Full {
+                keys: e_keys,
+                values: e_values,
+            },
+        ) = (&suffix_state, &full_state)
+        else {
+            panic!("full attention returns a key/value cache");
+        };
+        assert_eq!(a_keys.len(), rows * geometry.kv_size());
+        for (a, e) in a_keys
+            .iter()
+            .zip(e_keys)
+            .chain(a_values.iter().zip(e_values))
+        {
+            assert_eq!(a.to_bits(), e.to_bits());
+        }
+        // The borrowed prefix cache was not touched.
+        let LayerState::Full { keys, values } = &prefix_state else {
+            unreachable!()
+        };
+        assert_eq!((keys, values), (&before.0, &before.1));
     }
 
     #[test]

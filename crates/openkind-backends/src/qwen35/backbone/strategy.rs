@@ -190,17 +190,23 @@ where
         ExecutionStrategy::RepeatedFull => repeated_full_output(&counting, root_ids, plans)?,
         ExecutionStrategy::NestedSequential => {
             let run = run_sequential_nested(&counting, root_ids, plans)?;
-            let mut retained = run.root_state().tensor_storage_bytes();
-            let mut question_features = Vec::with_capacity(run.questions().len());
-            let mut question_states = Vec::with_capacity(run.questions().len());
-            for question in run.questions() {
-                retained += question.question_state().tensor_storage_bytes();
-                let mut features = Vec::with_capacity(question.candidates().len());
-                let mut states = Vec::with_capacity(question.candidates().len());
-                for candidate in question.candidates() {
-                    retained += candidate.state().tensor_storage_bytes();
-                    features.push(candidate.feature().to_vec());
-                    states.push(candidate.state().clone());
+            // Move the candidate states out of the run rather than cloning
+            // each one. The root and question states count toward retention
+            // and drop at the end of this block, as the run did before.
+            let (_, root_state, questions) = run.into_parts();
+            let mut retained = root_state.tensor_storage_bytes();
+            let mut question_features = Vec::with_capacity(questions.len());
+            let mut question_states = Vec::with_capacity(questions.len());
+            for question in questions {
+                let (_, question_state, candidates) = question.into_parts();
+                retained += question_state.tensor_storage_bytes();
+                let mut features = Vec::with_capacity(candidates.len());
+                let mut states = Vec::with_capacity(candidates.len());
+                for candidate in candidates {
+                    let (feature, state) = candidate.into_parts();
+                    retained += state.tensor_storage_bytes();
+                    features.push(feature);
+                    states.push(state);
                 }
                 question_features.push(features);
                 question_states.push(states);

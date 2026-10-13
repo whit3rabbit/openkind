@@ -71,6 +71,21 @@
 
 ### Changed
 
+- The native Qwen3.5 sequential nested runner advances each question and
+  candidate from a borrowed parent state instead of deep-copying the parent
+  first. `continue_from` already returns a new state that owns its tensors,
+  so the copy only added a transient state-sized allocation per question and
+  per candidate. `run_strategy` also moves candidate states out of the run
+  rather than cloning them, and the full-attention KV cache is sized once
+  instead of copied twice per layer. Results are unchanged: tests compare the
+  runner to the fork-then-advance sequence and the layer to a one-pass
+  forward, bit for bit (mutation-checked). Nested states now carry the root's
+  lineage depth rather than a forked one, and nothing outside tests and one
+  probe reads it. The structural fingerprint covers shape and position, not
+  tensor values, so the runner's check never proved content immutability. For
+  CPU states the shared borrow does. No timing is claimed, and the retained
+  per-candidate states and their admission accounting are unchanged.
+
 - `--qwen35-resident-weights` now also governs the Qwen3.5-text family
   engines (d3, sieve, decider, decoder-logit-qwen35, strands). Their
   backbone re-mapped the shards on every forward. For BF16-stored shards it
