@@ -207,27 +207,43 @@ fn safetensors_names(path: &Path) -> Result<Vec<String>, FamilyError> {
 /// the requested dtype); every other tensor passes through untouched. The
 /// merge is computed once per load and re-applied on every read, so no
 /// merged checkpoint is ever materialized or written.
-struct MergedLoRABackend {
-    inner: MmapedSafetensors,
+pub(crate) struct MergedLoRABackend {
+    /// Memory-mapped base shards with the tensor names each owns.
+    shards: Vec<(MmapedSafetensors, HashSet<String>)>,
     deltas: HashMap<String, Tensor>,
-    names: HashSet<String>,
 }
 
 impl MergedLoRABackend {
-    /// Pair the verified adapter with the verified base checkpoint.
+    /// Pair the verified adapter with the verified base checkpoint shards.
     ///
     /// PEFT keys look like
     /// `base_model.model.layers.N.self_attn.q_proj.lora_A.weight`; the
     /// projection maps onto the base tensor
     /// `model.language_model.layers.N.self_attn.q_proj.weight` (the
     /// checkpoint keeps the multimodal container's `language_model` prefix).
-    fn build(artifacts: &VerifiedArtifacts, device: &Device) -> Result<Self, FamilyError> {
-        let names: HashSet<String> = safetensors_names(&artifacts.base_checkpoint)?
-            .into_iter()
-            .collect();
-        let inner = unsafe { MmapedSafetensors::new(&artifacts.base_checkpoint)? };
-        let adapter = unsafe { MmapedSafetensors::new(&artifacts.adapter)? };
-        let adapter_names = safetensors_names(&artifacts.adapter)?;
+    /// `rank` and `scale` come from the family's pinned adapter config
+    /// (PEFT merge semantics: `base + (B @ A) · (alpha / rank)`).
+    pub(crate) fn build(
+        base_checkpoints: &[PathBuf],
+        adapter: &Path,
+        device: &Device,
+        rank: usize,
+        scale: f64,
+    ) -> Result<Self, FamilyError> {
+        let mut shards = Vec::with_capacity(base_checkpoints.len());
+        let mut names: HashSet<String> = HashSet::new();
+        for shard in base_checkpoints {
+            let shard_names: HashSet<String> = safetensors_names(shard)?.into_iter().collect();
+            // SAFETY: the caller verified the immutable size and SHA-256 of
+            // every read-only shard before this mapper opens it.
+            let mapped = unsafe { MmapedSafetensors::new(shard)? };
+            names.extend(shard_names.iter().cloned());
+            shards.push((mapped, shard_names));
+        }
+        let adapter_paths = [adapter.to_path_buf()];
+        // SAFETY: same verified-artifact contract for the adapter file.
+        let adapter = unsafe { MmapedSafetensors::new(&adapter_paths[0])? };
+        let adapter_names = safetensors_names(&adapter_paths[0])?;
         let mut pairs: BTreeMap<String, (Option<Tensor>, Option<Tensor>)> = BTreeMap::new();
         for name in adapter_names {
             let stem = name
@@ -260,25 +276,30 @@ impl MergedLoRABackend {
             };
             // PEFT stores lora_A as (rank, in) and lora_B as (out, rank);
             // B @ A is (out, in), matching the checkpoint's weight layout.
-            if a.dim(0)? != LORA_RANK || b.dim(1)? != LORA_RANK {
+            if a.dim(0)? != rank || b.dim(1)? != rank {
                 return Err(FamilyError::contract(
                     "adapter.rank",
-                    format!("rank {LORA_RANK}"),
+                    format!("rank {rank}"),
                     format!("a {:?}, b {:?}", a.shape(), b.shape()),
                 ));
             }
             let key = format!("model.language_model.{projection}.weight");
-            let expected_shape = match names.get(&key) {
-                Some(_) => inner.load(&key, device)?.shape().clone(),
-                None => {
-                    return Err(FamilyError::ContractMismatch {
-                        field: "adapter.target",
-                        expected: format!("base tensor `{key}` present"),
-                        actual: "missing".to_owned(),
-                    });
-                }
-            };
-            let delta = (b.matmul(&a)? * LORA_SCALE)?;
+            let expected_shape = shards
+                .iter()
+                .find_map(|(mapped, shard_names)| {
+                    shard_names
+                        .contains(&key)
+                        .then(|| mapped.load(&key, device).ok())
+                        .flatten()
+                })
+                .ok_or_else(|| FamilyError::ContractMismatch {
+                    field: "adapter.target",
+                    expected: format!("base tensor `{key}` present"),
+                    actual: "missing".to_owned(),
+                })?
+                .shape()
+                .clone();
+            let delta = (b.matmul(&a)? * scale)?;
             if delta.shape() != &expected_shape {
                 return Err(FamilyError::contract(
                     "adapter.delta.shape",
@@ -288,11 +309,14 @@ impl MergedLoRABackend {
             }
             deltas.insert(key, delta);
         }
-        Ok(Self {
-            inner,
-            deltas,
-            names,
-        })
+        Ok(Self { shards, deltas })
+    }
+
+    /// The mapped shard that owns `name`.
+    fn shard_for(&self, name: &str) -> Option<&MmapedSafetensors> {
+        self.shards
+            .iter()
+            .find_map(|(mapped, shard_names)| shard_names.contains(name).then_some(mapped))
     }
 }
 
@@ -305,7 +329,12 @@ impl SimpleBackend for MergedLoRABackend {
         dtype: DType,
         dev: &Device,
     ) -> candle_core::Result<Tensor> {
-        let tensor = self.inner.load(name, dev)?.to_dtype(dtype)?;
+        let inner = self
+            .shard_for(name)
+            .ok_or_else(|| candle_core::Error::CannotFindTensor {
+                path: name.to_owned(),
+            })?;
+        let tensor = inner.load(name, dev)?.to_dtype(dtype)?;
         let tensor = match self.deltas.get(name) {
             Some(delta) => Tensor::add(&tensor, &delta.to_device(dev)?.to_dtype(dtype)?)?,
             None => tensor,
@@ -322,7 +351,9 @@ impl SimpleBackend for MergedLoRABackend {
     }
 
     fn contains_tensor(&self, name: &str) -> bool {
-        self.names.contains(name)
+        self.shards
+            .iter()
+            .any(|(_, shard_names)| shard_names.contains(name))
     }
 }
 
@@ -375,7 +406,13 @@ impl StrandsDeciderModel {
         let layout = EmbeddingLayout::read(&artifacts.base_checkpoint, VOCAB_SIZE, HIDDEN_SIZE)
             .map_err(|error| FamilyError::InvalidInput(error.to_string()))?;
         let embedding = Qwen35Embedding::from_layout(artifacts.base_checkpoint.clone(), layout);
-        let merged = MergedLoRABackend::build(artifacts, &device)?;
+        let merged = MergedLoRABackend::build(
+            std::slice::from_ref(&artifacts.base_checkpoint),
+            &artifacts.adapter,
+            &device,
+            LORA_RANK,
+            LORA_SCALE,
+        )?;
         let backbone = TextBackbone::new_with_adapter_backend(
             embedding,
             Arc::new(merged),

@@ -75,12 +75,21 @@ impl SimpleBackend for SharedBackend {
 /// continuation state, branch lineage, or profile identity is produced; the
 /// survey-family engines that build on this type evaluate independent
 /// full-sequence prompts and retain nothing between requests.
+/// Decoder namespace of the published `Qwen3_5ForConditionalGeneration`
+/// checkpoints every pinned profile except the d3 family serves.
+const DEFAULT_TENSOR_PREFIX: &[&str] = &["model", "language_model"];
+
 #[derive(Debug)]
 #[allow(dead_code)]
 pub(crate) struct TextBackbone {
     embedding: Qwen35Embedding,
     source: WeightSource,
     geometry: Qwen35Geometry,
+    /// Safetensors namespace of the decoder stack below the shard root, split
+    /// on `.`. Published `Qwen3_5ForConditionalGeneration` checkpoints nest
+    /// under `["model", "language_model"]`; text-only `Qwen3_5Model` releases
+    /// (the d3 family) nest directly under `["language_model"]`.
+    tensor_prefix: &'static [&'static str],
     /// Storage dtype of the mapped shards. BF16 shards stay mapped in their
     /// native width and are widened per use inside the layer kernels; F32
     /// (the pinned default) maps directly.
@@ -101,7 +110,22 @@ impl TextBackbone {
         geometry: Qwen35Geometry,
         device: Device,
     ) -> Self {
-        Self::new_with_dtype(embedding, shards, geometry, DType::F32, device)
+        Self::new_with_tensor_prefix(embedding, shards, geometry, DEFAULT_TENSOR_PREFIX, device)
+    }
+
+    /// Assemble a backbone whose decoder tensors live under a non-default
+    /// safetensors namespace (text-only `Qwen3_5Model` checkpoints).
+    #[allow(dead_code)]
+    pub(crate) fn new_with_tensor_prefix(
+        embedding: Qwen35Embedding,
+        shards: Vec<PathBuf>,
+        geometry: Qwen35Geometry,
+        tensor_prefix: &'static [&'static str],
+        device: Device,
+    ) -> Self {
+        let mut backbone = Self::new_with_dtype(embedding, shards, geometry, DType::F32, device);
+        backbone.tensor_prefix = tensor_prefix;
+        backbone
     }
 
     /// Assemble a backbone whose mapped shards keep `dtype` storage.
@@ -116,6 +140,7 @@ impl TextBackbone {
             embedding,
             source: WeightSource::Shards(shards),
             geometry,
+            tensor_prefix: DEFAULT_TENSOR_PREFIX,
             dtype,
             device,
         }
@@ -138,6 +163,7 @@ impl TextBackbone {
             embedding,
             source: WeightSource::Adapter(backend),
             geometry,
+            tensor_prefix: DEFAULT_TENSOR_PREFIX,
             dtype: DType::F32,
             device,
         }
@@ -200,9 +226,11 @@ impl TextBackbone {
                 self.dtype,
                 device.clone(),
             ),
+        };
+        let mut variables = variables;
+        for namespace in self.tensor_prefix {
+            variables = variables.pp(namespace);
         }
-        .pp("model")
-        .pp("language_model");
         let layers = variables.pp("layers");
         let trace_layers = std::env::var_os("OPENKIND_QWEN35_LAYER_TRACE").is_some();
         for layer_index in 0..self.geometry.layer_count {

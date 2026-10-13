@@ -2,6 +2,85 @@
 
 ## Unreleased
 
+### Added
+
+- Model support for the d3 family: the pinned `d3-edge:664f9ead734372935286`
+  profile serves `vllm-sr/d3-edge` at the evaluated v3.1.0 release commit
+  (`18d61df78684675463af9ae732872478845c5a79`) — the pruned 12-layer
+  Qwen3.5-0.8B hybrid with noncausal full attention and the
+  `d3-code-readout-v1` 255-row float32 readout. Backbone changes: a causal
+  flag on `Qwen35Geometry` with the noncausal branch pinned against a naive
+  bidirectional reference, an explicit per-layer mixer table (the prune keeps
+  an irregular `layer_types` subset), and a text-only tensor-namespace
+  constructor. Prompt rendering is byte-verified against the shipped
+  `d3_format.py` over the checkpoint's real chat template and tokenizer
+  (all seven fixture cases match); golden-fixture replay, fail-closed load
+  tests, daemon aliases, and bench engine (`openkind-bench score --engine
+  d3-edge`) are wired.
+- A second d3-family profile, `d3-lite:e0dd32dbc16b27546692`, serving
+  `vllm-sr/d3-lite` at its v3.1.0 release commit
+  (`a8d25a91ef75552803f7009d25b7bd435991abd9`) — the full 24-layer
+  Qwen3.5-0.8B hybrid with the same noncausal code-readout contract,
+  prompt byte-parity, golden replay, and catalog pull support (alias
+  `d3:lite`).
+- A third d3-family profile, `d3-nano:0198af5b5c8e8835605e`, serving
+  `vllm-sr/d3-nano` at its v3.1.0 release commit
+  (`3aeb1c22a5632aac72353c36b3d0111c40e7dbf4`) — the full 24-layer
+  Qwen3.5-2B hybrid with the same noncausal code-readout contract, prompt
+  byte-parity, golden replay, and catalog pull support (alias `d3:nano`).
+- A fourth d3-family profile, `d3-mini:434dbc50d3b581663e52`, serving
+  `vllm-sr/d3-mini` at its v3.1.0 release commit
+  (`a475367de0d8133a3c1a2a0dc12303d89cfa2ab4`) — the full 32-layer
+  Qwen3.5-4B hybrid (the pinned qwen3.5 dims) with the same noncausal
+  code-readout contract; its chat template inverts the thinking
+  conditional, which renders the same empty `<think>` block for the
+  reference's calls. Prompt byte-parity, golden replay, and catalog pull
+  support (alias `d3:mini`).
+- A fifth d3-family profile, `d3-flash:b2a4750f8bf4a1fa58cb`, serving
+  `vllm-sr/d3-flash` at its v3.1.0 release commit
+  (`521525effa79469d899a570726547dd7f00da3af`) — the full 32-layer
+  Qwen3.5-9B hybrid (the clef-flash dims) with the same noncausal
+  code-readout contract, prompt byte-parity, golden replay, and catalog
+  pull support (alias `d3:flash`). This completes every d3 sibling that
+  fits the project's 36 GB reference host; the 27B d3 stays pinned as
+  research metadata above that host.
+- Model support for the sieve family: the pinned
+  `sieve-4b:8b97b56524b55c41fbf4` profile serves `sthanika-ai/Sieve-4B`
+  (rank-32 LoRA over `Qwen/Qwen3.5-4B`, causal, fenced-state branch
+  prompts, per-type temperatures, two-order noul averaging) with the
+  LoRA merge computed per load through the shared merged backend, prompt
+  byte-parity against the shipped `sieve4b/prompt.py` (all seven fixture
+  cases match), golden replay, fail-closed load tests, daemon aliases
+  (`--sieve-aliases` / `--sieve-model-root`), and bench engine
+  (`openkind-bench score --engine sieve-4b`) are wired.
+- `registry/v1/jev-decision-index-0.3.1.json` (schema `openkind-jev-decision-index/v2`),
+  superseding the 0.2.1 top-10 survey: 35 tier-1 and tier-2 entries covering the
+  Decision Index 0.3.1 board leaders (d3, Decider 31B, Darwin-27B-ZTC, pplx v1.1), the
+  whole six-model d3 family, and the remaining surveyed open entries, plus 11 pinned
+  base models. Every revision was re-resolved against the Hub API on 2026-10-12 with
+  file-level pin-versus-HEAD equivalence checks; all three board bundle files
+  hash-match the pinned Space revision (`f6571b3`). Research metadata only —
+  `installable: false` throughout, enforced by a new structural test
+  (`jev_decision_index_031.rs`); the 0.2.1 file is retained as history.
+- A decision record
+  (`research/handoffs/OWNER_DECISION_remaining_entries_2026-10-12.md`)
+  for the remaining 0.3.1 entries: the 27B-class checkpoints (above the
+  36 GB reference host), NVFP4 weights, gemma4 MoE, torch-pickle heads,
+  and CC BY-NC entries stay as pinned research metadata per their
+  documented blockers, with the conditions that would reopen each group.
+
+### Changed
+
+- The d3 daemon flags take per-profile size entries —
+  `--d3-aliases "edge=<alias>;lite=<alias>;nano=<alias>;mini=<alias>;flash=<alias>"`
+  and `--d3-model-roots "edge=<path>;…"` — replacing the single-model
+  form; the fixture generator selects the profile with `--profile` and the
+  replay tests select their fixture with `OPENKIND_D3_FIXTURE`.
+- The shared LoRA-merged backend (first proven on the strands-decider
+  family) is parameterized over adapter rank and scale and supports
+  multi-shard base checkpoints; the sieve family reuses it for its
+  rank-32 merge, and the strands-decider load path is unchanged.
+
 ## 0.2.1 (2026-10-07)
 
 ### Added

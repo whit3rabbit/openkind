@@ -277,6 +277,7 @@ pub(crate) fn causal_grouped_query_attention_checked<E>(
         queries,
         keys,
         values,
+        rows,
         past_rows,
         geometry,
     };
@@ -331,6 +332,7 @@ struct AttentionInputs<'a> {
     queries: &'a [f32],
     keys: &'a [f32],
     values: &'a [f32],
+    rows: usize,
     past_rows: usize,
     geometry: Qwen35Geometry,
 }
@@ -342,6 +344,7 @@ fn attend_row(inputs: &AttentionInputs<'_>, row: usize, output_row: &mut [f32]) 
         queries,
         keys,
         values,
+        rows,
         past_rows,
         geometry,
     } = *inputs;
@@ -349,7 +352,16 @@ fn attend_row(inputs: &AttentionInputs<'_>, row: usize, output_row: &mut [f32]) 
     let kv_heads = geometry.kv_heads;
     let attention_head_dim = geometry.attention_head_dim;
     let scale = (attention_head_dim as f32).sqrt().recip();
-    let visible_rows = past_rows + row + 1;
+    // Causal checkpoints let a query row see the keys up to and including its
+    // own position; noncausal checkpoints (the d3 family's
+    // `noncausal_full_attention` mode) lift the mask so every position sees
+    // the whole prompt. The rotary positions are absolute either way, and the
+    // recurrent DeltaNet layers stay causal by construction.
+    let visible_rows = if geometry.causal {
+        past_rows + row + 1
+    } else {
+        past_rows + rows
+    };
     let mut scores = Vec::with_capacity(visible_rows);
     for query_head in 0..attention_heads {
         let kv_head = query_head / (attention_heads / kv_heads);
@@ -452,7 +464,11 @@ mod attention_tests {
             for query_head in 0..attention_heads {
                 let kv_head = query_head / (attention_heads / kv_heads);
                 let query_offset = (row * attention_heads + query_head) * attention_head_dim;
-                let visible_rows = past_rows + row + 1;
+                let visible_rows = if geometry.causal {
+                    past_rows + row + 1
+                } else {
+                    past_rows + rows
+                };
                 let mut scores = Vec::with_capacity(visible_rows);
                 let mut maximum = f32::NEG_INFINITY;
                 for key_row in 0..visible_rows {
@@ -489,34 +505,39 @@ mod attention_tests {
 
     #[test]
     fn threaded_attention_matches_the_reference_bit_for_bit() {
-        let geometry = Qwen35Geometry {
-            attention_heads: 4,
-            kv_heads: 2,
-            attention_head_dim: 8,
-            ..Qwen35Geometry::PINNED
-        };
-        // 70 rows span two control blocks; past rows exercise continuation. The
-        // first block's key-visit count is above the threading threshold.
-        for (rows, past_rows) in [(70, 0), (70, 11), (5, 3)] {
-            let queries = values(rows * geometry.attention_size(), 1);
-            let keys = values((past_rows + rows) * geometry.kv_size(), 2);
-            let value_rows = values((past_rows + rows) * geometry.kv_size(), 3);
-            let actual = causal_grouped_query_attention(
-                &queries,
-                &keys,
-                &value_rows,
-                rows,
-                past_rows,
-                geometry,
-            );
-            let expected = reference(&queries, &keys, &value_rows, rows, past_rows, geometry);
-            assert_eq!(actual.len(), expected.len());
-            for (index, (a, e)) in actual.iter().zip(&expected).enumerate() {
-                assert_eq!(
-                    a.to_bits(),
-                    e.to_bits(),
-                    "rows={rows} past={past_rows} [{index}]"
+        // The causal mask and the d3 family's noncausal mask both reach the
+        // threaded path.
+        for causal in [true, false] {
+            let geometry = Qwen35Geometry {
+                attention_heads: 4,
+                kv_heads: 2,
+                attention_head_dim: 8,
+                causal,
+                ..Qwen35Geometry::PINNED
+            };
+            // 70 rows span two control blocks; past rows exercise continuation.
+            // The first block's key-visit count is above the threading threshold.
+            for (rows, past_rows) in [(70, 0), (70, 11), (5, 3)] {
+                let queries = values(rows * geometry.attention_size(), 1);
+                let keys = values((past_rows + rows) * geometry.kv_size(), 2);
+                let value_rows = values((past_rows + rows) * geometry.kv_size(), 3);
+                let actual = causal_grouped_query_attention(
+                    &queries,
+                    &keys,
+                    &value_rows,
+                    rows,
+                    past_rows,
+                    geometry,
                 );
+                let expected = reference(&queries, &keys, &value_rows, rows, past_rows, geometry);
+                assert_eq!(actual.len(), expected.len());
+                for (index, (a, e)) in actual.iter().zip(&expected).enumerate() {
+                    assert_eq!(
+                        a.to_bits(),
+                        e.to_bits(),
+                        "causal={causal} rows={rows} past={past_rows} [{index}]"
+                    );
+                }
             }
         }
     }

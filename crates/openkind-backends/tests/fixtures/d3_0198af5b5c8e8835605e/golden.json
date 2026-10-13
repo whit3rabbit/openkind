@@ -1,0 +1,304 @@
+{
+  "backbone": {
+    "id": "vllm-sr/d3-nano",
+    "revision": "3aeb1c22a5632aac72353c36b3d0111c40e7dbf4"
+  },
+  "cases": [
+    {
+      "name": "choice-two",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "kitchen": "the room whose light is on",
+              "office": null
+            },
+            "instructions": "Which option is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": "The kitchen light is on. The office light is off."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "kitchen",
+            "confidence": 0.9097392060139811,
+            "probabilities": {
+              "kitchen": 0.9885497752004657,
+              "office": 0.01145022479953422
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 108,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "choice-five-object-state",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "owner": null,
+              "region": null,
+              "service": null,
+              "severity": null,
+              "status": null
+            },
+            "instructions": "Which option is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": "Incident record: severity high, service billing, region eu-west, status mitigated, owner oncall."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "status",
+            "confidence": 0.5842322267457281,
+            "probabilities": {
+              "owner": 0.09599589449153623,
+              "region": 0.01577121737260921,
+              "service": 0.04387012409738527,
+              "severity": 0.021117526304675546,
+              "status": 0.8232452377337938
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 123,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "noul-default-criteria",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "instructions": "Is the ticket escalated?",
+            "type": "noul"
+          }
+        },
+        "state": {
+          "ticket": {
+            "escalated": true,
+            "priority": "p1"
+          }
+        }
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "noul": 0.9999358988640771,
+            "type": "noul"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 105,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "noul-described-criteria",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "false": "The temperature is at or below the threshold.",
+              "true": "The temperature is above the threshold."
+            },
+            "instructions": "Did the temperature exceed the threshold?",
+            "type": "noul"
+          }
+        },
+        "state": "Sensor report: temperature 41.2C, threshold 40C."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "noul": 0.9999963180342895,
+            "type": "noul"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 118,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "score-three-levels",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": [
+              "low",
+              "moderate",
+              "high"
+            ],
+            "instructions": "How loaded is the queue?",
+            "type": "score"
+          }
+        },
+        "state": "Queue depth is 420 events; the SLO allows up to 500 with a soft warn at 350."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "confidence": 0.8451688332384095,
+            "legend": {
+              "0": "low",
+              "1": "moderate",
+              "2": "high"
+            },
+            "probabilities": {
+              "0": 0.027558344616134392,
+              "1": 0.9649432764759107,
+              "2": 0.007498378907954772
+            },
+            "score": 0.9799400342918203,
+            "type": "score"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 119,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "choice-empty-state",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "alpha": null,
+              "beta": null
+            },
+            "instructions": "Reply with any option.",
+            "type": "choice"
+          }
+        },
+        "state": ""
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "beta",
+            "confidence": 0.004635993118593418,
+            "probabilities": {
+              "alpha": 0.45993766078316584,
+              "beta": 0.5400623392168341
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 87,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "choice-none-option",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "__none__": "neither list applies",
+              "allowlist": null,
+              "denylist": null
+            },
+            "instructions": "Which list applies?",
+            "type": "choice"
+          }
+        },
+        "state": "The request matches neither the allowlist nor the denylist."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "__none__",
+            "confidence": 0.9913729606937554,
+            "probabilities": {
+              "__none__": 0.9988632406665726,
+              "allowlist": 0.00028028565310753194,
+              "denylist": 0.0008564736803197429
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 107,
+          "output_tokens": 0
+        }
+      }
+    }
+  ],
+  "execution_arithmetic": "candle-cpu-fp32-qwen35-text-noncausal",
+  "family": "d3",
+  "probability_tolerance": 0.005,
+  "profile_id": "0198af5b5c8e8835605e",
+  "prompt_stats": [
+    {
+      "name": "choice-two",
+      "token_count": 108,
+      "token_ids_sha256": "090c8b63315ebf48bc92dbfead2609db155d3f7550c73919066ec9a0419f2e38"
+    },
+    {
+      "name": "choice-five-object-state",
+      "token_count": 123,
+      "token_ids_sha256": "ea4f561ae8813738f73237975fe2e2dd2cc986ab82ddae8a5ae5b4b58d779493"
+    },
+    {
+      "name": "noul-default-criteria",
+      "token_count": 105,
+      "token_ids_sha256": "0bcb66f5c1e2658ba729b1433aa85b79ebfb9adfcf75e923a6d96c415524b56a"
+    },
+    {
+      "name": "noul-described-criteria",
+      "token_count": 118,
+      "token_ids_sha256": "d68fb28775bf6d7cb61c3886ad8b1da49683fddab1bdeedaec464d783b5b48f7"
+    },
+    {
+      "name": "score-three-levels",
+      "token_count": 119,
+      "token_ids_sha256": "fd2191bb676e13fc129fd2db8eb7198cedfc29a0dab65263d44e468ae5c33e2e"
+    },
+    {
+      "name": "choice-empty-state",
+      "token_count": 87,
+      "token_ids_sha256": "ecbeb26ad2942ad060958897cf006fc1c099db9d90a87306a0372868055ef061"
+    },
+    {
+      "name": "choice-none-option",
+      "token_count": 107,
+      "token_ids_sha256": "c765b3d17884b264809735816ce24c2eea38ca8811e9b7ff7c892dd56b39e4c6"
+    }
+  ],
+  "provenance": {
+    "case_construction": "correct option stated verbatim in the state document; an empty-state case exercises the (empty) placeholder and a __none__ case exercises the reserved option scored as an ordinary candidate",
+    "generator": "gen-d3-edge-fixture"
+  }
+}

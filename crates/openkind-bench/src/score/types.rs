@@ -39,6 +39,24 @@ pub enum EngineKind {
     Plumb4b,
     /// Pinned decider-4b engine (slot-logit readout, isolated score levels).
     Decider4b,
+    /// Pinned d3-edge engine (noncausal 255-code readout).
+    #[allow(dead_code)]
+    D3Edge,
+    /// Pinned d3-lite engine (noncausal 255-code readout).
+    #[allow(dead_code)]
+    D3Lite,
+    /// Pinned d3-nano engine (noncausal 255-code readout).
+    #[allow(dead_code)]
+    D3Nano,
+    /// Pinned d3-mini engine (noncausal 255-code readout).
+    #[allow(dead_code)]
+    D3Mini,
+    /// Pinned d3-flash engine (noncausal 255-code readout).
+    #[allow(dead_code)]
+    D3Flash,
+    /// Pinned sieve-4b engine (causal LoRA-merged code-readout).
+    #[allow(dead_code)]
+    Sieve4b,
     /// Pinned winnow-e4b engine (Gemma 4 backbone letter-logit readout).
     WinnowE4b,
     /// Pinned Cloudflare Clef joint-schema engines.
@@ -107,6 +125,12 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
         | EngineKind::DecoderLogitQwen35
         | EngineKind::Plumb4b
         | EngineKind::Decider4b
+        | EngineKind::D3Edge
+        | EngineKind::D3Lite
+        | EngineKind::D3Nano
+        | EngineKind::D3Mini
+        | EngineKind::D3Flash
+        | EngineKind::Sieve4b
         | EngineKind::WinnowE4b
         | EngineKind::ClefFlash
         | EngineKind::ClefFlashGguf
@@ -154,6 +178,12 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
         | EngineKind::DecoderLogitQwen35
         | EngineKind::Plumb4b
         | EngineKind::Decider4b
+        | EngineKind::D3Edge
+        | EngineKind::D3Lite
+        | EngineKind::D3Nano
+        | EngineKind::D3Mini
+        | EngineKind::D3Flash
+        | EngineKind::Sieve4b
         | EngineKind::WinnowE4b
         | EngineKind::ClefFlash
         | EngineKind::ClefFlashGguf
@@ -192,6 +222,12 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
             EngineKind::DecoderLogitQwen35 => "decoder-logit-qwen35",
             EngineKind::Plumb4b => "plumb-4b",
             EngineKind::Decider4b => "decider-4b",
+            EngineKind::D3Edge => "d3-edge",
+            EngineKind::D3Lite => "d3-lite",
+            EngineKind::D3Nano => "d3-nano",
+            EngineKind::D3Mini => "d3-mini",
+            EngineKind::D3Flash => "d3-flash",
+            EngineKind::Sieve4b => "sieve-4b",
             EngineKind::WinnowE4b => "winnow-e4b",
             EngineKind::ClefFlash => "clef-flash",
             EngineKind::ClefFlashGguf => "clef-flash-gguf",
@@ -231,6 +267,12 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
             EngineKind::DecoderLogitQwen35 => "decoder-logit-qwen35",
             EngineKind::Plumb4b => "plumb-4b",
             EngineKind::Decider4b => "decider-4b",
+            EngineKind::D3Edge => "d3-edge",
+            EngineKind::D3Lite => "d3-lite",
+            EngineKind::D3Nano => "d3-nano",
+            EngineKind::D3Mini => "d3-mini",
+            EngineKind::D3Flash => "d3-flash",
+            EngineKind::Sieve4b => "sieve-4b",
             EngineKind::WinnowE4b => "winnow-e4b",
             EngineKind::ClefFlash => "clef-flash",
             EngineKind::ClefFlashGguf => "clef-flash-gguf",
@@ -276,6 +318,12 @@ pub fn is_family_engine_public(engine: EngineKind) -> bool {
             | EngineKind::DecoderLogitQwen35
             | EngineKind::Plumb4b
             | EngineKind::Decider4b
+            | EngineKind::D3Edge
+            | EngineKind::D3Lite
+            | EngineKind::D3Nano
+            | EngineKind::D3Mini
+            | EngineKind::D3Flash
+            | EngineKind::Sieve4b
             | EngineKind::WinnowE4b
             | EngineKind::ClefFlash
             | EngineKind::ClefFlashGguf
@@ -360,6 +408,36 @@ pub(crate) fn family_identity(
             openkind_backends::families::decider::FAMILY_SLUG,
             openkind_backends::families::decider::DECIDER_4B.profile_id,
             openkind_backends::families::decider::DECIDER_4B.backbone_revision,
+        )),
+        EngineKind::D3Edge => Some((
+            openkind_backends::families::d3::FAMILY_SLUG,
+            openkind_backends::families::d3::D3_EDGE.profile_id,
+            openkind_backends::families::d3::D3_EDGE.backbone_revision,
+        )),
+        EngineKind::D3Lite => Some((
+            openkind_backends::families::d3::FAMILY_SLUG,
+            openkind_backends::families::d3::D3_LITE.profile_id,
+            openkind_backends::families::d3::D3_LITE.backbone_revision,
+        )),
+        EngineKind::D3Nano => Some((
+            openkind_backends::families::d3::FAMILY_SLUG,
+            openkind_backends::families::d3::D3_NANO.profile_id,
+            openkind_backends::families::d3::D3_NANO.backbone_revision,
+        )),
+        EngineKind::D3Mini => Some((
+            openkind_backends::families::d3::FAMILY_SLUG,
+            openkind_backends::families::d3::D3_MINI.profile_id,
+            openkind_backends::families::d3::D3_MINI.backbone_revision,
+        )),
+        EngineKind::D3Flash => Some((
+            openkind_backends::families::d3::FAMILY_SLUG,
+            openkind_backends::families::d3::D3_FLASH.profile_id,
+            openkind_backends::families::d3::D3_FLASH.backbone_revision,
+        )),
+        EngineKind::Sieve4b => Some((
+            openkind_backends::families::sieve::FAMILY_SLUG,
+            openkind_backends::families::sieve::SIEVE_4B.profile_id,
+            openkind_backends::families::sieve::SIEVE_4B.backbone_revision,
         )),
         EngineKind::WinnowE4b => Some((
             openkind_backends::families::gemma4::FAMILY_SLUG,

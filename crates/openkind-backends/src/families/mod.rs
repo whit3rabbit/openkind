@@ -13,6 +13,7 @@ pub mod calibration;
 /// Cloudflare Clef joint-schema decision family adapter.
 pub mod clef;
 /// Decider slot-logit family adapter (plain state-first layout).
+pub mod d3;
 pub mod decider;
 /// Decoder-only letter-token logit readout family adapter.
 pub mod decoder_logit_letter;
@@ -40,6 +41,7 @@ pub mod qwen3guard;
 pub mod router_script;
 /// Schema scorer decision family adapter.
 pub mod schema_scorer;
+pub mod sieve;
 /// Strands Decider 2B pointer-head family adapter.
 pub mod strands_decider;
 /// Shared bounded family engine scaffold, limits, controls, and error types.

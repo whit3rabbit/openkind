@@ -25,6 +25,9 @@ For a compact pointer model's training, retention, and calibration lessons, see
 [Marc Brooker's Hobson](#hobson-compact-pointer-decisions-and-retention-reviewed-2026-10-01).
 For its released v19 artifacts and agent intervention example, see
 [Strands Decider 2B](#strands-decider-2b-hobson-v19-release-and-agent-interventions-reviewed-2026-10-01).
+For why the current Decision Index 0.3.1 leaders (d3, Decider 31B, pplx, Torchcast)
+score well, see
+[the 2026-10-12 survey](#why-the-decision-index-031-leaders-score-well-surveyed-2026-10-12).
 
 | Reproduction Target | Feasibility Today | Assessment |
 |---|:---:|---|
@@ -2949,6 +2952,11 @@ native qualification. Their offline checks do not establish a trained
 
 ## Jev Decision Index 0.2.1: The Top-10 Open Reproductions (Surveyed 2026-10-05)
 
+Status note (2026-10-12): the board has moved to Decision Index 0.3.1 with a
+different headline (Full score with private tests) and a new top group. The
+ranks below describe the 0.2.1 snapshot only; see
+[the 0.3.1 survey](#why-the-decision-index-031-leaders-score-well-surveyed-2026-10-12).
+
 The [Jev Decision Index](https://huggingface.co/spaces/multimodalart/jev-decision-index)
 ranks open Jev reproductions on a frozen 120,340-request suite. On the
 pinned 0.2.1 board Jev itself scores 57.91 on the headline `balanced_skill`
@@ -3033,3 +3041,324 @@ wrong), with no uncertainty intervals. They establish relative leaderboard
 position only. They are not OpenKind task-quality evidence, and per-entry
 extension paths in the registry file are engineering leads, not qualified
 support claims.
+
+## Why the Decision Index 0.3.1 Leaders Score Well (Surveyed 2026-10-12)
+
+This section explains what the entries at the top of the
+[Jev Decision Index](https://huggingface.co/spaces/multimodalart/jev-decision-index)
+do differently. It reads the model cards, shipped configs, training manifests,
+and released source of
+[`pplx-decider-v1.1-27b`](https://huggingface.co/perplexity-ai/pplx-decider-v1.1-27b),
+[`vllm-sr/d3`](https://huggingface.co/vllm-sr/d3) and its
+[Decision 3.0 collection](https://huggingface.co/collections/vllm-sr/decision-30),
+[`torchcast-decision-27b`](https://huggingface.co/torchcast-ai/torchcast-decision-27b),
+[`-12b`](https://huggingface.co/torchcast-ai/torchcast-decision-12b), and
+[`-4b`](https://huggingface.co/torchcast-ai/torchcast-decision-4b). It also
+reads [`Mapika/decider-31b`](https://huggingface.co/Mapika/decider-31b) because it
+ties for first. Evidence is split into **board data** (the Space's JSON bundle,
+generated 2026-10-12T04:03:19Z), **author disclosure** (cards, configs,
+manifests), and **released source**. No weights were downloaded, nothing was
+run, and the Space's
+[`registry/v1/jev-decision-index-0.3.1.json`](../registry/v1/jev-decision-index-0.3.1.json)
+now pins the 0.3.1 snapshot this section reads (the 0.2.1 file is retained as
+history). Catalog and loader support for these
+entries is later work; this section records the mechanisms that work needs.
+
+### Board snapshot
+
+Decision Index 0.3.1 ranks on a Full score: 20% public benchmarks, 50% private
+tests of the same skills, 30% private tasks from new domains, each mapped onto
+the public scale with untuned stock models. Ties are declared inside a 0.9
+point band. Jev scores 60.11 (public 57.96, same-skills 58.04, new-domains
+54.98).
+
+| Entry | Full | Public | Same skills | New domains | Board ECE | Base and adaptation |
+|---|---:|---:|---:|---:|---:|---|
+| d3 (27B), rank 1, tie group 1 | 65.65 | 64.25 | 63.59 | 58.64 | 0.054 | Qwen3.8-27B, full fine-tune |
+| Decider 31B NVFP4, rank 2, tie group 1 | 65.56 | 64.27 | 63.65 | 58.32 | 0.024 | Gemma-4-31B-it, fine-tune merged, NVFP4 |
+| Darwin-27B-ZTC, rank 3 | 63.21 | 62.63 | 60.18 | 57.66 | 0.045 | Darwin-27B-RSI, full fine-tune |
+| pplx-decider-v1.1-27b, rank 4 | 62.75 | 62.25 | 61.10 | 55.57 | 0.071 | Qwen3.8-27B, full fine-tune |
+| Torchcast Decision 27B, rank 12 | 59.91 | 65.10 | 58.13 | 50.83 | 0.024 | StartLux-Decision-27B plus merged LoRA |
+
+Public skill by area (chance-corrected, board 0.3.1):
+
+| Entry | Knowledge | Language | Retrieval | Tools | Arts |
+|---|---:|---:|---:|---:|---:|
+| d3 | 52.7 | 66.9 | 66.3 | 82.6 | 49.6 |
+| Decider 31B | 50.3 | 66.7 | 65.5 | 84.2 | 55.2 |
+| Darwin-27B-ZTC | 44.7 | 68.5 | 60.9 | 86.7 | 53.3 |
+| pplx v1.1 | 52.0 | 67.5 | 61.3 | 78.9 | 47.0 |
+| Torchcast 27B | 46.7 | 72.0 | 67.5 | 84.6 | 54.4 |
+
+The cards cite other editions and snapshots, so their numbers differ from the
+board JSON: the pplx card reports 61.56 on 0.2.1 (Jev 57.9), the Torchcast card
+reports 65.00 on an author-run 0.2.1, and the d3 card reports 64.7 Full and 65.5
+public from a 2026-10-10 board read, where the 2026-10-12 board shows 65.65 and
+64.25. The board moved after the card was written and neither source says why.
+Use the board JSON for cross-entry comparison. The smaller Torchcast and
+Decision 3.0 siblings are covered below.
+
+### Finding 1: the public score and the Full score disagree, and that is the board's point
+
+Torchcast is second on the public suite (65.10) and twelfth on the Full score.
+Its new-domain score (50.83) is 7.8 points below d3's (58.64), and its
+same-skills score is 5.5 points below. The board also lists a
+RSI-Jev v6.1 VL 27B entry with the highest public score (65.64) and a
+new-domain score of 47.4. d3, Decider 31B, and pplx v1.1 move up or stay level
+once private parts count (d3 +1.4, Decider +1.3, pplx +0.5, Torchcast -5.2).
+
+The authors' own disclosures fit this pattern. Torchcast's card says Decision
+Index results guided checkpoint selection and that training used "benchmark-format
+decision data" built from public datasets. Decider 31B's card reports that on a
+4,500-request sample the 8 benchmarks whose train splits it used gained 17 skill
+points on average, and the other 29 moved +0.6. A model can climb the public
+suite by training on matching task formats; the private parts exist to price
+that in. This is an inference from disclosures plus board numbers, not a
+demonstrated cause: the private items are unpublished, the scores are point
+estimates without intervals, and the weights differ in base, adaptation method,
+and label type at once.
+
+### Finding 2: the format converged on one forward pass and an option-code readout
+
+Every leader reads a probability for each option from the last prompt position
+and generates nothing. They differ in what they read:
+
+| | pplx v1.1 | d3 | Torchcast 27B | Decider 31B |
+|---|---|---|---|---|
+| Readout | New `[255, 5120]` head, rows initialised from the `lm_head` rows of the answer codes | 255-way FP32 code readout (`d3-code-readout-v1`) | 26 letter rows of the output head | Letter log-probabilities at the answer slot |
+| Max options per pass | 255 | 255 | 26, then grouped rounds (`group` 25, `keep` 3) | Not stated |
+| Attention | Bidirectional in full-attention layers | Same, credited to pplx | Causal, `startlux_causal` kernel | Stock |
+| Questions of a request | One row each, no KV cache | One row each, batches of 8 | One pass, shared-prefix KV, CUDA graphs | One or two readings each |
+| Calibration | One scalar, T = 1.0087 | T = 1.0 | Per type: noul 1.421, choice 1.2098, score 1.2294 | T(n) = 2.042 + 0.003 ln n, second reading |
+| License | Apache-2.0 | Apache-2.0 | CC BY-NC 4.0 | Apache-2.0 |
+
+Both pplx and d3 ship the same package layout (`decision_config.json` with 255
+`codes` and `token_ids`, `attention_mode`, `pooling`, `readout.safetensors`).
+d3's runtime docstring states that its bidirectional attention follows pplx.
+The cards do not disclose whether d3 reuses pplx's training code or data.
+Parameter counts match (26,085,330,160 safetensors parameters in both,
+including the vision tower), so the backbone is the same Qwen3.8-27B shape:
+64 layers, hidden 5,120, and (per the Torchcast config and the
+[architecture verdicts above](#architecture-verdicts)) 16 full-attention layers
+and 48 gated DeltaNet layers.
+
+### Finding 3: pplx and d3 lift the causal mask in the full-attention layers
+
+This is the one architectural change the pplx author attributes a gain to. The
+v1.1 card says most of the improvement from 56.4 to 61.56 on 0.2.1 "is driven
+by the lifting of the causal mask and training on more data." The released
+`enable_noncausal_full_attention` hook in
+`source/src/autojev/model.py` replaces the attention mask of the 16
+full-attention layers with the padding mask only, so every position sees the
+whole prompt, including the question, options, and the answer slot. The 48
+gated DeltaNet layers keep their causal scan. The hook raises if a KV cache or
+`use_cache` is passed, the tokenizer pads on the left, and pooling is the last
+position (`pooling: last`). The saved config selects the noncausal mode, requesting
+causal inference against it raises, and the card says a causal run does not
+reproduce the evaluated setup.
+
+Consequences worth keeping separate:
+
+- The card confounds two changes (mask and data). Its sources publish no
+  ablation, so the split of the 5.2-point gain is not known. The training
+  script's cache path (`autojev-attention-ablation-20261002`) suggests an
+  ablation exists internally, which the release does not include.
+- Bidirectional attention lets state tokens condition on the question and the
+  option text, the same state-aware encoding that encoder classifiers have. It
+  gives up prefix reuse: the full-attention KV of a state computed before the
+  question differs from the KV computed with the question visible. A noncausal
+  checkpoint therefore runs the full prompt once per question, which is the
+  `repeated_full` strategy in
+  [`ARCHITECTURE.md`](ARCHITECTURE.md), not `nested_sequential` or
+  `nested_batched`. OpenKind's branch-isolation invariant (attention KV,
+  DeltaNet state, and convolution state forked from one state prefill) cannot be
+  exercised on these checkpoints without a changed execution contract.
+- Torchcast and StartLux keep causal attention and shared-prefix reuse, so they
+  are the closest published relatives of OpenKind's nested execution. Their
+  public score is competitive and their private scores trail. The causal choice
+  is one of several differences (LoRA instead of full fine-tune, benchmark-format
+  data, checkpoint selection on the index), so the board does not show that
+  causality costs accuracy.
+
+### Finding 4: pplx v1.1 is a data-and-schedule story
+
+The pplx release includes the training config, manifest, and source, which is
+unusually complete evidence:
+
+- Full-parameter fine-tune from `Qwen/Qwen3.8-27B` at a pinned revision, one
+  epoch, 2,446 steps, effective batch 256 on 8 GPUs, learning rate 2e-6 with 15%
+  warmup (366 steps), weight decay 0.01, 8,192-token cap, CPU-offloaded AdamW.
+- Loss is cross-entropy against a target distribution, with the Brier weight set
+  to 0 for the release. The data loader accepts soft Choice targets (a
+  probability vector per option) and float Noul targets, and many source tags
+  are annotator-vote datasets (`dynasent/r1_votes`, `scruples/verdict_votes`,
+  `civil_comments/*_share`, `acceptability-prediction/*_votes`), which fits
+  training on human disagreement as well as gold labels. The manifest does not
+  state which rows carry soft targets.
+- 626,033 training rows: 95,930 "original" rows plus 530,103 rows in a filtered
+  pool (84.7%) the manifest labels `tasksource_rows`. The pool spans 349 source
+  tags, including 13 `procedural-typed-decisions/*` families (119,363 rows;
+  state tracking, retrieval, arithmetic, table lookup, policy applicability,
+  evidence sufficiency, and similar) and 114 multilingual tags (16,740 rows).
+  The card credits [tasksource](https://github.com/sileod/tasksource) for "a
+  large part of the gains."
+- An LLM audit (GLM, per the manifest path) rejected 11,629 rows (2.1%). The
+  manifest records `filter_complete: false` and one unreviewed row excluded.
+- Calibration fits one scalar temperature on 983 held-out rows and lands at
+  1.0087. A cross-entropy-trained letter readout starts near calibrated, so the
+  fit changes little. The board still measures ECE 0.071 for pplx, the worst of
+  the five, with confidence 0.829 against accuracy 0.761.
+- v1 trained mostly on Nimble-converted human-labelled datasets; v1.1 makes
+  those "a small share." The v1 card measured through the Perplexity API on 11
+  benchmarks, not Decision Index. Do not compare v1's 85.71% to v1.1's 61.56.
+
+The release also includes `synthetic.py`, which drives an external LLM
+(`gpt-5.6-sol`) over tasks under five conditions (clean, noisy, negated, long,
+shifted prior). The manifest does not state that its output is in the v1.1
+mix, so treat it as a generator the team built, not as evidence of what trained
+the checkpoint.
+
+### Finding 5: d3 adds scale, a family, and modalities, but its recipe is closed
+
+d3's card discloses outcomes and runtime, not the training data or schedule. What
+is established:
+
+- A 27B model at the top of the board (Full 65.65, tied with Decider 31B), +8.5
+  public over Decision 2.0's 27B (56.97 on the board), ahead in all five areas
+  per the card.
+- A six-model family on Qwen3.5 backbones, public suite 0.3 scores from each
+  card: d3 27B 65.45 (card), d3-flash 9B 57.79, d3-mini 4B 54.90, d3-nano 2B
+  42.22, d3-lite 0.8B 36.93, d3-edge 0.59B 28.82. d3-edge prunes the backbone to
+  12 of d3-lite's 24 layers
+  ([parity record](https://github.com/vllm-project/semantic-router/blob/main/src/model-runtime/docs/records/decision3-parity.md)).
+  Capability scales steeply with parameters: about 37 points separate the
+  27B from the 0.59B model on the cards' author-run public scores.
+- Image and video input in the same one-pass readout (up to 1.6 MP per image,
+  2 frames per second for video, capped at 32 frames). The board ranks text
+  and vision separately; the text score above is the one relevant here.
+- The runtime exposes an off-by-default `permutation_average` option that scores
+  each Choice question a second time with reversed options and averages the
+  distributions. The cards do not say whether the board run used it.
+- The vLLM Semantic Router model-runtime serves Decision 3.0 with byte-identical
+  answers to the package server on CPU and an AMD Instinct MI325X (its 2026-10-11
+  parity record), and Core ML conversions exist
+  ([blog](https://github.com/vllm-project/semantic-router/blob/main/website/blog/2026-10-11-decision-3-0-on-apple-silicon.md)).
+  These are portability evidence, not extra accuracy evidence.
+
+What explains d3's lead over pplx v1.1 (+2.9 Full) is not disclosed: same base,
+same readout design, same attention approach. The board shows d3 ahead on all
+three parts (public +2.0, same skills +2.5, new domains +3.1). By public area it
+leads on Retrieval (+5.0), Tools (+3.7), and Arts (+2.6), is level on Knowledge
+(+0.7), and trails on Language (-0.6). Candidate causes are data breadth,
+schedule, or selection, none of which the card lets us attribute.
+
+### Finding 6: Decider 31B wins with data targeting and a two-reading rule
+
+Decider 31B is Gemma-4-31B-it with a fine-tune merged into the attention and
+MLP projections and NVFP4 quantization (MLP weights and activations; bf16
+attention projections; FP8 KV cache), about 31 GB. Its disclosed mechanisms:
+
+- First reading at the answer slot, softmax at T1(n) = 2.042 + 0.003 ln n. A
+  question whose top probability is below 0.7 gets a second reading with the
+  options reversed; the two log-softmaxes are averaged and re-normalized at
+  T2(n) = 1.953 + 0.010 ln n. The card says 28% of public-suite questions take
+  the second reading, and that it removes part of the option-order bias.
+- Training data targeted at the previous entry's weak areas: CLINC150,
+  iSarcasmEval, VAST, ACOS, POP909-CL, GSM8K, NLI4CT, and a generated smart-home
+  set, all decontaminated against suite rows by the author's own screen. Its
+  board public score (64.27) matches the author's own run (64.27) and its
+  private parts hold up (63.65, 58.32), so on this evidence the targeting did not
+  cost generalization.
+- NVFP4 needs Blackwell, and the server patches a vLLM 0.29 internal.
+
+### Finding 7: Torchcast is an engineering and calibration-policy story
+
+- 27B: a LoRA merged into StartLux-Decision-27B, trained on public train/dev
+  splits and benchmark-format data with gold labels. The card discloses about
+  1% train-test template overlap and that Decision Index results guided checkpoint
+  selection. Its public Language skill is the highest of the five (72.0) and its
+  Knowledge skill (46.7) is below d3, pplx, and Decider; the card says it trails
+  Jev 1.13 on GPQA Diamond, MMLU-Pro, and BBH.
+- Speed: all questions of a request share one forward pass with shared-prefix
+  attention, recorded CUDA graphs on short requests, and the `flash-linear-attention`
+  and `causal-conv1d` kernels. The card reports 33.0 ms for one yes/no question
+  and 49.0 ms for three on one H100. The board measures a 99.9 ms median on its
+  RTX PRO 6000 harness; the figures are different paths and hardware.
+- 12B (Gemma-4-12B-it LoRA, CC BY-NC 4.0, Gemma prohibited-use terms): trained
+  on a 50/50 mix of gold labels and a larger model's option distributions
+  (distillation, stated not to be TypeSafe or Jev output). Its yes/no
+  temperature is 0.2: the best fit-set accuracy among grid values (0.2 to 3.0)
+  whose calibration error stays within the unmodified base model's, which is
+  also the lowest value on the grid. The card reports 203/231
+  (87.88%) on JevBench's public set, author-run, with public results influencing
+  selection. It has no Decision Index entry.
+- 4B v1.1 (Qwen3.5-4B, CC BY-NC 4.0): calibration temperature 0.9 and a yes/no
+  "commit floor" of 0.801: a yes/no probability whose max(P, 1-P) is below 0.801 is
+  moved to 0.801 on its own side. The answer is unchanged but the reported
+  probability is overstated for uncertain items. That is a metric-tuned policy
+  layer, not a calibrated probability. It has no Decision Index entry either.
+
+### What this means for OpenKind
+
+The causal chain from "top of the board" to a specific recipe is thin where the
+authors do not publish ablations, so these are findings and proposals, not
+qualified results.
+
+1. **The leaders are 27B to 31B models.** Among sizes OpenKind can run, the best
+   author-run public-suite scores are d3-mini 4B (54.90) and d3-flash 9B
+   (57.79), against a 27B at 65.45. OpenKind's selected profile is a 4B Base checkpoint. A 4B
+   cannot be expected to reach the leaders, and the board numbers are not
+   evidence about OpenKind's own workloads (see the existing
+   [evidence boundary](#evidence-boundary)).
+2. **Bidirectional full-attention layers are the single transferable
+   architectural change.** A fair ablation holds the Qwen3.5-4B Base checkpoint,
+   data, schedule, and readout fixed and varies only the mask in the full-attention
+   layers, then reports quality and the `repeated_full` latency cost against
+   `nested_sequential`. The causal-versus-noncausal choice then becomes a profile
+   property: a noncausal profile must declare that it cannot fork state. This
+   needs an owner decision; it changes
+   [`ARCHITECTURE.md`](ARCHITECTURE.md)'s branching contract for that profile.
+3. **Data breadth is the clearest quantity lever.** pplx's 626k rows with 13
+   procedural families and annotator-vote datasets is a concrete mixture to
+   compare against OpenKind's v4 local decision training
+   ([design](whitepaper/LOCAL_DECISION_DESIGN.md)). Check each source's license
+   before any redistribution: pplx, d3, and Decider weights are Apache-2.0,
+   while Torchcast and StartLux are CC BY-NC 4.0. Training sources carry mixed
+   terms (Decider's card lists RACE as non-commercial and several CC BY-SA
+   sources; Torchcast lists non-commercial and share-alike sources). The pplx
+   card does not list per-source terms.
+4. **Calibration claims need a policy label.** Every leader adds something after
+   the logits: one scalar, per-type temperatures, a second reading, grouped
+   rounds, or a floor. Report which are model parameters and which are policy
+   layers; treat the commit floor and sub-1 yes/no temperatures as the latter.
+   The board's ECE ranks differently from its score (d3 0.054, Decider 0.024,
+   pplx 0.071), so rank on proper scores and reliability, not on the headline.
+5. **None of the reviewed cards describes a semantic-none option.** OpenKind
+   requires a non-empty `__none__` option with reported mass. The board's score
+   cannot show whether these models would abstain correctly.
+6. **Per-entry loader needs, for later registry work.**
+
+| Entry | What a loader needs beyond the existing Qwen3.5 path |
+|---|---|
+| pplx v1.1 27B | 255-row separate readout, noncausal full-attention mask, `repeated_full` only, record-style prompt, 8,192-token cap, optional image path; BF16 weights near 49 GiB |
+| d3 and siblings | The same plus `d3-code-readout-v1` prompt bytes, per-checkpoint pruned layer lists (d3-edge), vision and video preprocessing for multimodal input |
+| Torchcast 27B, StartLux | Letter-logit readout from `lm_head` rows, `jev_render_v3` prompt, per-type temperatures, wide-choice grouping above 26 options, shared-prefix attention |
+| Decider 31B | Gemma-4-31B dense path, NVFP4 execution (not available in the workspace), two-reading rule from `decider_config.json` |
+
+### Evidence boundary and open items
+
+- Board numbers are single-run point estimates from one bundle; the 0.9-point tie
+  band means ranks 1 and 2 are not separable. Private test items are never
+  published. A matching public score does not establish equal behavior.
+- The pplx card describes the repository as private and requires authenticated
+  access. On 2026-10-12 the Hub API reported `private: false` and `gated: false`
+  and unauthenticated fetches of the card, configs, and source succeeded. Source
+  identity before access status applies: pin a revision before relying on either
+  reading.
+- The Torchcast 12B and 4B cards publish no Decision Index run, so their
+  entries here rest on author-run JevBench public figures that influenced
+  selection.
+- Several results (pplx v1.1's gain split, d3's lead over pplx, Torchcast's
+  private-score gap) have candidate explanations but no published ablation.
+  Closing them needs either author data or an OpenKind-owned ablation on pinned
+  checkpoints.

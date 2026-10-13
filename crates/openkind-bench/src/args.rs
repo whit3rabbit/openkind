@@ -323,6 +323,30 @@ pub enum EngineArg {
     /// Pinned decider-4b engine (slot-logit readout, isolated score levels).
     #[value(name = "decider-4b")]
     Decider4b,
+    /// Pinned d3-edge engine (noncausal 255-code readout on the pruned
+    /// Qwen3.5-0.8B hybrid backbone).
+    #[value(name = "d3-edge")]
+    D3Edge,
+    /// Pinned d3-lite engine (noncausal 255-code readout on the Qwen3.5-0.8B
+    /// hybrid backbone).
+    #[value(name = "d3-lite")]
+    D3Lite,
+    /// Pinned d3-nano engine (noncausal 255-code readout on the Qwen3.5-2B
+    /// hybrid backbone).
+    #[value(name = "d3-nano")]
+    D3Nano,
+    /// Pinned d3-mini engine (noncausal 255-code readout on the Qwen3.5-4B
+    /// hybrid backbone).
+    #[value(name = "d3-mini")]
+    D3Mini,
+    /// Pinned d3-flash engine (noncausal 255-code readout on the Qwen3.5-9B
+    /// hybrid backbone).
+    #[value(name = "d3-flash")]
+    D3Flash,
+    /// Pinned sieve-4b engine (causal LoRA-merged code-readout on the
+    /// Qwen3.5-4B hybrid backbone).
+    #[value(name = "sieve-4b")]
+    Sieve4b,
     /// Pinned winnow-e4b engine (Gemma 4 backbone letter-logit readout).
     #[value(name = "winnow-e4b")]
     WinnowE4b,
@@ -394,6 +418,12 @@ impl From<EngineArg> for EngineKind {
             EngineArg::DecoderLogitQwen35 => EngineKind::DecoderLogitQwen35,
             EngineArg::Plumb4b => EngineKind::Plumb4b,
             EngineArg::Decider4b => EngineKind::Decider4b,
+            EngineArg::D3Edge => EngineKind::D3Edge,
+            EngineArg::D3Lite => EngineKind::D3Lite,
+            EngineArg::D3Nano => EngineKind::D3Nano,
+            EngineArg::D3Mini => EngineKind::D3Mini,
+            EngineArg::D3Flash => EngineKind::D3Flash,
+            EngineArg::Sieve4b => EngineKind::Sieve4b,
             EngineArg::WinnowE4b => EngineKind::WinnowE4b,
             EngineArg::ClefFlash => EngineKind::ClefFlash,
             EngineArg::ClefFlashGguf => EngineKind::ClefFlashGguf,

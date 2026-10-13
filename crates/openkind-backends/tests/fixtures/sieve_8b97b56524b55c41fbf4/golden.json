@@ -1,0 +1,351 @@
+{
+  "backbone": {
+    "id": "sthanika-ai/Sieve-4B",
+    "revision": "ea7cd1edee29590a82ed9fbfcb644227a8eed5f1"
+  },
+  "base": {
+    "id": "Qwen/Qwen3.5-4B",
+    "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
+  },
+  "cases": [
+    {
+      "name": "choice-two",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "kitchen": "the room whose light is on",
+              "office": null
+            },
+            "instructions": "Which option is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": "The kitchen light is on. The office light is off."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "kitchen",
+            "confidence": 0.37246331884379735,
+            "probabilities": {
+              "kitchen": 0.8428132521849478,
+              "office": 0.15718674781505218
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 147,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "choice-five-object-state",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "owner": null,
+              "region": null,
+              "service": null,
+              "severity": null,
+              "status": null
+            },
+            "instructions": "Which option is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": "Incident record: severity high, service billing, region eu-west, status mitigated, owner oncall."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "owner",
+            "confidence": 0.14869051663355792,
+            "probabilities": {
+              "owner": 0.4756216601045051,
+              "region": 0.06658072456087119,
+              "service": 0.08657097096195307,
+              "severity": 0.19708970367438328,
+              "status": 0.17413694069828733
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 162,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "noul-default-criteria",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "instructions": "Is the ticket escalated?",
+            "type": "noul"
+          }
+        },
+        "state": {
+          "ticket": {
+            "escalated": true,
+            "priority": "p1"
+          }
+        }
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "noul": 0.988654839984628,
+            "type": "noul"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 282,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "noul-described-criteria",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "false": "The temperature is at or below the threshold.",
+              "true": "The temperature is above the threshold."
+            },
+            "instructions": "Did the temperature exceed the threshold?",
+            "type": "noul"
+          }
+        },
+        "state": "Sensor report: temperature 41.2C, threshold 40C."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "noul": 0.9862936352664077,
+            "type": "noul"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 324,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "score-three-levels",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": [
+              "low",
+              "moderate",
+              "high"
+            ],
+            "instructions": "How loaded is the queue?",
+            "type": "score"
+          }
+        },
+        "state": "Queue depth is 420 events; the SLO allows up to 500 with a soft warn at 350."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "confidence": 0.2608138764551393,
+            "legend": {
+              "0": "low",
+              "1": "moderate",
+              "2": "high"
+            },
+            "probabilities": {
+              "0": 0.03861275760172014,
+              "1": 0.5729435094587617,
+              "2": 0.3884437329395182
+            },
+            "score": 1.3498309753377982,
+            "type": "score"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 162,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "choice-empty-state",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "alpha": null,
+              "beta": null
+            },
+            "instructions": "Reply with any option.",
+            "type": "choice"
+          }
+        },
+        "state": ""
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "alpha",
+            "confidence": 0.016831775782595537,
+            "probabilities": {
+              "alpha": 0.5762281269727699,
+              "beta": 0.42377187302723
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 124,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "choice-none-option",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "__none__": "neither list applies",
+              "allowlist": null,
+              "denylist": null
+            },
+            "instructions": "Which list applies?",
+            "type": "choice"
+          }
+        },
+        "state": "The request matches neither the allowlist nor the denylist."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "__none__",
+            "confidence": 0.8745314585857702,
+            "probabilities": {
+              "__none__": 0.9740997423840178,
+              "allowlist": 0.014917278119759911,
+              "denylist": 0.01098297949622233
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 147,
+          "output_tokens": 0
+        }
+      }
+    }
+  ],
+  "execution_arithmetic": "candle-cpu-fp32-qwen35-text-lora",
+  "family": "sieve",
+  "probability_tolerance": 0.005,
+  "profile_id": "8b97b56524b55c41fbf4",
+  "prompt_stats": [
+    {
+      "branches": [
+        {
+          "branch_ids_sha256": "b135ff1462eac496ad7fd217bfec83bd6ca6ea6eb98bdad730af14521ab081be",
+          "token_count": 147
+        }
+      ],
+      "name": "choice-two",
+      "prefix_token_count": 90
+    },
+    {
+      "branches": [
+        {
+          "branch_ids_sha256": "03954d53c689a4230f2a7b8442ae193f3c514f82f7e4fe016afa9a0b770eb593",
+          "token_count": 162
+        }
+      ],
+      "name": "choice-five-object-state",
+      "prefix_token_count": 100
+    },
+    {
+      "branches": [
+        {
+          "branch_ids_sha256": "f1adc4da7f6e0e42c0900c358b1b6946c662cf35a74c57d994b028e0a6c29221",
+          "token_count": 141
+        },
+        {
+          "branch_ids_sha256": "42239c58407be70c9cba5751e5a8027ff6628c3db2486c12aa5bac69cdbb45ed",
+          "token_count": 141
+        }
+      ],
+      "name": "noul-default-criteria",
+      "prefix_token_count": 94
+    },
+    {
+      "branches": [
+        {
+          "branch_ids_sha256": "a29098a742ef61a26ebcf27f806c3b2b0a45869e405c55077182ff3ec45d9b7d",
+          "token_count": 162
+        },
+        {
+          "branch_ids_sha256": "f443996959824d3c0e67e61ea9e29cbafbb30d769739ce85a930f8f9eac5be5c",
+          "token_count": 162
+        }
+      ],
+      "name": "noul-described-criteria",
+      "prefix_token_count": 95
+    },
+    {
+      "branches": [
+        {
+          "branch_ids_sha256": "ce0957a319049edc663bb472670c430539f0ce5a13a43009001949eaf043c1af",
+          "token_count": 162
+        }
+      ],
+      "name": "score-three-levels",
+      "prefix_token_count": 107
+    },
+    {
+      "branches": [
+        {
+          "branch_ids_sha256": "7b056359021e8e3a75a13463f301bcd9e11a2370c311bf19ee1aa8d19b2881f1",
+          "token_count": 124
+        }
+      ],
+      "name": "choice-empty-state",
+      "prefix_token_count": 78
+    },
+    {
+      "branches": [
+        {
+          "branch_ids_sha256": "e9d9178afbd519bbea93429918f1e6c1d1fcf96298e5a9f165fd4323ede7fd9b",
+          "token_count": 147
+        }
+      ],
+      "name": "choice-none-option",
+      "prefix_token_count": 90
+    }
+  ],
+  "provenance": {
+    "case_construction": "correct option stated verbatim in the state document; noul cases answer in both listing orders and average, an empty-state case exercises the fenced empty state, and a __none__ case scores the reserved option as an ordinary candidate",
+    "generator": "gen-sieve-4b-fixture"
+  }
+}

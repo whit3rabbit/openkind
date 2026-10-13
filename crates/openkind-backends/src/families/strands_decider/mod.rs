@@ -62,6 +62,7 @@ use openkind_engine::ProbabilitySpace;
 use thiserror::Error;
 
 pub use self::engine::StrandsDeciderEngine;
+pub(crate) use self::model::MergedLoRABackend;
 use crate::families::decoder_logit_qwen35::Calibration;
 use crate::families::support::FamilyLimits;
 

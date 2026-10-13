@@ -248,6 +248,7 @@ fn accelerated_executions_fail_closed_without_an_export() {
     {
         let error = match StrandsDeciderEngine::load_with_execution(
             StrandsDeciderEngineConfig {
+                profile: None,
                 model_root: root.clone(),
                 base_root: base.clone(),
                 limits: limits(),
@@ -267,6 +268,7 @@ fn accelerated_executions_fail_closed_without_an_export() {
     {
         let error = match StrandsDeciderEngine::load_with_execution(
             StrandsDeciderEngineConfig {
+                profile: None,
                 model_root: root.clone(),
                 base_root: base.clone(),
                 limits: limits(),
