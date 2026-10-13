@@ -325,9 +325,11 @@ are rejected, never truncated or relabeled. Passing this pilot would not establi
 long-document retention. A subsequent full-document study needs its own admission
 report and source-aligned evaluation.
 
-The [working paper](../../docs/whitepaper/WORKING_PAPER.md) and
-[whitepaper §24](../../docs/whitepaper/WHITEPAPER.md#24-openkind-t4-recovery--classifier-verification-input-reuse-nli-specialization-and-general-policy-limits)
-carry evidence through E43/E44. A targeted eligibility correction also damaged
+The [working paper](../../docs/whitepaper/WORKING_PAPER.md) carries evidence
+through local-decision LD-V13A, with measured LD-V12B/LD-V13A results in
+[whitepaper §25](../../docs/whitepaper/WHITEPAPER.md#25-local-decision-training-results-ld-v12b-and-ld-v13a).
+[Whitepaper §24](../../docs/whitepaper/WHITEPAPER.md#24-openkind-t4-recovery--classifier-verification-input-reuse-nli-specialization-and-general-policy-limits)
+carries E43/E44: a targeted eligibility correction also damaged
 retry decisions, so field gains must be checked against complete requests.
 Numeric capping, chronological order and majority-class collapse are explicit
 diagnostics. The recovered encoder comparisons are complete within their bounded
