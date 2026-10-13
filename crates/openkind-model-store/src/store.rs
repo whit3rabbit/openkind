@@ -834,6 +834,14 @@ fn verify_file(path: &Path, size: u64, sha: &str) -> Result<()> {
     if !metadata.file_type().is_file() || metadata.len() != size {
         return Err(Error::DigestMismatch(path.display().to_string()));
     }
+    if sha256_file(path)? != sha {
+        return Err(Error::DigestMismatch(path.display().to_string()));
+    }
+    Ok(())
+}
+
+/// Stream a file through SHA-256 without loading it into memory.
+fn sha256_file(path: &Path) -> Result<String> {
     let mut reader = BufReader::new(File::open(path)?);
     let mut hasher = Sha256::new();
     let mut buffer = [0u8; 1024 * 1024];
@@ -844,10 +852,7 @@ fn verify_file(path: &Path, size: u64, sha: &str) -> Result<()> {
         }
         hasher.update(&buffer[..len]);
     }
-    if format!("{:x}", hasher.finalize()) != sha {
-        return Err(Error::DigestMismatch(path.display().to_string()));
-    }
-    Ok(())
+    Ok(format!("{:x}", hasher.finalize()))
 }
 
 #[cfg(test)]
