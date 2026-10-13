@@ -144,7 +144,9 @@ impl<S: BranchableState> StrategyOutput<S> {
         &self.question_states
     }
 
-    /// Forward invocations (prefills plus continuations).
+    /// Executor forward invocations (prefills plus continuations). A root
+    /// prefill served by the root prefix cache still counts as one call, so
+    /// this measures calls into the executor, not forwards actually run.
     #[must_use]
     pub const fn forward_calls(&self) -> usize {
         self.forward_calls

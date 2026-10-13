@@ -2,7 +2,10 @@
 //! shared synthetic executor so state content is deterministic.
 
 use std::cell::Cell;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
+use std::time::Instant;
 
 use openkind_runtime::branch::BranchableState;
 
@@ -20,9 +23,15 @@ fn small_plan() -> Vec<NestedQuestion<'static>> {
         candidate_suffix_ids: &[&[30]],
     }]
 }
-use crate::qwen35::Qwen35Error;
+use crate::qwen35::{ExecutionControl, Qwen35Error};
 
 const AMPLE: usize = usize::MAX / 2;
+
+/// A request lifecycle with no deadline that is never cancelled.
+fn idle() -> &'static ExecutionControl {
+    static IDLE: OnceLock<ExecutionControl> = OnceLock::new();
+    IDLE.get_or_init(|| ExecutionControl::new(Arc::new(AtomicBool::new(false)), None))
+}
 
 fn config(max_tensor_bytes: usize) -> RootCacheConfig {
     RootCacheConfig {
@@ -90,7 +99,7 @@ fn a_hit_reproduces_the_miss_and_skips_the_root_forward() {
     let uncached =
         run_sequential_nested(&SyntheticExecutor, ROOT_IDS, &small_plan()).expect("uncached");
 
-    let caching = RootCachingExecutor::new(&inner, &cache, ROOT_IDS);
+    let caching = RootCachingExecutor::new(&inner, &cache, ROOT_IDS, idle());
     let miss = run_sequential_nested(&caching, ROOT_IDS, &small_plan()).expect("miss");
     assert_eq!(
         inner.prefills.get(),
@@ -113,14 +122,14 @@ fn a_hit_reproduces_the_miss_and_skips_the_root_forward() {
 fn only_the_exact_root_ids_are_served() {
     let inner = Counting::default();
     let cache = RootPrefixCache::new(config(AMPLE));
-    let caching = RootCachingExecutor::new(&inner, &cache, ROOT_IDS);
+    let caching = RootCachingExecutor::new(&inner, &cache, ROOT_IDS, idle());
     run_sequential_nested(&caching, ROOT_IDS, &small_plan()).expect("fill");
 
     // A shorter, longer, or different root is a different key, whether or not
     // the shared executor is told it is the root.
     for ids in [&ROOT_IDS[..2], &[10, 11, 12, 13][..], &[10, 11, 99][..]] {
         let before = inner.prefills.get();
-        let other = RootCachingExecutor::new(&inner, &cache, ids);
+        let other = RootCachingExecutor::new(&inner, &cache, ids, idle());
         run_sequential_nested(&other, ids, &small_plan()).expect("other root");
         assert_eq!(inner.prefills.get(), before + 1, "ids {ids:?} must miss");
     }
@@ -131,7 +140,7 @@ fn only_the_exact_root_ids_are_served() {
 fn prefills_that_are_not_the_root_never_touch_the_cache() {
     let inner = Counting::default();
     let cache = RootPrefixCache::new(config(AMPLE));
-    let caching = RootCachingExecutor::new(&inner, &cache, ROOT_IDS);
+    let caching = RootCachingExecutor::new(&inner, &cache, ROOT_IDS, idle());
     // Repeated-full prefills root + question + candidate, never the bare root.
     run_strategy(&caching, ExecutionStrategy::RepeatedFull, ROOT_IDS, &plan())
         .expect("repeated full");
@@ -143,7 +152,7 @@ fn prefills_that_are_not_the_root_never_touch_the_cache() {
 fn run_strategy_matches_with_and_without_the_cache() {
     let inner = Counting::default();
     let cache = RootPrefixCache::new(config(AMPLE));
-    let caching = RootCachingExecutor::new(&inner, &cache, ROOT_IDS);
+    let caching = RootCachingExecutor::new(&inner, &cache, ROOT_IDS, idle());
     let plain = run_strategy(
         &SyntheticExecutor,
         ExecutionStrategy::NestedSequential,
@@ -200,7 +209,7 @@ fn a_failed_prefill_is_not_cached() {
     let inner = Counting::default();
     inner.fail.set(true);
     let cache = RootPrefixCache::new(config(AMPLE));
-    let caching = RootCachingExecutor::new(&inner, &cache, ROOT_IDS);
+    let caching = RootCachingExecutor::new(&inner, &cache, ROOT_IDS, idle());
     assert!(caching.prefill(ROOT_IDS).is_err());
     assert_eq!(cache.usage(), (0, 0));
     inner.fail.set(false);
@@ -301,4 +310,129 @@ fn contains_reports_a_live_root_without_refreshing_it() {
     }
     assert!(!cache.contains(ROOT_IDS));
     assert!(!RootPrefixCache::<BackboneState>::new(RootCacheConfig::DISABLED).contains(ROOT_IDS));
+}
+
+/// Thread-safe executor whose prefill takes long enough for concurrent
+/// requests to overlap, and whose first `failures` prefills fail.
+struct Slow {
+    prefills: AtomicUsize,
+    failures: usize,
+    delay: Duration,
+}
+
+impl Slow {
+    fn new(delay: Duration, failures: usize) -> Self {
+        Self {
+            prefills: AtomicUsize::new(0),
+            failures,
+            delay,
+        }
+    }
+}
+
+impl SequentialNestedExecutor for Slow {
+    type State = BackboneState;
+
+    fn prefill(&self, input_ids: &[u32]) -> Result<(Vec<f32>, BackboneState), Qwen35Error> {
+        let call = self.prefills.fetch_add(1, Ordering::SeqCst);
+        std::thread::sleep(self.delay);
+        if call < self.failures {
+            return Err(Qwen35Error::InvalidInput("forced prefill failure".into()));
+        }
+        SyntheticExecutor.prefill(input_ids)
+    }
+
+    fn continue_from(
+        &self,
+        state: &BackboneState,
+        suffix_ids: &[u32],
+    ) -> Result<(Vec<f32>, BackboneState), Qwen35Error> {
+        SyntheticExecutor.continue_from(state, suffix_ids)
+    }
+}
+
+#[test]
+fn concurrent_misses_on_one_root_compute_it_once() {
+    let inner = Slow::new(Duration::from_millis(150), 0);
+    let cache = RootPrefixCache::new(config(AMPLE));
+    let features: Vec<Vec<f32>> = std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..4)
+            .map(|_| {
+                scope.spawn(|| {
+                    RootCachingExecutor::new(&inner, &cache, ROOT_IDS, idle())
+                        .prefill(ROOT_IDS)
+                        .expect("prefill")
+                        .0
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .map(|handle| handle.join().expect("thread"))
+            .collect()
+    });
+    assert_eq!(inner.prefills.load(Ordering::SeqCst), 1, "one root forward");
+    assert!(features.windows(2).all(|pair| pair[0] == pair[1]));
+}
+
+#[test]
+fn a_failed_fill_releases_its_waiters_to_compute() {
+    // The leader fails. Each waiter must be released, find no entry, and
+    // compute the root itself rather than block or inherit the failure.
+    let inner = Slow::new(Duration::from_millis(150), 1);
+    let cache = RootPrefixCache::new(config(AMPLE));
+    let outcomes: Vec<bool> = std::thread::scope(|scope| {
+        let handles: Vec<_> = (0..3)
+            .map(|_| {
+                scope.spawn(|| {
+                    RootCachingExecutor::new(&inner, &cache, ROOT_IDS, idle())
+                        .prefill(ROOT_IDS)
+                        .is_ok()
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .map(|handle| handle.join().expect("thread"))
+            .collect()
+    });
+    assert_eq!(
+        outcomes.iter().filter(|ok| !**ok).count(),
+        1,
+        "{outcomes:?}"
+    );
+    assert!(
+        cache.contains(ROOT_IDS),
+        "a released waiter stored the root"
+    );
+}
+
+#[test]
+fn a_waiting_request_keeps_its_own_deadline() {
+    let inner = Slow::new(Duration::from_millis(1_000), 0);
+    let cache = RootPrefixCache::new(config(AMPLE));
+    std::thread::scope(|scope| {
+        let leader = scope
+            .spawn(|| RootCachingExecutor::new(&inner, &cache, ROOT_IDS, idle()).prefill(ROOT_IDS));
+        // Let the leader claim the fill before the waiter arrives.
+        while inner.prefills.load(Ordering::SeqCst) == 0 {
+            std::thread::yield_now();
+        }
+        let started = Instant::now();
+        let control = ExecutionControl::new(
+            Arc::new(AtomicBool::new(false)),
+            Some(started + Duration::from_millis(50)),
+        );
+        let waited = RootCachingExecutor::new(&inner, &cache, ROOT_IDS, &control).prefill(ROOT_IDS);
+        assert!(
+            matches!(waited, Err(Qwen35Error::ExecutionDeadlineExceeded)),
+            "{waited:?}"
+        );
+        assert!(
+            started.elapsed() < Duration::from_millis(800),
+            "the waiter left before the leader finished"
+        );
+        assert!(leader.join().expect("thread").is_ok());
+    });
+    assert_eq!(inner.prefills.load(Ordering::SeqCst), 1);
 }

@@ -98,9 +98,11 @@ fn load_qwen(
 }
 
 /// Validate the root-cache flags and build its configuration. A zero byte
-/// budget leaves the cache off. The budget is resident memory, so it must fit
-/// inside the process ceiling when one is set, or admission would be judging
-/// requests against memory the cache already holds.
+/// budget leaves the cache off. A budget at or above the process ceiling can
+/// never fit and is rejected as a misconfiguration. This is only a sanity
+/// check, because the ceiling also covers weights. Admission is what keeps
+/// the cache inside the ceiling: it refreshes the observed peak RSS on every
+/// request, and that peak includes whatever the cache holds.
 fn root_cache_config(
     bytes: usize,
     ttl_secs: u64,

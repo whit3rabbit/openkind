@@ -145,7 +145,7 @@ pub(super) fn evaluate_request(
         // Only the exact-root prefill is served from the cache. Every other
         // forward, including the repeated-full strategy's longer prefills,
         // runs unchanged.
-        let caching = RootCachingExecutor::new(&controlled, &inner.root_cache, &root_ids);
+        let caching = RootCachingExecutor::new(&controlled, &inner.root_cache, &root_ids, control);
         run_strategy(&caching, decision.strategy, &root_ids, &plans)?
     } else {
         run_strategy(&controlled, decision.strategy, &root_ids, &plans)?

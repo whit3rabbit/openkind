@@ -16,9 +16,19 @@
 //! guessed). A hit returns a [`BranchableState::fork_one`] copy, so a request
 //! can never mutate a cached state, and the hit path must reproduce what a
 //! miss computes bit for bit.
+//!
+//! A fork keeps its source's lineage root, so states served from one entry
+//! share a lineage root id, and with it a scheduling fingerprint, across
+//! requests. Nothing keys cross-request state on that fingerprint. Anything
+//! that starts to must not treat it as a per-request identity.
+//!
+//! Concurrent misses on one root are collapsed: the first request computes
+//! the root and the others wait for it, still honouring their own deadline
+//! and cancellation, then read the entry it stored. Expired entries are
+//! released on the next cache access, not on a timer.
 
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::collections::{HashMap, HashSet};
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use std::time::{Duration, Instant};
 
 use openkind_runtime::branch::BranchableState;
@@ -26,6 +36,10 @@ use sha2::{Digest, Sha256};
 
 use super::nested::{BatchContinuation, SequentialNestedExecutor};
 use crate::qwen35::{ExecutionControl, Qwen35Error};
+
+/// How often a request waiting on another request's root fill rechecks its
+/// own deadline and cancellation.
+const FILL_WAIT_POLL: Duration = Duration::from_millis(25);
 
 /// Byte budget and lifetime of a [`RootPrefixCache`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -73,6 +87,9 @@ struct Entry<S> {
 
 struct Inner<S> {
     entries: HashMap<RootDigest, Entry<S>>,
+    /// Roots some request is computing now. Keyed on the digest alone: a
+    /// collision only makes an unrelated request wait once, then compute.
+    filling: HashSet<RootDigest>,
     tensor_bytes: usize,
     clock: u64,
 }
@@ -80,7 +97,40 @@ struct Inner<S> {
 /// Process-local, byte-bounded LRU of shared-root prefills with a TTL.
 pub struct RootPrefixCache<S> {
     inner: Mutex<Inner<S>>,
+    /// Signalled whenever a fill finishes, successfully or not.
+    filled: Condvar,
     config: RootCacheConfig,
+}
+
+/// Outcome of [`RootPrefixCache::claim_fill`].
+enum FillClaim<'a, S> {
+    /// This request computes the root. Dropping the guard releases waiters.
+    Leader(FillGuard<'a, S>),
+    /// Another request finished computing the root. It may or may not have
+    /// stored it, so the caller reads the cache again and otherwise computes
+    /// it without waiting a second time.
+    Waited,
+}
+
+/// Marks a root as being computed until dropped, including on error or
+/// panic, so a failed leader can never leave waiters blocked.
+struct FillGuard<'a, S> {
+    cache: &'a RootPrefixCache<S>,
+    key: RootDigest,
+}
+
+impl<S> Drop for FillGuard<'_, S> {
+    fn drop(&mut self) {
+        // Waiters must be released even if another request poisoned the lock.
+        let mut inner = self
+            .cache
+            .inner
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
+        inner.filling.remove(&self.key);
+        drop(inner);
+        self.cache.filled.notify_all();
+    }
 }
 
 fn digest(ids: &[u32]) -> RootDigest {
@@ -100,9 +150,11 @@ impl<S: BranchableState> RootPrefixCache<S> {
         Self {
             inner: Mutex::new(Inner {
                 entries: HashMap::new(),
+                filling: HashSet::new(),
                 tensor_bytes: 0,
                 clock: 0,
             }),
+            filled: Condvar::new(),
             config,
         }
     }
@@ -233,6 +285,37 @@ impl<S: BranchableState> RootPrefixCache<S> {
     }
 }
 
+impl<S> RootPrefixCache<S> {
+    /// Become the request that computes the root for `ids`, or wait until
+    /// the request already computing it finishes.
+    ///
+    /// The wait rechecks `control` every [`FILL_WAIT_POLL`], so a waiter
+    /// still meets its own deadline and cancellation.
+    ///
+    /// # Errors
+    /// Returns the waiter's deadline or cancellation error.
+    fn claim_fill(
+        &self,
+        ids: &[u32],
+        control: &ExecutionControl,
+    ) -> Result<FillClaim<'_, S>, Qwen35Error> {
+        let key = digest(ids);
+        let mut inner = self.inner.lock().unwrap_or_else(PoisonError::into_inner);
+        if inner.filling.insert(key) {
+            return Ok(FillClaim::Leader(FillGuard { cache: self, key }));
+        }
+        while inner.filling.contains(&key) {
+            control.check()?;
+            inner = self
+                .filled
+                .wait_timeout(inner, FILL_WAIT_POLL)
+                .unwrap_or_else(PoisonError::into_inner)
+                .0;
+        }
+        Ok(FillClaim::Waited)
+    }
+}
+
 fn purge_expired<S>(inner: &mut Inner<S>, now: Instant, ttl: Duration) {
     inner.entries.retain(|_, entry| {
         // Comparing an age avoids overflow for TTLs beyond the clock's range.
@@ -253,6 +336,9 @@ pub(crate) struct RootCachingExecutor<'a, E: SequentialNestedExecutor> {
     inner: &'a E,
     cache: &'a RootPrefixCache<E::State>,
     root_ids: &'a [u32],
+    /// The request's own lifecycle, checked while it waits on another
+    /// request's fill of the same root.
+    control: &'a ExecutionControl,
 }
 
 impl<'a, E: SequentialNestedExecutor> RootCachingExecutor<'a, E> {
@@ -260,36 +346,64 @@ impl<'a, E: SequentialNestedExecutor> RootCachingExecutor<'a, E> {
         inner: &'a E,
         cache: &'a RootPrefixCache<E::State>,
         root_ids: &'a [u32],
+        control: &'a ExecutionControl,
     ) -> Self {
         Self {
             inner,
             cache,
             root_ids,
+            control,
         }
     }
 
     fn prefill_through_cache(
         &self,
         input_ids: &[u32],
+        control: &ExecutionControl,
         compute: impl FnOnce() -> Result<(Vec<f32>, E::State), Qwen35Error>,
     ) -> Result<(Vec<f32>, E::State), Qwen35Error> {
         if input_ids != self.root_ids || !self.cache.config().is_enabled() {
             return compute();
         }
+        let output = self.lookup_or_fill(input_ids, control, compute);
+        // Every access purges expired entries, so report the payload after
+        // each one rather than only after an insert.
+        let (_, bytes) = self.cache.usage();
+        metrics::gauge!("openkind_native_root_cache_tensor_bytes").set(bytes as f64);
+        output
+    }
+
+    fn lookup_or_fill(
+        &self,
+        input_ids: &[u32],
+        control: &ExecutionControl,
+        compute: impl FnOnce() -> Result<(Vec<f32>, E::State), Qwen35Error>,
+    ) -> Result<(Vec<f32>, E::State), Qwen35Error> {
         if let Some(hit) = self.cache.get(input_ids)? {
             metrics::counter!("openkind_native_root_cache_total", "result" => "hit").increment(1);
             return Ok(hit);
         }
+        let _leader = match self.cache.claim_fill(input_ids, control)? {
+            FillClaim::Leader(guard) => Some(guard),
+            FillClaim::Waited => {
+                if let Some(hit) = self.cache.get(input_ids)? {
+                    metrics::counter!("openkind_native_root_cache_total", "result" => "hit")
+                        .increment(1);
+                    return Ok(hit);
+                }
+                // The leader failed or could not store the root. Compute it
+                // here without waiting again, so one failure never chains.
+                None
+            }
+        };
         metrics::counter!("openkind_native_root_cache_total", "result" => "miss").increment(1);
         let (feature, state) = compute()?;
         // A failed insert only costs a later hit. The request already has its
         // answer, so it must not fail on the cache.
         if let Err(error) = self.cache.insert(input_ids, &feature, &state) {
             tracing::warn!(%error, "root prefix cache could not store a root");
-        } else {
-            let (_, bytes) = self.cache.usage();
-            metrics::gauge!("openkind_native_root_cache_tensor_bytes").set(bytes as f64);
         }
+        // `_leader` drops after the insert, so released waiters find the entry.
         Ok((feature, state))
     }
 }
@@ -298,7 +412,7 @@ impl<E: SequentialNestedExecutor> SequentialNestedExecutor for RootCachingExecut
     type State = E::State;
 
     fn prefill(&self, input_ids: &[u32]) -> Result<(Vec<f32>, Self::State), Qwen35Error> {
-        self.prefill_through_cache(input_ids, || self.inner.prefill(input_ids))
+        self.prefill_through_cache(input_ids, self.control, || self.inner.prefill(input_ids))
     }
 
     fn prefill_controlled(
@@ -307,7 +421,7 @@ impl<E: SequentialNestedExecutor> SequentialNestedExecutor for RootCachingExecut
         control: &ExecutionControl,
     ) -> Result<(Vec<f32>, Self::State), Qwen35Error> {
         control.check()?;
-        let output = self.prefill_through_cache(input_ids, || {
+        let output = self.prefill_through_cache(input_ids, control, || {
             self.inner.prefill_controlled(input_ids, control)
         })?;
         control.check()?;
