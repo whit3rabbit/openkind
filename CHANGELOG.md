@@ -15,8 +15,8 @@
   constructor. Prompt rendering is byte-verified against the shipped
   `d3_format.py` over the checkpoint's real chat template and tokenizer
   (all seven fixture cases match); golden-fixture replay, fail-closed load
-  tests, daemon aliases (`--d3-aliases`/`--d3-model-root`), and bench engine
-  (`openkind-bench score --engine d3-edge`) are wired.
+  tests, daemon aliases, and bench engine (`openkind-bench score --engine
+  d3-edge`) are wired.
 - A second d3-family profile, `d3-lite:e0dd32dbc16b27546692`, serving
   `vllm-sr/d3-lite` at its v3.1.0 release commit
   (`a8d25a91ef75552803f7009d25b7bd435991abd9`) — the full 24-layer
@@ -50,8 +50,9 @@
   prompts, per-type temperatures, two-order noul averaging) with the
   LoRA merge computed per load through the shared merged backend, prompt
   byte-parity against the shipped `sieve4b/prompt.py` (all seven fixture
-  cases match), golden replay, and catalog pull support (alias
-  `sieve:4b`).
+  cases match), golden replay, fail-closed load tests, daemon aliases
+  (`--sieve-aliases` / `--sieve-model-root`), and bench engine
+  (`openkind-bench score --engine sieve-4b`) are wired.
 - `registry/v1/jev-decision-index-0.3.1.json` (schema `openkind-jev-decision-index/v2`),
   superseding the 0.2.1 top-10 survey: 35 tier-1 and tier-2 entries covering the
   Decision Index 0.3.1 board leaders (d3, Decider 31B, Darwin-27B-ZTC, pplx v1.1), the
@@ -61,6 +62,24 @@
   hash-match the pinned Space revision (`f6571b3`). Research metadata only —
   `installable: false` throughout, enforced by a new structural test
   (`jev_decision_index_031.rs`); the 0.2.1 file is retained as history.
+- A decision record
+  (`research/handoffs/OWNER_DECISION_remaining_entries_2026-10-12.md`)
+  for the remaining 0.3.1 entries: the 27B-class checkpoints (above the
+  36 GB reference host), NVFP4 weights, gemma4 MoE, torch-pickle heads,
+  and CC BY-NC entries stay as pinned research metadata per their
+  documented blockers, with the conditions that would reopen each group.
+
+### Changed
+
+- The d3 daemon flags take per-profile size entries —
+  `--d3-aliases "edge=<alias>;lite=<alias>;nano=<alias>;mini=<alias>;flash=<alias>"`
+  and `--d3-model-roots "edge=<path>;…"` — replacing the single-model
+  form; the fixture generator selects the profile with `--profile` and the
+  replay tests select their fixture with `OPENKIND_D3_FIXTURE`.
+- The shared LoRA-merged backend (first proven on the strands-decider
+  family) is parameterized over adapter rank and scale and supports
+  multi-shard base checkpoints; the sieve family reuses it for its
+  rank-32 merge, and the strands-decider load path is unchanged.
 
 ## 0.2.1 (2026-10-07)
 
