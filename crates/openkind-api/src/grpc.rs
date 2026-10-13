@@ -93,7 +93,7 @@ impl pb::system_one_server::SystemOne for SystemOneService {
         let pb_req = request.into_inner();
 
         // Convert protobuf → core.
-        let state = pb_state_to_core(pb_req.state.as_ref())
+        let state = pb_state_to_core(pb_req.state)
             .map_err(|status| status_with_request_id(status, &req_id))?;
         let questions = pb_questions_to_core(pb_req.questions)
             .map_err(|status| status_with_request_id(status, &req_id))?;
@@ -181,10 +181,11 @@ fn check_grpc_auth(metadata: &tonic::metadata::MetadataMap, auth: &AuthConfig) -
 
 // ---------- conversions ----------
 
-fn pb_state_to_core(pb: Option<&pb::State>) -> Result<State, Status> {
+fn pb_state_to_core(pb: Option<pb::State>) -> Result<State, Status> {
     let pb = pb.ok_or_else(|| Status::invalid_argument("state is required"))?;
-    match &pb.value {
-        Some(pb::state::Value::Text(s)) => Ok(State::Text(s.clone())),
+    // Owned, so large text states move instead of being copied.
+    match pb.value {
+        Some(pb::state::Value::Text(s)) => Ok(State::Text(s)),
         Some(pb::state::Value::Structured(s)) => {
             // `bytes json` carries a JSON document. We re-parse into Value
             // so we can normalize to Object/Array.
