@@ -4,8 +4,6 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use sha2::{Digest, Sha256};
-
 use super::embedding::*;
 use crate::qwen35::{BackboneReference, Qwen35Error};
 
@@ -64,7 +62,10 @@ fn tensor_layout_rejects_wrong_dtype_and_shape() {
 fn pinned_checkpoint_row_matches_phase3b_embedding_exactly() {
     let bytes = decode_hex(TOKEN_25_ROW_HEX);
     assert_eq!(bytes.len(), HIDDEN_SIZE * 2);
-    assert_eq!(format!("{:x}", Sha256::digest(&bytes)), TOKEN_25_ROW_SHA256);
+    assert_eq!(
+        openkind_runtime::hashing::sha256_hex(&bytes),
+        TOKEN_25_ROW_SHA256
+    );
     let mut actual = Vec::with_capacity(HIDDEN_SIZE);
     decode_bf16_row(&bytes, 25, &mut actual).expect("decode pinned BF16 row");
 

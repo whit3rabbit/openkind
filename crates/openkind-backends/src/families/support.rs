@@ -7,8 +7,6 @@
 //! deadline/cancellation plumbing so family modules only implement loading
 //! and evaluation.
 
-use std::fs::File;
-use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -17,7 +15,6 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use openkind_core::{ModelInfo, SystemRequest, SystemResponse};
 use openkind_engine::{DecisionEngine, EngineError, EngineResult};
-use sha2::{Digest, Sha256};
 use thiserror::Error;
 use tokio::sync::Semaphore;
 
@@ -525,24 +522,10 @@ impl Drop for CancellationOnDrop {
 /// Stream a file through SHA-256 in place. Multi-gigabyte checkpoint shards
 /// are never copied or staged: verification reads them where they live.
 pub fn sha256_file(path: &Path) -> Result<String, FamilyError> {
-    let file = File::open(path).map_err(|source| FamilyError::Io {
+    openkind_runtime::hashing::sha256_file(path).map_err(|source| FamilyError::Io {
         path: path.to_path_buf(),
         source,
-    })?;
-    let mut reader = BufReader::with_capacity(8 << 20, file);
-    let mut hasher = Sha256::new();
-    let mut chunk = vec![0u8; 8 << 20];
-    loop {
-        let read = reader.read(&mut chunk).map_err(|source| FamilyError::Io {
-            path: path.to_path_buf(),
-            source,
-        })?;
-        if read == 0 {
-            break;
-        }
-        hasher.update(&chunk[..read]);
-    }
-    Ok(format!("{:x}", hasher.finalize()))
+    })
 }
 
 /// Verify a local artifact against its pinned SHA-256 digest, in place.
@@ -726,14 +709,14 @@ pub(crate) fn check_pinned_fields_with(
 /// IDs only guarantee that identical (family, model, revision) inputs produce
 /// identical profile IDs across runs and documents.
 pub fn derive_profile_id(family: &str, backbone: &str, revision: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(b"openkind:family:");
-    hasher.update(family.as_bytes());
-    hasher.update([0u8]);
-    hasher.update(backbone.as_bytes());
-    hasher.update([0u8]);
-    hasher.update(revision.as_bytes());
-    let digest = format!("{:x}", hasher.finalize());
+    let digest = openkind_runtime::hashing::sha256_hex_parts(&[
+        b"openkind:family:",
+        family.as_bytes(),
+        &[0u8],
+        backbone.as_bytes(),
+        &[0u8],
+        revision.as_bytes(),
+    ]);
     digest[..20].to_owned()
 }
 

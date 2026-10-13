@@ -6,7 +6,6 @@
 //! task and any wording change is a new task that trains from scratch.
 
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 use super::text::canonical_json;
 
@@ -213,9 +212,7 @@ impl TaskSpec {
             "c": self.criteria,
             "i": self.instructions,
         });
-        let mut hasher = Sha256::new();
-        hasher.update(canonical_json(&value).as_bytes());
-        format!("{:x}", hasher.finalize())
+        openkind_runtime::hashing::sha256_hex(canonical_json(&value).as_bytes())
     }
 
     /// Short stable version tag (first 12 hex of the fingerprint).
@@ -231,9 +228,7 @@ impl TaskSpec {
             "tenant": tenant,
             "type": "choice",
         });
-        let mut hasher = Sha256::new();
-        hasher.update(canonical_json(&value).as_bytes());
-        format!("{:x}", hasher.finalize())[..20].to_owned()
+        openkind_runtime::hashing::sha256_hex(canonical_json(&value).as_bytes())[..20].to_owned()
     }
 }
 
@@ -378,6 +373,17 @@ mod tests {
             .criteria
             .insert("y".into(), Some("desc y".into()));
         assert_ne!(a.fingerprint(), different_description.fingerprint());
+    }
+
+    #[test]
+    fn fingerprint_and_task_key_match_golden_values() {
+        let task = spec(json!("Which team?"), &["x", "y"]);
+        assert_eq!(
+            task.fingerprint(),
+            "fb2f694a51eab84196ff346985b237dc3d7dd1d181b62beaa0e3b4e91a3ad211"
+        );
+        assert_eq!(task.version(), "fb2f694a51ea");
+        assert_eq!(task.task_key("t", "jev-latest"), "eba44b0ba1544884ecde");
     }
 
     #[test]
