@@ -65,6 +65,78 @@ impl FullAttention {
         })
     }
 
+    /// Attention output for the final row of a full sequence only.
+    ///
+    /// Keys and values still cover every row, because the row attends to all
+    /// of them, but the query projection, attention kernel, and output
+    /// projection run for that one row. No cache is read or returned, so this
+    /// serves callers that need nothing from the layer beyond the last
+    /// token. Values match [`Self::forward_with_state_and_check`]'s last row
+    /// up to the matmul's summation order at one row against many.
+    pub(crate) fn forward_last_row_with_check<E>(
+        &self,
+        normalized: &[f32],
+        token_count: usize,
+        device: &Device,
+        check: Option<&mut dyn FnMut() -> Result<(), E>>,
+    ) -> Result<Vec<f32>, E>
+    where
+        E: From<Qwen35Error>,
+    {
+        let geometry = self.geometry;
+        let hidden_size = geometry.hidden_size;
+        let last = token_count - 1;
+        let last_input = &normalized[last * hidden_size..];
+        let projected_q = linear(
+            last_input,
+            1,
+            hidden_size,
+            &self.q_proj,
+            geometry.attention_size() * 2,
+            device,
+        )?;
+        let mut keys = linear(
+            normalized,
+            token_count,
+            hidden_size,
+            &self.k_proj,
+            geometry.kv_size(),
+            device,
+        )?;
+        let values = linear(
+            normalized,
+            token_count,
+            hidden_size,
+            &self.v_proj,
+            geometry.kv_size(),
+            device,
+        )?;
+        let (mut queries, gates) = split_query_gate(&projected_q, 1, geometry);
+        rms_norm_heads(&mut queries, geometry.attention_heads, &self.q_norm);
+        rms_norm_heads(&mut keys, geometry.kv_heads, &self.k_norm);
+        // The query sits at the sequence's last position and sees the rows
+        // before it as its past, exactly as it does in the full-sequence pass.
+        apply_rotary(&mut queries, geometry.attention_heads, 1, last, geometry);
+        apply_rotary(&mut keys, geometry.kv_heads, token_count, 0, geometry);
+        let mut mixed = match check {
+            None => causal_grouped_query_attention(&queries, &keys, &values, 1, last, geometry),
+            Some(check) => causal_grouped_query_attention_checked(
+                &queries, &keys, &values, 1, last, geometry, check,
+            )?,
+        };
+        for (value, gate) in mixed.iter_mut().zip(gates) {
+            *value *= sigmoid(gate);
+        }
+        Ok(linear(
+            &mixed,
+            1,
+            geometry.attention_size(),
+            &self.out_proj,
+            hidden_size,
+            device,
+        )?)
+    }
+
     /// Attention forward over `token_count` new rows after an optional
     /// cached prefix, with an optional cooperative `check`.
     ///

@@ -85,6 +85,25 @@
 
 ### Changed
 
+- The d3, sieve, decider, and decoder-logit-qwen35 engines read only the final
+  token of their backbone, yet the last decoder layer computed its query path,
+  output projection, MLP, and final norm for every row. `TextBackbone` now has
+  a last-row forward that runs the final layer for that one row (a
+  full-attention mixer still builds keys and values for all rows, and a
+  DeltaNet mixer still scans them, so only the work nothing reads is
+  skipped). Earlier layers are unchanged, because the next layer needs all
+  their rows. The matmul sums in a different order at one row than at many,
+  so this is held to the probability tolerance rather than bit identity. On a
+  synthetic checkpoint the last row differs from the full pass by at most one
+  ulp across causal and noncausal attention and both mixer kinds, and the
+  tests fail under four deliberate mutations. On pinned weights the d3-edge,
+  d3-lite, and d3-nano golden replays and the sieve-4b replay pass, and d3
+  answers sit within 2.8e-6 of the golden. Alternating fresh-process runs on a
+  heavily loaded host put d3-edge about 5% faster and d3-lite 2 to 3% faster,
+  in line with one layer in 12 and 24. strands-decider and clef read other
+  rows and keep the full pass. The decider and decoder-logit-qwen35 replays
+  were not run.
+
 - The native scheduler can plan for a root the prefix cache already holds
   (`choose_strategy_with_cached_root`). The root forward leaves the shared
   strategies' token work while repeated-full still pays it per candidate, so

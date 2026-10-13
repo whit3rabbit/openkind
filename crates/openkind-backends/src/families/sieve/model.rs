@@ -394,17 +394,17 @@ impl SieveModel {
                 "code readout serves 1..={CODE_TABLE_WIDTH} codes, found {count}"
             )));
         }
-        let hidden = self
+        // The readout reads only the final token, so the last decoder layer
+        // runs for that row alone.
+        let final_token = self
             .backbone
-            .forward_hidden_with_check(prompt_ids, || control.check())?;
+            .forward_last_hidden_with_check(prompt_ids, || control.check())?;
         control.check()?;
-        let token_start = (prompt_ids.len() - 1) * self.hidden_size;
-        let final_token = &hidden[token_start..];
         let mut logits = Vec::with_capacity(count);
         for row in self.readout.chunks_exact(self.hidden_size).take(count) {
             let logit: f64 = row
                 .iter()
-                .zip(final_token)
+                .zip(&final_token)
                 .map(|(weight, value)| f64::from(*weight) * f64::from(*value))
                 .sum();
             if !logit.is_finite() {

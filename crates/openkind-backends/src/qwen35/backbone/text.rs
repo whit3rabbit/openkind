@@ -336,17 +336,19 @@ impl TextBackbone {
     where
         E: From<Qwen35Error>,
     {
-        self.forward_hidden_checked(input_ids, check, false)
+        self.forward_hidden_checked(input_ids, check, false, false)
     }
 
-    /// [`Self::forward_hidden_with_check`] that also runs `check` inside
-    /// every full-attention kernel, not only between layers.
+    /// Final-norm hidden state of the last token only, `[hidden_size]`.
     ///
-    /// The scalar attention kernel is quadratic in the prompt length, so on
-    /// long prompts one layer can outlast a deadline or disconnect by a wide
-    /// margin. Numerics are identical; only cancellation granularity
-    /// changes, which is why callers opt in per family.
-    pub(crate) fn forward_hidden_with_attention_check<E>(
+    /// Equivalent to the last row of [`Self::forward_hidden_with_check`] for
+    /// callers that read nothing else. The last decoder layer then runs its
+    /// query path, output projection, and MLP for that one row. Earlier layers
+    /// still run every row, because the next layer needs all their outputs.
+    /// The result matches the full pass up to the matmul's summation order at
+    /// one row against many, so a caller holds it to its probability tolerance
+    /// rather than to bit identity.
+    pub(crate) fn forward_last_hidden_with_check<E>(
         &self,
         input_ids: &[u32],
         check: impl FnMut() -> Result<(), E>,
@@ -354,7 +356,25 @@ impl TextBackbone {
     where
         E: From<Qwen35Error>,
     {
-        self.forward_hidden_checked(input_ids, check, true)
+        self.forward_hidden_checked(input_ids, check, false, true)
+    }
+
+    /// [`Self::forward_last_hidden_with_check`] that also runs `check` inside
+    /// the full-attention kernel, not only between layers.
+    ///
+    /// The scalar attention kernel is quadratic in the prompt length, so on
+    /// long prompts one layer can outlast a deadline or disconnect by a wide
+    /// margin. Numerics are identical; only cancellation granularity
+    /// changes, which is why callers opt in per family.
+    pub(crate) fn forward_last_hidden_with_attention_check<E>(
+        &self,
+        input_ids: &[u32],
+        check: impl FnMut() -> Result<(), E>,
+    ) -> Result<Vec<f32>, E>
+    where
+        E: From<Qwen35Error>,
+    {
+        self.forward_hidden_checked(input_ids, check, true, true)
     }
 
     fn forward_hidden_checked<E>(
@@ -362,6 +382,7 @@ impl TextBackbone {
         input_ids: &[u32],
         mut check: impl FnMut() -> Result<(), E>,
         check_inside_attention: bool,
+        last_row_only: bool,
     ) -> Result<Vec<f32>, E>
     where
         E: From<Qwen35Error>,
@@ -390,6 +411,8 @@ impl TextBackbone {
         };
         let layers_root = transient.as_ref().map(|variables| variables.pp("layers"));
         let trace_layers = std::env::var_os("OPENKIND_QWEN35_LAYER_TRACE").is_some();
+        // Rows in `hidden`: the whole sequence until a last-row layer prunes it.
+        let mut rows = token_count;
         for layer_index in 0..self.geometry.layer_count {
             check()?;
             let loaded;
@@ -402,7 +425,20 @@ impl TextBackbone {
                 }
                 (None, None) => unreachable!("transient weights are built when none are resident"),
             };
-            hidden = if check_inside_attention {
+            hidden = if last_row_only && layer_index + 1 == self.geometry.layer_count {
+                // Nothing reads the other rows past this layer.
+                rows = 1;
+                if check_inside_attention {
+                    layer.forward_last_row_checked(
+                        &hidden,
+                        token_count,
+                        layer_index,
+                        Some(&mut check as &mut dyn FnMut() -> Result<(), E>),
+                    )?
+                } else {
+                    layer.forward_last_row_checked::<E>(&hidden, token_count, layer_index, None)?
+                }
+            } else if check_inside_attention {
                 layer.forward_checked(&hidden, token_count, layer_index, &mut check)?
             } else {
                 layer
@@ -410,7 +446,7 @@ impl TextBackbone {
                     .map_err(E::from)?
             };
             if trace_layers {
-                let start = (token_count - 1) * self.geometry.hidden_size;
+                let start = (rows - 1) * self.geometry.hidden_size;
                 let head: Vec<f32> = hidden[start..start + 4].to_vec();
                 eprintln!("trace: layer {layer_index} last {head:?}");
             }
@@ -425,8 +461,7 @@ impl TextBackbone {
             }
             (None, None) => unreachable!("transient weights are built when none are resident"),
         };
-        let final_values =
-            rms_norm_zero_centered(&hidden, token_count, self.geometry.hidden_size, norm);
+        let final_values = rms_norm_zero_centered(&hidden, rows, self.geometry.hidden_size, norm);
         if let Some((index, value)) = final_values
             .iter()
             .copied()
@@ -666,7 +701,7 @@ mod resident_tests {
             assert_bit_identical(&again, &expected, "resident repeat");
             // The attention-checked variant takes the same layers.
             let checked = resident
-                .forward_hidden_with_attention_check(ids, || -> Result<(), Qwen35Error> { Ok(()) })
+                .forward_hidden_checked(ids, || -> Result<(), Qwen35Error> { Ok(()) }, true, false)
                 .expect("resident checked");
             assert_bit_identical(&checked, &expected, "resident checked");
         }
@@ -691,5 +726,112 @@ mod resident_tests {
         // Whatever the process-wide policy says, a BF16-mapped backbone widens
         // per matmul, so there is nothing to keep.
         assert!(bf16.resident.is_none());
+    }
+
+    /// Geometry whose last layer is a DeltaNet mixer: with an interval of 4
+    /// and three layers, no layer is full attention.
+    fn linear_last_geometry() -> Qwen35Geometry {
+        Qwen35Geometry {
+            layer_count: 3,
+            full_attention_layers: Qwen35Geometry::interval_layers(4, 3),
+            ..tiny_geometry()
+        }
+    }
+
+    fn max_abs_difference(left: &[f32], right: &[f32]) -> f32 {
+        assert_eq!(left.len(), right.len());
+        left.iter()
+            .zip(right)
+            .map(|(a, b)| (a - b).abs())
+            .fold(0.0, f32::max)
+    }
+
+    /// The last-row path must reproduce the last row of the full pass. The
+    /// two differ only in the matmul's summation order at one row against
+    /// many, so they are held to a tight tolerance rather than bit identity.
+    #[test]
+    fn last_row_forward_matches_the_last_row_of_the_full_pass() {
+        for (name, base) in [
+            ("full-attention last layer", tiny_geometry()),
+            ("deltanet last layer", linear_last_geometry()),
+        ] {
+            for causal in [true, false] {
+                let geometry = base.with_causal(causal);
+                let directory = tempfile::tempdir().expect("tempdir");
+                let path = directory.path().join("synthetic.safetensors");
+                write_checkpoint(&path, geometry);
+                let backbone = backbone(&path, geometry).without_resident_weights();
+                let resident =
+                    super::TextBackbone::with_resident_weights(self::backbone(&path, geometry))
+                        .expect("resident load");
+                let hidden = geometry.hidden_size;
+                for ids in [&[3_u32, 1, 4, 1, 5, 9, 2, 6, 5][..], &[7, 7][..], &[11][..]] {
+                    let full = backbone.forward_hidden(ids).expect("full");
+                    let expected = &full[(ids.len() - 1) * hidden..];
+                    let tag = format!("{name} causal={causal} rows={}", ids.len());
+                    let pruned = backbone
+                        .forward_last_hidden_with_check(ids, || -> Result<(), Qwen35Error> {
+                            Ok(())
+                        })
+                        .expect("last row");
+                    assert_eq!(pruned.len(), hidden, "{tag}");
+                    let difference = max_abs_difference(&pruned, expected);
+                    assert!(difference <= 1e-5, "{tag}: max diff {difference}");
+                    assert!(
+                        pruned.iter().any(|value| *value != 0.0),
+                        "{tag}: degenerate"
+                    );
+
+                    let checked = backbone
+                        .forward_last_hidden_with_attention_check(
+                            ids,
+                            || -> Result<(), Qwen35Error> { Ok(()) },
+                        )
+                        .expect("last row, attention check");
+                    assert_eq!(checked, pruned, "{tag}: checked variant is the same kernel");
+
+                    // Residency does not change the pruned result either.
+                    let from_resident = resident
+                        .forward_last_hidden_with_check(ids, || -> Result<(), Qwen35Error> {
+                            Ok(())
+                        })
+                        .expect("resident last row");
+                    assert_bit_identical(&from_resident, &pruned, &tag);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn last_row_forward_runs_its_cancellation_checks() {
+        let geometry = tiny_geometry();
+        let directory = tempfile::tempdir().expect("tempdir");
+        let path = directory.path().join("synthetic.safetensors");
+        write_checkpoint(&path, geometry);
+        let backbone = backbone(&path, geometry).without_resident_weights();
+        let ids = [3_u32, 1, 4, 1, 5];
+        let mut calls = 0_usize;
+        backbone
+            .forward_last_hidden_with_attention_check(&ids, || -> Result<(), Qwen35Error> {
+                calls += 1;
+                Ok(())
+            })
+            .expect("last row");
+        assert!(calls >= geometry.layer_count, "checks ran {calls} times");
+        // A failing check stops the pass, including inside the pruned layer.
+        let mut remaining = geometry.layer_count * 2;
+        let outcome = backbone.forward_last_hidden_with_attention_check(
+            &ids,
+            || -> Result<(), Qwen35Error> {
+                if remaining == 0 {
+                    return Err(Qwen35Error::InvalidInput("cancelled".into()));
+                }
+                remaining -= 1;
+                Ok(())
+            },
+        );
+        assert!(
+            matches!(outcome, Err(Qwen35Error::InvalidInput(message)) if message == "cancelled")
+        );
     }
 }
