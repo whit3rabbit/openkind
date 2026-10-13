@@ -71,6 +71,19 @@
 
 ### Changed
 
+- `--qwen35-resident-weights` now also governs the Qwen3.5-text family
+  engines (d3, sieve, decider, decoder-logit-qwen35, strands). Their
+  backbone re-mapped the shards on every forward. For BF16-stored shards it
+  also widened every decoder layer to FP32 each time, about 40% of busy CPU
+  samples in the pinned backbone's profile. F32-stored shards map directly
+  and gain nothing, and each family's stored dtype is unchecked. The
+  decision is made once when the engine loads, with the same free-memory and
+  process-ceiling guard. `auto` covers CPU shard-backed weights only, and
+  adapter-backed engines need `on`. Outputs are bit-identical to the
+  per-forward path (synthetic-checkpoint test over both mixers,
+  mutation-checked). No timing is claimed. The speedup is unmeasured on this
+  host and the checkpoint-gated parity replays were skipped.
+
 - The d3 daemon flags take per-profile size entries —
   `--d3-aliases "edge=<alias>;lite=<alias>;nano=<alias>;mini=<alias>;flash=<alias>"`
   and `--d3-model-roots "edge=<path>;…"` — replacing the single-model

@@ -157,6 +157,54 @@ fn auto_resident_decision(
     Ok(())
 }
 
+/// Pure residency verdict for backbones that decide at construction.
+///
+/// `Ok(true)` keeps the widened weights resident, `Ok(false)` leaves the
+/// per-forward path in place with nothing to report, and `Err` carries the
+/// reason an `Auto` request was declined, which the caller logs. `Auto` only
+/// applies when the footprint can be estimated from mapped shards and the
+/// forward runs on the CPU, because the host-memory guard says nothing about
+/// device memory and an adapter source has no on-disk size to read.
+fn text_resident_verdict(
+    mode: ResidentWeightsMode,
+    estimate: Option<u64>,
+    on_cpu: bool,
+    available: Option<u64>,
+    peak_resident: Option<u64>,
+    process_ceiling: Option<u64>,
+) -> Result<bool, String> {
+    match mode {
+        ResidentWeightsMode::Off => Ok(false),
+        ResidentWeightsMode::On => Ok(true),
+        ResidentWeightsMode::Auto => {
+            let Some(estimate) = estimate.filter(|_| on_cpu) else {
+                return Err(
+                    "automatic residency needs shard-backed weights on the CPU; use `on` to force it"
+                        .to_owned(),
+                );
+            };
+            auto_resident_decision(estimate, available, peak_resident, process_ceiling)
+                .map(|()| true)
+        }
+    }
+}
+
+/// Residency verdict for a [`TextBackbone`](super::text::TextBackbone) under
+/// the process-wide policy set by [`set_resident_weights_policy`].
+pub(super) fn text_resident_decision(estimate: Option<u64>, on_cpu: bool) -> Result<bool, String> {
+    let ceiling = RESIDENT_CEILING.load(std::sync::atomic::Ordering::Relaxed);
+    text_resident_verdict(
+        resident_weights_mode(),
+        estimate,
+        on_cpu,
+        openkind_runtime::available_memory_bytes(),
+        openkind_runtime::peak_resident_bytes()
+            .ok()
+            .map(|bytes| bytes as u64),
+        (ceiling > 0).then_some(ceiling as u64),
+    )
+}
+
 #[allow(clippy::cast_precision_loss)]
 fn gib(bytes: u64) -> f64 {
     bytes as f64 / (1_u64 << 30) as f64
@@ -588,6 +636,56 @@ mod resident_policy_tests {
         // No observation means the ceiling cannot be judged here; the scheduler
         // still enforces it per request.
         assert!(auto_resident_decision(estimate, free, None, Some(24 * GIB)).is_ok());
+    }
+
+    #[test]
+    fn text_verdict_follows_the_mode() {
+        let plenty = Some(64 * GIB);
+        let verdict = |mode, estimate, on_cpu| {
+            text_resident_verdict(mode, estimate, on_cpu, plenty, None, None)
+        };
+        assert_eq!(
+            verdict(ResidentWeightsMode::Off, Some(GIB), true),
+            Ok(false)
+        );
+        // `On` is an explicit operator choice: no estimate and no CPU needed.
+        assert_eq!(verdict(ResidentWeightsMode::On, None, false), Ok(true));
+        assert_eq!(
+            verdict(ResidentWeightsMode::Auto, Some(14 * GIB), true),
+            Ok(true)
+        );
+    }
+
+    #[test]
+    fn text_auto_declines_what_it_cannot_size_or_guard() {
+        let plenty = Some(64 * GIB);
+        // An adapter source has no on-disk size to estimate from.
+        let error =
+            text_resident_verdict(ResidentWeightsMode::Auto, None, true, plenty, None, None)
+                .unwrap_err();
+        assert!(error.contains("shard-backed"), "{error}");
+        // The host-memory guard says nothing about device memory.
+        let error = text_resident_verdict(
+            ResidentWeightsMode::Auto,
+            Some(GIB),
+            false,
+            plenty,
+            None,
+            None,
+        )
+        .unwrap_err();
+        assert!(error.contains("on the CPU"), "{error}");
+        // The usual free-memory guard still applies.
+        let error = text_resident_verdict(
+            ResidentWeightsMode::Auto,
+            Some(30 * GIB),
+            true,
+            Some(32 * GIB),
+            None,
+            None,
+        )
+        .unwrap_err();
+        assert!(error.contains("free is below"), "{error}");
     }
 
     #[test]
