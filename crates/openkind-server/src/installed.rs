@@ -62,7 +62,6 @@ use openkind_backends::families::sieve::{SieveEngine, SieveEngineConfig, SIEVE_4
 use openkind_backends::families::strands_decider::{
     StrandsDeciderEngine, StrandsDeciderEngineConfig, StrandsDeciderProfile, HOBSON_V19, HOBSON_V21,
 };
-use openkind_backends::families::support::FamilyLimits;
 use openkind_backends::families::von::{
     VonEngine, VonEngineConfig, PROFILE_ID as VON_PROFILE, VON,
 };
@@ -307,14 +306,7 @@ fn load_installed_explicit(
     root: &Path,
     registry: &EngineRegistry,
 ) -> Result<Arc<dyn DecisionEngine>> {
-    let limits = FamilyLimits {
-        max_concurrent_requests: args.family_args.family_concurrency,
-        max_queued_requests: args.family_args.family_queue,
-        retry_after_ms: 1_000,
-        evaluation_timeout: Some(std::time::Duration::from_millis(
-            args.family_args.family_timeout_ms,
-        )),
-    };
+    let limits = args.family_args.admission().limits();
     let engine: Arc<dyn DecisionEngine> = match kind {
         InstalledKind::Qwen35StateFirst => crate::load_qwen(
             args,

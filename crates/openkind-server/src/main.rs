@@ -338,14 +338,7 @@ async fn run(args: Args) -> Result<()> {
                     openkind_backends::families::winnow::WinnowEngineConfig {
                         model_root: model_root.clone(),
                         adapter_path: adapter.clone(),
-                        limits: openkind_backends::families::support::FamilyLimits {
-                            max_concurrent_requests: args.family_args.family_concurrency,
-                            max_queued_requests: args.family_args.family_queue,
-                            retry_after_ms: 1_000,
-                            evaluation_timeout: Some(std::time::Duration::from_millis(
-                                args.family_args.family_timeout_ms,
-                            )),
-                        },
+                        limits: args.family_args.admission().limits(),
                     },
                     siblings.clone(),
                     backend.to_execution(args.device_ordinals())?,
