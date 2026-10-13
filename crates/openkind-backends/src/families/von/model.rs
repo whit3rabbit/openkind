@@ -18,6 +18,9 @@ use crate::families::support::{read_json, verify_digest, FamilyError};
 use super::arch::{VonScorer, VonScorerConfig};
 use super::VonProfile;
 
+#[cfg(test)]
+mod load_order_tests;
+
 /// The pinned von model: ModernBERT body plus the option-marker scorer.
 pub struct VonModel {
     body: ModernBertModel,

@@ -10,6 +10,9 @@ use crate::families::support::{verify_digest, FamilyError};
 use super::arch::{LayaDecisionHead, LayaHeadConfig};
 use super::{LayaProfile, LayaSpecials};
 
+#[cfg(test)]
+mod load_order_tests;
+
 /// The pinned laya model: ModernBERT body plus the typed decision head.
 pub struct LayaModel {
     body: ModernBertModel,

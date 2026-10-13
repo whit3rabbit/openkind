@@ -48,6 +48,8 @@
 //! unused: this family serves text questions only.
 
 mod engine;
+#[cfg(test)]
+mod load_order_tests;
 mod model;
 mod renderer;
 

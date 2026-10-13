@@ -538,6 +538,83 @@ pub fn temperature_softmax(logits: &[f64], temperature: f64) -> Result<Vec<f64>,
     Ok(exponentials.iter().map(|value| value / sum).collect())
 }
 
+/// Fixtures for the load-time precedence tests that pin which error wins
+/// when several pinned artifacts are wrong at once.
+#[cfg(test)]
+pub(crate) mod testing {
+    use std::path::{Path, PathBuf};
+
+    use serde_json::{json, Value};
+
+    /// Leak a string so a test can build a profile with `&'static str`
+    /// digests computed from fabricated files.
+    pub(crate) fn leak(text: impl Into<String>) -> &'static str {
+        Box::leak(text.into().into_boxed_str())
+    }
+
+    /// Lowercase hex SHA-256 of `bytes`.
+    pub(crate) fn sha(bytes: &[u8]) -> String {
+        openkind_runtime::hashing::sha256_hex(bytes)
+    }
+
+    /// Write `bytes` at `root/relative`, creating parent directories.
+    pub(crate) fn put(root: &Path, relative: &str, bytes: &[u8]) -> PathBuf {
+        let path = root.join(relative);
+        std::fs::create_dir_all(path.parent().expect("fixture path has a parent"))
+            .expect("create fixture directory");
+        std::fs::write(&path, bytes).expect("write fixture file");
+        path
+    }
+
+    /// Build a nested config document that satisfies every `(field, value)`
+    /// pin, using the same dotted and `name[0]` path syntax the loaders read.
+    pub(crate) fn config_from_pins(pins: &[(&'static str, Value)]) -> Value {
+        let mut root = json!({});
+        for (field, value) in pins {
+            let mut current = &mut root;
+            let segments: Vec<&str> = field.split('.').collect();
+            for (index, segment) in segments.iter().enumerate() {
+                let last = index + 1 == segments.len();
+                let (name, listed) = match segment.strip_suffix("[0]") {
+                    Some(name) => (name, true),
+                    None => (*segment, false),
+                };
+                let object = current.as_object_mut().expect("pin path crosses an object");
+                if last && !listed {
+                    object.insert(name.to_owned(), value.clone());
+                    break;
+                }
+                let slot = object.entry(name.to_owned()).or_insert_with(|| {
+                    if listed {
+                        json!([null])
+                    } else {
+                        json!({})
+                    }
+                });
+                if listed {
+                    if last {
+                        slot.as_array_mut().expect("list slot")[0] = value.clone();
+                        break;
+                    }
+                    let element = &mut slot.as_array_mut().expect("list slot")[0];
+                    if element.is_null() {
+                        *element = json!({});
+                    }
+                    current = element;
+                } else {
+                    current = slot;
+                }
+            }
+        }
+        root
+    }
+
+    /// Serialize a config document the way the fixtures store it.
+    pub(crate) fn json_bytes(value: &Value) -> Vec<u8> {
+        serde_json::to_vec(value).expect("serialize fixture json")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
