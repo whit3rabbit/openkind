@@ -201,6 +201,80 @@ async fn dispatch_preserves_engine_reported_tokens() {
     assert_eq!(resp.usage.output_tokens, 888);
 }
 
+/// Reports its own usage; counts how often the fallback estimate is taken.
+struct UsageBackend {
+    reported_input: u32,
+    opted_in: bool,
+    estimates: std::sync::atomic::AtomicUsize,
+}
+
+#[async_trait]
+impl DecisionEngine for UsageBackend {
+    fn backend_id(&self) -> &str {
+        "usage"
+    }
+    fn reports_input_tokens(&self) -> bool {
+        self.opted_in
+    }
+    fn estimate_input_tokens(&self, _req: &SystemRequest) -> u32 {
+        self.estimates
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        77
+    }
+    async fn evaluate(&self, req: SystemRequest) -> EngineResult<SystemResponse> {
+        let answers = req
+            .questions
+            .keys()
+            .map(|id| (id.clone(), Answer::Noul(NoulAnswer { noul: 0.5 })))
+            .collect();
+        Ok(SystemResponse {
+            model: "usage".into(),
+            answers,
+            usage: Usage {
+                input_tokens: self.reported_input,
+                output_tokens: 0,
+            },
+        })
+    }
+}
+
+async fn run_usage_backend(backend: Arc<UsageBackend>) -> SystemResponse {
+    let mut reg = EngineRegistry::new();
+    reg.register("usage", backend);
+    dispatch(make_test_request("usage"), &reg).await.unwrap()
+}
+
+#[tokio::test]
+async fn default_engines_get_the_estimate_when_they_report_zero_input_tokens() {
+    let backend = Arc::new(UsageBackend {
+        reported_input: 0,
+        opted_in: false,
+        estimates: Default::default(),
+    });
+    let resp = run_usage_backend(backend.clone()).await;
+    assert_eq!(resp.usage.input_tokens, 77);
+    assert!(resp.usage.output_tokens > 0);
+    assert_eq!(
+        backend.estimates.load(std::sync::atomic::Ordering::Relaxed),
+        1
+    );
+}
+
+#[tokio::test]
+async fn opted_in_engines_skip_the_estimate_and_keep_their_own_count() {
+    let backend = Arc::new(UsageBackend {
+        reported_input: 12,
+        opted_in: true,
+        estimates: Default::default(),
+    });
+    let resp = run_usage_backend(backend.clone()).await;
+    assert_eq!(resp.usage.input_tokens, 12);
+    assert_eq!(
+        backend.estimates.load(std::sync::atomic::Ordering::Relaxed),
+        0
+    );
+}
+
 #[tokio::test]
 async fn dispatch_estimates_output_tokens_per_answer_kind() {
     struct MultiAnswerBackend;

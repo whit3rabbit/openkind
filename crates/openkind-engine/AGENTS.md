@@ -35,6 +35,7 @@
     - `fn model_metadata(&self) -> ModelInfo`: Descriptive metadata returned by `/v1/models`.
     - `async fn evaluate(&self, req: SystemRequest) -> EngineResult<SystemResponse>`: Async execution entry point.
     - `fn estimate_input_tokens(&self, req: &SystemRequest) -> u32`: Heuristic or tokenizer-based input token estimate.
+    - `fn reports_input_tokens(&self) -> bool` (default `false`): opt-in for engines whose `evaluate` always reports non-zero `usage.input_tokens`; `dispatch` then skips the pre-evaluation estimate (a full-request serialization pass). Opted-in engines that report `0` surface `0`.
 - [`src/registry.rs`](./src/registry.rs):
   - `pub struct EngineRegistry`: Shares a lock-protected alias map across clones. Startup registration uses `register`; explicit lifecycle controls use `register_if_absent` and `unregister`. Lookups clone engine handles before releasing the lock, so accepted requests survive unloading. Query results are sorted deterministically.
 - [`src/dispatch.rs`](./src/dispatch.rs):

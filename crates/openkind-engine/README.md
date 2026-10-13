@@ -71,6 +71,9 @@ openkind_engine::dispatch(req, &registry)
       // input estimate.
       fn model_metadata(&self) -> ModelInfo;
       fn estimate_input_tokens(&self, req: &SystemRequest) -> u32;
+      // Opt-in (default false): skip the pre-evaluation estimate because
+      // `evaluate` always reports non-zero input tokens itself.
+      fn reports_input_tokens(&self) -> bool;
   }
   ```
 - **`EngineRegistry`**:
