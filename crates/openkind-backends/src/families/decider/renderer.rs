@@ -42,9 +42,21 @@ pub struct DeciderRenderer {
     /// Token ids of the [`MAX_LABELS`] label strings, in reference
     /// `label_table` order (the first [`NARROW_OPTIONS`] are `A..J`).
     label_ids: Vec<u32>,
+    /// Ids of the constant `"\n("` that opens each wide-path option line.
+    open_ids: Vec<u32>,
+    /// Ids of the constant `"\nAnswer: ("` that closes a wide-path row.
+    tail_ids: Vec<u32>,
     max_state_tokens: usize,
     max_row_tokens: usize,
     annotate_min: usize,
+}
+
+/// Token ids of `text` encoded without special tokens.
+fn encode_ids(tokenizer: &Tokenizer, text: &str) -> Result<Vec<u32>, FamilyError> {
+    tokenizer
+        .encode(text, false)
+        .map(|encoding| encoding.get_ids().to_vec())
+        .map_err(|error| FamilyError::Tokenizer(error.to_string()))
 }
 
 impl DeciderRenderer {
@@ -63,6 +75,11 @@ impl DeciderRenderer {
         })?;
         let tokenizer = Tokenizer::from_bytes(bytes)
             .map_err(|error| FamilyError::Tokenizer(error.to_string()))?;
+        Self::from_tokenizer(tokenizer, profile)
+    }
+
+    /// Resolve the label-token contract on an already-built tokenizer.
+    fn from_tokenizer(tokenizer: Tokenizer, profile: &DeciderProfile) -> Result<Self, FamilyError> {
         let mut names: Vec<String> = (b'A'..=b'Z')
             .map(|letter| (letter as char).to_string())
             .collect();
@@ -116,9 +133,15 @@ impl DeciderRenderer {
                 });
             }
         }
+        // Both separators are tokenized as their own segments, so the ids are
+        // request-independent and computed once here instead of per row.
+        let open_ids = encode_ids(&tokenizer, "\n(")?;
+        let tail_ids = encode_ids(&tokenizer, "\nAnswer: (")?;
         Ok(Self {
             tokenizer,
             label_ids,
+            open_ids,
+            tail_ids,
             max_state_tokens: profile.max_state_tokens,
             max_row_tokens: profile.max_row_tokens,
             annotate_min: profile.annotate_min,
@@ -198,27 +221,17 @@ impl DeciderRenderer {
                 .tokenizer
                 .encode(head.as_str(), false)
                 .map_err(|error| FamilyError::Tokenizer(error.to_string()))?;
-            let open_ids = self
-                .tokenizer
-                .encode("\n(", false)
-                .map_err(|error| FamilyError::Tokenizer(error.to_string()))?
-                .get_ids()
-                .to_vec();
             ids.extend_from_slice(head_ids.get_ids());
             for (index, option) in options.iter().enumerate() {
                 let text_ids = self
                     .tokenizer
                     .encode(format!(") {option}").as_str(), false)
                     .map_err(|error| FamilyError::Tokenizer(error.to_string()))?;
-                ids.extend_from_slice(&open_ids);
+                ids.extend_from_slice(&self.open_ids);
                 ids.push(self.label_ids[index]);
                 ids.extend_from_slice(text_ids.get_ids());
             }
-            let tail_ids = self
-                .tokenizer
-                .encode("\nAnswer: (", false)
-                .map_err(|error| FamilyError::Tokenizer(error.to_string()))?;
-            ids.extend_from_slice(tail_ids.get_ids());
+            ids.extend_from_slice(&self.tail_ids);
         }
         if ids.len() > self.max_row_tokens {
             return Err(FamilyError::InvalidInput(format!(
@@ -286,6 +299,68 @@ fn annotate_indices(value: &serde_json::Value, min_len: usize) -> serde_json::Va
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// Word-level tokenizer giving every label (`A..Z`, `AA..ZZ`) its own
+    /// token, so the label contract resolves offline. Words outside the
+    /// vocabulary become `[UNK]`.
+    fn label_tokenizer() -> Tokenizer {
+        use std::collections::HashMap;
+        use tokenizers::models::wordlevel::WordLevel;
+        use tokenizers::pre_tokenizers::whitespace::Whitespace;
+
+        let mut vocab = HashMap::new();
+        vocab.insert("[UNK]".to_owned(), 0_u32);
+        for letter in b'A'..=b'Z' {
+            let next = vocab.len() as u32;
+            vocab.insert((letter as char).to_string(), next);
+        }
+        for first in b'A'..=b'Z' {
+            for second in b'A'..=b'Z' {
+                let next = vocab.len() as u32;
+                vocab.insert(format!("{}{}", first as char, second as char), next);
+            }
+        }
+        let model = WordLevel::builder()
+            .vocab(vocab)
+            .unk_token("[UNK]".to_owned())
+            .build()
+            .expect("wordlevel model");
+        let mut tokenizer = Tokenizer::new(model);
+        tokenizer.with_pre_tokenizer(Some(Whitespace));
+        tokenizer
+    }
+
+    fn profile() -> &'static DeciderProfile {
+        &crate::families::decider::DECIDER_4B
+    }
+
+    #[test]
+    fn cached_separators_match_fresh_tokenization_on_the_wide_path() {
+        let renderer =
+            DeciderRenderer::from_tokenizer(label_tokenizer(), profile()).expect("renderer");
+        let fresh = |text: &str| encode_ids(&renderer.tokenizer, text).expect("encode");
+        assert_eq!(renderer.open_ids, fresh("\n("));
+        assert_eq!(renderer.tail_ids, fresh("\nAnswer: ("));
+
+        // More than NARROW_OPTIONS options takes the id-built wide path;
+        // rebuild the row from fresh tokenizations of every piece.
+        let state_ids = renderer.state_ids(&json!("alpha beta")).expect("state ids");
+        let options: Vec<String> = (0..NARROW_OPTIONS + 3)
+            .map(|index| format!("option {index}"))
+            .collect();
+        let row = renderer
+            .render_row(&state_ids, "Which one?", &options)
+            .expect("row");
+        let mut expected = state_ids.clone();
+        expected.extend(fresh("\n\nQuestion: Which one?\nOptions:"));
+        for (index, option) in options.iter().enumerate() {
+            expected.extend(fresh("\n("));
+            expected.push(renderer.label_ids[index]);
+            expected.extend(fresh(&format!(") {option}")));
+        }
+        expected.extend(fresh("\nAnswer: ("));
+        assert_eq!(row.prompt_ids(), expected.as_slice());
+    }
 
     #[test]
     fn annotate_indices_writes_positions_into_long_arrays_only() {
