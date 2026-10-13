@@ -302,6 +302,10 @@ impl FamilyEvaluator for VonEngine {
         }
     }
 
+    fn reports_input_tokens(&self) -> bool {
+        true
+    }
+
     fn evaluate(
         &self,
         request: SystemRequest,

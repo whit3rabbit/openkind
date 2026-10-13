@@ -196,6 +196,17 @@ pub trait FamilyEvaluator: Send + Sync {
     /// Public metadata surfaced by `GET /v1/models`.
     fn model_metadata(&self) -> ModelInfo;
 
+    /// Whether `evaluate` always sets `usage.input_tokens` to a real nonzero
+    /// count on every success path.
+    ///
+    /// Forwarded to [`DecisionEngine::reports_input_tokens`], which lets
+    /// dispatch skip its pre-evaluation estimate. Only opt in when every
+    /// success path counts the rendered prompt tokens; an evaluator that can
+    /// return `0` must keep the default so the estimate still backfills it.
+    fn reports_input_tokens(&self) -> bool {
+        false
+    }
+
     /// Evaluate one request synchronously. Implementations must honor
     /// cancellation and deadlines through [`FamilyControl`].
     fn evaluate(
@@ -588,6 +599,10 @@ impl DecisionEngine for BoundedFamilyEngine {
 
     fn model_metadata(&self) -> ModelInfo {
         self.evaluator.model_metadata()
+    }
+
+    fn reports_input_tokens(&self) -> bool {
+        self.evaluator.reports_input_tokens()
     }
 
     async fn evaluate(&self, request: SystemRequest) -> EngineResult<SystemResponse> {
@@ -1023,6 +1038,40 @@ mod tests {
         assert_eq!(engine.backend_id(), "test-family");
         let response = engine.evaluate(request()).await.expect("evaluate");
         assert_eq!(response.model, "test");
+    }
+
+    #[test]
+    fn bounded_engine_forwards_the_evaluator_token_reporting_opt_in() {
+        struct Reporting;
+        impl FamilyEvaluator for Reporting {
+            fn backend_id(&self) -> &str {
+                "reporting"
+            }
+            fn model_metadata(&self) -> ModelInfo {
+                evaluator("reporting").model_metadata()
+            }
+            fn reports_input_tokens(&self) -> bool {
+                true
+            }
+            fn evaluate(
+                &self,
+                _request: SystemRequest,
+                _control: &FamilyControl,
+            ) -> Result<SystemResponse, FamilyError> {
+                unreachable!("only the opt-in flag is exercised")
+            }
+        }
+        let limits = || FamilyLimits {
+            max_concurrent_requests: 1,
+            max_queued_requests: 0,
+            retry_after_ms: 1,
+            evaluation_timeout: None,
+        };
+        // An evaluator that can return zero keeps the dispatch estimate.
+        let default = BoundedFamilyEngine::new(Arc::new(evaluator("test-family")), limits());
+        assert!(!default.reports_input_tokens());
+        let opted_in = BoundedFamilyEngine::new(Arc::new(Reporting), limits());
+        assert!(opted_in.reports_input_tokens());
     }
 
     #[tokio::test]

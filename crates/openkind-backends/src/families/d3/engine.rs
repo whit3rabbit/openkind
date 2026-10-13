@@ -427,6 +427,10 @@ impl FamilyEvaluator for D3Engine {
         }
     }
 
+    fn reports_input_tokens(&self) -> bool {
+        true
+    }
+
     fn evaluate(
         &self,
         request: SystemRequest,

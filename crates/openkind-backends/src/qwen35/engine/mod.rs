@@ -144,6 +144,12 @@ impl DecisionEngine for Qwen35DecisionEngine {
         }
     }
 
+    // `evaluate_request` bills the encoded state root plus every question
+    // branch, and the state root is never empty, so the count is nonzero.
+    fn reports_input_tokens(&self) -> bool {
+        true
+    }
+
     async fn evaluate(&self, request: SystemRequest) -> EngineResult<SystemResponse> {
         let started = Instant::now();
         let cancelled = Arc::new(AtomicBool::new(false));

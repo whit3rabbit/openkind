@@ -163,6 +163,10 @@ impl FamilyEvaluator for Qwen3GuardEngine {
         }
     }
 
+    fn reports_input_tokens(&self) -> bool {
+        true
+    }
+
     fn evaluate(
         &self,
         request: SystemRequest,

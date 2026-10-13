@@ -348,6 +348,10 @@ impl FamilyEvaluator for DeciderEngine {
         }
     }
 
+    fn reports_input_tokens(&self) -> bool {
+        true
+    }
+
     fn evaluate(
         &self,
         request: SystemRequest,

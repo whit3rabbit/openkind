@@ -280,6 +280,10 @@ impl FamilyEvaluator for DecoderLogitQwen35Engine {
         }
     }
 
+    fn reports_input_tokens(&self) -> bool {
+        true
+    }
+
     fn evaluate(
         &self,
         request: SystemRequest,

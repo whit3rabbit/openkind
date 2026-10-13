@@ -122,6 +122,10 @@ impl FamilyEvaluator for SchemaScorerEngine {
         }
     }
 
+    fn reports_input_tokens(&self) -> bool {
+        true
+    }
+
     fn evaluate(
         &self,
         request: SystemRequest,

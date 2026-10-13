@@ -133,6 +133,10 @@ impl FamilyEvaluator for Gemma4DecisionEngine {
         }
     }
 
+    fn reports_input_tokens(&self) -> bool {
+        true
+    }
+
     fn evaluate(
         &self,
         request: SystemRequest,
