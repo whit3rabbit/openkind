@@ -11,9 +11,11 @@
 //! `MlxBackboneState` additionally stores its [`SharedMlxRuntime`]: array
 //! *evaluation* is only legal under the runtime's execution lock, which is
 //! what makes the `Send + Sync` requirement (MLX arrays are `Send` but not
-//! `Sync`) sound. Handle-only operations — clone, shape, byte accounting —
-//! are safe concurrently because the underlying values are immutable and
-//! the refcount updates are atomic.
+//! `Sync`) sound. Forking, fingerprinting, and byte accounting also take the
+//! lock (see the `Sync` impl). Dropping a state does not: it only releases
+//! refcounted handles to immutable values, and the refcount updates are
+//! atomic. That covers states dropped by requests and states the root prefix
+//! cache evicts or expires.
 
 use openkind_runtime::branch::{
     BranchBatch, BranchableState, ContentFingerprint, ContentFingerprintBuilder, ProfileId,

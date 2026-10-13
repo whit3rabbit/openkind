@@ -157,6 +157,72 @@ fn auto_resident_decision(
     Ok(())
 }
 
+/// Residency verdict for a backbone that decides at construction.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum TextResidency {
+    /// Keep the widened weights resident.
+    Keep,
+    /// Leave the per-forward path in place with nothing to report (`off`).
+    Skip,
+    /// `auto` does not apply to this backbone. This is expected for adapter
+    /// sources and non-CPU devices, so the caller logs it below warning level.
+    NotApplicable(&'static str),
+    /// `auto` applied and its memory guard declined, which the caller warns
+    /// about.
+    Declined(String),
+}
+
+/// Pure residency verdict for backbones that decide at construction.
+///
+/// `Auto` only applies when the footprint can be estimated from mapped shards
+/// and the forward runs on the CPU, because the host-memory guard says nothing
+/// about device memory and an adapter source has no on-disk size to read.
+fn text_resident_verdict(
+    mode: ResidentWeightsMode,
+    estimate: Option<u64>,
+    on_cpu: bool,
+    available: Option<u64>,
+    peak_resident: Option<u64>,
+    process_ceiling: Option<u64>,
+) -> TextResidency {
+    match mode {
+        ResidentWeightsMode::Off => TextResidency::Skip,
+        ResidentWeightsMode::On => TextResidency::Keep,
+        ResidentWeightsMode::Auto => {
+            let Some(estimate) = estimate else {
+                return TextResidency::NotApplicable(
+                    "automatic residency needs shard-backed weights to size; use `on` to force it",
+                );
+            };
+            if !on_cpu {
+                return TextResidency::NotApplicable(
+                    "automatic residency guards host memory only, so it applies on the CPU; use `on` to force it",
+                );
+            }
+            match auto_resident_decision(estimate, available, peak_resident, process_ceiling) {
+                Ok(()) => TextResidency::Keep,
+                Err(reason) => TextResidency::Declined(reason),
+            }
+        }
+    }
+}
+
+/// Residency verdict for a [`TextBackbone`](super::text::TextBackbone) under
+/// the process-wide policy set by [`set_resident_weights_policy`].
+pub(super) fn text_resident_decision(estimate: Option<u64>, on_cpu: bool) -> TextResidency {
+    let ceiling = RESIDENT_CEILING.load(std::sync::atomic::Ordering::Relaxed);
+    text_resident_verdict(
+        resident_weights_mode(),
+        estimate,
+        on_cpu,
+        openkind_runtime::available_memory_bytes(),
+        openkind_runtime::peak_resident_bytes()
+            .ok()
+            .map(|bytes| bytes as u64),
+        (ceiling > 0).then_some(ceiling as u64),
+    )
+}
+
 #[allow(clippy::cast_precision_loss)]
 fn gib(bytes: u64) -> f64 {
     bytes as f64 / (1_u64 << 30) as f64
@@ -588,6 +654,66 @@ mod resident_policy_tests {
         // No observation means the ceiling cannot be judged here; the scheduler
         // still enforces it per request.
         assert!(auto_resident_decision(estimate, free, None, Some(24 * GIB)).is_ok());
+    }
+
+    #[test]
+    fn text_verdict_follows_the_mode() {
+        let plenty = Some(64 * GIB);
+        let verdict = |mode, estimate, on_cpu| {
+            text_resident_verdict(mode, estimate, on_cpu, plenty, None, None)
+        };
+        assert_eq!(
+            verdict(ResidentWeightsMode::Off, Some(GIB), true),
+            TextResidency::Skip
+        );
+        // `On` is an explicit operator choice: no estimate and no CPU needed.
+        assert_eq!(
+            verdict(ResidentWeightsMode::On, None, false),
+            TextResidency::Keep
+        );
+        assert_eq!(
+            verdict(ResidentWeightsMode::Auto, Some(14 * GIB), true),
+            TextResidency::Keep
+        );
+    }
+
+    #[test]
+    fn text_auto_separates_inapplicable_from_declined() {
+        let plenty = Some(64 * GIB);
+        // An adapter source has no on-disk size to estimate from. That is the
+        // expected state for adapter-backed families, not a warning.
+        let verdict =
+            text_resident_verdict(ResidentWeightsMode::Auto, None, true, plenty, None, None);
+        assert!(
+            matches!(verdict, TextResidency::NotApplicable(reason) if reason.contains("shard-backed")),
+            "{verdict:?}"
+        );
+        // The host-memory guard says nothing about device memory.
+        let verdict = text_resident_verdict(
+            ResidentWeightsMode::Auto,
+            Some(GIB),
+            false,
+            plenty,
+            None,
+            None,
+        );
+        assert!(
+            matches!(verdict, TextResidency::NotApplicable(reason) if reason.contains("on the CPU")),
+            "{verdict:?}"
+        );
+        // The usual free-memory guard still applies, and it is a decline.
+        let verdict = text_resident_verdict(
+            ResidentWeightsMode::Auto,
+            Some(30 * GIB),
+            true,
+            Some(32 * GIB),
+            None,
+            None,
+        );
+        assert!(
+            matches!(&verdict, TextResidency::Declined(reason) if reason.contains("free is below")),
+            "{verdict:?}"
+        );
     }
 
     #[test]

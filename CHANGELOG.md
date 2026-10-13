@@ -4,6 +4,27 @@
 
 ### Added
 
+- An opt-in cross-request cache of the native engine's shared-root prefill
+  (`--qwen35-root-cache-bytes`, `--qwen35-root-cache-ttl-secs`, both off by
+  default). The root, up to 1,792 tokens, is the largest forward of a typical
+  request and was recomputed every time. The cache is keyed on the exact root
+  token ids, compares the stored ids on every digest match, serves a forked
+  copy, and is bounded by bytes (LRU) and a TTL. Only the nested strategies'
+  root prefill goes through it. It is off by default because a hit is visible
+  to callers as latency and the wire request carries no tenant. Tests check
+  that a hit reproduces a miss bit for bit and skips the root forward, that
+  only the exact root is served, that returned states cannot alter the
+  cached copy, and the budget, LRU, and TTL behaviour (mutation-checked). On
+  the pinned 4B (CPU daemon, M4 Max) a three-question request took 9.37 s cold
+  and 7.78 s with its 66.6 MB root cached, with identical answers (1 miss, 2
+  hits). Requests the scheduler would not share, such as a single small
+  question, never compute the root on its own, so they never fill the cache.
+  Concurrent misses on one root compute it once: later requests wait for the
+  first, still under their own deadline and cancellation, and compute it
+  themselves if that fill fails. The
+  `openkind_native_root_cache_tensor_bytes` gauge is refreshed on every
+  cache access, so it reflects expired entries once they are released.
+
 - Model support for the d3 family: the pinned `d3-edge:664f9ead734372935286`
   profile serves `vllm-sr/d3-edge` at the evaluated v3.1.0 release commit
   (`18d61df78684675463af9ae732872478845c5a79`) — the pruned 12-layer
@@ -70,6 +91,102 @@
   documented blockers, with the conditions that would reopen each group.
 
 ### Changed
+
+- The FP32 MLX DeltaNet layer now does its row-independent work once over all
+  rows instead of once per token. The causal convolution window, the q/k/v
+  split and L2 norms, the beta and gate math, and the output norm and SiLU
+  gate never read the recurrent state, and they accounted for most of a
+  per-token loop of about a hundred operations. Only the state update stays
+  sequential, through the unchanged reference step. Outputs and carried states
+  are bit-identical to the loop (tests over fresh and continued states and row
+  counts around the convolution window, mutation-checked), so the arithmetic
+  identity is unchanged. With seeded synthetic weights at the pinned layer
+  shapes, a DeltaNet layer at 192 rows went from 45.9 to 16.5 ms and an 8-layer
+  stack from about 0.28 to 0.10 s, and the 24 DeltaNet layers had been about
+  94% of a 32-layer forward. Per-layer evaluation was also measured and costs
+  nothing, so it stays. `stack_rows` is now a single concatenation instead of a
+  quadratic pairwise join. The loop remains for traced runs, native BF16, and
+  `MetalTree`, and `OPENKIND_QWEN35_MLX_ROW_LOOP=1` (only `1`) selects it for FP32. The
+  pinned 4B was run through the bench harness on a 2-state, 6-row workload
+  against a baseline built from the merge base: all 24 answers (6 rows across
+  4 strategies) were exactly equal to the baseline, with and without the
+  row-loop switch. Repeated-full went from 18.2 to 20.5 s down to 6.8 to 7.2 s,
+  and nested-sequential from 4.3 to 4.7 s down to 2.8 to 2.9 s. The
+  checkpoint-gated `qwen35_mlx_full_parity` and `qwen35_mlx_nested_parity`
+  examples were not run, because the Phase 3B reference outputs they compare
+  against are not on this machine.
+
+- The d3, sieve, decider, and decoder-logit-qwen35 engines read only the final
+  token of their backbone, yet the last decoder layer computed its query path,
+  output projection, MLP, and final norm for every row. `TextBackbone` now has
+  a last-row forward that runs the final layer for that one row (a
+  full-attention mixer still builds keys and values for all rows, and a
+  DeltaNet mixer still scans them, so only the work nothing reads is
+  skipped). Earlier layers are unchanged, because the next layer needs all
+  their rows. The matmul sums in a different order at one row than at many,
+  so this is held to the probability tolerance rather than bit identity. On a
+  synthetic checkpoint the last row differs from the full pass by at most one
+  ulp across causal and noncausal attention and both mixer kinds, and the
+  tests fail under four deliberate mutations. On pinned weights the d3-edge,
+  d3-lite, and d3-nano golden replays and the sieve-4b replay pass, and d3
+  answers sit within 2.8e-6 of the golden. Alternating fresh-process runs on a
+  heavily loaded host put d3-edge about 5% faster and d3-lite 2 to 3% faster,
+  in line with one layer in 12 and 24. strands-decider and clef read other
+  rows and keep the full pass. The decider-4b and JevK5 (decoder-logit-qwen35)
+  golden replays also pass on the pinned 4B weights. The Plumb replay was
+  skipped because Plumb is not installed.
+
+- The native scheduler can plan for a root the prefix cache already holds
+  (`choose_strategy_with_cached_root`). The root forward leaves the shared
+  strategies' token work while repeated-full still pays it per candidate, so
+  the unchanged `2.52` gate then picks the shared plan for small requests it
+  would otherwise repeat. Without a cache hit nothing changes. The gate
+  itself is untouched, and `docs/ARCHITECTURE.md` now records that a
+  recorded Q=1, K=2 measurement ran nested faster than the gate allows, as an
+  open question that needs a re-measurement on the pinned 4B checkpoint.
+
+- The native Qwen3.5 sequential nested runner advances each question and
+  candidate from a borrowed parent state instead of deep-copying the parent
+  first. `continue_from` already returns a new state that owns its tensors,
+  so the copy only added a transient state-sized allocation per question and
+  per candidate. `run_strategy` also moves candidate states out of the run
+  rather than cloning them, and the full-attention KV cache is sized once
+  instead of copied twice per layer. Results are unchanged: tests compare the
+  runner to the fork-then-advance sequence and the layer to a one-pass
+  forward, bit for bit (mutation-checked). Nested states now carry the root's
+  lineage depth rather than a forked one, and nothing outside tests and one
+  probe reads it. The structural fingerprint covers shape and position, not
+  tensor values, so the runner's check never proved content immutability. For
+  CPU states the shared borrow does. The retained per-candidate states and
+  their admission accounting are unchanged. On the pinned 4B CPU engine the
+  six answers of a 2-state workload were exactly equal to a baseline built
+  from the merge base, the time was the same (19.1 s), and peak resident
+  memory fell from 9.27 to 8.73 GB.
+
+- **Memory: daemon RSS can rise by about twice the shard bytes per
+  text-family engine.** The daemon defaults to
+  `--qwen35-resident-weights auto`, which now keeps the decoder weights of
+  CPU, shard-backed d3, decider, and decoder-logit-qwen35 engines resident in
+  FP32 when the host has room (about 16 GB for a 4B-class checkpoint). Set
+  `--qwen35-resident-weights off` to keep the previous per-forward footprint.
+- `--qwen35-resident-weights` now also governs the Qwen3.5-text family
+  engines (d3, sieve, decider, decoder-logit-qwen35, strands). Their
+  backbone re-mapped the shards on every forward. For BF16-stored shards it
+  also widened every decoder layer to FP32 each time, about 40% of busy CPU
+  samples in the pinned backbone's profile. F32-stored shards map directly
+  and gain nothing, and each family's stored dtype is unchecked. The
+  decision is made once when the engine loads, with the same free-memory and
+  process-ceiling guard. `auto` covers CPU shard-backed weights only, and
+  adapter-backed engines (sieve, strands) need `on`. That expected skip is
+  logged at info, and only a memory-guard decline warns. Outputs are bit-identical to the
+  per-forward path (synthetic-checkpoint test over both mixers,
+  mutation-checked). On an M4 Max that was busy with other jobs, an
+  in-process off/on comparison over the golden requests took d3-edge from
+  about 119 to 75 ms per request and d3-lite from about 243 to 158 ms, with
+  answers exactly equal across three alternating rounds. That is indicative
+  only, not a frozen benchmark row. The d3-edge and d3-lite golden replays
+  pass on the pinned weights. The decider, sieve, strands and
+  decoder-logit-qwen35 replays were not run.
 
 - The d3 daemon flags take per-profile size entries —
   `--d3-aliases "edge=<alias>;lite=<alias>;nano=<alias>;mini=<alias>;flash=<alias>"`
