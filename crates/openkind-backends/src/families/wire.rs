@@ -55,6 +55,18 @@ impl UnpackedQuestion {
     }
 }
 
+/// The text of a Choice option description, or `None` when it carries none.
+///
+/// JSON `null`, the empty string, and whitespace-only text all mean "no
+/// description". gRPC cannot send a null string: proto3 sends `""` for an
+/// absent description, while HTTP clients may send either, so every
+/// transport must produce the same model input for the same intent. Families
+/// that follow a reference runtime's own whitespace rule for option text
+/// (d3, decider, strands, laya, sieve) read the raw map instead and keep it.
+pub(crate) fn option_description(description: Option<&str>) -> Option<&str> {
+    description.filter(|text| !text.trim().is_empty())
+}
+
 /// Unpack one wire question into candidate labels and criteria.
 ///
 /// `Noul` maps to the fixed `[false, true]` candidate pair, using the
@@ -109,11 +121,13 @@ pub fn unpack_question(id: &str, question: &Question) -> Result<UnpackedQuestion
             let criteria = labels
                 .iter()
                 .map(|label| {
-                    question
-                        .criteria
-                        .get(label)
-                        .and_then(|criterion| criterion.clone())
-                        .unwrap_or_else(|| label.clone())
+                    option_description(
+                        question
+                            .criteria
+                            .get(label)
+                            .and_then(|criterion| criterion.as_deref()),
+                    )
+                    .map_or_else(|| label.clone(), str::to_owned)
                 })
                 .collect();
             Ok(UnpackedQuestion {
@@ -346,6 +360,34 @@ mod tests {
             .collect(),
         });
         assert!(unpack_question("q1", &empty_none).is_err());
+    }
+
+    #[test]
+    fn blank_choice_descriptions_fall_back_to_the_label() {
+        // gRPC sends `""` for an absent description where HTTP sends `null`;
+        // all three spellings of "no description" must unpack identically.
+        let question = |a: Option<&str>, b: Option<&str>| {
+            Question::Choice(ChoiceQuestion {
+                instructions: serde_json::json!("Pick"),
+                criteria: [
+                    ("a".to_owned(), a.map(str::to_owned)),
+                    ("b".to_owned(), b.map(str::to_owned)),
+                ]
+                .into_iter()
+                .collect(),
+            })
+        };
+        let http = unpack_question("q", &question(None, Some("Option B"))).expect("unpack");
+        let grpc = unpack_question("q", &question(Some(""), Some("Option B"))).expect("unpack");
+        let blank =
+            unpack_question("q", &question(Some(" \t\n"), Some("Option B"))).expect("unpack");
+        assert_eq!(http.criteria, ["a", "Option B"]);
+        assert_eq!(grpc.criteria, http.criteria);
+        assert_eq!(blank.criteria, http.criteria);
+
+        // A real description is kept verbatim, whitespace included.
+        let kept = unpack_question("q", &question(Some(" padded "), None)).expect("unpack");
+        assert_eq!(kept.criteria, [" padded ", "b"]);
     }
 
     #[test]

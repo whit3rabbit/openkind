@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use openkind_core::{Answer, ChoiceAnswer, NoulAnswer, Question, ScoreAnswer};
 
 use super::SEMANTIC_NONE_OPTION;
+use crate::families::wire::option_description;
 use crate::qwen35::{HeadEvaluation, PrimitiveKind, Qwen35Error};
 
 pub(crate) struct EncodedQuestion {
@@ -61,9 +62,10 @@ pub(crate) fn question_candidates(
             let criteria = labels
                 .iter()
                 .map(|label| {
-                    question.criteria[label]
-                        .clone()
-                        .unwrap_or_else(|| label.clone())
+                    // Blank descriptions mean "none", exactly as in the shared
+                    // wire unpacking, so gRPC (`""`) and HTTP (`null`) agree.
+                    option_description(question.criteria[label].as_deref())
+                        .map_or_else(|| label.clone(), str::to_owned)
                 })
                 .collect();
             Ok((PrimitiveKind::Choice, labels, criteria))
@@ -197,6 +199,29 @@ mod tests {
         let (_, labels, criteria) = question_candidates(&explicit).expect("map choice");
         assert_eq!(labels, ["a", "b"]);
         assert_eq!(criteria, ["a", "B"]);
+    }
+
+    #[test]
+    fn blank_descriptions_fall_back_to_the_label_like_a_null_description() {
+        // gRPC sends `""` where HTTP sends `null` for an absent description.
+        let choice = |a: Option<&str>| {
+            Question::Choice(ChoiceQuestion {
+                instructions: serde_json::json!("Pick"),
+                criteria: [
+                    ("a".to_owned(), a.map(str::to_owned)),
+                    ("b".to_owned(), Some("B".to_owned())),
+                    (SEMANTIC_NONE_OPTION.to_owned(), Some("Neither".to_owned())),
+                ]
+                .into_iter()
+                .collect(),
+            })
+        };
+        let (_, _, null) = question_candidates(&choice(None)).expect("null description");
+        let (_, _, empty) = question_candidates(&choice(Some(""))).expect("empty description");
+        let (_, _, blank) = question_candidates(&choice(Some("  "))).expect("blank description");
+        assert_eq!(null, ["a", "B"]);
+        assert_eq!(empty, null);
+        assert_eq!(blank, null);
     }
 
     #[test]
