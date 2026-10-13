@@ -212,13 +212,10 @@ impl Inner {
             control.check()?;
             *token_count = token_count
                 .saturating_add(u64::from(self.renderer.row_token_count(&planned_row.row)));
-            let label_ids = self
-                .renderer
-                .label_ids_for(planned_row.label_count)
-                .to_vec();
+            let label_ids = self.renderer.label_ids_for(planned_row.label_count);
             let logits =
                 self.model
-                    .slot_logits(planned_row.row.prompt_ids(), &label_ids, control)?;
+                    .slot_logits(planned_row.row.prompt_ids(), label_ids, control)?;
             row_probabilities.push(temperature_softmax(&logits, temperature)?);
         }
         let probabilities = match planned.kind {

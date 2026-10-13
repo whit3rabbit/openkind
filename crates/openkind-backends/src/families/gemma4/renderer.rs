@@ -56,6 +56,12 @@ impl RenderedPrompt {
         ids
     }
 
+    /// Prompt token count. Sums the two segments instead of concatenating
+    /// them into a Vec just to take its length.
+    fn token_count(&self) -> usize {
+        self.prefix_ids.len() + self.suffix_ids.len()
+    }
+
     /// One letter-token id per candidate, in candidate order.
     pub fn letter_ids(&self) -> &[u32] {
         &self.letter_ids
@@ -295,7 +301,7 @@ impl WinnowRenderer {
 
     /// Token count of the rendered prompt for usage accounting.
     pub fn prompt_token_count(&self, prompt: &RenderedPrompt) -> u32 {
-        u32::try_from(prompt.prompt_ids().len()).unwrap_or(u32::MAX)
+        u32::try_from(prompt.token_count()).unwrap_or(u32::MAX)
     }
 
     /// Debug helper: decode prompt token ids back to text.
@@ -329,6 +335,17 @@ mod tests {
         let escaped = safe_json(&value).expect("escape");
         assert!(escaped.contains("\\u003cturn|>"));
         assert!(!escaped.contains("<"));
+    }
+
+    #[test]
+    fn token_count_matches_the_concatenated_prompt() {
+        let prompt = RenderedPrompt {
+            prefix_ids: vec![2, 10, 11],
+            suffix_ids: vec![20, 21],
+            letter_ids: vec![30, 31],
+        };
+        assert_eq!(prompt.token_count(), prompt.prompt_ids().len());
+        assert_eq!(prompt.token_count(), 5);
     }
 
     #[test]
