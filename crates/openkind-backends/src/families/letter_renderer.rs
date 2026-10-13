@@ -193,6 +193,25 @@ mod tests {
     use super::*;
 
     #[test]
+    fn validation_rejects_malformed_inputs() {
+        let candidates = vec!["a".to_string(), "b".to_string()];
+        assert!(validate_inputs("  ", "instruction", &candidates).is_err());
+        assert!(validate_inputs("state", " ", &candidates).is_err());
+        assert!(validate_inputs("state", "instruction", &candidates).is_ok());
+
+        let single = vec!["only".to_string()];
+        assert!(validate_inputs("state", "instruction", &single).is_err());
+
+        let too_many: Vec<String> = (0..LETTER_MAX_OPTIONS + 1)
+            .map(|index| format!("option {index}"))
+            .collect();
+        assert!(validate_inputs("state", "instruction", &too_many).is_err());
+
+        let blank = vec!["a".to_string(), "  ".to_string()];
+        assert!(validate_inputs("state", "instruction", &blank).is_err());
+    }
+
+    #[test]
     fn option_letters_cover_the_frozen_vocabulary() {
         assert_eq!(OPTION_LETTERS.len(), LETTER_MAX_OPTIONS);
         assert_eq!(LETTER_MAX_OPTIONS, 26);
