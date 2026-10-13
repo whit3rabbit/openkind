@@ -337,14 +337,21 @@ pub(crate) fn saturating_millis(duration: Duration) -> u64 {
     u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
 }
 
+/// Fixed-label outcome of one failed request, for `requests_total`.
+pub(crate) fn error_outcome_label(error: &EngineError) -> &'static str {
+    match error {
+        EngineError::DeadlineExceeded { .. } => "deadline",
+        EngineError::Overloaded { .. } => "overloaded",
+        EngineError::Unsupported { .. } | EngineError::Invalid(_) => "invalid",
+        _ => "backend_error",
+    }
+}
+
 /// Fixed-label outcome of one finished request, for `requests_total`.
 pub(crate) fn outcome_label<T>(result: &EngineResult<T>) -> &'static str {
     match result {
         Ok(_) => "ok",
-        Err(EngineError::DeadlineExceeded { .. }) => "deadline",
-        Err(EngineError::Overloaded { .. }) => "overloaded",
-        Err(EngineError::Unsupported { .. } | EngineError::Invalid(_)) => "invalid",
-        Err(_) => "backend_error",
+        Err(error) => error_outcome_label(error),
     }
 }
 
@@ -635,7 +642,7 @@ impl BoundedFamilyEngine {
     }
 }
 
-fn map_family_error(backend: &str, error: FamilyError) -> EngineError {
+pub(crate) fn map_family_error(backend: &str, error: FamilyError) -> EngineError {
     let backend = backend.to_owned();
     match error {
         FamilyError::InvalidInput(message) => EngineError::Unsupported { backend, message },

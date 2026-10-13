@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use candle_core::{DType, Device, Tensor};
 use candle_transformers::models::qwen2::{Config, ModelForCausalLM};
 
-use crate::families::support::{require_file, verify_digest, FamilyError};
+use crate::families::support::{require_file, verify_digest, FamilyControl, FamilyError};
 
 use super::{ADAPTER_SHA256, LORA_RANK, LORA_SCALE, TOKENIZER_JSON_SHA256};
 
@@ -192,21 +192,30 @@ impl WinnowModel {
 
     /// Forward the routing prompt once and return the next-token logits at
     /// the letter slots. Nothing is sampled and no continuation exists.
+    ///
+    /// The candle decoder exposes one uninterruptible `forward`, so
+    /// cancellation and the deadline are checked before taking the model
+    /// lock, again once it is held (another pass may have run meanwhile), and
+    /// after the pass. A single pass is bounded by `MAX_SEQUENCE_TOKENS`.
     pub fn letter_logits(
         &self,
         prompt_ids: &[u32],
         letter_ids: &[u32],
+        control: &FamilyControl,
     ) -> Result<Vec<f64>, FamilyError> {
+        control.check()?;
         let input = Tensor::new(prompt_ids, &self.device)?.unsqueeze(0)?;
         let logits = {
             let mut model = self
                 .model
                 .lock()
                 .map_err(|_| FamilyError::InvalidInput("winnow model lock poisoned".to_owned()))?;
+            control.check()?;
             let logits = model.forward(&input, 0);
             model.clear_kv_cache();
             logits?
         };
+        control.check()?;
         let logits = logits.squeeze(0)?.squeeze(0)?.to_vec1::<f32>()?;
         Ok(letter_ids
             .iter()
