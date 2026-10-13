@@ -38,13 +38,19 @@ change the merged weights. The profile's merge scale must equal
 `lora_alpha / r` (2.0). An always-on unit test checks the pins against a
 vendored copy of the pinned file.
 
-Resident memory: the shared backend keeps each target projection's delta
-`(B @ A) · 2.0` as a dense FP32 tensor on the selected device for the
-engine's lifetime. For sieve-4b that is 3,569,090,560 elements (all twelve
-target modules in all 32 layers), about 14.3 GB (13.3 GiB), on top of the
-memory-mapped base shards; the adapter tensors are not retained after the
-merge. Every forward re-reads each layer's weights and adds its delta, so
-a merged layer exists only while that layer runs.
+Resident memory: the shared backend keeps only the FP32 rank-32 factors
+(the adapter's 259,784,032 bytes) on the selected device, on top of the
+memory-mapped base shards. Every forward re-reads each layer's weights and
+recomputes that layer's deltas `(B @ A) · 2.0` as it loads, so a merged
+layer exists only while that layer runs. Caching the dense deltas instead
+would pin 3,569,090,560 FP32 elements (all twelve target modules in all
+32 layers, about 13.3 GiB) for the engine's lifetime.
+
+The recompute costs about `32 / tokens` of each forward's projection
+matmul work in FLOPs. On a 36 GB Apple M4 Max (release build, CPU, other applications running), the
+golden replay took 37 s and 43 s with resident factors (1.41 GB peak
+footprint) against 265 s and 266 s with dense deltas (15.4 to 15.7 GB
+peak footprint). The cause of the dense slowdown was not isolated.
 
 Profile semantics:
 
@@ -113,9 +119,10 @@ Profile semantics:
   `input_tokens`.
 - **LoRA merge.** The merge backend is the one first proven on the
   strands-decider family; the sieve adapter's shapes, digests, and merge
-  settings are verified at load, and the delta is recomputed per load in
-  FP32. Always-on unit tests cover the backend's merge arithmetic and its
-  fail-closed target and shape checks on synthetic tensors.
+  settings are verified at load, and each delta is recomputed in FP32 on
+  every weight read. Always-on unit tests cover the backend's merge
+  arithmetic, that only the rank factors stay resident, and its fail-closed
+  target and shape checks on synthetic tensors.
 - **Golden replay.** `crates/openkind-backends/tests/sieve_4b_parity.rs`
   replays the committed golden fixture against the pinned artifacts
   (env-gated via `OPENKIND_SIEVE_MODEL_ROOT`). The goldens are a Rust
@@ -127,7 +134,15 @@ Profile semantics:
   the fail-closed load paths (missing artifacts and a digest mismatch).
   The code-table test runs the derivation over a synthetic WordLevel
   tokenizer, so it checks the selection and ordering logic only; the real
-  table is checked at load against `sieve_config.json`.
+  table is checked at load against `sieve_config.json`. For a profile
+  installed with `openkind pull`, the root is the install directory, which
+  holds `base/` and `checkpoint/`:
+
+  ```bash
+  OPENKIND_SIEVE_MODEL_ROOT="<models-dir>/models/sieve-4b:8b97b56524b55c41fbf4" \
+    env -u RUST_LOG cargo test -p openkind-backends --test sieve_4b_parity \
+    -- --nocapture
+  ```
 
 ## Benchmarks
 
