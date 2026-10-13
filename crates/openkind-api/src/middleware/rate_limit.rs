@@ -144,10 +144,8 @@ impl RateLimiter {
         }
         if units > self.config.max_requests.saturating_sub(entry.0) {
             let elapsed = now.duration_since(entry.1);
-            let remaining_ms = window
-                .saturating_sub(elapsed)
-                .as_millis()
-                .min(u64::MAX as u128) as u64;
+            let remaining_ms =
+                openkind_core::duration_millis_saturating(window.saturating_sub(elapsed));
             return Err(remaining_ms.max(1));
         }
         entry.0 += units;

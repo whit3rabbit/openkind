@@ -73,62 +73,136 @@ pub enum ApiError {
     Internal(String),
 }
 
-impl ApiError {
-    fn status_and_code(&self) -> (StatusCode, &'static str) {
-        match self {
-            ApiError::InvalidBody(_)
-            | ApiError::Engine(EngineError::Invalid(_))
-            | ApiError::Engine(EngineError::Unsupported { .. }) => {
-                (StatusCode::UNPROCESSABLE_ENTITY, "invalid_body")
-            }
-            ApiError::BadJson(_) => (StatusCode::BAD_REQUEST, "bad_json"),
-            ApiError::PayloadTooLarge(_) => (StatusCode::PAYLOAD_TOO_LARGE, "payload_too_large"),
-            ApiError::Unauthorized => (StatusCode::UNAUTHORIZED, "unauthorized"),
-            ApiError::RateLimited { .. } => (StatusCode::TOO_MANY_REQUESTS, "rate_limited"),
-            ApiError::Overloaded { .. } => (StatusCode::from_u16(529).unwrap(), "overloaded"),
-            ApiError::Engine(EngineError::UnknownModel(_)) => {
-                (StatusCode::NOT_FOUND, "unknown_model")
-            }
-            ApiError::Engine(EngineError::Overloaded { .. }) => {
-                (StatusCode::from_u16(529).unwrap(), "overloaded")
-            }
-            ApiError::Engine(EngineError::DeadlineExceeded { .. }) => {
-                (StatusCode::GATEWAY_TIMEOUT, "deadline_exceeded")
-            }
-            ApiError::Engine(
-                EngineError::Backend { .. } | EngineError::BackendValidation { .. },
-            ) => (StatusCode::INTERNAL_SERVER_ERROR, "backend_error"),
-            ApiError::BadGateway(_) => (StatusCode::BAD_GATEWAY, "bad_gateway"),
-            ApiError::Internal(_) => (StatusCode::INTERNAL_SERVER_ERROR, "internal_error"),
+/// Transport-neutral classification of an error: the one table both the HTTP
+/// and gRPC layers read, so the two cannot drift apart. Message text is
+/// deliberately not part of it (the transports word messages differently).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Classified {
+    /// Stable machine-readable code in the HTTP JSON envelope.
+    pub(crate) code: &'static str,
+    /// HTTP status.
+    pub(crate) http: StatusCode,
+    /// gRPC status code. Variants that never occur over gRPC (for example
+    /// `BadGateway`) carry the closest equivalent.
+    pub(crate) grpc: tonic::Code,
+    /// Suggested backoff in milliseconds, emitted on both transports.
+    pub(crate) retry_after_ms: Option<u64>,
+}
+
+impl Classified {
+    fn new(code: &'static str, http: StatusCode, grpc: tonic::Code) -> Self {
+        Self {
+            code,
+            http,
+            grpc,
+            retry_after_ms: None,
         }
     }
 
-    /// Retry-After / retry-after-ms in milliseconds, if this error carries one.
-    fn retry_after_ms(&self) -> Option<u64> {
+    fn with_retry(mut self, retry_after_ms: u64) -> Self {
+        self.retry_after_ms = Some(retry_after_ms);
+        self
+    }
+}
+
+/// HTTP 529 (non-standard "API overloaded", part of the SDK taxonomy).
+fn status_overloaded() -> StatusCode {
+    StatusCode::from_u16(529).expect("529 is a valid status code")
+}
+
+/// `Retry-After` seconds for a millisecond backoff, rounded up so callers
+/// never retry early.
+pub(crate) fn retry_after_secs(ms: u64) -> u64 {
+    ms.div_ceil(1000)
+}
+
+pub(crate) fn classify_engine(e: &EngineError) -> Classified {
+    use tonic::Code;
+    match e {
+        EngineError::Invalid(_) | EngineError::Unsupported { .. } => Classified::new(
+            "invalid_body",
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Code::InvalidArgument,
+        ),
+        EngineError::UnknownModel(_) => {
+            Classified::new("unknown_model", StatusCode::NOT_FOUND, Code::NotFound)
+        }
+        EngineError::Overloaded { retry_after_ms, .. } => {
+            Classified::new("overloaded", status_overloaded(), Code::Unavailable)
+                .with_retry(*retry_after_ms)
+        }
+        EngineError::DeadlineExceeded { .. } => Classified::new(
+            "deadline_exceeded",
+            StatusCode::GATEWAY_TIMEOUT,
+            Code::DeadlineExceeded,
+        ),
+        EngineError::Backend { .. } | EngineError::BackendValidation { .. } => Classified::new(
+            "backend_error",
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Code::Internal,
+        ),
+    }
+}
+
+impl ApiError {
+    pub(crate) fn classify(&self) -> Classified {
+        use tonic::Code;
         match self {
-            ApiError::RateLimited { retry_after_ms } | ApiError::Overloaded { retry_after_ms } => {
-                Some(*retry_after_ms)
+            ApiError::InvalidBody(_) => Classified::new(
+                "invalid_body",
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Code::InvalidArgument,
+            ),
+            ApiError::BadJson(_) => {
+                Classified::new("bad_json", StatusCode::BAD_REQUEST, Code::InvalidArgument)
             }
-            ApiError::Engine(EngineError::Overloaded { retry_after_ms, .. }) => {
-                Some(*retry_after_ms)
+            ApiError::PayloadTooLarge(_) => Classified::new(
+                "payload_too_large",
+                StatusCode::PAYLOAD_TOO_LARGE,
+                Code::ResourceExhausted,
+            ),
+            ApiError::Unauthorized => Classified::new(
+                "unauthorized",
+                StatusCode::UNAUTHORIZED,
+                Code::Unauthenticated,
+            ),
+            ApiError::RateLimited { retry_after_ms } => Classified::new(
+                "rate_limited",
+                StatusCode::TOO_MANY_REQUESTS,
+                Code::ResourceExhausted,
+            )
+            .with_retry(*retry_after_ms),
+            ApiError::Overloaded { retry_after_ms } => {
+                Classified::new("overloaded", status_overloaded(), Code::Unavailable)
+                    .with_retry(*retry_after_ms)
             }
-            _ => None,
+            ApiError::Engine(e) => classify_engine(e),
+            ApiError::BadGateway(_) => {
+                Classified::new("bad_gateway", StatusCode::BAD_GATEWAY, Code::Unavailable)
+            }
+            ApiError::Internal(_) => Classified::new(
+                "internal_error",
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Code::Internal,
+            ),
         }
     }
 }
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
-        let (status, code) = self.status_and_code();
+        let Classified {
+            code,
+            http: status,
+            retry_after_ms,
+            ..
+        } = self.classify();
 
         let mut headers = HeaderMap::new();
-        if let Some(ms) = self.retry_after_ms() {
+        if let Some(ms) = retry_after_ms {
             // Both: SDK reads either.
             headers.insert(RETRY_AFTER_MS, HeaderValue::from(ms));
-            let secs = ms.div_ceil(1000);
-            if let Ok(v) = HeaderValue::from_str(&secs.to_string()) {
-                headers.insert(RETRY_AFTER, v);
-            }
+            headers.insert(RETRY_AFTER, HeaderValue::from(retry_after_secs(ms)));
         }
         // WWW-Authenticate hint for 401 (the SDK doesn't strictly need it
         // but it's the correct HTTP semantic).
@@ -159,7 +233,7 @@ impl From<serde_json::Error> for ApiError {
 impl From<Duration> for ApiError {
     fn from(d: Duration) -> Self {
         ApiError::RateLimited {
-            retry_after_ms: d.as_millis().min(u64::MAX as u128) as u64,
+            retry_after_ms: openkind_core::duration_millis_saturating(d),
         }
     }
 }

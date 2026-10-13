@@ -279,7 +279,7 @@ fn size_error() -> ApiError {
 fn deadline_error() -> ApiError {
     EngineError::DeadlineExceeded {
         backend: "arrow".to_string(),
-        timeout_ms: ARROW_BATCH_TIMEOUT.as_millis() as u64,
+        timeout_ms: openkind_core::duration_millis_saturating(ARROW_BATCH_TIMEOUT),
     }
     .into()
 }
