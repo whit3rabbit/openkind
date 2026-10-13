@@ -111,8 +111,8 @@ fn assert_states_equal(hoisted: &MlxLinearState, looped: &MlxLinearState, tag: &
 #[test]
 fn hoisted_path_is_bit_identical_to_the_row_loop() {
     assert!(
-        std::env::var_os("OPENKIND_QWEN35_MLX_ROW_LOOP").is_none(),
-        "the row-loop switch would make both sides the loop"
+        !crate::qwen35::mlx::layers::linear_attention::legacy_row_loop(),
+        "OPENKIND_QWEN35_MLX_ROW_LOOP=1 would make both sides the loop"
     );
     let runtime = MlxRuntime::new(MlxRuntimeConfig::default()).expect("runtime");
     let fixture = Mixer::new();

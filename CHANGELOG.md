@@ -19,6 +19,11 @@
   and 7.78 s with its 66.6 MB root cached, with identical answers (1 miss, 2
   hits). Requests the scheduler would not share, such as a single small
   question, never compute the root on its own, so they never fill the cache.
+  Concurrent misses on one root compute it once: later requests wait for the
+  first, still under their own deadline and cancellation, and compute it
+  themselves if that fill fails. The
+  `openkind_native_root_cache_tensor_bytes` gauge is refreshed on every
+  cache access, so it reflects expired entries once they are released.
 
 - Model support for the d3 family: the pinned `d3-edge:664f9ead734372935286`
   profile serves `vllm-sr/d3-edge` at the evaluated v3.1.0 release commit
@@ -101,7 +106,7 @@
   94% of a 32-layer forward. Per-layer evaluation was also measured and costs
   nothing, so it stays. `stack_rows` is now a single concatenation instead of a
   quadratic pairwise join. The loop remains for traced runs, native BF16, and
-  `MetalTree`, and `OPENKIND_QWEN35_MLX_ROW_LOOP=1` selects it for FP32. The
+  `MetalTree`, and `OPENKIND_QWEN35_MLX_ROW_LOOP=1` (only `1`) selects it for FP32. The
   pinned 4B was run through the bench harness on a 2-state, 6-row workload
   against a baseline built from the merge base: all 24 answers (6 rows across
   4 strategies) were exactly equal to the baseline, with and without the
@@ -158,6 +163,12 @@
   from the merge base, the time was the same (19.1 s), and peak resident
   memory fell from 9.27 to 8.73 GB.
 
+- **Memory: daemon RSS can rise by about twice the shard bytes per
+  text-family engine.** The daemon defaults to
+  `--qwen35-resident-weights auto`, which now keeps the decoder weights of
+  CPU, shard-backed d3, decider, and decoder-logit-qwen35 engines resident in
+  FP32 when the host has room (about 16 GB for a 4B-class checkpoint). Set
+  `--qwen35-resident-weights off` to keep the previous per-forward footprint.
 - `--qwen35-resident-weights` now also governs the Qwen3.5-text family
   engines (d3, sieve, decider, decoder-logit-qwen35, strands). Their
   backbone re-mapped the shards on every forward. For BF16-stored shards it
@@ -166,7 +177,8 @@
   and gain nothing, and each family's stored dtype is unchecked. The
   decision is made once when the engine loads, with the same free-memory and
   process-ceiling guard. `auto` covers CPU shard-backed weights only, and
-  adapter-backed engines need `on`. Outputs are bit-identical to the
+  adapter-backed engines (sieve, strands) need `on`. That expected skip is
+  logged at info, and only a memory-guard decline warns. Outputs are bit-identical to the
   per-forward path (synthetic-checkpoint test over both mixers,
   mutation-checked). On an M4 Max that was busy with other jobs, an
   in-process off/on comparison over the golden requests took d3-edge from

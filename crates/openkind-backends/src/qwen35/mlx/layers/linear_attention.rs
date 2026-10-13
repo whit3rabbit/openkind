@@ -686,13 +686,16 @@ fn rms_norm_batched_heads(values: &Array, weight: &Array) -> Result<Array, MlxEr
     .map_err(op("batched norm restore"))
 }
 
-/// Whether `OPENKIND_QWEN35_MLX_ROW_LOOP` forces the per-row loop for the
+/// Whether `OPENKIND_QWEN35_MLX_ROW_LOOP=1` forces the per-row loop for the
 /// FP32 reference path. Resolved once so no hot loop reads the environment.
 /// The two paths are bit-identical, so this is a diagnostic and rollback
-/// switch rather than a quality setting.
-fn legacy_row_loop() -> bool {
+/// switch rather than a quality setting. Only `1` turns it on, so `0` reads
+/// as off.
+pub(super) fn legacy_row_loop() -> bool {
     static LEGACY: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *LEGACY.get_or_init(|| std::env::var_os("OPENKIND_QWEN35_MLX_ROW_LOOP").is_some())
+    *LEGACY.get_or_init(|| {
+        std::env::var_os("OPENKIND_QWEN35_MLX_ROW_LOOP").is_some_and(|value| value == "1")
+    })
 }
 
 struct GatedDeltaInputs {
