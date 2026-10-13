@@ -223,6 +223,20 @@ impl IntoResponse for ApiError {
     }
 }
 
+/// Body-extraction failures keep their distinct statuses: oversize (413),
+/// syntax (400), and everything else, including schema mismatches (422).
+impl From<axum::extract::rejection::JsonRejection> for ApiError {
+    fn from(rejection: axum::extract::rejection::JsonRejection) -> Self {
+        use axum::extract::rejection::JsonRejection;
+        match rejection {
+            JsonRejection::BytesRejection(e) => ApiError::PayloadTooLarge(e.to_string()),
+            JsonRejection::JsonSyntaxError(e) => ApiError::BadJson(e.to_string()),
+            JsonRejection::JsonDataError(e) => ApiError::InvalidBody(e.to_string()),
+            other => ApiError::InvalidBody(other.to_string()),
+        }
+    }
+}
+
 impl From<serde_json::Error> for ApiError {
     fn from(e: serde_json::Error) -> Self {
         ApiError::BadJson(e.to_string())

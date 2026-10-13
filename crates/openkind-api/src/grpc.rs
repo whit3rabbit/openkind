@@ -11,7 +11,7 @@ use openkind_proto::openkind as pb;
 use tonic::{Request, Response, Status};
 
 use crate::error::{classify_engine, retry_after_secs};
-use crate::middleware::{AuthConfig, RequestLimits, REQUEST_ID_HEADER};
+use crate::middleware::{parse_bearer, AuthConfig, RequestLimits, REQUEST_ID_HEADER};
 use crate::ApiError;
 use crate::AppState;
 
@@ -170,10 +170,7 @@ fn check_grpc_auth(metadata: &tonic::metadata::MetadataMap, auth: &AuthConfig) -
     let supplied = metadata
         .get("authorization")
         .and_then(|v| v.to_str().ok())
-        .and_then(|s| {
-            let (scheme, token) = s.split_once(' ')?;
-            scheme.eq_ignore_ascii_case("Bearer").then_some(token)
-        })
+        .and_then(parse_bearer)
         .or_else(|| metadata.get("x-api-key").and_then(|v| v.to_str().ok()));
 
     match supplied {

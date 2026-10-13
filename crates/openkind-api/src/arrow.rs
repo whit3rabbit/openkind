@@ -386,17 +386,7 @@ pub async fn arrow_batch(
     rate_limit: Option<Extension<crate::middleware::RateLimitContext>>,
     req: Result<Json<ArrowBatchRequest>, JsonRejection>,
 ) -> Result<Response, ApiError> {
-    let Json(req) = match req {
-        Ok(json) => json,
-        Err(rejection) => match rejection {
-            JsonRejection::BytesRejection(e) => {
-                return Err(ApiError::PayloadTooLarge(e.to_string()))
-            }
-            JsonRejection::JsonSyntaxError(e) => return Err(ApiError::BadJson(e.to_string())),
-            JsonRejection::JsonDataError(e) => return Err(ApiError::InvalidBody(e.to_string())),
-            other => return Err(ApiError::InvalidBody(other.to_string())),
-        },
-    };
+    let Json(req) = req?;
 
     evaluate_batch(
         state,
