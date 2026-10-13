@@ -101,7 +101,7 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
 8. **Persisted State Is Pinned**:
    Restore only the selected execution identity and exact Qwen layout. Restored states need fresh lineage and must reproduce `ContentFingerprint`; never serialize `SchedulingFingerprint` as content evidence.
 9. **MLX Execution Discipline**:
-   MLX requires macOS arm64 and the `mlx` feature. Set `SDKROOT=$(xcrun --show-sdk-path)`. `MlxRuntime::execute` holds a non-reentrant process lock. Never call it around code that takes the lock. Requalify after toolchain changes.
+   MLX requires macOS arm64 and the `mlx` feature. Set `SDKROOT=$(xcrun --show-sdk-path)`. `MlxRuntime::execute` holds a non-reentrant process lock. Never call it around code that takes the lock. Evaluate and read arrays inside it, in tests too: a lazy array returned from `execute` and then evaluated (`eval`, `to_vec_cast`) outside the lock runs GPU work concurrently with other tests' locked work and aborts the process in Metal (`Completed handler provided after commit call`). Requalify after toolchain changes.
 10. **MLX Identity and Gates**:
     MLX identity includes precision and kernel family. Never mix MLX and Candle states. BF16 is a separate candidate, not an FP32 equivalent. Use the [benchmark guide](../openkind-bench/AGENTS.md) for comparison rules.
 11. **Gemma 4 Attention Numerics**: Gemma 4 pins the attention softmax

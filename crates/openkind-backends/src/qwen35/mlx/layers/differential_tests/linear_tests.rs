@@ -23,9 +23,20 @@ fn synthetic_stage_bisect() {
     let w = host_weights();
     let hidden_values = seeded(&[ROWS * HIDDEN_SIZE], 99);
 
-    let read = |array: &Array| -> Vec<f32> {
+    // Evaluating an array runs GPU work, so it must happen under the
+    // process-wide MLX lock. A lazy array returned out of `execute` and read
+    // afterwards would otherwise evaluate concurrently with other tests'
+    // locked work, which aborts the process inside Metal. `read_locked` is for
+    // code already inside `execute`; the lock is not reentrant, so `read`
+    // (which takes it) must not be called from there.
+    let read_locked = |array: &Array| -> Vec<f32> {
         array.eval().expect("eval");
         array.to_vec_cast::<f32>().expect("read")
+    };
+    let read = |array: &Array| -> Vec<f32> {
+        runtime
+            .execute(|| read_locked(array))
+            .expect("execute for read")
     };
     let delta = |a: &[f32], b: &[f32]| -> f32 {
         a.iter()
@@ -89,7 +100,7 @@ fn synthetic_stage_bisect() {
                 crate::qwen35::mlx::MlxGatedDeltaKernel::MetalTree,
             )
             .expect("step");
-            read(&out)
+            read_locked(&out)
         })
         .expect("execute");
     let recurrence_delta = delta(&mlx_step, &host_step.0);

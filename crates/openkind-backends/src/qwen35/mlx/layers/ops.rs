@@ -400,32 +400,41 @@ mod vectorized_tests {
 
     #[test]
     fn gather_uses_each_lanes_true_last_token_and_truncates_padding() {
-        let hidden = Array::from_slice(
-            &[
-                1.0_f32, 2.0, 3.0, 4.0, 5.0, 6.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0,
-            ],
-            &[2, 3, 2],
-        );
-        assert_eq!(
-            gather_last_real_token(&hidden, 0, 3)
-                .unwrap()
-                .to_vec_cast::<f32>()
-                .unwrap(),
-            vec![5.0, 6.0]
-        );
-        assert_eq!(
-            gather_last_real_token(&hidden, 1, 1)
-                .unwrap()
-                .to_vec_cast::<f32>()
-                .unwrap(),
-            vec![10.0, 20.0]
-        );
+        use crate::qwen35::mlx::runtime::{MlxRuntime, MlxRuntimeConfig};
+        // Evaluate under the process-wide MLX lock, as every other MLX test
+        // does. A thread's default stream racing the locked stream aborts the
+        // process inside Metal.
+        let runtime = MlxRuntime::new(MlxRuntimeConfig::default()).expect("runtime");
+        runtime
+            .execute(|| {
+                let hidden = Array::from_slice(
+                    &[
+                        1.0_f32, 2.0, 3.0, 4.0, 5.0, 6.0, 10.0, 20.0, 30.0, 40.0, 50.0, 60.0,
+                    ],
+                    &[2, 3, 2],
+                );
+                assert_eq!(
+                    gather_last_real_token(&hidden, 0, 3)
+                        .unwrap()
+                        .to_vec_cast::<f32>()
+                        .unwrap(),
+                    vec![5.0, 6.0]
+                );
+                assert_eq!(
+                    gather_last_real_token(&hidden, 1, 1)
+                        .unwrap()
+                        .to_vec_cast::<f32>()
+                        .unwrap(),
+                    vec![10.0, 20.0]
+                );
 
-        let padded_cache = Array::from_slice(&[1.0_f32, 2.0, 3.0, 99.0], &[1, 4, 1]);
-        let lane_cache = lane_of(&padded_cache, 0).unwrap();
-        let truncated = prefix_axis0(&lane_cache, 3).unwrap();
-        assert_eq!(truncated.shape(), [3, 1]);
-        assert_eq!(truncated.to_vec_cast::<f32>().unwrap(), vec![1.0, 2.0, 3.0]);
+                let padded_cache = Array::from_slice(&[1.0_f32, 2.0, 3.0, 99.0], &[1, 4, 1]);
+                let lane_cache = lane_of(&padded_cache, 0).unwrap();
+                let truncated = prefix_axis0(&lane_cache, 3).unwrap();
+                assert_eq!(truncated.shape(), [3, 1]);
+                assert_eq!(truncated.to_vec_cast::<f32>().unwrap(), vec![1.0, 2.0, 3.0]);
+            })
+            .expect("execute");
     }
 
     /// The pairwise join `stack_rows` replaced, kept as the reference.

@@ -902,14 +902,23 @@ mod vectorized_tests {
 
     #[test]
     fn inactive_lane_keeps_its_state_and_source_siblings_are_unchanged() {
-        let source = Array::from_slice(&[5.0_f32, 7.0], &[2, 1, 1]);
-        let sibling = source.clone();
-        let candidate = Array::from_slice(&[15.0_f32, 25.0], &[2, 1, 1]);
-        let active = Array::from_slice(&[1.0_f32, 0.0], &[2, 1, 1]);
-        let advanced = candidate_or_previous(&candidate, &source, &active);
+        use crate::qwen35::mlx::runtime::{MlxRuntime, MlxRuntimeConfig};
+        // Array evaluation takes the process-wide MLX lock like every other
+        // MLX test. Evaluating on a thread's default stream while another test
+        // runs under the lock aborts the process inside Metal.
+        let runtime = MlxRuntime::new(MlxRuntimeConfig::default()).expect("runtime");
+        runtime
+            .execute(|| {
+                let source = Array::from_slice(&[5.0_f32, 7.0], &[2, 1, 1]);
+                let sibling = source.clone();
+                let candidate = Array::from_slice(&[15.0_f32, 25.0], &[2, 1, 1]);
+                let active = Array::from_slice(&[1.0_f32, 0.0], &[2, 1, 1]);
+                let advanced = candidate_or_previous(&candidate, &source, &active);
 
-        assert_eq!(advanced.to_vec_cast::<f32>().unwrap(), vec![15.0, 7.0]);
-        assert_eq!(source.to_vec_cast::<f32>().unwrap(), vec![5.0, 7.0]);
-        assert_eq!(sibling.to_vec_cast::<f32>().unwrap(), vec![5.0, 7.0]);
+                assert_eq!(advanced.to_vec_cast::<f32>().unwrap(), vec![15.0, 7.0]);
+                assert_eq!(source.to_vec_cast::<f32>().unwrap(), vec![5.0, 7.0]);
+                assert_eq!(sibling.to_vec_cast::<f32>().unwrap(), vec![5.0, 7.0]);
+            })
+            .expect("execute");
     }
 }
