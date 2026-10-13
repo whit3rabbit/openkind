@@ -22,8 +22,8 @@ pub use self::backbone::Qwen35Backend;
 use self::backbone::{load_backbone, EngineBackbone};
 use self::eval::{evaluate_request, map_evaluation_error};
 use super::{
-    ExecutionControl, Qwen35Error, Qwen35Tokenizer, ReferenceBundle, SchedulerConfig,
-    ScoreSummaryHead,
+    ExecutionControl, Qwen35Error, Qwen35Tokenizer, ReferenceBundle, RootCacheConfig,
+    RootPrefixCache, SchedulerConfig, ScoreSummaryHead, SequentialNestedExecutor,
 };
 
 /// Reserved Choice criteria key that explicitly exposes the model's semantic-none mass.
@@ -45,6 +45,11 @@ pub struct Qwen35EngineConfig {
     pub backend: Qwen35Backend,
     /// Adaptive execution policy and memory admission settings.
     pub scheduler: SchedulerConfig,
+    /// Cross-request cache of the shared-root prefill. Disabled by default:
+    /// a hit is visible to callers as latency, and entries keep activations
+    /// derived from request state in memory until they expire. The budget is
+    /// extra resident memory on top of weights and per-request state.
+    pub root_cache: RootCacheConfig,
     /// Maximum model evaluations executing concurrently.
     pub max_concurrent_requests: usize,
     /// Maximum additional requests allowed to wait for execution.
@@ -58,6 +63,7 @@ pub struct Qwen35EngineConfig {
 pub(super) struct EngineInner {
     pub(super) tokenizer: Qwen35Tokenizer,
     pub(super) backbone: EngineBackbone,
+    pub(super) root_cache: RootPrefixCache<<EngineBackbone as SequentialNestedExecutor>::State>,
     pub(super) head: ScoreSummaryHead,
     pub(super) scheduler: SchedulerConfig,
     pub(super) max_concurrent_requests: usize,
@@ -110,6 +116,7 @@ impl Qwen35DecisionEngine {
             inner: Arc::new(EngineInner {
                 tokenizer,
                 backbone,
+                root_cache: RootPrefixCache::new(config.root_cache),
                 head: bundle.head().clone(),
                 scheduler,
                 max_concurrent_requests: concurrent,

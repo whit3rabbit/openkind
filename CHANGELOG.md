@@ -4,6 +4,20 @@
 
 ### Added
 
+- An opt-in cross-request cache of the native engine's shared-root prefill
+  (`--qwen35-root-cache-bytes`, `--qwen35-root-cache-ttl-secs`, both off by
+  default). The root, up to 1,792 tokens, is the largest forward of a typical
+  request and was recomputed every time. The cache is keyed on the exact root
+  token ids, compares the stored ids on every digest match, serves a forked
+  copy, and is bounded by bytes (LRU) and a TTL. Only the nested strategies'
+  root prefill goes through it. It is off by default because a hit is visible
+  to callers as latency and the wire request carries no tenant. Tests check
+  that a hit reproduces a miss bit for bit and skips the root forward, that
+  only the exact root is served, that returned states cannot alter the
+  cached copy, and the budget, LRU, and TTL behaviour (mutation-checked). It
+  has not been run against the pinned 4B checkpoint, which is not installed
+  on this host.
+
 - Model support for the d3 family: the pinned `d3-edge:664f9ead734372935286`
   profile serves `vllm-sr/d3-edge` at the evaluated v3.1.0 release commit
   (`18d61df78684675463af9ae732872478845c5a79`) — the pruned 12-layer

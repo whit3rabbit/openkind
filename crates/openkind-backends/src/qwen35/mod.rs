@@ -29,9 +29,9 @@ pub use backbone::{
     EmbeddingOutput, ExecutionStrategy, FlatBatchRun, FullSequenceRecord, Layer0Output, LayerKind,
     NestedCandidateResult, NestedQuestion, NestedQuestionResult, NestedRun, ProcessMemoryEnvelope,
     Qwen35Backbone, Qwen35BranchBatch, Qwen35Embedding, Qwen35Geometry, Qwen35Layer0,
-    ResidentWeightsMode, RetentionEstimates, SchedulerConfig, SequentialNestedExecutor,
-    StageComparison, StrategyDecision, StrategyEstimates, StrategyOutput, StrategyRequest,
-    TraceStage,
+    ResidentWeightsMode, RetentionEstimates, RootCacheConfig, RootPrefixCache, SchedulerConfig,
+    SequentialNestedExecutor, StageComparison, StrategyDecision, StrategyEstimates, StrategyOutput,
+    StrategyRequest, TraceStage,
 };
 pub(crate) use backbone::{EmbeddingLayout, TextBackbone};
 // Clef-family GGUF execution reuses the parity-verified forward kernels.

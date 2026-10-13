@@ -11,7 +11,7 @@ use super::mapping::{
     answer_from_distribution, instruction_text, question_candidates, EncodedQuestion,
 };
 use super::EngineInner;
-use crate::qwen35::backbone::{ControlledExecutor, NestedQuestion};
+use crate::qwen35::backbone::{ControlledExecutor, NestedQuestion, RootCachingExecutor};
 use crate::qwen35::{
     choose_strategy, run_strategy, CandidateText, ExecutionControl, Qwen35Error, StrategyRequest,
 };
@@ -130,7 +130,15 @@ pub(super) fn evaluate_request(
         "scheduler decision detail"
     );
     let controlled = ControlledExecutor::new(&inner.backbone, control);
-    let output = run_strategy(&controlled, decision.strategy, &root_ids, &plans)?;
+    let output = if inner.root_cache.config().is_enabled() {
+        // Only the exact-root prefill is served from the cache. Every other
+        // forward, including the repeated-full strategy's longer prefills,
+        // runs unchanged.
+        let caching = RootCachingExecutor::new(&controlled, &inner.root_cache, &root_ids);
+        run_strategy(&caching, decision.strategy, &root_ids, &plans)?
+    } else {
+        run_strategy(&controlled, decision.strategy, &root_ids, &plans)?
+    };
     if output.batch_forward_mode() != decision.batch_forward_mode {
         return Err(Qwen35Error::InvalidInput(format!(
             "scheduler selected {} batch forwarding but executor reported {}",

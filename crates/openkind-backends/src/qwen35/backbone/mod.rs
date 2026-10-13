@@ -10,6 +10,7 @@ mod model;
 mod nested;
 mod persistence;
 mod reference;
+mod root_cache;
 mod strategy;
 mod text;
 mod types;
@@ -30,6 +31,8 @@ mod nested_tests;
 mod persistence_tests;
 #[cfg(test)]
 mod pooled_tests;
+#[cfg(test)]
+mod root_cache_tests;
 #[cfg(test)]
 mod strategy_tests;
 #[cfg(test)]
@@ -66,6 +69,8 @@ pub use nested::{
     NestedQuestionResult, NestedRun, SequentialNestedExecutor,
 };
 pub use reference::BackboneReference;
+pub(crate) use root_cache::RootCachingExecutor;
+pub use root_cache::{RootCacheConfig, RootPrefixCache};
 pub use strategy::{
     choose_strategy, run_repeated_full, run_strategy, run_with_scheduler, CountingExecutor,
     ExecutionStrategy, ProcessMemoryEnvelope, RetentionEstimates, SchedulerConfig,

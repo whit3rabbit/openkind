@@ -124,6 +124,8 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
     Python repr rendering for Von decision formatting preserves the full unsigned 64-bit integer range (`u64`) without truncating or wrapping signed bounds.
 18. **Proxy-Cache Deferred Calibration Pruning**:
     `SampleStore::prune` treats `co_deferred` diagnostic samples independently using the training retention budget (`keep_train`) so diagnostic history never displaces IID calibration rows.
+19. **Root Prefix Cache Is Opt-In and Exact**:
+    `RootPrefixCache` (`src/qwen35/backbone/root_cache.rs`) keeps the shared-root prefill across requests and is off unless `--qwen35-root-cache-bytes` is set. It serves only a prefill of exactly the root ids and compares the stored ids on every digest match. A hit returns a `fork_one` copy and must reproduce a miss bit for bit. Never log its key or digest (invariant 8). Hits are visible to callers as latency and the wire request has no tenant, so do not turn it on by default or share one cache across tenants. The byte budget is extra resident memory, so keep it below the process ceiling. The bench harness keeps it disabled so timings stay cold.
 
 ## Verification Commands
 
