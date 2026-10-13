@@ -204,6 +204,18 @@ impl D3Renderer {
         instructions: &serde_json::Value,
         option_texts: &[String],
     ) -> Result<RenderedRow, FamilyError> {
+        self.render_row_with_state_text(&state_text(state), instructions, option_texts)
+    }
+
+    /// [`Self::render_row`] with the state text already rendered by
+    /// [`state_text`]. The text depends on the request state alone, so a
+    /// request renders it once and reuses it for every question.
+    pub fn render_row_with_state_text(
+        &self,
+        state_text: &str,
+        instructions: &serde_json::Value,
+        option_texts: &[String],
+    ) -> Result<RenderedRow, FamilyError> {
         if option_texts.is_empty() {
             return Err(FamilyError::InvalidInput(
                 "a row needs at least 1 option".to_owned(),
@@ -216,7 +228,7 @@ impl D3Renderer {
             )));
         }
         let prompt = render_prompt(
-            &state_text(state),
+            state_text,
             &instruction_text(instructions),
             &self.codes,
             option_texts,

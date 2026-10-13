@@ -11,7 +11,9 @@ use crate::families::support::{
 use crate::families::wire;
 
 use super::model::{D3Model, VerifiedArtifacts};
-use super::renderer::{described_option, D3Renderer, RenderedRow, NOUL_DEFAULT_DESCRIPTIONS};
+use super::renderer::{
+    described_option, state_text, D3Renderer, RenderedRow, NOUL_DEFAULT_DESCRIPTIONS,
+};
 use super::{D3EngineConfig, D3Error, D3Profile};
 
 /// Loaded pinned engine for one profile of the family.
@@ -57,7 +59,7 @@ fn plan_question(
     renderer: &D3Renderer,
     id: &str,
     question: &openkind_core::Question,
-    state: &serde_json::Value,
+    state_text: &str,
 ) -> Result<PlannedQuestion, FamilyError> {
     match question {
         openkind_core::Question::Choice(choice) => {
@@ -94,7 +96,11 @@ fn plan_question(
                     _ => label.clone(),
                 })
                 .collect();
-            let row = renderer.render_row(state, &question_instructions(question), &options)?;
+            let row = renderer.render_row_with_state_text(
+                state_text,
+                &question_instructions(question),
+                &options,
+            )?;
             Ok(PlannedQuestion {
                 unpacked,
                 rows: vec![PlannedRow {
@@ -127,7 +133,11 @@ fn plan_question(
                 fallback(&true_text, NOUL_DEFAULT_DESCRIPTIONS[1]),
             ];
             let unpacked = wire::unpack_question(id, question)?;
-            let row = renderer.render_row(state, &question_instructions(question), &options)?;
+            let row = renderer.render_row_with_state_text(
+                state_text,
+                &question_instructions(question),
+                &options,
+            )?;
             Ok(PlannedQuestion {
                 unpacked,
                 rows: vec![PlannedRow { row, code_count: 2 }],
@@ -160,7 +170,11 @@ fn plan_question(
                 .map(|level| described_option(level, None))
                 .collect();
             let unpacked = wire::unpack_question(id, question)?;
-            let row = renderer.render_row(state, &question_instructions(question), &options)?;
+            let row = renderer.render_row_with_state_text(
+                state_text,
+                &question_instructions(question),
+                &options,
+            )?;
             Ok(PlannedQuestion {
                 unpacked,
                 rows: vec![PlannedRow {
@@ -202,17 +216,21 @@ fn plan_owned_request(
     state: serde_json::Value,
     sorted: Vec<(String, openkind_core::Question)>,
 ) -> Result<PlannedRequest, FamilyError> {
+    // Every question's prompt embeds the same state text, so render it once
+    // per request.
+    let rendered_state = state_text(&state);
     let mut questions = Vec::with_capacity(sorted.len());
     let mut input_tokens: u64 = 0;
     for (id, question) in sorted {
-        let planned = plan_question(profile, renderer, &id, &question, &state).map_err(
-            |error| match error {
-                FamilyError::InvalidInput(message) => {
-                    FamilyError::InvalidInput(format!("question `{id}`: {message}"))
+        let planned =
+            plan_question(profile, renderer, &id, &question, &rendered_state).map_err(|error| {
+                match error {
+                    FamilyError::InvalidInput(message) => {
+                        FamilyError::InvalidInput(format!("question `{id}`: {message}"))
+                    }
+                    other => other,
                 }
-                other => other,
-            },
-        )?;
+            })?;
         let question_tokens = planned.rows.iter().fold(0_u64, |sum, planned_row| {
             sum.saturating_add(u64::from(renderer.row_token_count(&planned_row.row)))
         });
@@ -537,6 +555,29 @@ mod tests {
         let prompts = plan_prompt_ids(&D3_EDGE, &renderer, &wire).expect("within budget");
         let total: usize = prompts.iter().map(|(_, ids)| ids.len()).sum();
         assert_eq!(planned.input_tokens, total as u64);
+    }
+
+    #[test]
+    fn hoisted_state_text_matches_per_question_rendering_for_every_state_shape() {
+        let renderer = sample_renderer(&D3_EDGE);
+        let options = vec!["no".to_owned(), "yes".to_owned()];
+        for state in [
+            json!(""),
+            json!("lamp off"),
+            json!({"b": [1, 2.5, null], "a": {"c": "x\n"}}),
+            json!([1, "two", {"three": 3}]),
+        ] {
+            let hoisted = super::state_text(&state);
+            for question in ["Dark?", "Lit?"] {
+                let per_question = renderer
+                    .render_row(&state, &json!(question), &options)
+                    .expect("per-question row");
+                let shared = renderer
+                    .render_row_with_state_text(&hoisted, &json!(question), &options)
+                    .expect("hoisted row");
+                assert_eq!(shared, per_question, "{state} / {question}");
+            }
+        }
     }
 
     #[test]

@@ -79,7 +79,8 @@ struct PassRead<'a> {
     source: &'a dyn Jevk5PassSource,
     profile: &'static Qwen35LogitProfile,
     kind: QuestionKind,
-    state: &'a serde_json::Value,
+    /// The request's serialized `evidence`, shared by every pass.
+    evidence: &'a str,
     criterion: &'a str,
     token_count: &'a std::cell::Cell<u64>,
     control: &'a FamilyControl,
@@ -106,10 +107,11 @@ impl PassReader for PassRead<'_> {
         // Each knockout pass is a separate non-interruptible forward, so a
         // disconnected caller must not trigger the remaining passes.
         self.control.check()?;
-        let pass = self
-            .source
-            .renderer()
-            .render_pass(self.state, self.criterion, options)?;
+        let pass = self.source.renderer().render_pass_with_evidence(
+            self.evidence,
+            self.criterion,
+            options,
+        )?;
         let tokens = u64::from(self.source.renderer().pass_token_count(&pass));
         account_question_tokens(self.token_count, tokens, self.profile.max_question_tokens)?;
         self.control.check()?;
@@ -202,7 +204,7 @@ pub(crate) fn question_probabilities(
     source: &dyn Jevk5PassSource,
     profile: &'static Qwen35LogitProfile,
     kind: QuestionKind,
-    state: &serde_json::Value,
+    evidence: &str,
     criterion: &str,
     options: &[(String, String)],
     token_count: &std::cell::Cell<u64>,
@@ -229,7 +231,7 @@ pub(crate) fn question_probabilities(
             source,
             profile,
             kind,
-            state,
+            evidence,
             criterion,
             token_count,
             control,
@@ -305,6 +307,9 @@ pub(crate) fn evaluate_with(
     control.check()?;
     let state = crate::families::wire::state_value(request.state);
     let questions = crate::families::wire::into_sorted_questions(request.questions)?;
+    // Every pass of every question embeds the same evidence JSON, so render
+    // it once per request.
+    let evidence = super::renderer::Jevk5Renderer::render_evidence(&state);
 
     let mut answers: HashMap<String, openkind_core::Answer, openkind_core::WireHashState> =
         HashMap::with_capacity_and_hasher(questions.len(), Default::default());
@@ -369,7 +374,7 @@ pub(crate) fn evaluate_with(
             source,
             profile,
             kind,
-            &state,
+            &evidence,
             &criterion,
             &options,
             &token_count,
@@ -434,7 +439,11 @@ mod debug {
         .expect("renderer");
         let model = Jevk5Model::load(&artifacts).expect("model");
         let pass = renderer
-            .render_pass(&state, criterion, &options)
+            .render_pass_with_evidence(
+                &super::super::renderer::Jevk5Renderer::render_evidence(&state),
+                criterion,
+                &options,
+            )
             .expect("render");
         let logits = model
             .letter_logits(
@@ -527,7 +536,7 @@ mod cancellation_tests {
                 &source,
                 source.profile(),
                 QuestionKind::Choice,
-                &serde_json::json!("evidence"),
+                "\"evidence\"",
                 "Pick an option",
                 &options,
                 &Cell::new(0),
@@ -614,7 +623,7 @@ mod question_probability_tests {
             &source,
             source.profile(),
             QuestionKind::Choice,
-            &serde_json::json!("evidence"),
+            "\"evidence\"",
             "Pick an option",
             &options(1),
             &Cell::new(0),
@@ -639,7 +648,7 @@ mod question_probability_tests {
             &source,
             source.profile(),
             QuestionKind::Choice,
-            &serde_json::json!("evidence"),
+            "\"evidence\"",
             "Pick an option",
             &options(super::super::JEVK5.max_candidates + 1),
             &Cell::new(0),
@@ -665,7 +674,7 @@ mod question_probability_tests {
             &source,
             source.profile(),
             QuestionKind::Choice,
-            &serde_json::json!("evidence"),
+            "\"evidence\"",
             "Pick an option",
             &options(count),
             &Cell::new(0),
@@ -698,7 +707,7 @@ mod question_probability_tests {
             &source,
             source.profile(),
             QuestionKind::Choice,
-            &serde_json::json!("evidence"),
+            "\"evidence\"",
             "Pick an option",
             &options(4),
             &Cell::new(0),

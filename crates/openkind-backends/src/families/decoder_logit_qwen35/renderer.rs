@@ -107,14 +107,22 @@ impl Jevk5Renderer {
         })
     }
 
+    /// The serialized `evidence` field of the payload. It depends on the
+    /// request state alone, so a request renders it once and reuses it for
+    /// every question and knockout pass through
+    /// [`Self::render_pass_with_evidence`].
+    pub fn render_evidence(state: &serde_json::Value) -> String {
+        python_json(state)
+    }
+
     /// Render one knockout pass into a prompt and its per-option letter ids.
     ///
-    /// `state` is the wire state as a JSON value (`evidence`), `criterion`
-    /// the question instruction text, and `options` the `(label,
+    /// `evidence` is the wire state serialized by [`Self::render_evidence`],
+    /// `criterion` the question instruction text, and `options` the `(label,
     /// description)` pairs scored by this pass in order.
-    pub fn render_pass(
+    pub fn render_pass_with_evidence(
         &self,
-        state: &serde_json::Value,
+        evidence: &str,
         criterion: &str,
         options: &[(String, String)],
     ) -> Result<RenderedPass, FamilyError> {
@@ -165,7 +173,7 @@ impl Jevk5Renderer {
             .join(", ");
         let payload = format!(
             "{{\"evidence\": {}, \"criterion\": {}, \"options\": [{}]}}",
-            python_json(state),
+            evidence,
             python_json(&serde_json::Value::String(criterion.to_owned())),
             payload_options,
         );

@@ -95,6 +95,9 @@ impl FamilyEvaluator for DecoderLogitQwen3Engine {
         control.check()?;
         let state = crate::families::wire::state_value(request.state);
         let questions = crate::families::wire::into_sorted_questions(request.questions)?;
+        // Every question's prompt embeds the same evidence JSON, so render it
+        // once per request.
+        let evidence = super::renderer::Qwen3ControlRenderer::render_evidence(&state);
 
         let mut answers: HashMap<String, openkind_core::Answer, openkind_core::WireHashState> =
             HashMap::with_capacity_and_hasher(questions.len(), Default::default());
@@ -155,7 +158,7 @@ impl FamilyEvaluator for DecoderLogitQwen3Engine {
             let pass = self
                 .inner
                 .renderer
-                .render_pass(&state, &criterion, &options)?;
+                .render_pass_with_evidence(&evidence, &criterion, &options)?;
             token_count.set(u64::from(self.inner.renderer.pass_token_count(&pass)));
             let logits =
                 self.inner
