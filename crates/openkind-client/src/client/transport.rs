@@ -25,7 +25,8 @@ pub(crate) struct RequestDesc<'a> {
     pub(crate) method: Method,
     pub(crate) url: &'a reqwest::Url,
     pub(crate) endpoint: &'static str,
-    pub(crate) body: Option<Vec<u8>>,
+    /// Shared buffer: retries clone a handle, never the payload.
+    pub(crate) body: Option<bytes::Bytes>,
     pub(crate) timeout: Duration,
 }
 
@@ -53,7 +54,7 @@ impl Client {
             method,
             url,
             endpoint,
-            body,
+            body: body.map(bytes::Bytes::from),
             timeout: opts.timeout.unwrap_or(self.inner.timeout),
         };
         if desc.timeout.is_zero() {
