@@ -56,15 +56,36 @@ impl FullAttention {
         })
     }
 
-    pub(crate) fn forward_with_state(
+    /// Attention forward over `token_count` new rows after an optional
+    /// cached prefix, with an optional cooperative `check`.
+    ///
+    /// With a check, the quadratic attention kernel also runs it every
+    /// [`CONTROL_CHECK_ROWS`] query rows, so a deadline or disconnect is
+    /// observed within one layer. Without one, the unchecked kernel runs
+    /// exactly as before.
+    pub(crate) fn forward_with_state_and_check<E>(
         &self,
         normalized: &[f32],
         token_count: usize,
         position_start: usize,
         device: &Device,
         previous_state: Option<(&[f32], &[f32])>,
-    ) -> Result<(Vec<f32>, LayerState), Qwen35Error> {
+        check: Option<&mut dyn FnMut() -> Result<(), E>>,
+    ) -> Result<(Vec<f32>, LayerState), E>
+    where
+        E: From<Qwen35Error>,
+    {
         let geometry = self.geometry;
+        // A noncausal cache is never valid: the cached prefix rows attended
+        // only to the prefix, but bidirectional attention requires them to
+        // see the suffix too, so continuing from them silently computes a
+        // different model. Every noncausal caller runs full sequences.
+        if !geometry.causal && previous_state.is_some() {
+            return Err(Qwen35Error::InvalidInput(
+                "noncausal full attention cannot continue from cached keys and values".to_owned(),
+            )
+            .into());
+        }
         let projected_q = linear(
             normalized,
             token_count,
@@ -113,20 +134,32 @@ impl FullAttention {
         if past_tokens != position_start {
             return Err(Qwen35Error::InvalidInput(format!(
                 "attention cache has {past_tokens} positions, continuation starts at {position_start}"
-            )));
+            ))
+            .into());
         }
         let mut all_keys = previous_keys.map_or_else(Vec::new, <[f32]>::to_vec);
         all_keys.extend_from_slice(&keys);
         let mut all_values = previous_values.map_or_else(Vec::new, <[f32]>::to_vec);
         all_values.extend_from_slice(&current_values);
-        let mut mixed = causal_grouped_query_attention(
-            &queries,
-            &all_keys,
-            &all_values,
-            token_count,
-            past_tokens,
-            geometry,
-        );
+        let mut mixed = match check {
+            None => causal_grouped_query_attention(
+                &queries,
+                &all_keys,
+                &all_values,
+                token_count,
+                past_tokens,
+                geometry,
+            ),
+            Some(check) => causal_grouped_query_attention_checked(
+                &queries,
+                &all_keys,
+                &all_values,
+                token_count,
+                past_tokens,
+                geometry,
+                check,
+            )?,
+        };
         for (value, gate) in mixed.iter_mut().zip(gates) {
             *value *= sigmoid(gate);
         }

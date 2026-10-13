@@ -1,16 +1,21 @@
 //! Offline parity and failure-mode tests for the pinned `d3-edge` profile
 //! (the `d3` family's noncausal code-readout engine).
 //!
-//! Unit-level contract checks always run, including the noncausal
-//! full-attention kernel against a naive bidirectional reference. The full
-//! golden replay runs only when the pinned artifacts are present locally
-//! (point `OPENKIND_D3_MODEL_ROOT` at the model root); tests never download
-//! model artifacts.
+//! Unit-level contract checks always run: the profile constants, the
+//! code-table derivation, the golden fixtures' internal consistency, and the
+//! fail-closed load paths (missing artifacts, and dummy artifacts that fail
+//! the first digest check). The noncausal kernel's naive-reference test lives
+//! beside the kernel. The golden replay, the prompt-statistics check against
+//! the real tokenizer, and the staged decision-config drift run only when the
+//! pinned artifacts are present locally (point `OPENKIND_D3_MODEL_ROOT` at
+//! the model root); tests never download model artifacts.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use openkind_backends::families::d3::{D3Engine, D3EngineConfig, D3_EDGE, FAMILY_SLUG};
+use openkind_backends::families::d3::{
+    plan_prompt_ids, D3Engine, D3EngineConfig, D3Renderer, D3_EDGE, FAMILY_SLUG, PROFILES,
+};
 use openkind_backends::families::support::FamilyLimits;
 use openkind_engine::DecisionEngine;
 use serde::Deserialize;
@@ -64,6 +69,34 @@ fn limits() -> FamilyLimits {
 struct Golden {
     profile_id: String,
     cases: Vec<GoldenCase>,
+    /// Per-case prompt token counts and token-id digests. These were checked
+    /// against the shipped reference renderer over the real tokenizer (see
+    /// `docs/families/d3.md`), so they are the golden's reference-anchored
+    /// evidence.
+    prompt_stats: Vec<PromptStat>,
+}
+
+#[derive(Debug, Deserialize)]
+struct PromptStat {
+    name: String,
+    token_count: usize,
+    token_ids_sha256: String,
+}
+
+/// Digest of a prompt in the reference-parity script's serialization: the
+/// comma-joined decimal ids, UTF-8 hashed.
+fn token_ids_sha256(ids: &[u32]) -> String {
+    use sha2::Digest as _;
+    let joined = ids.iter().map(u32::to_string).collect::<Vec<_>>().join(",");
+    sha2::Sha256::digest(joined.as_bytes())
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+fn read_golden(dir: &Path) -> Golden {
+    serde_json::from_slice(&fs::read(dir.join("golden.json")).expect("read golden fixture"))
+        .expect("decode golden fixture")
 }
 
 #[derive(Debug, Deserialize)]
@@ -227,21 +260,59 @@ fn load_fails_closed_without_artifacts() {
 }
 
 #[test]
+fn golden_prompt_stats_cover_every_case() {
+    // Always on: every profile's golden pairs each case with its
+    // reference-anchored prompt statistics, and the usage the replay pins is
+    // exactly that token count, so the replay's usage check is anchored to
+    // the reference prompts too.
+    for profile in PROFILES {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures")
+            .join(format!("{FAMILY_SLUG}_{}", profile.profile_id));
+        let golden = read_golden(&dir);
+        assert_eq!(golden.profile_id, profile.profile_id);
+        let case_names: Vec<&str> = golden.cases.iter().map(|case| case.name.as_str()).collect();
+        let stat_names: Vec<&str> = golden
+            .prompt_stats
+            .iter()
+            .map(|stat| stat.name.as_str())
+            .collect();
+        assert_eq!(case_names, stat_names, "{}", profile.loader_id);
+        for (case, stat) in golden.cases.iter().zip(&golden.prompt_stats) {
+            assert_eq!(
+                u64::from(case.response.usage.input_tokens),
+                stat.token_count as u64,
+                "{} {}: usage must equal the prompt token count",
+                profile.loader_id,
+                case.name
+            );
+            assert!(
+                stat.token_ids_sha256.len() == 64
+                    && stat
+                        .token_ids_sha256
+                        .bytes()
+                        .all(|byte| byte.is_ascii_hexdigit()),
+                "{} {}: malformed token digest",
+                profile.loader_id,
+                case.name
+            );
+        }
+    }
+}
+
+#[test]
 fn golden_replay_matches_the_pinned_checkpoint() {
     let Some(root) = model_root() else {
         eprintln!("skipping: OPENKIND_D3_MODEL_ROOT is not set");
         return;
     };
-    let golden: Golden = serde_json::from_slice(
-        &fs::read(fixture_dir().join("golden.json")).expect("read golden fixture"),
-    )
-    .expect("decode golden fixture");
+    let golden = read_golden(&fixture_dir());
     assert!(!golden.cases.is_empty(), "golden fixture has cases");
 
     let profile = openkind_backends::families::d3::profile_by_id(&golden.profile_id)
         .unwrap_or_else(|| panic!("golden names unknown profile {}", golden.profile_id));
     let engine = D3Engine::load(D3EngineConfig {
-        model_root: root,
+        model_root: root.clone(),
         limits: limits(),
         profile,
     })
@@ -251,7 +322,42 @@ fn golden_replay_matches_the_pinned_checkpoint() {
         .build()
         .expect("runtime");
 
-    for case in &golden.cases {
+    // The load above verified every artifact digest, so the renderer can
+    // read the real tokenizer and pinned code table in place. Prompt
+    // statistics need the real tokenizer, which is why this check is gated
+    // with the replay.
+    let decision_config: serde_json::Value = serde_json::from_slice(
+        &fs::read(root.join("decision_config.json")).expect("read decision config"),
+    )
+    .expect("decode decision config");
+    let codes: Vec<String> =
+        serde_json::from_value(decision_config["codes"].clone()).expect("pinned codes");
+    let token_ids: Vec<u64> =
+        serde_json::from_value(decision_config["token_ids"].clone()).expect("pinned token ids");
+    let renderer = D3Renderer::load(&root.join("tokenizer.json"), &codes, &token_ids, profile)
+        .expect("load renderer");
+    assert_eq!(golden.prompt_stats.len(), golden.cases.len());
+
+    for (case, stat) in golden.cases.iter().zip(&golden.prompt_stats) {
+        assert_eq!(case.name, stat.name, "prompt stats follow case order");
+        let prompts = plan_prompt_ids(profile, &renderer, &case.request)
+            .unwrap_or_else(|error| panic!("case {}: {error}", case.name));
+        let [(_, ids)] = prompts.as_slice() else {
+            panic!("case {} must plan exactly one question", case.name);
+        };
+        assert_eq!(
+            ids.len(),
+            stat.token_count,
+            "{}: prompt token count drifted from the reference",
+            case.name
+        );
+        assert_eq!(
+            token_ids_sha256(ids),
+            stat.token_ids_sha256,
+            "{}: prompt token ids drifted from the reference",
+            case.name
+        );
+
         let response = runtime
             .block_on(engine.evaluate(case.request.clone()))
             .unwrap_or_else(|error| panic!("case {}: {error}", case.name));
@@ -278,8 +384,44 @@ fn golden_replay_matches_the_pinned_checkpoint() {
 
 #[test]
 fn load_fails_closed_on_artifact_digest_mismatch() {
+    // Always on: dummy artifacts are present but carry the wrong bytes. The
+    // loader verifies the small configs before any shard, and `config.json`
+    // is the first digest it checks, so every profile fails closed there
+    // without weights.
+    let dummy = std::env::temp_dir().join(format!("openkind-d3-dummy-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dummy);
+    fs::create_dir_all(&dummy).expect("stage dummy root");
+    for file in [
+        "config.json",
+        "decision_config.json",
+        "tokenizer.json",
+        "tokenizer_config.json",
+        "chat_template.jinja",
+    ] {
+        fs::write(dummy.join(file), b"{}").expect("write dummy artifact");
+    }
+    let config_path = format!("{}`", dummy.join("config.json").display());
+    for profile in PROFILES.iter().copied() {
+        let error = match D3Engine::load(D3EngineConfig {
+            model_root: dummy.clone(),
+            limits: limits(),
+            profile,
+        }) {
+            Err(error) => error.to_string(),
+            Ok(_) => panic!("{}: dummy artifacts must fail closed", profile.loader_id),
+        };
+        assert!(
+            error.contains("SHA-256 mismatch") && error.contains(&config_path),
+            "{}: unexpected error: {error}",
+            profile.loader_id
+        );
+    }
+    let _ = fs::remove_dir_all(&dummy);
+
+    // With the pinned artifacts present, also drift `decision_config.json`
+    // alone so the check fails past a genuine `config.json`.
     let Some(root) = model_root() else {
-        eprintln!("skipping: OPENKIND_D3_MODEL_ROOT is not set");
+        eprintln!("skipping the staged-drift half: OPENKIND_D3_MODEL_ROOT is not set");
         return;
     };
     let staged = std::env::temp_dir().join(format!("openkind-d3-drift-{}", std::process::id()));

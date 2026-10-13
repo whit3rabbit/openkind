@@ -236,9 +236,13 @@ impl D3Model {
                 "code readout serves 1..={CODE_TABLE_WIDTH} codes, found {count}"
             )));
         }
+        // A question may carry up to `max_row_tokens` prompt tokens and each
+        // full-attention layer is quadratic in them, so cancellation and
+        // deadlines are also checked inside the attention kernel, not only
+        // between layers.
         let hidden = self
             .backbone
-            .forward_hidden_with_check(prompt_ids, || control.check())?;
+            .forward_hidden_with_attention_check(prompt_ids, || control.check())?;
         control.check()?;
         let token_start = (prompt_ids.len() - 1) * self.hidden_size;
         let final_token = &hidden[token_start..];

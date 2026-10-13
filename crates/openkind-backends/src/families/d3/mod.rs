@@ -12,11 +12,21 @@
 //! `Score` questions render their ordered levels as the option list (code
 //! order is level order), exactly as the reference runtime does.
 //!
-//! One pinned profile to start, smallest first:
+//! Five pinned profiles, smallest first, each reproducing the shipped
+//! `d3_runtime.py` (`d3-code-readout-v1`) at scalar temperature 1.0:
 //!
-//! | Profile | Checkpoint | Reference runtime | Calibration |
-//! |---|---|---|---|
-//! | `d3-edge` (v3.1.0 release) | `vllm-sr/d3-edge` | the shipped `d3_runtime.py` (`d3-code-readout-v1`) | scalar 1.0 |
+//! | Profile | Checkpoint | Backbone |
+//! |---|---|---|
+//! | `d3-edge` (v3.1.0 release) | `vllm-sr/d3-edge` | pruned 12-layer Qwen3.5-0.8B |
+//! | `d3-lite` (v3.1.0 release) | `vllm-sr/d3-lite` | 24-layer Qwen3.5-0.8B |
+//! | `d3-nano` (v3.1.0 release) | `vllm-sr/d3-nano` | 24-layer Qwen3.5-2B |
+//! | `d3-mini` (v3.1.0 release) | `vllm-sr/d3-mini` | 32-layer Qwen3.5-4B |
+//! | `d3-flash` (v3.1.0 release) | `vllm-sr/d3-flash` | 32-layer Qwen3.5-9B |
+//!
+//! Work limits: every question is one full forward, so each profile caps a
+//! question's prompt at [`D3Profile::max_row_tokens`] and the sum over a
+//! request's questions at [`D3Profile::max_request_tokens`]. Both are
+//! checked while planning, before any forward runs.
 //!
 //! Profile semantics:
 //! - Probability space: [`ConditionalOnOfferedOptions`] — the softmax over
@@ -47,7 +57,7 @@ use std::time::Duration;
 use openkind_engine::ProbabilitySpace;
 use thiserror::Error;
 
-pub use self::engine::D3Engine;
+pub use self::engine::{plan_prompt_ids, D3Engine};
 pub use self::renderer::{
     derive_answer_codes, instruction_text, render_prompt, state_text, D3Renderer,
 };
@@ -111,9 +121,18 @@ pub struct D3Profile {
     pub max_candidates: usize,
     /// Frozen maximum Score levels per question (reference `SCORE_LEVELS`).
     pub max_score_levels: usize,
-    /// Frozen maximum rendered row length in tokens; longer requests fail
-    /// closed because the reference never truncates.
+    /// Frozen maximum rendered row length in tokens. Every question renders
+    /// exactly one row, so this is the per-question prompt cap. It is
+    /// stricter than the reference's 262,144-token model context (it matches
+    /// the decider family's cap) because the scalar CPU attention kernel is
+    /// quadratic in it; longer questions fail closed because the reference
+    /// never truncates.
     pub max_row_tokens: usize,
+    /// Frozen maximum sum of every question's prompt tokens in one request.
+    /// Each question is a separate full forward, so this bounds the total
+    /// work one request can claim; over-budget requests fail closed during
+    /// planning, before any forward runs.
+    pub max_request_tokens: usize,
     /// Backend id reported by the CPU engine serving this profile.
     pub cpu_backend_id: &'static str,
     /// Backend id reported by the CUDA engine serving this profile
@@ -170,7 +189,8 @@ pub const D3_EDGE: D3Profile = D3Profile {
     declared_base_revision: "2fc06364715b967f1860aea9cf38778875588b17",
     max_candidates: 255,
     max_score_levels: 10,
-    max_row_tokens: 262_144,
+    max_row_tokens: 65_536,
+    max_request_tokens: 262_144,
     cpu_backend_id: "d3-edge/cpu-fp32",
     cuda_backend_id: "d3-edge/cuda-fp32",
     release_date: "2026-10-12",
@@ -199,18 +219,21 @@ pub const D3_LITE: D3Profile = D3Profile {
     config_json_sha256: "a9071195384e1fc2c68f9fe0fae007a22182ab77eb14fe8228a1a24b37d3cee9",
     decision_config_sha256: "30b6095b945d5a93697868afdf9be9123ea892085fbaff3078112c48da20dc6b",
     tokenizer_json_sha256: "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42",
-    tokenizer_config_json_sha256: "49e2b6e395f959f077f1e992b338919c0d4a9732fc6e613995e06557f843500c",
+    tokenizer_config_json_sha256:
+        "49e2b6e395f959f077f1e992b338919c0d4a9732fc6e613995e06557f843500c",
     chat_template_sha256: "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
     temperature: 1.0,
     declared_base_id: "Qwen/Qwen3.5-0.8B",
     declared_base_revision: "2fc06364715b967f1860aea9cf38778875588b17",
     max_candidates: 255,
     max_score_levels: 10,
-    max_row_tokens: 262_144,
+    max_row_tokens: 65_536,
+    max_request_tokens: 262_144,
     cpu_backend_id: "d3-lite/cpu-fp32",
     cuda_backend_id: "d3-lite/cuda-fp32",
     release_date: "2026-10-12",
-    description: "Pinned d3-lite noncausal 24-layer Qwen3.5-0.8B code-readout decision engine                   (Apache-2.0, d3-code-readout-v1); prototype readout, research status",
+    description: "Pinned d3-lite noncausal 24-layer Qwen3.5-0.8B code-readout decision engine \
+                  (Apache-2.0, d3-code-readout-v1); prototype readout, research status",
 };
 
 /// Pinned `vllm-sr/d3-nano` (the `d3-nano v3.1.0` release commit pinned by
@@ -234,18 +257,21 @@ pub const D3_NANO: D3Profile = D3Profile {
     config_json_sha256: "9caa6ab8956c859c3852328dda6322893a18b30826d3916db91d938d6c74ac4f",
     decision_config_sha256: "9175a0f42d5886def9c8429fdf8b0be58a3c97d106b94520e2ac38fe326302bf",
     tokenizer_json_sha256: "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42",
-    tokenizer_config_json_sha256: "49e2b6e395f959f077f1e992b338919c0d4a9732fc6e613995e06557f843500c",
+    tokenizer_config_json_sha256:
+        "49e2b6e395f959f077f1e992b338919c0d4a9732fc6e613995e06557f843500c",
     chat_template_sha256: "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
     temperature: 1.0,
     declared_base_id: "Qwen/Qwen3.5-2B",
     declared_base_revision: "15852e8c16360a2fea060d615a32b45270f8a8fc",
     max_candidates: 255,
     max_score_levels: 10,
-    max_row_tokens: 262_144,
+    max_row_tokens: 65_536,
+    max_request_tokens: 262_144,
     cpu_backend_id: "d3-nano/cpu-fp32",
     cuda_backend_id: "d3-nano/cuda-fp32",
     release_date: "2026-10-12",
-    description: "Pinned d3-nano noncausal 24-layer Qwen3.5-2B code-readout decision engine                   (Apache-2.0, d3-code-readout-v1); prototype readout, research status",
+    description: "Pinned d3-nano noncausal 24-layer Qwen3.5-2B code-readout decision engine \
+                  (Apache-2.0, d3-code-readout-v1); prototype readout, research status",
 };
 
 /// Pinned `vllm-sr/d3-mini` (the `d3-mini v3.1.0` release commit pinned by
@@ -281,18 +307,21 @@ pub const D3_MINI: D3Profile = D3Profile {
     config_json_sha256: "8f5f404a71ecc53c4ff26fc42cb4c778ffacfb4c9623f5e2d51245166d6b5057",
     decision_config_sha256: "588bc0ac7644479b9adde0498d80b6fb7c576388992564ac67599c05d29add07",
     tokenizer_json_sha256: "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42",
-    tokenizer_config_json_sha256: "316230d6a809701f4db5ea8f8fc862bc3a6f3229c937c174e674ff3ca0a64ac8",
+    tokenizer_config_json_sha256:
+        "316230d6a809701f4db5ea8f8fc862bc3a6f3229c937c174e674ff3ca0a64ac8",
     chat_template_sha256: "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715",
     temperature: 1.0,
     declared_base_id: "Qwen/Qwen3.5-4B",
     declared_base_revision: "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
     max_candidates: 255,
     max_score_levels: 10,
-    max_row_tokens: 262_144,
+    max_row_tokens: 65_536,
+    max_request_tokens: 262_144,
     cpu_backend_id: "d3-mini/cpu-fp32",
     cuda_backend_id: "d3-mini/cuda-fp32",
     release_date: "2026-10-12",
-    description: "Pinned d3-mini noncausal 32-layer Qwen3.5-4B code-readout decision engine                   (Apache-2.0, d3-code-readout-v1); prototype readout, research status",
+    description: "Pinned d3-mini noncausal 32-layer Qwen3.5-4B code-readout decision engine \
+                  (Apache-2.0, d3-code-readout-v1); prototype readout, research status",
 };
 
 /// Pinned `vllm-sr/d3-flash` (the `d3-flash v3.1.0` release commit pinned
@@ -334,18 +363,21 @@ pub const D3_FLASH: D3Profile = D3Profile {
     config_json_sha256: "9c3e6eea217964096c7b032285bab6757720a847fbb9d0a04e551d2b1606c0eb",
     decision_config_sha256: "0269c72ac055d8149a7a778c477780af361f4c1cde3fd0e5ba9af791453ece18",
     tokenizer_json_sha256: "5f9e4d4901a92b997e463c1f46055088b6cca5ca61a6522d1b9f64c4bb81cb42",
-    tokenizer_config_json_sha256: "316230d6a809701f4db5ea8f8fc862bc3a6f3229c937c174e674ff3ca0a64ac8",
+    tokenizer_config_json_sha256:
+        "316230d6a809701f4db5ea8f8fc862bc3a6f3229c937c174e674ff3ca0a64ac8",
     chat_template_sha256: "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715",
     temperature: 1.0,
     declared_base_id: "Qwen/Qwen3.5-9B",
     declared_base_revision: "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
     max_candidates: 255,
     max_score_levels: 10,
-    max_row_tokens: 262_144,
+    max_row_tokens: 65_536,
+    max_request_tokens: 262_144,
     cpu_backend_id: "d3-flash/cpu-fp32",
     cuda_backend_id: "d3-flash/cuda-fp32",
     release_date: "2026-10-12",
-    description: "Pinned d3-flash noncausal 32-layer Qwen3.5-9B code-readout decision engine                   (Apache-2.0, d3-code-readout-v1); prototype readout, research status",
+    description: "Pinned d3-flash noncausal 32-layer Qwen3.5-9B code-readout decision engine \
+                  (Apache-2.0, d3-code-readout-v1); prototype readout, research status",
 };
 
 /// Profiles of this family, in catalog order.
@@ -553,10 +585,52 @@ mod tests {
 
     #[test]
     fn limits_stay_inside_the_reference_contract() {
+        // The reference serves a 262,144-token model context and never
+        // truncates, so a stricter cap only rejects input; it can never
+        // change an answer the reference would give.
+        const REFERENCE_CONTEXT_TOKENS: usize = 262_144;
         for profile in PROFILES {
+            assert_eq!(
+                profile.max_row_tokens, 65_536,
+                "{}: the per-question cap is the decided 65,536 tokens",
+                profile.loader_id
+            );
             assert!(
-                profile.max_row_tokens <= 262_144,
-                "{}: the reference never truncates and the checkpoint context is 262144",
+                profile.max_row_tokens < REFERENCE_CONTEXT_TOKENS,
+                "{}: the per-question cap must stay stricter than the reference context",
+                profile.loader_id
+            );
+            assert_eq!(
+                profile.max_request_tokens, 262_144,
+                "{}: the per-request budget is the decided 262,144 tokens",
+                profile.loader_id
+            );
+            assert!(
+                profile.max_row_tokens <= profile.max_request_tokens,
+                "{}: one maximal question must fit the request budget",
+                profile.loader_id
+            );
+        }
+    }
+
+    #[test]
+    fn descriptions_match_the_catalog_text() {
+        // The catalog and manifest descriptions follow one template; a lost
+        // `\` line continuation once left a run of spaces in the string.
+        for profile in PROFILES {
+            let base = profile
+                .declared_base_id
+                .strip_prefix("Qwen/")
+                .expect("pinned base ids live under Qwen/");
+            let expected = format!(
+                "Pinned {} noncausal {}-layer {base} code-readout decision engine \
+                 (Apache-2.0, d3-code-readout-v1); prototype readout, research status",
+                profile.loader_id, profile.geometry.layer_count
+            );
+            assert_eq!(profile.description, expected, "{}", profile.loader_id);
+            assert!(
+                !profile.description.contains("  "),
+                "{}: description has a run of spaces",
                 profile.loader_id
             );
         }

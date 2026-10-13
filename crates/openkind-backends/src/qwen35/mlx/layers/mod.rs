@@ -68,6 +68,16 @@ const KV_ATTN_SIZE: usize = KV_HEADS * ATTENTION_HEAD_DIM;
 const ROTARY_DIM: usize = 64;
 const ROPE_THETA: f32 = 10_000_000.0;
 
+// `MlxDecoderLayer::load` hard-codes the `layer_index % 4 == 3` mixer table
+// over 32 layers and `grouped_query_attention` applies only the causal mask,
+// which is the pinned causal geometry. Fail the build if that geometry
+// changes; noncausal or irregular-table profiles must not reach these layers.
+const _: () = assert!(
+    crate::qwen35::Qwen35Geometry::PINNED.has_uniform_causal_layout()
+        && crate::qwen35::Qwen35Geometry::PINNED.full_attention_interval == 4
+        && crate::qwen35::Qwen35Geometry::PINNED.layer_count == 32
+);
+
 /// One linear-attention layer's continuation state.
 #[derive(Clone)]
 pub struct MlxLinearState {

@@ -266,3 +266,173 @@ fn noncausal_attention_matches_a_naive_bidirectional_reference() {
         }
     }
 }
+
+/// A full-attention layer over a tiny geometry with deterministic weights,
+/// so the layer entry point runs without a checkpoint.
+fn tiny_full_attention(causal: bool) -> (FullAttention, crate::qwen35::Qwen35Geometry) {
+    use candle_core::{DType, Device, Tensor};
+    let geometry = crate::qwen35::Qwen35Geometry {
+        hidden_size: 8,
+        attention_heads: 2,
+        kv_heads: 1,
+        attention_head_dim: 8,
+        causal,
+        ..PINNED
+    };
+    let ramp = |rows: usize, columns: usize| {
+        let values: Vec<f32> = (0..rows * columns)
+            .map(|index| ((index % 7) as f32 - 3.0) * 0.05)
+            .collect();
+        Tensor::from_vec(values, (rows, columns), &Device::Cpu).expect("ramp tensor")
+    };
+    let zeros = |width: usize| Tensor::zeros(width, DType::F32, &Device::Cpu).expect("zeros");
+    let tensors: std::collections::HashMap<String, Tensor> = [
+        (
+            "self_attn.q_proj.weight",
+            ramp(geometry.attention_size() * 2, geometry.hidden_size),
+        ),
+        (
+            "self_attn.k_proj.weight",
+            ramp(geometry.kv_size(), geometry.hidden_size),
+        ),
+        (
+            "self_attn.v_proj.weight",
+            ramp(geometry.kv_size(), geometry.hidden_size),
+        ),
+        (
+            "self_attn.q_norm.weight",
+            zeros(geometry.attention_head_dim),
+        ),
+        (
+            "self_attn.k_norm.weight",
+            zeros(geometry.attention_head_dim),
+        ),
+        (
+            "self_attn.o_proj.weight",
+            ramp(geometry.hidden_size, geometry.attention_size()),
+        ),
+    ]
+    .into_iter()
+    .map(|(name, tensor)| (name.to_owned(), tensor))
+    .collect();
+    let variables = candle_nn::VarBuilder::from_tensors(tensors, DType::F32, &Device::Cpu);
+    (
+        FullAttention::load(&variables, geometry).expect("tiny attention layer"),
+        geometry,
+    )
+}
+
+fn tiny_rows(rows: usize, hidden_size: usize) -> Vec<f32> {
+    (0..rows * hidden_size)
+        .map(|index| ((index % 5) as f32 - 2.0) * 0.1)
+        .collect()
+}
+
+#[test]
+fn noncausal_full_attention_refuses_a_cached_prefix() {
+    // Cached prefix rows never attended to the suffix, so continuing a
+    // noncausal layer from them would silently compute a different model.
+    let device = candle_core::Device::Cpu;
+    let (noncausal, geometry) = tiny_full_attention(false);
+    let rows = 3;
+    let normalized = tiny_rows(rows, geometry.hidden_size);
+    let prefix = vec![0.0_f32; geometry.kv_size()];
+    noncausal
+        .forward_with_state_and_check::<crate::qwen35::Qwen35Error>(
+            &normalized,
+            rows,
+            0,
+            &device,
+            None,
+            None,
+        )
+        .expect("a full noncausal sequence runs");
+    let refused = noncausal.forward_with_state_and_check::<crate::qwen35::Qwen35Error>(
+        &normalized,
+        rows,
+        1,
+        &device,
+        Some((&prefix, &prefix)),
+        None,
+    );
+    match refused {
+        Err(error) => assert!(error.to_string().contains("noncausal"), "{error}"),
+        Ok(_) => panic!("a noncausal layer must refuse cached keys and values"),
+    }
+    // The same cache stays legal under the causal mask.
+    let (causal, _) = tiny_full_attention(true);
+    causal
+        .forward_with_state_and_check::<crate::qwen35::Qwen35Error>(
+            &normalized,
+            rows,
+            1,
+            &device,
+            Some((&prefix, &prefix)),
+            None,
+        )
+        .expect("a causal layer continues from its cache");
+}
+
+#[test]
+fn checked_full_attention_matches_unchecked_and_stops_inside_the_kernel() {
+    let device = candle_core::Device::Cpu;
+    let (attention, geometry) = tiny_full_attention(false);
+    let rows = 130;
+    let normalized = tiny_rows(rows, geometry.hidden_size);
+    let (unchecked, _) = attention
+        .forward_with_state_and_check::<crate::qwen35::Qwen35Error>(
+            &normalized,
+            rows,
+            0,
+            &device,
+            None,
+            None,
+        )
+        .expect("unchecked layer");
+    let mut open = || Ok::<(), crate::qwen35::Qwen35Error>(());
+    let (checked, _) = attention
+        .forward_with_state_and_check(
+            &normalized,
+            rows,
+            0,
+            &device,
+            None,
+            Some(&mut open as &mut dyn FnMut() -> Result<(), crate::qwen35::Qwen35Error>),
+        )
+        .expect("an open control never fails");
+    assert_eq!(checked, unchecked, "the check must not change numerics");
+
+    // A control error distinct from model errors, so the assertion below
+    // proves the stop came from the check.
+    #[derive(Debug)]
+    enum Stop {
+        Cancelled,
+        Model,
+    }
+    impl From<crate::qwen35::Qwen35Error> for Stop {
+        fn from(_: crate::qwen35::Qwen35Error) -> Self {
+            Self::Model
+        }
+    }
+    let mut checks = 0;
+    let mut closing = || -> Result<(), Stop> {
+        checks += 1;
+        if checks > 2 {
+            Err(Stop::Cancelled)
+        } else {
+            Ok(())
+        }
+    };
+    let result = attention.forward_with_state_and_check(
+        &normalized,
+        rows,
+        0,
+        &device,
+        None,
+        Some(&mut closing as &mut dyn FnMut() -> Result<(), Stop>),
+    );
+    // One check before the row loop, one at row 0, and the failing one at
+    // row 64: the layer stops mid-kernel instead of finishing all 130 rows.
+    assert!(matches!(result, Err(Stop::Cancelled)));
+    assert_eq!(checks, 3);
+}
