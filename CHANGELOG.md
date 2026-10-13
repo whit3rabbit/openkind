@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.3.0 (2026-10-13)
+
 ### Added
 
 - An opt-in cross-request cache of the native engine's shared-root prefill
@@ -69,7 +71,7 @@
   `sieve-4b:8b97b56524b55c41fbf4` profile serves `sthanika-ai/Sieve-4B`
   (rank-32 LoRA over `Qwen/Qwen3.5-4B`, causal, fenced-state branch
   prompts, per-type temperatures, two-order noul averaging) with the
-  LoRA merge computed per load through the shared merged backend, prompt
+  LoRA merge applied through the shared merged backend, prompt
   byte-parity against the shipped `sieve4b/prompt.py` (all seven fixture
   cases match), golden replay, fail-closed load tests, daemon aliases
   (`--sieve-aliases` / `--sieve-model-root`), and bench engine
@@ -217,7 +219,23 @@
   entries `openkind_loadable: true` with their catalog profile, and its
   shard counts no longer count a separate readout as a model shard.
 
+- The shared LoRA-merged backend keeps only the rank-r factors resident
+  and recomputes each delta on every weight read, instead of pinning a
+  dense FP32 delta per target (about 13.3 GiB for sieve-4b). Merged
+  weights are bit-identical. On a 36 GB M4 Max the sieve-4b golden replay
+  dropped from 265 s to 37-43 s and its peak footprint from about 15.5 GB
+  to 1.41 GB.
+- Dependencies were refreshed with `cargo update` within the Rust 1.90
+  MSRV, and `half` is capped below 2.5 because its `rand_distr` feature
+  then targets rand 0.9 and candle-core 0.8.0 stops compiling.
+  Dependabot now opens weekly grouped version updates for Cargo, the
+  TypeScript bindings, and GitHub Actions. Exact `=` pins stay manual.
+
 ### Fixed
+
+- The `onnx` and `onnx-rocm` builds of the strands-decider parity test
+  compile again. Its engine config was missing the `profile` field, which
+  failed the v0.2.1 release workflow on the MSRV and ONNX archive jobs.
 
 - The shared LoRA-merged backend reads target shapes from the safetensors
   header instead of loading each base tensor onto the device, and no
@@ -229,6 +247,10 @@
   and profile counts read thirty-two.
 
 ## 0.2.1 (2026-10-07)
+
+Tagged but never published. The release workflow failed before building
+archives or uploading crates, so crates.io and Homebrew stayed at 0.2.0.
+These changes first ship in 0.3.0.
 
 ### Added
 
