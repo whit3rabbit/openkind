@@ -12,16 +12,15 @@ use tokio::io::AsyncWriteExt;
 
 use crate::manifest::{sha256, valid_name, valid_relative_path, valid_sha256};
 use crate::{
-    Catalog, CatalogEntry, Error, Manifest, Result, CATALOG_SHA256, CATALOG_URL,
-    CLEF_27B_GGUF_MODEL_NAME, CLEF_FLASH_GGUF_MODEL_NAME, CLEF_FLASH_MODEL_NAME,
-    D3_EDGE_MODEL_NAME, D3_FLASH_MODEL_NAME, D3_LITE_MODEL_NAME, D3_MINI_MODEL_NAME,
-    D3_NANO_MODEL_NAME, DECIDER_4B_MODEL_NAME, DECODER_LOGIT_LETTER_MODEL_NAME,
-    DECODER_LOGIT_LLM_MODEL_NAME, DECODER_LOGIT_QWEN35_MODEL_NAME,
+    Catalog, CatalogEntry, Error, Manifest, Result, CATALOG_SHA256, CLEF_27B_GGUF_MODEL_NAME,
+    CLEF_FLASH_GGUF_MODEL_NAME, CLEF_FLASH_MODEL_NAME, D3_EDGE_MODEL_NAME, D3_FLASH_MODEL_NAME,
+    D3_LITE_MODEL_NAME, D3_MINI_MODEL_NAME, D3_NANO_MODEL_NAME, DECIDER_4B_MODEL_NAME,
+    DECODER_LOGIT_LETTER_MODEL_NAME, DECODER_LOGIT_LLM_MODEL_NAME, DECODER_LOGIT_QWEN35_MODEL_NAME,
     DECODER_LOGIT_QWEN3_06B_MODEL_NAME, DECODER_LOGIT_QWEN3_17B_MODEL_NAME,
     DECODER_LOGIT_QWEN3_4B_MODEL_NAME, ENCODER_EMBEDDING_MODEL_NAME,
     ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME, KEV_MODEL_NAME,
     LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME, LAYA_TYPED_DECISIONS_MODEL_NAME,
-    PLUMB_4B_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME, QWEN3GUARD_MODEL_NAME,
+    PLUMB_4B_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME, QWEN3GUARD_MODEL_NAME, REGISTRY_URL,
     SCHEMA_SCORER_MODEL_NAME, SIEVE_4B_MODEL_NAME, STRANDS_DECIDER_2B_MODEL_NAME,
     STRANDS_DECIDER_2B_V21_MODEL_NAME, VON_MODEL_NAME, WINNOW_E4B_MODEL_NAME, WINNOW_MODEL_NAME,
 };
@@ -155,7 +154,8 @@ fn supported_profile(manifest: &Manifest) -> bool {
 #[derive(Debug)]
 pub struct ModelStore {
     root: PathBuf,
-    catalog_url: String,
+    /// Base of the mirror's `registry/v1/` tree, ending in `/`.
+    registry_url: String,
     catalog_sha256: String,
     client: reqwest::Client,
     #[cfg(test)]
@@ -234,7 +234,7 @@ impl ModelStore {
             .build()?;
         Ok(Self {
             root,
-            catalog_url: CATALOG_URL.to_owned(),
+            registry_url: REGISTRY_URL.to_owned(),
             catalog_sha256: CATALOG_SHA256.to_owned(),
             client,
             #[cfg(test)]
@@ -270,8 +270,22 @@ impl ModelStore {
         &self.root
     }
 
+    fn registry_base(&self) -> Result<reqwest::Url> {
+        reqwest::Url::parse(&self.registry_url)
+            .map_err(|e| Error::Invalid(format!("registry URL: {e}")))
+    }
+
+    /// The immutable, digest-named catalog this build pins. Deriving the path
+    /// from the digest keeps releases that pin different catalogs from
+    /// contending for one mutable mirror file.
+    fn catalog_url(&self) -> Result<reqwest::Url> {
+        self.registry_base()?
+            .join(&format!("catalogs/{}.json", self.catalog_sha256))
+            .map_err(|e| Error::Invalid(format!("catalog URL: {e}")))
+    }
+
     pub async fn catalog(&self) -> Result<Catalog> {
-        let bytes = self.fetch_small(&self.catalog_url).await?;
+        let bytes = self.fetch_small(self.catalog_url()?.as_str()).await?;
         if sha256(&bytes) != self.catalog_sha256 {
             return Err(Error::DigestMismatch("catalog.json".into()));
         }
@@ -474,14 +488,15 @@ impl ModelStore {
     }
 
     async fn fetch_manifest(&self, entry: &CatalogEntry) -> Result<(Manifest, Vec<u8>)> {
-        let base = reqwest::Url::parse(&self.catalog_url)
-            .map_err(|e| Error::Invalid(format!("catalog URL: {e}")))?;
+        // Manifests resolve against `registry/v1/`, not the catalog's own
+        // `catalogs/` directory, so every catalog shares one manifest tree.
+        let base = self.registry_base()?;
         let url = base
             .join(&entry.manifest_path)
             .map_err(|e| Error::Invalid(format!("manifest URL: {e}")))?;
         if url.origin() != base.origin() {
             return Err(Error::Invalid(
-                "manifest URL escapes the catalog host".into(),
+                "manifest URL escapes the registry host".into(),
             ));
         }
         let bytes = self.fetch_small(url.as_str()).await?;
@@ -838,7 +853,7 @@ fn verify_file(path: &Path, size: u64, sha: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Artifact, Source};
+    use crate::{Artifact, Source, CATALOG_URL};
     use axum::http::{header, HeaderMap, StatusCode};
     use axum::routing::get;
     use axum::Router;
@@ -976,7 +991,7 @@ mod tests {
         let catalog_bytes = serde_json::to_vec(&catalog).unwrap();
         let catalog_sha256 = sha256(&catalog_bytes);
         let mut app = Router::new().route(
-            "/catalog.json",
+            &format!("/catalogs/{catalog_sha256}.json"),
             get(move || {
                 let bytes = catalog_bytes.clone();
                 async move { bytes }
@@ -997,7 +1012,7 @@ mod tests {
         tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
         let dir = tempdir().unwrap();
         let mut store = ModelStore::new(dir.path().to_path_buf()).unwrap();
-        store.catalog_url = format!("http://{address}/catalog.json");
+        store.registry_url = format!("http://{address}/");
         store.catalog_sha256 = catalog_sha256;
         (dir, store)
     }
@@ -1008,11 +1023,41 @@ mod tests {
         fs::write(blob, bytes).unwrap();
     }
 
+    #[test]
+    fn production_catalog_url_is_derived_from_the_pinned_digest() {
+        let store = ModelStore::new(PathBuf::from("unused")).unwrap();
+        assert_eq!(
+            CATALOG_URL,
+            format!("{REGISTRY_URL}catalogs/{CATALOG_SHA256}.json")
+        );
+        assert_eq!(store.catalog_url().unwrap().as_str(), CATALOG_URL);
+        // Manifests stay in the shared tree beside `catalogs/`.
+        assert_eq!(
+            store
+                .registry_base()
+                .unwrap()
+                .join("manifests/fixture.json")
+                .unwrap()
+                .as_str(),
+            format!("{REGISTRY_URL}manifests/fixture.json")
+        );
+    }
+
     #[tokio::test]
     async fn rejects_catalog_that_does_not_match_the_release_digest() {
-        let bytes = b"verified offline fixture";
-        let (_dir, mut store) = test_store(vec![fixture_manifest(NAME, bytes)]).await;
-        store.catalog_sha256 = "0".repeat(64);
+        // A mirror serving other bytes under the pinned digest name.
+        let pinned = "0".repeat(64);
+        let app = Router::new().route(
+            &format!("/catalogs/{pinned}.json"),
+            get(|| async { b"{\"schema\":\"openkind-catalog/v1\",\"models\":[]}".to_vec() }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let dir = tempdir().unwrap();
+        let mut store = ModelStore::new(dir.path().to_path_buf()).unwrap();
+        store.registry_url = format!("http://{address}/");
+        store.catalog_sha256 = pinned;
         assert!(matches!(
             store.catalog().await,
             Err(Error::DigestMismatch(path)) if path == "catalog.json"
@@ -1520,7 +1565,7 @@ mod tests {
             let served_catalog = catalog_bytes.clone();
             let app = axum::Router::new()
                 .route(
-                    "/catalog.json",
+                    &format!("/catalogs/{}.json", sha256(&catalog_bytes)),
                     axum::routing::get(move || {
                         let bytes = served_catalog.clone();
                         async move { bytes }
@@ -1537,7 +1582,7 @@ mod tests {
             let address = listener.local_addr().unwrap();
             tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
             let mut drifted_store = ModelStore::new(store.root().to_path_buf()).unwrap();
-            drifted_store.catalog_url = format!("http://{address}/catalog.json");
+            drifted_store.registry_url = format!("http://{address}/");
             drifted_store.catalog_sha256 = sha256(&catalog_bytes);
 
             let result = drifted_store.pull(NAME, |_, _, _| {}).await;

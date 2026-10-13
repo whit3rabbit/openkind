@@ -62,6 +62,18 @@ tap formula, and crates.io packages are released together.
     [`registry/v1`](../registry/v1) exist in the public mirror
     (`whit3rabbit/openkind-model-registry`). Builds and tests must never download
     weights at runtime.
+- [ ] **Publish the Pinned Catalog Before Tagging**:
+  - The release fetches `registry/v1/catalogs/<CATALOG_SHA256>.json` from the
+    mirror's `main` branch (`CATALOG_SHA256` in
+    [`crates/openkind-model-store/src/lib.rs`](../crates/openkind-model-store/src/lib.rs)).
+    Push that file to the mirror before the release ships, then confirm public
+    HTTPS serves it and every pinned asset:
+    ```bash
+    python3 scripts/sync-model-registry.py --remote
+    ```
+  - Never overwrite the mirror's legacy `registry/v1/catalog.json` (frozen for
+    v0.2.1) or delete an older `catalogs/<sha256>.json`. Released binaries still
+    fetch them. See [`MODEL_REGISTRY.md`](MODEL_REGISTRY.md#publishing-the-public-mirror).
 
 ---
 

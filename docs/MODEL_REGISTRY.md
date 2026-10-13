@@ -8,14 +8,16 @@ verification milestones. Pull progress stays on stderr. `openkind list`,
 `show NAME`, and `rm NAME` operate on local installations without a daemon or
 network request. Read commands accept `--json` for scripts.
 
-Twenty-six profiles are catalog-installable: the native Qwen3.5 state-first
+Thirty-two profiles are catalog-installable: the native Qwen3.5 state-first
 profile, the three laya decision encoders, and the surveyed-family
 prototypes (`decoder-logit-letter`, `encoder-nli`, `encoder-instruct-label`,
 `decoder-logit-llm`, `schema-scorer`, `qwen3guard`, `kev`,
 `decoder-logit-qwen35`, `plumb-4b`, `decider-4b`, `von`, `winnow`,
 `winnow-e4b`, `strands-decider-2b` [Hobson v19 and v21], `clef-flash`,
-`clef-flash-gguf`, `clef-27b-gguf`), plus the proxy-cache
-`encoder-embedding` sentence encoder. Every manifest pins each artifact's
+`clef-flash-gguf`, `clef-27b-gguf`, the three `decoder-logit-qwen3`
+controls [0.6B, 1.7B, 4B], `d3-edge`, `d3-lite`, `d3-nano`, `d3-mini`,
+`d3-flash`, `sieve-4b`), plus the proxy-cache `encoder-embedding` sentence
+encoder. Every manifest pins each artifact's
 source revision, byte size, and SHA-256; `rust-loadable` status describes
 implementation and parity coverage, not reviewed task quality or release
 approval. Derived assets that no upstream publishes — kev's converted
@@ -98,9 +100,11 @@ supersedes it for the 0.3.1 edition (2026-10-12): thirty-five tier-1 and
 tier-2 entries — the board leaders, the best small open entries, the whole
 d3 family, and their base models — pinned to re-resolved revisions with
 file-level pin-versus-HEAD equivalence checks. Both files are research
-metadata: nothing in either is installable, and every entry records why it
-is not loadable today; [`RESEARCH.md`](RESEARCH.md) owns the survey and its
-architecture verdicts.
+metadata: nothing in either is installable. The 0.3.1 entries that have
+since landed as catalog profiles (the five d3 profiles and `sieve-4b`) set
+`openkind_loadable` and name their `catalog_profile`. Every other entry
+records why it is not loadable today. [`RESEARCH.md`](RESEARCH.md) owns the
+survey and its architecture verdicts.
 
 ## Execution backends and benchmark evidence per registry model
 
@@ -168,6 +172,18 @@ catalog URL points to that public repository, so OpenKind can stay private
 while anonymous pulls work. The [sync script](../scripts/sync-model-registry.py)
 lives in OpenKind; there is no automatic cross-repository push.
 
+Each release pins one catalog digest, `CATALOG_SHA256` in
+[`openkind-model-store`](../crates/openkind-model-store/src/lib.rs), and
+fetches the immutable `registry/v1/catalogs/<CATALOG_SHA256>.json` from the
+mirror's `main` branch. `CATALOG_URL` is derived from that digest at compile
+time, and the fetched bytes must hash to it. Manifests resolve against
+`registry/v1/`, so every catalog shares one `manifests/` tree. Releases up to
+v0.2.1 fetch the mutable `registry/v1/catalog.json` instead. The mirror keeps
+that file frozen at v0.2.1's bytes (SHA-256 prefix `c26a2e0a`) so v0.2.1 keeps
+working. v0.1.0 and v0.2.0 pin an older catalog (`0c8b3b7b`) that this path no
+longer serves. Re-pinning the catalog adds a digest file rather than replacing one,
+so releases with different pins share the mirror.
+
 For a new profile, first commit its distributable assets to the public
 registry. Pin that asset commit, file sizes, and SHA-256 values in the OpenKind
 manifest, then update the catalog's manifest digest. The local parity fixtures
@@ -181,10 +197,18 @@ python3 scripts/sync-model-registry.py --remote
 ```
 
 Without flags, the script checks local copies. `--write` copies every metadata
-file under `registry/v1` (the catalog, manifests, and supplemental indexes),
-refuses a dirty mirror metadata tree, and never commits or pushes. After the
-public push, `--remote` checks exact metadata bytes and all pinned profile
-assets through public HTTPS. It does not fetch checkpoint shards. The default
+file under `registry/v1` (manifests and supplemental indexes) and writes the
+source `catalog.json` to `catalogs/<sha256>.json`. It never overwrites the
+mirror's legacy `catalog.json` or deletes older digest-named catalogs, refuses
+a dirty mirror metadata tree, and never commits or pushes. The checks accept
+only those two kinds of mirror-only files: the legacy catalog must still hash
+to v0.2.1's digest, each older `catalogs/` file must hash to its name, and
+every catalog the mirror serves must still resolve to manifests with matching
+digests. After the public push, `--remote` checks exact metadata bytes
+(including the digest-named catalog URL and the frozen legacy catalog) and all
+pinned profile assets through public HTTPS. It does not fetch checkpoint
+shards. Push the mirror before tagging a release that pins a new catalog
+digest. [`RELEASE.md`](RELEASE.md) gates the release on it. The default
 mirror checkout is
 `~/Documents/GitHub/openkind-model-registry`; pass `--mirror PATH` to each
 command if the public checkout is elsewhere.
