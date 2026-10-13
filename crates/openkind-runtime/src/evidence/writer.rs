@@ -3,7 +3,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::Serialize;
-use sha2::{Digest, Sha256};
 
 use super::records::*;
 use super::time::{format_utc_timestamp, unix_now};
@@ -199,13 +198,4 @@ pub(crate) fn write_bytes(directory: &Path, name: &str, bytes: &[u8]) -> Result<
     Ok(())
 }
 
-pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(bytes);
-    let digest = hasher.finalize();
-    let mut hex = String::with_capacity(64);
-    for byte in digest {
-        hex.push_str(&format!("{byte:02x}"));
-    }
-    hex
-}
+pub(crate) use crate::hashing::sha256_hex;

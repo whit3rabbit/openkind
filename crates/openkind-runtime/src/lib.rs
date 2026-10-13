@@ -24,6 +24,8 @@ pub mod evidence;
 pub mod execution;
 /// Host hardware discovery and process CPU-time observations.
 pub mod hardware;
+/// Plain SHA-256 hex helpers shared across the workspace.
+pub mod hashing;
 /// Process-memory observations for admission calibration.
 pub mod memory;
 mod rocm;
