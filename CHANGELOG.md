@@ -14,9 +14,11 @@
   to callers as latency and the wire request carries no tenant. Tests check
   that a hit reproduces a miss bit for bit and skips the root forward, that
   only the exact root is served, that returned states cannot alter the
-  cached copy, and the budget, LRU, and TTL behaviour (mutation-checked). It
-  has not been run against the pinned 4B checkpoint, which is not installed
-  on this host.
+  cached copy, and the budget, LRU, and TTL behaviour (mutation-checked). On
+  the pinned 4B (CPU daemon, M4 Max) a three-question request took 9.37 s cold
+  and 7.78 s with its 66.6 MB root cached, with identical answers (1 miss, 2
+  hits). Requests the scheduler would not share, such as a single small
+  question, never compute the root on its own, so they never fill the cache.
 
 - Model support for the d3 family: the pinned `d3-edge:664f9ead734372935286`
   profile serves `vllm-sr/d3-edge` at the evaluated v3.1.0 release commit
@@ -100,8 +102,14 @@
   nothing, so it stays. `stack_rows` is now a single concatenation instead of a
   quadratic pairwise join. The loop remains for traced runs, native BF16, and
   `MetalTree`, and `OPENKIND_QWEN35_MLX_ROW_LOOP=1` selects it for FP32. The
-  pinned 4B checkpoint is not installed here, so the checkpoint-gated MLX
-  parity examples and a real-checkpoint timing were not run.
+  pinned 4B was run through the bench harness on a 2-state, 6-row workload
+  against a baseline built from the merge base: all 24 answers (6 rows across
+  4 strategies) were exactly equal to the baseline, with and without the
+  row-loop switch. Repeated-full went from 18.2 to 20.5 s down to 6.8 to 7.2 s,
+  and nested-sequential from 4.3 to 4.7 s down to 2.8 to 2.9 s. The
+  checkpoint-gated `qwen35_mlx_full_parity` and `qwen35_mlx_nested_parity`
+  examples were not run, because the Phase 3B reference outputs they compare
+  against are not on this machine.
 
 - The d3, sieve, decider, and decoder-logit-qwen35 engines read only the final
   token of their backbone, yet the last decoder layer computed its query path,
@@ -119,8 +127,9 @@
   answers sit within 2.8e-6 of the golden. Alternating fresh-process runs on a
   heavily loaded host put d3-edge about 5% faster and d3-lite 2 to 3% faster,
   in line with one layer in 12 and 24. strands-decider and clef read other
-  rows and keep the full pass. The decider and decoder-logit-qwen35 replays
-  were not run.
+  rows and keep the full pass. The decider-4b and JevK5 (decoder-logit-qwen35)
+  golden replays also pass on the pinned 4B weights. The Plumb replay was
+  skipped because Plumb is not installed.
 
 - The native scheduler can plan for a root the prefix cache already holds
   (`choose_strategy_with_cached_root`). The root forward leaves the shared
@@ -143,8 +152,11 @@
   lineage depth rather than a forked one, and nothing outside tests and one
   probe reads it. The structural fingerprint covers shape and position, not
   tensor values, so the runner's check never proved content immutability. For
-  CPU states the shared borrow does. No timing is claimed, and the retained
-  per-candidate states and their admission accounting are unchanged.
+  CPU states the shared borrow does. The retained per-candidate states and
+  their admission accounting are unchanged. On the pinned 4B CPU engine the
+  six answers of a 2-state workload were exactly equal to a baseline built
+  from the merge base, the time was the same (19.1 s), and peak resident
+  memory fell from 9.27 to 8.73 GB.
 
 - `--qwen35-resident-weights` now also governs the Qwen3.5-text family
   engines (d3, sieve, decider, decoder-logit-qwen35, strands). Their

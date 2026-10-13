@@ -420,8 +420,12 @@ are localization diagnostics, not replacement acceptance tolerances.
    projection. The current negative result says recurrence fusion alone is
    insufficient. A synthetic-shape measurement now exists (see
    `ReferenceOps`): preparation and normalization were most of the cost and are
-   hoisted, leaving the sequential state update. A real-checkpoint timing and
-   the checkpoint-gated parity run for the hoisted path are still open.
+   hoisted, leaving the sequential state update. On the pinned 4B (bench
+   harness, 2 states and 6 rows, M4 Max) the hoisted path gave exactly the
+   baseline's answers for all four strategies and cut repeated-full from
+   18.2 to 20.5 s to 6.8 to 7.2 s and nested-sequential from 4.3 to 4.7 s to
+   2.8 to 2.9 s. The checkpoint-gated parity examples are still open, because
+   the Phase 3B reference outputs they need are not on this machine.
 2. **Measure the vectorized continuation path.** The FP32 path now batches
    question and candidate lanes in MLX tensors, carries true suffix lengths,
    and restores lane positions. Compare it with the per-lane path over matched
