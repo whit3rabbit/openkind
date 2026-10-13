@@ -103,9 +103,30 @@
   Hugging Face token only to the configured endpoint origin, so CDN hops are
   followed without it. This makes the existing cross-host stripping explicit
   and tested; redirects still stay on HTTPS and stop after eight hops.
+- Winnow backend IDs now follow the execution fragment, `winnow/cpu-fp32` and
+  `winnow/cuda-fp32:N`, instead of the fixed `winnow/cpu-fp32-lora` and
+  `winnow/cuda-fp32-lora`. Anything that records or filters on the old IDs
+  must update.
+- The shared wire layer treats a null, empty, or whitespace-only Choice
+  option description as absent, so HTTP `null` and gRPC `""` produce the same
+  model input. The d3, decider, sieve, and laya families keep their
+  reference runtimes' own description rules.
+- Engines that count their own prompt tokens (every family evaluator except
+  winnow and router_script, plus the native Qwen engine) opt into
+  `DecisionEngine::reports_input_tokens`, so dispatch skips the
+  pre-evaluation request serialization. Family engines also move the owned
+  request state instead of copying it, tokenize constant prompt segments
+  once at load, and write Python-style JSON into one buffer. Outputs are
+  unchanged.
+- Family engines share the admission gate, cancellation guard, question
+  prelude, response assembly, pinned-config checks, and SHA-256 helpers
+  instead of per-family copies. No behavior change.
 
 ### Fixed
 
+- Winnow now cancels on client disconnect through the shared admission gate and
+  cancellation guard, and records the family outcome and duration metrics the
+  other family engines emit.
 - The shared LoRA-merged backend reads target shapes from the safetensors
   header instead of loading each base tensor onto the device, and no
   longer folds load failures (such as accelerator OOM) into a "missing
