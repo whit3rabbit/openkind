@@ -280,3 +280,58 @@ fn projection_checks_width_and_nonfinite_values() {
     bad[0] = f32::NAN;
     assert!(project(&bad, &row).is_err());
 }
+
+#[test]
+fn split_root_and_branch_encoding_matches_the_one_shot_renderer() {
+    let tokenizer = tokenizer();
+    let state = "Evidence: the small value is 3, the large value is 9.";
+    let candidates = [
+        CandidateText::new("small", "value 3"),
+        CandidateText::new("large", "value 9"),
+    ];
+    let whole = tokenizer
+        .encode_state_first(state, "Which is larger?", &candidates)
+        .unwrap();
+    let root = tokenizer.encode_state_root(state).unwrap();
+    let (question, suffixes) = tokenizer
+        .encode_state_first_branch(root.len(), "Which is larger?", &candidates)
+        .unwrap();
+    assert_eq!(root, whole.root_ids());
+    assert_eq!(question, whole.question_ids());
+    assert_eq!(suffixes, whole.candidate_suffix_ids());
+    for (suffix, full) in suffixes.iter().zip(whole.full_candidate_ids()) {
+        let joined: Vec<u32> = root
+            .iter()
+            .chain(&question)
+            .chain(suffix)
+            .copied()
+            .collect();
+        assert_eq!(&joined, full);
+    }
+}
+
+#[test]
+fn split_branch_encoding_enforces_the_frozen_sequence_ceiling() {
+    let tokenizer = tokenizer();
+    let candidates = [
+        CandidateText::new("one", "first"),
+        CandidateText::new("two", "second"),
+    ];
+    let root = tokenizer.encode_state_root("state").unwrap();
+    // A root as long as the ceiling leaves no room for any question branch.
+    assert!(matches!(
+        tokenizer.encode_state_first_branch(
+            crate::qwen35::tokenizer::MAX_SEQUENCE_TOKENS,
+            "question",
+            &candidates
+        ),
+        Err(Qwen35Error::InvalidInput(_))
+    ));
+    assert!(tokenizer
+        .encode_state_first_branch(root.len(), "question", &candidates)
+        .is_ok());
+    assert!(matches!(
+        tokenizer.encode_state_root("   "),
+        Err(Qwen35Error::InvalidInput(_))
+    ));
+}

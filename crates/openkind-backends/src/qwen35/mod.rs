@@ -23,14 +23,15 @@ mod tokenizer;
 pub use backbone::{
     choose_strategy, run_batched_candidates, run_batched_nested, run_batched_nested_pooled,
     run_batched_questions, run_flat_batched_candidates, run_repeated_full, run_sequential_nested,
-    run_strategy, run_with_scheduler, BackboneOutput, BackboneReference, BackboneState,
-    BatchContinuation, BatchedCandidateResult, BatchedCandidates, BatchedNestedRun,
-    BatchedQuestionResult, BatchedQuestions, CountingExecutor, EmbeddingOutput, ExecutionStrategy,
-    FlatBatchRun, FullSequenceRecord, Layer0Output, LayerKind, NestedCandidateResult,
-    NestedQuestion, NestedQuestionResult, NestedRun, ProcessMemoryEnvelope, Qwen35Backbone,
-    Qwen35BranchBatch, Qwen35Embedding, Qwen35Geometry, Qwen35Layer0, RetentionEstimates,
-    SchedulerConfig, SequentialNestedExecutor, StageComparison, StrategyDecision,
-    StrategyEstimates, StrategyOutput, StrategyRequest, TraceStage,
+    run_strategy, run_with_scheduler, set_kernel_thread_limit, set_resident_weights_policy,
+    BackboneOutput, BackboneReference, BackboneState, BatchContinuation, BatchedCandidateResult,
+    BatchedCandidates, BatchedNestedRun, BatchedQuestionResult, BatchedQuestions, CountingExecutor,
+    EmbeddingOutput, ExecutionStrategy, FlatBatchRun, FullSequenceRecord, Layer0Output, LayerKind,
+    NestedCandidateResult, NestedQuestion, NestedQuestionResult, NestedRun, ProcessMemoryEnvelope,
+    Qwen35Backbone, Qwen35BranchBatch, Qwen35Embedding, Qwen35Geometry, Qwen35Layer0,
+    ResidentWeightsMode, RetentionEstimates, SchedulerConfig, SequentialNestedExecutor,
+    StageComparison, StrategyDecision, StrategyEstimates, StrategyOutput, StrategyRequest,
+    TraceStage,
 };
 pub(crate) use backbone::{EmbeddingLayout, TextBackbone};
 // Clef-family GGUF execution reuses the parity-verified forward kernels.

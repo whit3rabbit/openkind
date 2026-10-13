@@ -106,6 +106,27 @@ pub(crate) struct Args {
     #[arg(long, env = "OPENKIND_QWEN35_TIMEOUT_MS", default_value_t = 600_000)]
     pub(crate) qwen35_timeout_ms: u64,
 
+    /// Threads one native evaluation's CPU kernels may use. 0 divides the
+    /// available cores evenly among `--qwen35-concurrency` evaluations.
+    /// Results do not depend on this value.
+    #[arg(long, env = "OPENKIND_QWEN35_KERNEL_THREADS", default_value_t = 0)]
+    pub(crate) qwen35_kernel_threads: usize,
+
+    /// Keep the pinned Qwen3.5 backbone's decoder weights resident in FP32
+    /// instead of re-mapping and widening them on every forward. `auto`
+    /// enables it only when the host has the FP32 decoder size plus 4 GiB free
+    /// (and `--qwen35-max-process-bytes`, if set, allows it), and logs a
+    /// warning when it stays off. `on` forces it regardless of free memory.
+    /// Roughly 14 to 17 GB for the 4B checkpoint. Results are bit-identical.
+    /// Applies to the candle CPU and CUDA paths, not MLX.
+    #[arg(
+        long,
+        env = "OPENKIND_QWEN35_RESIDENT_WEIGHTS",
+        value_enum,
+        default_value_t = ResidentWeightsArg::Auto
+    )]
+    pub(crate) qwen35_resident_weights: ResidentWeightsArg,
+
     /// Native model backend. `cuda` requires the daemon's `cuda` feature
     /// and a CUDA device; `mlx-fp32` is available on macOS arm64 with the
     /// daemon's `mlx` feature enabled.
@@ -621,6 +642,27 @@ pub(crate) enum DecoderLogitQwen35BackendArg {
     MlxFp32,
 }
 
+/// CLI surface for `--qwen35-resident-weights`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub(crate) enum ResidentWeightsArg {
+    /// Resident when free memory allows it, otherwise off with a warning (default).
+    Auto,
+    /// Always resident.
+    On,
+    /// Never resident.
+    Off,
+}
+
+impl From<ResidentWeightsArg> for openkind_backends::qwen35::ResidentWeightsMode {
+    fn from(value: ResidentWeightsArg) -> Self {
+        match value {
+            ResidentWeightsArg::Auto => Self::Auto,
+            ResidentWeightsArg::On => Self::On,
+            ResidentWeightsArg::Off => Self::Off,
+        }
+    }
+}
+
 /// CLI surface for `--qwen35-execution`: the three execution plans plus the
 /// adaptive `auto` default.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
@@ -882,8 +924,25 @@ mod tests {
         assert_eq!(args.arrow, ArrowArg::Off);
         assert_eq!(args.log_filter, "info");
         assert_eq!(args.qwen35_execution, ExecutionArg::Auto);
+        assert_eq!(args.qwen35_resident_weights, ResidentWeightsArg::Auto);
         assert_eq!(args.qwen35_backend, Qwen35BackendArg::Auto);
         assert_eq!(args.qwen35_timeout_ms, 600_000);
+    }
+
+    #[test]
+    fn resident_weights_flag_parses_and_maps_to_the_backend_mode() {
+        use openkind_backends::qwen35::ResidentWeightsMode as Mode;
+        for (value, arg, mode) in [
+            ("auto", ResidentWeightsArg::Auto, Mode::Auto),
+            ("on", ResidentWeightsArg::On, Mode::On),
+            ("off", ResidentWeightsArg::Off, Mode::Off),
+        ] {
+            let args =
+                Args::try_parse_from(["openkindd", "--qwen35-resident-weights", value]).unwrap();
+            assert_eq!(args.qwen35_resident_weights, arg);
+            assert_eq!(Mode::from(args.qwen35_resident_weights), mode);
+        }
+        assert!(Args::try_parse_from(["openkindd", "--qwen35-resident-weights", "maybe"]).is_err());
     }
 
     #[test]

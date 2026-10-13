@@ -113,6 +113,8 @@ credentials with only a fixed transport label.
 | `OPENKIND_QWEN35_CHECKPOINT_ROOT` | Offline pinned Qwen checkpoint root | unset |
 | `OPENKIND_QWEN35_TOKENIZER` | Digest-locked tokenizer JSON path | unset |
 | `OPENKIND_QWEN35_CONCURRENCY` | Maximum concurrent native evaluations | `1` |
+| `OPENKIND_QWEN35_KERNEL_THREADS` | Threads per evaluation for the CPU recurrence, convolution, and attention kernels; `0` splits the cores evenly across `OPENKIND_QWEN35_CONCURRENCY` (does not change results) | `0` |
+| `OPENKIND_QWEN35_RESIDENT_WEIGHTS` | `auto`, `on`, or `off`: keep the native Qwen3.5 backbone's decoder weights resident in FP32 instead of re-mapping and widening them each forward (candle CPU/CUDA only; 14 to 17 GB for the 4B checkpoint; bit-identical results). `auto` turns it on only when the host has that much plus 4 GiB free and `OPENKIND_QWEN35_MAX_PROCESS_BYTES` allows it, and logs a warning when it stays off | `auto` |
 | `OPENKIND_QWEN35_QUEUE` | Additional queued native requests | `2` |
 | `OPENKIND_QWEN35_TIMEOUT_MS` | Queue-inclusive deadline per native evaluation | `600000` |
 | `OPENKIND_QWEN35_BACKEND` | `auto`, `native-cpu`, `cuda` with the `cuda` feature, or `mlx-fp32` on macOS arm64 with the `mlx` feature | `auto` |

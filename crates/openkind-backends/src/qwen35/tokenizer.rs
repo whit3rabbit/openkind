@@ -111,17 +111,56 @@ impl Qwen35Tokenizer {
         candidates: &[CandidateText<'_>],
     ) -> Result<StateFirstSegments, Qwen35Error> {
         validate_inputs(state, instruction, candidates)?;
+        let root_ids = self.encode_state_root(state)?;
+        let (question_ids, candidate_suffix_ids) =
+            self.encode_state_first_branch(root_ids.len(), instruction, candidates)?;
+        let full_candidate_ids = candidate_suffix_ids
+            .iter()
+            .map(|suffix| concat_full(&root_ids, &question_ids, suffix))
+            .collect();
+        Ok(StateFirstSegments {
+            root_ids,
+            question_ids,
+            candidate_suffix_ids,
+            full_candidate_ids,
+        })
+    }
 
+    /// Encode only the immutable state root of the frozen renderer.
+    ///
+    /// The root depends on the state alone, so a request with several questions
+    /// encodes it once and calls [`Self::encode_state_first_branch`] per question.
+    pub fn encode_state_root(&self, state: &str) -> Result<Vec<u32>, Qwen35Error> {
+        if state.trim().is_empty() {
+            return Err(Qwen35Error::InvalidInput(
+                "state must contain non-whitespace text".to_owned(),
+            ));
+        }
         // These pieces are encoded separately because tokenization is sensitive
         // to segment boundaries. Encoding the final display string is not the
         // selected model contract, even when it looks textually equivalent.
         let mut root_ids = self.encode(PREFIX)?;
         root_ids.extend(self.encode(STATE_MARKER)?);
         root_ids.extend(self.encode(state)?);
+        Ok(root_ids)
+    }
 
+    /// Encode the question branch and candidate suffixes of the frozen renderer.
+    ///
+    /// `root_len` is the length of the root from [`Self::encode_state_root`]; it
+    /// only feeds the frozen maximum-sequence check, which runs exactly as in
+    /// [`Self::encode_state_first`].
+    pub fn encode_state_first_branch(
+        &self,
+        root_len: usize,
+        instruction: &str,
+        candidates: &[CandidateText<'_>],
+    ) -> Result<(Vec<u32>, Vec<Vec<u32>>), Qwen35Error> {
+        validate_branch_inputs(instruction, candidates)?;
         let mut question_ids = self.encode(QUESTION_MARKER)?;
         question_ids.extend(self.encode(instruction)?);
-        self.finish_state_first(root_ids, question_ids, candidates)
+        let suffixes = self.encode_candidate_suffixes(root_len, &question_ids, candidates)?;
+        Ok((question_ids, suffixes))
     }
 
     /// Encode the state-first renderer with an option-catalogue block inserted
@@ -140,49 +179,48 @@ impl Qwen35Tokenizer {
         candidates: &[CandidateText<'_>],
     ) -> Result<StateFirstSegments, Qwen35Error> {
         validate_inputs(state, instruction, candidates)?;
-        let mut root_ids = self.encode(PREFIX)?;
-        root_ids.extend(self.encode(STATE_MARKER)?);
-        root_ids.extend(self.encode(state)?);
+        let root_ids = self.encode_state_root(state)?;
         let mut question_ids = self.encode(QUESTION_MARKER)?;
         question_ids.extend(self.encode(instruction)?);
         question_ids.extend(self.encode(catalogue)?);
-        self.finish_state_first(root_ids, question_ids, candidates)
-    }
-
-    fn finish_state_first(
-        &self,
-        root_ids: Vec<u32>,
-        question_ids: Vec<u32>,
-        candidates: &[CandidateText<'_>],
-    ) -> Result<StateFirstSegments, Qwen35Error> {
-        let mut candidate_suffix_ids = Vec::with_capacity(candidates.len());
-        let mut full_candidate_ids = Vec::with_capacity(candidates.len());
-        for candidate in candidates {
-            let mut suffix = self.encode(CANDIDATE_MARKER)?;
-            let option_text = format!("{} — {}", candidate.label, candidate.criteria);
-            suffix.extend(self.encode(&option_text)?);
-            suffix.extend(self.encode(ASSESSMENT_MARKER)?);
-
-            let mut full = Vec::with_capacity(root_ids.len() + question_ids.len() + suffix.len());
-            full.extend_from_slice(&root_ids);
-            full.extend_from_slice(&question_ids);
-            full.extend_from_slice(&suffix);
-            if full.len() > MAX_SEQUENCE_TOKENS {
-                return Err(Qwen35Error::InvalidInput(format!(
-                    "candidate sequence length {} exceeds frozen maximum {MAX_SEQUENCE_TOKENS}; truncation is forbidden",
-                    full.len()
-                )));
-            }
-            candidate_suffix_ids.push(suffix);
-            full_candidate_ids.push(full);
-        }
-
+        let candidate_suffix_ids =
+            self.encode_candidate_suffixes(root_ids.len(), &question_ids, candidates)?;
+        let full_candidate_ids = candidate_suffix_ids
+            .iter()
+            .map(|suffix| concat_full(&root_ids, &question_ids, suffix))
+            .collect();
         Ok(StateFirstSegments {
             root_ids,
             question_ids,
             candidate_suffix_ids,
             full_candidate_ids,
         })
+    }
+
+    /// Encode each candidate suffix and enforce the frozen sequence ceiling on
+    /// `root + question + suffix` without materializing the concatenation.
+    fn encode_candidate_suffixes(
+        &self,
+        root_len: usize,
+        question_ids: &[u32],
+        candidates: &[CandidateText<'_>],
+    ) -> Result<Vec<Vec<u32>>, Qwen35Error> {
+        let mut candidate_suffix_ids = Vec::with_capacity(candidates.len());
+        for candidate in candidates {
+            let mut suffix = self.encode(CANDIDATE_MARKER)?;
+            let option_text = format!("{} — {}", candidate.label, candidate.criteria);
+            suffix.extend(self.encode(&option_text)?);
+            suffix.extend(self.encode(ASSESSMENT_MARKER)?);
+
+            let full_len = root_len + question_ids.len() + suffix.len();
+            if full_len > MAX_SEQUENCE_TOKENS {
+                return Err(Qwen35Error::InvalidInput(format!(
+                    "candidate sequence length {full_len} exceeds frozen maximum {MAX_SEQUENCE_TOKENS}; truncation is forbidden"
+                )));
+            }
+            candidate_suffix_ids.push(suffix);
+        }
+        Ok(candidate_suffix_ids)
     }
 
     pub(crate) fn encode(&self, text: &str) -> Result<Vec<u32>, Qwen35Error> {
@@ -203,6 +241,13 @@ fn validate_inputs(
             "state must contain non-whitespace text".to_owned(),
         ));
     }
+    validate_branch_inputs(instruction, candidates)
+}
+
+fn validate_branch_inputs(
+    instruction: &str,
+    candidates: &[CandidateText<'_>],
+) -> Result<(), Qwen35Error> {
     if instruction.trim().is_empty() {
         return Err(Qwen35Error::InvalidInput(
             "question instruction must contain non-whitespace text".to_owned(),
@@ -223,4 +268,12 @@ fn validate_inputs(
         ));
     }
     Ok(())
+}
+
+fn concat_full(root_ids: &[u32], question_ids: &[u32], suffix: &[u32]) -> Vec<u32> {
+    let mut full = Vec::with_capacity(root_ids.len() + question_ids.len() + suffix.len());
+    full.extend_from_slice(root_ids);
+    full.extend_from_slice(question_ids);
+    full.extend_from_slice(suffix);
+    full
 }

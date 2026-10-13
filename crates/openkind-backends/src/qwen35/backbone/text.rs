@@ -204,6 +204,7 @@ impl TextBackbone {
         .pp("model")
         .pp("language_model");
         let layers = variables.pp("layers");
+        let trace_layers = std::env::var_os("OPENKIND_QWEN35_LAYER_TRACE").is_some();
         for layer_index in 0..self.geometry.layer_count {
             check()?;
             let layer = DecoderLayer::load(&layers, layer_index, &device, self.geometry)
@@ -211,7 +212,7 @@ impl TextBackbone {
             hidden = layer
                 .forward(&hidden, token_count, layer_index)
                 .map_err(E::from)?;
-            if std::env::var("OPENKIND_QWEN35_LAYER_TRACE").is_ok() {
+            if trace_layers {
                 let start = (token_count - 1) * self.geometry.hidden_size;
                 let head: Vec<f32> = hidden[start..start + 4].to_vec();
                 eprintln!("trace: layer {layer_index} last {head:?}");

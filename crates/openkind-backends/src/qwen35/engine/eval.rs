@@ -39,25 +39,28 @@ pub(super) fn evaluate_request(
             .zip(&criteria)
             .map(|(label, criterion)| CandidateText::new(label, criterion))
             .collect();
-        let segments = inner
-            .tokenizer
-            .encode_state_first(&state, &instruction, &candidates)?;
-        if let Some(expected) = &root_ids {
-            if expected != segments.root_ids() {
-                return Err(Qwen35Error::InvalidInput(
-                    "state-first root tokenization changed between questions".into(),
-                ));
+        // The root depends on the state alone, so encode it once, on the first
+        // question, after that question's own mapping errors have surfaced.
+        let root_len = match &root_ids {
+            Some(root) => root.len(),
+            None => {
+                let root = inner.tokenizer.encode_state_root(&state)?;
+                let len = root.len();
+                root_ids = Some(root);
+                len
             }
-        } else {
-            root_ids = Some(segments.root_ids().to_vec());
-        }
+        };
+        let (question_ids, candidate_suffix_ids) =
+            inner
+                .tokenizer
+                .encode_state_first_branch(root_len, &instruction, &candidates)?;
         encoded.push(EncodedQuestion {
             id,
             primitive,
             labels,
             criteria,
-            question_ids: segments.question_ids().to_vec(),
-            candidate_suffix_ids: segments.candidate_suffix_ids().to_vec(),
+            question_ids,
+            candidate_suffix_ids,
         });
     }
     let suffix_refs: Vec<Vec<&[u32]>> = encoded

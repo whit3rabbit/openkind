@@ -58,6 +58,48 @@ pub fn peak_resident_bytes() -> io::Result<usize> {
     ))
 }
 
+/// Memory the host can give a new allocation without swapping, in bytes, or
+/// `None` when the platform offers no cheap, trustworthy reading.
+///
+/// This is deliberately conservative. On macOS it counts free, purgeable, and
+/// file-backed (cache) pages, and leaves out inactive anonymous pages, which
+/// would have to be swapped out first. On Linux it is `MemAvailable`. It is a
+/// point-in-time reading for an admission-style decision, not a reservation.
+#[cfg(target_os = "macos")]
+#[must_use]
+pub fn available_memory_bytes() -> Option<u64> {
+    use crate::hardware::sysctl_int;
+    let page = sysctl_int("hw.pagesize")?;
+    let pages = sysctl_int("vm.page_free_count")?
+        .saturating_add(sysctl_int("vm.page_purgeable_count")?)
+        .saturating_add(sysctl_int("vm.page_pageable_external_count")?);
+    Some(pages.saturating_mul(page))
+}
+
+/// Linux: `MemAvailable` from `/proc/meminfo`.
+#[cfg(target_os = "linux")]
+#[must_use]
+pub fn available_memory_bytes() -> Option<u64> {
+    parse_mem_available(&std::fs::read_to_string("/proc/meminfo").ok()?)
+}
+
+/// No reading on this platform.
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+#[must_use]
+pub fn available_memory_bytes() -> Option<u64> {
+    None
+}
+
+/// Extract `MemAvailable` (kB in the file) as bytes.
+#[cfg_attr(not(any(target_os = "linux", test)), allow(dead_code))]
+fn parse_mem_available(meminfo: &str) -> Option<u64> {
+    let line = meminfo
+        .lines()
+        .find_map(|line| line.strip_prefix("MemAvailable:"))?;
+    let kilobytes: u64 = line.split_whitespace().next()?.parse().ok()?;
+    kilobytes.checked_mul(1024)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -66,5 +108,22 @@ mod tests {
     #[cfg(any(unix, windows))]
     fn peak_resident_observation_is_nonzero() {
         assert!(peak_resident_bytes().expect("read peak RSS") > 0);
+    }
+
+    #[test]
+    fn meminfo_available_is_parsed_from_kilobytes() {
+        let text = "MemTotal:       16384000 kB\nMemFree:          100000 kB\nMemAvailable:    8192000 kB\n";
+        assert_eq!(parse_mem_available(text), Some(8_192_000 * 1024));
+        assert_eq!(parse_mem_available("MemTotal: 1 kB\n"), None);
+        assert_eq!(parse_mem_available("MemAvailable: abc kB\n"), None);
+    }
+
+    #[test]
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    fn available_memory_is_reported_and_bounded_by_the_host() {
+        let available = available_memory_bytes().expect("read available memory");
+        assert!(available > 0);
+        // No host this runs on has an exabyte free.
+        assert!(available < (1 << 60));
     }
 }

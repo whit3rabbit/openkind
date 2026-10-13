@@ -329,7 +329,7 @@ impl MlxClefModel {
                 .map_err(mlx_error("conv shift"))?;
             let window = mlx_rs::ops::concatenate(&[shifted, raw_row], 1)
                 .map_err(mlx_error("conv window"))?;
-            if std::env::var("OPENKIND_CLEF_MLX_DEBUG").is_ok() && row == 0 {
+            if mlx_debug() && row == 0 {
                 eprintln!(
                     "mlx debug: conv1d {:?} window {:?} summed_in {:?}",
                     conv1d.shape(),
@@ -341,10 +341,7 @@ impl MlxClefModel {
                 .sum_axis(1, false)
                 .map_err(mlx_error("conv sum"))?;
             let qkv_row = mlx_rs::nn::silu(&summed).map_err(mlx_error("conv silu"))?;
-            if std::env::var("OPENKIND_CLEF_MLX_DEBUG").is_ok()
-                && row == 0
-                && prefix.ends_with("layers.0")
-            {
+            if mlx_debug() && row == 0 && prefix.ends_with("layers.0") {
                 let conv_host = host_f32(&qkv_row.reshape(&[-1]).map_err(mlx_error("c flat"))?)?;
                 eprintln!(
                     "mlx debug: model conv row0 ch0..3 {:?} |v|max {:.4}",
@@ -449,10 +446,7 @@ impl MlxClefModel {
                 )
                 .map_err(mlx_error("outer matmul"))?;
             recurrent += update;
-            if std::env::var("OPENKIND_CLEF_MLX_DEBUG").is_ok()
-                && row == 0
-                && prefix.ends_with("layers.0")
-            {
+            if mlx_debug() && row == 0 && prefix.ends_with("layers.0") {
                 let k_host = host_f32(&keys_e.reshape(&[-1]).map_err(mlx_error("k flat"))?)?;
                 for vh in 0..3 {
                     let kh = vh / 2;
@@ -477,9 +471,7 @@ impl MlxClefModel {
                 });
                 eprintln!("mlx debug: row0 |delta|max {delta_max:.3}");
             }
-            if std::env::var("OPENKIND_CLEF_MLX_DEBUG").is_ok()
-                && (row < 3 || row % 60 == 0 || row == token_count - 1)
-            {
+            if mlx_debug() && (row < 3 || row % 60 == 0 || row == token_count - 1) {
                 let state_vals = host_f32(&recurrent.reshape(&[-1]).map_err(mlx_error("s flat"))?)?;
                 let decay_vals = host_f32(&decay.reshape(&[-1]).map_err(mlx_error("d flat"))?)?;
                 let beta_vals = host_f32(&beta.reshape(&[-1]).map_err(mlx_error("b flat"))?)?;
@@ -1040,4 +1032,10 @@ fn read_safetensors(path: &Path) -> Result<BTreeMap<String, MlxWeight>, FamilyEr
         }
     }
     Ok(weights)
+}
+
+/// Whether the debug trace is enabled, read once instead of per token per layer.
+fn mlx_debug() -> bool {
+    static DEBUG: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *DEBUG.get_or_init(|| std::env::var("OPENKIND_CLEF_MLX_DEBUG").is_ok())
 }

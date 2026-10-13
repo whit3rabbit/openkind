@@ -192,6 +192,7 @@ impl FamilyEvaluator for Qwen3GuardEngine {
                 Default::default(),
             );
         let mut input_tokens: u64 = 0;
+        let mut forward: Option<(usize, [f64; 3])> = None;
         for id in &question_ids {
             control.check()?;
             let question = request
@@ -199,9 +200,20 @@ impl FamilyEvaluator for Qwen3GuardEngine {
                 .get(id)
                 .expect("question id came from the request map");
             let unpacked = crate::families::wire::unpack_question(id, question)?;
-            let prompt_ids = self.inner.renderer.render(&state)?;
-            input_tokens = input_tokens.saturating_add(prompt_ids.len() as u64);
-            let logits = self.inner.model.risk_logits(&prompt_ids)?;
+            // The prompt renders from the state alone, so every question of
+            // the request reads the same logits: run the forward once. Usage
+            // still counts the prompt per question, as before.
+            let (prompt_len, logits) = match forward {
+                Some(done) => done,
+                None => {
+                    let prompt_ids = self.inner.renderer.render(&state)?;
+                    let logits = self.inner.model.risk_logits(&prompt_ids)?;
+                    let done = (prompt_ids.len(), logits);
+                    forward = Some(done);
+                    done
+                }
+            };
+            input_tokens = input_tokens.saturating_add(prompt_len as u64);
             let answer = match unpacked.primitive {
                 crate::families::wire::QuestionPrimitive::Noul => {
                     // Noul maps to the Unsafe class probability; the

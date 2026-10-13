@@ -6,8 +6,8 @@ use candle_nn::VarBuilder;
 use crate::qwen35::backbone::geometry::Qwen35Geometry;
 use crate::qwen35::Qwen35Error;
 
-use super::linear_attention::sigmoid;
-use super::{linear, vector, LayerState};
+use super::linear_attention::{available_workers, sigmoid};
+use super::{linear, tensor_bytes, vector, LayerState};
 
 #[derive(Debug)]
 pub(crate) struct FullAttention {
@@ -21,6 +21,15 @@ pub(crate) struct FullAttention {
 }
 
 impl FullAttention {
+    /// Bytes of weight storage this layer holds.
+    pub(crate) fn resident_bytes(&self) -> usize {
+        [&self.q_proj, &self.k_proj, &self.v_proj, &self.out_proj]
+            .iter()
+            .map(|tensor| tensor_bytes(tensor))
+            .sum::<usize>()
+            + 4 * (self.q_norm.len() + self.k_norm.len())
+    }
+
     pub(crate) fn load(
         variables: &VarBuilder<'_>,
         geometry: Qwen35Geometry,
@@ -192,21 +201,31 @@ pub(crate) fn apply_rotary(
     geometry: Qwen35Geometry,
 ) {
     let rotary_dim = geometry.rotary_dim();
+    let half = rotary_dim / 2;
     let attention_head_dim = geometry.attention_head_dim;
     let rope_theta = Qwen35Geometry::ROPE_THETA;
     debug_assert_eq!(values.len(), rows * heads * attention_head_dim);
+    // The angle depends on the row and frequency index only, never on the head,
+    // so build each (cos, sin) pair once and reuse it across every head.
+    let frequencies: Vec<f32> = (0..half)
+        .map(|index| rope_theta.powf(-((2 * index) as f32) / rotary_dim as f32))
+        .collect();
+    let mut trig = Vec::with_capacity(half);
     for row in 0..rows {
+        trig.clear();
+        trig.extend(frequencies.iter().map(|&frequency| {
+            let angle = (position_start + row) as f32 * frequency;
+            let (sin, cos) = angle.sin_cos();
+            (cos, sin)
+        }));
         for head in 0..heads {
             let offset = (row * heads + head) * attention_head_dim;
             let rotary = &mut values[offset..offset + rotary_dim];
-            let original: Vec<f32> = rotary.to_vec();
-            for index in 0..rotary_dim / 2 {
-                let frequency = rope_theta.powf(-((2 * index) as f32) / rotary_dim as f32);
-                let angle = (position_start + row) as f32 * frequency;
-                let (sin, cos) = angle.sin_cos();
-                rotary[index] = original[index] * cos - original[index + rotary_dim / 2] * sin;
-                rotary[index + rotary_dim / 2] =
-                    original[index + rotary_dim / 2] * cos + original[index] * sin;
+            for (index, &(cos, sin)) in trig.iter().enumerate() {
+                let first = rotary[index];
+                let second = rotary[index + half];
+                rotary[index] = first * cos - second * sin;
+                rotary[index + half] = second * cos + first * sin;
             }
         }
     }
@@ -248,53 +267,283 @@ pub(crate) fn causal_grouped_query_attention_checked<E>(
     mut check: impl FnMut() -> Result<(), E>,
 ) -> Result<Vec<f32>, E> {
     let attention_heads = geometry.attention_heads;
-    let kv_heads = geometry.kv_heads;
-    let attention_head_dim = geometry.attention_head_dim;
     let attention_size = geometry.attention_size();
     let kv_size = geometry.kv_size();
     debug_assert_eq!(queries.len(), rows * attention_size);
     debug_assert_eq!(keys.len(), (past_rows + rows) * kv_size);
     debug_assert_eq!(values.len(), (past_rows + rows) * kv_size);
     check()?;
+    let inputs = AttentionInputs {
+        queries,
+        keys,
+        values,
+        past_rows,
+        geometry,
+    };
     let mut output = vec![0.0_f32; rows * attention_size];
-    let scale = (attention_head_dim as f32).sqrt().recip();
-    for row in 0..rows {
-        if row % CONTROL_CHECK_ROWS == 0 {
-            check()?;
-        }
-        for query_head in 0..attention_heads {
-            let kv_head = query_head / (attention_heads / kv_heads);
-            let query_offset = (row * attention_heads + query_head) * attention_head_dim;
-            let visible_rows = past_rows + row + 1;
-            let mut scores = Vec::with_capacity(visible_rows);
-            let mut maximum = f32::NEG_INFINITY;
-            for key_row in 0..visible_rows {
-                let key_offset = (key_row * kv_heads + kv_head) * attention_head_dim;
-                let score = queries[query_offset..query_offset + attention_head_dim]
-                    .iter()
-                    .zip(&keys[key_offset..key_offset + attention_head_dim])
-                    .map(|(query, key)| query * key)
-                    .sum::<f32>()
-                    * scale;
-                maximum = maximum.max(score);
-                scores.push(score);
+    // Query rows only read the shared keys and values, so rows within one
+    // control-check block run on separate threads. The check itself stays on
+    // the calling thread at every block boundary, exactly as before.
+    for (block_index, block) in output
+        .chunks_mut(CONTROL_CHECK_ROWS * attention_size)
+        .enumerate()
+    {
+        check()?;
+        let first_row = block_index * CONTROL_CHECK_ROWS;
+        let block_rows = block.len() / attention_size;
+        let key_visits = block_rows * attention_heads * (past_rows + first_row + block_rows / 2);
+        let workers = if key_visits < PARALLEL_KEY_VISITS {
+            1
+        } else {
+            available_workers().min(block_rows).max(1)
+        };
+        if workers <= 1 {
+            for (offset, output_row) in block.chunks_exact_mut(attention_size).enumerate() {
+                attend_row(&inputs, first_row + offset, output_row);
             }
-            let denominator = scores
-                .iter_mut()
-                .map(|score| {
-                    *score = (*score - maximum).exp();
-                    *score
-                })
-                .sum::<f32>();
-            let output_offset = (row * attention_heads + query_head) * attention_head_dim;
-            for (key_row, score) in scores.into_iter().enumerate() {
-                let probability = score / denominator;
-                let value_offset = (key_row * kv_heads + kv_head) * attention_head_dim;
-                for column in 0..attention_head_dim {
-                    output[output_offset + column] += probability * values[value_offset + column];
+        } else {
+            let rows_per_worker = block_rows.div_ceil(workers);
+            std::thread::scope(|scope| {
+                for (chunk_index, chunk) in block
+                    .chunks_mut(rows_per_worker * attention_size)
+                    .enumerate()
+                {
+                    let inputs = &inputs;
+                    scope.spawn(move || {
+                        let chunk_first = first_row + chunk_index * rows_per_worker;
+                        for (offset, output_row) in
+                            chunk.chunks_exact_mut(attention_size).enumerate()
+                        {
+                            attend_row(inputs, chunk_first + offset, output_row);
+                        }
+                    });
+                }
+            });
+        }
+    }
+    Ok(output)
+}
+
+/// Query-row blocks smaller than this many key visits stay on one thread.
+const PARALLEL_KEY_VISITS: usize = 4_096;
+
+struct AttentionInputs<'a> {
+    queries: &'a [f32],
+    keys: &'a [f32],
+    values: &'a [f32],
+    past_rows: usize,
+    geometry: Qwen35Geometry,
+}
+
+/// Attention output of one query row across every head, accumulated into the
+/// zeroed `output_row`.
+fn attend_row(inputs: &AttentionInputs<'_>, row: usize, output_row: &mut [f32]) {
+    let AttentionInputs {
+        queries,
+        keys,
+        values,
+        past_rows,
+        geometry,
+    } = *inputs;
+    let attention_heads = geometry.attention_heads;
+    let kv_heads = geometry.kv_heads;
+    let attention_head_dim = geometry.attention_head_dim;
+    let scale = (attention_head_dim as f32).sqrt().recip();
+    let visible_rows = past_rows + row + 1;
+    let mut scores = Vec::with_capacity(visible_rows);
+    for query_head in 0..attention_heads {
+        let kv_head = query_head / (attention_heads / kv_heads);
+        let query_offset = (row * attention_heads + query_head) * attention_head_dim;
+        scores.clear();
+        let mut maximum = f32::NEG_INFINITY;
+        for key_row in 0..visible_rows {
+            let key_offset = (key_row * kv_heads + kv_head) * attention_head_dim;
+            let score = queries[query_offset..query_offset + attention_head_dim]
+                .iter()
+                .zip(&keys[key_offset..key_offset + attention_head_dim])
+                .map(|(query, key)| query * key)
+                .sum::<f32>()
+                * scale;
+            maximum = maximum.max(score);
+            scores.push(score);
+        }
+        let denominator = scores
+            .iter_mut()
+            .map(|score| {
+                *score = (*score - maximum).exp();
+                *score
+            })
+            .sum::<f32>();
+        let head_output =
+            &mut output_row[query_head * attention_head_dim..(query_head + 1) * attention_head_dim];
+        for (key_row, &score) in scores.iter().enumerate() {
+            let probability = score / denominator;
+            let value_offset = (key_row * kv_heads + kv_head) * attention_head_dim;
+            let value_row = &values[value_offset..value_offset + attention_head_dim];
+            for (out, &value) in head_output.iter_mut().zip(value_row) {
+                *out += probability * value;
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod attention_tests {
+    use super::*;
+
+    #[allow(clippy::needless_range_loop)]
+    fn apply_rotary_reference(
+        values: &mut [f32],
+        heads: usize,
+        rows: usize,
+        position_start: usize,
+        geometry: Qwen35Geometry,
+    ) {
+        let rotary_dim = geometry.rotary_dim();
+        let attention_head_dim = geometry.attention_head_dim;
+        let rope_theta = Qwen35Geometry::ROPE_THETA;
+        debug_assert_eq!(values.len(), rows * heads * attention_head_dim);
+        for row in 0..rows {
+            for head in 0..heads {
+                let offset = (row * heads + head) * attention_head_dim;
+                let rotary = &mut values[offset..offset + rotary_dim];
+                let original: Vec<f32> = rotary.to_vec();
+                for index in 0..rotary_dim / 2 {
+                    let frequency = rope_theta.powf(-((2 * index) as f32) / rotary_dim as f32);
+                    let angle = (position_start + row) as f32 * frequency;
+                    let (sin, cos) = angle.sin_cos();
+                    rotary[index] = original[index] * cos - original[index + rotary_dim / 2] * sin;
+                    rotary[index + rotary_dim / 2] =
+                        original[index + rotary_dim / 2] * cos + original[index] * sin;
                 }
             }
         }
     }
-    Ok(output)
+
+    fn values(count: usize, seed: u32) -> Vec<f32> {
+        let mut x = seed.wrapping_mul(2_654_435_761).wrapping_add(1);
+        (0..count)
+            .map(|_| {
+                x ^= x << 13;
+                x ^= x >> 17;
+                x ^= x << 5;
+                (x >> 8) as f32 / (1 << 23) as f32 - 1.0
+            })
+            .collect()
+    }
+
+    /// The single-threaded kernel this module used before query rows were
+    /// distributed across threads.
+    fn reference(
+        queries: &[f32],
+        keys: &[f32],
+        values: &[f32],
+        rows: usize,
+        past_rows: usize,
+        geometry: Qwen35Geometry,
+    ) -> Vec<f32> {
+        let attention_heads = geometry.attention_heads;
+        let kv_heads = geometry.kv_heads;
+        let attention_head_dim = geometry.attention_head_dim;
+        let attention_size = geometry.attention_size();
+        let mut output = vec![0.0_f32; rows * attention_size];
+        let scale = (attention_head_dim as f32).sqrt().recip();
+        for row in 0..rows {
+            for query_head in 0..attention_heads {
+                let kv_head = query_head / (attention_heads / kv_heads);
+                let query_offset = (row * attention_heads + query_head) * attention_head_dim;
+                let visible_rows = past_rows + row + 1;
+                let mut scores = Vec::with_capacity(visible_rows);
+                let mut maximum = f32::NEG_INFINITY;
+                for key_row in 0..visible_rows {
+                    let key_offset = (key_row * kv_heads + kv_head) * attention_head_dim;
+                    let score = queries[query_offset..query_offset + attention_head_dim]
+                        .iter()
+                        .zip(&keys[key_offset..key_offset + attention_head_dim])
+                        .map(|(query, key)| query * key)
+                        .sum::<f32>()
+                        * scale;
+                    maximum = maximum.max(score);
+                    scores.push(score);
+                }
+                let denominator = scores
+                    .iter_mut()
+                    .map(|score| {
+                        *score = (*score - maximum).exp();
+                        *score
+                    })
+                    .sum::<f32>();
+                let output_offset = (row * attention_heads + query_head) * attention_head_dim;
+                for (key_row, score) in scores.into_iter().enumerate() {
+                    let probability = score / denominator;
+                    let value_offset = (key_row * kv_heads + kv_head) * attention_head_dim;
+                    for column in 0..attention_head_dim {
+                        output[output_offset + column] +=
+                            probability * values[value_offset + column];
+                    }
+                }
+            }
+        }
+        output
+    }
+
+    #[test]
+    fn threaded_attention_matches_the_reference_bit_for_bit() {
+        let geometry = Qwen35Geometry {
+            attention_heads: 4,
+            kv_heads: 2,
+            attention_head_dim: 8,
+            ..Qwen35Geometry::PINNED
+        };
+        // 70 rows span two control blocks; past rows exercise continuation. The
+        // first block's key-visit count is above the threading threshold.
+        for (rows, past_rows) in [(70, 0), (70, 11), (5, 3)] {
+            let queries = values(rows * geometry.attention_size(), 1);
+            let keys = values((past_rows + rows) * geometry.kv_size(), 2);
+            let value_rows = values((past_rows + rows) * geometry.kv_size(), 3);
+            let actual = causal_grouped_query_attention(
+                &queries,
+                &keys,
+                &value_rows,
+                rows,
+                past_rows,
+                geometry,
+            );
+            let expected = reference(&queries, &keys, &value_rows, rows, past_rows, geometry);
+            assert_eq!(actual.len(), expected.len());
+            for (index, (a, e)) in actual.iter().zip(&expected).enumerate() {
+                assert_eq!(
+                    a.to_bits(),
+                    e.to_bits(),
+                    "rows={rows} past={past_rows} [{index}]"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn rotary_table_matches_the_per_head_reference_bit_for_bit() {
+        let geometry = Qwen35Geometry {
+            attention_heads: 4,
+            kv_heads: 2,
+            attention_head_dim: 16,
+            ..Qwen35Geometry::PINNED
+        };
+        for heads in [4, 2] {
+            for (rows, start) in [(7, 0), (5, 31)] {
+                let input = values(rows * heads * geometry.attention_head_dim, 21);
+                let mut actual = input.clone();
+                let mut expected = input;
+                apply_rotary(&mut actual, heads, rows, start, geometry);
+                apply_rotary_reference(&mut expected, heads, rows, start, geometry);
+                for (index, (a, e)) in actual.iter().zip(&expected).enumerate() {
+                    assert_eq!(
+                        a.to_bits(),
+                        e.to_bits(),
+                        "heads={heads} rows={rows} [{index}]"
+                    );
+                }
+            }
+        }
+    }
 }

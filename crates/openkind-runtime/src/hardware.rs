@@ -201,7 +201,7 @@ fn sysctl_string(name: &str) -> Option<String> {
 }
 
 #[cfg(target_os = "macos")]
-fn sysctl_int(name: &str) -> Option<u64> {
+pub(crate) fn sysctl_int(name: &str) -> Option<u64> {
     let cname = std::ffi::CString::new(name).ok()?;
     let mut size: libc::size_t = 0;
     // SAFETY: the null output buffer query only writes the required size.

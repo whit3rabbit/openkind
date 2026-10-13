@@ -1026,6 +1026,111 @@ blocks. The comparison is a dirty-working-tree, single-sample result. Raw
 summaries and prediction files are preserved in the linked GDN review record;
 exact commands and boundaries are in the linked 3M.5 verification note.
 
+### Candle CPU kernels, scalar-loop restructuring (2026-10-12)
+
+Request-path timing for the candle CPU kernels shared by every Qwen3.5
+hybrid-decoder profile (`qwen35/backbone/layer0`: native `qwen35`,
+`decoder-logit-qwen35`, `decider-4b`, `strands-decider-2b`, and the clef BF16
+and GGUF paths). A sampling profile of `strands-decider-2b` showed the
+gated-DeltaNet recurrence at about 55% of busy samples, the causal
+convolution and full attention at about 7% each, and checkpoint widening
+(`to_dtype`) plus `memmove` at about 5%. The kernels now walk state along its
+contiguous axis, fuse the recurrence's four state passes into two, build the
+RoPE trig table once per call instead of once per head, and distribute
+independent heads (recurrence), query rows (attention), and activation chunks
+(SwiGLU) across `std::thread::scope` workers. Every element keeps its
+accumulation order, so outputs are bit-identical to the previous kernels.
+
+Interleaved fresh-process pairs on `strands-decider-2b:6a02bb0d1c6b25cae74b`
+(`shape-smoke-12.jsonl`, 12 rows, warm, one rep per process, the unmodified
+HEAD binary alternating with the new one, host load average about 6):
+
+| Binary | Run 1 | Run 2 | Run 3 |
+|---|---:|---:|---:|
+| HEAD (before) | 32.91 s | 35.26 s | 31.82 s |
+| recurrence, conv, attention (intermediate) | 11.95 s | 12.57 s | 11.15 s |
+| plus SwiGLU threading and RoPE table | 9.79 s | 9.74 s | 9.71 s |
+
+That is roughly 3.4x over HEAD (0.36 to 1.24 decisions/s). The intermediate
+row was measured interleaved with HEAD; the last row was measured after, in
+its own three-run batch, so its comparison with HEAD rests on the earlier
+pairs and is indicative. Apple M4 Max (14 logical cores), release build.
+Per-row answers are exactly equal across every run (the prediction file hash
+differs between runs only because it includes `request_latency_ms`). Unit
+tests compare each kernel against a copy of its previous implementation bit
+for bit, and the checkpoint-gated `strands_decider_parity` golden replay
+passes. The Qwen3.5-4B parity replays and the MLX path were not run (no 4B
+checkpoint on this host; MLX does not use these kernels). The kernels use the
+cores available to one request: `--qwen35-kernel-threads` (default: cores split
+evenly across `--qwen35-concurrency`) caps them. The timings above ran with no
+cap, at the default concurrency of 1.
+
+### Pinned 4B checkpoint: kernels and resident weights (2026-10-12)
+
+`qwen35_nested_parity` on the pinned `qwen35-state-first:a047d6802c3f06f085b8`
+checkpoint (CPU, FP32, Apple M4 Max, release build, one fixture case, 4
+questions, 10 candidates, plus the repeated-full oracle replays). Wall time
+includes model load and checksum verification.
+
+| Build | Run 1 | Run 2 |
+|---|---:|---:|
+| HEAD (before) | 146 s | 144 s |
+| kernels (interleaved with HEAD) | 84 s | 84 s |
+
+The gate result is unchanged to the last digit: maximum probability delta
+`4.586834447706245e-6`, maximum feature delta `1.02997e-4`, zero policy
+changes, root content identical, replay and sibling order exact. The full
+parity example reports the maximum logit delta `0.0002565194741628307`, equal
+to the v0.8.0 verification record (`absolute_logit_diagnostic_passed: false`
+is that record's documented localization diagnostic).
+
+After the kernel changes, a sampling profile of this run still showed
+`memmove` plus `to_dtype` (the per-forward copy out of the mapped shard and
+BF16-to-FP32 widening of every decoder layer) at roughly 40% of busy samples,
+against about 5% on the 2B profile. `--qwen35-resident-weights`
+keeps the widened layers instead:
+
+| Resident weights | Wall | Peak RSS | Gate |
+|---|---:|---:|---|
+| off (default) | 84.1 s | 9.6 GB | pass, identical deltas |
+| on | 67.2 s | 16.0 GB | pass, identical deltas |
+
+One run each, measured back to back while the host was under memory pressure
+(about 96% of swap in use), so treat the 20% as indicative and the memory as
+the real cost. The default is `auto`: resident only when the host reports the
+FP32 decoder size (an upper-bound estimate, 16.1 GB here; 14.28 GB measured)
+plus 4 GiB free, and when `--qwen35-max-process-bytes`, if set, allows it.
+Otherwise it stays off and logs a warning with the numbers. On this 36 GB host
+at the time of measurement, auto stayed off (16.8 GB free against 20.4 GB
+needed). Forcing `on` there held the 14.28 GB, but the OS swapped it out
+immediately (process RSS about 1.3 GB, swap about 95% used), which is why
+`on` is for hosts with real headroom. The CUDA path loads the same layers but no CUDA host has run
+parity, so no CUDA claim is made.
+
+### Qwen3Guard shared-state forward (2026-10-12)
+
+`qwen3guard` renders its prompt from the state alone, so every question of a
+request reads the same risk logits. The engine now runs that forward once per
+request instead of once per question (usage still counts the prompt per
+question, so reported `input_tokens` are unchanged).
+
+Interleaved fresh-process pairs, `qwen3guard:0fcf416cab16d94f933d`,
+`benchmarks/2026-10-01-local-model-suite/shape-filtered/qwen3guard.jsonl`
+(12 rows in 4 state groups of 3 questions), warm, one rep per process, Apple
+M4 Max, release build, the unmodified HEAD binary alternating with the new
+one:
+
+| Binary | Run 1 | Run 2 | Run 3 |
+|---|---:|---:|---:|
+| HEAD (before) | 2.34 s | 2.34 s | 2.64 s |
+| after | 0.78 s | 0.79 s | 0.79 s |
+
+Per-row answers are exactly equal across all six runs and the input-token
+total is 2,223 in both. The pinned golden replay (`qwen3guard_parity`) also
+passes, but its cases are single-question, so this benchmark is the check that
+exercises multi-question requests. The speedup scales with questions per
+state; a one-question request is unchanged.
+
 ### MLX parity timing boundary
 
 The 21 September 2026 MLX probe used the pinned original Qwen3.5-4B-Base

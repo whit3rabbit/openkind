@@ -56,8 +56,10 @@ pub(crate) use layer0::{
 pub(crate) use embedding::verify_decoder_shard;
 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
 pub(crate) use embedding::{CONFIG_SHA256, MODEL_INDEX_SHA256};
-pub use layer0::{Layer0Output, Qwen35Layer0};
-pub use model::{BackboneOutput, BackboneState, Qwen35Backbone};
+pub use layer0::{set_kernel_thread_limit, Layer0Output, Qwen35Layer0};
+pub use model::{
+    set_resident_weights_policy, BackboneOutput, BackboneState, Qwen35Backbone, ResidentWeightsMode,
+};
 pub(crate) use nested::ControlledExecutor;
 pub use nested::{
     run_sequential_nested, BatchContinuation, NestedCandidateResult, NestedQuestion,

@@ -102,6 +102,13 @@ struct ContinuationTrace {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    // Measurement aid: opt in to resident weights without changing the gates.
+    if env::var_os("OPENKIND_QWEN35_RESIDENT_WEIGHTS").is_some() {
+        openkind_backends::qwen35::set_resident_weights_policy(
+            openkind_backends::qwen35::ResidentWeightsMode::On,
+            None,
+        );
+    }
     let mut arguments = env::args_os().skip(1);
     let checkpoint_root = required_path(&mut arguments, "checkpoint-root")?;
     let reference_root = required_path(&mut arguments, "phase3b-reference-root")?;

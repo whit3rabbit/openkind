@@ -40,7 +40,7 @@ pub use evidence::{
 };
 pub use execution::{BackendCapabilities, BatchForwardMode, ExecutionPlan};
 pub use hardware::{cpu_time_seconds, host_hardware, HostHardware};
-pub use memory::peak_resident_bytes;
+pub use memory::{available_memory_bytes, peak_resident_bytes};
 pub use rocm::{ParsePciAddressError, PciAddress};
 
 use std::fmt;

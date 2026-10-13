@@ -11,6 +11,7 @@ mod full_attention;
 mod linear_attention;
 
 pub(crate) use full_attention::*;
+pub use linear_attention::set_kernel_thread_limit;
 pub(crate) use linear_attention::*;
 
 /// Geometry of the pinned backbone the module constants mirror. Layer
@@ -164,6 +165,20 @@ impl Qwen35Layer0 {
 }
 
 impl DecoderLayer {
+    /// Bytes of weight storage this layer holds resident.
+    pub(super) fn resident_bytes(&self) -> usize {
+        let mixer = match &self.mixer {
+            TokenMixer::Linear(mixer) => mixer.resident_bytes(),
+            TokenMixer::Full(mixer) => mixer.resident_bytes(),
+        };
+        mixer
+            + [&self.mlp_gate_proj, &self.mlp_up_proj, &self.mlp_down_proj]
+                .iter()
+                .map(|tensor| tensor_bytes(tensor))
+                .sum::<usize>()
+            + 4 * (self.input_layernorm.len() + self.post_attention_layernorm.len())
+    }
+
     pub(super) fn load(
         variables: &VarBuilder<'_>,
         layer_index: usize,
@@ -277,9 +292,7 @@ impl DecoderLayer {
             self.geometry.intermediate_size,
             &self.device,
         )?;
-        for (gate, up) in gate.iter_mut().zip(up) {
-            *gate = silu(*gate) * up;
-        }
+        swiglu_in_place(&mut gate, &up);
         let mlp = linear(
             &gate,
             token_count,
@@ -294,6 +307,36 @@ impl DecoderLayer {
         ensure_finite(&hidden, &format!("layer_{layer_index:02}"))?;
         Ok((hidden, state))
     }
+}
+
+/// Below this many elements the thread hand-off costs more than the `exp`s.
+const PARALLEL_ACTIVATION_ELEMENTS: usize = 1 << 16;
+
+/// `gate[i] = silu(gate[i]) * up[i]`, split across threads for long inputs.
+/// Every element is independent, so the split cannot change any value.
+pub(super) fn swiglu_in_place(gate: &mut [f32], up: &[f32]) {
+    debug_assert_eq!(gate.len(), up.len());
+    let workers = if gate.len() < PARALLEL_ACTIVATION_ELEMENTS {
+        1
+    } else {
+        available_workers()
+    };
+    if workers <= 1 {
+        for (gate, up) in gate.iter_mut().zip(up) {
+            *gate = silu(*gate) * up;
+        }
+        return;
+    }
+    let chunk = gate.len().div_ceil(workers);
+    std::thread::scope(|scope| {
+        for (gate, up) in gate.chunks_mut(chunk).zip(up.chunks(chunk)) {
+            scope.spawn(move || {
+                for (gate, up) in gate.iter_mut().zip(up) {
+                    *gate = silu(*gate) * up;
+                }
+            });
+        }
+    });
 }
 
 fn ensure_finite(values: &[f32], stage: &str) -> Result<(), Qwen35Error> {
@@ -316,6 +359,11 @@ pub(crate) fn vector(
     name: &str,
 ) -> Result<Vec<f32>, Qwen35Error> {
     tensor_values(&variables.get(size, name)?)
+}
+
+/// Storage bytes of a tensor at its own dtype.
+pub(crate) fn tensor_bytes(tensor: &Tensor) -> usize {
+    tensor.elem_count() * tensor.dtype().size_in_bytes()
 }
 
 pub(crate) fn tensor_values(tensor: &Tensor) -> Result<Vec<f32>, Qwen35Error> {

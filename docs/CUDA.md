@@ -21,10 +21,13 @@ as an unpromoted candidate until the gates below run on a CUDA host.
   `candle-cpu-fp32`, so CPU and CUDA states can never be mixed. Surveyed
   families surface the same distinction through their `backend_id` strings
   (for example `decider-4b/cuda-fp32`, `encoder-nli/cuda-fp32:0`).
-- The Qwen3.5 backbone re-maps checkpoint shards per forward by design
+- The Qwen3.5 backbone re-maps checkpoint shards per forward by default
   (admission semantics); on CUDA this copies weights to the device every
-  forward. Correctness precedes throughput; a persistent-device-weight path
-  is future work and needs its own evidence.
+  forward. `--qwen35-resident-weights` (default `auto`, which checks free host
+  memory) keeps the widened layers instead (on CPU: about 20% faster for about
+  6 GB more RSS on the 4B checkpoint; see `docs/BENCHMARKS.md`). The free-memory
+  check reads host RAM, not GPU memory. No CUDA host has run parity with it, so CUDA
+  persistence is unmeasured and needs its own evidence.
 - `BackendCapabilities` for CUDA loads remain per-lane. No vectorized
   forward is claimed.
 

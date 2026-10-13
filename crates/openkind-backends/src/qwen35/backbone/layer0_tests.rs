@@ -180,3 +180,28 @@ fn cached_delta_recurrence_matches_one_pass_execution() {
     assert_eq!([prefix, suffix].concat(), full);
     assert_eq!(suffix_state, full_state);
 }
+
+#[test]
+fn threaded_swiglu_matches_the_serial_activation_bit_for_bit() {
+    // Long enough to cross the threading threshold, with a ragged final chunk.
+    let count = (1 << 16) + 123;
+    let mut x = 0x9e37_79b9_u32;
+    let mut next = move || {
+        x ^= x << 13;
+        x ^= x >> 17;
+        x ^= x << 5;
+        (x >> 8) as f32 / (1 << 22) as f32 - 2.0
+    };
+    let gate: Vec<f32> = (0..count).map(|_| next()).collect();
+    let up: Vec<f32> = (0..count).map(|_| next()).collect();
+    let expected: Vec<f32> = gate
+        .iter()
+        .zip(&up)
+        .map(|(gate, up)| silu(*gate) * up)
+        .collect();
+    let mut actual = gate;
+    swiglu_in_place(&mut actual, &up);
+    for (index, (a, e)) in actual.iter().zip(&expected).enumerate() {
+        assert_eq!(a.to_bits(), e.to_bits(), "[{index}]");
+    }
+}

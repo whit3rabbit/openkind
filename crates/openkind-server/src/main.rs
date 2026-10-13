@@ -93,6 +93,15 @@ fn load_qwen(
 
 fn main() -> Result<()> {
     let args = parse_args_from(std::env::args_os())?;
+    openkind_backends::qwen35::set_kernel_thread_limit(kernel_thread_limit(
+        args.qwen35_kernel_threads,
+        args.qwen35_concurrency,
+        std::thread::available_parallelism().map_or(1, std::num::NonZeroUsize::get),
+    ));
+    openkind_backends::qwen35::set_resident_weights_policy(
+        args.qwen35_resident_weights.into(),
+        args.qwen35_max_process_bytes,
+    );
     if let Some(runtime) = &args.onnx_runtime {
         std::env::set_var("ORT_DYLIB_PATH", runtime);
     }
@@ -101,6 +110,16 @@ fn main() -> Result<()> {
         .build()
         .context("build tokio runtime")?
         .block_on(run(args))
+}
+
+/// Kernel threads per native evaluation: the explicit setting, otherwise the
+/// cores split evenly across the allowed concurrent evaluations.
+fn kernel_thread_limit(configured: usize, concurrency: usize, cores: usize) -> usize {
+    if configured > 0 {
+        configured
+    } else {
+        (cores / concurrency.max(1)).max(1)
+    }
 }
 
 fn parse_args_from(
@@ -646,6 +665,15 @@ async fn shutdown_signal(shutdown: tokio::sync::watch::Sender<bool>) {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn kernel_threads_default_to_an_even_split_of_the_cores() {
+        assert_eq!(super::kernel_thread_limit(0, 1, 14), 14);
+        assert_eq!(super::kernel_thread_limit(0, 4, 14), 3);
+        assert_eq!(super::kernel_thread_limit(0, 32, 14), 1);
+        assert_eq!(super::kernel_thread_limit(0, 0, 14), 14);
+        assert_eq!(super::kernel_thread_limit(6, 4, 14), 6);
+    }
+
     use super::*;
 
     #[test]
