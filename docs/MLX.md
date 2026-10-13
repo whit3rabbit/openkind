@@ -331,6 +331,14 @@ layer, which bounds the lazy graph, costs nothing measurable (0.312 s with it,
 per DeltaNet layer is about 11 ms of sequential state updates at 192 rows,
 which only a fused recurrence can reduce.
 
+Full attention is not a lever on this host. At 1,792 tokens one layer's
+attention takes 17 ms (about 136 ms over the 8 full-attention layers), of which
+rebuilding the causal mask on the host is 0.8 ms and rotary 2.2 ms, against
+roughly 2.4 s for the 24 DeltaNet layers' state updates at the same length
+(extrapolated from 0.057 ms per row, not measured at that length). Caching the
+mask or tables, or moving to a fused attention primitive, would change little
+and the latter changes arithmetic, so neither is planned.
+
 ### `MetalTree`
 
 [`gated_delta_kernel/mod.rs`](../crates/openkind-backends/src/qwen35/mlx/layers/gated_delta_kernel/mod.rs)
