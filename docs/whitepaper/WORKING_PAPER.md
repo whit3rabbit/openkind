@@ -1,30 +1,51 @@
 # OpenKind: What the Evidence Supports for a Jev-Style Model and Inference Engine
 
-**Working paper · Revision 0.9.3 · 1 October 2026 · America/Chicago**
+**Working paper · Revision 1.0.0 · 9 October 2026 · America/Chicago**
 
 **Research question:** Which ideas in [RESEARCH.md][R] should we actually pursue when building an accurate, low-latency, resource-conscious typed-decision model and runtime?
 
-**Local evidence cutoff:** the completed T4 recovery runs `20261001T202134_352688Z_4a8cbc` (protocol `openkind-t4-recovery-reliability/v4.1.0`, E43) and `20261001T223435_041738Z_f25616` (protocol `openkind-t4-recovery-reliability/v4.1.1`, E44 / [ER]), the integrated research study `20261001T105345_828556Z_6e6d92` (E42), the unified decision validity study `20260929T194506_694066Z_dc1f74` (E41), and the earlier Qwen3.5-9B Q4/T4 study `20260928T220142_110595Z_1192c8`, together with the earlier model-learning, cache, CPU and MLX results consolidated in [WHITEPAPER.md, version 0.8.12][W]. External sources were checked separately for this revision. No new model inference, training, benchmark timing or raw-result re-audit was performed.
+**Local evidence cutoff:** completed **local-decision V13A**, `studies_v13a_checked_teacher/study_3e9da0121f40f75e/execution_c33f8407e52d09f4`, together with the V4–V12B notebook results and the earlier E1–E44/native CPU/MLX evidence carried forward from revision 0.9.3. **V13B is implemented; its results are not reviewed.** No V13B result is inferred from V13A or from its code. ([LD-V13A][]; [LD-V13-PLAN][])
+
+**Scope and naming.** `LD-V…` denotes the newer local-decision training notebooks. These labels are **not** the older WHITEPAPER `V9–V12` aliases for E40–E44. The current architecture decision supersedes earlier future-work recommendations; it does not rewrite historical measurements or promote a model. The older native 4B-Base candidate scorer, 9B Q4 catalogue engine, and new post-trained 2B/4B joint-option LoRAs remain different systems.
+
+This paper draws on already reviewed result/replay bundles and saved summaries/identity records. It adds **no model inference, training, new runtime timing, source-label adjudication, current-leaderboard refresh, or reserved-panel evaluation**. Summary values are reconciled with saved result files where available; that document check is not another raw-result re-audit. External material below remains dated to its original review unless explicitly identified as the later local Strands comparison.
 
 ## Abstract
 
-The evidence supports building a Jev-style system by combining a capable pretrained model, a task-conditioned finite-answer readout, deterministic application logic and workload-dependent reuse of model computation. It does **not** yet support a universally superior custom architecture, a generally calibrated decision model, or an interchangeable fast execution mode.
+The evidence now supports a specific **research mainline**: a post-trained Qwen text decoder, ordinary LoRA, one complete state–question–options forward, and a compact matrix copied from pretrained answer-code output rows. The mainline does not generate text, add a recurrent reader or require a learned pointer. **Adapted 2B is the resource-efficient development target; adapted 4B remains the stronger overall quality reference. No model through LD-V13A is qualified for deployment.** ([LD-V12B][]; [LD-V13A][])
 
-The completed recovery runs (v4.1.0/v4.1.1) now resolve several previously blocked and open questions.
-First, exact within-request input encoding reuse in the sequence-scoring Go CPU model (Indecis) reduces median request latency from 117.13 ms to **24.38 ms (~4.80× speedup)** on the new 216-case R41 confirmation panel (and 172.30 ms to 36.00 ms on U4) with bitwise identical probabilities ($\Delta p = 0.0$) and zero flips across 1,980 paired requests. Faster execution, however, did not create missing semantic capability: transfer accuracy remains 0.0% all-six on R41.
-Second, released DeBERTa-v3-base proves to be a credible fast NLI specialist, scoring **90.10% accuracy (173/192)** at **20.92 ms median** on shared SNLI confirmation, outperforming Qwen 9B (167/192 = 86.98% at 149.13 ms; ~7.13× latency ratio) and calibrating to NLL 0.2972. However, its development-selected acceptance policy accepts 74 cases with 2 wrong, failing to beat review-all (mean cost 0.11354 vs 0.1000).
-Third, Qwen's targeted failure-first instruction repair (NF) fixes the intended partial-information logic (48/48 correct on failure-with-missing vs NJ's 34/48, and 213 vs 201 of 216 overall), but collateral retry regressions drop all-six correctness from **33.33% to 28.70%** (62/216).
-Fourth, native error clustering isolates two primary traps: 100% of retry capping errors across counts 10–26 copy the first decimal digit, and 100% of case-state errors under newest-first displays erroneously select the older event.
-Fifth, full fine-tuning of ModernBERT (70.45% field / 19.44% all-six) and BERT (73.46% field / 21.30% all-six) beats frozen backbones (~51–52%) but both collapse into majority classes (predicting 100% ineligible and 100% retry=3). GLiClass yields 45.45% field acc at 65.13 ms, rejecting long evidence-position inputs.
-Finally, dependency-aware whole-request policies lose to review-all due to calibration degradation across rendering layouts, while dedicated resident processes maintain exact history invariance ($\Delta p = 0.0$). [W: §§21–24; E40–E44; V9–V12]
+LD-V12B supplies the controlled readout/size comparison previously missing from this paper. Fixed-code adaptation raises 2B source-macro accuracy from **47.28% to 69.89%**; its pointer alternative reaches **68.21%**. At 4B, fixed code reaches **76.41%**, versus **72.25%** for the replacement pointer. The pointer is genuinely trained jointly with the torso’s LoRA, but receives 800 extra initialization presentations, so the result concerns declared recipes rather than identical total optimization. On the same warm T4 workload, trained fixed-code 2B/4B medians are **168.07/291.68 ms**, with about **44.5% less recorded allocated CUDA memory** for 2B (1.688 versus 3.044 GiB). These are not Mac measurements. [LD-V12B]
 
-The practical direction is therefore **a pretrained, evidence-sensitive decision model with surgical selective indexing, deterministic route composition, explicit finite probabilities, multi-catalogue host snapshot caching, exact within-request sequence encoding reuse, task-specialized NLI models, and resident process isolation for mixed traffic workloads**.
+The preceding mechanism tests constrain complexity. LD-V9’s first head iteration supplies **98.3%** of the raw-NLL gain observed at four iterations without a subsequent accuracy benefit. LD-V10 detects no useful gain from the extra token-memory attention operation under its frozen-feature recipe; a simpler pointer is better than those heads but below the adapted Qwen reference. LD-V12A finds exact observed compact/headless parity, yet physically removing an already bypassed LM-head module adds only about **0.11–0.23%** paired complete-request improvement and no meaningful live weight-memory saving. The expensive work remains in the decoder. ([LD-V9][]; [LD-V10]; [LD-V12A][])
 
----
+Training improvements are real but scope-limited. SST-5 equal-class replay reduces extreme-class collapse; light original-parent preservation restores supported sentiment recall without solving unprotected none behavior. LD-V11’s verified curriculum improves transfer **82/144 → 94/144** versus its replay control but does not demonstrate a composition or retention improvement. LD-V13A continuation raises the 2B model to **73.15%** without new teacher guidance. Adding checked 4B guidance yields **73.28%**, slightly better cross-fitted NLL but exactly the same **672/928 correct**, with local MNLI/MultiRC gains and a new SST-5 positive-class regression. Four checked Plumb-none training opportunities exist, yet development none recall remains **1/10**. The added teacher term is therefore **not a validated default**. ([LD-V5]; [LD-V7]; [LD-V11][]; [LD-V13A][])
+
+The older engine evidence remains useful in its own profiles: deterministic dependency composition and selective indexing, exact catalogue/state or input-encoding reuse when the workload supports it, and resident-process isolation of tested history failures. These components are **not already integrated and qualified for the new adapters**. The immediate next decision is to review LD-V13B’s independent identical-augmentation versus consistency comparison, then confirm a promising locked recipe on another seed and genuinely fresh evidence. Do not combine interventions, reopen resolved audits, relax failed thresholds or claim RLCD/publication readiness from a higher aggregate score.
 
 ## 1. The answer: retain successful methods, not an assumed architecture
 
 `RESEARCH.md` proposes a broad reproduction program and surveys leading systems. This paper answers that program through the experiments rather than restating the proposals as conclusions. The priorities below distinguish **retaining a demonstrated component** from **testing a promising next model**.
+
+### 1.1 Current local-decision choices: frozen for research, not certified for deployment
+
+| Disposition | Choice | Positive or negative evidence | Decision boundary |
+|---|---|---|---|
+| **Default research architecture** | Joint-option Qwen + ordinary LoRA + compact frozen code rows | LD-V12B favors fixed code clearly at 4B and on point estimates only at 2B; no generated answer loop is needed. | Keep pointers as documented alternatives, not an active grid without a new hypothesis. |
+| **Default size roles** | 2B resource candidate; 4B quality reference | +22.61 macro points after 2B adaptation; measured 2B resource advantage survives LoRA. | All absolute quality and presentation requirements still apply. |
+| **Retain in the matched mixture** | Equal-class SST-5 replay | LD-V5 very-positive recall 7/32 → 23/32 against natural-sampling control. | A scoped, single-seed effect; not general sentiment or order invariance. |
+| **Retain as a preservation control** | Original-parent KL 0.25 on trusted parent-correct training examples | LD-V7 restores very-positive recall to 25/32 and passes all five sentiment-class checks. | No direct coverage on excluded Banking77/Plumb-none examples; no complete-model qualification. |
+| **Retain as a runtime simplification** | Compact fixed code matrix; optional stripped wrapper | LD-V12A output parity passes for these paths. | No material end-to-end speed or live-memory win from deleting the unused head. |
+| **Mixed, not an adopted default** | Checked trained-4B guidance | LD-V13A: lower cross-fit NLL, no net extra correct primary answers, positive-sentiment regression. | Do not promote by counting fewer rejection messages. |
+| **Mixed, not an adopted default** | 18% verified-curriculum replacement | LD-V11 improves transfer but not composition/retention as a whole. | Preserve verified examples; do not assume the allocation is optimal or universally helpful. |
+| **Stop this tested form** | More recurrent passes / additional token-memory head | LD-V9/V10 add cost without a useful incremental capability result. | Not a rejection of all recurrent/backbone-latent architectures. |
+| **Implemented; result unresolved** | Aligned JS consistency on identical augmented views | LD-V13B is independent of A and starts from the same V12B checkpoint. | No result reviewed; JS 0.5 remains a hypothesis. |
+| **Not established** | Combination, RLCD, qualified publisher or Mac port | No necessary combined/acceptance/platform evidence follows from A. | Require distinct experiments and lineage-aware loaders. |
+
+These choices freeze the next comparison. Rank 16, alpha 32, learning rate `2e-5`, NF4/FP16, a 1,024-total-token cap and 150-update stages are **working experimental settings**, not proven universal optima. Exact entry hashes are in [whitepaper §25.3][W25-3]; the configuration is in [LOCAL_DECISION_DESIGN.md](LOCAL_DECISION_DESIGN.md). [LD-V13A-PLAN]
+
+### 1.2 Historical engine and specialist components retained within scope
+
+The following earlier priorities are retained from revision 0.9.3. They are not promises that the new 2B/4B notebook artifact already includes these runtime components.
 
 | Priority | Method to pursue | Positive evidence | Boundary on the recommendation |
 |---|---|---|---|
@@ -36,8 +57,8 @@ The practical direction is therefore **a pretrained, evidence-sensitive decision
 | **Retain now** | Resident process isolation for mixed native/JSON traffic. | E41, E42, and E43 separate resident processes pass exact parity ($\Delta p = 0.0$) across D, X, XR, and NJ with ~4–6% trace overhead, fitting simultaneously in 12.10 GiB on T4. | Operational isolation does not diagnose or repair the underlying in-process mixed-state mechanism. Restarts incur a 3.6x–3.9x penalty. |
 | **Retain as specialist baseline** | Released DeBERTa NLI specialist. | E44: 90.10% accuracy (173/192) at 20.92 ms median on SNLI confirmation (vs Qwen 9B's 86.98% at 149.13 ms; ~7.13× latency ratio); calibrated NLL improves to 0.2972. | Dev-selected threshold accepts 74 with 2 wrong, failing to beat review-all at cost 0.1000 (mean cost 0.11354); requires task-specific acceptance qualification. |
 | **Retain as model baselines** | Task-conditioned learned heads and finite option-logit scoring, without free-form answer generation. | Strong frozen-feature NLI results; useful dynamic-candidate transfer; direct-logit ranking evidence; Qwen NLI_CODE achieves 92.71% accuracy and 63.5% automated coverage at cost 0.036; NJ reaches 94.01% field accuracy at 228 ms. | Neither readout dominates every task. A distribution over allowed codes does not automatically guarantee calibration or arbitrary-question independence. |
-| **Discount under current recipe** | Small fixed-schema encoder fine-tuning and GLiClass dynamic-label interface. | E44: Full fine-tuning of ModernBERT (70.45% field / 19.44% all-six) and BERT (73.46% field / 21.30% all-six) beats frozen backbones (~51–52%) but collapses into majority classes (predicting 100% ineligible and 100% retry=3). GLiClass yields 45.45% field acc at 65.13 ms and rejects long inputs. | Recipe of 1,152 cases suffers severe label imbalance; dynamic-label formulation fails policy reasoning. |
-| **Discount under current recipe** | Compact fixed-head CPU models as general instruction followers. | Indecis fixed heads run fast on CPU with AVX2 assembly (24–46 ms median), but policy field accuracy drops from 91.15% to 69.10% on fresh templates and 0.0% all-six on R41; replay continuations cross zero. | High CPU throughput cannot compensate for representation collapse on unseen prompt structures. |
+| **Discount under that historical recipe** | Small fixed-schema encoder fine-tuning and GLiClass dynamic-label interface. | E44: Full fine-tuning of ModernBERT (70.45% field / 19.44% all-six) and BERT (73.46% field / 21.30% all-six) beats frozen backbones (~51–52%) but collapses into majority classes (predicting 100% ineligible and 100% retry=3). GLiClass yields 45.45% field acc at 65.13 ms and rejects long inputs. | Recipe of 1,152 cases suffers severe label imbalance; dynamic-label formulation fails policy reasoning. |
+| **Discount under that historical recipe** | Compact fixed-head CPU models as general instruction followers. | Indecis fixed heads run fast on CPU with AVX2 assembly (24–46 ms median), but policy field accuracy drops from 91.15% to 69.10% on fresh templates and 0.0% all-six on R41; replay continuations cross zero. | High CPU throughput cannot compensate for representation collapse on unseen prompt structures. |
 | **Decompose / investigate** | Failure-first instruction patch (Arm NF). | E43: NF repairs partial-information eligibility (48/48 correct on failure-with-missing vs NJ's 34/48), raising overall eligibility from 201 to 213 of 216. | Collateral retry regression drops retry correctness from 89 to 76 of 216; all-six correctness drops from 33.33% to 28.70%. Cannot be deployed as complete request. |
 | **Retain as runtime discipline** | Version precision, kernels, rendering, batching, cache and request-history behavior together. | CPU/MLX parity assets identify reproducible modes; prompt schema sensitivity persists across all 4 transformations despite process isolation. | An efficient prefix-cached runtime does not inherently guarantee arbitrary-question statistical independence. |
 
@@ -47,7 +68,7 @@ The main architectural lesson is to **keep expensive question-conditioned interp
 
 ## 2. What counts as evidence in this paper
 
-**Local measured** means the supplied whitepaper reports an executed OpenKind comparison. Its original sample, hardware, precision, prompt, selection rule and limitations still apply. This revision reviews those reported results; it does not independently reproduce the models or inherit earlier revisions' claims of having rerun their artifact checkers.
+**Local measured** means an executed OpenKind comparison is reported in its named source. E1–E44/native results below are carried from revision 0.9.3’s whitepaper synthesis; LD results are supported by the saved notebook records and already completed reviews. Original sample, hardware, precision, prompt, selection rule and limitations still apply. This paper does not rerun the models or inherit another review’s claim to have executed its artifact checker.
 
 **External benchmark** means an evaluator measured a named system under a named protocol. **Author-reported** means the project's own model card, code or experiment supplies the claim. Both can motivate a comparison, but neither becomes an OpenKind measurement. **Post-hoc replay** means arithmetic applied to saved predictions, without a newly measured model request. **Proposed** means a design or experiment inferred from these findings, not a demonstrated improvement.
 
@@ -55,7 +76,14 @@ The disposition terms are correspondingly narrow: **retain** a demonstrated comp
 
 Repeated requests and transformed options are not additional independent cases. In particular, E40's two technical repeats do not double its 96 continuity or 36 synthetic cases; the synthetic panel also shares three templates, and E41's two repeats likewise do not double its 96-case fresh policy or SNLI confirmation panels. E29–E32 reuse an exposed natural-document panel, including only 12 contracts and 12 papers at the calibration gate. These are useful development and diagnostic results, not an untouched deployment population. [W: §§3.3, 18.20–18.25, 21.1, 22]
 
-ER separately labels old `u4_*` and regression panels as **exposed recovery/regression evidence**, and `r41_*` panels as **new authored confirmation/calibration evidence**. The policy confirmation contains 216 unique cases and 432 technical requests per profile. Its new fact groups and two held-out authored renderings do not constitute independent human confirmation or establish transfer to genuinely new policy families. Input coverage of 1.0 reports admitted cases, not a guarantee that every model retained every input token. The report, summary, manifest and completion record were read for this update; agreement among these generated outputs is not a new raw-prediction audit. [ER; ER-M; ER-S; ER-C]
+ER separately labels old `u4_*` and regression panels as **exposed recovery/regression evidence**, and `r41_*` panels as **new authored confirmation/calibration evidence**. The policy confirmation contains 216 unique cases and 432 technical requests per profile. Its new fact groups and two held-out authored renderings do not constitute independent human confirmation or establish transfer to genuinely new policy families. Input coverage of 1.0 reports admitted cases, not a guarantee that every model retained every input token. The r0.9.3 review reported reading the report, summary, manifest and completion record; agreement among these generated outputs is not a new raw-prediction audit. [ER; ER-M; ER-S; ER-C]
+
+
+**Newer panel and lineage boundaries.** The typical LD-V5-and-later historical payload contains 960 rows, of which **928 are primary and 32 additional diagnostics**. Primary accuracy/NLL is equal-source macro, whereas many paired bootstrap deltas are row-weighted; do not substitute one estimand for the other. SST-5 contributes 160 primary examples, other sources 128 each. V11 transfer/composition panels have 144 questions across 24 groups; V10 probes have 96 across 12 groups. Technical repetitions, additional stages over the same 1,200 training examples and transformed views do not create new independent groups. ([LD-V12B][]; [LD-V13A][])
+
+**Task conversion and labels.** LD Banking77 uses sampled supplied alternatives plus none, not the standard 77-way classification benchmark. MNLI neutral is mapped to `__none__`; this does not make neutral entailment equivalent to missing a valid supplied answer or lacking evidence. SST-5 has a deliberately balanced development class panel, and Plumb retains its teacher/source-label provenance. None of these development percentages is a JevBench score.
+
+**Freeze is not promotion.** A frozen entry is a content-bound starting checkpoint, not an accepted model and not necessarily frozen LoRA parameters during continuation. A completed fit, a passed serialization check, nonzero teacher opportunity, a passed relative slice, or a cached prefix that matches its uncached reference answers different questions. V13A’s controlled incremental comparison is teacher versus replay, not teacher versus the older entry alone. V13B’s control is its identical augmentation arm, not A’s replay arm.
 
 ## 3. What the benchmark leaders actually contribute
 
@@ -63,7 +91,7 @@ ER separately labels old `u4_*` and regression panels as **exposed recovery/regr
 
 The top-25 roster in `RESEARCH.md` is the **JevBench v1.4.2.2** snapshot scored on 27 September 2026. Its leading entries include Imajev, Plumb, Mapika decider, Jev, JevK5 and Cygnet. That composite combines intelligence, calibration, speed and cost; it is not a pure accuracy ranking or an ablation of model architecture. Preserve its public/sealed distinctions and configuration-specific notes. [R: “JevBench v1.4.2.2 top 25”; X0]
 
-**External refresh:** the live board inspected for this revision displays **v1.5.0**, with 904 open and 720 sealed decisions and changed scoring. Cygnet and Winnow-12B Q8 lead its frozen official order with a reported statistical tie. Imajev and Plumb appear as separately reported addenda, outside that order. These are different benchmark conditions, not evidence that a model improved or deteriorated between versions. The older snapshot remains the basis for the roster crosswalk below. [X1]
+**Historical external snapshot (recorded 1 October 2026, not refreshed since):** the board then inspected displayed **v1.5.0**, with 904 open and 720 sealed decisions and changed scoring. Cygnet and Winnow-12B Q8 lead its frozen official order with a reported statistical tie. Imajev and Plumb appear as separately reported addenda, outside that order. These are different benchmark conditions, not evidence that a model improved or deteriorated between versions. The older snapshot remains the basis for the roster crosswalk below. [X1]
 
 This matters for the research conclusion: a frozen model with an effective readout is a serious comparator to a fine-tuned decision model. A leaderboard cannot by itself prove that decision LoRA, reinforcement learning, a dedicated head or a custom engine is necessary.
 
@@ -84,7 +112,7 @@ The rows group all 25 systems in `RESEARCH.md` by the questions they help answer
 | **Qwen3-Reranker-4B, ZeroEntropy zerank-2** | Repurpose relevance-trained cross-encoders for candidate decisions. | Test as separate task-transfer baselines, not as proof that relevance scores are calibrated decision probabilities. There is no local matched result establishing either as a replacement. [R] |
 | **Jev, decision-machine-1** | Closed typed-decision services with externally observable behavior. | Compare quality, probabilities, latency and cost as systems. Their undisclosed internals do not supply a reproducible architecture or training recipe. [R; W: §2] |
 
-**Identity correction:** `RESEARCH.md`'s top-25 row calls Imajev's starting checkpoint `Qwen3.5-4B-Base`, while its detailed review points to the J1 lineage. The current primary model card explicitly names **`Qwen/Qwen3.5-4B`, revision `851bf6e8`**, the post-trained checkpoint. This paper uses that identity and does not silently equate it with OpenKind's pinned Base integration reference. Its phase-3 adapter uses rank-64 LoRA and a learned 256-code readout, not merely a slice of unchanged language-model vocabulary logits. [R; X2]
+**Identity correction:** `RESEARCH.md`'s top-25 row calls Imajev's starting checkpoint `Qwen3.5-4B-Base`, while its detailed review points to the J1 lineage. The primary model card recorded in that October 1 review explicitly names **`Qwen/Qwen3.5-4B`, revision `851bf6e8`**, the post-trained checkpoint. This paper uses that identity and does not silently equate it with OpenKind's pinned Base integration reference. Its phase-3 adapter uses rank-64 LoRA and a learned 256-code readout, not merely a slice of unchanged language-model vocabulary logits. [R; X2]
 
 ### 3.3 The useful lessons from the leading recipes
 
@@ -97,6 +125,14 @@ Winnow's author describes a refinement objective combining gold-label cross-entr
 **Training and retention recipes are workload-specific.** Mapika's later v2.1 card reports replacing hard-label replay with parent-distribution KL and changing temperature handling, recovering some sampled-play behavior while retaining most hard-decision gains. That is a different, author-reported recipe from the roster's v2 and from OpenKind's failed short-premise replay. It supports testing preservation on intended operations, not a universal claim that KL replay works or fails. [X6; W: §§18.23–18.26]
 
 The result is a shortlist of experimental ingredients, not a mandate to copy every feature of the highest-ranked model.
+
+### 3.4 Strands: related design, useful comparator, not an imported winning recipe
+
+The later Strands comparison adds a distinct pointer system to the research roster. The reviewed article introduced Hobson **v19**, whereas the locally executed reference in LD-V10 was **`StrandsAgents/strands-decider-2B-hobson-v21`**. Preserve that version difference. Its 2B-Base torso, separate learned pointer, native renderer and training history differ from the 4B OpenKind adapter; the local T4 evaluation used a documented FP16 adaptation of the released BF16 model. Potential public-source training overlap limits independence. ([LD-V10]; [LD-V10-GUIDE])
+
+In LD-V10’s common development comparison, Strands reaches **71.90% macro accuracy**, versus **76.47% for the v7 4B LoRA**. Neither percentage isolates head architecture. Strands shows good Banking77 behavior but weak composed-policy and ordinal-probe behavior; selected constant outputs make some aggregate correct counts misleading. It is not an infallible teacher or a validated arbitrary-question engine. Its shared-prefix implementation supplies concrete engineering reference code, but only three of six local multi-question fixtures pass the declared complete probability/answer parity gate; see §7.4.
+
+The learning lesson became testable in LD-V12B: **jointly train** a replacement pointer and the same-size torso LoRA against the fixed-code control. That actual local comparison, not an architectural diagram or 2B-versus-4B system rank, supports the current fixed-code default. Released Strands’ data, distillation and trained-checkpoint replay remain separate methodological precedents. V13A tests one checked-teacher mechanism and finds a mixed effect; it does not reproduce the full Strands recipe.
 
 ## 4. Model design: what learned useful decisions, and what did not
 
@@ -112,7 +148,7 @@ Direct option logits deserve their own baseline. E27 improved conditional Contra
 
 **Three execution graphs must not be conflated.** A code-logit or code-head readout can score all offered codes at one answer position. The learned candidate scorer instead evaluates candidate-conditioned continuations. The native reader used in the E38–E40 line traverses permitted token-tree branches for finite field values; avoiding free-form JSON does not make that tree a one-forward classifier. Its distributions describe the locally constrained token policy, not unrestricted label-string likelihoods or calibrated correctness. Consequently, E40's speedup does not by itself validate the proposed one-position learned head. [W: §§11.2, 19.4, 20–21]
 
-**Positive direction:** retain both a learned readout and a finite-code comparator. For a new fast model, the especially useful experiment is a joint-option request—state, question and all semantic alternatives—followed by either allowed-vocabulary logits or a learned code head. This can avoid separate candidate continuations, but its quality, probability space and execution cost must be measured; it is not already proven to dominate the immutable candidate-feature reference.
+**Updated disposition:** retain the older learned/candidate scorers as historical and task-specific controls. The joint-option readout experiment has now run in LD-V9–V12B; compact fixed codes are the current mainline within that newer recipe. This does not establish dominance over the older immutable candidate scorer under matched conditions, nor erase its CPU/MLX reference role. See §§4.6–4.9.
 
 ### 4.2 Decision LoRA worked as specialization, not as a general upgrade
 
@@ -139,17 +175,17 @@ The parent-KL follow-on partially recovered probability quality relative to the 
 
 This separates three objectives: agreement with a parent, correctness on replay examples, and retention of the product's supported operations. None implies the others. A short-premise NLI replay panel was not sufficient evidence for preserving long-document answerability and entailment.
 
-**Positive direction:** use reviewed hard examples and teacher distributions as controlled supervision additions only after checking the teacher on the target task. Keep genuine labels authoritative, measure teacher disagreement, and use replay that exercises the supported document and question operations. A new task-aligned preservation recipe remains proposed; the completed generic replay variants should not be described as untried fixes.
+**Positive direction:** use reviewed hard examples and teacher distributions as controlled supervision additions only after checking the teacher on the target task. Keep genuine labels authoritative, measure teacher disagreement, and use replay that exercises the supported document and question operations. That historical recommendation motivated the later scoped experiments in §§4.6–4.11. LD-V7/V13A now supply measured preservation and checked-teacher results; further task-aligned supervision is still a proposal, and neither the old replay failures nor the new mixed results should be called untried fixes.
 
 ### 4.4 Evidence access deserves priority over another blind architecture sweep
 
-The effective input—not the nominal source document—is what the model can use. In E29, QASPER questions retaining all recorded annotation strings increased from **12/119 to 79/119** when the prefix budget rose from 1,024 to 4,096 tokens. These are annotation-visibility counts, not a proof of semantic sufficiency. [W: §18.20.1]
+The effective input, not the nominal source document, is what the model can use. In E29, QASPER questions retaining all recorded annotation strings increased from **12/119 to 79/119** when the prefix budget rose from 1,024 to 4,096 tokens. These are annotation-visibility counts, not a proof of semantic sufficiency. [W: §18.20.1]
 
 On a fixed 32-question ContractNLI subset whose annotations became fully visible, post-trained J1 improved from **17/32 to 30/32**. At the same time, correct none decisions fell from **65/96 to 53/96**, so total ContractNLI correctness improved by only one. Aggregate accuracy almost hid the gain on newly visible evidence. The extra budget also adds other text, so the experiment does not isolate individual evidence spans as the sole cause. [W: §18.20.3]
 
 E30 then lost five of the 30 correct decisions on that same evidence-sensitive subset after adaptation. Thus “use a larger context window” and “fine-tune on complete documents” are not sufficient retention strategies. [W: §18.21.4]
 
-**Positive direction:** verify the final serialized/tokenized state, retain evidence-location diagnostics and train on admissible examples that require the intended evidence use. Preserve long-document and unsupported-answer slices during model selection. Retrieval, oracle windows, evidence-aware truncation and a learned evidence reader are separate possible interventions—not measured fixes supplied by the visibility audit.
+**Positive direction:** verify the final serialized/tokenized state, retain evidence-location diagnostics and train on admissible examples that require the intended evidence use. Preserve long-document and unsupported-answer slices during model selection. Retrieval, oracle windows, evidence-aware truncation and a learned evidence reader are separate possible interventions, not measured fixes supplied by the visibility audit.
 
 ### 4.5 A cheap state summary did not replace question-conditioned interpretation
 
@@ -164,6 +200,70 @@ E30 then lost five of the 30 correct decisions on that same evidence-sensitive s
 **Source:** [W: §§16, 18.3–18.8, 18.16; E12, E14–E20, E26].
 
 The supported near-term architecture therefore retains full question/option interaction. A new compact state-query reader needs a stated difference in evidence representation, supervision or computation relative to the tested failures. “Prefill can be cached” is not evidence that its pooled final vector is a sufficient universal decision representation.
+
+### 4.6 What the bounded local-decision pilots added: balancing and targeted preservation
+
+LD-V4 trained adapters and improved development aggregates, but each evaluated candidate failed retention. Step-zero selection was a fallback, not a qualified newly trained model; the parent’s separate absolute false-none gate could fail too. Later protocols enlarge panels, save per-example predictions, align support with independent groups, and separate best-observed from best-eligible/exported checkpoints. Those repairs improve interpretability; they do not turn old failures into accepted models.
+
+LD-V5 compares natural versus equal-class SST-5 sampling and canonical versus paired alternative presentations. At the fixed final step, the unbalanced control reaches **75.40% macro accuracy and 7/32 very-positive recall**; SST-balanced reaches **76.00% and 23/32**. Very-negative recall is **17/32** in the balanced arm, matching its parent. Natural replay supplies only 14 unique very-positive examples, while balanced replay supplies 30, within the same overall SST budget. This directly supports retaining equal-class exposure in the next matched recipe, not assuming “more updates” alone repairs retention. [LD-V5]
+
+LD-V6 tests smaller updates and a limited none-pair intervention. The balanced `1e-5` arm reaches **74.73%**, below LD-V5’s `2e-5` reference at its matched 150-update budget, and still fails multiple checks. None pairs improve Banking77 true-none from **18/28 to 20/28** but add false-none errors **11/100 → 16/100**; Plumb true-none remains **1/10**. These results discount those interventions as new defaults without claiming that no longer schedule or better negative supervision could help. [LD-V6]
+
+LD-V7 fixes learning rate and sampling and varies original-parent KL strength. Its λ=0.25 arm reaches **76.47% macro accuracy, 0.6365 raw NLL and 0.6318 cross-fitted NLL**, restores **25/32 very-positive recall** and passes all five SST-5 class checks. The λ=1 arm worsens the trade-off and adds MNLI false-none failure. The λ=0 CE arm has the best cross-fitted NLL (**0.6221**) but loses class retention. Consequently “best probability objective,” “best retention trade-off” and “accepted checkpoint” are distinct labels; **none is accepted**. [LD-V7]
+
+The preservation mask matters: of 1,200 unique scheduled rows, **630 are eligible** under the v7 trust rule. All 37 Banking77-none and all 23 Plumb-none training examples receive no added preservation loss, though they remain in ordinary CE. They are precisely the slices that still fail. Stronger λ would not test preservation on absent mask coverage. These observations do not authorize anchoring uncertain or parent-wrong labels; §5.2 describes the subsequent audit.
+
+### 4.7 Recurrent reading and token-memory attention: the tested additions did not earn their cost
+
+LD-V9 uses frozen Qwen features and trained residual heads. `shared_1` reaches **69.15% accuracy, 0.767381 raw NLL and 0.747196 cross-fit NLL**; `shared_4` reaches **69.04%, 0.766166 and 0.746608**. The first pass accounts for **98.3% of the four-pass raw-NLL reduction** relative to the parent. Moving from one to four passes corrects three cases and introduces four across the full 960-row panel; the primary paired NLL interval includes zero. Warm request medians rise **288.0 → 344.8 ms**. All heads fail retention/schema checks. [LD-V9]
+
+LD-V10 then supplies the previously missing simpler controls. Latent interaction **without** token-memory attention yields **69.24% accuracy / 0.7467 cross-fit NLL**, compared with **69.15% / 0.7472** for the one-pass memory head. The paired NLL interval crosses zero. A mean-option pointer instead reaches **71.38% / 0.7039** and outperforms the full memory head on the paired panel. These are frozen-feature residual readouts, **not** replacement pointers jointly trained with Qwen. The adapted v7 reference is still stronger at **76.47% / 0.6318** in the common comparison. [LD-V10]
+
+**Disposition:** remove the tested recurrence and added memory attention from the mainline. Retain the evidence boundary: no result here rules out joint backbone latent training, a different state-only encoder, stronger intermediate supervision or another recurrent architecture. A pooled-feature control is not state-free; its Qwen representations already depend on the state and options. A simpler head’s quality/complexity advantage also does not establish a complete-request speedup when decoder cost dominates.
+
+### 4.8 Verified curriculum: a transfer gain, not a validated blanket replacement
+
+LD-V11 continues the v7 adapter and compares replay with a fixed **18% presentation replacement**: 432 of 2,400 presentations become 216 verified curriculum examples, each repeated twice. It protects existing SST-5, Plumb, rules and semantic-none exposure, but changes non-none exposure in other sources. Equal updates/presentation count is not equal source mixture or token budget. [LD-V11]
+
+The replay control reaches **77.05% macro accuracy, 0.6421 raw NLL and 0.6188 cross-fit NLL**; the curriculum reaches **76.00%, 0.6376 and 0.6164**. Both fail retention. Curriculum transfer improves **82/144 → 94/144**, with a descriptive group-bootstrap interval for accuracy gain of about **+2.78 to +13.19 points**. Composition changes **80/144 → 76/144**, with an interval including zero. The panels contain 24 underlying groups each, not 144 independent reasoning families.
+
+**Disposition:** keep the verified examples and targeted failure understanding, but do not adopt the 18% allocation as a demonstrated general upgrade or expand it blindly. V12B/V13 deliberately return to the frozen balanced replay to isolate new losses/readouts. The original V10 probe IDs are diagnostic-only, not training examples.
+
+### 4.9 The trained 2B/4B × readout comparison now favors fixed code
+
+LD-V12B’s four final joint-step-150 arms are tabulated in [whitepaper §25.1][W25-1]: fixed code reaches **69.89%** (2B) and **76.41%** (4B) macro accuracy, versus 68.21% and 72.25% for the replacement pointer.
+
+Source: [LD-V12B]. The 928 primary historical rows exclude 32 additional diagnostics. Each size starts from a pinned **post-trained**, not Base, Qwen; within a size the two arms start with identical fresh LoRA tensors. Both have 2,400 joint presentations, while the random pointer receives another **800 head-only cached-feature presentations**. No parent-code residual remains in pointer scoring, and both pointer and LoRA update. It is genuine replacement-pointer training, but not a matched total-initialization-cost comparison or reproduction of Strands’ training corpus.
+
+At 4B the pointer loses **40 correct primary answers** against fixed code, a row-weighted difference of **−4.31 points**, descriptive interval **[−6.69, −1.85]**. Raw NLL is also worse. At 2B, the pointer’s accuracy interval includes zero, but no overall quality/cost gain justifies replacement. The mean-head versus endpoint-head result from V10 is not a basis for ignoring this later, differently trained comparison.
+
+The strongest positive result is **2B adaptation**: **47.28% → 69.89% macro accuracy**, 270 corrected parent errors versus 61 introduced errors, net **209 more correct primary decisions**. Trained fixed-code 2B uses about **1.688 GiB allocated CUDA memory**, compared with **3.044 GiB** for trained fixed-code 4B, and the 4B/2B median-time ratio is **1.74×** (291.68/168.07 ms) on this 28-request/five-repeat T4 workload. No Mac or production-service result follows. [LD-V12B]
+
+None of the four candidates passes quality and schema. 2B fixed-code has MultiRC false recall **59/69 versus parent 64/69**, rules false-none **14/58**, and a Plumb cross-fit-NLL regression. Plumb true-none is only **1/10**, matching a weak 2B parent and therefore not producing a relative recall-regression flag. The 4B fixed-code arm still fails Banking77 and Plumb none recall. More aggregate quality does not supply an absolute reliability floor.
+
+Transfer favors fixed codes as well: 2B fixed/pointer get **71/55 of 144 transfer** cases, 4B **88/58**; the corresponding composition counts are **72/74** and **89/61**. The 4B pointer predicts ordinal level `2` on every counting question in both balanced 24-case counting slices. Full end-to-end option-order sensitivity remains: fixed-code SST-5 flips **19/32 at 2B and 18/32 at 4B**. An option-equivariant readout is not proof of a presentation-invariant causal encoder.
+
+### 4.10 V13A separates continuation from the incremental teacher effect
+
+Both arms continue the same frozen V12B 2B fixed-code checkpoint. They keep the data/order, supervised loss and original-parent preservation fixed; only one adds **0.25 × 2² × checked trained-teacher KL at temperature 2**. The 4B teacher is evaluated on training rows, cached and unloaded before fitting. It is not consulted at inference. [LD-V13A-PLAN]
+
+The entry, replay and checked-teacher results are tabulated in [whitepaper §25.2][W25-2]: replay reaches **73.15%** and the teacher arm 73.28% macro accuracy, both **672/928** correct versus 641/928 at entry.
+
+Source: [LD-V13A]. Teacher versus control fixes **14** mistakes, introduces **14**, and changes four other wrong answers. The **+0.134 macro percentage-point** difference comes from equal-source weights and unequal row counts, not an extra correct answer. The row-weighted accuracy interval is about **[−1.11, +1.06] points**. Both continuations net 31 more correct decisions than entry; this supports that bounded continuation, not an indefinitely beneficial training extension.
+
+The teacher improves MNLI **94/128 → 99/128** and MultiRC false recall **59/69 → 61/69**, but both arms retain only **37/44 entailment** cases against entry’s **40/44**. Teacher guidance loses positive SST-5 recall **15/32 → 9/32**; four of the six lost positives shift to very positive and two to neutral. Very-positive improvement does not compensate for adjacent-class damage. Both arms fix rules false-none **14/58 → 0/58** with true-none **45/45**; the teacher is not necessary for that decision gain.
+
+The preparation audit found **775 eligible unique examples, with 113 teacher-correct/entry-student-wrong opportunities**. Only **four Plumb-none groups** qualify, giving eight guided presentations. Entry, control and teacher still achieve **1/10** true-none development recall. “Intervention supported” means the training mask is nonempty; it does not establish a generalized policy/none operation, and final in-sample success on those four cases was not established by the frozen-entry audit. [LD-V13A-AUDIT]
+
+Transfer is **73/144 in both arms**; composition **65/144 versus 67/144**; V10 probes **73/96 versus 72/96**. Both have zero completely correct composition groups. Option-order changes fall **55/224 → 51/224** and code-assignment changes **39/224 → 29/224**, yet SST-5 order flips worsen **18/32 → 20/32** and neither passes absolute stability. Warm medians are **163.48/167.15 ms** with identical allocated memory; the small timing difference does not show architectural inference overhead from offline guidance.
+
+**Disposition:** do not lock the new teacher term as a validated improvement, do not choose it merely because its rejection list is shorter, and do not increase its coefficient to compensate for missing semantic coverage. The simpler replay arm is the correct control. Both outputs are research-only, and the frozen entry for V13B is unchanged.
+
+### 4.11 V13B is an implemented outstanding test, not a result inferred from A
+
+The independent experiment starts from the original V12B student, never a V13A output. It changes each canonical duplicate into an equivalent actual re-rendered view: **600 examples with option-order changes and 600 with code reassignment**. Both arms use identical views and supervision; the experimental arm adds **0.5 × Jensen–Shannon divergence** after canonical-option alignment, with gradients through both fresh forwards. Per-view original-parent logits are recomputed. [LD-V13-PLAN]
+
+The next required evidence is lower actual flip/probability variation without losing class/none capability or learning constant outputs. Its results are not reviewed. A teacher-plus-consistency interaction remains untested and is not justified merely because the two separate notebooks exist. Keep instruction/fact changes and removed-valid-option contrasts out of the invariance loss: their correct decisions can differ.
 
 ## 5. Output semantics: codes, rejection and calibration
 
@@ -199,6 +299,10 @@ The earlier seven-parameter set-aware none model is a useful positive ablation. 
 
 For training and evaluation, keep four notions distinct: an omitted correct option, insufficient evidence, unfamiliar/out-of-scope input and an application choice to request review. `Noul` is a binary primitive, not the semantic-none class. The mixture percentages proposed in `RESEARCH.md` remain unvalidated design settings, not a successful general recipe. [R; W: §§2, 5, 10]
 
+**The completed none audit resolves review status, not model capability.** LD-V8’s 60 training-only cases finish as **50 confirmed none and ten uncertain**, with zero pending. It is an AI-performed source review, not independent human adjudication. The original v8 preservation experiment stops at three Plumb groups against its predeclared four-group floor; no training outcome should be invented from that stop. Later V13A has four **different eligibility outcomes under the trained teacher**, passes its nonzero-opportunity preparation and completes, but still shows 1/10 Plumb-none recall. The masks/teacher differ; there is no contradiction in the counts. ([LD-V8][]; [LD-V13A-AUDIT][])
+
+None judgments must establish that all retained alternatives are invalid, not merely that the annotated best answer was removed. Reviewed parent-wrong examples are appropriate for supervised correction, not preservation of the wrong parent prediction. The specific v6 omission-pair treatment changes willingness to select none more than it demonstrates improved discrimination; do not adopt a larger global omission rate as an evidence-backed remedy. [LD-V6]
+
 ### 5.3 Probability quality must survive the actual use case
 
 The record contains several rejected temperature fits. Phase 2B matched NLL worsened from 0.3345 to 0.3392, and a native eligibility calibration changed test NLL from **0.27056 to 0.41902**. Positive scalar temperature does not change argmax, repair a logical contradiction or restore missing evidence. [W: §§4.4, 19.7]
@@ -206,6 +310,10 @@ The record contains several rejected temperature fits. Phase 2B matched NLL wors
 Use NLL/cross-entropy as a supervised baseline; consider Brier or ranked-probability objectives in controlled ablations. The specific composite-loss coefficient, per-cardinality temperature and CADO/RL program proposed in `RESEARCH.md` have **not** been established as successful OpenKind recipes. A utility term can change the distribution-learning objective, so action optimization and probability estimation should not be treated as interchangeable. [R; W: §§6, 11–13; inference from the stated objectives]
 
 Calibration acceptance needs held-out probability metrics and a separate policy assessment. At a minimum-field probability threshold of 0.95, E40 D still had **3 wrong among 10 accepted continuity requests** and **7 among 9 synthetic requests**. Minimum field probability is not the probability that the whole request is correct. Normalization, confidence concentration and zero observed errors on a small selected subset are not a deployment calibration guarantee. [W: §21.9]
+
+**Later calibration evidence changes the development profile, not the old verdicts.** LD-V6’s saved-logit, group-cross-fitted replay shows that BoolQ/MultiRC NLL regressions can be largely probability-sharpness problems even when answer accuracy improves. LD-V7 therefore prospectively separates raw decision retention from request-kind cross-fitted NLL/Brier, applying the same procedure to parent and candidate. Five-fold group separation prevents fitting a scored group’s temperature on that group; repeated development selection still prevents an independent-acceptance claim. The older raw results and rejection decisions stay unchanged. ([LD-V6]; [LD-V7])
+
+LD-V13A demonstrates why proper-score and decision evidence must both remain visible. Teacher raw macro NLL is worse than replay (**0.7034 versus 0.6970**) while cross-fitted macro NLL is better (**0.6852 versus 0.6907**); both have **672/928 correct**. MultiRC’s wrong-answer NLL tail worsens despite recovery of two false labels. A slightly better calibrated aggregate does not erase a lost sentiment class or establish a reliable application policy. Neither entropy nor max probability is automatically a probability of correctness; finite ordinal uncertainty also merits an explicitly tested spread-sensitive report. [LD-V13A]
 
 ## 6. Inference engine: the clearest quality-and-speed win
 
@@ -241,7 +349,7 @@ This is ordinary probability aggregation, not an additional learned prediction. 
 
 Removing the action field also changes the model input. E40's continuity gain includes 29 corrected action fields and two corrected eligibility fields, rather than postprocessing completely unchanged A predictions. E39 had already shown timed composition gains, but with slightly worse NLL. The evidence supports this particular method and rule contract, not an unconditional probability-quality improvement from every dependency reduction. [W: §§20.3, 21.4]
 
-The related route-priority idea has since moved from replay to measurement. The earlier figures — applying the deterministic rule to **saved D predictions** for 93.75%/94.44% field accuracy and 62.50%/66.67% all-six correctness — remain **post-hoc replay results only**. E41 then timed the rule as a real arm: R raises fresh-template field accuracy to 91.67% (+9.03 points) at unchanged median latency, and grouped GR reaches 95.49% field accuracy and 83.33% all-six correctness at 1,419.57 ms. Because base-route and urgency marginals do not determine their joint distribution, R and GR intentionally withhold an exact route vector rather than multiplying marginals; their full six-field NLL/Brier scores are unavailable, and that is the honest contract. E42 subsequently unified selective indexing and route composition into Arm XR: on 192 new authored policy cases, XR achieves **95.40% field accuracy** and **84.38% all-six correctness** at **242.98 ms median**, retaining both latency and accuracy gains. [W: §§21.8.2, 22.1, 23.1; V9–V11; E41–E42]
+The related route-priority idea has since moved from replay to measurement. The earlier figures (applying the deterministic rule to **saved D predictions** for 93.75%/94.44% field accuracy and 62.50%/66.67% all-six correctness) remain **post-hoc replay results only**. E41 then timed the rule as a real arm: R raises fresh-template field accuracy to 91.67% (+9.03 points) at unchanged median latency, and grouped GR reaches 95.49% field accuracy and 83.33% all-six correctness at 1,419.57 ms. Because base-route and urgency marginals do not determine their joint distribution, R and GR intentionally withhold an exact route vector rather than multiplying marginals; their full six-field NLL/Brier scores are unavailable, and that is the honest contract. E42 subsequently unified selective indexing and route composition into Arm XR: on 192 new authored policy cases, XR achieves **95.40% field accuracy** and **84.38% all-six correctness** at **242.98 ms median**, retaining both latency and accuracy gains. [W: §§21.8.2, 22.1, 23.1; V9–V11; E41–E42]
 
 Joint outputs are the complementary lesson. In E41, Arm J derived route and urgency from one explicit four-way joint source, reconciling probabilities exactly with no independence assumption but costing retries accuracy (100% → 72.92%). E42 corrected this with Arm NJ (narrowly joint route/urgency), which keeps all six field distributions intact, repairs the retries regression, and achieves **94.01% field accuracy** and **79.69% all-six correctness** at **228.31 ms median**. Deriving dependent probabilities requires an appropriate source distribution, and a carefully targeted joint readout can supply valid distributions without collateral accuracy damage. [W: §§22.1, 23.1; E41–E42]
 
@@ -249,9 +357,9 @@ Joint outputs are the complementary lesson. In E41, Arm J derived route and urge
 
 D is about 11.52× faster than E by continuity-panel median ratio, but JSON has substantially higher field and all-six correctness. The comparison is a speed/quality trade-off, not equivalent output at a lower cost. D's remaining errors are concentrated in priority-route suffixes and plain-closed versus closed-duplicate decisions; eligibility, action, retries and urgency are correct on both primary panels. [W: §§21.3, 21.8–21.9]
 
-E41 narrowed this gap from the grouped side: GR reached **83.33% fresh all-six correctness at 1,419.57 ms — 2.06× faster than JSON (2,930.54 ms)**, but with zero prefix-cache hits. E42 directly solved this efficiency bottleneck by introducing a multi-catalogue host snapshot cache (~170.6 MiB host RAM): full-request latency dropped from **1,511.02 ms to 690.16 ms (a ~54% latency cut, 2.19× speedup ratio)** with **$\Delta p = 0.0$** across 96 paired runs. Combined with Arm XR (242.98 ms, 84.38% all-six), the native pipeline now substantially out-executes generated JSON (3,634.01 ms, 46.35% all-six in E42) in both speed and correctness. [W: §§22.1, 23.1, 23.3; E41–E42]
+E41 narrowed this gap from the grouped side: GR reached **83.33% fresh all-six correctness at 1,419.57 ms, 2.06× faster than JSON (2,930.54 ms)**, but with zero prefix-cache hits. E42 directly solved this efficiency bottleneck by introducing a multi-catalogue host snapshot cache (~170.6 MiB host RAM): full-request latency dropped from **1,511.02 ms to 690.16 ms (a ~54% latency cut, 2.19× speedup ratio)** with **$\Delta p = 0.0$** across 96 paired runs. Combined with Arm XR (242.98 ms, 84.38% all-six), the native pipeline now substantially out-executes generated JSON (3,634.01 ms, 46.35% all-six in E42) in both speed and correctness. [W: §§22.1, 23.1, 23.3; E41–E42]
 
-This identifies a better next step than immediately replacing the backbone: confirm a focused dependency/readout intervention on new cases, time the resulting complete request, and retain JSON as the quality control. A JSON fallback may be useful, but a reliable routing policy and safe mixed-mode execution are not established by this comparison.
+For that older catalogue-engine track, the implication remains to confirm focused dependency/readout interventions on new cases, time the complete request and retain JSON as a quality control; it is not a reason to restart the now-completed LD pointer/size comparison. A JSON fallback may be useful, but a reliable routing policy and safe mixed-mode execution are not established by this comparison.
 
 ## 7. Shared computation: when it was faster and when it was not
 
@@ -291,6 +399,12 @@ The separate cross-question candidate-pooling stage diagnostic was also slower, 
 
 **Positive direction:** optimize measured full-path cost, including repeated tokens, padding and branch materialization. Inspect optimized upstream kernels as candidates, but benchmark actual dispatch and renew parity checks. Do not copy an external forward-count reduction and assume its speedup transfers to a different backbone, readout and runtime.
 
+### 7.4 The later Strands cache comparison is promising but only partially parity-qualified
+
+LD-V10 evaluates native shared-prefix behavior separately from quality. Of six actual multi-question fixtures, **three pass** the declared probability/answer parity rule; three single-question fixtures do not invoke split-prefill sharing. On passing medium/long-prefix fixtures, paired timing ratios versus full batching are **2.01×, 2.35× and 3.36×**. All recorded argmax comparisons pass, but maximum probability drift reaches **0.001456**, exceeding the **0.001** tolerance. That `0.001` is the stricter research replay tolerance; the repository acceptance tolerance is `0.005` ([documentation standards](../AGENTS.md#evidence--parity-standards)), so this drift fails the first and passes the second. Some ordinary serial/batched comparisons also exceed `0.001`. Numerical-path variation is a plausible interpretation, not a demonstrated root cause. [LD-V10]
+
+This supports further precision/path and target-platform qualification, not “cache universally works” or “cache is broken.” Preserve sibling/order independence tests, near-tie and downstream-confidence tests, complete hybrid-state ownership and the original tolerance. These measurements do not qualify a shared-state engine for the new 2B/4B OpenKind LoRAs.
+
 ## 8. Precision and memory: retain the narrow wins
 
 ### 8.1 Distinguish faster arithmetic from an interchangeable implementation
@@ -309,13 +423,29 @@ All four tested low-bit TurboQuant snapshot configurations failed complete decis
 
 Removing generation also does not necessarily remove vocabulary weights. The measured 4B reference ties its output projection to its input embedding, so omitting that output operation removes **zero marginal parameters**. This accounting is specific to that checkpoint; it must not be generalized to every model or to E40's separately inspected output-head configuration. [W: §§4.2, 21.1]
 
+### 8.2.1 Physical output-head removal has now been measured
+
+LD-V12A compares final-position full vocabulary, per-request selected rows, a copied compact code table, and a genuinely stripped decoder-plus-table wrapper. Compact and stripped paths show zero observed probability difference and identical selected answers. The output module really is removed; the same decoder remains. [LD-V12A]
+
+| System, same V12A timing grid | Restricted-row complete-request median | Stripped median | Paired restricted/stripped ratio |
+|---|---:|---:|---:|
+| Post-trained 2B | 181.96 ms | 181.34 ms | 1.0023× |
+| Post-trained 4B | 433.95 ms | 433.25 ms | 1.0018× |
+| 4B + v7 adapter | 527.74 ms | 527.11 ms | 1.0011× |
+
+No complete-request comparison meets the predeclared 5% material-speed criterion. For adapted 4B, readout-only medians are **6.996 ms full vocabulary, 0.104 ms restricted rows and 0.0645 ms stripped compact**. Avoiding the vocabulary projection matters, but the current restricted implementation already avoids it. Speeding a roughly 0.1-ms readout does not materially accelerate a roughly 528-ms request.
+
+Tied storage explains memory: adapted-4B allocated CUDA memory changes by only **512 bytes**, and unique registered storage by **128 bytes**. The larger allocator-**reserved** decrease is confounded by explicit cleanup in the stripped path but not equivalent cleanup in the intact path. It is not evidence of freed vocabulary-sized live weights. Future cleanup comparisons must be symmetric. Both forms load original weights first; direct headless disk loading/startup is unmeasured.
+
+One 2B **full-vocabulary** case fails probability parity (**0.0018727** difference) with unchanged argmax; preferred compact/headless paths pass. Do not relax the tolerance. The grid has **33 admitted distinct requests**, nine repetitions and two process/order blocks on one T4. This is not a Mac result, and its timing denominators differ from V12B’s 28-request panel. **Close the repeat head-removal grid; retain compact scoring as a clean deployment function, not a new speed breakthrough.** [LD-V12A]
+
 ### 8.3 MoE is a capacity option; expert streaming remains untested
 
 E36's Qwen3.5-35B-A3B GPTQ INT4 profile outperformed dense Qwen3.5-4B BF16 on the same two panels: **84.72% versus 75.35%** on SNLI and **92.71% versus 75.69%** on authored questions. Median request latency was about **126 ms versus 63 ms**. This is positive evidence for a stronger system profile at greater cost, not an isolated MoE effect: size, weights and quantization differ. [W: §19.2]
 
 The older late-block-skipping probe reduced latency 2,022.49→1,535.78 ms but left peak allocation effectively unchanged at 7.823 GiB and failed decision utility. Another legacy probe touched an average **59.875 of 60 experts per layer** across a full input. Few active experts per token did not imply few experts for a request. No recorded experiment streams expert weights; a separate unrecovered physical-removal claim remains outside confirmed memory evidence. [W: §19.1]
 
-**Positive direction:** keep modern MoE as a quality/teacher comparator, and measure request-wide expert locality before investing in a streaming engine. Expert residency, transfers, recurrent state and branch memory need actual accounting. Weight streaming is an open experiment—not a disproved idea, but not an evidence-backed optimization already available to this design.
+**Positive direction:** keep modern MoE as a quality/teacher comparator, and measure request-wide expert locality before investing in a streaming engine. Expert residency, transfers, recurrent state and branch memory need actual accounting. Weight streaming is an open experiment: not a disproved idea, but not an evidence-backed optimization already available to this design.
 
 E40 separately demonstrates that its publisher Q4 9B profile runs fully offloaded on a T4. A four-context workload samples 6.30 GiB whole-device peak on the reported 15.0-GiB device. This is useful feasibility evidence, not an exact allocation maximum, long-context/concurrency guarantee or Apple-Silicon memory estimate. [W: §21.10]
 
@@ -327,44 +457,46 @@ Eight-sequence one/four-context shape comparisons are exact in the tested config
 
 The existing native CPU service and pinned MLX FP32 parity results remain valid within their own frozen 4B integration profile. They do not qualify the 9B CUDA reader, its mixed-mode state or an adapted model. CPU load/soak evidence and MLX numerical qualification are not interchangeable service claims. [W: §17.3]
 
-**Positive direction:** retain the demonstrated composition and cache components, but qualify their enclosing process. E41 established dedicated-process isolation as a measured remedy for the tested D-style shapes (passing reproduced failing traces at $\Delta p = 0.0$). E42 subsequently evaluated dedicated-process isolation across the newer readouts (X, XR, NJ): all three passed history checks with zero probability drift ($\Delta p = 0.0$), whereas mixed-process execution exhibited drift up to $\Delta p = 0.114$. What remains open is the underlying in-process state cause, whether same-process reset can be achieved without separate processes, and behavior under cancellation, concurrency, and long-running load. Acceptance must still cover probabilities, selected answers, policy outputs, request order, cancellation/recovery and the advertised concurrency/memory envelope—not only one repeated anchor. [W: §§21.6, 22.2, 23.4; E40–E42]
+**Positive direction:** retain the demonstrated composition and cache components, but qualify their enclosing process. E41 established dedicated-process isolation as a measured remedy for the tested D-style shapes (passing reproduced failing traces at $\Delta p = 0.0$). E42 subsequently evaluated dedicated-process isolation across the newer readouts (X, XR, NJ): all three passed history checks with zero probability drift ($\Delta p = 0.0$), whereas mixed-process execution exhibited drift up to $\Delta p = 0.114$. What remains open is the underlying in-process state cause, whether same-process reset can be achieved without separate processes, and behavior under cancellation, concurrency, and long-running load. Acceptance must still cover probabilities, selected answers, policy outputs, request order, cancellation/recovery and the advertised concurrency/memory envelope, not only one repeated anchor. [W: §§21.6, 22.2, 23.4; E40–E42]
 
 ## 10. The architecture worth pursuing next
 
-### 10.1 Preserve the working reference; investigate a cheaper joint-option path
+### 10.1 Keep separate the historical integration reference and current research mainline
 
-The current immutable integration reference remains:
+The older immutable integration reference remains a different, useful differential function:
 
 ```text
 Qwen3.5-4B-Base, profile a047d6802c3f06f085b8
-state-first full hybrid root
+state-first complete hybrid root
     → isolated question continuation
     → isolated candidate continuations
     → learned candidate scores + semantic-none model
     → distribution + separate policy
 ```
 
-Its CPU and pinned MLX FP32 evidence makes it a valuable differential reference. It need not be the final deployment model. [W: §§15–17]
+Its historical CPU and pinned MLX FP32 evidence is not replaced by the new T4 experiments. Conversely, it does not qualify the new post-trained LoRAs or their compact code contracts. [W: §§15–17]
 
-The recommended **new-model/runtime integration hypothesis** is:
+The **executed local-decision research mainline** is now:
 
 ```text
-Validated, versioned state and task contract
-    → exact state tokens and immutable complete hybrid root, when reuse is eligible
-    → isolated question + all described options
-    → final answer-position representation
-    → either selected vocabulary logits OR a trained finite-code head
-    → explicit semantic distribution, including none where the task requires it
-    → accepted calibration transform, if independently beneficial
-    → deterministic dependency calculations and typed serialization
-    → separately evaluated action/review policy
+Validated state, question and all described typed alternatives
+    → complete admitted prompt (1,024 total tokens in current studies)
+    → one post-trained Qwen3.5 decoder forward with ordinary LoRA
+    → final answer-position hidden state
+    → compact frozen pretrained A–P code vectors
+    → probability distribution over the supplied outcomes
+    → typed response / separately evaluated calibration and action policy
 ```
 
-This combines individually supported ideas but is **not a claim that the full combination has run**. E29/E30's joint-option quality experiments use full forwards; E40's successful reuse is static catalogue caching; the immutable native reference uses candidate branches. A selected adapted joint-option model needs its own branching, precision, history and service qualification.
+There is no free-form answer generation, replacement pointer, recurrent refinement block or token-memory head. The current notebook reference executes isolated question prefills serially; it is **not already a shared-state Rust/MLX engine**. Deterministic application dependencies and exact reuse remain integration targets whose historical component evidence is retained. ([LD-V12B][]; [LD-V13-PLAN][])
 
-The reusable Qwen state must include attention KV, DeltaNet recurrence, convolution state and position information. Cache identity must bind the model/adapter, tokenizer, finalized token prefix, renderer, precision and backend. A block attention mask alone does not isolate a recurrent stream. Mutable branch state cannot be shared between independent questions. [W: §§8.1, 11.2–11.4, 16–17]
+For future shared-state integration, retain full attention KV, DeltaNet recurrence, convolution state and positions. Cache identity binds model/adapter, tokenizer, exact finalized prefix, renderer, precision and backend. Keep question descriptions out of a question-independent root; catalogue-conditioned prefixes have a different contract. Mutable continuation state must be isolated, and a block attention mask alone does not isolate a recurrent stream. Adapter changes invalidate parent-feature/state caches unless separately proven compatible.
 
-Keep question descriptions out of the supposedly question-independent state root. Where a static catalogue is intentionally part of the prefix, changing it changes cache identity and may change model behavior. Do not advertise that efficient schema-conditioned path as equivalent to arbitrary-question isolation. [W: §§11.7.1, 20–21]
+**Frozen V13 entries, not promoted checkpoints:** the student in A and B is LD-V12B `2b/fixed_code` and the teacher in A only is LD-V12B `4b/fixed_code`, both at joint step 150. Exact paths, base revisions and adapter/readout file hashes are in [whitepaper §25.3][W25-3] and [`FROZEN_RESEARCH_PROFILE.json`](FROZEN_RESEARCH_PROFILE.json). Full `FROZEN_ENTRIES.json`/study-plan manifests in the private external store bind readout, tokenizer, base revision, contract and reference predictions; adapter-file and tensor hashes are different concepts. Recorded identities are not a reload of the model weights. [LD-V13A-PLAN]
+
+Freeze the current **controlled training settings**: rank 16/alpha 32/dropout zero, NF4/FP16 and FP32 adapters, learning rate `2e-5`, original-parent KL 0.25 on its trust mask, original CE with teacher-source CE weight 0.5, 150-update stages with accumulation 16, seven warmup updates then cosine, evaluation/checkpoints every 25 updates, and final-step selection. The 2,400 presentations cover 1,200 unique examples, not all 8,000 admitted rows. Exact module names and every value are in [LOCAL_DECISION_DESIGN.md](LOCAL_DECISION_DESIGN.md).
+
+The **new trained-teacher KL** is not the original-parent preservation term, and is not adopted as default after V13A. The **JS consistency term** remains an unresolved experiment. Freezing these experimental identities is not a claim that each rank, loss weight, sampling ratio or schedule is globally optimal. New models and new LoRAs require fresh tokenization/admission, baseline, teacher/preservation targets, execution identities and qualification.
 
 ### 10.2 Choose model size after choosing useful quality
 
@@ -392,9 +524,9 @@ The following is a **within-run T4 policy comparison** on `r41_policy_confirmati
 
 **A separate positive NLI result:** the released three-way DeBERTa treatment achieves **90.10% (173/192)** on `u4_snli_confirmation`, with **20.92 ms p50 / 33.13 ms p95**, NLL **0.368** and Brier **0.166**. This is explicitly exposed recovery/regression evidence, with 384 technical requests. It justifies retaining a task-appropriate released NLI comparator; it does not establish caller-defined policy following, fresh NLI generalization or independent deployment-risk certification. GLiClass's original dynamic fixtures likewise remain exposed diagnostics. [ER]
 
-For the current project, keep the 4B Base profile as the implementation reference and the measured 9B Q4 profile as a separate serving candidate. A matched 4B/9B comparison has not established a size winner. Bring a 2B student or alternative backbone forward only under a declared quality floor and measured target-machine resource benefit. External Cygnet/Winnow results justify a strong non-Qwen control when resources permit, not an automatic migration.
+For historical integration, keep the 4B Base profile and measured 9B Q4 catalogue profile separate; no new 4B/9B size winner is asserted. **For the current local-decision training program, 2B has now earned an active resource-efficient research role** through LD-V12B/V13A, while post-trained adapted 4B remains the quality reference. Its target-Mac resource benefit and absolute reliability still need qualification. Older encoder/E11 results are not substituted for these newer joint-option measurements.
 
-### 10.3 What to borrow from the general-model survey—and what not to borrow
+### 10.3 What to borrow from the general-model survey, and what not to borrow
 
 `RESEARCH.md` also surveys general-purpose frontier and open models. Those model rankings do not answer the finite-decision question. Their useful ideas must be translated into this graph:
 
@@ -410,38 +542,61 @@ For the current project, keep the 4B Base profile as the implementation referenc
 
 **Source:** [R: “Twenty-five leading general-purpose models”; W: §§9.9, 16–19, 21.1]. These are implications for OpenKind, not a fresh technical audit of every general model named in the research survey.
 
-## 11. The next experiments the evidence actually justifies
+## 11. The next decisions the evidence actually justifies
 
-The next stage should resolve the few obstacles between the measured components and a useful integrated system, not restart an unrestricted architecture tournament. The experiments below are recommendations; no new run or implementation is claimed.
+The October 1 unrestricted “next readout/size/teacher comparison” list is superseded by completed LD-V9–V13A results. Do not rerun answered grids or mistake the latest checkpoint for a qualified result.
 
-| Order | Proposed experiment | Why this is justified | Evidence required to advance |
-|---|---|---|---|
-| **1. Multi-catalogue grouped caching & selective composition** | E42 executed this priority: Arm XR combines selective indexing with route-priority composition (95.40% field, 84.38% all-six at 242.98 ms), and multi-catalogue host snapshot caching cuts grouped latency by ~54% (from ~1,511 to ~690 ms, 2.19x speedup, $\Delta p = 0.0$ across 96 pairs). The next step is evaluating host-to-device eviction and cold-start amortization under fluctuating traffic. | Grouped readouts previously suffered zero prefix hits in E41; E42 proves host RAM snapshot caching eliminates the penalty. XR establishes low-latency composition. | Formal lifecycle and cache residency tests under variable traffic and memory budgets; confirm host-to-device reloading latency. |
-| **2. Target numeric capping and temporal resolution traps** | E43/E44 executed the classifier comparisons. The next roadblock in general policy models is that 100% of retry capping errors across counts 10–26 copy the first decimal digit (e.g. 21 $\to$ 2 instead of 3), and 100% of case-state errors under newest-first displays erroneously select the older event. Separate numeric extraction from host-side capping and test matched old-first vs new-first layouts. | Residual errors are concentrated in numeric and chronological interpretation, not diffuse semantic failure. | Controlled comparison separating numeric copying from category selection; matched chronological presentation test with invariant underlying facts. |
-| **3. Decision learning with task-aligned retention** | Use admissible training/development records to diagnose supported-entailment errors, then compare one bounded preservation treatment against frozen and specialist controls. E41 strengthens the motivation: the Indecis compact recipe's fresh-policy NLL nearly doubles after accepted calibration, and replay's NLI gain is uncertain. | LoRA learns useful contradiction/none behavior; generic short-premise replay fails to retain document operations in both the Qwen and compact lines. | Class-, source-, evidence-location- and question-family results; separate probability and policy metrics; frozen parent remains selectable. New confirmation must not reuse inspected errors as a fresh holdout. |
-| **4. Match readout to runtime** | Compare selected vocabulary logits and a learned code head under explicitly controlled training/rendering; port only a useful selected profile into shared-state execution. | Leading systems support both methods; local evidence does not settle their matched quality/resource trade-off. | Correct code/option mappings, meaningful none behavior, Q/K scaling and paired full-request measurements; adapter-specific branching and history qualification. |
-| **5. Reduce deployment cost** | Compare a smaller Qwen/student or a frozen alternative after a useful task point exists; evaluate approved batching, exact reuse and storage formats on the target machine. | E11 supports a real smaller-model trade-off; E12/RUSTM2 show that cost depends on the actual graph and hardware. E41's native (1.57× at Q=16) versus open-mode (16×) scaling contrast shows the plan must come from the actual mechanism. | Retained useful quality, measured memory/latency benefit, and complete execution gates. Distillation additionally needs validated teacher quality. |
+| Question | Disposition at this cutoff | Next evidence / stop rule |
+|---|---|---|
+| Does wrapper-level LM-head removal materially accelerate the already restricted scorer? | **Answered negatively for LD-V12A’s workload; compact parity passed.** | No repeat grid. Direct packaging/startup, backend changes and Mac remain separate. |
+| Which tested readout remains mainline? | **Fixed code**, favored by the real joint-LoRA comparison clearly at 4B and on point estimates only at 2B. | Preserve pointer failures and extra-initialization accounting; require a new hypothesis to revisit. |
+| Is adapted 2B worth improving? | **Yes as a research candidate**, not a deployment replacement. | Retain latency/memory advantage while improving absolute class/none/whole-request behavior. |
+| Does checked trained-4B guidance help more than continuation? | **Mixed completed V13A result**, not a default improvement. | No coefficient grid merely to turn a failed screen green; identify a better supported mechanism before another teacher intervention. |
+| Does the teacher know the missing Plumb-none operation? | Four checked training opportunities; no measured development none-recall gain. | Broader verified operation supervision, not blind imitation or another old-anchor quota. |
+| Does explicit consistency beat identical augmented exposure? | **V13B implemented; results not reviewed.** | Finish/review the fixed experiment unchanged; compare its own two arms, not B against A. |
+| Can teacher and consistency effects be combined? | **Untested**, and A is not unambiguously positive. | Only an independently justified interaction study with a common entry and matched control. |
+| Will gains survive new seeds and workloads? | **Unestablished.** | Lock a promising recipe; replicate and confirm on fresh disjoint groups/families before final acceptance. |
+| Is the current confidence a correctness probability? | **No such claim.** | Keep concentration, probability calibration, risk/coverage and ordinal spread distinct. |
+| Does it work on Mac/MLX/Rust, merged/quantized or prefix-cached? | **Not qualified for these adapters.** | Actual platform parity, representative request timing, memory and history/cancellation/lifecycle tests. |
+| Is RLCD the next default? | **No local incremental RL evidence or tested reward/rationale loop.** | Reliable reward definition and a matched supervised control. This is not a requirement to prove perfect SFT before any RL research. |
+| Can a candidate be published as qualified? | **No model through V13A meets all requirements.** | Lineage-aware loader, locked candidate/calibrator, independent acceptance and post-conversion/reload checks. |
 
-**Bounded next model experiment (proposed):**
+### 11.1 Immediate model work
 
-1. Freeze a fixed-schema lane containing the recovered BERT and ModernBERT frozen/fine-tuned controls plus the selected Qwen XR and NJ controls. Reuse the already inspected ER panels only as exposed regression diagnostics. Keep DeBERTa's released NLI treatment in its own lane; do not interpret an NLI score as policy competence.
-2. Define genuinely new policy/question families before fitting, separately from new facts or paraphrases of the old policy. Independently review labels and decisive evidence where feasible, and otherwise continue to call the panel authored. Split by source/fact group and keep related renderings together. Freeze the family mix, training budget, seeds, tuning rule and confirmation set before inspecting outcomes.
-3. Admit common decisive content and candidate descriptions across models, record each tokenizer's actual retained evidence and exclusions, and lock checkpoint, pooling, label IDs, precision and renderer. Use multiple declared training seeds for fitted heads/backbones; a single-seed point ordering is not a stable model ranking.
-4. Report per-field and all-six correctness, class-sensitive errors, NLL/Brier, rejection, and a development-selected review policy's confirmation risk/coverage. Fit calibration only on calibration-fit data, accept it on the gate, and never choose a treatment or threshold using confirmation. Complete field marginals are not a joint posterior; do not multiply dependent-field confidences or describe model-implied bounds as certified risk.
-5. Advance an encoder only if it satisfies a **predeclared application quality/risk floor** and has a measured complete-request cost or memory benefit on shared cases. Report paired uncertainty using independent source groups, with technical repeats averaged first. If no treatment qualifies, record the bounded negative result and target its demonstrated errors; do not repeat the startup repair or declare the encoder family rejected. Cache eviction, process-history root cause, Rust/MLX and service qualification remain separate work.
+Keep V13B’s frozen V12B student, augmentation schedule, coefficients and final-step rule unchanged. On completion, inspect class/none retention, raw/cross-fitted probability quality, actual re-rendered stability, constant-output baselines, complete-group correctness and resource cost. An improvement on one transformation does not establish invariance; a lower aggregate NLL does not repair a lost class.
 
-[ER; ER-M; question register OQ-09–11, OQ-17, OQ-25–26, OQ-33–38, OQ-51]
+If B gives a useful effect without new quality damage, confirm the locked recipe with another seed and genuinely fresh evidence. If not, prioritize the repeated semantic/class-boundary failures and verified supervision coverage rather than more head complexity or arbitrary coefficients. V11’s transfer result is useful evidence for targeted supervision, but not justification to silently add its whole allocation to B.
 
-These work items can proceed as separate model-quality and systems tracks. A model does not need to reproduce an older model's mistakes; an engine claiming to implement an unchanged model must reproduce its declared behavior. Neither distinction licenses post-hoc reselection or relaxation of historical acceptance rules. [W: §13.2]
+Do not automatically chain either V13A output into B. Both A and B were designed as independent descendants of the same entry. Neither the 113 teacher opportunities nor the same-source macro improvement supports a teacher-plus-JS recipe before an interaction study.
+
+### 11.2 Reusable training and release pipeline
+
+Keep one three-stage conceptual workflow rather than many unrelated model definitions:
+
+| Stage | Required contract |
+|---|---|
+| **Step 1: initial training/import** | Pin base/tokenizer/readout/module/precision configuration; establish matched baseline and immutable adapter/readout/renderer handoff. For a new model do not reuse old token IDs, features or probabilities. |
+| **Step 2: targeted continuation** | Import exact entry weights; create a new optimizer stage for a new experiment; change one declared mechanism, retain a matched control and compare against both pretrained and entering models. Resume only identical committed executions. |
+| **Step 3: packaging/qualification/publication** | Explicitly support the new lineage and readout contract; preserve training footprints and held-out boundaries; qualify candidate, calibration, artifact reload and any conversion. Private research packaging is not qualified release. |
+
+The old canonical publisher must not infer that a new V11/V12B/V13 artifact is compatible because it contains a LoRA file. A compact fixed-code or custom-head bundle has a bound readout and tokenizer. Eight-case reload parity is useful serialization evidence, not model/service qualification. No training/diagnostic examples or credentials belong in a published artifact by default. [LD-V13-PLAN]
+
+### 11.3 Separate systems track
+
+Continue the historically supported deterministic-composition and exact-reuse work under named model/runtime identities. For the current adapters, independently qualify a target-Mac loader, numeric path, realistic prompt lengths, active lanes, cache ownership and mixed-history behavior. Symmetric allocator cleanup is required for a fair memory comparison; fewer forwards and nominal parameter counts are not latency/memory evidence.
+
+The older proposed one-point noninferiority, 20% cascade-latency gain and Mac service budgets are **product design proposals**, not the current studies’ acceptance thresholds. Preserve the actual pilot profile: max source accuracy drop 0.03, supported recall drop 0.05 with at least eight groups, false-none ceiling 0.20, cross-fit NLL/Brier increase 0.01, relative schema flip/TV increases 0.05/0.02 and separate absolute flip target 0.05. Set application costs and stricter prospective limits before future acceptance, never after observing failures. [LD-V13A-PLAN]
+
+These are two different obligations: a model-learning intervention should improve useful decisions, not reproduce every parental mistake; an engine claiming the same model function must preserve its declared probabilities and answers. Neither distinction authorizes post-hoc reselection, hidden evidence truncation, reuse of inspected tests as fresh acceptance, or relabeling AI review as human confirmation.
 
 ## 12. Direct answers to the original research hypotheses
 
 | Idea or assumption in `RESEARCH.md` | Answer supported by the record | Method disposition |
 |---|---|---|
 | Useful typed decisions require a newly invented neural architecture. | Existing pretrained models with learned or finite-token readouts already make useful bounded decisions. | **Do not require architectural novelty.** |
-| A small learned head is sufficient. | Sufficient for the tested NLI and some dynamic-choice work, not general document applicability. | **Retain baseline; scope its claim.** |
+| A small learned head is sufficient. | Earlier NLI successes remain; LD-V9/V10 heads do not replace adapted Qwen, and LD-V12B replacement pointers trail fixed code under their recipes (clearly at 4B, on point estimates only at 2B). | **Compact fixed-code mainline; scope historical head wins.** |
 | A shared-state/query architecture is the main path. | Complete-state reuse works; pooled shortcuts fail; richer readers have not passed complete quality gates. | **Retain reuse, not the unproven representation shortcut.** |
-| One-token option codes are always better than natural labels. | Local effects vary by field and precision; uncached indexing was slower in E39. | **Controlled readout comparison.** |
+| One-token codes are always better than every alternative. | E39 effects vary by field and precision. LD-V12B favors fixed-code joint LoRA over the tested replacement pointer clearly at 4B and on point estimates only at 2B, with declared initialization differences. | **Default within the measured newer recipe, not a universal ranking.** |
 | Independent field prediction is enough. | Derived action improves quality; remaining priority-route contradictions show the limit. | **Compute declared dependencies outside the model.** |
 | More questions should add almost no latency. | Strong long-state mechanics gains coexist with a slower short-state shared path. | **Measure marginal Q cost; use adaptive plans.** |
 | Fewer forwards or custom kernels guarantee speed. | Flat-field and the tested custom-Metal path are slower despite their mechanical changes. | **Reject proxy-only optimization.** |
@@ -449,31 +604,34 @@ These work items can proceed as separate model-quality and systems tracks. A mod
 | Compressing KV solves memory use. | FP16-KV has bounded storage benefits; recurrent state and weights dominate other workloads. | **Retain measured accounting; discount failed low-bit codecs.** |
 | Few active experts imply a small resident model. | Request-wide expert use can be broad; skipping did not unload weights; streaming is untested. | **Separate compute, residency and transfer experiments.** |
 | More context solves missing evidence. | Visibility-sensitive decisions improve, but rejection can worsen and adaptation can lose those gains. | **Preserve evidence and test its use.** |
-| Teacher/parent replay guarantees retention. | Parent agreement, replay-task learning and retained document correctness diverge. | **Use task-aligned retention, not proxy success.** |
+| Teacher/parent replay guarantees retention. | LD-V7 protects covered sentiment classes; LD-V13A adds mixed local effects and no net extra correct primary answers, while Plumb-none remains 1/10. | **Retain scoped preservation; do not adopt the new teacher term as a validated default.** |
 | Explicit unknown plus temperature scaling yields calibrated decisions. | None recall, false-none and high-confidence errors remain; temperature fits can worsen held-out scores. | **Train semantics; accept calibration separately.** |
 | RLCD/CADO is necessary. | No local result isolates an incremental benefit from decision-utility RL over supervised controls. | **Unresolved; not the next default investment.** |
-| A 0.3B–1.5B encoder should be the initial winner. | ER measures fast, improved task-fitted encoders, but policy all-six correctness remains low; released DeBERTa is strong on exposed NLI (90.10% at 20.92 ms). Newly tuned BERT/ModernBERT collapse to majority classes. | **Retain specialist baseline; let quality/resource evidence select role.** |
+| A sub-1.5B encoder should be the initial winner. | Historical specialists are fast but not general policy replacements. LD-V12B adapts 2B to 69.89%; LD-V13A control reaches 73.15% while remaining unqualified. | **2B resource-efficient research role, 4B quality reference; specialists conditional.** |
+| Removing the LM-head module supplies the main speed/memory gain. | LD-V12A compact/stripped scoring preserves outputs but adds no material complete-request or live-weight-memory saving beyond restricted scoring. | **Implementation simplification; no repeat grid.** |
+| More recurrent head iterations improve decisions. | LD-V9 one pass supplies 98.3% of the four-pass NLL gain; LD-V10 finds no useful extra token-memory-attention effect. | **Stop the tested recurrence/memory recipe; retain narrow scope.** |
+| Gold-checked teacher opportunities prove a skill was taught. | LD-V13A has four eligible Plumb-none opportunities but unchanged 1/10 development recall. Coverage is not generalization. | **Verify semantic operation coverage and outcomes separately.** |
+| Consistency or teacher-plus-consistency is validated. | V13B is implemented; its results are not reviewed. A/B interaction is untested. | **Unresolved; preserve independent entries and controls.** |
 | MTP will accelerate the no-generation path. | No output sequence exists for that mechanism to accelerate; no local MTP result was measured. | **Do not prioritize for this graph.** |
 | Passing a leaderboard or cache test qualifies a Jev replacement. | Benchmark quality, semantic scope, execution parity and service behavior have distinct failure modes. | **Require their separate evidence.** |
 
-**Evidence map:** readout and heads—W §§4–5, 18.17–18.21, 20, 23, 24; representations—§§16, 18.3–18.16; training/retention—§§18.20–18.26; systems/memory—§§7–10, 16–17, 19–24; hypothesis framing—R's architecture, training and evaluation sections. This table supersedes the *recommendation status* of earlier proposals in this working paper, not the original experiment records in R or W.
+**Evidence map:** newer LD model/results: §§4.6–4.11 and W §25; newer audits/calibration: §5; headless timing/storage: §8.2.1; exact current entries: §10.1 and W §25.3; pending decisions and release boundaries: §11. Historical readout and heads: W §§4–5, 18.17–18.21, 20, 23, 24; representations: §§16, 18.3–18.16; training/retention: §§18.20–18.26; systems/memory: §§7–10, 16–17, 19–24; hypothesis framing: R's architecture, training and evaluation sections. This table supersedes the *recommendation status* of earlier proposals in this working paper, not the original experiment records in R or W.
 
 ## Conclusion
 
-The positive evidence is substantial enough to choose a direction. **Use a capable pretrained model to interpret the state, question and alternatives; expose a finite decision distribution; move deterministic dependencies into code; and reuse exact computation when the measured workload makes reuse worthwhile.** Preserve evidence-sensitive and class-sensitive behavior during adaptation, and treat the runtime configuration as part of the model's observable function.
+**The mainline is now specific: one fully conditioned Qwen forward, ordinary LoRA, compact frozen answer-code scoring, explicit typed probabilities and separately qualified deterministic application logic. Develop 2B for resource efficiency and retain 4B for higher-quality comparison.** This is supported more directly than adding another recurrent reader, replacing the readout with the tested pointer, or streaming a larger MoE. It is not a production qualification.
 
-The most persuasive local integrated results are now action composition plus static-prefix reuse, E42's selective indexing plus route composition (Arm XR: 95.40% field accuracy, 84.38% all-six correctness at 242.98 ms median), multi-catalogue host snapshot caching (~54% latency cut, 2.19× speedup, $\Delta p = 0.0$), dedicated-process isolation of the reproduced history failure ($\Delta p = 0.0$ across X, XR, and NJ), exact within-request sequence encoding reuse in Indecis (4.80× speedup, $\Delta p = 0.0$), and released DeBERTa as a task-specialized NLI candidate (90.10% accuracy at 20.92 ms median)—not a novel latent architecture, universal one-token encoding, aggressive cache compression or expert streaming.
-The recovery experiments also firmly establish the boundaries: small fixed-schema encoder fine-tuning suffers majority-class collapse, targeted instruction patches (NF) create collateral retry regressions, multi-digit retry capping exhibits first-digit copying traps, and inverted event displays defeat chronological recency.
+The most useful new positive results are equal-class sentiment replay, scoped light parent preservation, recovery of **22.61 macro accuracy points** by 2B adaptation, and another **31 correct primary answers** from each bounded V13A continuation. The important negative results are equally actionable: pointer replacement did not win the actual joint-training comparison; head-module removal did not materially accelerate an already restricted scorer; teacher guidance gave **no net extra correct answers** beyond replay and introduced a sentiment regression; neither proportional confidence nor a small count of failed checks establishes reliable semantic none. ([LD-V5]; [LD-V7]; [LD-V12A][]; [LD-V12B][]; [LD-V13A][])
 
-For a new Jev-style model and engine, pursue these demonstrated components first, then test the missing joins: separating numeric extraction from categorical capping, display-order invariant temporal resolution, a complete request that preserves failure-first eligibility without retry degradation, application-calibrated acceptance policies on fresh task families, and a matched quality/risk test of the recovered encoders. That is a positive engineering program grounded in what worked, while keeping the failed approaches and untested claims visible.
+Historical composition, selective indexing, exact catalogue/state/input reuse and process isolation remain evidence-backed engine components only within their original profiles. Integrating them with the newer adapters requires renewed numerical, workload and target-platform qualification. Do not read their earlier Mac/native wins as measured serving performance for the new 2B research model.
 
----
+**The next action is to review V13B’s independent consistency result, not automatically combine it with A.** Confirm any useful locked recipe on another seed and genuinely fresh evidence. Where the missing operation is not supported by trustworthy examples or a reliable teacher, improve verified supervision rather than strengthen imitation. Keep unanswered RLCD, cascade, long-context, Mac/MLX/Rust and publisher questions explicit. This is the evidence-based direction: retain demonstrated components, stop answered grids and make each next run answer a remaining question.
 
 ## Sources and provenance
 
 ### Local result authority
 
-**[W]** `WHITEPAPER.md`, version 0.8.11. It contains the full methods, historical evidence register, reported audit scopes and frozen identities. Bracketed references such as `[W: §23.1; E42]` identify its section and experiment ID, not a new experiment in this revision.
+**[W]** `WHITEPAPER.md`, version 0.8.13. Version 0.8.12 integrated E43/E44; version 0.8.13 adds [§25][W25], which owns the LD-V12B and LD-V13A measured results. Historical section/experiment anchors and measurements are carried as source-reported material; bracketed references such as `[W: §23.1; E42]` do not identify new experiments or new raw audits.
 
 | Evidence IDs | Relevant whitepaper sections | What this paper uses them for |
 |---|---|---|
@@ -488,23 +646,46 @@ For a new Jev-style model and engine, pursue these demonstrated components first
 | E40; V9 | §21 | Actual 9B/T4 combined path, first use, field diagnostics and separate offline routing replay. |
 | E41; V10 | §22 | Unified decision validity: selective readouts (X, R, GR), resident process isolation, multi-question scaling, and compact CPU transfer. |
 | E42; V11 | §23 | OpenKind T4 integrated research: useful integrations (XR, NJ), multi-catalogue host cache, dedicated process history, and classifier comparison diagnostic. |
+| LD-V12B; LD-V13A | §25 | Local-decision readout/size and checked-teacher results, frozen V13 entries and their evidence boundary. |
 
-**[ER]** [Encoder recovery report][ER], run `20261001T223435_041738Z_f25616`, protocol `openkind-t4-recovery-reliability/v4.1.1`, completed 1 October 2026. New local, source-reported encoder measurements; evidence roles and sample sizes remain those in the report. Supporting [manifest][ER-M], [summary][ER-S] and [completion record][ER-C] establish the executed scope. The downloaded summary's SHA-256 matches the completion record; this is a file-integrity check, not a re-audit of predictions, labels, model weights or the result archive. ER is a source label for this follow-up, not a newly assigned whitepaper experiment ID.
+**[ER]** [Encoder recovery report][ER], run `20261001T223435_041738Z_f25616`, protocol `openkind-t4-recovery-reliability/v4.1.1`, completed 1 October 2026. New local, source-reported encoder measurements; evidence roles and sample sizes remain those in the report. Supporting [manifest][ER-M], [summary][ER-S] and [completion record][ER-C] establish the executed scope. The prior r0.9.3 review reported that the downloaded summary’s SHA-256 matched the completion record; that historical file-integrity check was not a re-audit of predictions, labels, model weights or the result archive and has not been repeated. ER is a source label for this follow-up, not a newly assigned whitepaper experiment ID.
 
-**[R]** `RESEARCH.md`, supplied research synthesis, hypothesis program and dated external-model roster. Earlier proposals remain proposals unless local result evidence changes their disposition. Its general-purpose-model survey is not treated as a ranked decision-model benchmark.
+**[R]** `RESEARCH.md`, the research synthesis, hypothesis program and dated external-model roster. Earlier proposals remain proposals unless local result evidence changes their disposition. Its general-purpose-model survey is not treated as a ranked decision-model benchmark.
 
-**Editing base:** repository `docs/whitepaper/WORKING_PAPER.md`, revision 0.9.2, Git blob `d6d853f9285e93e984aa841c8ad56212b971471c`. This update preserves its E42 and earlier evidence and changes the encoder status, interpretation and next experiment using ER. Older supplied-input hashes below retain their historical role; they are not identities for this revision or the later recovery run.
+**Lineage:** revision 1.0.0 succeeds working-paper revision 0.9.3 (1 October 2026) and draws on the October 3 `LOCAL_DECISION_DESIGN.md` proposal. Revision 0.9.3 attributed its own base to repository revision 0.9.2 / Git blob `d6d853f9285e93e984aa841c8ad56212b971471c`, retained as historical lineage. Input/output hashes for revision 1.0.0 are recorded in `UPDATE_PROVENANCE.json` (external, not checked into the repository).
 
-**Review boundary:** published-table ratios were recalculated where explicitly labeled. Model inference, training, archive reconciliation, source-label adjudication, checkpoint hashing, protected-final access and new latency measurement were not performed. Historical checker counts and hash-verification claims remain those of their original records.
+**Review boundary for r1.0.0:** saved summary values, study entries and document claims are reconciled against saved result artifacts. Revision 1.0.0 does not rerun model inference, training, full raw-prediction replays, weight loading, source-label adjudication, reserved-final evaluation, current benchmark pages or V13B results. Earlier review/checker counts remain attributed to those reviews. Historical E-series records are not independently re-audited or renumbered.
+
+### Newer local-decision evidence register
+
+These are **LD notebook** labels, not newly assigned E-series experiment IDs. This evidence lives in a private external store (the project Google Drive) and is not checked into the repository. Drive paths below are relative to `OpenKind_Local_Decision_Training_T4/`, and linked records require access to that store. JSON result links are primary output records; prose review links/packaged summaries carry clearly labeled replay or audit interpretation. LD-V4, LD-V5, LD-V6, LD-V7, LD-V10 and LD-V10-GUIDE (the LD-V10 run guide) are cited by name only.
+
+| ID | Record and study | Use / boundary |
+|---|---|---|
+| LD-V4 | Initial `sweep_decaf3f2a6d13369`; preserved initial review | Early learning-rate improvements, rejected retention, and parent fallback/gate distinction; smaller earlier panel. |
+| LD-V5 (external) | `studies_v5/study_c5f1a0f106115251`, summary and saved comparisons | Class balancing and presentation pilot; all candidates rejected. |
+| LD-V6 (external) | `studies_v6_retention_repair/study_67df9575d6dd9d19` | Lower-rate and none-pair comparison; saved-logit calibration diagnostic does not reclassify the original result. |
+| LD-V7 (external) | `studies_v7_parent_preservation/study_8b0844ccd3ca0554`, `SELECTION_V7.json` | Scoped original-parent preservation and prospective calibration-aware profile; no winner. |
+| [LD-V8][] | `audits_v8_none/bbecaeffe6ca6110`, completed AI source review | 60 reviewed cases, 50 confirmed/10 uncertain; original preservation-coverage stop, not training failure. |
+| [LD-V9][] | `study_1c79a2359c64ec05`, saved recurrent-head results | Frozen-feature recurrence, one-pass contribution, cost and limitations. |
+| LD-V10 (external) | `studies_v10_readout_strands/study_575b0a8bba29ab9f` | Readout/memory ablation, external Strands system comparison and local cache diagnostics. |
+| [LD-V11][] | `studies_v11_simple_decisions/study_9f2931f8c94a4e5b/execution_d6dc6371ddacc28e` | Replay versus verified-curriculum replacement; transfer win and unresolved composition/retention. |
+| [LD-V12A][] | `studies_v12_head_removal_size/study_880ad0d19c175e72/execution_3f51011cf751adf1` | Equivalent fixed-readout timing/parity, tied-storage/cleanup caveats and unadapted size comparison. |
+| [LD-V12B][] | `studies_v12b_joint_readout/study_6ea138781306a1b0/execution_c33f8407e52d09f4` | Four joint-LoRA/readout recipes, extra pointer initialization, size/quality/resource trade-off. |
+| [LD-V13A][] | `studies_v13a_checked_teacher/study_3e9da0121f40f75e/execution_c33f8407e52d09f4` | Completed two-arm teacher increment versus ordinary continuation; both rejected. |
+| [LD-V13A-AUDIT][] | Same execution, `TEACHER_AUDIT.json` | Eligibility/opportunities, not proof of skill acquisition or independent human audit. |
+| [LD-V13-PLAN][] | Frozen-entry guide and [executed A plan][LD-V13A-PLAN] | Exact entries, losses and independent A/B design; no B outcome included. |
+
+New evidence metrics remain scoped: larger-model and small-model quality/timing comparisons are within their specified study; source-macro and row-weighted estimates differ; technical repeats do not increase independent group count; current native integration and model promotion do not follow from saved research artifacts.
 
 ### External comparison sources
 
-External benchmark outcomes are evaluator-reported; training recipes and local project results are author-reported. None has been rerun by this revision.
+External benchmark outcomes are evaluator-reported; training recipes and local project results are author-reported. None has been rerun for this paper.
 
 | ID | Source | Use and limit |
 |---|---|---|
 | X0 | [JevBench v1.4.2.2 snapshot][X0] | Dated board underlying R's top-25 roster; not the current protocol. |
-| X1 | [Live JevBench page][X1], displaying v1.5.0; [aggregate artifact][X1a] | Separately labeled external refresh; changed suite/method and addendum status. Not a longitudinal model-quality comparison. |
+| X1 | [JevBench page][X1] and [v1.5.0 aggregate artifact][X1a], as recorded in the October 1 review | Dated external snapshot, not the current board. Changed suite/method and addendum status prevent longitudinal model-quality inference. |
 | X2 | [Imajev-4B model card][X2]; [pinned phase-3 summary][X2a] | Correct starting-checkpoint identity and distinguish learned code readout from vocabulary slicing. Recipe is compound, not an ingredient ablation. |
 | X3 | [Plumb-4B model card][X3] | Teacher-generated hard decisions, JevK5 weight lineage, temperature and public-development disclosure. |
 | X4 | [JevK5 v0.2.0 README][X4] | Historical versioned finite-answer baseline. Newer server/model behavior must not be assigned to this board row. |
@@ -515,7 +696,7 @@ External benchmark outcomes are evaluator-reported; training recipes and local p
 | X9 | [Winnow-12B model card][X9] | LoRA/refinement and gold-agreeing teacher supervision; shared-state runtime. Private data limits independent reproduction. |
 | X10 | [PrivateMode method article][X10]; [implementation][X10a] | Motivation for indexed option scoring; not a local speed, quality or calibration result. |
 
-**Input identities retained for this revision:**
+**Older source-input identities retained as historical lineage only:**
 
 ```text
 WHITEPAPER(8).md
@@ -526,10 +707,14 @@ RESEARCH.md
   sha256 eb2377a8a222424dbb0c8f25ce47919aab16092cc4934fca2572379dd30616cb
 ```
 
-These are hashes of the three supplied Markdown inputs, not hashes or renewed audits of their referenced models and result archives.
+These are hashes of the three Markdown source inputs, not hashes or renewed audits of their referenced models and result archives.
 
 [W]: WHITEPAPER.md
-[R]: RESEARCH.md
+[W25]: WHITEPAPER.md#25-local-decision-training-results-ld-v12b-and-ld-v13a
+[W25-1]: WHITEPAPER.md#251-ld-v12b-trained-readout-and-model-size
+[W25-2]: WHITEPAPER.md#252-ld-v13a-continuation-versus-checked-teacher-guidance
+[W25-3]: WHITEPAPER.md#253-frozen-entries-for-ld-v13a-and-ld-v13b
+[R]: ../RESEARCH.md
 [X0]: https://benchmarkheaven.com/jev-models/v1.4.2.2
 [X1]: https://benchmarkheaven.com/jev-models
 [X1a]: https://benchmarkheaven.com/api/jevbench/v1.5.0
@@ -549,3 +734,14 @@ These are hashes of the three supplied Markdown inputs, not hashes or renewed au
 [ER-M]: https://drive.google.com/file/d/1X448XWfV7bnSvUAk5f0Sna-zS441tiiX/view
 [ER-S]: https://drive.google.com/file/d/1iVivey4fVpG9SlWTmTel3vuUX2gZ4EH6/view
 [ER-C]: https://drive.google.com/file/d/1qxUWUtqE2Zvr6TTLj_AwDB4E7pASy68w/view
+
+
+[LD-V8]: https://drive.google.com/file/d/1I_6nW2BGwFFymwiZC2Jt5ePK9HZ0HCGC/view
+[LD-V9]: https://drive.google.com/file/d/160XJFZ6Zo5_HBG7zQ5C9p9HoGcR7L-qP/view
+[LD-V11]: https://drive.google.com/file/d/1yO6bqcDo-EDnJFpcJHagorq4aeaOX8Ju/view
+[LD-V12A]: https://drive.google.com/file/d/1JED9qnzcH_rgDIoKxEjayWoSlciQIMAT/view
+[LD-V12B]: https://drive.google.com/file/d/17UDnx0xR6mO7Au09bsrBfeT30cUT0NLc/view
+[LD-V13A]: https://drive.google.com/file/d/1eUTSTZVisA4Ar-EMgMDQvYPHgiLjYk_V/view
+[LD-V13A-AUDIT]: https://drive.google.com/file/d/1sIxApSB3egf6shA4uQxqzdt9FUfJ3ulf/view
+[LD-V13A-PLAN]: https://drive.google.com/file/d/1uEH6PPaqV2ENRL-b0jKp3VJsV8q5ZqNH/view
+[LD-V13-PLAN]: https://drive.google.com/file/d/14AZr6eyj4vE3Hom6gF0HWOXwAiWzLANi/view

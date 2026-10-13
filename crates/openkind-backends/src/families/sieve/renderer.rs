@@ -12,7 +12,7 @@ use tokenizers::Tokenizer;
 use crate::families::decoder_logit_qwen35::renderer::python_json;
 use crate::families::support::FamilyError;
 
-use super::{SieveProfile, CODE_TABLE_WIDTH};
+use super::CODE_TABLE_WIDTH;
 
 /// Reference `prompt.py:PREAMBLE`.
 pub(crate) const PREAMBLE: &str = "You answer typed decision questions about the state. \
@@ -114,7 +114,10 @@ pub struct SieveRenderer {
     /// (verified against the pinned `sieve_config.json`).
     code_ids: Vec<u32>,
     codes: Vec<String>,
-    max_row_tokens: usize,
+    /// Encoded prefix head through `<state>\n` (reference
+    /// `prompt.py:_prefix_head`), shared by every request. Its length is the
+    /// preamble the reference leaves out of token limits and billing.
+    prefix_head_ids: Vec<u32>,
 }
 
 impl SieveRenderer {
@@ -125,7 +128,6 @@ impl SieveRenderer {
         tokenizer_path: &std::path::Path,
         pinned_codes: &[String],
         pinned_token_ids: &[u64],
-        profile: &SieveProfile,
     ) -> Result<Self, FamilyError> {
         let bytes = std::fs::read(tokenizer_path).map_err(|source| FamilyError::Io {
             path: tokenizer_path.to_path_buf(),
@@ -165,11 +167,16 @@ impl SieveRenderer {
                 actual: "different token ids".to_owned(),
             });
         }
+        let prefix_head_ids = encode(
+            &tokenizer,
+            format!("<|im_start|>system\n{PREAMBLE}<|im_end|>\n<|im_start|>user\n<state>\n")
+                .as_str(),
+        )?;
         Ok(Self {
             tokenizer,
             code_ids,
             codes,
-            max_row_tokens: profile.max_row_tokens,
+            prefix_head_ids,
         })
     }
 
@@ -181,17 +188,12 @@ impl SieveRenderer {
     /// concatenates; whole-string encoding would merge the boundary
     /// newlines of an empty state into one token.
     pub fn render_prefix(&self, state: &serde_json::Value) -> Result<Vec<u32>, FamilyError> {
-        let head = encode(
-            &self.tokenizer,
-            format!("<|im_start|>system\n{PREAMBLE}<|im_end|>\n<|im_start|>user\n<state>\n")
-                .as_str(),
-        )?;
         let state_piece = encode(
             &self.tokenizer,
             format!("{}\n</state>\n", render(state)).as_str(),
         )?;
-        let mut ids = Vec::with_capacity(head.len() + state_piece.len());
-        ids.extend_from_slice(&head);
+        let mut ids = Vec::with_capacity(self.prefix_head_ids.len() + state_piece.len());
+        ids.extend_from_slice(&self.prefix_head_ids);
         ids.extend_from_slice(&state_piece);
         Ok(ids)
     }
@@ -199,6 +201,10 @@ impl SieveRenderer {
     /// Render one branch (reference `prompt.py:branch`): the tag-delimited
     /// question block, its coded option lines in `listing` order, and the
     /// assistant tail; concatenated after `prefix_ids` into one causal row.
+    ///
+    /// Token limits are not checked here: the engine's request planner
+    /// applies the reference's request-level caps after every branch is
+    /// rendered and before any forward.
     pub fn render_branch(
         &self,
         prefix_ids: &[u32],
@@ -242,13 +248,6 @@ impl SieveRenderer {
         let mut prompt_ids = Vec::with_capacity(prefix_ids.len() + branch_ids.len());
         prompt_ids.extend_from_slice(prefix_ids);
         prompt_ids.extend_from_slice(&branch_ids);
-        if prompt_ids.len() > self.max_row_tokens {
-            return Err(FamilyError::InvalidInput(format!(
-                "rendered row length {} exceeds frozen maximum {}; the reference never truncates",
-                prompt_ids.len(),
-                self.max_row_tokens
-            )));
-        }
         Ok(RenderedRow { prompt_ids })
     }
 
@@ -258,14 +257,11 @@ impl SieveRenderer {
         &self.code_ids[..count]
     }
 
-    /// Token count of one rendered row for usage accounting.
-    pub fn row_token_count(&self, row: &RenderedRow) -> u32 {
-        u32::try_from(row.prompt_ids().len()).unwrap_or(u32::MAX)
-    }
-
-    /// Token count of the shared prefix (the reference bills it once).
-    pub fn prefix_token_count(&self, prefix_ids: &[u32]) -> u32 {
-        u32::try_from(prefix_ids.len()).unwrap_or(u32::MAX)
+    /// Token count of the fixed prefix head (system preamble through
+    /// `<state>\n`). The reference (`engine.py:evaluate`) subtracts it from
+    /// the prefix before applying token limits and billing.
+    pub fn preamble_token_count(&self) -> usize {
+        self.prefix_head_ids.len()
     }
 }
 

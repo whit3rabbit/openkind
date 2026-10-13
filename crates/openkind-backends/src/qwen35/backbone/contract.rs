@@ -9,6 +9,14 @@ use crate::qwen35::tokenizer::STATE_FIRST_RENDERER_ID;
 const PARAMETER_COUNT: u64 = 4_205_751_296;
 const PARAMETER_TENSOR_COUNT: usize = 426;
 const LAYER_COUNT: usize = 32;
+// `validate_layers` hard-codes the pinned `index % 4 == 3` mixer table of
+// the causal base checkpoint. Fail the build if the pinned geometry the
+// contract describes ever stops matching.
+const _: () = assert!(
+    crate::qwen35::Qwen35Geometry::PINNED.has_uniform_causal_layout()
+        && crate::qwen35::Qwen35Geometry::PINNED.full_attention_interval == 4
+        && crate::qwen35::Qwen35Geometry::PINNED.layer_count == LAYER_COUNT
+);
 
 #[derive(Debug, Deserialize)]
 pub(crate) struct BackboneContract {

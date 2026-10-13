@@ -183,7 +183,37 @@ impl TextBackbone {
     pub(crate) fn forward_hidden_with_check<E>(
         &self,
         input_ids: &[u32],
+        check: impl FnMut() -> Result<(), E>,
+    ) -> Result<Vec<f32>, E>
+    where
+        E: From<Qwen35Error>,
+    {
+        self.forward_hidden_checked(input_ids, check, false)
+    }
+
+    /// [`Self::forward_hidden_with_check`] that also runs `check` inside
+    /// every full-attention kernel, not only between layers.
+    ///
+    /// The scalar attention kernel is quadratic in the prompt length, so on
+    /// long prompts one layer can outlast a deadline or disconnect by a wide
+    /// margin. Numerics are identical; only cancellation granularity
+    /// changes, which is why callers opt in per family.
+    pub(crate) fn forward_hidden_with_attention_check<E>(
+        &self,
+        input_ids: &[u32],
+        check: impl FnMut() -> Result<(), E>,
+    ) -> Result<Vec<f32>, E>
+    where
+        E: From<Qwen35Error>,
+    {
+        self.forward_hidden_checked(input_ids, check, true)
+    }
+
+    fn forward_hidden_checked<E>(
+        &self,
+        input_ids: &[u32],
         mut check: impl FnMut() -> Result<(), E>,
+        check_inside_attention: bool,
     ) -> Result<Vec<f32>, E>
     where
         E: From<Qwen35Error>,
@@ -237,9 +267,13 @@ impl TextBackbone {
             check()?;
             let layer = DecoderLayer::load(&layers, layer_index, &device, self.geometry)
                 .map_err(E::from)?;
-            hidden = layer
-                .forward(&hidden, token_count, layer_index)
-                .map_err(E::from)?;
+            hidden = if check_inside_attention {
+                layer.forward_checked(&hidden, token_count, layer_index, &mut check)?
+            } else {
+                layer
+                    .forward(&hidden, token_count, layer_index)
+                    .map_err(E::from)?
+            };
             if trace_layers {
                 let start = (token_count - 1) * self.geometry.hidden_size;
                 let head: Vec<f32> = hidden[start..start + 4].to_vec();

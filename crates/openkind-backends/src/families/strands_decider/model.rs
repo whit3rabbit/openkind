@@ -231,13 +231,11 @@ impl MergedLoRABackend {
         scale: f64,
     ) -> Result<Self, FamilyError> {
         let mut shards = Vec::with_capacity(base_checkpoints.len());
-        let mut names: HashSet<String> = HashSet::new();
         for shard in base_checkpoints {
             let shard_names: HashSet<String> = safetensors_names(shard)?.into_iter().collect();
             // SAFETY: the caller verified the immutable size and SHA-256 of
             // every read-only shard before this mapper opens it.
             let mapped = unsafe { MmapedSafetensors::new(shard)? };
-            names.extend(shard_names.iter().cloned());
             shards.push((mapped, shard_names));
         }
         let adapter_paths = [adapter.to_path_buf()];
@@ -284,21 +282,20 @@ impl MergedLoRABackend {
                 ));
             }
             let key = format!("model.language_model.{projection}.weight");
-            let expected_shape = shards
+            let mapped = shards
                 .iter()
-                .find_map(|(mapped, shard_names)| {
-                    shard_names
-                        .contains(&key)
-                        .then(|| mapped.load(&key, device).ok())
-                        .flatten()
-                })
+                .find_map(|(mapped, shard_names)| shard_names.contains(&key).then_some(mapped))
                 .ok_or_else(|| FamilyError::ContractMismatch {
                     field: "adapter.target",
                     expected: format!("base tensor `{key}` present"),
                     actual: "missing".to_owned(),
-                })?
-                .shape()
-                .clone();
+                })?;
+            // Read the target shape from the mapped header. Loading the
+            // tensor would allocate a full base weight on `device` just to
+            // read its dims, and folding a load failure into "missing" would
+            // hide real errors (for example accelerator OOM) from the
+            // caller's fallback policy.
+            let expected_shape = Shape::from_dims(mapped.get(&key)?.shape());
             let delta = (b.matmul(&a)? * scale)?;
             if delta.shape() != &expected_shape {
                 return Err(FamilyError::contract(
@@ -496,5 +493,138 @@ impl StrandsDeciderModel {
             ));
         }
         Ok(logits)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const TARGET: &str = "model.language_model.layers.0.mlp.up_proj.weight";
+    const PASSTHROUGH: &str = "model.language_model.norm.weight";
+
+    /// Write a tiny base shard and a rank-2 PEFT adapter for `projection`.
+    fn write_fixture(
+        dir: &Path,
+        projection: &str,
+        lora_a: &Tensor,
+        lora_b: &Tensor,
+    ) -> (PathBuf, PathBuf) {
+        let device = Device::Cpu;
+        let base = dir.join("base.safetensors");
+        let adapter = dir.join("adapter.safetensors");
+        let weight = Tensor::arange(0f32, 12f32, &device)
+            .and_then(|tensor| tensor.reshape((4, 3)))
+            .expect("base weight");
+        let norm = Tensor::ones(3, DType::F32, &device).expect("norm");
+        candle_core::safetensors::save(
+            &HashMap::from([(TARGET.to_owned(), weight), (PASSTHROUGH.to_owned(), norm)]),
+            &base,
+        )
+        .expect("write base");
+        candle_core::safetensors::save(
+            &HashMap::from([
+                (
+                    format!("base_model.model.{projection}.lora_A.weight"),
+                    lora_a.clone(),
+                ),
+                (
+                    format!("base_model.model.{projection}.lora_B.weight"),
+                    lora_b.clone(),
+                ),
+            ]),
+            &adapter,
+        )
+        .expect("write adapter");
+        (base, adapter)
+    }
+
+    fn rank_two_pair() -> (Tensor, Tensor) {
+        let device = Device::Cpu;
+        let a = Tensor::new(&[[0.5f32, -1.0, 2.0], [1.5, 0.25, -0.75]], &device).expect("A");
+        let b = Tensor::new(
+            &[[1.0f32, 0.0], [0.0, 1.0], [-2.0, 0.5], [0.125, 3.0]],
+            &device,
+        )
+        .expect("B");
+        (a, b)
+    }
+
+    #[test]
+    fn merged_backend_adds_the_scaled_delta_to_targets_only() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let (a, b) = rank_two_pair();
+        let (base, adapter) = write_fixture(dir.path(), "layers.0.mlp.up_proj", &a, &b);
+        let backend = MergedLoRABackend::build(&[base], &adapter, &Device::Cpu, 2, 2.0)
+            .expect("build merged backend");
+
+        let merged = backend
+            .get(
+                Shape::from_dims(&[4, 3]),
+                TARGET,
+                Init::Const(0.0),
+                DType::F32,
+                &Device::Cpu,
+            )
+            .expect("merged target")
+            .to_vec2::<f32>()
+            .expect("values");
+        let a = a.to_vec2::<f32>().expect("A values");
+        let b = b.to_vec2::<f32>().expect("B values");
+        for (row, merged_row) in merged.iter().enumerate() {
+            for (column, value) in merged_row.iter().enumerate() {
+                let delta: f32 = (0..2).map(|k| b[row][k] * a[k][column]).sum();
+                let expected = (row * 3 + column) as f32 + delta * 2.0;
+                assert!(
+                    (value - expected).abs() <= 1e-6,
+                    "[{row}, {column}]: {value} vs {expected}"
+                );
+            }
+        }
+        let norm = backend
+            .get(
+                Shape::from_dims(&[3]),
+                PASSTHROUGH,
+                Init::Const(0.0),
+                DType::F32,
+                &Device::Cpu,
+            )
+            .expect("passthrough")
+            .to_vec1::<f32>()
+            .expect("values");
+        assert_eq!(norm, vec![1.0, 1.0, 1.0]);
+    }
+
+    #[test]
+    fn merged_backend_rejects_an_absent_target() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let (a, b) = rank_two_pair();
+        let (base, adapter) = write_fixture(dir.path(), "layers.0.mlp.down_proj", &a, &b);
+        match MergedLoRABackend::build(&[base], &adapter, &Device::Cpu, 2, 2.0) {
+            Err(FamilyError::ContractMismatch {
+                field: "adapter.target",
+                ..
+            }) => {}
+            Err(other) => panic!("expected an absent-target mismatch, got {other}"),
+            Ok(_) => panic!("an adapter targeting an absent tensor must fail closed"),
+        }
+    }
+
+    #[test]
+    fn merged_backend_rejects_a_delta_of_the_wrong_shape() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let device = Device::Cpu;
+        // B @ A is [2, 3] while the base target is [4, 3].
+        let a = Tensor::ones((2, 3), DType::F32, &device).expect("A");
+        let b = Tensor::ones((2, 2), DType::F32, &device).expect("B");
+        let (base, adapter) = write_fixture(dir.path(), "layers.0.mlp.up_proj", &a, &b);
+        match MergedLoRABackend::build(&[base], &adapter, &Device::Cpu, 2, 2.0) {
+            Err(FamilyError::ContractMismatch {
+                field: "adapter.delta.shape",
+                ..
+            }) => {}
+            Err(other) => panic!("expected a delta-shape mismatch, got {other}"),
+            Ok(_) => panic!("a delta of the wrong shape must fail closed"),
+        }
     }
 }

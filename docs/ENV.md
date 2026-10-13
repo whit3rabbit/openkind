@@ -148,6 +148,8 @@ read-only artifact root:
 | `LAYA_MULTILINGUAL` | `_ALIASES`, `_MODEL_ROOT` |
 | `LAYA_TYPED_DECISIONS` | `_ALIASES`, `_MODEL_ROOT` |
 | `CLEF` | `_ALIASES`, `_MODEL_ROOTS` (both keyed `flash=` / `flash-gguf=` / `27b=`) |
+| `D3` | `_ALIASES`, `_MODEL_ROOTS` (both keyed `edge=` / `lite=` / `nano=` / `mini=` / `flash=`) |
+| `SIEVE` | `_ALIASES`, `_MODEL_ROOT` |
 
 Family token variables are prefixed `OPENKIND_`, for example
 `OPENKIND_LAYA_ENGLISH_MODEL_ROOT`. Shared admission knobs:
@@ -189,6 +191,8 @@ ONNX export reject the selection with an explanation.
 | `OPENKIND_KEV_BACKEND` | `auto`, `native-cpu`, `cuda`; no ONNX (pointer head) | `auto` |
 | `OPENKIND_DECODER_LLM_BACKEND` | `auto`, `native-cpu`, `cuda`; no ONNX (GGUF) | `auto` |
 | `OPENKIND_DECIDER_4B_BACKEND` | `auto`, `native-cpu`, `cuda`; no ONNX (hybrid backbone) | `auto` |
+| `OPENKIND_D3_BACKEND` | `auto`, `native-cpu`, `cuda`; no ONNX (hybrid backbone) | `auto` |
+| `OPENKIND_SIEVE_BACKEND` | `auto`, `native-cpu`, `cuda`; no ONNX (hybrid backbone) | `auto` |
 | `OPENKIND_WINNOW_BACKEND` | `auto`, `native-cpu`, `cuda`; no ONNX (router decoder) | `auto` |
 | `OPENKIND_PROXY_CACHE_ENCODER_BACKEND` | `auto`, `cpu`, `cuda`, `mlx-fp32` (macOS arm64) | `auto` |
 
@@ -260,6 +264,11 @@ names after migrating. The binding wrappers scrub `OPENDECISION_API_KEY` and
   and `OPENKIND_CLEF_27B_GGUF_MODEL_ROOT`, respectively. A missing or nonexistent
   root skips the replay, so a passing test result alone does not establish
   checkpoint parity. Family pages give explicit replay commands.
+- The d3 replay reads the singular `OPENKIND_D3_MODEL_ROOT` (one profile's
+  root, unlike the daemon's keyed `OPENKIND_D3_MODEL_ROOTS`), and
+  `OPENKIND_D3_FIXTURE` names that profile's vendored fixture directory
+  (default `d3_664f9ead734372935286`, the d3-edge fixture). The sieve replay
+  reads `OPENKIND_SIEVE_MODEL_ROOT`, the same variable as the daemon.
 
 ## Benchmark Dataset Variables
 

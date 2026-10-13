@@ -134,3 +134,60 @@ fn models_doc_alias_table_equals_the_catalog_aliases() {
         "the docs/MODELS.md alias table must equal the catalog aliases in both directions"
     );
 }
+
+/// Capitalized English spelling of a count, as the docs open a sentence.
+fn count_word(n: usize) -> String {
+    const ONES: [&str; 20] = [
+        "zero",
+        "one",
+        "two",
+        "three",
+        "four",
+        "five",
+        "six",
+        "seven",
+        "eight",
+        "nine",
+        "ten",
+        "eleven",
+        "twelve",
+        "thirteen",
+        "fourteen",
+        "fifteen",
+        "sixteen",
+        "seventeen",
+        "eighteen",
+        "nineteen",
+    ];
+    const TENS: [&str; 10] = [
+        "", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety",
+    ];
+    let word = match n {
+        0..=19 => ONES[n].to_owned(),
+        20..=99 if n.is_multiple_of(10) => TENS[n / 10].to_owned(),
+        20..=99 => format!("{}-{}", TENS[n / 10], ONES[n % 10]),
+        _ => n.to_string(),
+    };
+    let mut chars = word.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().chain(chars).collect(),
+        None => word,
+    }
+}
+
+#[test]
+fn catalog_docs_state_the_curated_profile_count() {
+    let catalog = curated_catalog();
+    let sentence = format!(
+        "{} profiles are catalog-installable",
+        count_word(catalog.models.len())
+    );
+    for doc in ["docs/MODELS.md", "docs/MODEL_REGISTRY.md"] {
+        let text = std::fs::read_to_string(repo_root().join(doc))
+            .unwrap_or_else(|error| panic!("{doc} is checked in: {error}"));
+        assert!(
+            text.contains(&sentence),
+            "{doc} must say `{sentence}`; update the count in the same change as registry/v1"
+        );
+    }
+}

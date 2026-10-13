@@ -1,0 +1,135 @@
+{
+  "schema": "openkind-documentation-frozen-research-profile/v1",
+  "evidence_cutoff": "2026-10-09; completed LD-V13A",
+  "purpose": "Documentation only; not an executable training config or model promotion",
+  "relative_path_root": "OpenKind_Local_Decision_Training_T4/ in the private external Google Drive output store (the T4 notebook OUTPUT_ROOT with USE_DRIVE=True); not checked into the repository",
+  "architecture": "Qwen text decoder + ordinary LoRA + final-hidden compact fixed-code readout",
+  "model_roles": {
+    "2b": "resource-efficient research candidate",
+    "4b": "higher-quality research reference / checked training-only teacher"
+  },
+  "entries": {
+    "2b": {
+      "relative_path": "studies_v12b_joint_readout/study_6ea138781306a1b0/execution_c33f8407e52d09f4/2b/fixed_code/research_artifact",
+      "model": {
+        "model_id": "Qwen/Qwen3.5-2B",
+        "revision": "15852e8c16360a2fea060d615a32b45270f8a8fc",
+        "tokenizer_id": "Qwen/Qwen3.5-2B",
+        "tokenizer_revision": "15852e8c16360a2fea060d615a32b45270f8a8fc",
+        "loader": "qwen35_text",
+        "target_modules": [
+          "q_proj",
+          "k_proj",
+          "v_proj",
+          "o_proj",
+          "gate_proj",
+          "up_proj",
+          "down_proj",
+          "in_proj_qkv",
+          "in_proj_z",
+          "in_proj_b",
+          "in_proj_a",
+          "out_proj"
+        ],
+        "rank": 16,
+        "alpha": 32,
+        "precision": "nf4_fp16",
+        "max_length": 1024,
+        "trust_remote_code": false
+      },
+      "adapter_file_sha256": "21d59f2fccca319ae404a45b4c13915d4600e1185cac7eaff3167eedf95f7576",
+      "readout_file_sha256": "f86751532a6133cc7d555bbd186b813948ac1dfcc531f245b93594b1dcbe34cf",
+      "commit_sha256": "fd404923761d0e46c01ce7246e674996fece46af471312dbc2cfaae85a603f15",
+      "qualified": false
+    },
+    "4b": {
+      "relative_path": "studies_v12b_joint_readout/study_6ea138781306a1b0/execution_c33f8407e52d09f4/4b/fixed_code/research_artifact",
+      "model": {
+        "model_id": "Qwen/Qwen3.5-4B",
+        "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+        "tokenizer_id": "Qwen/Qwen3.5-4B",
+        "tokenizer_revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+        "loader": "qwen35_text",
+        "target_modules": [
+          "q_proj",
+          "k_proj",
+          "v_proj",
+          "o_proj",
+          "gate_proj",
+          "up_proj",
+          "down_proj",
+          "in_proj_qkv",
+          "in_proj_z",
+          "in_proj_b",
+          "in_proj_a",
+          "out_proj"
+        ],
+        "rank": 16,
+        "alpha": 32,
+        "precision": "nf4_fp16",
+        "max_length": 1024,
+        "trust_remote_code": false
+      },
+      "adapter_file_sha256": "0ecf799e5250799825233f051dfefe48ce68cf091e889530659094a78c6170d1",
+      "readout_file_sha256": "b5a26865d7f43b3fb11b70fa9f724d5d8acec76b407cde1bb4b30da791b6ca85",
+      "commit_sha256": "93128ae896e15cc2a73155b930e9c5b14b1143c95dc8107c3cde1dd4179d5be7",
+      "qualified": false
+    }
+  },
+  "retained_experiment_settings": {
+    "joint_steps": 150,
+    "accumulation": 16,
+    "lora_lr": 2e-05,
+    "joint_warmup": 7,
+    "weight_decay": 0.0,
+    "grad_clip": 1.0,
+    "parent_kl_weight": 0.25,
+    "teacher_source_ce_weight": 0.5,
+    "label_smoothing": 0.0,
+    "brier_weight": 0.0,
+    "max_length": 1024,
+    "evaluate_every": 25,
+    "checkpoint_every": 25,
+    "data_recipe": "exact_v5_sst_balanced_replay_no_v11_replacement"
+  },
+  "current_study_guards": {
+    "max_accuracy_drop": 0.03,
+    "max_class_recall_drop": 0.05,
+    "max_none_false_positive": 0.2,
+    "max_nll_increase": 0.01,
+    "max_brier_increase": 0.01,
+    "minimum_class_groups": 8,
+    "max_schema_flip_increase": 0.05,
+    "max_schema_tv_increase": 0.02,
+    "absolute_schema_flip_target": 0.05,
+    "probability_atol": 0.001,
+    "probability_atol_scope": "stricter research replay tolerance; the repository acceptance tolerance is 0.005 (docs/AGENTS.md)"
+  },
+  "exposure": {
+    "presentations": 2400,
+    "unique_examples": 1200,
+    "source_counts": {
+      "banking77": 300,
+      "boolq": 300,
+      "mnli": 300,
+      "multirc": 300,
+      "plumb": 600,
+      "rules": 300,
+      "sst5": 300
+    },
+    "presented_tokens": 840350
+  },
+  "teacher_intervention": {
+    "status": "completed_mixed_not_default",
+    "weight": 0.25,
+    "temperature": 2.0
+  },
+  "consistency_intervention": {
+    "status": "implemented_outcome_not_reviewed",
+    "weight": 0.5,
+    "input_entry": "same frozen V12B 2B entry; never implicit V13A continuation"
+  },
+  "model_promoted": false,
+  "production_qualified": false,
+  "new_weight_verification_performed": false
+}

@@ -15,6 +15,15 @@ use crate::qwen35::{pinned_state_identity, Qwen35Error, MAX_SEQUENCE_TOKENS};
 const MAGIC: &[u8; 16] = b"ODQ35STATEv1\0\0\0\0";
 const FORMAT_VERSION: u32 = 1;
 const LAYER_COUNT: usize = 32;
+// `validate_layout` hard-codes the pinned `index % 4 == 3` mixer table, and
+// persisted KV is only valid under causal attention (a noncausal prefix row
+// never saw the suffix). Fail the build if the pinned geometry this format
+// persists ever stops matching.
+const _: () = assert!(
+    crate::qwen35::Qwen35Geometry::PINNED.has_uniform_causal_layout()
+        && crate::qwen35::Qwen35Geometry::PINNED.full_attention_interval == 4
+        && crate::qwen35::Qwen35Geometry::PINNED.layer_count == LAYER_COUNT
+);
 const DIGEST_BYTES: usize = 32;
 const MAX_SNAPSHOT_BYTES: usize = 256 * 1024 * 1024;
 static NEXT_TEMP_ID: AtomicU64 = AtomicU64::new(1);

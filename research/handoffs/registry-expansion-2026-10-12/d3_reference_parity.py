@@ -57,7 +57,7 @@ CASES = [
      {"type": "choice", "instructions": "Which option is explicitly recorded in the state?",
       "criteria": {"kitchen": "the room whose light is on", "office": None}},
      ["kitchen: the room whose light is on", "office"]),
-    ("choice-five-object-state",
+    ("choice-five-text-state",
      "Incident record: severity high, service billing, region eu-west, status mitigated, owner oncall.",
      {"type": "choice", "instructions": "Which option is explicitly recorded in the state?",
       # the wire's criteria map is unordered; the engine renders the wire's

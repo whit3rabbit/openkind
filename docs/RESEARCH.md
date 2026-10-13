@@ -2879,8 +2879,8 @@ not additional evidence for the released model's recipe.
 
 The following is a source-to-hypothesis crosswalk, not a revision of our local
 measured results. The [working paper](whitepaper/WORKING_PAPER.md), revision
-0.9.3, and [whitepaper](whitepaper/WHITEPAPER.md), version 0.8.12, own the
-current local evidence through E43/E44.
+1.0.0, and [whitepaper](whitepaper/WHITEPAPER.md), version 0.8.13, own the
+current local evidence through E43/E44 and local-decision LD-V13A.
 
 | CLEF or related-source contribution | OpenKind evidence or proposal | Consequence |
 |---|---|---|
@@ -2940,11 +2940,12 @@ it stays non-loadable until its fixtures pass. Open items from the source
 review — the evidence-boundary panel, training ablations, and deployment
 comparison — remain open research; landing the loader changes none of that
 assessment. The revised
-[local design](whitepaper/LOCAL_DECISION_DESIGN.md) and
-[experiment 35 v4](../research/local_decision_training/README.md) make the
-plain-CE control, atomic counterfactual sampling, optional reasoning/presentation
-interventions, development-only loss sweep, and grouped retention diagnostics
-executable. The [decision records](../research/local_decision_training/DECISIONS.md)
+[local design](whitepaper/LOCAL_DECISION_DESIGN.md) records the frozen
+joint-option research profile, V13 entries, and pilot acceptance checks through
+LD-V13A. [Experiment 35 v4](../research/local_decision_training/README.md)
+makes the plain-CE control, atomic counterfactual sampling, optional
+reasoning/presentation interventions, development-only loss sweep, and grouped
+retention diagnostics executable. The [decision records](../research/local_decision_training/DECISIONS.md)
 link each choice to its evidence and acceptance condition. Frozen evaluation uses
 the verified exported implementation and a synthetic replay pack prepares later
 native qualification. Their offline checks do not establish a trained

@@ -226,6 +226,22 @@ impl DecoderLayer {
             .map(|(hidden, _)| hidden)
     }
 
+    /// Full-sequence forward that also runs `check` inside the full-attention
+    /// kernel (see [`FullAttention::forward_with_state_and_check`]).
+    pub(super) fn forward_checked<E>(
+        &self,
+        residual: &[f32],
+        token_count: usize,
+        layer_index: usize,
+        check: &mut dyn FnMut() -> Result<(), E>,
+    ) -> Result<Vec<f32>, E>
+    where
+        E: From<Qwen35Error>,
+    {
+        self.forward_with_state_and_check(residual, token_count, layer_index, 0, None, Some(check))
+            .map(|(hidden, _)| hidden)
+    }
+
     pub(super) fn forward_with_state(
         &self,
         residual: &[f32],
@@ -234,6 +250,28 @@ impl DecoderLayer {
         position_start: usize,
         previous_state: Option<&LayerState>,
     ) -> Result<(Vec<f32>, LayerState), Qwen35Error> {
+        self.forward_with_state_and_check(
+            residual,
+            token_count,
+            layer_index,
+            position_start,
+            previous_state,
+            None,
+        )
+    }
+
+    fn forward_with_state_and_check<E>(
+        &self,
+        residual: &[f32],
+        token_count: usize,
+        layer_index: usize,
+        position_start: usize,
+        previous_state: Option<&LayerState>,
+        check: Option<&mut dyn FnMut() -> Result<(), E>>,
+    ) -> Result<(Vec<f32>, LayerState), E>
+    where
+        E: From<Qwen35Error>,
+    {
         let hidden_size = self.geometry.hidden_size;
         let normalized =
             rms_norm_zero_centered(residual, token_count, hidden_size, &self.input_layernorm);
@@ -248,25 +286,28 @@ impl DecoderLayer {
                     &self.device,
                     Some((conv, recurrent)),
                 )?,
-            (TokenMixer::Full(mixer), None) => mixer.forward_with_state(
+            (TokenMixer::Full(mixer), None) => mixer.forward_with_state_and_check(
                 &normalized,
                 token_count,
                 position_start,
                 &self.device,
                 None,
+                check,
             )?,
             (TokenMixer::Full(mixer), Some(LayerState::Full { keys, values })) => mixer
-                .forward_with_state(
+                .forward_with_state_and_check(
                     &normalized,
                     token_count,
                     position_start,
                     &self.device,
                     Some((keys, values)),
+                    check,
                 )?,
             _ => {
                 return Err(Qwen35Error::InvalidInput(format!(
                     "cache kind does not match layer_{layer_index:02}"
-                )))
+                ))
+                .into())
             }
         };
         let mut hidden = add(residual, &attention);

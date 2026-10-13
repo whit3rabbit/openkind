@@ -220,4 +220,59 @@ impl Qwen35Geometry {
     pub const fn is_full_attention(&self, layer_index: usize) -> bool {
         self.full_attention_layers[layer_index]
     }
+
+    /// True when full attention is causal and the mixer table is the
+    /// uniform [`Self::interval_layers`] layout of the published base
+    /// checkpoints.
+    ///
+    /// The MLX backend, continuation-state persistence, and the pinned
+    /// architecture contract hard-code exactly this layout (`index % 4 ==
+    /// 3`) and the causal mask, so they must reject any geometry for which
+    /// this is false instead of silently computing a different model.
+    pub const fn has_uniform_causal_layout(&self) -> bool {
+        if !self.causal
+            || self.full_attention_interval == 0
+            || self.layer_count > self.full_attention_layers.len()
+        {
+            return false;
+        }
+        let uniform = Self::interval_layers(self.full_attention_interval, self.layer_count);
+        let mut index = 0;
+        while index < self.layer_count {
+            if self.full_attention_layers[index] != uniform[index] {
+                return false;
+            }
+            index += 1;
+        }
+        true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Qwen35Geometry;
+
+    #[test]
+    fn uniform_causal_layout_covers_the_published_bases_only() {
+        for geometry in [
+            Qwen35Geometry::PINNED,
+            Qwen35Geometry::CLEF_FLASH,
+            Qwen35Geometry::BASE_2B,
+            Qwen35Geometry::CLEF,
+            Qwen35Geometry::BASE_08B,
+        ] {
+            assert!(geometry.has_uniform_causal_layout(), "{geometry:?}");
+            assert!(!geometry.with_causal(false).has_uniform_causal_layout());
+        }
+        // An irregular table (a pruned checkpoint keeping a different
+        // full-attention subset) is rejected even when causal.
+        let mut irregular = Qwen35Geometry::BASE_08B.with_layer_count(12);
+        irregular.full_attention_layers = [false; 64];
+        irregular.full_attention_layers[2] = true;
+        assert!(!irregular.has_uniform_causal_layout());
+        // Entries at and beyond `layer_count` are ignored, as documented.
+        assert!(Qwen35Geometry::BASE_08B
+            .with_layer_count(12)
+            .has_uniform_causal_layout());
+    }
 }

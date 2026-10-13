@@ -10,10 +10,28 @@ pub use store::{default_models_dir, InstalledModel, ModelStore};
 
 use thiserror::Error;
 
-/// The production catalog mirrors the static file in this repository. Its
-/// digest is pinned below so the mutable mirror cannot authorize new content.
-pub const CATALOG_URL: &str = "https://raw.githubusercontent.com/whit3rabbit/openkind-model-registry/main/registry/v1/catalog.json";
-pub const CATALOG_SHA256: &str = "e8cb84286ca46e9e43b89f9b59b91821d010dc6e6988aace04886d4a1f010efd";
+// Single literals behind the URL and digest constants below, so `concat!` can
+// derive the catalog URL from the pinned digest and the two cannot drift.
+macro_rules! registry_url {
+    () => {
+        "https://raw.githubusercontent.com/whit3rabbit/openkind-model-registry/main/registry/v1/"
+    };
+}
+macro_rules! catalog_sha256 {
+    () => {
+        "e8cb84286ca46e9e43b89f9b59b91821d010dc6e6988aace04886d4a1f010efd"
+    };
+}
+
+/// The public mirror's `registry/v1/` tree. Catalog `manifest_path` entries
+/// resolve against it.
+pub const REGISTRY_URL: &str = registry_url!();
+/// The production catalog mirrors the static file in this repository. Each
+/// release fetches an immutable, digest-named copy, so releases pinning
+/// different catalogs can share one mirror; the digest is checked after the
+/// fetch so the mutable mirror cannot authorize new content.
+pub const CATALOG_URL: &str = concat!(registry_url!(), "catalogs/", catalog_sha256!(), ".json");
+pub const CATALOG_SHA256: &str = catalog_sha256!();
 pub const QWEN35_STATE_FIRST_MODEL_NAME: &str = "qwen35-state-first:a047d6802c3f06f085b8";
 /// Pinned laya English decision-encoder model name.
 pub const LAYA_ENGLISH_MODEL_NAME: &str = "laya-english:c8ea29bf1e33a343c4b7";

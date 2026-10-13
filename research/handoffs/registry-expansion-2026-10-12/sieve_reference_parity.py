@@ -66,7 +66,7 @@ CASES = [
     ("choice-two", "The kitchen light is on. The office light is off.",
      {"type": "choice", "instructions": "Which option is explicitly recorded in the state?",
       "criteria": {"kitchen": "the room whose light is on", "office": None}}),
-    ("choice-five-object-state",
+    ("choice-five-text-state",
      "Incident record: severity high, service billing, region eu-west, status mitigated, owner oncall.",
      {"type": "choice", "instructions": "Which option is explicitly recorded in the state?",
       "criteria": {"owner": None, "region": None, "service": None, "severity": None,

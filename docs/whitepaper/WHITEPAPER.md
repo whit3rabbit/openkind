@@ -1,7 +1,7 @@
 # OpenKind
 ## Shared-state decision inference: evidence, execution, and useful decisions
 
-**Document version:** 0.8.12 · 1 October 2026, America/Chicago. Completes the integration of completed recovery runs `20261001T202134_352688Z_4a8cbc` (protocol `openkind-t4-recovery-reliability/v4.1.0`, E43) and `20261001T223435_041738Z_f25616` (protocol `openkind-t4-recovery-reliability/v4.1.1`, E44): the abstract, executive assessment, research chronology, review boundary, §24, and Appendix A now carry the T4 recovery and classifier verification results. Training, Rust/MLX, modern-Qwen serving, unified decision validity, process isolation, multi-catalogue caching, integrated readouts, encoder fine-tuning, and compact NLI specialization run through these completed runs.
+**Document version:** 0.8.13 · 12 October 2026, America/Chicago. Adds §25, the local-decision LD-V12B readout/size and LD-V13A checked-teacher results (one seed, research-only, not promoted); version 0.8.12 integrated the E43/E44 T4 recovery runs.
 
 ### Abstract
 
@@ -5464,6 +5464,50 @@ Classifier repeated predictions and all 60 FP16 autocast probes passed numerical
 | **GLiClass dynamic-label interface** | **Discount tested form**: 45.45% field accuracy, 5 serial forwards, token budget rejections on long inputs. |
 | **Dependency-aware whole-request policies** | **Preserve failed results**: Accounting for dependencies is mathematically sound, but policies lose to review-all when source calibration fails to transfer. |
 | **Dedicated-process isolation** | **Retain**: Exact history invariance ($\Delta p = 0.0$) across all tested conditions; mixed-process serving remains unqualified. |
+
+# 25. Local-decision training results: LD-V12B and LD-V13A
+
+These are offline Python research results from the local-decision T4 notebooks, not landed Rust behavior. `LD-V…` labels name those notebooks; they are not this paper's V9–V12 reconciliation aliases or new E-series IDs. Each arm is one training seed of a bounded, declared recipe on one Tesla T4: a pinned post-trained Qwen3.5 torso in NF4/FP16, an FP32 rank-16 LoRA, a compact frozen A–P answer-code readout and at most 1,024 total prompt tokens. Quality uses the 928 primary rows of a 960-row development payload, reported as equal-source macro values; timing uses 28 distinct requests × five repeats per arm. The frozen entries are research artifacts with `qualified=false`. No model below is promoted, and none passes the study's quality and presentation requirements. The evidence lives in a private external store (the project Google Drive) and is not checked into the repository. [`FROZEN_RESEARCH_PROFILE.json`](FROZEN_RESEARCH_PROFILE.json) is the machine-readable record; [`LOCAL_DECISION_DESIGN.md`](LOCAL_DECISION_DESIGN.md) owns the design and [`WORKING_PAPER.md`](WORKING_PAPER.md) §§4.9–4.11 the synthesis.
+
+## 25.1 LD-V12B: trained readout and model size
+
+| LD-V12B arm, joint update 150 | Source-macro accuracy | Raw NLL | Cross-fitted NLL | Warm median ms |
+|---|---:|---:|---:|---:|
+| 2B fixed code | **69.89%** | 0.7440 | 0.7481 | 168.07 |
+| 2B replacement pointer | 68.21% | 0.7632 | 0.7643 | 172.02 |
+| 4B fixed code | **76.41%** | 0.6367 | 0.6323 | 291.68 |
+| 4B replacement pointer | 72.25% | 0.6811 | 0.6622 | 290.61 |
+
+Within each size, both arms start from identical fresh LoRA tensors and receive 2,400 joint presentations (150 updates × accumulation 16 over 1,200 unique examples). The replacement pointer also receives 800 head-only cached-feature initialization presentations, so this compares declared recipes with unequal initialization cost. Fixed code clearly beats the pointer at 4B: the pointer loses 40 correct primary answers, a row-weighted difference of −4.31 points (descriptive interval [−6.69, −1.85]). At 2B, fixed code leads on point estimates only; the pointer's accuracy interval includes zero.
+
+Adaptation raises 2B source-macro accuracy from **47.28% to 69.89%**: 270 parent errors corrected and 61 introduced, a net 209 more correct primary decisions. Trained fixed-code 2B allocates about 1.688 GiB of CUDA memory versus 3.044 GiB for 4B (about 44.5% less), and the 4B/2B warm median-time ratio is about 1.74× (291.68/168.07 ms). These are T4 measurements, not Mac predictions. All four arms fail quality and presentation requirements; fixed-code SST-5 option-order flips remain 19/32 at 2B and 18/32 at 4B. [LD-V12B]
+
+## 25.2 LD-V13A: continuation versus checked-teacher guidance
+
+| Same frozen 2B entry | Source-macro accuracy | Raw NLL | Cross-fitted NLL | Primary correct |
+|---|---:|---:|---:|---:|
+| Entering LD-V12B adapter | 69.89% | 0.7440 | 0.7481 | 641/928 |
+| Replay continuation | **73.15%** | **0.6970** | 0.6907 | **672/928** |
+| Checked-teacher continuation | 73.28% | 0.7034 | **0.6852** | **672/928** |
+
+Both arms continue the LD-V12B 2B fixed-code entry (§25.3) for 150 updates with the same data order, cross-entropy and original-parent KL 0.25. The teacher arm adds 0.25 × 2² × masked KL toward the trained 4B fixed-code entry at temperature 2; teacher outputs are computed on training rows before fitting and are not used at inference. Teacher versus replay fixes 14 errors and introduces 14. The +0.134 macro-point difference comes from equal-source weighting over unequal source row counts, and the row-weighted accuracy interval is about [−1.11, +1.06] points.
+
+The teacher improves MNLI correct count 94/128 → 99/128 and MultiRC false recall 59/69 → 61/69 but lowers SST-5 positive recall 15/32 → 9/32. Both arms lose entailment retention against the entry (40/44 → 37/44) and fix rules false-none (14/58 → 0/58) while keeping true-none at 45/45. Plumb true-none stays 1/10 for the entry and both arms, although 775 of the 1,200 unique training examples are teacher-eligible, including 113 teacher-correct/student-wrong opportunities and four Plumb-none groups. Warm medians are 163.48 ms (replay) and 167.15 ms (teacher). Both continuations are rejected, and the checked-teacher term is not a validated default. LD-V13B, an independent consistency comparison from the same entry, is implemented; its results are not reviewed. [LD-V13A; LD-V13A teacher audit]
+
+## 25.3 Frozen entries for LD-V13A and LD-V13B
+
+Both entries live under `studies_v12b_joint_readout/study_6ea138781306a1b0/execution_c33f8407e52d09f4/`, at `2b/fixed_code/research_artifact/` and `4b/fixed_code/research_artifact/`, relative to the private Drive output root `OpenKind_Local_Decision_Training_T4/`.
+
+| Identity | 2B student (V13A and V13B) | 4B teacher (V13A only) |
+|---|---|---|
+| Base | `Qwen/Qwen3.5-2B`, post-trained | `Qwen/Qwen3.5-4B`, post-trained |
+| Base/tokenizer revision | `15852e8c16360a2fea060d615a32b45270f8a8fc` | `851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a` |
+| Adapter file SHA-256 | `21d59f2fccca319ae404a45b4c13915d4600e1185cac7eaff3167eedf95f7576` | `0ecf799e5250799825233f051dfefe48ce68cf091e889530659094a78c6170d1` |
+| Readout file SHA-256 | `f86751532a6133cc7d555bbd186b813948ac1dfcc531f245b93594b1dcbe34cf` | `b5a26865d7f43b3fb11b70fa9f724d5d8acec76b407cde1bb4b30da791b6ca85` |
+
+These are file hashes recorded by the executed V13A study plan, not tensor hashes; recording them is not a reload or re-verification of the weights. A frozen entry is an immutable starting checkpoint, not an accepted model. [LD-V13A study plan; V13 frozen-entry guide]
+
+Sources, in the private external store: [LD-V12B results](https://drive.google.com/file/d/17UDnx0xR6mO7Au09bsrBfeT30cUT0NLc/view), [LD-V12B study plan](https://drive.google.com/file/d/1Y0n5YM27KcDBtRyJEGtKzXUr53Ubys51/view), [LD-V13A results](https://drive.google.com/file/d/1eUTSTZVisA4Ar-EMgMDQvYPHgiLjYk_V/view), [LD-V13A teacher audit](https://drive.google.com/file/d/1sIxApSB3egf6shA4uQxqzdt9FUfJ3ulf/view), [LD-V13A study plan](https://drive.google.com/file/d/1uEH6PPaqV2ENRL-b0jKp3VJsV8q5ZqNH/view) and [V13 frozen-entry guide](https://drive.google.com/file/d/14AZr6eyj4vE3Hom6gF0HWOXwAiWzLANi/view).
 
 ---
 

@@ -128,6 +128,17 @@ impl MlxQwen35Backbone {
     ) -> Result<Self, MlxError> {
         let load_report = store.load_report;
         let checkpoint_identity = store.checkpoint_identity();
+        // The layers below hard-code the causal mask and the uniform
+        // `layer_index % 4 == 3` table; a noncausal or irregular-table
+        // checkpoint (the d3 family's, for example) must fail closed here
+        // instead of loading the wrong mixers or attending causally.
+        if !checkpoint_identity.format.has_uniform_causal_layout() {
+            return Err(MlxError::InvalidState(format!(
+                "checkpoint layout `{}` is not the causal uniform-table layout the MLX \
+                 backbone executes",
+                checkpoint_identity.format.as_str()
+            )));
+        }
         let (tensors, embedding) = store.into_tensors();
         let gated_delta_kernel =
             effective_gated_delta_kernel(precision, runtime.config().gated_delta_kernel);

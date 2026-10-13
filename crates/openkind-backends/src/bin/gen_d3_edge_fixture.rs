@@ -16,8 +16,8 @@
 use std::path::PathBuf;
 
 use openkind_backends::families::d3::{
-    profile_by_short_name, D3Engine, D3EngineConfig, D3Renderer, EXECUTION_ARITHMETIC_ID,
-    FAMILY_SLUG,
+    plan_prompt_ids, profile_by_short_name, D3Engine, D3EngineConfig, D3Renderer,
+    EXECUTION_ARITHMETIC_ID, FAMILY_SLUG,
 };
 use openkind_backends::families::support::FamilyLimits;
 use openkind_core::{Question, SystemRequest};
@@ -29,71 +29,17 @@ struct Case {
     name: String,
     state: serde_json::Value,
     questions: serde_json::Map<String, serde_json::Value>,
-    /// The engine-planned prompt inputs of the case's single question: the
-    /// state and instruction values plus the option texts in engine code
-    /// order (wire Choice renders the wire's sorted label order; Noul the
-    /// fixed false/true pair; Score the ordered levels).
-    prompt: PromptPlan,
-}
-
-struct PromptPlan {
-    state: serde_json::Value,
-    instructions: serde_json::Value,
-    options: Vec<String>,
 }
 
 fn single_question(name: &str, state: serde_json::Value, question: Question) -> Case {
-    let prompt_state = state.clone();
-    let prompt_instructions = match &question {
-        Question::Choice(inner) => inner.instructions.clone(),
-        Question::Noul(inner) => inner.instructions.clone(),
-        Question::Score(inner) => inner.instructions.clone(),
-    };
-    let prompt_options = match &question {
-        Question::Choice(inner) => {
-            let mut labels: Vec<&String> = inner.criteria.keys().collect();
-            labels.sort();
-            labels
-                .iter()
-                .map(|label| match inner.criteria.get(*label) {
-                    Some(Some(description)) => format!("{label}: {description}"),
-                    _ => (*label).clone(),
-                })
-                .collect()
-        }
-        Question::Noul(inner) => {
-            let (r#false, r#true) = inner
-                .criteria
-                .as_ref()
-                .map(|c| (c.r#false.clone(), c.r#true.clone()))
-                .unwrap_or_default();
-            let fallback = |text: &str, default: &str| {
-                if text.is_empty() {
-                    default.to_owned()
-                } else {
-                    text.to_owned()
-                }
-            };
-            vec![
-                fallback(&r#false, "No / false"),
-                fallback(&r#true, "Yes / true"),
-            ]
-        }
-        Question::Score(inner) => inner.criteria.clone(),
-    };
     Case {
         name: name.to_owned(),
-        state: prompt_state.clone(),
+        state,
         questions: std::iter::once((
             "q0".to_owned(),
             serde_json::to_value(question).expect("question"),
         ))
         .collect(),
-        prompt: PromptPlan {
-            state: prompt_state,
-            instructions: prompt_instructions,
-            options: prompt_options,
-        },
     }
 }
 
@@ -123,7 +69,7 @@ fn cases() -> Vec<Case> {
             &[Some("the room whose light is on"), None],
         ),
         choice_case(
-            "choice-five-object-state",
+            "choice-five-text-state",
             "Incident record: severity high, service billing, region eu-west, status mitigated, owner oncall.",
             &["severity", "service", "region", "status", "owner"],
             &[None, None, None, None, None],
@@ -234,8 +180,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?;
+    // The engine load above verified every artifact digest, so the renderer
+    // can read the tokenizer and pinned code table in place.
+    let decision_config: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(
+        model_root.join("decision_config.json"),
+    )?)?;
+    let codes: Vec<String> = serde_json::from_value(decision_config["codes"].clone())?;
+    let token_ids: Vec<u64> = serde_json::from_value(decision_config["token_ids"].clone())?;
+    let renderer = D3Renderer::load(
+        &model_root.join("tokenizer.json"),
+        &codes,
+        &token_ids,
+        profile,
+    )?;
 
     let mut case_values = Vec::new();
+    let mut prompt_stats = Vec::new();
     for (index, case) in cases().into_iter().enumerate() {
         let request: SystemRequest = serde_json::from_value(json!({
             "state": case.state,
@@ -243,49 +203,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "questions": case.questions,
         }))?;
         let request_value = serde_json::to_value(&request)?;
-        let response = runtime.block_on(engine.evaluate(request))?;
-        eprintln!("[fixture {:>2}] {} ok", index, case.name);
-        case_values.push(json!({
-            "name": case.name,
-            "request": request_value,
-            "response": serde_json::to_value(&response)?,
-        }));
-    }
-
-    // Render every case's prompt through the engine's own planning path and
-    // record byte/token statistics; these anchor the golden to the reference
-    // prompts computed by research/handoffs/registry-expansion-2026-10-12/
-    // d3_reference_parity.py (the shipped d3_format.py over the real
-    // tokenizer and chat template).
-    let renderer = D3Renderer::load(
-        &model_root.join("tokenizer.json"),
-        &{
-            let config: serde_json::Value = serde_json::from_str(
-                &std::fs::read_to_string(model_root.join("decision_config.json"))
-                    .expect("read decision config"),
-            )?;
-            let codes: Vec<String> = serde_json::from_value(config["codes"].clone())?;
-            codes
-        },
-        &{
-            let config: serde_json::Value = serde_json::from_str(
-                &std::fs::read_to_string(model_root.join("decision_config.json"))
-                    .expect("read decision config"),
-            )?;
-            let token_ids: Vec<u64> = serde_json::from_value(config["token_ids"].clone())?;
-            token_ids
-        },
-        profile,
-    )?;
-    let mut prompt_stats = Vec::new();
-    for case in case_values.iter().zip(cases()) {
-        let (case_value, case) = case;
-        let row = renderer.render_row(
-            &case.prompt.state,
-            &case.prompt.instructions,
-            &case.prompt.options,
-        )?;
-        let ids = row.prompt_ids();
+        // Record prompt statistics through the engine's own planning path;
+        // these anchor the golden to the reference prompts computed by
+        // research/handoffs/registry-expansion-2026-10-12/
+        // d3_reference_parity.py (the shipped d3_format.py over the real
+        // tokenizer and chat template).
+        let prompts = plan_prompt_ids(profile, &renderer, &request)?;
+        let [(_, ids)] = prompts.as_slice() else {
+            return Err(format!("case {} must plan exactly one question", case.name).into());
+        };
         let digest = {
             // Same serialization as the reference-parity script: the
             // comma-joined decimal ids, UTF-8 hashed.
@@ -302,9 +228,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             text
         };
         prompt_stats.push(json!({
-            "name": case_value["name"],
+            "name": case.name,
             "token_count": ids.len(),
             "token_ids_sha256": digest,
+        }));
+        let response = runtime.block_on(engine.evaluate(request))?;
+        eprintln!("[fixture {:>2}] {} ok", index, case.name);
+        case_values.push(json!({
+            "name": case.name,
+            "request": request_value,
+            "response": serde_json::to_value(&response)?,
         }));
     }
 

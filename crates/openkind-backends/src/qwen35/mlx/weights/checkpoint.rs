@@ -55,6 +55,18 @@ impl MlxCheckpointFormat {
             Self::PinnedJevk5 => "jevk5-safetensors",
         }
     }
+
+    /// Whether checkpoints of this layout run causal full attention over
+    /// the uniform `layer_index % 4 == 3` mixer table, the only layout the
+    /// MLX layers implement. The match is exhaustive on purpose: a new
+    /// layout must state its attention mode here, and the backbone refuses
+    /// to load one that answers `false`.
+    #[must_use]
+    pub const fn has_uniform_causal_layout(self) -> bool {
+        match self {
+            Self::PinnedQwen35Base | Self::MlxCommunityQwen35Bf16 | Self::PinnedJevk5 => true,
+        }
+    }
 }
 
 /// A caller-verified survey checkpoint descriptor for the MLX loader.
