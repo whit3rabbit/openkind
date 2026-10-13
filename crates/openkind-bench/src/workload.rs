@@ -17,8 +17,8 @@ use openkind_backends::qwen35::SEMANTIC_NONE_OPTION;
 use openkind_core::{
     ChoiceQuestion, NoulCriteria, NoulQuestion, Question, ScoreQuestion, State, SystemRequest,
 };
+use openkind_runtime::hashing::sha256_hex;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 /// Default instructions when a row omits the question text.
 const DEFAULT_INSTRUCTIONS: &str = "Decide.";
@@ -207,7 +207,7 @@ pub fn load_workload(path: &Path) -> Result<Workload> {
 /// Returns an error for invalid UTF-8, malformed JSONL, duplicate row ids, an
 /// empty workload, or per-row validation failures.
 pub fn parse_workload(label: &str, raw: &[u8]) -> Result<Workload> {
-    let sha256 = hex(&Sha256::digest(raw));
+    let sha256 = sha256_hex(raw);
     let text = String::from_utf8(raw.to_vec()).with_context(|| format!("decode {label}"))?;
     let mut rows = Vec::new();
     for (index, line) in text.lines().enumerate() {
@@ -285,8 +285,4 @@ pub fn build_request(model: &str, rows: &[WorkloadRow], group: &[usize]) -> Resu
         model: model.to_owned(),
         questions,
     })
-}
-
-fn hex(digest: &[u8]) -> String {
-    digest.iter().map(|byte| format!("{byte:02x}")).collect()
 }

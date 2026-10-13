@@ -19,6 +19,51 @@ use openkind_datasets::{default_datasets_dir, DatasetStore};
 
 use self::eval::EvalArgs;
 
+/// Minimum spacing between progress lines for one file. Downloads report once
+/// per network chunk, which floods stderr and slows the terminal.
+const PROGRESS_INTERVAL: std::time::Duration = std::time::Duration::from_millis(250);
+
+/// Decides which per-chunk progress callbacks reach stderr: the first report
+/// for each file, at most one per [`PROGRESS_INTERVAL`] afterwards, and always
+/// the completing report so the final byte count is shown.
+#[derive(Default)]
+struct ProgressThrottle {
+    path: String,
+    last: Option<std::time::Instant>,
+}
+
+impl ProgressThrottle {
+    fn should_print(
+        &mut self,
+        path: &str,
+        present: u64,
+        total: u64,
+        now: std::time::Instant,
+    ) -> bool {
+        let new_file = self.path != path;
+        let due = self
+            .last
+            .is_none_or(|last| now.duration_since(last) >= PROGRESS_INTERVAL);
+        if new_file {
+            self.path = path.to_owned();
+        }
+        let print = new_file || due || present >= total;
+        if print {
+            self.last = Some(now);
+        }
+        print
+    }
+}
+
+fn progress_printer() -> impl FnMut(&str, u64, u64) {
+    let mut throttle = ProgressThrottle::default();
+    move |path, present, total| {
+        if throttle.should_print(path, present, total, std::time::Instant::now()) {
+            eprintln!("[dataset] {path}: {present}/{total} bytes");
+        }
+    }
+}
+
 /// Run one `dataset` subcommand.
 ///
 /// # Errors
@@ -48,9 +93,7 @@ pub fn run_command(action: DatasetAction) -> Result<()> {
             let store = store(datasets_dir)?;
             eprintln!("[dataset] auth: {}", store.token_source().describe());
             let runtime = tokio::runtime::Runtime::new()?;
-            let entry = runtime.block_on(store.pull(&name, |path, present, total| {
-                eprintln!("[dataset] {path}: {present}/{total} bytes");
-            }))?;
+            let entry = runtime.block_on(store.pull(&name, progress_printer()))?;
             eprintln!(
                 "[dataset] installed {} ({} files, revision {})",
                 entry.name,
@@ -77,9 +120,7 @@ pub fn run_command(action: DatasetAction) -> Result<()> {
             let store = store(datasets_dir)?;
             eprintln!("[dataset] auth: {}", store.token_source().describe());
             let runtime = tokio::runtime::Runtime::new()?;
-            let entry = runtime.block_on(store.pin(&name, |path, present, total| {
-                eprintln!("[dataset] {path}: {present}/{total} bytes");
-            }))?;
+            let entry = runtime.block_on(store.pin(&name, progress_printer()))?;
             // The emitted entry is what belongs in registry/v1/datasets.json.
             println!("{}", serde_json::to_string_pretty(&entry)?);
         }

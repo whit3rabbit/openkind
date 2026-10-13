@@ -14,8 +14,8 @@ use std::path::PathBuf;
 
 use anyhow::{bail, ensure, Context, Result};
 use openkind_datasets::DatasetStore;
+use openkind_runtime::hashing::{sha256_file, sha256_hex};
 use serde_json::{json, Map, Value};
-use sha2::{Digest, Sha256};
 
 use super::materialize::{materialize, DatasetRow};
 use super::metrics::{choice_metrics, noul_metrics, score_metrics, ChoiceRow, NoulRow, ScoreRow};
@@ -112,7 +112,7 @@ pub fn run_eval(args: &EvalArgs) -> Result<Value> {
         .output_dir
         .join(format!("predictions-{engine_slug}-{strategy}.jsonl"));
     let predictions_bytes = fs::read(&predictions_path)?;
-    let predictions_sha256 = format!("{:x}", Sha256::digest(&predictions_bytes));
+    let predictions_sha256 = sha256_hex(&predictions_bytes);
     // Digest binding: the summary pins the exact prediction bytes.
     ensure!(
         summary["prediction_sha256"][&strategy].as_str() == Some(predictions_sha256.as_str()),
@@ -220,7 +220,12 @@ pub fn run_eval(args: &EvalArgs) -> Result<Value> {
         other => bail!("no metrics for primitive {other}"),
     };
 
-    let workload_sha256 = format!("{:x}", Sha256::digest(fs::read(&workload_path)?));
+    // The scorer hashed these exact bytes when it loaded the workload, so its
+    // fixture digest is the workload digest without a second read.
+    let workload_sha256 = summary["fixture"]["sha256"]
+        .as_str()
+        .context("summary fixture sha256")?
+        .to_owned();
     let executable_sha256 = executable_digest()?;
     let report = json!({
         "schema": "openkind-dataset-eval/v1",
@@ -253,7 +258,7 @@ pub fn run_eval(args: &EvalArgs) -> Result<Value> {
             "workload_sha256": workload_sha256,
             "predictions_path": predictions_path,
             "predictions_sha256": predictions_sha256,
-            "summary_sha256": format!("{:x}", Sha256::digest(serde_json::to_vec(&summary)?)),
+            "summary_sha256": sha256_hex(&serde_json::to_vec(&summary)?),
             "executable_sha256": executable_sha256,
             "host": summary["host"],
             "commit": summary["commit"],
@@ -393,9 +398,8 @@ fn write_workload(mut file: File, rows: &[DatasetRow]) -> Result<()> {
 }
 
 fn executable_digest() -> Result<String> {
-    let executable = std::env::current_exe()?;
-    let bytes = fs::read(&executable)?;
-    Ok(format!("{:x}", Sha256::digest(bytes)))
+    // Stream the binary instead of reading it whole into memory.
+    Ok(sha256_file(&std::env::current_exe()?)?)
 }
 
 /// The prediction artifact includes the selected family profile and backend.

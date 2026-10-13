@@ -52,8 +52,8 @@ use openkind_backends::families::strands_decider::{
 use openkind_backends::families::support::FamilyLimits;
 use openkind_backends::qwen35::{Qwen35DecisionEngine, Qwen35EngineConfig, SchedulerConfig};
 use openkind_engine::{DecisionEngine, EngineRegistry};
+use openkind_runtime::hashing::sha256_hex;
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 
 pub(crate) use types::validate_strategy_selection;
 pub use types::{
@@ -665,7 +665,7 @@ pub(crate) fn run_score_reserved(
         .map(|(report, predictions)| {
             (
                 report["strategy"].as_str().unwrap_or("strategy").to_owned(),
-                Value::String(format!("{:x}", Sha256::digest(predictions.as_bytes()))),
+                Value::String(sha256_hex(predictions.as_bytes())),
             )
         })
         .collect();

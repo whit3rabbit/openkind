@@ -12,9 +12,9 @@ use std::collections::HashSet;
 use anyhow::{bail, Context, Result};
 use openkind_datasets::rows::read_parquet_rows;
 use openkind_datasets::InstalledDataset;
+use openkind_runtime::hashing::{sha256_hex, sha256_hex_parts};
 use serde::Serialize;
 use serde_json::{Map, Value};
-use sha2::{Digest, Sha256};
 
 use super::templates as t;
 use crate::workload::{DecisionOption, NoulCriteriaWire, QuestionSpec, WorkloadRow};
@@ -92,18 +92,9 @@ pub fn materialize(
     let mut unique = Vec::with_capacity(built.len());
     let mut skipped_duplicates = 0;
     for example in built {
-        let mut request = Sha256::new();
-        request.update(
-            serde_json::to_string(&example.state)
-                .unwrap_or_default()
-                .as_bytes(),
-        );
-        request.update(
-            serde_json::to_string(&question_wire(&example))
-                .unwrap_or_default()
-                .as_bytes(),
-        );
-        if seen.insert(format!("{:x}", request.finalize())) {
+        let state = serde_json::to_string(&example.state).unwrap_or_default();
+        let question = serde_json::to_string(&question_wire(&example)).unwrap_or_default();
+        if seen.insert(sha256_hex_parts(&[state.as_bytes(), question.as_bytes()])) {
             unique.push(example);
         } else {
             skipped_duplicates += 1;
@@ -111,11 +102,9 @@ pub fn materialize(
     }
     // Deterministic hash ordering: `--limit N` selects a subset of any larger
     // limit, matching the upstream sampling contract.
-    unique.sort_by_key(|example| {
-        let mut hasher = Sha256::new();
-        hasher.update(example.uid.as_bytes());
-        format!("{:x}", hasher.finalize())
-    });
+    // Cached keys hash each uid once instead of once per comparison; the
+    // sort stays stable so the resulting order is unchanged.
+    unique.sort_by_cached_key(|example| sha256_hex(example.uid.as_bytes()));
     let mut rows: Vec<DatasetRow> = unique
         .into_iter()
         .map(|example| {

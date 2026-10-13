@@ -26,7 +26,7 @@ Methodology, timing scope, and recorded results are owned by
    layer). It must never be depended on by any other crate.
 2. **Fully Offline**: Tests use only the mock engine and checked-in fixtures. The native
    engine loads locally pinned checkpoint/bundle/tokenizer paths and must never download
-   anything (workspace invariant 7).
+   anything (workspace invariant 6).
 3. **Timing Scope Discipline**: The measured region covers request construction,
    validation, dispatch, and answer extraction. Model load and result-file writes are
    excluded; model-load wall time is reported separately per strategy.
