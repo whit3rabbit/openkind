@@ -108,60 +108,6 @@ pub enum EngineKind {
 /// # Panics
 /// Panics when called for [`EngineKind::Mock`]; callers gate on the mock
 /// engine before reaching this mapping.
-#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
-pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
-    match engine {
-        EngineKind::Mock
-        | EngineKind::DecoderLetter
-        | EngineKind::EncoderNli
-        | EngineKind::EncoderInstructLabel
-        | EngineKind::DecoderLlm
-        | EngineKind::SchemaScorer
-        | EngineKind::RouterScript
-        | EngineKind::Qwen3Guard
-        | EngineKind::Winnow
-        | EngineKind::Kev
-        | EngineKind::StrandsDecider2b
-        | EngineKind::DecoderLogitQwen35
-        | EngineKind::Plumb4b
-        | EngineKind::Decider4b
-        | EngineKind::D3Edge
-        | EngineKind::D3Lite
-        | EngineKind::D3Nano
-        | EngineKind::D3Mini
-        | EngineKind::D3Flash
-        | EngineKind::Sieve4b
-        | EngineKind::WinnowE4b
-        | EngineKind::ClefFlash
-        | EngineKind::ClefFlashGguf
-        | EngineKind::Clef27bGguf
-        | EngineKind::DecoderLogitQwen306b
-        | EngineKind::DecoderLogitQwen317b
-        | EngineKind::DecoderLogitQwen34b
-        | EngineKind::LayaEnglish
-        | EngineKind::LayaMultilingual
-        | EngineKind::LayaTypedDecisions
-        | EngineKind::Von
-        | EngineKind::LayaEnglishMlxFp32
-        | EngineKind::LayaMultilingualMlxFp32
-        | EngineKind::LayaTypedDecisionsMlxFp32
-        | EngineKind::EncoderInstructLabelMlxFp32
-        | EngineKind::DecoderLogitQwen35MlxFp32
-        | EngineKind::Plumb4bMlxFp32 => {
-            panic!("the mock and surveyed-family engines have no Qwen35 native backend")
-        }
-        EngineKind::Qwen35 => Qwen35Backend::NativeCpu,
-        EngineKind::Qwen35MlxFp32 => Qwen35Backend::MlxFp32,
-        EngineKind::Qwen35MlxBf16 => Qwen35Backend::MlxBf16,
-    }
-}
-
-/// Native backend bound to a non-mock [`EngineKind`].
-///
-/// # Panics
-/// Panics when called for [`EngineKind::Mock`]; callers gate on the mock
-/// engine before reaching this mapping.
-#[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
 pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
     match engine {
         EngineKind::Mock
@@ -197,7 +143,22 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
         | EngineKind::Von => {
             panic!("the mock and surveyed-family engines have no Qwen35 native backend")
         }
+        // Or-pattern alternatives cannot carry `#[cfg]`, so the MLX-only
+        // kinds get their own arms.
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::LayaEnglishMlxFp32
+        | EngineKind::LayaMultilingualMlxFp32
+        | EngineKind::LayaTypedDecisionsMlxFp32
+        | EngineKind::EncoderInstructLabelMlxFp32
+        | EngineKind::DecoderLogitQwen35MlxFp32
+        | EngineKind::Plumb4bMlxFp32 => {
+            panic!("the mock and surveyed-family engines have no Qwen35 native backend")
+        }
         EngineKind::Qwen35 => Qwen35Backend::NativeCpu,
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::Qwen35MlxFp32 => Qwen35Backend::MlxFp32,
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::Qwen35MlxBf16 => Qwen35Backend::MlxBf16,
     }
 }
 
@@ -205,87 +166,55 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
 /// keeps its historical `qwen35` slug; MLX engines get distinct slugs so
 /// sweeps of different backends never overwrite each other.
 pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
-    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
-    {
-        match engine {
-            EngineKind::Mock => "mock",
-            EngineKind::Qwen35 => "qwen35",
-            EngineKind::DecoderLetter => "decoder-letter",
-            EngineKind::EncoderNli => "encoder-nli",
-            EngineKind::EncoderInstructLabel => "encoder-instruct-label",
-            EngineKind::DecoderLlm => "decoder-llm",
-            EngineKind::SchemaScorer => "schema-scorer",
-            EngineKind::RouterScript => "router-script",
-            EngineKind::Qwen3Guard => "qwen3guard",
-            EngineKind::Kev => "kev",
-            EngineKind::StrandsDecider2b => "strands-decider-2b",
-            EngineKind::DecoderLogitQwen35 => "decoder-logit-qwen35",
-            EngineKind::Plumb4b => "plumb-4b",
-            EngineKind::Decider4b => "decider-4b",
-            EngineKind::D3Edge => "d3-edge",
-            EngineKind::D3Lite => "d3-lite",
-            EngineKind::D3Nano => "d3-nano",
-            EngineKind::D3Mini => "d3-mini",
-            EngineKind::D3Flash => "d3-flash",
-            EngineKind::Sieve4b => "sieve-4b",
-            EngineKind::WinnowE4b => "winnow-e4b",
-            EngineKind::ClefFlash => "clef-flash",
-            EngineKind::ClefFlashGguf => "clef-flash-gguf",
-            EngineKind::Clef27bGguf => "clef-27b-gguf",
-            EngineKind::DecoderLogitQwen306b => "decoder-logit-qwen3-06b",
-            EngineKind::DecoderLogitQwen317b => "decoder-logit-qwen3-17b",
-            EngineKind::DecoderLogitQwen34b => "decoder-logit-qwen3-4b",
-            EngineKind::LayaEnglish => "laya-english",
-            EngineKind::LayaMultilingual => "laya-multilingual",
-            EngineKind::LayaTypedDecisions => "laya-typed-decisions",
-            EngineKind::Von => "von",
-            EngineKind::Winnow => "winnow",
-            EngineKind::Qwen35MlxFp32 => "qwen35-mlx-fp32",
-            EngineKind::Qwen35MlxBf16 => "qwen35-mlx-bf16",
-            EngineKind::LayaEnglishMlxFp32 => "laya-english-mlx-fp32",
-            EngineKind::LayaMultilingualMlxFp32 => "laya-multilingual-mlx-fp32",
-            EngineKind::LayaTypedDecisionsMlxFp32 => "laya-typed-decisions-mlx-fp32",
-            EngineKind::EncoderInstructLabelMlxFp32 => "encoder-instruct-label-mlx-fp32",
-            EngineKind::DecoderLogitQwen35MlxFp32 => "decoder-logit-qwen35-mlx-fp32",
-            EngineKind::Plumb4bMlxFp32 => "plumb-4b-mlx-fp32",
-        }
-    }
-    #[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
-    {
-        match engine {
-            EngineKind::Mock => "mock",
-            EngineKind::Qwen35 => "qwen35",
-            EngineKind::DecoderLetter => "decoder-letter",
-            EngineKind::EncoderNli => "encoder-nli",
-            EngineKind::EncoderInstructLabel => "encoder-instruct-label",
-            EngineKind::DecoderLlm => "decoder-llm",
-            EngineKind::SchemaScorer => "schema-scorer",
-            EngineKind::RouterScript => "router-script",
-            EngineKind::Qwen3Guard => "qwen3guard",
-            EngineKind::Kev => "kev",
-            EngineKind::StrandsDecider2b => "strands-decider-2b",
-            EngineKind::DecoderLogitQwen35 => "decoder-logit-qwen35",
-            EngineKind::Plumb4b => "plumb-4b",
-            EngineKind::Decider4b => "decider-4b",
-            EngineKind::D3Edge => "d3-edge",
-            EngineKind::D3Lite => "d3-lite",
-            EngineKind::D3Nano => "d3-nano",
-            EngineKind::D3Mini => "d3-mini",
-            EngineKind::D3Flash => "d3-flash",
-            EngineKind::Sieve4b => "sieve-4b",
-            EngineKind::WinnowE4b => "winnow-e4b",
-            EngineKind::ClefFlash => "clef-flash",
-            EngineKind::ClefFlashGguf => "clef-flash-gguf",
-            EngineKind::Clef27bGguf => "clef-27b-gguf",
-            EngineKind::DecoderLogitQwen306b => "decoder-logit-qwen3-06b",
-            EngineKind::DecoderLogitQwen317b => "decoder-logit-qwen3-17b",
-            EngineKind::DecoderLogitQwen34b => "decoder-logit-qwen3-4b",
-            EngineKind::LayaEnglish => "laya-english",
-            EngineKind::LayaMultilingual => "laya-multilingual",
-            EngineKind::LayaTypedDecisions => "laya-typed-decisions",
-            EngineKind::Von => "von",
-            EngineKind::Winnow => "winnow",
-        }
+    match engine {
+        EngineKind::Mock => "mock",
+        EngineKind::Qwen35 => "qwen35",
+        EngineKind::DecoderLetter => "decoder-letter",
+        EngineKind::EncoderNli => "encoder-nli",
+        EngineKind::EncoderInstructLabel => "encoder-instruct-label",
+        EngineKind::DecoderLlm => "decoder-llm",
+        EngineKind::SchemaScorer => "schema-scorer",
+        EngineKind::RouterScript => "router-script",
+        EngineKind::Qwen3Guard => "qwen3guard",
+        EngineKind::Kev => "kev",
+        EngineKind::StrandsDecider2b => "strands-decider-2b",
+        EngineKind::DecoderLogitQwen35 => "decoder-logit-qwen35",
+        EngineKind::Plumb4b => "plumb-4b",
+        EngineKind::Decider4b => "decider-4b",
+        EngineKind::D3Edge => "d3-edge",
+        EngineKind::D3Lite => "d3-lite",
+        EngineKind::D3Nano => "d3-nano",
+        EngineKind::D3Mini => "d3-mini",
+        EngineKind::D3Flash => "d3-flash",
+        EngineKind::Sieve4b => "sieve-4b",
+        EngineKind::WinnowE4b => "winnow-e4b",
+        EngineKind::ClefFlash => "clef-flash",
+        EngineKind::ClefFlashGguf => "clef-flash-gguf",
+        EngineKind::Clef27bGguf => "clef-27b-gguf",
+        EngineKind::DecoderLogitQwen306b => "decoder-logit-qwen3-06b",
+        EngineKind::DecoderLogitQwen317b => "decoder-logit-qwen3-17b",
+        EngineKind::DecoderLogitQwen34b => "decoder-logit-qwen3-4b",
+        EngineKind::LayaEnglish => "laya-english",
+        EngineKind::LayaMultilingual => "laya-multilingual",
+        EngineKind::LayaTypedDecisions => "laya-typed-decisions",
+        EngineKind::Von => "von",
+        EngineKind::Winnow => "winnow",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::Qwen35MlxFp32 => "qwen35-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::Qwen35MlxBf16 => "qwen35-mlx-bf16",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::LayaEnglishMlxFp32 => "laya-english-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::LayaMultilingualMlxFp32 => "laya-multilingual-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::LayaTypedDecisionsMlxFp32 => "laya-typed-decisions-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::EncoderInstructLabelMlxFp32 => "encoder-instruct-label-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::DecoderLogitQwen35MlxFp32 => "decoder-logit-qwen35-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::Plumb4bMlxFp32 => "plumb-4b-mlx-fp32",
     }
 }
 
@@ -690,4 +619,26 @@ pub(crate) fn validate_strategy_selection(
         );
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use openkind_backends::families::d3;
+
+    /// The merged D3 loader arm builds its error label from `engine_slug`.
+    /// Pin that each slug equals the profile loader id so the label stays
+    /// the one the five per-profile arms used to hard-code.
+    #[test]
+    fn d3_slug_matches_profile_loader_id() {
+        for (engine, profile) in [
+            (EngineKind::D3Edge, &d3::D3_EDGE),
+            (EngineKind::D3Lite, &d3::D3_LITE),
+            (EngineKind::D3Nano, &d3::D3_NANO),
+            (EngineKind::D3Mini, &d3::D3_MINI),
+            (EngineKind::D3Flash, &d3::D3_FLASH),
+        ] {
+            assert_eq!(engine_slug(engine), profile.loader_id);
+        }
+    }
 }
