@@ -80,6 +80,36 @@
   family) is parameterized over adapter rank and scale and supports
   multi-shard base checkpoints; the sieve family reuses it for its
   rank-32 merge, and the strands-decider load path is unchanged.
+- Releases fetch the catalog from the mirror's immutable
+  `registry/v1/catalogs/<CATALOG_SHA256>.json`, derived from the pinned
+  digest, instead of the mutable `registry/v1/catalog.json`. Manifests
+  still resolve under `registry/v1/`. The mirror keeps `catalog.json`
+  frozen at the v0.2.1 bytes so that release keeps pulling, and
+  `scripts/sync-model-registry.py` publishes each catalog under its digest.
+- d3 enforces 65,536 prompt tokens per question and 262,144 per request,
+  stricter than the reference's model context, and checks both before any
+  forward. Full attention observes cancellation inside the kernel on the
+  d3 path. Causal profiles run the unchanged kernel.
+- sieve enforces the reference contract (32,768 tokens for state plus the
+  longest branch, 65,536 per request, preamble excluded), validates every
+  question before any forward, bills usage the way the reference does, and
+  pins the adapter's `adapter_config.json` fields.
+- d3 and sieve accept one-option Choice questions, and d3 rejects empty
+  Choice keys and duplicate Score levels, matching their references.
+- `jev-decision-index-0.3.1.json` marks the six landed d3 and sieve
+  entries `openkind_loadable: true` with their catalog profile, and its
+  shard counts no longer count a separate readout as a model shard.
+
+### Fixed
+
+- The shared LoRA-merged backend reads target shapes from the safetensors
+  header instead of loading each base tensor onto the device, and no
+  longer folds load failures (such as accelerator OOM) into a "missing
+  tensor" contract error that hid them from backend fallback.
+- d3 profile descriptions no longer contain a run of spaces from a lost
+  line continuation.
+- `docs/MODELS.md` download sizes now equal each manifest's total bytes,
+  and profile counts read thirty-two.
 
 ## 0.2.1 (2026-10-07)
 
