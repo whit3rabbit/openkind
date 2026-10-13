@@ -4,10 +4,8 @@ use std::sync::Arc;
 
 use openkind_core::{ModelInfo, SystemRequest, SystemResponse};
 
-use crate::families::letter_renderer::LetterRenderer;
-use crate::families::support::{
-    temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
-};
+use crate::families::letter_renderer::{evaluate_letter_request, LetterRenderer};
+use crate::families::support::{BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator};
 
 use super::model::{DecoderLlmModel, VerifiedArtifacts};
 use super::{DecoderLlmEngineConfig, DecoderLlmError, BACKBONE_ID, GGUF_VARIANT, PROFILE_ID};
@@ -109,46 +107,14 @@ impl FamilyEvaluator for DecoderLlmEngine {
         request: SystemRequest,
         control: &FamilyControl,
     ) -> Result<SystemResponse, FamilyError> {
-        control.check()?;
-        let state = crate::families::wire::state_text(&request.state)?;
-        let question_ids = crate::families::wire::sorted_question_ids(&request)?;
-
-        let mut answers = std::collections::HashMap::<
-            String,
-            openkind_core::Answer,
-            openkind_core::WireHashState,
-        >::with_capacity_and_hasher(
-            question_ids.len(), Default::default()
-        );
-        let mut input_tokens: u64 = 0;
-        for id in &question_ids {
-            control.check()?;
-            let question = request
-                .questions
-                .get(id)
-                .expect("question id came from the request map");
-            let instruction = crate::families::wire::instruction_text(question)?;
-            let unpacked = crate::families::wire::unpack_question(id, question)?;
-            let rendered = self
-                .inner
-                .renderer
-                .render(&state, &instruction, &unpacked.criteria)?;
-            input_tokens = input_tokens
-                .saturating_add(u64::from(self.inner.renderer.prompt_token_count(&rendered)));
-            let logits = self
-                .inner
-                .model
-                .letter_logits(rendered.prompt_ids(), rendered.letter_ids())?;
-            let probabilities = temperature_softmax(&logits, super::CALIBRATION_TEMPERATURE)?;
-            let answer =
-                crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?;
-            answers.insert(id.clone(), answer);
-        }
-        control.check()?;
-        Ok(crate::families::wire::system_response(
-            request.model,
-            answers,
-            input_tokens,
-        ))
+        evaluate_letter_request(
+            &self.inner.renderer,
+            &|prompt_ids: &[u32], letter_ids: &[u32]| {
+                self.inner.model.letter_logits(prompt_ids, letter_ids)
+            },
+            super::CALIBRATION_TEMPERATURE,
+            request,
+            control,
+        )
     }
 }
