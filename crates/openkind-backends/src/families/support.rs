@@ -221,6 +221,84 @@ pub struct FamilyLimits {
     pub evaluation_timeout: Option<Duration>,
 }
 
+/// Calibrated letter-logit temperature of one profile.
+///
+/// Uniform profiles apply one temperature to every question type; by-type
+/// profiles follow the reference serving layer's per-type table.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Calibration {
+    /// One temperature for Choice, Score, and Noul questions.
+    Uniform(f64),
+    /// Per-type temperatures from the reference serving layer.
+    ByType {
+        /// Temperature for Choice questions.
+        choice: f64,
+        /// Temperature for Score questions.
+        score: f64,
+        /// Temperature for Noul questions.
+        noul: f64,
+    },
+}
+
+/// Question primitive of the pass being calibrated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum QuestionKind {
+    /// Choice questions.
+    Choice,
+    /// Score questions.
+    Score,
+    /// Noul (yes/no) questions.
+    Noul,
+}
+
+impl Calibration {
+    /// The temperature for one question primitive.
+    pub(crate) fn resolve(&self, primitive: QuestionKind) -> f64 {
+        match self {
+            Self::Uniform(temperature) => *temperature,
+            Self::ByType {
+                choice,
+                score,
+                noul,
+            } => match primitive {
+                QuestionKind::Choice => *choice,
+                QuestionKind::Score => *score,
+                QuestionKind::Noul => *noul,
+            },
+        }
+    }
+}
+
+/// The frozen backbone geometry, shared with sibling families that serve the
+/// same 32-layer Qwen3.5 hybrid checkpoint layout (e.g. `decider`).
+pub(crate) fn pinned_config_shared() -> Vec<(&'static str, serde_json::Value)> {
+    use serde_json::json;
+    vec![
+        ("architectures[0]", json!("Qwen3_5ForCausalLM")),
+        ("model_type", json!("qwen3_5_text")),
+        ("dtype", json!("bfloat16")),
+        ("hidden_size", json!(2_560)),
+        ("intermediate_size", json!(9_216)),
+        ("num_hidden_layers", json!(32)),
+        ("full_attention_interval", json!(4)),
+        ("num_attention_heads", json!(16)),
+        ("num_key_value_heads", json!(4)),
+        ("head_dim", json!(256)),
+        ("linear_num_key_heads", json!(16)),
+        ("linear_num_value_heads", json!(32)),
+        ("linear_key_head_dim", json!(128)),
+        ("linear_value_head_dim", json!(128)),
+        ("linear_conv_kernel_dim", json!(4)),
+        ("vocab_size", json!(248_320)),
+        ("tie_word_embeddings", json!(true)),
+        ("rms_norm_eps", json!(1e-06)),
+        ("partial_rotary_factor", json!(0.25)),
+        ("rope_parameters.rope_theta", json!(10_000_000)),
+        ("attn_output_gate", json!(true)),
+        ("attention_bias", json!(false)),
+    ]
+}
+
 /// Bounded [`DecisionEngine`] wrapper executing a [`FamilyEvaluator`] on the
 /// blocking pool with admission, queue, deadline, and cancellation control.
 pub struct BoundedFamilyEngine {

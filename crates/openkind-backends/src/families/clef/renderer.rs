@@ -27,7 +27,7 @@
 
 use tokenizers::Tokenizer;
 
-use crate::families::decoder_logit_qwen35::renderer::{python_float, python_string};
+use crate::families::python_json::{python_float, python_string};
 use crate::families::support::FamilyError;
 
 /// System instruction from the reference `joint_schema_model`.
