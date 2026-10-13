@@ -16,48 +16,23 @@
 use std::path::PathBuf;
 
 use openkind_backends::families::sieve::{
-    SieveEngine, SieveEngineConfig, SieveRenderer, EXECUTION_ARITHMETIC_ID, FAMILY_SLUG, SIEVE_4B,
+    plan_sieve_request, SieveEngine, SieveEngineConfig, SieveRenderer, EXECUTION_ARITHMETIC_ID,
+    FAMILY_SLUG, SIEVE_4B,
 };
 use openkind_backends::families::support::FamilyLimits;
 use openkind_core::{Question, SystemRequest};
 use openkind_engine::DecisionEngine;
 use serde_json::json;
 
-/// One labeled fixture case with the engine-planned prompt inputs.
+/// One labeled fixture case.
 struct Case {
     name: String,
     request: serde_json::Value,
-    state: serde_json::Value,
-    /// (kind, instructions, option texts, listing order) per branch, in
-    /// engine order (noul renders two branches).
-    plans: Vec<(&'static str, serde_json::Value, Vec<String>, Vec<usize>)>,
-}
-
-fn choice_plan(
-    instructions: &str,
-    criteria: &[(&str, Option<&str>)],
-) -> (&'static str, serde_json::Value, Vec<String>, Vec<usize>) {
-    // Wire options render in the wire's sorted label order.
-    let mut labels: Vec<&str> = criteria.iter().map(|(label, _)| *label).collect();
-    labels.sort_unstable();
-    let options = labels
-        .iter()
-        .map(
-            |label| match criteria.iter().find(|(key, _)| key == label) {
-                Some((_, Some(description))) if !description.is_empty() => {
-                    format!("{label} — {description}")
-                }
-                _ => (*label).to_owned(),
-            },
-        )
-        .collect();
-    let listing = (0..labels.len()).collect();
-    ("choice", serde_json::json!(instructions), options, listing)
 }
 
 fn cases() -> Vec<Case> {
     let mut cases = Vec::new();
-    let mut push = |name: &str, state: serde_json::Value, question: Question, plans| {
+    let mut push = |name: &str, state: serde_json::Value, question: Question| {
         let request = json!({
             "state": state,
             "model": "fixture",
@@ -68,8 +43,6 @@ fn cases() -> Vec<Case> {
         cases.push(Case {
             name: name.to_owned(),
             request,
-            state,
-            plans,
         });
     };
 
@@ -88,16 +61,9 @@ fn cases() -> Vec<Case> {
             .into_iter()
             .collect(),
         }),
-        vec![choice_plan(
-            "Which option is explicitly recorded in the state?",
-            &[
-                ("kitchen", Some("the room whose light is on")),
-                ("office", None),
-            ],
-        )],
     );
     push(
-        "choice-five-object-state",
+        "choice-five-text-state",
         json!("Incident record: severity high, service billing, region eu-west, status mitigated, owner oncall."),
         Question::Choice(openkind_core::ChoiceQuestion {
             instructions: json!("Which option is explicitly recorded in the state?"),
@@ -111,16 +77,6 @@ fn cases() -> Vec<Case> {
             .into_iter()
             .collect(),
         }),
-        vec![choice_plan(
-            "Which option is explicitly recorded in the state?",
-            &[
-                ("owner", None),
-                ("region", None),
-                ("service", None),
-                ("severity", None),
-                ("status", None),
-            ],
-        )],
     );
     push(
         "noul-default-criteria",
@@ -129,20 +85,6 @@ fn cases() -> Vec<Case> {
             instructions: json!("Is the ticket escalated?"),
             criteria: None,
         }),
-        vec![
-            (
-                "noul",
-                json!("Is the ticket escalated?"),
-                vec!["No".to_owned(), "Yes".to_owned()],
-                vec![1, 0],
-            ),
-            (
-                "noul",
-                json!("Is the ticket escalated?"),
-                vec!["No".to_owned(), "Yes".to_owned()],
-                vec![0, 1],
-            ),
-        ],
     );
     push(
         "noul-described-criteria",
@@ -154,26 +96,6 @@ fn cases() -> Vec<Case> {
                 r#false: "The temperature is at or below the threshold.".to_owned(),
             }),
         }),
-        vec![
-            (
-                "noul",
-                json!("Did the temperature exceed the threshold?"),
-                vec![
-                    "No — The temperature is at or below the threshold.".to_owned(),
-                    "Yes — The temperature is above the threshold.".to_owned(),
-                ],
-                vec![1, 0],
-            ),
-            (
-                "noul",
-                json!("Did the temperature exceed the threshold?"),
-                vec![
-                    "No — The temperature is at or below the threshold.".to_owned(),
-                    "Yes — The temperature is above the threshold.".to_owned(),
-                ],
-                vec![0, 1],
-            ),
-        ],
     );
     push(
         "score-three-levels",
@@ -182,12 +104,6 @@ fn cases() -> Vec<Case> {
             instructions: json!("How loaded is the queue?"),
             criteria: vec!["low".to_owned(), "moderate".to_owned(), "high".to_owned()],
         }),
-        vec![(
-            "score",
-            json!("How loaded is the queue?"),
-            vec!["low".to_owned(), "moderate".to_owned(), "high".to_owned()],
-            vec![0, 1, 2],
-        )],
     );
     push(
         "choice-empty-state",
@@ -198,10 +114,6 @@ fn cases() -> Vec<Case> {
                 .into_iter()
                 .collect(),
         }),
-        vec![choice_plan(
-            "Reply with any option.",
-            &[("alpha", None), ("beta", None)],
-        )],
     );
     push(
         "choice-none-option",
@@ -219,14 +131,6 @@ fn cases() -> Vec<Case> {
             .into_iter()
             .collect(),
         }),
-        vec![choice_plan(
-            "Which list applies?",
-            &[
-                ("__none__", Some("neither list applies")),
-                ("allowlist", None),
-                ("denylist", None),
-            ],
-        )],
     );
     cases
 }
@@ -273,7 +177,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             )?;
             serde_json::from_value::<Vec<u64>>(config["code_ids"].clone())?
         },
-        &SIEVE_4B,
     )?;
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -293,21 +196,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "response": serde_json::to_value(&response)?,
         }));
 
-        // Render every branch through the engine's own planning path for
-        // the reference-parity anchor.
-        let prefix = renderer.render_prefix(&case.state)?;
+        // Render every branch through the engine's own planning path
+        // (`plan_sieve_request`, which `SieveEngine::evaluate` runs before any
+        // forward) for the reference-parity anchor.
+        let plan = plan_sieve_request(&renderer, &SIEVE_4B, &request)?;
         let mut branches = Vec::new();
-        for (kind, instructions, options, listing) in &case.plans {
-            let row = renderer.render_branch(&prefix, kind, instructions, options, listing)?;
+        for (_, row) in plan.rows() {
             let digest = {
                 use sha2::Digest as _;
                 use std::fmt::Write as _;
-                let joined = row
-                    .prompt_ids()
-                    .iter()
-                    .map(u32::to_string)
-                    .collect::<Vec<_>>()
-                    .join(",");
+                let joined = row.iter().map(u32::to_string).collect::<Vec<_>>().join(",");
                 let mut hasher = sha2::Sha256::new();
                 hasher.update(joined.as_bytes());
                 let digest = hasher.finalize();
@@ -318,13 +216,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 text
             };
             branches.push(json!({
-                "token_count": row.prompt_ids().len(),
+                "token_count": row.len(),
                 "branch_ids_sha256": digest,
             }));
         }
         prompt_stats.push(json!({
             "name": case.name,
-            "prefix_token_count": prefix.len(),
+            "prefix_token_count": plan.prefix_ids().len(),
             "branches": branches,
         }));
     }

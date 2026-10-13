@@ -128,17 +128,21 @@ impl VerifiedArtifacts {
             }
         }
         let sieve_json: serde_json::Value = read_json(&sieve_config)?;
-        for (field, expected) in pinned_sieve_config(profile) {
-            let actual = resolve_config_field(&sieve_json, field).ok_or_else(|| {
-                FamilyError::ContractMismatch {
-                    field,
-                    expected: expected.to_string(),
-                    actual: "missing".to_owned(),
-                }
-            })?;
-            if actual != expected {
-                return Err(FamilyError::contract(field, expected, actual));
-            }
+        enforce_pins(&sieve_json, pinned_sieve_config(profile))?;
+        // The digest already fixes the adapter config bytes; parsing them
+        // ties the merge settings the loader assumes to the pinned file.
+        let adapter_json: serde_json::Value =
+            read_json(&checkpoint_dir.join("adapter_config.json"))?;
+        enforce_pins(&adapter_json, pinned_adapter_config(profile))?;
+        // The merge applies `profile.lora_scale`, so it must equal the
+        // pinned `lora_alpha / r` (plain LoRA scaling; rslora is pinned off).
+        let pinned_scale = profile.lora_alpha as f64 / profile.lora_rank as f64;
+        if profile.lora_scale != pinned_scale {
+            return Err(FamilyError::contract(
+                "adapter_config.lora_alpha / r",
+                pinned_scale,
+                profile.lora_scale,
+            ));
         }
 
         let mut base_shards = Vec::with_capacity(profile.base_shards.len());
@@ -231,6 +235,56 @@ pub(crate) fn pinned_sieve_config(
         ("revision", json!(profile.base_revision)),
         ("pointer", json!(false)),
     ]
+}
+
+/// Pinned `adapter_config.json` values the loader enforces before merging
+/// the adapter. Each setting below would make the merged weights differ from
+/// `base + (B @ A) * lora_alpha / r`, which is the only merge the shared
+/// backend implements.
+pub(crate) fn pinned_adapter_config(
+    profile: &SieveProfile,
+) -> Vec<(&'static str, serde_json::Value)> {
+    use serde_json::json;
+    vec![
+        ("peft_type", json!("LORA")),
+        ("base_model_name_or_path", json!(profile.base_id)),
+        ("r", json!(profile.lora_rank)),
+        ("lora_alpha", json!(profile.lora_alpha)),
+        ("bias", json!("none")),
+        ("fan_in_fan_out", json!(false)),
+        // rsLoRA rescales by `alpha / sqrt(r)`, DoRA adds a magnitude
+        // vector, the patterns override rank or alpha per module, and a
+        // LoRA bias adds a term the merge would drop.
+        ("use_rslora", json!(false)),
+        ("use_dora", json!(false)),
+        ("alpha_pattern", json!({})),
+        ("rank_pattern", json!({})),
+        ("lora_bias", json!(false)),
+        // Nothing outside the lora_A/lora_B pairs may replace, duplicate, or
+        // extend base weights.
+        ("modules_to_save", json!(null)),
+        ("layer_replication", json!(null)),
+        ("trainable_token_indices", json!(null)),
+    ]
+}
+
+/// Fail closed unless every dotted-path pin is present with its exact value.
+fn enforce_pins(
+    config: &serde_json::Value,
+    pins: Vec<(&'static str, serde_json::Value)>,
+) -> Result<(), FamilyError> {
+    for (field, expected) in pins {
+        let actual =
+            resolve_config_field(config, field).ok_or_else(|| FamilyError::ContractMismatch {
+                field,
+                expected: expected.to_string(),
+                actual: "missing".to_owned(),
+            })?;
+        if actual != expected {
+            return Err(FamilyError::contract(field, expected, actual));
+        }
+    }
+    Ok(())
 }
 
 /// Read the pinned `[rows, hidden]` float32 head out of a verified
@@ -361,5 +415,68 @@ impl SieveModel {
             logits.push(logit);
         }
         Ok(logits)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::families::sieve::SIEVE_4B;
+
+    /// The pinned `adapter_config.json`, vendored byte-for-byte (1,381
+    /// bytes) so the pins are checked against the real artifact offline.
+    fn vendored_adapter_config() -> serde_json::Value {
+        let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/sieve_8b97b56524b55c41fbf4/adapter_config.json");
+        let (_, _, sha256) = SIEVE_4B
+            .checkpoint_files
+            .iter()
+            .find(|(name, _, _)| *name == "adapter_config.json")
+            .expect("profile pins adapter_config.json");
+        verify_digest(&path, sha256).expect("vendored adapter config is the pinned artifact");
+        read_json(&path).expect("adapter config parses")
+    }
+
+    #[test]
+    fn pinned_adapter_config_matches_the_pinned_artifact() {
+        enforce_pins(&vendored_adapter_config(), pinned_adapter_config(&SIEVE_4B))
+            .expect("every adapter pin matches the pinned file");
+    }
+
+    #[test]
+    fn adapter_pins_reject_settings_that_change_the_merge() {
+        let vendored = vendored_adapter_config();
+        for (field, value) in [
+            ("use_rslora", serde_json::json!(true)),
+            ("use_dora", serde_json::json!(true)),
+            ("alpha_pattern", serde_json::json!({"q_proj": 128})),
+            ("rank_pattern", serde_json::json!({"q_proj": 8})),
+            ("fan_in_fan_out", serde_json::json!(true)),
+            ("lora_alpha", serde_json::json!(32)),
+            ("r", serde_json::json!(16)),
+        ] {
+            let mut drifted = vendored.clone();
+            drifted[field] = value;
+            match enforce_pins(&drifted, pinned_adapter_config(&SIEVE_4B)) {
+                Err(FamilyError::ContractMismatch {
+                    field: rejected, ..
+                }) => {
+                    assert_eq!(rejected, field)
+                }
+                other => panic!("{field}: expected a contract mismatch, got {other:?}"),
+            }
+        }
+        let mut missing = vendored;
+        missing
+            .as_object_mut()
+            .expect("object config")
+            .remove("use_dora");
+        assert!(matches!(
+            enforce_pins(&missing, pinned_adapter_config(&SIEVE_4B)),
+            Err(FamilyError::ContractMismatch {
+                field: "use_dora",
+                ..
+            })
+        ));
     }
 }

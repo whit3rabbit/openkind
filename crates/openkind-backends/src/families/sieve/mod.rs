@@ -52,7 +52,7 @@ use std::time::Duration;
 use openkind_engine::ProbabilitySpace;
 use thiserror::Error;
 
-pub use self::engine::SieveEngine;
+pub use self::engine::{plan_request as plan_sieve_request, SieveEngine, SieveRequestPlan};
 pub use self::renderer::{derive_answer_codes as derive_sieve_answer_codes, SieveRenderer};
 use crate::families::decoder_logit_qwen35::Calibration;
 use crate::families::support::FamilyLimits;
@@ -97,17 +97,25 @@ pub struct SieveProfile {
     /// Serving checkpoint files as `(path, bytes, sha256)` under the
     /// install's `checkpoint/` directory.
     pub checkpoint_files: &'static [(&'static str, u64, &'static str)],
-    /// LoRA rank of the pinned adapter (`adapter_config.json`).
+    /// LoRA rank of the pinned adapter (`adapter_config.json` `r`).
     pub lora_rank: usize,
-    /// LoRA scale (`alpha / rank`) of the pinned adapter.
+    /// LoRA alpha of the pinned adapter (`adapter_config.json`
+    /// `lora_alpha`).
+    pub lora_alpha: usize,
+    /// LoRA scale (`lora_alpha / lora_rank`) of the pinned adapter; the
+    /// loader rejects a profile where the two disagree.
     pub lora_scale: f64,
     /// Frozen readout width (`sieve_config.json` `MAX_OPTIONS`).
     pub max_candidates: usize,
     /// Frozen maximum Score levels per question.
     pub max_score_levels: usize,
-    /// Frozen maximum rendered row length in tokens; longer requests fail
-    /// closed because the reference never truncates.
-    pub max_row_tokens: usize,
+    /// Reference `contract.py:MAX_BRANCH_TOKENS`: the state tokens plus the
+    /// request's longest question branch, preamble excluded. Longer requests
+    /// fail closed before any forward because the reference never truncates.
+    pub max_branch_tokens: usize,
+    /// Reference `contract.py:MAX_REQUEST_TOKENS`: the state tokens once plus
+    /// every question's longest branch, preamble excluded.
+    pub max_request_tokens: usize,
     /// Calibrated per-type temperatures from `sieve_config.json`.
     pub calibration: Calibration,
     /// Backend id reported by the CPU engine serving this profile.
@@ -190,10 +198,12 @@ pub const SIEVE_4B: SieveProfile = SieveProfile {
         ),
     ],
     lora_rank: 32,
+    lora_alpha: 64,
     lora_scale: 2.0,
     max_candidates: 255,
     max_score_levels: 10,
-    max_row_tokens: 262_144,
+    max_branch_tokens: 32_768,
+    max_request_tokens: 65_536,
     // sieve_config.json "temperatures".
     calibration: Calibration::ByType {
         choice: 1.1608255534843908,
@@ -317,5 +327,26 @@ mod tests {
             );
             assert_eq!(profile.max_candidates, CODE_TABLE_WIDTH);
         }
+    }
+
+    #[test]
+    fn every_profile_scale_is_alpha_over_rank() {
+        // PEFT merges with `lora_alpha / r` (no rslora); a profile whose
+        // scale disagrees would merge a different model than it pins.
+        for profile in PROFILES {
+            assert_eq!(
+                profile.lora_scale,
+                profile.lora_alpha as f64 / profile.lora_rank as f64,
+                "{}",
+                profile.loader_id
+            );
+        }
+    }
+
+    #[test]
+    fn token_caps_match_the_reference_contract() {
+        // Reference `contract.py`: MAX_BRANCH_TOKENS and MAX_REQUEST_TOKENS.
+        assert_eq!(SIEVE_4B.max_branch_tokens, 32_768);
+        assert_eq!(SIEVE_4B.max_request_tokens, 65_536);
     }
 }
