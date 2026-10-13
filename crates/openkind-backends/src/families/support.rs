@@ -296,26 +296,274 @@ pub(crate) fn pinned_config_shared() -> Vec<(&'static str, serde_json::Value)> {
     ]
 }
 
+/// Metric names one [`AdmissionGate`] records under.
+///
+/// The names are exported Prometheus series, so each engine family keeps its
+/// own prefix: only the label strings differ between users of the gate.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct GateMetrics {
+    /// Histogram of whole-request seconds.
+    pub request_seconds: &'static str,
+    /// Counter of requests, labelled by `outcome`.
+    pub requests_total: &'static str,
+    /// Histogram of seconds spent waiting for an execution slot.
+    pub queue_wait_seconds: &'static str,
+    /// Histogram of seconds spent inside the blocking task.
+    pub execution_seconds: &'static str,
+    /// Counter of requests abandoned by their caller.
+    pub cancellations_total: &'static str,
+}
+
+/// Metrics of the surveyed-family engines (`BoundedFamilyEngine`, winnow).
+pub(crate) const FAMILY_GATE_METRICS: GateMetrics = GateMetrics {
+    request_seconds: "openkind_family_request_seconds",
+    requests_total: "openkind_family_requests_total",
+    queue_wait_seconds: "openkind_family_queue_wait_seconds",
+    execution_seconds: "openkind_family_execution_seconds",
+    cancellations_total: "openkind_family_cancellations_total",
+};
+
+/// Metrics of the native Qwen3.5 engine.
+pub(crate) const NATIVE_GATE_METRICS: GateMetrics = GateMetrics {
+    request_seconds: "openkind_native_request_seconds",
+    requests_total: "openkind_native_requests_total",
+    queue_wait_seconds: "openkind_native_queue_wait_seconds",
+    execution_seconds: "openkind_native_execution_seconds",
+    cancellations_total: "openkind_native_cancellations_total",
+};
+
+/// Duration in whole milliseconds, saturating at `u64::MAX`.
+pub(crate) fn saturating_millis(duration: Duration) -> u64 {
+    u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
+}
+
+/// Fixed-label outcome of one finished request, for `requests_total`.
+pub(crate) fn outcome_label<T>(result: &EngineResult<T>) -> &'static str {
+    match result {
+        Ok(_) => "ok",
+        Err(EngineError::DeadlineExceeded { .. }) => "deadline",
+        Err(EngineError::Overloaded { .. }) => "overloaded",
+        Err(EngineError::Unsupported { .. } | EngineError::Invalid(_)) => "invalid",
+        Err(_) => "backend_error",
+    }
+}
+
+/// Admission, queue, and blocking-pool plumbing shared by every engine that
+/// runs model work off the async runtime.
+///
+/// A request first takes an admission permit (rejecting immediately when the
+/// queue is full), then waits for an execution slot under its deadline, then
+/// runs on the blocking pool. Both permits travel into the blocking task, so
+/// dropping a cancelled caller cannot admit replacement work while model
+/// compute is still running. Callers keep their own deadline policy and
+/// result mapping; the gate owns only the permits and the metrics around them.
+pub(crate) struct AdmissionGate {
+    execution_slots: Arc<Semaphore>,
+    admission_slots: Arc<Semaphore>,
+    retry_after_ms: u64,
+    metrics: GateMetrics,
+}
+
+impl AdmissionGate {
+    /// Size the gate: at least one concurrent evaluation, plus the queue.
+    pub(crate) fn new(
+        max_concurrent_requests: usize,
+        max_queued_requests: usize,
+        retry_after_ms: u64,
+        metrics: GateMetrics,
+    ) -> Self {
+        let concurrent = max_concurrent_requests.max(1);
+        let admitted = concurrent.saturating_add(max_queued_requests);
+        Self {
+            execution_slots: Arc::new(Semaphore::new(concurrent)),
+            admission_slots: Arc::new(Semaphore::new(admitted)),
+            retry_after_ms,
+            metrics,
+        }
+    }
+
+    /// Arm a guard that raises `cancelled` if the caller's future is dropped
+    /// before [`CancellationOnDrop::disarm`].
+    pub(crate) fn cancellation_guard(&self, cancelled: Arc<AtomicBool>) -> CancellationOnDrop {
+        CancellationOnDrop::new(cancelled, self.metrics.cancellations_total)
+    }
+
+    /// Record one finished request under the gate's metric names.
+    pub(crate) fn record(&self, started: Instant, outcome: &'static str) {
+        metrics::histogram!(self.metrics.request_seconds).record(started.elapsed().as_secs_f64());
+        metrics::counter!(self.metrics.requests_total, "outcome" => outcome).increment(1);
+    }
+
+    /// Admit, queue, and run `work` on the blocking pool.
+    ///
+    /// Overload, a deadline that elapses while queued, a closed pool, and a
+    /// failed (panicked) task are recorded here and returned as errors. A
+    /// completed task returns its value untouched: the caller maps it to a
+    /// wire result and records that final outcome itself.
+    pub(crate) async fn run<T, F>(
+        &self,
+        backend: &str,
+        started: Instant,
+        deadline: Option<Instant>,
+        timeout_ms: u64,
+        work: F,
+    ) -> EngineResult<T>
+    where
+        T: Send + 'static,
+        F: FnOnce() -> T + Send + 'static,
+    {
+        let admission = match self.admission_slots.clone().try_acquire_owned() {
+            Ok(permit) => permit,
+            Err(_) => {
+                self.record(started, "overloaded");
+                return Err(EngineError::Overloaded {
+                    backend: backend.to_owned(),
+                    retry_after_ms: self.retry_after_ms,
+                });
+            }
+        };
+        let queue_started = Instant::now();
+        let execution = match acquire_execution_slot(
+            self.execution_slots.clone(),
+            deadline,
+            backend,
+            timeout_ms,
+        )
+        .await
+        {
+            Ok(permit) => permit,
+            Err(error) => {
+                let outcome = if matches!(&error, EngineError::DeadlineExceeded { .. }) {
+                    "deadline"
+                } else {
+                    "backend_error"
+                };
+                self.record(started, outcome);
+                return Err(error);
+            }
+        };
+        metrics::histogram!(self.metrics.queue_wait_seconds)
+            .record(queue_started.elapsed().as_secs_f64());
+
+        let execution_metric = self.metrics.execution_seconds;
+        let execution_started = Instant::now();
+        let joined = run_blocking_with_permits(execution, admission, move || {
+            let result = work();
+            metrics::histogram!(execution_metric).record(execution_started.elapsed().as_secs_f64());
+            result
+        })
+        .await;
+        joined.map_err(|join| {
+            self.record(started, "backend_error");
+            EngineError::Backend {
+                backend: backend.to_owned(),
+                message: format!("evaluation task failed: {join}"),
+            }
+        })
+    }
+}
+
+async fn acquire_execution_slot(
+    slots: Arc<Semaphore>,
+    deadline: Option<Instant>,
+    backend: &str,
+    timeout_ms: u64,
+) -> EngineResult<tokio::sync::OwnedSemaphorePermit> {
+    let acquire = slots.acquire_owned();
+    if let Some(deadline) = deadline {
+        match tokio::time::timeout_at(deadline.into(), acquire).await {
+            Ok(Ok(permit)) => Ok(permit),
+            Ok(Err(_)) => Err(EngineError::Backend {
+                backend: backend.to_owned(),
+                message: "execution admission closed during shutdown".into(),
+            }),
+            Err(_) => Err(EngineError::DeadlineExceeded {
+                backend: backend.to_owned(),
+                timeout_ms,
+            }),
+        }
+    } else {
+        acquire.await.map_err(|_| EngineError::Backend {
+            backend: backend.to_owned(),
+            message: "execution admission closed during shutdown".into(),
+        })
+    }
+}
+
+async fn run_blocking_with_permits<T, F>(
+    execution: tokio::sync::OwnedSemaphorePermit,
+    admission: tokio::sync::OwnedSemaphorePermit,
+    work: F,
+) -> Result<T, tokio::task::JoinError>
+where
+    T: Send + 'static,
+    F: FnOnce() -> T + Send + 'static,
+{
+    tokio::task::spawn_blocking(move || {
+        // The blocking task owns both permits. Dropping a cancelled HTTP/gRPC
+        // future therefore cannot admit replacement work while model compute
+        // is still running in the blocking pool.
+        let _execution = execution;
+        let _admission = admission;
+        work()
+    })
+    .await
+}
+
+/// Raises a shared cancellation flag when the caller's future is dropped
+/// before the request completes.
+///
+/// Evaluators observe the flag through their cooperative control and exit,
+/// releasing the permits the blocking task holds.
+pub(crate) struct CancellationOnDrop {
+    cancelled: Arc<AtomicBool>,
+    metric: &'static str,
+    armed: bool,
+}
+
+impl CancellationOnDrop {
+    pub(crate) fn new(cancelled: Arc<AtomicBool>, metric: &'static str) -> Self {
+        Self {
+            cancelled,
+            metric,
+            armed: true,
+        }
+    }
+
+    /// The request completed: dropping the guard no longer cancels.
+    pub(crate) fn disarm(&mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for CancellationOnDrop {
+    fn drop(&mut self) {
+        if self.armed {
+            self.cancelled.store(true, Ordering::Release);
+            metrics::counter!(self.metric).increment(1);
+        }
+    }
+}
+
 /// Bounded [`DecisionEngine`] wrapper executing a [`FamilyEvaluator`] on the
 /// blocking pool with admission, queue, deadline, and cancellation control.
 pub struct BoundedFamilyEngine {
     evaluator: Arc<dyn FamilyEvaluator>,
-    execution_slots: Arc<Semaphore>,
-    admission_slots: Arc<Semaphore>,
-    retry_after_ms: u64,
+    gate: AdmissionGate,
     evaluation_timeout: Option<Duration>,
 }
 
 impl BoundedFamilyEngine {
     /// Wrap a loaded family evaluator with admission control.
     pub fn new(evaluator: Arc<dyn FamilyEvaluator>, limits: FamilyLimits) -> Self {
-        let concurrent = limits.max_concurrent_requests.max(1);
-        let admitted = concurrent.saturating_add(limits.max_queued_requests);
         Self {
             evaluator,
-            execution_slots: Arc::new(Semaphore::new(concurrent)),
-            admission_slots: Arc::new(Semaphore::new(admitted)),
-            retry_after_ms: limits.retry_after_ms,
+            gate: AdmissionGate::new(
+                limits.max_concurrent_requests,
+                limits.max_queued_requests,
+                limits.retry_after_ms,
+                FAMILY_GATE_METRICS,
+            ),
             evaluation_timeout: limits.evaluation_timeout,
         }
     }
@@ -338,7 +586,7 @@ impl DecisionEngine for BoundedFamilyEngine {
     async fn evaluate(&self, request: SystemRequest) -> EngineResult<SystemResponse> {
         let started = Instant::now();
         let cancelled = Arc::new(AtomicBool::new(false));
-        let mut cancellation = CancellationOnDrop::new(cancelled.clone());
+        let mut cancellation = self.gate.cancellation_guard(cancelled.clone());
         let result = self.evaluate_controlled(request, started, cancelled).await;
         cancellation.disarm();
         result
@@ -353,18 +601,13 @@ impl BoundedFamilyEngine {
         cancelled: Arc<AtomicBool>,
     ) -> EngineResult<SystemResponse> {
         let backend = self.backend_id();
-        let record = |outcome: &'static str| {
-            metrics::histogram!("openkind_family_request_seconds")
-                .record(started.elapsed().as_secs_f64());
-            metrics::counter!("openkind_family_requests_total", "outcome" => outcome).increment(1);
-        };
         let deadline = match self.evaluation_timeout {
             Some(timeout) => match started.checked_add(timeout) {
                 Some(deadline) => Some(deadline),
                 None => {
                     // An unrepresentable configured deadline must not turn
                     // into an unbounded evaluation.
-                    record("invalid");
+                    self.gate.record(started, "invalid");
                     return Err(EngineError::Unsupported {
                         backend,
                         message: "family evaluation timeout is outside the monotonic clock range"
@@ -374,106 +617,21 @@ impl BoundedFamilyEngine {
             },
             None => None,
         };
-
-        let admission = self
-            .admission_slots
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| EngineError::Overloaded {
-                backend: backend.clone(),
-                retry_after_ms: self.retry_after_ms,
-            });
-        let admission = match admission {
-            Ok(permit) => permit,
-            Err(error) => {
-                record("overloaded");
-                return Err(error);
-            }
-        };
-        let queue_started = Instant::now();
-        let execution = match acquire_execution_slot(
-            self.execution_slots.clone(),
-            deadline,
-            &backend,
-            self.evaluation_timeout,
-        )
-        .await
-        {
-            Ok(permit) => permit,
-            Err(error) => {
-                let outcome = if matches!(&error, EngineError::DeadlineExceeded { .. }) {
-                    "deadline"
-                } else {
-                    "backend_error"
-                };
-                record(outcome);
-                return Err(error);
-            }
-        };
-        metrics::histogram!("openkind_family_queue_wait_seconds")
-            .record(queue_started.elapsed().as_secs_f64());
-
-        let evaluator = self.evaluator.clone();
         let timeout_ms = self
             .evaluation_timeout
-            .map(|timeout| timeout.as_millis().min(u128::from(u64::MAX)) as u64)
+            .map(saturating_millis)
             .unwrap_or_default();
         let control = FamilyControl::new(cancelled, deadline, timeout_ms);
-        let execution_started = Instant::now();
-        let joined = tokio::task::spawn_blocking(move || {
-            let _execution = execution;
-            let _admission = admission;
-            let result = evaluator.evaluate(request, &control);
-            metrics::histogram!("openkind_family_execution_seconds")
-                .record(execution_started.elapsed().as_secs_f64());
-            result
-        })
-        .await;
-        let result = match joined {
-            Ok(result) => result.map_err(|error| map_family_error(&backend, error)),
-            Err(join) => Err(EngineError::Backend {
-                backend,
-                message: format!("family evaluation task failed: {join}"),
-            }),
-        };
-        let outcome = match &result {
-            Ok(_) => "ok",
-            Err(EngineError::DeadlineExceeded { .. }) => "deadline",
-            Err(EngineError::Overloaded { .. }) => "overloaded",
-            Err(EngineError::Unsupported { .. }) => "invalid",
-            Err(_) => "backend_error",
-        };
-        record(outcome);
+        let evaluator = self.evaluator.clone();
+        let joined = self
+            .gate
+            .run(&backend, started, deadline, timeout_ms, move || {
+                evaluator.evaluate(request, &control)
+            })
+            .await?;
+        let result = joined.map_err(|error| map_family_error(&backend, error));
+        self.gate.record(started, outcome_label(&result));
         result
-    }
-}
-
-async fn acquire_execution_slot(
-    slots: Arc<Semaphore>,
-    deadline: Option<Instant>,
-    backend: &str,
-    evaluation_timeout: Option<Duration>,
-) -> EngineResult<tokio::sync::OwnedSemaphorePermit> {
-    let acquire = slots.acquire_owned();
-    if let Some(deadline) = deadline {
-        match tokio::time::timeout_at(deadline.into(), acquire).await {
-            Ok(Ok(permit)) => Ok(permit),
-            Ok(Err(_)) => Err(EngineError::Backend {
-                backend: backend.to_owned(),
-                message: "family execution admission closed during shutdown".into(),
-            }),
-            Err(_) => Err(EngineError::DeadlineExceeded {
-                backend: backend.to_owned(),
-                timeout_ms: evaluation_timeout
-                    .map(|timeout| timeout.as_millis() as u64)
-                    .unwrap_or_default(),
-            }),
-        }
-    } else {
-        acquire.await.map_err(|_| EngineError::Backend {
-            backend: backend.to_owned(),
-            message: "family execution admission closed during shutdown".into(),
-        })
     }
 }
 
@@ -489,33 +647,6 @@ fn map_family_error(backend: &str, error: FamilyError) -> EngineError {
             backend,
             message: error.to_string(),
         },
-    }
-}
-
-struct CancellationOnDrop {
-    cancelled: Arc<AtomicBool>,
-    armed: bool,
-}
-
-impl CancellationOnDrop {
-    fn new(cancelled: Arc<AtomicBool>) -> Self {
-        Self {
-            cancelled,
-            armed: true,
-        }
-    }
-
-    fn disarm(&mut self) {
-        self.armed = false;
-    }
-}
-
-impl Drop for CancellationOnDrop {
-    fn drop(&mut self) {
-        if self.armed {
-            self.cancelled.store(true, Ordering::Release);
-            metrics::counter!("openkind_family_cancellations_total").increment(1);
-        }
     }
 }
 
@@ -906,8 +1037,8 @@ mod tests {
             error,
             EngineError::Unsupported { message, .. } if message.contains("monotonic clock range")
         ));
-        assert_eq!(engine.execution_slots.available_permits(), 1);
-        assert_eq!(engine.admission_slots.available_permits(), 1);
+        assert_eq!(engine.gate.execution_slots.available_permits(), 1);
+        assert_eq!(engine.gate.admission_slots.available_permits(), 1);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -1034,8 +1165,8 @@ mod tests {
         );
         // The blocking task exited through the cooperative check, so both
         // the execution and admission permits are back.
-        assert_eq!(engine.execution_slots.available_permits(), 1);
-        assert_eq!(engine.admission_slots.available_permits(), 1);
+        assert_eq!(engine.gate.execution_slots.available_permits(), 1);
+        assert_eq!(engine.gate.admission_slots.available_permits(), 1);
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -1053,7 +1184,7 @@ mod tests {
         let busy = tokio::spawn(async move { busy_engine.evaluate(request()).await });
         tokio::time::sleep(Duration::from_millis(200)).await;
         assert_eq!(
-            engine.execution_slots.available_permits(),
+            engine.gate.execution_slots.available_permits(),
             0,
             "the running evaluation holds the only execution slot"
         );
@@ -1062,15 +1193,15 @@ mod tests {
         // evaluator must observe it and release the slot promptly.
         busy.abort();
         let deadline = Instant::now() + Duration::from_secs(30);
-        while Instant::now() < deadline && engine.execution_slots.available_permits() < 1 {
+        while Instant::now() < deadline && engine.gate.execution_slots.available_permits() < 1 {
             tokio::time::sleep(Duration::from_millis(10)).await;
         }
         assert_eq!(
-            engine.execution_slots.available_permits(),
+            engine.gate.execution_slots.available_permits(),
             1,
             "caller disconnect must reclaim the execution slot via cooperative cancellation"
         );
-        assert_eq!(engine.admission_slots.available_permits(), 1);
+        assert_eq!(engine.gate.admission_slots.available_permits(), 1);
     }
 
     #[test]
@@ -1356,7 +1487,7 @@ mod tests {
     #[tokio::test]
     async fn execution_slot_acquires_and_recovers() {
         let slots = Arc::new(Semaphore::new(1));
-        let permit = acquire_execution_slot(slots.clone(), None, "test-family", None)
+        let permit = acquire_execution_slot(slots.clone(), None, "test-family", 0)
             .await
             .expect("open slot must be acquirable");
         assert_eq!(slots.available_permits(), 0);
@@ -1368,7 +1499,7 @@ mod tests {
     async fn execution_slot_fails_closed_when_admission_shuts_down() {
         let slots = Arc::new(Semaphore::new(0));
         slots.close();
-        let error = acquire_execution_slot(slots, None, "test-family", None)
+        let error = acquire_execution_slot(slots, None, "test-family", 0)
             .await
             .expect_err("a closed pool must fail closed");
         assert!(
@@ -1390,7 +1521,7 @@ mod tests {
             slots.clone(),
             Some(Instant::now() + Duration::from_millis(20)),
             "test-family",
-            Some(Duration::from_millis(20)),
+            20,
         )
         .await
         .expect_err("an elapsed deadline must fail while queued");
@@ -1405,9 +1536,203 @@ mod tests {
 
         // Releasing the slot makes the next acquisition succeed again.
         drop(held);
-        let permit = acquire_execution_slot(slots, None, "test-family", None)
+        let permit = acquire_execution_slot(slots, None, "test-family", 0)
             .await
             .expect("slot recovers after the deadline failure");
         drop(permit);
+    }
+
+    #[test]
+    fn cancellation_guard_signals_only_when_abandoned() {
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let guard = CancellationOnDrop::new(cancelled.clone(), "test_cancellations_total");
+        drop(guard);
+        assert!(cancelled.load(Ordering::Acquire));
+
+        let completed = Arc::new(AtomicBool::new(false));
+        let mut guard = CancellationOnDrop::new(completed.clone(), "test_cancellations_total");
+        guard.disarm();
+        drop(guard);
+        assert!(!completed.load(Ordering::Acquire));
+    }
+
+    #[test]
+    fn gate_metric_names_keep_their_exported_prefixes() {
+        for (metrics, prefix) in [
+            (FAMILY_GATE_METRICS, "openkind_family_"),
+            (NATIVE_GATE_METRICS, "openkind_native_"),
+        ] {
+            for name in [
+                metrics.request_seconds,
+                metrics.requests_total,
+                metrics.queue_wait_seconds,
+                metrics.execution_seconds,
+                metrics.cancellations_total,
+            ] {
+                assert!(name.starts_with(prefix), "{name}");
+            }
+        }
+        assert_eq!(
+            NATIVE_GATE_METRICS.cancellations_total,
+            "openkind_native_cancellations_total"
+        );
+    }
+
+    #[test]
+    fn millis_saturate_instead_of_wrapping() {
+        assert_eq!(saturating_millis(Duration::from_millis(1_500)), 1_500);
+        assert_eq!(saturating_millis(Duration::MAX), u64::MAX);
+    }
+
+    #[test]
+    fn outcome_labels_cover_every_engine_error_class() {
+        let backend = || "b".to_owned();
+        let ok: EngineResult<()> = Ok(());
+        assert_eq!(outcome_label(&ok), "ok");
+        let cases: [(EngineError, &str); 5] = [
+            (
+                EngineError::DeadlineExceeded {
+                    backend: backend(),
+                    timeout_ms: 1,
+                },
+                "deadline",
+            ),
+            (
+                EngineError::Overloaded {
+                    backend: backend(),
+                    retry_after_ms: 1,
+                },
+                "overloaded",
+            ),
+            (
+                EngineError::Unsupported {
+                    backend: backend(),
+                    message: String::new(),
+                },
+                "invalid",
+            ),
+            (
+                EngineError::Invalid(openkind_core::ValidationError::NoQuestions),
+                "invalid",
+            ),
+            (
+                EngineError::Backend {
+                    backend: backend(),
+                    message: String::new(),
+                },
+                "backend_error",
+            ),
+        ];
+        for (error, label) in cases {
+            assert_eq!(outcome_label::<()>(&Err(error)), label);
+        }
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn cancellation_keeps_permits_until_blocking_work_finishes() {
+        let execution = Arc::new(Semaphore::new(1));
+        let admission = Arc::new(Semaphore::new(1));
+        let execution_permit = execution
+            .clone()
+            .acquire_owned()
+            .await
+            .expect("execution permit");
+        let admission_permit = admission
+            .clone()
+            .acquire_owned()
+            .await
+            .expect("admission permit");
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = tokio::sync::oneshot::channel();
+        let request = tokio::spawn(run_blocking_with_permits(
+            execution_permit,
+            admission_permit,
+            move || {
+                let _ = started_tx.send(());
+                let _ = release_rx.blocking_recv();
+            },
+        ));
+
+        started_rx.await.expect("blocking work started");
+        request.abort();
+        assert_eq!(execution.available_permits(), 0);
+        assert_eq!(admission.available_permits(), 0);
+
+        release_tx.send(()).expect("release blocking work");
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while execution.available_permits() == 0 || admission.available_permits() == 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("permits released after the blocking work completed");
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn worker_panic_releases_permits_for_recovery() {
+        let execution = Arc::new(Semaphore::new(1));
+        let admission = Arc::new(Semaphore::new(1));
+        let execution_permit = execution
+            .clone()
+            .acquire_owned()
+            .await
+            .expect("execution permit");
+        let admission_permit = admission
+            .clone()
+            .acquire_owned()
+            .await
+            .expect("admission permit");
+
+        let failed = run_blocking_with_permits(execution_permit, admission_permit, || {
+            panic!("simulated worker failure");
+        })
+        .await;
+        assert!(failed.is_err());
+        assert_eq!(execution.available_permits(), 1);
+        assert_eq!(admission.available_permits(), 1);
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn gate_rejects_past_the_queue_and_reports_task_failure() {
+        let gate = Arc::new(AdmissionGate::new(1, 0, 25, FAMILY_GATE_METRICS));
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel::<()>();
+        let busy_gate = Arc::clone(&gate);
+        let busy = tokio::spawn(async move {
+            busy_gate
+                .run("gate-test", Instant::now(), None, 0, move || {
+                    let _ = started_tx.send(());
+                    let _ = release_rx.recv();
+                    7_u32
+                })
+                .await
+        });
+        started_rx.await.expect("the first request holds the slot");
+
+        let rejected = gate
+            .run("gate-test", Instant::now(), None, 0, || 1_u32)
+            .await
+            .expect_err("a full gate rejects immediately");
+        assert!(
+            matches!(rejected, EngineError::Overloaded { ref backend, retry_after_ms: 25 } if backend == "gate-test"),
+            "unexpected error: {rejected}"
+        );
+
+        release_tx.send(()).expect("release the parked request");
+        assert_eq!(busy.await.expect("join").expect("parked request"), 7);
+
+        // A panicking task is a backend error and frees both permits.
+        let failed = gate
+            .run("gate-test", Instant::now(), None, 0, || -> u32 {
+                panic!("simulated worker failure")
+            })
+            .await
+            .expect_err("a panicking task fails");
+        assert!(
+            matches!(failed, EngineError::Backend { ref backend, .. } if backend == "gate-test"),
+            "unexpected error: {failed}"
+        );
+        assert_eq!(gate.execution_slots.available_permits(), 1);
+        assert_eq!(gate.admission_slots.available_permits(), 1);
     }
 }
