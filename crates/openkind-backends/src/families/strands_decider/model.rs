@@ -17,8 +17,9 @@ use candle_core::{DType, Device, Shape, Tensor};
 use candle_nn::var_builder::SimpleBackend;
 use candle_nn::{Init, Linear, Module};
 
-use crate::families::decoder_logit_qwen35::model::resolve_config_field;
-use crate::families::support::{verify_digest, FamilyControl, FamilyError};
+use crate::families::support::{
+    check_pinned_fields, require_file, verify_digest, FamilyControl, FamilyError,
+};
 use crate::qwen35::{EmbeddingLayout, Qwen35Embedding, TextBackbone};
 
 use super::{
@@ -75,15 +76,7 @@ impl VerifiedArtifacts {
             &tokenizer,
             &hobson_config,
         ] {
-            if !path.is_file() {
-                return Err(FamilyError::Io {
-                    path: path.to_path_buf(),
-                    source: std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "required pinned artifact is missing",
-                    ),
-                });
-            }
+            require_file(path)?;
         }
 
         let profile = match profile {
@@ -106,54 +99,13 @@ impl VerifiedArtifacts {
         verify_digest(&base_config, BASE_CONFIG_SHA256)?;
 
         let base_json: serde_json::Value = crate::families::support::read_json(&base_config)?;
-        for (field, expected) in pinned_base_config() {
-            let actual = resolve_config_field(&base_json, field).ok_or_else(|| {
-                FamilyError::ContractMismatch {
-                    field,
-                    expected: expected.to_string(),
-                    actual: "missing".to_owned(),
-                }
-            })?;
-            if actual != expected {
-                return Err(FamilyError::contract(field, expected, actual));
-            }
-        }
+        check_pinned_fields(&base_json, &pinned_base_config())?;
         let hobson_json: serde_json::Value = crate::families::support::read_json(&hobson_config)?;
-        for (field, expected) in profile.pinned_hobson_config() {
-            let actual = resolve_config_field(&hobson_json, field).ok_or_else(|| {
-                FamilyError::ContractMismatch {
-                    field,
-                    expected: expected.to_string(),
-                    actual: "missing".to_owned(),
-                }
-            })?;
-            if actual != expected {
-                return Err(FamilyError::contract(field, expected, actual));
-            }
-        }
+        check_pinned_fields(&hobson_json, &profile.pinned_hobson_config())?;
         let adapter_json: serde_json::Value = crate::families::support::read_json(&adapter_config)?;
-        for (field, expected) in pinned_adapter_config() {
-            let actual = resolve_config_field(&adapter_json, field).ok_or_else(|| {
-                FamilyError::ContractMismatch {
-                    field,
-                    expected: expected.to_string(),
-                    actual: "missing".to_owned(),
-                }
-            })?;
-            if actual != expected {
-                return Err(FamilyError::contract(field, expected, actual));
-            }
-        }
+        check_pinned_fields(&adapter_json, &pinned_adapter_config())?;
 
-        if !base_checkpoint.is_file() {
-            return Err(FamilyError::Io {
-                path: base_checkpoint,
-                source: std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    "required pinned artifact is missing",
-                ),
-            });
-        }
+        require_file(&base_checkpoint)?;
         verify_digest(&base_checkpoint, BASE_CHECKPOINT_SHA256)?;
         Ok(Self {
             base_checkpoint,

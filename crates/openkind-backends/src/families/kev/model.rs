@@ -6,7 +6,7 @@ use std::path::Path;
 use candle_core::{DType, Device, IndexOp, Tensor};
 use candle_nn::{linear, Linear, Module};
 
-use crate::families::support::{verify_digest, FamilyError};
+use crate::families::support::{require_file, verify_digest, FamilyError};
 
 use super::arch::{config_from_pinned, Qwen3Model};
 use super::{
@@ -54,15 +54,7 @@ impl VerifiedArtifacts {
         let head_safetensors = model_root.join("head.safetensors");
         let head_pt = model_root.join("head.pt");
         for path in [&base_checkpoint, &base_config, &adapter, &tokenizer] {
-            if !path.is_file() {
-                return Err(FamilyError::Io {
-                    path: path.to_path_buf(),
-                    source: std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "required pinned artifact is missing",
-                    ),
-                });
-            }
+            require_file(path)?;
         }
         let head = if head_safetensors.is_file() {
             verify_digest(&head_safetensors, HEAD_SHA256)?;

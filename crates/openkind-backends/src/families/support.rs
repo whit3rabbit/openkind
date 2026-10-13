@@ -492,6 +492,156 @@ pub fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T, Famil
     })
 }
 
+/// Fail with the loader's standard NotFound error unless `path` is a file.
+///
+/// Callers run this over every small artifact before any digest so a missing
+/// file always beats a bad digest of an earlier one. Keep that order: do not
+/// fold the existence pass into the digest pass.
+pub(crate) fn require_file(path: &Path) -> Result<(), FamilyError> {
+    require_file_labeled(path, "artifact")
+}
+
+/// [`require_file`] with the artifact kind or name spelled in the message,
+/// for loaders whose error text names the missing file (for example
+/// `"shard model.safetensors"` yields `required pinned shard
+/// model.safetensors is missing`).
+pub(crate) fn require_file_labeled(path: &Path, label: &str) -> Result<(), FamilyError> {
+    if path.is_file() {
+        return Ok(());
+    }
+    Err(FamilyError::Io {
+        path: path.to_path_buf(),
+        source: std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            format!("required pinned {label} is missing"),
+        ),
+    })
+}
+
+/// Check a file's byte length against its pin, then its SHA-256, in place.
+///
+/// The size check runs first because it is a metadata read: a truncated
+/// multi-gigabyte shard fails before the whole file is streamed. `field`
+/// names the size pin in the contract error and differs per call site.
+pub(crate) fn verify_sized_digest(
+    path: &Path,
+    name: &str,
+    bytes: u64,
+    sha256: &str,
+    field: &'static str,
+) -> Result<(), FamilyError> {
+    let length = std::fs::metadata(path)
+        .map_err(|source| FamilyError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?
+        .len();
+    if length != bytes {
+        return Err(FamilyError::ContractMismatch {
+            field,
+            expected: format!("{name} is {bytes} bytes"),
+            actual: format!("{length} bytes"),
+        });
+    }
+    verify_digest(path, sha256)
+}
+
+/// Resolve a dotted config path such as `rope_parameters.rope_theta` or an
+/// `architectures[0]` list index.
+///
+/// Any segment may carry the `[0]` suffix, which makes this a superset of the
+/// per-family copies that only accepted it on the last segment.
+pub(crate) fn resolve_config_field(
+    value: &serde_json::Value,
+    field: &str,
+) -> Option<serde_json::Value> {
+    let mut current = value;
+    for segment in field.split('.') {
+        if let Some(name) = segment.strip_suffix("[0]") {
+            current = current.get(name).and_then(|items| items.get(0))?;
+        } else {
+            current = current.get(segment)?;
+        }
+    }
+    Some(current.clone())
+}
+
+/// Contract comparison with exact integer, string, and bool equality and a
+/// parser-epsilon tolerance for floats.
+///
+/// serde_json's default decimal parse can land one ulp away from the
+/// correctly rounded double, which must not fail a pinned checkpoint. Only the
+/// von and laya contracts opt in; every other family compares strictly, and
+/// qwen3 deliberately compares an integer against a float without tolerance.
+pub(crate) fn values_match_tolerant(
+    expected: &serde_json::Value,
+    actual: &serde_json::Value,
+) -> bool {
+    use serde_json::Value;
+    match (expected, actual) {
+        (Value::Number(a), Value::Number(b)) => match (a.as_f64(), b.as_f64()) {
+            (Some(a), Some(b)) => (a - b).abs() <= 1e-9,
+            _ => a == b,
+        },
+        (Value::Array(a), Value::Array(b)) => {
+            a.len() == b.len() && a.iter().zip(b).all(|(x, y)| values_match_tolerant(x, y))
+        }
+        (Value::Object(a), Value::Object(b)) => {
+            a.len() == b.len()
+                && a.iter().all(|(key, value)| {
+                    b.get(key)
+                        .is_some_and(|other| values_match_tolerant(value, other))
+                })
+        }
+        (a, b) => a == b,
+    }
+}
+
+/// Fail closed unless every pinned `(field, expected)` is present in `config`
+/// with exactly the expected value.
+pub(crate) fn check_pinned_fields(
+    config: &serde_json::Value,
+    pins: &[(&'static str, serde_json::Value)],
+) -> Result<(), FamilyError> {
+    check_pinned_fields_with(config, pins, |_, expected, actual| expected == actual)
+}
+
+/// [`check_pinned_fields`] with the float-tolerant comparison von and laya
+/// use for their ModernBERT configs.
+pub(crate) fn check_pinned_fields_tolerant(
+    config: &serde_json::Value,
+    pins: &[(&'static str, serde_json::Value)],
+) -> Result<(), FamilyError> {
+    check_pinned_fields_with(config, pins, |_, expected, actual| {
+        values_match_tolerant(expected, actual)
+    })
+}
+
+/// [`check_pinned_fields`] with a caller-supplied comparison.
+///
+/// `matches` receives the pinned field name, so one field can compare
+/// differently from the rest (d3 and sieve compare `rms_norm_eps` through
+/// f32). A field absent from `config` reports `actual: "missing"` before the
+/// comparison runs.
+pub(crate) fn check_pinned_fields_with(
+    config: &serde_json::Value,
+    pins: &[(&'static str, serde_json::Value)],
+    matches: impl Fn(&'static str, &serde_json::Value, &serde_json::Value) -> bool,
+) -> Result<(), FamilyError> {
+    for (field, expected) in pins {
+        let actual =
+            resolve_config_field(config, field).ok_or_else(|| FamilyError::ContractMismatch {
+                field,
+                expected: expected.to_string(),
+                actual: "missing".to_owned(),
+            })?;
+        if !matches(field, expected, &actual) {
+            return Err(FamilyError::contract(field, expected, actual));
+        }
+    }
+    Ok(())
+}
+
 /// Derive a stable 20-hex profile ID from a family slug and pinned inputs.
 ///
 /// The selected `encoder-state-first` profile reserves its own ID; generated
@@ -860,6 +1010,190 @@ mod tests {
             "caller disconnect must reclaim the execution slot via cooperative cancellation"
         );
         assert_eq!(engine.admission_slots.available_permits(), 1);
+    }
+
+    #[test]
+    fn config_field_resolution_walks_nested_paths_and_list_indices() {
+        let value = serde_json::json!({
+            "architectures": ["Qwen3_5ForCausalLM"],
+            "rope_parameters": {"rope_theta": 10_000_000},
+            "id2label": {"0": "ENTAILMENT"},
+            "encoder_config": {"model_type": "modernbert"},
+            "stages": [{"name": "first"}],
+        });
+        let resolve = |field| resolve_config_field(&value, field);
+        assert_eq!(
+            resolve("architectures[0]"),
+            Some(serde_json::json!("Qwen3_5ForCausalLM"))
+        );
+        assert_eq!(
+            resolve("rope_parameters.rope_theta"),
+            Some(serde_json::json!(10_000_000))
+        );
+        assert_eq!(resolve("id2label.0"), Some(serde_json::json!("ENTAILMENT")));
+        assert_eq!(
+            resolve("encoder_config.model_type"),
+            Some(serde_json::json!("modernbert"))
+        );
+        // The qwen35 loop form also accepts the index on an inner segment.
+        assert_eq!(resolve("stages[0].name"), Some(serde_json::json!("first")));
+        assert_eq!(resolve("missing.path"), None);
+        assert_eq!(resolve("architectures[1]"), None);
+        assert_eq!(resolve("model_type"), None);
+    }
+
+    /// The per-family copies this resolver replaced: the split-on-dot form
+    /// six families carried and the flat form decoder-letter carried.
+    fn legacy_dotted(value: &serde_json::Value, field: &str) -> Option<serde_json::Value> {
+        let mut current = value;
+        let mut segment = field;
+        while let Some((head, rest)) = segment.split_once('.') {
+            current = current.get(head)?;
+            segment = rest;
+        }
+        if let Some(name) = segment.strip_suffix("[0]") {
+            return current.get(name).and_then(|items| items.get(0)).cloned();
+        }
+        current.get(segment).cloned()
+    }
+
+    fn legacy_flat(value: &serde_json::Value, field: &str) -> Option<serde_json::Value> {
+        if let Some(name) = field.strip_suffix("[0]") {
+            return value.get(name).and_then(|items| items.get(0)).cloned();
+        }
+        value.get(field).cloned()
+    }
+
+    #[test]
+    fn shared_resolver_agrees_with_every_replaced_copy_on_every_pin() {
+        use crate::families::laya::{LAYA_ENGLISH, LAYA_MULTILINGUAL, LAYA_TYPED_DECISIONS};
+        use crate::families::von::VON;
+
+        let mut dotted_pins = vec![
+            crate::families::qwen3guard::pinned_config(),
+            crate::families::schema_scorer::pinned_config(),
+            crate::families::encoder_nli::pinned_config(),
+            crate::families::encoder_instruct_label::pinned_config(),
+            VON.pinned_config(),
+            VON.pinned_calibration(),
+        ];
+        for profile in [&LAYA_ENGLISH, &LAYA_MULTILINGUAL, &LAYA_TYPED_DECISIONS] {
+            dotted_pins.push(profile.pinned_agent_config());
+            dotted_pins.push(profile.pinned_encoder_config());
+        }
+        for pins in &dotted_pins {
+            let config = testing::config_from_pins(pins);
+            for (field, expected) in pins {
+                let shared = resolve_config_field(&config, field);
+                assert_eq!(shared, legacy_dotted(&config, field), "{field}");
+                assert_eq!(shared.as_ref(), Some(expected), "{field}");
+            }
+        }
+
+        let letter = crate::families::decoder_logit_letter::pinned_config();
+        let config = testing::config_from_pins(&letter);
+        for (field, expected) in &letter {
+            let shared = resolve_config_field(&config, field);
+            assert_eq!(shared, legacy_flat(&config, field), "{field}");
+            assert_eq!(shared.as_ref(), Some(expected), "{field}");
+        }
+    }
+
+    #[test]
+    fn pinned_field_checks_report_missing_and_mismatched_fields() {
+        let pins = vec![("a.b", serde_json::json!(1)), ("c", serde_json::json!("x"))];
+        let ok = serde_json::json!({"a": {"b": 1}, "c": "x"});
+        check_pinned_fields(&ok, &pins).expect("matching config");
+
+        let missing = serde_json::json!({"a": {"b": 1}});
+        assert!(matches!(
+            check_pinned_fields(&missing, &pins),
+            Err(FamilyError::ContractMismatch { field: "c", expected, actual })
+                if expected == "\"x\"" && actual == "missing"
+        ));
+
+        let wrong = serde_json::json!({"a": {"b": 2}, "c": "x"});
+        assert!(matches!(
+            check_pinned_fields(&wrong, &pins),
+            Err(FamilyError::ContractMismatch { field: "a.b", expected, actual })
+                if expected == "1" && actual == "2"
+        ));
+
+        // The strict form never forgives a float drift; the tolerant form
+        // forgives only parser-epsilon drift and still rejects real ones.
+        let float_pins = vec![("eps", serde_json::json!(1e-5))];
+        let near = serde_json::json!({"eps": 1.00005e-5});
+        let far = serde_json::json!({"eps": 1.0002e-5});
+        assert!(check_pinned_fields(&near, &float_pins).is_err());
+        check_pinned_fields_tolerant(&near, &float_pins).expect("within epsilon");
+        assert!(check_pinned_fields_tolerant(&far, &float_pins).is_err());
+        // An integer pin against a float is not forgiven by the strict form
+        // that qwen3 relies on.
+        let int_pins = vec![("n", serde_json::json!(2))];
+        assert!(check_pinned_fields(&serde_json::json!({"n": 2.0}), &int_pins).is_err());
+
+        // A per-field comparator replaces the default for that field only.
+        let by_field = check_pinned_fields_with(&wrong, &pins, |field, expected, actual| {
+            field == "a.b" || expected == actual
+        });
+        by_field.expect("comparator accepts the overridden field");
+    }
+
+    #[test]
+    fn require_file_reports_the_standard_and_labeled_messages() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let present = testing::put(dir.path(), "present", b"x");
+        require_file(&present).expect("present file");
+        // A directory is not a file.
+        assert!(require_file(dir.path()).is_err());
+
+        let absent = dir.path().join("absent");
+        let error = require_file(&absent).expect_err("absent file");
+        assert!(matches!(
+            &error,
+            FamilyError::Io { path, source }
+                if path == &absent
+                    && source.kind() == std::io::ErrorKind::NotFound
+                    && source.to_string() == "required pinned artifact is missing"
+        ));
+        let error = require_file_labeled(&absent, "shard absent").expect_err("absent file");
+        assert!(matches!(
+            &error,
+            FamilyError::Io { source, .. }
+                if source.to_string() == "required pinned shard absent is missing"
+        ));
+    }
+
+    #[test]
+    fn sized_digest_checks_size_before_the_digest() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = testing::put(dir.path(), "blob", b"abc");
+        let digest = testing::sha(b"abc");
+        verify_sized_digest(&path, "blob", 3, &digest, "blob size").expect("matching file");
+
+        let error =
+            verify_sized_digest(&path, "blob", 4, &digest, "blob size").expect_err("wrong size");
+        assert!(matches!(
+            &error,
+            FamilyError::ContractMismatch { field: "blob size", expected, actual }
+                if expected == "blob is 4 bytes" && actual == "3 bytes"
+        ));
+
+        // A wrong digest only surfaces once the size passes.
+        let error = verify_sized_digest(&path, "blob", 3, &testing::sha(b"abd"), "blob size")
+            .expect_err("wrong digest");
+        assert!(matches!(error, FamilyError::DigestMismatch { .. }));
+
+        // A missing file reports the metadata error, not the pinned message.
+        let absent = dir.path().join("absent");
+        let error = verify_sized_digest(&absent, "absent", 3, &digest, "blob size")
+            .expect_err("absent file");
+        assert!(matches!(
+            &error,
+            FamilyError::Io { source, .. }
+                if source.kind() == std::io::ErrorKind::NotFound
+                    && source.to_string() != "required pinned artifact is missing"
+        ));
     }
 
     #[test]

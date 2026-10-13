@@ -6,7 +6,7 @@ use std::sync::Mutex;
 use candle_core::{DType, Device, Tensor};
 use candle_transformers::models::qwen2::{Config, ModelForCausalLM};
 
-use crate::families::support::{verify_digest, FamilyError};
+use crate::families::support::{require_file, verify_digest, FamilyError};
 
 use super::{ADAPTER_SHA256, LORA_RANK, LORA_SCALE, TOKENIZER_JSON_SHA256};
 
@@ -44,15 +44,7 @@ impl VerifiedArtifacts {
         let checkpoint = model_root.join("model.safetensors");
         let tokenizer = model_root.join("tokenizer.json");
         for path in [&checkpoint, &tokenizer, adapter_path] {
-            if !path.is_file() {
-                return Err(FamilyError::Io {
-                    path: path.to_path_buf(),
-                    source: std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "required pinned artifact is missing",
-                    ),
-                });
-            }
+            require_file(path)?;
         }
         verify_digest(&tokenizer, TOKENIZER_JSON_SHA256)?;
         verify_digest(&checkpoint, checkpoint_sha256)?;

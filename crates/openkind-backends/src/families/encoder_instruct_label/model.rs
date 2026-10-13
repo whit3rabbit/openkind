@@ -5,7 +5,7 @@ use std::path::Path;
 use candle_core::{DType, Device, Tensor};
 use candle_nn::{linear, Activation, Linear, Module};
 
-use crate::families::support::{verify_digest, FamilyError};
+use crate::families::support::{check_pinned_fields, require_file, verify_digest, FamilyError};
 
 use crate::families::modernbert::{ModernBertConfig, ModernBertModel};
 
@@ -92,15 +92,7 @@ impl VerifiedArtifacts {
             if path == &checkpoint && (!native) && !path.exists() {
                 continue;
             }
-            if !path.is_file() {
-                return Err(FamilyError::Io {
-                    path: path.to_path_buf(),
-                    source: std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "required pinned artifact is missing",
-                    ),
-                });
-            }
+            require_file(path)?;
         }
         // Cheap contract checks first; the checkpoint digest streams last.
         verify_digest(&config_path, CONFIG_JSON_SHA256)?;
@@ -109,36 +101,12 @@ impl VerifiedArtifacts {
             verify_digest(&checkpoint, CHECKPOINT_SHA256)?;
         }
         let config_json: serde_json::Value = crate::families::support::read_json(&config_path)?;
-        for (field, expected) in pinned_config() {
-            let actual = resolve_config_field(&config_json, field).ok_or_else(|| {
-                FamilyError::ContractMismatch {
-                    field,
-                    expected: expected.to_string(),
-                    actual: "missing".to_owned(),
-                }
-            })?;
-            if actual != expected {
-                return Err(FamilyError::contract(field, expected, actual));
-            }
-        }
+        check_pinned_fields(&config_json, &pinned_config())?;
         Ok(Self {
             checkpoint,
             tokenizer,
         })
     }
-}
-
-fn resolve_config_field(value: &serde_json::Value, field: &str) -> Option<serde_json::Value> {
-    let mut current = value;
-    let mut segment = field;
-    while let Some((head, rest)) = segment.split_once('.') {
-        current = current.get(head)?;
-        segment = rest;
-    }
-    if let Some(name) = segment.strip_suffix("[0]") {
-        return current.get(name).and_then(|items| items.get(0)).cloned();
-    }
-    current.get(segment).cloned()
 }
 
 impl EncoderInstructLabelModel {
@@ -214,27 +182,5 @@ impl EncoderInstructLabelModel {
             .sum(candle_core::D::Minus1)?;
         let logits = logits.to_vec1::<f32>()?;
         Ok(logits.into_iter().map(f64::from).collect())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn config_field_resolution_walks_nested_paths() {
-        let value = serde_json::json!({
-            "architectures": ["GLiClassModel"],
-            "encoder_config": { "model_type": "modernbert" }
-        });
-        assert_eq!(
-            resolve_config_field(&value, "architectures[0]"),
-            Some(serde_json::json!("GLiClassModel"))
-        );
-        assert_eq!(
-            resolve_config_field(&value, "encoder_config.model_type"),
-            Some(serde_json::json!("modernbert"))
-        );
-        assert_eq!(resolve_config_field(&value, "missing.path"), None);
     }
 }

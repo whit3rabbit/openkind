@@ -5,7 +5,7 @@ use std::path::Path;
 use candle_core::{DType, Device};
 use candle_nn::{linear_no_bias, rms_norm, Module, RmsNorm, VarBuilder};
 
-use crate::families::support::{verify_digest, FamilyError};
+use crate::families::support::{check_pinned_fields, require_file, verify_digest, FamilyError};
 
 use super::arch::{config_from_pinned, Qwen3Model};
 use super::{pinned_config, CHECKPOINT_SHA256, CONFIG_JSON_SHA256, TOKENIZER_JSON_SHA256};
@@ -54,15 +54,7 @@ impl VerifiedArtifacts {
             if path == &checkpoint && (!native) && !path.exists() {
                 continue;
             }
-            if !path.is_file() {
-                return Err(FamilyError::Io {
-                    path: path.to_path_buf(),
-                    source: std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "required pinned artifact is missing",
-                    ),
-                });
-            }
+            require_file(path)?;
         }
         verify_digest(&config_path, CONFIG_JSON_SHA256)?;
         verify_digest(&tokenizer, TOKENIZER_JSON_SHA256)?;
@@ -71,36 +63,12 @@ impl VerifiedArtifacts {
         }
         // Contract-check the pinned config values.
         let config_json: serde_json::Value = crate::families::support::read_json(&config_path)?;
-        for (field, expected) in pinned_config() {
-            let actual = resolve_config_field(&config_json, field).ok_or_else(|| {
-                FamilyError::ContractMismatch {
-                    field,
-                    expected: expected.to_string(),
-                    actual: "missing".to_owned(),
-                }
-            })?;
-            if actual != expected {
-                return Err(FamilyError::contract(field, expected, actual));
-            }
-        }
+        check_pinned_fields(&config_json, &pinned_config())?;
         Ok(Self {
             checkpoint,
             tokenizer,
         })
     }
-}
-
-fn resolve_config_field(value: &serde_json::Value, field: &str) -> Option<serde_json::Value> {
-    let mut current = value;
-    let mut segment = field;
-    while let Some((head, rest)) = segment.split_once('.') {
-        current = current.get(head)?;
-        segment = rest;
-    }
-    if let Some(name) = segment.strip_suffix("[0]") {
-        return current.get(name).and_then(|items| items.get(0)).cloned();
-    }
-    current.get(segment).cloned()
 }
 
 impl Qwen3GuardModel {
