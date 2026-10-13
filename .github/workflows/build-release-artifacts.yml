@@ -45,7 +45,7 @@ jobs:
         with:
           targets: ${{ matrix.target }}
           components: clippy
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
       - uses: arduino/setup-protoc@v3
@@ -76,7 +76,7 @@ jobs:
           toolset: '14.39'
       - name: Install minimal Linux CUDA compiler without drivers
         if: runner.os == 'Linux' && contains(matrix.features, 'cuda')
-        uses: Jimver/cuda-toolkit@v0.2.24
+        uses: Jimver/cuda-toolkit@v0.2.36
         with:
           cuda: '12.6.0'
           method: network
@@ -95,7 +95,7 @@ jobs:
           df -h | tee target/release-reports/disk-after-cuda.txt
       - name: Install Windows CUDA toolkit without drivers
         if: runner.os == 'Windows' && contains(matrix.features, 'cuda')
-        uses: Jimver/cuda-toolkit@v0.2.24
+        uses: Jimver/cuda-toolkit@v0.2.36
         with:
           cuda: '12.6.0'
           method: local
@@ -215,7 +215,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.revision }}
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
       - name: Initialize dependency audit tool
@@ -267,7 +267,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.revision }}
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
       - uses: Homebrew/actions/setup-homebrew@9f17989bd508c794353d974d1756f23b0bcf10c1 # main
