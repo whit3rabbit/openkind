@@ -17,7 +17,7 @@
 
 use tokenizers::Tokenizer;
 
-use crate::families::python_json::{python_json, python_string};
+use crate::families::python_json::{write_python_json, write_python_string};
 use crate::families::support::FamilyError;
 use crate::families::wire::{QuestionPrimitive, UnpackedQuestion};
 
@@ -58,36 +58,51 @@ pub fn render_content(value: &serde_json::Value) -> String {
 /// Serialize a JSON value exactly like Python
 /// `json.dumps(value, indent=2, ensure_ascii=False, sort_keys=False)`.
 pub(crate) fn python_json_indent(value: &serde_json::Value) -> String {
-    fn render(value: &serde_json::Value, level: usize) -> String {
-        let pad = "  ".repeat(level);
-        let inner_pad = "  ".repeat(level + 1);
-        match value {
-            serde_json::Value::Array(items) if items.is_empty() => "[]".to_owned(),
-            serde_json::Value::Array(items) => format!(
-                "[\n{}\n{pad}]",
-                items
-                    .iter()
-                    .map(|item| format!("{inner_pad}{}", render(item, level + 1)))
-                    .collect::<Vec<_>>()
-                    .join(",\n")
-            ),
-            serde_json::Value::Object(entries) if entries.is_empty() => "{}".to_owned(),
-            serde_json::Value::Object(entries) => format!(
-                "{{\n{}\n{pad}}}",
-                entries
-                    .iter()
-                    .map(|(key, value)| format!(
-                        "{inner_pad}{}: {}",
-                        python_string(key),
-                        render(value, level + 1)
-                    ))
-                    .collect::<Vec<_>>()
-                    .join(",\n")
-            ),
-            other => python_json(other),
+    let mut out = String::new();
+    write_indented(value, 0, &mut out);
+    out
+}
+
+/// Append `value` indented to `level`, one shared buffer for the whole tree.
+fn write_indented(value: &serde_json::Value, level: usize, out: &mut String) {
+    fn pad(level: usize, out: &mut String) {
+        for _ in 0..level {
+            out.push_str("  ");
         }
     }
-    render(value, 0)
+    match value {
+        serde_json::Value::Array(items) if items.is_empty() => out.push_str("[]"),
+        serde_json::Value::Array(items) => {
+            out.push_str("[\n");
+            for (index, item) in items.iter().enumerate() {
+                if index > 0 {
+                    out.push_str(",\n");
+                }
+                pad(level + 1, out);
+                write_indented(item, level + 1, out);
+            }
+            out.push('\n');
+            pad(level, out);
+            out.push(']');
+        }
+        serde_json::Value::Object(entries) if entries.is_empty() => out.push_str("{}"),
+        serde_json::Value::Object(entries) => {
+            out.push_str("{\n");
+            for (index, (key, value)) in entries.iter().enumerate() {
+                if index > 0 {
+                    out.push_str(",\n");
+                }
+                pad(level + 1, out);
+                write_python_string(key, out);
+                out.push_str(": ");
+                write_indented(value, level + 1, out);
+            }
+            out.push('\n');
+            pad(level, out);
+            out.push('}');
+        }
+        other => write_python_json(other, out),
+    }
 }
 
 /// Collapse a description to one line (`" ".join(desc.split())`).
@@ -310,6 +325,75 @@ mod tests {
             render_content(&serde_json::json!({"a": 1, "b": ["x", "y"]})),
             "{\n  \"a\": 1,\n  \"b\": [\n    \"x\",\n    \"y\"\n  ]\n}"
         );
+    }
+
+    /// The pre-buffer implementation, kept as the oracle for the single
+    /// buffer writer.
+    fn legacy_python_json_indent(value: &serde_json::Value) -> String {
+        use crate::families::python_json::{python_json, python_string};
+        fn render(value: &serde_json::Value, level: usize) -> String {
+            let pad = "  ".repeat(level);
+            let inner_pad = "  ".repeat(level + 1);
+            match value {
+                serde_json::Value::Array(items) if items.is_empty() => "[]".to_owned(),
+                serde_json::Value::Array(items) => format!(
+                    "[\n{}\n{pad}]",
+                    items
+                        .iter()
+                        .map(|item| format!("{inner_pad}{}", render(item, level + 1)))
+                        .collect::<Vec<_>>()
+                        .join(",\n")
+                ),
+                serde_json::Value::Object(entries) if entries.is_empty() => "{}".to_owned(),
+                serde_json::Value::Object(entries) => format!(
+                    "{{\n{}\n{pad}}}",
+                    entries
+                        .iter()
+                        .map(|(key, value)| format!(
+                            "{inner_pad}{}: {}",
+                            python_string(key),
+                            render(value, level + 1)
+                        ))
+                        .collect::<Vec<_>>()
+                        .join(",\n")
+                ),
+                other => python_json(other),
+            }
+        }
+        render(value, 0)
+    }
+
+    #[test]
+    fn single_buffer_indent_matches_the_legacy_join_implementation() {
+        use crate::families::python_json::corpus::{random_value, Stream};
+        let mut stream = Stream(0x2545_f491_4f6c_dd1d);
+        let mut nested = 0;
+        for _ in 0..5_000 {
+            let value = random_value(&mut stream, 4);
+            if matches!(
+                value,
+                serde_json::Value::Array(_) | serde_json::Value::Object(_)
+            ) {
+                nested += 1;
+            }
+            assert_eq!(
+                python_json_indent(&value),
+                legacy_python_json_indent(&value),
+                "{value}"
+            );
+        }
+        assert!(nested > 1_000, "the corpus must exercise containers");
+        for value in [
+            serde_json::json!([]),
+            serde_json::json!({}),
+            serde_json::json!([[], {}, [[{}]]]),
+            serde_json::json!({"a": {"b": {"c": [1, [2, [3, {"d": "e\n"}]]]}}}),
+        ] {
+            assert_eq!(
+                python_json_indent(&value),
+                legacy_python_json_indent(&value)
+            );
+        }
     }
 
     #[test]

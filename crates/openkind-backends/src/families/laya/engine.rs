@@ -6,6 +6,7 @@ use candle_core::Device;
 use openkind_core::{ModelInfo, Question, State, SystemRequest, SystemResponse};
 
 use crate::device::FamilyExecution;
+use crate::families::python_json::write_python_string;
 use crate::families::support::{
     temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
 };
@@ -120,6 +121,10 @@ pub(crate) fn laya_state_text(state: State) -> String {
 
 /// Minimal Python-`json.dumps`-shaped writer (default separators, sorted map
 /// order from the parsed `serde_json` map).
+///
+/// Numbers keep serde_json's own formatting, which is not Python `repr` for
+/// floats, so this stays apart from the shared `python_json` writer. Strings
+/// share its escaper, whose output is the same minimal set as serde_json's.
 fn write_python_json(value: &serde_json::Value, out: &mut String) {
     use serde_json::Value;
     use std::fmt::Write;
@@ -130,15 +135,7 @@ fn write_python_json(value: &serde_json::Value, out: &mut String) {
         Value::Number(number) => {
             let _ = write!(out, "{number}");
         }
-        Value::String(text) => {
-            // serde_json's string escaping is the same minimal set as
-            // Python's ensure_ascii=False output.
-            let _ = write!(
-                out,
-                "{}",
-                serde_json::to_string(text).expect("string serializes")
-            );
-        }
+        Value::String(text) => write_python_string(text, out),
         Value::Array(items) => {
             out.push('[');
             for (index, item) in items.iter().enumerate() {
@@ -155,11 +152,8 @@ fn write_python_json(value: &serde_json::Value, out: &mut String) {
                 if index > 0 {
                     out.push_str(", ");
                 }
-                let _ = write!(
-                    out,
-                    "{}: ",
-                    serde_json::to_string(key).expect("key serializes")
-                );
+                write_python_string(key, out);
+                out.push_str(": ");
                 write_python_json(item, out);
             }
             out.push('}');
@@ -472,6 +466,77 @@ mod tests {
         write_python_json(&value, &mut out);
         // serde_json's map sorts keys, matching the generator's sort_keys.
         assert_eq!(out, r#"{"a": [true, null, "x"], "b": 1, "c": {"k": "v"}}"#);
+    }
+
+    /// The serde_json-backed writer this module used before it shared the
+    /// escaper; the oracle for the allocation-free version.
+    fn legacy_write_python_json(value: &serde_json::Value, out: &mut String) {
+        use serde_json::Value;
+        use std::fmt::Write;
+        match value {
+            Value::Null => out.push_str("null"),
+            Value::Bool(true) => out.push_str("true"),
+            Value::Bool(false) => out.push_str("false"),
+            Value::Number(number) => {
+                let _ = write!(out, "{number}");
+            }
+            Value::String(text) => {
+                let _ = write!(
+                    out,
+                    "{}",
+                    serde_json::to_string(text).expect("string serializes")
+                );
+            }
+            Value::Array(items) => {
+                out.push('[');
+                for (index, item) in items.iter().enumerate() {
+                    if index > 0 {
+                        out.push_str(", ");
+                    }
+                    legacy_write_python_json(item, out);
+                }
+                out.push(']');
+            }
+            Value::Object(map) => {
+                out.push('{');
+                for (index, (key, item)) in map.iter().enumerate() {
+                    if index > 0 {
+                        out.push_str(", ");
+                    }
+                    let _ = write!(
+                        out,
+                        "{}: ",
+                        serde_json::to_string(key).expect("key serializes")
+                    );
+                    legacy_write_python_json(item, out);
+                }
+                out.push('}');
+            }
+        }
+    }
+
+    #[test]
+    fn json_writer_matches_the_serde_backed_writer() {
+        use crate::families::python_json::corpus::{random_value, Stream};
+        let mut stream = Stream(0x1405_7b7e_f767_814f);
+        for _ in 0..5_000 {
+            let value = random_value(&mut stream, 4);
+            let (mut new, mut old) = (String::new(), String::new());
+            write_python_json(&value, &mut new);
+            legacy_write_python_json(&value, &mut old);
+            assert_eq!(new, old, "{value}");
+        }
+        // Every scalar value escapes like serde_json's string serializer.
+        for code in 0..=0x10_FFFF_u32 {
+            let Some(character) = char::from_u32(code) else {
+                continue;
+            };
+            let value = serde_json::Value::String(character.to_string());
+            let (mut new, mut old) = (String::new(), String::new());
+            write_python_json(&value, &mut new);
+            legacy_write_python_json(&value, &mut old);
+            assert_eq!(new, old, "{code:#x}");
+        }
     }
 
     #[test]
