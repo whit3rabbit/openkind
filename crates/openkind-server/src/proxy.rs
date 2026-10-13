@@ -200,16 +200,35 @@ impl ProxyService {
         Ok(client)
     }
 
+    /// Embed one state text. The encoder is CPU-bound (BERT-class models), so
+    /// it runs on the blocking pool instead of stalling an async worker. The
+    /// text is handed back because callers record it with the row.
+    async fn embed_text(&self, text: String) -> Result<(String, Vec<f32>), ApiError> {
+        let embedder = self.manager.embedder().clone();
+        let (text, result) = tokio::task::spawn_blocking(move || {
+            let result = embedder.encode(std::slice::from_ref(&text));
+            (text, result)
+        })
+        .await
+        .map_err(|error| ApiError::Internal(format!("proxy encoder task: {error}")))?;
+        let embedding = result
+            .map_err(|error| ApiError::Internal(format!("proxy encoder: {error}")))?
+            .into_iter()
+            .next()
+            .ok_or_else(|| ApiError::Internal("proxy encoder returned no embedding".into()))?;
+        Ok((text, embedding))
+    }
+
     /// Forward a request verbatim (fail-open path: no routing, no recording).
     async fn plain_forward(
         &self,
-        request: SystemRequest,
+        request: &SystemRequest,
         caller_key: Option<&str>,
         reason: &'static str,
     ) -> Result<ProxyOutcome, ApiError> {
         let client = self.client_for(caller_key)?;
         let response = client
-            .evaluate(request)
+            .evaluate_ref(request)
             .await
             .map_err(|error| map_upstream_error(error, self.upstream_key.is_some()))?;
         let detail = serde_json::json!({ "request": reason });
@@ -222,25 +241,23 @@ impl ProxyService {
 
     async fn evaluate_inner(
         &self,
-        request: SystemRequest,
-        caller_key: Option<String>,
+        request: &SystemRequest,
+        caller_key: Option<&str>,
     ) -> Result<ProxyOutcome, ApiError> {
-        let (groups, others) = group_questions(&request);
+        let (groups, others) = group_questions(request);
 
         // Not understood: no choice questions, or too many distinct specs.
         if groups.is_empty() {
-            return self
-                .plain_forward(request, caller_key.as_deref(), "no_choice")
-                .await;
+            return self.plain_forward(request, caller_key, "no_choice").await;
         }
         if groups.len() > MAX_QUESTIONS || others > MAX_QUESTIONS {
             return self
-                .plain_forward(request, caller_key.as_deref(), "too_many_questions")
+                .plain_forward(request, caller_key, "too_many_questions")
                 .await;
         }
 
         let caller_hash = if self.upstream_key.is_none() {
-            caller_key.as_deref().map(|key| self.key_hash(key))
+            caller_key.map(|key| self.key_hash(key))
         } else {
             None
         };
@@ -255,8 +272,8 @@ impl ProxyService {
 
         if !key_verified {
             // Forward first; only a parsed 2xx answer makes the key trusted.
-            let client = self.client_for(caller_key.as_deref())?;
-            let response = client.evaluate(request.clone()).await.map_err(|error| {
+            let client = self.client_for(caller_key)?;
+            let response = client.evaluate_ref(request).await.map_err(|error| {
                 if let Some(hash) = &caller_hash {
                     if matches!(error.status(), Some(401) | Some(403)) {
                         self.keys.revoke(hash);
@@ -270,7 +287,7 @@ impl ProxyService {
             // Record the choice answers as unverified-key deferred rows so
             // bootstrap traffic is not lost; embedding happens here because
             // no routing decision was needed to serve the request.
-            self.record_deferred_rows(&request, &groups, &response, "key_unverified")
+            self.record_deferred_rows(request, &groups, &response, "key_unverified")
                 .await;
             let detail = detail_map(
                 groups.iter().flat_map(|(_, ids)| ids.iter()),
@@ -290,15 +307,7 @@ impl ProxyService {
             openkind_core::State::Text(_) => "text",
             _ => "json",
         };
-        let embeddings = self
-            .manager
-            .embedder()
-            .encode(std::slice::from_ref(&text))
-            .map_err(|error| ApiError::Internal(format!("proxy encoder: {error}")))?;
-        let embedding = embeddings
-            .into_iter()
-            .next()
-            .ok_or_else(|| ApiError::Internal("proxy encoder returned no embedding".into()))?;
+        let (text, embedding) = self.embed_text(text).await?;
 
         // Resolve engines and route each group.
         let mut routed: Vec<RoutedGroup> = Vec::new();
@@ -341,7 +350,7 @@ impl ProxyService {
         // All-or-nothing: answer locally only when every choice question can
         // be answered and there are no other (noul/score) questions.
         if all_local && any_routed {
-            let response = self.build_local_response(&request, &routed)?;
+            let response = self.build_local_response(request, &routed)?;
             // Record locally served rows.
             for (_spec, _ids, decision, engine) in &routed {
                 if let Some(engine) = engine {
@@ -366,8 +375,8 @@ impl ProxyService {
 
         // Forward wholesale; record teacher answers for every routed group.
         let started = Instant::now();
-        let client = self.client_for(caller_key.as_deref())?;
-        let response = client.evaluate(request.clone()).await.map_err(|error| {
+        let client = self.client_for(caller_key)?;
+        let response = client.evaluate_ref(request).await.map_err(|error| {
             if let Some(hash) = &caller_hash {
                 if matches!(error.status(), Some(401) | Some(403)) {
                     self.keys.revoke(hash);
@@ -459,11 +468,8 @@ impl ProxyService {
             openkind_core::State::Text(_) => "text",
             _ => "json",
         };
-        let Ok(embeddings) = self.manager.embedder().encode(std::slice::from_ref(&text)) else {
+        let Ok((text, embedding)) = self.embed_text(text).await else {
             return; // fail open: recording is best-effort
-        };
-        let Some(embedding) = embeddings.into_iter().next() else {
-            return;
         };
         for (spec, ids) in groups {
             let Some(engine) = self
@@ -713,15 +719,12 @@ impl SystemProxy for ProxyService {
         request: SystemRequest,
         caller_key: Option<String>,
     ) -> Result<ProxyOutcome, ApiError> {
-        match self
-            .evaluate_inner(request.clone(), caller_key.clone())
-            .await
-        {
+        match self.evaluate_inner(&request, caller_key.as_deref()).await {
             Ok(outcome) => Ok(outcome),
             // Fail open: any proxy-internal error forwards to the upstream.
             Err(ApiError::Internal(_)) => {
                 tracing::warn!("proxy-cache internal failure, forwarding upstream");
-                self.plain_forward(request, caller_key.as_deref(), "internal_error")
+                self.plain_forward(&request, caller_key.as_deref(), "internal_error")
                     .await
             }
             Err(error) => Err(error),
