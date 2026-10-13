@@ -21,7 +21,7 @@ use super::super::Qwen35Error;
 use super::embedding::Qwen35Embedding;
 use super::geometry::Qwen35Geometry;
 use super::layer0::{rms_norm_zero_centered, DecoderLayer};
-use super::model::text_resident_decision;
+use super::model::{text_resident_decision, TextResidency};
 
 /// Where layer weights come from during forward.
 ///
@@ -213,15 +213,21 @@ impl TextBackbone {
         }
         let estimate = self.resident_estimate_bytes();
         match text_resident_decision(estimate, matches!(self.device, Device::Cpu)) {
-            Ok(false) => {}
-            Ok(true) => match self.load_resident() {
+            TextResidency::Skip => {}
+            TextResidency::Keep => match self.load_resident() {
                 Ok(resident) => self.resident = Some(resident),
                 Err(error) => tracing::warn!(
                     %error,
                     "text backbone could not keep its decoder weights resident; each forward will load them"
                 ),
             },
-            Err(reason) => tracing::warn!(
+            // Adapter-backed families and device backbones land here on every
+            // load under the daemon's default `auto`, so it is not a warning.
+            TextResidency::NotApplicable(reason) => tracing::info!(
+                reason,
+                "text backbone decoder weights are loaded per forward"
+            ),
+            TextResidency::Declined(reason) => tracing::warn!(
                 %reason,
                 "not keeping text backbone decoder weights resident; each forward will load them (set --qwen35-resident-weights on to force)"
             ),
