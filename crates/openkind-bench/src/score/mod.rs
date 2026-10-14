@@ -609,6 +609,9 @@ pub(crate) fn run_score_reserved(
                 tokenizer_path: tokenizer_path.clone(),
                 backend,
                 scheduler,
+                // Measurements are per-request cold: a warm root cache would
+                // hide the prefill the benchmark exists to time.
+                root_cache: openkind_backends::qwen35::RootCacheConfig::DISABLED,
                 max_concurrent_requests: BENCH_LIMITS.max_concurrent_requests,
                 max_queued_requests: BENCH_LIMITS.max_queued_requests,
                 retry_after_ms: BENCH_LIMITS.retry_after_ms,

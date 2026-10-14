@@ -1,0 +1,60 @@
+# Weekly version-update PRs. Security alerts are reported separately, but
+# the ignore rules below also suppress security-update PRs for the listed
+# crates, so watch alerts for those by hand.
+#
+# Dependabot does not read `rust-version`, so a cargo PR can need a newer
+# compiler than the 1.90 MSRV. The MSRV CI job catches that; close or pin
+# such updates rather than raising the MSRV from a bot PR.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      cargo-minor-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Exact `=` pins in the workspace manifest. Each is qualified against
+      # vendored parity fixtures, digest-checked tokenizers, or a vendored
+      # native build, so it moves deliberately, never from a bot.
+      - dependency-name: "candle-*"
+      - dependency-name: "mlx-rs"
+      - dependency-name: "mlx-sys"
+      - dependency-name: "ort"
+      - dependency-name: "ort-sys"
+      - dependency-name: "safetensors"
+      - dependency-name: "tokenizers"
+      - dependency-name: "arrow-*"
+      - dependency-name: "parquet"
+      - dependency-name: "criterion"
+      # From 2.5, half's rand_distr feature targets rand 0.9 and candle-core
+      # 0.8.0 stops compiling. Lift this together with the candle pin.
+      - dependency-name: "half"
+        versions: [">= 2.5"]
+
+  - package-ecosystem: npm
+    directory: "/bindings/typescript"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      actions:
+        patterns: ["*"]
+    ignore:
+      # The ref selects the Rust toolchain (stable, 1.90.0 MSRV, 1.98.1
+      # release builds), not an action version. Bump it by hand.
+      - dependency-name: "dtolnay/rust-toolchain"

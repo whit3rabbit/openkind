@@ -156,13 +156,20 @@ fn safetensors_names(path: &Path) -> Result<Vec<String>, FamilyError> {
 /// A LoRA-merged view over the memory-mapped base checkpoint.
 ///
 /// Targeted weights return `base + (B @ A) · scale` (FP32 math, widened to
-/// the requested dtype); every other tensor passes through untouched. The
-/// merge is computed once per load and re-applied on every read, so no
+/// the requested dtype); every other tensor passes through untouched, and no
 /// merged checkpoint is ever materialized or written.
+///
+/// Only the rank-r factors stay resident; `B @ A` is recomputed on every
+/// read. The text backbone re-reads each layer's weights every forward, so
+/// caching dense deltas would pin one FP32 `[out, in]` tensor per target
+/// for the engine's lifetime (about 13.3 GiB for sieve-4b's 384
+/// projections) to save `rank / tokens` of each forward's matmul work.
 pub(crate) struct MergedLoRABackend {
     /// Memory-mapped base shards with the tensor names each owns.
     shards: Vec<(MmapedSafetensors, HashSet<String>)>,
-    deltas: HashMap<String, Tensor>,
+    /// `(lora_A, lora_B)` per target base tensor, FP32 on the load device.
+    factors: HashMap<String, (Tensor, Tensor)>,
+    scale: f64,
 }
 
 impl MergedLoRABackend {
@@ -217,7 +224,7 @@ impl MergedLoRABackend {
                 }
             }
         }
-        let mut deltas = HashMap::with_capacity(pairs.len());
+        let mut factors = HashMap::with_capacity(pairs.len());
         for (projection, (a, b)) in pairs {
             let (Some(a), Some(b)) = (a, b) else {
                 return Err(FamilyError::InvalidInput(format!(
@@ -248,17 +255,21 @@ impl MergedLoRABackend {
             // hide real errors (for example accelerator OOM) from the
             // caller's fallback policy.
             let expected_shape = Shape::from_dims(mapped.get(&key)?.shape());
-            let delta = (b.matmul(&a)? * scale)?;
-            if delta.shape() != &expected_shape {
+            let delta_shape = Shape::from_dims(&[b.dim(0)?, a.dim(1)?]);
+            if delta_shape != expected_shape {
                 return Err(FamilyError::contract(
                     "adapter.delta.shape",
                     format!("{expected_shape:?}"),
-                    format!("{:?}", delta.shape()),
+                    format!("{delta_shape:?}"),
                 ));
             }
-            deltas.insert(key, delta);
+            factors.insert(key, (a, b));
         }
-        Ok(Self { shards, deltas })
+        Ok(Self {
+            shards,
+            factors,
+            scale,
+        })
     }
 
     /// The mapped shard that owns `name`.
@@ -284,8 +295,13 @@ impl SimpleBackend for MergedLoRABackend {
                 path: name.to_owned(),
             })?;
         let tensor = inner.load(name, dev)?.to_dtype(dtype)?;
-        let tensor = match self.deltas.get(name) {
-            Some(delta) => Tensor::add(&tensor, &delta.to_device(dev)?.to_dtype(dtype)?)?,
+        let tensor = match self.factors.get(name) {
+            Some((a, b)) => {
+                // Same op order and device as the former load-time merge,
+                // so the merged weight is bit-identical.
+                let delta = (b.matmul(a)? * self.scale)?;
+                Tensor::add(&tensor, &delta.to_device(dev)?.to_dtype(dtype)?)?
+            }
             None => tensor,
         };
         if tensor.shape() != &s {
@@ -578,5 +594,20 @@ mod tests {
             Err(other) => panic!("expected a delta-shape mismatch, got {other}"),
             Ok(_) => panic!("a delta of the wrong shape must fail closed"),
         }
+    }
+
+    #[test]
+    fn merged_backend_keeps_only_the_rank_factors_resident() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let (a, b) = rank_two_pair();
+        let (base, adapter) = write_fixture(dir.path(), "layers.0.mlp.up_proj", &a, &b);
+        let backend = MergedLoRABackend::build(&[base], &adapter, &Device::Cpu, 2, 2.0)
+            .expect("build merged backend");
+        // A dense [4, 3] delta would defeat the point; only A [2, 3] and
+        // B [4, 2] may be held between reads.
+        let (resident_a, resident_b) = backend.factors.get(TARGET).expect("target factors");
+        assert_eq!(resident_a.dims(), &[2, 3]);
+        assert_eq!(resident_b.dims(), &[4, 2]);
+        assert_eq!(backend.factors.len(), 1);
     }
 }

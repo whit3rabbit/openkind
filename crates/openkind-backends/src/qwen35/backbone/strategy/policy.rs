@@ -13,8 +13,8 @@ pub struct StrategyEstimates {
     /// Tokens [`ExecutionStrategy::RepeatedFull`] processes: every full
     /// sequence for every candidate.
     pub repeated_tokens: usize,
-    /// Tokens each shared strategy processes: one root prefill plus every
-    /// question and candidate suffix.
+    /// Tokens each shared strategy processes: one root prefill (none when the
+    /// root is cached) plus every question and candidate suffix.
     pub shared_tokens: usize,
     /// `repeated_tokens / shared_tokens`: the work multiplier sharing avoids.
     pub savings_ratio: f64,
@@ -235,11 +235,38 @@ impl StrategyRequest {
 /// sequential shared path; (4) otherwise repeat full sequences.
 #[must_use]
 pub fn choose_strategy(config: &SchedulerConfig, request: &StrategyRequest) -> StrategyDecision {
+    choose_strategy_for_root(config, request, false)
+}
+
+/// [`choose_strategy`] for a request whose shared root is already held by the
+/// root prefix cache.
+///
+/// The shared strategies then skip the root forward, so their token work
+/// excludes `root_tokens`, while repeated-full still re-encodes the root for
+/// every candidate. Everything else is unchanged: the same measured ratio
+/// gate, admission, and retention accounting apply, because the root state
+/// still exists and is retained exactly as after a computed prefill. A cached
+/// root can only make sharing cheaper, so this never claims evidence below the
+/// measured boundary: the ratio is computed from the work actually left.
+#[must_use]
+pub fn choose_strategy_with_cached_root(
+    config: &SchedulerConfig,
+    request: &StrategyRequest,
+) -> StrategyDecision {
+    choose_strategy_for_root(config, request, true)
+}
+
+fn choose_strategy_for_root(
+    config: &SchedulerConfig,
+    request: &StrategyRequest,
+    root_cached: bool,
+) -> StrategyDecision {
+    let shared_root_tokens = if root_cached { 0 } else { request.root_tokens };
     let shared_tokens = request
         .question_tokens
         .iter()
         .chain(request.suffix_tokens.iter().flatten())
-        .fold(request.root_tokens, |tokens, &count| {
+        .fold(shared_root_tokens, |tokens, &count| {
             tokens.saturating_add(count)
         });
     let repeated_tokens: usize = request
@@ -537,5 +564,63 @@ mod tests {
         assert_eq!(decision.estimates.repeated_tokens, usize::MAX);
         assert_eq!(decision.estimates.shared_tokens, usize::MAX);
         assert!(!decision.admitted);
+    }
+
+    /// A Q=1, K=2 request can never reach the measured 2.52 token ratio: the
+    /// ratio is `2(R+q+s) / (R+q+2s)`, below 2 for any R, q, and s.
+    fn small_request() -> StrategyRequest {
+        StrategyRequest {
+            root_tokens: 345,
+            question_tokens: vec![60],
+            suffix_tokens: vec![vec![40, 40]],
+        }
+    }
+
+    #[test]
+    fn a_small_request_repeats_unless_its_root_is_cached() {
+        let config = SchedulerConfig::for_pinned_profile(2.52, None);
+        let request = small_request();
+        let cold = choose_strategy(&config, &request);
+        assert_eq!(cold.strategy, ExecutionStrategy::RepeatedFull);
+        assert_eq!(cold.estimates.shared_tokens, 345 + 60 + 80);
+        assert!(cold.estimates.savings_ratio < 2.0);
+
+        let warm = choose_strategy_with_cached_root(&config, &request);
+        assert_eq!(warm.strategy, ExecutionStrategy::NestedSequential);
+        // The root forward is gone from the shared work, and only from it.
+        assert_eq!(warm.estimates.shared_tokens, 60 + 80);
+        assert_eq!(
+            warm.estimates.repeated_tokens,
+            cold.estimates.repeated_tokens
+        );
+        assert!(warm.estimates.savings_ratio >= 2.52);
+        // The root state is still retained, so admission accounting is the same.
+        assert_eq!(warm.retention, cold.retention);
+        assert!(warm.admitted);
+    }
+
+    #[test]
+    fn a_cached_root_does_not_bypass_the_measured_gate() {
+        // With a tiny root there is little to skip: the work left must still
+        // clear the measured ratio, or the request keeps repeating.
+        let config = SchedulerConfig::for_pinned_profile(2.52, None);
+        let request = StrategyRequest {
+            root_tokens: 1,
+            question_tokens: vec![60],
+            suffix_tokens: vec![vec![40, 40]],
+        };
+        let warm = choose_strategy_with_cached_root(&config, &request);
+        assert!(warm.estimates.savings_ratio < 2.52, "{warm:?}");
+        assert_eq!(warm.strategy, ExecutionStrategy::RepeatedFull);
+    }
+
+    #[test]
+    fn a_cached_root_leaves_a_forced_plan_and_admission_alone() {
+        let mut config = SchedulerConfig::for_pinned_profile(2.52, Some(1));
+        config.forced_strategy = Some(ExecutionStrategy::RepeatedFull);
+        let decision = choose_strategy_with_cached_root(&config, &small_request());
+        assert_eq!(decision.strategy, ExecutionStrategy::RepeatedFull);
+        assert!(decision.forced);
+        assert!(!decision.admitted, "a 1-byte ceiling still rejects");
     }
 }

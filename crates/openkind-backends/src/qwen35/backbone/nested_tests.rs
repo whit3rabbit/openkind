@@ -200,3 +200,48 @@ fn nested_run_fail_closed_on_executor_position_drift() {
             if message.contains("question 0 advanced to position 6, expected 5")
     ));
 }
+
+/// The previous runner forked the parent before every advance. Replaying that
+/// exact sequence by hand pins the borrowed-parent runner to it: same
+/// features and same content for every state, and the parents are untouched.
+#[test]
+fn borrowed_parent_run_matches_the_fork_then_advance_sequence() {
+    use openkind_runtime::branch::BranchableState;
+
+    let executor = SyntheticExecutor;
+    let plans = plan();
+    let run = run_sequential_nested(&executor, ROOT_IDS, &plans).expect("nested run");
+
+    let (root_feature, root) = executor.prefill(ROOT_IDS).expect("prefill");
+    let root_before = root.strict_fingerprint();
+    assert_eq!(run.root_feature(), root_feature);
+    assert_eq!(run.root_state().strict_fingerprint(), root_before);
+
+    for (plan, result) in plans.iter().zip(run.questions()) {
+        let question_branch = root.fork_one().expect("fork root");
+        let (question_feature, question) = executor
+            .continue_from(&question_branch, plan.question_ids)
+            .expect("question");
+        assert_eq!(result.question_feature(), question_feature);
+        assert_eq!(
+            result.question_state().strict_fingerprint(),
+            question.strict_fingerprint()
+        );
+        let question_before = question.strict_fingerprint();
+        for (&suffix, candidate) in plan.candidate_suffix_ids.iter().zip(result.candidates()) {
+            let branch = question.fork_one().expect("fork question");
+            let (feature, state) = executor.continue_from(&branch, suffix).expect("candidate");
+            assert_eq!(candidate.feature(), feature);
+            assert_eq!(
+                candidate.state().strict_fingerprint(),
+                state.strict_fingerprint()
+            );
+        }
+        // Advancing candidates from the shared question state left it intact.
+        assert_eq!(
+            result.question_state().strict_fingerprint(),
+            question_before
+        );
+    }
+    assert_eq!(root.strict_fingerprint(), root_before);
+}

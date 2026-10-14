@@ -221,3 +221,4 @@ publishes crates serially in strict topological dependency order:
 |---|---|---|---|---|
 | `v0.1.0` | 2026-10-03 | `325701be0582c8986ce84c54f88caa21630020c0` | 12 | Initial public release. [Action run](https://github.com/whit3rabbit/openkind/actions/runs/37157085832). Verified [release assets](https://github.com/whit3rabbit/openkind/releases/tag/v0.1.0). |
 | `v0.2.0` | 2026-10-04 | `0153911a4c43d700c2a419c47b4a265848514dff` | 12 | Batch runner, loopback defaults, MSRV 1.90. [Action run](https://github.com/whit3rabbit/openkind/actions/runs/37189124401). |
+| `v0.2.1` | 2026-10-07 | `85cc36b1e0d451015e0d6e441bb1336f813764e6` | 0 | Not published. The ONNX build of a parity test did not compile, failing the MSRV and ONNX archive jobs before any upload. [Action run](https://github.com/whit3rabbit/openkind/actions/runs/37719034732). Its changes ship in v0.3.0. |

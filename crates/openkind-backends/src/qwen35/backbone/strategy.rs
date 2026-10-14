@@ -32,8 +32,8 @@ use super::{run_batched_nested, run_sequential_nested};
 mod policy;
 
 pub use policy::{
-    choose_strategy, run_with_scheduler, ProcessMemoryEnvelope, RetentionEstimates,
-    SchedulerConfig, StrategyDecision, StrategyEstimates, StrategyRequest,
+    choose_strategy, choose_strategy_with_cached_root, run_with_scheduler, ProcessMemoryEnvelope,
+    RetentionEstimates, SchedulerConfig, StrategyDecision, StrategyEstimates, StrategyRequest,
 };
 
 /// Executor wrapper that counts forward invocations for cost accounting.
@@ -144,7 +144,9 @@ impl<S: BranchableState> StrategyOutput<S> {
         &self.question_states
     }
 
-    /// Forward invocations (prefills plus continuations).
+    /// Executor forward invocations (prefills plus continuations). A root
+    /// prefill served by the root prefix cache still counts as one call, so
+    /// this measures calls into the executor, not forwards actually run.
     #[must_use]
     pub const fn forward_calls(&self) -> usize {
         self.forward_calls
@@ -190,17 +192,23 @@ where
         ExecutionStrategy::RepeatedFull => repeated_full_output(&counting, root_ids, plans)?,
         ExecutionStrategy::NestedSequential => {
             let run = run_sequential_nested(&counting, root_ids, plans)?;
-            let mut retained = run.root_state().tensor_storage_bytes();
-            let mut question_features = Vec::with_capacity(run.questions().len());
-            let mut question_states = Vec::with_capacity(run.questions().len());
-            for question in run.questions() {
-                retained += question.question_state().tensor_storage_bytes();
-                let mut features = Vec::with_capacity(question.candidates().len());
-                let mut states = Vec::with_capacity(question.candidates().len());
-                for candidate in question.candidates() {
-                    retained += candidate.state().tensor_storage_bytes();
-                    features.push(candidate.feature().to_vec());
-                    states.push(candidate.state().clone());
+            // Move the candidate states out of the run rather than cloning
+            // each one. The root and question states count toward retention
+            // and drop at the end of this block, as the run did before.
+            let (_, root_state, questions) = run.into_parts();
+            let mut retained = root_state.tensor_storage_bytes();
+            let mut question_features = Vec::with_capacity(questions.len());
+            let mut question_states = Vec::with_capacity(questions.len());
+            for question in questions {
+                let (_, question_state, candidates) = question.into_parts();
+                retained += question_state.tensor_storage_bytes();
+                let mut features = Vec::with_capacity(candidates.len());
+                let mut states = Vec::with_capacity(candidates.len());
+                for candidate in candidates {
+                    let (feature, state) = candidate.into_parts();
+                    retained += state.tensor_storage_bytes();
+                    features.push(feature);
+                    states.push(state);
                 }
                 question_features.push(features);
                 question_states.push(states);

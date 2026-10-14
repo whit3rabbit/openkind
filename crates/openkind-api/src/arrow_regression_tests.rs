@@ -267,7 +267,10 @@ async fn first_failure_stops_later_states_and_keeps_retry_headers() {
     assert_eq!(engine.calls.load(Ordering::SeqCst), 2);
 }
 
-#[tokio::test]
+// Paused time only advances while the runtime is idle, and not during the
+// schema `spawn_blocking`, so the deadline cannot fire before the first
+// evaluation starts on a slow host.
+#[tokio::test(start_paused = true)]
 async fn batch_deadline_cancels_active_evaluation_without_starting_later_states() {
     let engine = Arc::new(TestEngine {
         pending: true,

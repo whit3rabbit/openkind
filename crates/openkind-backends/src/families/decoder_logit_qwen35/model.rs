@@ -108,20 +108,20 @@ impl Jevk5Model {
         letter_ids: &[u32],
         control: &FamilyControl,
     ) -> Result<Vec<f64>, FamilyError> {
-        let hidden = self
+        // The readout reads only the final token, so the last decoder layer
+        // runs for that row alone.
+        let final_token = self
             .backbone
-            .forward_hidden_with_check(prompt_ids, || control.check())?;
+            .forward_last_hidden_with_check(prompt_ids, || control.check())?;
         control.check()?;
         let rows = self.backbone.embedding_rows(letter_ids)?;
-        let token_start = (prompt_ids.len() - 1) * HIDDEN_SIZE;
-        let final_token = &hidden[token_start..];
         let logits: Vec<f64> = rows
             .as_chunks::<HIDDEN_SIZE>()
             .0
             .iter()
             .map(|row| {
                 row.iter()
-                    .zip(final_token)
+                    .zip(&final_token)
                     .map(|(weight, value)| f64::from(*weight) * f64::from(*value))
                     .sum::<f64>()
             })

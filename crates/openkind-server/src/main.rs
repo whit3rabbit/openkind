@@ -66,6 +66,11 @@ fn load_qwen(
                 max_process_bytes,
             });
     }
+    let root_cache = root_cache_config(
+        args.qwen35_root_cache_bytes,
+        args.qwen35_root_cache_ttl_secs,
+        args.qwen35_max_process_bytes,
+    )?;
     crate::backend::load(
         args.qwen35_backend,
         &checkpoint_root,
@@ -78,6 +83,7 @@ fn load_qwen(
                     tokenizer_path: tokenizer_path.clone(),
                     backend: backend_from_arg(backend, args.cuda_device),
                     scheduler: scheduler.clone(),
+                    root_cache,
                     max_concurrent_requests: args.qwen35_concurrency,
                     max_queued_requests: args.qwen35_queue,
                     retry_after_ms: 1_000,
@@ -89,6 +95,39 @@ fn load_qwen(
             ) as Arc<dyn DecisionEngine>)
         },
     )
+}
+
+/// Validate the root-cache flags and build its configuration. A zero byte
+/// budget leaves the cache off. A budget at or above the process ceiling can
+/// never fit and is rejected as a misconfiguration. This is only a sanity
+/// check, because the ceiling also covers weights. Admission is what keeps
+/// the cache inside the ceiling: it refreshes the observed peak RSS on every
+/// request, and that peak includes whatever the cache holds.
+fn root_cache_config(
+    bytes: usize,
+    ttl_secs: u64,
+    max_process_bytes: Option<usize>,
+) -> Result<openkind_backends::qwen35::RootCacheConfig> {
+    use openkind_backends::qwen35::RootCacheConfig;
+    if bytes == 0 {
+        return Ok(RootCacheConfig::DISABLED);
+    }
+    if ttl_secs == 0 {
+        anyhow::bail!(
+            "--qwen35-root-cache-ttl-secs must be above 0 when --qwen35-root-cache-bytes is set"
+        );
+    }
+    if let Some(ceiling) = max_process_bytes {
+        if bytes >= ceiling {
+            anyhow::bail!(
+                "--qwen35-root-cache-bytes ({bytes}) must be below --qwen35-max-process-bytes ({ceiling})"
+            );
+        }
+    }
+    Ok(RootCacheConfig {
+        max_tensor_bytes: bytes,
+        ttl: std::time::Duration::from_secs(ttl_secs),
+    })
 }
 
 fn main() -> Result<()> {
@@ -754,5 +793,45 @@ mod tests {
                 "{error}"
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod root_cache_flag_tests {
+    use super::root_cache_config;
+    use std::time::Duration;
+
+    const GIB: usize = 1 << 30;
+
+    #[test]
+    fn zero_bytes_leaves_the_cache_off_whatever_the_ttl() {
+        for ttl in [0, 300] {
+            let config = root_cache_config(0, ttl, Some(GIB)).unwrap();
+            assert!(!config.is_enabled());
+        }
+    }
+
+    #[test]
+    fn a_budget_and_ttl_enable_it() {
+        let config = root_cache_config(GIB, 60, Some(8 * GIB)).unwrap();
+        assert!(config.is_enabled());
+        assert_eq!(config.max_tensor_bytes, GIB);
+        assert_eq!(config.ttl, Duration::from_secs(60));
+        assert!(root_cache_config(GIB, 60, None).unwrap().is_enabled());
+    }
+
+    #[test]
+    fn a_budget_without_a_lifetime_is_rejected() {
+        let error = root_cache_config(GIB, 0, None).unwrap_err().to_string();
+        assert!(error.contains("ttl-secs"), "{error}");
+    }
+
+    #[test]
+    fn a_budget_that_fills_the_process_ceiling_is_rejected() {
+        let error = root_cache_config(8 * GIB, 60, Some(8 * GIB))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("max-process-bytes"), "{error}");
+        assert!(root_cache_config(8 * GIB - 1, 60, Some(8 * GIB)).is_ok());
     }
 }

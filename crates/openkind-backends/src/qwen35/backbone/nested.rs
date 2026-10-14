@@ -1,13 +1,17 @@
 //! Phase 3.5 sequential nested execution over branchable continuation state.
 //!
 //! The nested graph prefills the shared state once, then evaluates every
-//! question by forking the immutable root, advancing that fork with the
-//! question tokens, forking the question state per candidate, and advancing
-//! each candidate fork with its suffix. Every fork comes from
-//! [`BranchableState::fork_one`], so a candidate branch can never mutate its
-//! sibling branches, its question state, or the shared root, and the runner
-//! verifies that immutability structurally after every stage and fails
-//! closed.
+//! question by advancing the immutable root with the question tokens and
+//! advancing the question state with each candidate suffix. Each advance
+//! borrows its parent through [`SequentialNestedExecutor::continue_from`] and
+//! returns a new state that owns every tensor it extends, so a candidate can
+//! never mutate its sibling branches, its question state, or the shared root.
+//! No intermediate [`BranchableState::fork_one`] copy is made: for the CPU
+//! state the shared borrow is that guarantee, and the runner additionally
+//! checks the structural fingerprint of the root and question states after
+//! each stage and fails closed. That fingerprint covers shape and position,
+//! not tensor values, so content immutability is covered by the strict
+//! fingerprint tests rather than by the runner.
 //!
 //! The orchestration is expressed against [`SequentialNestedExecutor`] so its
 //! semantics stay testable offline; the pinned Qwen3.5 backbone provides the
@@ -271,6 +275,12 @@ impl<S: BranchableState> NestedRun<S> {
     pub fn questions(&self) -> &[NestedQuestionResult<S>] {
         &self.questions
     }
+
+    /// Take ownership of the root feature, root state, and question results.
+    #[must_use]
+    pub fn into_parts(self) -> (Vec<f32>, S, Vec<NestedQuestionResult<S>>) {
+        (self.root_feature, self.root_state, self.questions)
+    }
 }
 
 /// One question branch and its candidate branches.
@@ -299,6 +309,13 @@ impl<S: BranchableState> NestedQuestionResult<S> {
     pub fn candidates(&self) -> &[NestedCandidateResult<S>] {
         &self.candidates
     }
+
+    /// Take ownership of the question feature, question state, and
+    /// candidate results.
+    #[must_use]
+    pub fn into_parts(self) -> (Vec<f32>, S, Vec<NestedCandidateResult<S>>) {
+        (self.question_feature, self.question_state, self.candidates)
+    }
 }
 
 /// One candidate branch advanced from a question state.
@@ -320,10 +337,16 @@ impl<S: BranchableState> NestedCandidateResult<S> {
     pub fn state(&self) -> &S {
         &self.state
     }
+
+    /// Take ownership of the candidate feature and continuation state.
+    #[must_use]
+    pub fn into_parts(self) -> (Vec<f32>, S) {
+        (self.feature, self.state)
+    }
 }
 
 /// Execute the sequential nested graph: prefill once, then
-/// `fork question -> advance question -> fork candidate -> advance candidate`.
+/// `advance question -> advance candidate` from borrowed parent states.
 ///
 /// The runner fail-closes when the executor advances a state to an unexpected
 /// position, when a question state changes while its candidates execute, or
@@ -365,9 +388,11 @@ pub fn run_sequential_nested<E: SequentialNestedExecutor>(
             )));
         }
 
-        let question_branch = root_state.fork_one()?;
+        // `continue_from` borrows its source and returns a new state that owns
+        // every tensor it extends, so the shared root needs no fork. The
+        // fingerprint checks below fail the run if an executor mutates it.
         let (question_feature, question_state) =
-            executor.continue_from(&question_branch, question.question_ids)?;
+            executor.continue_from(&root_state, question.question_ids)?;
         let expected_position = root_position + question.question_ids.len();
         if question_state.position() != expected_position {
             return Err(Qwen35Error::InvalidInput(format!(
@@ -384,8 +409,7 @@ pub fn run_sequential_nested<E: SequentialNestedExecutor>(
                     "question {question_index} candidate {candidate_index} has an empty suffix"
                 )));
             }
-            let candidate_branch = question_state.fork_one()?;
-            let (feature, state) = executor.continue_from(&candidate_branch, suffix_ids)?;
+            let (feature, state) = executor.continue_from(&question_state, suffix_ids)?;
             let expected_position = question_state.position() + suffix_ids.len();
             if state.position() != expected_position {
                 return Err(Qwen35Error::InvalidInput(format!(
@@ -458,7 +482,7 @@ impl Qwen35Backbone {
     /// Sequential nested execution against the pinned Qwen3.5 backbone.
     ///
     /// Prefills the shared root once, then evaluates every question and
-    /// candidate through immutable forks of the `BranchableState` continuation.
+    /// candidate by advancing borrowed `BranchableState` parents.
     /// This is the Phase 3.5 native correctness baseline for later batched
     /// question and candidate execution.
     ///

@@ -260,6 +260,83 @@ impl DecoderLayer {
         )
     }
 
+    /// Add the SwiGLU MLP over `rows` rows of `hidden` to `hidden`, after the
+    /// post-attention norm. Shared by the full-sequence and last-row paths so
+    /// both run the same operations in the same order.
+    fn add_mlp(&self, hidden: &mut [f32], rows: usize) -> Result<(), Qwen35Error> {
+        let hidden_size = self.geometry.hidden_size;
+        let mlp_input =
+            rms_norm_zero_centered(hidden, rows, hidden_size, &self.post_attention_layernorm);
+        let mut gate = linear(
+            &mlp_input,
+            rows,
+            hidden_size,
+            &self.mlp_gate_proj,
+            self.geometry.intermediate_size,
+            &self.device,
+        )?;
+        let up = linear(
+            &mlp_input,
+            rows,
+            hidden_size,
+            &self.mlp_up_proj,
+            self.geometry.intermediate_size,
+            &self.device,
+        )?;
+        swiglu_in_place(&mut gate, &up);
+        let mlp = linear(
+            &gate,
+            rows,
+            self.geometry.intermediate_size,
+            &self.mlp_down_proj,
+            hidden_size,
+            &self.device,
+        )?;
+        for (hidden, mlp) in hidden.iter_mut().zip(mlp) {
+            *hidden += mlp;
+        }
+        Ok(())
+    }
+
+    /// Forward a full sequence through this layer and return only the final
+    /// row's output.
+    ///
+    /// Earlier rows' outputs are never read when this is the last decoder
+    /// layer, so the query path, output projection, and MLP run for one row.
+    /// A full-attention mixer prunes all of those. A DeltaNet mixer still
+    /// scans every row, because its recurrence is sequential, and only the
+    /// MLP is pruned. No continuation state is produced. The result matches
+    /// the last row of [`Self::forward_checked`] up to the matmul's
+    /// summation order at one row against many.
+    pub(super) fn forward_last_row_checked<E>(
+        &self,
+        residual: &[f32],
+        token_count: usize,
+        layer_index: usize,
+        check: Option<&mut dyn FnMut() -> Result<(), E>>,
+    ) -> Result<Vec<f32>, E>
+    where
+        E: From<Qwen35Error>,
+    {
+        let hidden_size = self.geometry.hidden_size;
+        let normalized =
+            rms_norm_zero_centered(residual, token_count, hidden_size, &self.input_layernorm);
+        let attention_row = match &self.mixer {
+            TokenMixer::Full(mixer) => {
+                mixer.forward_last_row_with_check(&normalized, token_count, &self.device, check)?
+            }
+            TokenMixer::Linear(mixer) => {
+                let (attention, _state) =
+                    mixer.forward_with_state(&normalized, token_count, &self.device, None)?;
+                attention[(token_count - 1) * hidden_size..].to_vec()
+            }
+        };
+        let mut hidden = add(&residual[(token_count - 1) * hidden_size..], &attention_row);
+        self.add_mlp(&mut hidden, 1)?;
+        ensure_finite(&hidden, &format!("layer_{layer_index:02}"))?;
+        Ok(hidden)
+    }
+
     fn forward_with_state_and_check<E>(
         &self,
         residual: &[f32],
@@ -311,40 +388,7 @@ impl DecoderLayer {
             }
         };
         let mut hidden = add(residual, &attention);
-        let mlp_input = rms_norm_zero_centered(
-            &hidden,
-            token_count,
-            hidden_size,
-            &self.post_attention_layernorm,
-        );
-        let mut gate = linear(
-            &mlp_input,
-            token_count,
-            hidden_size,
-            &self.mlp_gate_proj,
-            self.geometry.intermediate_size,
-            &self.device,
-        )?;
-        let up = linear(
-            &mlp_input,
-            token_count,
-            hidden_size,
-            &self.mlp_up_proj,
-            self.geometry.intermediate_size,
-            &self.device,
-        )?;
-        swiglu_in_place(&mut gate, &up);
-        let mlp = linear(
-            &gate,
-            token_count,
-            self.geometry.intermediate_size,
-            &self.mlp_down_proj,
-            hidden_size,
-            &self.device,
-        )?;
-        for (hidden, mlp) in hidden.iter_mut().zip(mlp) {
-            *hidden += mlp;
-        }
+        self.add_mlp(&mut hidden, token_count)?;
         ensure_finite(&hidden, &format!("layer_{layer_index:02}"))?;
         Ok((hidden, state))
     }
