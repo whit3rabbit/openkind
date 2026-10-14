@@ -9,7 +9,7 @@
 
 use std::collections::BTreeMap;
 
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{rngs::StdRng, RngExt, SeedableRng};
 use serde_json::{json, Value};
 
 const NLL_FLOOR: f64 = 1e-15;

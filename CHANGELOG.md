@@ -26,6 +26,17 @@
 - Family engines share the admission gate, cancellation guard, question
   prelude, response assembly, pinned-config checks, and SHA-256 helpers
   instead of per-family copies. No behavior change.
+- Dependencies: sha2 0.11, rusqlite 0.40, ndarray 0.17, nvml-wrapper 0.13,
+  and rand 0.10 (bench only). sha2 0.11 digests no longer format as hex, so
+  digests are hex-encoded explicitly with unchanged output, pinned by
+  known-answer tests. rusqlite enables `fallible_uint` for the store's
+  range-checked `u64` columns. Seeded `StdRng` draws are bit-identical
+  between rand 0.9 and 0.10, so bench workloads reproduce.
+- TypeScript bindings build with TypeScript 7 and `@types/node` 26, and
+  `tsconfig.json` lists `node` in `types` because TypeScript 6 stopped
+  loading it implicitly.
+- CI and release workflows use `actions/setup-python` v7 and
+  `Jimver/cuda-toolkit` v0.2.36.
 
 ### Fixed
 

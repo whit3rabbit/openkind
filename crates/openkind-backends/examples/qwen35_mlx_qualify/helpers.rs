@@ -132,7 +132,6 @@ pub(crate) fn capture_provenance(
 }
 
 fn sha256_file(path: &std::path::Path) -> Result<String, String> {
-    use sha2::{Digest, Sha256};
     let bytes = std::fs::read(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    Ok(format!("{:x}", Sha256::digest(&bytes)))
+    Ok(openkind_runtime::hashing::sha256_hex(&bytes))
 }

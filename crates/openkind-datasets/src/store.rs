@@ -976,7 +976,19 @@ fn redirect_target(
 }
 
 fn sha256(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    hex_lower(&Sha256::digest(bytes))
+}
+
+/// Lowercase hex of a digest. sha2 0.11 digests no longer implement
+/// `LowerHex`, and a direct dependency on a hex crate is not worth one loop.
+fn hex_lower(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for &byte in bytes {
+        out.push(char::from(HEX[usize::from(byte >> 4)]));
+        out.push(char::from(HEX[usize::from(byte & 0x0f)]));
+    }
+    out
 }
 
 fn sha256_file(path: &Path) -> Result<String> {
@@ -990,7 +1002,7 @@ fn sha256_file(path: &Path) -> Result<String> {
         }
         hasher.update(&buffer[..len]);
     }
-    Ok(format!("{:x}", hasher.finalize()))
+    Ok(hex_lower(&hasher.finalize()))
 }
 
 fn reusable_blob(path: &Path, size: u64, sha: &str) -> Result<bool> {
@@ -1049,6 +1061,14 @@ fn verify_file(path: &Path, size: u64, sha: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sha256_is_lowercase_hex_of_the_nist_vector() {
+        assert_eq!(
+            sha256(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
     use axum::extract::Path as AxumPath;
     use axum::http::{header, HeaderMap, StatusCode};
     use axum::response::IntoResponse;

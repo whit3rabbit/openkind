@@ -914,7 +914,7 @@ fn sha256_file(path: &Path) -> Result<String> {
         }
         hasher.update(&buffer[..len]);
     }
-    Ok(format!("{:x}", hasher.finalize()))
+    Ok(crate::manifest::hex_lower(&hasher.finalize()))
 }
 
 #[cfg(test)]

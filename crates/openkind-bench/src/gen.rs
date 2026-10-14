@@ -13,7 +13,7 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use openkind_runtime::hashing::sha256_hex;
 use rand::rngs::StdRng;
-use rand::{Rng, SeedableRng};
+use rand::{RngExt, SeedableRng};
 
 use crate::workload::{QuestionSpec, WorkloadRow};
 

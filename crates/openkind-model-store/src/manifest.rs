@@ -76,7 +76,19 @@ pub struct Source {
 }
 
 pub(crate) fn sha256(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    hex_lower(&Sha256::digest(bytes))
+}
+
+/// Lowercase hex of a digest. sha2 0.11 digests no longer implement
+/// `LowerHex`, and a direct dependency on a hex crate is not worth one loop.
+pub(crate) fn hex_lower(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for &byte in bytes {
+        out.push(char::from(HEX[usize::from(byte >> 4)]));
+        out.push(char::from(HEX[usize::from(byte & 0x0f)]));
+    }
+    out
 }
 
 pub(crate) fn valid_sha256(value: &str) -> bool {
@@ -268,6 +280,15 @@ impl CatalogEntry {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sha256_is_lowercase_hex_of_the_nist_vector() {
+        assert_eq!(
+            sha256(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert!(valid_sha256(&sha256(b"abc")));
+    }
 
     #[test]
     fn rejects_paths_that_escape_or_replace_store_metadata() {

@@ -6,7 +6,7 @@ use openkind_backends::qwen35::experimental::{
 use openkind_backends::qwen35::{
     BACKBONE_ID, BACKBONE_REVISION, CALIBRATION_TEMPERATURE, PROFILE_ID, TOKENIZER_JSON_SHA256,
 };
-use rand::{rngs::StdRng, Rng, SeedableRng};
+use rand::{rngs::StdRng, RngExt, SeedableRng};
 use serde_json::{json, Value};
 
 use super::{metrics, CompareArgs, Record, COMPARISON_METHODS, METHOD_DEFINITIONS};

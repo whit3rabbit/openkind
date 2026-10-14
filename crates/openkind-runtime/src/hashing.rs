@@ -16,10 +16,22 @@ use sha2::{Digest, Sha256};
 /// shard verification I/O-bound, small enough to stay out of the way.
 const FILE_CHUNK_BYTES: usize = 1 << 20;
 
+/// Lowercase hex of a digest. sha2 0.11 digests no longer implement
+/// `LowerHex`, and a direct dependency on a hex crate is not worth one loop.
+pub fn hex_lower(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for &byte in bytes {
+        out.push(char::from(HEX[usize::from(byte >> 4)]));
+        out.push(char::from(HEX[usize::from(byte & 0x0f)]));
+    }
+    out
+}
+
 /// Lowercase hex SHA-256 of `bytes`.
 #[must_use]
 pub fn sha256_hex(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    hex_lower(&Sha256::digest(bytes))
 }
 
 /// Lowercase hex SHA-256 over the concatenation of `parts`, without
@@ -30,7 +42,7 @@ pub fn sha256_hex_parts(parts: &[&[u8]]) -> String {
     for part in parts {
         hasher.update(part);
     }
-    format!("{:x}", hasher.finalize())
+    hex_lower(&hasher.finalize())
 }
 
 /// Stream a file through SHA-256 in place. Large checkpoint shards are never
@@ -46,12 +58,21 @@ pub fn sha256_file(path: &Path) -> io::Result<String> {
         }
         hasher.update(&chunk[..read]);
     }
-    Ok(format!("{:x}", hasher.finalize()))
+    Ok(hex_lower(&hasher.finalize()))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hex_lower_covers_every_nibble_edge() {
+        assert_eq!(
+            hex_lower(&[0x00, 0x09, 0x0a, 0x0f, 0xf0, 0xa5, 0xff]),
+            "00090a0ff0a5ff"
+        );
+        assert_eq!(hex_lower(&[]), "");
+    }
 
     #[test]
     fn hex_matches_known_vectors() {
