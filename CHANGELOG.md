@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.4.0 (2026-10-14)
+
 ### Added
 
 - Model support for Jeeves: the pinned `jeeves:15fb3b95801f2f039636`
