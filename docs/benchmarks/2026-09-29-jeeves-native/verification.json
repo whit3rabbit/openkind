@@ -1,0 +1,157 @@
+{
+  "schema": "openkind-jeeves-verification/v1",
+  "checks": [
+    {
+      "check": "fmt",
+      "command": [
+        "cargo",
+        "fmt",
+        "--check"
+      ],
+      "exit_code": 0
+    },
+    {
+      "check": "clippy",
+      "command": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0
+    },
+    {
+      "check": "clippy-mlx",
+      "command": [
+        "cargo",
+        "clippy",
+        "--workspace",
+        "--all-targets",
+        "--features",
+        "mlx",
+        "--",
+        "-D",
+        "warnings"
+      ],
+      "exit_code": 0
+    },
+    {
+      "check": "workspace-tests",
+      "command": [
+        "cargo",
+        "test",
+        "--workspace"
+      ],
+      "exit_code": 101
+    },
+    {
+      "check": "workspace-benches",
+      "command": [
+        "cargo",
+        "test",
+        "--workspace",
+        "--benches",
+        "--locked"
+      ],
+      "exit_code": 0
+    },
+    {
+      "check": "schema",
+      "command": [
+        "cargo",
+        "run",
+        "-p",
+        "openkind-gen-schemas",
+        "--",
+        "--write"
+      ],
+      "exit_code": 0
+    },
+    {
+      "check": "diff",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "additional_checks": [
+    {
+      "check": "MLX bench/server/model-store unit tests",
+      "exit_code": 0,
+      "reported_tests": 53
+    },
+    {
+      "check": "public mirror sync --remote",
+      "exit_code": 0,
+      "metadata_files": 16,
+      "github_assets": 13
+    },
+    {
+      "check": "release MLX build",
+      "exit_code": 0
+    },
+    {
+      "check": "catalog pull and installed CLI serve HTTP smoke",
+      "exit_code": 0
+    },
+    {
+      "check": "workspace tests serial retry",
+      "exit_code": 101
+    },
+    {
+      "check": "proxy-cache failed case isolated retry",
+      "exit_code": 0
+    },
+    {
+      "check": "benchmark prediction digests and exact paired answers",
+      "exit_code": 0
+    },
+    {
+      "check": "recommendation dataset four registry joins and limited support label",
+      "exit_code": 0
+    },
+    {
+      "check": "changed-page relative links and benchmark JSON parse",
+      "exit_code": 0
+    },
+    {
+      "check": "recommendation-data script py_compile",
+      "exit_code": 0
+    }
+  ],
+  "failures": [
+    {
+      "attempt": "workspace-tests",
+      "test": "evaluate_http_errors_keep_status_and_request_id_on_stderr",
+      "location": "crates/openkind-cli/tests/contracts.rs:22",
+      "message": "temporary directory AlreadyExists"
+    },
+    {
+      "attempt": "workspace-tests-serial",
+      "test": "full_loop_bootstrap_train_promote_serve_locally",
+      "location": "crates/openkind-backends/tests/proxy_cache_loop.rs:211",
+      "message": "peaked cluster reports high confidence",
+      "isolated_retry": "passed"
+    }
+  ],
+  "final_workspace_retry": {
+    "command": [
+      "cargo",
+      "test",
+      "--workspace",
+      "--",
+      "--test-threads=1"
+    ],
+    "exit_code": 0,
+    "reported_tests": 791
+  },
+  "schemas_changed": false,
+  "benchmark_predictions_and_registry_joins": "verified",
+  "workspace_benches_reported_tests": 524
+}

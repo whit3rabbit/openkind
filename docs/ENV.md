@@ -139,6 +139,7 @@ read-only artifact root:
 | `ENCODER_NLI` | `_ALIASES`, `_MODEL_ROOT` |
 | `ENCODER_INSTRUCT_LABEL` | `_ALIASES`, `_MODEL_ROOT` |
 | `KEV` | `_ALIASES`, `_MODEL_ROOT`, plus `OPENKIND_KEV_BASE_ROOT` (base checkpoint) |
+| `JEEVES` | `_ALIASES` (default `jeeves-native`), `_MODEL_ROOT`; requires `mlx` on macOS arm64 |
 | `DECODER_LLM` | `_ALIASES`, `_MODEL_ROOT` |
 | `SCHEMA_SCORER` | `_ALIASES`, `_MODEL_ROOT` |
 | `ROUTER_SCRIPT` | `_ALIASES`, plus `OPENKIND_ROUTER_SCRIPT_RULES` (rules file; no model root) |
@@ -179,6 +180,8 @@ Every model family takes a backend selector. ONNX selections additionally
 require `model.onnx` and its digest manifest in the family model root
 (see [`ONNX.md`](ONNX.md)); families whose readout has no
 ONNX export reject the selection with an explanation.
+Jeeves is the exception: it runs only on MLX affine4/FP32 and has no
+backend selector.
 
 | Variable | Values | Default |
 |---|---|---|

@@ -40,6 +40,7 @@ input token rates, and strategy caveats are in the per-backend table below).
 | [`qwen35-state-first`](families/encoder-state-first.md) | Qwen3.5 hybrid decoder (24 DeltaNet + 8 attention blocks), 4B | 262,144 | [Qwen/Qwen3.5-4B-Base](https://huggingface.co/Qwen/Qwen3.5-4B-Base) + [OpenKind bundle](https://huggingface.co/cowWhySo/OpenKind-Qwen3.5-4B-StateFirst) | `qwen35-state-first:a047d6802c3f06f085b8` | 9.34 GB | 18.62 GB · 0.22/s | 12.09 GB · 2.46/s | [registry campaign](benchmarks/2026-09-28-registry-mlx-campaign/README.md) |
 | [`decoder-logit-qwen35`](families/decoder-logit-qwen35.md) | Qwen3.5 hybrid decoder (merged LoRA, letter-logit readout), 4B | 262,144 | [alibiserikbay/JevK5](https://huggingface.co/alibiserikbay/JevK5) (merged Qwen3.5-4B) | `decoder-logit-qwen35:415bcf4a064e6dadcf85` (`jevk5:4b`) | 8.43 GB | 8.04 GB · 0.16/s | 6.98 GB · 0.43/s | [CPU summary](benchmarks/2026-09-27-decoder-logit-qwen35/summary-decoder-logit-qwen35.json) · [MLX](benchmarks/2026-09-29-mlx-counterparts/README.md) |
 | [`kev`](families/kev.md) | Qwen3 decoder (LoRA + pointer head), 0.6B | 32,768 | [jaredpalmer/kev-0.6b](https://huggingface.co/jaredpalmer/kev-0.6b) over [Qwen/Qwen3-0.6B-Base](https://huggingface.co/Qwen/Qwen3-0.6B-Base) | `kev:39d88c11faeb4ac165fa` | 1.25 GB | 4.22 GB · 4.84/s | — | [summary](benchmarks/2026-09-26-surveyed-families/summary-kev.json) |
+| [`jeeves`](families/jeeves.md) | Qwen3.5 hybrid decoder (merged LoRA, pointer head, no-thinking), 9B | 262,144 | [cowWhySo/jeeves-mlx](https://huggingface.co/cowWhySo/jeeves-mlx) (affine4/g64 export of [PostHog/jeeves](https://huggingface.co/PostHog/jeeves)) | `jeeves:15fb3b95801f2f039636` | 5.07 GB | — | 9.18 GB · 0.92/s (affine4 weights; mixed 12-decision workload) | [benchmark](benchmarks/2026-09-29-jeeves-native/REPORT.md) |
 | [`qwen3guard`](families/qwen3guard.md) (Stream) | Qwen3 decoder (safety-verdict classification head), 0.6B | 8,192 | [Qwen/Qwen3Guard-Stream-0.6B](https://huggingface.co/Qwen/Qwen3Guard-Stream-0.6B) | `qwen3guard:0fcf416cab16d94f933d` | 1.21 GB | 4.20 GB · 4.97/s | — | [summary](benchmarks/2026-09-26-surveyed-families/summary-qwen3guard.json) |
 | [`decoder-logit-letter`](families/decoder-logit-letter.md) | Qwen2.5 decoder (option-letter logit readout), 0.5B | 32,768 | [Qwen/Qwen2.5-0.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct) | `decoder-logit-letter:5492c97dfcdaf3fe9439` | 1.00 GB | 3.33 GB · 7.22/s | — | [summary](benchmarks/2026-09-26-surveyed-families/summary-decoder-letter.json) |
 | [`decoder-logit-llm`](families/decoder-logit-llm.md) | Qwen2.5 decoder, GGUF q8_0 (label-logit readout), 0.5B | 32,768 | [Qwen/Qwen2.5-0.5B-Instruct-GGUF](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF) | `decoder-logit-llm:465963d705b6f35d6208` | 0.68 GB | 1.55 GB · 0.42/s | — | [summary](benchmarks/2026-09-26-surveyed-families/summary-decoder-llm.json) |
@@ -101,8 +102,9 @@ Reading notes:
 
 ## Pull a catalog model
 
-Thirty-two profiles are catalog-installable: every Rust-loadable profile
-except `router-script`, which needs no artifacts. `openkind pull NAME`
+Thirty-three profiles are catalog-installable: every Rust-loadable profile
+except `router-script`, which needs no artifacts.
+Jeeves serving requires macOS arm64 and an `mlx` build. `openkind pull NAME`
 downloads pinned artifacts, verifies every digest, and installs them for the
 daemon:
 
@@ -210,6 +212,7 @@ Per-backend detail for the [All models](#all-models) table above: model-load
 time and input token rate per profile and backend, plus the unqualified bf16
 probe. CPU fp32 (candle) is the correctness oracle; the MLX backend is
 parity-qualified for the profiles listed and does not exist for the others.
+Jeeves runs only on MLX (affine4 weights, FP32 arithmetic) and has no CPU path.
 
 | Profile | Backend | Download | Peak RSS | Decisions/s | Input tok/s | Model load | Evidence |
 |---|---|---:|---:|---:|---:|---:|---|
@@ -219,6 +222,7 @@ parity-qualified for the profiles listed and does not exist for the others.
 | `decoder-logit-qwen35` | CPU fp32 | 8.43 GB | 8.04 GB | 0.16 | — | 15.2 s | [summary](benchmarks/2026-09-27-decoder-logit-qwen35/summary-decoder-logit-qwen35.json) |
 | `decoder-logit-qwen35` | MLX fp32 (qualified) | same | 6.98 GB | 0.43 | — | 20.2 s | [mlx counterparts campaign](benchmarks/2026-09-29-mlx-counterparts/README.md) |
 | `kev` | CPU fp32 | 1.25 GB | 4.22 GB | 4.84 | — | 5.6 s | [summary](benchmarks/2026-09-26-surveyed-families/summary-kev.json) |
+| `jeeves` | MLX affine4 weights / FP32 arithmetic (mixed12) | 5.07 GB | 9.18 GB | 0.91–0.92 | 151–152 | 10.0–10.4 s | [native campaign](benchmarks/2026-09-29-jeeves-native/REPORT.md) |
 | `qwen3guard` | CPU fp32 | 1.21 GB | 4.20 GB | 4.97 | — | 2.4 s | [summary](benchmarks/2026-09-26-surveyed-families/summary-qwen3guard.json) |
 | `decoder-logit-letter` | CPU fp32 | 1.00 GB | 3.33 GB | 7.22 | — | 2.0 s | [summary](benchmarks/2026-09-26-surveyed-families/summary-decoder-letter.json) |
 | `decoder-logit-llm` | CPU fp32 (GGUF q8_0 weights) | 0.68 GB | 1.55 GB | 0.42 | — | 1.5 s | [summary](benchmarks/2026-09-26-surveyed-families/summary-decoder-llm.json) |
@@ -248,12 +252,16 @@ Reading notes:
 - Download is the manifest-pinned artifact total for catalog models; a dash
   means the checkpoint downloads directly from the linked repository and no
   size is pinned here.
-- All measured cells are single-sample `--reps 1` runs of the seeded shape777
-  workload (`be397bfc…`, 777 decisions, grouped by state, warm process) on
+- Except Jeeves, measured cells are single-sample `--reps 1` runs of the
+  seeded shape777 workload (`be397bfc…`, 777 decisions, grouped by state, warm process) on
   `openkind-mac-arm64-local` — an Apple M4 Max, 14 logical cores, fp32,
   request-path timing with model load reported separately. Peak RSS is the
   process high-water mark including mapped weights and runtime scratch, so it
   is not per-request memory.
+- Jeeves uses the mixed 12-decision fixture, two fresh processes, and three
+  timed repetitions each. Its row is outside the shape777 comparison; peak
+  RSS includes loading, while peak physical footprint is 5.74 GB. See its
+  campaign for the separate seeded 21-question record.
 - `qwen35-state-first` CPU and MLX rows are `choose_strategy` (the scheduler
   picks a nested plan); fresh `repeated_full` scoring on MLX costs 0.32
   decisions/s. Peak RSS is shared across strategies of one process.
@@ -272,7 +280,7 @@ Reading notes:
   below.
 - Engines run through `openkind-bench score --engine NAME` (`qwen35`,
   `qwen35-mlx-fp32`, `decoder-letter`, `encoder-nli`, `encoder-instruct-label`,
-  `decoder-llm`, `schema-scorer`, `qwen3-guard`, `kev`,
+  `decoder-llm`, `schema-scorer`, `qwen3-guard`, `kev`, `jeeves-mlx-affine4`,
   `decoder-logit-qwen35`, `plumb-4b`, `winnow-e4b`, `von`, `laya-english`,
   `laya-multilingual`, `laya-typed-decisions`, `winnow`, `router-script`,
   and the `*-mlx-fp32` variants) or through the daemon (`--installed-models` for catalog profiles,

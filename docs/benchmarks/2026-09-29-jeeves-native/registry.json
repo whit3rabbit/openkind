@@ -1,0 +1,97 @@
+{
+  "schema": "openkind-jeeves-registry-verification/v1",
+  "registry_repository": "https://github.com/whit3rabbit/openkind-model-registry",
+  "registry_commit": "955cc49d7a378f4999213149c50ce1062cd351bf",
+  "profile": "jeeves:15fb3b95801f2f039636",
+  "checkpoint_revision": "6f4220a267a94c5279b3fcbc5499de734b9a55b0",
+  "pinned_artifact_bytes": 5066655549,
+  "cached_weight_bytes_reused_and_digest_verified": 5038161163,
+  "remaining_artifacts": "downloaded via public catalog and pinned HF URLs",
+  "mirror_verification": {
+    "metadata_files": 16,
+    "pinned_github_assets": 13,
+    "public_https_matches": true
+  },
+  "installed_cli_serve_smoke": {
+    "models": {
+      "models": [
+        {
+          "name": "jeeves:15fb3b95801f2f039636",
+          "description": "cowWhySo/jeeves-mlx native no-thinking pointer decisions (15fb3b95801f2f039636, affine4/FP32).",
+          "release_date": "2026-09-29"
+        },
+        {
+          "name": "mock",
+          "description": "Deterministic fake answers for testing the wire protocol.",
+          "release_date": "2026-01-01"
+        }
+      ]
+    },
+    "request": {
+      "model": "jeeves:15fb3b95801f2f039636",
+      "state": "The invoice was paid. Billing should handle it. The customer sounds calm.",
+      "questions": {
+        "paid": {
+          "type": "noul",
+          "instructions": "Was the invoice paid?"
+        },
+        "route": {
+          "type": "choice",
+          "instructions": "Who should handle this ticket?",
+          "criteria": {
+            "billing": "Billing and payments",
+            "support": "Technical support",
+            "__none__": "None of these departments applies"
+          }
+        },
+        "tone": {
+          "type": "score",
+          "instructions": "How angry is the customer?",
+          "criteria": [
+            "calm",
+            "neutral",
+            "angry"
+          ]
+        }
+      }
+    },
+    "response": {
+      "model": "jeeves:15fb3b95801f2f039636",
+      "answers": {
+        "tone": {
+          "type": "score",
+          "score": 0.12578676332976746,
+          "legend": {
+            "0": "calm",
+            "1": "neutral",
+            "2": "angry"
+          },
+          "probabilities": {
+            "0": 0.8820538286201307,
+            "1": 0.11010557942997105,
+            "2": 0.007840591949898208
+          },
+          "confidence": 0.6435120965197213
+        },
+        "route": {
+          "type": "choice",
+          "choice": "billing",
+          "probabilities": {
+            "billing": 0.937066754392355,
+            "support": 0.020468014563038865,
+            "__none__": 0.04246523104460623
+          },
+          "confidence": 0.7499949998919158
+        },
+        "paid": {
+          "type": "noul",
+          "noul": 0.9818672463067553
+        }
+      },
+      "usage": {
+        "input_tokens": 209,
+        "output_tokens": 6
+      }
+    }
+  }
+}

@@ -133,6 +133,14 @@ fn context_limits(engine: EngineKind) -> Value {
         EngineKind::LayaTypedDecisionsMlxFp32 => {
             laya_context(&openkind_backends::families::laya::LAYA_TYPED_DECISIONS)
         }
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::JeevesMlxAffine4 => json!({
+            "max_sequence_tokens": openkind_backends::families::jeeves::MAX_TOKENS,
+            "max_questions_per_request": openkind_backends::families::jeeves::MAX_QUESTIONS,
+            "thinking": false,
+            "weight_quantization": "affine4-g64",
+            "activation_dtype": "fp32",
+        }),
         _ => Value::Null,
     }
 }

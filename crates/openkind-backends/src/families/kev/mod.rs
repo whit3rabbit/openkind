@@ -43,9 +43,9 @@
 //! reproduced for states, instructions, and criteria.
 
 mod arch;
-mod engine;
+pub(crate) mod engine;
 mod model;
-mod renderer;
+pub(crate) mod renderer;
 
 use std::path::PathBuf;
 use std::time::Duration;

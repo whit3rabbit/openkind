@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Added
+
+- Model support for Jeeves: the pinned `jeeves:15fb3b95801f2f039636`
+  profile serves PostHog's Jeeves through the `cowWhySo/jeeves-mlx`
+  affine4/g64 export at `6f4220a267a94c5279b3fcbc5499de734b9a55b0`, with
+  the FP32 pointer head and no thinking. It runs natively on MLX only
+  (macOS arm64, `--features mlx`) and has no CPU path. On an M4 Max the
+  four package reference rows matched the Python MLX reference within the
+  0.005 tolerance with the same argmax (largest gap 0.0042), and the HTTP
+  daemon matched it on a three-question request. The 2026-09-29 benchmark
+  records 0.91 decisions/s on the mixed 12-decision workload at a 5.74 GB
+  peak physical footprint. A 2026-10-14 re-run on the ported code
+  reproduced every reference probability and raw logit bit for bit.
+  Catalog pull, daemon aliases (`--jeeves-aliases`), and the
+  bench engine (`jeeves-mlx-affine4`) are wired.
+
 ### Changed
 
 - Winnow backend IDs now follow the execution fragment, `winnow/cpu-fp32` and

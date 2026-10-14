@@ -68,7 +68,7 @@ class MlxAlternativesTests(unittest.TestCase):
         sync_model_registry.validate_mlx_alternatives(
             alternatives, {entry["name"] for entry in catalog["models"]}
         )
-        self.assertEqual(len(catalog["models"]), 32)
+        self.assertEqual(len(catalog["models"]), 33)
         unqualified = sum(
             model["openkind_mlx_status"] != "qualified"
             for model in alternatives["models"]
