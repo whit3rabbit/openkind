@@ -73,7 +73,7 @@ class MlxAlternativesTests(unittest.TestCase):
             model["openkind_mlx_status"] != "qualified"
             for model in alternatives["models"]
         )
-        self.assertEqual(unqualified, 26)
+        self.assertEqual(unqualified, 25)
 
     def test_rejects_unpinned_conversion_revision(self):
         alternatives = {

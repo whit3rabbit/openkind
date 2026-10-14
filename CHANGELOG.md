@@ -13,8 +13,9 @@
   0.005 tolerance with the same argmax (largest gap 0.0042), and the HTTP
   daemon matched it on a three-question request. The 2026-09-29 benchmark
   records 0.91 decisions/s on the mixed 12-decision workload at a 5.74 GB
-  peak physical footprint. That evidence predates the port onto this
-  release line. Catalog pull, daemon aliases (`--jeeves-aliases`), and the
+  peak physical footprint. A 2026-10-14 re-run on the ported code
+  reproduced every reference probability and raw logit bit for bit.
+  Catalog pull, daemon aliases (`--jeeves-aliases`), and the
   bench engine (`jeeves-mlx-affine4`) are wired.
 
 ### Changed
