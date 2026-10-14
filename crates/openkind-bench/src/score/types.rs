@@ -101,6 +101,9 @@ pub enum EngineKind {
     /// Pinned plumb-4b MLX FP32 engine (`mlx` feature).
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     Plumb4bMlxFp32,
+    /// Pinned Jeeves affine-4 weights with FP32 pointer readout; no thinking.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    JeevesMlxAffine4,
 }
 
 /// Native backend bound to a non-mock [`EngineKind`].
@@ -151,7 +154,8 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
         | EngineKind::LayaTypedDecisionsMlxFp32
         | EngineKind::EncoderInstructLabelMlxFp32
         | EngineKind::DecoderLogitQwen35MlxFp32
-        | EngineKind::Plumb4bMlxFp32 => {
+        | EngineKind::Plumb4bMlxFp32
+        | EngineKind::JeevesMlxAffine4 => {
             panic!("the mock and surveyed-family engines have no Qwen35 native backend")
         }
         EngineKind::Qwen35 => Qwen35Backend::NativeCpu,
@@ -215,6 +219,8 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
         EngineKind::DecoderLogitQwen35MlxFp32 => "decoder-logit-qwen35-mlx-fp32",
         #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
         EngineKind::Plumb4bMlxFp32 => "plumb-4b-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::JeevesMlxAffine4 => "jeeves-mlx-affine4",
     }
 }
 
@@ -229,6 +235,7 @@ pub fn is_family_engine_public(engine: EngineKind) -> bool {
             | EngineKind::EncoderInstructLabelMlxFp32
             | EngineKind::DecoderLogitQwen35MlxFp32
             | EngineKind::Plumb4bMlxFp32
+            | EngineKind::JeevesMlxAffine4
     ) {
         return true;
     }
@@ -439,6 +446,12 @@ pub(crate) fn family_identity(
         EngineKind::Plumb4bMlxFp32 => Some(qwen35_logit_identity(
             &openkind_backends::families::decoder_logit_qwen35::PLUMB_4B,
         )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::JeevesMlxAffine4 => Some((
+            "jeeves",
+            openkind_backends::families::jeeves::PROFILE_ID,
+            openkind_backends::families::jeeves::MODEL_REVISION,
+        )),
         // New family engines must provide provenance instead of silently
         // falling through to the native backend path in summary construction.
         EngineKind::Mock | EngineKind::Qwen35 => None,
@@ -640,5 +653,29 @@ mod tests {
         ] {
             assert_eq!(engine_slug(engine), profile.loader_id);
         }
+    }
+}
+
+#[cfg(test)]
+mod jeeves_tests {
+
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[test]
+    fn jeeves_benchmark_pins_family_identity_and_rejects_qwen_strategies() {
+        use super::*;
+        use crate::args::EngineArg;
+        let engine = EngineKind::from(EngineArg::JeevesMlxAffine4);
+        assert!(crate::score::is_family_engine_public(engine));
+        assert_eq!(engine_slug(engine), "jeeves-mlx-affine4");
+        assert_eq!(
+            family_identity(engine),
+            Some((
+                "jeeves",
+                openkind_backends::families::jeeves::PROFILE_ID,
+                openkind_backends::families::jeeves::MODEL_REVISION,
+            ))
+        );
+        assert!(validate_strategy_selection(engine, &[]).is_ok());
+        assert!(validate_strategy_selection(engine, &[StrategySpec::ChooseStrategy]).is_err());
     }
 }

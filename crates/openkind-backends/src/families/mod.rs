@@ -29,6 +29,8 @@ pub mod encoder_instruct_label;
 pub mod encoder_nli;
 /// Gemma 4 backbone letter-logit decision family adapter.
 pub mod gemma4;
+/// Jeeves fused Qwen3.5-9B pointer-head decisions (optional native MLX).
+pub mod jeeves;
 /// KEV family model loader and decision engine adapter.
 pub mod kev;
 /// Laya encoder decision readout family adapter.

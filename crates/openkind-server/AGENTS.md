@@ -66,10 +66,11 @@
    - Loads `Qwen35DecisionEngine` with configured concurrency and queue semaphores.
    - Registers the shared engine under each matching alias.
 2. **Installed Model Path**: The daemon verifies each installation against a compiled loader and registers its immutable name. It holds a serving lock until shutdown. Missing profiles and alias collisions fail startup. Startup never fetches the public catalog.
-3. **Surveyed-Family Engine Path**: If any alias in `--models` matches `--decoder-letter-aliases`, `--encoder-nli-aliases`, `--encoder-instruct-label-aliases`, `--kev-aliases`, `--decoder-llm-aliases`, `--schema-scorer-aliases`, `--qwen3guard-aliases`, `--decoder-logit-qwen35-aliases`, `--laya-english-aliases`, `--laya-multilingual-aliases`, or `--laya-typed-decisions-aliases`:
+3. **Surveyed-Family Engine Path**: If any alias in `--models` matches `--decoder-letter-aliases`, `--encoder-nli-aliases`, `--encoder-instruct-label-aliases`, `--kev-aliases`, `--jeeves-aliases`, `--decoder-llm-aliases`, `--schema-scorer-aliases`, `--qwen3guard-aliases`, `--decoder-logit-qwen35-aliases`, `--laya-english-aliases`, `--laya-multilingual-aliases`, or `--laya-typed-decisions-aliases`:
    - Validates that the corresponding `--<family>-model-root` is provided (fails fast on startup if omitted).
    - Loads the family adapter with bounded `FamilyLimits`. Selectors default to `auto`, resolving supported loaders and verified local artifacts against compiled support and runtime readiness. Explicit accelerated selections are per family: `--<family>-backend cuda` requires the daemon's `cuda` feature and uses `--cuda-device`; `onnx`/`onnx-cuda`/`onnx-rocm` require the matching ONNX features and a verified export in the model root (`onnx-cuda` uses `--cuda-device`; `onnx-rocm` requires `onnx-rocm` on Linux and uses `--rocm-device`); `mlx-fp32` requires the `mlx` feature on macOS arm64. Unsupported explicit selections fail startup with an explanation.
    - Registers the shared engine under each matching alias.
+   - Jeeves requires `--jeeves-model-root` and the `mlx` feature on macOS arm64. Its default alias is `jeeves-native`; it runs the pinned affine4/FP32 no-thinking profile without a Python process. It shares the family admission and deadline controls.
 4. **Router-Script Composite Path**: If any alias in `--models` matches `--router-script-aliases`:
    - Parses the routing rule table (`--router-script-rules`).
    - Resolves sibling engine references registered under `--models`.

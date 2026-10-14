@@ -36,7 +36,7 @@ struct Inner {
 /// with the caller's criteria when explicit criteria are supplied; `Choice`
 /// uses `key` or `key: description` (a null description leaves the bare
 /// key); `Score` uses the bare level criteria text.
-fn question_options(
+pub(crate) fn question_options(
     unpacked: &crate::families::wire::UnpackedQuestion,
     question: &openkind_core::Question,
     explicit_noul_criteria: bool,
@@ -77,7 +77,7 @@ fn question_options(
 }
 
 /// The raw instruction payload of any question primitive.
-fn question_instructions(question: &openkind_core::Question) -> &serde_json::Value {
+pub(crate) fn question_instructions(question: &openkind_core::Question) -> &serde_json::Value {
     match question {
         openkind_core::Question::Noul(noul) => &noul.instructions,
         openkind_core::Question::Choice(choice) => &choice.instructions,

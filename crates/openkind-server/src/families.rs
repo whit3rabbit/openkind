@@ -82,6 +82,19 @@ impl FamilyAdmission {
 /// Surveyed-family daemon configuration.
 #[derive(Debug, Parser, Clone)]
 pub(crate) struct FamilyArgs {
+    /// Aliases served by the pinned native Jeeves no-thinking MLX engine.
+    #[arg(
+        long,
+        env = "OPENKIND_JEEVES_ALIASES",
+        value_delimiter = ',',
+        default_value = "jeeves-native"
+    )]
+    pub(crate) jeeves_aliases: Vec<String>,
+
+    /// Local root of cowWhySo/jeeves-mlx at the pinned 4-bit revision.
+    #[arg(long, env = "OPENKIND_JEEVES_MODEL_ROOT")]
+    pub(crate) jeeves_model_root: Option<PathBuf>,
+
     /// Aliases in `--models` that should use the pinned decoder-logit-letter
     /// engine (Qwen2.5-0.5B-Instruct letter readout).
     #[arg(
@@ -946,6 +959,36 @@ impl FamilyArgs {
     ) -> Result<Vec<(String, Arc<dyn DecisionEngine>)>> {
         let admission = self.admission();
         let mut engines = Vec::new();
+        let jeeves: Vec<_> = self
+            .jeeves_aliases
+            .iter()
+            .filter(|alias| models.contains(alias))
+            .collect();
+        if !jeeves.is_empty() {
+            let model_root = self
+                .jeeves_model_root
+                .clone()
+                .context("jeeves alias requested but --jeeves-model-root is missing")?;
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            {
+                use openkind_backends::families::jeeves::{JeevesEngine, JeevesEngineConfig};
+                let engine: Arc<dyn DecisionEngine> = Arc::new(
+                    JeevesEngine::load(JeevesEngineConfig {
+                        model_root,
+                        limits: admission.limits(),
+                    })
+                    .map_err(|error| anyhow::anyhow!("load native Jeeves: {error}"))?,
+                );
+                for alias in jeeves {
+                    engines.push((alias.to_string(), Arc::clone(&engine)));
+                }
+            }
+            #[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
+            {
+                let _ = model_root;
+                bail!("native Jeeves requires the mlx feature on macOS arm64");
+            }
+        }
 
         let decoder_letter: Vec<_> = self
             .decoder_letter_aliases
@@ -1821,6 +1864,7 @@ impl FamilyArgs {
         for alias in self
             .decoder_letter_aliases
             .iter()
+            .chain(&self.jeeves_aliases)
             .chain(&self.encoder_nli_aliases)
             .chain(&self.encoder_instruct_label_aliases)
             .chain(&self.decoder_llm_aliases)
@@ -1906,6 +1950,44 @@ mod tests {
                 "{bindings}"
             );
         }
+    }
+
+    #[test]
+    fn jeeves_missing_root_fails_instead_of_becoming_mock() {
+        let args = FamilyArgs::parse_from(["openkindd"]);
+        let error = match args.load_requested(
+            &["jeeves-native".into()],
+            crate::args::DeviceOrdinals::default(),
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("Jeeves without artifacts must fail"),
+        };
+        assert!(error.to_string().contains("--jeeves-model-root"));
+        assert!(args.validate(&["jeeves-native".into()]).is_err());
+    }
+
+    #[test]
+    fn jeeves_alias_cannot_be_assigned_to_another_family() {
+        let args = FamilyArgs::parse_from(["openkindd", "--kev-aliases", "jeeves-native"]);
+        assert!(args.validate(&["qwen35-native".into()]).is_err());
+    }
+
+    #[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
+    #[test]
+    fn jeeves_without_mlx_fails_before_reading_artifacts() {
+        let args = FamilyArgs::parse_from([
+            "openkindd",
+            "--jeeves-model-root",
+            "missing-local-artifacts",
+        ]);
+        let error = match args.load_requested(
+            &["jeeves-native".into()],
+            crate::args::DeviceOrdinals::default(),
+        ) {
+            Err(error) => error,
+            Ok(_) => panic!("Jeeves without MLX must fail"),
+        };
+        assert!(error.to_string().contains("requires the mlx feature"));
     }
 
     #[test]

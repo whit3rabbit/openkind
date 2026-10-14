@@ -19,7 +19,7 @@ macro_rules! registry_url {
 }
 macro_rules! catalog_sha256 {
     () => {
-        "e8cb84286ca46e9e43b89f9b59b91821d010dc6e6988aace04886d4a1f010efd"
+        "992c61e8e2d5de3f86dcad509dc7e01ed6464d4136cb7a9b8ce84521a055cf53"
     };
 }
 
@@ -51,6 +51,8 @@ pub const DECODER_LOGIT_LLM_MODEL_NAME: &str = "decoder-logit-llm:465963d705b6f3
 pub const SCHEMA_SCORER_MODEL_NAME: &str = "schema-scorer:5a7350af556f0ee66566";
 /// Pinned qwen3guard (Stream) model name.
 pub const QWEN3GUARD_MODEL_NAME: &str = "qwen3guard:0fcf416cab16d94f933d";
+/// Pinned Jeeves affine-4 no-thinking profile (native MLX on macOS arm64).
+pub const JEEVES_MODEL_NAME: &str = "jeeves:15fb3b95801f2f039636";
 /// Pinned kev model name.
 pub const KEV_MODEL_NAME: &str = "kev:39d88c11faeb4ac165fa";
 /// Pinned decoder-logit-qwen35 model name.

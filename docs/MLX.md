@@ -149,6 +149,19 @@ Hub repositories and metadata were checked on 2026-10-03. Their commit SHAs,
 reported licenses, and fit assessments are pinned in the supplemental index.
 Recheck those details and qualify the model before using a lead in OpenKind.
 
+### Jeeves packed-weight profile
+
+[`Jeeves`](families/jeeves.md) has a separate native Rust loader for the
+pinned affine4/g64 Qwen3.5-9B conversion. It uses FP32 arithmetic and the
+exported pointer head through the same serialized runtime. The no-thinking
+path supports `jeeves-native` with `--jeeves-model-root` and installed
+`jeeves:15fb3b95801f2f039636`; it has no CPU backend.
+Its four-row reference parity and HTTP
+smoke are recorded in the [native evidence report](verification/jeeves-native/2026-09-29/REPORT.md).
+Request-path measurements use `--engine jeeves-mlx-affine4` and are recorded
+in the [benchmark campaign](benchmarks/2026-09-29-jeeves-native/REPORT.md),
+without reviewed task-quality or release-promotion evidence.
+
 ## Pinned runtime and model identity
 
 | Component | Identity |

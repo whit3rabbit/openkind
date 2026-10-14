@@ -1,0 +1,165 @@
+{
+  "backend": "native-rust-mlx-affine4-fp32",
+  "scope": "Local HTTP smoke, not a quality or throughput benchmark",
+  "checks": {
+    "probability_deltas_vs_python": {
+      "tone": 0.00017002142199884496,
+      "billing": 0.0003260656483249358,
+      "department": 0.0002151028776295645
+    },
+    "argmax_agreement": true,
+    "individual_probability_deltas": {
+      "billing": 0.0,
+      "department": 0.0,
+      "tone": 0.0
+    },
+    "repeat_and_key_order_invariance": true,
+    "missing_none": {
+      "status": 422,
+      "error": {
+        "error": {
+          "code": "invalid_body",
+          "message": "engine error: backend `jeeves/mlx-affine4-fp32` does not support this request: native Jeeves Choice requires a described __none__ option; it is an offered candidate, not a separate calibrated rejection head"
+        }
+      }
+    },
+    "context_overflow": {
+      "status": 422,
+      "error": {
+        "error": {
+          "code": "invalid_body",
+          "message": "engine error: backend `jeeves/mlx-affine4-fp32` does not support this request: invalid Jeeves row length 5037; maximum 4096, no truncation"
+        }
+      }
+    }
+  },
+  "models": {
+    "models": [
+      {
+        "name": "jeeves-native",
+        "description": "cowWhySo/jeeves-mlx native no-thinking pointer decisions (15fb3b95801f2f039636, affine4/FP32).",
+        "release_date": "2026-09-29"
+      }
+    ]
+  },
+  "multi_question": {
+    "status": 200,
+    "response": {
+      "model": "jeeves-native",
+      "answers": {
+        "tone": {
+          "type": "score",
+          "score": 1.9656204325943465,
+          "legend": {
+            "0": "Calm",
+            "2": "Angry",
+            "1": "Concerned"
+          },
+          "probabilities": {
+            "1": 0.015569424593793669,
+            "0": 0.009405071405929794,
+            "2": 0.9750255040002764
+          },
+          "confidence": 0.8786143912665918
+        },
+        "billing": {
+          "type": "noul",
+          "noul": 0.9792823477871494
+        },
+        "department": {
+          "type": "choice",
+          "choice": "billing",
+          "probabilities": {
+            "shipping": 0.00980646794997592,
+            "billing": 0.9668145498821714,
+            "__none__": 0.023378982167852686
+          },
+          "confidence": 0.8490912051606939
+        }
+      },
+      "usage": {
+        "input_tokens": 251,
+        "output_tokens": 6
+      }
+    },
+    "elapsed_seconds": 8.540020917076617
+  },
+  "passed": true,
+  "request": {
+    "model": "jeeves-native",
+    "state": "The customer was charged twice for one order. Delivery arrived on time. The customer says: I am angry about the duplicate charge.",
+    "questions": {
+      "billing": {
+        "type": "noul",
+        "instructions": "Was the customer charged twice?"
+      },
+      "department": {
+        "type": "choice",
+        "instructions": "Which team should handle this?",
+        "criteria": {
+          "__none__": "None of these departments fits",
+          "billing": "Charges and payment problems",
+          "shipping": "Late or missing delivery"
+        }
+      },
+      "tone": {
+        "type": "score",
+        "instructions": "How angry is the customer?",
+        "criteria": [
+          "Calm",
+          "Concerned",
+          "Angry"
+        ]
+      }
+    }
+  },
+  "reference": {
+    "model": "PostHog/jeeves (MLX port)",
+    "device": "gpu",
+    "mode": "no-thinking",
+    "temperature": 1.8589280843734741,
+    "results": {
+      "billing": {
+        "type": "noul",
+        "selected": "true",
+        "probabilities": {
+          "false": 0.0210436899214983,
+          "true": 0.9789562821388245
+        },
+        "input_tokens": 65,
+        "reasoning_tokens": 0,
+        "reasoning_closed": null,
+        "reasoning": null,
+        "elapsed_seconds": 0.8034645000007004
+      },
+      "department": {
+        "type": "choice",
+        "selected": "billing",
+        "probabilities": {
+          "__none__": 0.02316387929022312,
+          "billing": 0.9670017957687378,
+          "shipping": 0.00983444508165121
+        },
+        "input_tokens": 107,
+        "reasoning_tokens": 0,
+        "reasoning_closed": null,
+        "reasoning": null,
+        "elapsed_seconds": 0.40043683303520083
+      },
+      "tone": {
+        "type": "score",
+        "selected": "2",
+        "probabilities": {
+          "0": 0.009441336616873741,
+          "1": 0.01570315845310688,
+          "2": 0.9748554825782776
+        },
+        "input_tokens": 79,
+        "reasoning_tokens": 0,
+        "reasoning_closed": null,
+        "reasoning": null,
+        "elapsed_seconds": 0.2925764590036124
+      }
+    }
+  }
+}
