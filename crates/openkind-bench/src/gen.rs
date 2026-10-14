@@ -11,6 +11,7 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result};
+use openkind_runtime::hashing::sha256_hex;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 
@@ -156,11 +157,7 @@ pub fn generate_workload(
         body.push_str(&line);
         body.push('\n');
     }
-    let sha256 = {
-        use sha2::{Digest, Sha256};
-        let digest = Sha256::digest(body.as_bytes());
-        digest.iter().map(|byte| format!("{byte:02x}")).collect()
-    };
+    let sha256 = sha256_hex(body.as_bytes());
     if let Some(parent) = output.parent() {
         if !parent.as_os_str().is_empty() {
             fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;

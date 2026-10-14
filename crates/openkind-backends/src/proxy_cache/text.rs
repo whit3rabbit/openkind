@@ -101,16 +101,8 @@ pub fn truncate_chars(text: &str, max_chars: usize) -> String {
 /// Salted HMAC-free text hash for stores that keep no text: the first 16 hex
 /// characters of SHA-256 over `salt || text`.
 pub fn text_hash(text: &str, salt: &[u8]) -> String {
-    use sha2::{Digest, Sha256};
-    let mut hasher = Sha256::new();
-    hasher.update(salt);
-    hasher.update(text.as_bytes());
-    let digest = hasher.finalize();
-    let mut out = String::with_capacity(16);
-    for byte in &digest[..8] {
-        out.push_str(&format!("{byte:02x}"));
-    }
-    out
+    let digest = openkind_runtime::hashing::sha256_hex_parts(&[salt, text.as_bytes()]);
+    digest[..16].to_owned()
 }
 
 #[cfg(test)]
@@ -147,5 +139,13 @@ mod tests {
         assert_eq!(text_hash("abc", b"s"), text_hash("abc", b"s"));
         assert_ne!(text_hash("abc", b"s"), text_hash("abc", b"t"));
         assert_eq!(text_hash("abc", b"").len(), 16);
+    }
+
+    #[test]
+    fn text_hash_matches_golden_values() {
+        // First 8 digest bytes as lowercase hex, salt first. The second byte
+        // of the first value is `0b`, so a dropped zero pad would shorten it.
+        assert_eq!(text_hash("abc", b"s"), "cf0bbce2b0833f47");
+        assert_eq!(text_hash("", b""), "e3b0c44298fc1c14");
     }
 }

@@ -10,7 +10,9 @@ use openkind_engine::{dispatch, EngineRegistry};
 use openkind_proto::openkind as pb;
 use tonic::{Request, Response, Status};
 
-use crate::middleware::{AuthConfig, RequestLimits};
+use crate::error::{classify_engine, retry_after_secs};
+use crate::middleware::{parse_bearer, AuthConfig, RequestLimits, REQUEST_ID_HEADER};
+use crate::ApiError;
 use crate::AppState;
 
 /// gRPC service implementation of the `openkind.SystemOne` service contract.
@@ -58,7 +60,7 @@ impl pb::system_one_server::SystemOne for SystemOneService {
     ) -> RpcResult<pb::SystemOneResponse> {
         let req_id = match request
             .metadata()
-            .get("x-typesafe-request-id")
+            .get(REQUEST_ID_HEADER.as_str())
             .and_then(|m| m.to_str().ok())
         {
             Some(id) if crate::middleware::is_safe_request_id(id) => id.to_string(),
@@ -71,24 +73,18 @@ impl pb::system_one_server::SystemOne for SystemOneService {
             if let Some(peer) = request.remote_addr() {
                 if let Err(ms) = self.limits.failed_auth.check(peer.ip()) {
                     return Err(status_with_request_id(
-                        status_with_retry(
-                            Status::resource_exhausted("authentication rate limited"),
-                            ms,
-                        ),
+                        rate_limited_status("authentication rate limited", ms),
                         &req_id,
                     ));
                 }
             }
-            return Err(status_with_request_id(
-                Status::unauthenticated("missing or invalid API key"),
-                &req_id,
-            ));
+            return Err(status_with_request_id(unauthenticated_status(), &req_id));
         }
 
         if let Some(peer) = request.remote_addr() {
             if let Err(ms) = self.limits.evaluation.check(peer.ip()) {
                 return Err(status_with_request_id(
-                    status_with_retry(Status::resource_exhausted("rate limited"), ms),
+                    rate_limited_status("rate limited", ms),
                     &req_id,
                 ));
             }
@@ -97,7 +93,7 @@ impl pb::system_one_server::SystemOne for SystemOneService {
         let pb_req = request.into_inner();
 
         // Convert protobuf → core.
-        let state = pb_state_to_core(pb_req.state.as_ref())
+        let state = pb_state_to_core(pb_req.state)
             .map_err(|status| status_with_request_id(status, &req_id))?;
         let questions = pb_questions_to_core(pb_req.questions)
             .map_err(|status| status_with_request_id(status, &req_id))?;
@@ -116,7 +112,7 @@ impl pb::system_one_server::SystemOne for SystemOneService {
         // SDK exposes `response.raw_http_response` for HTTP, but for gRPC
         // request_id is a metadata header — emit it here for parity.
         response.metadata_mut().append(
-            "x-typesafe-request-id",
+            request_id_key(),
             req_id
                 .parse()
                 .unwrap_or_else(|_| tonic::metadata::MetadataValue::from_static("invalid")),
@@ -129,17 +125,39 @@ fn status_with_retry(mut status: Status, ms: u64) -> Status {
     if let Ok(value) = ms.to_string().parse() {
         status.metadata_mut().insert("retry-after-ms", value);
     }
-    if let Ok(value) = ms.div_ceil(1000).to_string().parse() {
+    if let Ok(value) = retry_after_secs(ms).to_string().parse() {
         status.metadata_mut().insert("retry-after", value);
     }
     status
+}
+
+/// Transport-level throttle (evaluation or failed-auth budget). Code and
+/// retry pairing come from the shared classification; the message is a fixed
+/// literal chosen by the caller.
+fn rate_limited_status(message: &'static str, ms: u64) -> Status {
+    let c = ApiError::RateLimited { retry_after_ms: ms }.classify();
+    status_with_retry(Status::new(c.grpc, message), ms)
+}
+
+fn unauthenticated_status() -> Status {
+    Status::new(
+        ApiError::Unauthorized.classify().grpc,
+        "missing or invalid API key",
+    )
+}
+
+/// Metadata key for the request id, derived from the HTTP header constant so
+/// the two transports cannot disagree on the name.
+fn request_id_key() -> tonic::metadata::MetadataKey<tonic::metadata::Ascii> {
+    tonic::metadata::MetadataKey::from_bytes(REQUEST_ID_HEADER.as_str().as_bytes())
+        .expect("request id header is a valid metadata key")
 }
 
 fn status_with_request_id(mut status: Status, request_id: &str) -> Status {
     // Conversion failures happen before dispatch, but need the same
     // correlation metadata as authentication and engine failures.
     if let Ok(value) = request_id.parse() {
-        status.metadata_mut().insert("x-typesafe-request-id", value);
+        status.metadata_mut().insert(request_id_key(), value);
     }
     status
 }
@@ -152,10 +170,7 @@ fn check_grpc_auth(metadata: &tonic::metadata::MetadataMap, auth: &AuthConfig) -
     let supplied = metadata
         .get("authorization")
         .and_then(|v| v.to_str().ok())
-        .and_then(|s| {
-            let (scheme, token) = s.split_once(' ')?;
-            scheme.eq_ignore_ascii_case("Bearer").then_some(token)
-        })
+        .and_then(parse_bearer)
         .or_else(|| metadata.get("x-api-key").and_then(|v| v.to_str().ok()));
 
     match supplied {
@@ -166,10 +181,11 @@ fn check_grpc_auth(metadata: &tonic::metadata::MetadataMap, auth: &AuthConfig) -
 
 // ---------- conversions ----------
 
-fn pb_state_to_core(pb: Option<&pb::State>) -> Result<State, Status> {
+fn pb_state_to_core(pb: Option<pb::State>) -> Result<State, Status> {
     let pb = pb.ok_or_else(|| Status::invalid_argument("state is required"))?;
-    match &pb.value {
-        Some(pb::state::Value::Text(s)) => Ok(State::Text(s.clone())),
+    // Owned, so large text states move instead of being copied.
+    match pb.value {
+        Some(pb::state::Value::Text(s)) => Ok(State::Text(s)),
         Some(pb::state::Value::Structured(s)) => {
             // `bytes json` carries a JSON document. We re-parse into Value
             // so we can normalize to Object/Array.
@@ -306,16 +322,11 @@ fn core_to_pb_response(resp: openkind_core::SystemResponse) -> pb::SystemOneResp
 }
 
 fn status_from_engine(e: openkind_engine::EngineError) -> Status {
-    use openkind_engine::EngineError::*;
-    match e {
-        Invalid(_) => Status::invalid_argument(e.to_string()),
-        UnknownModel(_) => Status::not_found(e.to_string()),
-        Unsupported { .. } => Status::invalid_argument(e.to_string()),
-        Overloaded { retry_after_ms, .. } => {
-            status_with_retry(Status::unavailable(e.to_string()), retry_after_ms)
-        }
-        DeadlineExceeded { .. } => Status::deadline_exceeded(e.to_string()),
-        Backend { .. } | BackendValidation { .. } => Status::internal(e.to_string()),
+    let c = classify_engine(&e);
+    let status = Status::new(c.grpc, e.to_string());
+    match c.retry_after_ms {
+        Some(ms) => status_with_retry(status, ms),
+        None => status,
     }
 }
 
@@ -362,4 +373,161 @@ pub fn service_with_auth_and_limits(
     ))
     .max_decoding_message_size(16 * 1024 * 1024)
     .max_encoding_message_size(16 * 1024 * 1024)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ApiError;
+    use axum::{http::StatusCode, response::IntoResponse};
+    use openkind_core::ValidationError;
+    use openkind_engine::EngineError;
+    use tonic::Code;
+
+    struct Row {
+        name: &'static str,
+        make: fn() -> EngineError,
+        http: u16,
+        code: &'static str,
+        grpc: Code,
+        retry_ms: Option<u64>,
+    }
+
+    fn rows() -> Vec<Row> {
+        vec![
+            Row {
+                name: "invalid",
+                make: || EngineError::Invalid(ValidationError::NoQuestions),
+                http: 422,
+                code: "invalid_body",
+                grpc: Code::InvalidArgument,
+                retry_ms: None,
+            },
+            Row {
+                name: "unknown_model",
+                make: || EngineError::UnknownModel("m".into()),
+                http: 404,
+                code: "unknown_model",
+                grpc: Code::NotFound,
+                retry_ms: None,
+            },
+            Row {
+                name: "unsupported",
+                make: || EngineError::Unsupported {
+                    backend: "b".into(),
+                    message: "x".into(),
+                },
+                http: 422,
+                code: "invalid_body",
+                grpc: Code::InvalidArgument,
+                retry_ms: None,
+            },
+            Row {
+                name: "overloaded",
+                make: || EngineError::Overloaded {
+                    backend: "b".into(),
+                    retry_after_ms: 1500,
+                },
+                http: 529,
+                code: "overloaded",
+                grpc: Code::Unavailable,
+                retry_ms: Some(1500),
+            },
+            Row {
+                name: "deadline",
+                make: || EngineError::DeadlineExceeded {
+                    backend: "b".into(),
+                    timeout_ms: 10,
+                },
+                http: 504,
+                code: "deadline_exceeded",
+                grpc: Code::DeadlineExceeded,
+                retry_ms: None,
+            },
+            Row {
+                name: "backend",
+                make: || EngineError::Backend {
+                    backend: "b".into(),
+                    message: "m".into(),
+                },
+                http: 500,
+                code: "backend_error",
+                grpc: Code::Internal,
+                retry_ms: None,
+            },
+            Row {
+                name: "backend_validation",
+                make: || EngineError::BackendValidation {
+                    backend: "b".into(),
+                    source: ValidationError::MissingAnswer("q".into()),
+                },
+                http: 500,
+                code: "backend_error",
+                grpc: Code::Internal,
+                retry_ms: None,
+            },
+        ]
+    }
+
+    async fn http_parts(e: EngineError) -> (StatusCode, axum::http::HeaderMap, serde_json::Value) {
+        use http_body_util::BodyExt;
+        let resp = ApiError::Engine(e).into_response();
+        let status = resp.status();
+        let headers = resp.headers().clone();
+        let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+        (status, headers, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// One table drives both transports so a new error category cannot be
+    /// mapped on one side only.
+    #[tokio::test]
+    async fn engine_errors_map_symmetrically_over_http_and_grpc() {
+        for row in rows() {
+            let (status, headers, body) = http_parts((row.make)()).await;
+            assert_eq!(status.as_u16(), row.http, "{} http status", row.name);
+            assert_eq!(body["error"]["code"], row.code, "{} http code", row.name);
+
+            let grpc_err = (row.make)();
+            let grpc_msg = grpc_err.to_string();
+            let grpc = status_from_engine(grpc_err);
+            assert_eq!(grpc.code(), row.grpc, "{} grpc code", row.name);
+            assert_eq!(grpc.message(), grpc_msg, "{} grpc message", row.name);
+
+            match row.retry_ms {
+                Some(ms) => {
+                    let secs = ms.div_ceil(1000).to_string();
+                    assert_eq!(headers["retry-after-ms"], ms.to_string().as_str());
+                    assert_eq!(headers["retry-after"], secs.as_str());
+                    assert_eq!(
+                        grpc.metadata().get("retry-after-ms").unwrap(),
+                        ms.to_string().as_str()
+                    );
+                    assert_eq!(grpc.metadata().get("retry-after").unwrap(), secs.as_str());
+                }
+                None => {
+                    assert!(headers.get("retry-after-ms").is_none(), "{}", row.name);
+                    assert!(headers.get("retry-after").is_none(), "{}", row.name);
+                    assert!(
+                        grpc.metadata().get("retry-after-ms").is_none(),
+                        "{}",
+                        row.name
+                    );
+                    assert!(grpc.metadata().get("retry-after").is_none(), "{}", row.name);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn transport_level_statuses_keep_codes_and_retry_metadata() {
+        let unauth = unauthenticated_status();
+        assert_eq!(unauth.code(), Code::Unauthenticated);
+        assert_eq!(unauth.message(), "missing or invalid API key");
+
+        let limited = rate_limited_status("rate limited", 2001);
+        assert_eq!(limited.code(), Code::ResourceExhausted);
+        assert_eq!(limited.message(), "rate limited");
+        assert_eq!(limited.metadata().get("retry-after-ms").unwrap(), "2001");
+        assert_eq!(limited.metadata().get("retry-after").unwrap(), "3");
+    }
 }

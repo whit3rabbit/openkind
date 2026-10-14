@@ -10,8 +10,11 @@
 
 use std::time::{Duration, Instant};
 
+mod common;
+
 use axum::extract::State;
 use axum::routing::post;
+use common::free_port;
 use openkind_core::{Answer, SystemRequest, SystemResponse};
 use serde_json::json;
 
@@ -113,7 +116,7 @@ async fn run() -> i32 {
     });
 
     // 2. Start the daemon in proxy mode against the fake upstream.
-    let http_port = free_port().await;
+    let http_port = free_port();
     let data_dir = tempfile::tempdir().unwrap();
     let exe = env!("CARGO_BIN_EXE_openkindd");
     let mut child = std::process::Command::new(exe)
@@ -185,11 +188,6 @@ impl<S: Send + Sync> axum::extract::FromRequest<S> for JsonForUpstream {
             .map_err(|_| (axum::http::StatusCode::BAD_REQUEST, "bad request json"))?;
         Ok(Self(request))
     }
-}
-
-async fn free_port() -> u16 {
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-    listener.local_addr().unwrap().port()
 }
 
 async fn drive(base: &str, upstream_log: &std::sync::Arc<UpstreamLog>) -> Result<(), String> {

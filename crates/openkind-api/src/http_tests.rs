@@ -839,10 +839,17 @@ fn bearer_extraction_handles_prefixes_whitespace_and_garbage() {
 
     assert_eq!(bearer_of(&header("Bearer tok")), Some("tok".to_owned()));
     assert_eq!(bearer_of(&header("bearer tok")), Some("tok".to_owned()));
+    assert_eq!(bearer_of(&header("BEARER tok")), Some("tok".to_owned()));
+    assert_eq!(bearer_of(&header("bEaReR tok")), Some("tok".to_owned()));
     assert_eq!(
         bearer_of(&header("Bearer   spaced  ")),
-        Some("spaced".to_owned()),
-        "the token is trimmed"
+        None,
+        "extra whitespace after the scheme is rejected, matching the gate"
+    );
+    assert_eq!(
+        bearer_of(&header("Bearer spaced ")),
+        Some("spaced ".to_owned()),
+        "the token is never trimmed"
     );
     assert_eq!(
         bearer_of(&header("Bearer ")),

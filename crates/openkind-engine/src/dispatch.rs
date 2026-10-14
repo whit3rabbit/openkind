@@ -58,7 +58,10 @@ async fn dispatch_inner(
         .ok_or_else(|| EngineError::UnknownModel(req.model.clone()))?;
 
     let contract = ResponseContract::from_request(&req)?;
-    let input_tokens = engine.estimate_input_tokens(&req);
+    // The estimate must be taken before `evaluate` consumes the request, so
+    // skip it for engines that count their own input tokens.
+    let fallback_input_tokens =
+        (!engine.reports_input_tokens()).then(|| engine.estimate_input_tokens(&req));
 
     let mut resp = engine.evaluate(req).await?;
 
@@ -85,7 +88,7 @@ async fn dispatch_inner(
     // If the backend didn't fill in usage, do it from the estimator.
     // Real backends will fill it precisely.
     if resp.usage.input_tokens == 0 {
-        resp.usage.input_tokens = input_tokens;
+        resp.usage.input_tokens = fallback_input_tokens.unwrap_or(0);
     }
     if resp.usage.output_tokens == 0 {
         resp.usage.output_tokens = estimate_output_tokens(&resp);

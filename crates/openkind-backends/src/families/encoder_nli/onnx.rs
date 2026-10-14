@@ -101,6 +101,18 @@ impl EncoderNliOnnxModel {
                     message: format!("`{LOGITS}` must be [1, {LABEL_COUNT}], got {shape:?}"),
                 });
             }
+            // The declared shape was checked above; also require the buffer
+            // to carry that many values so indexing can never panic on a
+            // malformed export.
+            if data.len() != LABEL_COUNT {
+                return Err(OnnxError::Signature {
+                    artifact: PathBuf::new(),
+                    message: format!(
+                        "`{LOGITS}` carried {} values, expected {LABEL_COUNT}",
+                        data.len()
+                    ),
+                });
+            }
             Ok([data[0], data[1], data[2]])
         })?;
         Ok([

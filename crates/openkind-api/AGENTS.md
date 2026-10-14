@@ -60,6 +60,7 @@ It defines:
   - Modular middleware stack:
     - [`src/middleware/request_id.rs`](./src/middleware/request_id.rs): `REQUEST_ID_HEADER = "x-typesafe-request-id"`, `request_id_layer` (checks for inbound client header, falls back to `Uuid::new_v4()`).
     - [`src/middleware/auth.rs`](./src/middleware/auth.rs): `auth_layer` and `auth_layer_with_rate_limit` hash bearer tokens with SHA-256 via `ring` and compare with `subtle::ConstantTimeEq`. Rejected credentials increment `openkind_auth_failures_total` (with a fixed `transport` label) and consume an independent `failed_auth` rate limit budget without spending the evaluation quota.
+    - [`src/middleware/bearer.rs`](./src/middleware/bearer.rs): `parse_bearer`, the one `Authorization: Bearer` parser shared by the HTTP gate, gRPC, and proxy credential forwarding (case-insensitive scheme, exactly one space, token never trimmed, empty or extra-whitespace tokens rejected).
     - [`src/middleware/rate_limit.rs`](./src/middleware/rate_limit.rs): `rate_limit_layer`, `RateLimiter`, and `RequestLimits` (independent evaluation and failed-authentication budgets emitting 429 status and retry headers).
     - [`src/middleware/tests/`](./src/middleware/tests/): Dedicated test suites (`request_id_tests.rs`, `auth_tests.rs`, `rate_limit_tests.rs`).
 - [`src/error.rs`](./src/error.rs):
@@ -67,6 +68,7 @@ It defines:
     - Formats body as `{"error":{"code": ..., "message": ...}}`.
     - Handles `Retry-After` (seconds, via `ms.div_ceil(1000)`) and `retry-after-ms` (milliseconds) headers for rate-limiting (429) and overload (529).
     - Maps `EngineError::BackendValidation` to HTTP 500 (`internal_error`) / gRPC `Code::Internal`.
+    - `Classified` is the single code/HTTP status/gRPC code/retry table read by both `error.rs` and `grpc.rs`; add new error categories there so the transports cannot drift. Message text stays per transport.
 - [`tests/sdk_compat.rs`](./tests/sdk_compat.rs) & [`tests/sdk_compat/`](./tests/sdk_compat/):
   - Executable compatibility contract with the TypeSafe Python SDK modularized into:
     - [`helpers.rs`](./tests/sdk_compat/helpers.rs): Test server routing and HTTP helper functions.

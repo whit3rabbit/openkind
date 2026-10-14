@@ -13,10 +13,15 @@ use candle_core::{DType, Device, Tensor};
 use candle_nn::VarBuilder;
 
 use crate::families::modernbert::ModernBertModel;
-use crate::families::support::{read_json, verify_digest, FamilyError};
+use crate::families::support::{
+    check_pinned_fields_tolerant, read_json, require_file, verify_digest, FamilyError,
+};
 
 use super::arch::{VonScorer, VonScorerConfig};
 use super::VonProfile;
+
+#[cfg(test)]
+mod load_order_tests;
 
 /// The pinned von model: ModernBERT body plus the option-marker scorer.
 pub struct VonModel {
@@ -38,15 +43,7 @@ pub struct VerifiedArtifacts {
 /// family error when missing.
 fn require(model_root: &Path, relative: &str) -> Result<PathBuf, FamilyError> {
     let path = model_root.join(relative);
-    if !path.is_file() {
-        return Err(FamilyError::Io {
-            path: path.clone(),
-            source: std::io::Error::new(
-                std::io::ErrorKind::NotFound,
-                "required pinned artifact is missing",
-            ),
-        });
-    }
+    require_file(&path)?;
     Ok(path)
 }
 
@@ -83,10 +80,10 @@ impl VerifiedArtifacts {
         // Cheap contract checks first; the checkpoint digest streams last.
         verify_digest(&config, profile.config_sha256)?;
         let config_json: serde_json::Value = read_json(&config)?;
-        check_contract(&config_json, &profile.pinned_config())?;
+        check_pinned_fields_tolerant(&config_json, &profile.pinned_config())?;
         verify_digest(&calibration, profile.calibration_sha256)?;
         let calibration_json: serde_json::Value = read_json(&calibration)?;
-        check_contract(&calibration_json, &profile.pinned_calibration())?;
+        check_pinned_fields_tolerant(&calibration_json, &profile.pinned_calibration())?;
         verify_digest(&tokenizer_config, profile.tokenizer_config_sha256)?;
         verify_digest(&tokenizer, profile.tokenizer_json_sha256)?;
         if native || checkpoint.exists() {
@@ -97,63 +94,6 @@ impl VerifiedArtifacts {
             tokenizer,
         })
     }
-}
-
-/// Contract comparison with exact integer/string/bool equality and a
-/// parser-epsilon tolerance for floats (serde_json's default decimal parse
-/// can land one ulp away from the correctly rounded double).
-fn values_match(expected: &serde_json::Value, actual: &serde_json::Value) -> bool {
-    use serde_json::Value;
-    match (expected, actual) {
-        (Value::Number(a), Value::Number(b)) => match (a.as_f64(), b.as_f64()) {
-            (Some(a), Some(b)) => (a - b).abs() <= 1e-9,
-            _ => a == b,
-        },
-        (Value::Array(a), Value::Array(b)) => {
-            a.len() == b.len() && a.iter().zip(b).all(|(x, y)| values_match(x, y))
-        }
-        (Value::Object(a), Value::Object(b)) => {
-            a.len() == b.len()
-                && a.iter()
-                    .all(|(key, value)| b.get(key).is_some_and(|other| values_match(value, other)))
-        }
-        (a, b) => a == b,
-    }
-}
-
-fn check_contract(
-    json: &serde_json::Value,
-    pinned: &[(&'static str, serde_json::Value)],
-) -> Result<(), FamilyError> {
-    for (field, expected) in pinned {
-        let actual =
-            resolve_config_field(json, field).ok_or_else(|| FamilyError::ContractMismatch {
-                field,
-                expected: expected.to_string(),
-                actual: "missing".to_owned(),
-            })?;
-        if !values_match(expected, &actual) {
-            return Err(FamilyError::contract(
-                field,
-                expected.to_string(),
-                actual.to_string(),
-            ));
-        }
-    }
-    Ok(())
-}
-
-fn resolve_config_field(value: &serde_json::Value, field: &str) -> Option<serde_json::Value> {
-    let mut current = value;
-    let mut segment = field;
-    while let Some((head, rest)) = segment.split_once('.') {
-        current = current.get(head)?;
-        segment = rest;
-    }
-    if let Some(name) = segment.strip_suffix("[0]") {
-        return current.get(name).and_then(|items| items.get(0)).cloned();
-    }
-    current.get(segment).cloned()
 }
 
 impl VonModel {

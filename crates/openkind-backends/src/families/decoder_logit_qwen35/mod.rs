@@ -36,9 +36,7 @@
 mod engine;
 mod knockout;
 pub(crate) mod model;
-/// Prompt-byte helpers shared with sibling families (Python `json.dumps`
-/// serialization for state payloads).
-pub(crate) mod renderer;
+mod renderer;
 
 use std::path::PathBuf;
 use std::time::Duration;
@@ -47,7 +45,10 @@ use openkind_engine::ProbabilitySpace;
 use thiserror::Error;
 
 pub use self::engine::DecoderLogitQwen35Engine;
-use crate::families::support::FamilyLimits;
+/// Re-exported so the public path `decoder_logit_qwen35::Calibration` that
+/// the fixture generators use keeps resolving; the type lives in `support`.
+pub use crate::families::support::Calibration;
+use crate::families::support::{pinned_config_shared, FamilyLimits};
 
 /// Family slug used for identity derivation and telemetry.
 pub const FAMILY_SLUG: &str = "decoder-logit-qwen35";
@@ -78,54 +79,6 @@ pub const MIN_CANDIDATES: usize = 2;
 /// for this family. The threshold exists so telemetry and evidence artifacts
 /// can record acceptance against a declared operating point.
 pub const POLICY_THRESHOLD: f64 = 0.60;
-
-/// Calibrated letter-logit temperature of one profile.
-///
-/// Uniform profiles apply one temperature to every question type; by-type
-/// profiles follow the reference serving layer's per-type table.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Calibration {
-    /// One temperature for Choice, Score, and Noul questions.
-    Uniform(f64),
-    /// Per-type temperatures from the reference serving layer.
-    ByType {
-        /// Temperature for Choice questions.
-        choice: f64,
-        /// Temperature for Score questions.
-        score: f64,
-        /// Temperature for Noul questions.
-        noul: f64,
-    },
-}
-
-/// Question primitive of the pass being calibrated.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum QuestionKind {
-    /// Choice questions.
-    Choice,
-    /// Score questions.
-    Score,
-    /// Noul (yes/no) questions.
-    Noul,
-}
-
-impl Calibration {
-    /// The temperature for one question primitive.
-    pub(crate) fn resolve(&self, primitive: QuestionKind) -> f64 {
-        match self {
-            Self::Uniform(temperature) => *temperature,
-            Self::ByType {
-                choice,
-                score,
-                noul,
-            } => match primitive {
-                QuestionKind::Choice => *choice,
-                QuestionKind::Score => *score,
-                QuestionKind::Noul => *noul,
-            },
-        }
-    }
-}
 
 /// Everything pinned about one profile of this family.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -267,36 +220,6 @@ pub fn profile_by_id(profile_id: &str) -> Option<&'static Qwen35LogitProfile> {
 /// digests).
 pub(crate) fn pinned_config() -> Vec<(&'static str, serde_json::Value)> {
     pinned_config_shared()
-}
-
-/// The frozen backbone geometry, shared with sibling families that serve the
-/// same 32-layer Qwen3.5 hybrid checkpoint layout (e.g. `decider`).
-pub(crate) fn pinned_config_shared() -> Vec<(&'static str, serde_json::Value)> {
-    use serde_json::json;
-    vec![
-        ("architectures[0]", json!("Qwen3_5ForCausalLM")),
-        ("model_type", json!("qwen3_5_text")),
-        ("dtype", json!("bfloat16")),
-        ("hidden_size", json!(2_560)),
-        ("intermediate_size", json!(9_216)),
-        ("num_hidden_layers", json!(32)),
-        ("full_attention_interval", json!(4)),
-        ("num_attention_heads", json!(16)),
-        ("num_key_value_heads", json!(4)),
-        ("head_dim", json!(256)),
-        ("linear_num_key_heads", json!(16)),
-        ("linear_num_value_heads", json!(32)),
-        ("linear_key_head_dim", json!(128)),
-        ("linear_value_head_dim", json!(128)),
-        ("linear_conv_kernel_dim", json!(4)),
-        ("vocab_size", json!(248_320)),
-        ("tie_word_embeddings", json!(true)),
-        ("rms_norm_eps", json!(1e-06)),
-        ("partial_rotary_factor", json!(0.25)),
-        ("rope_parameters.rope_theta", json!(10_000_000)),
-        ("attn_output_gate", json!(true)),
-        ("attention_bias", json!(false)),
-    ]
 }
 
 /// Errors raised while loading or evaluating a pinned profile.

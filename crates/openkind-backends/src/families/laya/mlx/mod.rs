@@ -17,15 +17,14 @@ use std::sync::Arc;
 use openkind_core::{ModelInfo, SystemRequest, SystemResponse};
 
 use crate::families::support::{
-    temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
-    FamilyLimits,
+    BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator, FamilyLimits,
 };
 use crate::qwen35::mlx::{MlxRuntime, MlxRuntimeConfig};
 
-use super::engine::{laya_state_text, render_question_inputs, resolve_temperature};
-use super::model::{mask_token_of, VerifiedArtifacts};
-use super::renderer::{build_sequence, LayaRenderer, SequencePlan};
-use super::{LayaError, LayaProfile, MAX_CANDIDATES};
+use super::engine::evaluate_with_logits;
+use super::model::VerifiedArtifacts;
+use super::renderer::LayaRenderer;
+use super::{LayaError, LayaProfile};
 
 pub(super) mod model;
 
@@ -116,92 +115,27 @@ impl FamilyEvaluator for LayaMlxEngine {
         }
     }
 
+    fn reports_input_tokens(&self) -> bool {
+        true
+    }
+
     fn evaluate(
         &self,
         request: SystemRequest,
         control: &FamilyControl,
     ) -> Result<SystemResponse, FamilyError> {
-        control.check()?;
-        let profile = self.inner.profile;
-        let state_serialized = laya_state_text(&request.state)?;
-        if state_serialized.trim().is_empty() {
-            return Err(FamilyError::InvalidInput(
-                "state must contain non-whitespace text".to_owned(),
-            ));
-        }
-        let truncate_left = matches!(request.state, openkind_core::State::Array(_));
-        let state_text = state_serialized.replace(mask_token_of(&profile.specials), " ");
-        let state_ids = self.inner.renderer.encode_plain(&state_text)?;
-
-        let mut question_ids: Vec<_> = request.questions.keys().cloned().collect();
-        question_ids.sort();
-        if question_ids.is_empty() {
-            return Err(FamilyError::InvalidInput(
-                "request contains no questions".to_owned(),
-            ));
-        }
-
-        let mut answers = std::collections::HashMap::<
-            String,
-            openkind_core::Answer,
-            openkind_core::WireHashState,
-        >::with_capacity_and_hasher(
-            question_ids.len(), Default::default()
-        );
-        let mut input_tokens: u64 = 0;
-        for id in &question_ids {
-            control.check()?;
-            let question = request
-                .questions
-                .get(id)
-                .expect("question id came from the request map");
-            let inputs = render_question_inputs(question)?;
-            if inputs.options.len() > MAX_CANDIDATES {
-                return Err(FamilyError::InvalidInput(format!(
-                    "question `{id}` offers {} options but the profile accepts at most {MAX_CANDIDATES}",
-                    inputs.options.len()
-                )));
-            }
-            let plan = SequencePlan {
-                renderer: &self.inner.renderer,
-                specials: &profile.specials,
-                max_len: profile.max_sequence_tokens,
-                head_max_len: profile.head_max_len,
-                truncate_left,
-            };
-            let rendered = build_sequence(
-                &plan,
-                inputs.type_name,
-                &crate::families::wire::instruction_text(question)?,
-                &inputs.options,
-                &state_ids,
-            )?;
-            input_tokens = input_tokens.saturating_add(rendered.ids.len() as u64);
-            let logits = self.inner.runtime.execute(|| {
-                self.inner
-                    .model
-                    .option_logits(&rendered.ids, &rendered.markers, inputs.qtype)
-            })??;
-            let temperature = resolve_temperature(
-                profile,
-                inputs.type_name,
-                inputs.qtype,
-                inputs.options.len(),
-            );
-            let probabilities = temperature_softmax(&logits, temperature)?;
-            let unpacked = crate::families::wire::unpack_question(id, question)?;
-            let answer =
-                crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?;
-            answers.insert(id.clone(), answer);
-        }
-        control.check()?;
-        Ok(SystemResponse {
-            model: request.model,
-            answers,
-            usage: openkind_core::Usage {
-                input_tokens: u32::try_from(input_tokens).unwrap_or(u32::MAX),
-                output_tokens: 0,
+        evaluate_with_logits(
+            self.inner.profile,
+            &self.inner.renderer,
+            &|token_ids: &[u32], markers: &[usize], qtype: usize| {
+                // Every MLX forward runs on the serialized GPU stream.
+                Ok(self
+                    .inner
+                    .runtime
+                    .execute(|| self.inner.model.option_logits(token_ids, markers, qtype))??)
             },
-        })
+            request,
+            control,
+        )
     }
 }

@@ -14,8 +14,10 @@ use std::path::{Path, PathBuf};
 
 use candle_core::Device;
 
-use crate::families::decoder_logit_qwen35::model::resolve_config_field;
-use crate::families::support::{read_json, verify_digest, FamilyControl, FamilyError};
+use crate::families::support::{
+    check_pinned_fields, check_pinned_fields_with, read_json, require_file_labeled, verify_digest,
+    verify_sized_digest, FamilyControl, FamilyError,
+};
 use crate::qwen35::{EmbeddingLayout, Qwen35Geometry, TextBackbone};
 
 use super::{pinned_config, pinned_decision_config, D3Profile, CODE_TABLE_WIDTH, VOCAB_SIZE};
@@ -75,91 +77,40 @@ impl VerifiedArtifacts {
             ),
         ];
         for (path, name, _) in &small {
-            if !path.is_file() {
-                return Err(FamilyError::Io {
-                    path: path.to_path_buf(),
-                    source: std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        format!("required pinned artifact {name} is missing"),
-                    ),
-                });
-            }
+            require_file_labeled(path, &format!("artifact {name}"))?;
         }
         for (path, _, expected) in &small {
             verify_digest(path, expected)?;
         }
 
         let config_json: serde_json::Value = read_json(&config_path)?;
-        for (field, expected) in pinned_config(profile) {
-            let actual = resolve_config_field(&config_json, field).ok_or_else(|| {
-                FamilyError::ContractMismatch {
-                    field,
-                    expected: expected.to_string(),
-                    actual: "missing".to_owned(),
+        check_pinned_fields_with(
+            &config_json,
+            &pinned_config(profile),
+            |field, expected, actual| {
+                // RMS epsilon is pinned as f32; a config's decimal `1e-6` is
+                // the f64 nearest that value, so compare through the f32
+                // rounding.
+                if field == "text_config.rms_norm_eps" {
+                    actual
+                        .as_f64()
+                        .is_some_and(|value| value as f32 == profile.geometry.rms_epsilon)
+                } else {
+                    actual == expected
                 }
-            })?;
-            // RMS epsilon is pinned as f32; a config's decimal `1e-6` is the
-            // f64 nearest that value, so compare through the f32 rounding.
-            let matches = if field == "text_config.rms_norm_eps" {
-                actual
-                    .as_f64()
-                    .is_some_and(|value| value as f32 == profile.geometry.rms_epsilon)
-            } else {
-                actual == expected
-            };
-            if !matches {
-                return Err(FamilyError::contract(field, expected, actual));
-            }
-        }
+            },
+        )?;
         let decision_config: serde_json::Value = read_json(&decision_config_path)?;
-        for (field, expected) in pinned_decision_config(profile) {
-            let actual = resolve_config_field(&decision_config, field).ok_or_else(|| {
-                FamilyError::ContractMismatch {
-                    field,
-                    expected: expected.to_string(),
-                    actual: "missing".to_owned(),
-                }
-            })?;
-            if actual != expected {
-                return Err(FamilyError::contract(field, expected, actual));
-            }
-        }
+        check_pinned_fields(&decision_config, &pinned_decision_config(profile))?;
 
         let mut shards = Vec::with_capacity(profile.shards.len());
         for (name, bytes, sha256) in profile.shards {
             let path = model_root.join(name);
-            if !path.is_file() {
-                return Err(FamilyError::Io {
-                    path: path.clone(),
-                    source: std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        format!("required pinned shard {name} is missing"),
-                    ),
-                });
-            }
-            let metadata = std::fs::metadata(&path).map_err(|source| FamilyError::Io {
-                path: path.clone(),
-                source,
-            })?;
-            if metadata.len() != *bytes {
-                return Err(FamilyError::ContractMismatch {
-                    field: "checkpoint shard size",
-                    expected: format!("{name} is {bytes} bytes"),
-                    actual: format!("{} bytes", metadata.len()),
-                });
-            }
-            verify_digest(&path, sha256)?;
+            require_file_labeled(&path, &format!("shard {name}"))?;
+            verify_sized_digest(&path, name, *bytes, sha256, "checkpoint shard size")?;
             shards.push(path);
         }
-        if !readout.is_file() {
-            return Err(FamilyError::Io {
-                path: readout.clone(),
-                source: std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    "required pinned artifact readout.safetensors is missing",
-                ),
-            });
-        }
+        require_file_labeled(&readout, "artifact readout.safetensors")?;
         verify_digest(&readout, profile.readout_sha256)?;
         Ok(Self {
             shards,

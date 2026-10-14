@@ -10,7 +10,9 @@ use std::path::{Path, PathBuf};
 
 use candle_core::Device;
 
-use crate::families::support::{read_json, verify_digest, FamilyControl, FamilyError};
+use crate::families::support::{
+    check_pinned_fields, read_json, require_file, verify_digest, FamilyControl, FamilyError,
+};
 use crate::qwen35::{EmbeddingLayout, Qwen35Geometry, TextBackbone};
 
 use super::{pinned_config, Qwen35LogitProfile};
@@ -41,65 +43,21 @@ impl VerifiedArtifacts {
         // Cheap artifacts first: existence, digest, and contract checks fail
         // fast before the multi-gigabyte checkpoint is even opened.
         for path in [&tokenizer, &config_path, &runtime_config_path] {
-            if !path.is_file() {
-                return Err(FamilyError::Io {
-                    path: path.to_path_buf(),
-                    source: std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "required pinned artifact is missing",
-                    ),
-                });
-            }
+            require_file(path)?;
         }
         verify_digest(&config_path, profile.config_json_sha256)?;
         verify_digest(&tokenizer, profile.tokenizer_json_sha256)?;
         verify_digest(&runtime_config_path, profile.runtime_config_sha256)?;
 
         let config_json: serde_json::Value = read_json(&config_path)?;
-        for (field, expected) in pinned_config() {
-            let actual = resolve_config_field(&config_json, field).ok_or_else(|| {
-                FamilyError::ContractMismatch {
-                    field,
-                    expected: expected.to_string(),
-                    actual: "missing".to_owned(),
-                }
-            })?;
-            if actual != expected {
-                return Err(FamilyError::contract(field, expected, actual));
-            }
-        }
-        if !checkpoint.is_file() {
-            return Err(FamilyError::Io {
-                path: checkpoint.clone(),
-                source: std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    "required pinned artifact is missing",
-                ),
-            });
-        }
+        check_pinned_fields(&config_json, &pinned_config())?;
+        require_file(&checkpoint)?;
         verify_digest(&checkpoint, profile.checkpoint_sha256)?;
         Ok(Self {
             checkpoint,
             tokenizer,
         })
     }
-}
-
-/// Resolve a dotted config path such as `rope_parameters.rope_theta` or an
-/// `architectures[0]` list index.
-pub(crate) fn resolve_config_field(
-    value: &serde_json::Value,
-    field: &str,
-) -> Option<serde_json::Value> {
-    let mut current = value;
-    for segment in field.split('.') {
-        if let Some(name) = segment.strip_suffix("[0]") {
-            current = current.get(name).and_then(|items| items.get(0))?;
-        } else {
-            current = current.get(segment)?;
-        }
-    }
-    Some(current.clone())
 }
 
 /// The pinned JevK5 model: verified backbone plus tied-head readout.
@@ -174,29 +132,5 @@ impl Jevk5Model {
             ));
         }
         Ok(logits)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn config_field_resolution_walks_nested_paths_and_list_indices() {
-        let value = json!({
-            "architectures": ["Qwen3_5ForCausalLM"],
-            "rope_parameters": {"rope_theta": 10_000_000},
-        });
-        assert_eq!(
-            resolve_config_field(&value, "architectures[0]"),
-            Some(json!("Qwen3_5ForCausalLM"))
-        );
-        assert_eq!(
-            resolve_config_field(&value, "rope_parameters.rope_theta"),
-            Some(json!(10_000_000))
-        );
-        assert_eq!(resolve_config_field(&value, "missing.path"), None);
-        assert_eq!(resolve_config_field(&value, "architectures[1]"), None);
     }
 }

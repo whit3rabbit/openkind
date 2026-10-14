@@ -223,23 +223,7 @@ async fn systemone(
     headers: axum::http::HeaderMap,
     req: Result<Json<SystemRequest>, axum::extract::rejection::JsonRejection>,
 ) -> Result<axum::response::Response, ApiError> {
-    let Json(req) = match req {
-        Ok(j) => j,
-        Err(rejection) => match rejection {
-            axum::extract::rejection::JsonRejection::BytesRejection(e) => {
-                return Err(ApiError::PayloadTooLarge(e.to_string()));
-            }
-            axum::extract::rejection::JsonRejection::JsonSyntaxError(e) => {
-                return Err(ApiError::BadJson(e.to_string()));
-            }
-            axum::extract::rejection::JsonRejection::JsonDataError(e) => {
-                return Err(ApiError::InvalidBody(e.to_string()));
-            }
-            other => {
-                return Err(ApiError::InvalidBody(other.to_string()));
-            }
-        },
-    };
+    let Json(req) = req?;
     // Proxy-cache mode: the hook decides whether this alias is proxied and
     // answers from the distilling cache or forwards upstream with the
     // caller's own credentials. Everything else dispatches locally.
@@ -285,16 +269,9 @@ async fn systemone(
 /// logging or storing it beyond the proxy's salted hash.
 fn bearer_of(headers: &axum::http::HeaderMap) -> Option<String> {
     let value = headers.get(axum::http::header::AUTHORIZATION)?;
-    let value = value.to_str().ok()?;
-    let token = value
-        .strip_prefix("Bearer ")
-        .or_else(|| value.strip_prefix("bearer "))?;
-    let token = token.trim();
-    if token.is_empty() {
-        None
-    } else {
-        Some(token.to_owned())
-    }
+    // Same parser as the gate, so the forwarded credential is exactly the one
+    // that was authenticated.
+    crate::middleware::parse_bearer(value.to_str().ok()?).map(str::to_owned)
 }
 
 /// Model listing handler for GET `/v1/models`.

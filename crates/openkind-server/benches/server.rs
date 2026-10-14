@@ -7,7 +7,8 @@ use axum::http::{header, Request, StatusCode};
 use axum::Router;
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput};
 use openkind_api::RateLimiter;
-use openkind_core::{NoulQuestion, Question, State, SystemRequest};
+use openkind_client::question;
+use openkind_core::{State, SystemRequest};
 use openkind_server::{http, AppState, AuthConfig, EngineRegistry, MockEngine};
 use tower::ServiceExt;
 
@@ -30,10 +31,7 @@ fn request_body(question_count: usize) -> Vec<u8> {
         .map(|index| {
             (
                 format!("q{index}"),
-                Question::Noul(NoulQuestion {
-                    instructions: serde_json::json!(format!("Question {index}?")),
-                    criteria: None,
-                }),
+                question::noul(format!("Question {index}?")),
             )
         })
         .collect::<HashMap<_, _, _>>();

@@ -36,13 +36,26 @@ impl Default for RateLimitConfig {
 /// rotating client population cannot grow state without bound.
 pub(crate) const RATE_LIMIT_SWEEP_THRESHOLD: usize = 4096;
 
+/// Upper bound on how often the full sweep may run. A sweep is O(entries)
+/// under the limiter lock, so running it on every call once the map is large
+/// would turn each request into a table scan.
+const RATE_LIMIT_SWEEP_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
+
+/// Per-IP window counters plus the time of the last sweep.
+#[derive(Debug)]
+struct Buckets {
+    map: std::collections::HashMap<std::net::IpAddr, (u32, std::time::Instant)>,
+    last_sweep: std::time::Instant,
+    /// Sweeps performed, so tests can prove they are rate limited.
+    #[cfg(test)]
+    sweeps: u32,
+}
+
 /// Shared fixed-window counter state for [`rate_limit_layer`].
 #[derive(Debug, Clone)]
 pub struct RateLimiter {
     config: RateLimitConfig,
-    buckets: Arc<
-        std::sync::Mutex<std::collections::HashMap<std::net::IpAddr, (u32, std::time::Instant)>>,
-    >,
+    buckets: Arc<std::sync::Mutex<Buckets>>,
 }
 
 /// Shared transport budgets with an independent failed-authentication allowance.
@@ -100,7 +113,12 @@ impl RateLimiter {
     pub fn new(config: RateLimitConfig) -> Self {
         Self {
             config,
-            buckets: Arc::new(std::sync::Mutex::new(std::collections::HashMap::default())),
+            buckets: Arc::new(std::sync::Mutex::new(Buckets {
+                map: std::collections::HashMap::default(),
+                last_sweep: std::time::Instant::now(),
+                #[cfg(test)]
+                sweeps: 0,
+            })),
         }
     }
 
@@ -126,28 +144,50 @@ impl RateLimiter {
     /// Atomically record `units` for `ip` without partially spending a
     /// rejected charge.
     fn check_n(&self, ip: std::net::IpAddr, units: u32) -> Result<(), u64> {
+        self.check_n_at(ip, units, std::time::Instant::now())
+    }
+
+    /// `check_n` with an explicit clock so sweep timing is testable.
+    fn check_n_at(
+        &self,
+        ip: std::net::IpAddr,
+        units: u32,
+        now: std::time::Instant,
+    ) -> Result<(), u64> {
         if !self.is_enabled() {
             return Ok(());
         }
-        let mut buckets = self
+        let mut guard = self
             .buckets
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let now = std::time::Instant::now();
-        if buckets.len() >= RATE_LIMIT_SWEEP_THRESHOLD {
-            buckets.retain(|_, (_, start)| now.duration_since(*start) < self.config.window);
-        }
+        let state = &mut *guard;
         let window = self.config.window;
-        let entry = buckets.entry(ip).or_insert((0, now));
-        if now.duration_since(entry.1) >= window {
+        // Entries cannot expire faster than `window`, so sweeping more often
+        // than that (or than the fixed cap) only burns time. Expired entries
+        // that survive until the next sweep are reset on access, so limits
+        // are unaffected; only memory is bounded slightly more loosely.
+        let sweep_interval = window.min(RATE_LIMIT_SWEEP_INTERVAL);
+        if state.map.len() >= RATE_LIMIT_SWEEP_THRESHOLD
+            && now.saturating_duration_since(state.last_sweep) >= sweep_interval
+        {
+            state
+                .map
+                .retain(|_, (_, start)| now.saturating_duration_since(*start) < window);
+            state.last_sweep = now;
+            #[cfg(test)]
+            {
+                state.sweeps += 1;
+            }
+        }
+        let entry = state.map.entry(ip).or_insert((0, now));
+        if now.saturating_duration_since(entry.1) >= window {
             *entry = (0, now);
         }
         if units > self.config.max_requests.saturating_sub(entry.0) {
-            let elapsed = now.duration_since(entry.1);
-            let remaining_ms = window
-                .saturating_sub(elapsed)
-                .as_millis()
-                .min(u64::MAX as u128) as u64;
+            let elapsed = now.saturating_duration_since(entry.1);
+            let remaining_ms =
+                openkind_core::duration_millis_saturating(window.saturating_sub(elapsed));
             return Err(remaining_ms.max(1));
         }
         entry.0 += units;
@@ -193,5 +233,86 @@ pub async fn rate_limit_layer(
             }
         },
         None => next.run(req).await,
+    }
+}
+
+#[cfg(test)]
+mod sweep_tests {
+    use super::*;
+    use std::net::{IpAddr, Ipv4Addr};
+    use std::time::{Duration, Instant};
+
+    fn ip(n: u32) -> IpAddr {
+        IpAddr::V4(Ipv4Addr::from(n))
+    }
+
+    fn limiter(window: Duration) -> RateLimiter {
+        RateLimiter::new(RateLimitConfig {
+            max_requests: 2,
+            window,
+        })
+    }
+
+    fn sweeps(limiter: &RateLimiter) -> u32 {
+        limiter.buckets.lock().unwrap().sweeps
+    }
+
+    fn len(limiter: &RateLimiter) -> usize {
+        limiter.buckets.lock().unwrap().map.len()
+    }
+
+    #[test]
+    fn large_maps_are_swept_at_most_once_per_interval() {
+        let limiter = limiter(Duration::from_secs(60));
+        let base = Instant::now();
+        for n in 0..RATE_LIMIT_SWEEP_THRESHOLD as u32 {
+            limiter.check_n_at(ip(n), 1, base).unwrap();
+        }
+        assert_eq!(sweeps(&limiter), 0, "below the interval nothing sweeps");
+        // Many calls inside one interval, with the map above the threshold.
+        for n in 0..500u32 {
+            let at = base + Duration::from_millis(u64::from(n));
+            limiter.check_n_at(ip(1_000_000 + n), 1, at).unwrap();
+        }
+        assert_eq!(sweeps(&limiter), 0);
+        // Once the interval elapses the next call sweeps exactly once.
+        let later = base + RATE_LIMIT_SWEEP_INTERVAL;
+        limiter.check_n_at(ip(2_000_000), 1, later).unwrap();
+        assert_eq!(sweeps(&limiter), 1);
+        limiter.check_n_at(ip(2_000_001), 1, later).unwrap();
+        assert_eq!(sweeps(&limiter), 1, "no second sweep inside the interval");
+    }
+
+    #[test]
+    fn sweeping_drops_only_expired_windows() {
+        let limiter = limiter(Duration::from_secs(60));
+        let base = Instant::now();
+        for n in 0..RATE_LIMIT_SWEEP_THRESHOLD as u32 {
+            limiter.check_n_at(ip(n), 1, base).unwrap();
+        }
+        // A fresh client inside the same window must survive the sweep.
+        let mid = base + Duration::from_secs(30);
+        limiter.check_n_at(ip(9_000_000), 1, mid).unwrap();
+        // The call at `mid` also sweeps (the interval since creation elapsed)
+        // but finds nothing expired; the one at `after` removes the base cohort.
+        assert_eq!(len(&limiter), RATE_LIMIT_SWEEP_THRESHOLD + 1);
+        let after = base + Duration::from_secs(61);
+        limiter.check_n_at(ip(9_000_001), 1, after).unwrap();
+        assert_eq!(len(&limiter), 2);
+    }
+
+    #[test]
+    fn limits_do_not_depend_on_sweep_timing() {
+        let limiter = limiter(Duration::from_secs(60));
+        let base = Instant::now();
+        let client = ip(7);
+        limiter.check_n_at(client, 1, base).unwrap();
+        limiter.check_n_at(client, 1, base).unwrap();
+        let retry = limiter.check_n_at(client, 1, base).unwrap_err();
+        assert_eq!(retry, 60_000);
+        // A new window resets the counter even if no sweep ever removed it.
+        limiter
+            .check_n_at(client, 1, base + Duration::from_secs(60))
+            .unwrap();
     }
 }

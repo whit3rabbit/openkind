@@ -12,9 +12,11 @@ use std::path::{Path, PathBuf};
 
 use candle_core::Device;
 
-use crate::families::decoder_logit_qwen35::model::resolve_config_field;
 use crate::families::strands_decider::MergedLoRABackend;
-use crate::families::support::{read_json, verify_digest, FamilyControl, FamilyError};
+use crate::families::support::{
+    check_pinned_fields, check_pinned_fields_with, read_json, require_file, require_file_labeled,
+    verify_digest, verify_sized_digest, FamilyControl, FamilyError,
+};
 use crate::qwen35::{EmbeddingLayout, Qwen35Geometry, TextBackbone};
 
 use super::{SieveProfile, CODE_TABLE_WIDTH};
@@ -69,71 +71,39 @@ impl VerifiedArtifacts {
             checkpoint_dir.join("LICENSE").as_path(),
             &head,
         ] {
-            if !path.is_file() {
-                return Err(FamilyError::Io {
-                    path: path.to_path_buf(),
-                    source: std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "required pinned artifact is missing",
-                    ),
-                });
-            }
+            require_file(path)?;
         }
         verify_digest(&base_config, profile.base_config_sha256)?;
         for (name, bytes, sha256) in profile.checkpoint_files {
             let path = checkpoint_dir.join(name);
-            if !path.is_file() {
-                return Err(FamilyError::Io {
-                    path: path.clone(),
-                    source: std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        format!("required pinned checkpoint file {name} is missing"),
-                    ),
-                });
-            }
-            let metadata = std::fs::metadata(&path).map_err(|source| FamilyError::Io {
-                path: path.clone(),
-                source,
-            })?;
-            if metadata.len() != *bytes {
-                return Err(FamilyError::ContractMismatch {
-                    field: "checkpoint file size",
-                    expected: format!("{name} is {bytes} bytes"),
-                    actual: format!("{} bytes", metadata.len()),
-                });
-            }
-            verify_digest(&path, sha256)?;
+            require_file_labeled(&path, &format!("checkpoint file {name}"))?;
+            verify_sized_digest(&path, name, *bytes, sha256, "checkpoint file size")?;
         }
 
         let config_json: serde_json::Value = read_json(&base_config)?;
-        for (field, expected) in pinned_base_config(profile) {
-            let actual = resolve_config_field(&config_json, field).ok_or_else(|| {
-                FamilyError::ContractMismatch {
-                    field,
-                    expected: expected.to_string(),
-                    actual: "missing".to_owned(),
+        check_pinned_fields_with(
+            &config_json,
+            &pinned_base_config(profile),
+            |field, expected, actual| {
+                // RMS epsilon is pinned as f32; a config's decimal `1e-6` is
+                // the f64 nearest that value, so compare through the f32
+                // rounding.
+                if field == "text_config.rms_norm_eps" {
+                    actual
+                        .as_f64()
+                        .is_some_and(|value| value as f32 == profile.geometry.rms_epsilon)
+                } else {
+                    actual == expected
                 }
-            })?;
-            // RMS epsilon is pinned as f32; a config's decimal `1e-6` is the
-            // f64 nearest that value, so compare through the f32 rounding.
-            let matches = if field == "text_config.rms_norm_eps" {
-                actual
-                    .as_f64()
-                    .is_some_and(|value| value as f32 == profile.geometry.rms_epsilon)
-            } else {
-                actual == expected
-            };
-            if !matches {
-                return Err(FamilyError::contract(field, expected, actual));
-            }
-        }
+            },
+        )?;
         let sieve_json: serde_json::Value = read_json(&sieve_config)?;
-        enforce_pins(&sieve_json, pinned_sieve_config(profile))?;
+        check_pinned_fields(&sieve_json, &pinned_sieve_config(profile))?;
         // The digest already fixes the adapter config bytes; parsing them
         // ties the merge settings the loader assumes to the pinned file.
         let adapter_json: serde_json::Value =
             read_json(&checkpoint_dir.join("adapter_config.json"))?;
-        enforce_pins(&adapter_json, pinned_adapter_config(profile))?;
+        check_pinned_fields(&adapter_json, &pinned_adapter_config(profile))?;
         // The merge applies `profile.lora_scale`, so it must equal the
         // pinned `lora_alpha / r` (plain LoRA scaling; rslora is pinned off).
         let pinned_scale = profile.lora_alpha as f64 / profile.lora_rank as f64;
@@ -148,27 +118,8 @@ impl VerifiedArtifacts {
         let mut base_shards = Vec::with_capacity(profile.base_shards.len());
         for (name, bytes, sha256) in profile.base_shards {
             let path = base_dir.join(name);
-            if !path.is_file() {
-                return Err(FamilyError::Io {
-                    path: path.clone(),
-                    source: std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        format!("required pinned base shard {name} is missing"),
-                    ),
-                });
-            }
-            let metadata = std::fs::metadata(&path).map_err(|source| FamilyError::Io {
-                path: path.clone(),
-                source,
-            })?;
-            if metadata.len() != *bytes {
-                return Err(FamilyError::ContractMismatch {
-                    field: "base shard size",
-                    expected: format!("{name} is {bytes} bytes"),
-                    actual: format!("{} bytes", metadata.len()),
-                });
-            }
-            verify_digest(&path, sha256)?;
+            require_file_labeled(&path, &format!("base shard {name}"))?;
+            verify_sized_digest(&path, name, *bytes, sha256, "base shard size")?;
             base_shards.push(path);
         }
         Ok(Self {
@@ -266,25 +217,6 @@ pub(crate) fn pinned_adapter_config(
         ("layer_replication", json!(null)),
         ("trainable_token_indices", json!(null)),
     ]
-}
-
-/// Fail closed unless every dotted-path pin is present with its exact value.
-fn enforce_pins(
-    config: &serde_json::Value,
-    pins: Vec<(&'static str, serde_json::Value)>,
-) -> Result<(), FamilyError> {
-    for (field, expected) in pins {
-        let actual =
-            resolve_config_field(config, field).ok_or_else(|| FamilyError::ContractMismatch {
-                field,
-                expected: expected.to_string(),
-                actual: "missing".to_owned(),
-            })?;
-        if actual != expected {
-            return Err(FamilyError::contract(field, expected, actual));
-        }
-    }
-    Ok(())
 }
 
 /// Read the pinned `[rows, hidden]` float32 head out of a verified
@@ -439,8 +371,11 @@ mod tests {
 
     #[test]
     fn pinned_adapter_config_matches_the_pinned_artifact() {
-        enforce_pins(&vendored_adapter_config(), pinned_adapter_config(&SIEVE_4B))
-            .expect("every adapter pin matches the pinned file");
+        check_pinned_fields(
+            &vendored_adapter_config(),
+            &pinned_adapter_config(&SIEVE_4B),
+        )
+        .expect("every adapter pin matches the pinned file");
     }
 
     #[test]
@@ -457,7 +392,7 @@ mod tests {
         ] {
             let mut drifted = vendored.clone();
             drifted[field] = value;
-            match enforce_pins(&drifted, pinned_adapter_config(&SIEVE_4B)) {
+            match check_pinned_fields(&drifted, &pinned_adapter_config(&SIEVE_4B)) {
                 Err(FamilyError::ContractMismatch {
                     field: rejected, ..
                 }) => {
@@ -472,7 +407,7 @@ mod tests {
             .expect("object config")
             .remove("use_dora");
         assert!(matches!(
-            enforce_pins(&missing, pinned_adapter_config(&SIEVE_4B)),
+            check_pinned_fields(&missing, &pinned_adapter_config(&SIEVE_4B)),
             Err(FamilyError::ContractMismatch {
                 field: "use_dora",
                 ..

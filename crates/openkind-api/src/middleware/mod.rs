@@ -5,6 +5,7 @@
 //! - `rate_limit_layer` — fixed-window client-IP rate limiter.
 
 mod auth;
+mod bearer;
 mod rate_limit;
 mod request_id;
 
@@ -20,3 +21,4 @@ pub use request_id::{
 };
 
 pub(crate) use auth::auth_layer_with_rate_limit;
+pub(crate) use bearer::parse_bearer;

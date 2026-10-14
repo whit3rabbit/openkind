@@ -19,7 +19,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use fs2::FileExt;
 use futures::StreamExt;
-use reqwest::header::{CONTENT_RANGE, LINK, RANGE};
+use reqwest::header::{CONTENT_RANGE, LINK, LOCATION, RANGE};
 use sha2::{Digest, Sha256};
 use tokio::io::AsyncWriteExt;
 
@@ -34,6 +34,8 @@ use crate::{Error, Result};
 const MAX_METADATA_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_TREE_PAGES: usize = 1_000;
 const HF_ENDPOINT: &str = "https://huggingface.co";
+/// Redirects followed per request, matching the previous reqwest policy cap.
+const MAX_REDIRECTS: usize = 8;
 
 pub struct DatasetStore {
     root: PathBuf,
@@ -144,13 +146,11 @@ impl DatasetStore {
         let client = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(15))
             .read_timeout(Duration::from_secs(120))
-            .redirect(reqwest::redirect::Policy::custom(|attempt| {
-                if attempt.previous().len() >= 8 || attempt.url().scheme() != "https" {
-                    attempt.stop()
-                } else {
-                    attempt.follow()
-                }
-            }))
+            // Redirects are followed by `send_authed`, which decides per hop
+            // whether the bearer token may travel. Hugging Face serves shard
+            // bytes from CDN hosts, so those hops must be followed, but never
+            // with the token.
+            .redirect(reqwest::redirect::Policy::none())
             .build()?;
         Ok(Self {
             root,
@@ -545,11 +545,44 @@ impl DatasetStore {
         )
     }
 
-    fn authed(&self, url: &str) -> reqwest::RequestBuilder {
-        let request = self.client.get(url);
-        match &self.token {
-            Some(token) => request.bearer_auth(token),
-            None => request,
+    /// GET `url`, following redirects manually.
+    ///
+    /// The bearer token is attached only to hops whose origin equals the
+    /// configured endpoint, so it never reaches a CDN or any other host a
+    /// redirect names. This does not rely on the HTTP client's own header
+    /// stripping. A redirect that is not followed (cap reached, downgrade,
+    /// missing or unparsable `Location`) is returned as is, and callers reject
+    /// its non-success status.
+    async fn send_authed(&self, url: &str, range_from: Option<u64>) -> Result<reqwest::Response> {
+        let trusted = reqwest::Url::parse(&self.endpoint)
+            .map_err(|error| Error::Invalid(format!("dataset endpoint URL: {error}")))?;
+        let mut current = reqwest::Url::parse(url)
+            .map_err(|error| Error::Invalid(format!("dataset request URL: {error}")))?;
+        let mut followed = 0;
+        loop {
+            let mut request = self.client.get(current.clone());
+            if let Some(token) = &self.token {
+                if same_origin(&trusted, &current) {
+                    request = request.bearer_auth(token);
+                }
+            }
+            if let Some(present) = range_from {
+                request = request.header(RANGE, format!("bytes={present}-"));
+            }
+            let response = request.send().await.map_err(denied)?;
+            if followed >= MAX_REDIRECTS || !is_followed_redirect(response.status()) {
+                return Ok(response);
+            }
+            let next = response
+                .headers()
+                .get(LOCATION)
+                .and_then(|location| location.to_str().ok())
+                .and_then(|location| redirect_target(&trusted, &current, location));
+            match next {
+                Some(next) => current = next,
+                None => return Ok(response),
+            }
+            followed += 1;
         }
     }
 
@@ -607,10 +640,8 @@ impl DatasetStore {
                 ));
             }
             let response = self
-                .authed(page_url.as_str())
-                .send()
-                .await
-                .map_err(denied)?
+                .send_authed(page_url.as_str(), None)
+                .await?
                 .error_for_status()
                 .map_err(denied)?;
             let next_link: Option<String> = response
@@ -665,7 +696,7 @@ impl DatasetStore {
     }
 
     async fn fetch_small(&self, url: &str) -> Result<Vec<u8>> {
-        let response = self.authed(url).send().await.map_err(denied)?;
+        let response = self.send_authed(url, None).await?;
         let response = response.error_for_status().map_err(denied)?;
         if response
             .content_length()
@@ -760,11 +791,9 @@ impl DatasetStore {
             present = 0;
         }
         progress(label, present, size);
-        let mut request = self.authed(url);
-        if present > 0 {
-            request = request.header(RANGE, format!("bytes={present}-"));
-        }
-        let response = request.send().await.map_err(denied)?;
+        let response = self
+            .send_authed(url, (present > 0).then_some(present))
+            .await?;
         let response = response.error_for_status().map_err(denied)?;
         let status = response.status();
         let response_end = if present > 0 && status == reqwest::StatusCode::OK {
@@ -924,6 +953,26 @@ fn resumed_response_end(range: &str, present: u64, size: u64) -> Option<u64> {
     let end = end.parse::<u64>().ok()?;
     let total = total.parse::<u64>().ok()?;
     (start == present && end >= start && end < size && total == size).then(|| end + 1)
+}
+
+fn is_followed_redirect(status: reqwest::StatusCode) -> bool {
+    matches!(status.as_u16(), 301 | 302 | 303 | 307 | 308)
+}
+
+/// Resolve a `Location` against the current URL. Returns `None` for a target
+/// that is not HTTP(S), or that would leave HTTPS when the endpoint is HTTPS.
+/// A plain-HTTP endpoint only occurs in local test servers.
+fn redirect_target(
+    trusted: &reqwest::Url,
+    current: &reqwest::Url,
+    location: &str,
+) -> Option<reqwest::Url> {
+    let next = current.join(location).ok()?;
+    match next.scheme() {
+        "https" => Some(next),
+        "http" if trusted.scheme() == "http" => Some(next),
+        _ => None,
+    }
 }
 
 fn sha256(bytes: &[u8]) -> String {
@@ -1108,6 +1157,157 @@ mod tests {
             axum::serve(listener, routes).await.unwrap();
         });
         format!("http://{addr}")
+    }
+
+    fn token_store(root: &Path, endpoint: &str, sha: &str) -> DatasetStore {
+        DatasetStore::build(
+            root.to_owned(),
+            Cow::Owned(endpoint.to_owned()),
+            Cow::Owned(test_registry(sha)),
+            Some("secret-token".to_owned()),
+            TokenSource::EnvHfToken,
+        )
+        .unwrap()
+    }
+
+    type SeenAuth = std::sync::Arc<std::sync::Mutex<Vec<Option<String>>>>;
+
+    fn record_auth(seen: &SeenAuth, headers: &HeaderMap) {
+        let value = headers
+            .get(header::AUTHORIZATION)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned);
+        seen.lock().unwrap().push(value);
+    }
+
+    /// A CDN-style server that serves the shard and records Authorization.
+    fn cdn_routes(seen: SeenAuth) -> axum::Router {
+        axum::Router::new().route(
+            "/cdn/shard",
+            get(move |headers: HeaderMap| {
+                let seen = seen.clone();
+                async move {
+                    record_auth(&seen, &headers);
+                    (StatusCode::OK, TEST_BYTES.to_vec()).into_response()
+                }
+            }),
+        )
+    }
+
+    #[test]
+    fn cross_origin_redirect_is_followed_without_the_bearer_token() {
+        // Hugging Face answers shard requests with a redirect to a CDN host.
+        // The hop must be followed, but the token belongs to the endpoint only.
+        let dir = tempfile::tempdir().unwrap();
+        let rt = runtime();
+        let endpoint_seen = SeenAuth::default();
+        let cdn_seen = SeenAuth::default();
+        let store = rt.block_on(async {
+            let cdn = spawn_server(cdn_routes(cdn_seen.clone())).await;
+            let location = format!("{cdn}/cdn/shard");
+            let seen = endpoint_seen.clone();
+            let routes = axum::Router::new().route(
+                "/datasets/owner/data/resolve/{*rest}",
+                get(move |headers: HeaderMap| {
+                    let seen = seen.clone();
+                    let location = location.clone();
+                    async move {
+                        record_auth(&seen, &headers);
+                        (StatusCode::FOUND, [(header::LOCATION, location)]).into_response()
+                    }
+                }),
+            );
+            let endpoint = spawn_server(routes).await;
+            token_store(dir.path(), &endpoint, &sha256(TEST_BYTES))
+        });
+        rt.block_on(store.pull("demo", |_, _, _| {})).unwrap();
+        store.verify("demo").unwrap();
+        let endpoint_seen = endpoint_seen.lock().unwrap();
+        assert!(!endpoint_seen.is_empty());
+        assert!(endpoint_seen
+            .iter()
+            .all(|value| value.as_deref() == Some("Bearer secret-token")));
+        let cdn_seen = cdn_seen.lock().unwrap();
+        assert!(!cdn_seen.is_empty(), "the CDN redirect must be followed");
+        assert!(
+            cdn_seen.iter().all(Option::is_none),
+            "the token must not reach the redirect target: {cdn_seen:?}"
+        );
+    }
+
+    #[test]
+    fn same_origin_redirect_keeps_the_bearer_token() {
+        let dir = tempfile::tempdir().unwrap();
+        let rt = runtime();
+        let final_seen = SeenAuth::default();
+        let store = rt.block_on(async {
+            let seen = final_seen.clone();
+            let routes = axum::Router::new()
+                .route(
+                    "/datasets/owner/data/resolve/{*rest}",
+                    get(|| async {
+                        (StatusCode::FOUND, [(header::LOCATION, "/cdn/shard")]).into_response()
+                    }),
+                )
+                .merge(cdn_routes(seen));
+            let endpoint = spawn_server(routes).await;
+            token_store(dir.path(), &endpoint, &sha256(TEST_BYTES))
+        });
+        rt.block_on(store.pull("demo", |_, _, _| {})).unwrap();
+        let final_seen = final_seen.lock().unwrap();
+        assert!(!final_seen.is_empty());
+        assert!(final_seen
+            .iter()
+            .all(|value| value.as_deref() == Some("Bearer secret-token")));
+    }
+
+    #[test]
+    fn redirect_loops_stop_at_the_hop_cap() {
+        let dir = tempfile::tempdir().unwrap();
+        let rt = runtime();
+        let hits = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let store = rt.block_on(async {
+            let counter = hits.clone();
+            let routes = axum::Router::new().route(
+                "/datasets/owner/data/resolve/{*rest}",
+                get(move |AxumPath(rest): AxumPath<String>| {
+                    let counter = counter.clone();
+                    async move {
+                        counter.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                        let location = format!("/datasets/owner/data/resolve/{rest}");
+                        (StatusCode::FOUND, [(header::LOCATION, location)]).into_response()
+                    }
+                }),
+            );
+            let endpoint = spawn_server(routes).await;
+            test_store(dir.path(), &endpoint, &sha256(TEST_BYTES))
+        });
+        rt.block_on(store.pull("demo", |_, _, _| {}))
+            .expect_err("a redirect loop must fail");
+        // The first request plus MAX_REDIRECTS followed hops.
+        assert_eq!(
+            hits.load(std::sync::atomic::Ordering::SeqCst),
+            MAX_REDIRECTS + 1
+        );
+    }
+
+    #[test]
+    fn redirect_targets_never_leave_https_and_resolve_relative_locations() {
+        let https = reqwest::Url::parse("https://huggingface.co").unwrap();
+        let current = reqwest::Url::parse("https://huggingface.co/datasets/a/b/resolve/x").unwrap();
+        let cdn = redirect_target(
+            &https,
+            &current,
+            "https://cas-bridge.xethub.hf.co/blob?sig=1",
+        )
+        .expect("https CDN hops are followed");
+        assert_eq!(cdn.host_str(), Some("cas-bridge.xethub.hf.co"));
+        assert!(!same_origin(&https, &cdn));
+        assert!(redirect_target(&https, &current, "http://huggingface.co/blob").is_none());
+        assert!(redirect_target(&https, &current, "file:///etc/passwd").is_none());
+        let relative = redirect_target(&https, &current, "/other").unwrap();
+        assert_eq!(relative.as_str(), "https://huggingface.co/other");
+        assert!(same_origin(&https, &relative));
     }
 
     #[test]

@@ -1,6 +1,6 @@
 //! Offline tests for the benchmark harness. All runs use the deterministic
 //! mock engine: no test may download artifacts or require a local checkpoint
-//! (workspace invariant 7). Native-engine timing is exercised by the
+//! (workspace invariant 6). Native-engine timing is exercised by the
 //! checkpoint-gated commands documented in `docs/BENCHMARKS.md`.
 
 use std::fs;

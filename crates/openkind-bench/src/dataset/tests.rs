@@ -22,6 +22,24 @@ use super::metrics::{
 };
 use super::templates::CLINC150_INTENTS;
 
+#[test]
+fn progress_throttle_limits_chunk_reports_but_keeps_first_and_final() {
+    use std::time::{Duration, Instant};
+    let mut throttle = super::ProgressThrottle::default();
+    let start = Instant::now();
+    // First report for a file always prints.
+    assert!(throttle.should_print("a.parquet", 10, 100, start));
+    // Chunks inside the interval are dropped.
+    assert!(!throttle.should_print("a.parquet", 20, 100, start + Duration::from_millis(10)));
+    assert!(!throttle.should_print("a.parquet", 30, 100, start + Duration::from_millis(100)));
+    // The next report after the interval prints.
+    assert!(throttle.should_print("a.parquet", 40, 100, start + Duration::from_millis(300)));
+    // The completing report prints even inside the interval.
+    assert!(throttle.should_print("a.parquet", 100, 100, start + Duration::from_millis(310)));
+    // A different file prints immediately.
+    assert!(throttle.should_print("b.parquet", 5, 50, start + Duration::from_millis(320)));
+}
+
 fn approx(actual: f64, expected: f64) {
     assert!((actual - expected).abs() < 1e-9, "{actual} != {expected}");
 }
@@ -216,6 +234,49 @@ fn materializes_synthetic_sst2_with_dedup_and_nested_limits() {
     assert!(options.iter().all(|o| o.description.is_some()));
     assert!(row.gold == "negative" || row.gold == "positive");
     assert_eq!(row.subset, "default");
+}
+
+#[test]
+fn materialized_rows_are_ordered_by_uid_hash() {
+    // Pins the deterministic ordering that makes smaller `--limit` values
+    // select prefixes of larger ones: ascending lowercase-hex SHA-256 of the
+    // row uid.
+    let dir = tempfile::tempdir().unwrap();
+    let batch = sst2_batch(&[
+        ("a charming journey . ", 1),
+        ("a terrible mess . ", 0),
+        ("an unexpected delight . ", 1),
+        ("a tedious slog . ", 0),
+        ("a quiet triumph . ", 1),
+        ("a muddled farce . ", 0),
+    ]);
+    install_synthetic(
+        dir.path(),
+        "sst2",
+        &[("default/test/0000.parquet", batch)],
+        &[("eval", "test"), ("dev", "train")],
+        &["default"],
+        &["choice"],
+    );
+    let store = openkind_datasets::DatasetStore::new(dir.path().to_owned()).unwrap();
+    let installed = store.installed("sst2").unwrap();
+    let full = materialize(&installed, "eval", None).unwrap();
+    assert_eq!(full.rows.len(), 6);
+    let hashes: Vec<String> = full
+        .rows
+        .iter()
+        .map(|row| {
+            let uid = row.row.id.strip_prefix("sst2/").expect("dataset prefix");
+            format!("{:x}", sha2::Sha256::digest(uid.as_bytes()))
+        })
+        .collect();
+    let mut sorted = hashes.clone();
+    sorted.sort();
+    assert_eq!(hashes, sorted);
+    let limited = materialize(&installed, "eval", Some(3)).unwrap();
+    let full_prefix: Vec<&str> = full.rows[..3].iter().map(|r| r.row.id.as_str()).collect();
+    let limited_ids: Vec<&str> = limited.rows.iter().map(|r| r.row.id.as_str()).collect();
+    assert_eq!(limited_ids, full_prefix);
 }
 
 #[test]
@@ -421,6 +482,12 @@ fn eval_reports_metrics_with_provenance_for_the_mock_engine() {
     assert!(output.join("workload-sst2-eval.jsonl").is_file());
     // The written workload re-parses through the normal harness loader.
     let raw = std::fs::read(output.join("workload-sst2-eval.jsonl")).unwrap();
+    // The report digest must equal the digest of the exact workload bytes on
+    // disk (the scorer's fixture digest is reused for it).
+    assert_eq!(
+        provenance["workload_sha256"].as_str().unwrap(),
+        format!("{:x}", sha2::Sha256::digest(&raw))
+    );
     let workload = crate::workload::parse_workload("sst2-eval", &raw).unwrap();
     assert_eq!(workload.rows.len(), 4);
 }

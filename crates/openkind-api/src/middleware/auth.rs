@@ -8,7 +8,6 @@ use axum::{
     http::{HeaderName, HeaderValue, Request, StatusCode},
     middleware::Next,
     response::{IntoResponse, Response},
-    Json,
 };
 
 use super::request_id::{RequestId, REQUEST_ID_HEADER};
@@ -118,10 +117,7 @@ pub(crate) async fn auth_layer_with_rate_limit(
         .headers()
         .get(&AUTH_HEADER)
         .and_then(|v| v.to_str().ok())
-        .and_then(|s| {
-            let (scheme, token) = s.split_once(' ')?;
-            scheme.eq_ignore_ascii_case("Bearer").then_some(token)
-        });
+        .and_then(super::parse_bearer);
 
     let ok = supplied.is_some_and(|token| auth.token_matches(token));
 
@@ -135,17 +131,8 @@ pub(crate) async fn auth_layer_with_rate_limit(
                 return crate::ApiError::RateLimited { retry_after_ms }.into_response();
             }
         }
-        let body = Json(serde_json::json!({
-            "error": {
-                "code": "unauthorized",
-                "message": "missing or invalid API key",
-            }
-        }));
-        let mut resp = (StatusCode::UNAUTHORIZED, body).into_response();
-        if let Ok(v) = HeaderValue::from_str("Bearer") {
-            resp.headers_mut()
-                .insert(axum::http::header::WWW_AUTHENTICATE, v);
-        }
+        // Same envelope, status and WWW-Authenticate hint as every other 401.
+        let mut resp = crate::ApiError::Unauthorized.into_response();
         // Also stamp the request id on the 401.
         if let Some(req_id) = req.extensions().get::<RequestId>() {
             if let Ok(v) = HeaderValue::from_str(&req_id.0) {

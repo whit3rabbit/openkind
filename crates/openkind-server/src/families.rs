@@ -69,7 +69,7 @@ pub(crate) struct FamilyAdmission {
 }
 
 impl FamilyAdmission {
-    fn limits(self) -> FamilyLimits {
+    pub(crate) fn limits(self) -> FamilyLimits {
         FamilyLimits {
             max_concurrent_requests: self.concurrency,
             max_queued_requests: self.queue,
@@ -927,7 +927,7 @@ impl FamilyArgs {
         Ok(claimed)
     }
 
-    fn admission(&self) -> FamilyAdmission {
+    pub(crate) fn admission(&self) -> FamilyAdmission {
         FamilyAdmission {
             concurrency: self.family_concurrency,
             queue: self.family_queue,

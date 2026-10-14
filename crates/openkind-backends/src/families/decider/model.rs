@@ -12,8 +12,9 @@ use std::path::{Path, PathBuf};
 
 use candle_core::Device;
 
-use crate::families::decoder_logit_qwen35::model::resolve_config_field;
-use crate::families::support::{read_json, verify_digest, FamilyControl, FamilyError};
+use crate::families::support::{
+    check_pinned_fields, read_json, require_file, verify_digest, FamilyControl, FamilyError,
+};
 use crate::qwen35::{EmbeddingLayout, Qwen35Geometry, TextBackbone};
 
 use super::{pinned_config, pinned_decider_config, DeciderProfile};
@@ -44,55 +45,17 @@ impl VerifiedArtifacts {
         // Cheap artifacts first: existence, digest, and contract checks fail
         // fast before the multi-gigabyte checkpoint is even opened.
         for path in [&tokenizer, &config_path, &runtime_config_path] {
-            if !path.is_file() {
-                return Err(FamilyError::Io {
-                    path: path.to_path_buf(),
-                    source: std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "required pinned artifact is missing",
-                    ),
-                });
-            }
+            require_file(path)?;
         }
         verify_digest(&config_path, profile.config_json_sha256)?;
         verify_digest(&tokenizer, profile.tokenizer_json_sha256)?;
         verify_digest(&runtime_config_path, profile.decider_config_sha256)?;
 
         let config_json: serde_json::Value = read_json(&config_path)?;
-        for (field, expected) in pinned_config() {
-            let actual = resolve_config_field(&config_json, field).ok_or_else(|| {
-                FamilyError::ContractMismatch {
-                    field,
-                    expected: expected.to_string(),
-                    actual: "missing".to_owned(),
-                }
-            })?;
-            if actual != expected {
-                return Err(FamilyError::contract(field, expected, actual));
-            }
-        }
+        check_pinned_fields(&config_json, &pinned_config())?;
         let runtime_config: serde_json::Value = read_json(&runtime_config_path)?;
-        for (field, expected) in pinned_decider_config() {
-            let actual = resolve_config_field(&runtime_config, field).ok_or_else(|| {
-                FamilyError::ContractMismatch {
-                    field,
-                    expected: expected.to_string(),
-                    actual: "missing".to_owned(),
-                }
-            })?;
-            if actual != expected {
-                return Err(FamilyError::contract(field, expected, actual));
-            }
-        }
-        if !checkpoint.is_file() {
-            return Err(FamilyError::Io {
-                path: checkpoint.clone(),
-                source: std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    "required pinned artifact is missing",
-                ),
-            });
-        }
+        check_pinned_fields(&runtime_config, &pinned_decider_config())?;
+        require_file(&checkpoint)?;
         verify_digest(&checkpoint, profile.checkpoint_sha256)?;
         Ok(Self {
             checkpoint,

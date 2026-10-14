@@ -92,21 +92,7 @@ impl DecisionEngine for RouterScriptEngine {
     async fn evaluate(&self, request: SystemRequest) -> EngineResult<SystemResponse> {
         // The router inspects the state and question text, never the
         // candidate list, per the family contract.
-        let sample = match &request.state {
-            openkind_core::State::Text(text) => text.clone(),
-            openkind_core::State::Object(map) => {
-                serde_json::to_string(map).map_err(|error| EngineError::Unsupported {
-                    backend: super::FAMILY_SLUG.to_owned(),
-                    message: format!("state serialization failed: {error}"),
-                })?
-            }
-            openkind_core::State::Array(items) => {
-                serde_json::to_string(items).map_err(|error| EngineError::Unsupported {
-                    backend: super::FAMILY_SLUG.to_owned(),
-                    message: format!("state serialization failed: {error}"),
-                })?
-            }
-        };
+        let sample = crate::families::wire::compact_state_text(&request.state, super::FAMILY_SLUG)?;
         let routed_started = std::time::Instant::now();
         let (sibling, sibling_backend) = self.route(&sample)?;
         metrics::histogram!("openkind_router_script_route_seconds")

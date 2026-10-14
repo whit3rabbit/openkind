@@ -57,7 +57,6 @@ use std::time::Instant;
 
 use openkind_engine::ProfileValidationError;
 use openkind_runtime::branch::{StateError, StateIdentity};
-use sha2::{Digest, Sha256};
 use thiserror::Error;
 
 /// Selected immutable model/execution profile ID.
@@ -261,7 +260,7 @@ pub fn pinned_state_identity() -> StateIdentity {
 }
 
 pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    openkind_runtime::hashing::sha256_hex(bytes)
 }
 
 pub(crate) fn require_equal(

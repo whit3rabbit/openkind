@@ -8,7 +8,10 @@
 
 use std::collections::HashMap;
 
-use openkind_core::{Answer, ChoiceAnswer, NoulAnswer, Question, ScoreAnswer};
+use openkind_core::{
+    Answer, ChoiceAnswer, NoulAnswer, Question, ScoreAnswer, SystemResponse, Usage, WireHashState,
+};
+use openkind_engine::EngineError;
 
 use crate::families::support::FamilyError;
 
@@ -53,6 +56,18 @@ impl UnpackedQuestion {
             .get(index)
             .is_some_and(|label| label == RESERVED_NONE_OPTION)
     }
+}
+
+/// The text of a Choice option description, or `None` when it carries none.
+///
+/// JSON `null`, the empty string, and whitespace-only text all mean "no
+/// description". gRPC cannot send a null string: proto3 sends `""` for an
+/// absent description, while HTTP clients may send either, so every
+/// transport must produce the same model input for the same intent. Families
+/// that follow a reference runtime's own whitespace rule for option text
+/// (d3, decider, strands, laya, sieve) read the raw map instead and keep it.
+pub(crate) fn option_description(description: Option<&str>) -> Option<&str> {
+    description.filter(|text| !text.trim().is_empty())
 }
 
 /// Unpack one wire question into candidate labels and criteria.
@@ -109,11 +124,13 @@ pub fn unpack_question(id: &str, question: &Question) -> Result<UnpackedQuestion
             let criteria = labels
                 .iter()
                 .map(|label| {
-                    question
-                        .criteria
-                        .get(label)
-                        .and_then(|criterion| criterion.clone())
-                        .unwrap_or_else(|| label.clone())
+                    option_description(
+                        question
+                            .criteria
+                            .get(label)
+                            .and_then(|criterion| criterion.as_deref()),
+                    )
+                    .map_or_else(|| label.clone(), str::to_owned)
                 })
                 .collect();
             Ok(UnpackedQuestion {
@@ -198,12 +215,16 @@ pub fn answer_from_probabilities(
             argmax = index;
         }
     }
-    let per_label: HashMap<String, f64> = question
-        .labels
-        .iter()
-        .cloned()
-        .zip(probabilities.iter().copied())
-        .collect();
+    // Noul answers carry a single probability, so only Choice and Score pay
+    // for the per-label map.
+    let per_label = || -> HashMap<String, f64> {
+        question
+            .labels
+            .iter()
+            .cloned()
+            .zip(probabilities.iter().copied())
+            .collect()
+    };
     match question.primitive {
         QuestionPrimitive::Noul => {
             let _ = question.ordered;
@@ -216,7 +237,7 @@ pub fn answer_from_probabilities(
             Ok(Answer::Choice(ChoiceAnswer {
                 choice: question.labels[argmax].clone(),
                 confidence: distribution_confidence(probabilities),
-                probabilities: per_label,
+                probabilities: per_label(),
             }))
         }
         QuestionPrimitive::Score => {
@@ -241,7 +262,7 @@ pub fn answer_from_probabilities(
                 score,
                 legend,
                 confidence: distribution_confidence(probabilities),
-                probabilities: per_label,
+                probabilities: per_label(),
             }))
         }
     }
@@ -291,10 +312,79 @@ pub fn state_text(state: &openkind_core::State) -> Result<String, FamilyError> {
     }
 }
 
+/// Render the wire state as compact JSON text for a router prompt.
+///
+/// Router engines surface a serialization failure as an engine-level
+/// `Unsupported` for `backend` instead of a family error, so this stays apart
+/// from [`state_text`].
+pub(crate) fn compact_state_text(
+    state: &openkind_core::State,
+    backend: &str,
+) -> Result<String, EngineError> {
+    let unsupported = |error: serde_json::Error| EngineError::Unsupported {
+        backend: backend.to_owned(),
+        message: format!("state serialization failed: {error}"),
+    };
+    match state {
+        openkind_core::State::Text(text) => Ok(text.clone()),
+        openkind_core::State::Object(map) => serde_json::to_string(map).map_err(unsupported),
+        openkind_core::State::Array(items) => serde_json::to_string(items).map_err(unsupported),
+    }
+}
+
+/// Take the questions of a request in byte-lexicographic id order.
+///
+/// The wire map is unordered, and every family evaluates questions in this
+/// order so the same request always runs the same forward passes. A request
+/// without questions is rejected here, matching what each engine did inline.
+/// The ids and questions move out of the map, so callers key their answers
+/// by the owned id instead of cloning it.
+pub(crate) fn into_sorted_questions(
+    questions: HashMap<String, Question, WireHashState>,
+) -> Result<Vec<(String, Question)>, FamilyError> {
+    if questions.is_empty() {
+        return Err(FamilyError::InvalidInput(
+            "request contains no questions".to_owned(),
+        ));
+    }
+    let mut questions: Vec<(String, Question)> = questions.into_iter().collect();
+    // Ids are unique map keys, so an unstable sort yields the same order as
+    // sorting the ids themselves.
+    questions.sort_unstable_by(|left, right| left.0.cmp(&right.0));
+    Ok(questions)
+}
+
+/// The wire state as an owned JSON value. The payload moves into the value
+/// instead of being re-serialized, so structured states are not copied.
+pub(crate) fn state_value(state: openkind_core::State) -> serde_json::Value {
+    match state {
+        openkind_core::State::Text(text) => serde_json::Value::String(text),
+        openkind_core::State::Object(map) => serde_json::Value::Object(map),
+        openkind_core::State::Array(items) => serde_json::Value::Array(items),
+    }
+}
+
+/// Assemble a family response. `input_tokens` saturates at `u32::MAX`
+/// instead of wrapping, and the engines never generate output tokens.
+pub(crate) fn system_response(
+    model: String,
+    answers: HashMap<String, Answer, WireHashState>,
+    input_tokens: u64,
+) -> SystemResponse {
+    SystemResponse {
+        model,
+        answers,
+        usage: Usage {
+            input_tokens: u32::try_from(input_tokens).unwrap_or(u32::MAX),
+            output_tokens: 0,
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use openkind_core::{ChoiceQuestion, NoulQuestion, ScoreQuestion};
+    use openkind_core::{ChoiceQuestion, NoulQuestion, ScoreQuestion, SystemRequest};
 
     #[test]
     fn noul_defaults_to_false_true_pair_and_uses_supplied_criteria() {
@@ -346,6 +436,34 @@ mod tests {
             .collect(),
         });
         assert!(unpack_question("q1", &empty_none).is_err());
+    }
+
+    #[test]
+    fn blank_choice_descriptions_fall_back_to_the_label() {
+        // gRPC sends `""` for an absent description where HTTP sends `null`;
+        // all three spellings of "no description" must unpack identically.
+        let question = |a: Option<&str>, b: Option<&str>| {
+            Question::Choice(ChoiceQuestion {
+                instructions: serde_json::json!("Pick"),
+                criteria: [
+                    ("a".to_owned(), a.map(str::to_owned)),
+                    ("b".to_owned(), b.map(str::to_owned)),
+                ]
+                .into_iter()
+                .collect(),
+            })
+        };
+        let http = unpack_question("q", &question(None, Some("Option B"))).expect("unpack");
+        let grpc = unpack_question("q", &question(Some(""), Some("Option B"))).expect("unpack");
+        let blank =
+            unpack_question("q", &question(Some(" \t\n"), Some("Option B"))).expect("unpack");
+        assert_eq!(http.criteria, ["a", "Option B"]);
+        assert_eq!(grpc.criteria, http.criteria);
+        assert_eq!(blank.criteria, http.criteria);
+
+        // A real description is kept verbatim, whitespace included.
+        let kept = unpack_question("q", &question(Some(" padded "), None)).expect("unpack");
+        assert_eq!(kept.criteria, [" padded ", "b"]);
     }
 
     #[test]
@@ -439,5 +557,84 @@ mod tests {
                 Err(FamilyError::InvalidInput(_))
             ));
         }
+    }
+
+    #[test]
+    fn questions_sort_bytewise_and_reject_an_empty_request() {
+        let request: SystemRequest = serde_json::from_value(serde_json::json!({
+            "state": "text",
+            "model": "m",
+            "questions": {
+                "b": {"type": "noul", "instructions": "b"},
+                "B": {"type": "noul", "instructions": "B"},
+                "a": {"type": "noul", "instructions": "a"},
+                "10": {"type": "noul", "instructions": "10"},
+                "9": {"type": "noul", "instructions": "9"},
+            },
+        }))
+        .expect("request");
+        let mut expected: Vec<String> = request.questions.keys().cloned().collect();
+        expected.sort();
+        assert_eq!(expected, ["10", "9", "B", "a", "b"]);
+        let owned = into_sorted_questions(request.questions).expect("owned");
+        let owned_ids: Vec<&str> = owned.iter().map(|(id, _)| id.as_str()).collect();
+        assert_eq!(owned_ids, expected);
+        for (id, question) in &owned {
+            match question {
+                Question::Noul(noul) => assert_eq!(noul.instructions, serde_json::json!(id)),
+                other => panic!("unexpected question {other:?}"),
+            }
+        }
+        let empty = into_sorted_questions(HashMap::with_hasher(WireHashState::default()));
+        assert!(matches!(
+            empty,
+            Err(FamilyError::InvalidInput(message)) if message == "request contains no questions"
+        ));
+    }
+
+    #[test]
+    fn owned_state_value_matches_the_serialized_state() {
+        use openkind_core::State;
+        let object: State =
+            serde_json::from_value(serde_json::json!({"b": [1.5, null], "a": {"c": "x"}}))
+                .expect("object");
+        let array: State =
+            serde_json::from_value(serde_json::json!([1, "x", {"k": 2}])).expect("array");
+        for state in [State::Text("plain".into()), object, array] {
+            let serialized = match &state {
+                State::Text(text) => serde_json::Value::String(text.clone()),
+                State::Object(map) => serde_json::to_value(map).expect("object"),
+                State::Array(items) => serde_json::to_value(items).expect("array"),
+            };
+            assert_eq!(state_value(state), serialized);
+        }
+    }
+
+    #[test]
+    fn response_assembly_saturates_input_tokens_and_reports_no_output() {
+        let answers = HashMap::with_hasher(WireHashState::default());
+        let response = system_response("m".to_owned(), answers.clone(), 7);
+        assert_eq!(response.model, "m");
+        assert_eq!(response.usage.input_tokens, 7);
+        assert_eq!(response.usage.output_tokens, 0);
+        let saturated = system_response("m".to_owned(), answers, u64::from(u32::MAX) + 1);
+        assert_eq!(saturated.usage.input_tokens, u32::MAX);
+    }
+
+    #[test]
+    fn compact_state_text_is_compact_and_names_the_backend_on_failure() {
+        use openkind_core::State;
+        assert_eq!(
+            compact_state_text(&State::Text("plain".into()), "r").unwrap(),
+            "plain"
+        );
+        let object: State =
+            serde_json::from_value(serde_json::json!({"b": 1, "a": [true]})).expect("state");
+        assert_eq!(
+            compact_state_text(&object, "r").unwrap(),
+            "{\"a\":[true],\"b\":1}"
+        );
+        let array: State = serde_json::from_value(serde_json::json!([1, "x"])).expect("state");
+        assert_eq!(compact_state_text(&array, "r").unwrap(), "[1,\"x\"]");
     }
 }

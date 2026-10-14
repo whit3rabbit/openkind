@@ -36,6 +36,8 @@ pub mod request;
 pub mod response;
 /// Flexible evaluation state input (text, structured object, or array).
 pub mod state;
+/// Small time helpers (saturating millisecond conversion).
+pub mod time;
 
 pub use answer::{Answer, ChoiceAnswer, NoulAnswer, ScoreAnswer};
 pub use error::{
@@ -47,6 +49,7 @@ pub use question::{ChoiceQuestion, NoulCriteria, NoulQuestion, Question, ScoreQu
 pub use request::{SystemRequest, WireHashState, API_VERSION};
 pub use response::{SystemResponse, Usage};
 pub use state::State;
+pub use time::duration_millis_saturating;
 
 /// Current API version constant. Bumped when the wire schema breaks compat.
 pub const fn api_version() -> &'static str {

@@ -52,8 +52,8 @@ use openkind_backends::families::strands_decider::{
 use openkind_backends::families::support::FamilyLimits;
 use openkind_backends::qwen35::{Qwen35DecisionEngine, Qwen35EngineConfig, SchedulerConfig};
 use openkind_engine::{DecisionEngine, EngineRegistry};
+use openkind_runtime::hashing::sha256_hex;
 use serde_json::Value;
-use sha2::{Digest, Sha256};
 
 pub(crate) use types::validate_strategy_selection;
 pub use types::{
@@ -62,6 +62,17 @@ pub use types::{
 };
 
 use crate::workload;
+
+/// Admission limits for every benchmarked engine. The bench measures
+/// single-request latency, so it admits one request and queues none. Backend
+/// `new()` constructors add deadlines and queue depth, which would change what
+/// is measured; do not switch to them.
+const BENCH_LIMITS: FamilyLimits = FamilyLimits {
+    max_concurrent_requests: 1,
+    max_queued_requests: 0,
+    retry_after_ms: 250,
+    evaluation_timeout: None,
+};
 
 /// Load the pinned laya engine for one `EngineKind`, choosing the MLX
 /// backend for the `-mlx-fp32` kinds (feature `mlx`, macOS arm64) and the
@@ -246,12 +257,7 @@ pub(crate) fn run_score_reserved(
             EngineKind::DecoderLetter => Arc::new(
                 DecoderLetterEngine::load(DecoderLetterEngineConfig {
                     model_root: model_root.expect("gated").clone(),
-                    limits: FamilyLimits {
-                        max_concurrent_requests: 1,
-                        max_queued_requests: 0,
-                        retry_after_ms: 250,
-                        evaluation_timeout: None,
-                    },
+                    limits: BENCH_LIMITS,
                 })
                 .map_err(|error| anyhow::anyhow!("load decoder-letter engine: {error}"))?,
             ),
@@ -259,12 +265,7 @@ pub(crate) fn run_score_reserved(
                 DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
                     profile: &openkind_backends::families::decoder_logit_qwen35::JEVK5,
                     model_root: model_root.expect("gated").clone(),
-                    limits: FamilyLimits {
-                        max_concurrent_requests: 1,
-                        max_queued_requests: 0,
-                        retry_after_ms: 250,
-                        evaluation_timeout: None,
-                    },
+                    limits: BENCH_LIMITS,
                 })
                 .map_err(|error| anyhow::anyhow!("load decoder-logit-qwen35 engine: {error}"))?,
             ),
@@ -272,12 +273,7 @@ pub(crate) fn run_score_reserved(
                 DecoderLogitQwen35Engine::load(DecoderLogitQwen35EngineConfig {
                     profile: &openkind_backends::families::decoder_logit_qwen35::PLUMB_4B,
                     model_root: model_root.expect("gated").clone(),
-                    limits: FamilyLimits {
-                        max_concurrent_requests: 1,
-                        max_queued_requests: 0,
-                        retry_after_ms: 250,
-                        evaluation_timeout: None,
-                    },
+                    limits: BENCH_LIMITS,
                 })
                 .map_err(|error| anyhow::anyhow!("load plumb-4b engine: {error}"))?,
             ),
@@ -298,12 +294,7 @@ pub(crate) fn run_score_reserved(
                         openkind_backends::families::decoder_logit_qwen3::DecoderLogitQwen3EngineConfig {
                             profile,
                             model_root: model_root.expect("gated").clone(),
-                            limits: FamilyLimits {
-                                max_concurrent_requests: 1,
-                                max_queued_requests: 0,
-                                retry_after_ms: 250,
-                                evaluation_timeout: None,
-                            },
+                            limits: BENCH_LIMITS,
                         },
                     )
                     .map_err(|error| {
@@ -323,12 +314,7 @@ pub(crate) fn run_score_reserved(
                     openkind_backends::families::clef::ClefEngine::load(
                         model_root.expect("gated").clone(),
                         profile,
-                        FamilyLimits {
-                            max_concurrent_requests: 1,
-                            max_queued_requests: 0,
-                            retry_after_ms: 250,
-                            evaluation_timeout: None,
-                        },
+                        BENCH_LIMITS,
                     )
                     .map_err(|error| anyhow::anyhow!("load clef engine: {error}"))?,
                 )
@@ -338,102 +324,43 @@ pub(crate) fn run_score_reserved(
                     openkind_backends::families::decider::DeciderEngineConfig {
                         profile: &openkind_backends::families::decider::DECIDER_4B,
                         model_root: model_root.expect("gated").clone(),
-                        limits: FamilyLimits {
-                            max_concurrent_requests: 1,
-                            max_queued_requests: 0,
-                            retry_after_ms: 250,
-                            evaluation_timeout: None,
-                        },
+                        limits: BENCH_LIMITS,
                     },
                 )
                 .map_err(|error| anyhow::anyhow!("load decider-4b engine: {error}"))?,
             ),
-            EngineKind::D3Edge => Arc::new(
-                openkind_backends::families::d3::D3Engine::load(
-                    openkind_backends::families::d3::D3EngineConfig {
-                        profile: &openkind_backends::families::d3::D3_EDGE,
-                        model_root: model_root.expect("gated").clone(),
-                        limits: FamilyLimits {
-                            max_concurrent_requests: 1,
-                            max_queued_requests: 0,
-                            retry_after_ms: 250,
-                            evaluation_timeout: None,
+            EngineKind::D3Edge
+            | EngineKind::D3Lite
+            | EngineKind::D3Nano
+            | EngineKind::D3Mini
+            | EngineKind::D3Flash => {
+                let profile = match args.engine {
+                    EngineKind::D3Edge => &openkind_backends::families::d3::D3_EDGE,
+                    EngineKind::D3Lite => &openkind_backends::families::d3::D3_LITE,
+                    EngineKind::D3Nano => &openkind_backends::families::d3::D3_NANO,
+                    EngineKind::D3Mini => &openkind_backends::families::d3::D3_MINI,
+                    _ => &openkind_backends::families::d3::D3_FLASH,
+                };
+                Arc::new(
+                    openkind_backends::families::d3::D3Engine::load(
+                        openkind_backends::families::d3::D3EngineConfig {
+                            profile,
+                            model_root: model_root.expect("gated").clone(),
+                            limits: BENCH_LIMITS,
                         },
-                    },
+                    )
+                    // Slug equals the per-arm label the five arms used.
+                    .map_err(|error| {
+                        anyhow::anyhow!("load {} engine: {error}", types::engine_slug(args.engine))
+                    })?,
                 )
-                .map_err(|error| anyhow::anyhow!("load d3-edge engine: {error}"))?,
-            ),
-            EngineKind::D3Lite => Arc::new(
-                openkind_backends::families::d3::D3Engine::load(
-                    openkind_backends::families::d3::D3EngineConfig {
-                        profile: &openkind_backends::families::d3::D3_LITE,
-                        model_root: model_root.expect("gated").clone(),
-                        limits: FamilyLimits {
-                            max_concurrent_requests: 1,
-                            max_queued_requests: 0,
-                            retry_after_ms: 250,
-                            evaluation_timeout: None,
-                        },
-                    },
-                )
-                .map_err(|error| anyhow::anyhow!("load d3-lite engine: {error}"))?,
-            ),
-            EngineKind::D3Nano => Arc::new(
-                openkind_backends::families::d3::D3Engine::load(
-                    openkind_backends::families::d3::D3EngineConfig {
-                        profile: &openkind_backends::families::d3::D3_NANO,
-                        model_root: model_root.expect("gated").clone(),
-                        limits: FamilyLimits {
-                            max_concurrent_requests: 1,
-                            max_queued_requests: 0,
-                            retry_after_ms: 250,
-                            evaluation_timeout: None,
-                        },
-                    },
-                )
-                .map_err(|error| anyhow::anyhow!("load d3-nano engine: {error}"))?,
-            ),
-            EngineKind::D3Mini => Arc::new(
-                openkind_backends::families::d3::D3Engine::load(
-                    openkind_backends::families::d3::D3EngineConfig {
-                        profile: &openkind_backends::families::d3::D3_MINI,
-                        model_root: model_root.expect("gated").clone(),
-                        limits: FamilyLimits {
-                            max_concurrent_requests: 1,
-                            max_queued_requests: 0,
-                            retry_after_ms: 250,
-                            evaluation_timeout: None,
-                        },
-                    },
-                )
-                .map_err(|error| anyhow::anyhow!("load d3-mini engine: {error}"))?,
-            ),
-            EngineKind::D3Flash => Arc::new(
-                openkind_backends::families::d3::D3Engine::load(
-                    openkind_backends::families::d3::D3EngineConfig {
-                        profile: &openkind_backends::families::d3::D3_FLASH,
-                        model_root: model_root.expect("gated").clone(),
-                        limits: FamilyLimits {
-                            max_concurrent_requests: 1,
-                            max_queued_requests: 0,
-                            retry_after_ms: 250,
-                            evaluation_timeout: None,
-                        },
-                    },
-                )
-                .map_err(|error| anyhow::anyhow!("load d3-flash engine: {error}"))?,
-            ),
+            }
             EngineKind::Sieve4b => Arc::new(
                 openkind_backends::families::sieve::SieveEngine::load(
                     openkind_backends::families::sieve::SieveEngineConfig {
                         profile: &openkind_backends::families::sieve::SIEVE_4B,
                         model_root: model_root.expect("gated").clone(),
-                        limits: FamilyLimits {
-                            max_concurrent_requests: 1,
-                            max_queued_requests: 0,
-                            retry_after_ms: 250,
-                            evaluation_timeout: None,
-                        },
+                        limits: BENCH_LIMITS,
                     },
                 )
                 .map_err(|error| anyhow::anyhow!("load sieve-4b engine: {error}"))?,
@@ -442,12 +369,7 @@ pub(crate) fn run_score_reserved(
                 openkind_backends::families::gemma4::Gemma4DecisionEngine::load(
                     openkind_backends::families::gemma4::Gemma4EngineConfig {
                         model_root: model_root.expect("gated").clone(),
-                        limits: FamilyLimits {
-                            max_concurrent_requests: 1,
-                            max_queued_requests: 0,
-                            retry_after_ms: 250,
-                            evaluation_timeout: None,
-                        },
+                        limits: BENCH_LIMITS,
                     },
                 )
                 .map_err(|error| anyhow::anyhow!("load winnow-e4b engine: {error}"))?,
@@ -456,12 +378,7 @@ pub(crate) fn run_score_reserved(
             EngineKind::EncoderInstructLabelMlxFp32 => Arc::new(
                 EncoderInstructLabelMlxEngine::load(EncoderInstructLabelMlxEngineConfig {
                     model_root: model_root.expect("gated").clone(),
-                    limits: FamilyLimits {
-                        max_concurrent_requests: 1,
-                        max_queued_requests: 0,
-                        retry_after_ms: 250,
-                        evaluation_timeout: None,
-                    },
+                    limits: BENCH_LIMITS,
                 })
                 .map_err(|error| {
                     anyhow::anyhow!("load encoder-instruct-label mlx engine: {error}")
@@ -472,12 +389,7 @@ pub(crate) fn run_score_reserved(
                 DecoderLogitQwen35MlxEngine::load(DecoderLogitQwen35MlxEngineConfig {
                     profile: &openkind_backends::families::decoder_logit_qwen35::JEVK5,
                     model_root: model_root.expect("gated").clone(),
-                    limits: FamilyLimits {
-                        max_concurrent_requests: 1,
-                        max_queued_requests: 0,
-                        retry_after_ms: 250,
-                        evaluation_timeout: None,
-                    },
+                    limits: BENCH_LIMITS,
                 })
                 .map_err(|error| {
                     anyhow::anyhow!("load decoder-logit-qwen35 mlx engine: {error}")
@@ -488,12 +400,7 @@ pub(crate) fn run_score_reserved(
                 DecoderLogitQwen35MlxEngine::load(DecoderLogitQwen35MlxEngineConfig {
                     profile: &openkind_backends::families::decoder_logit_qwen35::PLUMB_4B,
                     model_root: model_root.expect("gated").clone(),
-                    limits: FamilyLimits {
-                        max_concurrent_requests: 1,
-                        max_queued_requests: 0,
-                        retry_after_ms: 250,
-                        evaluation_timeout: None,
-                    },
+                    limits: BENCH_LIMITS,
                 })
                 .map_err(|error| anyhow::anyhow!("load plumb-4b mlx engine: {error}"))?,
             ),
@@ -504,24 +411,14 @@ pub(crate) fn run_score_reserved(
             | EngineKind::LayaEnglish
             | EngineKind::LayaMultilingual
             | EngineKind::LayaTypedDecisions => {
-                let limits = FamilyLimits {
-                    max_concurrent_requests: 1,
-                    max_queued_requests: 0,
-                    retry_after_ms: 250,
-                    evaluation_timeout: None,
-                };
+                let limits = BENCH_LIMITS;
                 load_laya_engine(args.engine, model_root.expect("gated").clone(), limits)?
             }
             #[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
             EngineKind::LayaEnglish
             | EngineKind::LayaMultilingual
             | EngineKind::LayaTypedDecisions => {
-                let limits = FamilyLimits {
-                    max_concurrent_requests: 1,
-                    max_queued_requests: 0,
-                    retry_after_ms: 250,
-                    evaluation_timeout: None,
-                };
+                let limits = BENCH_LIMITS;
                 load_laya_engine(args.engine, model_root.expect("gated").clone(), limits)?
             }
             EngineKind::Von => Arc::new(
@@ -529,12 +426,7 @@ pub(crate) fn run_score_reserved(
                     openkind_backends::families::von::VonEngineConfig {
                         profile: &openkind_backends::families::von::VON,
                         model_root: model_root.expect("gated").clone(),
-                        limits: FamilyLimits {
-                            max_concurrent_requests: 1,
-                            max_queued_requests: 0,
-                            retry_after_ms: 250,
-                            evaluation_timeout: None,
-                        },
+                        limits: BENCH_LIMITS,
                     },
                 )
                 .map_err(|error| anyhow::anyhow!("load von engine: {error}"))?,
@@ -542,48 +434,28 @@ pub(crate) fn run_score_reserved(
             EngineKind::EncoderNli => Arc::new(
                 EncoderNliEngine::load(EncoderNliEngineConfig {
                     model_root: model_root.expect("gated").clone(),
-                    limits: FamilyLimits {
-                        max_concurrent_requests: 1,
-                        max_queued_requests: 0,
-                        retry_after_ms: 250,
-                        evaluation_timeout: None,
-                    },
+                    limits: BENCH_LIMITS,
                 })
                 .map_err(|error| anyhow::anyhow!("load encoder-nli engine: {error}"))?,
             ),
             EngineKind::EncoderInstructLabel => Arc::new(
                 EncoderInstructLabelEngine::load(EncoderInstructLabelEngineConfig {
                     model_root: model_root.expect("gated").clone(),
-                    limits: FamilyLimits {
-                        max_concurrent_requests: 1,
-                        max_queued_requests: 0,
-                        retry_after_ms: 250,
-                        evaluation_timeout: None,
-                    },
+                    limits: BENCH_LIMITS,
                 })
                 .map_err(|error| anyhow::anyhow!("load encoder-instruct-label engine: {error}"))?,
             ),
             EngineKind::DecoderLlm => Arc::new(
                 DecoderLlmEngine::load(DecoderLlmEngineConfig {
                     model_root: model_root.expect("gated").clone(),
-                    limits: FamilyLimits {
-                        max_concurrent_requests: 1,
-                        max_queued_requests: 0,
-                        retry_after_ms: 250,
-                        evaluation_timeout: None,
-                    },
+                    limits: BENCH_LIMITS,
                 })
                 .map_err(|error| anyhow::anyhow!("load decoder-llm engine: {error}"))?,
             ),
             EngineKind::SchemaScorer => Arc::new(
                 SchemaScorerEngine::load(SchemaScorerEngineConfig {
                     model_root: model_root.expect("gated").clone(),
-                    limits: FamilyLimits {
-                        max_concurrent_requests: 1,
-                        max_queued_requests: 0,
-                        retry_after_ms: 250,
-                        evaluation_timeout: None,
-                    },
+                    limits: BENCH_LIMITS,
                 })
                 .map_err(|error| anyhow::anyhow!("load schema-scorer engine: {error}"))?,
             ),
@@ -614,12 +486,7 @@ pub(crate) fn run_score_reserved(
             EngineKind::Qwen3Guard => Arc::new(
                 Qwen3GuardEngine::load(Qwen3GuardEngineConfig {
                     model_root: model_root.expect("gated").clone(),
-                    limits: FamilyLimits {
-                        max_concurrent_requests: 1,
-                        max_queued_requests: 0,
-                        retry_after_ms: 250,
-                        evaluation_timeout: None,
-                    },
+                    limits: BENCH_LIMITS,
                 })
                 .map_err(|error| anyhow::anyhow!("load qwen3guard engine: {error}"))?,
             ),
@@ -636,12 +503,7 @@ pub(crate) fn run_score_reserved(
                     KevEngine::load(KevEngineConfig {
                         model_root: model_root.clone(),
                         base_root: base_root.clone(),
-                        limits: FamilyLimits {
-                            max_concurrent_requests: 1,
-                            max_queued_requests: 0,
-                            retry_after_ms: 250,
-                            evaluation_timeout: None,
-                        },
+                        limits: BENCH_LIMITS,
                     })
                     .map_err(|error| anyhow::anyhow!("load kev engine: {error}"))?,
                 )
@@ -659,12 +521,7 @@ pub(crate) fn run_score_reserved(
                     StrandsDeciderEngine::load(StrandsDeciderEngineConfig {
                         model_root: model_root.clone(),
                         base_root: base_root.clone(),
-                        limits: FamilyLimits {
-                            max_concurrent_requests: 1,
-                            max_queued_requests: 0,
-                            retry_after_ms: 250,
-                            evaluation_timeout: None,
-                        },
+                        limits: BENCH_LIMITS,
                         profile: None,
                     })
                     .map_err(|error| anyhow::anyhow!("load strands-decider-2b engine: {error}"))?,
@@ -680,12 +537,7 @@ pub(crate) fn run_score_reserved(
                 let config = openkind_backends::families::winnow::WinnowEngineConfig {
                     model_root: model_root.clone(),
                     adapter_path: adapter.clone(),
-                    limits: FamilyLimits {
-                        max_concurrent_requests: 1,
-                        max_queued_requests: 0,
-                        retry_after_ms: 250,
-                        evaluation_timeout: None,
-                    },
+                    limits: BENCH_LIMITS,
                 };
                 let siblings = vec![
                     (
@@ -760,10 +612,10 @@ pub(crate) fn run_score_reserved(
                 // Measurements are per-request cold: a warm root cache would
                 // hide the prefill the benchmark exists to time.
                 root_cache: openkind_backends::qwen35::RootCacheConfig::DISABLED,
-                max_concurrent_requests: 1,
-                max_queued_requests: 0,
-                retry_after_ms: 250,
-                evaluation_timeout: None,
+                max_concurrent_requests: BENCH_LIMITS.max_concurrent_requests,
+                max_queued_requests: BENCH_LIMITS.max_queued_requests,
+                retry_after_ms: BENCH_LIMITS.retry_after_ms,
+                evaluation_timeout: BENCH_LIMITS.evaluation_timeout,
             })
             .map_err(|error| anyhow::anyhow!("load {} engine: {error}", backend.as_str()))?;
             let model_load_seconds = load_started.elapsed().as_secs_f64();
@@ -816,7 +668,7 @@ pub(crate) fn run_score_reserved(
         .map(|(report, predictions)| {
             (
                 report["strategy"].as_str().unwrap_or("strategy").to_owned(),
-                Value::String(format!("{:x}", Sha256::digest(predictions.as_bytes()))),
+                Value::String(sha256_hex(predictions.as_bytes())),
             )
         })
         .collect();

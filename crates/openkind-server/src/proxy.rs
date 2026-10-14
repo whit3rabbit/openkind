@@ -36,7 +36,7 @@ use openkind_core::{
     SystemResponse, Usage,
 };
 use openkind_engine::{DecisionEngine, EngineError, EngineResult};
-use sha2::{Digest, Sha256};
+use openkind_runtime::hashing::sha256_hex_parts;
 
 /// One routed group: task identity, its question ids, the routing decision,
 /// and the engine handle (absent when the task is not admitted yet).
@@ -167,15 +167,10 @@ impl ProxyService {
     }
 
     fn key_hash(&self, key: &str) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(self.manager.salt());
-        hasher.update(key.as_bytes());
-        let digest = hasher.finalize();
-        let mut out = String::with_capacity(32);
-        for byte in &digest[..16] {
-            out.push_str(&format!("{byte:02x}"));
-        }
-        out
+        // First 16 bytes of the salted digest: 32 lowercase hex characters.
+        let mut hex = sha256_hex_parts(&[self.manager.salt(), key.as_bytes()]);
+        hex.truncate(32);
+        hex
     }
 
     /// A client bound to one bearer key (or the configured upstream key).
@@ -205,16 +200,35 @@ impl ProxyService {
         Ok(client)
     }
 
+    /// Embed one state text. The encoder is CPU-bound (BERT-class models), so
+    /// it runs on the blocking pool instead of stalling an async worker. The
+    /// text is handed back because callers record it with the row.
+    async fn embed_text(&self, text: String) -> Result<(String, Vec<f32>), ApiError> {
+        let embedder = self.manager.embedder().clone();
+        let (text, result) = tokio::task::spawn_blocking(move || {
+            let result = embedder.encode(std::slice::from_ref(&text));
+            (text, result)
+        })
+        .await
+        .map_err(|error| ApiError::Internal(format!("proxy encoder task: {error}")))?;
+        let embedding = result
+            .map_err(|error| ApiError::Internal(format!("proxy encoder: {error}")))?
+            .into_iter()
+            .next()
+            .ok_or_else(|| ApiError::Internal("proxy encoder returned no embedding".into()))?;
+        Ok((text, embedding))
+    }
+
     /// Forward a request verbatim (fail-open path: no routing, no recording).
     async fn plain_forward(
         &self,
-        request: SystemRequest,
+        request: &SystemRequest,
         caller_key: Option<&str>,
         reason: &'static str,
     ) -> Result<ProxyOutcome, ApiError> {
         let client = self.client_for(caller_key)?;
         let response = client
-            .evaluate(request)
+            .evaluate_ref(request)
             .await
             .map_err(|error| map_upstream_error(error, self.upstream_key.is_some()))?;
         let detail = serde_json::json!({ "request": reason });
@@ -227,25 +241,23 @@ impl ProxyService {
 
     async fn evaluate_inner(
         &self,
-        request: SystemRequest,
-        caller_key: Option<String>,
+        request: &SystemRequest,
+        caller_key: Option<&str>,
     ) -> Result<ProxyOutcome, ApiError> {
-        let (groups, others) = group_questions(&request);
+        let (groups, others) = group_questions(request);
 
         // Not understood: no choice questions, or too many distinct specs.
         if groups.is_empty() {
-            return self
-                .plain_forward(request, caller_key.as_deref(), "no_choice")
-                .await;
+            return self.plain_forward(request, caller_key, "no_choice").await;
         }
         if groups.len() > MAX_QUESTIONS || others > MAX_QUESTIONS {
             return self
-                .plain_forward(request, caller_key.as_deref(), "too_many_questions")
+                .plain_forward(request, caller_key, "too_many_questions")
                 .await;
         }
 
         let caller_hash = if self.upstream_key.is_none() {
-            caller_key.as_deref().map(|key| self.key_hash(key))
+            caller_key.map(|key| self.key_hash(key))
         } else {
             None
         };
@@ -260,8 +272,8 @@ impl ProxyService {
 
         if !key_verified {
             // Forward first; only a parsed 2xx answer makes the key trusted.
-            let client = self.client_for(caller_key.as_deref())?;
-            let response = client.evaluate(request.clone()).await.map_err(|error| {
+            let client = self.client_for(caller_key)?;
+            let response = client.evaluate_ref(request).await.map_err(|error| {
                 if let Some(hash) = &caller_hash {
                     if matches!(error.status(), Some(401) | Some(403)) {
                         self.keys.revoke(hash);
@@ -275,7 +287,7 @@ impl ProxyService {
             // Record the choice answers as unverified-key deferred rows so
             // bootstrap traffic is not lost; embedding happens here because
             // no routing decision was needed to serve the request.
-            self.record_deferred_rows(&request, &groups, &response, "key_unverified")
+            self.record_deferred_rows(request, &groups, &response, "key_unverified")
                 .await;
             let detail = detail_map(
                 groups.iter().flat_map(|(_, ids)| ids.iter()),
@@ -295,15 +307,7 @@ impl ProxyService {
             openkind_core::State::Text(_) => "text",
             _ => "json",
         };
-        let embeddings = self
-            .manager
-            .embedder()
-            .encode(std::slice::from_ref(&text))
-            .map_err(|error| ApiError::Internal(format!("proxy encoder: {error}")))?;
-        let embedding = embeddings
-            .into_iter()
-            .next()
-            .ok_or_else(|| ApiError::Internal("proxy encoder returned no embedding".into()))?;
+        let (text, embedding) = self.embed_text(text).await?;
 
         // Resolve engines and route each group.
         let mut routed: Vec<RoutedGroup> = Vec::new();
@@ -346,7 +350,7 @@ impl ProxyService {
         // All-or-nothing: answer locally only when every choice question can
         // be answered and there are no other (noul/score) questions.
         if all_local && any_routed {
-            let response = self.build_local_response(&request, &routed)?;
+            let response = self.build_local_response(request, &routed)?;
             // Record locally served rows.
             for (_spec, _ids, decision, engine) in &routed {
                 if let Some(engine) = engine {
@@ -371,8 +375,8 @@ impl ProxyService {
 
         // Forward wholesale; record teacher answers for every routed group.
         let started = Instant::now();
-        let client = self.client_for(caller_key.as_deref())?;
-        let response = client.evaluate(request.clone()).await.map_err(|error| {
+        let client = self.client_for(caller_key)?;
+        let response = client.evaluate_ref(request).await.map_err(|error| {
             if let Some(hash) = &caller_hash {
                 if matches!(error.status(), Some(401) | Some(403)) {
                     self.keys.revoke(hash);
@@ -464,11 +468,8 @@ impl ProxyService {
             openkind_core::State::Text(_) => "text",
             _ => "json",
         };
-        let Ok(embeddings) = self.manager.embedder().encode(std::slice::from_ref(&text)) else {
+        let Ok((text, embedding)) = self.embed_text(text).await else {
             return; // fail open: recording is best-effort
-        };
-        let Some(embedding) = embeddings.into_iter().next() else {
-            return;
         };
         for (spec, ids) in groups {
             let Some(engine) = self
@@ -587,10 +588,19 @@ fn group_questions(request: &SystemRequest) -> (Vec<(TaskSpec, Vec<String>)>, us
     for (id, question) in request.questions.iter() {
         match question {
             Question::Choice(choice) => {
+                // Empty or blank descriptions mean "no description" over gRPC
+                // (proto: "" == null). Normalize here so the same question
+                // gets the same task identity whichever transport carried it.
                 let criteria: BTreeMap<String, Option<String>> = choice
                     .criteria
                     .iter()
-                    .map(|(name, description)| (name.clone(), description.clone()))
+                    .map(|(name, description)| {
+                        let description = description
+                            .as_ref()
+                            .filter(|text| !text.trim().is_empty())
+                            .cloned();
+                        (name.clone(), description)
+                    })
                     .collect();
                 let spec = TaskSpec {
                     // The fingerprint canonicalizes the value; store it raw.
@@ -659,6 +669,14 @@ fn detail_map<'a>(ids: impl Iterator<Item = &'a String>, reason: &str) -> serde_
     serde_json::Value::Object(map)
 }
 
+/// Backoff the upstream asked for, defaulting to one second.
+fn upstream_retry_after_ms(error: &openkind_client::Error) -> u64 {
+    error
+        .retry_after()
+        .map(openkind_core::duration_millis_saturating)
+        .unwrap_or(1_000)
+}
+
 /// Map an upstream client failure onto the local error surface.
 fn map_upstream_error(error: openkind_client::Error, has_upstream_key: bool) -> ApiError {
     if !has_upstream_key && matches!(error, openkind_client::Error::Config(_)) {
@@ -668,10 +686,13 @@ fn map_upstream_error(error: openkind_client::Error, has_upstream_key: bool) -> 
         Some(401) | Some(403) => ApiError::Unauthorized,
         Some(422) => ApiError::InvalidBody("upstream rejected the request".into()),
         Some(429) => ApiError::RateLimited {
-            retry_after_ms: error
-                .retry_after()
-                .map(|duration| duration.as_millis() as u64)
-                .unwrap_or(1_000),
+            retry_after_ms: upstream_retry_after_ms(&error),
+        },
+        // 529 is the SDK's overload status and 503 its standard cousin: keep
+        // the upstream backoff so callers retry on the server's schedule
+        // instead of seeing a bare 502.
+        Some(503) | Some(529) => ApiError::Overloaded {
+            retry_after_ms: upstream_retry_after_ms(&error),
         },
         Some(status) => ApiError::BadGateway(format!("upstream returned status {status}")),
         None => match &error {
@@ -698,15 +719,12 @@ impl SystemProxy for ProxyService {
         request: SystemRequest,
         caller_key: Option<String>,
     ) -> Result<ProxyOutcome, ApiError> {
-        match self
-            .evaluate_inner(request.clone(), caller_key.clone())
-            .await
-        {
+        match self.evaluate_inner(&request, caller_key.as_deref()).await {
             Ok(outcome) => Ok(outcome),
             // Fail open: any proxy-internal error forwards to the upstream.
             Err(ApiError::Internal(_)) => {
                 tracing::warn!("proxy-cache internal failure, forwarding upstream");
-                self.plain_forward(request, caller_key.as_deref(), "internal_error")
+                self.plain_forward(&request, caller_key.as_deref(), "internal_error")
                     .await
             }
             Err(error) => Err(error),
@@ -1035,6 +1053,147 @@ mod tests {
         let guard = caller_mode_service.clients.lock().unwrap();
         assert!(guard.contains_key(&caller_hash));
     }
+    fn service_with_salt(dir: &std::path::Path) -> ProxyService {
+        // A pre-seeded 32-byte salt makes `key_hash` deterministic.
+        std::fs::write(dir.join("key-salt"), (0u8..32).collect::<Vec<_>>()).unwrap();
+        let manager = ProxyCacheManager::new(
+            openkind_backends::proxy_cache::ProxyCacheManagerConfig {
+                data_dir: dir.to_owned(),
+                ..Default::default()
+            },
+            Arc::new(openkind_backends::proxy_cache::HashEmbedder::new(32, 0, true).unwrap()),
+        )
+        .unwrap();
+        ProxyService::new(
+            manager,
+            ProxyCacheServiceConfig {
+                upstream: "http://127.0.0.1:9".into(),
+                upstream_key: None,
+                upstream_timeout_ms: 1000,
+                proxied_models: vec!["remote".into()],
+            },
+        )
+    }
+
+    /// Golden values: the salted hash is the first 16 bytes of
+    /// SHA-256(salt || key) as lowercase hex. Changing the encoding would
+    /// orphan every persisted verification hash.
+    #[test]
+    fn key_hash_is_stable_salted_truncated_sha256() {
+        let dir = tempfile::tempdir().unwrap();
+        let service = service_with_salt(dir.path());
+        assert_eq!(
+            service.key_hash("caller-secret"),
+            "6e22ab0a3af51a710e560a8cf624f5a1"
+        );
+        assert_eq!(service.key_hash(""), "630dcd2966c4336691125448bbb25b4f");
+    }
+
+    fn upstream_api_error(status: u16, retry_after_ms: Option<u64>) -> openkind_client::Error {
+        openkind_client::Error::Api(Box::new(openkind_client::ApiError {
+            status,
+            code: None,
+            message: None,
+            body: None,
+            request_id: None,
+            retry_after: retry_after_ms.map(Duration::from_millis),
+            endpoint: None,
+        }))
+    }
+
+    #[test]
+    fn upstream_retry_after_is_preserved_for_429_503_and_529() {
+        assert!(matches!(
+            map_upstream_error(upstream_api_error(429, Some(2500)), true),
+            ApiError::RateLimited {
+                retry_after_ms: 2500
+            }
+        ));
+        for status in [503, 529] {
+            assert!(
+                matches!(
+                    map_upstream_error(upstream_api_error(status, Some(2500)), true),
+                    ApiError::Overloaded {
+                        retry_after_ms: 2500
+                    }
+                ),
+                "{status}"
+            );
+            // No header from upstream: fall back to the same 1s default as 429.
+            assert!(
+                matches!(
+                    map_upstream_error(upstream_api_error(status, None), true),
+                    ApiError::Overloaded {
+                        retry_after_ms: 1_000
+                    }
+                ),
+                "{status} default"
+            );
+        }
+    }
+
+    #[test]
+    fn other_upstream_statuses_keep_their_mapping() {
+        assert!(matches!(
+            map_upstream_error(upstream_api_error(401, None), true),
+            ApiError::Unauthorized
+        ));
+        assert!(matches!(
+            map_upstream_error(upstream_api_error(422, None), true),
+            ApiError::InvalidBody(_)
+        ));
+        for status in [500, 502, 504] {
+            assert!(
+                matches!(
+                    map_upstream_error(upstream_api_error(status, Some(9000)), true),
+                    ApiError::BadGateway(_)
+                ),
+                "{status}"
+            );
+        }
+    }
+
+    fn choice_request(criteria: serde_json::Value) -> SystemRequest {
+        serde_json::from_value(serde_json::json!({
+            "model": "remote", "state": "s", "questions": {
+                "q": {"type": "choice", "instructions": "?", "criteria": criteria}
+            }
+        }))
+        .unwrap()
+    }
+
+    #[test]
+    fn blank_choice_criteria_normalize_to_none_for_grouping() {
+        let absent = choice_request(serde_json::json!({"alpha": null, "beta": "b"}));
+        let empty = choice_request(serde_json::json!({"alpha": "", "beta": "b"}));
+        let blank = choice_request(serde_json::json!({"alpha": "  \t", "beta": "b"}));
+        let (reference, _) = group_questions(&absent);
+        for request in [&empty, &blank] {
+            let (groups, _) = group_questions(request);
+            assert_eq!(groups.len(), 1);
+            assert_eq!(groups[0].0.criteria, reference[0].0.criteria);
+            assert_eq!(groups[0].0.criteria["alpha"], None);
+        }
+        // Real descriptions are untouched.
+        let described = choice_request(serde_json::json!({"alpha": " a ", "beta": "b"}));
+        let (groups, _) = group_questions(&described);
+        assert_eq!(groups[0].0.criteria["alpha"].as_deref(), Some(" a "));
+    }
+
+    #[test]
+    fn blank_and_null_criteria_share_one_group() {
+        let request: SystemRequest = serde_json::from_value(serde_json::json!({
+            "model": "remote", "state": "s", "questions": {
+                "a": {"type": "choice", "instructions": "?", "criteria": {"x": null}},
+                "b": {"type": "choice", "instructions": "?", "criteria": {"x": ""}}
+            }
+        }))
+        .unwrap();
+        let (groups, others) = group_questions(&request);
+        assert_eq!((groups.len(), others), (1, 0));
+        assert_eq!(groups[0].1.len(), 2);
+    }
+
     #[test]
     fn verified_key_registry_sweeps_expiration_and_stays_bounded() {
         let registry = KeyRegistry::new(Duration::from_secs(60));

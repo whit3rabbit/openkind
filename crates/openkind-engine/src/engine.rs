@@ -27,6 +27,19 @@ pub trait DecisionEngine: Send + Sync {
     /// Evaluate a single request. Returns one answer per question id.
     async fn evaluate(&self, req: SystemRequest) -> EngineResult<SystemResponse>;
 
+    /// Whether `evaluate` always reports a non-zero `usage.input_tokens` for
+    /// valid requests.
+    ///
+    /// `dispatch` must price a request before `evaluate` consumes it, which
+    /// costs one serialization pass over the whole request. Engines that
+    /// count tokens themselves return `true` so that pass is skipped; the
+    /// estimate is then no longer a fallback, so an opted-in engine that
+    /// reports `0` surfaces `0`. The default keeps the estimate for every
+    /// engine that has not opted in.
+    fn reports_input_tokens(&self) -> bool {
+        false
+    }
+
     /// Estimate input tokens (cheap, before evaluation). The mock uses
     /// a rough `bytes / 4` heuristic for state, instructions, and criteria;
     /// real backends will use a tokenizer.

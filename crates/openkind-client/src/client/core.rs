@@ -116,6 +116,22 @@ impl Client {
         request: SystemRequest,
         opts: &RequestOptions,
     ) -> Result<SystemResponse, Error> {
+        self.evaluate_ref_with(&request, opts).await
+    }
+
+    /// [`evaluate`](Self::evaluate) for callers that keep the request, such as
+    /// a proxy that records it afterwards, so it need not be cloned per call.
+    pub async fn evaluate_ref(&self, request: &SystemRequest) -> Result<SystemResponse, Error> {
+        self.evaluate_ref_with(request, &RequestOptions::new())
+            .await
+    }
+
+    /// [`evaluate_ref`](Self::evaluate_ref) with per-call [`RequestOptions`].
+    pub async fn evaluate_ref_with(
+        &self,
+        request: &SystemRequest,
+        opts: &RequestOptions,
+    ) -> Result<SystemResponse, Error> {
         // Serialize once here; the transport sends the bytes directly so the
         // request is not serialized a second time inside the HTTP client.
         let body = if self.inner.is_cloudflare {
@@ -124,7 +140,7 @@ impl Client {
                 "input": {"state": &request.state, "questions": &request.questions},
             }))
         } else {
-            serde_json::to_vec(&request)
+            serde_json::to_vec(request)
         }
         .map_err(|e| Error::Config(format!("request could not be serialized: {e}")))?;
         let path = if self.inner.is_cloudflare {
@@ -153,7 +169,7 @@ impl Client {
             )
             .await?
         };
-        validate_response_for_request(&response, &request)
+        validate_response_for_request(&response, request)
             .map_err(|source| Error::InvalidResponse { source })?;
         Ok(response)
     }

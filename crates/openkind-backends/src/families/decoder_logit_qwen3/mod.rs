@@ -52,7 +52,7 @@ use openkind_engine::ProbabilitySpace;
 use thiserror::Error;
 
 pub use self::engine::DecoderLogitQwen3Engine;
-use crate::families::decoder_logit_qwen35::Calibration;
+use crate::families::support::Calibration;
 use crate::families::support::FamilyLimits;
 
 /// Family slug used for identity derivation and telemetry.

@@ -9,7 +9,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use openkind_core::{Answer, ModelInfo, State, SystemRequest, SystemResponse, WireHashState};
+use openkind_core::{Answer, ModelInfo, SystemRequest, SystemResponse, WireHashState};
 
 use crate::families::support::{
     temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
@@ -101,12 +101,17 @@ impl FamilyEvaluator for ClefEngine {
         }
     }
 
+    fn reports_input_tokens(&self) -> bool {
+        true
+    }
+
     fn evaluate(
         &self,
         request: SystemRequest,
         control: &FamilyControl,
     ) -> Result<SystemResponse, FamilyError> {
-        let (input_tokens, answers) = self.evaluate_request(&request, control)?;
+        let state = crate::families::wire::state_value(request.state);
+        let (input_tokens, answers) = self.evaluate_request(state, &request.questions, control)?;
         Ok(SystemResponse {
             model: request.model,
             answers,
@@ -131,10 +136,11 @@ impl ClefEngine {
     /// Full evaluation: render, forward, read out, and map answers.
     fn evaluate_request(
         &self,
-        request: &SystemRequest,
+        state: serde_json::Value,
+        questions: &HashMap<String, openkind_core::Question, WireHashState>,
         control: &FamilyControl,
     ) -> Result<(usize, HashMap<String, Answer, WireHashState>), FamilyError> {
-        evaluate_with(&*self.model, &self.renderer, request, control)
+        evaluate_with(&*self.model, &self.renderer, state, questions, control)
     }
 }
 
@@ -143,14 +149,15 @@ impl ClefEngine {
 fn evaluate_with(
     model: &dyn ClefExecutionModel,
     renderer: &ClefRenderer,
-    request: &SystemRequest,
+    state: serde_json::Value,
+    questions: &HashMap<String, openkind_core::Question, WireHashState>,
     control: &FamilyControl,
 ) -> Result<(usize, HashMap<String, Answer, WireHashState>), FamilyError> {
     control.check()?;
     // Questions render in sorted-id order: the wire map is unordered, and a
     // deterministic order keeps the joint head's cross-question attention
     // reproducible.
-    let mut sorted: Vec<(&String, &openkind_core::Question)> = request.questions.iter().collect();
+    let mut sorted: Vec<(&String, &openkind_core::Question)> = questions.iter().collect();
     sorted.sort_by(|left, right| left.0.cmp(right.0));
     let mut unpacked: Vec<(String, crate::families::wire::UnpackedQuestion)> =
         Vec::with_capacity(sorted.len());
@@ -188,16 +195,14 @@ fn evaluate_with(
         });
         unpacked.push(((*id).clone(), unpack));
     }
-    let state_value = state_json(request);
-    let encoded = renderer.encode(&state_value, &render_questions)?;
+    let encoded = renderer.encode(&state, &render_questions)?;
     let logits = model.evaluate_record(&encoded, control)?;
     if logits.len() != encoded.questions.len() {
         return Err(FamilyError::InvalidInput(
             "joint head returned a question count that does not match the encoded record".into(),
         ));
     }
-    let mut answers =
-        HashMap::with_capacity_and_hasher(request.questions.len(), Default::default());
+    let mut answers = HashMap::with_capacity_and_hasher(questions.len(), Default::default());
     for ((question_id, unpack), (question, question_logits)) in
         unpacked.iter().zip(encoded.questions.iter().zip(&logits))
     {
@@ -229,15 +234,5 @@ fn instruction_text(question: &openkind_core::Question) -> String {
         serde_json::Value::Null => String::new(),
         serde_json::Value::String(text) => text.clone(),
         other => clef_render_value(other).unwrap_or_default(),
-    }
-}
-
-/// The wire state as the JSON value the renderer serializes: text states
-/// pass through as strings, structured states as their JSON value.
-fn state_json(request: &SystemRequest) -> serde_json::Value {
-    match &request.state {
-        State::Text(text) => serde_json::Value::String(text.clone()),
-        State::Object(map) => serde_json::Value::Object(map.clone()),
-        State::Array(items) => serde_json::Value::Array(items.clone()),
     }
 }

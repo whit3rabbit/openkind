@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use candle_core::Device;
-use openkind_core::{ModelInfo, Question, State, SystemRequest, SystemResponse, Usage};
+use openkind_core::{ModelInfo, Question, SystemRequest, SystemResponse};
 
 use crate::device::FamilyExecution;
 use crate::families::support::{
@@ -133,34 +133,26 @@ impl FamilyEvaluator for Gemma4DecisionEngine {
         }
     }
 
+    fn reports_input_tokens(&self) -> bool {
+        true
+    }
+
     fn evaluate(
         &self,
         request: SystemRequest,
         control: &FamilyControl,
     ) -> Result<SystemResponse, FamilyError> {
         control.check()?;
-        let state = match &request.state {
-            State::Text(text) => serde_json::Value::String(text.clone()),
-            State::Object(map) => serde_json::Value::Object(map.clone()),
-            State::Array(items) => serde_json::Value::Array(items.clone()),
-        };
-        let mut question_ids: Vec<_> = request.questions.keys().cloned().collect();
-        question_ids.sort();
-        if question_ids.is_empty() {
-            return Err(FamilyError::InvalidInput(
-                "request contains no questions".to_owned(),
-            ));
-        }
+        let state = crate::families::wire::state_value(request.state);
+        let questions = crate::families::wire::into_sorted_questions(request.questions)?;
 
         let mut answers: HashMap<String, openkind_core::Answer, openkind_core::WireHashState> =
-            HashMap::with_capacity_and_hasher(question_ids.len(), Default::default());
+            HashMap::with_capacity_and_hasher(questions.len(), Default::default());
         let mut input_tokens: u64 = 0;
-        for id in &question_ids {
+        for (question_id, question) in questions {
             control.check()?;
-            let question = request
-                .questions
-                .get(id)
-                .expect("question id came from the request map");
+            let id = &question_id;
+            let question = &question;
             let unpacked = crate::families::wire::unpack_question(id, question)?;
             let rendered = self.inner.renderer.render(
                 &state,
@@ -184,16 +176,13 @@ impl FamilyEvaluator for Gemma4DecisionEngine {
             let probabilities = temperature_softmax(&logits, super::CALIBRATION_TEMPERATURE)?;
             let answer =
                 crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?;
-            answers.insert(id.clone(), answer);
+            answers.insert(question_id, answer);
         }
         control.check()?;
-        Ok(SystemResponse {
-            model: request.model,
+        Ok(crate::families::wire::system_response(
+            request.model,
             answers,
-            usage: Usage {
-                input_tokens: u32::try_from(input_tokens).unwrap_or(u32::MAX),
-                output_tokens: 0,
-            },
-        })
+            input_tokens,
+        ))
     }
 }

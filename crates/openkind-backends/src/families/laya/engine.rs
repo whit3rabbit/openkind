@@ -3,9 +3,10 @@
 use std::sync::Arc;
 
 use candle_core::Device;
-use openkind_core::{ModelInfo, Question, State, SystemRequest, SystemResponse, Usage};
+use openkind_core::{ModelInfo, Question, State, SystemRequest, SystemResponse};
 
 use crate::device::FamilyExecution;
+use crate::families::python_json::write_python_string;
 use crate::families::support::{
     temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
 };
@@ -107,27 +108,23 @@ pub(crate) fn resolve_temperature(
 /// Serialize the wire state as the reference's `json.dumps` payload:
 /// compact separators `", "` / `": "`, non-ASCII kept, keys in the parsed
 /// map's (sorted) order. Strings pass through untouched.
-pub(crate) fn laya_state_text(state: &State) -> Result<String, FamilyError> {
+pub(crate) fn laya_state_text(state: State) -> String {
     match state {
-        State::Text(text) => Ok(text.clone()),
-        State::Object(_) | State::Array(_) => {
-            let value = match state {
-                State::Object(map) => serde_json::to_value(map),
-                State::Array(items) => serde_json::to_value(items),
-                _ => unreachable!("matched above"),
-            }
-            .map_err(|error| {
-                FamilyError::InvalidInput(format!("state serialization failed: {error}"))
-            })?;
+        State::Text(text) => text,
+        structured => {
             let mut out = String::new();
-            write_python_json(&value, &mut out);
-            Ok(out)
+            write_python_json(&crate::families::wire::state_value(structured), &mut out);
+            out
         }
     }
 }
 
 /// Minimal Python-`json.dumps`-shaped writer (default separators, sorted map
 /// order from the parsed `serde_json` map).
+///
+/// Numbers keep serde_json's own formatting, which is not Python `repr` for
+/// floats, so this stays apart from the shared `python_json` writer. Strings
+/// share its escaper, whose output is the same minimal set as serde_json's.
 fn write_python_json(value: &serde_json::Value, out: &mut String) {
     use serde_json::Value;
     use std::fmt::Write;
@@ -138,15 +135,7 @@ fn write_python_json(value: &serde_json::Value, out: &mut String) {
         Value::Number(number) => {
             let _ = write!(out, "{number}");
         }
-        Value::String(text) => {
-            // serde_json's string escaping is the same minimal set as
-            // Python's ensure_ascii=False output.
-            let _ = write!(
-                out,
-                "{}",
-                serde_json::to_string(text).expect("string serializes")
-            );
-        }
+        Value::String(text) => write_python_string(text, out),
         Value::Array(items) => {
             out.push('[');
             for (index, item) in items.iter().enumerate() {
@@ -163,11 +152,8 @@ fn write_python_json(value: &serde_json::Value, out: &mut String) {
                 if index > 0 {
                     out.push_str(", ");
                 }
-                let _ = write!(
-                    out,
-                    "{}: ",
-                    serde_json::to_string(key).expect("key serializes")
-                );
+                write_python_string(key, out);
+                out.push_str(": ");
                 write_python_json(item, out);
             }
             out.push('}');
@@ -334,96 +320,106 @@ impl FamilyEvaluator for LayaEngine {
         }
     }
 
+    fn reports_input_tokens(&self) -> bool {
+        true
+    }
+
     fn evaluate(
         &self,
         request: SystemRequest,
         control: &FamilyControl,
     ) -> Result<SystemResponse, FamilyError> {
-        control.check()?;
-        let profile = self.inner.profile;
-        let state_serialized = laya_state_text(&request.state)?;
-        if state_serialized.trim().is_empty() {
-            return Err(FamilyError::InvalidInput(
-                "state must contain non-whitespace text".to_owned(),
-            ));
-        }
-        // A chronological conversation list truncates from the left so the
-        // newest turn survives; every other state keeps its first tokens.
-        let truncate_left = matches!(request.state, State::Array(_));
-        let state_text =
-            state_serialized.replace(super::model::mask_token_of(&profile.specials), " ");
-        let state_ids = self.inner.renderer.encode_plain(&state_text)?;
-
-        let mut question_ids: Vec<_> = request.questions.keys().cloned().collect();
-        question_ids.sort();
-        if question_ids.is_empty() {
-            return Err(FamilyError::InvalidInput(
-                "request contains no questions".to_owned(),
-            ));
-        }
-
-        let mut answers = std::collections::HashMap::<
-            String,
-            openkind_core::Answer,
-            openkind_core::WireHashState,
-        >::with_capacity_and_hasher(
-            question_ids.len(), Default::default()
-        );
-        let mut input_tokens: u64 = 0;
-        for id in &question_ids {
-            control.check()?;
-            let question = request
-                .questions
-                .get(id)
-                .expect("question id came from the request map");
-            let inputs = render_question_inputs(question)?;
-            if inputs.options.len() > MAX_CANDIDATES {
-                return Err(FamilyError::InvalidInput(format!(
-                    "question `{id}` offers {} options but the profile accepts at most {MAX_CANDIDATES}",
-                    inputs.options.len()
-                )));
-            }
-            let plan = SequencePlan {
-                renderer: &self.inner.renderer,
-                specials: &profile.specials,
-                max_len: profile.max_sequence_tokens,
-                head_max_len: profile.head_max_len,
-                truncate_left,
-            };
-            let rendered = build_sequence(
-                &plan,
-                inputs.type_name,
-                &crate::families::wire::instruction_text(question)?,
-                &inputs.options,
-                &state_ids,
-            )?;
-            input_tokens = input_tokens.saturating_add(rendered.ids.len() as u64);
-            let logits =
-                self.inner
-                    .model
-                    .option_logits(&rendered.ids, &rendered.markers, inputs.qtype)?;
-            let temperature = resolve_temperature(
-                profile,
-                inputs.type_name,
-                inputs.qtype,
-                inputs.options.len(),
-            );
-            let probabilities = temperature_softmax(&logits, temperature)?;
-            let unpacked = crate::families::wire::unpack_question(id, question)?;
-            let answer =
-                crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?;
-            answers.insert(id.clone(), answer);
-        }
-        control.check()?;
-        Ok(SystemResponse {
-            model: request.model,
-            answers,
-            usage: Usage {
-                input_tokens: u32::try_from(input_tokens).unwrap_or(u32::MAX),
-                output_tokens: 0,
+        evaluate_with_logits(
+            self.inner.profile,
+            &self.inner.renderer,
+            &|token_ids: &[u32], markers: &[usize], qtype: usize| {
+                self.inner.model.option_logits(token_ids, markers, qtype)
             },
-        })
+            request,
+            control,
+        )
     }
+}
+
+/// Model-agnostic evaluation shared by every execution backend: the
+/// backend-specific `option_logits` source is the only input, so the CPU,
+/// ONNX, and MLX engines apply the identical rendering, temperature tables,
+/// and wire mapping.
+pub(crate) fn evaluate_with_logits<L>(
+    profile: &'static LayaProfile,
+    renderer: &LayaRenderer,
+    option_logits: &L,
+    request: SystemRequest,
+    control: &FamilyControl,
+) -> Result<SystemResponse, FamilyError>
+where
+    L: Fn(&[u32], &[usize], usize) -> Result<Vec<f64>, FamilyError>,
+{
+    control.check()?;
+    // A chronological conversation list truncates from the left so the
+    // newest turn survives; every other state keeps its first tokens.
+    let truncate_left = matches!(request.state, State::Array(_));
+    let state_serialized = laya_state_text(request.state);
+    if state_serialized.trim().is_empty() {
+        return Err(FamilyError::InvalidInput(
+            "state must contain non-whitespace text".to_owned(),
+        ));
+    }
+    let state_text = state_serialized.replace(super::model::mask_token_of(&profile.specials), " ");
+    let state_ids = renderer.encode_plain(&state_text)?;
+
+    let questions = crate::families::wire::into_sorted_questions(request.questions)?;
+
+    let mut answers = std::collections::HashMap::<
+        String,
+        openkind_core::Answer,
+        openkind_core::WireHashState,
+    >::with_capacity_and_hasher(questions.len(), Default::default());
+    let mut input_tokens: u64 = 0;
+    for (question_id, question) in questions {
+        control.check()?;
+        let id = &question_id;
+        let question = &question;
+        let inputs = render_question_inputs(question)?;
+        if inputs.options.len() > MAX_CANDIDATES {
+            return Err(FamilyError::InvalidInput(format!(
+                "question `{id}` offers {} options but the profile accepts at most {MAX_CANDIDATES}",
+                inputs.options.len()
+            )));
+        }
+        let plan = SequencePlan {
+            renderer,
+            specials: &profile.specials,
+            max_len: profile.max_sequence_tokens,
+            head_max_len: profile.head_max_len,
+            truncate_left,
+        };
+        let rendered = build_sequence(
+            &plan,
+            inputs.type_name,
+            &crate::families::wire::instruction_text(question)?,
+            &inputs.options,
+            &state_ids,
+        )?;
+        input_tokens = input_tokens.saturating_add(rendered.ids.len() as u64);
+        let logits = option_logits(&rendered.ids, &rendered.markers, inputs.qtype)?;
+        let temperature = resolve_temperature(
+            profile,
+            inputs.type_name,
+            inputs.qtype,
+            inputs.options.len(),
+        );
+        let probabilities = temperature_softmax(&logits, temperature)?;
+        let unpacked = crate::families::wire::unpack_question(id, question)?;
+        let answer = crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?;
+        answers.insert(question_id, answer);
+    }
+    control.check()?;
+    Ok(crate::families::wire::system_response(
+        request.model,
+        answers,
+        input_tokens,
+    ))
 }
 
 #[cfg(test)]
@@ -472,9 +468,79 @@ mod tests {
         assert_eq!(out, r#"{"a": [true, null, "x"], "b": 1, "c": {"k": "v"}}"#);
     }
 
+    /// The serde_json-backed writer this module used before it shared the
+    /// escaper; the oracle for the allocation-free version.
+    fn legacy_write_python_json(value: &serde_json::Value, out: &mut String) {
+        use serde_json::Value;
+        use std::fmt::Write;
+        match value {
+            Value::Null => out.push_str("null"),
+            Value::Bool(true) => out.push_str("true"),
+            Value::Bool(false) => out.push_str("false"),
+            Value::Number(number) => {
+                let _ = write!(out, "{number}");
+            }
+            Value::String(text) => {
+                let _ = write!(
+                    out,
+                    "{}",
+                    serde_json::to_string(text).expect("string serializes")
+                );
+            }
+            Value::Array(items) => {
+                out.push('[');
+                for (index, item) in items.iter().enumerate() {
+                    if index > 0 {
+                        out.push_str(", ");
+                    }
+                    legacy_write_python_json(item, out);
+                }
+                out.push(']');
+            }
+            Value::Object(map) => {
+                out.push('{');
+                for (index, (key, item)) in map.iter().enumerate() {
+                    if index > 0 {
+                        out.push_str(", ");
+                    }
+                    let _ = write!(
+                        out,
+                        "{}: ",
+                        serde_json::to_string(key).expect("key serializes")
+                    );
+                    legacy_write_python_json(item, out);
+                }
+                out.push('}');
+            }
+        }
+    }
+
+    #[test]
+    fn json_writer_matches_the_serde_backed_writer() {
+        use crate::families::python_json::corpus::{random_value, Stream};
+        let mut stream = Stream(0x1405_7b7e_f767_814f);
+        for _ in 0..5_000 {
+            let value = random_value(&mut stream, 4);
+            let (mut new, mut old) = (String::new(), String::new());
+            write_python_json(&value, &mut new);
+            legacy_write_python_json(&value, &mut old);
+            assert_eq!(new, old, "{value}");
+        }
+        // Every scalar value escapes like serde_json's string serializer.
+        for code in 0..=0x10_FFFF_u32 {
+            let Some(character) = char::from_u32(code) else {
+                continue;
+            };
+            let value = serde_json::Value::String(character.to_string());
+            let (mut new, mut old) = (String::new(), String::new());
+            write_python_json(&value, &mut new);
+            legacy_write_python_json(&value, &mut old);
+            assert_eq!(new, old, "{code:#x}");
+        }
+    }
+
     #[test]
     fn text_state_passes_through_untouched() {
-        let state = State::Text("plain".into());
-        assert_eq!(laya_state_text(&state).expect("serialize"), "plain");
+        assert_eq!(laya_state_text(State::Text("plain".into())), "plain");
     }
 }

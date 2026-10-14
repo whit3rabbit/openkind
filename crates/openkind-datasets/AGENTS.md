@@ -34,12 +34,24 @@ Boundaries:
    nothing depends on `openkind-model-store` from here; the verified
    downloader is an adapted sibling of the model-store one, not a shared
    module.
+   The two download engines overlap by roughly 60 percent on purpose. The
+   functions that are identical in both crates (map for a future leaf-crate
+   extraction): `cleanup_stages`, `global_lock`, `sync_directory`,
+   `resumed_response_end`, `reusable_blob`, `blob_path`. The redirect handling
+   was a seventh identical piece until the explicit token guard above; it now
+   differs here by design (model-store carries no token).
 2. **Pinning**: every entry pins the 40-hex `main`-branch commit, the
    40-hex `refs/convert/parquet` commit, and per-file size + SHA-256. All
    three are enforced at validation and verification time.
 3. **Auth hygiene**: token resolution is `HF_TOKEN` → `HF_TOKEN_PATH` → the
    `hf auth login` token file (under `HF_HOME`) → anonymous. The token
    value is never logged or serialized; only its source is reported.
+   Redirects are followed by `DatasetStore::send_authed`, not by the HTTP
+   client (`Policy::none()`): the bearer token is attached only to hops whose
+   origin equals the configured endpoint, CDN hops are followed without it,
+   and redirects never leave HTTPS, capped at 8 hops. This makes the
+   protection explicit instead of relying on reqwest's implicit
+   cross-host `Authorization` stripping; tests in `store.rs` pin it.
 4. **Registry/definition sync**: `DATASET_DEFINITIONS` (the compiled-in
    allowlist) and the registry entries must agree — the in-module test
    `registry_entries_and_definitions_stay_in_sync` enforces it, mirroring

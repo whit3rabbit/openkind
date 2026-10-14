@@ -1,5 +1,6 @@
 //! Composite `DecisionEngine` for the pinned winnow profile.
 
+use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -8,8 +9,11 @@ use candle_transformers::models::qwen2::Config;
 use openkind_core::{ModelInfo, SystemRequest, SystemResponse};
 use openkind_engine::{DecisionEngine, EngineError, EngineResult};
 
-use crate::families::support::{temperature_softmax, FamilyError};
-use tokio::sync::Semaphore;
+use crate::families::support::{
+    error_outcome_label, map_family_error, outcome_label, saturating_millis, temperature_softmax,
+    AdmissionGate, FamilyControl, FamilyError, FAMILY_GATE_METRICS,
+};
+use crate::families::wire::compact_state_text;
 
 use super::model::{VerifiedArtifacts, WinnowModel};
 use super::renderer::WinnowRenderer;
@@ -21,9 +25,7 @@ pub struct WinnowEngine {
     router: Arc<WinnowRouter>,
     /// Sibling alias per routing label, in label order (`A`, `B`).
     siblings: Vec<(String, Arc<dyn DecisionEngine>)>,
-    execution_slots: Arc<Semaphore>,
-    admission_slots: Arc<Semaphore>,
-    retry_after_ms: u64,
+    gate: AdmissionGate,
     evaluation_timeout: Option<Duration>,
     backend_id: String,
 }
@@ -31,6 +33,11 @@ pub struct WinnowEngine {
 struct WinnowRouter {
     model: WinnowModel,
     renderer: WinnowRenderer,
+}
+
+/// Backend identity of the router on the selected execution backend.
+fn backend_id_for(execution: crate::device::FamilyExecution) -> String {
+    format!("winnow/{}", execution.id_fragment())
 }
 
 impl WinnowEngine {
@@ -69,24 +76,14 @@ impl WinnowEngine {
             crate::families::decoder_logit_letter::CHECKPOINT_SHA256,
         )?;
         let renderer = WinnowRenderer::load(&artifacts.tokenizer)?;
-        let backend_id = match execution {
-            crate::device::FamilyExecution::Cpu => "winnow/cpu-fp32-lora".to_owned(),
+        let model = match execution {
+            crate::device::FamilyExecution::Cpu => {
+                WinnowModel::load(&artifacts, &Self::pinned_config())?
+            }
             #[cfg(feature = "cuda")]
             crate::device::FamilyExecution::Cuda { .. } => {
                 let device = execution.candle_device().map_err(FamilyError::from)?;
-                let model =
-                    WinnowModel::load_with_device(&artifacts, &Self::pinned_config(), device)?;
-                let concurrent = config.limits.max_concurrent_requests.max(1);
-                let admitted = concurrent.saturating_add(config.limits.max_queued_requests);
-                return Ok(Self {
-                    router: Arc::new(WinnowRouter { model, renderer }),
-                    siblings,
-                    execution_slots: Arc::new(Semaphore::new(concurrent)),
-                    admission_slots: Arc::new(Semaphore::new(admitted)),
-                    retry_after_ms: config.limits.retry_after_ms,
-                    evaluation_timeout: config.limits.evaluation_timeout,
-                    backend_id: "winnow/cuda-fp32-lora".to_owned(),
-                });
+                WinnowModel::load_with_device(&artifacts, &Self::pinned_config(), device)?
             }
             #[cfg(feature = "onnx")]
             crate::device::FamilyExecution::Onnx { .. } => {
@@ -107,17 +104,17 @@ impl WinnowEngine {
                 .into());
             }
         };
-        let model = WinnowModel::load(&artifacts, &Self::pinned_config())?;
-        let concurrent = config.limits.max_concurrent_requests.max(1);
-        let admitted = concurrent.saturating_add(config.limits.max_queued_requests);
         Ok(Self {
             router: Arc::new(WinnowRouter { model, renderer }),
             siblings,
-            execution_slots: Arc::new(Semaphore::new(concurrent)),
-            admission_slots: Arc::new(Semaphore::new(admitted)),
-            retry_after_ms: config.limits.retry_after_ms,
+            gate: AdmissionGate::new(
+                config.limits.max_concurrent_requests,
+                config.limits.max_queued_requests,
+                config.limits.retry_after_ms,
+                FAMILY_GATE_METRICS,
+            ),
             evaluation_timeout: config.limits.evaluation_timeout,
-            backend_id,
+            backend_id: backend_id_for(execution),
         })
     }
 
@@ -141,10 +138,13 @@ impl WinnowEngine {
     #[doc(hidden)]
     pub fn debug_route_probabilities(&self, state: &str) -> Result<Vec<f64>, FamilyError> {
         let prompt_ids = self.router.renderer.render(state)?;
-        let logits = self
-            .router
-            .model
-            .letter_logits(&prompt_ids, self.router.renderer.letter_ids())?;
+        // Offline probes have no caller to disconnect and no deadline.
+        let control = FamilyControl::new(Arc::new(AtomicBool::new(false)), None, 0);
+        let logits = self.router.model.letter_logits(
+            &prompt_ids,
+            self.router.renderer.letter_ids(),
+            &control,
+        )?;
         temperature_softmax(&logits, CALIBRATION_TEMPERATURE)
     }
 }
@@ -154,6 +154,7 @@ impl WinnowRouter {
         &self,
         state: &str,
         siblings: &[(String, Arc<dyn DecisionEngine>)],
+        control: &FamilyControl,
     ) -> Result<RouteDecision, EngineError> {
         let prompt_ids = self
             .renderer
@@ -164,10 +165,18 @@ impl WinnowRouter {
             })?;
         let logits = self
             .model
-            .letter_logits(&prompt_ids, self.renderer.letter_ids())
-            .map_err(|error| EngineError::Backend {
-                backend: super::FAMILY_SLUG.to_owned(),
-                message: error.to_string(),
+            .letter_logits(&prompt_ids, self.renderer.letter_ids(), control)
+            .map_err(|error| match error {
+                // A control failure keeps its class instead of being folded
+                // into a generic backend error.
+                FamilyError::DeadlineExceeded { timeout_ms } => EngineError::DeadlineExceeded {
+                    backend: super::FAMILY_SLUG.to_owned(),
+                    timeout_ms,
+                },
+                error => EngineError::Backend {
+                    backend: super::FAMILY_SLUG.to_owned(),
+                    message: error.to_string(),
+                },
             })?;
         let probabilities =
             temperature_softmax(&logits, CALIBRATION_TEMPERATURE).map_err(|error| {
@@ -220,126 +229,101 @@ impl DecisionEngine for WinnowEngine {
     }
 
     async fn evaluate(&self, request: SystemRequest) -> EngineResult<SystemResponse> {
-        let backend = self.backend_id().to_owned();
         let started = Instant::now();
-        let deadline =
-            match self.evaluation_timeout {
-                Some(timeout) => Some(started.checked_add(timeout).ok_or_else(|| {
-                    EngineError::Unsupported {
-                        backend: backend.clone(),
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let mut cancellation = self.gate.cancellation_guard(cancelled.clone());
+        let result = self.evaluate_controlled(request, started, cancelled).await;
+        cancellation.disarm();
+        result
+    }
+}
+
+impl WinnowEngine {
+    async fn evaluate_controlled(
+        &self,
+        request: SystemRequest,
+        started: Instant,
+        cancelled: Arc<AtomicBool>,
+    ) -> EngineResult<SystemResponse> {
+        let backend = self.backend_id().to_owned();
+        let deadline = match self.evaluation_timeout {
+            Some(timeout) => match started.checked_add(timeout) {
+                Some(deadline) => Some(deadline),
+                None => {
+                    // An unrepresentable configured deadline must not turn
+                    // into an unbounded evaluation.
+                    self.gate.record(started, "invalid");
+                    return Err(EngineError::Unsupported {
+                        backend,
                         message: "winnow evaluation timeout is outside the monotonic clock range"
                             .to_owned(),
-                    }
-                })?),
-                None => None,
-            };
-        let admission = self
-            .admission_slots
-            .clone()
-            .try_acquire_owned()
-            .map_err(|_| EngineError::Overloaded {
-                backend: backend.clone(),
-                retry_after_ms: self.retry_after_ms,
-            })?;
-        let execution = acquire_execution_slot(
-            self.execution_slots.clone(),
-            deadline,
-            &backend,
-            self.evaluation_timeout,
-        )
-        .await?;
+                    });
+                }
+            },
+            None => None,
+        };
+        let timeout_ms = self
+            .evaluation_timeout
+            .map(saturating_millis)
+            .unwrap_or_default();
 
-        let state = match &request.state {
-            openkind_core::State::Text(text) => text.clone(),
-            openkind_core::State::Object(map) => {
-                serde_json::to_string(map).map_err(|error| EngineError::Unsupported {
-                    backend: super::FAMILY_SLUG.to_owned(),
-                    message: format!("state serialization failed: {error}"),
-                })?
-            }
-            openkind_core::State::Array(items) => {
-                serde_json::to_string(items).map_err(|error| EngineError::Unsupported {
-                    backend: super::FAMILY_SLUG.to_owned(),
-                    message: format!("state serialization failed: {error}"),
-                })?
+        let state = match compact_state_text(&request.state, super::FAMILY_SLUG) {
+            Ok(state) => state,
+            Err(error) => {
+                self.gate.record(started, "invalid");
+                return Err(error);
             }
         };
-        let routed_started = std::time::Instant::now();
+        let routed_started = Instant::now();
         let router = self.router.clone();
         let siblings = self.siblings.clone();
-        let routed = tokio::task::spawn_blocking(move || {
-            let _execution = execution;
-            let _admission = admission;
-            if let Some(expired) = deadline.filter(|deadline| Instant::now() >= *deadline) {
-                return Err(deadline_error(&backend, expired, started));
-            }
-            let routed = router.route(&state, &siblings)?;
-            if let Some(expired) = deadline.filter(|deadline| Instant::now() >= *deadline) {
-                return Err(deadline_error(&backend, expired, started));
-            }
-            Ok(routed)
-        })
-        .await
-        .map_err(|error| EngineError::Backend {
-            backend: self.backend_id().to_owned(),
-            message: format!("winnow routing task failed: {error}"),
-        })??;
+        let control = FamilyControl::new(cancelled, deadline, timeout_ms);
+        let routing_backend = backend.clone();
+        let routed = self
+            .gate
+            .run(&backend, started, deadline, timeout_ms, move || {
+                // The forward pass is one uninterruptible model call, so
+                // cancellation and the deadline are observed on either side
+                // of it (and again before the work starts).
+                control
+                    .check()
+                    .map_err(|error| map_family_error(&routing_backend, error))?;
+                let decision = router.route(&state, &siblings, &control)?;
+                control
+                    .check()
+                    .map_err(|error| map_family_error(&routing_backend, error))?;
+                Ok(decision)
+            })
+            .await?;
         let RouteDecision {
             engine: sibling,
             alias,
             probabilities,
-        } = routed;
+        } = match routed {
+            Ok(decision) => decision,
+            Err(error) => {
+                self.gate.record(started, error_outcome_label(&error));
+                return Err(error);
+            }
+        };
         metrics::histogram!("openkind_winnow_route_seconds")
             .record(routed_started.elapsed().as_secs_f64());
         metrics::counter!("openkind_winnow_routes_total", "sibling" => alias.clone()).increment(1);
         metrics::gauge!("openkind_winnow_route_top_probability")
             .set(probabilities.iter().cloned().fold(0.0_f64, f64::max));
-        if let Some(deadline) = deadline {
-            tokio::time::timeout_at(deadline.into(), sibling.evaluate(request))
-                .await
-                .map_err(|_| deadline_error(self.backend_id(), deadline, started))?
+        let result = if let Some(deadline) = deadline {
+            match tokio::time::timeout_at(deadline.into(), sibling.evaluate(request)).await {
+                Ok(result) => result,
+                Err(_) => Err(EngineError::DeadlineExceeded {
+                    backend,
+                    timeout_ms,
+                }),
+            }
         } else {
             sibling.evaluate(request).await
-        }
-    }
-}
-
-async fn acquire_execution_slot(
-    slots: Arc<Semaphore>,
-    deadline: Option<Instant>,
-    backend: &str,
-    timeout: Option<Duration>,
-) -> EngineResult<tokio::sync::OwnedSemaphorePermit> {
-    let acquire = slots.acquire_owned();
-    if let Some(deadline) = deadline {
-        match tokio::time::timeout_at(deadline.into(), acquire).await {
-            Ok(Ok(permit)) => Ok(permit),
-            Ok(Err(_)) => Err(EngineError::Backend {
-                backend: backend.to_owned(),
-                message: "winnow execution admission closed during shutdown".to_owned(),
-            }),
-            Err(_) => Err(EngineError::DeadlineExceeded {
-                backend: backend.to_owned(),
-                timeout_ms: timeout
-                    .map(|timeout| timeout.as_millis().min(u128::from(u64::MAX)) as u64)
-                    .unwrap_or_default(),
-            }),
-        }
-    } else {
-        acquire.await.map_err(|_| EngineError::Backend {
-            backend: backend.to_owned(),
-            message: "winnow execution admission closed during shutdown".to_owned(),
-        })
-    }
-}
-
-fn deadline_error(backend: &str, deadline: Instant, started: Instant) -> EngineError {
-    EngineError::DeadlineExceeded {
-        backend: backend.to_owned(),
-        timeout_ms: deadline
-            .saturating_duration_since(started)
-            .as_millis()
-            .min(u128::from(u64::MAX)) as u64,
+        };
+        self.gate.record(started, outcome_label(&result));
+        result
     }
 }
 
@@ -347,74 +331,11 @@ fn deadline_error(backend: &str, deadline: Instant, started: Instant) -> EngineE
 mod tests {
     use super::*;
 
-    #[tokio::test]
-    async fn execution_slot_acquires_and_recovers() {
-        let slots = Arc::new(Semaphore::new(1));
-        let permit = acquire_execution_slot(slots.clone(), None, "winnow", None)
-            .await
-            .expect("open slot must be acquirable");
-        assert_eq!(slots.available_permits(), 0);
-        drop(permit);
-        assert_eq!(slots.available_permits(), 1);
-    }
-
-    #[tokio::test]
-    async fn execution_slot_fails_closed_when_admission_shuts_down() {
-        let slots = Arc::new(Semaphore::new(0));
-        slots.close();
-        let error = acquire_execution_slot(slots, None, "winnow", None)
-            .await
-            .expect_err("a closed pool must fail closed");
-        assert!(
-            matches!(error, EngineError::Backend { ref backend, .. } if backend == "winnow"),
-            "unexpected error: {error}"
-        );
-    }
-
-    #[tokio::test]
-    async fn execution_slot_reports_deadlines_elapsed_while_queued() {
-        let slots = Arc::new(Semaphore::new(1));
-        let held = slots
-            .clone()
-            .acquire_owned()
-            .await
-            .expect("park the only slot");
-
-        let error = acquire_execution_slot(
-            slots.clone(),
-            Some(Instant::now() + Duration::from_millis(20)),
-            "winnow",
-            Some(Duration::from_millis(20)),
-        )
-        .await
-        .expect_err("an elapsed deadline must fail while queued");
-        assert!(
-            matches!(
-                error,
-                EngineError::DeadlineExceeded { ref backend, timeout_ms: 20 }
-                    if backend == "winnow"
-            ),
-            "unexpected error: {error}"
-        );
-
-        drop(held);
-        let permit = acquire_execution_slot(slots, None, "winnow", None)
-            .await
-            .expect("slot recovers after the deadline failure");
-        drop(permit);
-    }
-
     #[test]
-    fn deadline_error_reports_the_remaining_budget() {
-        let started = Instant::now();
-        let error = deadline_error("winnow", started + Duration::from_millis(1_500), started);
-        assert!(
-            matches!(
-                error,
-                EngineError::DeadlineExceeded { ref backend, timeout_ms }
-                    if backend == "winnow" && (1_400..=1_500).contains(&timeout_ms)
-            ),
-            "unexpected error: {error}"
+    fn backend_id_follows_the_execution_fragment() {
+        assert_eq!(
+            backend_id_for(crate::device::FamilyExecution::Cpu),
+            "winnow/cpu-fp32"
         );
     }
 }

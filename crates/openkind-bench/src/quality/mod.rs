@@ -20,8 +20,8 @@ use anyhow::{Context, Result};
 use openkind_backends::qwen35::experimental::{average_orders, Qwen35ScoringProbe, ScoringResult};
 use openkind_backends::qwen35::{Qwen35Backend, SEMANTIC_NONE_OPTION};
 use openkind_core::Question;
+use openkind_runtime::hashing::sha256_file;
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 
 use crate::workload::{parse_workload, WorkloadRow};
 
@@ -278,10 +278,7 @@ pub fn run(args: &CompareArgs) -> Result<serde_json::Value> {
         }
     }
     let mut summary = report::summary(args, &probe, digest, load_seconds, &records);
-    summary["executable_sha256"] = serde_json::json!(format!(
-        "{:x}",
-        Sha256::digest(fs::read(std::env::current_exe()?)?)
-    ));
+    summary["executable_sha256"] = serde_json::json!(sha256_file(&std::env::current_exe()?)?);
     serde_json::to_writer_pretty(&mut summary_file, &summary)?;
     summary_file.sync_all()?;
     Ok(summary)

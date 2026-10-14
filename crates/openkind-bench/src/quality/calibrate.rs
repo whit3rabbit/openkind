@@ -10,7 +10,7 @@
 //! the unlocked control.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs::{self, File};
+use std::fs::File;
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
 use std::time::Instant;
@@ -21,8 +21,8 @@ use openkind_backends::qwen35::{
     Qwen35Backend, BACKBONE_ID, BACKBONE_REVISION, CALIBRATION_TEMPERATURE, PROFILE_ID,
     SEMANTIC_NONE_OPTION, TOKENIZER_JSON_SHA256,
 };
+use openkind_runtime::hashing::sha256_file;
 use serde_json::{json, Value};
-use sha2::{Digest, Sha256};
 
 use super::metrics::{self};
 use super::{load, Record, TimedScore};
@@ -312,10 +312,7 @@ pub fn run(args: &CalibrateArgs) -> Result<Value> {
         "gate": {"overall": overall, "per_task": per_task, "paired_delta_from_raw": paired_deltas},
         "gate_reverse_transfer": {"overall": reverse_overall},
     });
-    summary["executable_sha256"] = serde_json::json!(format!(
-        "{:x}",
-        Sha256::digest(fs::read(std::env::current_exe()?)?)
-    ));
+    summary["executable_sha256"] = serde_json::json!(sha256_file(&std::env::current_exe()?)?);
     summary["load_seconds"] = json!(load_seconds);
     serde_json::to_writer_pretty(&mut summary_file, &summary)?;
     summary_file.sync_all()?;

@@ -13,7 +13,7 @@
 
 use tokenizers::Tokenizer;
 
-use crate::families::decoder_logit_qwen35::renderer::python_json;
+use crate::families::python_json::python_json;
 use crate::families::support::FamilyError;
 
 use super::{AssistantTail, MAX_OPTIONS_PER_PASS, MAX_SEQUENCE_TOKENS, MIN_CANDIDATES};
@@ -119,6 +119,25 @@ impl Qwen3ControlRenderer {
         criterion: &str,
         options: &[(String, String)],
     ) -> Result<RenderedPass, FamilyError> {
+        self.render_pass_with_evidence(&Self::render_evidence(state), criterion, options)
+    }
+
+    /// The serialized `evidence` field of the payload. It depends on the
+    /// request state alone, so a request renders it once and reuses it for
+    /// every question and knockout pass through
+    /// [`Self::render_pass_with_evidence`].
+    pub fn render_evidence(state: &serde_json::Value) -> String {
+        python_json(state)
+    }
+
+    /// [`Self::render_pass`] with the evidence already serialized by
+    /// [`Self::render_evidence`].
+    pub fn render_pass_with_evidence(
+        &self,
+        evidence: &str,
+        criterion: &str,
+        options: &[(String, String)],
+    ) -> Result<RenderedPass, FamilyError> {
         if criterion.trim().is_empty() {
             return Err(FamilyError::InvalidInput(
                 "question instruction must contain non-whitespace text".to_owned(),
@@ -165,7 +184,7 @@ impl Qwen3ControlRenderer {
             .join(", ");
         let payload = format!(
             "{{\"evidence\": {}, \"criterion\": {}, \"options\": [{}]}}",
-            python_json(state),
+            evidence,
             python_json(&serde_json::Value::String(criterion.to_owned())),
             payload_options,
         );

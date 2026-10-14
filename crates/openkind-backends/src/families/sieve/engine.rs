@@ -3,9 +3,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use openkind_core::{ModelInfo, State, SystemRequest, SystemResponse, Usage};
+use openkind_core::{ModelInfo, State, SystemRequest, SystemResponse};
 
-use crate::families::decoder_logit_qwen35::QuestionKind;
+use crate::families::support::QuestionKind;
 use crate::families::support::{
     temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
 };
@@ -116,31 +116,30 @@ pub fn plan_request(
     profile: &SieveProfile,
     request: &SystemRequest,
 ) -> Result<SieveRequestPlan, FamilyError> {
-    let mut question_ids: Vec<_> = request.questions.keys().cloned().collect();
-    question_ids.sort();
-    if question_ids.is_empty() {
-        return Err(FamilyError::InvalidInput(
-            "request contains no questions".to_owned(),
-        ));
-    }
-    let state: serde_json::Value = match &request.state {
-        State::Text(text) => serde_json::Value::String(text.clone()),
-        State::Object(map) => serde_json::to_value(map).map_err(|error| {
-            FamilyError::InvalidInput(format!("state serialization failed: {error}"))
-        })?,
-        State::Array(items) => serde_json::to_value(items).map_err(|error| {
-            FamilyError::InvalidInput(format!("state serialization failed: {error}"))
-        })?,
-    };
+    // Offline tools plan borrowed requests; only they pay for these copies.
+    plan_owned_request(
+        renderer,
+        profile,
+        request.state.clone(),
+        request.questions.clone(),
+    )
+}
+
+/// [`plan_request`] over a request whose state and questions are already
+/// owned, so serving a request moves them instead of copying.
+fn plan_owned_request(
+    renderer: &SieveRenderer,
+    profile: &SieveProfile,
+    state: State,
+    questions: HashMap<String, openkind_core::Question, openkind_core::WireHashState>,
+) -> Result<SieveRequestPlan, FamilyError> {
+    let sorted = wire::into_sorted_questions(questions)?;
+    let state = wire::state_value(state);
     let prefix_ids = renderer.render_prefix(&state)?;
-    let mut questions = Vec::with_capacity(question_ids.len());
-    for id in question_ids {
-        let question = request
-            .questions
-            .get(&id)
-            .expect("question id came from the request map");
+    let mut questions = Vec::with_capacity(sorted.len());
+    for (id, question) in sorted {
         let planned =
-            plan_question(renderer, profile, &id, question).map_err(|error| match error {
+            plan_question(renderer, profile, &id, &question).map_err(|error| match error {
                 FamilyError::InvalidInput(message) => {
                     FamilyError::InvalidInput(format!("question `{id}`: {message}"))
                 }
@@ -495,6 +494,10 @@ impl FamilyEvaluator for SieveEngine {
         }
     }
 
+    fn reports_input_tokens(&self) -> bool {
+        true
+    }
+
     fn evaluate(
         &self,
         request: SystemRequest,
@@ -508,7 +511,12 @@ impl FamilyEvaluator for SieveEngine {
             prefix_ids,
             questions,
             input_tokens,
-        } = plan_request(&self.inner.renderer, self.inner.profile, &request)?;
+        } = plan_owned_request(
+            &self.inner.renderer,
+            self.inner.profile,
+            request.state,
+            request.questions,
+        )?;
         let mut answers: HashMap<String, openkind_core::Answer, openkind_core::WireHashState> =
             HashMap::with_capacity_and_hasher(questions.len(), Default::default());
         for (id, planned) in questions {
@@ -517,14 +525,11 @@ impl FamilyEvaluator for SieveEngine {
             answers.insert(id, answer);
         }
         control.check()?;
-        Ok(SystemResponse {
-            model: request.model,
+        Ok(crate::families::wire::system_response(
+            request.model,
             answers,
-            usage: Usage {
-                input_tokens: u32::try_from(input_tokens).unwrap_or(u32::MAX),
-                output_tokens: 0,
-            },
-        })
+            input_tokens,
+        ))
     }
 }
 

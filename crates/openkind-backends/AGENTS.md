@@ -127,6 +127,16 @@ parity. Keep these downloads out of tests and CI, which must remain offline.
 19. **Root Prefix Cache Is Opt-In and Exact**:
     `RootPrefixCache` (`src/qwen35/backbone/root_cache.rs`) keeps the shared-root prefill across requests and is off unless `--qwen35-root-cache-bytes` is set. It serves only a prefill of exactly the root ids and compares the stored ids on every digest match. A hit returns a `fork_one` copy and must reproduce a miss bit for bit. Never log its key or digest (invariant 8). Hits are visible to callers as latency and the wire request has no tenant, so do not turn it on by default or share one cache across tenants. The byte budget is extra resident memory, so keep it below the process ceiling. Concurrent misses on one root are collapsed by `claim_fill`: a waiter keeps checking its own `ExecutionControl`, and the `FillGuard` releases waiters on every exit path, including errors and panics. Do not hold the cache lock across a forward. When the engine finds a request's root in the cache it plans with `choose_strategy_with_cached_root`, which drops the root forward from the shared work and leaves the ratio gate and admission otherwise unchanged. The bench harness keeps the cache disabled so timings stay cold.
 
+19. **Option Description Rules**:
+    `wire::unpack_question` treats a null, empty, or whitespace-only Choice
+    description as absent (`wire::option_description`), so HTTP `null` and
+    gRPC `""` give the same model input. d3, decider, sieve, and laya
+    intentionally read the raw `choice.criteria` map instead, because each
+    follows its reference runtime's own rule for option text (strands reads
+    the shared unpacked criteria and then collapses whitespace). d3 renders
+    `label: ` for an empty description because the reference does; do not
+    normalize it.
+
 ## Verification Commands
 
 ```bash

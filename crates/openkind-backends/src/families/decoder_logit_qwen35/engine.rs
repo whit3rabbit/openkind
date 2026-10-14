@@ -3,19 +3,18 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use openkind_core::{ModelInfo, State, SystemRequest, SystemResponse, Usage};
+use openkind_core::{ModelInfo, SystemRequest, SystemResponse};
 
 use crate::families::support::{
     temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
+    QuestionKind,
 };
 use crate::families::wire;
 
 use super::knockout::{combine, PassReader};
 use super::model::{Jevk5Model, VerifiedArtifacts};
 use super::renderer::{RenderedPass, NOUL_DEFAULT_DESCRIPTIONS};
-use super::{
-    DecoderLogitQwen35EngineConfig, DecoderLogitQwen35Error, QuestionKind, Qwen35LogitProfile,
-};
+use super::{DecoderLogitQwen35EngineConfig, DecoderLogitQwen35Error, Qwen35LogitProfile};
 
 /// Loaded pinned engine for one profile of the family.
 pub struct DecoderLogitQwen35Engine {
@@ -80,7 +79,8 @@ struct PassRead<'a> {
     source: &'a dyn Jevk5PassSource,
     profile: &'static Qwen35LogitProfile,
     kind: QuestionKind,
-    state: &'a serde_json::Value,
+    /// The request's serialized `evidence`, shared by every pass.
+    evidence: &'a str,
     criterion: &'a str,
     token_count: &'a std::cell::Cell<u64>,
     control: &'a FamilyControl,
@@ -107,10 +107,11 @@ impl PassReader for PassRead<'_> {
         // Each knockout pass is a separate non-interruptible forward, so a
         // disconnected caller must not trigger the remaining passes.
         self.control.check()?;
-        let pass = self
-            .source
-            .renderer()
-            .render_pass(self.state, self.criterion, options)?;
+        let pass = self.source.renderer().render_pass_with_evidence(
+            self.evidence,
+            self.criterion,
+            options,
+        )?;
         let tokens = u64::from(self.source.renderer().pass_token_count(&pass));
         account_question_tokens(self.token_count, tokens, self.profile.max_question_tokens)?;
         self.control.check()?;
@@ -203,7 +204,7 @@ pub(crate) fn question_probabilities(
     source: &dyn Jevk5PassSource,
     profile: &'static Qwen35LogitProfile,
     kind: QuestionKind,
-    state: &serde_json::Value,
+    evidence: &str,
     criterion: &str,
     options: &[(String, String)],
     token_count: &std::cell::Cell<u64>,
@@ -230,7 +231,7 @@ pub(crate) fn question_probabilities(
             source,
             profile,
             kind,
-            state,
+            evidence,
             criterion,
             token_count,
             control,
@@ -281,6 +282,10 @@ impl FamilyEvaluator for DecoderLogitQwen35Engine {
         }
     }
 
+    fn reports_input_tokens(&self) -> bool {
+        true
+    }
+
     fn evaluate(
         &self,
         request: SystemRequest,
@@ -300,32 +305,19 @@ pub(crate) fn evaluate_with(
 ) -> Result<SystemResponse, FamilyError> {
     let profile = source.profile();
     control.check()?;
-    let state: serde_json::Value = match &request.state {
-        State::Text(text) => serde_json::Value::String(text.clone()),
-        State::Object(map) => serde_json::to_value(map).map_err(|error| {
-            FamilyError::InvalidInput(format!("state serialization failed: {error}"))
-        })?,
-        State::Array(items) => serde_json::to_value(items).map_err(|error| {
-            FamilyError::InvalidInput(format!("state serialization failed: {error}"))
-        })?,
-    };
-    let mut question_ids: Vec<_> = request.questions.keys().cloned().collect();
-    question_ids.sort();
-    if question_ids.is_empty() {
-        return Err(FamilyError::InvalidInput(
-            "request contains no questions".to_owned(),
-        ));
-    }
+    let state = crate::families::wire::state_value(request.state);
+    let questions = crate::families::wire::into_sorted_questions(request.questions)?;
+    // Every pass of every question embeds the same evidence JSON, so render
+    // it once per request.
+    let evidence = super::renderer::Jevk5Renderer::render_evidence(&state);
 
     let mut answers: HashMap<String, openkind_core::Answer, openkind_core::WireHashState> =
-        HashMap::with_capacity_and_hasher(question_ids.len(), Default::default());
+        HashMap::with_capacity_and_hasher(questions.len(), Default::default());
     let mut input_tokens: u64 = 0;
-    for id in &question_ids {
+    for (question_id, question) in questions {
         control.check()?;
-        let question = request
-            .questions
-            .get(id)
-            .expect("question id came from the request map");
+        let id = &question_id;
+        let question = &question;
         let criterion = wire::instruction_text(question)?;
         // Noul keeps the reference runtime's default criterion text when
         // the caller supplied none; Choice and Score use the shared wire
@@ -382,7 +374,7 @@ pub(crate) fn evaluate_with(
             source,
             profile,
             kind,
-            &state,
+            &evidence,
             &criterion,
             &options,
             &token_count,
@@ -393,17 +385,14 @@ pub(crate) fn evaluate_with(
         }
         input_tokens = input_tokens.saturating_add(token_count.get());
         let answer = wire::answer_from_probabilities(&unpacked, &probabilities)?;
-        answers.insert(id.clone(), answer);
+        answers.insert(question_id, answer);
     }
     control.check()?;
-    Ok(SystemResponse {
-        model: request.model,
+    Ok(crate::families::wire::system_response(
+        request.model,
         answers,
-        usage: Usage {
-            input_tokens: u32::try_from(input_tokens).unwrap_or(u32::MAX),
-            output_tokens: 0,
-        },
-    })
+        input_tokens,
+    ))
 }
 
 #[cfg(test)]
@@ -450,7 +439,11 @@ mod debug {
         .expect("renderer");
         let model = Jevk5Model::load(&artifacts).expect("model");
         let pass = renderer
-            .render_pass(&state, criterion, &options)
+            .render_pass_with_evidence(
+                &super::super::renderer::Jevk5Renderer::render_evidence(&state),
+                criterion,
+                &options,
+            )
             .expect("render");
         let logits = model
             .letter_logits(
@@ -543,7 +536,7 @@ mod cancellation_tests {
                 &source,
                 source.profile(),
                 QuestionKind::Choice,
-                &serde_json::json!("evidence"),
+                "\"evidence\"",
                 "Pick an option",
                 &options,
                 &Cell::new(0),
@@ -630,7 +623,7 @@ mod question_probability_tests {
             &source,
             source.profile(),
             QuestionKind::Choice,
-            &serde_json::json!("evidence"),
+            "\"evidence\"",
             "Pick an option",
             &options(1),
             &Cell::new(0),
@@ -655,7 +648,7 @@ mod question_probability_tests {
             &source,
             source.profile(),
             QuestionKind::Choice,
-            &serde_json::json!("evidence"),
+            "\"evidence\"",
             "Pick an option",
             &options(super::super::JEVK5.max_candidates + 1),
             &Cell::new(0),
@@ -681,7 +674,7 @@ mod question_probability_tests {
             &source,
             source.profile(),
             QuestionKind::Choice,
-            &serde_json::json!("evidence"),
+            "\"evidence\"",
             "Pick an option",
             &options(count),
             &Cell::new(0),
@@ -714,7 +707,7 @@ mod question_probability_tests {
             &source,
             source.profile(),
             QuestionKind::Choice,
-            &serde_json::json!("evidence"),
+            "\"evidence\"",
             "Pick an option",
             &options(4),
             &Cell::new(0),

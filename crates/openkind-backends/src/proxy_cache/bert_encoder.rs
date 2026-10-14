@@ -55,15 +55,13 @@ impl BertEmbedderArtifacts {
                 )));
             }
         }
-        use sha2::{Digest, Sha256};
-        let mut hasher = Sha256::new();
-        let mut file = std::fs::File::open(&self.checkpoint).map_err(|error| {
-            ProxyCacheError::Encoder(format!("open {}: {error}", self.checkpoint.display()))
+        let digest = openkind_runtime::hashing::sha256_file(&self.checkpoint).map_err(|error| {
+            ProxyCacheError::Encoder(format!(
+                "hash checkpoint {}: {error}",
+                self.checkpoint.display()
+            ))
         })?;
-        std::io::copy(&mut file, &mut hasher)
-            .map_err(|error| ProxyCacheError::Encoder(format!("hash checkpoint: {error}")))?;
-        let digest = hasher.finalize();
-        Ok(digest.iter().take(4).map(|b| format!("{b:02x}")).collect())
+        Ok(digest[..8].to_owned())
     }
 }
 
@@ -252,6 +250,27 @@ impl TextEmbedder for BertEmbedder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn verify_reports_the_first_four_checkpoint_digest_bytes() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        for (name, bytes) in [
+            ("model.safetensors", &b"weights"[..]),
+            ("config.json", b"{}"),
+            ("tokenizer.json", b"{}"),
+        ] {
+            std::fs::write(dir.path().join(name), bytes).expect("write artifact");
+        }
+        let artifacts = BertEmbedderArtifacts::from_model_root(dir.path(), "repo/model");
+        // sha256("weights") begins 9a129038; `9a` and `12` bytes, lowercase.
+        assert_eq!(artifacts.verify().expect("verify"), "9a129038");
+
+        std::fs::remove_file(dir.path().join("config.json")).expect("remove config");
+        let error = artifacts
+            .verify()
+            .expect_err("a missing artifact fails closed");
+        assert!(error.to_string().contains("is missing"), "{error}");
+    }
 
     fn model_root() -> Option<std::path::PathBuf> {
         std::env::var_os("OPENKIND_ENCODER_EMBEDDING_MODEL_ROOT")

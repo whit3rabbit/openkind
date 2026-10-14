@@ -90,6 +90,25 @@ async fn auth_enabled_with_correct_token_passes() {
 }
 
 #[tokio::test]
+async fn scheme_is_case_insensitive_at_the_gate() {
+    let router = app(AuthConfig::new(Some("topsecret".into())));
+    for scheme in ["bearer", "BEARER", "bEaReR"] {
+        let resp = router
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/v1/ping")
+                    .header(&AUTH_HEADER, format!("{scheme} topsecret"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK, "{scheme}");
+    }
+}
+
+#[tokio::test]
 async fn malformed_credentials_are_rejected_with_the_request_id() {
     let router = app(AuthConfig::new(Some("secret".into())));
     let mut credentials = [

@@ -30,7 +30,7 @@ use candle_core::quantized::gguf_file as gguf;
 use candle_core::quantized::{QMatMul, QTensor};
 use candle_core::{DType, Device, Tensor};
 
-use crate::families::support::{verify_digest, FamilyError};
+use crate::families::support::{require_file, verify_digest, FamilyError};
 
 use super::backbone::Gemma4TextConfig;
 use super::{pinned_metadata, CHECKPOINT_SHA256, GGUF_VARIANT, TOKENIZER_JSON_SHA256};
@@ -52,15 +52,7 @@ impl VerifiedArtifacts {
         let checkpoint = model_root.join(GGUF_VARIANT);
         let tokenizer = model_root.join("tokenizer.json");
         for path in [&checkpoint, &tokenizer] {
-            if !path.is_file() {
-                return Err(FamilyError::Io {
-                    path: path.to_path_buf(),
-                    source: std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        "required pinned artifact is missing",
-                    ),
-                });
-            }
+            require_file(path)?;
         }
         verify_digest(&tokenizer, TOKENIZER_JSON_SHA256)?;
         verify_digest(&checkpoint, CHECKPOINT_SHA256)?;

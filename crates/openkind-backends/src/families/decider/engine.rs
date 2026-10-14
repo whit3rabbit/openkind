@@ -3,9 +3,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use openkind_core::{ModelInfo, State, SystemRequest, SystemResponse, Usage};
+use openkind_core::{ModelInfo, SystemRequest, SystemResponse};
 
-use crate::families::decoder_logit_qwen35::QuestionKind;
+use crate::families::support::QuestionKind;
 use crate::families::support::{
     temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
 };
@@ -27,12 +27,12 @@ struct Inner {
     backend_id: String,
 }
 
-/// One scoring row of a planned question: the rendered prompt, the number of
-/// label logits to read, and the row's answer-type temperature key.
+/// One scoring row of a planned question: the rendered prompt and the number
+/// of label logits to read. Every row of a question shares the question's
+/// answer type, so the temperature key lives on [`PlannedQuestion::kind`].
 struct PlannedRow {
     row: RenderedRow,
     label_count: usize,
-    kind: QuestionKind,
 }
 
 /// The rows of one planned question plus its unpacked wire form.
@@ -113,7 +113,6 @@ impl Inner {
                     rows: vec![PlannedRow {
                         row,
                         label_count: count,
-                        kind: QuestionKind::Choice,
                     }],
                 })
             }
@@ -159,7 +158,6 @@ impl Inner {
                     rows: vec![PlannedRow {
                         row,
                         label_count: 2,
-                        kind: QuestionKind::Noul,
                     }],
                 })
             }
@@ -188,7 +186,6 @@ impl Inner {
                     rows.push(PlannedRow {
                         row,
                         label_count: 2,
-                        kind: QuestionKind::Score,
                     });
                 }
                 let unpacked = wire::unpack_question(id, question)?;
@@ -209,27 +206,17 @@ impl Inner {
         control: &FamilyControl,
         token_count: &mut u64,
     ) -> Result<openkind_core::Answer, FamilyError> {
-        let temperature_for = |kind| match kind {
-            QuestionKind::Choice => self.profile.calibration.resolve(kind),
-            QuestionKind::Noul => self.profile.calibration.resolve(kind),
-            QuestionKind::Score => self.profile.calibration.resolve(kind),
-        };
+        let temperature = self.profile.calibration.resolve(planned.kind);
         let mut row_probabilities = Vec::with_capacity(planned.rows.len());
         for planned_row in &planned.rows {
             control.check()?;
             *token_count = token_count
                 .saturating_add(u64::from(self.renderer.row_token_count(&planned_row.row)));
-            let label_ids = self
-                .renderer
-                .label_ids_for(planned_row.label_count)
-                .to_vec();
+            let label_ids = self.renderer.label_ids_for(planned_row.label_count);
             let logits =
                 self.model
-                    .slot_logits(planned_row.row.prompt_ids(), &label_ids, control)?;
-            row_probabilities.push(temperature_softmax(
-                &logits,
-                temperature_for(planned_row.kind),
-            )?);
+                    .slot_logits(planned_row.row.prompt_ids(), label_ids, control)?;
+            row_probabilities.push(temperature_softmax(&logits, temperature)?);
         }
         let probabilities = match planned.kind {
             // Choice and Noul read one row whose distribution is the answer.
@@ -358,39 +345,27 @@ impl FamilyEvaluator for DeciderEngine {
         }
     }
 
+    fn reports_input_tokens(&self) -> bool {
+        true
+    }
+
     fn evaluate(
         &self,
         request: SystemRequest,
         control: &FamilyControl,
     ) -> Result<SystemResponse, FamilyError> {
         control.check()?;
-        let state: serde_json::Value = match &request.state {
-            State::Text(text) => serde_json::Value::String(text.clone()),
-            State::Object(map) => serde_json::to_value(map).map_err(|error| {
-                FamilyError::InvalidInput(format!("state serialization failed: {error}"))
-            })?,
-            State::Array(items) => serde_json::to_value(items).map_err(|error| {
-                FamilyError::InvalidInput(format!("state serialization failed: {error}"))
-            })?,
-        };
+        let state = crate::families::wire::state_value(request.state);
         let state_ids = self.inner.renderer.state_ids(&state)?;
-        let mut question_ids: Vec<_> = request.questions.keys().cloned().collect();
-        question_ids.sort();
-        if question_ids.is_empty() {
-            return Err(FamilyError::InvalidInput(
-                "request contains no questions".to_owned(),
-            ));
-        }
+        let questions = crate::families::wire::into_sorted_questions(request.questions)?;
 
         let mut answers: HashMap<String, openkind_core::Answer, openkind_core::WireHashState> =
-            HashMap::with_capacity_and_hasher(question_ids.len(), Default::default());
+            HashMap::with_capacity_and_hasher(questions.len(), Default::default());
         let mut input_tokens: u64 = 0;
-        for id in &question_ids {
+        for (question_id, question) in questions {
             control.check()?;
-            let question = request
-                .questions
-                .get(id)
-                .expect("question id came from the request map");
+            let id = &question_id;
+            let question = &question;
             let planned = self
                 .inner
                 .plan_question(id, question, &state_ids)
@@ -412,17 +387,14 @@ impl FamilyEvaluator for DeciderEngine {
                 )));
             }
             input_tokens = input_tokens.saturating_add(question_tokens);
-            answers.insert(id.clone(), answer);
+            answers.insert(question_id, answer);
         }
         control.check()?;
-        Ok(SystemResponse {
-            model: request.model,
+        Ok(crate::families::wire::system_response(
+            request.model,
             answers,
-            usage: Usage {
-                input_tokens: u32::try_from(input_tokens).unwrap_or(u32::MAX),
-                output_tokens: 0,
-            },
-        })
+            input_tokens,
+        ))
     }
 }
 

@@ -107,6 +107,10 @@ impl FamilyEvaluator for EncoderInstructLabelMlxEngine {
         }
     }
 
+    fn reports_input_tokens(&self) -> bool {
+        true
+    }
+
     fn evaluate(
         &self,
         request: SystemRequest,

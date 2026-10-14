@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use candle_core::Device;
-use openkind_core::{ModelInfo, State, SystemRequest, SystemResponse, Usage};
+use openkind_core::{ModelInfo, SystemRequest, SystemResponse};
 
 use crate::device::FamilyExecution;
 use crate::families::support::{
@@ -206,6 +206,10 @@ impl FamilyEvaluator for EncoderInstructLabelEngine {
         }
     }
 
+    fn reports_input_tokens(&self) -> bool {
+        true
+    }
+
     fn evaluate(
         &self,
         request: SystemRequest,
@@ -231,40 +235,24 @@ where
     L: Fn(&[String], &str) -> Result<(Vec<f64>, usize), FamilyError>,
 {
     control.check()?;
-    let state = match &request.state {
-        State::Text(text) => text.clone(),
-        State::Object(map) => serde_json::to_string_pretty(map).map_err(|error| {
-            FamilyError::InvalidInput(format!("state serialization failed: {error}"))
-        })?,
-        State::Array(items) => serde_json::to_string_pretty(items).map_err(|error| {
-            FamilyError::InvalidInput(format!("state serialization failed: {error}"))
-        })?,
-    };
+    let state = crate::families::wire::state_text(&request.state)?;
     if state.trim().is_empty() {
         return Err(FamilyError::InvalidInput(
             "state must contain non-whitespace text".to_owned(),
         ));
     }
-    let mut question_ids: Vec<_> = request.questions.keys().cloned().collect();
-    question_ids.sort();
-    if question_ids.is_empty() {
-        return Err(FamilyError::InvalidInput(
-            "request contains no questions".to_owned(),
-        ));
-    }
+    let questions = crate::families::wire::into_sorted_questions(request.questions)?;
 
     let mut answers = std::collections::HashMap::<
         String,
         openkind_core::Answer,
         openkind_core::WireHashState,
-    >::with_capacity_and_hasher(question_ids.len(), Default::default());
+    >::with_capacity_and_hasher(questions.len(), Default::default());
     let mut input_tokens: u64 = 0;
-    for id in &question_ids {
+    for (question_id, question) in questions {
         control.check()?;
-        let question = request
-            .questions
-            .get(id)
-            .expect("question id came from the request map");
+        let id = &question_id;
+        let question = &question;
         let unpacked = crate::families::wire::unpack_question(id, question)?;
         if unpacked.criteria.len() > MAX_CANDIDATES {
             return Err(FamilyError::InvalidInput(format!(
@@ -301,17 +289,14 @@ where
                 crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?
             }
         };
-        answers.insert(id.clone(), answer);
+        answers.insert(question_id, answer);
     }
     control.check()?;
-    Ok(SystemResponse {
-        model: request.model,
+    Ok(crate::families::wire::system_response(
+        request.model,
         answers,
-        usage: Usage {
-            input_tokens: u32::try_from(input_tokens).unwrap_or(u32::MAX),
-            output_tokens: 0,
-        },
-    })
+        input_tokens,
+    ))
 }
 
 #[cfg(test)]
