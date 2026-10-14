@@ -59,7 +59,7 @@ fn fingerprint_file(path: &Path) -> Result<(File, FileSource)> {
         FileSource {
             path,
             identity: before,
-            digest: format!("{:x}", digest.finalize()),
+            digest: hex_lower(&digest.finalize()),
         },
     ))
 }
@@ -205,9 +205,29 @@ fn read_line(reader: &mut impl BufRead, offset: &mut u64, number: u64) -> Result
     }))
 }
 
+/// Lowercase hex of a digest (sha2 0.11 digests no longer implement `LowerHex`).
+fn hex_lower(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for &byte in bytes {
+        out.push(char::from(HEX[usize::from(byte >> 4)]));
+        out.push(char::from(HEX[usize::from(byte & 0x0f)]));
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn digest_hex_is_lowercase_hex_of_the_nist_vector() {
+        use sha2::{Digest, Sha256};
+        assert_eq!(
+            hex_lower(&Sha256::digest(b"abc")),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
 
     #[test]
     fn bounded_lines_preserve_framing_and_resume_offsets() {

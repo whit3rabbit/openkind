@@ -8,7 +8,6 @@ use std::path::PathBuf;
 
 use openkind_backends::qwen35::SEMANTIC_NONE_OPTION;
 use serde_json::Value;
-use sha2::Digest;
 
 use crate::gen::generate_workload;
 use crate::score::{run_score, EngineKind, ScoreArgs, StrategySpec};
@@ -239,7 +238,7 @@ fn mock_score_run_end_to_end_writes_summary_and_predictions() {
 
     let prediction_path = output_dir.join("predictions-mock-mock.jsonl");
     let predictions = fs::read_to_string(&prediction_path).expect("predictions");
-    let expected_digest = format!("{:x}", sha2::Sha256::digest(predictions.as_bytes()));
+    let expected_digest = openkind_runtime::hashing::sha256_hex(predictions.as_bytes());
     assert_eq!(summary["prediction_sha256"]["mock"], expected_digest);
     let lines: Vec<&str> = predictions.lines().collect();
     assert_eq!(lines.len(), 12, "one prediction row per decision");

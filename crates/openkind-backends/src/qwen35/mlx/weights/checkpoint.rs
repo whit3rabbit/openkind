@@ -126,7 +126,7 @@ pub(super) fn load_checkpoint(checkpoint_root: &Path) -> Result<VerifiedCheckpoi
             index_path.display()
         ))
     })?;
-    let index_digest = format!("{:x}", Sha256::digest(&index_bytes));
+    let index_digest = openkind_runtime::hashing::sha256_hex(&index_bytes);
     let format = if index_digest == MODEL_INDEX_SHA256 {
         MlxCheckpointFormat::PinnedQwen35Base
     } else if index_digest == COMMUNITY_INDEX_SHA256 {
@@ -277,7 +277,7 @@ fn verify_digest(path: &Path, label: &str, expected: &str) -> Result<(), MlxErro
             path.display()
         ))
     })?;
-    let actual = format!("{:x}", Sha256::digest(&bytes));
+    let actual = openkind_runtime::hashing::sha256_hex(&bytes);
     if actual != expected {
         return Err(MlxError::InvalidState(format!(
             "SHA-256 mismatch for {label}: expected {expected}, found {actual}"
@@ -314,7 +314,7 @@ fn verify_file(
         }
         hasher.update(&buffer[..read]);
     }
-    let actual_digest = format!("{:x}", hasher.finalize());
+    let actual_digest = openkind_runtime::hashing::hex_lower(&hasher.finalize());
     if actual_digest != expected_digest {
         return Err(MlxError::InvalidState(format!(
             "SHA-256 mismatch for {label}: expected {expected_digest}, found {actual_digest}"

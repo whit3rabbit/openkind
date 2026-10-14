@@ -94,7 +94,7 @@ fn verify_file(path: &Path, pin: &FilePin) -> Result<(), OnnxError> {
         }
         hasher.update(&buffer[..length]);
     }
-    let observed = format!("{:x}", hasher.finalize());
+    let observed = openkind_runtime::hashing::hex_lower(&hasher.finalize());
     if !observed.eq_ignore_ascii_case(&pin.sha256) {
         return Err(integrity(
             path,

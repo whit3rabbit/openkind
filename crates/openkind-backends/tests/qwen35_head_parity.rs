@@ -8,7 +8,6 @@ use openkind_backends::qwen35::{
     PROBABILITY_TOLERANCE, PROFILE_ID, REFERENCE_REVISION,
 };
 use serde::Deserialize;
-use sha2::{Digest, Sha256};
 
 const FIXTURE_DIR: &str = "tests/fixtures/qwen35_statefirst_a047d6802c3f06f085b8";
 
@@ -70,7 +69,7 @@ fn read_json<T: for<'de> Deserialize<'de>>(path: &Path) -> T {
 
 fn sha256_file(path: &Path) -> String {
     let bytes = fs::read(path).unwrap_or_else(|error| panic!("read {}: {error}", path.display()));
-    format!("{:x}", Sha256::digest(bytes))
+    openkind_runtime::hashing::sha256_hex(&bytes)
 }
 
 fn primitive(value: &str) -> PrimitiveKind {

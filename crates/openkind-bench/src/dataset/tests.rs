@@ -13,7 +13,6 @@ use arrow_buffer::OffsetBuffer;
 use arrow_schema::{DataType, Field, Fields, Schema};
 use parquet::arrow::arrow_writer::ArrowWriter;
 use serde_json::{Map, Value};
-use sha2::Digest;
 
 use super::eval::EvalArgs;
 use super::materialize::materialize;
@@ -161,7 +160,7 @@ fn install_synthetic(
         let full = dir.join(path);
         let size = write_parquet(&full, batch.clone());
         let bytes = std::fs::read(&full).unwrap();
-        let sha = format!("{:x}", sha2::Sha256::digest(&bytes));
+        let sha = openkind_runtime::hashing::sha256_hex(&bytes);
         entries.push(DatasetFile {
             path: (*path).to_owned(),
             size,
@@ -267,7 +266,7 @@ fn materialized_rows_are_ordered_by_uid_hash() {
         .iter()
         .map(|row| {
             let uid = row.row.id.strip_prefix("sst2/").expect("dataset prefix");
-            format!("{:x}", sha2::Sha256::digest(uid.as_bytes()))
+            openkind_runtime::hashing::sha256_hex(uid.as_bytes())
         })
         .collect();
     let mut sorted = hashes.clone();
@@ -486,7 +485,7 @@ fn eval_reports_metrics_with_provenance_for_the_mock_engine() {
     // disk (the scorer's fixture digest is reused for it).
     assert_eq!(
         provenance["workload_sha256"].as_str().unwrap(),
-        format!("{:x}", sha2::Sha256::digest(&raw))
+        openkind_runtime::hashing::sha256_hex(&raw)
     );
     let workload = crate::workload::parse_workload("sst2-eval", &raw).unwrap();
     assert_eq!(workload.rows.len(), 4);

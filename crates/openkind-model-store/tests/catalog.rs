@@ -10,7 +10,7 @@ fn curated_qwen_manifest_matches_the_pinned_local_bundle() {
     let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let catalog_bytes = std::fs::read(repo.join("registry/v1/catalog.json")).unwrap();
     assert_eq!(
-        format!("{:x}", Sha256::digest(&catalog_bytes)),
+        hex_lower(&Sha256::digest(&catalog_bytes)),
         CATALOG_SHA256,
         "the production catalog digest must pin the checked-in catalog"
     );
@@ -24,7 +24,7 @@ fn curated_qwen_manifest_matches_the_pinned_local_bundle() {
     let manifest_bytes =
         std::fs::read(repo.join("registry/v1").join(&entry.manifest_path)).unwrap();
     assert_eq!(
-        format!("{:x}", Sha256::digest(&manifest_bytes)),
+        hex_lower(&Sha256::digest(&manifest_bytes)),
         entry.manifest_sha256
     );
     let manifest: Manifest = serde_json::from_slice(&manifest_bytes).unwrap();
@@ -75,7 +75,7 @@ fn curated_qwen_manifest_matches_the_pinned_local_bundle() {
         }
         assert_eq!(size, artifact.size, "{}", artifact.path);
         assert_eq!(
-            format!("{:x}", digest.finalize()),
+            hex_lower(&digest.finalize()),
             artifact.sha256,
             "{}",
             artifact.path
@@ -104,5 +104,16 @@ fn curated_qwen_tokenizer_bytes_match_the_pinned_manifest() {
         std::env::var_os("OPENKIND_QWEN35_TOKENIZER").expect("set the external tokenizer path");
     let bytes = std::fs::read(source).expect("read pinned tokenizer");
     assert_eq!(bytes.len() as u64, artifact.size);
-    assert_eq!(format!("{:x}", Sha256::digest(&bytes)), artifact.sha256);
+    assert_eq!(hex_lower(&Sha256::digest(&bytes)), artifact.sha256);
+}
+
+/// Lowercase hex of a digest (sha2 0.11 digests no longer implement `LowerHex`).
+fn hex_lower(bytes: &[u8]) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for &byte in bytes {
+        out.push(char::from(HEX[usize::from(byte >> 4)]));
+        out.push(char::from(HEX[usize::from(byte & 0x0f)]));
+    }
+    out
 }

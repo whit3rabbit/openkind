@@ -141,7 +141,7 @@ fn benchmark(
         digest.update(state.as_bytes());
         digest.update(b"\n");
     }
-    let input_sha256 = format!("{:x}", digest.finalize());
+    let input_sha256 = openkind_runtime::hashing::hex_lower(&digest.finalize());
 
     for index in 0..args.warmup_calls {
         let state = &states[index % states.len()];
