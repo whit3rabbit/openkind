@@ -251,8 +251,10 @@ const MANIFEST: &[u8] = include_bytes!("../../../tests/fixtures/jev_gev/jev_tens
 
 #[test]
 fn pinned_config_parses_to_the_27b_geometry() {
-    use sha2::{Digest, Sha256};
-    assert_eq!(format!("{:x}", Sha256::digest(CONFIG)), pins::CONFIG.2);
+    assert_eq!(
+        openkind_runtime::hashing::sha256_hex(CONFIG),
+        pins::CONFIG.2
+    );
     let config = JevConfig::parse(CONFIG).unwrap();
     assert_eq!(config.geometry, crate::qwen35::Qwen35Geometry::CLEF);
     assert_eq!(

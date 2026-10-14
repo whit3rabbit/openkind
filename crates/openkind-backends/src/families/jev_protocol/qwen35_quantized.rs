@@ -781,29 +781,37 @@ pub fn read_safetensors(
         let array = match entry.dtype.as_str() {
             "U32" => Array::from_slice(
                 &bytes
-                    .chunks_exact(4)
-                    .map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .map(|c| u32::from_le_bytes(*c))
                     .collect::<Vec<_>>(),
                 &shape,
             ),
             "F32" => Array::from_slice(
                 &bytes
-                    .chunks_exact(4)
-                    .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+                    .as_chunks::<4>()
+                    .0
+                    .iter()
+                    .map(|c| f32::from_le_bytes(*c))
                     .collect::<Vec<_>>(),
                 &shape,
             ),
             "BF16" => Array::from_slice(
                 &bytes
-                    .chunks_exact(2)
-                    .map(|c| half::bf16::from_le_bytes([c[0], c[1]]))
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
+                    .map(|c| half::bf16::from_le_bytes(*c))
                     .collect::<Vec<_>>(),
                 &shape,
             ),
             "F16" => Array::from_slice(
                 &bytes
-                    .chunks_exact(2)
-                    .map(|c| half::f16::from_le_bytes([c[0], c[1]]))
+                    .as_chunks::<2>()
+                    .0
+                    .iter()
+                    .map(|c| half::f16::from_le_bytes(*c))
                     .collect::<Vec<_>>(),
                 &shape,
             ),

@@ -32,6 +32,8 @@ const TINY: Qwen35Geometry = Qwen35Geometry {
     kv_heads: 1,
     attention_head_dim: 64,
     rms_epsilon: 1e-6,
+    full_attention_layers: Qwen35Geometry::interval_layers(4, 5),
+    causal: true,
 };
 const VOCAB: usize = 96;
 const QUANT: QuantParams = QuantParams {

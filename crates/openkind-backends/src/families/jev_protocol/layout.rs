@@ -92,6 +92,17 @@ impl JevConfig {
         })?;
         let text = &raw.text_config;
         let expected = Qwen35Geometry::CLEF;
+        // Reuse the pinned layer table only when the interval and depth that
+        // define it match; `interval_layers` panics on a zero interval or
+        // more than 64 layers, and any mismatch is rejected below anyway.
+        let full_attention_layers = if text.full_attention_interval
+            == expected.full_attention_interval
+            && text.num_hidden_layers == expected.layer_count
+        {
+            expected.full_attention_layers
+        } else {
+            [false; 64]
+        };
         let geometry = Qwen35Geometry {
             hidden_size: text.hidden_size,
             intermediate_size: text.intermediate_size,
@@ -105,6 +116,8 @@ impl JevConfig {
             kv_heads: text.num_key_value_heads,
             attention_head_dim: text.head_dim,
             rms_epsilon: text.rms_norm_eps as f32,
+            full_attention_layers,
+            causal: true,
         };
         let supported = raw.model_type == "jev"
             && geometry == expected
