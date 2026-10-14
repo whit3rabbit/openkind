@@ -64,7 +64,7 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && steps.release.outputs.ref || github.sha }}
           fetch-depth: 0
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
@@ -123,7 +123,7 @@ jobs:
       - name: Install release Cargo
         uses: dtolnay/rust-toolchain@1.98.1
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
