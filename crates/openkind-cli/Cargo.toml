@@ -19,7 +19,9 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "rus
 serde_json = { workspace = true }
 serde = { workspace = true }
 sha2 = { workspace = true }
-rusqlite = { version = "0.37", features = ["bundled"] }
+# `fallible_uint` keeps the range-checked u64 conversions the store relies on
+# (0.40 moved them behind this feature).
+rusqlite = { version = "0.40", features = ["bundled", "fallible_uint"] }
 fs2 = "0.4"
 # Faster JSON parse for the inspect/evaluate request path; serde_json
 # remains the fallback and the authority on parse-error messages.
