@@ -39,6 +39,7 @@ use openkind_backends::families::encoder_instruct_label::{
     EncoderInstructLabelEngine, EncoderInstructLabelEngineConfig,
 };
 
+use openkind_backends::families::drex::{DrexEngine, DrexEngineConfig};
 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
 use openkind_backends::families::encoder_instruct_label::{
     EncoderInstructLabelMlxEngine, EncoderInstructLabelMlxEngineConfig,
@@ -180,6 +181,23 @@ pub(crate) struct FamilyArgs {
     /// (`model.safetensors`, `config.json`).
     #[arg(long, env = "OPENKIND_STRANDS_DECIDER_BASE_ROOT")]
     pub(crate) strands_decider_base_root: Option<PathBuf>,
+
+    /// Aliases in `--models` that should use the pinned drex-v1.5 engine
+    /// (Nace.AI Drex v1.5 pointer readout on a Qwen3.5 9B hybrid backbone,
+    /// CPU only). The weights are under the Nace AI Open RAIL-M license:
+    /// inference only, no distillation or teacher use.
+    #[arg(
+        long,
+        env = "OPENKIND_DREX_ALIASES",
+        value_delimiter = ',',
+        default_value = "drex-v1.5-native"
+    )]
+    pub(crate) drex_aliases: Vec<String>,
+
+    /// Model root with the pinned `nace-ai/drex-v1.5` checkpoint (four
+    /// shards, index, `config.json`, `tokenizer.json`, `head.pt`, `LICENSE`).
+    #[arg(long, env = "OPENKIND_DREX_MODEL_ROOT")]
+    pub(crate) drex_model_root: Option<PathBuf>,
 
     /// Aliases in `--models` that should use the pinned decoder-logit-llm
     /// engine (GGUF q8_0 letter readout).
@@ -918,6 +936,7 @@ impl FamilyArgs {
             .chain(&self.winnow_e4b_aliases)
             .chain(&self.kev_aliases)
             .chain(&self.strands_decider_aliases)
+            .chain(&self.drex_aliases)
             .chain(&self.decoder_logit_qwen35_aliases)
             .chain(&self.plumb_4b_aliases)
             .chain(&self.decider_4b_aliases)
@@ -1235,6 +1254,29 @@ impl FamilyArgs {
                 },
             )?;
             for alias in strands_decider {
+                engines.push((alias.to_string(), Arc::clone(&engine)));
+            }
+        }
+
+        let drex: Vec<_> = self
+            .drex_aliases
+            .iter()
+            .filter(|alias| models.contains(alias))
+            .collect();
+        if !drex.is_empty() {
+            let model_root = self
+                .drex_model_root
+                .clone()
+                .context("drex alias requested but --drex-model-root is missing")?;
+            // CPU only: the BF16-weight FP32-compute oracle is the one path.
+            let engine: Arc<dyn DecisionEngine> = Arc::new(
+                DrexEngine::load(DrexEngineConfig {
+                    model_root,
+                    limits: admission.limits(),
+                })
+                .context("load drex-v1.5 engine")?,
+            );
+            for alias in drex {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
         }
@@ -1583,6 +1625,18 @@ impl FamilyArgs {
             ))?;
             let engine: Arc<dyn DecisionEngine> =
                 crate::backend::load(self.d3_backend, &model_root, devices, |backend| {
+                    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                    if matches!(backend, crate::args::CudaOnlyBackendArg::Mlx) {
+                        return Ok(Arc::new(
+                            openkind_backends::families::d3::D3MlxEngine::load(D3EngineConfig {
+                                profile,
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            })
+                            .context("load d3 mlx engine")?,
+                        ) as Arc<dyn DecisionEngine>);
+                    }
+                    let _ = &model_root;
                     Ok(Arc::new(
                         D3Engine::load_with_execution(
                             D3EngineConfig {
@@ -1876,6 +1930,7 @@ impl FamilyArgs {
             .chain(&self.winnow_e4b_aliases)
             .chain(&self.kev_aliases)
             .chain(&self.strands_decider_aliases)
+            .chain(&self.drex_aliases)
             .chain(&self.decoder_logit_qwen35_aliases)
             .chain(&self.plumb_4b_aliases)
             .chain(&self.decider_4b_aliases)
@@ -2015,6 +2070,7 @@ mod fail_closed_tests {
                 "--decoder-letter-model-root is missing",
             ),
             ("encoder-nli-native", "--encoder-nli-model-root is missing"),
+            ("drex-v1.5-native", "--drex-model-root is missing"),
         ] {
             let args = FamilyArgs::parse_from(["openkindd"]);
             let error = match args.load_requested(&[alias.to_owned()], DeviceOrdinals::default()) {

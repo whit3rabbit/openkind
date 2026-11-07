@@ -17,7 +17,7 @@ use crate::{
     D3_LITE_MODEL_NAME, D3_MINI_MODEL_NAME, D3_NANO_MODEL_NAME, DECIDER_4B_MODEL_NAME,
     DECODER_LOGIT_LETTER_MODEL_NAME, DECODER_LOGIT_LLM_MODEL_NAME, DECODER_LOGIT_QWEN35_MODEL_NAME,
     DECODER_LOGIT_QWEN3_06B_MODEL_NAME, DECODER_LOGIT_QWEN3_17B_MODEL_NAME,
-    DECODER_LOGIT_QWEN3_4B_MODEL_NAME, ENCODER_EMBEDDING_MODEL_NAME,
+    DECODER_LOGIT_QWEN3_4B_MODEL_NAME, DREX_V15_MODEL_NAME, ENCODER_EMBEDDING_MODEL_NAME,
     ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME, JEEVES_MODEL_NAME, KEV_MODEL_NAME,
     LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME, LAYA_TYPED_DECISIONS_MODEL_NAME,
     PLUMB_4B_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME, QWEN3GUARD_MODEL_NAME, REGISTRY_URL,
@@ -137,6 +137,7 @@ const SUPPORTED_PROFILES: &[(&str, &str, &str)] = &[
         "strands-decider-2b",
         "f7156bf28400a79ea1b8",
     ),
+    (DREX_V15_MODEL_NAME, "drex-v15", "2d495e07ea056d6c4317"),
 ];
 
 fn supported_profile(manifest: &Manifest) -> bool {
@@ -408,9 +409,26 @@ impl ModelStore {
     /// callers can report stalled transfers and verification work as well
     /// as byte movement. The count can return to zero when partial data is
     /// discarded.
-    pub async fn pull<F>(&self, name: &str, mut progress: F) -> Result<Manifest>
+    pub async fn pull<F>(&self, name: &str, progress: F) -> Result<Manifest>
     where
         F: FnMut(&str, u64, u64),
+    {
+        self.pull_with_notice(name, |_| {}, progress).await
+    }
+
+    /// [`Self::pull`] with a `notice` callback that receives the verified
+    /// curated manifest once it is known to be loadable and before any
+    /// artifact is downloaded or verified. Callers use it to show license
+    /// terms (see [`crate::license_notice`]) before the first byte moves.
+    pub async fn pull_with_notice<F, N>(
+        &self,
+        name: &str,
+        mut notice: N,
+        mut progress: F,
+    ) -> Result<Manifest>
+    where
+        F: FnMut(&str, u64, u64),
+        N: FnMut(&Manifest),
     {
         if !valid_name(name) {
             return Err(Error::Invalid("invalid model name".into()));
@@ -432,6 +450,7 @@ impl ModelStore {
                 manifest.profile_id
             )));
         }
+        notice(&manifest);
         if self.model_dir(&canonical).exists() {
             let existing = self.read_installed_manifest(&canonical)?;
             if sha256(&fs::read(self.model_dir(&canonical).join("manifest.json"))?)
@@ -1146,6 +1165,36 @@ mod tests {
         store.rm(NAME).unwrap();
         assert!(store.list().unwrap().is_empty());
         assert!(!store.blob_path(&sha256(bytes)).exists());
+    }
+
+    #[tokio::test]
+    async fn pull_notice_runs_once_before_any_artifact_progress() {
+        let bytes = b"verified offline fixture";
+        let (_dir, store) = test_store(vec![fixture_manifest(NAME, bytes)]).await;
+        seed_blob(&store, bytes);
+        let events = std::cell::RefCell::new(Vec::new());
+        store
+            .pull_with_notice(
+                NAME,
+                |manifest| {
+                    events
+                        .borrow_mut()
+                        .push(format!("notice:{}", manifest.name))
+                },
+                |path, _, _| events.borrow_mut().push(format!("progress:{path}")),
+            )
+            .await
+            .unwrap();
+        let events = events.into_inner();
+        assert_eq!(
+            events.first().map(String::as_str),
+            Some(&*format!("notice:{NAME}"))
+        );
+        assert_eq!(
+            events.iter().filter(|e| e.starts_with("notice:")).count(),
+            1
+        );
+        assert!(events.len() > 1, "artifact progress follows the notice");
     }
 
     #[tokio::test]

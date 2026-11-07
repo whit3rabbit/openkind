@@ -53,6 +53,16 @@ mod load_order_tests;
 mod model;
 mod renderer;
 
+/// MLX/Metal execution backend for the pinned profiles (feature `mlx`,
+/// macOS arm64).
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub mod mlx;
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub use self::mlx::{
+    D3MlxEngine, MLX_AFFINE4_EXECUTION_ARITHMETIC_ID, MLX_EXECUTION_ARITHMETIC_ID,
+};
+
 use std::path::PathBuf;
 use std::time::Duration;
 

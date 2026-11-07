@@ -29,6 +29,9 @@ CLEF_FLASH = ("Cloudflare/clef-flash", "17f0b0ad64efb65d273590632833508766b2aae6
 CLEF = ("Cloudflare/clef", "2f3de3dd85f379784083b0814d997ab627200f0c")
 CLEF_FLASH_GGUF = ("bartowski/Cloudflare_clef-flash-GGUF", "d7f376ea88c05e7bb1014dd5351a93df9dd8029e")
 CLEF_GGUF = ("bartowski/Cloudflare_clef-GGUF", "e306f00c6c85da175dfb8de952ebb872087426a7")
+# Nace AI Open RAIL-M weights: no Drex file is mirrored (docs/RESEARCH.md,
+# "License policy"), so every artifact sources from nace-ai directly.
+DREX_V15 = ("nace-ai/drex-v1.5", "70a8a22d9b36bc91977efe296c3f59c9f756e6c2")
 
 TOKENIZER_CLEF = (
     "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
@@ -287,6 +290,34 @@ MODELS = [
                         "6a03997c1fe1b22580d15b540535f61b3da79e261766cac7104febc8e4651849", 17203416256),
         ],
     },
+    {
+        "name": "drex-v15:2d495e07ea056d6c4317",
+        "aliases": ["drex:v1.5"],
+        "profile_id": "2d495e07ea056d6c4317",
+        "loader_id": "drex-v15",
+        "description": "Pinned Nace.AI Drex v1.5 pointer decision decoder on a Qwen3.5 9B hybrid backbone, BF16 CPU oracle (Nace AI Open RAIL-M: inference only, no distillation or teacher use); prototype readout, research status",
+        "release_date": "2026-11-07",
+        "question_types": ["choice", "score", "noul"],
+        "artifacts": [
+            hf_artifact(DREX_V15, "LICENSE", "checkpoint/LICENSE",
+                        "3ee4dcae9750be4be007654b3ce3ea551743b1fb39b9a4bae280db94e1b2e3e9", 12046),
+            hf_artifact(DREX_V15, "config.json", "checkpoint/config.json",
+                        "4a9248516d271480884c80271eb8023757bd313932b07facd4cd6a820737ae83", 1981),
+            hf_artifact(DREX_V15, "tokenizer.json", "checkpoint/tokenizer.json", *TOKENIZER_CLEF),
+            hf_artifact(DREX_V15, "head.pt", "checkpoint/head.pt",
+                        "9c9fe6c3b81f997e1813d4adc0f94b720afd317ecc8ce2f690edf56614755881", 8393151),
+            hf_artifact(DREX_V15, "model.safetensors.index.json", "checkpoint/model.safetensors.index.json",
+                        "e8ef36c3e0c658f657e282fb6d68609770f039ef2886b89f8ca6a1a293422408", 42052),
+            hf_artifact(DREX_V15, "model-00001-of-00004.safetensors", "checkpoint/model-00001-of-00004.safetensors",
+                        "1d2a5ffedb5923c930489f58d14197cfa054b403b3589ea87961f0a48fec502c", 4942706120),
+            hf_artifact(DREX_V15, "model-00002-of-00004.safetensors", "checkpoint/model-00002-of-00004.safetensors",
+                        "1121fb2144c38ed6612b6f7cbfa183fe31efec33dca8cb5a69fc88bfeae8982f", 4987757928),
+            hf_artifact(DREX_V15, "model-00003-of-00004.safetensors", "checkpoint/model-00003-of-00004.safetensors",
+                        "b144d0c842fb783557ca0e819850ee302772f75bfdc9e24d955643996a65d3c6", 4954810240),
+            hf_artifact(DREX_V15, "model-00004-of-00004.safetensors", "checkpoint/model-00004-of-00004.safetensors",
+                        "bd7b4f1d63756ac0fae48fcc054b76ec32d66e893b71dfde6220a95f4e509e6c", 3022388120),
+        ],
+    },
 ]
 
 # Maximum total input sequence length in tokens each pinned checkpoint's own
@@ -306,6 +337,7 @@ CONTEXT_LIMITS = {
     "clef-flash:dfe12a21a5c9dd5b2fb1": 262144,
     "clef-flash-gguf:c330d9ee7e9cc658ad45": 262144,
     "clef-27b-gguf:48cb5634b4a258de5a6b": 262144,
+    "drex-v15:2d495e07ea056d6c4317": 262144,
 }
 
 

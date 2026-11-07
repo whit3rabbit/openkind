@@ -33,6 +33,7 @@ use openkind_backends::families::decoder_logit_qwen35::{
 use openkind_backends::families::decoder_logit_qwen35::{
     DecoderLogitQwen35MlxEngine, DecoderLogitQwen35MlxEngineConfig,
 };
+use openkind_backends::families::drex::{DrexEngine, DrexEngineConfig, PROFILE_ID as DREX_PROFILE};
 use openkind_backends::families::encoder_instruct_label::{
     EncoderInstructLabelEngine, EncoderInstructLabelEngineConfig,
     PROFILE_ID as ENCODER_INSTRUCT_LABEL_PROFILE,
@@ -75,12 +76,12 @@ use openkind_model_store::{
     D3_NANO_MODEL_NAME, DECIDER_4B_MODEL_NAME, DECODER_LOGIT_LETTER_MODEL_NAME,
     DECODER_LOGIT_LLM_MODEL_NAME, DECODER_LOGIT_QWEN35_MODEL_NAME,
     DECODER_LOGIT_QWEN3_06B_MODEL_NAME, DECODER_LOGIT_QWEN3_17B_MODEL_NAME,
-    DECODER_LOGIT_QWEN3_4B_MODEL_NAME, ENCODER_INSTRUCT_LABEL_MODEL_NAME, ENCODER_NLI_MODEL_NAME,
-    JEEVES_MODEL_NAME, KEV_MODEL_NAME, LAYA_ENGLISH_MODEL_NAME, LAYA_MULTILINGUAL_MODEL_NAME,
-    LAYA_TYPED_DECISIONS_MODEL_NAME, PLUMB_4B_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME,
-    QWEN3GUARD_MODEL_NAME, SCHEMA_SCORER_MODEL_NAME, SIEVE_4B_MODEL_NAME,
-    STRANDS_DECIDER_2B_MODEL_NAME, STRANDS_DECIDER_2B_V21_MODEL_NAME, VON_MODEL_NAME,
-    WINNOW_E4B_MODEL_NAME, WINNOW_MODEL_NAME,
+    DECODER_LOGIT_QWEN3_4B_MODEL_NAME, DREX_V15_MODEL_NAME, ENCODER_INSTRUCT_LABEL_MODEL_NAME,
+    ENCODER_NLI_MODEL_NAME, JEEVES_MODEL_NAME, KEV_MODEL_NAME, LAYA_ENGLISH_MODEL_NAME,
+    LAYA_MULTILINGUAL_MODEL_NAME, LAYA_TYPED_DECISIONS_MODEL_NAME, PLUMB_4B_MODEL_NAME,
+    QWEN35_STATE_FIRST_MODEL_NAME, QWEN3GUARD_MODEL_NAME, SCHEMA_SCORER_MODEL_NAME,
+    SIEVE_4B_MODEL_NAME, STRANDS_DECIDER_2B_MODEL_NAME, STRANDS_DECIDER_2B_V21_MODEL_NAME,
+    VON_MODEL_NAME, WINNOW_E4B_MODEL_NAME, WINNOW_MODEL_NAME,
 };
 
 use crate::args::{
@@ -102,6 +103,7 @@ pub(crate) enum InstalledKind {
     Qwen3Guard,
     Jeeves,
     Kev,
+    Drex,
     StrandsDecider2b(&'static StrandsDeciderProfile),
     DecoderLogitQwen35(&'static Qwen35LogitProfile),
     DecoderLogitQwen3(&'static Qwen3LogitProfile),
@@ -165,6 +167,7 @@ pub(crate) fn installed_kind(manifest: &Manifest) -> Option<InstalledKind> {
             Some(InstalledKind::Jeeves)
         }
         (KEV_MODEL_NAME, "kev") if profile == KEV_PROFILE => Some(InstalledKind::Kev),
+        (DREX_V15_MODEL_NAME, "drex-v15") if profile == DREX_PROFILE => Some(InstalledKind::Drex),
         (STRANDS_DECIDER_2B_MODEL_NAME, "strands-decider-2b")
             if profile == HOBSON_V19.profile_id =>
         {
@@ -278,9 +281,11 @@ pub(crate) fn load_installed_engine(
     }
     match kind {
         // Jeeves runs only on MLX affine4/FP32 and has no backend selector.
-        InstalledKind::Qwen35StateFirst | InstalledKind::Clef(_) | InstalledKind::Jeeves => {
-            load_installed_explicit(args, kind, root, registry)
-        }
+        // Drex has only the CPU oracle, so there is no backend to select.
+        InstalledKind::Qwen35StateFirst
+        | InstalledKind::Clef(_)
+        | InstalledKind::Jeeves
+        | InstalledKind::Drex => load_installed_explicit(args, kind, root, registry),
         InstalledKind::Laya(_) => selected!(laya_backend, root),
         InstalledKind::DecoderLetter => selected!(decoder_letter_backend, &root.join("checkpoint")),
         InstalledKind::EncoderNli => selected!(encoder_nli_backend, &root.join("checkpoint")),
@@ -549,6 +554,13 @@ fn load_installed_explicit(
             )
             .context("load kev engine")?,
         ),
+        InstalledKind::Drex => Arc::new(
+            DrexEngine::load(DrexEngineConfig {
+                model_root: root.join("checkpoint"),
+                limits,
+            })
+            .context("load drex-v15 engine")?,
+        ),
         InstalledKind::StrandsDecider2b(profile) => Arc::new(
             StrandsDeciderEngine::load_with_execution(
                 StrandsDeciderEngineConfig {
@@ -640,19 +652,41 @@ fn load_installed_explicit(
             )
             .context("load decider-4b engine")?,
         ),
-        InstalledKind::D3(profile) => Arc::new(
-            D3Engine::load_with_execution(
-                D3EngineConfig {
-                    profile,
-                    model_root: root.join("checkpoint"),
-                    limits,
-                },
-                args.family_args
-                    .d3_backend
-                    .to_execution(args.device_ordinals())?,
-            )
-            .context("load d3 engine")?,
-        ),
+        // A labeled block, so the cfg removes only the MLX statement. A cfg on
+        // an `if`/`else` expression would also remove the CPU branch.
+        // Without the mlx feature the label has no `break`.
+        #[allow(unused_labels)]
+        InstalledKind::D3(profile) => 'd3: {
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            if matches!(
+                args.family_args.d3_backend,
+                crate::args::CudaOnlyBackendArg::Mlx
+            ) {
+                break 'd3 Arc::new(
+                    openkind_backends::families::d3::D3MlxEngine::load(D3EngineConfig {
+                        profile,
+                        model_root: root.join("checkpoint"),
+                        limits,
+                    })
+                    .context("load d3 mlx engine")?,
+                ) as Arc<dyn DecisionEngine>;
+            }
+            {
+                Arc::new(
+                    D3Engine::load_with_execution(
+                        D3EngineConfig {
+                            profile,
+                            model_root: root.join("checkpoint"),
+                            limits,
+                        },
+                        args.family_args
+                            .d3_backend
+                            .to_execution(args.device_ordinals())?,
+                    )
+                    .context("load d3 engine")?,
+                )
+            }
+        }
         InstalledKind::Sieve(profile) => Arc::new(
             SieveEngine::load_with_execution(
                 SieveEngineConfig {
@@ -924,6 +958,10 @@ mod classifier_tests {
             ),
             (manifest(KEV_MODEL_NAME, "kev", KEV_PROFILE), "kev"),
             (
+                manifest(DREX_V15_MODEL_NAME, "drex-v15", DREX_PROFILE),
+                "drex",
+            ),
+            (
                 manifest(
                     STRANDS_DECIDER_2B_MODEL_NAME,
                     "strands-decider-2b",
@@ -997,7 +1035,7 @@ mod classifier_tests {
                 "gemma4",
             ),
         ];
-        assert_eq!(cases.len(), 23, "one row per curated installed identity");
+        assert_eq!(cases.len(), 24, "one row per curated installed identity");
         for (manifest, label) in &cases {
             assert!(
                 installed_kind(manifest).is_some(),

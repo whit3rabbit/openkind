@@ -1,0 +1,208 @@
+{
+  "profile_id": "2d495e07ea056d6c4317",
+  "backbone": {
+    "id": "nace-ai/drex-v1.5",
+    "revision": "70a8a22d9b36bc91977efe296c3f59c9f756e6c2"
+  },
+  "reference": {
+    "code": "checkpoint code/kev/ at the pinned revision",
+    "arithmetic": "bf16 weights, per-layer fp32 compute, cpu",
+    "torch": "2.8.0",
+    "transformers": "5.17.0",
+    "python": "3.12.11",
+    "machine": "arm64"
+  },
+  "max_abs_probability_diff": 1.1496877709918363e-07,
+  "argmax_flips": [],
+  "cases": [
+    {
+      "name": "choice-os",
+      "seconds": 16.23,
+      "questions": {
+        "q0": {
+          "reference": {
+            "BSD": 3.436707265791483e-05,
+            "Linux": 5.060861803940497e-05,
+            "Windows": 0.9998838901519775,
+            "macOS": 3.120360634056851e-05
+          },
+          "openkind": {
+            "BSD": 3.436671325801345e-05,
+            "Linux": 5.0607134877550675e-05,
+            "Windows": 0.9998838230801416,
+            "macOS": 3.120307172272975e-05
+          },
+          "max_abs_diff": 6.707183597409738e-08
+        }
+      }
+    },
+    {
+      "name": "choice-region",
+      "seconds": 14.32,
+      "questions": {
+        "q0": {
+          "reference": {
+            "ap-southeast-1": 1.1167065167683177e-05,
+            "eu-west-2": 0.9999679327011108,
+            "us-east-1": 2.0815126845263876e-05
+          },
+          "openkind": {
+            "ap-southeast-1": 1.1167049134605254e-05,
+            "eu-west-2": 0.9999680177826705,
+            "us-east-1": 2.081516819499443e-05
+          },
+          "max_abs_diff": 8.50815596864507e-08
+        }
+      }
+    },
+    {
+      "name": "choice-described",
+      "seconds": 9.43,
+      "questions": {
+        "q0": {
+          "reference": {
+            "billing": 2.677414522622712e-05,
+            "performance": 1.100501322071068e-05,
+            "security": 0.9999622106552124
+          },
+          "openkind": {
+            "billing": 2.677385890609397e-05,
+            "performance": 1.100501750326553e-05,
+            "security": 0.9999622211235906
+          },
+          "max_abs_diff": 1.0468378164318892e-08
+        }
+      }
+    },
+    {
+      "name": "noul-true",
+      "seconds": 10.6,
+      "questions": {
+        "q0": {
+          "reference": {
+            "true": 0.9978500604629517
+          },
+          "openkind": {
+            "true": 0.9978500347245919
+          },
+          "max_abs_diff": 2.573835977681682e-08
+        }
+      }
+    },
+    {
+      "name": "noul-false",
+      "seconds": 9.46,
+      "questions": {
+        "q0": {
+          "reference": {
+            "true": 0.019208887591958046
+          },
+          "openkind": {
+            "true": 0.019209002560735145
+          },
+          "max_abs_diff": 1.1496877709918363e-07
+        }
+      }
+    },
+    {
+      "name": "noul-criteria",
+      "seconds": 15.77,
+      "questions": {
+        "q0": {
+          "reference": {
+            "true": 0.9992994070053101
+          },
+          "openkind": {
+            "true": 0.9992993910632797
+          },
+          "max_abs_diff": 1.594203036248132e-08
+        }
+      }
+    },
+    {
+      "name": "score-minor",
+      "seconds": 9.7,
+      "questions": {
+        "q0": {
+          "reference": {
+            "0": 0.9990649819374084,
+            "1": 0.0004774465342052281,
+            "2": 0.00030329221044667065,
+            "3": 0.0001541888777865097
+          },
+          "openkind": {
+            "0": 0.9990650738249319,
+            "1": 0.00047744689379613316,
+            "2": 0.0003032901074231875,
+            "3": 0.00015418917384886903
+          },
+          "max_abs_diff": 9.188752347899509e-08
+        }
+      }
+    },
+    {
+      "name": "score-critical",
+      "seconds": 8.7,
+      "questions": {
+        "q0": {
+          "reference": {
+            "0": 6.617589679080993e-05,
+            "1": 0.00017816087347455323,
+            "2": 0.0014589900383725762,
+            "3": 0.9982966780662537
+          },
+          "openkind": {
+            "0": 6.617503594640115e-05,
+            "1": 0.00017816116511745793,
+            "2": 0.001458992759217455,
+            "3": 0.9982966710397188
+          },
+          "max_abs_diff": 7.026534909471138e-09
+        }
+      }
+    },
+    {
+      "name": "structured-multi",
+      "seconds": 17.45,
+      "questions": {
+        "billing_refund": {
+          "reference": {
+            "true": 0.9995325803756714
+          },
+          "openkind": {
+            "true": 0.9995325276505422
+          },
+          "max_abs_diff": 5.272512915155403e-08
+        },
+        "category": {
+          "reference": {
+            "billing": 0.9996813535690308,
+            "performance": 0.00018830670160241425,
+            "security": 0.00013040042540524155
+          },
+          "openkind": {
+            "billing": 0.9996812915495321,
+            "performance": 0.0001883078669793968,
+            "security": 0.0001304005834884631
+          },
+          "max_abs_diff": 6.201949864781398e-08
+        },
+        "severity": {
+          "reference": {
+            "0": 0.00021168090461287647,
+            "1": 0.0008793665328994393,
+            "2": 0.9964486360549927,
+            "3": 0.0024603528436273336
+          },
+          "openkind": {
+            "0": 0.0002116825573404667,
+            "1": 0.0008793655098830087,
+            "2": 0.9964485921785803,
+            "3": 0.0024603597541961314
+          },
+          "max_abs_diff": 4.3876412392229724e-08
+        }
+      }
+    }
+  ]
+}

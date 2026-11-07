@@ -28,6 +28,10 @@ pub(crate) struct SpecialIds {
 pub struct KevRenderer {
     tokenizer: Tokenizer,
     special: SpecialIds,
+    /// Frozen state limit in tokens, including the state delimiter.
+    max_state_tokens: usize,
+    /// Frozen row limit in tokens (state plus one question branch).
+    max_row_tokens: usize,
 }
 
 /// Rewrite `<|name|>` to `<¦name¦>` so caller text can never produce a
@@ -123,9 +127,24 @@ pub fn option_text(key: &str, description: Option<&str>) -> String {
 }
 
 impl KevRenderer {
-    /// Load the digest-verified fast tokenizer and resolve the delimiter
-    /// ids from it (never hardcoded).
+    /// Load the digest-verified fast tokenizer under the pinned kev
+    /// profile's frozen limits.
     pub fn load(tokenizer_path: &std::path::Path) -> Result<Self, FamilyError> {
+        Self::load_with_limits(
+            tokenizer_path,
+            super::MAX_STATE_TOKENS,
+            super::MAX_ROW_TOKENS,
+        )
+    }
+
+    /// Load the digest-verified fast tokenizer and resolve the delimiter
+    /// ids from it (never hardcoded). Other families that reuse the kev
+    /// prompt layout (Drex) pass their own frozen limits.
+    pub(crate) fn load_with_limits(
+        tokenizer_path: &std::path::Path,
+        max_state_tokens: usize,
+        max_row_tokens: usize,
+    ) -> Result<Self, FamilyError> {
         let tokenizer = Tokenizer::from_file(tokenizer_path)
             .map_err(|error| FamilyError::Tokenizer(error.to_string()))?;
         let resolve = |token: &str| {
@@ -144,7 +163,12 @@ impl KevRenderer {
             option_end: resolve("<|box_end|>")?,
             decide: resolve("<|fim_suffix|>")?,
         };
-        Ok(Self { tokenizer, special })
+        Ok(Self {
+            tokenizer,
+            special,
+            max_state_tokens,
+            max_row_tokens,
+        })
     }
 
     fn user_tokens(&self, text: &str) -> Result<Vec<u32>, FamilyError> {
@@ -191,11 +215,11 @@ impl KevRenderer {
             option_ends.push(ids.len() - 1);
         }
         ids.push(self.special.decide);
-        if ids.len() > super::MAX_ROW_TOKENS {
+        if ids.len() > self.max_row_tokens {
             return Err(FamilyError::InvalidInput(format!(
                 "encoded row length {} exceeds frozen maximum {}; truncation is forbidden",
                 ids.len(),
-                super::MAX_ROW_TOKENS
+                self.max_row_tokens
             )));
         }
         Ok(QuestionRow {
@@ -210,11 +234,11 @@ impl KevRenderer {
         let mut ids = Vec::with_capacity(state.len() / 3 + 1);
         ids.push(self.special.state);
         ids.extend(self.user_tokens(state)?);
-        if ids.len() > super::MAX_STATE_TOKENS {
+        if ids.len() > self.max_state_tokens {
             return Err(FamilyError::InvalidInput(format!(
                 "state length {} tokens exceeds frozen maximum {}; truncation is forbidden",
                 ids.len(),
-                super::MAX_STATE_TOKENS
+                self.max_state_tokens
             )));
         }
         Ok(ids)

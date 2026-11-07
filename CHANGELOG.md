@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+### Added
+
+- Model support for Nace.AI Drex v1.5: the pinned `drex-v15:2d495e07ea056d6c4317`
+  profile (alias `drex:v1.5`) serves `nace-ai/drex-v1.5` at
+  `70a8a22d9b36bc91977efe296c3f59c9f756e6c2` on CPU, BF16 weights with FP32
+  compute, through the kev prompt layout and pointer head. The loader reads
+  the original `head.pt` with candle's pickle reader after a digest check, so
+  no Drex file is mirrored. On an M4 Max the bundled reference matched all 11
+  fixture answers to within 1.15e-7 with no argmax flip. Daemon aliases
+  (`--drex-aliases`, `--drex-model-root`) and catalog pull are wired. The
+  weights are under the Nace AI Open RAIL-M license and supported for
+  inference only: `openkind pull` prints the license notice before
+  downloading, and the proxy cache refuses to train on a teacher whose model
+  name contains `drex`.
+- `ModelStore::pull_with_notice` runs a callback with the verified manifest
+  before any artifact is downloaded, and `openkind_model_store::license_notice`
+  returns per-loader license terms.
+
 ## 0.4.0 (2026-10-14)
 
 ### Added

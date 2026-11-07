@@ -1,7 +1,7 @@
 # OpenKind
 ## Shared-state decision inference: evidence, execution, and useful decisions
 
-**Document version:** 0.8.13 · 12 October 2026, America/Chicago. Adds §25, the local-decision LD-V12B readout/size and LD-V13A checked-teacher results (one seed, research-only, not promoted); version 0.8.12 integrated the E43/E44 T4 recovery runs.
+**Document version:** 0.8.14 · 7 November 2026, America/Chicago. Adds the Drex comparison in §2.3 and reference P27 (external review only, no new OpenKind measurement); version 0.8.13 added §25, the local-decision LD-V12B readout/size and LD-V13A checked-teacher results (one seed, research-only, not promoted); version 0.8.12 integrated the E43/E44 T4 recovery runs.
 
 ### Abstract
 
@@ -357,6 +357,10 @@ TypeSafe publicly identifies a new architecture, a parallel sampler, and Reinfor
 Public projects provide useful components but do not settle all five properties. AlexWortega/openjev documents a Qwen3.5-4B NLI checkpoint with three classes and plain cross-entropy, and now also describes larger-backbone latent-head experiments. Its existence supports the practicality of the NLI approach, not proprietary Jev equivalence. The LFM2.5-2.6B-RLCD model card explicitly calls its constrained-decoding implementation inference-only and uncalibrated, and says it does not reproduce TypeSafe’s RLCD. [P12; P13]
 
 The closest research references answer different questions. SALSA supplies a strong finite-token classification baseline using relevant output-token logits and parameter-efficient fine-tuning. GLiClass investigates efficient classification with dynamically specified labels. Perceiver IO supplies a general architectural precedent for querying shared representations to produce structured outputs. None of these papers identifies Jev’s internal implementation. They are comparison points and design options, not interchangeable solutions. [P9–P11]
+
+Nace.AI's Drex report is the first open release to publish both readout styles with an ablation table. Its three pointer checkpoints encode the state once and reuse it across isolated questions. Its 27B Max checkpoint lifts the causal mask, which makes the state question-dependent and forces one full encoding per question.
+
+The authors report that RLAF, a reward built from proper scoring rules, adds 2.0 Decision Index points over supervised training. Without permutation and state-shuffle consistency terms, the same stage raises the top-1 flip rate under option permutation from 5.3% to 6.3%, and with them the rate falls to 4.2%. This supports testing order invariance after any calibration objective, not only after supervised fitting. The report does not settle the readout question: the two heads differ in backbone, size, and data at once, and no mask or head ablation was run. The released checkpoints also report no semantic-none mass, so they do not exercise OpenKind's required `__none__` contract. All of these figures are author-reported. [P27]
 
 Prior project discussions also considered community novelty and attribution claims. This paper does not convert discussion-level accusations into findings. Establishing conceptual overlap, implementing a similar interface, reproducing an experiment, and establishing provenance misconduct are separate tasks. The present evidence supports engineering comparisons, not an attribution verdict.
 
@@ -6165,6 +6169,8 @@ diagnostic enters the service or automatic scheduler.
 
 # Appendix B. Primary external references
 
+Version 0.8.14 adds P27, a source-and-config review of the Drex report and checkpoints. It is external evidence only and supplies no OpenKind measurement.
+
 Version 0.8.2 adds no new external-reference review. It applies the previously reviewed P23 method principles to the Phase 4E audit design and does not treat SemIf results as OpenKind measurements. Version 0.8.1 added the focused P23 review for Phase 4A benchmark-reporting context.
 
 Version 0.6.1 adds no external-reference review. New checkpoint claims use E10/I0 and V3; the following public references retain their prior review dates.
@@ -6238,6 +6244,15 @@ pinned commit `ad129b08d9f134cd298d1f8a85efc52b1b66e18e`. E38's archived patched
 source is the authority for its measured execution/readout, rather than the
 moving branch or author-reported benchmark numbers.
 
+**P27.** Dhankhar, N., et al. (5 November 2026).
+*[Towards Foundation Decision Models: Drex](https://arxiv.org/abs/2611.07854).*
+arXiv:2611.07854v1. Reviewed 7 November 2026 with the
+[code repository](https://github.com/nace-ai/drex-decision-models/tree/d2fd26cdf211f87b9a6b1261995528629c9e1401)
+at `d2fd26cdf211f87b9a6b1261995528629c9e1401` and the four Hub checkpoints
+pinned in [`../RESEARCH.md`](../RESEARCH.md#drex-naceais-open-decision-models-and-tech-report-reviewed-2026-11-07).
+Configs and file headers were read. No weights were downloaded and nothing was
+run, so every result is author-reported.
+
 # Appendix C. Reading the metrics
 
 **NLL:** negative log-likelihood; lower is better. It penalizes confident wrong predictions and is sensitive to probability quality rather than only the winning class.
@@ -6292,6 +6307,13 @@ E32 improves SNLI substantially without preserving QASPER or supported ContractN
 entailment. An already-exposed regression panel is not fresh confirmation. [E32]
 
 # Appendix D. Revision history
+
+## Version 0.8.14: Drex external review
+
+7 November 2026, America/Chicago. Adds a Drex paragraph to §2.3 and reference
+P27. The detailed review, pinned revisions, and license reading are in
+[`../RESEARCH.md`](../RESEARCH.md#drex-naceais-open-decision-models-and-tech-report-reviewed-2026-11-07).
+No experiment, result, or roadmap status changes.
 
 ## Version 0.8.10: completed unified-run integration and §22 detail expansion
 
