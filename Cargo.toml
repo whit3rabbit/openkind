@@ -110,11 +110,11 @@ fastrand = "2"
 # of openkind-backends forwards to these crates' own `cuda` features; the CUDA
 # toolchain (nvcc) is required to build with it and no workspace default
 # enables it.
-candle-core = "=0.8.0"
-candle-nn = "=0.8.0"
+candle-core = "=0.11.1"
+candle-nn = "=0.11.1"
 # Surveyed-family model implementations (BERT, DistilBERT, Qwen2, quantized
 # GGUF runners). Pinned to the same candle release line as candle-core.
-candle-transformers = "=0.8.0"
+candle-transformers = "=0.11.1"
 
 # Phase 3N CUDA/ONNX block. `ort` executes ONNX artifacts through ONNX
 # Runtime; `load-dynamic` keeps builds offline (no binary downloads at build
@@ -134,10 +134,8 @@ nvml-wrapper = "0.13"
 # v0.6.0-7-gc74db53 (MLX core 0.32.2); `half` mirrors mlx-rs's bfloat16 type.
 mlx-rs = "=0.32.0"
 mlx-sys = "=0.6.0"
-# Capped below 2.5: from 2.5 `half`'s `rand_distr` feature targets rand 0.9,
-# and candle-core 0.8.0 samples bf16 through rand 0.8, so it stops compiling.
-# Lift the cap together with the candle pin.
-half = ">=2, <2.5"
+# candle 0.11 requires half 2.5 or later (its bf16 sampling moved to rand 0.9).
+half = "2.5"
 dashmap = "6"
 parking_lot = "0.12"
 libc = "0.2"

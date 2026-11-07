@@ -1,7 +1,8 @@
 //! Minimal ModernBERT architecture for the candle CPU path.
 //!
-//! Hand-implemented for pinned checkpoints; candle 0.8.0 ships no
-//! ModernBERT. The forward implements exactly the semantics verified against
+//! Hand-implemented for pinned checkpoints when candle 0.8.0 shipped no
+//! ModernBERT. candle 0.11 ships one, but this port is the parity-verified
+//! path and stays until an upstream swap is qualified. The forward implements exactly the semantics verified against
 //! the HuggingFace reference on short and beyond-window inputs:
 //!
 //! - word embeddings plus a weight-only LayerNorm; positions come from RoPE

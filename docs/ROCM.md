@@ -27,7 +27,7 @@ the gates below run on a ROCm host.
 - Execution identity follows the provider through `backend_id` strings
   (`encoder-nli/onnx-rocm:0`, `laya/onnx-rocm:1`), so ROCm answers can never
   be confused with CPU, CUDA, or MLX answers.
-- Native candle execution on ROCm is surveyed, not implemented: candle 0.8.0
+- Native candle execution on ROCm is surveyed, not implemented: candle 0.11.1
   has no ROCm backend upstream. The Qwen3.5 hybrid backbone, the GGUF
   families, and the pointer-head readouts (kev, strands-decider) have no
   ONNX export and therefore no ROCm path; selecting `onnx-rocm` for them

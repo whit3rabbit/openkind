@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### Security
+
+- candle-core, candle-nn, and candle-transformers move from 0.8.0 to 0.11.1,
+  the first candle release on zip 9 (zip 9.4.1). This clears GHSA-m665-v7pm-7grj
+  (critical) and GHSA-8hxf-qr8p-62x4, plus five RustSec zip advisories. On an
+  M4 Max the d3-edge and d3-flash real-checkpoint goldens still replay within
+  the 0.005 gate. CUDA builds were not compiled for this change.
+- rustls 0.23.46 through `cargo update` (four advisories).
+- Arrow and parquet pins move from 60.0.0 to 60.1.0 for RUSTSEC-2026-0442
+  (out-of-bounds reads on unvalidated RunEndEncoded arrays). The opt-in Arrow
+  endpoint decodes client IPC.
+
+### Changed
+
+- `half` is no longer capped below 2.5. Evidence records now name
+  `candle-core 0.11.1` as the backend implementation.
+
 ## 0.4.0 (2026-10-14)
 
 ### Added

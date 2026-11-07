@@ -64,6 +64,15 @@ impl SimpleBackend for SharedBackend {
         self.0.get(s, name, h, dtype, dev)
     }
 
+    fn get_unchecked(
+        &self,
+        name: &str,
+        dtype: DType,
+        dev: &Device,
+    ) -> candle_core::Result<candle_core::Tensor> {
+        self.0.get_unchecked(name, dtype, dev)
+    }
+
     fn contains_tensor(&self, name: &str) -> bool {
         self.0.contains_tensor(name)
     }

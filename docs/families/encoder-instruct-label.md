@@ -12,9 +12,10 @@ profile `knowledgator/gliclass-modern-base-v3.0` at revision
 backbone (22 layers, hidden 768, hybrid global/sliding attention, RoPE-only
 positions) whose `<<LABEL>>`-marked class-token positions are pooled,
 projected, and dot-scored against the pooled text representation. The
-backbone is hand-implemented for the pinned candle 0.8.0 line in
+backbone was hand-implemented against the candle 0.8.0 line in
 [`crates/openkind-backends/src/families/encoder_instruct_label/arch.rs`](../../crates/openkind-backends/src/families/encoder_instruct_label/arch.rs)
-(candle ships no ModernBERT); the Rust forward was validated against a
+(candle 0.8.0 shipped no ModernBERT; candle 0.11 does, but this port is
+the parity-verified path); the Rust forward was validated against a
 PyTorch reference of the same checkpoint to `<= 4.3e-6` maximum answer delta
 over the golden fixture, and digest-checked parity fixtures live under
 `crates/openkind-backends/tests/fixtures/encoder_instruct_label_9fd68313a5606eca42f2/`.
