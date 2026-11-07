@@ -217,7 +217,7 @@ impl D3Model {
 
 /// Read the pinned `[rows, hidden]` float32 matrix out of a verified
 /// safetensors file.
-fn read_rows(path: &Path, rows: usize, hidden: usize) -> Result<Vec<f32>, FamilyError> {
+pub(crate) fn read_rows(path: &Path, rows: usize, hidden: usize) -> Result<Vec<f32>, FamilyError> {
     let shard = path.to_path_buf();
     // SAFETY: the caller verified the immutable size and SHA-256 of the
     // read-only file before this mapper opens it. The VarBuilder owns the

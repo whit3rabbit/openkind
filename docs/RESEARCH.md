@@ -28,6 +28,9 @@ For its released v19 artifacts and agent intervention example, see
 For why the current Decision Index 0.3.1 leaders (d3, Decider 31B, pplx, Torchcast)
 score well, see
 [the 2026-10-12 survey](#why-the-decision-index-031-leaders-score-well-surveyed-2026-10-12).
+For Nace.AI's four Drex checkpoints, the RLAF recipe, and the license limits
+on using them, see
+[the 2026-11-07 review](#drex-naceais-open-decision-models-and-tech-report-reviewed-2026-11-07).
 
 | Reproduction Target | Feasibility Today | Assessment |
 |---|:---:|---|
@@ -829,7 +832,7 @@ flowchart TD
 
 ## Primary and High-Value Sources Register
 
-### Canonical Citations Register (1–31)
+### Canonical Citations Register (1–33)
 
 | # | Reference / Canonical Resource | Focus / Description |
 |:---:|---|---|
@@ -864,6 +867,8 @@ flowchart TD
 | **[29]** | [Deußer, Sparrenberg, & Sifa — "Evaluating and Benchmarking the System One Model Jev" (arXiv:2609.37647)](https://arxiv.org/abs/2609.37647) | Zero-shot evaluation of `jev-1.13.0` over 37 datasets (346,009 requests, US$9.40) with Qwen3.8-27B and Gemma-4-E4B scored on identical requests via exact option probabilities. [Harness code](https://github.com/AppliedMachineLearning-Lab/jev-benchmarking) (MIT); [raw responses, Zenodo DOI 10.5281/zenodo.23039006](https://doi.org/10.5281/zenodo.23039006). See the [reviewed section](#independent-37-dataset-benchmark-of-jev-reviewed-2026-09-30). |
 | **[30]** | [Marc Brooker: "Small Decisions: Engineering a Leading Model" (28 September 2026)](https://brooker.co.za/blog/2026/09/28/engineering-system-one.html) | Author-reported Hobson recipe: Qwen3.5-2B-Base, pointer head, rank-16 LoRA, retention distillation, per-type temperature scaling, and RTX 3090 prefix-cache measurements. See the [analysis and evidence limits](#hobson-compact-pointer-decisions-and-retention-reviewed-2026-10-01). |
 | **[31]** | [Brooker, Chambers, and de Paula: "Introducing Strands Decider 2B: a small, open source, decision model" (1 October 2026)](https://strandsagents.com/blog/introducing-strands-decider/) | Hobson v19 release, linked code and adapter artifacts, public evaluation records, and a Strands tool-call intervention. See the [pinned source review](#strands-decider-2b-hobson-v19-release-and-agent-interventions-reviewed-2026-10-01). |
+| **[32]** | [Dhankhar et al., "Towards Foundation Decision Models: Drex" (arXiv:2611.07854v1, 5 November 2026)](https://arxiv.org/abs/2611.07854) | Nace.AI tech report: pointer and 255-code readouts, consistency losses, RLAF, Decision Index 0.4.1, calibration, order-robustness, and Max ablation tables. See the [review](#drex-naceais-open-decision-models-and-tech-report-reviewed-2026-11-07). |
+| **[33]** | [`nace-ai/drex-decision-models`](https://github.com/nace-ai/drex-decision-models/tree/d2fd26cdf211f87b9a6b1261995528629c9e1401) and [Nace.AI Hugging Face models](https://huggingface.co/nace-ai) | Apache-2.0 reference server and runners, four checkpoints under the modified Nace AI Open RAIL-M (Max, v2.0, v1.5) and CC BY-NC 4.0 (DLM). Pinned revisions are in the [review](#pinned-provenance-1). |
 
 ### Additional Foundational & Ecosystem References
 
@@ -3363,3 +3368,283 @@ qualified results.
   private-score gap) have candidate explanations but no published ablation.
   Closing them needs either author data or an OpenKind-owned ablation on pinned
   checkpoints.
+
+## Drex: Nace.AI's Open Decision Models and Tech Report (Reviewed 2026-11-07)
+
+Drex is the first decision-model release that ships a tech report, four open
+checkpoints, and runnable code together. Its two readouts are formats this
+workspace already loads: the three pointer models carry the Kev package and
+head layout, and Drex Max carries a d3-style `decision_config.json`. The
+report also publishes the first ablation that separates order-consistency
+training from calibration-oriented RL. It does not ablate the attention mask
+or the head type, and none of the checkpoints reports a semantic-none mass.
+
+Sources are the report,
+["Towards Foundation Decision Models: Drex"](https://arxiv.org/abs/2611.07854)
+(Dhankhar et al., arXiv:2611.07854v1, 5 November 2026), the
+[launch page](https://www.nace.ai/research/towards-foundation-decision-models),
+the code repository, and the Hugging Face cards and configs. Evidence is split
+into **author-reported** results (the report and cards) and **released
+source** (repository code, shipped configs, and file headers). No weight
+shards were downloaded and nothing was run. Only small config files, the
+license, the 80-byte `readout.safetensors` header, and the first 2 KB of one
+`head.pt` were read.
+
+### Pinned provenance
+
+| Source | Revision reviewed | What is available |
+|---|---|---|
+| [`nace-ai/drex-decision-models`](https://github.com/nace-ai/drex-decision-models/tree/d2fd26cdf211f87b9a6b1261995528629c9e1401) | `d2fd26cdf211f87b9a6b1261995528629c9e1401` | Apache-2.0 Python reference server (`serve.py`, `inference.py`, `kev/`, `drex_max/`), an MLX script for Max, and pointers to Kapitsa, llama.cpp, and Ollama forks. `NOTICE` credits [jaredpalmer/kev](https://github.com/jaredpalmer/kev). |
+| [`nace-ai/drex-max-v1`](https://huggingface.co/nace-ai/drex-max-v1/tree/a67fa2808b5d91a4db62629beb14eba6d3f3e53c) | `a67fa2808b5d91a4db62629beb14eba6d3f3e53c` | 11 backbone shards, `readout.safetensors`, `decision_config.json`, `processor_config.json`, tokenizer, chat template. |
+| [`nace-ai/drex-v2.0`](https://huggingface.co/nace-ai/drex-v2.0/tree/e646674476744e3826caf62b834054151e2aba51) | `e646674476744e3826caf62b834054151e2aba51` | 16 backbone shards, `head.pt`, `code/kev/`. |
+| [`nace-ai/drex-v1.5`](https://huggingface.co/nace-ai/drex-v1.5/tree/70a8a22d9b36bc91977efe296c3f59c9f756e6c2) | `70a8a22d9b36bc91977efe296c3f59c9f756e6c2` | 4 backbone shards, `head.pt` (8,393,151 bytes), `code/kev/`, `serve.py`. |
+| [`nace-ai/drex-dlm`](https://huggingface.co/nace-ai/drex-dlm/tree/9947862a2ab9e37a947aae8422c05601d6aa03c3) | `9947862a2ab9e37a947aae8422c05601d6aa03c3` | 4 backbone shards, `head.pt`, `code/kev/`, custom `modeling_edlm.py` and `configuration_edlm.py`, an Ollama `Modelfile`. |
+
+All four Hub repositories reported `private: false` and `gated: false` on
+7 November 2026.
+
+### License policy: inference-only, no mirroring, no distillation
+
+The Max, v2.0, and v1.5 weights ship one license file (SHA-256
+`3ee4dcae9750be4be007654b3ce3ea551743b1fb39b9a4bae280db94e1b2e3e9` at each
+pinned revision), the "Nace AI Open RAIL-M License (Modified)", version 1.0.
+It is not a standard Open RAIL-M. Attachment A carries three commercial
+restrictions on the model, its derivatives, and its output:
+
+- An entity above US$1,000,000 in prior-year revenue, or above US$1,000,000 in
+  total funding, needs a separate commercial license, except for personal or
+  research use.
+- Any entity that offers a product or service competing with Nace.AI,
+  explicitly including decision models, is excluded, with no research
+  carve-out on that clause.
+- Derivatives include quantized and distilled models and models trained on
+  Drex output, and the use restrictions must be passed on to recipients.
+
+**Owner decision (7 November 2026).** OpenKind may support Drex as an
+inference engine. OpenKind is MIT-licensed, non-commercial, and does not
+distribute the weights. The license states that code used to run the model
+is not covered by it, so the engine code is unaffected. Each user who pulls
+Drex obtains it from Nace.AI and accepts the license there. Support follows
+three rules:
+
+1. **No mirroring.** No Drex file goes into the public registry mirror. That
+   includes weights, `decision_config.json`, tokenizer and config files, and
+   converted heads. The license counts configuration files as part of the
+   model and conversions as derivatives. Catalog entries pin the
+   `nace-ai` revisions and digests directly, the way the `d3` checkpoints are
+   pinned. The loader reads the original `head.pt` after its digest check, so
+   no converted head is needed.
+2. **License notice at pull.** `openkind pull` for any Drex profile shows the
+   license name and link before downloading. It states that the license
+   forbids using Drex output to create derivative models, which covers
+   distillation and training on Drex answers, so Drex must not be used as a
+   teacher. It also notes the commercial thresholds
+   and the competing-product exclusion.
+3. **No distillation or teacher use inside OpenKind.** The proxy-cache
+   distilling student and any OpenKind training run must not consume Drex
+   answers. A Drex engine must be refused as a distillation teacher.
+
+The competing-product clause (Attachment A, 2(c)) applies for any purpose,
+including non-commercial use. OpenKind ships its own decision models, so a
+residual reading exists in which the clause reaches the project. The owner
+judges that risk low for an engine that only runs the published weights.
+This is the project's reading of the text, not legal advice.
+
+Drex DLM is CC BY-NC 4.0, inherited from its backbone, and the same three
+rules apply to it. The repository code is Apache-2.0.
+
+### The four models and their readouts
+
+| Model | Backbone (shipped `config.json`) | Readout | Nearest OpenKind family |
+|---|---|---|---|
+| Drex v1.5 | `Qwen3_5ForCausalLM`, 32 layers, hidden 4096, 3:1 DeltaNet table, over `XiaomiMiMo/MiMo-V2.6-Distill-Qwen-9B` | Kev pointer head, `d_p = 256` | [`kev`](families/kev.md) readout on the Qwen3.5-9B hybrid dims already used by `d3-flash`, `clef-flash`, and `jeeves` |
+| Drex v2.0 | `Qwen3_5MoeForConditionalGeneration`, 40 layers, hidden 2048, 256 experts with 8 active, over `Qwen/Qwen3.6-35B-A3B` | Kev pointer head, `d_p = 256` | `kev` readout. No MoE path exists in the workspace |
+| Drex DLM | `edlm` (LLaDA-style bidirectional encoder, `block_size` 32, Qwen2 vocabulary), 36 layers, hidden 4096, over `nvidia/Efficient-DLM-8B` | Kev pointer head with `state_bidir` | `kev` readout. [`diffusion-decision`](families/diffusion-decision.md) is the surveyed DLM family |
+| Drex Max | `Qwen3_5Model`, 64 layers, hidden 5120, 3:1 DeltaNet table, plus a ViT image encoder, over `Qwen/Qwen3.8-27B` | 255-code linear readout, `noncausal_full_attention` | [`d3`](families/d3.md) code readout at 27B |
+
+**Pointer models.** The `code/kev/` package in each Hub repository reuses the
+same five Qwen special tokens as the `kev` family (`<|fim_prefix|>`,
+`<|fim_middle|>`, `<|box_start|>`, `<|box_end|>`, `<|fim_suffix|>`). The
+report calls them state, question, option open, option close, and decide.
+The head scores option `j` as `(W_k h_opt_j)ᵀ (W_q h_decide) / sqrt(256)` and
+applies a softmax over the offered options. The `head.pt` header shows the
+same four FP32 tensors as Kev (`q.weight`, `q.bias`, `k.weight`, `k.bias`),
+plus `base`, `base_revision`, and `lora` metadata. The report gives head sizes
+of 2.1M parameters for v1.5 and 1.0M for v2.0.
+
+Each question runs as its own causal row starting from the cached state, so
+the state is prefilled once and reused. Adding or reordering other questions
+cannot change a question's probabilities. On attention-only backbones the
+packed block-causal form is equivalent up to floating-point error. Hybrid
+backbones cannot apply an option-isolation mask, so they learn order
+robustness from data. DLM sets `state_bidir`: state tokens attend to each
+other in both directions, but never to a question block, so the cached state
+stays question-independent.
+
+**Drex Max.** Each question is one sequence of images, state, instruction,
+code-prefixed options (`A:` through `IW:`), and a final answer token. A
+bias-free readout maps the last hidden state to 255 logits, and only the
+first K offered codes enter the softmax.
+
+Its `decision_config.json` uses the
+d3 field names: `codes`, `token_ids`, `attention_mode:
+noncausal_full_attention`, `pooling: last`, and `temperature:
+1.0087417621345625`. The 255 codes skip two-letter strings that are not single
+tokens (`BQ`, `CJ`, and others), so the code table must be pinned, not
+generated. One difference from d3: the `readout.safetensors` header records a
+`BF16` `[255, 5120]` tensor, where every pinned d3 profile ships FP32.
+
+Max lifts the causal mask in the 16 full-attention layers only. The report
+states the trained weights need that mask and that causal execution does not
+reproduce the scores. Because the state attends to the question, Max cannot
+reuse state across questions and pays a full state encoding per question.
+This is the `repeated_full` cost shape, and the report names it as Max's main
+limit against the pointer models on long documents.
+
+### Training and RLAF
+
+The report trains in two stages. RLAF is the report's name for the second
+stage. It is distinct from TypeSafe's undisclosed RLCD [1] and from RLCR [28].
+
+- **SFT.** Cross-entropy, plus a squared Cramér distance term for Score
+  questions. Two consistency terms: a symmetrized KL between a question's
+  distribution and its distribution under a permuted option order, and a
+  stop-gradient KL against a copy of the state with sentences or fields
+  shuffled. Choice options with K ≥ 3 are reshuffled each time a record is
+  seen.
+- **RLAF for pointer models.** The target is a teacher distribution adjusted
+  by the verified answer. The reward is a sum of proper scoring rules: log
+  score, plus 0.5 times the spherical score, minus the Cramér distance for
+  Score questions. It is optimized by direct differentiation. A REINFORCE
+  estimator did not do better.
+- **RLAF for Max.** KL-regularized against the frozen SFT model, with reward
+  `0.2·1[a = y*] + 0.05·log q_judge(a)`. The judge is generative
+  Qwen3.8-27B at high reasoning effort. The report notes a judge that puts
+  enough mass on a wrong option can move the optimal top choice, and that
+  this was not tested.
+- **v2.0 specialization.** A LoRA stage on solver-labeled decisions from one
+  task family, mined hard examples, and replayed earlier data, with a KL term
+  to the stage's starting checkpoint.
+- **Data (v1.5 mix).** 1,150,460 text decision records across eleven domains,
+  mostly distilled from stronger teachers, the rest open datasets and
+  procedurally generated verifiable data. Decision Index and JevBench items
+  are excluded by exact-state match or more than two shared 8-word sequences.
+  The report states this misses paraphrases and teacher-distilled knowledge.
+- **Calibration.** One scalar temperature fitted by NLL on held-out
+  decisions. Max ships `T = 1.009`. The v1.5 and v2.0 heads ship `T = 1`.
+
+The visible HTML did not include the hyperparameter table (λ values, β,
+learning rates, LoRA rank) or the per-domain mix.
+
+### Reported results (author-reported)
+
+**Decision Index 0.4.1**, leaderboard read of 22 October 2026, as printed in
+the report:
+
+| Model | Full | Same skills | New domains | Public index |
+|---|---:|---:|---:|---:|
+| Drex Max | 66.60 | 63.08 | 56.45 | 67.52 |
+| Drex v2.0 | 52.76 | 54.30 | 39.22 | 61.25 |
+| Drex v1.5 | 45.78 | 49.65 | 30.82 | 58.08 |
+| Jev 1.14.0 | 60.24 | 59.28 | 48.26 | 60.70 |
+| Jev 1.13.0 | 59.22 | 58.04 | 47.72 | 57.96 |
+
+The pointer models lose 8.5 (v2.0) and 12.3 (v1.5) points from public to Full.
+That is the pattern Finding 1 of the
+[0.3.1 survey](#why-the-decision-index-031-leaders-score-well-surveyed-2026-10-12)
+describes for Torchcast. Max moves less (0.9).
+
+This section does not pin a
+0.4.1 board snapshot, so these figures are the report's, not a board JSON
+read. The report also notes Max's public score varied by up to 0.8 points
+between repeated evaluations.
+
+**Ablation on Max (Table 7).** This is the most useful result for OpenKind.
+
+| Variant | Decision Index | ECE | Top-1 flip under permutation | Flip, K ≥ 6 |
+|---|---:|---:|---:|---:|
+| SFT only | 64.9 | 4.4% | 5.3% | 14.1% |
+| SFT → RLAF, no consistency terms | 66.4 | 3.9% | 6.3% | 17.8% |
+| SFT → RLAF | 66.9 | 3.5% | 4.2% | 13.0% |
+| Released (adds vision SFT) | 66.8 | 3.6% | 4.3% | 13.3% |
+
+RLAF adds 2.0 points over SFT. Without the consistency terms it also raises
+the flip rate above the SFT baseline. The consistency terms leave the score
+flat and bring the flip rate back down. No mask ablation and no pointer
+versus code-readout ablation were run. The report lists both as future work.
+
+**Calibration (Table 4, held-out half of Decision Index 0.4.1).** Deployed
+ECE is 3.61% for Max, 1.37% for v2.0, and 4.54% for v1.5. Refitting the
+temperature on that distribution gives Max `T* = 1.35` against the shipped
+1.009, and v1.5 `T* = 1.48`. Max's ECE on questions with 6 to 20 options is
+8.4%, and its mean confidence exceeds accuracy by 5 to 9 points in four
+domains.
+
+**Order robustness (Table 5, 1,591 decisions).** Random permutation changes
+the top option for 4.3% of Max's decisions, the same as Jev 1.14. The rate is
+5.9% for v2.0 and 5.3% for v1.5. It rises with option count: Max flips 1.0%
+at K = 2 and 13.3% at K ≥ 6. Averaging three orders improves log loss but not
+accuracy.
+
+**Other benchmarks.** Decision Bench v4 (1,071 decisions): Max 94.0% with its
+image encoder, statistically tied with d3-turbo (93.7%) and GPT-6 Sol (94.7%).
+On image-only questions it scores 98.3% from raw images and 63.3% from a text
+rendering. Max trails frontier chat models on knowledge-heavy sets (21% on an
+HLE sample, 55% on GPQA Diamond).
+
+**Latency (Table 8).** Medians of 183 ms (Max), 151 ms (v2.0), and 145 ms
+(v1.5) are client-side from Oregon and include 70 to 215 ms of network time.
+The GPU is not named for these runs. A new question on a cached 114k to 117k
+token state took 21.6 ms, and a fresh 131,072-token context about 2.7 s. FP8
+showed no accuracy change against BF16 on 1,934 questions on B200. These are
+hosted-service numbers and say nothing about local execution in this
+workspace.
+
+### What this means for OpenKind
+
+These are findings and proposals, not qualified results.
+
+1. **Drex v1.5 is now a Rust-loadable CPU prototype.** It is the `kev`
+   readout on the Qwen3.5-9B hybrid dims the workspace already ran, under the
+   [license policy](#license-policy-inference-only-no-mirroring-no-distillation).
+   The released `head.pt` records `lora: 0`, so the checkpoint is fully
+   merged. The bundled reference matched the Rust engine to within 1.15e-7 on
+   every fixture answer. See [`families/drex.md`](families/drex.md) and the
+   [bring-up record](../benchmarks/2026-11-07-drex-v15/README.md).
+2. **Drex Max is the d3 loader at 27B plus vision.** It needs 64-layer
+   Qwen3.8-27B dims, a BF16 readout (d3 assumes FP32), the image encoder for
+   multimodal input, and `repeated_full` only. Text-only serving is possible,
+   but the report's own numbers show that drops image-only accuracy from
+   98.3% to 63.3%.
+3. **Drex v2.0 needs a Qwen3.5 MoE path, and Drex DLM needs a bidirectional
+   encoder path.** Neither exists in the workspace. DLM is also
+   non-commercial.
+4. **The consistency-loss ablation is directly testable here.** OpenKind
+   already treats option-order invariance as a mandatory diagnostic. Table 7
+   shows RLAF without consistency terms worsens order flips. Test that
+   hypothesis in any OpenKind training run that adds a calibration objective.
+5. **The pointer versus code-readout question stays open.** Drex runs both
+   heads, but on different backbones, sizes, and data. The Max lead cannot be
+   assigned to the readout. The
+   [outstanding question](whitepaper/OpenKind_Outstanding_Questions_20260930.md)
+   on a matched comparison is unchanged.
+6. **None of the models reports semantic-none mass.** Training inserts
+   distractor and "none" options, and the Decision Index scores an unanswered
+   request as wrong. OpenKind requires a non-empty `__none__` option with
+   reported mass, so a Drex profile would treat `__none__` as an ordinary
+   offered option, as the `kev` profile does.
+
+### Evidence boundary and open items
+
+- Every quality and latency number above is author-reported. Nothing was run.
+- Many comparisons in the report use no multiple-comparison correction, and
+  the report itself calls isolated p-values near 0.05 suggestive.
+- The abstract gives about 3.5 s for Claude Opus 5.5, and Table 2 gives
+  4.33 s. They come from different tables and methods, so do not quote either
+  as a general figure.
+- The hyperparameter appendix and per-domain data mix were not in the
+  reviewed HTML extract.
+- The Max image preprocessing contract, and the Kapitsa, llama.cpp, and Ollama forks were
+  not reviewed.
+- The license policy is the project's reading, not legal advice. Revisit it
+  if Nace.AI changes the license or OpenKind's distribution model changes.

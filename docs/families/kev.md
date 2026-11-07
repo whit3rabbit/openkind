@@ -2,6 +2,9 @@
 
 > LoRA adapter + pointer head on a Qwen base, serving the published
 > decision-model contract.
+>
+> Nace.AI's Drex v1.5, v2.0, and DLM ship this readout and prompt format on
+> larger backbones. See the surveyed [`drex`](./drex.md) page.
 
 ## Status in openkind
 

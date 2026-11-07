@@ -21,6 +21,20 @@ impl TaskEngine {
         answer: &TeacherAnswer,
     ) -> Result<Vec<(String, serde_json::Value)>, ProxyCacheError> {
         let mut events = Vec::new();
+        // License policy: Drex output must never train a student. The answer
+        // was already served; it is just not recorded, so the task stays
+        // teacher-only for this teacher.
+        if crate::families::drex::forbids_teacher_use(&answer.model) {
+            static WARNED: std::sync::Once = std::sync::Once::new();
+            WARNED.call_once(|| {
+                tracing::warn!(
+                    teacher_model = %answer.model,
+                    "proxy cache will not train on this teacher: the Drex license forbids \
+                     using its output to train other models"
+                );
+            });
+            return Ok(events);
+        }
         // Tempered Horvitz-Thompson: audit rows are up-weighted so training
         // tracks traffic rather than the hard audit slice.
         let weight: f64 = if self.config.importance_weighting && decision.channel == Channel::Audit

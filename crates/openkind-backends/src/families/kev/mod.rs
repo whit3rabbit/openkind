@@ -44,7 +44,7 @@
 
 mod arch;
 pub(crate) mod engine;
-mod model;
+pub(crate) mod model;
 pub(crate) mod renderer;
 
 use std::path::PathBuf;

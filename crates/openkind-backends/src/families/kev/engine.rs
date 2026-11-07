@@ -87,7 +87,7 @@ pub(crate) fn question_instructions(question: &openkind_core::Question) -> &serd
 
 /// True when the caller supplied explicit Noul criteria rather than relying
 /// on the wire defaults.
-fn noul_criteria_are_explicit(question: &openkind_core::Question) -> bool {
+pub(crate) fn noul_criteria_are_explicit(question: &openkind_core::Question) -> bool {
     match question {
         openkind_core::Question::Noul(noul) => noul.criteria.is_some(),
         _ => false,

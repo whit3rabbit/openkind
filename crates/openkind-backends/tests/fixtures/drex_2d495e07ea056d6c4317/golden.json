@@ -1,0 +1,379 @@
+{
+  "backbone": {
+    "id": "nace-ai/drex-v1.5",
+    "revision": "70a8a22d9b36bc91977efe296c3f59c9f756e6c2"
+  },
+  "calibration_temperature": 1.0,
+  "cases": [
+    {
+      "name": "choice-os",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "BSD": null,
+              "Linux": null,
+              "Windows": null,
+              "macOS": null
+            },
+            "instructions": "Which option is explicitly recorded in the state?",
+            "type": "choice"
+          }
+        },
+        "state": "Fictional incident record. The asset operating system is Windows."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "Windows",
+            "confidence": 0.9990667827851486,
+            "probabilities": {
+              "BSD": 0.00003436671325801345,
+              "Linux": 0.000050607134877550675,
+              "Windows": 0.9998838230801416,
+              "macOS": 0.00003120307172272975
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 38,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "choice-region",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "ap-southeast-1": null,
+              "eu-west-2": null,
+              "us-east-1": null
+            },
+            "instructions": "Which region does the affected deployment run in?",
+            "type": "choice"
+          }
+        },
+        "state": "Fictional incident record. The affected deployment runs in eu-west-2."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "eu-west-2",
+            "confidence": 0.9996507426551592,
+            "probabilities": {
+              "ap-southeast-1": 0.000011167049134605254,
+              "eu-west-2": 0.9999680177826705,
+              "us-east-1": 0.00002081516819499443
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 48,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "choice-described",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "billing": "Charges, refunds, invoices",
+              "performance": "Latency and outages",
+              "security": "Account takeover, phishing"
+            },
+            "instructions": "Which category does the report belong to?",
+            "type": "choice"
+          }
+        },
+        "state": "Fictional incident record. A user reported a phishing email that captured their password."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "choice": "security",
+            "confidence": 0.9995946689697944,
+            "probabilities": {
+              "billing": 0.00002677385890609397,
+              "performance": 0.00001100501750326553,
+              "security": 0.9999622211235906
+            },
+            "type": "choice"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 54,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "noul-true",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "instructions": "Does the record state that two-factor authentication was enabled?",
+            "type": "noul"
+          }
+        },
+        "state": "Fictional incident record. Two-factor authentication was enabled on the affected account."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "noul": 0.9978500347245919,
+            "type": "noul"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 36,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "noul-false",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "instructions": "Does the record state that a data export was approved?",
+            "type": "noul"
+          }
+        },
+        "state": "Fictional incident record. No data export was approved during the window."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "noul": 0.019209002560735145,
+            "type": "noul"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 35,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "noul-criteria",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": {
+              "false": "a legitimate request",
+              "true": "a likely scam"
+            },
+            "instructions": "Classify the message.",
+            "type": "noul"
+          }
+        },
+        "state": "Fictional incident record. The message asks the user to wire money to an unknown account."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "noul": 0.9992993910632797,
+            "type": "noul"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 41,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "score-minor",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": [
+              "minor",
+              "moderate",
+              "major",
+              "critical"
+            ],
+            "instructions": "What is the documented impact level?",
+            "type": "score"
+          }
+        },
+        "state": "Fictional incident record. The documented impact level is minor."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "confidence": 0.9939436953318302,
+            "legend": {
+              "0": "minor",
+              "1": "moderate",
+              "2": "major",
+              "3": "critical"
+            },
+            "probabilities": {
+              "0": 0.9990650738249319,
+              "1": 0.00047744689379613316,
+              "2": 0.0003032901074231875,
+              "3": 0.00015418917384886903
+            },
+            "score": 0.0015465946301891154,
+            "type": "score"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 36,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "score-critical",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "q0": {
+            "criteria": [
+              "minor",
+              "moderate",
+              "major",
+              "critical"
+            ],
+            "instructions": "What is the documented impact level?",
+            "type": "score"
+          }
+        },
+        "state": "Fictional incident record. The documented impact level is critical."
+      },
+      "response": {
+        "answers": {
+          "q0": {
+            "confidence": 0.9903310845322552,
+            "legend": {
+              "0": "minor",
+              "1": "moderate",
+              "2": "major",
+              "3": "critical"
+            },
+            "probabilities": {
+              "0": 0.00006617503594640115,
+              "1": 0.00017816116511745793,
+              "2": 0.001458992759217455,
+              "3": 0.9982966710397188
+            },
+            "score": 2.9979861598027084,
+            "type": "score"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 36,
+          "output_tokens": 0
+        }
+      }
+    },
+    {
+      "name": "structured-multi",
+      "request": {
+        "model": "fixture",
+        "questions": {
+          "billing_refund": {
+            "instructions": "Was the refund approved?",
+            "type": "noul"
+          },
+          "category": {
+            "criteria": {
+              "billing": "Charges, refunds, invoices",
+              "performance": "Latency and outages",
+              "security": "Account takeover, phishing"
+            },
+            "instructions": "Which category does the ticket belong to?",
+            "type": "choice"
+          },
+          "severity": {
+            "criteria": [
+              "low",
+              "medium",
+              "high",
+              "urgent"
+            ],
+            "instructions": "Rate the ticket priority.",
+            "type": "score"
+          }
+        },
+        "state": {
+          "amount_usd": 412.5,
+          "category": "billing",
+          "priority": "high",
+          "refund_approved": true,
+          "ticket": "A-771"
+        }
+      },
+      "response": {
+        "answers": {
+          "billing_refund": {
+            "noul": 0.9995325276505422,
+            "type": "noul"
+          },
+          "category": {
+            "choice": "billing",
+            "confidence": 0.9971780073973022,
+            "probabilities": {
+              "billing": 0.9996812915495321,
+              "performance": 0.0001883078669793968,
+              "security": 0.0001304005834884631
+            },
+            "type": "choice"
+          },
+          "severity": {
+            "confidence": 0.9810256828812048,
+            "legend": {
+              "0": "low",
+              "1": "medium",
+              "2": "high",
+              "3": "urgent"
+            },
+            "probabilities": {
+              "0": 0.0002116825573404667,
+              "1": 0.0008793655098830087,
+              "2": 0.9964485921785803,
+              "3": 0.0024603597541961314
+            },
+            "score": 2.001157629129632,
+            "type": "score"
+          }
+        },
+        "model": "fixture",
+        "usage": {
+          "input_tokens": 164,
+          "output_tokens": 0
+        }
+      }
+    }
+  ],
+  "execution_arithmetic": "candle-cpu-bf16w-fp32c-qwen35-text",
+  "probability_tolerance": 0.005,
+  "profile_id": "2d495e07ea056d6c4317",
+  "provenance": {
+    "case_construction": "correct option stated verbatim in the state document",
+    "generator": "gen-drex-fixture"
+  }
+}

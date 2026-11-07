@@ -459,3 +459,63 @@ fn load_fails_closed_on_artifact_digest_mismatch() {
     );
     let _ = fs::remove_dir_all(&staged);
 }
+
+/// MLX replay of the same golden fixture against the pinned checkpoint
+/// (feature `mlx`, macOS arm64, `OPENKIND_D3_MODEL_ROOT` set). The MLX
+/// forward mirrors the CPU oracle at the profile's frozen noncausal
+/// geometry; the fixture's CPU probabilities stay the gate.
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+mod mlx_replay {
+    use super::{assert_answer_matches, fixture_dir, limits, model_root, read_golden};
+    use openkind_backends::families::d3::{D3EngineConfig, D3MlxEngine};
+    use openkind_engine::DecisionEngine as _;
+
+    #[test]
+    fn mlx_replay_matches_the_pinned_checkpoint() {
+        let Some(root) = model_root() else {
+            eprintln!("skipping: OPENKIND_D3_MODEL_ROOT is not set");
+            return;
+        };
+        let dir = fixture_dir();
+        let golden = read_golden(&dir);
+        assert!(!golden.cases.is_empty(), "golden fixture has cases");
+        let profile = openkind_backends::families::d3::profile_by_id(&golden.profile_id)
+            .unwrap_or_else(|| panic!("golden names unknown profile {}", golden.profile_id));
+
+        let engine = D3MlxEngine::load(D3EngineConfig {
+            model_root: root.clone(),
+            limits: limits(),
+            profile,
+        })
+        .unwrap_or_else(|error| panic!("load mlx engine: {error}"));
+
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+
+        for case in &golden.cases {
+            let response = runtime
+                .block_on(engine.evaluate(case.request.clone()))
+                .unwrap_or_else(|error| panic!("case {}: {error}", case.name));
+            for (question_id, expected) in &case.response.answers {
+                let actual = response
+                    .answers
+                    .get(question_id)
+                    .unwrap_or_else(|| panic!("case {}: missing answer {question_id}", case.name));
+                let actual = serde_json::to_value(actual).expect("serialize answer");
+                assert_answer_matches(&format!("{} (mlx)", case.name), &actual, expected);
+            }
+            assert_eq!(
+                response.usage.output_tokens, 0,
+                "{}: decision engines never generate output tokens",
+                case.name
+            );
+            assert_eq!(
+                response.usage.input_tokens, case.response.usage.input_tokens,
+                "{}: usage drifted",
+                case.name
+            );
+        }
+    }
+}

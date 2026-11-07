@@ -26,6 +26,11 @@ the architecture could be qualified independently of djev's weights.
 
 ## What remains open
 
+- Nace.AI's Drex DLM is a published decision checkpoint on a bidirectional
+  DLM backbone (Efficient-DLM-8B). It reads a single-pass pointer head rather
+  than iterating refinement steps, and is CC BY-NC 4.0. See the surveyed
+  [`drex`](./drex.md) page.
+
 - djev stays external-reference-only until the tuned weights are published
   (the [`von`](./von.md) precedent).
 - A base-model qualification would need a diffusion forward implementation

@@ -37,6 +37,11 @@ The feature is experimental and off by default. It changes nothing unless
    resolved teacher model. A seeded per-request draw reserves a fraction of
    the traffic for calibration (IID channels only; co-deferred rows always
    train).
+   Answers from a teacher whose resolved model name contains `drex` are
+   served but never recorded, because the Drex license forbids training on
+   its output. That task stays teacher-only. The check sees only the reported
+   name, so a Drex upstream behind an alias without `drex` in it is not
+   caught.
 6. **Train.** A background worker fits a multinomial logistic-regression
    student (full-batch Adam on weighted soft-target cross-entropy with
    early stopping) plus the kNN gate reference.

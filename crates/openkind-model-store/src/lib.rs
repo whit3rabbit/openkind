@@ -19,7 +19,7 @@ macro_rules! registry_url {
 }
 macro_rules! catalog_sha256 {
     () => {
-        "992c61e8e2d5de3f86dcad509dc7e01ed6464d4136cb7a9b8ce84521a055cf53"
+        "d3053ecc15c0195bb07d5c0e32d3e0b4be63ddcca01ec3e05cc2112cf16cc7ba"
     };
 }
 
@@ -93,8 +93,36 @@ pub const WINNOW_E4B_MODEL_NAME: &str = "winnow-e4b:656ac636ce450cf79c7d";
 pub const STRANDS_DECIDER_2B_MODEL_NAME: &str = "strands-decider-2b:6a02bb0d1c6b25cae74b";
 /// Pinned Strands Decider 2B (Hobson v21) model name.
 pub const STRANDS_DECIDER_2B_V21_MODEL_NAME: &str = "strands-decider-2b:f7156bf28400a79ea1b8";
+/// Pinned Nace.AI Drex v1.5 pointer decision model name.
+pub const DREX_V15_MODEL_NAME: &str = "drex-v15:2d495e07ea056d6c4317";
 /// Pinned BGE-small sentence-embedding encoder for the proxy-cache student.
 pub const ENCODER_EMBEDDING_MODEL_NAME: &str = "encoder-embedding:8d9498269ef05d95d93c";
+
+/// License notice shown before a pull downloads anything, keyed by loader
+/// id. Only loaders whose weight license carries terms beyond the usual
+/// open-weight grant have one.
+pub fn license_notice(loader_id: &str) -> Option<&'static str> {
+    match loader_id {
+        "drex-v15" => Some(DREX_LICENSE_NOTICE),
+        _ => None,
+    }
+}
+
+/// Project policy text for Drex weights (docs/RESEARCH.md, "License policy").
+const DREX_LICENSE_NOTICE: &str = "\
+License notice: Drex weights are published by Nace.AI under the Nace AI Open \
+RAIL-M License (Modified), version 1.0:
+  https://huggingface.co/nace-ai/drex-v1.5/blob/70a8a22d9b36bc91977efe296c3f59c9f756e6c2/LICENSE
+OpenKind downloads them from Nace.AI's repository and supports them for \
+inference only.
+  - No distillation or teacher use. The license forbids using Drex output to \
+create derivative models, which includes distilling Drex or training any model \
+on its answers. Do not use Drex as a teacher, including for the proxy cache.
+  - Organizations above US$1,000,000 in prior-year revenue or total funding \
+need a commercial license from Nace.AI, except for personal or research use.
+  - The license excludes anyone offering a product or service that competes \
+with Nace.AI, including decision models.
+Downloading or using the weights means accepting the license. Read it first.";
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -117,3 +145,24 @@ pub enum Error {
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
+
+#[cfg(test)]
+mod license_notice_tests {
+    use super::license_notice;
+
+    #[test]
+    fn drex_notice_names_the_license_and_forbids_teacher_use() {
+        let notice = license_notice("drex-v15").expect("drex has a notice");
+        assert!(notice.contains("Nace AI Open RAIL-M License (Modified), version 1.0"));
+        assert!(notice.contains("70a8a22d9b36bc91977efe296c3f59c9f756e6c2/LICENSE"));
+        assert!(notice.contains("No distillation or teacher use"));
+        assert!(notice.contains("US$1,000,000"));
+        assert!(notice.contains("competes"));
+    }
+
+    #[test]
+    fn ordinary_open_weight_loaders_have_no_notice() {
+        assert!(license_notice("kev").is_none());
+        assert!(license_notice("d3-flash").is_none());
+    }
+}
