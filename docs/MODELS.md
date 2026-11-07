@@ -61,6 +61,7 @@ input token rates, and strategy caveats are in the per-backend table below).
 | [`clef-flash`](families/clef.md) | Qwen3.5 hybrid decoder + joint schema head (all options of all questions in one pass), 9B | 262,144 | [Cloudflare/clef-flash](https://huggingface.co/Cloudflare/clef-flash) | `clef-flash:dfe12a21a5c9dd5b2fb1` (`clef:flash`) | 19.08 GB | 20 GB · measured run pending | — | [bring-up + cross-check](benchmarks/2026-10-02-clef/README.md) |
 | [`clef-flash-gguf`](families/clef.md) | Clef-Flash 9B Q4_K_M GGUF backbone + official joint head | 262,144 | [bartowski/Cloudflare_clef-flash-GGUF](https://huggingface.co/bartowski/Cloudflare_clef-flash-GGUF) + [Cloudflare/clef-flash](https://huggingface.co/Cloudflare/clef-flash) head | `clef-flash-gguf:c330d9ee7e9cc658ad45` (`clef:flash-gguf`) | 6.10 GB | 6.5 GB · measured run pending | — | [bring-up + cross-check](benchmarks/2026-10-02-clef/README.md) |
 | [`clef-27b-gguf`](families/clef.md) | Clef 27B Q4_K_M GGUF backbone + official joint head | 262,144 | [bartowski/Cloudflare_clef-GGUF](https://huggingface.co/bartowski/Cloudflare_clef-GGUF) + [Cloudflare/clef](https://huggingface.co/Cloudflare/clef) head | `clef-27b-gguf:48cb5634b4a258de5a6b` (`clef:27b`) | 17.48 GB | 18 GB · measured run pending | — | [bring-up + cross-check](benchmarks/2026-10-02-clef/README.md) |
+| [`drex-v15`](families/drex.md) | Qwen3.5 hybrid decoder (merged fine-tune, Kev pointer head), 9B. Nace AI Open RAIL-M: inference only, no distillation or teacher use | 262,144 | [nace-ai/drex-v1.5](https://huggingface.co/nace-ai/drex-v1.5) | `drex-v15:2d495e07ea056d6c4317` (`drex:v1.5`) | 17.94 GB | measured run pending (CPU BF16 weights, FP32 compute) | — | [bring-up + reference cross-check](benchmarks/2026-11-07-drex-v15/README.md) |
 | [`winnow-e4b`](families/gemma4-decision.md) | Gemma 4 E4B hybrid decoder (LoRA fine-tune, letter-logit readout over per-layer embeddings), 7.5B | 131,072 | [EldanRing/Winnow-E4B](https://huggingface.co/EldanRing/Winnow-E4B) + [Gemma 4 tokenizer](https://huggingface.co/mistralrs-community/gemma-4-E4B-it-UQFF) | `winnow-e4b:656ac636ce450cf79c7d` (`winnow:e4b`) | 8.04 GB | 8.49 GB · measured run pending | — | [bring-up smoke](benchmarks/2026-10-01-gemma4-backbone/README.md) |
 | [`von`](families/von.md) | ModernBERT-large encoder, option-marker scorer | 2,048 | [wfzyx/von](https://huggingface.co/wfzyx/von) (von-1.1) | `von:69219703407bd39cca0c` (`von:1.1`) | 1.58 GB | 1.83 GB · 2.25/s | — | [summary](benchmarks/2026-09-30-von/summary-von.json) |
 | [`laya-english`](families/laya.md) | ModernBERT-large encoder, typed-decision marker head | 8,192 | [convaiinnovations/laya](https://huggingface.co/convaiinnovations/laya) | `laya-english:c8ea29bf1e33a343c4b7` (`laya:en`) | 0.85 GB | 2.75 GB · 2.23/s | 2.12 GB · 24.34/s | [laya MLX campaign](benchmarks/2026-09-28-laya-mlx-campaign/README.md) |
@@ -102,7 +103,7 @@ Reading notes:
 
 ## Pull a catalog model
 
-Thirty-three profiles are catalog-installable: every Rust-loadable profile
+Thirty-four profiles are catalog-installable: every Rust-loadable profile
 except `router-script`, which needs no artifacts.
 Jeeves serving requires macOS arm64 and an `mlx` build. `openkind pull NAME`
 downloads pinned artifacts, verifies every digest, and installs them for the
@@ -170,6 +171,7 @@ both spellings. The alias policy:
 | `clef:flash` | `clef-flash:dfe12a21a5c9dd5b2fb1` | model-family board name; checkpoint pinned directly |
 | `clef:flash-gguf` | `clef-flash-gguf:c330d9ee7e9cc658ad45` | board name for the quantized flash profile; backbone pinned to the bartowski GGUF, head pinned to the official release |
 | `clef:27b` | `clef-27b-gguf:48cb5634b4a258de5a6b` | board name for the 27B profile; same pinning scheme |
+| `drex:v1.5` | `drex-v15:2d495e07ea056d6c4317` | model-family name; checkpoint pinned directly at Nace.AI's repository, nothing mirrored |
 
 ```bash
 openkind pull laya:en

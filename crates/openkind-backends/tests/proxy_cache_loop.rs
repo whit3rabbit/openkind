@@ -157,6 +157,54 @@ fn one_request_keeps_teacher_observations_in_one_split() {
     assert!(train.is_empty() || calib.is_empty());
 }
 
+/// License policy: a Drex teacher's answers are never recorded as training
+/// rows, so no student can be distilled from Drex output.
+#[test]
+fn drex_teacher_answers_are_never_recorded() {
+    let dir = tempfile::tempdir().unwrap();
+    let embedder = HashEmbedder::new(64, 0, true).unwrap();
+    let mut engine = TaskEngine::create(
+        dir.path(),
+        "drexkey000000000000".to_string(),
+        "default".to_string(),
+        "drex-v1.5-native".to_string(),
+        two_class_spec(),
+        small_config(),
+        0.9,
+        None,
+    )
+    .unwrap();
+    for (index, model) in ["drex-v1.5-native", "drex-v15:2d495e07ea056d6c4317"]
+        .iter()
+        .enumerate()
+    {
+        let text = cluster_text(index % 2, index);
+        let embedding = embedder
+            .encode(std::slice::from_ref(&text))
+            .unwrap()
+            .remove(0);
+        engine.begin_request();
+        let decision = engine.route(&embedding);
+        let mut answer = teacher_for(index % 2);
+        answer.model = (*model).to_string();
+        engine
+            .observe_teacher(
+                &decision,
+                &embedding,
+                &text,
+                "text",
+                &embedder.id(),
+                &answer,
+            )
+            .unwrap();
+    }
+    let (train, calib) = engine.labelled_rows_for_test(100, 100).unwrap();
+    assert!(
+        train.is_empty() && calib.is_empty(),
+        "Drex answers were recorded"
+    );
+}
+
 #[test]
 fn full_loop_bootstrap_train_promote_serve_locally() {
     let dir = tempfile::tempdir().unwrap();

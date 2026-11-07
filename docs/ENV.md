@@ -140,6 +140,7 @@ read-only artifact root:
 | `ENCODER_INSTRUCT_LABEL` | `_ALIASES`, `_MODEL_ROOT` |
 | `KEV` | `_ALIASES`, `_MODEL_ROOT`, plus `OPENKIND_KEV_BASE_ROOT` (base checkpoint) |
 | `JEEVES` | `_ALIASES` (default `jeeves-native`), `_MODEL_ROOT`; requires `mlx` on macOS arm64 |
+| `DREX` | `_ALIASES` (default `drex-v1.5-native`), `_MODEL_ROOT`; CPU only, no backend variable. Nace AI Open RAIL-M weights: inference only |
 | `DECODER_LLM` | `_ALIASES`, `_MODEL_ROOT` |
 | `SCHEMA_SCORER` | `_ALIASES`, `_MODEL_ROOT` |
 | `ROUTER_SCRIPT` | `_ALIASES`, plus `OPENKIND_ROUTER_SCRIPT_RULES` (rules file; no model root) |

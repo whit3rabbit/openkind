@@ -23,6 +23,8 @@ pub mod decoder_logit_llm;
 pub mod decoder_logit_qwen3;
 /// Qwen 3.5 decoder-only logit readout family adapter.
 pub mod decoder_logit_qwen35;
+/// Nace.AI Drex pointer-head decision family adapter (v1.5, CPU oracle).
+pub mod drex;
 /// ModernBERT encoder instruct-label readout family adapter.
 pub mod encoder_instruct_label;
 /// Encoder natural language inference (NLI) readout family adapter.

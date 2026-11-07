@@ -66,9 +66,18 @@ fn catalog_rows(models: &[openkind_model_store::CatalogEntry]) -> Vec<Vec<String
 pub(super) fn pull(name: &str, dir: Option<PathBuf>) -> Result<()> {
     let runtime = tokio::runtime::Runtime::new()?;
     let mut progress = PullProgress::new();
-    let result = runtime.block_on(store(dir)?.pull(name, |path, done, total| {
-        progress.update(path, done, total);
-    }));
+    let result = runtime.block_on(store(dir)?.pull_with_notice(
+        name,
+        |manifest| {
+            // Printed before any download so the terms are read first.
+            if let Some(notice) = openkind_model_store::license_notice(&manifest.loader_id) {
+                eprintln!("{notice}\n");
+            }
+        },
+        |path, done, total| {
+            progress.update(path, done, total);
+        },
+    ));
     let manifest = match result {
         Ok(manifest) => manifest,
         Err(error) => {
