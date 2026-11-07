@@ -458,6 +458,48 @@ pub(crate) fn tensor_values(tensor: &Tensor) -> Result<Vec<f32>, Qwen35Error> {
         .to_vec1::<f32>()?)
 }
 
+/// Largest `rows * output_width` product gemm 0.19 sends through its
+/// horizontal (dot-product) kernels on x86 FMA and AVX-512.
+#[cfg(not(target_os = "macos"))]
+const GEMM_HORIZONTAL_PRODUCT_LIMIT: usize = 16 * 16;
+
+/// The `[rows, input_width]` left operand for one `linear` call.
+///
+/// gemm 0.19 (every non-macOS build; macOS uses Accelerate) computes products
+/// of at most 16 x 16 outputs with a K-contiguous left operand through
+/// horizontal kernels whose summation order differs from its blocked kernel.
+/// A row's bits would then depend on how many rows share the call. That
+/// breaks the cache-continuation contract, under which a suffix continued
+/// from cached state equals one full pass bit for bit. DeltaNet's per-head
+/// gates are narrow enough for short branch suffixes to reach that path. A
+/// column-major view of the same values fails the horizontal path's
+/// `lhs_cs == 1` gate, so the call takes the blocked kernel that larger calls
+/// use. Single-row calls keep gemm's one-row path.
+fn linear_lhs(
+    input: &[f32],
+    rows: usize,
+    input_width: usize,
+    output_width: usize,
+    device: &Device,
+) -> Result<Tensor, Qwen35Error> {
+    #[cfg(not(target_os = "macos"))]
+    if rows >= 2 && rows * output_width <= GEMM_HORIZONTAL_PRODUCT_LIMIT {
+        let mut column_major = vec![0.0_f32; input.len()];
+        for row in 0..rows {
+            for column in 0..input_width {
+                column_major[column * rows + row] = input[row * input_width + column];
+            }
+        }
+        return Ok(Tensor::from_vec(column_major, (input_width, rows), device)?.t()?);
+    }
+    let _ = output_width;
+    Ok(Tensor::from_vec(
+        input.to_vec(),
+        (rows, input_width),
+        device,
+    )?)
+}
+
 pub(crate) fn linear(
     input: &[f32],
     rows: usize,
@@ -473,7 +515,7 @@ pub(crate) fn linear(
             input.len()
         )));
     }
-    let input = Tensor::from_vec(input.to_vec(), (rows, input_width), device)?;
+    let input = linear_lhs(input, rows, input_width, output_width, device)?;
     // BF16-stored checkpoints keep their mmap view; the upcast happens per
     // use so only one layer's weights are ever widened in memory. F32
     // tensors pass through `to_dtype` as the same refcounted handle.
