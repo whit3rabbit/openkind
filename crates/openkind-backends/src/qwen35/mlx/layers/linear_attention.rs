@@ -5,7 +5,8 @@ use mlx_rs::ops::{concatenate, maximum, stack};
 use mlx_rs::Array;
 
 use super::gated_delta_kernel::{
-    generic_gated_delta, packed_gated_delta_128, packed_gated_delta_sequence_128, GateLayout,
+    generic_gated_delta, packed_gated_delta_128, packed_gated_delta_sequence_128,
+    simd_gated_delta_sequence_128, GateLayout,
 };
 use super::ops::{
     batch_row_of, linear, op, recip_sqrt_eps, repeat_heads, repeat_heads_rows, row_of, scalar_like,
@@ -72,9 +73,14 @@ impl LinearAttention {
 
         // Traced runs keep the per-row loop, whose intermediate arrays the
         // diagnostics read.
+        // The SIMD kernel shares the hoisted preparation and swaps only the
+        // sequential state update for one fused launch.
         if operation_trace.is_none()
             && self.precision == MlxPrecision::Fp32
-            && self.gated_delta_kernel == MlxGatedDeltaKernel::ReferenceOps
+            && matches!(
+                self.gated_delta_kernel,
+                MlxGatedDeltaKernel::ReferenceOps | MlxGatedDeltaKernel::MetalSimd
+            )
             && !legacy_row_loop()
         {
             return self.forward_hoisted(
@@ -265,7 +271,57 @@ impl LinearAttention {
             .exp()
             .map_err(op("hoisted decay exp"))?;
 
-        // The only sequential part: advance the state one row at a time.
+        let core = if self.gated_delta_kernel == MlxGatedDeltaKernel::MetalSimd {
+            // One launch walks every row with the state in registers.
+            let (core, next_state) = simd_gated_delta_sequence_128(
+                &query_hat, &key_hat, &value, &beta, &gate, &recurrent,
+            )?;
+            recurrent = next_state;
+            core
+        } else {
+            self.hoisted_reference_recurrence(
+                rows,
+                &query_hat,
+                &key_hat,
+                &value,
+                &beta,
+                &gate,
+                &mut recurrent,
+            )?
+        };
+        let z = z_all
+            .clone()
+            .reshape(&[row_count, VALUE_HEADS as i32, HEAD_DIM as i32])
+            .map_err(op("hoisted z reshape"))?;
+        let mixed = fast::rms_norm(&core, Some(&self.delta_norm), RMS_EPSILON)
+            .map_err(op("hoisted delta norm"))?
+            .mul(&mlx_rs::nn::silu(&z).map_err(op("hoisted z silu"))?)
+            .reshape(&[row_count, VALUE_SIZE as i32])
+            .map_err(op("hoisted mixed reshape"))?;
+        let output = linear(&mixed, &self.out_proj)?;
+        Ok((
+            output,
+            MlxLayerState::Linear(MlxLinearState {
+                conv: next_conv,
+                recurrent,
+            }),
+        ))
+    }
+
+    /// The reference sequential part: advance the state one row at a time
+    /// through [`reference_gated_delta`], exactly as the row loop does.
+    #[allow(clippy::too_many_arguments)]
+    fn hoisted_reference_recurrence(
+        &self,
+        rows: usize,
+        query_hat: &Array,
+        key_hat: &Array,
+        value: &Array,
+        beta: &Array,
+        gate: &Array,
+        recurrent: &mut Array,
+    ) -> Result<Array, MlxError> {
+        let row_count = rows as i32;
         let boundaries: Vec<i32> = (1..row_count).collect();
         let split_rows = |array: &Array| -> Result<Vec<Array>, MlxError> {
             array
@@ -273,11 +329,11 @@ impl LinearAttention {
                 .map_err(op("hoisted row split"))
         };
         let (queries, keys, values) = (
-            split_rows(&query_hat)?,
-            split_rows(&key_hat)?,
-            split_rows(&value)?,
+            split_rows(query_hat)?,
+            split_rows(key_hat)?,
+            split_rows(value)?,
         );
-        let (betas, gates) = (split_rows(&beta)?, split_rows(&gate)?);
+        let (betas, gates) = (split_rows(beta)?, split_rows(gate)?);
         let heads_shape = [VALUE_HEADS as i32, HEAD_DIM as i32];
         let mut outputs = Vec::with_capacity(rows);
         for row in 0..rows {
@@ -297,32 +353,15 @@ impl LinearAttention {
                 &gates[row]
                     .reshape(&[VALUE_HEADS as i32])
                     .map_err(op("hoisted gate row"))?,
-                &recurrent,
+                recurrent,
             )?;
-            recurrent = next_state;
+            *recurrent = next_state;
             outputs.push(
                 out.reshape(&[1, VALUE_HEADS as i32, HEAD_DIM as i32])
                     .map_err(op("hoisted output row"))?,
             );
         }
-        let core = concatenate(&outputs, 0).map_err(op("hoisted output join"))?;
-        let z = z_all
-            .clone()
-            .reshape(&[row_count, VALUE_HEADS as i32, HEAD_DIM as i32])
-            .map_err(op("hoisted z reshape"))?;
-        let mixed = fast::rms_norm(&core, Some(&self.delta_norm), RMS_EPSILON)
-            .map_err(op("hoisted delta norm"))?
-            .mul(&mlx_rs::nn::silu(&z).map_err(op("hoisted z silu"))?)
-            .reshape(&[row_count, VALUE_SIZE as i32])
-            .map_err(op("hoisted mixed reshape"))?;
-        let output = linear(&mixed, &self.out_proj)?;
-        Ok((
-            output,
-            MlxLayerState::Linear(MlxLinearState {
-                conv: next_conv,
-                recurrent,
-            }),
-        ))
+        concatenate(&outputs, 0).map_err(op("hoisted output join"))
     }
 
     /// Vectorized lane-axis continuation using reference array operations.
@@ -829,6 +868,30 @@ pub(crate) fn gated_delta_step(
             None,
             GateLayout::Scalar,
         )?,
+        // One row of the fused sequence kernel: the same per-row instructions
+        // as a many-row launch, so a row loop and the hoisted launch agree bit
+        // for bit. A BF16 state never reaches here (see
+        // `effective_gated_delta_kernel`); the kernel refuses one anyway.
+        MlxGatedDeltaKernel::MetalSimd => {
+            let one_row = |array: &Array, shape: &[i32]| {
+                array.reshape(shape).map_err(op("simd step reshape"))
+            };
+            let vectors = [1, VALUE_HEADS as i32, HEAD_DIM as i32];
+            let scalars = [1, VALUE_HEADS as i32];
+            let (out, next_state) = simd_gated_delta_sequence_128(
+                &one_row(&prepared.query, &vectors)?,
+                &one_row(&prepared.key, &vectors)?,
+                &one_row(&prepared.value, &vectors)?,
+                &one_row(&prepared.beta, &scalars)?,
+                &one_row(&prepared.gate, &scalars)?,
+                recurrent,
+            )?;
+            (
+                out.reshape(&[VALUE_HEADS as i32, HEAD_DIM as i32])
+                    .map_err(op("simd step output"))?,
+                next_state,
+            )
+        }
         MlxGatedDeltaKernel::ReferenceOps => reference_gated_delta(
             &prepared.query,
             &prepared.key,

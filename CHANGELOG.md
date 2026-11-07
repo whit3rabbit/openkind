@@ -4,6 +4,16 @@
 
 ### Added
 
+- Opt-in FP32 MLX Gated DeltaNet kernel `metal-simd-v1`
+  (`mlx-core-0.32.2/fp32/metal-simd-sequence-dk128-v1`). It replaces the
+  per-row recurrent-state update with one launch per layer: one SIMD group
+  per (value head, value column) and `simd_sum` reductions. Select it with
+  `OPENKIND_QWEN35_MLX_GDN_KERNEL=metal-simd-v1`. On seeded full-width layer
+  weights it is about 5x faster per DeltaNet layer at 192 to 1,792 rows. It is
+  bit-identical to its own row loop and within `1e-5` relative of
+  `reference-ops`. The checkpoint-backed parity gates have not run yet, so
+  `reference-ops` stays the default.
+
 - Model support for Nace.AI Drex v1.5: the pinned `drex-v15:2d495e07ea056d6c4317`
   profile (alias `drex:v1.5`) serves `nace-ai/drex-v1.5` at
   `70a8a22d9b36bc91977efe296c3f59c9f756e6c2` on CPU, BF16 weights with FP32

@@ -14,7 +14,8 @@ use mlx_rs::{Array, Dtype, Stream};
 use super::MlxError;
 use ffi::{scoped_execution_stream, MetalKernel, MetalKernelConfig};
 use sources::{
-    GENERIC_INPUTS, GENERIC_SOURCE, OUTPUTS, PACKED_SEQUENCE_SOURCE, PACKED_SOURCE, SEQUENCE_INPUTS,
+    GENERIC_INPUTS, GENERIC_SOURCE, OUTPUTS, PACKED_SEQUENCE_SOURCE, PACKED_SOURCE,
+    SEQUENCE_INPUTS, SIMD_SEQUENCE_SOURCE,
 };
 
 mod ffi;
@@ -125,46 +126,12 @@ pub(crate) fn packed_gated_delta_sequence_128(
     state: &Array,
 ) -> Result<(Array, Array), MlxError> {
     let stream = scoped_execution_stream()?;
-    let query_shape = query.shape();
-    if query_shape.len() != 3 {
-        return Err(MlxError::InvalidState(format!(
-            "packed gated-delta sequence query must be [rows, heads, 128], found {query_shape:?}"
-        )));
-    }
-    let rows = query_shape[0] as usize;
-    let heads = query_shape[1] as usize;
-    if rows == 0 || heads != 32 || query_shape[2] != 128 {
-        return Err(MlxError::InvalidState(format!(
-            "packed gated-delta sequence requires [rows, 32, 128], found {query_shape:?}"
-        )));
-    }
-    let dtype = Dtype::Float32;
-    for (name, array, expected) in [
-        ("key", key, vec![rows as i32, heads as i32, 128]),
-        ("value", value, vec![rows as i32, heads as i32, 128]),
-        ("beta", beta, vec![rows as i32, heads as i32]),
-        ("gate", gate, vec![rows as i32, heads as i32]),
-        ("state", state, vec![heads as i32, 128, 128]),
-    ] {
-        if array.shape() != expected || array.dtype() != dtype {
-            return Err(MlxError::InvalidState(format!(
-                "packed gated-delta sequence {name} expected shape {expected:?} and FP32, found {:?} and {:?}",
-                array.shape(),
-                array.dtype()
-            )));
-        }
-    }
-    if query.dtype() != dtype {
-        return Err(MlxError::InvalidState(format!(
-            "packed gated-delta sequence query must be FP32, found {:?}",
-            query.dtype()
-        )));
-    }
-
+    let rows = validate_sequence_128(query, key, value, beta, gate, state, "packed")?;
+    let heads = SEQUENCE_HEADS;
     let row_count = Array::from_slice(&[rows as u32], &[1]);
     let config = MetalKernelConfig::new();
-    config.output(&[rows as i32, heads as i32, 128], dtype)?;
-    config.output(&[heads as i32, 128, 128], dtype)?;
+    config.output(&[rows as i32, heads as i32, 128], Dtype::Float32)?;
+    config.output(&[heads as i32, 128, 128], Dtype::Float32)?;
     config.grid(
         128_usize.checked_mul(heads).ok_or_else(|| {
             MlxError::InvalidState("packed sequence Metal grid overflowed usize".to_owned())
@@ -178,9 +145,100 @@ pub(crate) fn packed_gated_delta_sequence_128(
         &config,
         &stream,
     )?;
+    two_outputs(outputs, "packed gated-delta sequence Metal kernel")
+}
+
+/// Execute the FP32 `Dk = Dv = 128` recurrence for a complete suffix with one
+/// SIMD group per (value head, value column).
+///
+/// Same inputs and outputs as [`packed_gated_delta_sequence_128`]. Each lane
+/// holds four key-dimension state entries of one column in registers and
+/// both reductions are `simd_sum`s, so the launch is 4,096 barrier-free SIMD
+/// groups. One launch covers every row: no per-row graph node or evaluation.
+/// Its reduction order differs from the tree kernels, so results are close
+/// to, not bit-identical with, them and the reference operations.
+pub(crate) fn simd_gated_delta_sequence_128(
+    query: &Array,
+    key: &Array,
+    value: &Array,
+    beta: &Array,
+    gate: &Array,
+    state: &Array,
+) -> Result<(Array, Array), MlxError> {
+    let stream = scoped_execution_stream()?;
+    let rows = validate_sequence_128(query, key, value, beta, gate, state, "SIMD")?;
+    let heads = SEQUENCE_HEADS;
+    let row_count = Array::from_slice(&[rows as u32], &[1]);
+    let config = MetalKernelConfig::new();
+    config.output(&[rows as i32, heads as i32, 128], Dtype::Float32)?;
+    config.output(&[heads as i32, 128, 128], Dtype::Float32)?;
+    // Grid x: 32 lanes per head; grid y: one thread row per value column.
+    // A 32 x 4 threadgroup holds four columns of one head.
+    config.grid(32 * heads, 128, 1)?;
+    config.threadgroup(32, 4, 1)?;
+    let outputs = simd_sequence_kernel().apply(
+        &[query, key, value, beta, gate, state, &row_count],
+        &config,
+        &stream,
+    )?;
+    two_outputs(outputs, "SIMD gated-delta sequence Metal kernel")
+}
+
+/// Value heads the pinned sequence kernels are specialized for.
+const SEQUENCE_HEADS: usize = 32;
+
+/// Check the pinned FP32 `[rows, 32, 128]` sequence layout and return `rows`.
+fn validate_sequence_128(
+    query: &Array,
+    key: &Array,
+    value: &Array,
+    beta: &Array,
+    gate: &Array,
+    state: &Array,
+    family: &str,
+) -> Result<usize, MlxError> {
+    let query_shape = query.shape();
+    if query_shape.len() != 3 {
+        return Err(MlxError::InvalidState(format!(
+            "{family} gated-delta sequence query must be [rows, heads, 128], found {query_shape:?}"
+        )));
+    }
+    let rows = query_shape[0] as usize;
+    let heads = query_shape[1] as usize;
+    if rows == 0 || heads != SEQUENCE_HEADS || query_shape[2] != 128 {
+        return Err(MlxError::InvalidState(format!(
+            "{family} gated-delta sequence requires [rows, 32, 128], found {query_shape:?}"
+        )));
+    }
+    let dtype = Dtype::Float32;
+    for (name, array, expected) in [
+        ("key", key, vec![rows as i32, heads as i32, 128]),
+        ("value", value, vec![rows as i32, heads as i32, 128]),
+        ("beta", beta, vec![rows as i32, heads as i32]),
+        ("gate", gate, vec![rows as i32, heads as i32]),
+        ("state", state, vec![heads as i32, 128, 128]),
+    ] {
+        if array.shape() != expected || array.dtype() != dtype {
+            return Err(MlxError::InvalidState(format!(
+                "{family} gated-delta sequence {name} expected shape {expected:?} and FP32, found {:?} and {:?}",
+                array.shape(),
+                array.dtype()
+            )));
+        }
+    }
+    if query.dtype() != dtype {
+        return Err(MlxError::InvalidState(format!(
+            "{family} gated-delta sequence query must be FP32, found {:?}",
+            query.dtype()
+        )));
+    }
+    Ok(rows)
+}
+
+fn two_outputs(outputs: Vec<Array>, operation: &'static str) -> Result<(Array, Array), MlxError> {
     if outputs.len() != 2 {
         return Err(MlxError::Operation {
-            operation: "packed gated-delta sequence Metal kernel",
+            operation,
             message: format!("expected 2 outputs, found {}", outputs.len()),
         });
     }
@@ -352,6 +410,18 @@ fn packed_sequence_kernel() -> &'static MetalKernel {
             SEQUENCE_INPUTS,
             OUTPUTS,
             PACKED_SEQUENCE_SOURCE,
+        )
+    })
+}
+
+fn simd_sequence_kernel() -> &'static MetalKernel {
+    static KERNEL: OnceLock<MetalKernel> = OnceLock::new();
+    KERNEL.get_or_init(|| {
+        MetalKernel::new(
+            "openkind_gated_delta_simd_sequence_128",
+            SEQUENCE_INPUTS,
+            OUTPUTS,
+            SIMD_SEQUENCE_SOURCE,
         )
     })
 }

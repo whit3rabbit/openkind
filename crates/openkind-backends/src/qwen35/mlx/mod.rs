@@ -66,6 +66,12 @@ pub enum MlxGatedDeltaKernel {
     /// The generic BF16 kernel remains an unpromoted differential candidate,
     /// so native BF16 model loads currently fall back to `ReferenceOps`.
     MetalTree,
+    /// Fused FP32 whole-sequence Metal kernel with one SIMD group per
+    /// (value head, value column) and `simd_sum` reductions. It reuses the
+    /// hoisted row-independent preparation and replaces the per-row state
+    /// update with one launch per layer. FP32 only: native BF16 requests fall
+    /// back to `ReferenceOps`. Opt-in until model-backed gates qualify it.
+    MetalSimd,
 }
 
 impl MlxGatedDeltaKernel {
@@ -75,7 +81,43 @@ impl MlxGatedDeltaKernel {
         match self {
             Self::ReferenceOps => "reference-ops",
             Self::MetalTree => "metal-tree-v1",
+            Self::MetalSimd => "metal-simd-v1",
         }
+    }
+}
+
+impl std::str::FromStr for MlxGatedDeltaKernel {
+    type Err = MlxError;
+
+    /// Parse a kernel-family identifier from [`MlxGatedDeltaKernel::as_str`].
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        [Self::ReferenceOps, Self::MetalTree, Self::MetalSimd]
+            .into_iter()
+            .find(|kernel| kernel.as_str() == value)
+            .ok_or_else(|| {
+                MlxError::InvalidState(format!(
+                    "unknown MLX Gated DeltaNet kernel {value:?}; expected reference-ops, \
+                     metal-tree-v1, or metal-simd-v1"
+                ))
+            })
+    }
+}
+
+/// Environment switch selecting the Gated DeltaNet kernel family.
+pub const GATED_DELTA_KERNEL_ENV: &str = "OPENKIND_QWEN35_MLX_GDN_KERNEL";
+
+/// Kernel family requested through [`GATED_DELTA_KERNEL_ENV`], or
+/// `ReferenceOps` when it is unset or empty. An unknown value fails closed
+/// rather than silently running a different arithmetic path. The selected
+/// family is part of the arithmetic identity, so states produced under one
+/// family never continue under another.
+pub fn gated_delta_kernel_from_env() -> Result<MlxGatedDeltaKernel, MlxError> {
+    match std::env::var(GATED_DELTA_KERNEL_ENV) {
+        Ok(value) if !value.is_empty() => value.parse(),
+        Ok(_) | Err(std::env::VarError::NotPresent) => Ok(MlxGatedDeltaKernel::ReferenceOps),
+        Err(std::env::VarError::NotUnicode(_)) => Err(MlxError::InvalidState(format!(
+            "{GATED_DELTA_KERNEL_ENV} is not valid UTF-8"
+        ))),
     }
 }
 
@@ -123,6 +165,10 @@ pub const MLX_ARITHMETIC_ID_BF16_REFERENCE: &str = "mlx-core-0.32.2/bf16/referen
 /// Base arithmetic identity of the FP32 packed Metal reduction-tree path.
 pub const MLX_ARITHMETIC_ID_FP32_METAL_TREE: &str =
     "mlx-core-0.32.2/fp32/metal-tree-packed-dk128-v1";
+
+/// Base arithmetic identity of the FP32 SIMD-group whole-sequence path.
+pub const MLX_ARITHMETIC_ID_FP32_METAL_SIMD: &str =
+    "mlx-core-0.32.2/fp32/metal-simd-sequence-dk128-v1";
 
 /// Base arithmetic identity of the BF16 generic Metal reduction-tree path.
 pub const MLX_ARITHMETIC_ID_BF16_METAL_TREE: &str = "mlx-core-0.32.2/bf16/metal-tree-generic-v1";
