@@ -46,6 +46,26 @@ def extract(archive, destination):
             source.extractall(destination, filter="data")
 
 
+def _patch_vendored(directory, name, marker, replacement, crate, change):
+    """Replace one exact marker in a vendored file and refresh its checksum."""
+    path = directory / name
+    original_bytes = path.read_bytes()
+    original = original_bytes.decode()
+    if original.count(marker) != 1:
+        raise ValueError(f"pinned {crate} {name} changed; review the override")
+    path.write_text(original.replace(marker, replacement), newline="\n")
+    checksums_path = directory / ".cargo-checksum.json"
+    checksums = json.loads(checksums_path.read_text())
+    checksums["files"][name] = digest(path)
+    checksums_path.write_text(json.dumps(checksums, sort_keys=True))
+    return {"crate": crate, "version": directory.name.removeprefix(f"{crate}-"),
+            "file": name,
+            "package_sha256": checksums["package"],
+            "original_sha256": hashlib.sha256(original_bytes).hexdigest(),
+            "patched_sha256": digest(path),
+            "change": change}
+
+
 def patch_cuda_manifest(directory):
     """Swap cudarc's link-time CUDA for runtime loading. No source edits.
 
@@ -53,37 +73,77 @@ def patch_cuda_manifest(directory):
     cudarc 0.19 requires exactly one linking mode, so the patch selects its
     default `dynamic-loading` (libloading at run time) instead of removing
     the feature."""
-    manifest = directory / "Cargo.toml"
-    original_bytes = manifest.read_bytes()
-    original = original_bytes.decode()
-    marker = '    "dynamic-linking",\n'
-    if original.count(marker) != 1:
-        raise ValueError("pinned candle-core CUDA manifest changed; review the override")
-    manifest.write_text(original.replace(marker, '    "dynamic-loading",\n'), newline="\n")
-    checksums_path = directory / ".cargo-checksum.json"
-    checksums = json.loads(checksums_path.read_text())
-    checksums["files"]["Cargo.toml"] = digest(manifest)
-    checksums_path.write_text(json.dumps(checksums, sort_keys=True))
-    return {"crate": "candle-core", "version": directory.name.removeprefix("candle-core-"),
-            "package_sha256": checksums["package"],
-            "original_manifest_sha256": hashlib.sha256(original_bytes).hexdigest(),
-            "patched_manifest_sha256": digest(manifest),
-            "change": "cudarc dynamic-linking -> dynamic-loading; no architecture source edits"}
+    return _patch_vendored(directory, "Cargo.toml", '    "dynamic-linking",\n',
+                           '    "dynamic-loading",\n', "candle-core",
+                           "cudarc dynamic-linking -> dynamic-loading; no architecture source edits")
+
+
+# candle-kernels 0.11 builds its MoE and GGUF matmul kernels into a static
+# library that needs the CUDA runtime, and asks for libcudart dynamically.
+# Release binaries must start on hosts without CUDA, so link the
+# redistributable static runtime instead. It loads the driver at first GPU
+# use. The toolkit library directory is not on the linker path by default.
+KERNELS_DYNAMIC_CUDART = '    println!("cargo:rustc-link-lib=dylib=cudart");\n'
+KERNELS_STATIC_CUDART = """    // OpenKind release patch (scripts/release.py): static CUDA runtime.
+    for root in ["CUDA_PATH", "CUDA_HOME"]
+        .iter()
+        .filter_map(|key| env::var_os(key))
+        .chain(std::iter::once(std::ffi::OsString::from("/usr/local/cuda")))
+    {
+        let root = std::path::PathBuf::from(root);
+        for lib in ["lib64", "lib/x64", "lib"] {
+            let dir = root.join(lib);
+            if dir.is_dir() {
+                println!("cargo:rustc-link-search=native={}", dir.display());
+            }
+        }
+    }
+    println!("cargo:rustc-link-lib=static=cudart_static");
+    if !is_target_msvc {
+        println!("cargo:rustc-link-lib=dylib=dl");
+        println!("cargo:rustc-link-lib=dylib=rt");
+        println!("cargo:rustc-link-lib=dylib=pthread");
+    }
+"""
+
+
+CUDA_RUNTIME_NOTICE = """This binary statically links the NVIDIA CUDA Runtime (cudart_static) from
+CUDA Toolkit 12.6. The CUDA Runtime is NVIDIA software distributed under the
+NVIDIA CUDA Toolkit End User License Agreement:
+https://docs.nvidia.com/cuda/eula/index.html
+The NVIDIA driver is not included and stays operator-installed.
+"""
+
+
+def patch_cuda_kernels_build(directory):
+    """Link the CUDA runtime statically in candle-kernels. No kernel source edits."""
+    return _patch_vendored(directory, "build.rs", KERNELS_DYNAMIC_CUDART, KERNELS_STATIC_CUDART,
+                           "candle-kernels",
+                           "link cudart_static instead of dylib cudart; no kernel source edits")
+
+
+def _single(vendor_dir, crate):
+    # The vendored directory name carries the locked version, so a candle pin
+    # bump cannot leave a stale hardcoded path behind.
+    candidates = sorted(path for path in vendor_dir.glob(f"{crate}-*")
+                        if re.fullmatch(rf"{re.escape(crate)}-[0-9][^/]*", path.name))
+    if len(candidates) != 1:
+        raise ValueError(f"expected one vendored {crate}, found {len(candidates)}")
+    return candidates[0]
 
 
 def prepare_cuda(vendor_dir):
     vendor_dir = vendor_dir.resolve()
     config = subprocess.run(["cargo", "vendor", "--locked", "--versioned-dirs", str(vendor_dir)],
                             cwd=ROOT, check=True, text=True, stdout=subprocess.PIPE).stdout
-    # The vendored directory name carries the locked version, so a candle pin
-    # bump cannot leave a stale hardcoded path behind.
-    candidates = sorted(vendor_dir.glob("candle-core-*"))
-    if len(candidates) != 1:
-        raise ValueError(f"expected one vendored candle-core, found {len(candidates)}")
-    override = patch_cuda_manifest(candidates[0])
+    overrides = [
+        patch_cuda_manifest(_single(vendor_dir, "candle-core")),
+        patch_cuda_kernels_build(_single(vendor_dir, "candle-kernels")),
+    ]
     config_path = ROOT / "target/release-cargo-config.toml"
     config_path.write_text(config)
-    (ROOT / "target/cuda-build-override.json").write_text(json.dumps(override, indent=2) + "\n")
+    (ROOT / "target/cuda-build-override.json").write_text(
+        json.dumps({"overrides": overrides}, indent=2) + "\n")
 
 
 def bundle_runtime(target, stage, cache):
@@ -140,6 +200,9 @@ def package(binary_dir, target, version, onnx, destination):
         shutil.copy2(ROOT / "LICENSE", stage)
         if "linux-gnu" in target or "windows" in target:
             shutil.copy2(ROOT / "target/cuda-build-override.json", stage)
+            notices = stage / "licenses/cuda"
+            notices.mkdir(parents=True)
+            (notices / "NOTICE").write_text(CUDA_RUNTIME_NOTICE, newline="\n")
         if "aarch64-apple" in target:
             metallib = binary_dir / "mlx.metallib"
             if not metallib.is_file():

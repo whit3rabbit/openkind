@@ -80,7 +80,9 @@ jobs:
         with:
           cuda: '12.6.0'
           method: network
-          sub-packages: '["nvcc"]'
+          # cudart-dev carries libcudart_static.a, which the release patch to
+          # candle-kernels links so binaries start on hosts without CUDA.
+          sub-packages: '["nvcc","cudart","cudart-dev"]'
           non-cuda-sub-packages: '[]'
           use-github-cache: false
           use-local-cache: false

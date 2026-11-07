@@ -68,8 +68,26 @@ class ReleaseTests(unittest.TestCase):
             self.assertIn('"driver"', (root / "Cargo.toml").read_text())
             checksums = json.loads((root / ".cargo-checksum.json").read_text())
             self.assertEqual(checksums["files"]["Cargo.toml"], release.digest(root / "Cargo.toml"))
-            with self.assertRaisesRegex(ValueError, "manifest changed"):
+            with self.assertRaisesRegex(ValueError, "Cargo.toml changed"):
                 release.patch_cuda_manifest(root)
+
+    def test_kernels_override_links_the_static_cuda_runtime_once(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "candle-kernels-0.11.1"
+            root.mkdir()
+            (root / "build.rs").write_text(
+                'fn main() {\n    let is_target_msvc = false;\n'
+                '    println!("cargo:rustc-link-lib=dylib=cudart");\n}\n')
+            (root / ".cargo-checksum.json").write_text(json.dumps({"package": "pinned", "files": {}}))
+            result = release.patch_cuda_kernels_build(root)
+            patched = (root / "build.rs").read_text()
+            self.assertNotIn("dylib=cudart", patched)
+            self.assertIn("static=cudart_static", patched)
+            self.assertEqual(result["version"], "0.11.1")
+            checksums = json.loads((root / ".cargo-checksum.json").read_text())
+            self.assertEqual(checksums["files"]["build.rs"], release.digest(root / "build.rs"))
+            with self.assertRaisesRegex(ValueError, "changed"):
+                release.patch_cuda_kernels_build(root)
 
     def test_bundle_preserves_providers_symlinks_notices_and_pins(self):
         with tempfile.TemporaryDirectory(prefix="runtime test ") as directory:
