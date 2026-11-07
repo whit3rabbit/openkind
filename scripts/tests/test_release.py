@@ -64,6 +64,7 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(release.digest(root / "architecture.rs"), source_digest)
             self.assertEqual(result["package_sha256"], "pinned")
             self.assertNotIn("dynamic-linking", (root / "Cargo.toml").read_text())
+            self.assertIn('"dynamic-loading"', (root / "Cargo.toml").read_text())
             self.assertIn('"driver"', (root / "Cargo.toml").read_text())
             checksums = json.loads((root / ".cargo-checksum.json").read_text())
             self.assertEqual(checksums["files"]["Cargo.toml"], release.digest(root / "Cargo.toml"))

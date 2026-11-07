@@ -47,14 +47,19 @@ def extract(archive, destination):
 
 
 def patch_cuda_manifest(directory):
-    """Only remove redundant link declarations. CUDA APIs already use libloading."""
+    """Swap cudarc's link-time CUDA for runtime loading. No source edits.
+
+    candle-core turns off cudarc's defaults and selects `dynamic-linking`.
+    cudarc 0.19 requires exactly one linking mode, so the patch selects its
+    default `dynamic-loading` (libloading at run time) instead of removing
+    the feature."""
     manifest = directory / "Cargo.toml"
     original_bytes = manifest.read_bytes()
     original = original_bytes.decode()
     marker = '    "dynamic-linking",\n'
     if original.count(marker) != 1:
         raise ValueError("pinned candle-core CUDA manifest changed; review the override")
-    manifest.write_text(original.replace(marker, ""), newline="\n")
+    manifest.write_text(original.replace(marker, '    "dynamic-loading",\n'), newline="\n")
     checksums_path = directory / ".cargo-checksum.json"
     checksums = json.loads(checksums_path.read_text())
     checksums["files"]["Cargo.toml"] = digest(manifest)
@@ -63,7 +68,7 @@ def patch_cuda_manifest(directory):
             "package_sha256": checksums["package"],
             "original_manifest_sha256": hashlib.sha256(original_bytes).hexdigest(),
             "patched_manifest_sha256": digest(manifest),
-            "change": "remove cudarc dynamic-linking feature; no architecture source edits"}
+            "change": "cudarc dynamic-linking -> dynamic-loading; no architecture source edits"}
 
 
 def prepare_cuda(vendor_dir):
