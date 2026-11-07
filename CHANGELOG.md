@@ -22,6 +22,9 @@
 
 ### Changed
 
+- Minimum supported Rust version raised from 1.90 to 1.94. candle-core 0.11.1
+  calls `__cpuid_count` without `unsafe` on x86_64, which compiles only from
+  Rust 1.94. The published 0.4.0 crates still build on 1.90.
 - `half` is no longer capped below 2.5. Evidence records now name
   `candle-core 0.11.1` as the backend implementation.
 

@@ -363,7 +363,7 @@ The new mixed-task Qwen3.5 decision LoRA trainer has been checked with tiny mode
 
 ### Build from source
 
-To build from source, install Rust 1.90 or newer and the Protocol Buffers compiler (`protoc`):
+To build from source, install Rust 1.94 or newer and the Protocol Buffers compiler (`protoc`):
 
 ```bash
 git clone https://github.com/whit3rabbit/openkind.git
