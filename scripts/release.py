@@ -59,7 +59,7 @@ def patch_cuda_manifest(directory):
     checksums = json.loads(checksums_path.read_text())
     checksums["files"]["Cargo.toml"] = digest(manifest)
     checksums_path.write_text(json.dumps(checksums, sort_keys=True))
-    return {"crate": "candle-core", "version": "0.8.0",
+    return {"crate": "candle-core", "version": directory.name.removeprefix("candle-core-"),
             "package_sha256": checksums["package"],
             "original_manifest_sha256": hashlib.sha256(original_bytes).hexdigest(),
             "patched_manifest_sha256": digest(manifest),
@@ -70,7 +70,12 @@ def prepare_cuda(vendor_dir):
     vendor_dir = vendor_dir.resolve()
     config = subprocess.run(["cargo", "vendor", "--locked", "--versioned-dirs", str(vendor_dir)],
                             cwd=ROOT, check=True, text=True, stdout=subprocess.PIPE).stdout
-    override = patch_cuda_manifest(vendor_dir / "candle-core-0.8.0")
+    # The vendored directory name carries the locked version, so a candle pin
+    # bump cannot leave a stale hardcoded path behind.
+    candidates = sorted(vendor_dir.glob("candle-core-*"))
+    if len(candidates) != 1:
+        raise ValueError(f"expected one vendored candle-core, found {len(candidates)}")
+    override = patch_cuda_manifest(candidates[0])
     config_path = ROOT / "target/release-cargo-config.toml"
     config_path.write_text(config)
     (ROOT / "target/cuda-build-override.json").write_text(json.dumps(override, indent=2) + "\n")
