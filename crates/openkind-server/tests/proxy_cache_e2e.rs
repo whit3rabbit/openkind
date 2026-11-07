@@ -317,10 +317,26 @@ async fn drive(base: &str, upstream_log: &std::sync::Arc<UpstreamLog>) -> Result
         "served label {}",
         choice.choice
     );
+    // Confidence is the peakedness of the served distribution:
+    // (max - 1/K) / (1 - 1/K). Check that definition exactly rather than a
+    // magnitude. How peaked the first promoted student is depends on how far
+    // training got before the first local answer, which varies with runner
+    // speed (CI saw 0.77 where fast hosts see over 0.8).
+    let options = choice.probabilities.len() as f64;
+    let top = choice
+        .probabilities
+        .values()
+        .copied()
+        .fold(f64::NEG_INFINITY, f64::max);
+    let peakedness = (top - 1.0 / options) / (1.0 - 1.0 / options);
     assert!(
-        choice.confidence > 0.8,
-        "reported confidence {} should be the peakedness",
+        (choice.confidence - peakedness).abs() < 1e-9,
+        "reported confidence {} should be the peakedness {peakedness}",
         choice.confidence
+    );
+    assert!(
+        peakedness > 0.5,
+        "a promoted student should clearly prefer one label: {peakedness}"
     );
     let probability_sum: f64 = choice.probabilities.values().sum();
     assert!(
