@@ -665,13 +665,30 @@ mod tests {
         let statuses = ready(&[Backend::MlxFp32, Backend::Onnx, Backend::NativeCpu]);
         let root = tempfile::tempdir().unwrap();
         std::fs::write(root.path().join("model.onnx"), []).unwrap();
+        // MLX builds offer MLX first for these families (d3 has an MLX
+        // path). Families without one fall back through a recoverable
+        // `ExecutionUnavailable`; ONNX stays excluded either way.
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        let expected = vec![Backend::MlxFp32, Backend::NativeCpu];
+        #[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
+        let expected = vec![Backend::NativeCpu];
         assert_eq!(
             candidates(CudaOnlyBackendArg::Auto, root.path(), &statuses)
                 .iter()
                 .map(|s| s.backend())
                 .collect::<Vec<_>>(),
-            [Backend::NativeCpu]
+            expected
         );
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        {
+            let error = CudaOnlyBackendArg::Mlx
+                .to_execution(crate::args::DeviceOrdinals::default())
+                .expect_err("mlx has no candle device");
+            assert!(
+                recoverable(&error),
+                "auto must fall back past mlx: {error:#}"
+            );
+        }
         #[cfg(not(feature = "onnx"))]
         assert!(
             candidates(crate::args::FamilyBackendArg::Auto, root.path(), &statuses,).is_empty()

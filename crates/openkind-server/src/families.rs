@@ -1583,6 +1583,18 @@ impl FamilyArgs {
             ))?;
             let engine: Arc<dyn DecisionEngine> =
                 crate::backend::load(self.d3_backend, &model_root, devices, |backend| {
+                    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                    if matches!(backend, crate::args::CudaOnlyBackendArg::Mlx) {
+                        return Ok(Arc::new(
+                            openkind_backends::families::d3::D3MlxEngine::load(D3EngineConfig {
+                                profile,
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            })
+                            .context("load d3 mlx engine")?,
+                        ) as Arc<dyn DecisionEngine>);
+                    }
+                    let _ = &model_root;
                     Ok(Arc::new(
                         D3Engine::load_with_execution(
                             D3EngineConfig {

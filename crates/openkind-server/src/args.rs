@@ -564,8 +564,8 @@ impl FamilyBackendArg {
     }
 }
 
-/// Backend choices for families whose readout has no ONNX export: CPU or
-/// CUDA only.
+/// Backend choices for families whose readout has no ONNX export: CPU,
+/// CUDA, and — on macOS arm64 with the optional feature — MLX.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub(crate) enum CudaOnlyBackendArg {
     /// Prefer a ready compatible accelerator, falling back during loading.
@@ -575,6 +575,10 @@ pub(crate) enum CudaOnlyBackendArg {
     /// Candle FP32 CUDA backend (`cuda` feature, `--cuda-device` ordinal).
     #[cfg(feature = "cuda")]
     Cuda,
+    /// MLX backend on macOS arm64 (`mlx` feature). d3 profiles execute
+    /// FP32, except d3-flash which quantizes to affine 4-bit at load.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    Mlx,
 }
 
 impl CudaOnlyBackendArg {
@@ -591,6 +595,18 @@ impl CudaOnlyBackendArg {
             Self::Cuda => Ok(openkind_backends::device::FamilyExecution::Cuda {
                 device_id: devices.cuda,
             }),
+            // MLX never resolves to a candle device: the d3 loader branches
+            // on the selection before candle execution. Families without an
+            // MLX path reach this arm under `auto`, so the error is the typed
+            // `ExecutionUnavailable` the loader treats as recoverable, and
+            // selection falls back to CPU instead of failing the load.
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            Self::Mlx => Err(
+                openkind_backends::families::support::FamilyError::ExecutionUnavailable(
+                    "this family has no MLX execution path; select cpu or cuda".to_owned(),
+                )
+                .into(),
+            ),
         }
     }
 }
@@ -840,6 +856,8 @@ impl crate::backend::Selector for CudaOnlyBackendArg {
             Self::NativeCpu => crate::backend::Backend::NativeCpu,
             #[cfg(feature = "cuda")]
             Self::Cuda => crate::backend::Backend::Cuda,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            Self::Mlx => crate::backend::Backend::MlxFp32,
         }
     }
     fn from_backend(backend: crate::backend::Backend) -> Option<Self> {

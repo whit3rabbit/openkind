@@ -30,23 +30,23 @@ struct Inner {
 
 /// One scoring row of a planned question: the rendered prompt, the number
 /// of code logits to read, and the option texts that fix the code order.
-struct PlannedRow {
-    row: RenderedRow,
-    code_count: usize,
+pub(crate) struct PlannedRow {
+    pub(crate) row: RenderedRow,
+    pub(crate) code_count: usize,
 }
 
 /// The rows of one planned question plus its unpacked wire form.
-struct PlannedQuestion {
-    unpacked: wire::UnpackedQuestion,
-    rows: Vec<PlannedRow>,
+pub(crate) struct PlannedQuestion {
+    pub(crate) unpacked: wire::UnpackedQuestion,
+    pub(crate) rows: Vec<PlannedRow>,
 }
 
 /// Every question of one request, validated, rendered, and budget-checked.
-struct PlannedRequest {
+pub(crate) struct PlannedRequest {
     /// `(question id, plan)` in sorted question-id order.
-    questions: Vec<(String, PlannedQuestion)>,
+    pub(crate) questions: Vec<(String, PlannedQuestion)>,
     /// Sum of every planned row's prompt tokens (the usage count).
-    input_tokens: u64,
+    pub(crate) input_tokens: u64,
 }
 
 /// Plan the scoring rows of one wire question (reference
@@ -210,7 +210,7 @@ fn plan_request(
 
 /// [`plan_request`] over a request whose state and questions are already
 /// owned, so serving a request moves them instead of copying.
-fn plan_owned_request(
+pub(crate) fn plan_owned_request(
     profile: &D3Profile,
     renderer: &D3Renderer,
     state: serde_json::Value,
@@ -284,6 +284,31 @@ pub fn plan_prompt_ids(
         .collect()
 }
 
+/// Score one planned question through a code-logits closure: forward every
+/// row, temperature-softmax the code logits restricted to the offered codes,
+/// and assemble the wire answer. Shared by every execution backend; the
+/// closure owns its model's control checks.
+pub(crate) fn score_planned_question(
+    profile: &D3Profile,
+    planned: PlannedQuestion,
+    control: &FamilyControl,
+    mut code_logits: impl FnMut(&[u32], usize) -> Result<Vec<f64>, FamilyError>,
+) -> Result<openkind_core::Answer, FamilyError> {
+    let mut row_probabilities = Vec::with_capacity(planned.rows.len());
+    for planned_row in &planned.rows {
+        control.check()?;
+        let logits = code_logits(planned_row.row.prompt_ids(), planned_row.code_count)?;
+        row_probabilities.push(temperature_softmax(&logits, profile.temperature)?);
+    }
+    // Every pinned question type reads exactly one row whose
+    // distribution is the answer.
+    let probabilities = row_probabilities
+        .into_iter()
+        .next()
+        .ok_or_else(|| FamilyError::InvalidInput("question planned no rows".to_owned()))?;
+    wire::answer_from_probabilities(&planned.unpacked, &probabilities)
+}
+
 impl Inner {
     /// Score one planned question: forward every row, temperature-softmax
     /// the code logits restricted to the offered codes, and assemble the
@@ -293,24 +318,29 @@ impl Inner {
         planned: PlannedQuestion,
         control: &FamilyControl,
     ) -> Result<openkind_core::Answer, FamilyError> {
-        let mut row_probabilities = Vec::with_capacity(planned.rows.len());
-        for planned_row in &planned.rows {
-            control.check()?;
-            let logits = self.model.code_logits(
-                planned_row.row.prompt_ids(),
-                planned_row.code_count,
-                control,
-            )?;
-            row_probabilities.push(temperature_softmax(&logits, self.profile.temperature)?);
-        }
-        // Every pinned question type reads exactly one row whose
-        // distribution is the answer.
-        let probabilities = row_probabilities
-            .into_iter()
-            .next()
-            .ok_or_else(|| FamilyError::InvalidInput("question planned no rows".to_owned()))?;
-        wire::answer_from_probabilities(&planned.unpacked, &probabilities)
+        score_planned_question(self.profile, planned, control, |prompt_ids, count| {
+            self.model.code_logits(prompt_ids, count, control)
+        })
     }
+}
+
+/// Verify the pinned `decision_config.json` and build the family renderer
+/// over the verified tokenizer. Shared by every execution backend.
+pub(crate) fn load_renderer(
+    model_root: &std::path::Path,
+    artifacts: &super::model::VerifiedArtifacts,
+    profile: &D3Profile,
+) -> Result<D3Renderer, FamilyError> {
+    let decision_config: serde_json::Value =
+        crate::families::support::read_json(&model_root.join("decision_config.json"))?;
+    let pinned_codes: Vec<String> = decode_strings(&decision_config["codes"])?;
+    let pinned_token_ids: Vec<u64> = decode_numbers(&decision_config["token_ids"])?;
+    D3Renderer::load(
+        &artifacts.tokenizer,
+        &pinned_codes,
+        &pinned_token_ids,
+        profile,
+    )
 }
 
 /// The wire instructions payload of one question, ready for the renderer's
@@ -341,16 +371,7 @@ impl D3Engine {
         execution: crate::device::FamilyExecution,
     ) -> Result<BoundedFamilyEngine, D3Error> {
         let artifacts = VerifiedArtifacts::verify(&config.model_root, config.profile)?;
-        let decision_config: serde_json::Value =
-            crate::families::support::read_json(&config.model_root.join("decision_config.json"))?;
-        let pinned_codes: Vec<String> = decode_strings(&decision_config["codes"])?;
-        let pinned_token_ids: Vec<u64> = decode_numbers(&decision_config["token_ids"])?;
-        let renderer = D3Renderer::load(
-            &artifacts.tokenizer,
-            &pinned_codes,
-            &pinned_token_ids,
-            config.profile,
-        )?;
+        let renderer = load_renderer(&config.model_root, &artifacts, config.profile)?;
         let backend_id: String = match execution {
             crate::device::FamilyExecution::Cpu => config.profile.cpu_backend_id.to_owned(),
             #[cfg(feature = "cuda")]

@@ -640,19 +640,41 @@ fn load_installed_explicit(
             )
             .context("load decider-4b engine")?,
         ),
-        InstalledKind::D3(profile) => Arc::new(
-            D3Engine::load_with_execution(
-                D3EngineConfig {
-                    profile,
-                    model_root: root.join("checkpoint"),
-                    limits,
-                },
-                args.family_args
-                    .d3_backend
-                    .to_execution(args.device_ordinals())?,
-            )
-            .context("load d3 engine")?,
-        ),
+        // A labeled block, so the cfg removes only the MLX statement. A cfg on
+        // an `if`/`else` expression would also remove the CPU branch.
+        // Without the mlx feature the label has no `break`.
+        #[allow(unused_labels)]
+        InstalledKind::D3(profile) => 'd3: {
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            if matches!(
+                args.family_args.d3_backend,
+                crate::args::CudaOnlyBackendArg::Mlx
+            ) {
+                break 'd3 Arc::new(
+                    openkind_backends::families::d3::D3MlxEngine::load(D3EngineConfig {
+                        profile,
+                        model_root: root.join("checkpoint"),
+                        limits,
+                    })
+                    .context("load d3 mlx engine")?,
+                ) as Arc<dyn DecisionEngine>;
+            }
+            {
+                Arc::new(
+                    D3Engine::load_with_execution(
+                        D3EngineConfig {
+                            profile,
+                            model_root: root.join("checkpoint"),
+                            limits,
+                        },
+                        args.family_args
+                            .d3_backend
+                            .to_execution(args.device_ordinals())?,
+                    )
+                    .context("load d3 engine")?,
+                )
+            }
+        }
         InstalledKind::Sieve(profile) => Arc::new(
             SieveEngine::load_with_execution(
                 SieveEngineConfig {
