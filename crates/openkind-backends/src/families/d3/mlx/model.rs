@@ -59,7 +59,7 @@ pub(super) enum MlxWeight {
     Dense(Array),
 }
 
-fn mlx_error(operation: &'static str) -> impl Fn(mlx_rs::error::Exception) -> FamilyError {
+fn mlx_error<E: std::fmt::Display>(operation: &'static str) -> impl Fn(E) -> FamilyError {
     move |error| FamilyError::Mlx(format!("{operation}: {error}"))
 }
 
@@ -264,7 +264,14 @@ impl D3MlxModel {
             )?;
             let gate = self.project(&format!("{prefix}.mlp.gate_proj.weight"), &post)?;
             let up = self.project(&format!("{prefix}.mlp.up_proj.weight"), &post)?;
-            let activated = mlx_rs::nn::silu(&gate).map_err(mlx_error("mlp silu"))? * up;
+            let activated = if gate.dtype() == mlx_rs::Dtype::Float32
+                && crate::qwen35::mlx::layers::fused_swiglu_enabled()
+            {
+                crate::qwen35::mlx::layers::fused_swiglu(&gate, &up)
+                    .map_err(mlx_error("mlp swiglu"))?
+            } else {
+                mlx_rs::nn::silu(&gate).map_err(mlx_error("mlp silu"))? * up
+            };
             let down = self.project(&format!("{prefix}.mlp.down_proj.weight"), &activated)?;
             hidden = mixed + down;
             // Materialize per layer so no forward graph spans more than one
@@ -514,6 +521,44 @@ impl D3MlxModel {
         let a_log = host_vector(&format!("{prefix}.linear_attn.A_log"), value_heads)?;
         let delta_norm = host_vector(&format!("{prefix}.linear_attn.norm.weight"), head_dim)?;
 
+        if value_heads == 32
+            && key_heads == 16
+            && head_dim == 128
+            && kernel == 4
+            && raw_qkv.dtype() == mlx_rs::Dtype::Float32
+            && matches!(
+                crate::qwen35::mlx::MlxGatedDeltaKernel::default(),
+                crate::qwen35::mlx::MlxGatedDeltaKernel::MetalSimd
+            )
+        {
+            let zeros_conv = vec![0_f32; qkv_size * kernel];
+            let conv = Array::from_slice(&zeros_conv, &[qkv_size as i32, kernel as i32]);
+            let zeros_recurrent = vec![0_f32; value_heads * head_dim * head_dim];
+            let recurrent = Array::from_slice(
+                &zeros_recurrent,
+                &[value_heads as i32, head_dim as i32, head_dim as i32],
+            );
+            let conv1d_2d = conv1d
+                .reshape(&[qkv_size as i32, kernel as i32])
+                .map_err(mlx_error("conv1d reshape"))?;
+            let (mixed, _state) = crate::qwen35::mlx::layers::forward_hoisted_gated_delta(
+                token_count,
+                &raw_qkv,
+                &z_all,
+                &beta_all,
+                &decay_all,
+                &conv1d_2d,
+                &dt_bias,
+                &a_log,
+                &delta_norm,
+                &conv,
+                recurrent,
+                crate::qwen35::mlx::MlxGatedDeltaKernel::MetalSimd,
+            )
+            .map_err(mlx_error("hoisted gated delta"))?;
+            return self.project(&format!("{prefix}.linear_attn.out_proj.weight"), &mixed);
+        }
+
         let zeros_conv = vec![0_f32; qkv_size * kernel];
         let mut conv = Array::from_slice(&zeros_conv, &[qkv_size as i32, kernel as i32]);
         let zeros_recurrent = vec![0_f32; value_heads * head_dim * head_dim];
@@ -722,6 +767,20 @@ fn apply_rotary(
 ) -> Result<Array, FamilyError> {
     let dims = values.shape();
     let heads = dims[1];
+    let head_dim = *dims.last().expect("head dim") as usize;
+    if rotary_dim == 64
+        && head_dim == 256
+        && values.dtype() == mlx_rs::Dtype::Float32
+        && crate::qwen35::mlx::layers::fused_rope_enabled()
+    {
+        return crate::qwen35::mlx::layers::fused_apply_rotary(
+            values,
+            token_count,
+            0,
+            heads as usize,
+        )
+        .map_err(mlx_error("fused rope"));
+    }
     let half = (rotary_dim / 2) as i32;
     let mut cos_rows = Vec::with_capacity(token_count);
     let mut sin_rows = Vec::with_capacity(token_count);

@@ -41,24 +41,7 @@ pub(crate) fn layer_norm_weight_only(
     weight: &Array,
     eps: f64,
 ) -> Result<Array, MlxError> {
-    let centered = input
-        .subtract(&input.mean_axis(-1, true).map_err(op("norm mean"))?)
-        .map_err(op("norm center"))?;
-    let variance = centered
-        .square()
-        .map_err(op("norm square"))?
-        .mean_axis(-1, true)
-        .map_err(op("norm variance"))?;
-    let normalized = centered
-        .divide(
-            &variance
-                .add(scalar(eps as f32))
-                .map_err(op("norm eps"))?
-                .sqrt()
-                .map_err(op("norm sqrt"))?,
-        )
-        .map_err(op("norm normalize"))?;
-    normalized.multiply(weight).map_err(op("norm scale"))
+    mlx_rs::fast::layer_norm(input, Some(weight), None, eps as f32).map_err(op("fast layer norm"))
 }
 
 /// Biased LayerNorm used by family heads (`nn.LayerNorm` semantics):
@@ -69,9 +52,8 @@ pub(crate) fn layer_norm_biased(
     bias: &Array,
     eps: f64,
 ) -> Result<Array, MlxError> {
-    layer_norm_weight_only(input, weight, eps)?
-        .add(bias)
-        .map_err(op("head norm bias"))
+    mlx_rs::fast::layer_norm(input, Some(weight), Some(bias), eps as f32)
+        .map_err(op("fast biased layer norm"))
 }
 
 /// Exact erf-based GELU, matching candle's `Activation::Gelu`:
@@ -563,5 +545,67 @@ impl ModernBertMlx {
             )?;
         }
         layer_norm_weight_only(&xs, &self.final_norm, self.norm_eps)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_fast_layer_norm_matches_reference() {
+        let input_vals: Vec<f32> = (0..64 * 768).map(|i| ((i as f32) * 0.017).sin()).collect();
+        let weight_vals: Vec<f32> = (0..768)
+            .map(|i| 1.0 + ((i as f32) * 0.031).cos() * 0.1)
+            .collect();
+        let bias_vals: Vec<f32> = (0..768)
+            .map(|i| ((i as f32) * 0.023).sin() * 0.05)
+            .collect();
+
+        let input = Array::from_slice(&input_vals, &[64, 768]);
+        let weight = Array::from_slice(&weight_vals, &[768]);
+        let bias = Array::from_slice(&bias_vals, &[768]);
+        let eps = 1e-5;
+
+        // Reference weight-only
+        let centered = input.subtract(input.mean_axis(-1, true).unwrap()).unwrap();
+        let variance = centered.square().unwrap().mean_axis(-1, true).unwrap();
+        let normalized = centered
+            .divide(variance.add(scalar(eps as f32)).unwrap().sqrt().unwrap())
+            .unwrap();
+        let ref_weight_only = normalized.multiply(&weight).unwrap();
+        let ref_biased = ref_weight_only.add(&bias).unwrap();
+
+        // Fast layer_norm
+        let fast_weight_only = layer_norm_weight_only(&input, &weight, eps).unwrap();
+        let fast_biased = layer_norm_biased(&input, &weight, &bias, eps).unwrap();
+
+        fast_weight_only.eval().unwrap();
+        ref_weight_only.eval().unwrap();
+        fast_biased.eval().unwrap();
+        ref_biased.eval().unwrap();
+
+        let fast_wo_v = fast_weight_only.to_vec_cast::<f32>().unwrap();
+        let ref_wo_v = ref_weight_only.to_vec_cast::<f32>().unwrap();
+        let fast_b_v = fast_biased.to_vec_cast::<f32>().unwrap();
+        let ref_b_v = ref_biased.to_vec_cast::<f32>().unwrap();
+
+        let mut max_diff_wo = 0.0_f32;
+        for (a, b) in fast_wo_v.iter().zip(&ref_wo_v) {
+            max_diff_wo = max_diff_wo.max((a - b).abs());
+        }
+        assert!(
+            max_diff_wo < 1e-5,
+            "weight-only layer norm deviation: {max_diff_wo}"
+        );
+
+        let mut max_diff_b = 0.0_f32;
+        for (a, b) in fast_b_v.iter().zip(&ref_b_v) {
+            max_diff_b = max_diff_b.max((a - b).abs());
+        }
+        assert!(
+            max_diff_b < 1e-5,
+            "biased layer norm deviation: {max_diff_b}"
+        );
     }
 }

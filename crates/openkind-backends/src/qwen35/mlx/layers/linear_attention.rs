@@ -201,213 +201,24 @@ impl LinearAttention {
         beta_all: &Array,
         decay_all: &Array,
         conv: &Array,
-        mut recurrent: Array,
+        recurrent: Array,
     ) -> Result<(Array, MlxLayerState), MlxError> {
-        let row_count = rows as i32;
-        let (qkv, next_conv) =
-            if self.gated_delta_kernel == MlxGatedDeltaKernel::MetalSimd && fused_conv_enabled() {
-                fused_causal_conv_silu(raw_qkv, conv, &self.conv1d)?
-            } else {
-                // Window `row` holds the K raw inputs ending at that row. Stacking the
-                // carried window's columns above the new rows makes tap `j` of row
-                // `r` the extended row at `r + 1 + j`.
-                let extended = concatenate(
-                    &[
-                        &conv.clone().transpose().map_err(op("hoisted conv t"))?,
-                        raw_qkv,
-                    ],
-                    0,
-                )
-                .map_err(op("hoisted conv extend"))?;
-                let taps = (0..CONV_KERNEL)
-                    .map(|tap| {
-                        let indices: Vec<u32> =
-                            (tap + 1..tap + 1 + rows).map(|row| row as u32).collect();
-                        extended
-                            .take_axis(Array::from_slice(&indices, &[row_count]), 0)
-                            .map_err(op("hoisted conv tap"))
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                let windows = stack(&taps, 2).map_err(op("hoisted conv windows"))?;
-                let summed = windows
-                    .mul(&self.conv1d)
-                    .sum_axis(2, false)
-                    .map_err(op("hoisted conv sum"))?;
-                let qkv = mlx_rs::nn::silu(&summed).map_err(op("hoisted conv silu"))?;
-                // The carried window after the last row: the final K extended rows.
-                let tail: Vec<u32> = (rows..rows + CONV_KERNEL).map(|row| row as u32).collect();
-                let next_conv = extended
-                    .take_axis(Array::from_slice(&tail, &[CONV_KERNEL as i32]), 0)
-                    .map_err(op("hoisted conv tail"))?
-                    .transpose()
-                    .map_err(op("hoisted conv tail t"))?
-                    .contiguous()
-                    .map_err(op("hoisted conv tail contiguous"))?;
-                (qkv, next_conv)
-            };
-
-        // Per-row inputs of the recurrence, prepared for every row at once.
-        let (query_hat, key_hat, value) =
-            if self.gated_delta_kernel == MlxGatedDeltaKernel::MetalSimd && fused_qk_norm_enabled()
-            {
-                fused_qk_norm_split_expand(&qkv, RMS_EPSILON)?
-            } else {
-                let query_scale = (HEAD_DIM as f32).sqrt().recip();
-                let parts = qkv
-                    .split_at_indices(&[KEY_SIZE as i32, (2 * KEY_SIZE) as i32], 1)
-                    .map_err(op("hoisted qkv split"))?;
-                let query = parts[0]
-                    .clone()
-                    .reshape(&[row_count, KEY_HEADS as i32, HEAD_DIM as i32])
-                    .map_err(op("hoisted q reshape"))?;
-                let key = parts[1]
-                    .clone()
-                    .reshape(&[row_count, KEY_HEADS as i32, HEAD_DIM as i32])
-                    .map_err(op("hoisted k reshape"))?;
-                let value = parts[2]
-                    .clone()
-                    .reshape(&[row_count, VALUE_HEADS as i32, HEAD_DIM as i32])
-                    .map_err(op("hoisted v reshape"))?;
-                let q_sq = query
-                    .clone()
-                    .square()
-                    .map_err(op("hoisted q square"))?
-                    .sum_axis(2, true)
-                    .map_err(op("hoisted q sum"))?;
-                let k_sq = key
-                    .clone()
-                    .square()
-                    .map_err(op("hoisted k square"))?
-                    .sum_axis(2, true)
-                    .map_err(op("hoisted k sum"))?;
-                let query_norm = recip_sqrt_eps(&q_sq)?.mul(scalar_like(&q_sq, query_scale));
-                let key_norm = recip_sqrt_eps(&k_sq)?;
-                let query_hat = repeat_heads_rows(&query)?.mul(&repeat_heads_rows(&query_norm)?);
-                let key_hat = repeat_heads_rows(&key)?.mul(&repeat_heads_rows(&key_norm)?);
-                (query_hat, key_hat, value)
-            };
-        let beta = mlx_rs::nn::sigmoid(beta_all).map_err(op("hoisted beta sigmoid"))?;
-        let dt = decay_all.clone().add(&self.dt_bias);
-        let softplus = maximum(&dt, scalar_like(&dt, 0.0))
-            .map_err(op("hoisted dt maximum"))?
-            .add(
-                &dt.abs()
-                    .map_err(op("hoisted dt abs"))?
-                    .negative()
-                    .map_err(op("hoisted dt abs negate"))?
-                    .exp()
-                    .map_err(op("hoisted dt exp"))?
-                    .log1p()
-                    .map_err(op("hoisted dt log1p"))?,
-            );
-        let gate = self
-            .a_log
-            .clone()
-            .exp()
-            .map_err(op("hoisted a_log exp"))?
-            .mul(&softplus)
-            .negative()
-            .map_err(op("hoisted decay negate"))?
-            .exp()
-            .map_err(op("hoisted decay exp"))?;
-
-        let core = if self.gated_delta_kernel == MlxGatedDeltaKernel::MetalSimd {
-            // One launch walks every row with the state in registers.
-            let (core, next_state) = simd_gated_delta_sequence_128(
-                &query_hat, &key_hat, &value, &beta, &gate, &recurrent,
-            )?;
-            recurrent = next_state;
-            core
-        } else {
-            self.hoisted_reference_recurrence(
-                rows,
-                &query_hat,
-                &key_hat,
-                &value,
-                &beta,
-                &gate,
-                &mut recurrent,
-            )?
-        };
-        let z = z_all
-            .clone()
-            .reshape(&[row_count, VALUE_HEADS as i32, HEAD_DIM as i32])
-            .map_err(op("hoisted z reshape"))?;
-        let mixed = if self.gated_delta_kernel == MlxGatedDeltaKernel::MetalSimd
-            && fused_gated_norm_enabled()
-        {
-            fused_gated_norm_silu(&core, &z, &self.delta_norm, RMS_EPSILON)?
-        } else {
-            fast::rms_norm(&core, Some(&self.delta_norm), RMS_EPSILON)
-                .map_err(op("hoisted delta norm"))?
-                .mul(&mlx_rs::nn::silu(&z).map_err(op("hoisted z silu"))?)
-                .reshape(&[row_count, VALUE_SIZE as i32])
-                .map_err(op("hoisted mixed reshape"))?
-        };
+        let (mixed, state) = forward_hoisted_gated_delta(
+            rows,
+            raw_qkv,
+            z_all,
+            beta_all,
+            decay_all,
+            &self.conv1d,
+            &self.dt_bias,
+            &self.a_log,
+            &self.delta_norm,
+            conv,
+            recurrent,
+            self.gated_delta_kernel,
+        )?;
         let output = linear(&mixed, &self.out_proj)?;
-        Ok((
-            output,
-            MlxLayerState::Linear(MlxLinearState {
-                conv: next_conv,
-                recurrent,
-            }),
-        ))
-    }
-
-    /// The reference sequential part: advance the state one row at a time
-    /// through [`reference_gated_delta`], exactly as the row loop does.
-    #[allow(clippy::too_many_arguments)]
-    fn hoisted_reference_recurrence(
-        &self,
-        rows: usize,
-        query_hat: &Array,
-        key_hat: &Array,
-        value: &Array,
-        beta: &Array,
-        gate: &Array,
-        recurrent: &mut Array,
-    ) -> Result<Array, MlxError> {
-        let row_count = rows as i32;
-        let boundaries: Vec<i32> = (1..row_count).collect();
-        let split_rows = |array: &Array| -> Result<Vec<Array>, MlxError> {
-            array
-                .split_at_indices(&boundaries, 0)
-                .map_err(op("hoisted row split"))
-        };
-        let (queries, keys, values) = (
-            split_rows(query_hat)?,
-            split_rows(key_hat)?,
-            split_rows(value)?,
-        );
-        let (betas, gates) = (split_rows(beta)?, split_rows(gate)?);
-        let heads_shape = [VALUE_HEADS as i32, HEAD_DIM as i32];
-        let mut outputs = Vec::with_capacity(rows);
-        for row in 0..rows {
-            let (out, next_state) = reference_gated_delta(
-                &queries[row]
-                    .reshape(&heads_shape)
-                    .map_err(op("hoisted query row"))?,
-                &keys[row]
-                    .reshape(&heads_shape)
-                    .map_err(op("hoisted key row"))?,
-                &values[row]
-                    .reshape(&heads_shape)
-                    .map_err(op("hoisted value row"))?,
-                &betas[row]
-                    .reshape(&[VALUE_HEADS as i32])
-                    .map_err(op("hoisted beta row"))?,
-                &gates[row]
-                    .reshape(&[VALUE_HEADS as i32])
-                    .map_err(op("hoisted gate row"))?,
-                recurrent,
-            )?;
-            *recurrent = next_state;
-            outputs.push(
-                out.reshape(&[1, VALUE_HEADS as i32, HEAD_DIM as i32])
-                    .map_err(op("hoisted output row"))?,
-            );
-        }
-        concatenate(&outputs, 0).map_err(op("hoisted output join"))
+        Ok((output, MlxLayerState::Linear(state)))
     }
 
     /// Vectorized lane-axis continuation using reference array operations.
@@ -573,6 +384,231 @@ impl LinearAttention {
             MlxLayerState::Linear(MlxLinearState { conv, recurrent }),
         ))
     }
+}
+
+/// The per-row loop with its row-independent work done once over all rows.
+///
+/// The causal convolution window, the q/k/v split and L2 norms, the gate
+/// and beta math, and the output norm and SiLU gate never read the
+/// recurrent state, so each runs as one array operation over `[rows, ...]`
+/// instead of `rows` times over one row. Only the state update stays
+/// sequential, through the same [`reference_gated_delta`] as the loop (or
+/// [`simd_gated_delta_sequence_128`]).
+/// Every elementwise operation, reduction axis, and matmul shape is the
+/// one the loop uses per row, so outputs and states are bit-identical to
+/// it (see the differential tests). Rows beyond the first no longer pay
+/// roughly a hundred operations each.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn forward_hoisted_gated_delta(
+    rows: usize,
+    raw_qkv: &Array,
+    z_all: &Array,
+    beta_all: &Array,
+    decay_all: &Array,
+    conv1d: &Array,
+    dt_bias: &Array,
+    a_log: &Array,
+    delta_norm: &Array,
+    conv: &Array,
+    mut recurrent: Array,
+    kernel: MlxGatedDeltaKernel,
+) -> Result<(Array, MlxLinearState), MlxError> {
+    let row_count = rows as i32;
+    let (qkv, next_conv) = if kernel == MlxGatedDeltaKernel::MetalSimd && fused_conv_enabled() {
+        fused_causal_conv_silu(raw_qkv, conv, conv1d)?
+    } else {
+        // Window `row` holds the K raw inputs ending at that row. Stacking the
+        // carried window's columns above the new rows makes tap `j` of row
+        // `r` the extended row at `r + 1 + j`.
+        let extended = concatenate(
+            &[
+                &conv.clone().transpose().map_err(op("hoisted conv t"))?,
+                raw_qkv,
+            ],
+            0,
+        )
+        .map_err(op("hoisted conv extend"))?;
+        let taps = (0..CONV_KERNEL)
+            .map(|tap| {
+                let indices: Vec<u32> = (tap + 1..tap + 1 + rows).map(|row| row as u32).collect();
+                extended
+                    .take_axis(Array::from_slice(&indices, &[row_count]), 0)
+                    .map_err(op("hoisted conv tap"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let windows = stack(&taps, 2).map_err(op("hoisted conv windows"))?;
+        let summed = windows
+            .mul(conv1d)
+            .sum_axis(2, false)
+            .map_err(op("hoisted conv sum"))?;
+        let qkv = mlx_rs::nn::silu(&summed).map_err(op("hoisted conv silu"))?;
+        // The carried window after the last row: the final K extended rows.
+        let tail: Vec<u32> = (rows..rows + CONV_KERNEL).map(|row| row as u32).collect();
+        let next_conv = extended
+            .take_axis(Array::from_slice(&tail, &[CONV_KERNEL as i32]), 0)
+            .map_err(op("hoisted conv tail"))?
+            .transpose()
+            .map_err(op("hoisted conv tail t"))?
+            .contiguous()
+            .map_err(op("hoisted conv tail contiguous"))?;
+        (qkv, next_conv)
+    };
+
+    // Per-row inputs of the recurrence, prepared for every row at once.
+    let (query_hat, key_hat, value) =
+        if kernel == MlxGatedDeltaKernel::MetalSimd && fused_qk_norm_enabled() {
+            fused_qk_norm_split_expand(&qkv, RMS_EPSILON)?
+        } else {
+            let query_scale = (HEAD_DIM as f32).sqrt().recip();
+            let parts = qkv
+                .split_at_indices(&[KEY_SIZE as i32, (2 * KEY_SIZE) as i32], 1)
+                .map_err(op("hoisted qkv split"))?;
+            let query = parts[0]
+                .clone()
+                .reshape(&[row_count, KEY_HEADS as i32, HEAD_DIM as i32])
+                .map_err(op("hoisted q reshape"))?;
+            let key = parts[1]
+                .clone()
+                .reshape(&[row_count, KEY_HEADS as i32, HEAD_DIM as i32])
+                .map_err(op("hoisted k reshape"))?;
+            let value = parts[2]
+                .clone()
+                .reshape(&[row_count, VALUE_HEADS as i32, HEAD_DIM as i32])
+                .map_err(op("hoisted v reshape"))?;
+            let q_sq = query
+                .clone()
+                .square()
+                .map_err(op("hoisted q square"))?
+                .sum_axis(2, true)
+                .map_err(op("hoisted q sum"))?;
+            let k_sq = key
+                .clone()
+                .square()
+                .map_err(op("hoisted k square"))?
+                .sum_axis(2, true)
+                .map_err(op("hoisted k sum"))?;
+            let query_norm = recip_sqrt_eps(&q_sq)?.mul(scalar_like(&q_sq, query_scale));
+            let key_norm = recip_sqrt_eps(&k_sq)?;
+            let query_hat = repeat_heads_rows(&query)?.mul(&repeat_heads_rows(&query_norm)?);
+            let key_hat = repeat_heads_rows(&key)?.mul(&repeat_heads_rows(&key_norm)?);
+            (query_hat, key_hat, value)
+        };
+    let beta = mlx_rs::nn::sigmoid(beta_all).map_err(op("hoisted beta sigmoid"))?;
+    let dt = decay_all.clone().add(dt_bias);
+    let softplus = maximum(&dt, scalar_like(&dt, 0.0))
+        .map_err(op("hoisted dt maximum"))?
+        .add(
+            &dt.abs()
+                .map_err(op("hoisted dt abs"))?
+                .negative()
+                .map_err(op("hoisted dt abs negate"))?
+                .exp()
+                .map_err(op("hoisted dt exp"))?
+                .log1p()
+                .map_err(op("hoisted dt log1p"))?,
+        );
+    let gate = a_log
+        .clone()
+        .exp()
+        .map_err(op("hoisted a_log exp"))?
+        .mul(&softplus)
+        .negative()
+        .map_err(op("hoisted decay negate"))?
+        .exp()
+        .map_err(op("hoisted decay exp"))?;
+
+    let core = if kernel == MlxGatedDeltaKernel::MetalSimd {
+        // One launch walks every row with the state in registers.
+        let (core, next_state) =
+            simd_gated_delta_sequence_128(&query_hat, &key_hat, &value, &beta, &gate, &recurrent)?;
+        recurrent = next_state;
+        core
+    } else {
+        hoisted_reference_recurrence(
+            rows,
+            &query_hat,
+            &key_hat,
+            &value,
+            &beta,
+            &gate,
+            &mut recurrent,
+        )?
+    };
+    let z = z_all
+        .clone()
+        .reshape(&[row_count, VALUE_HEADS as i32, HEAD_DIM as i32])
+        .map_err(op("hoisted z reshape"))?;
+    let mixed = if kernel == MlxGatedDeltaKernel::MetalSimd && fused_gated_norm_enabled() {
+        fused_gated_norm_silu(&core, &z, delta_norm, RMS_EPSILON)?
+    } else {
+        fast::rms_norm(&core, Some(delta_norm), RMS_EPSILON)
+            .map_err(op("hoisted delta norm"))?
+            .mul(&mlx_rs::nn::silu(&z).map_err(op("hoisted z silu"))?)
+            .reshape(&[row_count, VALUE_SIZE as i32])
+            .map_err(op("hoisted mixed reshape"))?
+    };
+    Ok((
+        mixed,
+        MlxLinearState {
+            conv: next_conv,
+            recurrent,
+        },
+    ))
+}
+
+/// The reference sequential part: advance the state one row at a time
+/// through [`reference_gated_delta`], exactly as the row loop does.
+#[allow(clippy::too_many_arguments)]
+fn hoisted_reference_recurrence(
+    rows: usize,
+    query_hat: &Array,
+    key_hat: &Array,
+    value: &Array,
+    beta: &Array,
+    gate: &Array,
+    recurrent: &mut Array,
+) -> Result<Array, MlxError> {
+    let row_count = rows as i32;
+    let boundaries: Vec<i32> = (1..row_count).collect();
+    let split_rows = |array: &Array| -> Result<Vec<Array>, MlxError> {
+        array
+            .split_at_indices(&boundaries, 0)
+            .map_err(op("hoisted row split"))
+    };
+    let (queries, keys, values) = (
+        split_rows(query_hat)?,
+        split_rows(key_hat)?,
+        split_rows(value)?,
+    );
+    let (betas, gates) = (split_rows(beta)?, split_rows(gate)?);
+    let heads_shape = [VALUE_HEADS as i32, HEAD_DIM as i32];
+    let mut outputs = Vec::with_capacity(rows);
+    for row in 0..rows {
+        let (out, next_state) = reference_gated_delta(
+            &queries[row]
+                .reshape(&heads_shape)
+                .map_err(op("hoisted query row"))?,
+            &keys[row]
+                .reshape(&heads_shape)
+                .map_err(op("hoisted key row"))?,
+            &values[row]
+                .reshape(&heads_shape)
+                .map_err(op("hoisted value row"))?,
+            &betas[row]
+                .reshape(&[VALUE_HEADS as i32])
+                .map_err(op("hoisted beta row"))?,
+            &gates[row]
+                .reshape(&[VALUE_HEADS as i32])
+                .map_err(op("hoisted gate row"))?,
+            recurrent,
+        )?;
+        *recurrent = next_state;
+        outputs.push(
+            out.reshape(&[1, VALUE_HEADS as i32, HEAD_DIM as i32])
+                .map_err(op("hoisted output row"))?,
+        );
+    }
+    concatenate(&outputs, 0).map_err(op("hoisted output join"))
 }
 
 fn shift_window_batched(conv: &Array, raw_current: &Array) -> Result<Array, MlxError> {
