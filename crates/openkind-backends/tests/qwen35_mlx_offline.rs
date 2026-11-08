@@ -75,7 +75,7 @@ fn arithmetic_ids_are_distinct_per_precision_and_kernel_family() {
     assert!(MLX_ARITHMETIC_ID_FP32_METAL_TREE.contains("packed-dk128"));
     assert_eq!(
         MlxRuntimeConfig::default().gated_delta_kernel,
-        MlxGatedDeltaKernel::ReferenceOps
+        MlxGatedDeltaKernel::MetalSimd
     );
 }
 
