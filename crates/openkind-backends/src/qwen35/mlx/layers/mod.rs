@@ -31,8 +31,9 @@ mod gated_delta_kernel;
 pub(crate) mod gated_norm_kernel;
 mod linear_attention;
 pub(crate) mod metal_kernel;
-mod ops;
+pub(crate) mod ops;
 pub(crate) mod qk_norm_kernel;
+pub(crate) mod rope_kernel;
 
 #[cfg(all(test, feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
 mod differential_tests;
