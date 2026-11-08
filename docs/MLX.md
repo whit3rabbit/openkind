@@ -497,6 +497,30 @@ $\text{SiLU}(z)$ gating into a single GPU launch per layer:
   - Reduces peak resident memory by **~1.38 GB** (13.44 GB -> 12.06 GB).
 - **Control switch:** enabled by default; toggle with `OPENKIND_QWEN35_MLX_FUSED_GATED_NORM=0` to fall back to separate `fast::rms_norm` and `silu`.
 
+### Fused QK RMSNorm, scaling, and head expansion (TurboSpark kernel integration)
+
+Before the Gated DeltaNet recurrence, raw QKV projections ($D_{qkv} = 8,192$)
+are split into Query ($16 \times 128$), Key ($16 \times 128$), and Value ($32 \times 128$).
+Each query and key head undergoes $L_2$ / RMS normalization, Query is scaled by
+$1 / \sqrt{128} \approx 0.08838835$, and both Query and Key heads are expanded/broadcast
+$2\times$ from 16 to 32 heads to match the 32 value heads.
+
+Previously, this required 15 distinct MLX array operations:
+`split_at_indices` $\to 3 \times$ `reshape` $\to 2 \times$ `square` $\to 2 \times$ `sum_axis` $\to 2 \times$ `recip_sqrt_eps` $\to$ query scaling $\to 4 \times$ `repeat_heads_rows` $\to 2 \times$ `mul`.
+
+A custom Metal kernel derived from TurboSpark's `gdn_qk_norm` in `gdn.metal`
+fuses all 15 operations into a single GPU launch per layer:
+
+- **Launch geometry:** 2D grid `(32 * v_heads, rows, 1)` with threadgroups of 32 threads (one SIMD group per value head).
+- **Direct head mapping & broadcasting:** Each value head $h \in [0, 31]$ loads 4 floats per lane for Query and Key from key head $h_k = \lfloor h / 2 \rfloor \in [0, 15]$.
+- **Coalesced SIMD reduction:** Sum-of-squares is reduced with warp `simd_sum` across 32 lanes, scaled by `rsqrt(sumsq + eps)`, scaled by $1 / \sqrt{128}$ for Query, and written directly with Value into contiguous outputs (`query_hat`, `key_hat`, `value`). Zero threadgroup shared memory and zero threadgroup barriers.
+- **Microbenchmarks** (`print_reference_versus_fused_qk_norm_timing` on Apple M4 Max):
+  - 12 rows: **3.81x faster** (0.683 ms -> 0.179 ms)
+  - 192 rows: **3.49x faster** (0.787 ms -> 0.225 ms)
+  - 1,792 rows: **3.10x faster** (4.489 ms -> 1.450 ms)
+- **Precision:** Bit-identical query outputs and max relative key deviation $\le 3.1 \times 10^{-7}$.
+- **Control switch:** enabled by default; toggle with `OPENKIND_QWEN35_MLX_FUSED_QK_NORM=0` to fall back to the multi-op MLX ops for rollback/diagnostics.
+
 ## Current benchmark decision
 
 The latest recorded comparison uses the 12-row, four-state smoke fixture on a

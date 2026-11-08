@@ -14,6 +14,7 @@ use super::ops::{
     batch_row_of, linear, op, recip_sqrt_eps, repeat_heads, repeat_heads_rows, row_of, scalar_like,
     shift_window, split_last, stack_batch_time, stack_rows, zeros_for_precision,
 };
+use super::qk_norm_kernel::{fused_qk_norm_enabled, fused_qk_norm_split_expand};
 use super::{trace_operation, LayerOperationArrays};
 use super::{
     MlxError, MlxGatedDeltaKernel, MlxLayerState, MlxLinearState, MlxPrecision, CONV_KERNEL,
@@ -246,38 +247,45 @@ impl LinearAttention {
             };
 
         // Per-row inputs of the recurrence, prepared for every row at once.
-        let query_scale = (HEAD_DIM as f32).sqrt().recip();
-        let parts = qkv
-            .split_at_indices(&[KEY_SIZE as i32, (2 * KEY_SIZE) as i32], 1)
-            .map_err(op("hoisted qkv split"))?;
-        let query = parts[0]
-            .clone()
-            .reshape(&[row_count, KEY_HEADS as i32, HEAD_DIM as i32])
-            .map_err(op("hoisted q reshape"))?;
-        let key = parts[1]
-            .clone()
-            .reshape(&[row_count, KEY_HEADS as i32, HEAD_DIM as i32])
-            .map_err(op("hoisted k reshape"))?;
-        let value = parts[2]
-            .clone()
-            .reshape(&[row_count, VALUE_HEADS as i32, HEAD_DIM as i32])
-            .map_err(op("hoisted v reshape"))?;
-        let q_sq = query
-            .clone()
-            .square()
-            .map_err(op("hoisted q square"))?
-            .sum_axis(2, true)
-            .map_err(op("hoisted q sum"))?;
-        let k_sq = key
-            .clone()
-            .square()
-            .map_err(op("hoisted k square"))?
-            .sum_axis(2, true)
-            .map_err(op("hoisted k sum"))?;
-        let query_norm = recip_sqrt_eps(&q_sq)?.mul(scalar_like(&q_sq, query_scale));
-        let key_norm = recip_sqrt_eps(&k_sq)?;
-        let query_hat = repeat_heads_rows(&query)?.mul(&repeat_heads_rows(&query_norm)?);
-        let key_hat = repeat_heads_rows(&key)?.mul(&repeat_heads_rows(&key_norm)?);
+        let (query_hat, key_hat, value) =
+            if self.gated_delta_kernel == MlxGatedDeltaKernel::MetalSimd && fused_qk_norm_enabled()
+            {
+                fused_qk_norm_split_expand(&qkv, RMS_EPSILON)?
+            } else {
+                let query_scale = (HEAD_DIM as f32).sqrt().recip();
+                let parts = qkv
+                    .split_at_indices(&[KEY_SIZE as i32, (2 * KEY_SIZE) as i32], 1)
+                    .map_err(op("hoisted qkv split"))?;
+                let query = parts[0]
+                    .clone()
+                    .reshape(&[row_count, KEY_HEADS as i32, HEAD_DIM as i32])
+                    .map_err(op("hoisted q reshape"))?;
+                let key = parts[1]
+                    .clone()
+                    .reshape(&[row_count, KEY_HEADS as i32, HEAD_DIM as i32])
+                    .map_err(op("hoisted k reshape"))?;
+                let value = parts[2]
+                    .clone()
+                    .reshape(&[row_count, VALUE_HEADS as i32, HEAD_DIM as i32])
+                    .map_err(op("hoisted v reshape"))?;
+                let q_sq = query
+                    .clone()
+                    .square()
+                    .map_err(op("hoisted q square"))?
+                    .sum_axis(2, true)
+                    .map_err(op("hoisted q sum"))?;
+                let k_sq = key
+                    .clone()
+                    .square()
+                    .map_err(op("hoisted k square"))?
+                    .sum_axis(2, true)
+                    .map_err(op("hoisted k sum"))?;
+                let query_norm = recip_sqrt_eps(&q_sq)?.mul(scalar_like(&q_sq, query_scale));
+                let key_norm = recip_sqrt_eps(&k_sq)?;
+                let query_hat = repeat_heads_rows(&query)?.mul(&repeat_heads_rows(&query_norm)?);
+                let key_hat = repeat_heads_rows(&key)?.mul(&repeat_heads_rows(&key_norm)?);
+                (query_hat, key_hat, value)
+            };
         let beta = mlx_rs::nn::sigmoid(beta_all).map_err(op("hoisted beta sigmoid"))?;
         let dt = decay_all.clone().add(&self.dt_bias);
         let softplus = maximum(&dt, scalar_like(&dt, 0.0))
@@ -525,6 +533,7 @@ impl LinearAttention {
                 &row_of(decay_all, row)?,
                 &self.dt_bias,
                 &self.a_log,
+                self.gated_delta_kernel,
             )?;
             queries.push(prepared.query);
             keys.push(prepared.key);
@@ -792,40 +801,64 @@ fn prepare_gated_delta_inputs(
     decay_row: &Array,
     dt_bias: &Array,
     a_log: &Array,
+    kernel: MlxGatedDeltaKernel,
 ) -> Result<GatedDeltaInputs, MlxError> {
-    let query_scale = (HEAD_DIM as f32).sqrt().recip();
-    let parts = split_last(qkv_row, &[KEY_SIZE, KEY_SIZE])?;
-    let query = parts[0]
-        .clone()
-        .reshape(&[KEY_HEADS as i32, HEAD_DIM as i32])
-        .map_err(op("q reshape"))?;
-    let key = parts[1]
-        .clone()
-        .reshape(&[KEY_HEADS as i32, HEAD_DIM as i32])
-        .map_err(op("k reshape"))?;
-    let value = parts[2]
-        .clone()
-        .reshape(&[VALUE_HEADS as i32, HEAD_DIM as i32])
-        .map_err(op("v reshape"))?;
+    let (query_hat, key_hat, value) =
+        if kernel == MlxGatedDeltaKernel::MetalSimd && fused_qk_norm_enabled() {
+            let qkv_2d = qkv_row
+                .reshape(&[1, QKV_SIZE as i32])
+                .map_err(op("qkv 2d reshape"))?;
+            let (q, k, v) = fused_qk_norm_split_expand(&qkv_2d, RMS_EPSILON)?;
+            let q = q
+                .reshape(&[VALUE_HEADS as i32, HEAD_DIM as i32])
+                .map_err(op("q flatten"))?;
+            let k = k
+                .reshape(&[VALUE_HEADS as i32, HEAD_DIM as i32])
+                .map_err(op("k flatten"))?;
+            let v = v
+                .reshape(&[VALUE_HEADS as i32, HEAD_DIM as i32])
+                .map_err(op("v flatten"))?;
+            (q, k, v)
+        } else {
+            let query_scale = (HEAD_DIM as f32).sqrt().recip();
+            let parts = split_last(qkv_row, &[KEY_SIZE, KEY_SIZE])?;
+            let query = parts[0]
+                .clone()
+                .reshape(&[KEY_HEADS as i32, HEAD_DIM as i32])
+                .map_err(op("q reshape"))?;
+            let key = parts[1]
+                .clone()
+                .reshape(&[KEY_HEADS as i32, HEAD_DIM as i32])
+                .map_err(op("k reshape"))?;
+            let value = parts[2]
+                .clone()
+                .reshape(&[VALUE_HEADS as i32, HEAD_DIM as i32])
+                .map_err(op("v reshape"))?;
 
-    let q_sq = query
-        .clone()
-        .square()
-        .map_err(op("q square"))?
-        .sum_axis(1, true)
-        .map_err(op("q sum"))?;
-    let k_sq = key
-        .clone()
-        .square()
-        .map_err(op("k square"))?
-        .sum_axis(1, true)
-        .map_err(op("k sum"))?;
-    let query_norm = recip_sqrt_eps(&q_sq)?.mul(scalar_like(&q_sq, query_scale));
-    let key_norm = recip_sqrt_eps(&k_sq)?;
-    let query_vh = repeat_heads(&query)?;
-    let query_norm_vh = repeat_heads(&query_norm)?;
-    let key_vh = repeat_heads(&key)?;
-    let key_norm_vh = repeat_heads(&key_norm)?;
+            let q_sq = query
+                .clone()
+                .square()
+                .map_err(op("q square"))?
+                .sum_axis(1, true)
+                .map_err(op("q sum"))?;
+            let k_sq = key
+                .clone()
+                .square()
+                .map_err(op("k square"))?
+                .sum_axis(1, true)
+                .map_err(op("k sum"))?;
+            let query_norm = recip_sqrt_eps(&q_sq)?.mul(scalar_like(&q_sq, query_scale));
+            let key_norm = recip_sqrt_eps(&k_sq)?;
+            let query_vh = repeat_heads(&query)?;
+            let query_norm_vh = repeat_heads(&query_norm)?;
+            let key_vh = repeat_heads(&key)?;
+            let key_norm_vh = repeat_heads(&key_norm)?;
+            (
+                query_vh.mul(&query_norm_vh),
+                key_vh.mul(&key_norm_vh),
+                value,
+            )
+        };
 
     let beta = mlx_rs::nn::sigmoid(beta_row).map_err(op("beta sigmoid"))?;
     let dt = decay_row.clone().add(dt_bias);
@@ -855,8 +888,8 @@ fn prepare_gated_delta_inputs(
         .reshape(&[VALUE_HEADS as i32, HEAD_DIM as i32])
         .map_err(op("z reshape"))?;
     Ok(GatedDeltaInputs {
-        query: query_vh.mul(&query_norm_vh),
-        key: key_vh.mul(&key_norm_vh),
+        query: query_hat,
+        key: key_hat,
         value,
         beta,
         gate,
@@ -884,7 +917,8 @@ pub(crate) fn gated_delta_step(
     recurrent: &mut Array,
     kernel: MlxGatedDeltaKernel,
 ) -> Result<Array, MlxError> {
-    let prepared = prepare_gated_delta_inputs(qkv_row, z_row, beta_row, decay_row, dt_bias, a_log)?;
+    let prepared =
+        prepare_gated_delta_inputs(qkv_row, z_row, beta_row, decay_row, dt_bias, a_log, kernel)?;
     let (out, next_state) = match kernel {
         MlxGatedDeltaKernel::MetalTree if recurrent.dtype() == mlx_rs::Dtype::Float32 => {
             packed_gated_delta_128(
