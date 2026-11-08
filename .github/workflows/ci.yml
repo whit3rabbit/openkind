@@ -44,10 +44,9 @@ jobs:
           components: rustfmt, clippy
 
       - name: Install protoc
-        uses: arduino/setup-protoc@v3
+        uses: taiki-e/install-action@v2
         with:
-          version: '32.1'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          tool: protoc@3.32.1
 
       - name: Check code formatting
         run: cargo fmt --check
@@ -97,10 +96,9 @@ jobs:
           components: clippy
 
       - name: Install protoc
-        uses: arduino/setup-protoc@v3
+        uses: taiki-e/install-action@v2
         with:
-          version: '32.1'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          tool: protoc@3.32.1
 
       - name: Run clippy linter
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
@@ -130,10 +128,9 @@ jobs:
         uses: dtolnay/rust-toolchain@1.94.0
 
       - name: Install protoc
-        uses: arduino/setup-protoc@v3
+        uses: taiki-e/install-action@v2
         with:
-          version: '32.1'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          tool: protoc@3.32.1
 
       # CUDA and MLX require their qualified hardware/toolchains; this runner tests CPU.
       - name: Run locked CPU workspace tests
@@ -179,10 +176,9 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
-      - uses: arduino/setup-protoc@v3
+      - uses: taiki-e/install-action@v2
         with:
-          version: '32.1'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          tool: protoc@3.32.1
       - name: Validate versions, licenses, and package builds without upload
         shell: bash
         run: |
@@ -224,10 +220,9 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@1.98.1
 
-      - uses: arduino/setup-protoc@v3
+      - uses: taiki-e/install-action@v2
         with:
-          version: '32.1'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          tool: protoc@3.32.1
 
       - name: Build the mock daemon from this revision
         run: cargo build --locked -p openkind-server --bin openkindd
@@ -286,10 +281,9 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@1.98.1
 
-      - uses: arduino/setup-protoc@v3
+      - uses: taiki-e/install-action@v2
         with:
-          version: '32.1'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          tool: protoc@3.32.1
 
       - name: Build the mock daemon from this revision
         run: cargo build --locked -p openkind-server --bin openkindd
