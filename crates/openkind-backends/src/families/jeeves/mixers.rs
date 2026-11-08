@@ -6,8 +6,9 @@ use std::ops::{Add, Mul};
 
 use super::{HIDDEN, INTERMEDIATE};
 use crate::qwen35::mlx::layers::{
-    apply_rotary, gated_delta_step, grouped_query_attention, norm_heads, op, rms_norm, row_of,
-    shift_window, stack_rows, MlxFullState, MlxLayerState, MlxLinearState, QKV_SIZE, VALUE_SIZE,
+    apply_rotary, forward_hoisted_gated_delta, fused_apply_rotary, fused_rope_enabled,
+    fused_swiglu, fused_swiglu_enabled, grouped_query_attention, norm_heads, op, rms_norm,
+    MlxFullState, MlxLayerState, QKV_SIZE,
 };
 use crate::qwen35::mlx::{MlxError, MlxGatedDeltaKernel};
 
@@ -116,7 +117,7 @@ impl Delta {
         let z = self.z.forward(input)?;
         let b = self.b.forward(input)?;
         let a = self.a.forward(input)?;
-        let (mut conv, mut recurrent) = match previous {
+        let (conv, recurrent) = match previous {
             Some(MlxLayerState::Linear(state)) => (state.conv.clone(), state.recurrent.clone()),
             None => (
                 mlx_rs::ops::zeros::<f32>(&[QKV_SIZE as i32, 4]).map_err(op("conv state"))?,
@@ -124,32 +125,22 @@ impl Delta {
             ),
             _ => return Err(MlxError::InvalidState("wrong DeltaNet state kind".into())),
         };
-        let mut mixed = Vec::with_capacity(input.shape()[0] as usize);
-        for index in 0..input.shape()[0] as usize {
-            conv = shift_window(&conv, &row_of(&qkv, index)?)?;
-            let summed = conv
-                .clone()
-                .mul(&self.conv)
-                .sum_axis(1, false)
-                .map_err(op("depthwise conv"))?;
-            let qkv = mlx_rs::nn::silu(&summed).map_err(op("conv silu"))?;
-            mixed.push(gated_delta_step(
-                &qkv,
-                &row_of(&z, index)?,
-                &row_of(&b, index)?,
-                &row_of(&a, index)?,
-                &self.dt,
-                &self.a_log,
-                &self.norm,
-                &mut recurrent,
-                MlxGatedDeltaKernel::ReferenceOps,
-            )?);
-        }
-        let mixed = stack_rows(&mixed, VALUE_SIZE)?;
-        Ok((
-            self.out.forward(&mixed)?,
-            MlxLayerState::Linear(MlxLinearState { conv, recurrent }),
-        ))
+        let rows = input.shape()[0] as usize;
+        let (mixed, state) = forward_hoisted_gated_delta(
+            rows,
+            &qkv,
+            &z,
+            &b,
+            &a,
+            &self.conv,
+            &self.dt,
+            &self.a_log,
+            &self.norm,
+            &conv,
+            recurrent,
+            MlxGatedDeltaKernel::default(),
+        )?;
+        Ok((self.out.forward(&mixed)?, MlxLayerState::Linear(state)))
     }
 }
 
@@ -193,8 +184,17 @@ impl Attention {
             .forward(input)?
             .reshape(&[rows as i32, 4, 256])
             .map_err(op("value reshape"))?;
-        let q = apply_rotary(&norm_heads(&q, &self.q_norm)?, rows, position, 16)?;
-        let k = apply_rotary(&norm_heads(&k, &self.k_norm)?, rows, position, 4)?;
+        let (q, k) = if q.dtype() == Dtype::Float32 && fused_rope_enabled() {
+            (
+                fused_apply_rotary(&norm_heads(&q, &self.q_norm)?, rows, position, 16)?,
+                fused_apply_rotary(&norm_heads(&k, &self.k_norm)?, rows, position, 4)?,
+            )
+        } else {
+            (
+                apply_rotary(&norm_heads(&q, &self.q_norm)?, rows, position, 16)?,
+                apply_rotary(&norm_heads(&k, &self.k_norm)?, rows, position, 4)?,
+            )
+        };
         let (keys, values) = match previous {
             Some(MlxLayerState::Full(state)) => (
                 concatenate(&[&state.keys, &k], 0).map_err(op("KV keys"))?,
@@ -313,9 +313,16 @@ impl Layer {
         };
         let residual = hidden.clone().add(&mixed);
         let normalized = rms_norm(&residual, &self.post_norm)?;
-        let gated = mlx_rs::nn::silu(&self.gate.forward(&normalized)?)
-            .map_err(op("MLP silu"))?
-            .mul(&self.up.forward(&normalized)?);
+        let gated = if normalized.dtype() == Dtype::Float32 && fused_swiglu_enabled() {
+            fused_swiglu(
+                &self.gate.forward(&normalized)?,
+                &self.up.forward(&normalized)?,
+            )?
+        } else {
+            mlx_rs::nn::silu(&self.gate.forward(&normalized)?)
+                .map_err(op("MLP silu"))?
+                .mul(&self.up.forward(&normalized)?)
+        };
         Ok((residual.add(&self.down.forward(&gated)?), state))
     }
 }

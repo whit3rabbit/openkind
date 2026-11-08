@@ -42,6 +42,8 @@ mod differential_tests;
 pub(crate) use full_attention::*;
 pub(crate) use linear_attention::*;
 pub(crate) use ops::*;
+pub(crate) use rope_kernel::{fused_apply_rotary, fused_rope_enabled};
+pub(crate) use swiglu_kernel::{fused_swiglu, fused_swiglu_enabled};
 
 /// Arrays retained only by opt-in per-layer parity diagnostics.
 pub(crate) type LayerOperationArrays = Vec<(String, Array)>;

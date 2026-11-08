@@ -565,6 +565,27 @@ fuses $\text{SiLU}$ and the gating product into a single GPU dispatch:
 - **Precision:** Maximum absolute difference $\le 1.19 \times 10^{-7}$, relative difference $< 4 \times 10^{-7}$.
 - **Control switch:** enabled by default; toggle with `OPENKIND_QWEN35_MLX_FUSED_SWIGLU=0` to fall back to separate `silu` and `mul`.
 
+### Cross-family kernel fusion
+
+The custom Metal kernel families (causal convolution, QK RMSNorm and head expansion, SIMD DeltaNet recurrence, gated output norm, partial RoPE, SwiGLU activation, and fused LayerNorm) are integrated across all supported model families in OpenKind:
+
+1. **`jeeves` (`jeeves-mlx-affine4`)**:
+   - DeltaNet linear attention is accelerated through `forward_hoisted_gated_delta` with `MlxGatedDeltaKernel::MetalSimd` (fusing causal convolution, QK norm, SIMD recurrence, and gated norm).
+   - Attention projections use `fused_apply_rotary` (TurboSpark `rope_neox_subdim_rows`).
+   - MLP feedforward uses `fused_swiglu` (TurboSpark `silu_mul_fp16`).
+2. **`decoder-logit-qwen35` (JevK5 / Plumb-4B)**:
+   - Evaluated directly on the shared `MlxQwen35Backbone`, inheriting all 6 fused Metal kernels automatically.
+3. **`d3` (`d3-edge`, `d3-small`, `d3-base`, `d3-mini`, `d3-flash`)**:
+   - 32-value-head models (`d3-mini` 4B, `d3-flash` 9B) execute fused linear attention via `forward_hoisted_gated_delta`.
+   - Full attention layers execute `fused_apply_rotary`.
+   - MLP feedforward executes `fused_swiglu`.
+4. **`clef` (`clef-flash-mlx-4bit`)**:
+   - DeltaNet linear attention layers execute `forward_hoisted_gated_delta` in Metal.
+   - Grouped-query attention executes `fused_apply_rotary`.
+   - MLP feedforward executes `fused_swiglu`.
+5. **`laya` & `encoder-instruct-label` (`ModernBertMlx`)**:
+   - Layer normalization throughout the encoder body and family-specific heads executes Apple Metal-fused `fast::layer_norm`.
+
 ## Current benchmark decision
 
 The latest recorded comparison uses the 12-row, four-state smoke fixture on a
