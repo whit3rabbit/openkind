@@ -9,6 +9,7 @@ use super::gated_delta_kernel::{
     generic_gated_delta, packed_gated_delta_128, packed_gated_delta_sequence_128,
     simd_gated_delta_sequence_128, GateLayout,
 };
+use super::gated_norm_kernel::{fused_gated_norm_enabled, fused_gated_norm_silu};
 use super::ops::{
     batch_row_of, linear, op, recip_sqrt_eps, repeat_heads, repeat_heads_rows, row_of, scalar_like,
     shift_window, split_last, stack_batch_time, stack_rows, zeros_for_precision,
@@ -324,11 +325,17 @@ impl LinearAttention {
             .clone()
             .reshape(&[row_count, VALUE_HEADS as i32, HEAD_DIM as i32])
             .map_err(op("hoisted z reshape"))?;
-        let mixed = fast::rms_norm(&core, Some(&self.delta_norm), RMS_EPSILON)
-            .map_err(op("hoisted delta norm"))?
-            .mul(&mlx_rs::nn::silu(&z).map_err(op("hoisted z silu"))?)
-            .reshape(&[row_count, VALUE_SIZE as i32])
-            .map_err(op("hoisted mixed reshape"))?;
+        let mixed = if self.gated_delta_kernel == MlxGatedDeltaKernel::MetalSimd
+            && fused_gated_norm_enabled()
+        {
+            fused_gated_norm_silu(&core, &z, &self.delta_norm, RMS_EPSILON)?
+        } else {
+            fast::rms_norm(&core, Some(&self.delta_norm), RMS_EPSILON)
+                .map_err(op("hoisted delta norm"))?
+                .mul(&mlx_rs::nn::silu(&z).map_err(op("hoisted z silu"))?)
+                .reshape(&[row_count, VALUE_SIZE as i32])
+                .map_err(op("hoisted mixed reshape"))?
+        };
         let output = linear(&mixed, &self.out_proj)?;
         Ok((
             output,
@@ -935,12 +942,18 @@ pub(crate) fn gated_delta_step(
     *recurrent = next_state;
 
     // per-head RMSNorm (raw weight) * silu(z)
-    let gated = fast::rms_norm(&out, Some(delta_norm), RMS_EPSILON)
-        .map_err(op("delta norm"))?
-        .mul(&mlx_rs::nn::silu(&prepared.z).map_err(op("z silu"))?);
-    gated
-        .reshape(&[VALUE_SIZE as i32])
-        .map_err(op("out flatten"))
+    let gated = if kernel == MlxGatedDeltaKernel::MetalSimd && fused_gated_norm_enabled() {
+        fused_gated_norm_silu(&out, &prepared.z, delta_norm, RMS_EPSILON)?
+            .reshape(&[VALUE_SIZE as i32])
+            .map_err(op("out flatten"))?
+    } else {
+        fast::rms_norm(&out, Some(delta_norm), RMS_EPSILON)
+            .map_err(op("delta norm"))?
+            .mul(&mlx_rs::nn::silu(&prepared.z).map_err(op("z silu"))?)
+            .reshape(&[VALUE_SIZE as i32])
+            .map_err(op("out flatten"))?
+    };
+    Ok(gated)
 }
 
 /// Independent ordinary-ops comparator and fallback for the fused kernels.
