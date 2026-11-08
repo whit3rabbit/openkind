@@ -4,15 +4,16 @@
 
 ### Added
 
-- Opt-in FP32 MLX Gated DeltaNet kernel `metal-simd-v1`
-  (`mlx-core-0.32.2/fp32/metal-simd-sequence-dk128-v1`). It replaces the
-  per-row recurrent-state update with one launch per layer: one SIMD group
-  per (value head, value column) and `simd_sum` reductions. Select it with
-  `OPENKIND_QWEN35_MLX_GDN_KERNEL=metal-simd-v1`. On seeded full-width layer
-  weights it is about 5x faster per DeltaNet layer at 192 to 1,792 rows. It is
-  bit-identical to its own row loop and within `1e-5` relative of
-  `reference-ops`. The checkpoint-backed parity gates have not run yet, so
-  `reference-ops` stays the default.
+- Promoted FP32 MLX Gated DeltaNet kernel `metal-simd-v1`
+  (`mlx-core-0.32.2/fp32/metal-simd-sequence-dk128-v1`) to the production default.
+  It replaces the per-row recurrent-state update with one launch per layer: one SIMD group
+  per (value head, value column) and `simd_sum` reductions without barriers or shared
+  memory. Across the request path on pinned Qwen3.5-4B-Base, it achieves a 2.76x
+  speedup on `repeated_full` (reducing CPU host dispatch overhead by ~95%) and an
+  18.7x speedup on `nested_batched` continuation, while passing all Phase 3B full
+  and nested parity gates with 0 argmax changes, 0 policy changes, and maximum probability
+  delta below `4.51e-6`. `reference-ops` remains available as an opt-out via
+  `OPENKIND_QWEN35_MLX_GDN_KERNEL=reference-ops`.
 
 - Model support for Nace.AI Drex v1.5: the pinned `drex-v15:2d495e07ea056d6c4317`
   profile (alias `drex:v1.5`) serves `nace-ai/drex-v1.5` at

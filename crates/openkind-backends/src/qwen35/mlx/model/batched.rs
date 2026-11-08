@@ -18,7 +18,7 @@ impl MlxQwen35Backbone {
     /// Whether this instance can execute the current vectorized continuation
     /// implementation without changing its arithmetic profile.
     #[must_use]
-    pub(crate) fn supports_vectorized_batch(&self) -> bool {
+    pub fn supports_vectorized_batch(&self) -> bool {
         self.precision == MlxPrecision::Fp32
             && self
                 .layers

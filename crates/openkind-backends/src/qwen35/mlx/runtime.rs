@@ -54,10 +54,9 @@ pub struct MlxRuntimeConfig {
     /// (`set_cache_limit`). All runtimes in one process must use the same
     /// value because MLX exposes one allocator cache.
     pub inactive_cache_limit_bytes: usize,
-    /// Gated DeltaNet implementation. Reference ops remain the production
-    /// default because the qualified FP32 fused candidate is slower on the
-    /// current smoke benchmark; `MetalTree` is opt-in for differential and
-    /// tuning work.
+    /// Gated DeltaNet implementation. `MetalSimd` is the production
+    /// default, running the entire FP32 sequence recurrence in one fused
+    /// Metal launch. `ReferenceOps` and `MetalTree` remain available.
     pub gated_delta_kernel: MlxGatedDeltaKernel,
 }
 
@@ -65,7 +64,7 @@ impl Default for MlxRuntimeConfig {
     fn default() -> Self {
         Self {
             inactive_cache_limit_bytes: DEFAULT_INACTIVE_CACHE_LIMIT_BYTES,
-            gated_delta_kernel: MlxGatedDeltaKernel::ReferenceOps,
+            gated_delta_kernel: MlxGatedDeltaKernel::MetalSimd,
         }
     }
 }

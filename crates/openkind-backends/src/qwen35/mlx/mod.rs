@@ -56,7 +56,7 @@ pub enum MlxPrecision {
 }
 
 /// Gated DeltaNet recurrence implementation selected for an MLX runtime.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MlxGatedDeltaKernel {
     /// Ordinary MLX array operations, retained as the independent fallback
     /// and differential comparator.
@@ -70,7 +70,8 @@ pub enum MlxGatedDeltaKernel {
     /// (value head, value column) and `simd_sum` reductions. It reuses the
     /// hoisted row-independent preparation and replaces the per-row state
     /// update with one launch per layer. FP32 only: native BF16 requests fall
-    /// back to `ReferenceOps`. Opt-in until model-backed gates qualify it.
+    /// back to `ReferenceOps`. Production default for MLX FP32.
+    #[default]
     MetalSimd,
 }
 
@@ -107,14 +108,14 @@ impl std::str::FromStr for MlxGatedDeltaKernel {
 pub const GATED_DELTA_KERNEL_ENV: &str = "OPENKIND_QWEN35_MLX_GDN_KERNEL";
 
 /// Kernel family requested through [`GATED_DELTA_KERNEL_ENV`], or
-/// `ReferenceOps` when it is unset or empty. An unknown value fails closed
+/// `MetalSimd` when it is unset or empty. An unknown value fails closed
 /// rather than silently running a different arithmetic path. The selected
 /// family is part of the arithmetic identity, so states produced under one
 /// family never continue under another.
 pub fn gated_delta_kernel_from_env() -> Result<MlxGatedDeltaKernel, MlxError> {
     match std::env::var(GATED_DELTA_KERNEL_ENV) {
         Ok(value) if !value.is_empty() => value.parse(),
-        Ok(_) | Err(std::env::VarError::NotPresent) => Ok(MlxGatedDeltaKernel::ReferenceOps),
+        Ok(_) | Err(std::env::VarError::NotPresent) => Ok(MlxGatedDeltaKernel::MetalSimd),
         Err(std::env::VarError::NotUnicode(_)) => Err(MlxError::InvalidState(format!(
             "{GATED_DELTA_KERNEL_ENV} is not valid UTF-8"
         ))),
