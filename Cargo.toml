@@ -19,8 +19,9 @@ members = [
 [workspace.package]
 version = "0.4.0"
 edition = "2021"
-# The locked dependency set requires Rust 1.90 (ordered-float 5.5.0).
-rust-version = "1.90"
+# candle-core 0.11.1 calls core::arch::x86_64::__cpuid_count without
+# `unsafe`, which compiles only from Rust 1.94, where that intrinsic became safe.
+rust-version = "1.94"
 license = "MIT"
 license-file = "LICENSE"
 repository = "https://github.com/whit3rabbit/openkind"
@@ -63,7 +64,7 @@ humantime = "2"
 humantime-serde = "1"
 
 # Development benchmarking. Pin the patch release so future Criterion MSRV
-# changes cannot silently move the workspace above Rust 1.90.
+# changes cannot silently move the workspace above Rust 1.94.
 criterion = { version = "=0.8.2", features = ["async_tokio", "html_reports"] }
 
 # Observability
@@ -73,12 +74,12 @@ metrics = "0.24"
 metrics-exporter-prometheus = { version = "0.18", default-features = false, features = ["http-listener"] }
 
 # Pin the unofficial bulk endpoint dependencies to the qualified Arrow release.
-arrow-array = "=60.0.0"
-arrow-ipc = { version = "=60.0.0", default-features = false }
-arrow-schema = "=60.0.0"
+arrow-array = "=60.1.0"
+arrow-ipc = { version = "=60.1.0", default-features = false }
+arrow-schema = "=60.1.0"
 # Evaluation-dataset shards are read from pinned parquet files; keep the same
 # qualified Arrow release line.
-parquet = { version = "=60.0.0", default-features = false, features = ["arrow", "snap"] }
+parquet = { version = "=60.1.0", default-features = false, features = ["arrow", "snap"] }
 
 # Crypto / TLS
 rustls = { version = "0.23", default-features = false, features = ["std", "logging", "aws_lc_rs", "tls12"] }
@@ -110,11 +111,11 @@ fastrand = "2"
 # of openkind-backends forwards to these crates' own `cuda` features; the CUDA
 # toolchain (nvcc) is required to build with it and no workspace default
 # enables it.
-candle-core = "=0.8.0"
-candle-nn = "=0.8.0"
+candle-core = "=0.11.1"
+candle-nn = "=0.11.1"
 # Surveyed-family model implementations (BERT, DistilBERT, Qwen2, quantized
 # GGUF runners). Pinned to the same candle release line as candle-core.
-candle-transformers = "=0.8.0"
+candle-transformers = "=0.11.1"
 
 # Phase 3N CUDA/ONNX block. `ort` executes ONNX artifacts through ONNX
 # Runtime; `load-dynamic` keeps builds offline (no binary downloads at build
@@ -134,10 +135,8 @@ nvml-wrapper = "0.13"
 # v0.6.0-7-gc74db53 (MLX core 0.32.2); `half` mirrors mlx-rs's bfloat16 type.
 mlx-rs = "=0.32.0"
 mlx-sys = "=0.6.0"
-# Capped below 2.5: from 2.5 `half`'s `rand_distr` feature targets rand 0.9,
-# and candle-core 0.8.0 samples bf16 through rand 0.8, so it stops compiling.
-# Lift the cap together with the candle pin.
-half = ">=2, <2.5"
+# candle 0.11 requires half 2.5 or later (its bf16 sampling moved to rand 0.9).
+half = "2.5"
 dashmap = "6"
 parking_lot = "0.12"
 libc = "0.2"

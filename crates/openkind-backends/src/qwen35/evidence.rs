@@ -16,10 +16,10 @@ use super::{
 
 /// Backend implementation identity recorded in evidence artifacts.
 ///
-/// `candle-core` is pinned to `=0.8.0` in the workspace manifest; this string
+/// `candle-core` is pinned to `=0.11.1` in the workspace manifest; this string
 /// must be updated together with that pin. An accelerated backend records its
 /// own implementation commit here (for example an MLX-LM revision).
-pub const BACKEND_IMPLEMENTATION: &str = "candle-core 0.8.0";
+pub const BACKEND_IMPLEMENTATION: &str = "candle-core 0.11.1";
 
 /// Map the pinned profile, this backend, and one scheduler decision onto the
 /// evidence `PROFILE.json` record.

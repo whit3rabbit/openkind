@@ -289,6 +289,20 @@ impl SimpleBackend for MergedLoRABackend {
         dtype: DType,
         dev: &Device,
     ) -> candle_core::Result<Tensor> {
+        let tensor = self.get_unchecked(name, dtype, dev)?;
+        if tensor.shape() != &s {
+            return Err(candle_core::Error::UnexpectedShape {
+                msg: format!("shape mismatch for {name}"),
+                expected: s,
+                got: tensor.shape().clone(),
+            }
+            .bt());
+        }
+        Ok(tensor)
+    }
+
+    /// Load `name` with its LoRA delta merged, without a shape check.
+    fn get_unchecked(&self, name: &str, dtype: DType, dev: &Device) -> candle_core::Result<Tensor> {
         let inner = self
             .shard_for(name)
             .ok_or_else(|| candle_core::Error::CannotFindTensor {
@@ -304,14 +318,6 @@ impl SimpleBackend for MergedLoRABackend {
             }
             None => tensor,
         };
-        if tensor.shape() != &s {
-            return Err(candle_core::Error::UnexpectedShape {
-                msg: format!("shape mismatch for {name}"),
-                expected: s,
-                got: tensor.shape().clone(),
-            }
-            .bt());
-        }
         Ok(tensor)
     }
 

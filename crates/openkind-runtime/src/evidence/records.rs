@@ -119,7 +119,7 @@ pub struct RunRecord {
 pub struct BackendRecord {
     /// Backend identifier, e.g. `qwen35-native-cpu`.
     pub backend_id: String,
-    /// Backend implementation version/commit, e.g. `candle-core 0.8.0` today
+    /// Backend implementation version/commit, e.g. `candle-core 0.11.1` today
     /// or an MLX-LM commit for an accelerated backend.
     pub backend_version: String,
     /// Allocator configuration descriptor.

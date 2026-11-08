@@ -37,10 +37,10 @@
 //! two agreeing implementations — mistral.rs
 //! (`mistralrs-core/src/vision_models/gemma4/`, day-0 Gemma 4 support) and
 //! llama.cpp (`src/models/gemma4.cpp` plus the `Gemma4Model` converter with
-//! `norm_shift = 0`). Where the in-tree candle 0.8.0 release line and
-//! candle `main`'s `gemma4` example disagree with those references — the
-//! RMSNorm `+1` weight shift and the `1/sqrt(head_dim)` attention scale —
-//! the references win: the converter stores unshifted norms and both
+//! `norm_shift = 0`). When this port was written, the in-tree candle 0.8.0
+//! release line and candle `main`'s `gemma4` example disagreed with those
+//! references — the RMSNorm `+1` weight shift and the `1/sqrt(head_dim)`
+//! attention scale — and the references win: the converter stores unshifted norms and both
 //! references set the attention softmax scale to `1.0`.
 
 mod backbone;

@@ -128,10 +128,9 @@ jobs:
           python-version: '3.11'
 
       - name: Install protoc
-        uses: arduino/setup-protoc@v3
+        uses: taiki-e/install-action@v2
         with:
-          version: '32.1'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          tool: protoc@3.32.1
 
       - uses: actions/download-artifact@v8
         with:

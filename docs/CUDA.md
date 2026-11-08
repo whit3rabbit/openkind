@@ -44,10 +44,18 @@ CUDA. Release builds pin toolkit 12.6.0 and `CUDA_COMPUTE_CAP=80`, targeting
 Ampere or newer. NVIDIA drivers and CUDA user libraries remain
 operator-installed. The portable musl archive stays CPU-only.
 
-Release builds vendor the locked dependencies and remove only Candle
-0.8.0's redundant `cudarc/dynamic-linking` declaration. CUDA calls already
-resolve dynamically; the pinned architecture code is preserved. The
-override and package digest are recorded in `cuda-build-override.json`.
+Release builds vendor the locked dependencies and apply two build-only
+overrides. No architecture or kernel source changes:
+
+- candle-core: cudarc `dynamic-linking` becomes `dynamic-loading`, so cuBLAS,
+  cuRAND, NVRTC, and the driver load at run time.
+- candle-kernels: its static MoE and GGUF matmul kernels link the
+  redistributable static CUDA Runtime (`cudart_static`) instead of
+  `libcudart`. The runtime is embedded and loads the driver at first GPU use.
+  `licenses/cuda/NOTICE` in each CUDA archive records it.
+
+Both overrides and their file digests are recorded in
+`cuda-build-override.json`.
 Final dependency audits and fresh-host startup checks reject mandatory CUDA
 imports. Ordinary Cargo defaults remain CPU-only. See
 [backend releases](BACKENDS.md) for the matrix and validation commands.

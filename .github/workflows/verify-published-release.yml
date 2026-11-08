@@ -147,10 +147,9 @@ jobs:
         with:
           ref: ${{ needs.resolve.outputs.sha }}
       - uses: dtolnay/rust-toolchain@1.98.1
-      - uses: arduino/setup-protoc@v3
+      - uses: taiki-e/install-action@v2
         with:
-          version: '32.1'
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          tool: protoc@3.32.1
       - name: Install both binaries from crates.io
         env:
           RELEASE_VERSION: ${{ needs.resolve.outputs.version }}
