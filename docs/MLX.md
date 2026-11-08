@@ -521,6 +521,29 @@ fuses all 15 operations into a single GPU launch per layer:
 - **Precision:** Bit-identical query outputs and max relative key deviation $\le 3.1 \times 10^{-7}$.
 - **Control switch:** enabled by default; toggle with `OPENKIND_QWEN35_MLX_FUSED_QK_NORM=0` to fall back to the multi-op MLX ops for rollback/diagnostics.
 
+### Fused partial rotary embedding (TurboSpark kernel integration)
+
+In Qwen 3.5's 8 grouped-query full attention layers, each query ($H_q = 16$) and
+key ($H_k = 2$) head has dimension $D = 256$, with partial RoPE applied to the first
+$D_{rot} = 64$ dimensions using NeoX pairing $(i, i + 32)$ and $\theta = 10,000,000$.
+
+Previously, this required computing sin/cos tables in host memory, copying them to MLX
+tensors, performing 6 distinct splits and reshapes, elementwise multiplication, subtraction,
+and concatenation passes.
+
+A custom Metal kernel derived from TurboSpark's `rope_neox_subdim_rows` in `rope.metal`
+executes the partial rotary embedding directly on the GPU in a single dispatch per projection:
+
+- **Launch geometry:** 3D grid `(128, heads, rows)` with threadgroups of `(128, 1, 1)` threads.
+- **Warp execution:**
+  - Threads $0..31$ compute partial RoPE on pairs $(i, i + 32)$ with in-register trigonometric evaluation using `metal::precise::pow`, `cos`, and `sin`.
+  - Threads $32..127$ perform coalesced 2-element passthrough copying for the untouched dimensions $64..255$.
+- **Microbenchmarks** (`print_reference_versus_fused_rope_timing` on Apple M4 Max):
+  - 12 rows: **2.21x faster** (0.364 ms -> 0.165 ms)
+  - 192 rows: **2.67x faster** (0.545 ms -> 0.204 ms)
+  - 1,792 rows: **8.24x faster** (2.779 ms -> 0.337 ms)
+- **Control switch:** enabled by default; toggle with `OPENKIND_QWEN35_MLX_FUSED_ROPE=0` to fall back to the multi-op path.
+
 ## Current benchmark decision
 
 The latest recorded comparison uses the 12-row, four-state smoke fixture on a

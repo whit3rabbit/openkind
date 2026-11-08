@@ -122,6 +122,7 @@ credentials with only a fixed transport label.
 | `OPENKIND_QWEN35_MLX_FUSED_CONV` | `0` or `off` disables the fused causal depthwise convolution Metal kernel (derived from TurboSpark's `gdn_conv_mix_prefill` / `short_conv`) and falls back to multi-op MLX ops. Default is enabled (`1`). MLX builds only | `1` |
 | `OPENKIND_QWEN35_MLX_FUSED_GATED_NORM` | `0` or `off` disables the fused gated output norm Metal kernel (derived from TurboSpark's `gdn_gated_norm`) and falls back to separate `fast::rms_norm` and `silu`. Default is enabled (`1`). MLX builds only | `1` |
 | `OPENKIND_QWEN35_MLX_FUSED_QK_NORM` | `0` or `off` disables the fused QK RMSNorm, scaling, and head expansion Metal kernel (derived from TurboSpark's `gdn_qk_norm`) and falls back to separate multi-op split, norm, and repeat operations. Default is enabled (`1`). MLX builds only | `1` |
+| `OPENKIND_QWEN35_MLX_FUSED_ROPE` | `0` or `off` disables the fused partial RoPE Metal kernel (derived from TurboSpark's `rope_neox_subdim_rows`) and falls back to host sin/cos generation and multi-op MLX slices. Default is enabled (`1`). MLX builds only | `1` |
 | `OPENKIND_QWEN35_QUEUE` | Additional queued native requests | `2` |
 | `OPENKIND_QWEN35_TIMEOUT_MS` | Queue-inclusive deadline per native evaluation | `600000` |
 | `OPENKIND_QWEN35_BACKEND` | `auto`, `native-cpu`, `cuda` with the `cuda` feature, or `mlx-fp32` on macOS arm64 with the `mlx` feature | `auto` |

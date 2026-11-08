@@ -5,6 +5,7 @@ use mlx_rs::ops::{broadcast_to, concatenate};
 use mlx_rs::{Array, Dtype};
 
 use super::ops::{batch_row_of, linear, op, scalar_like, stack_batch_time};
+use super::rope_kernel::{fused_apply_rotary, fused_rope_enabled};
 use super::{
     MlxError, MlxFullState, MlxLayerState, ATTENTION_HEADS, ATTENTION_HEAD_DIM, ATTENTION_SIZE,
     KV_HEADS, RMS_EPSILON, ROPE_THETA, ROTARY_DIM,
@@ -71,8 +72,17 @@ impl FullAttention {
 
         // Partial rotary embedding over the first ROTARY_DIM dims, NeoX
         // pairing, absolute positions position_start + row.
-        queries = apply_rotary(&queries, rows, position_start, ATTENTION_HEADS)?;
-        keys = apply_rotary(&keys, rows, position_start, KV_HEADS)?;
+        let (queries, keys) = if queries.dtype() == Dtype::Float32 && fused_rope_enabled() {
+            (
+                fused_apply_rotary(&queries, rows, position_start, ATTENTION_HEADS)?,
+                fused_apply_rotary(&keys, rows, position_start, KV_HEADS)?,
+            )
+        } else {
+            (
+                apply_rotary(&queries, rows, position_start, ATTENTION_HEADS)?,
+                apply_rotary(&keys, rows, position_start, KV_HEADS)?,
+            )
+        };
 
         let (all_keys, all_values) = match previous {
             Some(state) => (
