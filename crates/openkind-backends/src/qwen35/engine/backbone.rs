@@ -153,7 +153,11 @@ fn load_mlx(
     use crate::qwen35::backbone::ExecutionStrategy;
     use openkind_runtime::BackendCapabilities;
 
-    let runtime = std::sync::Arc::new(mlx::MlxRuntime::new(mlx::MlxRuntimeConfig::default())?);
+    let config = mlx::MlxRuntimeConfig {
+        gated_delta_kernel: mlx::gated_delta_kernel_from_env()?,
+        ..mlx::MlxRuntimeConfig::default()
+    };
+    let runtime = std::sync::Arc::new(mlx::MlxRuntime::new(config)?);
     if qualify_bf16 {
         runtime.qualify_bf16()?;
     }

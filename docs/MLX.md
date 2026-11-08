@@ -173,7 +173,8 @@ without reviewed task-quality or release-promotion evidence.
 | Backbone | `Qwen/Qwen3.5-4B-Base` |
 | Backbone revision | `1001bb4d826a52d1f399e183466143f4da7b741b` |
 | Profile | `a047d6802c3f06f085b8` |
-| Production arithmetic family | `mlx-core-0.32.2/fp32/reference-ops` |
+| Production arithmetic family | `mlx-core-0.32.2/fp32/metal-simd-sequence-dk128-v1` |
+| Baseline reference arithmetic family | `mlx-core-0.32.2/fp32/reference-ops` |
 | FP32 kernel candidate | `mlx-core-0.32.2/fp32/metal-tree-packed-dk128-v1` |
 | Default inactive cache limit | 256 MiB |
 
@@ -376,6 +377,67 @@ recurrence on the current workload. FP32 can select it explicitly through
 `ReferenceOps`, even if `MetalTree` is requested, because the model-backed
 BF16 candidate failed its probability and policy gate.
 
+### `MetalSimd`
+
+`simd_gated_delta_sequence_128` in the same module runs the whole FP32
+`Dk = Dv = 128`, 32-head recurrence for a prefill or suffix in one launch per
+layer.
+
+- **Layout:** each value column of the state evolves independently, because
+  both reductions run over the key dimension only. So one 32-lane SIMD group
+  owns one (value head, value column). Each lane keeps four key-dimension
+  entries in registers for the whole sequence, and both reductions are
+  `simd_sum`s. There is no threadgroup memory and no barrier, and the launch
+  is 4,096 SIMD groups instead of one threadgroup per head. The design
+  follows TurboSpark's FP16-activation `gdn_delta_step_prefill`, kept FP32 end
+  to end here.
+- **Placement:** the mode reuses the hoisted row-independent preparation and
+  replaces only the per-row state update. The row loop (traced runs,
+  `OPENKIND_QWEN35_MLX_ROW_LOOP=1`) calls the same kernel with one row.
+- **Exactness:** the fused launch and the row loop are bit-identical in
+  outputs and in convolution and recurrent states. Against `ReferenceOps` the
+  reduction order differs. On seeded full-width layer weights, outputs and
+  recurrent states stay within `1e-5` relative up to 192 rows, the
+  convolution window is bit-identical, and continuation stays within the
+  `1e-4` one-pass bound. Against the host recurrence over 48 rows, it is
+  within `2e-6` relative. Fresh replay is bit-identical.
+- **Selection:** FP32 production default. Native BF16 requests fall back to
+  `ReferenceOps`. Baseline reference ops remain available as an opt-out via
+  `OPENKIND_QWEN35_MLX_GDN_KERNEL=reference-ops`. The batched lane path stays
+  per-lane, as for `MetalTree`.
+
+Layer-level timing (seeded full-width weights, Apple M4 Max, release build,
+median of five, `print_reference_versus_simd_layer_timing`) for one DeltaNet
+layer forward, projections included:
+
+| Rows | `reference-ops` | `metal-simd-v1` | Speedup |
+|---:|---:|---:|---:|
+| 12 | 3.76 ms | 2.22 ms | 1.69x |
+| 192 | 25.59 ms | 5.23 ms | 4.90x |
+| 1,792 | 242.37 ms | 47.26 ms | 5.13x |
+
+### Qualification and benchmark evidence for promotion
+
+`metal-simd-v1` passed all Phase 3B gates on Apple M4 Max with the pinned
+`Qwen/Qwen3.5-4B-Base` checkpoint (`1001bb4d`):
+
+1. **Full parity gate (`qwen35_mlx_full_parity --stage full`):** `gate_passed: true`,
+   `argmax_changes: 0`, `policy_changes: 0`, maximum probability delta
+   `3.39e-6` (well within the `0.005` tolerance), maximum feature delta `8.39e-5`.
+2. **Nested parity gate (`qwen35_mlx_nested_parity`):** `gate_passed: true`,
+   `argmax_changes: 0`, `policy_changes: 0`, maximum probability delta
+   `4.51e-6`, cached-vs-full delta `9.16e-5 < 1e-4`, root immutability and sibling
+   isolation hold.
+3. **End-to-end benchmark (`openkind-bench score` on `shape-smoke-12.jsonl`):**
+   - `repeated_full`: 18.43 s -> 6.67 s (2.76x faster; CPU time 18.22 s -> 0.84 s, ~95% reduction in host dispatch overhead).
+   - `nested_sequential`: 6.32 s -> 4.34 s (1.46x faster; CPU time 4.02 s -> 0.88 s).
+   - `nested_batched`: 80.89 s -> 4.32 s (18.7x faster; CPU time 57.36 s -> 0.89 s).
+   - `choose_strategy`: 7.26 s -> 4.82 s (1.51x faster; CPU time 4.45 s -> 1.36 s).
+   - Decision agreement: 100% (12/12) decision match; maximum probability delta bounded below `1.67e-5`.
+
+Given passing correctness gates and 1.46x-18.7x end-to-end speedups,
+`metal-simd-v1` is promoted to the production default for MLX FP32.
+
 ## Current benchmark decision
 
 The latest recorded comparison uses the 12-row, four-state smoke fixture on a
@@ -384,11 +446,16 @@ result writes are excluded from strategy totals.
 
 | Arithmetic path | `repeated_full` | `nested_sequential` | `nested_batched` | `choose_strategy` | Peak RSS |
 |---|---:|---:|---:|---:|---:|
-| `reference-ops` | 29.998 s | 7.819 s | 7.860 s | 7.755 s | 11,838,046,208 bytes |
-| `metal-tree-packed-dk128-v1` | 38.279 s | 9.055 s | 8.957 s | 9.060 s | 11,894,095,872 bytes |
+| `metal-simd-sequence-dk128-v1` (default) | 6.67 s | 4.34 s | 4.32 s | 4.82 s | 12.02 GB |
+| `reference-ops` (opt-out baseline) | 18.43 s | 6.32 s | 80.89 s | 7.26 s | 12.01 GB |
+| `metal-tree-packed-dk128-v1` (opt-in) | 38.28 s | 9.06 s | 8.96 s | 9.06 s | 11.89 GB |
 
-The packed candidate is 1.14 to 1.28 times slower, so it is not promoted.
-This is a one-sample rejection result, not a stable performance distribution.
+`metal-simd-sequence-dk128-v1` provides a 1.46x to 18.7x end-to-end speedup across
+evaluation strategies on the 12-row smoke fixture, with 100% decision parity
+(12/12 matches, maximum probability delta `< 1.67e-5`), while reducing host CPU
+dispatch time from 18.22 s to 0.84 s on `repeated_full`. It is promoted to the
+production default. The packed candidate (`metal-tree-packed-dk128-v1`) was
+1.14 to 1.28 times slower than un-fused reference-ops and remains non-default.
 The raw summaries and predictions are checked in under
 [`benchmarks/2026-09-21-qwen35-mlx-gdn-review/`](benchmarks/2026-09-21-qwen35-mlx-gdn-review/).
 See [`BENCHMARKS.md`](BENCHMARKS.md) for timing semantics, the CPU comparison,
@@ -419,6 +486,7 @@ are localization diagnostics, not replacement acceptance tolerances.
 | GPU concurrency | One process-wide lock and stream | Correct and race-resistant, but model requests do not overlap on the GPU |
 | Physical batching | Forced FP32 `ReferenceOps` lanes use one vectorized forward for 2–8 lanes; the variable-length fixture gate passes | The measured pooling diagnostic missed its promotion threshold; keep automatic capability disabled |
 | Packed Metal kernel | Correct but 14 to 28 percent slower in the smoke sweep | Remains opt-in |
+| SIMD Metal kernel | Promoted to default; passed Phase 3B full & nested parity gates; achieves 1.46x–18.7x end-to-end request speedups on pinned Qwen 3.5 4B | Default for MLX FP32; `reference-ops` remains available as an opt-out fallback |
 | Native BF16 reference path | 22 September full probability error `0.0060996`; nested probability error `0.0265808`; both have zero argmax/policy changes | Gate B fails at the frozen `0.005` tolerance; nested state and isolation checks pass, but BF16 remains unpromoted |
 | Native BF16 fused path | Model-backed probability error was about `0.0287` with one policy change | Runtime falls back to BF16 `ReferenceOps` |
 | MLX-community checkpoint | Loads and executes, but differs from the pinned base model and conversion | Compatibility only, no frozen-model parity or quality claim |
@@ -444,10 +512,10 @@ are localization diagnostics, not replacement acceptance tolerances.
    question and candidate lanes in MLX tensors, carries true suffix lengths,
    and restores lane positions. Compare it with the per-lane path over matched
    Q/K/length workloads before widening capability or enabling automatic use.
-3. **Fuse around the actual bottleneck.** Evaluate combining input
-   preparation, causal-convolution update, gate construction, recurrence,
-   normalization, and output projection only where profiling justifies the
-   added numerical surface.
+3. **Fuse around the actual bottleneck.** The Gated DeltaNet recurrence is now
+   fused in the promoted `MetalSimd` mode (see above), cutting host dispatch
+   overhead by ~95%. Next, evaluate fusing short causal convolution and gate
+   construction, or RMSNorm + RoPE, leveraging TurboSpark Metal kernel families.
 4. **Qualify lane limits before advertising automatic use.** The first
    variable-length model gate covers unequal question and candidate lengths
    with 2–8 lanes. Extend differential and matched timing coverage across Q, K,

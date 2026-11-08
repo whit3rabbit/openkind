@@ -124,10 +124,17 @@ fn run() -> Result<ExitCode, Box<dyn Error>> {
     let head_bundle_root = positional[2].clone();
 
     let runtime = {
-        use openkind_backends::qwen35::mlx::{MlxRuntime, MlxRuntimeConfig};
+        use openkind_backends::qwen35::mlx::{
+            gated_delta_kernel_from_env, MlxRuntime, MlxRuntimeConfig,
+        };
+        // OPENKIND_QWEN35_MLX_GDN_KERNEL selects the kernel family under test.
+        let config = MlxRuntimeConfig {
+            gated_delta_kernel: gated_delta_kernel_from_env()
+                .map_err(|error| format!("kernel selection failed: {error}"))?,
+            ..MlxRuntimeConfig::default()
+        };
         std::sync::Arc::new(
-            MlxRuntime::new(MlxRuntimeConfig::default())
-                .map_err(|error| format!("runtime init failed: {error}"))?,
+            MlxRuntime::new(config).map_err(|error| format!("runtime init failed: {error}"))?,
         )
     };
     let precision = match precision.as_str() {

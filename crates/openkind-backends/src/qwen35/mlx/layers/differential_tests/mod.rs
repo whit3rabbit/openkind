@@ -8,3 +8,4 @@ mod attention_tests;
 mod hoisted_tests;
 mod host_reference;
 mod linear_tests;
+mod simd_tests;

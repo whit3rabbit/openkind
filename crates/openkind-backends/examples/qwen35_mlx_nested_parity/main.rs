@@ -106,9 +106,14 @@ fn run() -> Result<ExitCode, Box<dyn Error>> {
     if formal {
         require_clean_worktree()?;
     }
+    // OPENKIND_QWEN35_MLX_GDN_KERNEL selects the kernel family under test.
+    let config = MlxRuntimeConfig {
+        gated_delta_kernel: openkind_backends::qwen35::mlx::gated_delta_kernel_from_env()
+            .map_err(|error| format!("kernel selection failed: {error}"))?,
+        ..MlxRuntimeConfig::default()
+    };
     let runtime = std::sync::Arc::new(
-        MlxRuntime::new(MlxRuntimeConfig::default())
-            .map_err(|error| format!("runtime init failed: {error}"))?,
+        MlxRuntime::new(config).map_err(|error| format!("runtime init failed: {error}"))?,
     );
     let precision = if precision == "bf16" {
         MlxPrecision::NativeBf16

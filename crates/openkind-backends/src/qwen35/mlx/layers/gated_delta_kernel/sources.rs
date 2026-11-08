@@ -128,6 +128,60 @@ pub(super) const PACKED_SOURCE: &str = r#"
     }
 "#;
 
+/// FP32 `Dk = Dv = 128`, 32-head whole-sequence recurrence, one SIMD group
+/// per (value head, value column).
+///
+/// Every value column of the state evolves independently: its two reductions
+/// (`Sᵀk` and `Sᵀq`) run over the key dimension only. So one 32-lane SIMD
+/// group owns one column, each lane keeps four key-dimension entries of it in
+/// registers for the whole sequence, and both reductions are `simd_sum`s.
+/// There is no threadgroup memory and no barrier, and the dispatch is
+/// 32 heads x 128 columns = 4,096 independent SIMD groups rather than one
+/// threadgroup per head. The layout follows TurboSpark's FP16-activation
+/// `gdn_delta_step_prefill`, kept FP32 end to end here. State is
+/// `[heads, Dk, Dv]`, so only the one-time load and store are strided.
+///
+/// Arithmetic per row matches the reference recurrence: decay, `Sᵀk`,
+/// `(v - Sᵀk)·β`, `S += k ⊗ δ`, `Sᵀq`. The reduction order is `simd_sum`'s,
+/// so this is its own arithmetic identity, not the reduction-tree kernels'.
+/// A one-row call executes exactly one iteration of the same loop, so a chain
+/// of one-row calls and one many-row call produce identical bits.
+pub(super) const SIMD_SEQUENCE_SOURCE: &str = r#"
+    const uint lane = thread_position_in_threadgroup.x;
+    const uint head = threadgroup_position_in_grid.x;
+    const uint column = threadgroup_position_in_grid.y * 4 + thread_position_in_threadgroup.y;
+    const uint rows = row_count[0];
+    const uint state_base = head * 128 * 128;
+    const device float4* query4 = reinterpret_cast<const device float4*>(query);
+    const device float4* key4 = reinterpret_cast<const device float4*>(key);
+
+    float4 s;
+    s.x = state[state_base + (lane * 4 + 0) * 128 + column];
+    s.y = state[state_base + (lane * 4 + 1) * 128 + column];
+    s.z = state[state_base + (lane * 4 + 2) * 128 + column];
+    s.w = state[state_base + (lane * 4 + 3) * 128 + column];
+
+    for (uint row = 0; row < rows; ++row) {
+        const uint head_index = row * 32 + head;
+        const uint vector_index = (head_index * 128 + lane * 4) >> 2;
+        const float4 k = key4[vector_index];
+        const float4 q = query4[vector_index];
+        s = s * gate[head_index];
+        const float memory = simd_sum(dot(s, k));
+        const float delta = (value[head_index * 128 + column] - memory) * beta[head_index];
+        s = s + k * delta;
+        const float retrieved = simd_sum(dot(s, q));
+        if (lane == 0) {
+            output[head_index * 128 + column] = retrieved;
+        }
+    }
+
+    next_state[state_base + (lane * 4 + 0) * 128 + column] = s.x;
+    next_state[state_base + (lane * 4 + 1) * 128 + column] = s.y;
+    next_state[state_base + (lane * 4 + 2) * 128 + column] = s.z;
+    next_state[state_base + (lane * 4 + 3) * 128 + column] = s.w;
+"#;
+
 pub(super) const PACKED_SEQUENCE_SOURCE: &str = r#"
     const uint lane = thread_position_in_threadgroup.x;
     const uint head = threadgroup_position_in_grid.x;

@@ -9,8 +9,8 @@ use crate::qwen35::mlx::runtime::MlxRuntime;
 use crate::qwen35::mlx::weights::MlxCheckpointFormat;
 use crate::qwen35::mlx::{
     MlxError, MlxGatedDeltaKernel, MlxPrecision, MLX_ARITHMETIC_ID_BF16_METAL_TREE,
-    MLX_ARITHMETIC_ID_BF16_REFERENCE, MLX_ARITHMETIC_ID_FP32_METAL_TREE,
-    MLX_ARITHMETIC_ID_FP32_REFERENCE,
+    MLX_ARITHMETIC_ID_BF16_REFERENCE, MLX_ARITHMETIC_ID_FP32_METAL_SIMD,
+    MLX_ARITHMETIC_ID_FP32_METAL_TREE, MLX_ARITHMETIC_ID_FP32_REFERENCE,
 };
 
 /// Arithmetic identity including precision, kernel family, and the linked
@@ -30,6 +30,12 @@ pub(super) fn arithmetic_id(
         (MlxPrecision::NativeBf16, MlxGatedDeltaKernel::MetalTree) => {
             MLX_ARITHMETIC_ID_BF16_METAL_TREE
         }
+        (MlxPrecision::Fp32, MlxGatedDeltaKernel::MetalSimd) => MLX_ARITHMETIC_ID_FP32_METAL_SIMD,
+        // Never dispatched: `effective_gated_delta_kernel` routes BF16 SIMD
+        // requests to reference operations before any identity is formed.
+        (MlxPrecision::NativeBf16, MlxGatedDeltaKernel::MetalSimd) => {
+            MLX_ARITHMETIC_ID_BF16_REFERENCE
+        }
     };
     format!(
         "{base};checkpoint={};toolchain={}",
@@ -48,6 +54,10 @@ pub(super) fn effective_gated_delta_kernel(
         // candidate implementation out of serving/benchmark dispatch until a
         // distinct arithmetic profile qualifies it.
         (MlxPrecision::NativeBf16, MlxGatedDeltaKernel::MetalTree) => {
+            MlxGatedDeltaKernel::ReferenceOps
+        }
+        // The SIMD sequence kernel is FP32-only by construction.
+        (MlxPrecision::NativeBf16, MlxGatedDeltaKernel::MetalSimd) => {
             MlxGatedDeltaKernel::ReferenceOps
         }
         _ => requested,

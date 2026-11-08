@@ -12,6 +12,30 @@ fn fused_kernel_promotion_is_precision_scoped() {
         effective_gated_delta_kernel(MlxPrecision::NativeBf16, MlxGatedDeltaKernel::MetalTree),
         MlxGatedDeltaKernel::ReferenceOps,
     );
+    assert_eq!(
+        effective_gated_delta_kernel(MlxPrecision::Fp32, MlxGatedDeltaKernel::MetalSimd),
+        MlxGatedDeltaKernel::MetalSimd,
+    );
+    assert_eq!(
+        effective_gated_delta_kernel(MlxPrecision::NativeBf16, MlxGatedDeltaKernel::MetalSimd),
+        MlxGatedDeltaKernel::ReferenceOps,
+    );
+}
+
+#[test]
+fn kernel_family_identifiers_round_trip_and_unknown_values_fail_closed() {
+    for kernel in [
+        MlxGatedDeltaKernel::ReferenceOps,
+        MlxGatedDeltaKernel::MetalTree,
+        MlxGatedDeltaKernel::MetalSimd,
+    ] {
+        assert_eq!(
+            kernel.as_str().parse::<MlxGatedDeltaKernel>().unwrap(),
+            kernel
+        );
+    }
+    assert!("metal-simd".parse::<MlxGatedDeltaKernel>().is_err());
+    assert!("".parse::<MlxGatedDeltaKernel>().is_err());
 }
 
 #[test]

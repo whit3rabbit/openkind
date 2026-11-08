@@ -50,24 +50,31 @@ pub(crate) fn nested_stage(
 
     const CACHED_VS_FULL_GUARD: f64 = 0.000_1;
     let fp32 = backbone.precision() == MlxPrecision::Fp32;
-    let vectorized_fixture_indices = if fp32 {
+    let supports_vectorized_batch = fp32 && backbone.supports_vectorized_batch();
+    let vectorized_fixture_indices = if supports_vectorized_batch {
         select_vectorized_fixture_pair(&token_fixtures.records)
     } else {
         None
     };
-    let mut vectorized_batch_gate_passed = !fp32;
+    let mut vectorized_batch_gate_passed = !supports_vectorized_batch;
     let mut vectorized_batch_baselines: [Option<Vec<Vec<f32>>>; 2] = [None, None];
-    let mut vectorized_batch_gate = if fp32 {
-        serde_json::json!({
-            "applicable": true,
-            "gate_passed": false,
-            "reason": "no same-root fixture pair has unequal question lengths and a variable candidate group",
-        })
-    } else {
+    let mut vectorized_batch_gate = if !fp32 {
         serde_json::json!({
             "applicable": false,
             "gate_passed": true,
             "reason": "vectorized batch parity is an FP32-only gate",
+        })
+    } else if !supports_vectorized_batch {
+        serde_json::json!({
+            "applicable": false,
+            "gate_passed": true,
+            "reason": "vectorized batch parity is scoped to ReferenceOps; metal-simd executes per-lane",
+        })
+    } else {
+        serde_json::json!({
+            "applicable": true,
+            "gate_passed": false,
+            "reason": "no same-root fixture pair has unequal question lengths and a variable candidate group",
         })
     };
 
