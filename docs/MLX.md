@@ -438,6 +438,39 @@ layer forward, projections included:
 Given passing correctness gates and 1.46x-18.7x end-to-end speedups,
 `metal-simd-v1` is promoted to the production default for MLX FP32.
 
+### Fused causal depthwise convolution (TurboSpark kernel integration)
+
+The causal depthwise convolution in each DeltaNet linear attention layer
+previously executed 10 separate MLX graph operations per layer
+(`concatenate`, four `take_axis` slices, `stack`, `mul`, `sum_axis`, `silu`,
+tail `take_axis`, `transpose`, and `contiguous`), adding 240 kernel dispatches
+across the 24 DeltaNet layers on every evaluation forward.
+
+A custom Metal kernel derived from TurboSpark's `gdn_conv_mix_prefill` and
+`short_conv.metal` fuses the 4-tap convolution, state window carry, and
+`precise::exp`-based SiLU activation into a single GPU launch per layer:
+
+- **Launch geometry:** 2D grid `(channels, rows)` with threads computing
+  sequential accumulation across the 4 taps (current row and 3 preceding
+  carried/history rows) and writing `acc / (1.0f + precise::exp(-acc))` to output,
+  while threads in `row == rows - 1` write the updated 4-row carried window directly
+  to the layer's next state buffer.
+- **Layer-level speedup** (`print_reference_versus_fused_conv_timing` on Apple M4 Max):
+  - 12 rows: **2.92x faster** (0.612 ms -> 0.209 ms)
+  - 192 rows: **6.86x faster** (1.509 ms -> 0.220 ms)
+  - 1,792 rows: **37.92x faster** (23.182 ms -> 0.611 ms)
+- **Model-level parity gates:**
+  - `qwen35_mlx_full_parity`: `gate_passed: true`, 0 argmax flips, 0 policy flips,
+    maximum probability delta `9.86e-7`.
+  - `qwen35_mlx_nested_parity`: `gate_passed: true`, 0 argmax flips, 0 policy flips,
+    maximum probability delta `4.95e-6`, cached-vs-full continuation delta `8.01e-5 < 1e-4`.
+- **End-to-end request-path speedup** (`openkind-bench score` on 12-row smoke fixture):
+  - `repeated_full`: cuts latency from 6.67 s down to **5.72 s** (3.22x total speedup vs 18.43 s baseline; host CPU time 0.76 s vs 18.22 s baseline, a 95.8% drop).
+  - `nested_sequential`: **4.66 s** (vs 6.32 s baseline).
+  - `nested_batched`: **4.51 s** (vs 80.89 s baseline).
+  - Decision agreement: 100% (12/12) decision match; maximum probability delta bounded below `1.5e-5`.
+- **Control switch:** enabled by default; toggle with `OPENKIND_QWEN35_MLX_FUSED_CONV=0` to fall back to multi-op MLX ops for rollback/diagnostics.
+
 ## Current benchmark decision
 
 The latest recorded comparison uses the 12-row, four-state smoke fixture on a
