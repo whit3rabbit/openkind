@@ -471,6 +471,32 @@ A custom Metal kernel derived from TurboSpark's `gdn_conv_mix_prefill` and
   - Decision agreement: 100% (12/12) decision match; maximum probability delta bounded below `1.5e-5`.
 - **Control switch:** enabled by default; toggle with `OPENKIND_QWEN35_MLX_FUSED_CONV=0` to fall back to multi-op MLX ops for rollback/diagnostics.
 
+### Fused gated output normalization (TurboSpark kernel integration)
+
+The output gating of the DeltaNet linear attention layer computes
+`out = rmsnorm(y; weight, eps) * silu(z)` across $H_v = 32$ value heads of
+dimension $D_v = 128$. Previously, this required separate MLX `fast::rms_norm`,
+`silu(z)`, elementwise `mul`, and reshaping passes with intermediate buffer
+allocations.
+
+A custom Metal kernel derived from TurboSpark's `gdn_gated_norm` in `gdn.metal`
+fuses the per-head RMS normalization, parameter scaling, and `precise::exp`-based
+$\text{SiLU}(z)$ gating into a single GPU launch per layer:
+
+- **Launch geometry:** 2D grid `(32 * v_heads, rows, 1)` with threadgroups
+  of 32 threads (a single SIMD group per head per row).
+- **Fast cross-lane reduction:** Computes $\sum y_i^2$ across the 128 elements using
+  4 coalesced 32-lane loads and a single warp `simd_sum` reduction—zero shared
+  memory and zero threadgroup barriers.
+- **Microbenchmarks** (`print_reference_versus_fused_gated_norm_timing` on Apple M4 Max):
+  - 12 rows: **1.24x faster** (0.252 ms -> 0.203 ms)
+  - 192 rows: **1.44x faster** (0.228 ms -> 0.159 ms)
+  - 1,792 rows: **2.01x faster** (0.883 ms -> 0.438 ms)
+- **Model parity & memory:**
+  - 100% decision and argmax parity (0 flips across all 12 requests in `decisions_smoke.jsonl`).
+  - Reduces peak resident memory by **~1.38 GB** (13.44 GB -> 12.06 GB).
+- **Control switch:** enabled by default; toggle with `OPENKIND_QWEN35_MLX_FUSED_GATED_NORM=0` to fall back to separate `fast::rms_norm` and `silu`.
+
 ## Current benchmark decision
 
 The latest recorded comparison uses the 12-row, four-state smoke fixture on a

@@ -28,6 +28,7 @@ use super::{MlxError, MlxGatedDeltaKernel, MlxPrecision};
 pub(crate) mod causal_conv_kernel;
 mod full_attention;
 mod gated_delta_kernel;
+pub(crate) mod gated_norm_kernel;
 mod linear_attention;
 pub(crate) mod metal_kernel;
 mod ops;
