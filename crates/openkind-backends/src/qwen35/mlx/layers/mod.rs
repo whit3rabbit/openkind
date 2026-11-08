@@ -25,9 +25,11 @@ use mlx_rs::Array;
 
 use super::{MlxError, MlxGatedDeltaKernel, MlxPrecision};
 
+pub(crate) mod causal_conv_kernel;
 mod full_attention;
 mod gated_delta_kernel;
 mod linear_attention;
+pub(crate) mod metal_kernel;
 mod ops;
 
 #[cfg(all(test, feature = "mlx", target_os = "macos", target_arch = "aarch64"))]

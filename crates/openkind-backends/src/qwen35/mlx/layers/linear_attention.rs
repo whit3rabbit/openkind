@@ -4,6 +4,7 @@ use mlx_rs::fast;
 use mlx_rs::ops::{concatenate, maximum, stack};
 use mlx_rs::Array;
 
+use super::causal_conv_kernel::{fused_causal_conv_silu, fused_conv_enabled};
 use super::gated_delta_kernel::{
     generic_gated_delta, packed_gated_delta_128, packed_gated_delta_sequence_128,
     simd_gated_delta_sequence_128, GateLayout,
@@ -105,16 +106,39 @@ impl LinearAttention {
             // row before the weighted sum; the outgoing state is the same
             // window (last K raw inputs).
             let raw_row = row_of(&raw_qkv, row)?;
-            let window = shift_window(&conv, &raw_row)?;
-            let summed = window
-                .clone()
-                .mul(&self.conv1d)
-                .sum_axis(1, false)
-                .map_err(op("conv sum"))?;
-            let qkv_row = mlx_rs::nn::silu(&summed).map_err(op("conv silu"))?;
-            if let Some(trace_rows) = &mut conv_sum_rows {
-                trace_rows.push(summed.clone());
-            }
+            let (qkv_row, window) = if self.gated_delta_kernel == MlxGatedDeltaKernel::MetalSimd
+                && fused_conv_enabled()
+            {
+                let raw_row_2d = raw_row
+                    .reshape(&[1, QKV_SIZE as i32])
+                    .map_err(op("conv raw reshape"))?;
+                let (qkv_2d, next_conv) = fused_causal_conv_silu(&raw_row_2d, &conv, &self.conv1d)?;
+                let qkv = qkv_2d
+                    .reshape(&[QKV_SIZE as i32])
+                    .map_err(op("conv qkv reshape"))?;
+                if let Some(trace_rows) = &mut conv_sum_rows {
+                    // For diagnostics, record the pre-activation window if traced
+                    let w = shift_window(&conv, &raw_row)?;
+                    let s = w
+                        .mul(&self.conv1d)
+                        .sum_axis(1, false)
+                        .map_err(op("conv sum trace"))?;
+                    trace_rows.push(s);
+                }
+                (qkv, next_conv)
+            } else {
+                let window = shift_window(&conv, &raw_row)?;
+                let summed = window
+                    .clone()
+                    .mul(&self.conv1d)
+                    .sum_axis(1, false)
+                    .map_err(op("conv sum"))?;
+                let qkv_row = mlx_rs::nn::silu(&summed).map_err(op("conv silu"))?;
+                if let Some(trace_rows) = &mut conv_sum_rows {
+                    trace_rows.push(summed.clone());
+                }
+                (qkv_row, window)
+            };
             if let Some(trace_rows) = &mut conv_silu_rows {
                 trace_rows.push(qkv_row.clone());
             }
@@ -178,40 +202,47 @@ impl LinearAttention {
         mut recurrent: Array,
     ) -> Result<(Array, MlxLayerState), MlxError> {
         let row_count = rows as i32;
-        // Window `row` holds the K raw inputs ending at that row. Stacking the
-        // carried window's columns above the new rows makes tap `j` of row
-        // `r` the extended row at `r + 1 + j`.
-        let extended = concatenate(
-            &[
-                &conv.clone().transpose().map_err(op("hoisted conv t"))?,
-                raw_qkv,
-            ],
-            0,
-        )
-        .map_err(op("hoisted conv extend"))?;
-        let taps = (0..CONV_KERNEL)
-            .map(|tap| {
-                let indices: Vec<u32> = (tap + 1..tap + 1 + rows).map(|row| row as u32).collect();
-                extended
-                    .take_axis(Array::from_slice(&indices, &[row_count]), 0)
-                    .map_err(op("hoisted conv tap"))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        let windows = stack(&taps, 2).map_err(op("hoisted conv windows"))?;
-        let summed = windows
-            .mul(&self.conv1d)
-            .sum_axis(2, false)
-            .map_err(op("hoisted conv sum"))?;
-        let qkv = mlx_rs::nn::silu(&summed).map_err(op("hoisted conv silu"))?;
-        // The carried window after the last row: the final K extended rows.
-        let tail: Vec<u32> = (rows..rows + CONV_KERNEL).map(|row| row as u32).collect();
-        let next_conv = extended
-            .take_axis(Array::from_slice(&tail, &[CONV_KERNEL as i32]), 0)
-            .map_err(op("hoisted conv tail"))?
-            .transpose()
-            .map_err(op("hoisted conv tail t"))?
-            .contiguous()
-            .map_err(op("hoisted conv tail contiguous"))?;
+        let (qkv, next_conv) =
+            if self.gated_delta_kernel == MlxGatedDeltaKernel::MetalSimd && fused_conv_enabled() {
+                fused_causal_conv_silu(raw_qkv, conv, &self.conv1d)?
+            } else {
+                // Window `row` holds the K raw inputs ending at that row. Stacking the
+                // carried window's columns above the new rows makes tap `j` of row
+                // `r` the extended row at `r + 1 + j`.
+                let extended = concatenate(
+                    &[
+                        &conv.clone().transpose().map_err(op("hoisted conv t"))?,
+                        raw_qkv,
+                    ],
+                    0,
+                )
+                .map_err(op("hoisted conv extend"))?;
+                let taps = (0..CONV_KERNEL)
+                    .map(|tap| {
+                        let indices: Vec<u32> =
+                            (tap + 1..tap + 1 + rows).map(|row| row as u32).collect();
+                        extended
+                            .take_axis(Array::from_slice(&indices, &[row_count]), 0)
+                            .map_err(op("hoisted conv tap"))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                let windows = stack(&taps, 2).map_err(op("hoisted conv windows"))?;
+                let summed = windows
+                    .mul(&self.conv1d)
+                    .sum_axis(2, false)
+                    .map_err(op("hoisted conv sum"))?;
+                let qkv = mlx_rs::nn::silu(&summed).map_err(op("hoisted conv silu"))?;
+                // The carried window after the last row: the final K extended rows.
+                let tail: Vec<u32> = (rows..rows + CONV_KERNEL).map(|row| row as u32).collect();
+                let next_conv = extended
+                    .take_axis(Array::from_slice(&tail, &[CONV_KERNEL as i32]), 0)
+                    .map_err(op("hoisted conv tail"))?
+                    .transpose()
+                    .map_err(op("hoisted conv tail t"))?
+                    .contiguous()
+                    .map_err(op("hoisted conv tail contiguous"))?;
+                (qkv, next_conv)
+            };
 
         // Per-row inputs of the recurrence, prepared for every row at once.
         let query_scale = (HEAD_DIM as f32).sqrt().recip();
