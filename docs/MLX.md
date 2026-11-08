@@ -544,6 +544,27 @@ executes the partial rotary embedding directly on the GPU in a single dispatch p
   - 1,792 rows: **8.24x faster** (2.779 ms -> 0.337 ms)
 - **Control switch:** enabled by default; toggle with `OPENKIND_QWEN35_MLX_FUSED_ROPE=0` to fall back to the multi-op path.
 
+### Fused SwiGLU activation (TurboSpark kernel integration)
+
+In all 32 decoder layers, the feed-forward network (FFN / MLP) projects hidden
+states to dimension $D_{intermediate} = 9,216$ through `mlp_gate_proj` and `mlp_up_proj`,
+combining them via SwiGLU: $\text{activated} = \text{SiLU}(\text{gate}) \odot \text{up}$.
+
+Previously, this required computing separate `mlx_rs::nn::silu`, allocating an
+intermediate 9,216-element tensor per row, and running an elementwise multiplication pass.
+
+A custom Metal kernel derived from TurboSpark's `silu_mul_fp16` in `utility.metal`
+fuses $\text{SiLU}$ and the gating product into a single GPU dispatch:
+
+- **Launch geometry:** float4-vectorized grid `(ceil(elements / 4), 1, 1)` with threadgroups of up to 256 threads.
+- **Warp vectorization:** Aligned 128-bit `float4` loads and stores with in-register `metal::precise::exp` evaluation.
+- **Microbenchmarks** (`print_reference_versus_fused_swiglu_timing` on Apple M4 Max):
+  - 12 rows: **1.28x faster** (0.266 ms -> 0.207 ms)
+  - 192 rows: **1.80x faster** (0.356 ms -> 0.198 ms)
+  - 1,792 rows: **1.68x faster** (1.402 ms -> 0.833 ms)
+- **Precision:** Maximum absolute difference $\le 1.19 \times 10^{-7}$, relative difference $< 4 \times 10^{-7}$.
+- **Control switch:** enabled by default; toggle with `OPENKIND_QWEN35_MLX_FUSED_SWIGLU=0` to fall back to separate `silu` and `mul`.
+
 ## Current benchmark decision
 
 The latest recorded comparison uses the 12-row, four-state smoke fixture on a

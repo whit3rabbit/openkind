@@ -34,6 +34,7 @@ pub(crate) mod metal_kernel;
 pub(crate) mod ops;
 pub(crate) mod qk_norm_kernel;
 pub(crate) mod rope_kernel;
+pub(crate) mod swiglu_kernel;
 
 #[cfg(all(test, feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
 mod differential_tests;
@@ -310,7 +311,12 @@ impl MlxDecoderLayer {
         trace_operation(&mut operation_trace, "mlp_gate_projection", &gate);
         let up = linear(&mlp_input, &self.mlp_up_proj)?;
         trace_operation(&mut operation_trace, "mlp_up_projection", &up);
-        let activated = mlx_rs::nn::silu(&gate).map_err(op("mlp silu"))?.mul(&up);
+        let activated =
+            if gate.dtype() == mlx_rs::Dtype::Float32 && swiglu_kernel::fused_swiglu_enabled() {
+                swiglu_kernel::fused_swiglu(&gate, &up)?
+            } else {
+                mlx_rs::nn::silu(&gate).map_err(op("mlp silu"))?.mul(&up)
+            };
         trace_operation(&mut operation_trace, "mlp_silu_times_up", &activated);
         let mlp = linear(&activated, &self.mlp_down_proj)?;
         trace_operation(&mut operation_trace, "mlp_down_projection", &mlp);
