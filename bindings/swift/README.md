@@ -12,7 +12,11 @@ For the sibling TurboSpark checkout, add the OpenKind package and product to `sw
 .product(name: "OpenKind", package: "openkind")
 ```
 
-The relative path assumes `openkind` and `turbospark` are sibling directories. For a remote dependency, use the public Git repository URL and a semantic version tag. The repository URL and first release tag are not set in this checkout yet.
+The relative path assumes `openkind` and `turbospark` are sibling directories. For a remote dependency, use the Git tag for this release:
+
+```swift
+.package(url: "https://github.com/whit3rabbit/openkind.git", from: "0.5.0")
+```
 
 ```swift
 import Foundation

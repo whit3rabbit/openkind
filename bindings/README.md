@@ -123,7 +123,8 @@ Resumable JSONL jobs are managed locally by
 row ranges, stop/status, and resume are CLI features; these packages expose
 the daemon's HTTP requests.
 
-These packages are not published to npm, PyPI, or a Swift package registry.
+TypeScript and Python ship as source in the release tag. SwiftPM resolves
+the repository tag directly.
 The clients cover the canonical HTTP evaluation, models, and health routes.
 They do not wrap `/v1/system_one`, `/metrics`, or gRPC, and do not include the
 [Rust client's](../crates/openkind-client/README.md) retry policy,

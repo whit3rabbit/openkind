@@ -48,7 +48,8 @@ tap formula, and crates.io packages are released together.
     - `openkind-proto`
   - Update API spec version: [`crates/openkind-api/openapi.yaml`](../crates/openkind-api/openapi.yaml) (`info.version`).
   - Update client binding packages to align versions:
-    - [`bindings/typescript/package.json`](../bindings/typescript/package.json) (`version`)
+    - [`bindings/typescript/package.json`](../bindings/typescript/package.json)
+      and [`package-lock.json`](../bindings/typescript/package-lock.json) (`version`)
     - [`bindings/python/pyproject.toml`](../bindings/python/pyproject.toml) (`version`)
   - Run `cargo check` to update and synchronize [`Cargo.lock`](../Cargo.lock).
   - Update the published version shown in [`README.md`](../README.md), including
@@ -94,8 +95,8 @@ env -u RUST_LOG cargo test --workspace --locked
 # Benchmark compilation and test battery
 env -u RUST_LOG cargo test --workspace --benches --locked
 
-# Minimum Supported Rust Version check (Rust 1.90)
-cargo +1.90.0 check --workspace --all-targets --locked
+# Minimum supported Rust version check (Rust 1.94)
+cargo +1.94.0 check --workspace --all-targets --locked
 
 # JSON Schema generation and drift check
 cargo run -p openkind-gen-schemas --locked -- --write
@@ -223,3 +224,4 @@ publishes crates serially in strict topological dependency order:
 | `v0.2.0` | 2026-10-04 | `0153911a4c43d700c2a419c47b4a265848514dff` | 12 | Batch runner, loopback defaults, MSRV 1.90. [Action run](https://github.com/whit3rabbit/openkind/actions/runs/37189124401). |
 | `v0.2.1` | 2026-10-07 | `85cc36b1e0d451015e0d6e441bb1336f813764e6` | 0 | Not published. The ONNX build of a parity test did not compile, failing the MSRV and ONNX archive jobs before any upload. [Action run](https://github.com/whit3rabbit/openkind/actions/runs/37719034732). Its changes ship in v0.3.0. |
 | `v0.3.0` | 2026-10-14 | `2dba87572c028aeaf34b27220a3bbd3d8d8dbc76` | 12 | d3 and sieve families, LoRA factor residency, opt-in root prefix cache. The tag was moved once before anything published, after a timing-flaky Arrow test failed the first run. [Action run](https://github.com/whit3rabbit/openkind/actions/runs/38494926906). Verified by [published-release run](https://github.com/whit3rabbit/openkind/actions/runs/38506072216). |
+| `v0.4.0` | 2026-10-14 | `b9061ee352fe9d15de2ea4683fb9c093e0fc785e` | 12 | Jeeves, backend diagnostics, and Arrow batch execution. [Release run](https://github.com/whit3rabbit/openkind/actions/runs/38615784122) and [published-release verification](https://github.com/whit3rabbit/openkind/actions/runs/38624330026). |

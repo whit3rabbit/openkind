@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.0 (planned)
+
 ### Added
 
 - Promoted FP32 MLX Gated DeltaNet kernel `metal-simd-v1`
@@ -50,6 +52,12 @@
   Each backend has a checkpoint-gated replay; no checkpoint-backed parity
   run is recorded yet. See [MLX.md](docs/MLX.md).
 
+- Native Metal execution for the pinned d3 profiles. The smaller profiles
+  use FP32 and d3-flash uses affine 4-bit weights on MLX.
+- Fused Metal kernels for convolution, Q/K normalization, gated output
+  normalization, partial RoPE, and SwiGLU. The MLX family implementations
+  reuse these kernels where their tensor layouts match.
+
 ### Changed
 
 - Minimum supported Rust version raised from 1.90 to 1.94. candle-core 0.11.1
@@ -57,14 +65,24 @@
   Rust 1.94. The published 0.4.0 crates still build on 1.90.
 - `half` is no longer capped below 2.5. Evidence records now name
   `candle-core 0.11.1` as the backend implementation.
+- MLX survey loaders accept multiple verified shards and an optional LoRA
+  merge. Rust callers constructing `MlxSurveyCheckpoint` now supply
+  `shards` and `lora` in place of `shard_path`.
+
+### Fixed
+
+- Keep the CPU Qwen3.5 continuation result independent of short suffix batch
+  size on platforms using gemm's horizontal kernels.
+- Build CUDA release archives with a statically linked CUDA runtime so the
+  binaries can start on hosts without a CUDA installation.
 
 ### Security
 
 - candle-core, candle-nn, and candle-transformers move from 0.8.0 to 0.11.1,
-  the first candle release on zip 9 (zip 9.4.1). This clears GHSA-m665-v7pm-7grj
-  (critical) and GHSA-8hxf-qr8p-62x4, plus five RustSec zip advisories. On an
-  M4 Max the d3-edge and d3-flash real-checkpoint goldens still replay within
-  the 0.005 gate. CUDA builds were not compiled for this change.
+  the first candle release on zip 9. The workspace locks zip 9.4.2. This clears
+  GHSA-m665-v7pm-7grj (critical) and GHSA-8hxf-qr8p-62x4, plus five RustSec
+  zip advisories. On an M4 Max the d3-edge and d3-flash real-checkpoint
+  goldens still replay within the 0.005 gate on CPU.
 - rustls 0.23.46 through `cargo update` (four advisories).
 - Arrow and parquet pins move from 60.0.0 to 60.1.0 for RUSTSEC-2026-0442
   (out-of-bounds reads on unvalidated RunEndEncoded arrays). The opt-in Arrow
