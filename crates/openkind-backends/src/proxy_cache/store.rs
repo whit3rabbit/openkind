@@ -520,11 +520,7 @@ fn read_rows<P: rusqlite::Params>(
     let mut statement = connection
         .prepare(sql)
         .map_err(|error| ProxyCacheError::Store(format!("prepare row query: {error}")))?;
-    let column_names: Vec<String> = statement
-        .column_names()
-        .into_iter()
-        .map(str::to_owned)
-        .collect();
+    let column_names: Vec<String> = statement.column_names().map(str::to_owned).collect();
     let rows = statement
         .query_map(parameters, |row| {
             let get_string = |name: &str| -> rusqlite::Result<Option<String>> {
