@@ -13,6 +13,7 @@ use openkind_core::{ModelInfo, State, SystemRequest, SystemResponse};
 use crate::families::kev::engine::{
     noul_criteria_are_explicit, question_instructions, question_options,
 };
+use crate::families::kev::model::QuestionRow;
 use crate::families::kev::renderer::{render_json, KevRenderer};
 use crate::families::support::{
     temperature_softmax, BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator,
@@ -26,8 +27,37 @@ use super::{
 
 /// Loaded pinned Drex engine.
 pub struct DrexEngine {
-    renderer: KevRenderer,
-    model: DrexModel,
+    inner: Inner,
+}
+
+/// The family's execution seam: everything one backend contributes to the
+/// shared rendering/scoring pipeline. The renderer, temperature, and wire
+/// mapping are shared with the CPU oracle; only the pointer-logit readout
+/// differs per execution path.
+pub(crate) trait DrexPassSource: Send + Sync {
+    /// The family renderer over the verified tokenizer.
+    fn renderer(&self) -> &KevRenderer;
+
+    /// Pointer logits for one rendered question row.
+    fn row_logits(
+        &self,
+        row: &QuestionRow,
+        control: &FamilyControl,
+    ) -> Result<Vec<f64>, FamilyError>;
+}
+
+impl DrexPassSource for DrexEngine {
+    fn renderer(&self) -> &KevRenderer {
+        &self.inner.renderer
+    }
+
+    fn row_logits(
+        &self,
+        row: &QuestionRow,
+        control: &FamilyControl,
+    ) -> Result<Vec<f64>, FamilyError> {
+        self.inner.model.row_logits(row, control)
+    }
 }
 
 impl DrexEngine {
@@ -59,9 +89,16 @@ impl DrexEngine {
         let renderer =
             KevRenderer::load_with_limits(&artifacts.tokenizer, MAX_STATE_TOKENS, MAX_ROW_TOKENS)?;
         let model = DrexModel::load(&artifacts)?;
-        let engine = Self { renderer, model };
+        let engine = Self {
+            inner: Inner { renderer, model },
+        };
         Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))
     }
+}
+
+struct Inner {
+    renderer: KevRenderer,
+    model: DrexModel,
 }
 
 impl FamilyEvaluator for DrexEngine {
@@ -90,54 +127,62 @@ impl FamilyEvaluator for DrexEngine {
         request: SystemRequest,
         control: &FamilyControl,
     ) -> Result<SystemResponse, FamilyError> {
-        control.check()?;
-        let state = match request.state {
-            State::Text(text) => text,
-            structured => render_json(&crate::families::wire::state_value(structured)),
-        };
-        if state.trim().is_empty() {
-            return Err(FamilyError::InvalidInput(
-                "state must contain non-whitespace text".to_owned(),
-            ));
-        }
-        let state_tokens = self.renderer.state_tokens(&state)?;
-        let questions = crate::families::wire::into_sorted_questions(request.questions)?;
-
-        let mut answers = std::collections::HashMap::<
-            String,
-            openkind_core::Answer,
-            openkind_core::WireHashState,
-        >::with_capacity_and_hasher(questions.len(), Default::default());
-        let mut input_tokens: u64 = 0;
-        for (question_id, question) in questions {
-            control.check()?;
-            let unpacked = crate::families::wire::unpack_question(&question_id, &question)?;
-            let options =
-                question_options(&unpacked, &question, noul_criteria_are_explicit(&question));
-            let instruction = render_json(question_instructions(&question));
-            let row = self
-                .renderer
-                .encode_row(&state_tokens, &instruction, &options)?;
-            let logits = self.model.row_logits(&row, control)?;
-            if logits.len() != options.len() {
-                return Err(FamilyError::ContractMismatch {
-                    field: "option.count",
-                    expected: format!("{} option logits", options.len()),
-                    actual: format!("{} logits", logits.len()),
-                });
-            }
-            input_tokens =
-                input_tokens.saturating_add(u64::try_from(row.ids.len()).unwrap_or(u64::MAX));
-            let probabilities = temperature_softmax(&logits, CALIBRATION_TEMPERATURE)?;
-            let answer =
-                crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?;
-            answers.insert(question_id, answer);
-        }
-        control.check()?;
-        Ok(crate::families::wire::system_response(
-            request.model,
-            answers,
-            input_tokens,
-        ))
+        evaluate_with(self, request, control)
     }
+}
+
+/// Evaluate one request through any [`DrexPassSource`] backend. The
+/// rendering, temperature, and wire mapping are the CPU oracle's; only the
+/// pointer-logit forward comes from the source.
+pub(crate) fn evaluate_with(
+    source: &impl DrexPassSource,
+    request: SystemRequest,
+    control: &FamilyControl,
+) -> Result<SystemResponse, FamilyError> {
+    control.check()?;
+    let state = match request.state {
+        State::Text(text) => text,
+        structured => render_json(&crate::families::wire::state_value(structured)),
+    };
+    if state.trim().is_empty() {
+        return Err(FamilyError::InvalidInput(
+            "state must contain non-whitespace text".to_owned(),
+        ));
+    }
+    let renderer = source.renderer();
+    let state_tokens = renderer.state_tokens(&state)?;
+    let questions = crate::families::wire::into_sorted_questions(request.questions)?;
+
+    let mut answers = std::collections::HashMap::<
+        String,
+        openkind_core::Answer,
+        openkind_core::WireHashState,
+    >::with_capacity_and_hasher(questions.len(), Default::default());
+    let mut input_tokens: u64 = 0;
+    for (question_id, question) in questions {
+        control.check()?;
+        let unpacked = crate::families::wire::unpack_question(&question_id, &question)?;
+        let options = question_options(&unpacked, &question, noul_criteria_are_explicit(&question));
+        let instruction = render_json(question_instructions(&question));
+        let row = renderer.encode_row(&state_tokens, &instruction, &options)?;
+        let logits = source.row_logits(&row, control)?;
+        if logits.len() != options.len() {
+            return Err(FamilyError::ContractMismatch {
+                field: "option.count",
+                expected: format!("{} option logits", options.len()),
+                actual: format!("{} logits", logits.len()),
+            });
+        }
+        input_tokens =
+            input_tokens.saturating_add(u64::try_from(row.ids.len()).unwrap_or(u64::MAX));
+        let probabilities = temperature_softmax(&logits, CALIBRATION_TEMPERATURE)?;
+        let answer = crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?;
+        answers.insert(question_id, answer);
+    }
+    control.check()?;
+    Ok(crate::families::wire::system_response(
+        request.model,
+        answers,
+        input_tokens,
+    ))
 }

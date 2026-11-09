@@ -17,6 +17,18 @@ use super::{
     PROFILE_ID,
 };
 
+/// The family's execution seam: everything one backend contributes to the
+/// shared encode/score pipeline. The renderer and wire mapping are shared
+/// with the CPU oracle; only the scalar relevance readout differs per
+/// execution path.
+pub(crate) trait SchemaScorerPassSource: Send + Sync {
+    /// The family renderer over the verified tokenizer.
+    fn renderer(&self) -> &SchemaScorerRenderer;
+
+    /// Scalar relevance logit of one query–passage pair.
+    fn relevance_logit(&self, pair_ids: &[u32]) -> Result<f64, FamilyError>;
+}
+
 /// Scalar relevance-logit source shared by the candle and ONNX models.
 trait RelevanceLogits: Send + Sync {
     /// Scalar relevance logit of one query–passage pair.
@@ -46,6 +58,16 @@ struct Inner {
     renderer: SchemaScorerRenderer,
     model: Box<dyn RelevanceLogits>,
     backend_id: String,
+}
+
+impl SchemaScorerPassSource for Inner {
+    fn renderer(&self) -> &SchemaScorerRenderer {
+        &self.renderer
+    }
+
+    fn relevance_logit(&self, pair_ids: &[u32]) -> Result<f64, FamilyError> {
+        self.model.relevance_logit(pair_ids)
+    }
 }
 
 impl SchemaScorerEngine {
@@ -131,60 +153,71 @@ impl FamilyEvaluator for SchemaScorerEngine {
         request: SystemRequest,
         control: &FamilyControl,
     ) -> Result<SystemResponse, FamilyError> {
-        control.check()?;
-        let state = crate::families::wire::state_text(&request.state)?;
-        if state.trim().is_empty() {
-            return Err(FamilyError::InvalidInput(
-                "state must contain non-whitespace text".to_owned(),
-            ));
-        }
-        let questions = crate::families::wire::into_sorted_questions(request.questions)?;
-
-        let mut answers = std::collections::HashMap::<
-            String,
-            openkind_core::Answer,
-            openkind_core::WireHashState,
-        >::with_capacity_and_hasher(questions.len(), Default::default());
-        let mut input_tokens: u64 = 0;
-        for (question_id, question) in questions {
-            control.check()?;
-            let id = &question_id;
-            let question = &question;
-            let instruction = crate::families::wire::instruction_text(question)?;
-            let unpacked = crate::families::wire::unpack_question(id, question)?;
-            if unpacked.criteria.len() > MAX_CANDIDATES {
-                return Err(FamilyError::InvalidInput(format!(
-                    "question `{id}` offers {} candidates but the profile accepts at most {MAX_CANDIDATES}",
-                    unpacked.criteria.len()
-                )));
-            }
-            if unpacked.criteria.len() < MIN_CANDIDATES {
-                return Err(FamilyError::InvalidInput(format!(
-                    "question `{id}` needs at least {MIN_CANDIDATES} candidates"
-                )));
-            }
-            // The Jev question schema renders into the query side: the state
-            // document plus the question instruction. The candidate criterion
-            // is the passage side.
-            let query = format!("{state}\n\nQuestion: {instruction}");
-            let mut logits = Vec::with_capacity(unpacked.criteria.len());
-            for criterion in &unpacked.criteria {
-                control.check()?;
-                let pair_ids = self.inner.renderer.encode_pair(&query, criterion)?;
-                let logit = self.inner.model.relevance_logit(&pair_ids)?;
-                input_tokens = input_tokens.saturating_add(pair_ids.len() as u64);
-                logits.push(logit);
-            }
-            let probabilities = temperature_softmax(&logits, super::CALIBRATION_TEMPERATURE)?;
-            let answer =
-                crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?;
-            answers.insert(question_id, answer);
-        }
-        control.check()?;
-        Ok(crate::families::wire::system_response(
-            request.model,
-            answers,
-            input_tokens,
-        ))
+        evaluate_with(self.inner.as_ref(), request, control)
     }
+}
+
+/// Evaluate one request through any [`SchemaScorerPassSource`] backend. The
+/// query rendering, candidate budget, calibration temperature, and wire
+/// mapping are the CPU oracle's; only the scalar relevance forward comes
+/// from the source.
+pub(crate) fn evaluate_with(
+    source: &impl SchemaScorerPassSource,
+    request: SystemRequest,
+    control: &FamilyControl,
+) -> Result<SystemResponse, FamilyError> {
+    control.check()?;
+    let state = crate::families::wire::state_text(&request.state)?;
+    if state.trim().is_empty() {
+        return Err(FamilyError::InvalidInput(
+            "state must contain non-whitespace text".to_owned(),
+        ));
+    }
+    let questions = crate::families::wire::into_sorted_questions(request.questions)?;
+
+    let mut answers = std::collections::HashMap::<
+        String,
+        openkind_core::Answer,
+        openkind_core::WireHashState,
+    >::with_capacity_and_hasher(questions.len(), Default::default());
+    let mut input_tokens: u64 = 0;
+    for (question_id, question) in questions {
+        control.check()?;
+        let id = &question_id;
+        let question = &question;
+        let instruction = crate::families::wire::instruction_text(question)?;
+        let unpacked = crate::families::wire::unpack_question(id, question)?;
+        if unpacked.criteria.len() > MAX_CANDIDATES {
+            return Err(FamilyError::InvalidInput(format!(
+                "question `{id}` offers {} candidates but the profile accepts at most {MAX_CANDIDATES}",
+                unpacked.criteria.len()
+            )));
+        }
+        if unpacked.criteria.len() < MIN_CANDIDATES {
+            return Err(FamilyError::InvalidInput(format!(
+                "question `{id}` needs at least {MIN_CANDIDATES} candidates"
+            )));
+        }
+        // The Jev question schema renders into the query side: the state
+        // document plus the question instruction. The candidate criterion
+        // is the passage side.
+        let query = format!("{state}\n\nQuestion: {instruction}");
+        let mut logits = Vec::with_capacity(unpacked.criteria.len());
+        for criterion in &unpacked.criteria {
+            control.check()?;
+            let pair_ids = source.renderer().encode_pair(&query, criterion)?;
+            let logit = source.relevance_logit(&pair_ids)?;
+            input_tokens = input_tokens.saturating_add(pair_ids.len() as u64);
+            logits.push(logit);
+        }
+        let probabilities = temperature_softmax(&logits, super::CALIBRATION_TEMPERATURE)?;
+        let answer = crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?;
+        answers.insert(question_id, answer);
+    }
+    control.check()?;
+    Ok(crate::families::wire::system_response(
+        request.model,
+        answers,
+        input_tokens,
+    ))
 }

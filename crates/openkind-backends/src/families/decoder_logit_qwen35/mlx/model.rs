@@ -50,8 +50,9 @@ impl Jevk5MlxModel {
             backbone_id: profile.backbone_id,
             backbone_revision: profile.backbone_revision,
             tokenizer_digest: profile.tokenizer_json_sha256,
-            shard_path: artifacts.checkpoint.clone(),
+            shards: vec![artifacts.checkpoint.clone()],
             embedding: embedding.clone(),
+            lora: None,
         };
         let backbone = MlxQwen35Backbone::load_survey(
             &survey,

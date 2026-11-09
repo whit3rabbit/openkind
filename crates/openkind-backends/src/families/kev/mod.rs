@@ -44,6 +44,11 @@
 
 mod arch;
 pub(crate) mod engine;
+/// MLX/Metal execution backend (feature `mlx`, macOS arm64).
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+mod mlx;
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub use self::mlx::{KevMlxEngine, KevMlxEngineConfig, MLX_EXECUTION_ARITHMETIC_ID};
 pub(crate) mod model;
 pub(crate) mod renderer;
 
@@ -89,6 +94,9 @@ pub const HEAD_PT_SOURCE_SHA256: &str =
     "ce6cd9ffc54db41c179b65a33d60973dc8280c29e886218eb3ec07dc28d6f28b";
 /// Arithmetic/device identity of the family execution path.
 pub const EXECUTION_ARITHMETIC_ID: &str = "candle-cpu-fp32-qwen3";
+/// Backend id reported by the MLX engine serving this profile (`mlx`
+/// feature on macOS arm64).
+pub const MLX_BACKEND_ID: &str = "kev/mlx-fp32";
 /// Declared probability space of the profile.
 pub const DECLARED_PROBABILITY_SPACE: ProbabilitySpace =
     ProbabilitySpace::ConditionalOnOfferedOptions;
@@ -143,6 +151,13 @@ pub enum KevError {
     /// Shared family loader/evaluator failure.
     #[error(transparent)]
     Family(#[from] crate::families::support::FamilyError),
+}
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+impl From<crate::qwen35::mlx::MlxError> for KevError {
+    fn from(error: crate::qwen35::mlx::MlxError) -> Self {
+        Self::Family(crate::families::support::FamilyError::from(error))
+    }
 }
 
 /// Filesystem configuration for the pinned kev profile.

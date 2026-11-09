@@ -27,6 +27,27 @@ struct Inner {
     backend_id: String,
 }
 
+/// The family's execution seam: everything one backend contributes to the
+/// shared planning/scoring pipeline. The renderer, profile, temperatures,
+/// and wire mapping are shared with the CPU oracle; only the code-logit
+/// readout differs per execution path.
+pub(crate) trait SievePassSource: Send + Sync {
+    /// The pinned profile this source serves.
+    fn profile(&self) -> &'static SieveProfile;
+
+    /// The family renderer over the profile's verified tokenizer.
+    fn renderer(&self) -> &SieveRenderer;
+
+    /// Forward one prefix-plus-branch row and return the code logits
+    /// restricted to the first `count` head rows.
+    fn code_logits(
+        &self,
+        prompt_ids: &[u32],
+        count: usize,
+        control: &FamilyControl,
+    ) -> Result<Vec<f64>, FamilyError>;
+}
+
 /// One planned question: the rendered branches (one per listing order),
 /// the number of code logits to read, and the listing-to-canonical
 /// permutation of each branch.
@@ -336,44 +357,61 @@ fn plan_question(
     }
 }
 
-impl Inner {
-    /// Score one planned question: forward every row, temperature-softmax
-    /// the code logits, map each listing distribution back to canonical
-    /// option order, and average the rows (noul's two orders).
-    fn score_question(
-        &self,
-        prefix_ids: &[u32],
-        planned: PlannedQuestion,
-        control: &FamilyControl,
-    ) -> Result<openkind_core::Answer, FamilyError> {
-        let temperature = self.profile.calibration.resolve(planned.kind);
-        let mut acc = vec![0.0_f64; planned.unpacked.labels.len()];
-        let mut rows = 0_usize;
-        for planned_row in &planned.rows {
-            control.check()?;
-            let logits = self.model.code_logits(
-                &row_ids(prefix_ids, &planned_row.branch_ids),
-                planned_row.code_count,
-                control,
-            )?;
-            let listing_probabilities = temperature_softmax(&logits, temperature)?;
-            if listing_probabilities.len() != planned_row.perm.len() {
-                return Err(FamilyError::Numerical(
-                    "code readout lost an option's probability".to_owned(),
-                ));
-            }
-            // Reference `canonical_probs`: listing position -> canonical
-            // option index.
-            for (position, canonical_index) in planned_row.perm.iter().enumerate() {
-                acc[*canonical_index] += listing_probabilities[position];
-            }
-            rows += 1;
-        }
-        for value in &mut acc {
-            *value /= rows as f64;
-        }
-        wire::answer_from_probabilities(&planned.unpacked, &acc)
+impl SievePassSource for Inner {
+    fn profile(&self) -> &'static SieveProfile {
+        self.profile
     }
+
+    fn renderer(&self) -> &SieveRenderer {
+        &self.renderer
+    }
+
+    fn code_logits(
+        &self,
+        prompt_ids: &[u32],
+        count: usize,
+        control: &FamilyControl,
+    ) -> Result<Vec<f64>, FamilyError> {
+        self.model.code_logits(prompt_ids, count, control)
+    }
+}
+
+/// Score one planned question: forward every row, temperature-softmax
+/// the code logits, map each listing distribution back to canonical
+/// option order, and average the rows (noul's two orders).
+fn score_question(
+    source: &impl SievePassSource,
+    prefix_ids: &[u32],
+    planned: PlannedQuestion,
+    control: &FamilyControl,
+) -> Result<openkind_core::Answer, FamilyError> {
+    let temperature = source.profile().calibration.resolve(planned.kind);
+    let mut acc = vec![0.0_f64; planned.unpacked.labels.len()];
+    let mut rows = 0_usize;
+    for planned_row in &planned.rows {
+        control.check()?;
+        let logits = source.code_logits(
+            &row_ids(prefix_ids, &planned_row.branch_ids),
+            planned_row.code_count,
+            control,
+        )?;
+        let listing_probabilities = temperature_softmax(&logits, temperature)?;
+        if listing_probabilities.len() != planned_row.perm.len() {
+            return Err(FamilyError::Numerical(
+                "code readout lost an option's probability".to_owned(),
+            ));
+        }
+        // Reference `canonical_probs`: listing position -> canonical
+        // option index.
+        for (position, canonical_index) in planned_row.perm.iter().enumerate() {
+            acc[*canonical_index] += listing_probabilities[position];
+        }
+        rows += 1;
+    }
+    for value in &mut acc {
+        *value /= rows as f64;
+    }
+    wire::answer_from_probabilities(&planned.unpacked, &acc)
 }
 
 /// The wire instructions payload of one question.
@@ -459,7 +497,7 @@ impl SieveEngine {
 }
 
 /// Decode a pinned JSON string array.
-fn decode_strings(value: &serde_json::Value) -> Result<Vec<String>, FamilyError> {
+pub(crate) fn decode_strings(value: &serde_json::Value) -> Result<Vec<String>, FamilyError> {
     serde_json::from_value(value.clone()).map_err(|error| FamilyError::ContractMismatch {
         field: "sieve_config.codes",
         expected: "a JSON string array".to_owned(),
@@ -468,7 +506,7 @@ fn decode_strings(value: &serde_json::Value) -> Result<Vec<String>, FamilyError>
 }
 
 /// Decode a pinned JSON integer array.
-fn decode_numbers(value: &serde_json::Value) -> Result<Vec<u64>, FamilyError> {
+pub(crate) fn decode_numbers(value: &serde_json::Value) -> Result<Vec<u64>, FamilyError> {
     serde_json::from_value(value.clone()).map_err(|error| FamilyError::ContractMismatch {
         field: "sieve_config.code_ids",
         expected: "a JSON integer array".to_owned(),
@@ -503,34 +541,45 @@ impl FamilyEvaluator for SieveEngine {
         request: SystemRequest,
         control: &FamilyControl,
     ) -> Result<SystemResponse, FamilyError> {
-        control.check()?;
-        // Validate, render, and budget every question before the first
-        // forward (reference `engine.py:evaluate`), so a later invalid or
-        // over-length question never costs the earlier ones' forwards.
-        let SieveRequestPlan {
-            prefix_ids,
-            questions,
-            input_tokens,
-        } = plan_owned_request(
-            &self.inner.renderer,
-            self.inner.profile,
-            request.state,
-            request.questions,
-        )?;
-        let mut answers: HashMap<String, openkind_core::Answer, openkind_core::WireHashState> =
-            HashMap::with_capacity_and_hasher(questions.len(), Default::default());
-        for (id, planned) in questions {
-            control.check()?;
-            let answer = self.inner.score_question(&prefix_ids, planned, control)?;
-            answers.insert(id, answer);
-        }
-        control.check()?;
-        Ok(crate::families::wire::system_response(
-            request.model,
-            answers,
-            input_tokens,
-        ))
+        evaluate_with(self.inner.as_ref(), request, control)
     }
+}
+
+/// Evaluate one request through any [`SievePassSource`] backend. The
+/// planning, token budgets, temperatures, and wire mapping are the CPU
+/// oracle's; only the code-logit forward comes from the source.
+pub(crate) fn evaluate_with(
+    source: &impl SievePassSource,
+    request: SystemRequest,
+    control: &FamilyControl,
+) -> Result<SystemResponse, FamilyError> {
+    control.check()?;
+    // Validate, render, and budget every question before the first
+    // forward (reference `engine.py:evaluate`), so a later invalid or
+    // over-length question never costs the earlier ones' forwards.
+    let SieveRequestPlan {
+        prefix_ids,
+        questions,
+        input_tokens,
+    } = plan_owned_request(
+        source.renderer(),
+        source.profile(),
+        request.state,
+        request.questions,
+    )?;
+    let mut answers: HashMap<String, openkind_core::Answer, openkind_core::WireHashState> =
+        HashMap::with_capacity_and_hasher(questions.len(), Default::default());
+    for (id, planned) in questions {
+        control.check()?;
+        let answer = score_question(source, &prefix_ids, planned, control)?;
+        answers.insert(id, answer);
+    }
+    control.check()?;
+    Ok(crate::families::wire::system_response(
+        request.model,
+        answers,
+        input_tokens,
+    ))
 }
 
 #[cfg(test)]

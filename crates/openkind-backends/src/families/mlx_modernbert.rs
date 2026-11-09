@@ -396,6 +396,59 @@ impl EncoderLayer {
         })
     }
 
+    fn from_tensor_map(
+        tensors: &BTreeMap<String, Array>,
+        config: &ModernBertMlxConfig,
+        prefix: &str,
+        index: usize,
+    ) -> Result<Self, MlxError> {
+        let hidden = config.hidden_size;
+        let intermediate = config.intermediate_size;
+        let layer_prefix = format!("{prefix}.layers.{index}");
+        Ok(Self {
+            attn_norm: if index == 0 {
+                None
+            } else {
+                Some(map_tensor(
+                    tensors,
+                    &format!("{layer_prefix}.attn_norm.weight"),
+                    &[hidden],
+                )?)
+            },
+            wqkv: map_transposed(
+                tensors,
+                &format!("{layer_prefix}.attn.Wqkv.weight"),
+                3 * hidden,
+                hidden,
+            )?,
+            wo: map_transposed(
+                tensors,
+                &format!("{layer_prefix}.attn.Wo.weight"),
+                hidden,
+                hidden,
+            )?,
+            mlp_norm: map_tensor(
+                tensors,
+                &format!("{layer_prefix}.mlp_norm.weight"),
+                &[hidden],
+            )?,
+            wi: map_transposed(
+                tensors,
+                &format!("{layer_prefix}.mlp.Wi.weight"),
+                2 * intermediate,
+                hidden,
+            )?,
+            wo_mlp: map_transposed(
+                tensors,
+                &format!("{layer_prefix}.mlp.Wo.weight"),
+                hidden,
+                intermediate,
+            )?,
+            is_global: index.is_multiple_of(config.global_attn_every_n_layers),
+            norm_eps: config.norm_eps,
+        })
+    }
+
     fn forward(
         &self,
         xs: &Array,
@@ -436,6 +489,44 @@ impl EncoderLayer {
     }
 }
 
+/// Take one FP32 array out of a caller-loaded tensor map, checking it
+/// exists with the pinned shape. Array handles are cheap refcounted clones;
+/// the map retains ownership.
+pub(crate) fn map_tensor(
+    tensors: &BTreeMap<String, Array>,
+    name: &str,
+    expected: &[usize],
+) -> Result<Array, MlxError> {
+    let array = tensors.get(name).ok_or_else(|| {
+        MlxError::InvalidState(format!("pinned checkpoint is missing tensor `{name}`"))
+    })?;
+    let shape: Vec<i32> = expected.iter().map(|&dim| dim as i32).collect();
+    if array.shape() != shape.as_slice() {
+        return Err(MlxError::InvalidState(format!(
+            "tensor `{name}` has shape {:?} but the pinned contract requires {expected:?}",
+            array.shape()
+        )));
+    }
+    Ok(array.clone())
+}
+
+/// Take one matrix out of a caller-loaded tensor map and materialize its
+/// FP32 transpose so every forward matmul consumes `(input, output)`
+/// weights directly.
+pub(crate) fn map_transposed(
+    tensors: &BTreeMap<String, Array>,
+    name: &str,
+    rows: usize,
+    cols: usize,
+) -> Result<Array, MlxError> {
+    let weight = map_tensor(tensors, name, &[rows, cols])?;
+    let transposed = weight
+        .transpose_axes(&[1, 0])
+        .map_err(op("weight transpose"))?;
+    transposed.eval().map_err(op("weight transpose eval"))?;
+    Ok(transposed)
+}
+
 /// The ModernBERT encoder body in MLX arrays: embeddings, layers, final norm.
 pub(crate) struct ModernBertMlx {
     tok_embeddings: Array,
@@ -473,8 +564,6 @@ impl ModernBertMlx {
         prefix: &str,
     ) -> Result<Self, MlxError> {
         let hidden = config.hidden_size;
-        let num_heads = config.num_attention_heads;
-        let head_dim = hidden / num_heads;
         let layers = (0..config.num_hidden_layers)
             .map(|index| EncoderLayer::load(shard, config, prefix, index))
             .collect::<Result<Vec<_>, _>>()?;
@@ -488,17 +577,63 @@ impl ModernBertMlx {
             layers,
             final_norm: shard.f32_tensor(&format!("{prefix}.final_norm.weight"), &[hidden])?,
             rotary_global: RotaryTables::new(
-                head_dim,
+                hidden / config.num_attention_heads,
                 config.global_rope_theta,
                 config.max_sequence_tokens,
             )?,
             rotary_local: RotaryTables::new(
-                head_dim,
+                hidden / config.num_attention_heads,
                 config.local_rope_theta,
                 config.max_sequence_tokens,
             )?,
-            num_heads,
-            head_dim,
+            num_heads: config.num_attention_heads,
+            head_dim: hidden / config.num_attention_heads,
+            half_window: config.local_attention / 2,
+            norm_eps: config.norm_eps,
+        })
+    }
+
+    /// Build the body from a caller-loaded FP32 tensor map whose keys are
+    /// the safetensors-style names under `prefix`. Must run inside
+    /// [`MlxRuntime::execute`]; every required tensor is checked against the
+    /// pinned shape and any missing tensor fails closed. This is the seam
+    /// for checkpoints stored outside safetensors (for example the von
+    /// family's torch pickle): the caller reads its container, widens every
+    /// tensor to FP32 exactly, and hands the arrays over.
+    pub(crate) fn from_tensor_map(
+        tensors: &BTreeMap<String, Array>,
+        config: &ModernBertMlxConfig,
+        prefix: &str,
+    ) -> Result<Self, MlxError> {
+        let hidden = config.hidden_size;
+        let layers = (0..config.num_hidden_layers)
+            .map(|index| EncoderLayer::from_tensor_map(tensors, config, prefix, index))
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Self {
+            tok_embeddings: map_tensor(
+                tensors,
+                &format!("{prefix}.embeddings.tok_embeddings.weight"),
+                &[config.vocab_size, hidden],
+            )?,
+            embedding_norm: map_tensor(
+                tensors,
+                &format!("{prefix}.embeddings.norm.weight"),
+                &[hidden],
+            )?,
+            layers,
+            final_norm: map_tensor(tensors, &format!("{prefix}.final_norm.weight"), &[hidden])?,
+            rotary_global: RotaryTables::new(
+                hidden / config.num_attention_heads,
+                config.global_rope_theta,
+                config.max_sequence_tokens,
+            )?,
+            rotary_local: RotaryTables::new(
+                hidden / config.num_attention_heads,
+                config.local_rope_theta,
+                config.max_sequence_tokens,
+            )?,
+            num_heads: config.num_attention_heads,
+            head_dim: hidden / config.num_attention_heads,
             half_window: config.local_attention / 2,
             norm_eps: config.norm_eps,
         })

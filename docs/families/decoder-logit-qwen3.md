@@ -76,8 +76,8 @@ declared construction of this family:
 
 - No M2 reviewed-decision gate has run for these profiles; they are
   untrained controls and carry no deployment claim by construction.
-- No MLX backend exists for the dense-Qwen3 controls; the shared MLX
-  Qwen3.5 backbone serves the hybrid (DeltaNet) geometry, not dense Qwen3.
+- The three pinned dense Qwen3 controls have [MLX paths](../MLX.md).
+  Checkpoint replay remains pending.
 - The `Qwen/Qwen3-8B` row stays surveyed-only unless a quantized or MLX
   route is qualified for the family.
 

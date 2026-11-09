@@ -49,6 +49,11 @@
 
 mod arch;
 mod engine;
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub mod mlx;
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub use self::mlx::{VonMlxModel, MLX_BACKEND_ID, MLX_EXECUTION_ARITHMETIC_ID};
 #[doc(hidden)]
 pub mod model;
 #[cfg(feature = "onnx")]
@@ -295,6 +300,13 @@ pub enum VonError {
     /// Shared family loader/evaluator failure.
     #[error(transparent)]
     Family(#[from] crate::families::support::FamilyError),
+}
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+impl From<crate::qwen35::mlx::MlxError> for VonError {
+    fn from(error: crate::qwen35::mlx::MlxError) -> Self {
+        Self::Family(crate::families::support::FamilyError::from(error))
+    }
 }
 
 /// Filesystem configuration for the pinned von profile.

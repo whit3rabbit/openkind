@@ -55,6 +55,11 @@ mod engine;
 mod model;
 mod renderer;
 
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+mod mlx;
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub use self::mlx::{StrandsMlxEngine, StrandsMlxEngineConfig, MLX_EXECUTION_ARITHMETIC_ID};
+
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -97,6 +102,9 @@ pub struct StrandsDeciderProfile {
     pub cpu_backend_id: &'static str,
     /// Backend id reported by the CUDA engine serving this profile.
     pub cuda_backend_id: &'static str,
+    /// Backend id reported by the MLX engine serving this profile
+    /// (`mlx` feature on macOS arm64).
+    pub mlx_backend_id: &'static str,
     /// Release date of the profile (the day it was pinned here).
     pub release_date: &'static str,
     /// Catalog/manifest description of the profile.
@@ -153,6 +161,7 @@ pub const HOBSON_V19: StrandsDeciderProfile = StrandsDeciderProfile {
     uniform_temperature: 0.962_772_160_767_736_2,
     cpu_backend_id: "strands-decider-2b/cpu-fp32",
     cuda_backend_id: "strands-decider-2b/cuda-fp32",
+    mlx_backend_id: "strands-decider-2b/mlx-fp32",
     release_date: "2026-10-01",
     description: "Pinned Strands Decider 2B (Hobson v19) LoRA decision decoder with pointer head over Qwen3.5-2B-Base (Apache-2.0); prototype readout, research status",
 };
@@ -177,6 +186,7 @@ pub const HOBSON_V21: StrandsDeciderProfile = StrandsDeciderProfile {
     uniform_temperature: 0.935_220_152_138_837,
     cpu_backend_id: "strands-decider-2b/cpu-fp32",
     cuda_backend_id: "strands-decider-2b/cuda-fp32",
+    mlx_backend_id: "strands-decider-2b/mlx-fp32",
     release_date: "2026-10-05",
     description: "Pinned Strands Decider 2B (Hobson v21) LoRA decision decoder with pointer head over Qwen3.5-2B-Base (Apache-2.0); prototype readout, research status",
 };
@@ -324,6 +334,13 @@ pub enum StrandsDeciderError {
     /// Shared family loader/evaluator failure.
     #[error(transparent)]
     Family(#[from] crate::families::support::FamilyError),
+}
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+impl From<crate::qwen35::mlx::MlxError> for StrandsDeciderError {
+    fn from(error: crate::qwen35::mlx::MlxError) -> Self {
+        Self::Family(crate::families::support::FamilyError::from(error))
+    }
 }
 
 /// Filesystem configuration for the pinned strands-decider profile.

@@ -1,0 +1,149 @@
+//! MLX/Metal execution backend for the pinned `decider` profile (feature
+//! `mlx`, macOS arm64).
+//!
+//! A second execution backend behind the same frozen family contract: the
+//! same digest-verified artifacts, renderer, calibration temperatures, and
+//! wire mapping feed the parity-verified MLX Qwen3.5 backbone in FP32
+//! (`model.rs`). The Candle CPU path remains the correctness oracle; parity
+//! gates compare against the committed golden fixtures.
+//!
+//! Every MLX operation — model load and per-pass forward — runs through
+//! [`MlxRuntime::execute`] on the process-wide serialized GPU stream, per
+//! the workspace MLX discipline.
+
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use openkind_core::{ModelInfo, SystemRequest, SystemResponse};
+
+use crate::families::support::{
+    BoundedFamilyEngine, FamilyControl, FamilyError, FamilyEvaluator, FamilyLimits,
+};
+use crate::qwen35::mlx::{MlxRuntime, MlxRuntimeConfig};
+
+use super::engine::{evaluate_with, DeciderPassSource};
+use super::model::VerifiedArtifacts;
+use super::renderer::DeciderRenderer;
+use super::{DeciderError, DeciderProfile};
+
+pub(super) mod model;
+
+/// Arithmetic/device identity of the family MLX execution path: the pinned
+/// single-file BF16 checkpoint widened to FP32 arrays computed on the Metal
+/// GPU through the shared Qwen3.5 MLX backbone.
+pub const MLX_EXECUTION_ARITHMETIC_ID: &str = "mlx-gpu-fp32-decider";
+
+/// Loaded pinned profile engine on the MLX backend.
+pub struct DeciderMlxEngine {
+    inner: Arc<Inner>,
+}
+
+struct Inner {
+    profile: &'static DeciderProfile,
+    renderer: DeciderRenderer,
+    model: model::DeciderMlxModel,
+}
+
+impl DeciderPassSource for Inner {
+    fn profile(&self) -> &'static DeciderProfile {
+        self.profile
+    }
+
+    fn renderer(&self) -> &DeciderRenderer {
+        &self.renderer
+    }
+
+    fn slot_logits(
+        &self,
+        prompt_ids: &[u32],
+        label_ids: &[u32],
+        control: &FamilyControl,
+    ) -> Result<Vec<f64>, FamilyError> {
+        control.check()?;
+        // No outer `runtime.execute` here: `MlxQwen35Backbone::prefill`
+        // takes the process-wide execution lock itself, and the lock is not
+        // reentrant.
+        let logits = self.model.slot_logits(prompt_ids, label_ids, control)?;
+        control.check()?;
+        Ok(logits)
+    }
+}
+
+/// Filesystem configuration for one pinned profile on the MLX backend.
+#[derive(Debug, Clone)]
+pub struct DeciderMlxEngineConfig {
+    /// The pinned profile to load.
+    pub profile: &'static DeciderProfile,
+    /// Model root containing the pinned artifacts. Verified in place;
+    /// nothing is copied or downloaded.
+    pub model_root: PathBuf,
+    /// Admission and deadline settings.
+    pub limits: FamilyLimits,
+}
+
+impl DeciderMlxEngineConfig {
+    /// Fill admission defaults around the given profile and model root.
+    pub fn new(profile: &'static DeciderProfile, model_root: impl Into<PathBuf>) -> Self {
+        Self {
+            profile,
+            model_root: model_root.into(),
+            limits: FamilyLimits {
+                max_concurrent_requests: 1,
+                max_queued_requests: 2,
+                retry_after_ms: 1_000,
+                evaluation_timeout: Some(std::time::Duration::from_secs(600)),
+            },
+        }
+    }
+}
+
+impl DeciderMlxEngine {
+    /// Load every pinned artifact offline and build the bounded engine on
+    /// the MLX backend.
+    pub fn load(config: DeciderMlxEngineConfig) -> Result<BoundedFamilyEngine, DeciderError> {
+        let artifacts = VerifiedArtifacts::verify(&config.model_root, config.profile)?;
+        let renderer = DeciderRenderer::load(&artifacts.tokenizer, config.profile)?;
+        let runtime = Arc::new(MlxRuntime::new(MlxRuntimeConfig::default())?);
+        // No outer `runtime.execute`: the weight store and the backbone
+        // manage the process-wide execution lock internally, and the lock is
+        // not reentrant.
+        let model = model::DeciderMlxModel::load(config.profile, &artifacts, &runtime)?;
+        let engine = Self {
+            inner: Arc::new(Inner {
+                profile: config.profile,
+                renderer,
+                model,
+            }),
+        };
+        Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))
+    }
+}
+
+impl FamilyEvaluator for DeciderMlxEngine {
+    fn backend_id(&self) -> &str {
+        self.inner.profile.mlx_backend_id
+    }
+
+    fn model_metadata(&self) -> ModelInfo {
+        ModelInfo {
+            name: String::new(),
+            description: format!(
+                "Pinned {} slot-logit decision engine ({}, MLX FP32).",
+                self.inner.profile.backbone_id, self.inner.profile.profile_id
+            ),
+            release_date: self.inner.profile.release_date.into(),
+        }
+    }
+
+    fn reports_input_tokens(&self) -> bool {
+        true
+    }
+
+    fn evaluate(
+        &self,
+        request: SystemRequest,
+        control: &FamilyControl,
+    ) -> Result<SystemResponse, FamilyError> {
+        evaluate_with(self.inner.as_ref(), request, control)
+    }
+}

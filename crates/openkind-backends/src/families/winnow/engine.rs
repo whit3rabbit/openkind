@@ -31,8 +31,48 @@ pub struct WinnowEngine {
 }
 
 struct WinnowRouter {
-    model: WinnowModel,
+    model: Box<dyn RouteSource>,
     renderer: WinnowRenderer,
+}
+
+/// The family's execution seam: the letter-logit readout the routing
+/// decision consumes. The renderer, routing softmax, and sibling dispatch
+/// are shared with the CPU oracle; only the forward differs per execution
+/// path.
+trait RouteSource: Send + Sync {
+    /// Forward the routing prompt and return the next-token logits at the
+    /// letter slots.
+    fn letter_logits(
+        &self,
+        prompt_ids: &[u32],
+        letter_ids: &[u32],
+        control: &FamilyControl,
+    ) -> Result<Vec<f64>, FamilyError>;
+}
+
+impl RouteSource for WinnowModel {
+    fn letter_logits(
+        &self,
+        prompt_ids: &[u32],
+        letter_ids: &[u32],
+        control: &FamilyControl,
+    ) -> Result<Vec<f64>, FamilyError> {
+        WinnowModel::letter_logits(self, prompt_ids, letter_ids, control)
+    }
+}
+
+/// MLX model readout bridging the shared routing source (feature `mlx`,
+/// macOS arm64).
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+impl RouteSource for super::mlx::WinnowMlxModel {
+    fn letter_logits(
+        &self,
+        prompt_ids: &[u32],
+        letter_ids: &[u32],
+        control: &FamilyControl,
+    ) -> Result<Vec<f64>, FamilyError> {
+        super::mlx::WinnowMlxModel::letter_logits(self, prompt_ids, letter_ids, control)
+    }
 }
 
 /// Backend identity of the router on the selected execution backend.
@@ -57,7 +97,8 @@ impl WinnowEngine {
     ///
     /// The winnow router is a candle decoder plus engine-level routing
     /// logic; it has no ONNX export. Accelerated loads require the `cuda`
-    /// feature.
+    /// feature, or [`Self::load_mlx`] with the `mlx` feature on macOS
+    /// arm64.
     pub fn load_with_execution(
         config: WinnowEngineConfig,
         siblings: Vec<(String, Arc<dyn DecisionEngine>)>,
@@ -76,14 +117,18 @@ impl WinnowEngine {
             crate::families::decoder_logit_letter::CHECKPOINT_SHA256,
         )?;
         let renderer = WinnowRenderer::load(&artifacts.tokenizer)?;
-        let model = match execution {
+        let model: Box<dyn RouteSource> = match execution {
             crate::device::FamilyExecution::Cpu => {
-                WinnowModel::load(&artifacts, &Self::pinned_config())?
+                Box::new(WinnowModel::load(&artifacts, &Self::pinned_config())?)
             }
             #[cfg(feature = "cuda")]
             crate::device::FamilyExecution::Cuda { .. } => {
                 let device = execution.candle_device().map_err(FamilyError::from)?;
-                WinnowModel::load_with_device(&artifacts, &Self::pinned_config(), device)?
+                Box::new(WinnowModel::load_with_device(
+                    &artifacts,
+                    &Self::pinned_config(),
+                    device,
+                )?)
             }
             #[cfg(feature = "onnx")]
             crate::device::FamilyExecution::Onnx { .. } => {
@@ -131,6 +176,57 @@ impl WinnowEngine {
             }",
         )
         .expect("pinned winnow base config is valid JSON")
+    }
+
+    /// Load the routing engine on the MLX backend (feature `mlx`, macOS
+    /// arm64).
+    ///
+    /// The same digest-verified artifacts, routing softmax, and sibling
+    /// dispatch as the CPU path feed the parity-verified MLX dense Qwen2
+    /// forward with the adapter merged host-side (`super::mlx`). The
+    /// backend id names the execution path (`winnow/mlx-fp32`).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    pub fn load_mlx(
+        config: WinnowEngineConfig,
+        siblings: Vec<(String, Arc<dyn DecisionEngine>)>,
+    ) -> Result<Self, WinnowError> {
+        if siblings.len() != 2 {
+            return Err(FamilyError::InvalidInput(format!(
+                "winnow routes exactly two labels (A, B); got {} siblings",
+                siblings.len()
+            ))
+            .into());
+        }
+        let artifacts = VerifiedArtifacts::verify(
+            &config.model_root,
+            &config.adapter_path,
+            crate::families::decoder_logit_letter::CHECKPOINT_SHA256,
+        )?;
+        let renderer = WinnowRenderer::load(&artifacts.tokenizer)?;
+        let runtime = Arc::new(crate::qwen35::mlx::MlxRuntime::new(
+            crate::qwen35::mlx::MlxRuntimeConfig::default(),
+        )?);
+        // The safetensors readers and every array construction run under
+        // the process-wide MLX execution lock; the lock is not reentrant,
+        // so this load must not already hold it.
+        let model = runtime.execute(|| {
+            super::mlx::WinnowMlxModel::load(&artifacts, &Self::pinned_config(), &runtime)
+        })??;
+        Ok(Self {
+            router: Arc::new(WinnowRouter {
+                model: Box::new(model),
+                renderer,
+            }),
+            siblings,
+            gate: AdmissionGate::new(
+                config.limits.max_concurrent_requests,
+                config.limits.max_queued_requests,
+                config.limits.retry_after_ms,
+                FAMILY_GATE_METRICS,
+            ),
+            evaluation_timeout: config.limits.evaluation_timeout,
+            backend_id: super::mlx::MLX_BACKEND_ID.to_owned(),
+        })
     }
 
     /// Routing probabilities for pinned fixture generation and parity

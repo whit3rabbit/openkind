@@ -260,3 +260,82 @@ fn load_rejects_sibling_counts_other_than_two_before_verification() {
     }
     let _ = std::fs::remove_dir_all(&empty);
 }
+
+/// MLX/Metal parity gates for the pinned profile (feature `mlx`, macOS
+/// arm64). The candle CPU golden replay is the correctness oracle: the MLX
+/// router must reproduce the same committed routing distributions with
+/// unchanged labels and bounded probability drift, per the workspace MLX
+/// parity gates.
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+mod mlx_replay {
+    use super::*;
+
+    /// Absolute drift budget on calibrated probabilities (the workspace MLX
+    /// gate for FP32 backend parity).
+    const MLX_PROBABILITY_TOLERANCE: f64 = 0.005;
+
+    struct MlxParity {
+        max_probability_error: f64,
+        selection_flips: usize,
+    }
+
+    #[test]
+    fn mlx_golden_routing_matches_the_pinned_adapter() {
+        let Some(root) = model_root() else {
+            eprintln!("skipping: OPENKIND_WINNOW_MODEL_ROOT is not set");
+            return;
+        };
+        let golden: Golden = serde_json::from_slice(
+            &std::fs::read(fixture_dir().join("golden.json")).expect("read golden fixture"),
+        )
+        .expect("decode golden fixture");
+        assert!(!golden.cases.is_empty(), "golden fixture has cases");
+
+        let engine =
+            WinnowEngine::load_mlx(config(root), siblings()).expect("load pinned MLX engine");
+
+        let mut parity = MlxParity {
+            max_probability_error: 0.0,
+            selection_flips: 0,
+        };
+        for case in &golden.cases {
+            let probabilities = engine
+                .debug_route_probabilities(&case.state)
+                .unwrap_or_else(|error| panic!("mlx case {}: {error}", case.name));
+            for (index, expected) in case.probabilities.iter().enumerate() {
+                parity.max_probability_error = parity
+                    .max_probability_error
+                    .max((probabilities[index] - expected).abs());
+            }
+            let routed = if probabilities[0] >= probabilities[1] {
+                "A"
+            } else {
+                "B"
+            };
+            let expected = match case.expected_label.as_str() {
+                "english" => "A",
+                _ => "B",
+            };
+            if routed != expected {
+                parity.selection_flips += 1;
+                eprintln!("mlx {}: routing flip {routed} vs {expected}", case.name);
+            }
+        }
+        assert_eq!(
+            parity.selection_flips, 0,
+            "MLX backend changed {} routings",
+            parity.selection_flips
+        );
+        assert!(
+            parity.max_probability_error <= MLX_PROBABILITY_TOLERANCE,
+            "MLX probability drift {} exceeds {MLX_PROBABILITY_TOLERANCE}",
+            parity.max_probability_error
+        );
+        eprintln!(
+            "mlx winnow parity: {} cases, max |Δp| = {:.3e}, routing flips = {}",
+            golden.cases.len(),
+            parity.max_probability_error,
+            parity.selection_flips
+        );
+    }
+}

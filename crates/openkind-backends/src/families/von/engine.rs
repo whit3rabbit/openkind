@@ -14,8 +14,8 @@ use super::model::{VerifiedArtifacts, VonModel};
 use super::renderer::VonRenderer;
 use super::{VonEngineConfig, VonError, VonProfile, MAX_CANDIDATES};
 
-/// Option-marker logit source shared by the candle and ONNX models.
-trait VonOptionLogits: Send + Sync {
+/// Option-marker logit source shared by the candle, ONNX, and MLX models.
+pub(crate) trait VonOptionLogits: Send + Sync {
     /// One logit per option marker in marker order, before calibration.
     fn option_logits(&self, token_ids: &[u32], markers: &[usize]) -> Result<Vec<f64>, FamilyError>;
 }
@@ -31,6 +31,15 @@ impl VonOptionLogits for VonModel {
 impl VonOptionLogits for super::onnx::VonOnnxModel {
     fn option_logits(&self, token_ids: &[u32], markers: &[usize]) -> Result<Vec<f64>, FamilyError> {
         super::onnx::VonOnnxModel::option_logits(self, token_ids, markers)
+    }
+}
+
+/// MLX model readout bridging the shared logit source (feature `mlx`,
+/// macOS arm64).
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+impl VonOptionLogits for super::mlx::VonMlxModel {
+    fn option_logits(&self, token_ids: &[u32], markers: &[usize]) -> Result<Vec<f64>, FamilyError> {
+        super::mlx::VonMlxModel::option_logits_family(self, token_ids, markers)
     }
 }
 
@@ -271,6 +280,31 @@ impl VonEngine {
                 renderer,
                 model,
                 backend_id: format!("{}/{}", profile.loader_id, execution.id_fragment()),
+            }),
+        };
+        Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))
+    }
+
+    /// Load the engine on the MLX backend (feature `mlx`, macOS arm64).
+    ///
+    /// The same digest-verified artifacts and pipeline serve the shared
+    /// ModernBERT MLX body; the torch-pickle checkpoint is read in place and
+    /// widened to FP32 exactly.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    pub fn load_mlx(config: VonEngineConfig) -> Result<BoundedFamilyEngine, VonError> {
+        let profile = config.profile;
+        let artifacts = VerifiedArtifacts::verify(&config.model_root, profile)?;
+        let renderer = VonRenderer::load(&artifacts.tokenizer, &profile.specials)?;
+        let runtime = std::sync::Arc::new(crate::qwen35::mlx::MlxRuntime::new(
+            crate::qwen35::mlx::MlxRuntimeConfig::default(),
+        )?);
+        let model = super::mlx::VonMlxModel::load(profile, &artifacts, &runtime)?;
+        let engine = Self {
+            inner: Arc::new(Inner {
+                profile,
+                renderer,
+                model: Box::new(model),
+                backend_id: super::mlx::MLX_BACKEND_ID.to_owned(),
             }),
         };
         Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))

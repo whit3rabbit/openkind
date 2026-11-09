@@ -30,6 +30,25 @@
 - `ModelStore::pull_with_notice` runs a callback with the verified manifest
   before any artifact is downloaded, and `openkind_model_store::license_notice`
   returns per-loader license terms.
+- MLX execution paths for surveyed decision families:
+  `decider-4b/mlx-fp32` (survey-checkpoint reuse of the fused Qwen3.5
+  backbone), `sieve-4b/mlx-fp32` (PEFT `base + (B@A)·alpha/r` merged host-side
+  in FP32 before the arrays are built), `strands-decider-2b/mlx-fp32` and
+  `drex-v15/mlx-fp32` (new geometry-parameterized causal hybrid forward for
+  the 2B and 9B widths), `von/mlx-fp32` (shared ModernBERT body over the
+  author's torch pickle, widened to FP32 exactly), `kev/mlx-fp32`,
+  `qwen3guard/mlx-fp32`, `decoder-logit-qwen3-{06b,17b,4b}/mlx-fp32`, and
+  `decoder-logit-letter/mlx-fp32` (new dense Qwen3/Qwen2 decoder body),
+  `winnow/mlx-fp32` (lowercase-key LoRA merge) and
+  `decoder-logit-llm/mlx-fp32` (q8_0 GGUF dequantized to FP32 at load),
+  `encoder-nli/mlx-fp32` and `schema-scorer/mlx-fp32` (new post-LN
+  DistilBERT/BERT encoder body), and `gemma4-decision/mlx-fp32-deq`
+  (FP32-dequantized GGUF port of the scale-1.0, partially-rotary, KV-shared,
+  per-layer-embedding numerics). The daemon exposes each path through the
+  family's `--*-backend` selector, and `openkind-bench` gains matching
+  engine kinds. Automatic selection prefers MLX where the runtime is ready.
+  Each backend has a checkpoint-gated replay; no checkpoint-backed parity
+  run is recorded yet. See [MLX.md](docs/MLX.md).
 
 ### Changed
 

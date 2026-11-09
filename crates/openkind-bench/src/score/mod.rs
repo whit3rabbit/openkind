@@ -570,6 +570,213 @@ pub(crate) fn run_score_reserved(
                         .map_err(|error| anyhow::anyhow!("load winnow engine: {error}"))?,
                 )
             }
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::DecoderLetterMlxFp32 => Arc::new(
+                openkind_backends::families::decoder_logit_letter::DecoderLetterMlxEngine::load(
+                    openkind_backends::families::decoder_logit_letter::DecoderLetterMlxEngineConfig {
+                        model_root: model_root.expect("gated").clone(),
+                        limits: BENCH_LIMITS,
+                    },
+                )
+                .map_err(|error| {
+                    anyhow::anyhow!("load decoder-logit-letter mlx engine: {error}")
+                })?,
+            ),
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::EncoderNliMlxFp32 => Arc::new(
+                openkind_backends::families::encoder_nli::EncoderNliMlxEngine::load(
+                    openkind_backends::families::encoder_nli::EncoderNliMlxEngineConfig {
+                        model_root: model_root.expect("gated").clone(),
+                        limits: BENCH_LIMITS,
+                    },
+                )
+                .map_err(|error| anyhow::anyhow!("load encoder-nli mlx engine: {error}"))?,
+            ),
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::DecoderLlmMlxFp32 => Arc::new(
+                openkind_backends::families::decoder_logit_llm::DecoderLlmMlxEngine::load(
+                    openkind_backends::families::decoder_logit_llm::DecoderLlmMlxEngineConfig {
+                        model_root: model_root.expect("gated").clone(),
+                        limits: BENCH_LIMITS,
+                    },
+                )
+                .map_err(|error| anyhow::anyhow!("load decoder-logit-llm mlx engine: {error}"))?,
+            ),
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::SchemaScorerMlxFp32 => Arc::new(
+                openkind_backends::families::schema_scorer::SchemaScorerMlxEngine::load(
+                    openkind_backends::families::schema_scorer::SchemaScorerMlxEngineConfig {
+                        model_root: model_root.expect("gated").clone(),
+                        limits: BENCH_LIMITS,
+                    },
+                )
+                .map_err(|error| anyhow::anyhow!("load schema-scorer mlx engine: {error}"))?,
+            ),
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::Qwen3GuardMlxFp32 => Arc::new(
+                openkind_backends::families::qwen3guard::Qwen3GuardEngine::load_mlx(
+                    openkind_backends::families::qwen3guard::Qwen3GuardEngineConfig {
+                        model_root: model_root.expect("gated").clone(),
+                        limits: BENCH_LIMITS,
+                    },
+                )
+                .map_err(|error| anyhow::anyhow!("load qwen3guard mlx engine: {error}"))?,
+            ),
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::KevMlxFp32 => {
+                let model_root = args.model_root.as_ref().ok_or_else(|| {
+                    anyhow::anyhow!("--model-root is required for the kev-mlx-fp32 engine")
+                })?;
+                let base_root = args.checkpoint_root.as_ref().ok_or_else(|| {
+                    anyhow::anyhow!("--checkpoint-root is required for the kev-mlx-fp32 engine")
+                })?;
+                Arc::new(
+                    openkind_backends::families::kev::KevMlxEngine::load(
+                        openkind_backends::families::kev::KevMlxEngineConfig {
+                            model_root: model_root.clone(),
+                            base_root: base_root.clone(),
+                            limits: BENCH_LIMITS,
+                        },
+                    )
+                    .map_err(|error| anyhow::anyhow!("load kev mlx engine: {error}"))?,
+                )
+            }
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::StrandsDecider2bMlxFp32 => {
+                let model_root = args.model_root.as_ref().ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "--model-root is required for the strands-decider-2b-mlx-fp32 engine"
+                    )
+                })?;
+                let base_root = args.checkpoint_root.as_ref().ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "--checkpoint-root is required for the strands-decider-2b-mlx-fp32 engine"
+                    )
+                })?;
+                Arc::new(
+                    openkind_backends::families::strands_decider::StrandsMlxEngine::load(
+                        openkind_backends::families::strands_decider::StrandsMlxEngineConfig {
+                            model_root: model_root.clone(),
+                            base_root: base_root.clone(),
+                            limits: BENCH_LIMITS,
+                            profile: None,
+                        },
+                    )
+                    .map_err(|error| {
+                        anyhow::anyhow!("load strands-decider-2b mlx engine: {error}")
+                    })?,
+                )
+            }
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::DrexV15MlxFp32 => Arc::new(
+                openkind_backends::families::drex::DrexMlxEngine::load(
+                    openkind_backends::families::drex::DrexMlxEngineConfig {
+                        model_root: model_root.expect("gated").clone(),
+                        limits: BENCH_LIMITS,
+                    },
+                )
+                .map_err(|error| anyhow::anyhow!("load drex-v1.5 mlx engine: {error}"))?,
+            ),
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::DecoderLogitQwen306bMlxFp32
+            | EngineKind::DecoderLogitQwen317bMlxFp32
+            | EngineKind::DecoderLogitQwen34bMlxFp32 => {
+                let profile = match args.engine {
+                    EngineKind::DecoderLogitQwen306bMlxFp32 => {
+                        &openkind_backends::families::decoder_logit_qwen3::QWEN3_06B
+                    }
+                    EngineKind::DecoderLogitQwen317bMlxFp32 => {
+                        &openkind_backends::families::decoder_logit_qwen3::QWEN3_17B
+                    }
+                    _ => &openkind_backends::families::decoder_logit_qwen3::QWEN3_4B,
+                };
+                Arc::new(
+                    openkind_backends::families::decoder_logit_qwen3::DecoderLogitQwen3Engine::load_mlx(
+                        openkind_backends::families::decoder_logit_qwen3::DecoderLogitQwen3EngineConfig {
+                            profile,
+                            model_root: model_root.expect("gated").clone(),
+                            limits: BENCH_LIMITS,
+                        },
+                    )
+                    .map_err(|error| {
+                        anyhow::anyhow!("load decoder-logit-qwen3 mlx engine: {error}")
+                    })?,
+                )
+            }
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::Decider4bMlxFp32 => Arc::new(
+                openkind_backends::families::decider::DeciderMlxEngine::load(
+                    openkind_backends::families::decider::DeciderMlxEngineConfig {
+                        profile: &openkind_backends::families::decider::DECIDER_4B,
+                        model_root: model_root.expect("gated").clone(),
+                        limits: BENCH_LIMITS,
+                    },
+                )
+                .map_err(|error| anyhow::anyhow!("load decider-4b mlx engine: {error}"))?,
+            ),
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::Sieve4bMlxFp32 => Arc::new(
+                openkind_backends::families::sieve::SieveMlxEngine::load(
+                    openkind_backends::families::sieve::SieveMlxEngineConfig {
+                        profile: &openkind_backends::families::sieve::SIEVE_4B,
+                        model_root: model_root.expect("gated").clone(),
+                        limits: BENCH_LIMITS,
+                    },
+                )
+                .map_err(|error| anyhow::anyhow!("load sieve-4b mlx engine: {error}"))?,
+            ),
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::Gemma4DecisionMlxFp32Deq => Arc::new(
+                openkind_backends::families::gemma4::Gemma4MlxEngine::load_mlx(
+                    openkind_backends::families::gemma4::Gemma4EngineConfig {
+                        model_root: model_root.expect("gated").clone(),
+                        limits: BENCH_LIMITS,
+                    },
+                )
+                .map_err(|error| anyhow::anyhow!("load winnow-e4b mlx engine: {error}"))?,
+            ),
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::VonMlxFp32 => Arc::new(
+                openkind_backends::families::von::VonEngine::load_mlx(
+                    openkind_backends::families::von::VonEngineConfig {
+                        profile: &openkind_backends::families::von::VON,
+                        model_root: model_root.expect("gated").clone(),
+                        limits: BENCH_LIMITS,
+                    },
+                )
+                .map_err(|error| anyhow::anyhow!("load von mlx engine: {error}"))?,
+            ),
+            // The winnow router is benchmarked over mock siblings: this run
+            // measures the learned MLX routing pass only, not sibling
+            // throughput.
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineKind::WinnowMlxFp32 => {
+                let model_root = args.model_root.as_ref().ok_or_else(|| {
+                    anyhow::anyhow!("--model-root is required for the winnow-mlx-fp32 engine")
+                })?;
+                let adapter = args.adapter.as_ref().ok_or_else(|| {
+                    anyhow::anyhow!("--adapter is required for the winnow-mlx-fp32 engine")
+                })?;
+                let config = openkind_backends::families::winnow::WinnowEngineConfig {
+                    model_root: model_root.clone(),
+                    adapter_path: adapter.clone(),
+                    limits: BENCH_LIMITS,
+                };
+                let siblings = vec![
+                    (
+                        "mock-english".to_owned(),
+                        Arc::new(openkind_engine::MockEngine::new()) as Arc<dyn DecisionEngine>,
+                    ),
+                    (
+                        "mock-multilingual".to_owned(),
+                        Arc::new(openkind_engine::MockEngine::new()) as Arc<dyn DecisionEngine>,
+                    ),
+                ];
+                Arc::new(
+                    openkind_backends::families::winnow::WinnowEngine::load_mlx(config, siblings)
+                        .map_err(|error| anyhow::anyhow!("load winnow mlx engine: {error}"))?,
+                )
+            }
             other => anyhow::bail!("engine {} is not wired for family scoring", other as u32),
         };
         let model_load_seconds = load_started.elapsed().as_secs_f64();

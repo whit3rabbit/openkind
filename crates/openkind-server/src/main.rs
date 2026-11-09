@@ -368,25 +368,40 @@ async fn run(args: Args) -> Result<()> {
             })?;
             siblings.push((sibling_alias.clone(), engine));
         }
-        let engine = backend::load(
+        let engine = crate::backend::load(
             args.family_args.winnow_backend,
             &model_root,
             args.device_ordinals(),
             |backend| {
-                openkind_backends::families::winnow::WinnowEngine::load_with_execution(
-                    openkind_backends::families::winnow::WinnowEngineConfig {
-                        model_root: model_root.clone(),
-                        adapter_path: adapter.clone(),
-                        limits: args.family_args.admission().limits(),
-                    },
-                    siblings.clone(),
-                    backend.to_execution(args.device_ordinals())?,
-                )
-                .with_context(|| format!("compose winnow alias `{alias}`"))
+                #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                if matches!(backend, crate::args::CudaOnlyBackendArg::Mlx) {
+                    return openkind_backends::families::winnow::WinnowEngine::load_mlx(
+                        openkind_backends::families::winnow::WinnowEngineConfig {
+                            model_root: model_root.clone(),
+                            adapter_path: adapter.clone(),
+                            limits: args.family_args.admission().limits(),
+                        },
+                        siblings.clone(),
+                    )
+                    .map(|engine| Arc::new(engine) as Arc<dyn DecisionEngine>)
+                    .with_context(|| format!("compose winnow alias `{alias}` (mlx)"));
+                }
+                Ok(Arc::new(
+                    openkind_backends::families::winnow::WinnowEngine::load_with_execution(
+                        openkind_backends::families::winnow::WinnowEngineConfig {
+                            model_root: model_root.clone(),
+                            adapter_path: adapter.clone(),
+                            limits: args.family_args.admission().limits(),
+                        },
+                        siblings.clone(),
+                        backend.to_execution(args.device_ordinals())?,
+                    )
+                    .with_context(|| format!("compose winnow alias `{alias}`"))?,
+                ) as Arc<dyn DecisionEngine>)
             },
         )?;
         info!(alias, backend = engine.backend_id(), "registered model");
-        registry.register(alias, Arc::new(engine));
+        registry.register(alias, engine);
     }
 
     // Router-script composites register after their siblings so they can

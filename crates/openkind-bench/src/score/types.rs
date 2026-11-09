@@ -104,6 +104,55 @@ pub enum EngineKind {
     /// Pinned Jeeves affine-4 weights with FP32 pointer readout; no thinking.
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     JeevesMlxAffine4,
+    /// Pinned decoder-logit-letter MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    DecoderLetterMlxFp32,
+    /// Pinned encoder-nli MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    EncoderNliMlxFp32,
+    /// Pinned decoder-logit-llm MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    DecoderLlmMlxFp32,
+    /// Pinned schema-scorer MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    SchemaScorerMlxFp32,
+    /// Pinned qwen3guard MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    Qwen3GuardMlxFp32,
+    /// Pinned kev MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    KevMlxFp32,
+    /// Pinned strands-decider-2b MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    StrandsDecider2bMlxFp32,
+    /// Pinned drex-v1.5 MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    DrexV15MlxFp32,
+    /// Pinned decoder-logit-qwen3-06b MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    DecoderLogitQwen306bMlxFp32,
+    /// Pinned decoder-logit-qwen3-17b MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    DecoderLogitQwen317bMlxFp32,
+    /// Pinned decoder-logit-qwen3-4b MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    DecoderLogitQwen34bMlxFp32,
+    /// Pinned decider-4b MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    Decider4bMlxFp32,
+    /// Pinned sieve-4b MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    Sieve4bMlxFp32,
+    /// Pinned winnow-e4b MLX FP32 dequantized engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    Gemma4DecisionMlxFp32Deq,
+    /// Pinned von MLX FP32 engine (`mlx` feature).
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    VonMlxFp32,
+    /// Winnow learned router on the MLX FP32 forward, over mock siblings
+    /// (`mlx` feature); router-cost only.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    WinnowMlxFp32,
 }
 
 /// Native backend bound to a non-mock [`EngineKind`].
@@ -155,7 +204,23 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
         | EngineKind::EncoderInstructLabelMlxFp32
         | EngineKind::DecoderLogitQwen35MlxFp32
         | EngineKind::Plumb4bMlxFp32
-        | EngineKind::JeevesMlxAffine4 => {
+        | EngineKind::JeevesMlxAffine4
+        | EngineKind::DecoderLetterMlxFp32
+        | EngineKind::EncoderNliMlxFp32
+        | EngineKind::DecoderLlmMlxFp32
+        | EngineKind::SchemaScorerMlxFp32
+        | EngineKind::Qwen3GuardMlxFp32
+        | EngineKind::KevMlxFp32
+        | EngineKind::StrandsDecider2bMlxFp32
+        | EngineKind::DrexV15MlxFp32
+        | EngineKind::DecoderLogitQwen306bMlxFp32
+        | EngineKind::DecoderLogitQwen317bMlxFp32
+        | EngineKind::DecoderLogitQwen34bMlxFp32
+        | EngineKind::Decider4bMlxFp32
+        | EngineKind::Sieve4bMlxFp32
+        | EngineKind::Gemma4DecisionMlxFp32Deq
+        | EngineKind::VonMlxFp32
+        | EngineKind::WinnowMlxFp32 => {
             panic!("the mock and surveyed-family engines have no Qwen35 native backend")
         }
         EngineKind::Qwen35 => Qwen35Backend::NativeCpu,
@@ -221,6 +286,38 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
         EngineKind::Plumb4bMlxFp32 => "plumb-4b-mlx-fp32",
         #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
         EngineKind::JeevesMlxAffine4 => "jeeves-mlx-affine4",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::DecoderLetterMlxFp32 => "decoder-logit-letter-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::EncoderNliMlxFp32 => "encoder-nli-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::DecoderLlmMlxFp32 => "decoder-logit-llm-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::SchemaScorerMlxFp32 => "schema-scorer-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::Qwen3GuardMlxFp32 => "qwen3guard-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::KevMlxFp32 => "kev-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::StrandsDecider2bMlxFp32 => "strands-decider-2b-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::DrexV15MlxFp32 => "drex-v15-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::DecoderLogitQwen306bMlxFp32 => "decoder-logit-qwen3-06b-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::DecoderLogitQwen317bMlxFp32 => "decoder-logit-qwen3-17b-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::DecoderLogitQwen34bMlxFp32 => "decoder-logit-qwen3-4b-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::Decider4bMlxFp32 => "decider-4b-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::Sieve4bMlxFp32 => "sieve-4b-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::Gemma4DecisionMlxFp32Deq => "gemma4-decision-mlx-fp32-deq",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::VonMlxFp32 => "von-mlx-fp32",
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::WinnowMlxFp32 => "winnow-mlx-fp32",
     }
 }
 
@@ -236,6 +333,22 @@ pub fn is_family_engine_public(engine: EngineKind) -> bool {
             | EngineKind::DecoderLogitQwen35MlxFp32
             | EngineKind::Plumb4bMlxFp32
             | EngineKind::JeevesMlxAffine4
+            | EngineKind::DecoderLetterMlxFp32
+            | EngineKind::EncoderNliMlxFp32
+            | EngineKind::DecoderLlmMlxFp32
+            | EngineKind::SchemaScorerMlxFp32
+            | EngineKind::Qwen3GuardMlxFp32
+            | EngineKind::KevMlxFp32
+            | EngineKind::StrandsDecider2bMlxFp32
+            | EngineKind::DrexV15MlxFp32
+            | EngineKind::DecoderLogitQwen306bMlxFp32
+            | EngineKind::DecoderLogitQwen317bMlxFp32
+            | EngineKind::DecoderLogitQwen34bMlxFp32
+            | EngineKind::Decider4bMlxFp32
+            | EngineKind::Sieve4bMlxFp32
+            | EngineKind::Gemma4DecisionMlxFp32Deq
+            | EngineKind::VonMlxFp32
+            | EngineKind::WinnowMlxFp32
     ) {
         return true;
     }
@@ -451,6 +564,96 @@ pub(crate) fn family_identity(
             "jeeves",
             openkind_backends::families::jeeves::PROFILE_ID,
             openkind_backends::families::jeeves::MODEL_REVISION,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::DecoderLetterMlxFp32 => Some((
+            openkind_backends::families::decoder_logit_letter::FAMILY_SLUG,
+            openkind_backends::families::decoder_logit_letter::PROFILE_ID,
+            openkind_backends::families::decoder_logit_letter::BACKBONE_REVISION,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::EncoderNliMlxFp32 => Some((
+            openkind_backends::families::encoder_nli::FAMILY_SLUG,
+            openkind_backends::families::encoder_nli::PROFILE_ID,
+            openkind_backends::families::encoder_nli::BACKBONE_REVISION,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::DecoderLlmMlxFp32 => Some((
+            openkind_backends::families::decoder_logit_llm::FAMILY_SLUG,
+            openkind_backends::families::decoder_logit_llm::PROFILE_ID,
+            openkind_backends::families::decoder_logit_llm::BACKBONE_REVISION,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::SchemaScorerMlxFp32 => Some((
+            openkind_backends::families::schema_scorer::FAMILY_SLUG,
+            openkind_backends::families::schema_scorer::PROFILE_ID,
+            openkind_backends::families::schema_scorer::BACKBONE_REVISION,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::Qwen3GuardMlxFp32 => Some((
+            openkind_backends::families::qwen3guard::FAMILY_SLUG,
+            openkind_backends::families::qwen3guard::PROFILE_ID,
+            openkind_backends::families::qwen3guard::BACKBONE_REVISION,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::KevMlxFp32 => Some((
+            openkind_backends::families::kev::FAMILY_SLUG,
+            openkind_backends::families::kev::PROFILE_ID,
+            openkind_backends::families::kev::BACKBONE_REVISION,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::StrandsDecider2bMlxFp32 => Some((
+            openkind_backends::families::strands_decider::FAMILY_SLUG,
+            openkind_backends::families::strands_decider::PROFILE_ID,
+            openkind_backends::families::strands_decider::BACKBONE_REVISION,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::DrexV15MlxFp32 => Some((
+            openkind_backends::families::drex::FAMILY_SLUG,
+            openkind_backends::families::drex::PROFILE_ID,
+            openkind_backends::families::drex::BACKBONE_REVISION,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::DecoderLogitQwen306bMlxFp32 => Some(qwen3_control_identity(
+            &openkind_backends::families::decoder_logit_qwen3::QWEN3_06B,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::DecoderLogitQwen317bMlxFp32 => Some(qwen3_control_identity(
+            &openkind_backends::families::decoder_logit_qwen3::QWEN3_17B,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::DecoderLogitQwen34bMlxFp32 => Some(qwen3_control_identity(
+            &openkind_backends::families::decoder_logit_qwen3::QWEN3_4B,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::Decider4bMlxFp32 => Some((
+            openkind_backends::families::decider::FAMILY_SLUG,
+            openkind_backends::families::decider::DECIDER_4B.profile_id,
+            openkind_backends::families::decider::DECIDER_4B.backbone_revision,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::Sieve4bMlxFp32 => Some((
+            openkind_backends::families::sieve::FAMILY_SLUG,
+            openkind_backends::families::sieve::SIEVE_4B.profile_id,
+            openkind_backends::families::sieve::SIEVE_4B.backbone_revision,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::Gemma4DecisionMlxFp32Deq => Some((
+            openkind_backends::families::gemma4::FAMILY_SLUG,
+            openkind_backends::families::gemma4::PROFILE_ID,
+            openkind_backends::families::gemma4::BACKBONE_REVISION,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::VonMlxFp32 => Some((
+            openkind_backends::families::von::FAMILY_SLUG,
+            openkind_backends::families::von::PROFILE_ID,
+            openkind_backends::families::von::VON.backbone_revision,
+        )),
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        EngineKind::WinnowMlxFp32 => Some((
+            openkind_backends::families::winnow::FAMILY_SLUG,
+            openkind_backends::families::winnow::PROFILE_ID,
+            openkind_backends::families::winnow::BACKBONE_REVISION,
         )),
         // New family engines must provide provenance instead of silently
         // falling through to the native backend path in summary construction.

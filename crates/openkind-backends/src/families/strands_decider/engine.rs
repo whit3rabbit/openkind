@@ -35,6 +35,25 @@ struct Inner {
     profile: &'static StrandsDeciderProfile,
 }
 
+/// The family's execution seam: everything one backend contributes to the
+/// shared rendering/scoring pipeline. The renderer, temperatures, and wire
+/// mapping are shared with the CPU oracle; only the pointer-logit readout
+/// differs per execution path.
+pub(crate) trait StrandsPassSource: Send + Sync {
+    /// The pinned profile this source serves.
+    fn profile(&self) -> &'static StrandsDeciderProfile;
+
+    /// The family renderer over the profile's verified tokenizer.
+    fn renderer(&self) -> &StrandsRenderer;
+
+    /// Pointer logits for one rendered question row.
+    fn rows_logits(
+        &self,
+        row: &super::renderer::RenderedRow,
+        control: &FamilyControl,
+    ) -> Result<Vec<f64>, FamilyError>;
+}
+
 /// The raw instruction payload of any question primitive.
 fn question_instructions(question: &openkind_core::Question) -> &serde_json::Value {
     match question {
@@ -53,39 +72,58 @@ fn noul_criteria_are_explicit(question: &openkind_core::Question) -> bool {
     }
 }
 
-impl Inner {
-    /// Calibrated option probabilities for one question, plus the encoded
-    /// row's token count: the state document plus this question's block as
-    /// one causal row.
-    fn probabilities(
+impl StrandsPassSource for Inner {
+    fn profile(&self) -> &'static StrandsDeciderProfile {
+        self.profile
+    }
+
+    fn renderer(&self) -> &StrandsRenderer {
+        &self.renderer
+    }
+
+    fn rows_logits(
         &self,
-        state: &serde_json::Value,
-        unpacked: &crate::families::wire::UnpackedQuestion,
-        question: &openkind_core::Question,
+        row: &super::renderer::RenderedRow,
         control: &FamilyControl,
-    ) -> Result<(Vec<f64>, usize), FamilyError> {
-        control.check()?;
-        let layout = question_layout(unpacked, noul_criteria_are_explicit(question));
-        let row = self
-            .renderer
-            .encode_row(state, &layout, question_instructions(question))?;
-        let option_count = layout.pairs.len();
-        let logits = self.model.rows_logits(&row, control)?;
-        if logits.len() != option_count {
-            return Err(FamilyError::ContractMismatch {
-                field: "option.count",
-                expected: format!("{option_count} option logits"),
-                actual: format!("{} logits", logits.len()),
-            });
-        }
-        let temperature = self.profile.calibration.resolve(match unpacked.primitive {
+    ) -> Result<Vec<f64>, FamilyError> {
+        self.model.rows_logits(row, control)
+    }
+}
+
+/// Calibrated option probabilities for one question, plus the encoded
+/// row's token count: the state document plus this question's block as
+/// one causal row.
+fn probabilities(
+    source: &impl StrandsPassSource,
+    state: &serde_json::Value,
+    unpacked: &crate::families::wire::UnpackedQuestion,
+    question: &openkind_core::Question,
+    control: &FamilyControl,
+) -> Result<(Vec<f64>, usize), FamilyError> {
+    control.check()?;
+    let layout = question_layout(unpacked, noul_criteria_are_explicit(question));
+    let row = source
+        .renderer()
+        .encode_row(state, &layout, question_instructions(question))?;
+    let option_count = layout.pairs.len();
+    let logits = source.rows_logits(&row, control)?;
+    if logits.len() != option_count {
+        return Err(FamilyError::ContractMismatch {
+            field: "option.count",
+            expected: format!("{option_count} option logits"),
+            actual: format!("{} logits", logits.len()),
+        });
+    }
+    let temperature = source
+        .profile()
+        .calibration
+        .resolve(match unpacked.primitive {
             crate::families::wire::QuestionPrimitive::Noul => QuestionKind::Noul,
             crate::families::wire::QuestionPrimitive::Choice => QuestionKind::Choice,
             crate::families::wire::QuestionPrimitive::Score => QuestionKind::Score,
         });
-        let probabilities = temperature_softmax(&logits, temperature)?;
-        Ok((probabilities, row.ids.len()))
-    }
+    let probabilities = temperature_softmax(&logits, temperature)?;
+    Ok((probabilities, row.ids.len()))
 }
 
 impl StrandsDeciderEngine {
@@ -190,39 +228,49 @@ impl FamilyEvaluator for StrandsDeciderEngine {
         request: SystemRequest,
         control: &FamilyControl,
     ) -> Result<SystemResponse, FamilyError> {
-        control.check()?;
-        if matches!(&request.state, State::Text(text) if text.trim().is_empty()) {
-            return Err(FamilyError::InvalidInput(
-                "state must contain non-whitespace text".to_owned(),
-            ));
-        }
-        let state = crate::families::wire::state_value(request.state);
-        let questions = crate::families::wire::into_sorted_questions(request.questions)?;
-
-        let mut answers = std::collections::HashMap::<
-            String,
-            openkind_core::Answer,
-            openkind_core::WireHashState,
-        >::with_capacity_and_hasher(questions.len(), Default::default());
-        let mut input_tokens: u64 = 0;
-        for (question_id, question) in questions {
-            control.check()?;
-            let id = &question_id;
-            let question = &question;
-            let unpacked = crate::families::wire::unpack_question(id, question)?;
-            let (probabilities, row_tokens) = self
-                .inner
-                .probabilities(&state, &unpacked, question, control)?;
-            input_tokens = input_tokens.saturating_add(row_tokens as u64);
-            let answer =
-                crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?;
-            answers.insert(question_id, answer);
-        }
-        control.check()?;
-        Ok(crate::families::wire::system_response(
-            request.model,
-            answers,
-            input_tokens,
-        ))
+        evaluate_with(self.inner.as_ref(), request, control)
     }
+}
+
+/// Evaluate one request through any [`StrandsPassSource`] backend. The
+/// rendering, temperatures, and wire mapping are the CPU oracle's; only the
+/// pointer-logit forward comes from the source.
+pub(crate) fn evaluate_with(
+    source: &impl StrandsPassSource,
+    request: SystemRequest,
+    control: &FamilyControl,
+) -> Result<SystemResponse, FamilyError> {
+    control.check()?;
+    if matches!(&request.state, State::Text(text) if text.trim().is_empty()) {
+        return Err(FamilyError::InvalidInput(
+            "state must contain non-whitespace text".to_owned(),
+        ));
+    }
+    let state = crate::families::wire::state_value(request.state);
+    let questions = crate::families::wire::into_sorted_questions(request.questions)?;
+
+    let mut answers = std::collections::HashMap::<
+        String,
+        openkind_core::Answer,
+        openkind_core::WireHashState,
+    >::with_capacity_and_hasher(questions.len(), Default::default());
+    let mut input_tokens: u64 = 0;
+    for (question_id, question) in questions {
+        control.check()?;
+        let id = &question_id;
+        let question = &question;
+        let unpacked = crate::families::wire::unpack_question(id, question)?;
+        let (question_probabilities, row_tokens) =
+            probabilities(source, &state, &unpacked, question, control)?;
+        input_tokens = input_tokens.saturating_add(row_tokens as u64);
+        let answer =
+            crate::families::wire::answer_from_probabilities(&unpacked, &question_probabilities)?;
+        answers.insert(question_id, answer);
+    }
+    control.check()?;
+    Ok(crate::families::wire::system_response(
+        request.model,
+        answers,
+        input_tokens,
+    ))
 }

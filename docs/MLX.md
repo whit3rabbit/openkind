@@ -117,6 +117,72 @@ minimum cosine `0.999999881`; its single-host component timings are recorded
 in [`benchmarks/2026-09-30-encoder-embedding/`](benchmarks/2026-09-30-encoder-embedding/README.md).
 This profile embeds proxy-cache state and is not a `DecisionEngine`.
 
+## Survey-family MLX coverage expansion (2026-11-08)
+
+The surveyed decision profiles below have MLX paths behind their
+existing family contracts. The implementations reuse several shared MLX
+backbones:
+
+- The pinned Qwen3.5 hybrid backbone with the six fused Metal kernels
+  (`decider-4b` reuses it directly through the survey-checkpoint descriptor;
+  `sieve-4b` additionally applies the PEFT `base + (B @ A) · alpha/r` merge
+  host-side in FP32 before the values reach MLX).
+- `families/qwen35_survey_mlx.rs` — a geometry-parameterized causal hybrid
+  forward for non-4B widths, used by `strands-decider-2b` (Qwen3.5-2B +
+  adapter + pointer head) and `drex-v15` (9B hybrid + pickle pointer head).
+- `families/qwen_dense_mlx.rs` — a dense Qwen3/Qwen2 decoder body (per-head
+  q/k RMSNorm flag, full-dimension NeoX RoPE, HF `repeat_kv` interleave,
+  tied-embedding readout, optional PEFT merge): `kev`,
+  `decoder-logit-qwen3-06b/17b/4b`, `qwen3guard`, `decoder-logit-letter`.
+  `winnow` (lowercase-key LoRA) and `decoder-logit-llm` (GGUF q8_0
+  dequantized to FP32 at load) carry the same forward in their own modules
+  because their artifact containers differ.
+- `families/mlx_modernbert.rs` / `families/bert_mlx.rs` — encoder bodies:
+  `von` (ModernBERT-large over the author's torch pickle, widened to FP32
+  exactly), `encoder-nli` (DistilBERT), and `schema-scorer` (MiniLM BERT
+  cross-encoder). `gemma4-decision` runs a dedicated FP32-dequantized GGUF
+  port (`gemma4-decision/mlx-fp32-deq`) mirroring the scale-1.0 attention,
+  partial RoPE, KV sharing, PLE, and softcapping numerics of the CPU oracle.
+
+Backend identifiers and arithmetic identities (all FP32 on the Metal GPU
+through the process-wide serialized stream):
+
+| Family | Backend id | Arithmetic id | Loader |
+|---|---|---|---|
+| decider-4b | `decider-4b/mlx-fp32` | `mlx-gpu-fp32-decider` | `DeciderMlxEngine::load` |
+| sieve-4b | `sieve-4b/mlx-fp32` | `mlx-gpu-fp32-sieve` | `SieveMlxEngine::load` |
+| strands-decider-2b | `strands-decider-2b/mlx-fp32` | `mlx-gpu-fp32-strands` | `StrandsMlxEngine::load` |
+| drex-v15 | `drex-v15/mlx-fp32` | `mlx-gpu-fp32-drex` | `DrexMlxEngine::load` |
+| von | `von/mlx-fp32` | `mlx-gpu-fp32-von` | `VonEngine::load_mlx` |
+| kev | `kev/mlx-fp32` | `mlx-gpu-fp32-kev` | `KevMlxEngine::load` |
+| qwen3guard | `qwen3guard/mlx-fp32` | `mlx-gpu-fp32-qwen3guard` | `Qwen3GuardEngine::load_mlx` |
+| decoder-logit-qwen3-06b | `decoder-logit-qwen3-06b/mlx-fp32` | `mlx-gpu-fp32-decoder-logit-qwen3` | `DecoderLogitQwen3Engine::load_mlx` |
+| decoder-logit-qwen3-17b | `decoder-logit-qwen3-17b/mlx-fp32` | `mlx-gpu-fp32-decoder-logit-qwen3` | `DecoderLogitQwen3Engine::load_mlx` |
+| decoder-logit-qwen3-4b | `decoder-logit-qwen3-4b/mlx-fp32` | `mlx-gpu-fp32-decoder-logit-qwen3` | `DecoderLogitQwen3Engine::load_mlx` |
+| decoder-logit-letter | `decoder-logit-letter/mlx-fp32` | `mlx-gpu-fp32-decoder-logit-letter` | `DecoderLetterMlxEngine::load` |
+| decoder-logit-llm | `decoder-logit-llm/mlx-fp32` | `mlx-gpu-fp32-decoder-logit-llm` | `DecoderLlmMlxEngine::load` |
+| winnow | `winnow/mlx-fp32` | `mlx-gpu-fp32-winnow` | `WinnowEngine::load_mlx` |
+| encoder-nli | `encoder-nli/mlx-fp32` | `mlx-gpu-fp32-encoder-nli` | `EncoderNliMlxEngine::load` |
+| schema-scorer | `schema-scorer/mlx-fp32` | `mlx-gpu-fp32-schema-scorer` | `SchemaScorerMlxEngine::load` |
+| gemma4-decision | `gemma4-decision/mlx-fp32-deq` | `mlx-gpu-fp32-deq-gemma4` | `Gemma4MlxEngine::load_mlx` |
+
+On macOS arm64, the daemon's `auto` setting prefers MLX for these profiles
+when the `mlx` feature is built and the runtime is ready. Use
+`--<family>-backend native-cpu` to select the CPU reference. For benchmark
+runs, use the family engine listed by
+`openkind-bench score --help`; Gemma 4 uses
+`--engine gemma4-decision-mlx-fp32-deq`.
+
+Evidence gates: every backend carries an env-gated replay
+(`tests/<family>_parity.rs`, `mod mlx_replay`) that compares the MLX engine
+against the committed fixture or the CPU oracle with zero selection flips and
+a 0.005 probability budget for probability-bearing answers. None of these
+backends has a recorded checkpoint-backed parity run yet: the gates skip
+without the pinned checkpoints, and a promoted parity claim still requires a
+replay record per the [benchmark guide](BENCHMARKS.md). Load and replay them
+by pointing the documented env vars at the pinned artifact roots on a macOS
+arm64 host.
+
 ## Hugging Face MLX conversion survey
 
 The catalog has 18 profiles without a qualified MLX result. The supplemental
@@ -132,12 +198,12 @@ daemon-registration gates in
 
 | OpenKind profile(s) | Hugging Face MLX lead | Identity and integration boundary |
 |---|---|---|
-| `decoder-logit-qwen3-06b`, `decoder-logit-qwen3-17b`, `decoder-logit-qwen3-4b` | [`Qwen3-0.6B-4bit`](https://huggingface.co/mlx-community/Qwen3-0.6B-4bit), [`Qwen3-1.7B-bf16`](https://huggingface.co/mlx-community/Qwen3-1.7B-bf16), [`Qwen3-4B-Instruct-2507-bf16`](https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-bf16), [`Qwen3-4B-Instruct-2507-4bit`](https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit) | Same upstream checkpoints. The 4-bit 4B card reports 2.26 GB; OpenKind has no Qwen3 MLX loader or direct-logit parity gate. |
+| `decoder-logit-qwen3-06b`, `decoder-logit-qwen3-17b`, `decoder-logit-qwen3-4b` | [`Qwen3-0.6B-4bit`](https://huggingface.co/mlx-community/Qwen3-0.6B-4bit), [`Qwen3-1.7B-bf16`](https://huggingface.co/mlx-community/Qwen3-1.7B-bf16), [`Qwen3-4B-Instruct-2507-bf16`](https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-bf16), [`Qwen3-4B-Instruct-2507-4bit`](https://huggingface.co/mlx-community/Qwen3-4B-Instruct-2507-4bit) | Same upstream checkpoints. OpenKind's FP32 paths load the pinned original weights. These conversions need separate loader and parity evidence. |
 | `kev` | [`Qwen3-0.6B-Base-bf16`](https://huggingface.co/mlx-community/Qwen3-0.6B-Base-bf16) | Base-backbone lead only. Kev's LoRA and pointer head are separate profile artifacts. |
 | `qwen3guard` | [`Qwen3Guard-Stream-0.6B-mxfp4-mlx`](https://huggingface.co/abnormalmapstudio/Qwen3Guard-Stream-0.6B-mxfp4-mlx/tree/7d27a40cfe7800748c0d68b9ed56c02a6017b81a) | Conversion of the exact upstream profile checkpoint. The Hub card uses generic text generation; token-level classifier semantics and parity remain unverified in OpenKind. |
-| `decoder-logit-letter`, `decoder-logit-llm`, `winnow` | [`Qwen2.5-0.5B-Instruct-4bit`](https://huggingface.co/mlx-community/Qwen2.5-0.5B-Instruct-4bit) | Shared Qwen2.5 backbone conversion. Its MLX representation differs from `decoder-logit-llm`'s q8_0 GGUF artifact, and Winnow's LoRA needs a separate port. |
+| `decoder-logit-letter`, `decoder-logit-llm`, `winnow` | [`Qwen2.5-0.5B-Instruct-4bit`](https://huggingface.co/mlx-community/Qwen2.5-0.5B-Instruct-4bit) | Shared Qwen2.5 backbone conversion. OpenKind's MLX paths use the pinned safetensors or q8_0 GGUF, and Winnow merges its pinned LoRA at load. |
 | `plumb-4b` | No additional conversion needed | The profile already has a `plumb-4b/mlx-fp32` execution path through the Qwen3.5 MLX backend. Its reported replay lacks archived evidence for a qualified result; see the [Plumb and Decider record](benchmarks/2026-09-30-jevbench-expansion/README.md). |
-| `decider-4b` | [`Qwen3.5-4B-MLX-bf16`](https://huggingface.co/mlx-community/Qwen3.5-4B-MLX-bf16) | Related Qwen3.5 conversion. The source weights differ from Mapika's merged Decider checkpoint, which has no MLX adapter. |
+| `decider-4b` | [`Qwen3.5-4B-MLX-bf16`](https://huggingface.co/mlx-community/Qwen3.5-4B-MLX-bf16) | Related Qwen3.5 conversion. The MLX path uses Mapika's pinned merged Decider checkpoint. |
 | `strands-decider-2b` | [`Qwen3.5-2B-MLX-bf16`](https://huggingface.co/mlx-community/Qwen3.5-2B-MLX-bf16), [`Jev-Style-2B-Decision-v3-MLX`](https://huggingface.co/chaoliangUNSW/Jev-Style-2B-Decision-v3-MLX) | The Qwen conversion is a base-model lead. Jev-Style is an independent task-trained decision model with its own MLX runtime, readout, and calibration, not a Strands conversion or an OpenKind parity result. |
 | `drex-v15` | None found (checked 2026-11-07) | Nace.AI ships only a Q8_0 GGUF of this checkpoint, and an affine-Q4 MLX checkpoint for Drex Max. The license counts conversions as derivatives, so OpenKind mirrors none. |
 | `clef-flash`, `clef-flash-gguf`, `clef-27b-gguf` | [`clef-flash-8bit`](https://huggingface.co/mlx-community/clef-flash-8bit), [`clef-8bit`](https://huggingface.co/mlx-community/clef-8bit) | Exact Cloudflare checkpoints with a separate Python scoring runtime. Its 8-bit spot-check is not an OpenKind parity result; the in-tree 4-bit path remains unqualified. |

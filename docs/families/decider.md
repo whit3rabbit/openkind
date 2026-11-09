@@ -78,9 +78,7 @@ contract and is a candidate future profile.
 - No M2 reviewed-decision gate has run for this profile; its operating point
   is provisional and it carries no model-quality claim.
 - Native FP32 CPU execution costs seconds per row on the reference host.
-  No MLX backend exists for this family yet (the checkpoint layout matches
-  the shared Qwen3.5 MLX backbone, so a `decider` MLX module is a
-  candidate follow-up).
+  The [MLX path](../MLX.md) still needs a checkpoint replay and timing.
 - The `decider_config.json` digest pins the served temperatures and flags;
   a new upstream revision that refits them is a new profile, not a silent
   update.

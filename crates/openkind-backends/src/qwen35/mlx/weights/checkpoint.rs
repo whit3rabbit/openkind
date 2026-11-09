@@ -43,6 +43,18 @@ pub enum MlxCheckpointFormat {
     /// `model.language_model.*` namespace, BF16-stored, FP32-widened on
     /// load). Selected through [`MlxSurveyCheckpoint`], not by sniffing.
     PinnedJevk5,
+    /// The verified pinned single-file decider-4b survey checkpoint. The
+    /// tensor layout is the merged Qwen3.5-4B `model.language_model.*`
+    /// namespace (identical geometry to [`Self::PinnedJevk5`]); the variant
+    /// exists so survey evidence and state identity name the family's own
+    /// repository rather than JevK5's. Selected through
+    /// [`MlxSurveyCheckpoint`], not by sniffing.
+    PinnedDecider,
+    /// The verified pinned sieve-4b survey checkpoint: the sharded
+    /// `Qwen/Qwen3.5-4B` base (`model.language_model.*` namespace) with a
+    /// PEFT LoRA adapter merged by the loader. Selected through
+    /// [`MlxSurveyCheckpoint`], not by sniffing.
+    PinnedSieve,
 }
 
 impl MlxCheckpointFormat {
@@ -53,6 +65,8 @@ impl MlxCheckpointFormat {
             Self::PinnedQwen35Base => "qwen35-base-safetensors",
             Self::MlxCommunityQwen35Bf16 => "mlx-community-qwen35-4b-bf16",
             Self::PinnedJevk5 => "jevk5-safetensors",
+            Self::PinnedDecider => "decider-4b-safetensors",
+            Self::PinnedSieve => "sieve-4b-safetensors",
         }
     }
 
@@ -64,7 +78,11 @@ impl MlxCheckpointFormat {
     #[must_use]
     pub const fn has_uniform_causal_layout(self) -> bool {
         match self {
-            Self::PinnedQwen35Base | Self::MlxCommunityQwen35Bf16 | Self::PinnedJevk5 => true,
+            Self::PinnedQwen35Base
+            | Self::MlxCommunityQwen35Bf16
+            | Self::PinnedJevk5
+            | Self::PinnedDecider
+            | Self::PinnedSieve => true,
         }
     }
 }
@@ -86,10 +104,32 @@ pub struct MlxSurveyCheckpoint {
     pub backbone_revision: &'static str,
     /// SHA-256 of the verified tokenizer artifact.
     pub tokenizer_digest: &'static str,
-    /// The digest-verified single-file checkpoint shard.
-    pub shard_path: std::path::PathBuf,
-    /// Host-resident tied-embedding reader over the same verified shard.
+    /// The digest-verified checkpoint shards, in pinned load order. A
+    /// LoRA-merged survey names the base shards here.
+    pub shards: Vec<std::path::PathBuf>,
+    /// Host-resident tied-embedding reader over the same verified shards.
     pub embedding: Qwen35Embedding,
+    /// Optional PEFT LoRA adapter merged into the base tensors while they
+    /// stream in (see [`MlxSurveyLora`]).
+    pub lora: Option<MlxSurveyLora>,
+}
+
+/// A caller-verified PEFT LoRA merge the survey loader applies while
+/// streaming the base shards.
+///
+/// The adapter file must be digest-verified by the survey family before this
+/// descriptor is built. The merge is PEFT `merge_and_unload` semantics:
+/// `base + (B @ A) · scale` per targeted weight, computed in FP32 on the
+/// host and applied before the values reach MLX, so the loaded arrays match
+/// the CPU oracle's merged weights bit for bit.
+#[derive(Debug, Clone)]
+pub struct MlxSurveyLora {
+    /// The digest-verified adapter safetensors file.
+    pub adapter_path: std::path::PathBuf,
+    /// The pinned adapter rank (`adapter_config.json` `r`).
+    pub rank: usize,
+    /// The pinned merge scale (`lora_alpha / r`).
+    pub scale: f64,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -161,10 +201,12 @@ pub(super) fn load_checkpoint(checkpoint_root: &Path) -> Result<VerifiedCheckpoi
         MlxCheckpointFormat::MlxCommunityQwen35Bf16 => {
             load_community_checkpoint(checkpoint_root, &index_bytes)
         }
-        // The single-file survey checkpoint has no index to sniff: it is
-        // selected explicitly through an `MlxSurveyCheckpoint` descriptor.
-        MlxCheckpointFormat::PinnedJevk5 => Err(MlxError::InvalidState(
-            "the jevk5-safetensors format is selected through an MlxSurveyCheckpoint, \
+        // The single-file survey checkpoints have no index to sniff: they
+        // are selected explicitly through an `MlxSurveyCheckpoint` descriptor.
+        MlxCheckpointFormat::PinnedJevk5
+        | MlxCheckpointFormat::PinnedDecider
+        | MlxCheckpointFormat::PinnedSieve => Err(MlxError::InvalidState(
+            "survey formats are selected through an MlxSurveyCheckpoint, \
              not by directory sniffing"
                 .to_owned(),
         )),
@@ -325,9 +367,10 @@ fn verify_file(
 
 pub(super) fn canonical_tensor_name(format: MlxCheckpointFormat, name: &str) -> Option<String> {
     match format {
-        MlxCheckpointFormat::PinnedQwen35Base | MlxCheckpointFormat::PinnedJevk5 => {
-            Some(name.to_owned())
-        }
+        MlxCheckpointFormat::PinnedQwen35Base
+        | MlxCheckpointFormat::PinnedJevk5
+        | MlxCheckpointFormat::PinnedDecider
+        | MlxCheckpointFormat::PinnedSieve => Some(name.to_owned()),
         MlxCheckpointFormat::MlxCommunityQwen35Bf16 => {
             if let Some(rest) = name.strip_prefix("language_model.model.") {
                 Some(format!("model.language_model.{rest}"))
@@ -381,6 +424,10 @@ mod tests {
         );
         assert_eq!(
             canonical_tensor_name(MlxCheckpointFormat::PinnedJevk5, name),
+            Some(name.to_owned())
+        );
+        assert_eq!(
+            canonical_tensor_name(MlxCheckpointFormat::PinnedDecider, name),
             Some(name.to_owned())
         );
     }

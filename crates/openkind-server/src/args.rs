@@ -490,7 +490,8 @@ impl Args {
 }
 
 /// Shared surveyed-family backend choices for families without a dedicated
-/// backend enum: CPU, CUDA, and ONNX (optionally on CUDA or ROCm).
+/// backend enum: CPU, CUDA, ONNX (optionally on CUDA or ROCm), and — on
+/// macOS arm64 with the optional feature — MLX.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
 pub(crate) enum FamilyBackendArg {
     /// Prefer a ready compatible accelerator, falling back during loading.
@@ -511,6 +512,9 @@ pub(crate) enum FamilyBackendArg {
     /// `--rocm-device` ordinal, Linux only).
     #[cfg(feature = "onnx")]
     OnnxRocm,
+    /// MLX FP32 backend on macOS arm64 when the optional feature is enabled.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    MlxFp32,
 }
 
 impl FamilyBackendArg {
@@ -560,6 +564,18 @@ impl FamilyBackendArg {
                     device_id: devices.rocm,
                 })
             }
+            // MLX never resolves to a candle device: every family loader
+            // with an MLX engine branches on the selection before candle
+            // execution. Families whose loader has no MLX arm surface the
+            // typed recoverable `ExecutionUnavailable`, so selection falls
+            // back to CPU instead of failing the load.
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            Self::MlxFp32 => Err(
+                openkind_backends::families::support::FamilyError::ExecutionUnavailable(
+                    "this family has no MLX execution path; select cpu, cuda, or onnx".to_owned(),
+                )
+                .into(),
+            ),
         }
     }
 }
@@ -575,8 +591,11 @@ pub(crate) enum CudaOnlyBackendArg {
     /// Candle FP32 CUDA backend (`cuda` feature, `--cuda-device` ordinal).
     #[cfg(feature = "cuda")]
     Cuda,
-    /// MLX backend on macOS arm64 (`mlx` feature). d3 profiles execute
-    /// FP32, except d3-flash which quantizes to affine 4-bit at load.
+    /// MLX backend on macOS arm64 (`mlx` feature). Families with an MLX
+    /// engine execute through it: FP32 readouts, except d3-flash which
+    /// quantizes to affine 4-bit at load and winnow-e4b which dequantizes
+    /// its GGUF q8_0 weights. Families without an MLX path fall back to
+    /// CPU under `auto`; an explicit selection fails closed.
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     Mlx,
 }
@@ -595,11 +614,12 @@ impl CudaOnlyBackendArg {
             Self::Cuda => Ok(openkind_backends::device::FamilyExecution::Cuda {
                 device_id: devices.cuda,
             }),
-            // MLX never resolves to a candle device: the d3 loader branches
-            // on the selection before candle execution. Families without an
-            // MLX path reach this arm under `auto`, so the error is the typed
-            // `ExecutionUnavailable` the loader treats as recoverable, and
-            // selection falls back to CPU instead of failing the load.
+            // MLX never resolves to a candle device: family loaders with an
+            // MLX engine branch on the selection before candle execution.
+            // Families without an MLX path reach this arm under `auto`, so
+            // the error is the typed `ExecutionUnavailable` the loader
+            // treats as recoverable, and selection falls back to CPU
+            // instead of failing the load.
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             Self::Mlx => Err(
                 openkind_backends::families::support::FamilyError::ExecutionUnavailable(
@@ -608,6 +628,37 @@ impl CudaOnlyBackendArg {
                 .into(),
             ),
         }
+    }
+}
+
+/// Backend choices for families whose only executions are the candle CPU
+/// reference and — on macOS arm64 with the optional feature — MLX: no CUDA
+/// device path and no ONNX export.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+pub(crate) enum MlxCapableBackendArg {
+    /// Prefer a ready compatible accelerator, falling back during loading.
+    Auto,
+    /// Candle FP32 CPU reference backend.
+    NativeCpu,
+    /// MLX FP32 backend on macOS arm64 when the optional feature is enabled.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    MlxFp32,
+}
+
+impl crate::backend::Selector for MlxCapableBackendArg {
+    fn backend(self) -> crate::backend::Backend {
+        match self {
+            Self::Auto => crate::backend::Backend::Auto,
+            Self::NativeCpu => crate::backend::Backend::NativeCpu,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            Self::MlxFp32 => crate::backend::Backend::MlxFp32,
+        }
+    }
+    fn from_backend(backend: crate::backend::Backend) -> Option<Self> {
+        Self::value_variants()
+            .iter()
+            .copied()
+            .find(|selection| crate::backend::Selector::backend(*selection) == backend)
     }
 }
 
@@ -839,6 +890,8 @@ impl crate::backend::Selector for FamilyBackendArg {
             Self::OnnxCuda => crate::backend::Backend::OnnxCuda,
             #[cfg(feature = "onnx")]
             Self::OnnxRocm => crate::backend::Backend::OnnxRocm,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            Self::MlxFp32 => crate::backend::Backend::MlxFp32,
         }
     }
     fn from_backend(backend: crate::backend::Backend) -> Option<Self> {
@@ -1198,6 +1251,64 @@ mod tests {
         let auto = Args::try_parse_from(["openkindd"]).unwrap();
         assert_eq!(Option::<ExecutionPlan>::from(auto.qwen35_execution), None);
         assert!(Args::try_parse_from(["openkindd", "--qwen35-execution", "turbo"]).is_err());
+    }
+
+    #[test]
+    fn family_mlx_backend_selections_parse_where_compiled_and_fail_closed_elsewhere() {
+        let args = Args::try_parse_from([
+            "openkindd",
+            "--encoder-nli-backend",
+            "mlx-fp32",
+            "--decoder-letter-backend",
+            "mlx-fp32",
+            "--drex-backend",
+            "mlx-fp32",
+            "--decider-4b-backend",
+            "mlx",
+            "--sieve-backend",
+            "mlx",
+            "--strands-decider-backend",
+            "mlx",
+            "--kev-backend",
+            "mlx",
+            "--decoder-llm-backend",
+            "mlx",
+            "--winnow-e4b-backend",
+            "mlx",
+            "--winnow-backend",
+            "mlx",
+        ]);
+        #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+        {
+            let args = args.unwrap();
+            assert_eq!(
+                args.family_args.encoder_nli_backend,
+                FamilyBackendArg::MlxFp32
+            );
+            assert_eq!(
+                args.family_args.decoder_letter_backend,
+                FamilyBackendArg::MlxFp32
+            );
+            assert_eq!(args.family_args.drex_backend, MlxCapableBackendArg::MlxFp32);
+            assert_eq!(args.family_args.decider_4b_backend, CudaOnlyBackendArg::Mlx);
+            assert_eq!(args.family_args.sieve_backend, CudaOnlyBackendArg::Mlx);
+            assert_eq!(
+                args.family_args.strands_decider_backend,
+                CudaOnlyBackendArg::Mlx
+            );
+            assert_eq!(args.family_args.kev_backend, CudaOnlyBackendArg::Mlx);
+            assert_eq!(
+                args.family_args.decoder_llm_backend,
+                CudaOnlyBackendArg::Mlx
+            );
+            assert_eq!(args.family_args.winnow_e4b_backend, CudaOnlyBackendArg::Mlx);
+            assert_eq!(args.family_args.winnow_backend, CudaOnlyBackendArg::Mlx);
+        }
+        #[cfg(not(all(feature = "mlx", target_os = "macos", target_arch = "aarch64")))]
+        {
+            let error = args.unwrap_err().to_string();
+            assert!(error.contains("invalid value"), "{error}");
+        }
     }
 
     #[test]

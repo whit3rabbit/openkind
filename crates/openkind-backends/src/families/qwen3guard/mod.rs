@@ -28,6 +28,11 @@
 /// family (`decoder-logit-qwen3`).
 pub(crate) mod arch;
 mod engine;
+/// MLX/Metal execution backend (feature `mlx`, macOS arm64).
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+mod mlx;
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub use self::mlx::MLX_EXECUTION_ARITHMETIC_ID;
 mod model;
 #[cfg(feature = "onnx")]
 #[doc(hidden)]
@@ -118,6 +123,13 @@ pub enum Qwen3GuardError {
     /// Shared family loader/evaluator failure.
     #[error(transparent)]
     Family(#[from] crate::families::support::FamilyError),
+}
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+impl From<crate::qwen35::mlx::MlxError> for Qwen3GuardError {
+    fn from(error: crate::qwen35::mlx::MlxError) -> Self {
+        Self::Family(crate::families::support::FamilyError::from(error))
+    }
 }
 
 /// Filesystem configuration for the pinned guard profile.

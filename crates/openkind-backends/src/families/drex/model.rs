@@ -21,7 +21,7 @@ use super::{
 
 const EMBED_TOKENS_TENSOR: &str = "model.language_model.embed_tokens.weight";
 /// Top-level `head.pt` key holding the pointer-head state dict.
-const HEAD_STATE_KEY: &str = "head";
+pub(crate) const HEAD_STATE_KEY: &str = "head";
 
 #[derive(Debug, Deserialize)]
 struct CheckpointIndex {

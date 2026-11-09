@@ -402,6 +402,71 @@ pub enum EngineArg {
     /// Pinned Jeeves affine-4 weights with FP32 pointer readout; no thinking.
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
     JeevesMlxAffine4,
+    /// Pinned decoder-logit-letter MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[value(name = "decoder-logit-letter-mlx-fp32")]
+    DecoderLetterMlxFp32,
+    /// Pinned encoder-nli MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[value(name = "encoder-nli-mlx-fp32")]
+    EncoderNliMlxFp32,
+    /// Pinned decoder-logit-llm MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[value(name = "decoder-logit-llm-mlx-fp32")]
+    DecoderLlmMlxFp32,
+    /// Pinned schema-scorer MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[value(name = "schema-scorer-mlx-fp32")]
+    SchemaScorerMlxFp32,
+    /// Pinned qwen3guard MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[value(name = "qwen3guard-mlx-fp32")]
+    Qwen3GuardMlxFp32,
+    /// Pinned kev MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[value(name = "kev-mlx-fp32")]
+    KevMlxFp32,
+    /// Pinned strands-decider-2b MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[value(name = "strands-decider-2b-mlx-fp32")]
+    StrandsDecider2bMlxFp32,
+    /// Pinned drex-v1.5 MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[value(name = "drex-v15-mlx-fp32")]
+    DrexV15MlxFp32,
+    /// Pinned decoder-logit-qwen3-06b MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[value(name = "decoder-logit-qwen3-06b-mlx-fp32")]
+    DecoderLogitQwen306bMlxFp32,
+    /// Pinned decoder-logit-qwen3-17b MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[value(name = "decoder-logit-qwen3-17b-mlx-fp32")]
+    DecoderLogitQwen317bMlxFp32,
+    /// Pinned decoder-logit-qwen3-4b MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[value(name = "decoder-logit-qwen3-4b-mlx-fp32")]
+    DecoderLogitQwen34bMlxFp32,
+    /// Pinned decider-4b MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[value(name = "decider-4b-mlx-fp32")]
+    Decider4bMlxFp32,
+    /// Pinned sieve-4b MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[value(name = "sieve-4b-mlx-fp32")]
+    Sieve4bMlxFp32,
+    /// Pinned winnow-e4b MLX FP32 dequantized engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[value(name = "gemma4-decision-mlx-fp32-deq")]
+    Gemma4DecisionMlxFp32Deq,
+    /// Pinned von MLX FP32 engine; requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[value(name = "von-mlx-fp32")]
+    VonMlxFp32,
+    /// Winnow learned router on the MLX FP32 forward, over mock siblings;
+    /// requires `--features mlx`.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    #[value(name = "winnow-mlx-fp32")]
+    WinnowMlxFp32,
 }
 
 impl From<EngineArg> for EngineKind {
@@ -457,6 +522,38 @@ impl From<EngineArg> for EngineKind {
             EngineArg::Plumb4bMlxFp32 => EngineKind::Plumb4bMlxFp32,
             #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
             EngineArg::JeevesMlxAffine4 => EngineKind::JeevesMlxAffine4,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::DecoderLetterMlxFp32 => EngineKind::DecoderLetterMlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::EncoderNliMlxFp32 => EngineKind::EncoderNliMlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::DecoderLlmMlxFp32 => EngineKind::DecoderLlmMlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::SchemaScorerMlxFp32 => EngineKind::SchemaScorerMlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::Qwen3GuardMlxFp32 => EngineKind::Qwen3GuardMlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::KevMlxFp32 => EngineKind::KevMlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::StrandsDecider2bMlxFp32 => EngineKind::StrandsDecider2bMlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::DrexV15MlxFp32 => EngineKind::DrexV15MlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::DecoderLogitQwen306bMlxFp32 => EngineKind::DecoderLogitQwen306bMlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::DecoderLogitQwen317bMlxFp32 => EngineKind::DecoderLogitQwen317bMlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::DecoderLogitQwen34bMlxFp32 => EngineKind::DecoderLogitQwen34bMlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::Decider4bMlxFp32 => EngineKind::Decider4bMlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::Sieve4bMlxFp32 => EngineKind::Sieve4bMlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::Gemma4DecisionMlxFp32Deq => EngineKind::Gemma4DecisionMlxFp32Deq,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::VonMlxFp32 => EngineKind::VonMlxFp32,
+            #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+            EngineArg::WinnowMlxFp32 => EngineKind::WinnowMlxFp32,
         }
     }
 }

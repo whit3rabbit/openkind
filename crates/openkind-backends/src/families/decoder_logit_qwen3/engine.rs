@@ -17,8 +17,8 @@ use super::model::{Qwen3ControlModel, VerifiedArtifacts};
 use super::renderer::NOUL_DEFAULT_DESCRIPTIONS;
 use super::{DecoderLogitQwen3EngineConfig, DecoderLogitQwen3Error, Qwen3LogitProfile};
 
-/// Letter-logit source shared by the candle and ONNX models.
-trait LetterLogits: Send + Sync {
+/// Letter-logit source shared by the candle, ONNX, and MLX models.
+pub(super) trait LetterLogits: Send + Sync {
     /// Next-token logits at the answer slot, restricted to `letter_ids`.
     fn letter_logits(
         &self,
@@ -254,6 +254,36 @@ impl DecoderLogitQwen3Engine {
                 renderer,
                 model,
                 backend_id,
+            }),
+        };
+        Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))
+    }
+
+    /// Load the engine on the MLX backend (`mlx` feature, macOS arm64).
+    ///
+    /// Artifact verification (digests, pinned config) is identical on every
+    /// backend; only the readout execution differs. The engine reuses the
+    /// shared letter-pass evaluate path with the MLX model behind the same
+    /// [`LetterLogits`] seam.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    pub fn load_mlx(
+        config: DecoderLogitQwen3EngineConfig,
+    ) -> Result<BoundedFamilyEngine, DecoderLogitQwen3Error> {
+        use crate::qwen35::mlx::{MlxRuntime, MlxRuntimeConfig};
+
+        let artifacts = VerifiedArtifacts::verify(&config.model_root, config.profile)?;
+        let renderer = crate::families::decoder_logit_qwen3::renderer::Qwen3ControlRenderer::load(
+            &artifacts.tokenizer,
+            config.profile.assistant_tail,
+        )?;
+        let runtime = Arc::new(MlxRuntime::new(MlxRuntimeConfig::default())?);
+        let model = super::mlx::Qwen3ControlMlxModel::load(&artifacts, config.profile, &runtime)?;
+        let engine = Self {
+            inner: Arc::new(Inner {
+                profile: config.profile,
+                renderer,
+                model: Box::new(model),
+                backend_id: config.profile.mlx_backend_id.to_owned(),
             }),
         };
         Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))

@@ -471,6 +471,34 @@ mod tests {
         );
     }
     #[test]
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    fn family_auto_selects_ready_mlx_and_respects_cpu_override() {
+        use crate::args::{CudaOnlyBackendArg, FamilyBackendArg, MlxCapableBackendArg};
+
+        fn check<S: Selector>(auto: S) {
+            let root = Path::new("missing-root");
+            let statuses = ready(&[Backend::NativeCpu, Backend::MlxFp32]);
+            let cpu = S::from_backend(Backend::NativeCpu).unwrap();
+
+            for (selection, available, expected) in [
+                (auto, &statuses[..], Backend::MlxFp32),
+                (auto, &statuses[..1], Backend::NativeCpu),
+                (cpu, &statuses[..], Backend::NativeCpu),
+            ] {
+                let selected = load_with_readiness(selection, root, available, |candidate| {
+                    Ok(candidate.backend())
+                })
+                .unwrap();
+                assert_eq!(selected, expected);
+            }
+        }
+
+        check(FamilyBackendArg::Auto);
+        check(CudaOnlyBackendArg::Auto);
+        check(MlxCapableBackendArg::Auto);
+    }
+
+    #[test]
     fn explicit_override_never_falls_back() {
         let mut attempts = Vec::new();
         let result: Result<()> = load_with_readiness(

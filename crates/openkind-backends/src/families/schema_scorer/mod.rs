@@ -22,6 +22,8 @@
 //! - Text generation: none.
 
 mod engine;
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+mod mlx;
 mod model;
 #[cfg(feature = "onnx")]
 #[doc(hidden)]
@@ -36,6 +38,11 @@ use thiserror::Error;
 
 pub use self::engine::SchemaScorerEngine;
 use crate::families::support::FamilyLimits;
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub use self::mlx::{
+    SchemaScorerMlxEngine, SchemaScorerMlxEngineConfig, MLX_EXECUTION_ARITHMETIC_ID,
+};
 
 /// Family slug used for identity derivation and telemetry.
 pub const FAMILY_SLUG: &str = "schema-scorer";
@@ -106,6 +113,13 @@ pub enum SchemaScorerError {
     /// Shared family loader/evaluator failure.
     #[error(transparent)]
     Family(#[from] crate::families::support::FamilyError),
+}
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+impl From<crate::qwen35::mlx::MlxError> for SchemaScorerError {
+    fn from(error: crate::qwen35::mlx::MlxError) -> Self {
+        Self::Family(crate::families::support::FamilyError::from(error))
+    }
 }
 
 /// Filesystem configuration for the pinned schema-scorer profile.

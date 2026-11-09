@@ -27,6 +27,27 @@ struct Inner {
     backend_id: String,
 }
 
+/// The family's execution seam: everything one backend contributes to the
+/// shared planning/scoring pipeline. The renderer, profile, and wire mapping
+/// are shared with the CPU oracle; only the slot-logit readout differs per
+/// execution path.
+pub(crate) trait DeciderPassSource: Send + Sync {
+    /// The pinned profile this source serves.
+    fn profile(&self) -> &'static DeciderProfile;
+
+    /// The family renderer over the profile's verified tokenizer.
+    fn renderer(&self) -> &DeciderRenderer;
+
+    /// Forward one rendered row and return the next-token logits restricted
+    /// to `label_ids`.
+    fn slot_logits(
+        &self,
+        prompt_ids: &[u32],
+        label_ids: &[u32],
+        control: &FamilyControl,
+    ) -> Result<Vec<f64>, FamilyError>;
+}
+
 /// One scoring row of a planned question: the rendered prompt and the number
 /// of label logits to read. Every row of a question shares the question's
 /// answer type, so the temperature key lives on [`PlannedQuestion::kind`].
@@ -66,186 +87,198 @@ fn strip_level_number(text: &str) -> String {
     }
 }
 
-impl Inner {
-    /// Plan the scoring rows of one wire question (reference
-    /// `render_question` + `plan_rows` with `isolated_levels`).
-    fn plan_question(
-        &self,
-        id: &str,
-        question: &openkind_core::Question,
-        state_ids: &[u32],
-    ) -> Result<PlannedQuestion, FamilyError> {
-        let profile = self.profile;
-        match question {
-            openkind_core::Question::Choice(choice) => {
-                let count = choice.criteria.len();
-                if !(2..=profile.max_candidates).contains(&count) {
-                    return Err(FamilyError::InvalidInput(format!(
-                        "choice question `{id}` offers {count} options; the profile serves 2..={}",
-                        profile.max_candidates
-                    )));
-                }
-                // The wire map is a hash map, so options render in the wire's
-                // sorted label order — the family's declared determinism
-                // difference. A null description renders the bare label, a
-                // described one renders `label: description`.
-                let mut labels: Vec<&String> = choice.criteria.keys().collect();
-                labels.sort();
-                let options = labels
-                    .iter()
-                    .map(|label| match choice.criteria.get(*label) {
-                        Some(Some(description))
-                            if !description.trim().is_empty() && description != *label =>
-                        {
-                            format!("{label}: {description}")
-                        }
-                        _ => (*label).clone(),
-                    })
-                    .collect::<Vec<_>>();
-                let row = self.renderer.render_row(
-                    state_ids,
-                    &wire::instruction_text(question)?,
-                    &options,
-                )?;
-                Ok(PlannedQuestion {
-                    unpacked: wire::unpack_question(id, question)?,
-                    kind: QuestionKind::Choice,
-                    rows: vec![PlannedRow {
-                        row,
-                        label_count: count,
-                    }],
-                })
-            }
-            openkind_core::Question::Noul(noul) => {
-                let mut instruction = wire::instruction_text(question)?;
-                if instruction.trim().is_empty() {
-                    instruction = NOUL_WITHOUT_INSTRUCTIONS.to_owned();
-                }
-                // The reference renders the fixed pair ["no", "yes"] in the
-                // wire's false-first order; described criteria prefix them.
-                let (no_text, yes_text) = noul
-                    .criteria
-                    .as_ref()
-                    .map(|criteria| (criteria.r#false.clone(), criteria.r#true.clone()))
-                    .unwrap_or_default();
-                let options = vec![
-                    described_option("no", &no_text),
-                    described_option("yes", &yes_text),
-                ];
-                let row = self
-                    .renderer
-                    .render_row(state_ids, &instruction, &options)?;
-                Ok(PlannedQuestion {
-                    unpacked: wire::UnpackedQuestion {
-                        id: id.to_owned(),
-                        primitive: wire::QuestionPrimitive::Noul,
-                        labels: vec!["false".into(), "true".into()],
-                        criteria: vec![
-                            if no_text.is_empty() {
-                                "The proposition is false.".to_owned()
-                            } else {
-                                no_text
-                            },
-                            if yes_text.is_empty() {
-                                "The proposition is true.".to_owned()
-                            } else {
-                                yes_text
-                            },
-                        ],
-                        ordered: false,
-                    },
-                    kind: QuestionKind::Noul,
-                    rows: vec![PlannedRow {
-                        row,
-                        label_count: 2,
-                    }],
-                })
-            }
-            openkind_core::Question::Score(score) => {
-                let levels = score.criteria.len();
-                if !(2..=profile.max_score_levels).contains(&levels) {
-                    return Err(FamilyError::InvalidInput(format!(
-                        "score question `{id}` offers {levels} levels; the profile serves 2..={}",
-                        profile.max_score_levels
-                    )));
-                }
-                let instruction = wire::instruction_text(question)?;
-                // Isolated levels (the pinned `isolated_levels: true`): one
-                // yes/no row per level, judged without its neighbours.
-                let mut rows = Vec::with_capacity(levels);
-                for level in &score.criteria {
-                    let level_text = strip_level_number(level);
-                    let row_question = format!(
-                        "{instruction}\nProposed answer: {level_text}\nDoes the proposed answer fit?"
-                    );
-                    let row = self.renderer.render_row(
-                        state_ids,
-                        &row_question,
-                        &["no".to_owned(), "yes".to_owned()],
-                    )?;
-                    rows.push(PlannedRow {
-                        row,
-                        label_count: 2,
-                    });
-                }
-                let unpacked = wire::unpack_question(id, question)?;
-                Ok(PlannedQuestion {
-                    unpacked,
-                    kind: QuestionKind::Score,
-                    rows,
-                })
-            }
-        }
+impl DeciderPassSource for Inner {
+    fn profile(&self) -> &'static DeciderProfile {
+        self.profile
     }
 
-    /// Score one planned question: forward every row, temperature-softmax
-    /// each read, and assemble the wire answer.
-    fn score_question(
-        &self,
-        planned: PlannedQuestion,
-        control: &FamilyControl,
-        token_count: &mut u64,
-    ) -> Result<openkind_core::Answer, FamilyError> {
-        let temperature = self.profile.calibration.resolve(planned.kind);
-        let mut row_probabilities = Vec::with_capacity(planned.rows.len());
-        for planned_row in &planned.rows {
-            control.check()?;
-            *token_count = token_count
-                .saturating_add(u64::from(self.renderer.row_token_count(&planned_row.row)));
-            let label_ids = self.renderer.label_ids_for(planned_row.label_count);
-            let logits =
-                self.model
-                    .slot_logits(planned_row.row.prompt_ids(), label_ids, control)?;
-            row_probabilities.push(temperature_softmax(&logits, temperature)?);
-        }
-        let probabilities = match planned.kind {
-            // Choice and Noul read one row whose distribution is the answer.
-            QuestionKind::Choice | QuestionKind::Noul => row_probabilities
-                .into_iter()
-                .next()
-                .ok_or_else(|| FamilyError::InvalidInput("question planned no rows".to_owned()))?,
-            // Score combines the per-level fit probabilities: each row
-            // contributes P(fits) and the level distribution normalizes
-            // them (`combine_isolated`).
-            QuestionKind::Score => {
-                let mut fits = Vec::with_capacity(row_probabilities.len());
-                for probabilities in &row_probabilities {
-                    let fit = probabilities.last().copied().ok_or_else(|| {
-                        FamilyError::Numerical("level row lost its yes mass".to_owned())
-                    })?;
-                    fits.push(fit);
-                }
-                let total: f64 = fits.iter().sum();
-                if !total.is_finite() || total <= 0.0 {
-                    return Err(FamilyError::Numerical(format!(
-                        "isolated level fits do not normalize: {total}"
-                    )));
-                }
-                fits.iter().map(|fit| fit / total).collect()
-            }
-        };
-        wire::answer_from_probabilities(&planned.unpacked, &probabilities)
+    fn renderer(&self) -> &DeciderRenderer {
+        &self.renderer
     }
+
+    fn slot_logits(
+        &self,
+        prompt_ids: &[u32],
+        label_ids: &[u32],
+        control: &FamilyControl,
+    ) -> Result<Vec<f64>, FamilyError> {
+        self.model.slot_logits(prompt_ids, label_ids, control)
+    }
+}
+
+/// Plan the scoring rows of one wire question (reference
+/// `render_question` + `plan_rows` with `isolated_levels`).
+fn plan_question(
+    source: &impl DeciderPassSource,
+    id: &str,
+    question: &openkind_core::Question,
+    state_ids: &[u32],
+) -> Result<PlannedQuestion, FamilyError> {
+    let profile = source.profile();
+    let renderer = source.renderer();
+    match question {
+        openkind_core::Question::Choice(choice) => {
+            let count = choice.criteria.len();
+            if !(2..=profile.max_candidates).contains(&count) {
+                return Err(FamilyError::InvalidInput(format!(
+                    "choice question `{id}` offers {count} options; the profile serves 2..={}",
+                    profile.max_candidates
+                )));
+            }
+            // The wire map is a hash map, so options render in the wire's
+            // sorted label order — the family's declared determinism
+            // difference. A null description renders the bare label, a
+            // described one renders `label: description`.
+            let mut labels: Vec<&String> = choice.criteria.keys().collect();
+            labels.sort();
+            let options = labels
+                .iter()
+                .map(|label| match choice.criteria.get(*label) {
+                    Some(Some(description))
+                        if !description.trim().is_empty() && description != *label =>
+                    {
+                        format!("{label}: {description}")
+                    }
+                    _ => (*label).clone(),
+                })
+                .collect::<Vec<_>>();
+            let row =
+                renderer.render_row(state_ids, &wire::instruction_text(question)?, &options)?;
+            Ok(PlannedQuestion {
+                unpacked: wire::unpack_question(id, question)?,
+                kind: QuestionKind::Choice,
+                rows: vec![PlannedRow {
+                    row,
+                    label_count: count,
+                }],
+            })
+        }
+        openkind_core::Question::Noul(noul) => {
+            let mut instruction = wire::instruction_text(question)?;
+            if instruction.trim().is_empty() {
+                instruction = NOUL_WITHOUT_INSTRUCTIONS.to_owned();
+            }
+            // The reference renders the fixed pair ["no", "yes"] in the
+            // wire's false-first order; described criteria prefix them.
+            let (no_text, yes_text) = noul
+                .criteria
+                .as_ref()
+                .map(|criteria| (criteria.r#false.clone(), criteria.r#true.clone()))
+                .unwrap_or_default();
+            let options = vec![
+                described_option("no", &no_text),
+                described_option("yes", &yes_text),
+            ];
+            let row = renderer.render_row(state_ids, &instruction, &options)?;
+            Ok(PlannedQuestion {
+                unpacked: wire::UnpackedQuestion {
+                    id: id.to_owned(),
+                    primitive: wire::QuestionPrimitive::Noul,
+                    labels: vec!["false".into(), "true".into()],
+                    criteria: vec![
+                        if no_text.is_empty() {
+                            "The proposition is false.".to_owned()
+                        } else {
+                            no_text
+                        },
+                        if yes_text.is_empty() {
+                            "The proposition is true.".to_owned()
+                        } else {
+                            yes_text
+                        },
+                    ],
+                    ordered: false,
+                },
+                kind: QuestionKind::Noul,
+                rows: vec![PlannedRow {
+                    row,
+                    label_count: 2,
+                }],
+            })
+        }
+        openkind_core::Question::Score(score) => {
+            let levels = score.criteria.len();
+            if !(2..=profile.max_score_levels).contains(&levels) {
+                return Err(FamilyError::InvalidInput(format!(
+                    "score question `{id}` offers {levels} levels; the profile serves 2..={}",
+                    profile.max_score_levels
+                )));
+            }
+            let instruction = wire::instruction_text(question)?;
+            // Isolated levels (the pinned `isolated_levels: true`): one
+            // yes/no row per level, judged without its neighbours.
+            let mut rows = Vec::with_capacity(levels);
+            for level in &score.criteria {
+                let level_text = strip_level_number(level);
+                let row_question = format!(
+                    "{instruction}\nProposed answer: {level_text}\nDoes the proposed answer fit?"
+                );
+                let row = renderer.render_row(
+                    state_ids,
+                    &row_question,
+                    &["no".to_owned(), "yes".to_owned()],
+                )?;
+                rows.push(PlannedRow {
+                    row,
+                    label_count: 2,
+                });
+            }
+            let unpacked = wire::unpack_question(id, question)?;
+            Ok(PlannedQuestion {
+                unpacked,
+                kind: QuestionKind::Score,
+                rows,
+            })
+        }
+    }
+}
+
+/// Score one planned question: forward every row, temperature-softmax
+/// each read, and assemble the wire answer.
+fn score_question(
+    source: &impl DeciderPassSource,
+    planned: PlannedQuestion,
+    control: &FamilyControl,
+    token_count: &mut u64,
+) -> Result<openkind_core::Answer, FamilyError> {
+    let temperature = source.profile().calibration.resolve(planned.kind);
+    let renderer = source.renderer();
+    let mut row_probabilities = Vec::with_capacity(planned.rows.len());
+    for planned_row in &planned.rows {
+        control.check()?;
+        *token_count =
+            token_count.saturating_add(u64::from(renderer.row_token_count(&planned_row.row)));
+        let label_ids = renderer.label_ids_for(planned_row.label_count);
+        let logits = source.slot_logits(planned_row.row.prompt_ids(), label_ids, control)?;
+        row_probabilities.push(temperature_softmax(&logits, temperature)?);
+    }
+    let probabilities = match planned.kind {
+        // Choice and Noul read one row whose distribution is the answer.
+        QuestionKind::Choice | QuestionKind::Noul => row_probabilities
+            .into_iter()
+            .next()
+            .ok_or_else(|| FamilyError::InvalidInput("question planned no rows".to_owned()))?,
+        // Score combines the per-level fit probabilities: each row
+        // contributes P(fits) and the level distribution normalizes
+        // them (`combine_isolated`).
+        QuestionKind::Score => {
+            let mut fits = Vec::with_capacity(row_probabilities.len());
+            for probabilities in &row_probabilities {
+                let fit = probabilities.last().copied().ok_or_else(|| {
+                    FamilyError::Numerical("level row lost its yes mass".to_owned())
+                })?;
+                fits.push(fit);
+            }
+            let total: f64 = fits.iter().sum();
+            if !total.is_finite() || total <= 0.0 {
+                return Err(FamilyError::Numerical(format!(
+                    "isolated level fits do not normalize: {total}"
+                )));
+            }
+            fits.iter().map(|fit| fit / total).collect()
+        }
+    };
+    wire::answer_from_probabilities(&planned.unpacked, &probabilities)
 }
 
 /// Render one reference option: bare word when undescribed, `word: text`
@@ -354,48 +387,55 @@ impl FamilyEvaluator for DeciderEngine {
         request: SystemRequest,
         control: &FamilyControl,
     ) -> Result<SystemResponse, FamilyError> {
-        control.check()?;
-        let state = crate::families::wire::state_value(request.state);
-        let state_ids = self.inner.renderer.state_ids(&state)?;
-        let questions = crate::families::wire::into_sorted_questions(request.questions)?;
-
-        let mut answers: HashMap<String, openkind_core::Answer, openkind_core::WireHashState> =
-            HashMap::with_capacity_and_hasher(questions.len(), Default::default());
-        let mut input_tokens: u64 = 0;
-        for (question_id, question) in questions {
-            control.check()?;
-            let id = &question_id;
-            let question = &question;
-            let planned = self
-                .inner
-                .plan_question(id, question, &state_ids)
-                .map_err(|error| match error {
-                    FamilyError::InvalidInput(message) => {
-                        FamilyError::InvalidInput(format!("question `{id}`: {message}"))
-                    }
-                    other => other,
-                })?;
-            let mut question_tokens: u64 = 0;
-            let answer = self
-                .inner
-                .score_question(planned, control, &mut question_tokens)?;
-            if question_tokens > self.inner.profile.max_row_tokens as u64 {
-                return Err(FamilyError::InvalidInput(format!(
-                    "question `{id}` requires {question_tokens} prompt tokens across its rows, \
-                     exceeding the maximum work budget of {}",
-                    self.inner.profile.max_row_tokens
-                )));
-            }
-            input_tokens = input_tokens.saturating_add(question_tokens);
-            answers.insert(question_id, answer);
-        }
-        control.check()?;
-        Ok(crate::families::wire::system_response(
-            request.model,
-            answers,
-            input_tokens,
-        ))
+        evaluate_with(self.inner.as_ref(), request, control)
     }
+}
+
+/// Evaluate one request through any [`DeciderPassSource`] backend. The
+/// planning, temperature calibration, row budget, and wire mapping are the
+/// CPU oracle's; only the slot-logit forward comes from the source.
+pub(crate) fn evaluate_with(
+    source: &impl DeciderPassSource,
+    request: SystemRequest,
+    control: &FamilyControl,
+) -> Result<SystemResponse, FamilyError> {
+    control.check()?;
+    let state = crate::families::wire::state_value(request.state);
+    let state_ids = source.renderer().state_ids(&state)?;
+    let questions = crate::families::wire::into_sorted_questions(request.questions)?;
+
+    let mut answers: HashMap<String, openkind_core::Answer, openkind_core::WireHashState> =
+        HashMap::with_capacity_and_hasher(questions.len(), Default::default());
+    let mut input_tokens: u64 = 0;
+    for (question_id, question) in questions {
+        control.check()?;
+        let id = &question_id;
+        let question = &question;
+        let planned =
+            plan_question(source, id, question, &state_ids).map_err(|error| match error {
+                FamilyError::InvalidInput(message) => {
+                    FamilyError::InvalidInput(format!("question `{id}`: {message}"))
+                }
+                other => other,
+            })?;
+        let mut question_tokens: u64 = 0;
+        let answer = score_question(source, planned, control, &mut question_tokens)?;
+        if question_tokens > source.profile().max_row_tokens as u64 {
+            return Err(FamilyError::InvalidInput(format!(
+                "question `{id}` requires {question_tokens} prompt tokens across its rows, \
+                 exceeding the maximum work budget of {}",
+                source.profile().max_row_tokens
+            )));
+        }
+        input_tokens = input_tokens.saturating_add(question_tokens);
+        answers.insert(question_id, answer);
+    }
+    control.check()?;
+    Ok(crate::families::wire::system_response(
+        request.model,
+        answers,
+        input_tokens,
+    ))
 }
 
 #[cfg(test)]

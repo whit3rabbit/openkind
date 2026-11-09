@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use crate::args::{
     CudaOnlyBackendArg, DecoderLogitQwen35BackendArg, EncoderInstructLabelBackendArg,
-    FamilyBackendArg, LayaBackendArg,
+    FamilyBackendArg, LayaBackendArg, MlxCapableBackendArg,
 };
 use anyhow::{bail, Context, Result};
 use clap::Parser;
@@ -32,20 +32,37 @@ use openkind_backends::families::gemma4::{Gemma4DecisionEngine, Gemma4EngineConf
 use openkind_backends::families::sieve::{SieveEngine, SieveEngineConfig, SIEVE_4B};
 
 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+use openkind_backends::families::decider::{DeciderMlxEngine, DeciderMlxEngineConfig};
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+use openkind_backends::families::decoder_logit_letter::{
+    DecoderLetterMlxEngine, DecoderLetterMlxEngineConfig,
+};
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+use openkind_backends::families::decoder_logit_llm::{
+    DecoderLlmMlxEngine, DecoderLlmMlxEngineConfig,
+};
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
 use openkind_backends::families::decoder_logit_qwen35::{
     DecoderLogitQwen35MlxEngine, DecoderLogitQwen35MlxEngineConfig,
 };
+use openkind_backends::families::drex::{DrexEngine, DrexEngineConfig};
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+use openkind_backends::families::drex::{DrexMlxEngine, DrexMlxEngineConfig};
 use openkind_backends::families::encoder_instruct_label::{
     EncoderInstructLabelEngine, EncoderInstructLabelEngineConfig,
 };
-
-use openkind_backends::families::drex::{DrexEngine, DrexEngineConfig};
 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
 use openkind_backends::families::encoder_instruct_label::{
     EncoderInstructLabelMlxEngine, EncoderInstructLabelMlxEngineConfig,
 };
 use openkind_backends::families::encoder_nli::{EncoderNliEngine, EncoderNliEngineConfig};
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+use openkind_backends::families::encoder_nli::{EncoderNliMlxEngine, EncoderNliMlxEngineConfig};
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+use openkind_backends::families::gemma4::Gemma4MlxEngine;
 use openkind_backends::families::kev::{KevEngine, KevEngineConfig};
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+use openkind_backends::families::kev::{KevMlxEngine, KevMlxEngineConfig};
 use openkind_backends::families::laya::{
     LayaEngine, LayaEngineConfig, LAYA_ENGLISH, LAYA_MULTILINGUAL, LAYA_TYPED_DECISIONS,
 };
@@ -54,9 +71,17 @@ use openkind_backends::families::laya::{LayaMlxEngine, LayaMlxEngineConfig};
 use openkind_backends::families::qwen3guard::{Qwen3GuardEngine, Qwen3GuardEngineConfig};
 use openkind_backends::families::router_script::ScriptRuleTable;
 use openkind_backends::families::schema_scorer::{SchemaScorerEngine, SchemaScorerEngineConfig};
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+use openkind_backends::families::schema_scorer::{
+    SchemaScorerMlxEngine, SchemaScorerMlxEngineConfig,
+};
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+use openkind_backends::families::sieve::{SieveMlxEngine, SieveMlxEngineConfig};
 use openkind_backends::families::strands_decider::{
     StrandsDeciderEngine, StrandsDeciderEngineConfig,
 };
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+use openkind_backends::families::strands_decider::{StrandsMlxEngine, StrandsMlxEngineConfig};
 use openkind_backends::families::support::FamilyLimits;
 use openkind_backends::families::von::{VonEngine, VonEngineConfig, VON};
 use openkind_engine::DecisionEngine;
@@ -183,8 +208,8 @@ pub(crate) struct FamilyArgs {
     pub(crate) strands_decider_base_root: Option<PathBuf>,
 
     /// Aliases in `--models` that should use the pinned drex-v1.5 engine
-    /// (Nace.AI Drex v1.5 pointer readout on a Qwen3.5 9B hybrid backbone,
-    /// CPU only). The weights are under the Nace AI Open RAIL-M license:
+    /// (Nace.AI Drex v1.5 pointer readout on a Qwen3.5 9B hybrid backbone).
+    /// The weights are under the Nace AI Open RAIL-M license:
     /// inference only, no distillation or teacher use.
     #[arg(
         long,
@@ -198,6 +223,17 @@ pub(crate) struct FamilyArgs {
     /// shards, index, `config.json`, `tokenizer.json`, `head.pt`, `LICENSE`).
     #[arg(long, env = "OPENKIND_DREX_MODEL_ROOT")]
     pub(crate) drex_model_root: Option<PathBuf>,
+
+    /// Drex backend. The BF16-weight readout has no CUDA device path and no
+    /// ONNX export; `mlx-fp32` is available on macOS arm64 with the daemon's
+    /// `mlx` feature enabled.
+    #[arg(
+        long,
+        env = "OPENKIND_DREX_BACKEND",
+        value_enum,
+        default_value_t = MlxCapableBackendArg::Auto
+    )]
+    pub(crate) drex_backend: MlxCapableBackendArg,
 
     /// Aliases in `--models` that should use the pinned decoder-logit-llm
     /// engine (GGUF q8_0 letter readout).
@@ -391,7 +427,9 @@ pub(crate) struct FamilyArgs {
     pub(crate) sieve_model_root: Option<PathBuf>,
 
     /// Sieve backend. The code head runs on the Qwen3.5 hybrid backbone and
-    /// has no ONNX export; `cuda` requires the daemon's `cuda` feature.
+    /// has no ONNX export; `cuda` requires the daemon's `cuda` feature;
+    /// `mlx` is available on macOS arm64 with the daemon's `mlx` feature
+    /// enabled.
     #[arg(
         long,
         env = "OPENKIND_SIEVE_BACKEND",
@@ -521,7 +559,8 @@ pub(crate) struct FamilyArgs {
 
     /// Encoder-NLI backend. `cuda` requires the daemon's `cuda` feature;
     /// `onnx`/`onnx-cuda` require the ONNX features and `model.onnx` in the
-    /// model root.
+    /// model root; `mlx-fp32` is available on macOS arm64 with the daemon's
+    /// `mlx` feature enabled.
     #[arg(
         long,
         env = "OPENKIND_ENCODER_NLI_BACKEND",
@@ -532,7 +571,8 @@ pub(crate) struct FamilyArgs {
 
     /// Decoder-logit-letter backend. `cuda` requires the daemon's `cuda`
     /// feature; `onnx`/`onnx-cuda` require the ONNX features and `model.onnx`
-    /// in the model root.
+    /// in the model root; `mlx-fp32` is available on macOS arm64 with the
+    /// daemon's `mlx` feature enabled.
     #[arg(
         long,
         env = "OPENKIND_DECODER_LETTER_BACKEND",
@@ -542,7 +582,8 @@ pub(crate) struct FamilyArgs {
     pub(crate) decoder_letter_backend: FamilyBackendArg,
 
     /// Kev backend. The pointer-head readout has no ONNX export; `cuda`
-    /// requires the daemon's `cuda` feature.
+    /// requires the daemon's `cuda` feature; `mlx` is available on macOS
+    /// arm64 with the daemon's `mlx` feature enabled.
     #[arg(
         long,
         env = "OPENKIND_KEV_BACKEND",
@@ -553,7 +594,8 @@ pub(crate) struct FamilyArgs {
 
     /// Strands-decider-2b backend. The pointer-head readout over the
     /// Qwen3.5 hybrid backbone has no ONNX export; `cuda` requires the
-    /// daemon's `cuda` feature.
+    /// daemon's `cuda` feature; `mlx` is available on macOS arm64 with the
+    /// daemon's `mlx` feature enabled.
     #[arg(
         long,
         env = "OPENKIND_STRANDS_DECIDER_BACKEND",
@@ -563,7 +605,8 @@ pub(crate) struct FamilyArgs {
     pub(crate) strands_decider_backend: CudaOnlyBackendArg,
 
     /// Decoder-logit-llm backend. The quantized GGUF readout has no ONNX
-    /// export; `cuda` requires the daemon's `cuda` feature.
+    /// export; `cuda` requires the daemon's `cuda` feature; `mlx` is
+    /// available on macOS arm64 with the daemon's `mlx` feature enabled.
     #[arg(
         long,
         env = "OPENKIND_DECODER_LLM_BACKEND",
@@ -574,7 +617,8 @@ pub(crate) struct FamilyArgs {
 
     /// Schema-scorer backend. `cuda` requires the daemon's `cuda` feature;
     /// `onnx`/`onnx-cuda` require the ONNX features and `model.onnx` in the
-    /// model root.
+    /// model root; `mlx-fp32` is available on macOS arm64 with the daemon's
+    /// `mlx` feature enabled.
     #[arg(
         long,
         env = "OPENKIND_SCHEMA_SCORER_BACKEND",
@@ -585,7 +629,8 @@ pub(crate) struct FamilyArgs {
 
     /// Qwen3Guard backend. `cuda` requires the daemon's `cuda` feature;
     /// `onnx`/`onnx-cuda` require the ONNX features and `model.onnx` in the
-    /// model root.
+    /// model root; `mlx-fp32` is available on macOS arm64 with the daemon's
+    /// `mlx` feature enabled.
     #[arg(
         long,
         env = "OPENKIND_QWEN3GUARD_BACKEND",
@@ -596,7 +641,8 @@ pub(crate) struct FamilyArgs {
 
     /// Von backend. `cuda` requires the daemon's `cuda` feature;
     /// `onnx`/`onnx-cuda` require the ONNX features and `model.onnx` in the
-    /// model root.
+    /// model root; `mlx-fp32` is available on macOS arm64 with the daemon's
+    /// `mlx` feature enabled.
     #[arg(
         long,
         env = "OPENKIND_VON_BACKEND",
@@ -607,7 +653,9 @@ pub(crate) struct FamilyArgs {
 
     /// Raw decoder-logit-qwen3 controls backend (applies to every size).
     /// `cuda` requires the daemon's `cuda` feature; `onnx`/`onnx-cuda`
-    /// require the ONNX features and `model.onnx` in each model root.
+    /// require the ONNX features and `model.onnx` in each model root;
+    /// `mlx-fp32` is available on macOS arm64 with the daemon's `mlx`
+    /// feature enabled.
     #[arg(
         long,
         env = "OPENKIND_DECODER_LOGIT_QWEN3_BACKEND",
@@ -617,7 +665,8 @@ pub(crate) struct FamilyArgs {
     pub(crate) decoder_logit_qwen3_backend: FamilyBackendArg,
 
     /// Decider-4b backend. The hybrid-backbone slot-logit readout has no
-    /// ONNX export; `cuda` requires the daemon's `cuda` feature.
+    /// ONNX export; `cuda` requires the daemon's `cuda` feature; `mlx` is
+    /// available on macOS arm64 with the daemon's `mlx` feature enabled.
     #[arg(
         long,
         env = "OPENKIND_DECIDER_4B_BACKEND",
@@ -653,7 +702,8 @@ pub(crate) struct FamilyArgs {
     pub(crate) winnow_e4b_model_root: Option<PathBuf>,
 
     /// Winnow-e4b backend. The Gemma 4 backbone has no ONNX export; `cuda`
-    /// requires the daemon's `cuda` feature.
+    /// requires the daemon's `cuda` feature; `mlx` is available on macOS
+    /// arm64 with the daemon's `mlx` feature enabled.
     #[arg(
         long,
         env = "OPENKIND_WINNOW_E4B_BACKEND",
@@ -663,7 +713,8 @@ pub(crate) struct FamilyArgs {
     pub(crate) winnow_e4b_backend: CudaOnlyBackendArg,
 
     /// Winnow router backend. The routing decoder has no ONNX export;
-    /// `cuda` requires the daemon's `cuda` feature.
+    /// `cuda` requires the daemon's `cuda` feature; `mlx` is available on
+    /// macOS arm64 with the daemon's `mlx` feature enabled.
     #[arg(
         long,
         env = "OPENKIND_WINNOW_BACKEND",
@@ -1023,6 +1074,16 @@ impl FamilyArgs {
                 &model_root,
                 devices,
                 |backend| {
+                    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                    if matches!(backend, FamilyBackendArg::MlxFp32) {
+                        return Ok(Arc::new(
+                            DecoderLetterMlxEngine::load(DecoderLetterMlxEngineConfig {
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            })
+                            .context("load decoder-logit-letter mlx engine")?,
+                        ) as Arc<dyn DecisionEngine>);
+                    }
                     Ok(Arc::new(
                         DecoderLetterEngine::load_with_execution(
                             DecoderLetterEngineConfig {
@@ -1052,6 +1113,16 @@ impl FamilyArgs {
                 .context("encoder-nli alias requested but --encoder-nli-model-root is missing")?;
             let engine: Arc<dyn DecisionEngine> =
                 crate::backend::load(self.encoder_nli_backend, &model_root, devices, |backend| {
+                    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                    if matches!(backend, FamilyBackendArg::MlxFp32) {
+                        return Ok(Arc::new(
+                            EncoderNliMlxEngine::load(EncoderNliMlxEngineConfig {
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            })
+                            .context("load encoder-nli mlx engine")?,
+                        ) as Arc<dyn DecisionEngine>);
+                    }
                     Ok(Arc::new(
                         EncoderNliEngine::load_with_execution(
                             EncoderNliEngineConfig {
@@ -1173,6 +1244,16 @@ impl FamilyArgs {
                 .context("decoder-llm alias requested but --decoder-llm-model-root is missing")?;
             let engine: Arc<dyn DecisionEngine> =
                 crate::backend::load(self.decoder_llm_backend, &model_root, devices, |backend| {
+                    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                    if matches!(backend, CudaOnlyBackendArg::Mlx) {
+                        return Ok(Arc::new(
+                            DecoderLlmMlxEngine::load(DecoderLlmMlxEngineConfig {
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            })
+                            .context("load decoder-logit-llm mlx engine")?,
+                        ) as Arc<dyn DecisionEngine>);
+                    }
                     Ok(Arc::new(
                         DecoderLlmEngine::load_with_execution(
                             DecoderLlmEngineConfig {
@@ -1205,6 +1286,17 @@ impl FamilyArgs {
                 .context("kev alias requested but --kev-base-root is missing")?;
             let engine: Arc<dyn DecisionEngine> =
                 crate::backend::load(self.kev_backend, &model_root, devices, |backend| {
+                    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                    if matches!(backend, CudaOnlyBackendArg::Mlx) {
+                        return Ok(Arc::new(
+                            KevMlxEngine::load(KevMlxEngineConfig {
+                                model_root: model_root.clone(),
+                                base_root: base_root.clone(),
+                                limits: admission.limits(),
+                            })
+                            .context("load kev mlx engine")?,
+                        ) as Arc<dyn DecisionEngine>);
+                    }
                     Ok(Arc::new(
                         KevEngine::load_with_execution(
                             KevEngineConfig {
@@ -1239,6 +1331,18 @@ impl FamilyArgs {
                 &model_root,
                 devices,
                 |backend| {
+                    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                    if matches!(backend, CudaOnlyBackendArg::Mlx) {
+                        return Ok(Arc::new(
+                            StrandsMlxEngine::load(StrandsMlxEngineConfig {
+                                model_root: model_root.clone(),
+                                base_root: base_root.clone(),
+                                limits: admission.limits(),
+                                profile: None,
+                            })
+                            .context("load strands-decider-2b mlx engine")?,
+                        ) as Arc<dyn DecisionEngine>);
+                    }
                     Ok(Arc::new(
                         StrandsDeciderEngine::load_with_execution(
                             StrandsDeciderEngineConfig {
@@ -1268,14 +1372,30 @@ impl FamilyArgs {
                 .drex_model_root
                 .clone()
                 .context("drex alias requested but --drex-model-root is missing")?;
-            // CPU only: the BF16-weight FP32-compute oracle is the one path.
-            let engine: Arc<dyn DecisionEngine> = Arc::new(
-                DrexEngine::load(DrexEngineConfig {
-                    model_root,
-                    limits: admission.limits(),
-                })
-                .context("load drex-v1.5 engine")?,
-            );
+            let engine: Arc<dyn DecisionEngine> =
+                crate::backend::load(self.drex_backend, &model_root, devices, |backend| {
+                    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                    if matches!(backend, MlxCapableBackendArg::MlxFp32) {
+                        return Ok(Arc::new(
+                            DrexMlxEngine::load(DrexMlxEngineConfig {
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            })
+                            .context("load drex-v1.5 mlx engine")?,
+                        ) as Arc<dyn DecisionEngine>);
+                    }
+                    // CPU otherwise: the BF16-weight FP32-compute oracle is
+                    // the one non-MLX path, and this enum has no CUDA or
+                    // ONNX selection.
+                    let _ = backend;
+                    Ok(Arc::new(
+                        DrexEngine::load(DrexEngineConfig {
+                            model_root: model_root.clone(),
+                            limits: admission.limits(),
+                        })
+                        .context("load drex-v1.5 engine")?,
+                    ) as Arc<dyn DecisionEngine>)
+                })?;
             for alias in drex {
                 engines.push((alias.to_string(), Arc::clone(&engine)));
             }
@@ -1295,6 +1415,16 @@ impl FamilyArgs {
                 &model_root,
                 devices,
                 |backend| {
+                    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                    if matches!(backend, FamilyBackendArg::MlxFp32) {
+                        return Ok(Arc::new(
+                            SchemaScorerMlxEngine::load(SchemaScorerMlxEngineConfig {
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            })
+                            .context("load schema-scorer mlx engine")?,
+                        ) as Arc<dyn DecisionEngine>);
+                    }
                     Ok(Arc::new(
                         SchemaScorerEngine::load_with_execution(
                             SchemaScorerEngineConfig {
@@ -1324,6 +1454,16 @@ impl FamilyArgs {
                 .context("qwen3guard alias requested but --qwen3guard-model-root is missing")?;
             let engine: Arc<dyn DecisionEngine> =
                 crate::backend::load(self.qwen3guard_backend, &model_root, devices, |backend| {
+                    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                    if matches!(backend, FamilyBackendArg::MlxFp32) {
+                        return Ok(Arc::new(
+                            Qwen3GuardEngine::load_mlx(Qwen3GuardEngineConfig {
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            })
+                            .context("load qwen3guard mlx engine")?,
+                        ) as Arc<dyn DecisionEngine>);
+                    }
                     Ok(Arc::new(
                         Qwen3GuardEngine::load_with_execution(
                             Qwen3GuardEngineConfig {
@@ -1352,6 +1492,17 @@ impl FamilyArgs {
                 .context("von alias requested but --von-model-root is missing")?;
             let engine: Arc<dyn DecisionEngine> =
                 crate::backend::load(self.von_backend, &model_root, devices, |backend| {
+                    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                    if matches!(backend, FamilyBackendArg::MlxFp32) {
+                        return Ok(Arc::new(
+                            VonEngine::load_mlx(VonEngineConfig {
+                                profile: &VON,
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            })
+                            .context("load von mlx engine")?,
+                        ) as Arc<dyn DecisionEngine>);
+                    }
                     Ok(Arc::new(
                         VonEngine::load_with_execution(
                             VonEngineConfig {
@@ -1514,6 +1665,26 @@ impl FamilyArgs {
                         model_root,
                         devices,
                         |backend| {
+                            #[cfg(all(
+                                feature = "mlx",
+                                target_os = "macos",
+                                target_arch = "aarch64"
+                            ))]
+                            if matches!(backend, FamilyBackendArg::MlxFp32) {
+                                return Ok(Arc::new(
+                                    DecoderLogitQwen3Engine::load_mlx(
+                                        DecoderLogitQwen3EngineConfig {
+                                            profile,
+                                            model_root: model_root.clone(),
+                                            limits: admission.limits(),
+                                        },
+                                    )
+                                    .with_context(|| {
+                                        format!("load decoder-logit-qwen3-{size} mlx engine")
+                                    })?,
+                                )
+                                    as Arc<dyn DecisionEngine>);
+                            }
                             Ok(Arc::new(
                                 DecoderLogitQwen3Engine::load_with_execution(
                                     DecoderLogitQwen3EngineConfig {
@@ -1591,6 +1762,17 @@ impl FamilyArgs {
                 .context("decider-4b alias requested but --decider-4b-model-root is missing")?;
             let engine: Arc<dyn DecisionEngine> =
                 crate::backend::load(self.decider_4b_backend, &model_root, devices, |backend| {
+                    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                    if matches!(backend, CudaOnlyBackendArg::Mlx) {
+                        return Ok(Arc::new(
+                            DeciderMlxEngine::load(DeciderMlxEngineConfig {
+                                profile: &DECIDER_4B,
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            })
+                            .context("load decider-4b mlx engine")?,
+                        ) as Arc<dyn DecisionEngine>);
+                    }
                     Ok(Arc::new(
                         DeciderEngine::load_with_execution(
                             DeciderEngineConfig {
@@ -1666,6 +1848,17 @@ impl FamilyArgs {
                 .context("sieve alias requested but --sieve-model-root is missing")?;
             let engine: Arc<dyn DecisionEngine> =
                 crate::backend::load(self.sieve_backend, &model_root, devices, |backend| {
+                    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                    if matches!(backend, CudaOnlyBackendArg::Mlx) {
+                        return Ok(Arc::new(
+                            SieveMlxEngine::load(SieveMlxEngineConfig {
+                                profile: &SIEVE_4B,
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            })
+                            .context("load sieve mlx engine")?,
+                        ) as Arc<dyn DecisionEngine>);
+                    }
                     Ok(Arc::new(
                         SieveEngine::load_with_execution(
                             SieveEngineConfig {
@@ -1695,6 +1888,16 @@ impl FamilyArgs {
                 .context("winnow-e4b alias requested but --winnow-e4b-model-root is missing")?;
             let engine: Arc<dyn DecisionEngine> =
                 crate::backend::load(self.winnow_e4b_backend, &model_root, devices, |backend| {
+                    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+                    if matches!(backend, CudaOnlyBackendArg::Mlx) {
+                        return Ok(Arc::new(
+                            Gemma4MlxEngine::load_mlx(Gemma4EngineConfig {
+                                model_root: model_root.clone(),
+                                limits: admission.limits(),
+                            })
+                            .context("load winnow-e4b mlx engine")?,
+                        ) as Arc<dyn DecisionEngine>);
+                    }
                     Ok(Arc::new(
                         Gemma4DecisionEngine::load_with_execution(
                             Gemma4EngineConfig {

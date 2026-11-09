@@ -124,8 +124,11 @@ fn documented_qwen3_multiprofile_syntax_fails_on_missing_artifact_instead_of_moc
         "--decoder-logit-qwen3-model-roots",
         "06b=/nonexistent/06;17b=/nonexistent/17;4b=/nonexistent/4",
     ]);
+    // The load attempt is backend-dependent (`... engine` on the candle
+    // paths, `... mlx engine` on MLX), so pin only the size and the attempt.
+    assert!(stderr.contains("load decoder-logit-qwen3-17b"), "{stderr}");
     assert!(
-        stderr.contains("load decoder-logit-qwen3-17b engine"),
+        stderr.contains("required pinned artifact is missing"),
         "{stderr}"
     );
 }

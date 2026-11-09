@@ -63,6 +63,21 @@ pub mod wire;
 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
 pub(crate) mod mlx_modernbert;
 
+/// Shared geometry-parameterized causal MLX execution for surveyed Qwen3.5
+/// decision backends (feature `mlx`, macOS arm64).
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub(crate) mod qwen35_survey_mlx;
+
+/// Shared MLX execution for dense Qwen3/Qwen2 decoder backends (feature
+/// `mlx`, macOS arm64).
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub(crate) mod qwen_dense_mlx;
+
+/// Shared post-LN MLX encoder body for DistilBERT/BERT backends (feature
+/// `mlx`, macOS arm64).
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub(crate) mod bert_mlx;
+
 #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
 impl From<crate::qwen35::mlx::MlxError> for FamilyError {
     fn from(error: crate::qwen35::mlx::MlxError) -> Self {

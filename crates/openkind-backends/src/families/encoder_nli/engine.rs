@@ -17,6 +17,18 @@ use super::{
     PROFILE_ID,
 };
 
+/// The family's execution seam: everything one backend contributes to the
+/// shared encode/score pipeline. The renderer and wire mapping are shared
+/// with the CPU oracle; only the three-way NLI readout differs per execution
+/// path.
+pub(crate) trait EncoderNliPassSource: Send + Sync {
+    /// The family renderer over the verified vocabulary.
+    fn renderer(&self) -> &EncoderNliRenderer;
+
+    /// Three-way NLI logits in checkpoint label order.
+    fn nli_logits(&self, pair_ids: &[u32]) -> Result<[f64; 3], FamilyError>;
+}
+
 /// True when the caller supplied explicit Noul criteria rather than relying
 /// on the wire defaults.
 fn question_criteria_are_explicit(question: &openkind_core::Question) -> bool {
@@ -113,50 +125,58 @@ impl EncoderNliEngine {
     }
 }
 
-impl Inner {
-    /// Three-way NLI probabilities for one premise–hypothesis pair, together
-    /// with the encoded pair token count for usage accounting.
-    fn nli_probabilities(
-        &self,
-        premise: &str,
-        hypothesis: &str,
-    ) -> Result<([f64; 3], usize), FamilyError> {
-        let pair_ids = self.renderer.encode_pair(premise, hypothesis)?;
-        let logits = self.model.nli_logits(&pair_ids)?;
-        let probabilities = temperature_softmax(&logits, 1.0)?;
-        Ok((
-            [
-                probabilities[super::LABEL_ENTAILMENT],
-                probabilities[super::LABEL_NEUTRAL],
-                probabilities[super::LABEL_CONTRADICTION],
-            ],
-            pair_ids.len(),
-        ))
+impl EncoderNliPassSource for Inner {
+    fn renderer(&self) -> &EncoderNliRenderer {
+        &self.renderer
     }
 
-    /// Noul readout: entailment mass over decided (entailment vs
-    /// contradiction) mass for one hypothesis statement.
-    ///
-    /// The hypothesis is the caller's `true` criterion when explicit Noul
-    /// criteria are supplied, and the question instruction itself otherwise.
-    /// Interrogative hypotheses leave most mass in the neutral class, which
-    /// the ratio treats as undecided; statement hypotheses resolve sharply.
-    fn noul_probability(
-        &self,
-        premise: &str,
-        hypothesis: &str,
-    ) -> Result<(f64, usize), FamilyError> {
-        let (probabilities, tokens) = self.nli_probabilities(premise, hypothesis)?;
-        let entailment = probabilities[super::LABEL_ENTAILMENT];
-        let contradiction = probabilities[super::LABEL_CONTRADICTION];
-        let decided = entailment + contradiction;
-        if !decided.is_finite() || decided <= f64::MIN_POSITIVE {
-            return Err(FamilyError::Numerical(format!(
-                "noul hypothesis produced no decidable entailment/contradiction mass: {decided}"
-            )));
-        }
-        Ok((entailment / decided, tokens))
+    fn nli_logits(&self, pair_ids: &[u32]) -> Result<[f64; 3], FamilyError> {
+        self.model.nli_logits(pair_ids)
     }
+}
+
+/// Three-way NLI probabilities for one premise–hypothesis pair, together
+/// with the encoded pair token count for usage accounting.
+fn nli_probabilities(
+    source: &impl EncoderNliPassSource,
+    premise: &str,
+    hypothesis: &str,
+) -> Result<([f64; 3], usize), FamilyError> {
+    let pair_ids = source.renderer().encode_pair(premise, hypothesis)?;
+    let logits = source.nli_logits(&pair_ids)?;
+    let probabilities = temperature_softmax(&logits, 1.0)?;
+    Ok((
+        [
+            probabilities[super::LABEL_ENTAILMENT],
+            probabilities[super::LABEL_NEUTRAL],
+            probabilities[super::LABEL_CONTRADICTION],
+        ],
+        pair_ids.len(),
+    ))
+}
+
+/// Noul readout: entailment mass over decided (entailment vs contradiction)
+/// mass for one hypothesis statement.
+///
+/// The hypothesis is the caller's `true` criterion when explicit Noul
+/// criteria are supplied, and the question instruction itself otherwise.
+/// Interrogative hypotheses leave most mass in the neutral class, which the
+/// ratio treats as undecided; statement hypotheses resolve sharply.
+fn noul_probability(
+    source: &impl EncoderNliPassSource,
+    premise: &str,
+    hypothesis: &str,
+) -> Result<(f64, usize), FamilyError> {
+    let (probabilities, tokens) = nli_probabilities(source, premise, hypothesis)?;
+    let entailment = probabilities[super::LABEL_ENTAILMENT];
+    let contradiction = probabilities[super::LABEL_CONTRADICTION];
+    let decided = entailment + contradiction;
+    if !decided.is_finite() || decided <= f64::MIN_POSITIVE {
+        return Err(FamilyError::Numerical(format!(
+            "noul hypothesis produced no decidable entailment/contradiction mass: {decided}"
+        )));
+    }
+    Ok((entailment / decided, tokens))
 }
 
 impl FamilyEvaluator for EncoderNliEngine {
@@ -184,97 +204,105 @@ impl FamilyEvaluator for EncoderNliEngine {
         request: SystemRequest,
         control: &FamilyControl,
     ) -> Result<SystemResponse, FamilyError> {
-        control.check()?;
-        let state = crate::families::wire::state_text(&request.state)?;
-        if state.trim().is_empty() {
-            return Err(FamilyError::InvalidInput(
-                "state must contain non-whitespace text".to_owned(),
-            ));
-        }
-        let questions = crate::families::wire::into_sorted_questions(request.questions)?;
-
-        let mut answers = std::collections::HashMap::<
-            String,
-            openkind_core::Answer,
-            openkind_core::WireHashState,
-        >::with_capacity_and_hasher(questions.len(), Default::default());
-        let mut input_tokens: u64 = 0;
-        for (question_id, question) in questions {
-            control.check()?;
-            let id = &question_id;
-            let question = &question;
-            let unpacked = crate::families::wire::unpack_question(id, question)?;
-            if unpacked.criteria.len() > MAX_CANDIDATES {
-                return Err(FamilyError::InvalidInput(format!(
-                    "question `{id}` offers {} candidates but the profile accepts at most {MAX_CANDIDATES}",
-                    unpacked.criteria.len()
-                )));
-            }
-            if unpacked.criteria.len() < MIN_CANDIDATES {
-                return Err(FamilyError::InvalidInput(format!(
-                    "question `{id}` needs at least {MIN_CANDIDATES} candidates"
-                )));
-            }
-            let instruction = crate::families::wire::instruction_text(question)?;
-            let answer = match unpacked.primitive {
-                crate::families::wire::QuestionPrimitive::Noul => {
-                    // The family contract maps Noul to the entailment mass of
-                    // the true-criterion hypothesis over the decided mass;
-                    // the false criterion is not scored.
-                    let true_criterion = unpacked
-                        .labels
-                        .iter()
-                        .position(|label| label == "true")
-                        .and_then(|index| unpacked.criteria.get(index))
-                        .expect("noul unpacking provides a true criterion");
-                    let hypothesis = if question_criteria_are_explicit(question) {
-                        true_criterion.clone()
-                    } else {
-                        instruction.clone()
-                    };
-                    let (probability, tokens) = self.inner.noul_probability(&state, &hypothesis)?;
-                    input_tokens = input_tokens.saturating_add(tokens as u64);
-                    openkind_core::Answer::Noul(openkind_core::NoulAnswer { noul: probability })
-                }
-                _primitive => {
-                    let mut entailments = Vec::with_capacity(unpacked.criteria.len());
-                    for criterion in &unpacked.criteria {
-                        control.check()?;
-                        let (probability, tokens) = self
-                            .inner
-                            .nli_probabilities(&state, criterion)
-                            .map(|(probabilities, tokens)| {
-                                (probabilities[super::LABEL_ENTAILMENT], tokens)
-                            })?;
-                        input_tokens = input_tokens.saturating_add(tokens as u64);
-                        entailments.push(probability);
-                    }
-                    // The profile temperature calibrates the decision
-                    // distribution over candidates, applied to the
-                    // log-entailment logits. The label-level NLI softmax is
-                    // not rescaled.
-                    let logits: Vec<f64> = entailments
-                        .iter()
-                        .map(|probability| {
-                            if *probability <= f64::MIN_POSITIVE {
-                                f64::NEG_INFINITY
-                            } else {
-                                probability.ln()
-                            }
-                        })
-                        .collect();
-                    let probabilities =
-                        temperature_softmax(&logits, super::CALIBRATION_TEMPERATURE)?;
-                    crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?
-                }
-            };
-            answers.insert(question_id, answer);
-        }
-        control.check()?;
-        Ok(crate::families::wire::system_response(
-            request.model,
-            answers,
-            input_tokens,
-        ))
+        evaluate_with(self.inner.as_ref(), request, control)
     }
+}
+
+/// Evaluate one request through any [`EncoderNliPassSource`] backend. The
+/// rendering, candidate budget, calibration temperature, and wire mapping
+/// are the CPU oracle's; only the three-way NLI forward comes from the
+/// source.
+pub(crate) fn evaluate_with(
+    source: &impl EncoderNliPassSource,
+    request: SystemRequest,
+    control: &FamilyControl,
+) -> Result<SystemResponse, FamilyError> {
+    control.check()?;
+    let state = crate::families::wire::state_text(&request.state)?;
+    if state.trim().is_empty() {
+        return Err(FamilyError::InvalidInput(
+            "state must contain non-whitespace text".to_owned(),
+        ));
+    }
+    let questions = crate::families::wire::into_sorted_questions(request.questions)?;
+
+    let mut answers = std::collections::HashMap::<
+        String,
+        openkind_core::Answer,
+        openkind_core::WireHashState,
+    >::with_capacity_and_hasher(questions.len(), Default::default());
+    let mut input_tokens: u64 = 0;
+    for (question_id, question) in questions {
+        control.check()?;
+        let id = &question_id;
+        let question = &question;
+        let unpacked = crate::families::wire::unpack_question(id, question)?;
+        if unpacked.criteria.len() > MAX_CANDIDATES {
+            return Err(FamilyError::InvalidInput(format!(
+                "question `{id}` offers {} candidates but the profile accepts at most {MAX_CANDIDATES}",
+                unpacked.criteria.len()
+            )));
+        }
+        if unpacked.criteria.len() < MIN_CANDIDATES {
+            return Err(FamilyError::InvalidInput(format!(
+                "question `{id}` needs at least {MIN_CANDIDATES} candidates"
+            )));
+        }
+        let instruction = crate::families::wire::instruction_text(question)?;
+        let answer = match unpacked.primitive {
+            crate::families::wire::QuestionPrimitive::Noul => {
+                // The family contract maps Noul to the entailment mass of
+                // the true-criterion hypothesis over the decided mass; the
+                // false criterion is not scored.
+                let true_criterion = unpacked
+                    .labels
+                    .iter()
+                    .position(|label| label == "true")
+                    .and_then(|index| unpacked.criteria.get(index))
+                    .expect("noul unpacking provides a true criterion");
+                let hypothesis = if question_criteria_are_explicit(question) {
+                    true_criterion.clone()
+                } else {
+                    instruction.clone()
+                };
+                let (probability, tokens) = noul_probability(source, &state, &hypothesis)?;
+                input_tokens = input_tokens.saturating_add(tokens as u64);
+                openkind_core::Answer::Noul(openkind_core::NoulAnswer { noul: probability })
+            }
+            _primitive => {
+                let mut entailments = Vec::with_capacity(unpacked.criteria.len());
+                for criterion in &unpacked.criteria {
+                    control.check()?;
+                    let (probability, tokens) = nli_probabilities(source, &state, criterion).map(
+                        |(probabilities, tokens)| (probabilities[super::LABEL_ENTAILMENT], tokens),
+                    )?;
+                    input_tokens = input_tokens.saturating_add(tokens as u64);
+                    entailments.push(probability);
+                }
+                // The profile temperature calibrates the decision
+                // distribution over candidates, applied to the
+                // log-entailment logits. The label-level NLI softmax is
+                // not rescaled.
+                let logits: Vec<f64> = entailments
+                    .iter()
+                    .map(|probability| {
+                        if *probability <= f64::MIN_POSITIVE {
+                            f64::NEG_INFINITY
+                        } else {
+                            probability.ln()
+                        }
+                    })
+                    .collect();
+                let probabilities = temperature_softmax(&logits, super::CALIBRATION_TEMPERATURE)?;
+                crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?
+            }
+        };
+        answers.insert(question_id, answer);
+    }
+    control.check()?;
+    Ok(crate::families::wire::system_response(
+        request.model,
+        answers,
+        input_tokens,
+    ))
 }

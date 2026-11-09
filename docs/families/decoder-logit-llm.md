@@ -52,11 +52,8 @@ workload within the frozen probability tolerance.
 - The family is **not** tied to a specific backbone. Any chat-tuned
   decoder that places answer-slot mass on the prompt's letter tokens
   can serve as a profile.
-- The surveyed motivation was llama.cpp's CPU and Metal implementations as a
-  way to address the Apple Silicon acceleration gap left by the current
-  encoder-state-first MLX path (see [`../MLX.md`](../MLX.md)). The landed
-  profile instead binds candle's quantized runner, which is CPU-only, so this
-  family does not close that gap.
+- Candle's quantized runner is the reference. The [MLX path](../MLX.md)
+  dequantizes the same GGUF weights to FP32 for Metal.
 - License variety is large. Permissively licensed chat/instruct models
   are widely available and would let `openkind` carry multiple model
   lines without depending on a single backbone.
@@ -77,8 +74,7 @@ workload within the frozen probability tolerance.
   frozen probability gate for the current Qwen 3.5 family. Decoder
   backends in this family have the same risk and need their own
   fixtures.
-- The runtime surface is CPU-only. A Metal story for this family would
-  need its own verification.
+- The Metal path still needs a checkpoint replay against the reference.
 
 ## Open questions
 

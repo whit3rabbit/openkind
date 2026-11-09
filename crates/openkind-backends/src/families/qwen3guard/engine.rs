@@ -17,8 +17,8 @@ use super::{
     CLASS_UNSAFE, PROFILE_ID,
 };
 
-/// Risk-level logit source shared by the candle and ONNX models.
-trait RiskLogits: Send + Sync {
+/// Risk-level logit source shared by the candle, ONNX, and MLX models.
+pub(super) trait RiskLogits: Send + Sync {
     /// Query-side risk-level logits at the final prompt position.
     fn risk_logits(&self, prompt_ids: &[u32]) -> Result<[f64; 3], FamilyError>;
 }
@@ -141,6 +141,32 @@ impl Qwen3GuardEngine {
                 renderer,
                 model,
                 backend_id: format!("qwen3guard/{}", execution.id_fragment()),
+            }),
+        };
+        Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))
+    }
+
+    /// Load the engine on the MLX backend (`mlx` feature, macOS arm64).
+    ///
+    /// Artifact verification (digests, pinned config) is identical on every
+    /// backend; only the readout execution differs. The engine reuses the
+    /// shared evaluate path with the MLX model behind the same
+    /// [`RiskLogits`] seam.
+    #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+    pub fn load_mlx(
+        config: Qwen3GuardEngineConfig,
+    ) -> Result<BoundedFamilyEngine, Qwen3GuardError> {
+        use crate::qwen35::mlx::{MlxRuntime, MlxRuntimeConfig};
+
+        let artifacts = VerifiedArtifacts::verify(&config.model_root)?;
+        let renderer = Qwen3GuardRenderer::load(&artifacts.tokenizer)?;
+        let runtime = Arc::new(MlxRuntime::new(MlxRuntimeConfig::default())?);
+        let model = super::mlx::Qwen3GuardMlxModel::load(&artifacts, &runtime)?;
+        let engine = Self {
+            inner: Arc::new(Inner {
+                renderer,
+                model: Box::new(model),
+                backend_id: super::mlx::MLX_BACKEND_ID.to_owned(),
             }),
         };
         Ok(BoundedFamilyEngine::new(Arc::new(engine), config.limits))

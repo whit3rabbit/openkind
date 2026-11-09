@@ -15,7 +15,8 @@ source repository has its own column. Choose by task shape,
 download size, and measured speed: CPU fp32 (candle) runs everywhere and is
 the correctness oracle. The MLX fp32 backend runs the Metal GPU on Apple
 silicon (macOS arm64, `--features mlx`; see [`MLX.md`](MLX.md)) and is listed
-only where parity-qualified. Native CUDA execution exists for every model
+only where parity-qualified. See the [MLX paths](MLX.md#survey-family-mlx-coverage-expansion-2026-11-08)
+for profiles awaiting checkpoint replay. Native CUDA execution exists for every model
 behind `--features cuda` and a CUDA device selection (see [`CUDA.md`](CUDA.md)),
 and ONNX artifact execution exists behind `--features onnx`
 ([`ONNX.md`](ONNX.md)); neither has recorded parity or benchmark evidence on

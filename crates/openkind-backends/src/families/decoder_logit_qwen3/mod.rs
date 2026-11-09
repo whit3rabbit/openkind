@@ -45,6 +45,12 @@ pub mod onnx;
 #[doc(hidden)]
 pub mod renderer;
 
+/// MLX/Metal execution backend (feature `mlx`, macOS arm64).
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+mod mlx;
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub use self::mlx::MLX_EXECUTION_ARITHMETIC_ID;
+
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -141,6 +147,9 @@ pub struct Qwen3LogitProfile {
     pub rope_theta: f64,
     /// Backend id reported by the CPU engine serving this profile.
     pub cpu_backend_id: &'static str,
+    /// Backend id reported by the MLX engine serving this profile
+    /// (`mlx` feature on macOS arm64).
+    pub mlx_backend_id: &'static str,
     /// Release date of the profile (the day it was pinned here).
     pub release_date: &'static str,
     /// Catalog/manifest description of the profile.
@@ -176,6 +185,7 @@ pub const QWEN3_06B: Qwen3LogitProfile = Qwen3LogitProfile {
     vocab_size: 151_936,
     rope_theta: 1_000_000.0,
     cpu_backend_id: "decoder-logit-qwen3-06b/cpu-fp32",
+    mlx_backend_id: "decoder-logit-qwen3-06b/mlx-fp32",
     release_date: "2026-10-01",
     description: "Pinned raw Qwen3-0.6B direct-logit decision control (Apache-2.0, temperature \
                   1.0, single read); untrained control readout, research status",
@@ -208,6 +218,7 @@ pub const QWEN3_17B: Qwen3LogitProfile = Qwen3LogitProfile {
     vocab_size: 151_936,
     rope_theta: 1_000_000.0,
     cpu_backend_id: "decoder-logit-qwen3-17b/cpu-fp32",
+    mlx_backend_id: "decoder-logit-qwen3-17b/mlx-fp32",
     release_date: "2026-10-01",
     description: "Pinned raw Qwen3-1.7B direct-logit decision control (Apache-2.0, temperature \
                   1.0, single read); untrained control readout, research status",
@@ -243,6 +254,7 @@ pub const QWEN3_4B: Qwen3LogitProfile = Qwen3LogitProfile {
     vocab_size: 151_936,
     rope_theta: 5_000_000.0,
     cpu_backend_id: "decoder-logit-qwen3-4b/cpu-fp32",
+    mlx_backend_id: "decoder-logit-qwen3-4b/mlx-fp32",
     release_date: "2026-10-01",
     description: "Pinned raw Qwen3-4B-Instruct-2507 direct-logit decision control (Apache-2.0, \
                   temperature 1.0, single read); untrained control readout, research status",
@@ -286,6 +298,13 @@ pub enum DecoderLogitQwen3Error {
     /// Shared family loader/evaluator failure.
     #[error(transparent)]
     Family(#[from] crate::families::support::FamilyError),
+}
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+impl From<crate::qwen35::mlx::MlxError> for DecoderLogitQwen3Error {
+    fn from(error: crate::qwen35::mlx::MlxError) -> Self {
+        Self::Family(crate::families::support::FamilyError::from(error))
+    }
 }
 
 /// Filesystem configuration for one pinned profile of this family.

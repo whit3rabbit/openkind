@@ -45,7 +45,7 @@ fixtures. The analysis, reported results, and license reading live in
 | Prompt | The kev renderer under Drex's frozen limits: 16,384 tokens for the state and for each row (the reference serving default). Longer requests fail closed |
 | Head | Read from the digest-pinned `head.pt` with candle's pickle reader, which interprets opcodes and never imports or calls anything. No converted head is needed, so nothing is mirrored |
 | Questions | One causal row per question, the reference row form for hybrid backbones. No state reuse across questions yet |
-| Execution | CPU only. CUDA, MLX, and ONNX selections fail closed |
+| Execution | `auto` prefers the [MLX path](../MLX.md) when ready and falls back to CPU when MLX is unavailable. MLX checkpoint replay remains pending. No CUDA or ONNX backend |
 | Choice order | Sorted label order (the reference keeps caller order), a declared difference |
 
 Parity: [`drex_parity.rs`](../../crates/openkind-backends/tests/drex_parity.rs)

@@ -18,6 +18,8 @@
 //! - Text generation: none.
 
 mod engine;
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+mod mlx;
 #[doc(hidden)]
 pub mod model;
 #[cfg(feature = "onnx")]
@@ -34,6 +36,9 @@ use thiserror::Error;
 
 pub use self::engine::EncoderNliEngine;
 use crate::families::support::FamilyLimits;
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub use self::mlx::{EncoderNliMlxEngine, EncoderNliMlxEngineConfig, MLX_EXECUTION_ARITHMETIC_ID};
 
 /// Family slug used for identity derivation and telemetry.
 pub const FAMILY_SLUG: &str = "encoder-nli";
@@ -116,6 +121,13 @@ pub enum EncoderNliError {
     /// Shared family loader/evaluator failure.
     #[error(transparent)]
     Family(#[from] crate::families::support::FamilyError),
+}
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+impl From<crate::qwen35::mlx::MlxError> for EncoderNliError {
+    fn from(error: crate::qwen35::mlx::MlxError) -> Self {
+        Self::Family(crate::families::support::FamilyError::from(error))
+    }
 }
 
 /// Filesystem configuration for the pinned encoder-NLI profile.

@@ -38,6 +38,11 @@ mod engine;
 mod model;
 mod renderer;
 
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+mod mlx;
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+pub use self::mlx::{DeciderMlxEngine, DeciderMlxEngineConfig, MLX_EXECUTION_ARITHMETIC_ID};
+
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -52,6 +57,8 @@ use crate::families::support::FamilyLimits;
 pub const FAMILY_SLUG: &str = "decider";
 /// Arithmetic/device identity of the family execution path.
 pub const EXECUTION_ARITHMETIC_ID: &str = "candle-cpu-fp32-qwen35-text";
+/// Renderer identifier recorded in the MLX continuation-state identity.
+pub const RENDERER_ID: &str = "decider_slot_pass";
 /// Declared probability space of every profile.
 pub const DECLARED_PROBABILITY_SPACE: ProbabilitySpace =
     ProbabilitySpace::ConditionalOnOfferedOptions;
@@ -103,6 +110,9 @@ pub struct DeciderProfile {
     /// Backend id reported by the CUDA engine serving this profile
     /// (`cuda` feature).
     pub cuda_backend_id: &'static str,
+    /// Backend id reported by the MLX engine serving this profile
+    /// (`mlx` feature on macOS arm64).
+    pub mlx_backend_id: &'static str,
     /// Release date of the profile (the day it was pinned here).
     pub release_date: &'static str,
     /// Catalog/manifest description of the profile.
@@ -136,6 +146,7 @@ pub const DECIDER_4B: DeciderProfile = DeciderProfile {
     annotate_min: 8,
     cpu_backend_id: "decider-4b/cpu-fp32",
     cuda_backend_id: "decider-4b/cuda-fp32",
+    mlx_backend_id: "decider-4b/mlx-fp32",
     release_date: "2026-09-30",
     description: "Pinned decider-4b merged Qwen3.5-4B slot-logit decision decoder (Apache-2.0, \
                   plain state-first layout, isolated score levels); prototype readout, research \
@@ -188,6 +199,13 @@ pub enum DeciderError {
     /// Shared family loader/evaluator failure.
     #[error(transparent)]
     Family(#[from] crate::families::support::FamilyError),
+}
+
+#[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]
+impl From<crate::qwen35::mlx::MlxError> for DeciderError {
+    fn from(error: crate::qwen35::mlx::MlxError) -> Self {
+        Self::Family(crate::families::support::FamilyError::from(error))
+    }
 }
 
 /// Filesystem configuration for one pinned profile of this family.

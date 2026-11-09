@@ -221,7 +221,7 @@ pub(crate) fn pinned_adapter_config(
 
 /// Read the pinned `[rows, hidden]` float32 head out of a verified
 /// safetensors file.
-fn read_head(path: &Path, rows: usize, hidden: usize) -> Result<Vec<f32>, FamilyError> {
+pub(crate) fn read_head(path: &Path, rows: usize, hidden: usize) -> Result<Vec<f32>, FamilyError> {
     let head_path = path.to_path_buf();
     // SAFETY: the caller verified the immutable size and SHA-256 of the
     // read-only file before this mapper opens it. The VarBuilder owns the

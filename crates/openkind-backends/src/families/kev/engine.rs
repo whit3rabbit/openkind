@@ -31,6 +31,43 @@ struct Inner {
     backend_id: String,
 }
 
+/// The family's execution seam: everything one backend contributes to the
+/// shared rendering/scoring pipeline. The renderer, JSON rendering, and wire
+/// mapping are shared with the CPU oracle; only the pointer-logit readout
+/// differs per execution path.
+pub(crate) trait KevPassSource: Send + Sync {
+    /// The family renderer over the verified tokenizer.
+    fn renderer(&self) -> &KevRenderer;
+
+    /// Pointer logits for one chunk of question rows.
+    ///
+    /// `rows` is the padded row-major id buffer, `row_lens` the real length
+    /// of each row, and `readouts` the per-row `(decide, opts)` offsets.
+    fn rows_logits(
+        &self,
+        rows: &[u32],
+        row_lens: &[usize],
+        readouts: &[(usize, Vec<usize>)],
+        control: &FamilyControl,
+    ) -> Result<Vec<Vec<f64>>, FamilyError>;
+}
+
+impl KevPassSource for Inner {
+    fn renderer(&self) -> &KevRenderer {
+        &self.renderer
+    }
+
+    fn rows_logits(
+        &self,
+        rows: &[u32],
+        row_lens: &[usize],
+        readouts: &[(usize, Vec<usize>)],
+        _control: &FamilyControl,
+    ) -> Result<Vec<Vec<f64>>, FamilyError> {
+        self.model.rows_logits(rows, row_lens, readouts)
+    }
+}
+
 /// The offered options of one question, in evaluation order, exactly as the
 /// reference `kev.api.to_record` builds them: `Noul` annotates `no`/`yes`
 /// with the caller's criteria when explicit criteria are supplied; `Choice`
@@ -156,36 +193,33 @@ impl KevEngine {
     }
 }
 
-impl Inner {
-    /// Pointer logits for one question: the state prefix plus this
-    /// question's branch as one causal row.
-    fn logits(
-        &self,
-        state_tokens: &[u32],
-        instruction: &str,
-        options: &[String],
-        control: &FamilyControl,
-    ) -> Result<(Vec<f64>, u64), FamilyError> {
-        control.check()?;
-        let QuestionRow { ids, decide, opts } =
-            self.renderer
-                .encode_row(state_tokens, instruction, options)?;
-        let row_len = ids.len();
-        let mut logits = self
-            .model
-            .rows_logits(&ids, &[row_len], &[(decide, opts)])?;
-        let logits = logits.pop().ok_or_else(|| {
-            FamilyError::Numerical("question produced no pointer logits".to_owned())
-        })?;
-        if logits.len() != options.len() {
-            return Err(FamilyError::ContractMismatch {
-                field: "option.count",
-                expected: format!("{} option logits", options.len()),
-                actual: format!("{} logits", logits.len()),
-            });
-        }
-        Ok((logits, u64::try_from(row_len).unwrap_or(u64::MAX)))
+/// Pointer logits for one question through any [`KevPassSource`] backend:
+/// the state prefix plus this question's branch as one causal row.
+fn logits_with(
+    source: &impl KevPassSource,
+    state_tokens: &[u32],
+    instruction: &str,
+    options: &[String],
+    control: &FamilyControl,
+) -> Result<(Vec<f64>, u64), FamilyError> {
+    control.check()?;
+    let QuestionRow { ids, decide, opts } =
+        source
+            .renderer()
+            .encode_row(state_tokens, instruction, options)?;
+    let row_len = ids.len();
+    let mut logits = source.rows_logits(&ids, &[row_len], &[(decide, opts)], control)?;
+    let logits = logits
+        .pop()
+        .ok_or_else(|| FamilyError::Numerical("question produced no pointer logits".to_owned()))?;
+    if logits.len() != options.len() {
+        return Err(FamilyError::ContractMismatch {
+            field: "option.count",
+            expected: format!("{} option logits", options.len()),
+            actual: format!("{} logits", logits.len()),
+        });
     }
+    Ok((logits, u64::try_from(row_len).unwrap_or(u64::MAX)))
 }
 
 impl FamilyEvaluator for KevEngine {
@@ -214,51 +248,61 @@ impl FamilyEvaluator for KevEngine {
         request: SystemRequest,
         control: &FamilyControl,
     ) -> Result<SystemResponse, FamilyError> {
-        control.check()?;
-        let state = match request.state {
-            State::Text(text) => text,
-            structured => render_json(&crate::families::wire::state_value(structured)),
-        };
-        if state.trim().is_empty() {
-            return Err(FamilyError::InvalidInput(
-                "state must contain non-whitespace text".to_owned(),
-            ));
-        }
-        let state_tokens = self.inner.renderer.state_tokens(&state)?;
-        let questions = crate::families::wire::into_sorted_questions(request.questions)?;
-
-        let mut answers = std::collections::HashMap::<
-            String,
-            openkind_core::Answer,
-            openkind_core::WireHashState,
-        >::with_capacity_and_hasher(questions.len(), Default::default());
-        let mut input_tokens: u64 = 0;
-        for (question_id, question) in questions {
-            control.check()?;
-            let id = &question_id;
-            let question = &question;
-            let unpacked = crate::families::wire::unpack_question(id, question)?;
-            let explicit_noul_criteria = noul_criteria_are_explicit(question);
-            let options = question_options(&unpacked, question, explicit_noul_criteria);
-            // The instruction renders like any other JSON value (a string
-            // instruction stays verbatim).
-            let instruction = render_json(question_instructions(question));
-            let (logits, row_tokens) =
-                self.inner
-                    .logits(&state_tokens, &instruction, &options, control)?;
-            input_tokens = input_tokens.saturating_add(row_tokens);
-            let probabilities = temperature_softmax(&logits, CALIBRATION_TEMPERATURE)?;
-            let answer =
-                crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?;
-            answers.insert(question_id, answer);
-        }
-        control.check()?;
-        Ok(crate::families::wire::system_response(
-            request.model,
-            answers,
-            input_tokens,
-        ))
+        evaluate_with(self.inner.as_ref(), request, control)
     }
+}
+
+/// Evaluate one request through any [`KevPassSource`] backend. The JSON
+/// rendering, option construction, row budget, temperature, and wire mapping
+/// are the CPU oracle's; only the pointer-logit forward comes from the
+/// source.
+pub(crate) fn evaluate_with(
+    source: &impl KevPassSource,
+    request: SystemRequest,
+    control: &FamilyControl,
+) -> Result<SystemResponse, FamilyError> {
+    control.check()?;
+    let state = match request.state {
+        State::Text(text) => text,
+        structured => render_json(&crate::families::wire::state_value(structured)),
+    };
+    if state.trim().is_empty() {
+        return Err(FamilyError::InvalidInput(
+            "state must contain non-whitespace text".to_owned(),
+        ));
+    }
+    let state_tokens = source.renderer().state_tokens(&state)?;
+    let questions = crate::families::wire::into_sorted_questions(request.questions)?;
+
+    let mut answers = std::collections::HashMap::<
+        String,
+        openkind_core::Answer,
+        openkind_core::WireHashState,
+    >::with_capacity_and_hasher(questions.len(), Default::default());
+    let mut input_tokens: u64 = 0;
+    for (question_id, question) in questions {
+        control.check()?;
+        let id = &question_id;
+        let question = &question;
+        let unpacked = crate::families::wire::unpack_question(id, question)?;
+        let explicit_noul_criteria = noul_criteria_are_explicit(question);
+        let options = question_options(&unpacked, question, explicit_noul_criteria);
+        // The instruction renders like any other JSON value (a string
+        // instruction stays verbatim).
+        let instruction = render_json(question_instructions(question));
+        let (logits, row_tokens) =
+            logits_with(source, &state_tokens, &instruction, &options, control)?;
+        input_tokens = input_tokens.saturating_add(row_tokens);
+        let probabilities = temperature_softmax(&logits, CALIBRATION_TEMPERATURE)?;
+        let answer = crate::families::wire::answer_from_probabilities(&unpacked, &probabilities)?;
+        answers.insert(question_id, answer);
+    }
+    control.check()?;
+    Ok(crate::families::wire::system_response(
+        request.model,
+        answers,
+        input_tokens,
+    ))
 }
 
 #[cfg(test)]
