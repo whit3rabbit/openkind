@@ -15,7 +15,7 @@ For the sibling TurboSpark checkout, add the OpenKind package and product to `sw
 The relative path assumes `openkind` and `turbospark` are sibling directories. For a remote dependency, use the Git tag for this release:
 
 ```swift
-.package(url: "https://github.com/whit3rabbit/openkind.git", from: "0.5.0")
+.package(url: "https://github.com/whit3rabbit/openkind.git", from: "0.5.1")
 ```
 
 ```swift
