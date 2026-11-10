@@ -2,13 +2,12 @@
 
 ## Unreleased
 
-## 0.5.1 (planned)
+## 0.5.1 (2026-11-09)
 
 ### Changed
 
 - Updated `rusqlite` to 0.41.1, adapting `Statement::column_names` to the new iterator return type.
 - Updated `Homebrew/actions/setup-homebrew` workflow action to 2026.11.02.1.
-- Enabled surveyed MLX decision backends by default.
 
 ## 0.5.0 (2026-11-08)
 

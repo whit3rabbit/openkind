@@ -121,6 +121,7 @@ jobs:
           set -euo pipefail
           mkdir -p reports
           brew tap whit3rabbit/tap
+          brew trust --formula whit3rabbit/tap/openkind
           brew info --json=v2 whit3rabbit/tap/openkind > reports/formula.json
           python3 - <<'PY'
           import json, os
