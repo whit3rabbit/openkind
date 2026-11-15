@@ -592,8 +592,8 @@ pub(crate) enum CudaOnlyBackendArg {
     #[cfg(feature = "cuda")]
     Cuda,
     /// MLX backend on macOS arm64 (`mlx` feature). Families with an MLX
-    /// engine execute through it: FP32 readouts, except d3-flash which
-    /// quantizes to affine 4-bit at load and winnow-e4b which dequantizes
+    /// engine execute through it: FP32 readouts, except d3-flash and
+    /// pplx-decider-27b which quantize to affine 4-bit at load and winnow-e4b which dequantizes
     /// its GGUF q8_0 weights. Families without an MLX path fall back to
     /// CPU under `auto`; an explicit selection fails closed.
     #[cfg(all(feature = "mlx", target_os = "macos", target_arch = "aarch64"))]

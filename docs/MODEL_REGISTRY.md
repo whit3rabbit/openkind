@@ -8,7 +8,7 @@ verification milestones. Pull progress stays on stderr. `openkind list`,
 `show NAME`, and `rm NAME` operate on local installations without a daemon or
 network request. Read commands accept `--json` for scripts.
 
-Thirty-four profiles are catalog-installable: the native Qwen3.5 state-first
+Thirty-five profiles are catalog-installable: the native Qwen3.5 state-first
 profile, the three laya decision encoders, and the surveyed-family
 prototypes (`decoder-logit-letter`, `encoder-nli`, `encoder-instruct-label`,
 `decoder-logit-llm`, `schema-scorer`, `qwen3guard`, `kev`,
@@ -16,7 +16,7 @@ prototypes (`decoder-logit-letter`, `encoder-nli`, `encoder-instruct-label`,
 `winnow-e4b`, `strands-decider-2b` [Hobson v19 and v21], `clef-flash`,
 `clef-flash-gguf`, `clef-27b-gguf`, the three `decoder-logit-qwen3`
 controls [0.6B, 1.7B, 4B], `d3-edge`, `d3-lite`, `d3-nano`, `d3-mini`,
-`d3-flash`, `sieve-4b`, `jeeves`, `drex-v15`), plus the proxy-cache `encoder-embedding` sentence
+`d3-flash`, `pplx-decider-flash`, `sieve-4b`, `jeeves`, `drex-v15`), plus the proxy-cache `encoder-embedding` sentence
 encoder. Jeeves serving requires macOS arm64 and `--features mlx`. Every manifest pins each artifact's
 source revision, byte size, and SHA-256; `rust-loadable` status describes
 implementation and parity coverage, not reviewed task quality or release

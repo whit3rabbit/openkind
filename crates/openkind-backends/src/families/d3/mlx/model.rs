@@ -102,18 +102,28 @@ impl D3MlxModel {
         let hidden_size = geometry.hidden_size;
         let mut tensors = BTreeMap::new();
         for shard in &artifacts.shards {
-            for (name, entry) in read_safetensors(shard)? {
-                let kept = name.starts_with("language_model.layers.")
-                    || name == "language_model.norm.weight";
-                if !kept {
-                    // The tied embedding stays host-resident, and the unused
-                    // vision tower and language-model head never load.
-                    continue;
-                }
+            let loaded = read_safetensors(shard, |name| {
+                name.starts_with("language_model.layers.") || name == "language_model.norm.weight"
+            })?;
+            let mut names = Vec::with_capacity(loaded.len());
+            for (name, entry) in loaded {
+                names.push(name.clone());
                 if tensors.insert(name.clone(), entry).is_some() {
                     return Err(FamilyError::InvalidInput(format!(
                         "duplicate tensor `{name}` across shards"
                     )));
+                }
+            }
+            // Quantize and evaluate each shard's projections before reading
+            // the next shard, so the dense FP32 copies of at most one shard
+            // are resident at a time. The per-tensor arithmetic is the same
+            // as quantizing after the whole checkpoint loaded.
+            if quantize {
+                quantize_projections(&mut tensors, &names)?;
+                for name in &names {
+                    if let Some(weight) = tensors.get(name) {
+                        materialize_weight(weight)?;
+                    }
                 }
             }
         }
@@ -122,7 +132,7 @@ impl D3MlxModel {
                 "checkpoint shard carries no `language_model` tensors".to_owned(),
             ));
         }
-        let mut model = Self {
+        let model = Self {
             tensors,
             // The host-resident tied embedding over the verified shard: the
             // gather reads only the prompt's rows, exactly like the CPU path.
@@ -140,54 +150,10 @@ impl D3MlxModel {
             geometry,
             runtime: Arc::clone(runtime),
         };
-        if quantize {
-            model.quantize_layer_projections()?;
-        }
         for weight in model.tensors.values() {
             materialize_weight(weight)?;
         }
         Ok(model)
-    }
-
-    /// Affine-quantize every 2-D layer projection to 4-bit group 64.
-    ///
-    /// Used only by `d3-flash`, whose FP32 weights exceed the reference
-    /// host's wired limit. Norms, gates, the convolution, and the host-side
-    /// embedding and readout stay FP32.
-    fn quantize_layer_projections(&mut self) -> Result<(), FamilyError> {
-        let names: Vec<String> = self
-            .tensors
-            .keys()
-            .filter(|name| {
-                name.starts_with("language_model.layers.")
-                    && (name.contains("self_attn.")
-                        || name.contains("linear_attn.in_proj_")
-                        || name.contains("linear_attn.out_proj")
-                        || name.contains("mlp."))
-                    && name.ends_with(".weight")
-            })
-            .cloned()
-            .collect();
-        for name in names {
-            let Some(MlxWeight::Dense(array)) = self.tensors.remove(&name) else {
-                continue;
-            };
-            let linear = mlx_rs::nn::Linear {
-                weight: mlx_rs::module::Param::new(array),
-                bias: mlx_rs::module::Param::new(None),
-            };
-            let quantized = mlx_rs::nn::QuantizedLinear::try_from_linear(linear, GROUP_SIZE, BITS)
-                .map_err(mlx_error("affine quantize"))?;
-            self.tensors.insert(
-                name,
-                MlxWeight::Quantized {
-                    weight: quantized.inner.weight.value.clone(),
-                    scales: quantized.scales.value.clone(),
-                    biases: quantized.biases.value.clone(),
-                },
-            );
-        }
-        Ok(())
     }
 
     /// Code logits of the first `count` readout rows at the final prompt
@@ -858,7 +824,10 @@ fn apply_rotary(
 /// FP32 MLX arrays. BF16 widens exactly; the tied embedding, the unused
 /// vision tower, the language-model head, and `__metadata__` entries stay
 /// unread.
-fn read_safetensors(path: &Path) -> Result<BTreeMap<String, MlxWeight>, FamilyError> {
+fn read_safetensors(
+    path: &Path,
+    keep: impl Fn(&str) -> bool,
+) -> Result<BTreeMap<String, MlxWeight>, FamilyError> {
     use std::fs::File;
 
     let mut file = File::open(path).map_err(|source| FamilyError::Io {
@@ -898,7 +867,10 @@ fn read_safetensors(path: &Path) -> Result<BTreeMap<String, MlxWeight>, FamilyEr
     let data_start = 8_u64 + header_len as u64;
     let mut weights = BTreeMap::new();
     for (name, value) in &entries {
-        if name.starts_with("__metadata__") {
+        // Skip tensors the model never uses before reading their bytes: the
+        // tied embedding stays host-resident, and the vision tower and
+        // language-model head never load.
+        if name.starts_with("__metadata__") || !keep(name) {
             continue;
         }
         let entry: Entry =
@@ -947,6 +919,50 @@ fn read_safetensors(path: &Path) -> Result<BTreeMap<String, MlxWeight>, FamilyEr
         weights.insert(name.clone(), MlxWeight::Dense(array));
     }
     Ok(weights)
+}
+
+/// Affine-quantize the named 2-D layer projections to 4-bit group 64.
+///
+/// Used by the profiles whose FP32 weights exceed the reference host's wired
+/// limit (`d3-flash` and `pplx-decider-27b`). Norms, gates, the convolution,
+/// and the host-side embedding and readout stay FP32.
+fn quantize_projections(
+    tensors: &mut BTreeMap<String, MlxWeight>,
+    candidates: &[String],
+) -> Result<(), FamilyError> {
+    for name in candidates.iter().filter(|name| {
+        name.starts_with("language_model.layers.")
+            && (name.contains("self_attn.")
+                || name.contains("linear_attn.in_proj_")
+                || name.contains("linear_attn.out_proj")
+                || name.contains("mlp."))
+            && name.ends_with(".weight")
+    }) {
+        let Some(MlxWeight::Dense(array)) = tensors.remove(name) else {
+            continue;
+        };
+        // Only 2-D projections quantize; per-head norm vectors (`q_norm`,
+        // `k_norm`) match the name filter but stay dense FP32.
+        if array.ndim() < 2 {
+            tensors.insert(name.clone(), MlxWeight::Dense(array));
+            continue;
+        }
+        let linear = mlx_rs::nn::Linear {
+            weight: mlx_rs::module::Param::new(array),
+            bias: mlx_rs::module::Param::new(None),
+        };
+        let quantized = mlx_rs::nn::QuantizedLinear::try_from_linear(linear, GROUP_SIZE, BITS)
+            .map_err(mlx_error("affine quantize"))?;
+        tensors.insert(
+            name.clone(),
+            MlxWeight::Quantized {
+                weight: quantized.inner.weight.value.clone(),
+                scales: quantized.scales.value.clone(),
+                biases: quantized.biases.value.clone(),
+            },
+        );
+    }
+    Ok(())
 }
 
 /// Evaluate every retained array so no unevaluated lazy graph crosses the

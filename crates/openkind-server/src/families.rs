@@ -394,7 +394,8 @@ pub(crate) struct FamilyArgs {
 
     /// Aliases in `--models` that should use the pinned d3 engines
     /// (noncausal 255-code readout on the Qwen3.5 hybrid backbone). Entries
-    /// look like `edge=<alias>[,alias…];lite=<alias>`.
+    /// look like `edge=<alias>[,alias…];lite=<alias>`; `pplx-flash` and
+    /// `pplx-27b` select the Perplexity Decider v1.3 profiles.
     #[arg(
         long,
         env = "OPENKIND_D3_ALIASES",
@@ -849,7 +850,7 @@ impl FamilyArgs {
                 let profile = openkind_backends::families::d3::profile_by_short_name(loader)
                     .ok_or_else(|| {
                         anyhow::anyhow!(
-                            "--d3-aliases names unknown d3 profile `{loader}`; known: edge, lite, nano, mini, flash"
+                            "--d3-aliases names unknown d3 profile `{loader}`; known: edge, lite, nano, mini, flash, pplx-flash, pplx-27b"
                         )
                     })?;
                 for alias_name in alias_names.split(',') {

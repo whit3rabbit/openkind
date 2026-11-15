@@ -19,7 +19,7 @@ macro_rules! registry_url {
 }
 macro_rules! catalog_sha256 {
     () => {
-        "d3053ecc15c0195bb07d5c0e32d3e0b4be63ddcca01ec3e05cc2112cf16cc7ba"
+        "ca46d66ea3b64ba082eaf2e133bc85c49063661d684cf3bb0a8c1ec70f7c62a3"
     };
 }
 
@@ -77,6 +77,9 @@ pub const D3_NANO_MODEL_NAME: &str = "d3-nano:0198af5b5c8e8835605e";
 pub const D3_MINI_MODEL_NAME: &str = "d3-mini:434dbc50d3b581663e52";
 /// Pinned d3-flash (noncausal d3-code-readout-v1) model name.
 pub const D3_FLASH_MODEL_NAME: &str = "d3-flash:b2a4750f8bf4a1fa58cb";
+/// Pinned Perplexity Decider Flash v1.3 (noncausal chunked-readout) model
+/// name.
+pub const PPLX_DECIDER_FLASH_MODEL_NAME: &str = "pplx-decider-flash:3722c64ec29836dc7608";
 /// Pinned sieve-4b (causal LoRA-merged code-readout) model name.
 pub const SIEVE_4B_MODEL_NAME: &str = "sieve-4b:8b97b56524b55c41fbf4";
 /// Pinned raw decoder-logit-qwen3 control model names.

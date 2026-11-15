@@ -68,12 +68,12 @@ class MlxAlternativesTests(unittest.TestCase):
         sync_model_registry.validate_mlx_alternatives(
             alternatives, {entry["name"] for entry in catalog["models"]}
         )
-        self.assertEqual(len(catalog["models"]), 34)
+        self.assertEqual(len(catalog["models"]), 35)
         unqualified = sum(
             model["openkind_mlx_status"] != "qualified"
             for model in alternatives["models"]
         )
-        self.assertEqual(unqualified, 26)
+        self.assertEqual(unqualified, 27)
 
     def test_rejects_unpinned_conversion_revision(self):
         alternatives = {

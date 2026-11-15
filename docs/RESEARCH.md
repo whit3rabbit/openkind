@@ -31,6 +31,11 @@ score well, see
 For Nace.AI's four Drex checkpoints, the RLAF recipe, and the license limits
 on using them, see
 [the 2026-11-07 review](#drex-naceais-open-decision-models-and-tech-report-reviewed-2026-11-07).
+For packed hybrid-state execution and what OpenKind should adopt, see
+[the Flide review](#flide-exact-state-forking-reviewed-2026-11-10).
+For Perplexity's Decider v1.3 and Flash checkpoints, the Locate task, and the
+reported results, see
+[the 2026-11-14 review](#perplexity-decider-v13-reviewed-2026-11-14).
 
 | Reproduction Target | Feasibility Today | Assessment |
 |---|:---:|---|
@@ -51,6 +56,7 @@ on using them, see
 | Is Jev non-autoregressive internally? | TypeSafe confirms **output sampling** is non-autoregressive (parallel rather than token-by-token). Whether the entire internal network is technically non-autoregressive remains undisclosed. | Medium |
 | Does Jev's public evidence establish calibrated probabilities? | **For a tested sample, there is inspectable evidence.** Hume publishes item-level predictions and reliability bins; they do not establish calibration under deployment shift or disclose RLCD. See the [evidence review](#archer-humes-api-reconstruction-reviewed-2026-09-29). | High |
 | Can an open Jev-like system be built now? | **Yes at the API, systems, and behavioral level; no at exact architectural parity.** | High |
+| Can an open engine amortize a shared state across hybrid-model branches? | Flide implements packed causal attention and indexed DeltaNet state reuse. Its [H200 results](#flide-exact-state-forking-reviewed-2026-11-10) measure gains against vLLM and SGLang on multi-question requests. | High |
 
 ### Independent Validation: The Every Experiment
 
@@ -132,7 +138,7 @@ TypeSafe documentation exposes both probabilities and a `confidence` metric for 
 In TypeSafe's API:
 
 - **`Noul`** returns a single probability $p \in [0.0, 1.0]$ and **has no separate confidence field**.
-- **`Choice`** and **`Score`** confidence values summarize concentration. The [official adapter at `fb52b103`](https://github.com/typesafe-ai/system-one-adapter-python/blob/fb52b1030b7fc1f4f1cf39910afa5da54f9835e3/src/system_one_adapter/_utils/confidence_metrics.py) normalizes the distribution, then computes Choice confidence as $(p_{\max}-1/K)/(1-1/K)$ for $K>1$ (and 1 for $K=1$). Score confidence uses expected distance from the modal level, normalized by a uniform-distribution reference. This verifies the adapter's formulas; production internals remain private.
+- **`Choice`** confidence rescales the top probability from uniform to certainty, $(p_{\max}-1/K)/(1-1/K)$ for $K>1$. **`Score`** confidence subtracts the expected ordinal distance from the modal level divided by the uniform mean absolute deviation about the scale midpoint, then floors the result at zero. TypeSafe publishes both formulas. Its Python adapter normalizes its inputs and returns 1 for a single outcome. [TypeSafe confidence guide](https://docs.typesafe.ai/confidence.md#how-confidence-is-calculated), [official adapter at `fb52b103`](https://github.com/typesafe-ai/system-one-adapter-python/blob/fb52b1030b7fc1f4f1cf39910afa5da54f9835e3/src/system_one_adapter/_utils/confidence_metrics.py).
 - TypeSafe explicitly warns in its documentation that a confidence of 1.0 does not guarantee correctness and advises developers to establish domain-specific thresholds.
 
 ### 3. Dynamic Query & Candidate Encoding (Up to 255 Options)
@@ -832,7 +838,7 @@ flowchart TD
 
 ## Primary and High-Value Sources Register
 
-### Canonical Citations Register (1–33)
+### Canonical Citations Register (1–37)
 
 | # | Reference / Canonical Resource | Focus / Description |
 |:---:|---|---|
@@ -869,6 +875,10 @@ flowchart TD
 | **[31]** | [Brooker, Chambers, and de Paula: "Introducing Strands Decider 2B: a small, open source, decision model" (1 October 2026)](https://strandsagents.com/blog/introducing-strands-decider/) | Hobson v19 release, linked code and adapter artifacts, public evaluation records, and a Strands tool-call intervention. See the [pinned source review](#strands-decider-2b-hobson-v19-release-and-agent-interventions-reviewed-2026-10-01). |
 | **[32]** | [Dhankhar et al., "Towards Foundation Decision Models: Drex" (arXiv:2611.07854v1, 5 November 2026)](https://arxiv.org/abs/2611.07854) | Nace.AI tech report: pointer and 255-code readouts, consistency losses, RLAF, Decision Index 0.4.1, calibration, order-robustness, and Max ablation tables. See the [review](#drex-naceais-open-decision-models-and-tech-report-reviewed-2026-11-07). |
 | **[33]** | [`nace-ai/drex-decision-models`](https://github.com/nace-ai/drex-decision-models/tree/d2fd26cdf211f87b9a6b1261995528629c9e1401) and [Nace.AI Hugging Face models](https://huggingface.co/nace-ai) | Apache-2.0 reference server and runners, four checkpoints under the modified Nace AI Open RAIL-M (Max, v2.0, v1.5) and CC BY-NC 4.0 (DLM). Pinned revisions are in the [review](#pinned-provenance-1). |
+| **[34]** | [Li et al., *Flide: Accelerating Decision Inference with Exact State Forking* (arXiv:2610.42148v1, 30 October 2026)](https://arxiv.org/abs/2610.42148v1) | Causal fork equivalence, packed execution for hybrid models, and single-H200 comparisons. |
+| **[35]** | [OmniJev/Flide v0.1.13 at `23a79f54`](https://github.com/OmniJev/Flide/tree/23a79f54cd698d9c419c55b4a47af1c44f13f321) | Apache-2.0 CUDA implementation, family prompt plans, and request verification. |
+| **[36]** | [Perplexity Research: "Perplexity Decider" (12 November 2026)](https://www.perplexity.ai/hub/blog/perplexity-decider) | Decider v1.3 and Flash v1.3: architecture, Locate, training, distillation, evaluations, production traffic, and internal uses. See the [review](#perplexity-decider-v13-reviewed-2026-11-14). |
+| **[37]** | [`perplexity-ai/pplx-decider-v1.3`](https://huggingface.co/perplexity-ai/pplx-decider-v1.3/tree/9c2ebb27470d3dec2ad7ab727727e40d142c7213) and [`pplx-decider-flash-v1.3`](https://huggingface.co/perplexity-ai/pplx-decider-flash-v1.3/tree/d06fb3f2d97e0a52325a0d463c450cf0338f44fe) | Apache-2.0 checkpoints, `pplx_decider` reference package, and `decision_config.json`. Pinned revisions are in the [review](#pinned-provenance-2). |
 
 ### Additional Foundational & Ecosystem References
 
@@ -1636,6 +1646,120 @@ is the mechanism.
    instead declares `offered_options_plus_semantic_none`
    (`openkind-engine` `ProbabilitySpace`); the explicit declaration, not
    the wording, is the borrow.
+
+## Flide: Exact State Forking (Reviewed 2026-11-10)
+
+Flide serves Jev-style typed decisions at `/v1/systemone`. It packs the
+prefixes and branches of multiple requests into a flat token stream. Causal
+attention reads the request's prefix and the query's own branch at their
+original positions. Gated DeltaNet reads the prefix's terminal recurrent
+state by index and derives the convolution window from indexed predecessors.
+Length-bucketed CUDA graphs replay over that metadata. This shares state
+within a request even on a cold cache. Session checkpoints can also resume
+an append-only causal prefix across requests. [Paper §§3.2–3.4](https://arxiv.org/html/2610.42148v1#S3),
+[packed layout](https://github.com/OmniJev/Flide/blob/23a79f54cd698d9c419c55b4a47af1c44f13f321/flide/runtime/pack.py),
+[DeltaNet kernel](https://github.com/OmniJev/Flide/blob/23a79f54cd698d9c419c55b4a47af1c44f13f321/flide/kernels/gdn.py).
+
+### Reported results
+
+- On one NVIDIA H200, BF16 Qwen3.5-0.8B median single-client latency for
+  QuALITY-all (18.1 questions per state on average) was 37.7 ms versus 362 ms
+  for vLLM and 359 ms for SGLang. For one-question RACE, the mean of the four
+  Qwen3.5 sizes' median latencies was 18.0 ms for Flide and 29.4 ms for vLLM.
+  The 4B engine-only ablation changed QuALITY-all from 135.6 to 1868.5 ms
+  when forks were disabled and single-client DI latency from 8.8 to 76.1 ms when
+  CUDA graphs were disabled. OpenKind already amortizes the state prefill,
+  so the relevant comparison is against its own batched execution.
+  [Paper §4, Tables 2, 3 and 5](https://arxiv.org/html/2610.42148v1#S4).
+- Proposition 3.1 establishes equivalence in exact arithmetic for causal
+  execution with the same tokens and positions. In BF16, Table 11's Qwen3.5
+  Decision Index averages show mean total variation of 0.44 percentage points
+  for Flide and 4.84 for SGLang multi-item scoring against the FP32 reference,
+  with 0.7% and 6.5% of decisions flipping at the paper's 0.5 threshold.
+  The optional batch-invariant mode gave bitwise agreement across tested
+  loads on the same hardware and software. It lost at most 10% of
+  throughput at 64 clients in the reported runs. These are author-reported
+  fidelity and serving measurements. OpenKind hardware performance and
+  semantic-none quality need their own measurements.
+  [Paper, Appendix A](https://arxiv.org/html/2610.42148v1#A1),
+  [Appendix E](https://arxiv.org/html/2610.42148v1#A5).
+
+### Transfer to OpenKind
+
+Keep the native Qwen root independent of the submitted question set. Flide's
+OneJev path caps its common prefix at the state boundary. The causal template
+path can instead share the longest common token prefix of rendered prompts,
+which for Bespoke-Nimble includes the submitted schema. Adding or reordering
+questions changes the conditioning for that checkpoint even if the kernel
+reproduces its rendered prompts exactly. Flide also supports checkpoint-
+specific bidirectional blocks. Those masks require their own reference and
+isolation checks. [OpenKind state contract](ARCHITECTURE.md),
+[OneJev renderer](https://github.com/OmniJev/Flide/blob/23a79f54cd698d9c419c55b4a47af1c44f13f321/plugins/flide_onejev/format.py#L395-L420),
+[template planner](https://github.com/OmniJev/Flide/blob/23a79f54cd698d9c419c55b4a47af1c44f13f321/flide/formats/template.py#L422-L443),
+[Bespoke-Nimble template](https://github.com/OmniJev/Flide/blob/23a79f54cd698d9c419c55b4a47af1c44f13f321/flide/formats/known/bespokelabs__bespoke-nimble.json).
+
+1. **Adopt the verification matrix first.** Extend the existing replay checks
+   with the same question alone and with siblings added, removed, or reordered,
+   then compare the same request alone and under mixed-request load. Include
+   cold and resumed states for any continuation path. Match results by
+   question and option key. Report bitwise equality separately from the
+   existing `0.005` probability tolerance, argmax, and Accept/Review gates.
+   Record near ties as diagnostics while applying OpenKind's parity criteria.
+   [Flide verifier](https://github.com/OmniJev/Flide/blob/23a79f54cd698d9c419c55b4a47af1c44f13f321/flide/verify.py),
+   [OpenKind benchmark methodology](BENCHMARKS.md).
+2. **Prototype sharing prefix storage inside the MLX batch.** CPU forks
+   copy all three state families. MLX forks already share immutable array
+   references, but the vectorized forward stacks KV, recurrent, and
+   convolution arrays per lane. Profile those stacks, then test read-only
+   prefix KV plus branch-local suffixes and indexed recurrent and convolution
+   inputs, one change at a time. Keep both state-to-question and
+   question-to-candidate reuse. Compare FP32 against `nested_batched` on the
+   same profile at Q=1 and higher fan-out, across short and long states and
+   mixed candidate counts. Measure p50/p99 request latency, throughput and
+   peak device memory alongside parity and admission. The earlier flat-field
+   schedule repeated question tokens per candidate and was slower at Q2/K2
+   and Q8/K4. A new prototype needs to show that reducing state duplication
+   pays for its added kernel work.
+   [CPU forks](../crates/openkind-backends/src/qwen35/backbone/branch.rs),
+   [MLX forks](../crates/openkind-backends/src/qwen35/mlx/branch_state.rs),
+   [MLX lane stacking](../crates/openkind-backends/src/qwen35/mlx/model/batched.rs),
+   [flat-field measurements](benchmarks/2026-09-27-python-flat-field/).
+3. **Profile before porting further optimizations.** Selective terminal-layer
+   work is worth testing if it is visible in a profile. Retain every row
+   needed to form attention, recurrent and convolution state, and every
+   row the candidate head reads. For CUDA, establish the current Candle
+   baseline and parity on a real device before evaluating graph capture or
+   packed kernels. Consider fixed-order kernels if the verifier finds
+   batch-dependent drift that matters at the parity or policy gates.
+   [Flide §3.3](https://arxiv.org/html/2610.42148v1#S3), [OpenKind CUDA gates](CUDA.md).
+
+### System One compatibility
+
+Flide assembles Choice and Score confidence using TypeSafe's published
+formulas. Native Qwen uses normalized entropy on the full Choice distribution
+including semantic-none and on the complete Score level distribution. Score
+has no semantic-none logit. For `(0.6, 0.3, 0.1)` the published Choice value
+is `0.400` versus about `0.183` for entropy confidence. For Score, the
+published formula distinguishes adjacent `(0, 0.5, 0.5)` from opposite
+`(0.5, 0, 0.5)` levels with values `0.250` and `0.000`. Entropy gives about
+`0.369` for both. Client thresholds on the serialized field need revalidation
+if its formula changes. Native Qwen's `0.98` Accept/Review gate uses the
+winning probability and sends a semantic-none win to review, independent of
+the serialized confidence formula. [TypeSafe confidence guide](https://docs.typesafe.ai/confidence.md#how-confidence-is-calculated),
+[Flide answer assembly](https://github.com/OmniJev/Flide/blob/23a79f54cd698d9c419c55b4a47af1c44f13f321/flide/api/answers.py),
+[native answer mapping](../crates/openkind-backends/src/qwen35/engine/mapping.rs),
+[native policy](../crates/openkind-backends/src/qwen35/head/evaluation.rs).
+
+Native Qwen requires a non-empty `__none__` Choice criterion and maps its
+learned abstention mass to that key. Omission returns HTTP 422 for that
+profile. Flide's Open-Jev renderer accepts regular Choice keys without
+`__none__` and scores it as an ordinary candidate when supplied. This
+comparison is specific to those adapters. Preserve native abstention and
+pin formula and option-handling fixtures. If OpenKind offers TypeSafe
+confidence semantics, expose them through an explicit versioned mode and
+replay client threshold behavior before making them a default.
+[OpenKind compatibility](JEV_COMPATIBILITY.md),
+[Flide Open-Jev renderer](https://github.com/OmniJev/Flide/blob/23a79f54cd698d9c419c55b4a47af1c44f13f321/plugins/flide_open_jev/__init__.py#L63-L84).
 
 ## Jev-like Decision Systems (Reviewed 2026-09-24)
 
@@ -3648,3 +3772,276 @@ These are findings and proposals, not qualified results.
   not reviewed.
 - The license policy is the project's reading, not legal advice. Revisit it
   if Nace.AI changes the license or OpenKind's distribution model changes.
+
+## Perplexity Decider v1.3 (Reviewed 2026-11-14)
+
+Perplexity's [Decider v1.3 post](https://www.perplexity.ai/hub/blog/perplexity-decider)
+(12 November 2026) releases two Apache-2.0 decision checkpoints, a 27B model
+and a 4B "Flash" model distilled from it, and credits TypeSafe AI's Jev as the
+inspiration. Both checkpoints use the format the
+[Decision Index review](#finding-3-pplx-and-d3-lift-the-causal-mask-in-the-full-attention-layers)
+found converging: one noncausal forward pass and a 255-code option readout. The
+release adds three things that review did not cover: per-question isolated
+attention as the training layout, a span-extraction task (Locate), and a
+distillation recipe.
+
+Evidence here is split into **author-reported** results (the blog post and the
+Hugging Face cards) and **released source** (the checkpoint configs, the
+`pplx_decider` package under each repository's `source/`, and file headers). No
+weight shards were downloaded and no checkpoint was run. The prompt layout was
+checked against the shipped code by rendering the real chat template and
+tokenizing with the pinned tokenizer (see
+[Implementation status](#openkind-implementation-status-2026-11-14)).
+
+### Pinned provenance
+
+| Checkpoint | Revision reviewed | Base | License |
+|---|---|---|---|
+| [`perplexity-ai/pplx-decider-v1.3`](https://huggingface.co/perplexity-ai/pplx-decider-v1.3/tree/9c2ebb27470d3dec2ad7ab727727e40d142c7213) | `9c2ebb27470d3dec2ad7ab727727e40d142c7213` | `Qwen/Qwen3.8-27B` at `1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0` | Apache-2.0 |
+| [`perplexity-ai/pplx-decider-flash-v1.3`](https://huggingface.co/perplexity-ai/pplx-decider-flash-v1.3/tree/d06fb3f2d97e0a52325a0d463c450cf0338f44fe) | `d06fb3f2d97e0a52325a0d463c450cf0338f44fe` | `Qwen/Qwen3.5-4B` at `851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a` | Apache-2.0 |
+
+Both repositories reported `private: false` and `gated: false` on 14 November
+2026. The collection is
+[`perplexity-ai/decider-v13`](https://huggingface.co/collections/perplexity-ai/decider-v13).
+Other access routes named by the post are OpenRouter and the Perplexity
+Decisions API; neither was reviewed. Each repository ships 11 (27B) or 2 (Flash)
+BF16 backbone shards, a `readout.safetensors`, `decision_config.json`,
+`joint_config.json`, a chat template, the tokenizer, the Python reference under
+`source/`, and a `locate-span/` adapter and head. The configs show the
+geometry: the 27B is a 64-layer hybrid (hidden
+5,120, 16 key and 48 value DeltaNet heads, 24 query and 4 KV attention heads,
+`output_gate_type: swish`); Flash is the Qwen3.5-4B geometry (32 layers, hidden
+2,560).
+
+The post names four earlier releases: v1 (`pplx-decider-v1-27b`), v1.1
+(`pplx-decider-v1.1-27b`), v1.2, and Flash v1.2. All four repositories are
+public. v1.2 and Flash v1.2 declare a different protocol, `joint-question-inline-readout-v1`
+(version 3), so the v1.3 loader does not serve them. See
+[Predecessors](#predecessors-named-by-the-post).
+
+### Architecture
+
+| Aspect | Perplexity Decider v1.3 |
+|---|---|
+| Input | One shared state plus one or more questions. Each question lists options tagged with answer codes (`A`, `B`, ... then two-letter codes) |
+| Readout | A decision head initialized from the base LM head and pruned to the option-code rows. It maps the hidden state at the readout marker to option scores, then a temperature softmax over the offered options. The released head is a bias-free 255-row `readout.safetensors` (`weight`, BF16, `[255, hidden]`) |
+| Marker | The post calls it `<|marker|>`. The released tokenizer uses the existing special token `<|fim_suffix|>`, and a `<|fim_middle|>` separator closes the state context. Both are checked to be single tokens |
+| Attention | Full-attention layers are bidirectional; the gated DeltaNet layers stay causal. The post says ablations showed this helps. It publishes no ablation numbers |
+| Multi-question layout | Training and the post's v1.3 default is "isolated questions": the state attends to all questions, and each question attends only to the state and its own tokens. v1.2 let everything see everything. A fully cacheable pattern was considered and is not the default |
+| Released default mode | `separate`: one sequence per question (state plus that question only). The README states this is the computation all published scores were measured with, and an answer does not change when other questions are added, removed, or reordered. `isolated` is an opt-in mode that reads the state once; the README reports 1.5 to 2.2% of top answers differ from `separate` |
+| Calibration | One temperature per checkpoint in `decision_config.json`, applied once: 1.2264 for the 27B and 1.3303 for Flash |
+| Question types | Choice (1 to 255 options), Noul (yes/no, `noul` = P(true)), Score (2 to 255 ordered levels, expected level index plus a distribution), and Locate |
+| Vision | A vision tower and a merged LoRA ship in the repository. The post says text metrics were prioritized because text usage is much higher. Images are capped at 1.6 MP |
+| Fast path | A packed CUDA path with `torch.compile` and CUDA graphs. The README reports 99.4 to 99.8% top-answer agreement with the reference path and mean absolute probability differences near 0.002 |
+
+The isolated layout restarts each later question block from the state's final
+recurrent memory in the DeltaNet layers and restarts question positions after
+the state's last position. That is the same hybrid branch-isolation requirement
+as OpenKind's [invariant](../AGENTS.md#cross-workspace-invariants), but the
+bidirectional state-to-question attention means the state's full-attention keys
+and values depend on the questions. A state prefix therefore cannot be cached
+across questions, and `repeated_full` stays the only legal strategy, as for the
+other noncausal checkpoints.
+
+### Locate (new in v1.3)
+
+Locate extracts matching text from the state, for named entity recognition,
+PII identification, and extractive question answering. The question key is the
+default label, and optional instructions replace it. A Locate question can be
+mixed with decision questions in one request.
+
+- Adds one `<|locate|>` token per requested field, a span head, and LoRA
+  adapters. The adapters stay unmerged and activate only for Locate requests,
+  because the post says merging still regresses decision requests.
+- Training freezes the backbone and decision head and trains the new token
+  embedding, span head, and adapters with an adapted InfoNCE loss and a learned
+  per-field threshold.
+- The answer is the exact matching text with start and end character positions,
+  and an empty list when nothing matches. Spans also carry a score.
+- Locate is outside the Jev wire contract (`Noul`, `Choice`, `Score`). OpenKind
+  does not implement it.
+
+### Training
+
+| Stage | Method |
+|---|---|
+| Generalist | Full fine-tuning on large corpora, excluding benchmark training splits |
+| Specialization | LoRA, merged back with a tuned weight to limit drift and favor held-out metrics |
+| Vision | A LoRA adapter merged with a weight, prioritizing text metrics |
+| Seed averaging | Weights of three seeds averaged for both text stages |
+| Distillation | Flash trains from the 27B model's output distributions with a KL objective, which the authors report generalizes better to held-out data than cross-entropy |
+
+Training data is hundreds of public datasets (sentiment, NLI, intent detection,
+entity matching, moderation, fact checking, ratings) converted to one state,
+questions, and target format. Targets are gold labels or probability
+distributions. Samples overlapping evaluation sets were removed and bias audits
+were run. The released `decision_config.json` records the objective: the 27B
+used cross-entropy weight 1.0, and Flash used distillation weight 1.0 at
+distillation temperature 2.0, both with the readout frozen.
+
+### Reported results (author-reported)
+
+Competitor and baseline figures come from the post and were not reproduced.
+"Jev 1.14" is the post's name for its Jev comparator.
+
+| Evaluation | Decider v1.3 | Flash v1.3 | Comparator |
+|---|---|---|---|
+| Query classification, 63 tasks relabeled by a frontier LLM | 91.6% mean accuracy, 6.54 points above Perplexity's production classifiers, and above Jev 1.14 | Above the production baseline (no figure) | Production classifiers |
+| Domain classification, 7 public-dataset domains | Leads all seven (claim verification 6 tasks, healthcare 7, cybersecurity 8, programming 16, government 7, law 9, finance 9). Up to +12.9 points over Jev 1.14 in finance and +9.3 in law | Trails Jev in finance, programming, and law; similar elsewhere | Jev 1.14 |
+| Retrieval reranking, 72 tasks, top-50 candidates, pointwise zero-shot, nDCG@10 | 83.99 mean, +1.81 over Qwen3-Reranker-8B and +2.24 over Jev 1.14. BEIR: +8.78 over the reranker and +1.33 over Jev | BEIR: +7.05 over Qwen3-Reranker-8B, 0.4 below Jev | Qwen3-Reranker-8B, Jev 1.14 |
+| Multilingual classification, 19 tasks, 8 datasets, 46,484 examples, 8 languages | 88.16%, ahead of Jev in all eight languages | 86.50%, ahead of Jev in six | Jev 1.14: 85.41% |
+| NER, PII, extractive QA, 17 out-of-domain tasks, average score | 69.0 | 63.6 | Liquid d1 (2B) 43.3, Cloudflare Clairic 41.5, GLiNER large v2.5 (0.5B) 33.6 |
+| Image classification, 5 tasks | 76.99%, +1.47 over Jev 1.14 | 72.77% | Jev 1.14 |
+
+The Locate metrics are exact-span F1 (NER, PII, CV parsing), character-level F1
+(extractive QA), and field accuracy (structured extraction). The post names
+three external leaderboards where the models perform strongly (the Hugging Face
+Decision Index, Vals AI ClaimBench, and the Artificial Analysis Decision Index)
+and gives no numbers for them.
+
+**Production traffic.** On 1,000,000 deduplicated, PII-masked Decision API
+requests from the first 18 days (2,318,887 questions), agreement with frontier
+LLM judges is 93.98% for v1.3, 93.68% for v1.2, and 93.35% for Jev 1.14.
+Information extraction (425,402 questions), domain classification (409,564), and
+sentiment analysis (344,158) make up 50.8% of questions. v1.3 leads on
+information extraction (+0.93) and intent and routing (+1.21). Jev leads on
+relevance ranking (+0.69). Domain classification and sentiment are within 0.34
+and 0.07. The post's cost comparison ran Decider locally, GLM and DeepSeek
+through llm-api, and Jev through OpenRouter, and states no matched latency
+comparison, so treat the cost figures as workload-specific.
+
+**Robustness.** On 372 multiple-choice questions (4,788 requests per model), v1.3
+changed its answer on 0.27% of questions under option reordering, label
+reassignment, and label renaming, against 2.69 to 4.84% for Jev 1.14. Repeated
+identical inputs changed no v1.3 answer and 1.88% of Jev 1.14 answers. This is
+the order-invariance diagnostic that
+[the evaluation framework](#2-mandatory-invariance-diagnostics) requires, but
+it is author-reported on one question set.
+
+### Documented internal uses
+
+- **Security rules.** Decider reviews sampled agent logs for missed problems and
+  false alarms. In one day it read 1 billion tokens across 7,000 sessions,
+  producing 14 proposed rule fixes, 6 of which shipped within two days. On a
+  week of logs, the fixes cut the busiest rule's volume by 52% and surfaced
+  about 40% more legitimate actions to investigate.
+- **RL rollout monitoring.** It diagnoses why rollouts failed (tool, sandbox,
+  harness, or agent code) and whether results were interpreted correctly. It
+  stores probabilities, not verdicts, and never alters rewards or stops runs.
+- **Page quality filtering.** It scores crawled pages for usefulness, audience,
+  domain, harmful or illegal content, and PII in one forward pass.
+- **Other uses.** Visual QA of screenshots, per-step decisions for browser
+  agents, and estimating research-query complexity before search.
+
+These match the post's stated use cases: output judging, routing, moderation
+and security, filtering and tagging, and retrieval reranking. The post
+recommends v1.3 for nuanced judgments, detailed rubrics, and error-sensitive
+workflows, and Flash for high-volume routing, labeling, and filtering. It also
+advises tuning thresholds on a labeled development set.
+
+### Predecessors named by the post
+
+| Release | Repository | Observed protocol and calibration |
+|---|---|---|
+| v1 | `perplexity-ai/pplx-decider-v1-27b` | Qwen3.8-27B base; `decision_config.json` records a training step and provenance hashes; no `joint_config.json`. The earlier review notes it measured through the Perplexity API on 11 benchmarks, not the Decision Index |
+| v1.1 | `perplexity-ai/pplx-decider-v1.1-27b` | Reviewed as a [data-and-schedule story](#finding-4-pplx-v11-is-a-data-and-schedule-story); one scalar temperature of 1.0087 |
+| v1.2 | `perplexity-ai/pplx-decider-v1.2` | Protocol version 3 (`joint-question-inline-readout-v1`), 27B, temperature 1.3823 |
+| Flash v1.2 | `perplexity-ai/pplx-decider-flash-v1.2` | Protocol version 3, Qwen3.5-4B, temperature 1.5539 |
+
+v1 and v1.1 predate the joint protocol and v1.2 uses an inline-readout layout
+with everything-sees-everything attention. Each is a distinct prompt contract
+and would be a new profile, not a checkpoint swap. The fitted temperatures are
+1.0087 (v1.1), 1.3823 and 1.5539 (v1.2), and 1.2264 and 1.3303 (v1.3). They
+come from different formats and calibration sets, so they do not rank the
+checkpoints; they only show every joint-protocol release needs a temperature
+above 1. Hugging Face
+search also lists third-party quantizations of these checkpoints (GGUF, MLX 8-bit,
+NVFP4, NF4). None were downloaded or compared, so they are discovery leads only.
+
+### OpenKind implementation status (2026-11-14)
+
+The two v1.3 checkpoints are served by the `d3` family's noncausal Qwen3.5 and
+255-code readout path with a second prompt layout (`PromptLayout::PplxChunked`).
+Only the evaluated `separate` mode is implemented. See
+[`families/d3.md`](families/d3.md) for the contract and
+[`MODELS.md`](MODELS.md) for pull names and sizes.
+
+| Profile | Checkpoint | Status |
+|---|---|---|
+| `pplx-decider-flash` | Flash v1.3 | Rust-loadable prototype, catalog-installable (`openkind pull pplx-decider:flash-v1.3`). CPU, optional MLX FP32 |
+| `pplx-decider-27b` | Decider v1.3 | Rust-loadable prototype from a local model root. Not catalog-installable: the BF16 shards total about 54 GB, above the model store's 32 GiB per-model installation limit. MLX quantizes at load |
+
+What was and was not verified:
+
+- **Prompt layout (verified).** Nine request shapes rendered through the real
+  `chat_template.jinja` with jinja2 and tokenized with the pinned
+  `tokenizer.json` through the `tokenizers` Python bindings produce
+  token-for-token the same ids as the Rust renderer. The cases cover described and
+  bare Choice options, Noul with and without criteria, Score levels (including
+  duplicate levels), 30 options (two-letter codes), an empty state with default
+  instructions, a unicode object state, and special-token escaping.
+  The cases and ids are vendored at
+  [`reference-prompts.json`](../crates/openkind-backends/tests/fixtures/d3_3722c64ec29836dc7608/reference-prompts.json)
+  and replayed by
+  [`pplx_decider_parity.rs`](../crates/openkind-backends/tests/pplx_decider_parity.rs)
+  when `OPENKIND_PPLX_FLASH_MODEL_ROOT` names a directory with the pinned
+  tokenizer and `decision_config.json`.
+- **Forward pass, Flash (verified on one request).** The Flash weights were
+  downloaded and run on 14 November 2026 on an Apple Silicon Mac. The README's
+  three-question example (Choice, Noul, Score; 288 input tokens) went through the
+  shipped `pplx_decider` package (`Decider.from_pretrained`, CPU, FP32 backbone
+  path, `separate` mode, torch and transformers 5.x) and through both OpenKind
+  backends. Every probability, the Noul value, and the Score expectation agree
+  within 6.1e-6 on CPU and 7.0e-6 on MLX FP32 (acceptance tolerance 0.005), the
+  Choice argmax is `support` in all three, and the token count matches.
+  Timings on this host: reference 157 s, OpenKind CPU (release build) 78 s, MLX
+  2.2 s, all for the three questions. This is one request, not a fixture set, and
+  not a quality result. The reference's wire `confidence` is excluded because it
+  uses its own formula. The answers are vendored at
+  [`pytorch-reference-answers.json`](../crates/openkind-backends/tests/fixtures/d3_3722c64ec29836dc7608/pytorch-reference-answers.json)
+  and checked by `pplx_decider_parity.rs` when the weights are present.
+- **27B (runs, not parity-checked).** The 27B weights (about 54 GB) were
+  downloaded and run on MLX with affine 4-bit quantization at load on the same
+  36 GiB host. All artifact digests verified and the same three-question
+  example answered in 12.3 s: `support` 0.9995, Noul 0.467, and the
+  "frustrated" level 0.534 (Flash: 0.9992, 0.467, 0.534). No PyTorch reference
+  exists for it here (the BF16 weights exceed the host's memory), and 4-bit
+  quantization changes probabilities, so this shows the profile loads and gives
+  sane answers, not numerical parity. CUDA parity for either profile and task
+  quality are separate evidence.
+- **Declared renderer differences.** Choice options render in the wire's sorted
+  label order where the reference keeps insertion order. Object states serialize
+  in the wire's key order. The reference neutralizes the tokenizer's
+  `all_special_tokens` in request text; OpenKind neutralizes every special
+  added token of the pinned tokenizer, a superset, so request text can never
+  produce a marker, separator, or chat-template control token. OpenKind caps a
+  question at the reference's 32,768-token default and a request at 262,144
+  tokens, and rejects rather than truncates.
+- **Not implemented.** Locate, images, the `isolated` mode, the packed fast path,
+  and the v1 to v1.2 protocols.
+
+Consequences for the project: the Perplexity recipe is a second checkpoint
+family on the d3 execution path, which makes its quality a data question rather
+than an engine question. The blog's robustness table (0.27% flips against
+2.69 to 4.84%) is the most transferable claim; OpenKind's order and label
+invariance diagnostics can test it on a local run. Flash's distillation result
+(KL against the teacher distribution beating cross-entropy on held-out data) is
+a hypothesis for any OpenKind student model, and is untested here.
+
+### Evidence boundary and open items
+
+- Every quality, cost, and robustness number above is author-reported. Nothing
+  was run, and the benchmark datasets and the production-traffic sample are not
+  public.
+- The post's comparators (Jev 1.14, Liquid d1, Cloudflare Clairic, GLiNER large
+  v2.5, Qwen3-Reranker-8B) were not reproduced. Only Perplexity's models are
+  supported.
+- The post says "Qwen3.8-27B"; the repository tags and configs confirm that base
+  name, with Qwen3.5 text-backbone geometry.
+- The post names the readout marker `<|marker|>` where the released protocol
+  uses `<|fim_suffix|>`. The released code is the contract.
+- The isolated-questions layout the post describes for v1.3 is not the mode its
+  published scores were measured in; the README says the `separate` mode was.
+- Open: a larger Flash replay set beyond one request, a 27B parity check against
+  a reference (needs a larger host), CUDA parity, and whether to add the v1.2
+  protocol.

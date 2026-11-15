@@ -14,7 +14,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use openkind_backends::families::d3::{
-    plan_prompt_ids, D3Engine, D3EngineConfig, D3Renderer, D3_EDGE, FAMILY_SLUG, PROFILES,
+    plan_prompt_ids, D3Engine, D3EngineConfig, D3Renderer, PromptLayout, D3_EDGE, FAMILY_SLUG,
+    PROFILES,
 };
 use openkind_backends::families::support::FamilyLimits;
 use openkind_engine::DecisionEngine;
@@ -265,7 +266,14 @@ fn golden_prompt_stats_cover_every_case() {
     // reference-anchored prompt statistics, and the usage the replay pins is
     // exactly that token count, so the replay's usage check is anchored to
     // the reference prompts too.
-    for profile in PROFILES {
+    // The Perplexity chunked-layout profiles have no golden yet: a golden
+    // records answers from a real forward pass and no checkpoint weights have
+    // been run for them. Their prompt-id parity lives in
+    // `pplx_decider_parity.rs`.
+    for profile in PROFILES
+        .iter()
+        .filter(|profile| profile.layout == PromptLayout::D3)
+    {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("tests/fixtures")
             .join(format!("{FAMILY_SLUG}_{}", profile.profile_id));

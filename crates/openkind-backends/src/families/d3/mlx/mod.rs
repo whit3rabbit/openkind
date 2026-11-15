@@ -10,9 +10,9 @@
 //!
 //! Precision is per profile: `d3-edge`, `d3-lite`, `d3-nano`, and
 //! `d3-mini` execute FP32 (BF16 weights widen exactly on load);
-//! `d3-flash` — whose FP32 weights exceed the reference host's wired
-//! limit — quantizes every layer projection to affine 4-bit (group 64) at
-//! load.
+//! `d3-flash` and `pplx-decider-27b` — whose FP32 weights exceed the
+//! reference host's wired limit — quantize every layer projection to affine
+//! 4-bit (group 64) at load. `pplx-decider-flash` (Qwen3.5-4B) executes FP32.
 //!
 //! Every MLX operation — model load and per-request forward — runs through
 //! [`MlxRuntime::execute`] on the process-wide serialized GPU stream, per
@@ -53,7 +53,8 @@ impl D3MlxEngine {
     /// Load every pinned artifact offline and build the bounded engine on
     /// the MLX backend.
     ///
-    /// `d3-flash` quantizes at load; every other profile executes FP32.
+    /// `d3-flash` and `pplx-decider-27b` quantize at load; every other
+    /// profile executes FP32.
     pub fn load(config: super::D3EngineConfig) -> Result<BoundedFamilyEngine, super::D3Error> {
         let profile = config.profile;
         let artifacts =
@@ -61,7 +62,7 @@ impl D3MlxEngine {
         let renderer = load_renderer(&config.model_root, &artifacts, profile)?;
         let runtime =
             Arc::new(MlxRuntime::new(MlxRuntimeConfig::default()).map_err(FamilyError::from)?);
-        let quantize = profile.loader_id == "d3-flash";
+        let quantize = quantizes_at_load(profile);
         let model = runtime
             .execute(|| D3MlxModel::load(&artifacts, profile, &runtime, quantize))
             .map_err(FamilyError::from)??;
@@ -77,18 +78,23 @@ impl D3MlxEngine {
     }
 }
 
-/// Backend id of one profile on this backend: `d3-<short>/mlx-fp32`, or
-/// `d3-flash/mlx-affine4` for the at-load quantized profile.
+/// Profiles whose FP32 weights exceed the reference host's wired limit
+/// quantize every layer projection at load: `d3-flash` (9B) and the 27B
+/// Perplexity Decider. The 4B Perplexity Decider Flash executes FP32 like
+/// the smaller d3 profiles.
+fn quantizes_at_load(profile: &'static super::D3Profile) -> bool {
+    matches!(profile.loader_id, "d3-flash" | "pplx-decider-27b")
+}
+
+/// Backend id of one profile on this backend: `<loader id>/mlx-fp32`, or
+/// `<loader id>/mlx-affine4` for the at-load quantized profiles.
 fn mlx_backend_id(profile: &'static super::D3Profile) -> String {
-    let short = profile
-        .loader_id
-        .strip_prefix("d3-")
-        .unwrap_or(profile.loader_id);
-    if short == "flash" {
-        "d3-flash/mlx-affine4".to_owned()
+    let precision = if quantizes_at_load(profile) {
+        "mlx-affine4"
     } else {
-        format!("d3-{short}/mlx-fp32")
-    }
+        "mlx-fp32"
+    };
+    format!("{}/{precision}", profile.loader_id)
 }
 
 impl FamilyEvaluator for D3MlxEngine {

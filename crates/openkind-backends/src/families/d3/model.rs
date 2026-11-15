@@ -15,12 +15,15 @@ use std::path::{Path, PathBuf};
 use candle_core::Device;
 
 use crate::families::support::{
-    check_pinned_fields, check_pinned_fields_with, read_json, require_file_labeled, verify_digest,
-    verify_sized_digest, FamilyControl, FamilyError,
+    check_pinned_fields_with, read_json, require_file_labeled, verify_digest, verify_sized_digest,
+    FamilyControl, FamilyError,
 };
 use crate::qwen35::{EmbeddingLayout, Qwen35Geometry, TextBackbone};
 
-use super::{pinned_config, pinned_decision_config, D3Profile, CODE_TABLE_WIDTH, VOCAB_SIZE};
+use super::{
+    pinned_config, pinned_decision_config, D3Profile, PromptLayout, CODE_TABLE_WIDTH,
+    PPLX_JOINT_CONFIG_SHA256, VOCAB_SIZE,
+};
 
 /// Tensor namespace of the text-only `Qwen3_5Model` checkpoints (no
 /// `model.` prefix and no vision-tower indirection; the shipped vision
@@ -57,6 +60,7 @@ impl VerifiedArtifacts {
         let tokenizer_config = model_root.join("tokenizer_config.json");
         let chat_template = model_root.join("chat_template.jinja");
         let readout = model_root.join("readout.safetensors");
+        let joint_config = model_root.join("joint_config.json");
         let small: [(&Path, &str, &str); 5] = [
             (&config_path, "config.json", profile.config_json_sha256),
             (
@@ -82,6 +86,13 @@ impl VerifiedArtifacts {
         for (path, _, expected) in &small {
             verify_digest(path, expected)?;
         }
+        // The chunked protocol declaration travels beside the weights; a
+        // different protocol would change the prompt bytes this profile
+        // reproduces.
+        if profile.layout == PromptLayout::PplxChunked {
+            require_file_labeled(&joint_config, "artifact joint_config.json")?;
+            verify_digest(&joint_config, PPLX_JOINT_CONFIG_SHA256)?;
+        }
 
         let config_json: serde_json::Value = read_json(&config_path)?;
         check_pinned_fields_with(
@@ -101,7 +112,23 @@ impl VerifiedArtifacts {
             },
         )?;
         let decision_config: serde_json::Value = read_json(&decision_config_path)?;
-        check_pinned_fields(&decision_config, &pinned_decision_config(profile))?;
+        check_pinned_fields_with(
+            &decision_config,
+            &pinned_decision_config(profile),
+            |field, expected, actual| {
+                // serde_json's default float parser can land one ULP away
+                // from the correctly rounded value, so the fitted
+                // temperature compares with a 1e-12 relative tolerance.
+                if field == "temperature" {
+                    match (expected.as_f64(), actual.as_f64()) {
+                        (Some(e), Some(a)) => (e - a).abs() <= e.abs() * 1e-12,
+                        _ => false,
+                    }
+                } else {
+                    actual == expected
+                }
+            },
+        )?;
 
         let mut shards = Vec::with_capacity(profile.shards.len());
         for (name, bytes, sha256) in profile.shards {
