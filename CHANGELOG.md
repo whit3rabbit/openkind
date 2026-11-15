@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.0 (planned)
+
 ### Added
 
 - Perplexity Decider v1.3 support on the `d3` execution path, with a second prompt layout
@@ -15,8 +17,15 @@
   shipped chat template on nine request shapes. Flash also matches the shipped PyTorch package
   within 7e-6 on one three-question request on CPU and MLX FP32. The 27B runs on MLX with 4-bit
   quantization at load (no reference to compare on a 36 GiB host). The MLX loader now reads only
-  the tensors it keeps and quantizes shard by shard, and leaves 1-D norm vectors dense. Locate, images, and the `isolated` mode are not implemented.
-  See [`docs/RESEARCH.md`](docs/RESEARCH.md#perplexity-decider-v13-reviewed-2026-11-14).
+  the tensors it keeps and quantizes shard by shard, and leaves 1-D norm vectors dense. Locate,
+  images, and the `isolated` mode are not implemented. See [`docs/RESEARCH.md`](docs/RESEARCH.md#perplexity-decider-v13-reviewed-2026-11-14).
+
+### Changed
+
+- The pinned model catalog gains `pplx-decider-flash` (35 profiles); its digest-named catalog is
+  published on the public mirror. `registry/v1/mlx-alternatives.json` records the Flash entry.
+- The pinned `decision_config.json` temperature now compares within a 1e-12 relative tolerance,
+  because `serde_json` can parse a float one ULP from its correctly rounded value.
 
 ## 0.5.1 (2026-11-09)
 
