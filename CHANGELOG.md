@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## 0.6.0 (planned)
+## 0.6.0 (2026-11-14)
 
 ### Added
 
