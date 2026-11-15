@@ -12,7 +12,7 @@ use openkind_backends::families::clef::{
     ClefEngine, ClefProfile, CLEF_27B_GGUF, CLEF_FLASH, CLEF_FLASH_GGUF,
 };
 use openkind_backends::families::d3::{
-    D3Engine, D3EngineConfig, D3_EDGE, D3_FLASH, D3_LITE, D3_MINI, D3_NANO,
+    D3Engine, D3EngineConfig, D3_EDGE, D3_FLASH, D3_LITE, D3_MINI, D3_NANO, PPLX_FLASH,
 };
 use openkind_backends::families::decider::{DeciderEngine, DeciderEngineConfig, DECIDER_4B};
 use openkind_backends::families::decoder_logit_letter::{
@@ -79,9 +79,9 @@ use openkind_model_store::{
     DECODER_LOGIT_QWEN3_4B_MODEL_NAME, DREX_V15_MODEL_NAME, ENCODER_INSTRUCT_LABEL_MODEL_NAME,
     ENCODER_NLI_MODEL_NAME, JEEVES_MODEL_NAME, KEV_MODEL_NAME, LAYA_ENGLISH_MODEL_NAME,
     LAYA_MULTILINGUAL_MODEL_NAME, LAYA_TYPED_DECISIONS_MODEL_NAME, PLUMB_4B_MODEL_NAME,
-    QWEN35_STATE_FIRST_MODEL_NAME, QWEN3GUARD_MODEL_NAME, SCHEMA_SCORER_MODEL_NAME,
-    SIEVE_4B_MODEL_NAME, STRANDS_DECIDER_2B_MODEL_NAME, STRANDS_DECIDER_2B_V21_MODEL_NAME,
-    VON_MODEL_NAME, WINNOW_E4B_MODEL_NAME, WINNOW_MODEL_NAME,
+    PPLX_DECIDER_FLASH_MODEL_NAME, QWEN35_STATE_FIRST_MODEL_NAME, QWEN3GUARD_MODEL_NAME,
+    SCHEMA_SCORER_MODEL_NAME, SIEVE_4B_MODEL_NAME, STRANDS_DECIDER_2B_MODEL_NAME,
+    STRANDS_DECIDER_2B_V21_MODEL_NAME, VON_MODEL_NAME, WINNOW_E4B_MODEL_NAME, WINNOW_MODEL_NAME,
 };
 
 use crate::args::{
@@ -229,6 +229,11 @@ pub(crate) fn installed_kind(manifest: &Manifest) -> Option<InstalledKind> {
         }
         (D3_FLASH_MODEL_NAME, "d3-flash") if profile == D3_FLASH.profile_id => {
             Some(InstalledKind::D3(&D3_FLASH))
+        }
+        (PPLX_DECIDER_FLASH_MODEL_NAME, "pplx-decider-flash")
+            if profile == PPLX_FLASH.profile_id =>
+        {
+            Some(InstalledKind::D3(&PPLX_FLASH))
         }
         (SIEVE_4B_MODEL_NAME, "sieve-4b") if profile == SIEVE_4B.profile_id => {
             Some(InstalledKind::Sieve(&SIEVE_4B))

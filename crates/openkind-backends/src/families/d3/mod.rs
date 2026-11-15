@@ -23,6 +23,15 @@
 //! | `d3-mini` (v3.1.0 release) | `vllm-sr/d3-mini` | 32-layer Qwen3.5-4B |
 //! | `d3-flash` (v3.1.0 release) | `vllm-sr/d3-flash` | 32-layer Qwen3.5-9B |
 //!
+//! Two further profiles, `pplx-decider-flash` and `pplx-decider-27b`
+//! (Perplexity Decider v1.3, Apache-2.0), run the same forward and readout
+//! under a second prompt layout, [`PromptLayout::PplxChunked`]: a templated
+//! state context, a `<|fim_middle|>` separator, one separately tokenized
+//! question chunk, and a `<|fim_suffix|>` marker as the readout position
+//! (the reference's `separate` mode; `isolated`, images, and Locate are not
+//! implemented). Their fitted temperature is applied once. See
+//! `docs/families/d3.md`.
+//!
 //! Work limits: every question is one full forward, so each profile caps a
 //! question's prompt at [`D3Profile::max_row_tokens`] and the sum over a
 //! request's questions at [`D3Profile::max_request_tokens`]. Both are
@@ -90,6 +99,28 @@ pub const DECLARED_PROBABILITY_SPACE: ProbabilitySpace =
 /// can record acceptance against a declared operating point.
 pub const POLICY_THRESHOLD: f64 = 0.60;
 
+/// Prompt layout of a profile. Both layouts run the same noncausal Qwen3.5
+/// forward and the same last-position 255-code readout; they differ in the
+/// prompt bytes the readout position follows and in the shipped
+/// `decision_config.json` contract.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PromptLayout {
+    /// `vllm-sr/d3`: one chat-template decision block per question,
+    /// readout at the generation-prompt tail (`d3-code-readout-v1`).
+    D3,
+    /// Perplexity Decider v1.3: the chunked joint protocol (version 4). A
+    /// templated state context ends at a `<|fim_middle|>` separator, one
+    /// question chunk follows, and the `<|fim_suffix|>` marker is the
+    /// readout position. Only the evaluated `separate` mode (one sequence
+    /// per question) is implemented.
+    PplxChunked,
+}
+
+/// SHA-256 of the `joint_config.json` both Perplexity Decider v1.3
+/// checkpoints ship (`joint-chunked-readout-v1`, protocol version 4).
+pub(crate) const PPLX_JOINT_CONFIG_SHA256: &str =
+    "f7836e2e3fdaebaee8705e2ca25f5bb75bb146043ad530c84a6779a4af90801b";
+
 /// Everything pinned about one profile of this family.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct D3Profile {
@@ -102,6 +133,9 @@ pub struct D3Profile {
     pub backbone_revision: &'static str,
     /// Stable derived profile ID.
     pub profile_id: &'static str,
+    /// Prompt layout and `decision_config.json` contract the checkpoint
+    /// was trained under.
+    pub layout: PromptLayout,
     /// Frozen backbone geometry (noncausal full attention).
     pub geometry: crate::qwen35::Qwen35Geometry,
     /// Checkpoint shards as `(path, bytes, sha256)` under the model root.
@@ -166,6 +200,7 @@ pub const D3_EDGE: D3Profile = D3Profile {
     backbone_id: "vllm-sr/d3-edge",
     backbone_revision: "18d61df78684675463af9ae732872478845c5a79",
     profile_id: "664f9ead734372935286",
+    layout: PromptLayout::D3,
     // The pinned `text_config.layer_types` of the pruned checkpoint: the
     // uniform 3:1 interval is declared but the 12-layer prune keeps an
     // irregular subset.
@@ -220,6 +255,7 @@ pub const D3_LITE: D3Profile = D3Profile {
     backbone_id: "vllm-sr/d3-lite",
     backbone_revision: "a8d25a91ef75552803f7009d25b7bd435991abd9",
     profile_id: "e0dd32dbc16b27546692",
+    layout: PromptLayout::D3,
     geometry: crate::qwen35::Qwen35Geometry::BASE_08B.with_causal(false),
     shards: &[(
         "model-00001-of-00001.safetensors",
@@ -258,6 +294,7 @@ pub const D3_NANO: D3Profile = D3Profile {
     backbone_id: "vllm-sr/d3-nano",
     backbone_revision: "3aeb1c22a5632aac72353c36b3d0111c40e7dbf4",
     profile_id: "0198af5b5c8e8835605e",
+    layout: PromptLayout::D3,
     geometry: crate::qwen35::Qwen35Geometry::BASE_2B.with_causal(false),
     shards: &[(
         "model.safetensors",
@@ -301,6 +338,7 @@ pub const D3_MINI: D3Profile = D3Profile {
     backbone_id: "vllm-sr/d3-mini",
     backbone_revision: "a475367de0d8133a3c1a2a0dc12303d89cfa2ab4",
     profile_id: "434dbc50d3b581663e52",
+    layout: PromptLayout::D3,
     geometry: crate::qwen35::Qwen35Geometry::PINNED.with_causal(false),
     shards: &[
         (
@@ -347,6 +385,7 @@ pub const D3_FLASH: D3Profile = D3Profile {
     backbone_id: "vllm-sr/d3-flash",
     backbone_revision: "521525effa79469d899a570726547dd7f00da3af",
     profile_id: "b2a4750f8bf4a1fa58cb",
+    layout: PromptLayout::D3,
     geometry: crate::qwen35::Qwen35Geometry::CLEF_FLASH.with_causal(false),
     shards: &[
         (
@@ -392,8 +431,163 @@ pub const D3_FLASH: D3Profile = D3Profile {
                   (Apache-2.0, d3-code-readout-v1); prototype readout, research status",
 };
 
+/// Pinned `perplexity-ai/pplx-decider-flash-v1.3` (Perplexity Decider Flash
+/// v1.3, Apache-2.0) at its pinned release commit: a 32-layer Qwen3.5-4B
+/// hybrid distilled from the 27B model (noncausal full attention) plus a
+/// separate `[255, 2560]` BF16 code readout, read at the `<|fim_suffix|>`
+/// marker of the chunked joint protocol. The vision tower and the Locate
+/// adapter that ship in the repository are not executed.
+pub const PPLX_FLASH: D3Profile = D3Profile {
+    loader_id: "pplx-decider-flash",
+    backbone_id: "perplexity-ai/pplx-decider-flash-v1.3",
+    backbone_revision: "d06fb3f2d97e0a52325a0d463c450cf0338f44fe",
+    profile_id: "3722c64ec29836dc7608",
+    layout: PromptLayout::PplxChunked,
+    geometry: crate::qwen35::Qwen35Geometry::PINNED.with_causal(false),
+    shards: &[
+        (
+            "model-00001-of-00002.safetensors",
+            4_972_946_624,
+            "0048d1ddf2c5754fc05540fccdbc4ac50407e5cf14a35326be01cac0756b4de6",
+        ),
+        (
+            "model-00002-of-00002.safetensors",
+            4_105_669_472,
+            "40e0c0ccb3248a59db0724ffd1ad1c81fc935d9f474e6fd52e9df32af4690608",
+        ),
+    ],
+    readout_sha256: "46358a2e2639f1956561687ba261dd9b37506f878e90eb5eabc15f114532bec3",
+    readout_bytes: 1_305_712,
+    config_json_sha256: "1bdb718faa99e32673f1622ea2f536affe20867bcb4703888aac9a030ec59e22",
+    decision_config_sha256: "f2068e686bf676fa14374d91c5979ca56b93f2c9bdaa990d6090681edfc6eb69",
+    tokenizer_json_sha256: "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+    tokenizer_config_json_sha256:
+        "7488550a894dcf741616126e322ea31d66cf9457b59ec5825f4c7efdced421f8",
+    chat_template_sha256: "a4aee8afcf2e0711942cf848899be66016f8d14a889ff9ede07bca099c28f715",
+    temperature: 1.3302962111834522,
+    declared_base_id: "Qwen/Qwen3.5-4B",
+    declared_base_revision: "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+    max_candidates: 255,
+    max_score_levels: 255,
+    // The reference's per-sequence default (`DEFAULT_MAX_LENGTH`); over-length
+    // questions are rejected there too, never truncated.
+    max_row_tokens: 32_768,
+    max_request_tokens: 262_144,
+    cpu_backend_id: "pplx-decider-flash/cpu-fp32",
+    cuda_backend_id: "pplx-decider-flash/cuda-fp32",
+    release_date: "2026-11-14",
+    description:
+        "Pinned pplx-decider-flash noncausal 32-layer Qwen3.5-4B chunked-readout decision engine \
+                  (Apache-2.0, joint-chunked-readout-v1); prototype readout, research status",
+};
+
+/// Pinned `perplexity-ai/pplx-decider-v1.3` (Perplexity Decider v1.3,
+/// Apache-2.0) at its pinned release commit: the 64-layer 27B hybrid
+/// (Qwen3.8-27B base; the text geometry is the Clef 27B geometry:
+/// hidden 5,120, 16/48 DeltaNet heads, 24/4 attention heads) with noncausal
+/// full attention plus a separate `[255, 5120]` BF16 code readout. The 54
+/// GB BF16 shards make CPU execution host-infeasible on typical machines;
+/// the MLX path quantizes at load. The vision tower and the Locate adapter
+/// are not executed.
+pub const PPLX_27B: D3Profile = D3Profile {
+    loader_id: "pplx-decider-27b",
+    backbone_id: "perplexity-ai/pplx-decider-v1.3",
+    backbone_revision: "9c2ebb27470d3dec2ad7ab727727e40d142c7213",
+    profile_id: "3fb0e5cad59b2a250aec",
+    layout: PromptLayout::PplxChunked,
+    geometry: crate::qwen35::Qwen35Geometry::CLEF.with_causal(false),
+    shards: &[
+        (
+            "model-00001-of-00011.safetensors",
+            4_842_451_656,
+            "683762f9ba120ed6980f6888d808c55812d1f3c54d79517aab7b0f5705ec7b20",
+        ),
+        (
+            "model-00002-of-00011.safetensors",
+            4_965_227_416,
+            "b8a1694cc4ef7ae24e411adab0092e87a78abe547c97c47a8e19c57e345f1738",
+        ),
+        (
+            "model-00003-of-00011.safetensors",
+            4_912_818_744,
+            "2ee7d8d814af369542d01b590f701c5f42e22ee756235a52125232f3d6e1a9b0",
+        ),
+        (
+            "model-00004-of-00011.safetensors",
+            4_986_198_024,
+            "e853d09c8b2dedcb3f1a28d10f406df732d54d7603f55b1e6133e56deef8d3e5",
+        ),
+        (
+            "model-00005-of-00011.safetensors",
+            4_912_818_800,
+            "87e712601578fccf91b0874c6972dd24ff1368e80d3075c0577eae956a07d637",
+        ),
+        (
+            "model-00006-of-00011.safetensors",
+            4_932_702_808,
+            "a19864e0e8e77147ba8f0d0005dc70fca46f1521e24bcab2334a53492d2c4062",
+        ),
+        (
+            "model-00007-of-00011.safetensors",
+            4_966_314_000,
+            "7a84ac88396740b1d02e88be50c4926bea99a3ec430dcac8b26738c8f1e4727a",
+        ),
+        (
+            "model-00008-of-00011.safetensors",
+            4_964_161_752,
+            "413bd8c46e78ae179382511fdc0c0134a4db7d532f1981594b0fb6a55c0df36e",
+        ),
+        (
+            "model-00009-of-00011.safetensors",
+            4_933_789_312,
+            "afb31b650ae67b9b271ee02a251e6ac5b775e811db0abe6084789d8920c83e6a",
+        ),
+        (
+            "model-00010-of-00011.safetensors",
+            4_965_227_504,
+            "733da075428d6eb9ff0d6fc6e07caf482d70c1c86d77e4f37238fe4721be04f4",
+        ),
+        (
+            "model-00011-of-00011.safetensors",
+            2_789_092_720,
+            "e68776c2fd0f3a503049fce03f4612850045a618819992af564967ed089878c3",
+        ),
+    ],
+    readout_sha256: "46928c7cd0084289f6237a833720683c9d8ff91965706e746cc34b3ef0f12039",
+    readout_bytes: 2_611_312,
+    config_json_sha256: "687f20bf493b8ee787dadaf338cf6df644dad44e32bcd2c3677a47c6c213d8b3",
+    decision_config_sha256: "4ee1c1e80044f6249c82e644b5334678670701b87f3972989c542ca86483e200",
+    tokenizer_json_sha256: "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+    tokenizer_config_json_sha256:
+        "7488550a894dcf741616126e322ea31d66cf9457b59ec5825f4c7efdced421f8",
+    chat_template_sha256: "c3cf9e34abf4f9e36c2d72165aa9c132d3e2a725b6c2586aaa3a8af9d7a81041",
+    temperature: 1.2263882168038833,
+    declared_base_id: "Qwen/Qwen3.8-27B",
+    declared_base_revision: "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    max_candidates: 255,
+    max_score_levels: 255,
+    // The reference's per-sequence default (`DEFAULT_MAX_LENGTH`); over-length
+    // questions are rejected there too, never truncated.
+    max_row_tokens: 32_768,
+    max_request_tokens: 262_144,
+    cpu_backend_id: "pplx-decider-27b/cpu-fp32",
+    cuda_backend_id: "pplx-decider-27b/cuda-fp32",
+    release_date: "2026-11-14",
+    description:
+        "Pinned pplx-decider-27b noncausal 64-layer Qwen3.8-27B chunked-readout decision engine \
+                  (Apache-2.0, joint-chunked-readout-v1); prototype readout, research status",
+};
+
 /// Profiles of this family, in catalog order.
-pub const PROFILES: &[&D3Profile] = &[&D3_EDGE, &D3_LITE, &D3_NANO, &D3_MINI, &D3_FLASH];
+pub const PROFILES: &[&D3Profile] = &[
+    &D3_EDGE,
+    &D3_LITE,
+    &D3_NANO,
+    &D3_MINI,
+    &D3_FLASH,
+    &PPLX_FLASH,
+    &PPLX_27B,
+];
 
 /// Resolve a CLI short name (`edge`, `lite`, ...) to its profile. The short
 /// names are the `--d3-aliases` / `--d3-model-roots` entry keys.
@@ -404,6 +598,8 @@ pub fn profile_by_short_name(short: &str) -> Option<&'static D3Profile> {
         "nano" => Some(&D3_NANO),
         "mini" => Some(&D3_MINI),
         "flash" => Some(&D3_FLASH),
+        "pplx-flash" => Some(&PPLX_FLASH),
+        "pplx-27b" => Some(&PPLX_27B),
         _ => None,
     }
 }
@@ -498,17 +694,31 @@ pub(crate) fn pinned_decision_config(
     profile: &D3Profile,
 ) -> Vec<(&'static str, serde_json::Value)> {
     use serde_json::json;
-    vec![
-        ("format_id", json!("d3-code-readout-v1")),
-        ("format_version", json!(1)),
-        ("prompt", json!("d3")),
-        ("attention_mode", json!("noncausal_full_attention")),
-        ("pooling", json!("last")),
-        ("readout_dtype", json!("float32")),
-        ("temperature", json!(profile.temperature)),
-        ("base_model", json!(profile.declared_base_id)),
-        ("revision", json!(profile.declared_base_revision)),
-    ]
+    match profile.layout {
+        PromptLayout::D3 => vec![
+            ("format_id", json!("d3-code-readout-v1")),
+            ("format_version", json!(1)),
+            ("prompt", json!("d3")),
+            ("attention_mode", json!("noncausal_full_attention")),
+            ("pooling", json!("last")),
+            ("readout_dtype", json!("float32")),
+            ("temperature", json!(profile.temperature)),
+            ("base_model", json!(profile.declared_base_id)),
+            ("revision", json!(profile.declared_base_revision)),
+        ],
+        // Perplexity ships no format id; its `joint_config.json` carries the
+        // protocol and is digest-pinned beside this file. The temperature is
+        // fitted per checkpoint and applied exactly once.
+        PromptLayout::PplxChunked => vec![
+            ("format_version", json!(2)),
+            ("model_type", json!("qwen3_5")),
+            ("attention_mode", json!("noncausal_full_attention")),
+            ("pooling", json!("last")),
+            ("temperature", json!(profile.temperature)),
+            ("base_model", json!(profile.declared_base_id)),
+            ("revision", json!(profile.declared_base_revision)),
+        ],
+    }
 }
 
 /// Errors raised while loading or evaluating a pinned profile.
@@ -589,7 +799,14 @@ mod tests {
                 profile.loader_id
             );
             assert_eq!(profile.geometry.full_attention_interval, 4);
-            assert_eq!(profile.temperature, 1.0);
+            match profile.layout {
+                PromptLayout::D3 => assert_eq!(profile.temperature, 1.0),
+                // Fitted per checkpoint; always a finite temperature above 1
+                // (the raw logits are overconfident).
+                PromptLayout::PplxChunked => {
+                    assert!(profile.temperature.is_finite() && profile.temperature > 1.0)
+                }
+            }
             assert_eq!(profile.max_candidates, CODE_TABLE_WIDTH);
             assert!(profile.max_score_levels <= CODE_TABLE_WIDTH);
         }
@@ -602,9 +819,14 @@ mod tests {
         // change an answer the reference would give.
         const REFERENCE_CONTEXT_TOKENS: usize = 262_144;
         for profile in PROFILES {
+            let decided_row_cap = match profile.layout {
+                PromptLayout::D3 => 65_536,
+                // The Perplexity reference's own per-sequence default.
+                PromptLayout::PplxChunked => 32_768,
+            };
             assert_eq!(
-                profile.max_row_tokens, 65_536,
-                "{}: the per-question cap is the decided 65,536 tokens",
+                profile.max_row_tokens, decided_row_cap,
+                "{}: the per-question cap is the decided token count",
                 profile.loader_id
             );
             assert!(
@@ -634,11 +856,18 @@ mod tests {
                 .declared_base_id
                 .strip_prefix("Qwen/")
                 .expect("pinned base ids live under Qwen/");
-            let expected = format!(
-                "Pinned {} noncausal {}-layer {base} code-readout decision engine \
-                 (Apache-2.0, d3-code-readout-v1); prototype readout, research status",
-                profile.loader_id, profile.geometry.layer_count
-            );
+            let expected = match profile.layout {
+                PromptLayout::D3 => format!(
+                    "Pinned {} noncausal {}-layer {base} code-readout decision engine \
+                     (Apache-2.0, d3-code-readout-v1); prototype readout, research status",
+                    profile.loader_id, profile.geometry.layer_count
+                ),
+                PromptLayout::PplxChunked => format!(
+                    "Pinned {} noncausal {}-layer {base} chunked-readout decision engine \
+                     (Apache-2.0, joint-chunked-readout-v1); prototype readout, research status",
+                    profile.loader_id, profile.geometry.layer_count
+                ),
+            };
             assert_eq!(profile.description, expected, "{}", profile.loader_id);
             assert!(
                 !profile.description.contains("  "),

@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Added
+
+- Perplexity Decider v1.3 support on the `d3` execution path, with a second prompt layout
+  (`PromptLayout::PplxChunked`, the chunked joint protocol version 4). `pplx-decider-flash`
+  (`perplexity-ai/pplx-decider-flash-v1.3`, Qwen3.5-4B) is catalog-installable
+  (`openkind pull pplx-decider:flash-v1.3`). `pplx-decider-27b` (`pplx-decider-v1.3`,
+  Qwen3.8-27B) loads from a local model root with `--d3-model-roots pplx-27b=<path>`; its
+  ~54 GB BF16 weights exceed the model store's 32 GiB installation limit. Both are wired into
+  `openkind-bench score` (`pplx-decider-flash`, `pplx-decider-27b`) and the MLX path (the 27B
+  quantizes at load). Prompt ids match an independent jinja2 and `tokenizers` rendering of the
+  shipped chat template on nine request shapes. Flash also matches the shipped PyTorch package
+  within 7e-6 on one three-question request on CPU and MLX FP32. The 27B runs on MLX with 4-bit
+  quantization at load (no reference to compare on a 36 GiB host). The MLX loader now reads only
+  the tensors it keeps and quantizes shard by shard, and leaves 1-D norm vectors dense. Locate, images, and the `isolated` mode are not implemented.
+  See [`docs/RESEARCH.md`](docs/RESEARCH.md#perplexity-decider-v13-reviewed-2026-11-14).
+
 ## 0.5.1 (2026-11-09)
 
 ### Changed

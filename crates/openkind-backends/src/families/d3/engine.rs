@@ -11,10 +11,8 @@ use crate::families::support::{
 use crate::families::wire;
 
 use super::model::{D3Model, VerifiedArtifacts};
-use super::renderer::{
-    described_option, state_text, D3Renderer, RenderedRow, NOUL_DEFAULT_DESCRIPTIONS,
-};
-use super::{D3EngineConfig, D3Error, D3Profile};
+use super::renderer::{described_option, D3Renderer, RenderedRow, NOUL_DEFAULT_DESCRIPTIONS};
+use super::{D3EngineConfig, D3Error, D3Profile, PromptLayout};
 
 /// Loaded pinned engine for one profile of the family.
 pub struct D3Engine {
@@ -155,8 +153,12 @@ fn plan_question(
             // Reference `normalize_question`: the level texts are the option
             // keys, so they must be distinct and nonempty (Python
             // `describe` of a string level is the string itself).
+            // The chunked layout labels levels by position, so duplicate or
+            // empty level texts are legal there (reference `options()`).
             let distinct: HashSet<&str> = score.criteria.iter().map(String::as_str).collect();
-            if score.criteria.iter().any(String::is_empty) || distinct.len() != levels {
+            if profile.layout == PromptLayout::D3
+                && (score.criteria.iter().any(String::is_empty) || distinct.len() != levels)
+            {
                 return Err(FamilyError::InvalidInput(format!(
                     "score question `{id}`: score levels must be distinct and nonempty"
                 )));
@@ -218,7 +220,7 @@ pub(crate) fn plan_owned_request(
 ) -> Result<PlannedRequest, FamilyError> {
     // Every question's prompt embeds the same state text, so render it once
     // per request.
-    let rendered_state = state_text(&state);
+    let rendered_state = renderer.render_state(&state);
     let mut questions = Vec::with_capacity(sorted.len());
     let mut input_tokens: u64 = 0;
     for (id, question) in sorted {
@@ -588,7 +590,7 @@ mod tests {
             json!({"b": [1, 2.5, null], "a": {"c": "x\n"}}),
             json!([1, "two", {"three": 3}]),
         ] {
-            let hoisted = super::state_text(&state);
+            let hoisted = renderer.render_state(&state);
             for question in ["Dark?", "Lit?"] {
                 let per_question = renderer
                     .render_row(&state, &json!(question), &options)

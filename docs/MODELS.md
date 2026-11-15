@@ -56,6 +56,7 @@ input token rates, and strategy caveats are in the per-backend table below).
 | [`d3-nano`](families/d3.md) | Qwen3.5 hybrid decoder, 24 layers, noncausal full attention (255-code readout, `d3-code-readout-v1`), 2B | 262,144 | [vllm-sr/d3-nano](https://huggingface.co/vllm-sr/d3-nano) | `d3-nano:0198af5b5c8e8835605e` (`d3:nano`) | 4.44 GB | measured run pending | — | [bring-up + prompt parity](families/d3.md) |
 | [`d3-mini`](families/d3.md) | Qwen3.5 hybrid decoder, 32 layers, noncausal full attention (255-code readout, `d3-code-readout-v1`), 4B | 262,144 | [vllm-sr/d3-mini](https://huggingface.co/vllm-sr/d3-mini) | `d3-mini:434dbc50d3b581663e52` (`d3:mini`) | 9.09 GB | measured run pending | — | [bring-up + prompt parity](families/d3.md) |
 | [`d3-flash`](families/d3.md) | Qwen3.5 hybrid decoder, 32 layers, noncausal full attention (255-code readout, `d3-code-readout-v1`), 9B | 262,144 | [vllm-sr/d3-flash](https://huggingface.co/vllm-sr/d3-flash) | `d3-flash:b2a4750f8bf4a1fa58cb` (`d3:flash`) | 16.80 GB | measured run pending | — | [bring-up + prompt parity](families/d3.md) |
+| [`pplx-decider-flash`](families/d3.md#perplexity-decider-v13-chunked-readout-layout) | Qwen3.5 hybrid decoder, 32 layers, noncausal full attention (255-code chunked readout, joint protocol v4, fitted temperature 1.33), 4B, distilled from the 27B | 262,144 | [perplexity-ai/pplx-decider-flash-v1.3](https://huggingface.co/perplexity-ai/pplx-decider-flash-v1.3) | `pplx-decider-flash:3722c64ec29836dc7608` (`pplx-decider:flash-v1.3`) | 9.10 GB | measured run pending | — | [prompt parity](families/d3.md#perplexity-decider-v13-chunked-readout-layout) |
 | [`sieve-4b`](families/sieve.md) | Qwen3.5 hybrid decoder + rank-32 LoRA, causal, fenced-state branches (255-code head), 4B | 262,144 | [sthanika-ai/Sieve-4B](https://huggingface.co/sthanika-ai/Sieve-4B) over [Qwen/Qwen3.5-4B](https://huggingface.co/Qwen/Qwen3.5-4B) | `sieve-4b:8b97b56524b55c41fbf4` (`sieve:4b`) | 9.60 GB | measured run pending | — | [bring-up + prompt parity](families/sieve.md) |
 | [`strands-decider-2b`](families/strands-decider.md) (Hobson v19) | Qwen3.5 hybrid decoder (LoRA + pointer head readout), 2B | 262,144 | [StrandsAgents/strands-decider-2B-hobson-v19](https://huggingface.co/StrandsAgents/strands-decider-2B-hobson-v19) over [Qwen/Qwen3.5-2B-Base](https://huggingface.co/Qwen/Qwen3.5-2B-Base) | `strands-decider-2b:6a02bb0d1c6b25cae74b` | 4.64 GB | 9.01 GB · 0.31/s | — | [bring-up + cross-check](benchmarks/2026-10-01-strands-decider/README.md) |
 | [`strands-decider-2b`](families/strands-decider.md) (Hobson v21) | Qwen3.5 hybrid decoder (LoRA + pointer head readout), 2B | 262,144 | [StrandsAgents/strands-decider-2B-hobson-v21](https://huggingface.co/StrandsAgents/strands-decider-2B-hobson-v21) over [Qwen/Qwen3.5-2B-Base](https://huggingface.co/Qwen/Qwen3.5-2B-Base) | `strands-decider-2b:f7156bf28400a79ea1b8` | 4.64 GB | 9.01 GB · measured run pending | — | [model card](https://huggingface.co/StrandsAgents/strands-decider-2B-hobson-v21) |
@@ -104,8 +105,12 @@ Reading notes:
 
 ## Pull a catalog model
 
-Thirty-four profiles are catalog-installable: every Rust-loadable profile
-except `router-script`, which needs no artifacts.
+Thirty-five profiles are catalog-installable: every Rust-loadable profile
+except `router-script`, which needs no artifacts, and the 27B Perplexity
+Decider v1.3 (`pplx-decider-27b`), whose BF16 weights (about 54 GB) exceed the
+model store's 32 GiB per-model installation limit. That profile loads from a
+local model root through `--d3-model-roots pplx-27b=<path>`; see
+[`families/d3.md`](families/d3.md#perplexity-decider-v13-chunked-readout-layout).
 Jeeves serving requires macOS arm64 and an `mlx` build. `openkind pull NAME`
 downloads pinned artifacts, verifies every digest, and installs them for the
 daemon:
@@ -167,6 +172,7 @@ both spellings. The alias policy:
 | `d3:nano` | `d3-nano:0198af5b5c8e8835605e` | Decision Index board family name; checkpoint pinned directly at the evaluated release commit |
 | `d3:mini` | `d3-mini:434dbc50d3b581663e52` | Decision Index board family name; checkpoint pinned directly at the evaluated release commit |
 | `d3:flash` | `d3-flash:b2a4750f8bf4a1fa58cb` | Decision Index board family name; checkpoint pinned directly at the evaluated release commit |
+| `pplx-decider:flash-v1.3` | `pplx-decider-flash:3722c64ec29836dc7608` | checkpoint name and release version; pinned directly at Perplexity's repository, no mirrored files |
 | `sieve:4b` | `sieve-4b:8b97b56524b55c41fbf4` | Decision Index board family name; base, adapter, and head pinned directly |
 | `winnow:e4b` | `winnow-e4b:656ac636ce450cf79c7d` | same canonical `EldanRing/Winnow-E4B` Q8_0 GGUF both registries reference from the author's repository; served through llama.cpp there and the candle kernels here |
 | `clef:flash` | `clef-flash:dfe12a21a5c9dd5b2fb1` | model-family board name; checkpoint pinned directly |

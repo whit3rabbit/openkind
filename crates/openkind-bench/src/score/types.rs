@@ -54,6 +54,14 @@ pub enum EngineKind {
     /// Pinned d3-flash engine (noncausal 255-code readout).
     #[allow(dead_code)]
     D3Flash,
+    /// Pinned Perplexity Decider Flash v1.3 engine (noncausal chunked
+    /// 255-code readout).
+    #[allow(dead_code)]
+    PplxDeciderFlash,
+    /// Pinned Perplexity Decider v1.3 (27B) engine (noncausal chunked
+    /// 255-code readout).
+    #[allow(dead_code)]
+    PplxDecider27b,
     /// Pinned sieve-4b engine (causal LoRA-merged code-readout).
     #[allow(dead_code)]
     Sieve4b,
@@ -181,6 +189,8 @@ pub(crate) fn native_backend(engine: EngineKind) -> Qwen35Backend {
         | EngineKind::D3Nano
         | EngineKind::D3Mini
         | EngineKind::D3Flash
+        | EngineKind::PplxDeciderFlash
+        | EngineKind::PplxDecider27b
         | EngineKind::Sieve4b
         | EngineKind::WinnowE4b
         | EngineKind::ClefFlash
@@ -255,6 +265,8 @@ pub(crate) fn engine_slug(engine: EngineKind) -> &'static str {
         EngineKind::D3Nano => "d3-nano",
         EngineKind::D3Mini => "d3-mini",
         EngineKind::D3Flash => "d3-flash",
+        EngineKind::PplxDeciderFlash => "pplx-decider-flash",
+        EngineKind::PplxDecider27b => "pplx-decider-27b",
         EngineKind::Sieve4b => "sieve-4b",
         EngineKind::WinnowE4b => "winnow-e4b",
         EngineKind::ClefFlash => "clef-flash",
@@ -372,6 +384,8 @@ pub fn is_family_engine_public(engine: EngineKind) -> bool {
             | EngineKind::D3Nano
             | EngineKind::D3Mini
             | EngineKind::D3Flash
+            | EngineKind::PplxDeciderFlash
+            | EngineKind::PplxDecider27b
             | EngineKind::Sieve4b
             | EngineKind::WinnowE4b
             | EngineKind::ClefFlash
@@ -482,6 +496,16 @@ pub(crate) fn family_identity(
             openkind_backends::families::d3::FAMILY_SLUG,
             openkind_backends::families::d3::D3_FLASH.profile_id,
             openkind_backends::families::d3::D3_FLASH.backbone_revision,
+        )),
+        EngineKind::PplxDeciderFlash => Some((
+            openkind_backends::families::d3::FAMILY_SLUG,
+            openkind_backends::families::d3::PPLX_FLASH.profile_id,
+            openkind_backends::families::d3::PPLX_FLASH.backbone_revision,
+        )),
+        EngineKind::PplxDecider27b => Some((
+            openkind_backends::families::d3::FAMILY_SLUG,
+            openkind_backends::families::d3::PPLX_27B.profile_id,
+            openkind_backends::families::d3::PPLX_27B.backbone_revision,
         )),
         EngineKind::Sieve4b => Some((
             openkind_backends::families::sieve::FAMILY_SLUG,
@@ -853,6 +877,8 @@ mod tests {
             (EngineKind::D3Nano, &d3::D3_NANO),
             (EngineKind::D3Mini, &d3::D3_MINI),
             (EngineKind::D3Flash, &d3::D3_FLASH),
+            (EngineKind::PplxDeciderFlash, &d3::PPLX_FLASH),
+            (EngineKind::PplxDecider27b, &d3::PPLX_27B),
         ] {
             assert_eq!(engine_slug(engine), profile.loader_id);
         }

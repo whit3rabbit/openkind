@@ -292,6 +292,20 @@ mod tests {
                 "521525effa79469d899a570726547dd7f00da3af",
             ),
             (
+                EngineKind::PplxDeciderFlash,
+                "d3",
+                "pplx-decider-flash",
+                "3722c64ec29836dc7608",
+                "d06fb3f2d97e0a52325a0d463c450cf0338f44fe",
+            ),
+            (
+                EngineKind::PplxDecider27b,
+                "d3",
+                "pplx-decider-27b",
+                "3fb0e5cad59b2a250aec",
+                "9c2ebb27470d3dec2ad7ab727727e40d142c7213",
+            ),
+            (
                 EngineKind::Sieve4b,
                 "sieve",
                 "sieve-4b",

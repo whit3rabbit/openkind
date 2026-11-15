@@ -185,7 +185,7 @@ arm64 host.
 
 ## Hugging Face MLX conversion survey
 
-The catalog has 18 profiles without a qualified MLX result. The supplemental
+The catalog has 19 profiles without a qualified MLX result. The supplemental
 [`registry/v1/mlx-alternatives.json`](../registry/v1/mlx-alternatives.json)
 records every catalog profile's current MLX status and pins each discovered
 Hugging Face lead to an immutable revision. These leads are research metadata,
@@ -210,6 +210,8 @@ daemon-registration gates in
 | `winnow-e4b` | [`gemma-4-e4b-it-bf16`](https://huggingface.co/mlx-community/gemma-4-e4b-it-bf16) | Gemma 4 base-family conversion. The Winnow fine-tune and letter-logit profile require separate weights and integration. |
 | `von` | [`answerdotai-ModernBERT-Large-Instruct-bf16`](https://huggingface.co/mlx-community/answerdotai-ModernBERT-Large-Instruct-bf16/tree/3a31b85359b2419b39e8addd4db696218a82c0f9) (also 8-bit, 6-bit, and 4-bit) and [`tasksource-ModernBERT-base-embed-bf16`](https://huggingface.co/mlx-community/tasksource-ModernBERT-base-embed-bf16/tree/d1ba4cc2280fe323abd82d731d2e178d60313175) | The Instruct conversions are separate masked-language-model classifiers, not Von's fine-tuned option-marker checkpoint or an OpenKind parity result. The embedding conversion has a different task and no declared license. |
 | `encoder-nli` | [`splade-v3-distilbert-mlx`](https://huggingface.co/NomaDamas/splade-v3-distilbert-mlx/tree/b639afadb020ad5041c9fc78495dd8c0fea656f1) | Related DistilBERT sparse-retrieval encoder under CC BY-NC-SA 4.0, not the Typeform MNLI fine-tune or its sequence-classification head. No matching MLX conversion of [`typeform/distilbert-base-uncased-mnli`](https://huggingface.co/typeform/distilbert-base-uncased-mnli) was found. |
+| `pplx-decider-flash` | None found for v1.3. Earlier release only: [`pplx-decider-flash-v1.2-mlx`](https://huggingface.co/Jakevin/pplx-decider-flash-v1.2-mlx/tree/ddabdbe27d161fb9175b8e5e3fb88ac706f70bac) | The v1.2 conversion declares protocol version 3, not the v1.3 chunked protocol. OpenKind's own FP32 MLX path matched the PyTorch package within 7e-6 on one request (see [`families/d3`](families/d3.md#perplexity-decider-v13-chunked-readout-layout)). |
+| `pplx-decider-27b` (not a catalog profile) | [`pplx-decider-v1.3-mlx-8bit`](https://huggingface.co/finngi2/pplx-decider-v1.3-mlx-8bit/tree/5747012c61878ebe80d581854cc013292a847c37) (affine 8-bit, group 64, about 31 GB, ships its own `decider_mlx.py`); earlier release: [`pplx-decider-v1.1-27b-4bit`](https://huggingface.co/mlx-community/pplx-decider-v1.1-27b-4bit/tree/66383f28b37637658b02b8e82b1029598b138642) | The v1.3 conversion is a third-party quantization of the exact 27B checkpoint, never downloaded or compared. OpenKind's loader reads the original BF16 shards and quantizes at load, not MLX-packed safetensors, so using it needs a new loader and parity run. Not in `mlx-alternatives.json`, which covers catalog profiles only. |
 | `schema-scorer` | [`all-MiniLM-L6-v2-bf16`](https://huggingface.co/mlx-community/all-MiniLM-L6-v2-bf16) | Related MiniLM embedding model, not a sentence-pair cross-encoder. OpenKind uses the MS MARCO MiniLM cross-encoder and its single-logit readout. |
 
 Hub repositories and metadata were checked on 2026-10-03. Their commit SHAs,
@@ -641,7 +643,7 @@ The custom Metal kernel families (causal convolution, QK RMSNorm and head expans
    - MLP feedforward uses `fused_swiglu` (TurboSpark `silu_mul_fp16`).
 2. **`decoder-logit-qwen35` (JevK5 / Plumb-4B)**:
    - Evaluated directly on the shared `MlxQwen35Backbone`, inheriting all 6 fused Metal kernels automatically.
-3. **`d3` (`d3-edge`, `d3-small`, `d3-base`, `d3-mini`, `d3-flash`)**:
+3. **`d3` (`d3-edge`, `d3-small`, `d3-base`, `d3-mini`, `d3-flash`, `pplx-decider-flash`, `pplx-decider-27b`)**:
    - 32-value-head models (`d3-mini` 4B, `d3-flash` 9B) execute fused linear attention via `forward_hoisted_gated_delta`.
    - Full attention layers execute `fused_apply_rotary`.
    - MLP feedforward executes `fused_swiglu`.

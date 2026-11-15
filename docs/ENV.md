@@ -282,6 +282,11 @@ names after migrating. The binding wrappers scrub `OPENDECISION_API_KEY` and
   `OPENKIND_D3_FIXTURE` names that profile's vendored fixture directory
   (default `d3_664f9ead734372935286`, the d3-edge fixture). The sieve replay
   reads `OPENKIND_SIEVE_MODEL_ROOT`, the same variable as the daemon.
+- The Perplexity Decider prompt-parity test reads
+  `OPENKIND_PPLX_FLASH_MODEL_ROOT`, a directory holding only the pinned
+  `tokenizer.json` and `decision_config.json` of
+  `perplexity-ai/pplx-decider-flash-v1.3`. It loads no weights. Unset, it
+  skips, which is not parity evidence.
 
 ## Benchmark Dataset Variables
 

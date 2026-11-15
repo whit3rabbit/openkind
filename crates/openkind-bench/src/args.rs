@@ -343,6 +343,14 @@ pub enum EngineArg {
     /// hybrid backbone).
     #[value(name = "d3-flash")]
     D3Flash,
+    /// Pinned Perplexity Decider Flash v1.3 engine (noncausal 255-code
+    /// chunked-readout on the Qwen3.5-4B hybrid backbone).
+    #[value(name = "pplx-decider-flash")]
+    PplxDeciderFlash,
+    /// Pinned Perplexity Decider v1.3 engine (noncausal 255-code
+    /// chunked-readout on the 27B hybrid backbone).
+    #[value(name = "pplx-decider-27b")]
+    PplxDecider27b,
     /// Pinned sieve-4b engine (causal LoRA-merged code-readout on the
     /// Qwen3.5-4B hybrid backbone).
     #[value(name = "sieve-4b")]
@@ -491,6 +499,8 @@ impl From<EngineArg> for EngineKind {
             EngineArg::D3Nano => EngineKind::D3Nano,
             EngineArg::D3Mini => EngineKind::D3Mini,
             EngineArg::D3Flash => EngineKind::D3Flash,
+            EngineArg::PplxDeciderFlash => EngineKind::PplxDeciderFlash,
+            EngineArg::PplxDecider27b => EngineKind::PplxDecider27b,
             EngineArg::Sieve4b => EngineKind::Sieve4b,
             EngineArg::WinnowE4b => EngineKind::WinnowE4b,
             EngineArg::ClefFlash => EngineKind::ClefFlash,

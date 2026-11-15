@@ -206,6 +206,21 @@
       ]
     },
     {
+      "catalog_name": "pplx-decider-flash:3722c64ec29836dc7608",
+      "openkind_mlx_status": "unqualified",
+      "assessment": "OpenKind has an MLX FP32 execution path for this profile (the d3 MLX engine). On 2026-11-14 it matched the shipped PyTorch package within 7e-6 on one three-question request with the pinned weights, so a path exists but the evidence is one request, not a replay set. No community MLX conversion of perplexity-ai/pplx-decider-flash-v1.3 exists; the only MLX lead is the earlier v1.2 Flash release, which uses a different protocol (version 3) and is not an executable equivalent.",
+      "leads": [
+        {
+          "repository": "Jakevin/pplx-decider-flash-v1.2-mlx",
+          "revision": "ddabdbe27d161fb9175b8e5e3fb88ac706f70bac",
+          "license": "apache-2.0",
+          "base_model": "perplexity-ai/pplx-decider-flash-v1.2",
+          "relationship": "unverified",
+          "notes": "Affine 4-bit (group 32) MLX conversion of the earlier Flash v1.2 release, which declares joint protocol version 3 (joint-question-inline-readout-v1), not the v1.3 chunked protocol this profile reproduces. Never downloaded or compared; discovery lead only, not parity evidence."
+        }
+      ]
+    },
+    {
       "catalog_name": "sieve-4b:8b97b56524b55c41fbf4",
       "openkind_mlx_status": "none",
       "assessment": "No OpenKind MLX path exists for the sieve family: the CPU candle execution with an in-load PEFT-style LoRA merge is the only backend, and no MLX conversion of Sieve-4B (adapter or merged) was found in the 0.3.1 survey. The base backbone has community MLX conversions, but they carry neither the adapter nor the trained head.",

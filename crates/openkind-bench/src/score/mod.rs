@@ -349,12 +349,16 @@ pub(crate) fn run_score_reserved(
             | EngineKind::D3Lite
             | EngineKind::D3Nano
             | EngineKind::D3Mini
-            | EngineKind::D3Flash => {
+            | EngineKind::D3Flash
+            | EngineKind::PplxDeciderFlash
+            | EngineKind::PplxDecider27b => {
                 let profile = match args.engine {
                     EngineKind::D3Edge => &openkind_backends::families::d3::D3_EDGE,
                     EngineKind::D3Lite => &openkind_backends::families::d3::D3_LITE,
                     EngineKind::D3Nano => &openkind_backends::families::d3::D3_NANO,
                     EngineKind::D3Mini => &openkind_backends::families::d3::D3_MINI,
+                    EngineKind::PplxDeciderFlash => &openkind_backends::families::d3::PPLX_FLASH,
+                    EngineKind::PplxDecider27b => &openkind_backends::families::d3::PPLX_27B,
                     _ => &openkind_backends::families::d3::D3_FLASH,
                 };
                 Arc::new(
@@ -365,7 +369,7 @@ pub(crate) fn run_score_reserved(
                             limits: BENCH_LIMITS,
                         },
                     )
-                    // Slug equals the per-arm label the five arms used.
+                    // Slug equals the profile loader id.
                     .map_err(|error| {
                         anyhow::anyhow!("load {} engine: {error}", types::engine_slug(args.engine))
                     })?,
